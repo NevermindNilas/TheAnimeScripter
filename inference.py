@@ -39,10 +39,7 @@ def process_video_rife(video_file, output_path, model, scale, device, half):
         I0 = I1
         I1 = torch.from_numpy(np.transpose(frame, (2,0,1))).to(device, non_blocking=True).unsqueeze(0).float() / 255.
         I1 = pad_image(I1, half, padding)
-        I0_small = F.interpolate(I0, (32, 32), mode='bilinear', align_corners=False)
-        I1_small = F.interpolate(I1, (32, 32), mode='bilinear', align_corners=False)
         break_flag = False
-        
         output = make_inference(I0, I1, scale-1, scale, model)
         
         write_buffer.put(lastframe)
@@ -55,7 +52,7 @@ def process_video_rife(video_file, output_path, model, scale, device, half):
         if break_flag:
             video_stream.stop()
             break
-        
+
 def make_inference(I0, I1, n, scale, model):
     if model.version >= 3.9:
         res = []
