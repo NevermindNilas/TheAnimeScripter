@@ -1,6 +1,10 @@
 import os
+
 import requests
 from tqdm import tqdm
+
+# from https://github.com/HolyWu/vs-rife/blob/master/vsrife/__main__.py
+# thanks to sudo for the models
 
 def download_model(url: str) -> None:
     filename = url.split("/")[-1]
@@ -19,20 +23,18 @@ def download_model(url: str) -> None:
                 pbar.update(len(chunk))
 
 if __name__ == "__main__":
-    url = "https://github.com/HolyWu/vs-rife/releases/download/model/"
+    base_url = "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
     models = [
-        "flownet_v4.0",
-        "flownet_v4.1",
-        "flownet_v4.2",
-        "flownet_v4.3",
-        "flownet_v4.4",
-        "flownet_v4.5",
-        "flownet_v4.6",
-        "flownet_v4.7",
-        "flownet_v4.8",
-        "flownet_v4.9",
-        "flownet_v4.10",
-        "flownet_v4.11",
+        "rife40",
+        "rife41",
+        "rife42",
+        "rife43",
+        "rife44",
+        "rife45",
+        "rife46",
+        "rife47",
+        "rife48",
+        "rife49"
     ]
     for model in models:
-        download_model(url + model + ".pkl")
+        download_model(base_url + model + ".pth")
