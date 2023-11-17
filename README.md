@@ -1,6 +1,11 @@
-# TheAnimeScripter
+## TheAnimeScripter
 TheAnimeScripter for all the editors
 
-# Info
+## Info
 
 Written in Python 3.11
+
+## Special thanks to
+
+- Sudo
+- https://github.com/styler00dollar/VSGAN-tensorrt-docker
