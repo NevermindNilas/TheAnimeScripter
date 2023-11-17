@@ -36,8 +36,8 @@ def main(half, model_type, height, width):
         print("===================================================================")
         print("\n") # Force new line for each video to make it more user readable
     
-def handle_rife_models():
-    model_file = './models/flownet_v4.11.pkl'
+def handle_rife_models(model_type):
+    model_file = f'.src/models/{model_type}.pth'
     if not os.path.exists(model_file):
         for root, dirs, files in os.walk('.'):
             if 'download_models.py' in files:
@@ -53,5 +53,5 @@ if __name__ == "__main__":
     parser.add_argument('-half', type=str, help="", default="True", action="store")
     args = parser.parse_args()
     
-    handle_rife_models()
+    handle_rife_models(args.model_type)
     main(args.half, args.model_type, args.height, args.width)
