@@ -7,7 +7,7 @@ from .rife_arch import IFNet
 
 # https://github.com/HolyWu/vs-rife/blob/master/vsrife/__init__.py
 class RIFE:
-    def __init__(self, scale, fastmode, ensemble, model_version, fp16):
+    def __init__(self, scale, fastmode, ensemble, model_version, fp16, arch_ver, model_path):
         self.scale = scale
         self.fastmode = fastmode
         self.ensemble = ensemble
@@ -15,36 +15,10 @@ class RIFE:
         self.fp16 = fp16
         self.cache = False
         self.amount_input_img = 2
+        self.arch_ver = arch_ver
 
         torch.backends.cudnn.enabled = True
         torch.backends.cudnn.benchmark = True
-
-        if model_version == "rife40":
-            model_path = "/workspace/tensorrt/models/rife40.pth"
-            arch_ver = "4.0"
-        elif model_version == "rife41":
-            model_path = "/workspace/tensorrt/models/rife41.pth"
-            arch_ver = "4.0"
-        elif model_version == "rife42":
-            model_path = "/workspace/tensorrt/models/rife42.pth"
-            arch_ver = "4.2"
-        elif model_version == "rife43":
-            model_path = "/workspace/tensorrt/models/rife43.pth"
-            arch_ver = "4.3"
-        elif model_version == "rife44":
-            model_path = "/workspace/tensorrt/models/rife44.pth"
-            arch_ver = "4.3"
-        elif model_version == "rife45":
-            model_path = "/workspace/tensorrt/models/rife45.pth"
-            arch_ver = "4.5"
-        elif model_version == "rife46":
-            model_path = "/workspace/tensorrt/models/rife46.pth"
-            arch_ver = "4.6"
-        elif model_version == "sudo_rife4":
-            model_path = (
-                "/workspace/tensorrt/models/sudo_rife4_269.662_testV1_scale1.pth"
-            )
-            arch_ver = "4.0"
 
         #check_and_download(model_path)
         self.model = IFNet(arch_ver=arch_ver)

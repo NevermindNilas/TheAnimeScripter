@@ -4,7 +4,7 @@ import sys
 import subprocess
 from inference import process_video
 import torch
-from .src.rife.rife import RIFE
+from src.rife.rife import RIFE  # Import the RIFE model class
 #from .src.rife.rife_arch import IFNet
 
 def main(scale, half, model_type, height, width):
@@ -29,24 +29,25 @@ def main(scale, half, model_type, height, width):
         sys.exit("No videos found in the input folder")
     
     for i,video_file in enumerate(video_files):
-        output = os.path.splitext(video_file)[0] + ".mp4"
-        output_path = os.path.join(output_path, output)
+        #output = os.path.splitext(video_file)[0] + ".mp4"
+        #output_path = os.path.join(output_path, output)
+        
         video_file = os.path.join(input_path, video_file)
         process_video(video_file, output_path, model, height, width)
     
 def handle_rife_models(model_type, scale, half):
-    models = [
-        "rife40",
-        "rife41",
-        "rife42",
-        "rife43",
-        "rife44",
-        "rife45",
-        "rife46",
-        "rife47",
-        "rife48",
-        "rife49"
-    ]
+    models = {
+        "rife40": "4.0",
+        "rife41": "4.0",
+        "rife42": "4.2",
+        "rife43": "4.3",
+        "rife44": "4.3",
+        "rife45": "4.5",
+        "rife46": "4.6"
+        #"rife47": None,
+        #"rife48": None,
+        #"rife49": None
+    }
     if model_type not in models:
         sys.exit(f"Model type {model_type} not found. Please choose from {models}")
         
@@ -58,22 +59,11 @@ def handle_rife_models(model_type, scale, half):
                 subprocess.run(['python', script_path, '-model_type', model_type], check=True)
                 break
     
-    match model_type:
-        case "rife40" | "rife41":
-            arch_ver = "4.0"
-        case "rife42":
-            arch_ver = "4.2"
-        case "rife43" | "rife44":
-            arch_ver = "4.3"
-        case "rife45":
-            arch_ver = "4.5"
-        case "rife46":
-            arch_ver = "4.6"
-        case _:
-            sys.exit(f"Model type {model_type} not found. Please choose from {models}")
+    arch_ver = models[model_type]
+    if arch_ver is None:
+        sys.exit(f"Model type {model_type} not found. Please choose from {list(models.keys())}")
     
-    model = RIFE
-        
+    model = RIFE(scale, True, False, model_type, half, arch_ver, model_path=model_file)
     return model
     
 def handle_cugan_models(model_type, half):
@@ -83,7 +73,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contact Sheet Generator")
     parser.add_argument('-width', type=int, help="", default=1280)
     parser.add_argument("-height", type=int, help="", default=720)
-    parser.add_argument('-model_type', required=False, type=str, help="", default="rife49", action="store")
+    parser.add_argument('-model_type', required=False, type=str, help="", default="rife46", action="store")
     parser.add_argument('-half', type=str, help="", default="True", action="store")
     parser.add_argument('-scale', type=int, help="", default=1, action="store")
     args = parser.parse_args()
