@@ -78,7 +78,7 @@ def pad_image(img, half, padding):
 
 def clear_write_buffer(output_path, write_buffer):
     cnt = 0
-    time.sleep(5)
+    time.sleep(2)
     while True:
         item = write_buffer.get()
         if item is None:
