@@ -2,15 +2,14 @@ import argparse
 import os
 import sys
 import subprocess
-from inference import process_video
+from inference import process_video_rife
 import torch
-from src.rife.rife import RIFE  # Import the RIFE model class
-#from .src.rife.rife_arch import IFNet
+from src.rife.RIFE_HDv3 import Model
 
-def main(scale, half, model_type, height, width):
+def main(scale, half, model_type):
     
     if 'rife' in model_type:
-        model = handle_rife_models(model_type, scale, half)
+        model, device = handle_rife_models(half)
     elif 'cugan' in model_type:
         pass
     elif 'dedup' in model_type:
@@ -33,49 +32,40 @@ def main(scale, half, model_type, height, width):
         #output_path = os.path.join(output_path, output)
         
         video_file = os.path.join(input_path, video_file)
-        process_video(video_file, output_path, model, height, width)
+        if "rife" in model_type:
+            process_video_rife(video_file, output_path, model, scale, device, half)
     
-def handle_rife_models(model_type, scale, half):
-    models = {
-        "rife40": "4.0",
-        "rife41": "4.0",
-        "rife42": "4.2",
-        "rife43": "4.3",
-        "rife44": "4.3",
-        "rife45": "4.5",
-        "rife46": "4.6"
-        #"rife47": None,
-        #"rife48": None,
-        #"rife49": None
-    }
-    if model_type not in models:
-        sys.exit(f"Model type {model_type} not found. Please choose from {models}")
-        
-    model_file = f'./src/rife/models/{model_type}.pth'
-    if not os.path.exists(model_file):
-        for root, dirs, files in os.walk('.'):
-            if 'download_rife_models.py' in files:
-                script_path = os.path.join(root, 'download_rife_models.py')
-                subprocess.run(['python', script_path, '-model_type', model_type], check=True)
-                break
+def handle_rife_models(half):
+    filename = 'flownet.pkl'
+    for root, dirs, files in os.walk(os.path.dirname(os.path.realpath(__file__))):
+        if filename in files:
+            flownet_path = root
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    torch.set_grad_enabled(False)
+    if torch.cuda.is_available():
+        torch.backends.cudnn.enabled = True
+        torch.backends.cudnn.benchmark = True
+        if(half):
+            torch.set_default_tensor_type(torch.cuda.HalfTensor)
+            
+    model = Model()
+    if not hasattr(model, 'version'):
+        model.version = 0
+    model.load_model(flownet_path, -1)
+    model.eval()
+    model.device()
     
-    arch_ver = models[model_type]
-    if arch_ver is None:
-        sys.exit(f"Model type {model_type} not found. Please choose from {list(models.keys())}")
-    
-    model = RIFE(scale, True, False, model_type, half, arch_ver, model_path=model_file)
-    return model
+    return model, device
     
 def handle_cugan_models(model_type, half):
     pass
         
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contact Sheet Generator")
-    parser.add_argument('-width', type=int, help="", default=1280)
-    parser.add_argument("-height", type=int, help="", default=720)
-    parser.add_argument('-model_type', required=False, type=str, help="", default="rife46", action="store")
+    parser.add_argument('-model_type', required=False, type=str, help="rife", default="rife", action="store")
     parser.add_argument('-half', type=str, help="", default="True", action="store")
-    parser.add_argument('-scale', type=int, help="", default=1, action="store")
+    parser.add_argument('-scale', type=int, help="", default=2, action="store")
     args = parser.parse_args()
 
-    main(args.scale, args.half, args.model_type, args.height, args.width)
+    main(args.scale, args.half, args.model_type)
