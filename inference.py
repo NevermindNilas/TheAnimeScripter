@@ -20,11 +20,13 @@ def process_video(video_file, output_path, model, height, width):
         next_frame_tensor = torch.from_numpy(next_frame).unsqueeze(0).float().cuda()
         
         with torch.no_grad():
-            interpolated_frame_tensor = model(prev_frame_tensor, next_frame_tensor)
+            # Pass the previous and next frames to the model
+            interpolated_frame_tensor = model.execute(prev_frame_tensor, next_frame_tensor, timestep=1.0)
 
-        interpolated_frame = interpolated_frame_tensor.squeeze(0).cpu().numpy()
+        interpolated_frame = interpolated_frame_tensor
         
         cv2.imwrite(os.path.join(output_path, f'frame_{i}.png'), interpolated_frame)
+        
         i += 1
         prev_frame = next_frame
     
