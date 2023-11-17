@@ -5,7 +5,8 @@ import subprocess
 from inference import process_video_rife
 import torch
 from src.rife.RIFE_HDv3 import Model
-
+import warnings
+warnings.filterwarnings("ignore")
 def main(scale, half, model_type):
     
     if 'rife' in model_type:
@@ -30,11 +31,10 @@ def main(scale, half, model_type):
     for i,video_file in enumerate(video_files):
         #output = os.path.splitext(video_file)[0] + ".mp4"
         #output_path = os.path.join(output_path, output)
-        
         video_file = os.path.join(input_path, video_file)
         if "rife" in model_type:
             process_video_rife(video_file, output_path, model, scale, device, half)
-    
+
 def handle_rife_models(half):
     filename = 'flownet.pkl'
     for root, dirs, files in os.walk(os.path.dirname(os.path.realpath(__file__))):
