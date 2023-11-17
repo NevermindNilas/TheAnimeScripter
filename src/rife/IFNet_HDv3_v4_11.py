@@ -38,7 +38,7 @@ class ResConv(nn.Module):
         return self.relu(self.conv(x) * self.beta + x)
 
 class IFBlock(nn.Module):
-    def __init__(self, in_planes, c=64):
+    def __init__(self, in_planes, c=64):    
         super(IFBlock, self).__init__()
         self.conv0 = nn.Sequential(
             conv(in_planes, c//2, 3, 2, 1),

@@ -1,17 +1,10 @@
 import argparse
 import os
 import sys
-import time
-from threading import Thread
-import cv2
-import numpy as np
-import requests
-from download_models import download_model
-import tqdm
+import subprocess
 
 def main(half, model_type, height, width):
     
-    download_model(model_type)
     input_path = os.path.join('.', "input")
     output_path = os.path.join('.', "output")
     os.makedirs(input_path, exist_ok=True)
@@ -42,16 +35,16 @@ def main(half, model_type, height, width):
         print("Processing Video File:", os.path.basename(video_file))
         print("===================================================================")
         print("\n") # Force new line for each video to make it more user readable
+    
+def handle_rife_models():
+    model_file = './models/flownet_v4.11.pkl'
+    if not os.path.exists(model_file):
+        for root, dirs, files in os.walk('.'):
+            if 'download_models.py' in files:
+                script_path = os.path.join(root, 'download_models.py')
+                subprocess.run(['python', script_path], check=True)
+                break
         
-        load_model(model_type, half)
-        process_video(video_file, output_path, width, height, half, model_type)
-
-def process_video(video_file, output_path, width, height, half, model_type):
-    pass
-
-def load_model(model_type, half):
-    pass
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contact Sheet Generator")
     parser.add_argument('-width', type=int, help="Width of the corresponding output, must be a multiple of 32", default=1280)
@@ -60,4 +53,5 @@ if __name__ == "__main__":
     parser.add_argument('-half', type=str, help="", default="True", action="store")
     args = parser.parse_args()
     
+    handle_rife_models()
     main(args.half, args.model_type, args.height, args.width)
