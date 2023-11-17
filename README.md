@@ -7,5 +7,4 @@ Written in Python 3.11
 
 ## Special thanks to
 
-- Sudo
-- https://github.com/styler00dollar/VSGAN-tensorrt-docker
+- [SUDO] https://github.com/styler00dollar/VSGAN-tensorrt-docker
