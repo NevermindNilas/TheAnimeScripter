@@ -15,51 +15,52 @@ from queue import Queue, Empty
 
 @torch.inference_mode()
 
-def clear_write_buffer(output_path, write_buffer):
-    writer = skvideo.io.FFmpegWriter(output_path)
+def clear_write_buffer(write_buffer, writer):
     while True:
         frame = write_buffer.get()
         if frame is None:
             break
-        writer.writeFrame(frame)
-    writer.close()
+        writer.write(frame[:, :, ::-1])
 
 def build_read_buffer(video_file, read_buffer):
     frames = skvideo.io.vread(video_file)
-    frame_idx = 0
-    while frame_idx < len(frames):
-        frame = frames[frame_idx]
-        frame_idx += 1
-        read_buffer.put(frame)
+    try:
+        for frame in frames:
+            read_buffer.put(frame)
+    except:
+        pass
+    read_buffer.put(None)
 
 def process_video_rife(video_file, output_path, model, scale, device, half):
     
     vcap = cv2.VideoCapture(video_file)
     total_frames = vcap.get(cv2.CAP_PROP_FRAME_COUNT)
+    fps = vcap.get(cv2.CAP_PROP_FPS)
+    fps *= scale
+    h,w,_ = vcap.read()[1].shape
     vcap.release()
     
     read_buffer = Queue(maxsize=500)
     write_buffer = Queue(maxsize=500)
+
+    writer = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), fps, (w, h))
     _thread.start_new_thread(build_read_buffer, (video_file, read_buffer))
-    _thread.start_new_thread(clear_write_buffer, (output_path, write_buffer))
+    _thread.start_new_thread(clear_write_buffer, (write_buffer, writer))
     
     prev_frame = read_buffer.get()
     lastframe = prev_frame
-    h, w, _ = prev_frame.shape
+    
     tmp = max(128, int(128 / scale))
     ph = ((h - 1) // tmp + 1) * tmp
     pw = ((w - 1) // tmp + 1) * tmp
     padding = (0, pw - w, 0, ph - h)
+    
     progressbar = tqdm(total=total_frames, unit="frames")
-    I1 = (
-        torch.from_numpy(np.transpose(lastframe, (2, 0, 1)))
-        .to(device, non_blocking=True)
-        .unsqueeze(0)
-        .float()
-        / 255.0
-    )
+    time.sleep(0.5)
+    I1 = torch.from_numpy(np.transpose(lastframe, (2,0,1))).to(device, non_blocking=True).unsqueeze(0).float() / 255.
     I1 = pad_image(I1, half, padding)
     temp = None
+    
     while True:
         if temp is not None:
             frame = temp
@@ -105,11 +106,13 @@ def process_video_rife(video_file, output_path, model, scale, device, half):
         lastframe = frame
         if break_flag:
             break
-
+    
     while(not write_buffer.empty()):
         time.sleep(0.1)
+    
     progressbar.close()
-
+    writer.release()
+        
 def make_inference(I0, I1, n, scale, model):
     if model.version >= 3.9:
         res = []
