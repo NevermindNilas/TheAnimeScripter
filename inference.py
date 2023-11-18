@@ -21,7 +21,6 @@ def clear_write_buffer(output_path, write_buffer):
         frame = write_buffer.get()
         if frame is None:
             break
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Convert color space back to BGR
         writer.writeFrame(frame)
     writer.close()
 
@@ -70,27 +69,43 @@ def process_video_rife(video_file, output_path, model, scale, device, half):
         if frame is None:
             break
         I0 = I1
-        I1 = (
-            torch.from_numpy(np.transpose(frame, (2, 0, 1)))
-            .to(device, non_blocking=True)
-            .unsqueeze(0)
-            .float()
-            / 255.0
-        )
+        I1 = torch.from_numpy(np.transpose(frame, (2,0,1))).to(device, non_blocking=True).unsqueeze(0).float() / 255.
         I1 = pad_image(I1, half, padding)
-        break_flag = False
-        output = make_inference(I0, I1, scale - 1, scale, model)
+        I0_small = F.interpolate(I0, (32, 32), mode='bilinear', align_corners=False)
+        I1_small = F.interpolate(I1, (32, 32), mode='bilinear', align_corners=False)
+        ssim = ssim_matlab(I0_small[:, :3], I1_small[:, :3])
 
+        break_flag = False
+        if ssim > 0.996:
+            frame = read_buffer.get() # read a new frame
+            if frame is None:
+                break_flag = True
+                frame = lastframe
+            else:
+                temp = frame
+            I1 = torch.from_numpy(np.transpose(frame, (2,0,1))).to(device, non_blocking=True).unsqueeze(0).float() / 255.
+            I1 = pad_image(I1, half, padding)
+            I1 = model.inference(I0, I1, scale)
+            I1_small = F.interpolate(I1, (32, 32), mode='bilinear', align_corners=False)
+            ssim = ssim_matlab(I0_small[:, :3], I1_small[:, :3])
+            frame = (I1[0] * 255).byte().cpu().numpy().transpose(1, 2, 0)[:h, :w]
+            
+        if ssim < 0.2:
+            output = []
+            for i in range(scale - 1):
+                output.append(I0)
+        else:
+            output = make_inference(I0, I1, scale-1, scale, model)
+            
         write_buffer.put(lastframe)
         for mid in output:
-            mid = (mid[0] * 255.0).byte().cpu().numpy().transpose(1, 2, 0)
+            mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
             write_buffer.put(mid[:h, :w])
-
         progressbar.update(1)
         lastframe = frame
         if break_flag:
             break
-    
+
     while(not write_buffer.empty()):
         time.sleep(0.1)
     progressbar.close()
