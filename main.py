@@ -69,7 +69,6 @@ def handle_rife_models(half):
 def handle_cugan_models(model_type, half):
     pass
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contact Sheet Generator")
     parser.add_argument(
