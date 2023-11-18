@@ -1,30 +1,57 @@
 import cv2
 import os
-from threading import Thread
 import torch
-from torch.nn import functional as F
+import _thread
 import time
-from collections import deque
 import numpy as np
+import skvideo.io
+
+from collections import deque
+from torch.nn import functional as F
 from src.rife.pytorch_msssim import ssim_matlab
 from tqdm import tqdm
-import _thread
+from threading import Thread
 from queue import Queue, Empty
 
+@torch.inference_mode()
+
+def clear_write_buffer(output_path, write_buffer):
+    writer = skvideo.io.FFmpegWriter(output_path)
+    while True:
+        frame = write_buffer.get()
+        if frame is None:
+            break
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  # Convert color space back to BGR
+        writer.writeFrame(frame)
+    writer.close()
+
+def build_read_buffer(video_file, read_buffer):
+    frames = skvideo.io.vread(video_file)
+    frame_idx = 0
+    while frame_idx < len(frames):
+        frame = frames[frame_idx]
+        frame_idx += 1
+        read_buffer.put(frame)
 
 def process_video_rife(video_file, output_path, model, scale, device, half):
-    video_stream = VideoDecodeStream(video_file)
-    video_stream.start()
-    prev_frame = video_stream.read()
+    
+    vcap = cv2.VideoCapture(video_file)
+    total_frames = vcap.get(cv2.CAP_PROP_FRAME_COUNT)
+    vcap.release()
+    
+    read_buffer = Queue(maxsize=500)
     write_buffer = Queue(maxsize=500)
+    _thread.start_new_thread(build_read_buffer, (video_file, read_buffer))
     _thread.start_new_thread(clear_write_buffer, (output_path, write_buffer))
+    
+    prev_frame = read_buffer.get()
     lastframe = prev_frame
-    h, w, _ = video_stream.get_shape()
+    h, w, _ = prev_frame.shape
     tmp = max(128, int(128 / scale))
     ph = ((h - 1) // tmp + 1) * tmp
     pw = ((w - 1) // tmp + 1) * tmp
     padding = (0, pw - w, 0, ph - h)
-    progessbar = tqdm(total=video_stream.get_frame_count(), unit="frames")
+    progressbar = tqdm(total=total_frames, unit="frames")
     I1 = (
         torch.from_numpy(np.transpose(lastframe, (2, 0, 1)))
         .to(device, non_blocking=True)
@@ -39,7 +66,7 @@ def process_video_rife(video_file, output_path, model, scale, device, half):
             frame = temp
             temp = None
         else:
-            frame = video_stream.read()
+            frame = read_buffer.get()
         if frame is None:
             break
         I0 = I1
@@ -59,12 +86,14 @@ def process_video_rife(video_file, output_path, model, scale, device, half):
             mid = (mid[0] * 255.0).byte().cpu().numpy().transpose(1, 2, 0)
             write_buffer.put(mid[:h, :w])
 
-        progessbar.update(1)
+        progressbar.update(1)
         lastframe = frame
         if break_flag:
-            video_stream.stop()
             break
-
+    
+    while(not write_buffer.empty()):
+        time.sleep(0.1)
+    progressbar.close()
 
 def make_inference(I0, I1, n, scale, model):
     if model.version >= 3.9:
@@ -91,56 +120,4 @@ def pad_image(img, half, padding):
         return F.pad(img, padding)
 
 
-def clear_write_buffer(output_path, write_buffer):
-    cnt = 0
-    time.sleep(2)
-    while True:
-        item = write_buffer.get()
-        if item is None:
-            break
-        cv2.imwrite(os.path.join(output_path, f"{cnt:0>5d}.png"), item)
-        cnt += 1
 
-
-class VideoDecodeStream:
-    def __init__(self, video_file):
-        self.vcap = cv2.VideoCapture(video_file)
-        self.decode_buffer = []
-        self.grabbed, self.frame = self.vcap.read()
-        self.decode_buffer.append(self.frame)
-        self.thread = Thread(target=self.update, args=())
-        self.thread.daemon = True
-
-    def start(self):
-        self.stopped = False
-        self.thread.start()
-
-    def update(self):
-        while not self.stopped:
-            grabbed, frame = self.vcap.read()
-            if not grabbed:
-                self.stopped = True
-                break
-            self.decode_buffer.append(frame)
-        self.vcap.release()
-
-    def read(self):
-        try:
-            return self.decode_buffer.pop(0)
-        except:
-            return None
-
-    def stop(self):
-        self.stopped = True
-
-    def get_fps(self):
-        return self.vcap.get(cv2.CAP_PROP_FPS)
-
-    def get_frame_count(self):
-        return self.vcap.get(cv2.CAP_PROP_FRAME_COUNT)
-
-    def get_fourcc(self):
-        return cv2.VideoWriter_fourcc(*"mp4v")
-
-    def get_shape(self):
-        return self.frame.shape

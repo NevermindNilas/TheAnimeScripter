@@ -7,8 +7,8 @@ import torch
 from src.rife.RIFE_HDv3 import Model
 import warnings
 
-warnings.filterwarnings("ignore")
 
+warnings.filterwarnings("ignore")
 
 def main(scale, half, model_type):
     if "rife" in model_type:
@@ -35,8 +35,8 @@ def main(scale, half, model_type):
         sys.exit("No videos found in the input folder")
 
     for i, video_file in enumerate(video_files):
-        # output = os.path.splitext(video_file)[0] + ".mp4"
-        # output_path = os.path.join(output_path, output)
+        output = os.path.splitext(video_file)[0] + ".mp4"
+        output_path = os.path.join(output_path, output)
         video_file = os.path.join(input_path, video_file)
         if "rife" in model_type:
             process_video_rife(video_file, output_path, model, scale, device, half)
@@ -83,5 +83,5 @@ if __name__ == "__main__":
     parser.add_argument("-half", type=str, help="", default="True", action="store")
     parser.add_argument("-scale", type=int, help="", default=2, action="store")
     args = parser.parse_args()
-
+    
     main(args.scale, args.half, args.model_type)
