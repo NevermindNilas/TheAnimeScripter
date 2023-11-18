@@ -40,7 +40,10 @@ def main(scale, half, model_type):
         video_file = os.path.join(input_path, video_file)
         if "rife" in model_type:
             process_video_rife(video_file, output_path, model, scale, device, half)
-
+        elif "cugan" in model_type:
+            pass
+        elif "dedup" in model_type:
+            pass
 
 def handle_rife_models(half):
     filename = "flownet.pkl"
