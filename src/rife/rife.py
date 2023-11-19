@@ -1,7 +1,6 @@
 import os
 import cv2
 import torch
-import argparse
 import numpy as np
 from tqdm import tqdm
 from torch.nn import functional as F
@@ -11,7 +10,7 @@ import skvideo.io
 from queue import Queue
 from .pytorch_msssim import ssim_matlab
 import time
-import sys
+
 warnings.filterwarnings("ignore")
 # Turning rife into a python class
 '''
@@ -21,14 +20,12 @@ Credit: https://github.com/hzwer/Practical-RIFE/blob/main/inference_video.py
 @torch.inference_mode()
 
 class Rife():
-    def __init__(self, video, output, img, UHD, scale, png, multi, half, w, h):
+    def __init__(self, video, output, UHD, scale, multi, half, w, h):
         self.video = video
         self.output = output
-        self.img = img
         self.half = half
         self.UHD = UHD
         self.scale = scale
-        self.png = png
         self.multi = multi
         self.modelDir = 'src/rife'
         self.w = w
@@ -40,8 +37,6 @@ class Rife():
         if self.UHD == True and self.scale == 1.0:
             self.scale = 0.5
         assert self.scale in [0.25, 0.5, 1.0, 2.0, 4.0]
-        if not self.img is None:
-            self.png = True
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         torch.set_grad_enabled(False)
@@ -69,25 +64,13 @@ class Rife():
             self.videogen = skvideo.io.vreader(self.video)
             self.lastframe = next(self.videogen)
             self.fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-        else:
-            self.videogen = []
-            for f in os.listdir(self.img):
-                if 'png' in f:
-                    self.videogen.append(f) 
-            self.tot_frame = len(self.videogen)
-            self.videogen.sort(key=lambda x: int(x[:-4]))
-            self.lastframe = cv2.imread(os.path.join(self.img, self.videogen[0]), cv2.IMREAD_UNCHANGED)[:, :, ::-1].copy()
-            self.videogen = self.videogen[1:]
+        
         self.h, self.w, _ = self.lastframe.shape
         self.vid_out_name = None
         self.vid_out = None
-        if self.png:
-            if not os.path.exists('vid_out'):
-                os.mkdir('vid_out')
-        else:
-            if self.output is not None:
-                self.vid_out_name = self.output
-            self.vid_out = cv2.VideoWriter(self.vid_out_name, self.fourcc, fps, (self.w, self.h))
+        if self.output is not None:
+            self.vid_out_name = self.output
+        self.vid_out = cv2.VideoWriter(self.vid_out_name, self.fourcc, fps, (self.w, self.h))
 
         self.padding = (0, ((self.w - 1) // 128 + 1) * 128 - self.w, 0, ((self.h - 1) // 128 + 1) * 128 - self.h)
         
@@ -100,22 +83,16 @@ class Rife():
         self.process_video()
         
     def _clear_write_buffer(self):
-        cnt = 0
         while True:
             frame = self.write_buffer.get()
             if frame is None:
                 break
-            if self.png:
-                cv2.imwrite('vid_out/{:0>7d}.png'.format(cnt), frame[:, :, ::-1])
-                cnt += 1
             else:
                 self.vid_out.write(frame[:, :, ::-1])
     
     def _build_read_buffer(self):
         try:
             for frame in self.videogen:
-                if not self.img is None:
-                    frame = cv2.imread(os.path.join(self.img, frame), cv2.IMREAD_UNCHANGED)[:, :, ::-1].copy()
                 self.read_buffer.put(frame)
         except:
             pass
