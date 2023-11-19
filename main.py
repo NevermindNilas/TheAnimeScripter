@@ -1,76 +1,36 @@
 import argparse
 import os
 import sys
-import subprocess
-from inference import process_video_rife
-import torch
-from src.rife.RIFE_HDv3 import Model
 import warnings
-
+from src.rife.rife import Rife
+import cv2
+import random
 
 warnings.filterwarnings("ignore")
 
-def main(scale, half, model_type):
+def main(video_file, multi, half, model_type):
+    random_number = str(random.randint(0, 10000000))
+    output_path = os.path.dirname(video_file)
+
     if "rife" in model_type:
-        model, device = handle_rife_models(half)
+        cap = cv2.VideoCapture(video_file)
+        w, h = cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        cap.release()    
+
+        basename = os.path.basename(video_file)
+        filename_without_ext = os.path.splitext(basename)[0]
+        output = filename_without_ext + "_" + str(int(multi*fps)) + "_" + random_number + ".mp4"
+        
+        UHD = False
+        if h >= 3840 or w >= 3840:
+            UHD = True
+        png, img = None, None
+        Rife(video_file, output, img, UHD, 1, png, multi, half, w, h)
     elif "cugan" in model_type:
         pass
     elif "dedup" in model_type:
         pass
-
-    input_path = os.path.join(".", "input")
-    output_path = os.path.join(".", "output")
-
-    os.makedirs(input_path, exist_ok=True)
-    os.makedirs(output_path, exist_ok=True)
-
-    video_files = [
-        f
-        for f in os.listdir(input_path)
-        if f.endswith((".mp4", ".avi", ".mkv", ".mov"))
-    ]
-    video_files.sort()
-
-    if not video_files:
-        sys.exit("No videos found in the input folder")
-
-    for i, video_file in enumerate(video_files):
-        output = os.path.splitext(video_file)[0] + ".mp4"
-        output_path = os.path.join(output_path, output)
-        video_file = os.path.join(input_path, video_file)
-        if "rife" in model_type:
-            process_video_rife(video_file, output_path, model, scale, device, half)
-        elif "cugan" in model_type:
-            pass
-        elif "dedup" in model_type:
-            pass
-
-def handle_rife_models(half):
-    filename = "flownet.pkl"
-    for root, dirs, files in os.walk(os.path.dirname(os.path.realpath(__file__))):
-        if filename in files:
-            flownet_path = root
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    torch.set_grad_enabled(False)
-    if torch.cuda.is_available():
-        torch.backends.cudnn.enabled = True
-        torch.backends.cudnn.benchmark = True
-        if half:
-            torch.set_default_tensor_type(torch.cuda.HalfTensor)
-
-    model = Model()
-    if not hasattr(model, "version"):
-        model.version = 0
-    model.load_model(flownet_path, -1)
-    model.eval()
-    model.device()
-
-    return model, device
-
-
-def handle_cugan_models(model_type, half):
-    pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contact Sheet Generator")
@@ -82,8 +42,11 @@ if __name__ == "__main__":
         default="rife",
         action="store",
     )
+    parser.add_argument("-video", type=str, help="", default="", action="store")
     parser.add_argument("-half", type=str, help="", default="True", action="store")
-    parser.add_argument("-scale", type=int, help="", default=2, action="store")
+    parser.add_argument("-multi", type=int, help="", default=2, action="store")
     args = parser.parse_args()
     
-    main(args.scale, args.half, args.model_type)
+    if args.video is None:
+        sys.exit("Please specify a video file")
+    main(args.video, args.multi, args.half, args.model_type)
