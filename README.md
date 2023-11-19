@@ -30,13 +30,13 @@ In no particular order:
 - Figure out why the output duration is higher than the input
 - Place output in the same folder as input
 - Add Rife model download back and make it model-agnostic
-- Remove unnecessary implementations like frame-by-frame output
 - Increase encoding speed by using Multiple Threads instead of one
 - Implement better encoding
-- Integrate Cugan
 - Integrate Dedup
 - Create a scriptUI for After Effects
 
 ## Done
 
 - Added Rife implementation.
+- Added Cugan Upscaling
+- Removed unnecessary implementations like frame-by-frame output
