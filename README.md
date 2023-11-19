@@ -6,7 +6,9 @@
 
 Written in Python 3.11
 
-python main.py -video video_name_here
+- pip install -r requirements.txt
+
+- python main.py -video video_name_here
 
 ## Special Thanks To
 
