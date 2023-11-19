@@ -2,6 +2,8 @@
 
 **TheAnimeScripter** is a Python script designed for all the editors out there. It incorporates various functionalities for video processing.
 
+[Join_The_Discord_Server](https://discord.gg/bFA6xZxM5V)
+
 ## Info / Usage
 
 Written in Python 3.11
