@@ -120,6 +120,7 @@ class Rife():
             return F.pad(img, self.padding)
         
     def process_video(self):
+        output = []
         I1 = torch.from_numpy(np.transpose(self.lastframe, (2, 0, 1))).to(self.device, non_blocking=True).unsqueeze(
             0).float() / 255.
         I1 = self._pad_image(I1)
@@ -159,7 +160,7 @@ class Rife():
                 ssim = ssim_matlab(I0_small[:, :3], I1_small[:, :3])
                 frame = (I1[0] * 255).byte().cpu().numpy().transpose(1, 2, 0)[:self.h, :self.w]
 
-            if ssim < 0.2:
+            elif ssim < 0.2:
                 output = []
                 for i in range(self.multi - 1):
                     output.append(I0)
@@ -183,4 +184,4 @@ class Rife():
         self.pbar.update(1)
         self.pbar.close()
         if not self.vid_out is None:
-            self.vid_out.release()
+            self.vid_out.close()
