@@ -181,7 +181,7 @@ class Rife():
             self.write_buffer.put(self.lastframe)
 
         while not self.write_buffer.empty():
-            time.sleep(0.01)
+            time.sleep(0.1)
         self.pbar.update(1)
         self.pbar.close()
         if not self.vid_out is None:
