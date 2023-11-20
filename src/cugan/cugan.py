@@ -15,7 +15,7 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-#warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore")
 
 '''
 https://github.com/styler00dollar/VSGAN-tensorrt-docker/blob/main/src/cugan.py
@@ -64,13 +64,19 @@ class Cugan():
         model_path_middle = f"up{self.scale}x"
 
         if self.scale == 2:
-            self.model = UpCunet2x(in_channels=3, out_channels=3)
+            if self.kind_model == "shufflecugan":
+                self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
+            else:
+                self.model = UpCunet2x(in_channels=3, out_channels=3)
         elif self.scale == 3:
             self.model = UpCunet3x(in_channels=3, out_channels=3)
         elif self.scale == 4:
             self.model = UpCunet4x(in_channels=3, out_channels=3)
 
-        self.filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{self.kind_model}.pth"
+        if self.kind_model == "shufflecugan":
+            self.filename = f"sudo_shuffle_cugan_9.584.969.pth"
+        else:
+            self.filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{self.kind_model}.pth"
         self.handle_models()
         
         model_path = os.path.join("src/cugan/weights", self.filename)
