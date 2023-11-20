@@ -4,13 +4,24 @@
 
 [Join_The_Discord_Server](https://discord.gg/bFA6xZxM5V)
 
-## Info / Usage
+## Prerequisites
 
 Written in Python 3.11
 
 - pip install -r requirements.txt
 
-- python main.py -video video_name_here
+- pip install -U vidgear[core]
+
+## Usage
+
+CUGAN: 
+- python main.py -video video_name_here -model_type cugan -half -kind_model shufflecugan -nt 2
+
+RIFE:
+- python main.py -video video_name_here -model_type rife -half
+
+DeDup:
+- N/A
 
 ## Special Thanks To
 
@@ -20,9 +31,7 @@ Written in Python 3.11
 
 ## Benchmarks
 
-On the test input from the input folder, I achieve peaks of about 80-90 iterations/second using a 3090 + 13700k. This includes decoding, processing, and encoding with a multi-factor of 2 (60fps -> 120fps).
-
-Approximately 5-10% faster than Practical RIFE based on my testing—this is a rough estimate.
+- N/A
 
 ## To-Do
 
