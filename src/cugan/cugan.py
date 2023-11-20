@@ -19,7 +19,7 @@ https://github.com/styler00dollar/VSGAN-tensorrt-docker/blob/main/src/cugan.py
 '''
 @torch.inference_mode()
 class Cugan():
-    def __init__(self, video_file, output, scale, half, kind_model, pro, w, h, nt, inputdict, outputdict):
+    def __init__(self, video_file, output, scale, half, kind_model, pro, w, h, nt, inputdict, outputdict, tot_frame):
         self.video_file = video_file
         self.output = output
         self.scale = scale
@@ -29,8 +29,9 @@ class Cugan():
         self.w = int(w * scale)
         self.h = int(h * scale)
         self.nt = nt
-        self.input_dict = inputdict
-        self.output_dict = outputdict
+        self.inputdict = inputdict
+        self.outputdict = outputdict
+        self.tot_frame = tot_frame
         self._initialize()
         
         threads = []
@@ -85,6 +86,7 @@ class Cugan():
         self.model.eval().cuda()
         if self.half:
             self.model.half()
+            
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         torch.set_grad_enabled(False)
         if torch.cuda.is_available():

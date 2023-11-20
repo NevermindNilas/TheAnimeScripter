@@ -38,7 +38,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
         filename_without_ext = os.path.splitext(basename)[0]
         output = f"{filename_without_ext}_{str(multi)}.mp4"
         
-        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, inputdict, outputdict)
+        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, inputdict, outputdict, tot_frame)
         
     elif "dedup" in model_type:
         basename = os.path.basename(video_file)
