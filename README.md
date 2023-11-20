@@ -13,16 +13,13 @@ Written in Python 3.11
 ## Usage
 
 CUGAN: 
-- python main.py -video video_name_here -model_type cugan -half -kind_model shufflecugan -nt 2
+- python main.py -video video_name_here -model_type cugan -nt 2
 
 RIFE:
-- python main.py -video video_name_here -model_type rife -half
+- python main.py -video video_name_here -model_type rife
 
 Dedup:
 - python main.py -video video_name_here -model_type dedup -kind_model ffmpeg
-
-DeDup:
-- N/A
 
 ## Special Thanks To
 
@@ -38,9 +35,8 @@ DeDup:
 
 In no particular order:
 
-- Figure out why the output duration of rife is higher than the input - No clue why this happens
 - Add Rife Multithreadding - Too hard to do, not gonna happen anytime soon
-- Place output in the same folder as input
+- Fix issue when input path has spaces
 - Add Rife model download back and make it model-agnostic
 - Create a scriptUI for After Effects
 
@@ -52,3 +48,8 @@ In no particular order:
 - Added Frame deduplication
 - Added Shuffle Cugan - 50% faster for the same quality
 - Removed unnecessary implementations like frame-by-frame output
+- Fixed rife output issues
+- Increased performance for Rife ever so slightly
+- Placed Output in the same folder as input
+- Fixed requirements.txt issue where it wouldn't download torch compiled with CUDA
+- kind-model now defaults to shufflecugan

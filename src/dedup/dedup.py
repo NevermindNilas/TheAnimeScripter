@@ -1,7 +1,6 @@
 import os
 import subprocess
 import static_ffmpeg
-import skvideo.io
 import numpy as np
 import _thread
 from torch.nn import functional as F

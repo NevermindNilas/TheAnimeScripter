@@ -1,9 +1,10 @@
 static-ffmpeg
 scikit-image
+moviepy
 opencv-python
 tqdm
 numpy<1.26
-scikit-video
-torch==2.1.0 --index-url https://download.pytorch.org/whl/cu121
-torchvision --index-url https://download.pytorch.org/whl/cu121
-torchaudio --index-url https://download.pytorch.org/whl/cu121
+torch==2.1.0 
+torchvision 
+torchaudio 
+--extra-index-url https://download.pytorch.org/whl/cu121
