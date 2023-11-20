@@ -10,8 +10,6 @@ Written in Python 3.11
 
 - pip install -r requirements.txt
 
-- pip install -U vidgear[core]
-
 ## Usage
 
 CUGAN: 
