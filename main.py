@@ -6,6 +6,7 @@ from src.rife.rife import Rife
 from src.cugan.cugan import Cugan
 import cv2
 import random
+import skvideo.io
 
 warnings.filterwarnings("ignore")
 
@@ -15,25 +16,31 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
     cap = cv2.VideoCapture(video_file)
     w, h = cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     fps = cap.get(cv2.CAP_PROP_FPS)
-    cap.release()    
+    cap.release()
+            
+    metadata = skvideo.io.ffprobe(video_file)
+    fps = float(metadata['video']['@avg_frame_rate'].split('/')[0])
+    tot_frame = int(metadata['video']['@nb_frames'])
+    
+    inputdict = {'-r': str(fps)}
+    outputdict = {'-vcodec': 'libx264', "-crf": "18", "-preset": "fast"}
     
     if "rife" in model_type:
+        outputdict['-r'] = str(fps * multi)
         basename = os.path.basename(video_file)
         filename_without_ext = os.path.splitext(basename)[0]
-        output = filename_without_ext + "_" + str(int(multi*fps)) + "_" + random_number + ".mp4"
-        
+        output = f"{filename_without_ext}_{int(multi * fps)}_{random_number}.mp4"
         UHD = False
         if w >= 2160 or h >= 2160:
             UHD = True
-        img = None, None
-        Rife(video_file, output, UHD, 1, multi, half, w, h)
+        Rife(video_file, output, UHD, 1, multi, half, w, h, nt, inputdict, outputdict, fps, tot_frame)
         
     elif "cugan" in model_type:
         basename = os.path.basename(video_file)
         filename_without_ext = os.path.splitext(basename)[0]
         output = filename_without_ext + "_" + str(multi) + "_" + random_number + ".mp4"
         
-        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt)
+        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, inputdict, outputdict)
         
     elif "dedup" in model_type:
         pass

@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 from torch import nn as nn
-import cv2
 import _thread
 import skvideo.io
 import warnings
@@ -20,7 +19,7 @@ https://github.com/styler00dollar/VSGAN-tensorrt-docker/blob/main/src/cugan.py
 '''
 @torch.inference_mode()
 class Cugan():
-    def __init__(self, video_file, output, scale, half, kind_model, pro, w, h, nt):
+    def __init__(self, video_file, output, scale, half, kind_model, pro, w, h, nt, inputdict, outputdict):
         self.video_file = video_file
         self.output = output
         self.scale = scale
@@ -30,11 +29,13 @@ class Cugan():
         self.w = int(w * scale)
         self.h = int(h * scale)
         self.nt = nt
+        self.input_dict = inputdict
+        self.output_dict = outputdict
         self._initialize()
         
         threads = []
         for _ in range(self.nt):
-            thread = UpscaleMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.vid_out)
+            thread = CuganMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.vid_out)
             thread.start()
             threads.append(thread)
         
@@ -91,15 +92,9 @@ class Cugan():
             torch.backends.cudnn.benchmark = True
             if self.half:
                 torch.set_default_tensor_type(torch.cuda.HalfTensor)
-        
-        self.videoCapture = cv2.VideoCapture(self.video_file)
-        fps = self.videoCapture.get(cv2.CAP_PROP_FPS)
-        self.tot_frame = self.videoCapture.get(cv2.CAP_PROP_FRAME_COUNT)
-        self.videoCapture.release()
-        self.videogen = skvideo.io.vreader(self.video_file)
-        self.fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
 
-        self.vid_out = cv2.VideoWriter(self.output, self.fourcc, fps, (self.w, self.h))
+        self.videogen = skvideo.io.vreader(self.video_file)
+        self.vid_out = skvideo.io.FFmpegWriter(self.output, self.inputdict, self.outputdict)
         
         self.pbar = tqdm(total=self.tot_frame)
         self.write_buffer = Queue(maxsize=500)
@@ -114,9 +109,9 @@ class Cugan():
             if frame is None:
                 break
             self.pbar.update(1)
-            self.vid_out.write(frame[:, :, ::-1])
+            self.vid_out.writeFrame(frame)
             
-        self.vid_out.release()
+        self.vid_out.close()
         self.pbar.close()
         
     def _build_read_buffer(self):
@@ -133,7 +128,7 @@ class Cugan():
             frame = frame.half()
         return self.model(frame)
 
-class UpscaleMT(threading.Thread):
+class CuganMT(threading.Thread):
     def __init__(self, device, model, nt, half, read_buffer, write_buffer, vid_out):
         threading.Thread.__init__(self)
         self.device = device

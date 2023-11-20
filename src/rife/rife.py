@@ -20,7 +20,7 @@ Credit: https://github.com/hzwer/Practical-RIFE/blob/main/inference_video.py
 @torch.inference_mode()
 
 class Rife():
-    def __init__(self, video, output, UHD, scale, multi, half, w, h):
+    def __init__(self, video, output, UHD, scale, multi, half, w, h, nt, inputdict, outputdict, fps, tot_frame):
         self.video = video
         self.output = output
         self.half = half
@@ -30,6 +30,11 @@ class Rife():
         self.modelDir = 'src/rife'
         self.w = w
         self.h = h
+        self.nt = nt
+        self.inputdict = inputdict
+        self.outputdict = outputdict
+        self.fps = fps
+        self.tot_frame = tot_frame
         
         self._initialize()
     
@@ -56,27 +61,16 @@ class Rife():
         self.model.eval()
         self.model.device()
 
-        if not self.video is None:
-            self.videoCapture = cv2.VideoCapture(self.video)
-            fps = self.videoCapture.get(cv2.CAP_PROP_FPS) * self.multi
-            self.tot_frame = self.videoCapture.get(cv2.CAP_PROP_FRAME_COUNT)
-            self.videoCapture.release()
-            self.videogen = skvideo.io.vreader(self.video)
-            self.lastframe = next(self.videogen)
-            self.fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-        
+        self.videogen = skvideo.io.vreader(self.video)
+        self.lastframe = next(self.videogen)
+        self.vid_out = skvideo.io.FFmpegWriter(self.output, self.inputdict, self.outputdict)
         self.h, self.w, _ = self.lastframe.shape
-        self.vid_out_name = None
-        self.vid_out = None
-        if self.output is not None:
-            self.vid_out_name = self.output
-        self.vid_out = cv2.VideoWriter(self.vid_out_name, self.fourcc, fps, (self.w, self.h))
-
         self.padding = (0, ((self.w - 1) // 128 + 1) * 128 - self.w, 0, ((self.h - 1) // 128 + 1) * 128 - self.h)
         
         self.pbar = tqdm(total=self.tot_frame)
         self.write_buffer = Queue(maxsize=500)
         self.read_buffer = Queue(maxsize=500)
+        
         _thread.start_new_thread(self._build_read_buffer, ())
         _thread.start_new_thread(self._clear_write_buffer, ())
 
@@ -87,16 +81,20 @@ class Rife():
             frame = self.write_buffer.get()
             if frame is None:
                 break
-            else:
-                self.vid_out.write(frame[:, :, ::-1])
-    
+            self.pbar.update(1)
+            self.vid_out.writeFrame(frame)
+            
+        self.vid_out.close()
+        self.pbar.close()
+        
     def _build_read_buffer(self):
         try:
             for frame in self.videogen:
                 self.read_buffer.put(frame)
         except:
             pass
-        self.read_buffer.put(None)
+        for _ in range(self.nt):
+            self.read_buffer.put(None)
     
     def make_inference(self, I0, I1, n):
         if self.model.version >= 3.9:
