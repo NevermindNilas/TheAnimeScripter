@@ -37,11 +37,10 @@ DeDup:
 
 In no particular order:
 
-- Figure out why the output duration of rife is higher than the input
-- Add Rife Multithreadding
+- Figure out why the output duration of rife is higher than the input - No clue why this happens
+- Add Rife Multithreadding - Too hard to do, not gonna happen anytime soon
 - Place output in the same folder as input
 - Add Rife model download back and make it model-agnostic
-- Integrate Dedup
 - Create a scriptUI for After Effects
 
 ## Done
@@ -49,5 +48,6 @@ In no particular order:
 - Added Rife implementation.
 - Added Cugan Upscaling
 - Added Cugan Multithreading
+- Added Frame deduplication
 - Added Shuffle Cugan - 50% faster for the same quality
 - Removed unnecessary implementations like frame-by-frame output
