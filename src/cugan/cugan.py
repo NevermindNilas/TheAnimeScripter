@@ -12,8 +12,6 @@ from tqdm import tqdm
 from queue import Queue
 import sys
 import threading
-import time
-from concurrent.futures import ThreadPoolExecutor
 
 warnings.filterwarnings("ignore")
 
@@ -94,14 +92,13 @@ class Cugan():
             if self.half:
                 torch.set_default_tensor_type(torch.cuda.HalfTensor)
         
-        if not self.video_file is None:
-            self.videoCapture = cv2.VideoCapture(self.video_file)
-            fps = self.videoCapture.get(cv2.CAP_PROP_FPS)
-            self.tot_frame = self.videoCapture.get(cv2.CAP_PROP_FRAME_COUNT)
-            self.videoCapture.release()
-            self.videogen = skvideo.io.vreader(self.video_file)
-            self.fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-        
+        self.videoCapture = cv2.VideoCapture(self.video_file)
+        fps = self.videoCapture.get(cv2.CAP_PROP_FPS)
+        self.tot_frame = self.videoCapture.get(cv2.CAP_PROP_FRAME_COUNT)
+        self.videoCapture.release()
+        self.videogen = skvideo.io.vreader(self.video_file)
+        self.fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+
         self.vid_out = cv2.VideoWriter(self.output, self.fourcc, fps, (self.w, self.h))
         
         self.pbar = tqdm(total=self.tot_frame)
