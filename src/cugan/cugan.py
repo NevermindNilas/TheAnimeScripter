@@ -12,6 +12,8 @@ from tqdm import tqdm
 from queue import Queue
 import sys
 import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 #warnings.filterwarnings("ignore")
 
@@ -20,7 +22,7 @@ https://github.com/styler00dollar/VSGAN-tensorrt-docker/blob/main/src/cugan.py
 '''
 @torch.inference_mode()
 class Cugan():
-    def __init__(self, video_file, output, scale, half, kind_model, pro, w, h):
+    def __init__(self, video_file, output, scale, half, kind_model, pro, w, h, nt):
         self.video_file = video_file
         self.output = output
         self.scale = scale
@@ -29,6 +31,7 @@ class Cugan():
         self.pro = pro
         self.w = int(w * scale)
         self.h = int(h * scale)
+        self.nt = nt
         self._initialize()
     
     def handle_models(self):
@@ -95,7 +98,21 @@ class Cugan():
         _thread.start_new_thread(self._build_read_buffer, ())
         _thread.start_new_thread(self._clear_write_buffer, ())
         
-        self.process_video()
+        threads = []
+        for _ in range(self.nt):
+            thread = UpscaleMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.vid_out)
+            thread.start()
+            threads.append(thread)
+        
+        while not self.write_buffer.empty():
+            time.sleep(0.1)
+        
+        for thread in threads:
+            thread.join()
+            
+        self.pbar.close()
+        if not self.vid_out is None:
+            self.vid_out.release()
         
     def _clear_write_buffer(self):
         while True:
@@ -103,8 +120,9 @@ class Cugan():
             if frame is None:
                 break
             else:
+                self.pbar.update(1)
                 self.vid_out.write(frame[:, :, ::-1])
-                
+        self.vid_out.release()
     
     def _build_read_buffer(self):
         try:
@@ -118,23 +136,39 @@ class Cugan():
         if self.half:
             frame = frame.half()
         return self.model(frame)
+
+class UpscaleMT(threading.Thread):
+    def __init__(self, device, model, nt, half, read_buffer, write_buffer, vid_out):
+        threading.Thread.__init__(self)
+        self.device = device
+        self.model = model
+        self.nt = nt
+        self.half = half
+        self.read_buffer = read_buffer
+        self.write_buffer = write_buffer
+        self.vid_out = vid_out
     
-    def process_video(self):
+    def inference(self, frame):
+        if self.half:
+            frame = frame.half()
+        with torch.no_grad():
+            return self.model(frame)
+        
+    def process_frame(self, frame):
+        frame = frame.astype(np.float32) / 255.0
+        frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).cuda()
+        frame = self.inference(frame)
+        frame = frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
+        frame = np.clip(frame * 255, 0, 255).astype(np.uint8)
+        return frame
+    
+    def run(self):
         while True:
             frame = self.read_buffer.get()
             if frame is None:
+                self.write_buffer.put(None)
                 break
-            else:
-                frame = frame.astype(np.float32) / 255.0
-                frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).cuda()
-                frame = self.make_inference(frame)
-                frame = frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
-                frame = np.clip(frame * 255, 0, 255).astype(np.uint8)
-                self.write_buffer.put(frame)
-                self.pbar.update(1)
-        self.pbar.update(1)
-        self.pbar.close()
-        self.vid_out.release()
+            self.write_buffer.put(self.process_frame(frame))
         
 class SEBlock(nn.Module):
     def __init__(self, in_channels, reduction=8, bias=False):
@@ -185,7 +219,6 @@ class UNetConv(nn.Module):
         if self.seblock is not None:
             z = self.seblock(z)
         return z
-
 
 class UNet1(nn.Module):
     def __init__(self, in_channels, out_channels, deconv):
@@ -240,7 +273,6 @@ class UNet1(nn.Module):
         z = self.conv_bottom(x3)
         return z
 
-
 class UNet1x3(nn.Module):
     def __init__(self, in_channels, out_channels, deconv):
         super(UNet1x3, self).__init__()
@@ -293,7 +325,6 @@ class UNet1x3(nn.Module):
         x3 = F.leaky_relu(x3, 0.1, inplace=True)
         z = self.conv_bottom(x3)
         return z
-
 
 class UNet2(nn.Module):
     def __init__(self, in_channels, out_channels, deconv):
@@ -378,7 +409,6 @@ class UNet2(nn.Module):
         z = self.conv_bottom(x5)
         return z
 
-
 class UpCunet2x(nn.Module):  # 完美tile，全程无损
     def __init__(self, in_channels=3, out_channels=3):
         super(UpCunet2x, self).__init__()
@@ -400,7 +430,6 @@ class UpCunet2x(nn.Module):  # 完美tile，全程无损
             x = x[:, :, : h0 * 2, : w0 * 2]
         return x
 
-
 class UpCunet3x(nn.Module):  # 完美tile，全程无损
     def __init__(self, in_channels=3, out_channels=3):
         super(UpCunet3x, self).__init__()
@@ -421,7 +450,6 @@ class UpCunet3x(nn.Module):  # 完美tile，全程无损
         if w0 != pw or h0 != ph:
             x = x[:, :, : h0 * 3, : w0 * 3]
         return x
-
 
 class UpCunet4x(nn.Module):  # 完美tile，全程无损
     def __init__(self, in_channels=3, out_channels=3):
@@ -451,7 +479,6 @@ class UpCunet4x(nn.Module):  # 完美tile，全程无损
         x += F.interpolate(x00, scale_factor=4, mode="nearest")
         return x
 
-
 class pixel_unshuffle(nn.Module):
     def __init__(self, ratio=2):
         super(pixel_unshuffle, self).__init__()
@@ -472,7 +499,6 @@ class pixel_unshuffle(nn.Module):
             .contiguous()
             .view(b, -1, y // ratio, x // ratio)
         )
-
 
 class UpCunet2x_fast(nn.Module):  # 完美tile，全程无损
     def __init__(self, in_channels=3, out_channels=3):

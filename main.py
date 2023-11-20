@@ -9,7 +9,7 @@ import random
 
 warnings.filterwarnings("ignore")
 
-def main(video_file, model_type, half, multi, kind_model, pro):
+def main(video_file, model_type, half, multi, kind_model, pro, nt):
     random_number = str(random.randint(0, 10000000))
 
     cap = cv2.VideoCapture(video_file)
@@ -33,7 +33,7 @@ def main(video_file, model_type, half, multi, kind_model, pro):
         filename_without_ext = os.path.splitext(basename)[0]
         output = filename_without_ext + "_" + str(multi) + "_" + random_number + ".mp4"
         
-        Cugan(video_file, output, multi, half, kind_model, pro, w, h)
+        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt)
         
     elif "dedup" in model_type:
         pass
@@ -46,8 +46,9 @@ if __name__ == "__main__":
     parser.add_argument("-multi", type=int, help="", default=2, action="store")
     parser.add_argument("-kind_model", type=str, help="", default="no-denoise", action="store")
     parser.add_argument("-pro", type=bool, help="", default=False, action="store")
+    parser.add_argument("-nt", type=int, help="", default=1, action="store")
     args = parser.parse_args()
     
     if args.video is None:
         sys.exit("Please specify a video file")
-    main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro)
+    main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt)
