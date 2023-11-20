@@ -4,15 +4,13 @@ import sys
 import warnings
 from src.rife.rife import Rife
 from src.cugan.cugan import Cugan
+from src.dedup.dedup import Dedup
 import cv2
-import random
 import skvideo.io
 
 warnings.filterwarnings("ignore")
 
 def main(video_file, model_type, half, multi, kind_model, pro, nt):
-    random_number = str(random.randint(0, 10000000))
-
     cap = cv2.VideoCapture(video_file)
     w, h = cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -29,7 +27,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
         outputdict['-r'] = str(fps * multi)
         basename = os.path.basename(video_file)
         filename_without_ext = os.path.splitext(basename)[0]
-        output = f"{filename_without_ext}_{int(multi * fps)}_{random_number}.mp4"
+        output = f"{filename_without_ext}_{int(multi * fps)}.mp4"
         UHD = False
         if w >= 2160 or h >= 2160:
             UHD = True
@@ -38,12 +36,15 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
     elif "cugan" in model_type:
         basename = os.path.basename(video_file)
         filename_without_ext = os.path.splitext(basename)[0]
-        output = filename_without_ext + "_" + str(multi) + "_" + random_number + ".mp4"
+        output = f"{filename_without_ext}_{str(multi)}.mp4"
         
         Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, inputdict, outputdict)
         
     elif "dedup" in model_type:
-        pass
+        basename = os.path.basename(video_file)
+        filename_without_ext = os.path.splitext(basename)[0]
+        output = f"{filename_without_ext}_dedduped.mp4"
+        Dedup(video_file, output, kind_model, inputdict, outputdict)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contact Sheet Generator")
