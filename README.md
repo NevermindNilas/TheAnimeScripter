@@ -36,7 +36,6 @@ Dedup:
 In no particular order:
 
 - Add Rife Multithreadding - Too hard to do, not gonna happen anytime soon
-- Fix issue when input path has spaces
 - Add Rife model download back and make it model-agnostic
 - Create a scriptUI for After Effects
 
@@ -53,3 +52,4 @@ In no particular order:
 - Placed Output in the same folder as input
 - Fixed requirements.txt issue where it wouldn't download torch compiled with CUDA
 - kind-model now defaults to shufflecugan
+- Fixed issue when input path has spaces
