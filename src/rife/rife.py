@@ -6,10 +6,10 @@ from tqdm import tqdm
 from torch.nn import functional as F
 import warnings
 import _thread
-import skvideo.io
 from queue import Queue
 from .pytorch_msssim import ssim_matlab
 import time
+from moviepy.editor import VideoFileClip
 
 warnings.filterwarnings("ignore")
 # Turning rife into a python class
@@ -20,7 +20,7 @@ Credit: https://github.com/hzwer/Practical-RIFE/blob/main/inference_video.py
 @torch.inference_mode()
 
 class Rife():
-    def __init__(self, video, output, UHD, scale, multi, half, w, h, nt, inputdict, outputdict, fps, tot_frame):
+    def __init__(self, video, output, UHD, scale, multi, half, w, h, nt, fps, tot_frame):
         self.video = video
         self.output = output
         self.half = half
@@ -31,8 +31,6 @@ class Rife():
         self.w = w
         self.h = h
         self.nt = nt
-        self.inputdict = inputdict
-        self.outputdict = outputdict
         self.fps = fps
         self.tot_frame = tot_frame
         
@@ -61,10 +59,13 @@ class Rife():
         self.model.eval()
         self.model.device()
 
-        self.videogen = skvideo.io.vreader(self.video)
-        self.lastframe = next(self.videogen)
-        self.vid_out = skvideo.io.FFmpegWriter(self.output, self.inputdict, self.outputdict)
-        self.h, self.w, _ = self.lastframe.shape
+        
+        self.videogen = VideoFileClip(self.video)
+        self.frames = self.videogen.iter_frames()
+        self.lastframe = self.videogen.get_frame(0)  
+
+        self.w, self.h = int(self.w), int(self.h)
+        self.vid_out = cv2.VideoWriter(self.output, cv2.VideoWriter_fourcc(*'mp4v'), self.fps * self.multi,(self.w, self.h))
         self.padding = (0, ((self.w - 1) // 128 + 1) * 128 - self.w, 0, ((self.h - 1) // 128 + 1) * 128 - self.h)
         
         self.pbar = tqdm(total=self.tot_frame)
@@ -80,21 +81,18 @@ class Rife():
         while True:
             frame = self.write_buffer.get()
             if frame is None:
+                print("BREAKS")
                 break
             self.pbar.update(1)
-            self.vid_out.writeFrame(frame)
-            
-        self.vid_out.close()
-        self.pbar.close()
+            self.vid_out.write(frame[:, :, ::-1])
         
     def _build_read_buffer(self):
         try:
-            for frame in self.videogen:
+            for frame in self.frames:
                 self.read_buffer.put(frame)
         except:
             pass
-        for _ in range(self.nt):
-            self.read_buffer.put(None)
+        self.read_buffer.put(None)
     
     def make_inference(self, I0, I1, n):
         if self.model.version >= 3.9:
@@ -120,15 +118,15 @@ class Rife():
             return F.pad(img, self.padding)
         
     def process_video(self):
-        output = []
+        #output = []
         I1 = torch.from_numpy(np.transpose(self.lastframe, (2, 0, 1))).to(self.device, non_blocking=True).unsqueeze(
             0).float() / 255.
         I1 = self._pad_image(I1)
-        self.temp = None  # save lastframe when processing static frame
+        temp = None  # save lastframe when processing static frame
         while True:
-            if self.temp is not None:
-                frame = self.temp
-                self.temp = None
+            if temp is not None:
+                frame = temp
+                temp = None
             else:
                 frame = self.read_buffer.get()
 
@@ -136,8 +134,7 @@ class Rife():
                 break
 
             I0 = I1
-            I1 = torch.from_numpy(np.transpose(frame, (2, 0, 1))).to(self.device, non_blocking=True).unsqueeze(
-                0).float() / 255.
+            I1 = torch.from_numpy(np.transpose(frame, (2, 0, 1))).to(self.device, non_blocking=True).unsqueeze(0).float() / 255.
             I1 = self._pad_image(I1)
             I0_small = F.interpolate(I0, (32, 32), mode='bilinear', align_corners=False)
             I1_small = F.interpolate(I1, (32, 32), mode='bilinear', align_corners=False)
@@ -150,7 +147,7 @@ class Rife():
                     break_flag = True
                     frame = self.lastframe
                 else:
-                    self.temp = frame
+                    temp = frame
 
                 I1 = torch.from_numpy(np.transpose(frame, (2, 0, 1))).to(self.device, non_blocking=True).unsqueeze(
                     0).float() / 255.
@@ -160,7 +157,7 @@ class Rife():
                 ssim = ssim_matlab(I0_small[:, :3], I1_small[:, :3])
                 frame = (I1[0] * 255).byte().cpu().numpy().transpose(1, 2, 0)[:self.h, :self.w]
 
-            elif ssim < 0.2:
+            if ssim < 0.2:
                 output = []
                 for i in range(self.multi - 1):
                     output.append(I0)
@@ -177,11 +174,9 @@ class Rife():
             if break_flag:
                 break
 
-            self.write_buffer.put(self.lastframe)
-
+        self.write_buffer.put(self.lastframe)
+        
         while not self.write_buffer.empty():
             time.sleep(0.1)
-        self.pbar.update(1)
         self.pbar.close()
-        if not self.vid_out is None:
-            self.vid_out.close()
+        self.vid_out.release()
