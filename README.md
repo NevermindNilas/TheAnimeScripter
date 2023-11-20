@@ -16,6 +16,7 @@ Written in Python 3.11
 
 - [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)
 - [HZWER](https://github.com/hzwer/Practical-RIFE)
+- [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN)
 
 ## Benchmarks
 
@@ -27,11 +28,11 @@ Approximately 5-10% faster than Practical RIFE based on my testing—this is a r
 
 In no particular order:
 
-- Figure out why the output duration is higher than the input
+- Figure out why the output duration of rife is higher than the input
+- Add Rife Multithreadding
 - Place output in the same folder as input
+- Ditch opencv for https://github.com/abhiTronix/vidgear
 - Add Rife model download back and make it model-agnostic
-- Increase encoding speed by using Multiple Threads instead of one
-- Implement better encoding
 - Integrate Dedup
 - Create a scriptUI for After Effects
 
@@ -39,4 +40,6 @@ In no particular order:
 
 - Added Rife implementation.
 - Added Cugan Upscaling
+- Added Cugan Multithreading
+- Added Shuffle Cugan - 50% faster for the same quality
 - Removed unnecessary implementations like frame-by-frame output
