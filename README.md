@@ -18,6 +18,9 @@ CUGAN:
 RIFE:
 - python main.py -video video_name_here -model_type rife -half
 
+Dedup:
+- python main.py -video video_name_here -model_type dedup -kind_model ffmpeg
+
 DeDup:
 - N/A
 
