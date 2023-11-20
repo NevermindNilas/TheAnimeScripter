@@ -5,21 +5,23 @@ import torch
 from torch.nn import functional as F
 from torch import nn as nn
 import _thread
-import skvideo.io
 import warnings
 from tqdm import tqdm
 from queue import Queue
 import sys
 import threading
+import cv2
+import time
+from moviepy.editor import VideoFileClip
 
-warnings.filterwarnings("ignore")
+#warnings.filterwarnings("ignore")
 
 '''
 https://github.com/styler00dollar/VSGAN-tensorrt-docker/blob/main/src/cugan.py
 '''
 @torch.inference_mode()
 class Cugan():
-    def __init__(self, video_file, output, scale, half, kind_model, pro, w, h, nt, inputdict, outputdict, tot_frame):
+    def __init__(self, video_file, output, scale, half, kind_model, pro, w, h, nt, tot_frame):
         self.video_file = video_file
         self.output = output
         self.scale = scale
@@ -29,8 +31,6 @@ class Cugan():
         self.w = int(w * scale)
         self.h = int(h * scale)
         self.nt = nt
-        self.inputdict = inputdict
-        self.outputdict = outputdict
         self.tot_frame = tot_frame
         self._initialize()
         
@@ -42,7 +42,12 @@ class Cugan():
         
         for thread in threads:
             thread.join()
-            
+        
+        while not self.write_buffer.empty():
+            self.pbar.close()
+            cv2.destroyAllWindows()
+
+        
     def handle_models(self):
         if not os.path.exists("src/cugan/weights"):
             os.makedirs("src/cugan/weights")
@@ -83,7 +88,8 @@ class Cugan():
         model_path = os.path.abspath(model_path)
         
         self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
-        self.model.eval().cuda()
+        self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()
+            
         if self.half:
             self.model.half()
             
@@ -95,15 +101,22 @@ class Cugan():
             if self.half:
                 torch.set_default_tensor_type(torch.cuda.HalfTensor)
 
-        self.videogen = skvideo.io.vreader(self.video_file)
-        self.vid_out = skvideo.io.FFmpegWriter(self.output, self.inputdict, self.outputdict)
-        
         self.pbar = tqdm(total=self.tot_frame)
         self.write_buffer = Queue(maxsize=500)
         self.read_buffer = Queue(maxsize=500)
         
+        self.videogen = VideoFileClip(self.video_file)
+        w, h = self.videogen.size
+        w, h = int(w * self.scale), int(h * self.scale)
+        fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+        self.vid_out = cv2.VideoWriter(self.output, fourcc, self.videogen.fps, (w, h))
+        self.frames = self.videogen.iter_frames()
+        
         _thread.start_new_thread(self._build_read_buffer, ())
         _thread.start_new_thread(self._clear_write_buffer, ())
+        
+        while not self.write_buffer.empty():
+            time.sleep(0.1)
         
     def _clear_write_buffer(self):
         while True:
@@ -111,14 +124,11 @@ class Cugan():
             if frame is None:
                 break
             self.pbar.update(1)
-            self.vid_out.writeFrame(frame)
-            
-        self.vid_out.close()
-        self.pbar.close()
+            self.vid_out.write(frame[:, :, ::-1])
         
     def _build_read_buffer(self):
         try:
-            for frame in self.videogen:
+            for frame in self.frames:
                 self.read_buffer.put(frame)
         except:
             pass
@@ -163,6 +173,7 @@ class CuganMT(threading.Thread):
                     self.write_buffer.put(None)
                 break
             self.write_buffer.put(self.process_frame(frame))
+
         
 class SEBlock(nn.Module):
     def __init__(self, in_channels, reduction=8, bias=False):
