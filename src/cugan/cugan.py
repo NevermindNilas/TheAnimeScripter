@@ -33,7 +33,16 @@ class Cugan():
         self.h = int(h * scale)
         self.nt = nt
         self._initialize()
-    
+        
+        threads = []
+        for _ in range(self.nt):
+            thread = UpscaleMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.vid_out)
+            thread.start()
+            threads.append(thread)
+        
+        for thread in threads:
+            thread.join()
+            
     def handle_models(self):
         if not os.path.exists("src/cugan/weights"):
             os.makedirs("src/cugan/weights")
@@ -87,9 +96,7 @@ class Cugan():
             self.videogen = skvideo.io.vreader(self.video_file)
             self.fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
         
-        if self.output is not None:
-            self.vid_out_name = self.output
-        self.vid_out = cv2.VideoWriter(self.vid_out_name, self.fourcc, fps, (self.w, self.h))
+        self.vid_out = cv2.VideoWriter(self.output, self.fourcc, fps, (self.w, self.h))
         
         self.pbar = tqdm(total=self.tot_frame)
         self.write_buffer = Queue(maxsize=500)
@@ -98,39 +105,25 @@ class Cugan():
         _thread.start_new_thread(self._build_read_buffer, ())
         _thread.start_new_thread(self._clear_write_buffer, ())
         
-        threads = []
-        for _ in range(self.nt):
-            thread = UpscaleMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.vid_out)
-            thread.start()
-            threads.append(thread)
-        
-        while not self.write_buffer.empty():
-            time.sleep(0.1)
-        
-        for thread in threads:
-            thread.join()
-            
-        self.pbar.close()
-        if not self.vid_out is None:
-            self.vid_out.release()
-        
     def _clear_write_buffer(self):
         while True:
             frame = self.write_buffer.get()
             if frame is None:
                 break
-            else:
-                self.pbar.update(1)
-                self.vid_out.write(frame[:, :, ::-1])
+            self.pbar.update(1)
+            self.vid_out.write(frame[:, :, ::-1])
+            
         self.vid_out.release()
-    
+        self.pbar.close()
+        
     def _build_read_buffer(self):
         try:
             for frame in self.videogen:
                 self.read_buffer.put(frame)
         except:
             pass
-        self.read_buffer.put(None)
+        for _ in range(self.nt):
+            self.read_buffer.put(None)
     
     def make_inference(self, frame):
         if self.half:
@@ -162,11 +155,12 @@ class UpscaleMT(threading.Thread):
         frame = np.clip(frame * 255, 0, 255).astype(np.uint8)
         return frame
     
-    def run(self):
+    def run(self):  
         while True:
             frame = self.read_buffer.get()
             if frame is None:
-                self.write_buffer.put(None)
+                for _ in range(self.nt):
+                    self.write_buffer.put(None)
                 break
             self.write_buffer.put(self.process_frame(frame))
         
