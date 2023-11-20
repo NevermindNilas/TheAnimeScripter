@@ -40,7 +40,6 @@ In no particular order:
 - Figure out why the output duration of rife is higher than the input
 - Add Rife Multithreadding
 - Place output in the same folder as input
-- Ditch opencv for https://github.com/abhiTronix/vidgear
 - Add Rife model download back and make it model-agnostic
 - Integrate Dedup
 - Create a scriptUI for After Effects
