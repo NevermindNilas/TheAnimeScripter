@@ -13,6 +13,7 @@ import threading
 import cv2
 import time
 from moviepy.editor import VideoFileClip
+import concurrent.futures
 
 #warnings.filterwarnings("ignore")
 
@@ -32,20 +33,25 @@ class Cugan():
         self.h = int(h * scale)
         self.nt = nt
         self.tot_frame = tot_frame
+        self.lock = threading.Lock()
+        
         self._initialize()
         
         threads = []
         for _ in range(self.nt):
-            thread = CuganMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.vid_out)
+            thread = CuganMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.vid_out, self.lock)
             thread.start()
             threads.append(thread)
         
         for thread in threads:
             thread.join()
         
-        while not self.write_buffer.empty():
-            self.pbar.close()
-            cv2.destroyAllWindows()
+        while threading.active_count() > 1 and self.write_buffer.qsize() > 0:
+            time.sleep(0.1)
+            
+        self.pbar.close()
+        self.vid_out.release()
+        self.videogen.reader.close()
 
         
     def handle_models(self):
@@ -115,9 +121,6 @@ class Cugan():
         _thread.start_new_thread(self._build_read_buffer, ())
         _thread.start_new_thread(self._clear_write_buffer, ())
         
-        while not self.write_buffer.empty():
-            time.sleep(0.1)
-        
     def _clear_write_buffer(self):
         while True:
             frame = self.write_buffer.get()
@@ -141,7 +144,7 @@ class Cugan():
         return self.model(frame)
 
 class CuganMT(threading.Thread):
-    def __init__(self, device, model, nt, half, read_buffer, write_buffer, vid_out):
+    def __init__(self, device, model, nt, half, read_buffer, write_buffer, vid_out, lock):
         threading.Thread.__init__(self)
         self.device = device
         self.model = model
@@ -150,6 +153,7 @@ class CuganMT(threading.Thread):
         self.read_buffer = read_buffer
         self.write_buffer = write_buffer
         self.vid_out = vid_out
+        self.lock = lock
     
     def inference(self, frame):
         if self.half:
@@ -169,12 +173,11 @@ class CuganMT(threading.Thread):
         while True:
             frame = self.read_buffer.get()
             if frame is None:
-                for _ in range(self.nt):
-                    self.write_buffer.put(None)
                 break
-            self.write_buffer.put(self.process_frame(frame))
+            result = self.process_frame(frame)
+            with self.lock:
+                self.write_buffer.put(result)
 
-        
 class SEBlock(nn.Module):
     def __init__(self, in_channels, reduction=8, bias=False):
         super(SEBlock, self).__init__()
