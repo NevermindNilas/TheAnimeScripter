@@ -24,7 +24,7 @@ Otherwise, run:
 
 - pip install -r requirements.txt
 
-## Usage
+# Usage
 
 CUGAN:
 ```py
@@ -41,17 +41,17 @@ Dedup:
 - python main.py -video video_name_here -model_type dedup -kind_model ffmpeg
 ```
 
-## Acknowledgements
+# Acknowledgements
 
 - [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code
 - [HZWER](https://github.com/hzwer/Practical-RIFE) - For Rife
 - [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) - For Cugan
 
-## Benchmarks
+# Benchmarks
 
 - N/A
 
-## To-Do
+# To-Do
 
 In no particular order:
 
@@ -65,7 +65,7 @@ In no particular order:
 - Create a scriptUI for After Effects
 - Maybe add TRT
 
-## Done
+# Done
 
 - Added Rife implementation.
 - Added Cugan Upscaling
