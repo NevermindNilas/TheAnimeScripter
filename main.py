@@ -5,6 +5,7 @@ from src.rife.rife import Rife
 from src.cugan.cugan import Cugan
 from src.dedup.dedup import Dedup
 from src.swinir.swinir import Swin
+from src.segment.segment import Segment
 import cv2   
 
 def main(video_file, model_type, half, multi, kind_model, pro, nt):
@@ -36,6 +37,10 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
         if model_type == "shufflecugan" and multi != 2:
             print("The only scale that Shufflecugan works with is 2x, setting scale to 2")
             multi = 2
+        
+        if multi > 4:
+            print("Cugan only supports up to 4x scaling, setting scale to 4")
+            multi = 4
             
         output = f"{filename_without_ext}_{str(multi)}.mp4"
         output = os.path.join(input_dir, output)
@@ -58,7 +63,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
         output = f"{filename_without_ext}_segmented.mp4"
         output = os.path.join(input_dir, output)
         
-        
+        Segment(video_file, output, kind_model, nt, half, w, h, tot_frame)
     else:
         sys.exit("Please specify a valid model type", model_type, "was not found")
 
