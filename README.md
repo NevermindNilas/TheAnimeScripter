@@ -4,7 +4,9 @@
 
 [Join_The_Discord_Server](https://discord.gg/bFA6xZxM5V)
 
-## Prerequisites
+# Prerequisites
+
+## Automated Installation
 
 If Python 3.11 isn't installed in your system, run the file and make sure that Python is added to your system path:
 
@@ -14,7 +16,7 @@ Otherwise, run:
 
 - update.bat
 
-# Manual installation:
+## Manual installation:
 
 - Download Python 3.11 from: https://www.python.org/downloads/release/python-3110/
 
@@ -24,20 +26,26 @@ Otherwise, run:
 
 ## Usage
 
-CUGAN: 
+CUGAN:
+```py
 - python main.py -video video_name_here -model_type cugan -nt 2
+```
 
 RIFE:
+```py
 - python main.py -video video_name_here -model_type rife
+```
 
 Dedup:
+```py
 - python main.py -video video_name_here -model_type dedup -kind_model ffmpeg
+```
 
-## Special Thanks To
+## Acknowledgements
 
-- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - for helping me debug my code
-- [HZWER](https://github.com/hzwer/Practical-RIFE) - for Rife
-- [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) - for Cugan
+- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code
+- [HZWER](https://github.com/hzwer/Practical-RIFE) - For Rife
+- [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) - For Cugan
 
 ## Benchmarks
 
