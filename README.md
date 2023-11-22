@@ -43,7 +43,7 @@ Dedup:
 
 SwinIR:
 ```py
-- N/A
+- python main.py -video video_name_here -model_type swinir -kind_model small
 ```
 
 # Acknowledgements
@@ -62,7 +62,6 @@ In no particular order:
 
 - Make a venv automatically.
 - Add Rife NCNN Vulkan
-- Add SwinIR
 - Add RealESRGAN
 - Add Compact models
 - Add more ways of dedupping
@@ -87,3 +86,4 @@ In no particular order:
 - kind-model now defaults to shufflecugan
 - Fixed issue when input path has spaces
 - Added scripts to make it easier to get things going
+- Add SwinIR
