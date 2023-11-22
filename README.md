@@ -6,7 +6,19 @@
 
 ## Prerequisites
 
-Written in Python 3.11
+If Python 3.11 isn't installed in your system, run the file and make sure that Python is added to your system path:
+
+- setup.bat
+
+Otherwise, run:
+
+- update.bat
+
+# Manual installation:
+
+- Download Python 3.11 from: https://www.python.org/downloads/release/python-3110/
+
+- Open a terminal inside the folder
 
 - pip install -r requirements.txt
 
@@ -23,9 +35,9 @@ Dedup:
 
 ## Special Thanks To
 
-- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)
-- [HZWER](https://github.com/hzwer/Practical-RIFE)
-- [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN)
+- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - for helping me debug my code
+- [HZWER](https://github.com/hzwer/Practical-RIFE) - for Rife
+- [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) - for Cugan
 
 ## Benchmarks
 
@@ -35,9 +47,15 @@ Dedup:
 
 In no particular order:
 
-- Add Rife Multithreadding - Too hard to do, not gonna happen anytime soon
+- Make a venv automatically.
+- Add Rife NCNN Vulkan
+- Add SwinIR
+- Add RealESRGAN
+- Add more ways of dedupping
+- Add Dup detect for upscaling
 - Add Rife model download back and make it model-agnostic
 - Create a scriptUI for After Effects
+- Maybe add TRT
 
 ## Done
 
@@ -53,3 +71,4 @@ In no particular order:
 - Fixed requirements.txt issue where it wouldn't download torch compiled with CUDA
 - kind-model now defaults to shufflecugan
 - Fixed issue when input path has spaces
+- Added scripts to make it easier to get things going
