@@ -4,6 +4,7 @@ import sys
 from src.rife.rife import Rife
 from src.cugan.cugan import Cugan
 from src.dedup.dedup import Dedup
+from src.swinir.swinir import Swin
 import cv2   
 
 def main(video_file, model_type, half, multi, kind_model, pro, nt):
@@ -38,6 +39,12 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
         output = os.path.join(input_dir, output)
         
         Dedup(video_file, output, kind_model)
+    
+    elif "swinir" in model_type:
+        output = f"{filename_without_ext}_{str(multi)}.mp4"
+        output = os.path.join(input_dir, output)
+        
+        Swin(video_file, output, model_type, multi, half, nt, kind_model, tot_frame)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contact Sheet Generator")

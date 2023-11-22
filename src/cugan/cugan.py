@@ -58,7 +58,7 @@ class Cugan():
         downloading = False
         if not os.path.exists(os.path.join(os.path.abspath("src/cugan/weights"), self.filename)):
             if not downloading:
-                print("Downloading Cugan models...")
+                print("Downloading Cugan model...")
                 downloading = True
             url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{self.filename}"
             response = requests.get(url)
@@ -71,6 +71,10 @@ class Cugan():
         model_path_suffix = "-latest" if not self.pro else ""
         model_path_middle = f"up{self.scale}x"
 
+        if self.scale != 2 and self.kind_model == "shufflecugan":
+            print("Shufflecugan is only available for 2x scale")
+            sys.exit(1)
+            
         model_map = {
             2: UpCunet2x_fast if self.kind_model == "shufflecugan" else UpCunet2x,
             3: UpCunet3x,
@@ -108,9 +112,9 @@ class Cugan():
         
         self.videogen = VideoFileClip(self.video_file)
         w, h = self.videogen.size
-        w, h = int(w * self.scale), int(h * self.scale)
+        w_new, h_new = int(w * self.scale), int(h * self.scale)
         fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-        self.vid_out = cv2.VideoWriter(self.output, fourcc, self.videogen.fps, (w, h))
+        self.vid_out = cv2.VideoWriter(self.output, fourcc, self.videogen.fps, (w_new, h_new))
         self.frames = self.videogen.iter_frames()
         
         _thread.start_new_thread(self._build_read_buffer, ())
@@ -132,11 +136,6 @@ class Cugan():
             pass
         for _ in range(self.nt):
             self.read_buffer.put(None)
-    
-    def make_inference(self, frame):
-        if self.half:
-            frame = frame.half()
-        return self.model(frame)
 
 class CuganMT(threading.Thread):
     def __init__(self, device, model, nt, half, read_buffer, write_buffer, vid_out, lock):
