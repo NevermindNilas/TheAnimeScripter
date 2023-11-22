@@ -35,6 +35,7 @@ CUGAN:
 ```py
 - python main.py -video video_name_here -model_type cugan -nt 2 -kind_model conservative
 ```
+
 ShuffleCugan:
 ```py
 -python main.py -video video_name_here -model_type shufflecugan -nt 2
@@ -74,7 +75,7 @@ Segment:
                    SwinIR: small, medium, large.
                    Dedup: ffmpeg, Hash(N/A), VMAF(N/A), SSIM(N/A)
 
--pro :bool       - Only for CUGAN, utilize pro models.
+-pro :bool       - Set to False by default, Only for CUGAN, utilize pro models.
 
 -nt :int         - Number of threads to utilize for Upscaling and Segmentation,
                    Really CPU/GPU dependent, with my 3090 I max out at 4 for Cugan / Shufflecugan.
@@ -121,4 +122,4 @@ In no particular order:
 - kind-model now defaults to shufflecugan
 - Fixed issue when input path has spaces
 - Added scripts to make it easier to get things going
-- Add SwinIR
+- Added SwinIR
