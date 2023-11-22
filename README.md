@@ -18,7 +18,7 @@ Otherwise, run:
 
 ## Manual installation:
 
-- Download Python 3.11 from: https://www.python.org/downloads/release/python-3110/
+- Download and install Python 3.11 from: https://www.python.org/downloads/release/python-3110/ whilst making sure to add it to System Path
 
 - Open a terminal inside the folder
 
@@ -41,6 +41,11 @@ Dedup:
 - python main.py -video video_name_here -model_type dedup -kind_model ffmpeg
 ```
 
+SwinIR:
+```py
+- N/A
+```
+
 # Acknowledgements
 
 - [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code
@@ -59,11 +64,13 @@ In no particular order:
 - Add Rife NCNN Vulkan
 - Add SwinIR
 - Add RealESRGAN
+- Add Compact models
 - Add more ways of dedupping
 - Add Dup detect for upscaling
 - Add Rife model download back and make it model-agnostic
 - Create a scriptUI for After Effects
 - Maybe add TRT
+- Maybe add HAT
 
 # Done
 
