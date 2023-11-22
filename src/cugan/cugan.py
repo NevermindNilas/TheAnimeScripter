@@ -70,24 +70,19 @@ class Cugan():
         model_path_prefix = "cugan_pro" if self.pro else "cugan"
         model_path_suffix = "-latest" if not self.pro else ""
         model_path_middle = f"up{self.scale}x"
-
-        if self.scale != 2 and self.kind_model == "shufflecugan":
-            print("Shufflecugan is only available for 2x scale")
-            sys.exit(1)
-            
-        model_map = {
-            2: UpCunet2x_fast if self.kind_model == "shufflecugan" else UpCunet2x,
-            3: UpCunet3x,
-            4: UpCunet4x
-        }
-
-        self.model = model_map[self.scale](in_channels=3, out_channels=3)
-
-        if self.kind_model == "shufflecugan":
+        
+        if self.model_type == "shufflecugan":
+            self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
             self.filename = "sudo_shuffle_cugan_9.584.969.pth"
         else:
+            model_map = {
+                2: UpCunet2x,
+                3: UpCunet3x,
+                4: UpCunet4x
+            }
+            self.model = model_map[self.scale](in_channels=3, out_channels=3)
             self.filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{self.kind_model}.pth"
-        
+
         self.handle_models()
         
         model_path = os.path.abspath(os.path.join("src/cugan/weights", self.filename))
