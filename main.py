@@ -20,39 +20,55 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
     filename_without_ext = os.path.splitext(basename)[0]
     input_dir = os.path.dirname(video_file)
     
-    if "rife" in model_type:
+    model_type = model_type.lower()
+    
+    if model_type == "rife":
         output = f"{filename_without_ext}_{int(multi * fps)}fps.mp4"
         output = os.path.join(input_dir, output)
         
         UHD = True if w >= 2160 or h >= 2160 else False
+        # UHD mode is auto decided by the script in order to avoid user errors.
 
         Rife(video_file, output, UHD, 1, multi, half, w, h, nt, fps, tot_frame)
         
-    elif "cugan" in model_type:
+    elif model_type == "cugan" or model_type == "shufflecugan":
+        
+        if model_type == "shufflecugan" and multi != 2:
+            print("The only scale that Shufflecugan works with is 2x, setting scale to 2")
+            multi = 2
+            
         output = f"{filename_without_ext}_{str(multi)}.mp4"
         output = os.path.join(input_dir, output)
         
-        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, tot_frame)
+        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, tot_frame, model_type)
         
-    elif "dedup" in model_type:
+    elif model_type == "dedup":
         output = f"{filename_without_ext}_dedduped.mp4"
         output = os.path.join(input_dir, output)
         
         Dedup(video_file, output, kind_model)
     
-    elif "swinir" in model_type:
+    elif model_type == "swinir":
         output = f"{filename_without_ext}_{str(multi)}.mp4"
         output = os.path.join(input_dir, output)
         
         Swin(video_file, output, model_type, multi, half, nt, kind_model, tot_frame)
+        
+    elif model_type == "segment":
+        output = f"{filename_without_ext}_segmented.mp4"
+        output = os.path.join(input_dir, output)
+        
+        
+    else:
+        sys.exit("Please specify a valid model type", model_type, "was not found")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contact Sheet Generator")
     parser.add_argument("-video", type=str, help="", default="", action="store")
-    parser.add_argument("-model_type",required=False, type=str, help="rife, cugan, dedup", default="rife", action="store")
+    parser.add_argument("-model_type",required=False, type=str, help="rife, cugan, shufflecugan, swinir, dedup", default="rife", action="store")
     parser.add_argument("-half", type=bool, help="", default=True, action="store")
     parser.add_argument("-multi", type=int, help="", default=2, action="store")
-    parser.add_argument("-kind_model", type=str, help="", default="shufflecugan", action="store")
+    parser.add_argument("-kind_model", type=str, help="", default="", action="store")
     parser.add_argument("-pro", type=bool, help="", default=False, action="store")
     parser.add_argument("-nt", type=int, help="", default=1, action="store")
     args = parser.parse_args()
