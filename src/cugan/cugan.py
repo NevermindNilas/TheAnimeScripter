@@ -32,6 +32,7 @@ class Cugan():
         self.tot_frame = tot_frame
         self.lock = threading.Lock()
         
+        self.handle_models()
         self._initialize()
         
         threads = []
@@ -52,21 +53,6 @@ class Cugan():
 
         
     def handle_models(self):
-        if not os.path.exists("src/cugan/weights"):
-            os.makedirs("src/cugan/weights")
-
-        downloading = False
-        if not os.path.exists(os.path.join(os.path.abspath("src/cugan/weights"), self.filename)):
-            if not downloading:
-                print("Downloading Cugan model...")
-                downloading = True
-            url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{self.filename}"
-            response = requests.get(url)
-            if response.status_code == 200:
-                with open(os.path.join("src/cugan/weights", self.filename), "wb") as file:
-                    file.write(response.content)
-                    
-    def _initialize(self):
         model_path_prefix = "cugan_pro" if self.pro else "cugan"
         model_path_suffix = "-latest" if not self.pro else ""
         model_path_middle = f"up{self.scale}x"
@@ -82,8 +68,19 @@ class Cugan():
             }
             self.model = model_map[self.scale](in_channels=3, out_channels=3)
             self.filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{self.kind_model}.pth"
+        
+        if not os.path.exists("src/cugan/weights"):
+            os.makedirs("src/cugan/weights")
 
-        self.handle_models()
+        if not os.path.exists(os.path.join(os.path.abspath("src/cugan/weights"), self.filename)):
+            print("Downloading Cugan model...")
+            url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{self.filename}"
+            response = requests.get(url)
+            if response.status_code == 200:
+                with open(os.path.join("src/cugan/weights", self.filename), "wb") as file:
+                    file.write(response.content)
+                    
+    def _initialize(self):
         
         model_path = os.path.abspath(os.path.join("src/cugan/weights", self.filename))
         
@@ -133,7 +130,7 @@ class Cugan():
             self.read_buffer.put(None)
 
 class CuganMT(threading.Thread):
-    def __init__(self, device, model, nt, half, read_buffer, write_buffer, vid_out, lock):
+    def __init__(self, device, model, nt, half, read_buffer, write_buffer, lock):
         threading.Thread.__init__(self)
         self.device = device
         self.model = model
@@ -141,7 +138,6 @@ class CuganMT(threading.Thread):
         self.half = half
         self.read_buffer = read_buffer
         self.write_buffer = write_buffer
-        self.vid_out = vid_out
         self.lock = lock
     
     def inference(self, frame):
