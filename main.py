@@ -1,13 +1,10 @@
 import argparse
 import os
 import sys
-import warnings
 from src.rife.rife import Rife
 from src.cugan.cugan import Cugan
 from src.dedup.dedup import Dedup
-import cv2
-
-#warnings.filterwarnings("ignore")
+import cv2   
 
 def main(video_file, model_type, half, multi, kind_model, pro, nt):
     video_file = os.path.normpath(video_file)

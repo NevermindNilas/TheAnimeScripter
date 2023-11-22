@@ -5,7 +5,6 @@ import torch
 from torch.nn import functional as F
 from torch import nn as nn
 import _thread
-import warnings
 from tqdm import tqdm
 from queue import Queue
 import sys
@@ -13,13 +12,11 @@ import threading
 import cv2
 import time
 from moviepy.editor import VideoFileClip
-import concurrent.futures
-
-#warnings.filterwarnings("ignore")
 
 '''
 https://github.com/styler00dollar/VSGAN-tensorrt-docker/blob/main/src/cugan.py
 '''
+
 @torch.inference_mode()
 class Cugan():
     def __init__(self, video_file, output, scale, half, kind_model, pro, w, h, nt, tot_frame):
@@ -68,30 +65,28 @@ class Cugan():
             if response.status_code == 200:
                 with open(os.path.join("src/cugan/weights", self.filename), "wb") as file:
                     file.write(response.content)
-    
+                    
     def _initialize(self):
         model_path_prefix = "cugan_pro" if self.pro else "cugan"
         model_path_suffix = "-latest" if not self.pro else ""
         model_path_middle = f"up{self.scale}x"
 
-        if self.scale == 2:
-            if self.kind_model == "shufflecugan":
-                self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
-            else:
-                self.model = UpCunet2x(in_channels=3, out_channels=3)
-        elif self.scale == 3:
-            self.model = UpCunet3x(in_channels=3, out_channels=3)
-        elif self.scale == 4:
-            self.model = UpCunet4x(in_channels=3, out_channels=3)
+        model_map = {
+            2: UpCunet2x_fast if self.kind_model == "shufflecugan" else UpCunet2x,
+            3: UpCunet3x,
+            4: UpCunet4x
+        }
+
+        self.model = model_map[self.scale](in_channels=3, out_channels=3)
 
         if self.kind_model == "shufflecugan":
-            self.filename = f"sudo_shuffle_cugan_9.584.969.pth"
+            self.filename = "sudo_shuffle_cugan_9.584.969.pth"
         else:
             self.filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{self.kind_model}.pth"
+        
         self.handle_models()
         
-        model_path = os.path.join("src/cugan/weights", self.filename)
-        model_path = os.path.abspath(model_path)
+        model_path = os.path.abspath(os.path.join("src/cugan/weights", self.filename))
         
         self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
         self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()

@@ -1,18 +1,15 @@
-import os
 import cv2
 import torch
 import numpy as np
 from tqdm import tqdm
 from torch.nn import functional as F
-import warnings
 import _thread
 from queue import Queue
 from .pytorch_msssim import ssim_matlab
 import time
 from moviepy.editor import VideoFileClip
 
-warnings.filterwarnings("ignore")
-# Turning rife into a python class
+
 '''
 Credit: https://github.com/hzwer/Practical-RIFE/blob/main/inference_video.py
 '''
