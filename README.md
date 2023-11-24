@@ -33,12 +33,22 @@ RIFE:
 
 CUGAN:
 ```py
-- python main.py -video video_name_here -model_type cugan -nt 2 -kind_model conservative
+- python main.py -video video_name_here -model_type cugan -multi 2 -nt 2 -kind_model conservative
 ```
 
 ShuffleCugan:
 ```py
--python main.py -video video_name_here -model_type shufflecugan -nt 2
+- python main.py -video video_name_here -model_type shufflecugan -multi 2 -nt 2
+```
+
+Compact:
+```py
+- python main.py -video video_name_here -model_type compact -multi 2 -nt 2
+```
+
+UltraCompact:
+```py
+- To be Added
 ```
 
 SwinIR:
@@ -61,13 +71,14 @@ Segment:
 ```
 -video :str      - Takes full path of input file.
 
--model_type :str - Can be Rife, Cugan, ShuffleCugan, SwinIR, Dedup, Segment (N/A).
+-model_type :str - Can be Rife, Cugan, ShuffleCugan, Compact(N/A), SwinIR, Dedup, Segment (N/A), UltraCompact (N/A).
 
 -half :bool      - Set to True by default, utilizes FP16, more performance for free generally.
 
 -multi :int      - Used by both Upscaling and Interpolation, 
                    Cugan can utilize scale from 2-4,
                    Shufflecugan only 2, 
+                   Compact 2,
                    SwinIR 2 or 4, 
                    Rife.. virtually anything.
 
@@ -96,30 +107,32 @@ Segment:
 # To-Do
 
 In no particular order:
+- Provide a bundled version with all of the dependencies.
+- Add Rife NCNN Vulkan.
+- Fix UltraCompact issues.
+- Add Segmentation ( HALF ADDED ).
+- Add more ways of dedupping.
+- Create a scriptUI for After Effects.
+- Remove the need for BGR to RGB conversion..
 
-- Provide a bundled version with all of the dependencies
-- Add Rife NCNN Vulkan
-- Add RealESRGAN
-- Add Segmentation
-- Add Custom Models, specifically custom compact
-- Add more ways of dedupping
-- Create a scriptUI for After Effects
-- Maybe add TRT
-- Maybe add HAT
+- Maybe add TRT.
+- Maybe look for better means of encoding using moviepy or vidgear..
+- Maybe add HAT.
 
-# Done
+# Done.
 
-- Added Rife implementation
-- Added Cugan Upscaling
-- Added Cugan Multithreading
-- Added Frame deduplication
-- Added Shuffle Cugan - 50% faster for the same quality
-- Removed unnecessary implementations like frame-by-frame output
-- Fixed rife output issues
-- Increased performance for Rife ever so slightly
-- Placed Output in the same folder as input
-- Fixed requirements.txt issue where it wouldn't download torch compiled with CUDA
-- kind-model now defaults to shufflecugan
-- Fixed issue when input path has spaces
-- Added scripts to make it easier to get things going
-- Added SwinIR
+- Added Rife implementation.
+- Added Cugan Upscaling.
+- Added Cugan Multithreading.
+- Added Frame deduplication.
+- Added Shuffle Cugan - 50% faster for the same quality.
+- Removed unnecessary implementations like frame-by-frame output.
+- Fixed rife output issues.
+- Increased performance for Rife ever so slightly.
+- Placed Output in the same folder as input.
+- Fixed requirements.txt issue where it wouldn't download torch compiled with CUDA.
+- kind-model now defaults to shufflecugan.
+- Fixed issue when input path has spaces.
+- Added scripts to make it easier to get things going.
+- Added SwinIR.
+- Added Compact, half baked ultracompact.

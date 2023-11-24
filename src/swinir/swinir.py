@@ -45,8 +45,14 @@ class Swin():
         self.videogen.reader.close()
     
     def handle_models(self):
-        self.kind_model = self.kind_model.lower()
         
+        self.kind_model = self.kind_model.lower()
+        if self.kind_model == None:
+            sys.exit("Please specify a model type")
+            
+        elif self.kind_model != "small" or "medium" or "large":
+            sys.exit("Invalid kind_model type, please choose from: small, medium or large")
+            
         model_type = {
             'small': f'002_lightweightSR_DIV2K_s64w8_SwinIR-S_x{self.scale}.pth',
             'medium': f'001_classicalSR_DF2K_s64w8_SwinIR-M_x{self.scale}.pth',
@@ -76,12 +82,8 @@ class Swin():
         if not os.path.exists("src/swinir/weights"):
             os.makedirs("src/swinir/weights")
         
-        downloading = False
         if not os.path.exists(os.path.join(os.path.abspath("src/swinir/weights"), self.filename)):
-            if not downloading:
-                downloading = True
-                print(f"Downloading SwinIR model...")
-                
+            print(f"Downloading SwinIR model...")   
             url = f"https://github.com/JingyunLiang/SwinIR/releases/download/v0.0/{self.filename}"
             response = requests.get(url)
             if response.status_code == 200:
