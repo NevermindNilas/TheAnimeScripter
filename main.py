@@ -1,12 +1,17 @@
 import argparse
 import os
+#os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 import sys
 from src.rife.rife import Rife
 from src.cugan.cugan import Cugan
 from src.dedup.dedup import Dedup
 from src.swinir.swinir import Swin
-from src.segment.segment import Segment
+#from src.segment.segment import Segment
+from src.compact.compact import Compact
 import cv2   
+
+def generate_output_filename(input_dir, filename_without_ext, extension):
+    return os.path.join(input_dir, f"{filename_without_ext}_{extension}.mp4")
 
 def main(video_file, model_type, half, multi, kind_model, pro, nt):
     video_file = os.path.normpath(video_file)
@@ -21,12 +26,11 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
     filename_without_ext = os.path.splitext(basename)[0]
     input_dir = os.path.dirname(video_file)
     
+    output = generate_output_filename(input_dir, filename_without_ext, model_type)
     model_type = model_type.lower()
     
     if model_type == "rife":
-        output = f"{filename_without_ext}_{int(multi * fps)}fps.mp4"
-        output = os.path.join(input_dir, output)
-        
+
         UHD = True if w >= 2160 or h >= 2160 else False
         # UHD mode is auto decided by the script in order to avoid user errors.
 
@@ -41,31 +45,34 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
         if multi > 4:
             print("Cugan only supports up to 4x scaling, setting scale to 4")
             multi = 4
-            
-        output = f"{filename_without_ext}_{str(multi)}.mp4"
-        output = os.path.join(input_dir, output)
         
         Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, tot_frame, model_type)
         
+    elif model_type == "swinir":
+        
+        if multi != 2 or 4:
+            print("Swinir only supports 2x and 4x scaling, setting scale to 2")
+            multi = 2
+            
+        Swin(video_file, output, model_type, multi, half, nt, kind_model, tot_frame)
+        
+    elif model_type == "compact" or model_type == "ultracompact":
+        
+        if multi > 2:
+            print("Compact only supports up to 2x scaling, setting scale to 2")
+            multi = 2
+        
+        Compact(video_file, output, multi, half, w, h, nt, tot_frame, model_type)
+        
     elif model_type == "dedup":
-        output = f"{filename_without_ext}_dedduped.mp4"
-        output = os.path.join(input_dir, output)
         
         Dedup(video_file, output, kind_model)
     
-    elif model_type == "swinir":
-        output = f"{filename_without_ext}_{str(multi)}.mp4"
-        output = os.path.join(input_dir, output)
-        
-        Swin(video_file, output, model_type, multi, half, nt, kind_model, tot_frame)
-        
     elif model_type == "segment":
-        output = f"{filename_without_ext}_segmented.mp4"
-        output = os.path.join(input_dir, output)
-        
-        Segment(video_file, output, kind_model, nt, half, w, h, tot_frame)
+        pass
+        #Segment(video_file, output, kind_model, nt, half, w, h, tot_frame)
     else:
-        sys.exit("Please specify a valid model type", model_type, "was not found")
+        sys.exit("Please select a valid model type", model_type, "was not found")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contact Sheet Generator")
@@ -79,5 +86,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if args.video is None:
-        sys.exit("Please specify a video file")
+        sys.exit("Please select a video file")
     main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt)

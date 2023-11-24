@@ -7,7 +7,6 @@ from torch import nn as nn
 import _thread
 from tqdm import tqdm
 from queue import Queue
-import sys
 import threading
 import cv2
 import time
@@ -19,31 +18,31 @@ https://github.com/styler00dollar/VSGAN-tensorrt-docker/blob/main/src/cugan.py
 
 @torch.inference_mode()
 class Cugan():
-    def __init__(self, video_file, output, scale, half, kind_model, pro, w, h, nt, tot_frame):
+    def __init__(self, video_file, output,multi, half, kind_model, pro, w, h, nt, tot_frame, model_type):
         self.video_file = video_file
         self.output = output
-        self.scale = scale
+        self.scale = multi
         self.half = half
         self.kind_model = kind_model
         self.pro = pro
-        self.w = int(w * scale)
-        self.h = int(h * scale)
+        self.w = w
+        self.h = h
         self.nt = nt
         self.tot_frame = tot_frame
+        self.model_type = model_type
         self.lock = threading.Lock()
-        
         self.handle_models()
         self._initialize()
         
         threads = []
         for _ in range(self.nt):
-            thread = CuganMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.vid_out, self.lock)
+            thread = CuganMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.lock)
             thread.start()
             threads.append(thread)
         
         for thread in threads:
             thread.join()
-        
+            
         while threading.active_count() > 1 and self.write_buffer.qsize() > 0:
             time.sleep(0.1)
             
@@ -51,21 +50,19 @@ class Cugan():
         self.vid_out.release()
         self.videogen.reader.close()
 
-        
     def handle_models(self):
-        model_path_prefix = "cugan_pro" if self.pro else "cugan"
-        model_path_suffix = "-latest" if not self.pro else ""
-        model_path_middle = f"up{self.scale}x"
-        
         if self.model_type == "shufflecugan":
             self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
             self.filename = "sudo_shuffle_cugan_9.584.969.pth"
         else:
+            model_path_prefix = "cugan_pro" if self.pro else "cugan"
+            model_path_suffix = "-latest" if not self.pro else ""
+            model_path_middle = f"up{self.scale}x"
             model_map = {
-                2: UpCunet2x,
-                3: UpCunet3x,
-                4: UpCunet4x
-            }
+                    2: UpCunet2x,
+                    3: UpCunet3x,
+                    4: UpCunet4x
+                }
             self.model = model_map[self.scale](in_channels=3, out_channels=3)
             self.filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{self.kind_model}.pth"
         
@@ -81,7 +78,7 @@ class Cugan():
                     file.write(response.content)
                     
     def _initialize(self):
-        
+
         model_path = os.path.abspath(os.path.join("src/cugan/weights", self.filename))
         
         self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
@@ -103,8 +100,7 @@ class Cugan():
         self.read_buffer = Queue(maxsize=500)
         
         self.videogen = VideoFileClip(self.video_file)
-        w, h = self.videogen.size
-        w_new, h_new = int(w * self.scale), int(h * self.scale)
+        w_new, h_new = int(self.w * self.scale), int(self.h * self.scale)
         fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
         self.vid_out = cv2.VideoWriter(self.output, fourcc, self.videogen.fps, (w_new, h_new))
         self.frames = self.videogen.iter_frames()
@@ -147,8 +143,10 @@ class CuganMT(threading.Thread):
             return self.model(frame)
         
     def process_frame(self, frame):
-        frame = frame.astype(np.float32) / 255.0
-        frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).cuda()
+        frame = frame.astype(np.float32) / 255.0 
+        frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0)
+        if torch.cuda.is_available():
+            frame = frame.cuda()
         frame = self.inference(frame)
         frame = frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
         frame = np.clip(frame * 255, 0, 255).astype(np.uint8)
@@ -159,9 +157,9 @@ class CuganMT(threading.Thread):
             frame = self.read_buffer.get()
             if frame is None:
                 break
-            result = self.process_frame(frame)
+            frame = self.process_frame(frame)
             with self.lock:
-                self.write_buffer.put(result)
+                self.write_buffer.put(frame)
 
 class SEBlock(nn.Module):
     def __init__(self, in_channels, reduction=8, bias=False):
