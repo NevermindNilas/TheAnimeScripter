@@ -46,7 +46,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
             print("Cugan only supports up to 4x scaling, auto setting scale to 4")
             multi = 4
         
-        Cugan(video_file, output, half, nt, model_type, pro, w, h, fps, multi, tot_frame, kind_model)
+        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, tot_frame, model_type)
         
     elif model_type == "swinir":
         

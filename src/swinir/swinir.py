@@ -50,7 +50,7 @@ class Swin():
         if self.kind_model == None:
             sys.exit("Please specify a model type")
             
-        elif self.kind_model != "small" and "medium" and "large":
+        elif self.kind_model != "small" and self.kind_model != "medium" and self.kind_model != "large":
             sys.exit("Invalid kind_model type, please choose from: small, medium or large")
             
         model_type = {
@@ -59,7 +59,7 @@ class Swin():
             'large': f'003_realSR_BSRGAN_DFO_s64w8_SwinIR-M_x4_GAN.pth'
         }
 
-        if self.kind_model == "Large" and self.scale != 4:
+        if self.kind_model == "large" and self.scale != 4:
             sys.exit("Large model only support scale 4")
         
         model_hyperparams = {'upscale': self.scale, 'in_chans': 3, 'img_size': 64, 'window_size': 8,
@@ -182,7 +182,7 @@ class SwinMT(threading.Thread):
         frame = frame.astype(np.float32) / 255.0
         frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).cuda()
         if self.w % 8 != 0 or self.h % 8 != 0:
-            frame = self._pad_image(frame)
+            frame = self.pad_image(frame)
         frame = self.inference(frame)
         frame = frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
         frame = np.clip(frame * 255, 0, 255).astype(np.uint8)
