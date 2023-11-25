@@ -50,7 +50,7 @@ class Swin():
         if self.kind_model == None:
             sys.exit("Please specify a model type")
             
-        elif self.kind_model != "small" or "medium" or "large":
+        elif self.kind_model != "small" and "medium" and "large":
             sys.exit("Invalid kind_model type, please choose from: small, medium or large")
             
         model_type = {

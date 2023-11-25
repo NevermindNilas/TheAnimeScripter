@@ -1,4 +1,4 @@
-import os, torch, threading, time, requests, _thread, numpy as np
+import os, torch, threading, time, requests, _thread, numpy as np, concurrent.futures
 
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
@@ -7,7 +7,7 @@ from multiprocessing import Queue
 from .cugan_arch import UpCunet2x, UpCunet3x, UpCunet4x, UpCunet2x_fast
 
 class Cugan:
-    def __init__(self, video, output, half, nt, model_type, pro, w, h, fps, scale, tot_frame, model):
+    def __init__(self, video, output, half, nt, model_type, pro, w, h, fps, scale, tot_frame, kind_model):
         self.video = video
         self.output = output
         self.half = half
@@ -19,11 +19,21 @@ class Cugan:
         self.fps = fps
         self.scale = scale
         self.tot_frame = tot_frame
-        self.model = model
+        self.kind_model = kind_model
         self.processed_frames = {}
         
         self.initialize()
-    
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.nt) as executor:
+            for _ in range(self.nt):
+                executor.submit(CuganMT(self.model, self.read_buffer, self.processed_frames, self.half).run)
+                
+        while concurrent.futures.ThreadPoolExecutor()._work_queue.qsize() > 0:
+            time.sleep(0.1)
+        
+        self.writer.close()
+        self.pbar.close()
+        
     def handle_model(self):
         if self.model_type == "shufflecugan":
             self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
@@ -62,20 +72,9 @@ class Cugan:
             torch.backends.cudnn.benchmark = True
             if self.half:
                 torch.set_default_tensor_type(torch.cuda.HalfTensor)
-                    
-    def start_threads(self):
-        threads = []
-        for _ in range(self.nt):
-            thread = threading.Thread(target=self.process_frames, args=(self.model, self.read_buffer, self.processed_frames, self.half))
-            thread.start()
-            threads.append(thread)
-        
-        for thread in threads:
-            thread.join()
     
     def initialize(self):
         self.handle_model()
-        self.start_threads()
         
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
@@ -84,8 +83,9 @@ class Cugan:
         
         self.read_buffer = Queue(maxsize=500)
         _thread.start_new_thread(self.build_buffer, ())
-        _thread.start_new_thread(self.write_buffer, ())
+        _thread.start_new_thread(self.write_thread, ())
         
+
     def build_buffer(self):
         try:
             for index, frame in enumerate(self.frames):
@@ -97,32 +97,30 @@ class Cugan:
                 self.read_buffer.put(None)
         self.video.close()
             
-    def write_buffer(self):
+    def write_thread(self):
         processing_index = 0
-        time.sleep(1) # Allowing some frames to be built in the buffer before writing
         while True:
-            if processing_index not in self.proccessed_frames:
-                break
+            if processing_index not in self.processed_frames:
+                if None in self.processed_frames:
+                    break
+                time.sleep(0.1)
+                continue
             self.writer.write_frame(self.processed_frames[processing_index])
             del self.processed_frames[processing_index]
             self.pbar.update(1)
             processing_index += 1
         
-        self.pbar.close()
-        self.writer.close()
-
 class CuganMT(threading.Thread):
     def __init__(self, model, read_buffer, processed_frames, half):
-        threading.Thread.__init__(self)
         self.model = model
         self.read_buffer = read_buffer
         self.processed_frames = processed_frames
         self.half = half
-    
+
     def inference(self, frame):
-        if self.half:
-            frame = frame.half()
-        with torch.no_grad():
+        with torch.inference_mode():
+            if self.half:
+                frame = frame.half()
             return self.model(frame)
         
     def process_frame(self, frame):
@@ -141,5 +139,4 @@ class CuganMT(threading.Thread):
             if index is None:
                 break
             frame = self.process_frame(frame)
-            with self.lock:
-                self.processed_frames.put(index,frame)
+            self.processed_frames[index] = frame
