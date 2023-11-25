@@ -1,6 +1,5 @@
 import os
 import subprocess
-import static_ffmpeg
 import numpy as np
 import _thread
 from torch.nn import functional as F
@@ -8,15 +7,13 @@ from skimage.metrics import structural_similarity as ssim
 from queue import Queue
 
 class Dedup():
-    def __init__(self, video, output, kind_model, inputdict, outputdict):
+    def __init__(self, video, output, kind_model):
         self.video = video
         self.output = output
         self.kind_model = kind_model
-        self.inputdict = inputdict
-        self.outputdict = outputdict
         
-        if self.kind_model == "mpdecimate":
-            self.mpdecimate()
+        if self.kind_model == "ffmpeg":
+            self.ffmpeg()
         elif self.kind_model == "ssim":
             pass
             #self.ssim()
@@ -25,8 +22,8 @@ class Dedup():
         elif self.kind_model == "vmaf":
             self.vmaf()
     
-    def mpdecimate(self):
-        subprocess.call(["static_ffmpeg", "-i", self.video, "-vf", "mpdecimate", "-loglevel", "error", "-stats", "-y", self.output])
+    def ffmpeg(self):
+        subprocess.call(["static_ffmpeg", "-i", self.video, "-vf", "mpdecimate", "-v", "quiet", "-stats", "-y", self.output])
     def hash(self):
         pass
     def vmaf(self):
