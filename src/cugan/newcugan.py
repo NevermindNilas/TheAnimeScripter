@@ -1,5 +1,4 @@
-import os, torch, threading, time, requests
-import numpy as np
+import os, torch, threading, time, requests, _thread, numpy as np
 
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
@@ -84,6 +83,8 @@ class Cugan:
         self.pbar = tqdm(total=self.tot_frame, desc="Writing frames", unit="frames")
         
         self.read_buffer = Queue(maxsize=500)
+        _thread.start_new_thread(self.build_buffer, ())
+        _thread.start_new_thread(self.write_buffer, ())
         
     def build_buffer(self):
         try:
