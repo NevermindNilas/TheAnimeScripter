@@ -14,7 +14,6 @@ import time
 from moviepy.editor import VideoFileClip
 from .srvgg_arch import SRVGGNetCompact
 
-@torch.inference_mode()
 class Compact():
     def __init__(self,video_file, output, multi, half, w, h, nt, tot_frame, model_type):
         self.video_file = video_file
@@ -60,12 +59,12 @@ class Compact():
                 if response.status_code == 200:
                     with open(os.path.join("src/compact/weights", self.filename), "wb") as file:
                         file.write(response.content)
-        else:
-            self.model_type = "ultracompact"
-            self.filename = "sudo_shuffle_cugan_9.584.969.pth"
+                        
+        elif self.model_type == "ultracompact":
+            self.filename = "sudo_UltraCompact_2x_1.121.175_G.pth"
             if not os.path.exists(os.path.join(os.path.abspath("src/compact/weights"), self.filename)):
                 print("Downloading UltraCompact model...")
-                url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/sudo_shuffle_cugan_9.584.969.pth"
+                url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/sudo_UltraCompact_2x_1.121.175_G.pth"
                 response = requests.get(url)
                 if response.status_code == 200:
                     with open(os.path.join("src/compact/weights", self.filename), "wb") as file:
