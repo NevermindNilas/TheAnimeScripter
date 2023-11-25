@@ -28,7 +28,7 @@ Otherwise, run:
 
 RIFE:
 ```py
-- python main.py -video video_name_here -model_type rife
+- python main.py -video video_name_here -model_type rife -multi 2
 ```
 
 CUGAN:
@@ -71,7 +71,7 @@ Segment:
 ```
 -video :str      - Takes full path of input file.
 
--model_type :str - Can be Rife, Cugan, ShuffleCugan, Compact(N/A), SwinIR, Dedup, Segment (N/A), UltraCompact (N/A).
+-model_type :str - Can be: Rife, Cugan, ShuffleCugan, Compact, SwinIR, Dedup, Segment (N/A), UltraCompact (N/A).
 
 -half :bool      - Set to True by default, utilizes FP16, more performance for free generally.
 
@@ -95,10 +95,12 @@ Segment:
 
 # Acknowledgements
 
-- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code
+- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code and shufflecugan models
 - [HZWER](https://github.com/hzwer/Practical-RIFE) - For Rife
 - [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) - For Cugan
 - [JingyunLiang](https://github.com/JingyunLiang/SwinIR) - For SwinIR
+- [Bubble](https://github.com/Bubblemint864/AI-Models) - For the compact and soon swinir model
+- [Xintao](https://github.com/xinntao/Real-ESRGAN) - for Realesrgan, specifically compact arch
 
 # Benchmarks
 
@@ -115,8 +117,8 @@ In no particular order:
 - Create a scriptUI for After Effects.
 - Remove the need for BGR to RGB conversion..
 
+- Maybe look for better means of encoding using moviepy. (newcugan.py)
 - Maybe add TRT.
-- Maybe look for better means of encoding using moviepy or vidgear..
 - Maybe add HAT.
 
 # Done.
