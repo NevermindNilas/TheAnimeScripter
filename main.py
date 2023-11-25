@@ -39,19 +39,19 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
     elif model_type == "cugan" or model_type == "shufflecugan":
         
         if model_type == "shufflecugan" and multi != 2:
-            print("The only scale that Shufflecugan works with is 2x, setting scale to 2")
+            print("The only scale that Shufflecugan works with is 2x, auto setting scale to 2")
             multi = 2
         
         if multi > 4:
-            print("Cugan only supports up to 4x scaling, setting scale to 4")
+            print("Cugan only supports up to 4x scaling, auto setting scale to 4")
             multi = 4
         
-        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, tot_frame, model_type)
+        Cugan(video_file, output, half, nt, model_type, pro, w, h, fps, multi, tot_frame, kind_model)
         
     elif model_type == "swinir":
         
-        if multi != 2 or 4:
-            print("Swinir only supports 2x and 4x scaling, setting scale to 2")
+        if multi != 2 and multi != 4:
+            print("Swinir only supports 2x and 4x scaling, auto setting scale to 2")
             multi = 2
             
         Swin(video_file, output, model_type, multi, half, nt, kind_model, tot_frame)
@@ -59,7 +59,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
     elif model_type == "compact" or model_type == "ultracompact":
         
         if multi > 2:
-            print("Compact only supports up to 2x scaling, setting scale to 2")
+            print("Compact only supports up to 2x scaling, auto setting scale to 2")
             multi = 2
         
         Compact(video_file, output, multi, half, w, h, nt, tot_frame, model_type)
