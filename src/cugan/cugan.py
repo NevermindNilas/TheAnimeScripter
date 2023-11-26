@@ -137,7 +137,9 @@ class CuganMT(threading.Thread):
         self.lock = lock
         self.w = w
         self.h = h
-
+        self.cuda_available = torch.cuda.is_available()
+        self.padding = (0, 8 - self.w % 8, 0, 8 - self.h % 8) if self.w % 8 != 0 or self.h % 8 != 0 else (0, 0, 0, 0)
+        
     def inference(self, frame):
         if self.half:
             frame = frame.half()
@@ -147,10 +149,10 @@ class CuganMT(threading.Thread):
     def process_frame(self, frame):
         frame = frame.astype(np.float32) / 255.0 
         frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0)
-        if torch.cuda.is_available():
+        if self.cuda_available:
             frame = frame.cuda()
-        if self.w % 8 != 0 or self.h % 8 != 0: # extra padding to make sure the size is divisible by 8 if needed
-            frame = F.pad(frame, (0, 8 - self.w % 8, 0, 8 - self.h % 8))
+        if self.padding != (0, 0, 0, 0):
+            frame = F.pad(frame, (0, 8 - self.w % 8, 0, 8 - self.h % 8)) # extra padding to avoid weird resolutions
         frame = self.inference(frame)
         frame = frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
         frame = np.clip(frame * 255, 0, 255).astype(np.uint8)
