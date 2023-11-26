@@ -36,7 +36,7 @@ class Cugan():
         
         threads = []
         for _ in range(self.nt):
-            thread = CuganMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.lock)
+            thread = CuganMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.lock, self.w, self.h)
             thread.start()
             threads.append(thread)
         
@@ -126,7 +126,7 @@ class Cugan():
             self.read_buffer.put(None)
 
 class CuganMT(threading.Thread):
-    def __init__(self, device, model, nt, half, read_buffer, write_buffer, lock):
+    def __init__(self, device, model, nt, half, read_buffer, write_buffer, lock, w, h):
         threading.Thread.__init__(self)
         self.device = device
         self.model = model
@@ -135,7 +135,9 @@ class CuganMT(threading.Thread):
         self.read_buffer = read_buffer
         self.write_buffer = write_buffer
         self.lock = lock
-    
+        self.w = w
+        self.h = h
+
     def inference(self, frame):
         if self.half:
             frame = frame.half()
@@ -147,6 +149,8 @@ class CuganMT(threading.Thread):
         frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0)
         if torch.cuda.is_available():
             frame = frame.cuda()
+        if self.w % 8 != 0 or self.h % 8 != 0: # extra padding to make sure the size is divisible by 8 if needed
+            frame = F.pad(frame, (0, 8 - self.w % 8, 0, 8 - self.h % 8))
         frame = self.inference(frame)
         frame = frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
         frame = np.clip(frame * 255, 0, 255).astype(np.uint8)

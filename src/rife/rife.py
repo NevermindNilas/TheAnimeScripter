@@ -8,6 +8,7 @@ from queue import Queue
 from .pytorch_msssim import ssim_matlab
 import time
 from moviepy.editor import VideoFileClip
+import os
 
 
 '''
@@ -15,9 +16,8 @@ Credit: https://github.com/hzwer/Practical-RIFE/blob/main/inference_video.py
 '''
 
 @torch.inference_mode()
-
 class Rife():
-    def __init__(self, video, output, UHD, scale, multi, half, w, h, nt, fps, tot_frame):
+    def __init__(self, video, output, UHD, scale, multi, half, w, h, nt, fps, tot_frame, kind_model):
         self.video = video
         self.output = output
         self.half = half
@@ -30,8 +30,34 @@ class Rife():
         self.nt = nt
         self.fps = fps
         self.tot_frame = tot_frame
+        self.kind_model = kind_model
         
+        #self.handle_models()
         self._initialize()
+    
+    '''def handle_models():
+        map_models = {
+            "4.0":,
+            "4.1",
+            "4.2",
+            "4.3",
+            "4.4",
+            "4.5",
+            "4.6",
+            "4.7",
+            "4.8",
+            "4.9",
+            "4.10",
+            "4.11",
+            "4.12",
+            "4.12.lite",
+        }
+        
+        modelDir = 'src/rife/weights'
+        if not os.path.exists(modelDir):
+            os.makedirs(modelDir)
+            
+        pass'''
     
     def _initialize(self):
         if self.UHD == True and self.scale == 1.0:
@@ -48,7 +74,8 @@ class Rife():
         try:
             from src.rife.RIFE_HDv3 import Model
         except:
-            print("Please download our model from the model list")
+            raise Exception("Cannot load RIFE model, please check your weights")
+        
         self.model = Model()
         if not hasattr(self.model, 'version'):
             self.model.version = 0
@@ -78,9 +105,8 @@ class Rife():
         while True:
             frame = self.write_buffer.get()
             if frame is None:
-                print("BREAKS")
                 break
-            self.pbar.update(1)
+            self.pbar.update(1/self.multi)
             self.vid_out.write(frame[:, :, ::-1])
         
     def _build_read_buffer(self):
@@ -166,7 +192,6 @@ class Rife():
                 mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
                 self.write_buffer.put(mid[:self.h, :self.w])
 
-            self.pbar.update(1)
             self.lastframe = frame
             if break_flag:
                 break

@@ -11,7 +11,6 @@ from .loss import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 class Model:
     def __init__(self, local_rank=-1):
         self.flownet = IFNet()
