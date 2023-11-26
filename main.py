@@ -10,7 +10,7 @@ from src.swinir.swinir import Swin
 from src.compact.compact import Compact
 import cv2
 
-os.environ["CUDA_MODULE_LOADING"] = "LAZY"
+#os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 
 def generate_output_filename(input_dir, filename_without_ext, extension):
     return os.path.join(input_dir, f"{filename_without_ext}_{extension}.mp4")
@@ -62,7 +62,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
             print("Swinir only supports 2x and 4x scaling, auto setting scale to 2")
             multi = 2
             
-        Swin(video_file, output, model_type, multi, half, nt, kind_model, tot_frame)
+        Swin(video_file, output, model_type, multi, half, nt, w, h, fps, kind_model, tot_frame)
         
     elif model_type == "compact" or model_type == "ultracompact":
         
@@ -70,7 +70,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
             print("Compact only supports up to 2x scaling, auto setting scale to 2")
             multi = 2
         
-        Compact(video_file, output, multi, half, w, h, nt, tot_frame, model_type)
+        Compact(video_file, output, multi, half, w, h, nt, tot_frame, fps, model_type)
         
     elif model_type == "dedup":
         
