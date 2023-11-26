@@ -115,11 +115,7 @@ In no particular order:
 - Add Segmentation ( HALF ADDED ).
 - Add more ways of dedupping.
 - Create a scriptUI for After Effects.
-- Remove the need for BGR to RGB conversion..
-
-- Maybe look for better means of encoding using moviepy. (newcugan.py)
 - Maybe add TRT.
-- Maybe add HAT.
 
 # Done.
 
@@ -138,3 +134,4 @@ In no particular order:
 - Added scripts to make it easier to get things going.
 - Added SwinIR.
 - Added Compact, half baked ultracompact.
+- Added FFMPEG Encoding using moviepy to Cugan - with more to come

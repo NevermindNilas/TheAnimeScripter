@@ -15,38 +15,21 @@ class Dedup():
         if self.kind_model == "ffmpeg":
             self.ffmpeg()
         elif self.kind_model == "ssim":
-            pass
-            #self.ssim()
+            self.ssim()
         elif self.kind_model == "hash":
             self.hash()
         elif self.kind_model == "vmaf":
             self.vmaf()
     
     def ffmpeg(self):
-        subprocess.call(["static_ffmpeg", "-i", self.video, "-vf", "mpdecimate", "-v", "quiet", "-stats", "-y", self.output])
+        print("The output is 1 second long only to avoid Variable Framerate issues if further processing is wanted.")
+        subprocess.call(["static_ffmpeg", "-i", self.video, "-vf", "mpdecimate,setpts=N/FRAME_RATE/TB", "-t", "1", "-v", "quiet", "-stats", "-y", self.output])
     def hash(self):
         pass
     def vmaf(self):
         pass 
-    '''def ssim(self):
-        self.read_buffer = Queue(maxsize=500)
-        _thread.start_new_thread(self._build_read_buffer, ())
-        videogen = skvideo.io.vreader(self.video)
-        video_out = skvideo.io.FFmpegWriter(self.output)
-        prev_frame = None
-        for frame in videogen:
-            small = F.interpolate(frame, (32, 32), mode='bilinear', align_corners=False)
-            if prev_frame is not None:
-                ssim_value = ssim(prev_frame, small)
-                if ssim_value < 0.9:
-                    skvideo.io.vwrite(self.output, frame)
-        
-    def _build_read_buffer(self):
-        try:
-            for frame in self.videogen:
-                self.read_buffer.put(frame)
-        except:
-            pass
-        self.read_buffer.put(None)'''
+    def ssim(self):
+        pass
+
 
     
