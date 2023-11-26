@@ -10,7 +10,7 @@ from src.swinir.swinir import Swin
 from src.compact.compact import Compact
 import cv2
 
-#os.environ["CUDA_MODULE_LOADING"] = "LAZY"
+os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 
 def generate_output_filename(input_dir, filename_without_ext, extension):
     return os.path.join(input_dir, f"{filename_without_ext}_{extension}.mp4")
@@ -32,7 +32,8 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
     model_type = model_type.lower()
     
     if h > 1080:
-        print("If you are using CUDA, you might run into CUDA out of memory errors, if so, try to lower the multithread size, autotiling will be added in the future to avoid this issue")
+        print("If you are using CUDA, you might run into CUDA out of memory errors,")
+        print("if that's the case, try to lower the multithread size, autotiling will be added in the future to avoid this issue")
     
     if model_type == "rife":
 
