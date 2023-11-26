@@ -48,7 +48,7 @@ Compact:
 
 UltraCompact:
 ```py
-- To be Added
+- python main.py -video video_name_here -model_type ultracompact -multi 2 -nt 4
 ```
 
 SwinIR:
@@ -95,12 +95,12 @@ Segment:
 
 # Acknowledgements
 
-- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code and shufflecugan models
-- [HZWER](https://github.com/hzwer/Practical-RIFE) - For Rife
-- [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) - For Cugan
-- [JingyunLiang](https://github.com/JingyunLiang/SwinIR) - For SwinIR
-- [Bubble](https://github.com/Bubblemint864/AI-Models) - For the compact and soon swinir model
-- [Xintao](https://github.com/xinntao/Real-ESRGAN) - for Realesrgan, specifically compact arch
+- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code and providing his models.
+- [HZWER](https://github.com/hzwer/Practical-RIFE) - For Rife.
+- [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) - For Cugan.
+- [JingyunLiang](https://github.com/JingyunLiang/SwinIR) - For SwinIR.
+- [Bubble](https://github.com/Bubblemint864/AI-Models) - For the compact and soon swinir model.
+- [Xintao](https://github.com/xinntao/Real-ESRGAN) - for Realesrgan, specifically compact arch.
 
 # Benchmarks
 
@@ -111,19 +111,17 @@ Segment:
 In no particular order:
 - Provide a bundled version with all of the dependencies.
 - Add Rife NCNN Vulkan.
-- Fix UltraCompact issues.
 - Add Segmentation ( HALF ADDED ).
-- Add more ways of dedupping.
 - Create a scriptUI for After Effects.
 - Maybe add TRT.
 
 # Done.
 
-- Added Rife implementation.
-- Added Cugan Upscaling.
-- Added Cugan Multithreading.
+- [Massive] Added Rife interpolation
+- [Massive] Added Cugan Upscaling.
+- [Massive] Added Cugan Multithreading.
 - Added Frame deduplication.
-- Added Shuffle Cugan - 50% faster for the same quality.
+- [Massive] Added Shuffle Cugan - 50% faster for the same quality.
 - Removed unnecessary implementations like frame-by-frame output.
 - Fixed rife output issues.
 - Increased performance for Rife ever so slightly.
@@ -132,6 +130,9 @@ In no particular order:
 - kind-model now defaults to shufflecugan.
 - Fixed issue when input path has spaces.
 - Added scripts to make it easier to get things going.
-- Added SwinIR.
-- Added Compact, half baked ultracompact.
-- Added FFMPEG Encoding using moviepy to Cugan - with more to come
+- [Massive] Added SwinIR.
+- [Massive] Added Compact
+- [Massive] Added FFMPEG Encoding using moviepy.
+- [Massive] Added Ultracompact
+- [Massive] Improved the speed of Inference by upwards of 50% from personal testing!
+- Fixed issue where the last nt frames wouldn't be processed.

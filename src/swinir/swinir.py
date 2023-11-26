@@ -1,48 +1,40 @@
-import os
-import requests
-import numpy as np
-import torch
-from torch.nn import functional as F
+import os, requests, numpy as np, torch, _thread, threading, cv2, time, concurrent.futures, sys
+
 from torch import nn as nn
-import _thread
 from tqdm import tqdm
 from queue import Queue
-import sys
-import threading
-import cv2
-import time
 from moviepy.editor import VideoFileClip
+from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
+
 from .network import SwinIR as SwinIR_model
 
 class Swin():
-    def __init__(self, video_file, output, model_type, scale, half, nt, kind_model, tot_frame):
-        self.video_file = video_file
+    def __init__(self, video, output, model_type, scale, half, nt, w, h, fps, kind_model, tot_frame):
+        self.video = video
         self.output = output
         self.model_type = model_type
         self.scale = scale
         self.half = half
         self.nt = nt
+        self.w = w
+        self.h = h
+        self.fps = fps
         self.kind_model = kind_model
         self.tot_frame = tot_frame
-        self.lock = threading.Lock()
+        self.processed_frames = {}
         
+        self.handle_models()
         self._initialize()
         
-        threads = []
-        for _ in range(self.nt):
-            thread = SwinMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.vid_out, self.lock, self.h, self.w)
-            thread.start()
-            threads.append(thread)
-        
-        for thread in threads:
-            thread.join()
-        
-        while threading.active_count() > 1 and self.write_buffer.qsize() > 0:
+        self.threads_are_running = True
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.nt) as executor:
+            for _ in range(self.nt):
+                executor.submit(SwinMT(self.model, self.read_buffer, self.processed_frames, self.half, self.h, self.w).run)
+                
+        while self.processing_index < self.tot_frame:
             time.sleep(0.1)
-            
-        self.pbar.close()
-        self.vid_out.release()
-        self.videogen.reader.close()
+
+        self.threads_are_running = False
     
     def handle_models(self):
         
@@ -102,97 +94,95 @@ class Swin():
         return self.model, self.pretrained_weights
                     
     def _initialize(self):  
-        self.handle_models()
         
         self.model.load_state_dict(self.pretrained_weights, strict=True)
-        self.model.eval()
+        self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()
+        
+        if self.half:
+            self.model.half()
+        
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
+        torch.set_grad_enabled(False)
         if torch.cuda.is_available():
-            self.model.cuda()
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
                 torch.set_default_tensor_type(torch.cuda.HalfTensor)
-                self.model.half()
     
-        self.pbar = tqdm(total=self.tot_frame)
-        self.write_buffer = Queue(maxsize=500)
+        
+        self.video = VideoFileClip(self.video)
+        self.frames = self.video.iter_frames()
+        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps)
+        self.pbar = tqdm(total=self.tot_frame, desc="Writing frames", unit="frames")
+        
         self.read_buffer = Queue(maxsize=500)
+        _thread.start_new_thread(self.build_buffer, ())
+        _thread.start_new_thread(self.write_thread, ())
         
-        self.videogen = VideoFileClip(self.video_file)
-        self.w, self.h = self.videogen.size
-        self.w_new, self.h_new = int(self.w * self.scale), int(self.h * self.scale)
-        fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-        self.vid_out = cv2.VideoWriter(self.output, fourcc, self.videogen.fps, (self.w_new, self.h_new))
-        self.frames = self.videogen.iter_frames()
-        
-        _thread.start_new_thread(self._build_read_buffer, ())
-        _thread.start_new_thread(self._clear_write_buffer, ())
-        
-    def _clear_write_buffer(self):
-        while True:
-            frame = self.write_buffer.get()
-            if frame is None:
-                break
-            self.pbar.update(1)
-            self.vid_out.write(frame[:, :, ::-1])
-        
-    def _build_read_buffer(self):
-        try:
-            for frame in self.frames:
-                self.read_buffer.put(frame)
-        except:
-            pass
+    def build_buffer(self):
+        for index, frame in enumerate(self.frames):
+                if frame is None:
+                    break
+                self.read_buffer.put((index, frame))
+                
         for _ in range(self.nt):
-            self.read_buffer.put(None)
-    
-    def make_inference(self, frame):
-        if self.half:
-            frame = frame.half()
-        return self.model(frame)
+                self.read_buffer.put(None)
+        self.video.close()
+            
+    def write_thread(self):
+        self.processing_index = 0
+        while True:
+            if self.processing_index not in self.processed_frames:
+                if self.processed_frames.get(self.processing_index) is None and self.threads_are_running is False:
+                    break
+                time.sleep(0.1)
+                continue
+            self.pbar.update(1)
+            self.writer.write_frame(self.processed_frames[self.processing_index])
+            del self.processed_frames[self.processing_index]
+            self.processing_index += 1
+        self.writer.close()
+        self.pbar.close()
     
 class SwinMT(threading.Thread):
-    def __init__(self, device, model, nt, half, read_buffer, write_buffer, vid_out, lock, h, w):
-        threading.Thread.__init__(self)
-        self.device = device
+    def __init__(self, model, read_buffer, processed_frames, half, h, w):
         self.model = model
-        self.nt = nt
         self.half = half
         self.read_buffer = read_buffer
-        self.write_buffer = write_buffer
-        self.vid_out = vid_out
-        self.lock = lock
         self.h = h
         self.w = w
-    
+        self.processed_frames = processed_frames
+        self.cuda_available = torch.cuda.is_available()
+        if self.cuda_available:
+            self.model = self.model.cuda()
+
     def inference(self, frame):
         if self.half:
             frame = frame.half()
         with torch.no_grad():
             return self.model(frame)
-    
+
     def pad_frame(self, frame):
         frame = torch.cat([frame, torch.flip(frame, [2])], 2)[:, :, :self.h, :]
         frame = torch.cat([frame, torch.flip(frame, [3])], 3)[:, :, :, :self.w]
         return frame
-    
+
     def process_frame(self, frame):
-        frame = frame.astype(np.float32) / 255.0
-        frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).cuda()
+        frame = torch.from_numpy(frame.astype(np.float32)).permute(2, 0, 1).unsqueeze(0).div_(255)
+        if self.cuda_available:
+            frame = frame.cuda()
         if self.w % 8 != 0 or self.h % 8 != 0:
-            frame = self.pad_image(frame)
+            frame = self.pad_frame(frame)
         frame = self.inference(frame)
-        frame = frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
-        frame = np.clip(frame * 255, 0, 255).astype(np.uint8)
-        return frame
-    
+        frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
+        return frame.cpu().numpy()
+
     def run(self):  
         while True:
-            frame = self.read_buffer.get()
-            if frame is None:
+            index, frame = self.read_buffer.get()
+            if index is None:
                 break
-            result = self.process_frame(frame)
-            with self.lock:
-                self.write_buffer.put(result)
+            frame = self.process_frame(frame)
+            self.processed_frames[index] = frame
