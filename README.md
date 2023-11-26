@@ -8,7 +8,7 @@
 
 ### Automated Installation
 
-If Python 3.11 isn't installed in your system, run the file and make sure that Python is added to your system path:
+If Python 3.11 isn't installed in your system, run this file:
 
 ```setup.bat```
 
