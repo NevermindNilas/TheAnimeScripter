@@ -81,7 +81,7 @@ class Cugan:
         
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
-        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps) # barebones video writer
+        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps)
         self.pbar = tqdm(total=self.tot_frame, desc="Writing frames", unit="frames")
         
         self.read_buffer = Queue(maxsize=500)
@@ -113,30 +113,30 @@ class Cugan:
         self.writer.close()
         self.pbar.close()
         
-class CuganMT(threading.Thread):
+class CuganMT():
     def __init__(self, model, read_buffer, processed_frames, half):
         self.model = model
         self.read_buffer = read_buffer
         self.processed_frames = processed_frames
         self.half = half
         self.cuda_available = torch.cuda.is_available()
+        if self.cuda_available:
+            self.model = self.model.cuda()
 
     def inference(self, frame):
-        with torch.inference_mode():
+        with torch.no_grad():
             if self.half:
                 frame = frame.half()
             return self.model(frame)
-        
+
     def process_frame(self, frame):
-        frame = frame.astype(np.float32) / 255.0 
-        frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0)
+        frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float().div_(255)
         if self.cuda_available:
             frame = frame.cuda()
         frame = self.inference(frame)
-        frame = frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
-        frame = np.clip(frame * 255, 0, 255).astype(np.uint8)
-        return frame
-    
+        frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
+        return frame.cpu().numpy()
+
     def run(self):  
         while True:
             index, frame = self.read_buffer.get()
