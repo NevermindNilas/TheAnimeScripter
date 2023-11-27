@@ -1,148 +1,100 @@
-import os
-import requests
-import torch
+import os, torch, threading, time, _thread, concurrent.futures
+
+from rembg import remove, new_session
+from torch.cuda import amp
 from torch.nn import functional as F
-from torch import nn as nn
-import _thread
-from queue import Queue
-import time
-import cv2
-import threading
-import numpy as np
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
-import sys
+from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
+from multiprocessing import Queue
 
-from train import AnimeSegmentation
-
-@torch.inference_mode()
 class Segment():
-    def __init__(self, video, output, kind_model, nt, half, w, h, tot_frame):
+    def __init__(self, video, output, nt, half, w, h, fps, tot_frame, kind_model):
         self.video = video
         self.output = output
-        self.kind_model = kind_model
         self.nt = nt
         self.half = half
         self.w = w
         self.h = h
+        self.fps = fps
         self.tot_frame = tot_frame
+        self.kind_model = kind_model
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.lock = threading.Lock()
-        
-        self.handle_models()
-        self._initialize()
-        
-        threads = []
-        for _ in range(self.nt):
-            thread = SegmentMT(self.device, self.model, self.nt, self.half, self.read_buffer, self.write_buffer, self.lock)
-            thread.start()
-            threads.append(thread)
+        self.processed_frames = {}
+        self.threads_are_running = True
 
-        for thread in threads:
-            thread.join()
-        
-        while threading.active_count() > 1 and self.write.qsize() > 0:
+        self.initialize()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.nt) as executor:
+            for _ in range(self.nt):
+                executor.submit(SegmentMT(self.read_buffer, self.processed_frames, self.kind_model).run)
+                
+        while self.processing_index < self.tot_frame:
             time.sleep(0.1)
         
-        self.pbar.close()
-        self.vid_out.release()
-        self.videogen.reader.close()
+        self.threads_are_running = False
         
-        def handle_models(self):
-            if not os.path.exists("src/segment/models"):
-                os.mkdir("src/segment/models")
-                
-
-            if not os.path.exists(os.path.join(os.path.abspath("src/segment/models"), "isnetis.ckpt" )):
-                print("Downloading segment checkpoint...")
-                url = f"https://huggingface.co/skytnt/anime-seg/resolve/main/isnetis.ckpt?download=true"
-                response = requests.get(url)
-                if response.status_code == 200:
-                    with open(os.path.join("src/segment/models", "isnetic.ckpt"), 'wb') as f:
-                        f.write(response.content)
-            
-            models = [
-                "isnet_is",
-                "isnet",
-                "u2net",
-                "u2netl",
-                "modnet",
-                "inspyrnet_res",
-                "inspyrnet_swin"
-            ]
-            
-            if kind_model not in models:
-                print("Invalid model name, please choose between:")
-                print(models)
-                sys.exit()
-                
-            if self.w >= 1024 or self.h >= 1024 and self.kind_model != "isnet_is" or "isnet":
-                print("For resolutions above 1024, it is recommended to use isnet or isnet_is")
-            elif 384 < self.w < 1024 or 384 < self.h < 1024 and self.kind_model != "u2net" or "u2netl" or "modnet":
-                print("For resolution between 384 and 1024, it is recommended to use u2net, u2netl or modnet")
-            elif self.w <= 384 or self.h <= 384 and self.kind_model != "inspyrnet_res" or "inspyrnet_swin":
-                print("For resolutions below 384, it is recommended to use inspyrnet_res or inspyrnet_swin")
-            
-        def _initialize(self):
-            
-            self.model = AnimeSegmentation(self.kind_model, self.w) if self.w > self.h else AnimeSegmentation(self.kind_model, self.h)
-
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            if torch.cuda.is_available():
-                torch.backends.cudnn.enabled = True
-                torch.backends.cudnn.benchmark = True
-                if self.half:
-                    torch.set_default_tensor_type(torch.cuda.HalfTensor)
-            
-            self.pbar = tqdm(total=self.tot_frame)
-            self.write_buffer = Queue(maxsize=500)
-            self.read_buffer = Queue(maxsize=500)
-            
-            self.videogen = VideoFileClip(self.video_file)
-            fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-            self.vid_out = cv2.VideoWriter(self.output, fourcc, self.videogen.fps, (w, h))
-            self.frames = self.videogen.iter_frames()
-            
-            _thread.start_new_thread(self._build_read_buffer, ())
-            _thread.start_new_thread(self._clear_write_buffer, ())
+    def initialize(self):
         
-        def _clear_write_buffer(self):
-            while True:
-                frame = self.write_buffer.get()
+        self.pbar = tqdm(total=self.tot_frame)
+        self.read_buffer = Queue(maxsize=500)
+        self.video = VideoFileClip(self.video)
+        self.frames = self.video.iter_frames()
+        self.writer = FFMPEG_VideoWriter(self.output, (self.w, self.h), self.fps, codec="png",
+                                     preset="medium", withmask=True)
+        
+        _thread.start_new_thread(self.build_buffer, ())
+        _thread.start_new_thread(self.write_thread, ())
+        
+    def build_buffer(self):
+        for index, frame in enumerate(self.frames):
                 if frame is None:
                     break
-                self.pbar.update(1)
-                self.vid_out.write(frame[:, :, ::-1])
-            
-        def _build_read_buffer(self):
-            try:
-                for frame in self.frames:
-                    self.read_buffer.put(frame)
-            except:
-                pass
-            for _ in range(self.nt):
+                self.read_buffer.put((index, frame))
+        
+        for _ in range(self.nt):
                 self.read_buffer.put(None)
+        self.video.close()
+                
+    def write_thread(self):
+        self.processing_index = 0
+        while True:
+            if self.processing_index not in self.processed_frames:
+                if self.processed_frames.get(self.processing_index) is None and self.threads_are_running is False:
+                    break
+                time.sleep(0.1)
+                continue
+            self.pbar.update(1)
+            self.writer.write_frame(self.processed_frames[self.processing_index])
+            del self.processed_frames[self.processing_index]
+            self.processing_index += 1
+        self.writer.close()
+        self.pbar.close()
                 
 class SegmentMT(threading.Thread):
-    def __init__(self, device, model, nt, half, read_buffer, write_buffer, lock):
-        threading.Thread.__init__(self)
-        self.device = device
-        self.model = model
-        self.nt = nt
-        self.half = half
+    def __init__(self, read_buffer, processed_frames, kind_model):
+
         self.read_buffer = read_buffer
-        self.write_buffer = write_buffer
-        self.lock = lock
-    
+        self.processed_frames = processed_frames
+        self.kind_model = kind_model
+        self.kind_model = self.kind_model.lower()
+        if self.kind_model == None:
+            model = "isnet_anime"
+        else:
+            model = self.kind_model
+        
+        print("Sadly, due to onnxruntime limitations, CUDA drivers past 11.8 won't work meaning this process is being done on the CPU")
+        print("If you want to use your GPU, you will have to downgrade your CUDA drivers, houray innovation!")
+        
+        self.session = new_session(model)
+        
     def inference(self, frame):
-        if self.half:
-            frame = frame.half()
-        with torch.no_grad():
-            frame = frame.to(self.device)
-            frame = self.model(frame)
-            frame = frame.float()
-            frame = frame.cpu()
+        frame = remove(frame, session=self.session)
+        return frame
     
-    def process_frame(self, frame):
-        self.inference(frame)
-        self.write_buffer.put(frame)
+    def run(self):
+        while True:
+            index, frame = self.read_buffer.get()
+            if index is None:
+                break
+            frame = self.inference(frame)
+            self.processed_frames[index] = frame

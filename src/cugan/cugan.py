@@ -26,7 +26,9 @@ class Cugan:
         self.kind_model = kind_model
         self.processed_frames = {}
         
+        self.handle_model()
         self.initialize()
+        
         self.threads_are_running = True
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.nt) as executor:
             for _ in range(self.nt):
@@ -77,8 +79,6 @@ class Cugan:
                 torch.set_default_tensor_type(torch.cuda.HalfTensor)
     
     def initialize(self):
-        self.handle_model()
-        
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
         self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps)

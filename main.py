@@ -6,7 +6,7 @@ from src.rife.rife import Rife
 from src.cugan.cugan import Cugan
 from src.dedup.dedup import Dedup
 from src.swinir.swinir import Swin
-#from src.segment.segment import Segment
+from src.segment.segment import Segment
 from src.compact.compact import Compact
 import cv2
 
@@ -78,8 +78,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
         Dedup(video_file, output, kind_model)
     
     elif model_type == "segment":
-        pass
-        #Segment(video_file, output, kind_model, nt, half, w, h, tot_frame)
+        Segment(video_file, output, nt, half, w, h, fps, tot_frame, kind_model)
     else:
         sys.exit("Please select a valid model type", model_type, "was not found")
 

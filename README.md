@@ -85,6 +85,7 @@ Segment:
 -kind_model :str - Cugan: no-denoise, conservative, denoise1x, denoise2x, denoise3x
                    SwinIR: small, medium, large.
                    Dedup: ffmpeg, Hash(N/A), VMAF(N/A), SSIM(N/A)
+                   Segment: isnet-anime, isnet-general-use, u2net, silueta, u2netp
 
 -pro :bool       - Set to False by default, Only for CUGAN, utilize pro models.
 
@@ -101,6 +102,7 @@ Segment:
 - [JingyunLiang](https://github.com/JingyunLiang/SwinIR) - For SwinIR.
 - [Bubble](https://github.com/Bubblemint864/AI-Models) - For the compact and soon swinir model.
 - [Xintao](https://github.com/xinntao/Real-ESRGAN) - for Realesrgan, specifically compact arch.
+- [Danielgatis](https://github.com/danielgatis/rembg) - for rembg and easy to use segmentation.
 
 # Benchmarks
 
@@ -111,8 +113,8 @@ Segment:
 In no particular order:
 - Provide a bundled version with all of the dependencies.
 - Add Rife NCNN Vulkan.
-- Add Segmentation ( HALF ADDED ).
 - Create a scriptUI for After Effects.
+- Add Pytorch segmentation
 - Maybe add TRT.
 
 # Done.
@@ -136,3 +138,4 @@ In no particular order:
 - [Massive] Added Ultracompact
 - [Massive] Improved the speed of Inference by upwards of 50% from personal testing!
 - Fixed issue where the last nt frames wouldn't be processed.
+- [Massive] Added segmentation
