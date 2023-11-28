@@ -28,42 +28,42 @@ Otherwise, run:
 
 RIFE:
 ```py
-- python main.py -video video_name_here -model_type rife -multi 2
+- python main.py -video video_path_here -model_type rife -multi 2
 ```
 
 CUGAN:
 ```py
-- python main.py -video video_name_here -model_type cugan -multi 2 -nt 2 -kind_model conservative
+- python main.py -video video_path_here -model_type cugan -multi 2 -nt 2 -kind_model conservative
 ```
 
 ShuffleCugan:
 ```py
-- python main.py -video video_name_here -model_type shufflecugan -multi 2 -nt 2
+- python main.py -video video_path_here -model_type shufflecugan -multi 2 -nt 2
 ```
 
 Compact:
 ```py
-- python main.py -video video_name_here -model_type compact -multi 2 -nt 2
+- python main.py -video video_path_here -model_type compact -multi 2 -nt 2
 ```
 
 UltraCompact:
 ```py
-- python main.py -video video_name_here -model_type ultracompact -multi 2 -nt 4
+- python main.py -video video_path_here -model_type ultracompact -multi 2 -nt 4
 ```
 
 SwinIR:
 ```py
-- python main.py -video video_name_here -model_type swinir -kind_model small
+- python main.py -video video_path_here -model_type swinir -kind_model small
 ```
 
 Dedup:
 ```py
-- python main.py -video video_name_here -model_type dedup -kind_model ffmpeg
+- python main.py -video video_path_here -model_type dedup -kind_model ffmpeg
 ```
 
 Segment:
 ```py
-- To be Added
+- python main.py -video video_path_here -model_type segment -kind_model isnet-anime
 ```
 
 ## Available Inputs and Models:
