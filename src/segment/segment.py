@@ -1,8 +1,6 @@
 import os, torch, threading, time, _thread, concurrent.futures
 
 from rembg import remove, new_session
-from torch.cuda import amp
-from torch.nn import functional as F
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
