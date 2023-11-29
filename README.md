@@ -71,7 +71,7 @@ Segment:
 ```
 -video :str      - Takes full path of input file.
 
--model_type :str - Can be: Rife, Cugan, ShuffleCugan, Compact, SwinIR, Dedup, Segment (N/A), UltraCompact (N/A).
+-model_type :str - Can be: Rife, Cugan, ShuffleCugan, Compact, SwinIR, Dedup, Segment, UltraCompact.
 
 -half :bool      - Set to True by default, utilizes FP16, more performance for free generally.
 

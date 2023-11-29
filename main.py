@@ -12,8 +12,8 @@ import cv2
 
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 
-def generate_output_filename(input_dir, filename_without_ext, extension):
-    return os.path.join(input_dir, f"{filename_without_ext}_{extension}.mp4")
+def generate_output_filename(output, filename_without_ext):
+    return os.path.join(output, f"{filename_without_ext}_output.mp4")
 
 def main(video_file, model_type, half, multi, kind_model, pro, nt):
     video_file = os.path.normpath(video_file)
@@ -26,9 +26,12 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt):
 
     basename = os.path.basename(video_file)
     filename_without_ext = os.path.splitext(basename)[0]
-    input_dir = os.path.dirname(video_file)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    output_path = os.path.join(script_dir, 'output')
+    if not os.path.exists(output_path):
+        os.mkdir(output_path)
     
-    output = generate_output_filename(input_dir, filename_without_ext, model_type)
+    output = generate_output_filename(output_path, filename_without_ext)
     model_type = model_type.lower()
     
     if h > 1080:
