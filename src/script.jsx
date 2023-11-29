@@ -1,93 +1,197 @@
-var mainWindow = new Window("palette", "AnimeScripter", undefined);
-    mainWindow.orientation = "column";
-    mainWindow.alignChildren = ["left", "top"];
-    mainWindow.spacing = 20;
-    if (mainWindow !== null) {
-        var interpolationGroup = mainWindow.add("group");
-        var interpolationButton = interpolationGroup.add("button", undefined, "Interpolation");
-        var interpolationDropdown = interpolationGroup.add("dropdownlist", undefined, ["2x", "4x"]);
-        interpolationDropdown.selection = 0;
- 
-        var upscaleGroup = mainWindow.add("group");
-        var upscaleButton = upscaleGroup.add("button", undefined, "Upscale");
-        var upscaleDropdown = upscaleGroup.add("dropdownlist", undefined, ["2x", "3x", "4x"]);
-        upscaleDropdown.selection = 0;
- 
-        var dedupGroup = mainWindow.add("group");
-        var dedupButton = dedupGroup.add("button", undefined, "Dedup");
-        var dedupDropdown = dedupGroup.add("dropdownlist", undefined, ["FFMPEG", "SSIM ( N / A)", "VMAF ( N / A )", "Hash ( N / A )"]);
-        dedupDropdown.selection = 0;
+// Ae Script
+// I don't know how to code in js, so this is a little messy
+aeScript()
 
-        var segmentGroup = mainWindow.add("group");
-        var segmentButton = segmentGroup.add("button", undefined, "Segment");
-        var segmentDropdown = segmentGroup.add("dropdownlist", undefined, ["ISRNET", "Something", "Something", "Something"]);
-        segmentDropdown.selection = 0;
+function aeScript() {
+    var upscaleModel = "ShuffleCugan"
+    var numberOfThreads = 2
+    var cuganModel = "no-denoise"
+    var swinIRModel = "small"
+    var segmentModel = "isnet-anime"
+    
+    newPanel();
 
-        var settingsButtonGroup = mainWindow.add("group");
-        var settingsButton = settingsButtonGroup.add("button", undefined, "Settings");
-        settingsButton.onClick = function () {
-            var newWindow = new Window("dialog", "Settings", undefined);
-            newWindow.orientation = "column";
-            newWindow.alignChildren = ["left", "top"];
-            newWindow.spacing = 10;
-            if ( newWindow !== null ) {
-                var InterpolationGroup = newWindow.add("group");
-                var InterpolationButton = InterpolationGroup.add("statictext", undefined, "Choose Interpolation");
-                var InterpolationDropdown = InterpolationGroup.add("dropdownlist", undefined, ["Rife NVIDIA (fastest)", "Rife AMD ( N / A) (slow)", "Rife CPU (slowest)"]);
-                InterpolationDropdown.selection = 0;
+    function newPanel() {
+        var win = new Window('palette', 'Anime Scripter', undefined, { resizeable: true });
 
-                var UpscaleGroup = newWindow.add("group");
-                var UpscaleButton = UpscaleGroup.add("statictext", undefined, "Choose Upscale");
-                var UpscaleDropdown = UpscaleGroup.add("dropdownlist", undefined, ["ShuffleCugan (fastest)", "Ultracompact (faster)", "Compact (fast)", "Cugan (fast)", "SwinIR (slow)"]);
-                UpscaleDropdown.selection = 0;
+        var settingsButton = win.add('button', undefined, 'Settings');
+        settingsButton.characters = 20;
 
-                var CuganOptions = newWindow.add("group");
-                var CuganOptionsButton = CuganOptions.add("statictext", undefined, "Upscale Threads");
-                var CuganOptionsDropdown = CuganOptions.add("dropdownlist", undefined, ["1", "2", "3", "4"]);
-                CuganOptionsDropdown.selection = 1;
+        var interpolationGroup = win.add('group');
+        interpolationGroup.orientation = 'row';
+
+        var interpolationButton = interpolationGroup.add('button', undefined, 'Interpolation');
+        interpolationButton.characters = 13;
+
+        var inputBox = interpolationGroup.add('edittext', undefined, '2');
+        inputBox.characters = 5;
+
+        var upscaleGroup = win.add('group');
+        upscaleGroup.orientation = 'row';
+        
+        var upscaleButton = upscaleGroup.add('button', undefined, 'Upscale');
+        upscaleButton.characters = 13;
+
+        var inputBox = upscaleGroup.add('edittext', undefined, '2');
+        inputBox.characters = 5;
+
+        var dedupSegmentGroup = win.add('group');
+        dedupSegmentGroup.orientation = 'row';
+        
+        var dedupButton = dedupSegmentGroup.add('button', undefined, 'Dedup');
+        dedupButton.characters = 8;
+
+        var segmentButton = dedupSegmentGroup.add('button', undefined, 'Segment');
+        segmentButton.characters = 8;
+        
+        settingsButton.onClick = function() {
+            var winSettings = new Window('dialog', 'Settings', undefined)
+
+            var mainPyButton = winSettings.add('button', undefined, 'Select main.py');
+            mainPyButton.characters = 20;
+    
+            var mainPyPath;
+    
+            mainPyButton.onClick = function() {
+                var mainPyFile = File.openDialog("Select main.py");
+                if (mainPyFile) {
+                    mainPyPath = mainPyFile.fsName;
+                    alert("Selected file: " + mainPyPath);
+                }
             }
-            newWindow.show();
+
+            var outputPathButton = winSettings.add('button', undefined, 'Select Output Path');
+            outputPathButton.characters = 20;
+
+            var outputPath;
+
+            outputPathButton.onClick = function() {
+                var outputPathFile = Folder.selectDialog("Select Output Folder");
+                if (outputPathFile) {
+                    outputPath = outputPathFile.fsName;
+                    alert("Selected output path: " + outputPath);
+                }
+            }
+            
+            var upscaleSettings = winSettings.add('group')
+            upscaleSettings.orientation = 'row'
+
+            var upscaleButton = upscaleSettings.add('button', undefined, 'Upscaler')
+            upscaleButton.characters = 15
+
+            var upscaleDropdown = upscaleSettings.add('dropdownlist', undefined, ["ShuffleCugan", "Cugan", "Compact", "Ultracompact", "SwinIR"])
+            upscaleDropdown.selection = 0
+
+            var numberOfThreads = winSettings.add('group')
+            numberOfThreads.orientation = 'row'
+
+            var numberOfThreadsButton = numberOfThreads.add('button', undefined, 'Number of Threads')
+            numberOfThreadsButton.characters = 15
+
+            var numberOfThreadsText = numberOfThreads.add('edittext', undefined, '2')
+            numberOfThreadsText.characters = 10
+
+            var cuganSettings = winSettings.add('group')
+            cuganSettings.orientation = 'row'
+
+            var cuganButton = cuganSettings.add('button', undefined, 'Cugan Model')
+            cuganButton.characters = 15
+
+            var cuganDropdown = cuganSettings.add('dropdownlist', undefined, ["no-denoise", "conservative", "denoise2x", "denoise3x"])
+            cuganDropdown.selection = 0
+
+            var swinIRSettings = winSettings.add('group')
+            swinIRSettings.orientation = 'row'
+
+            var swinIRButton = swinIRSettings.add('button', undefined, 'SwinIR Model')
+            swinIRButton.characters = 15
+
+            var swinIRDropdown = swinIRSettings.add('dropdownlist', undefined, ["small", "medium", "large"])
+            swinIRDropdown.selection = 0
+
+            var segmentSettings = winSettings.add('group')
+            segmentSettings.orientation = 'row'
+
+            var segmentButton = segmentSettings.add('button', undefined, 'Segment Model')
+            segmentButton.characters = 15
+
+            var segmentDropdown = segmentSettings.add('dropdownlist', undefined, ["isnet-anime", "isnet-general-purpose"])
+            segmentDropdown.selection = 0
+
+            upscaleDropdown.onChange = function() {
+                upscaleModel = this.selection.text;
+            }
+            
+            numberOfThreadsText.onChange = function() {
+                numberOfThreads = parseInt(this.text);
+            }
+
+            cuganDropdown.onChange = function() {
+                cuganModel = this.selection.text;
+            }
+
+            swinIRDropdown.onChange = function() {
+                swinIRModel = this.selection.text;
+            }
+            
+            segmentDropdown.onChange = function() {
+                segmentModel = this.selection.text;
+            }
+    
+            var tip1 = winSettings.add('statictext', undefined, "- Don't go above 4 threads");
+            var tip2 = winSettings.add('statictext', undefined, "- Models are ordered by speed");
+            var tip3 = winSettings.add('statictext', undefined, "- More info at https://github.com/NevermindNilas/TheAnimeScripter/");
+            tip1.characters = 20
+            tip2.characters = 20
+            tip3.characters = 40
+
+            tip1.justify = 'center'
+            tip2.justify = 'center'
+            tip3.justify = 'center'
+            //var cuganProCheckbox = winSettings.add('checkbox', undefined, 'Cugan Pro');
+
+            winSettings.show();
+        }
+        interpolationButton.onClick = function() {
+            process();
+        }
+        
+        function process() {
+            var comp = app.project.activeItem;
+            if (comp) {
+                var videoPath = comp.file.fsName;
+                var command = 'python "' + mainPyPath + '" -video "' + videoPath + '" -model rife -multi ' + numberOfThreads;
+                $.writeln("Running command: " + command); // For debugging
+                var result = $.system(command);
+                $.writeln("Command result: " + result); // For debugging
+
+                // Assuming the output file has the same name as the input file but with '_output' appended
+                var outputFilePath = outputPath + "/" + comp.file.name.replace(/\.[^\.]+$/, "") + "_output.mp4";
+
+                // Check if the output file exists
+                var outputFile = new File(outputFilePath);
+                if (outputFile.exists) {
+                    // Import the output file into the After Effects project
+                    var importedFile = app.project.importFile(new ImportOptions(outputFile));
+                    $.writeln("Imported file: " + importedFile.name); // For debugging
+                } else {
+                    alert("Output file does not exist: " + outputFilePath);
+                }
+            } else {
+                alert("No active item selected");
+            }
         }
 
-        var infoGroup = mainWindow.add("group");
-        var infoButton = infoGroup.add("button", undefined, "Info");
-        infoButton.onClick = function () {
-            var newWindow = new Window("dialog", "Info", undefined);
-            newWindow.orientation = "column";
-            newWindow.alignChildren = ["left", "top"];
-            newWindow.spacing = 10;
+        var addText = win.add('statictext', undefined, 'youtube.com/@NilasEdits');
+        addText.characters = 20;
+        addText.justify = 'center'; // Center the text
 
-            if newWindow !== null {
-                var InfoText = newWindow.add("statictext", undefined,"
-                -video :str      - Takes full path of input file.
+        win.onResizing = win.onResize = function () {
+            this.layout.resize();
+        };
 
-                -model_type :str - Can be Rife, Cugan, ShuffleCugan, Compact(N/A), SwinIR, Dedup, Segment (N/A), UltraCompact (N/A).
-
-                -half :bool      - Set to True by default, utilizes FP16, more performance for free generally.
-
-                -multi :int      - Used by both Upscaling and Interpolation, 
-                                Cugan can utilize scale from 2-4,
-                                Shufflecugan only 2, 
-                                Compact 2,
-                                SwinIR 2 or 4, 
-                                Rife.. virtually anything.
-
-                -kind_model :str - Cugan: no-denoise, conservative, denoise1x, denoise2x, denoise3x
-                                SwinIR: small, medium, large.
-                                Dedup: ffmpeg, Hash(N/A), VMAF(N/A), SSIM(N/A)
-
-                -pro :bool       - Set to False by default, Only for CUGAN, utilize pro models.
-
-                -nt :int         - Number of threads to utilize for Upscaling and Segmentation,
-                                Really CPU/GPU dependent, with my 3090 I max out at 4 for Cugan / Shufflecugan.
-                                As for SwinIR I max out at 2"
-            }
-        }
-} 
-if ( mainWindow instanceof Window) {
-    mainWindow.center();
-    mainWindow.show();
-} 
-else  {
-    mainWindow.layout.layout(true);
+        win instanceof Window
+            ? (win.center(), win.show()) : (win.layout.layout(true), win.layout.resize());
+    
+    }
 }
