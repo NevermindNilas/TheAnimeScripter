@@ -8,6 +8,7 @@ from src.dedup.dedup import Dedup
 from src.swinir.swinir import Swin
 from src.segment.segment import Segment
 from src.compact.compact import Compact
+import torch
 import cv2
 
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
@@ -27,25 +28,19 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     basename = os.path.basename(video_file)
     filename_without_ext = os.path.splitext(basename)[0]
     
-    if output == "":
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        output_path = os.path.join(script_dir, 'output')
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    output_path = os.path.join(script_dir, 'output')
+
+    if output == "" or not os.path.isdir(output) or os.path.basename(output) in [basename, filename_without_ext]:
         if not os.path.exists(output_path):
-            os.mkdir(output_path)    
+            os.mkdir(output_path)
         output = generate_output_filename(output_path, filename_without_ext)
-    elif os.path.isdir(output):
-        output = generate_output_filename(output, filename_without_ext)
-    elif os.path.basename(output) == basename:
-        print("output file name is the same as input, the output name will be changed")
-        output = generate_output_filename(os.path.dirname(output), filename_without_ext)
     else:
-        pass
-        
+        output = generate_output_filename(output, filename_without_ext)
     model_type = model_type.lower()
     
-    if h > 1080:
-        print("If you are using CUDA, you might run into CUDA out of memory errors,")
-        print("if that's the case, try to lower the multithread size, autotiling will be added in the future to avoid this issue")
+    if h > 1080 and torch.cuda.is_available() and nt > 1 and model_type != "rife" and model_type != "dedup" and model_type != "segment":
+        print("For resolutions over 1080p, having more than 2 threads can cause memory issues depending on your GPU, please test with different thread counts")
     
     if model_type == "rife":
 
@@ -80,7 +75,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     elif model_type == "compact" or model_type == "ultracompact":
         
         if multi > 2:
-            print("Compact only supports up to 2x scaling, auto setting scale to 2")
+            print(f"{model_type.upper()} only supports up to 2x scaling, auto setting scale to 2")
             multi = 2
         
         Compact(video_file, output, multi, half, w, h, nt, tot_frame, fps, model_type)
