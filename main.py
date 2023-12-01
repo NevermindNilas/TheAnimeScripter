@@ -13,6 +13,7 @@ import cv2
 
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 
+
 def generate_output_filename(output, filename_without_ext):
     return os.path.join(output, f"{filename_without_ext}_output.mp4")
 
@@ -31,13 +32,10 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     output_path = os.path.join(script_dir, 'output')
 
-    if output == "" or not os.path.isdir(output) or os.path.basename(output) in [basename, filename_without_ext]:
-        if not os.path.exists(output_path):
-            os.mkdir(output_path)
+    if output == "":
+        if  not os.path.exists(output_path):
+            os.makedirs(output_path)
         output = generate_output_filename(output_path, filename_without_ext)
-    else:
-        output = generate_output_filename(output, filename_without_ext)
-    model_type = model_type.lower()
     
     if h > 1080 and torch.cuda.is_available() and nt > 1 and model_type != "rife" and model_type != "dedup" and model_type != "segment":
         print("For resolutions over 1080p, having more than 2 threads can cause memory issues depending on your GPU, please test with different thread counts")
@@ -99,6 +97,7 @@ if __name__ == "__main__":
     parser.add_argument("-pro", type=bool, help="", default=False, action="store")
     parser.add_argument("-nt", type=int, help="", default=1, action="store")
     parser.add_argument("-output", type=str, help="can be path or filename only", default="", action="store")
+    parser.add_argument("-scripter", type=bool, help="", default="", action="store")
     args = parser.parse_args()
     
     if args.video is None:

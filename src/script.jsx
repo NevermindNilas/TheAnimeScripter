@@ -283,6 +283,9 @@ var dialog = (function () {
 			alert(error);
 		}
 	}
+	InterpolateInt.onChange = function() {
+		app.settings.saveSetting("AnimeScripter", "InterpolateInt", InterpolateInt.text);
+	}
 
 	DropdownUpscaler.onChange = function() {
 		app.settings.saveSetting("AnimeScripter", "DropdownUpscaler", DropdownUpscaler.selection.index);
@@ -307,11 +310,22 @@ var dialog = (function () {
 	function process(module) {
 		var outputFolder = app.settings.haveSetting("AnimeScripter", "outputDirectory") ? app.settings.getSetting("AnimeScripter", "outputDirectory") : "";
 		var mainPyFile = app.settings.haveSetting("AnimeScripter", "mainPyPath") ? app.settings.getSetting("AnimeScripter", "mainPyPath") : "";
-		var DropdownCugan = app.settings.haveSetting("AnimeScripter", "DropdownCugan") ? app.settings.getSetting("AnimeScripter", "DropdownCugan") : "defaultCugan";
-		var DropdownSwinIr = app.settings.haveSetting("AnimeScripter", "DropdownSwinIr") ? app.settings.getSetting("AnimeScripter", "DropdownSwinIr") : "defaultSwinIR";
-		var DropdownSegment = app.settings.haveSetting("AnimeScripter", "DropdownSegment") ? app.settings.getSetting("AnimeScripter", "DropdownSegment") : "defaultSegment";
-		var NumberOfThreadsInt = app.settings.haveSetting("AnimeScripter", "NumberOfThreadsInt") ? app.settings.getSetting("AnimeScripter", "NumberOfThreadsInt") : "defaultNrThreads";
-		var DropdownUpscaler = app.settings.haveSetting("AnimeScripter", "DropdownUpscaler") ? app.settings.getSetting("AnimeScripter", "DropdownUpscaler") : "defaultUpscaler";
+		var DropdownCugan = app.settings.haveSetting("AnimeScripter", "DropdownCugan") ? app.settings.getSetting("AnimeScripter", "DropdownCugan") : defaultCugan;
+		var DropdownSwinIr = app.settings.haveSetting("AnimeScripter", "DropdownSwinIr") ? app.settings.getSetting("AnimeScripter", "DropdownSwinIr") : defaultSwinIR;
+		var DropdownSegment = app.settings.haveSetting("AnimeScripter", "DropdownSegment") ? app.settings.getSetting("AnimeScripter", "DropdownSegment") : defaultSegment;
+		var DropdownUpscaler = app.settings.haveSetting("AnimeScripter", "DropdownUpscaler") ? app.settings.getSetting("AnimeScripter", "DropdownUpscaler") : defaultUpscaler;
+		var NumberOfThreadsInt = app.settings.haveSetting("AnimeScripter", "NumberOfThreadsInt") ? app.settings.getSetting("AnimeScripter", "NumberOfThreadsInt") : defaultNrThreads;
+		var InterpolateInt = app.settings.haveSetting("AnimeScripter", "InterpolateInt") ? app.settings.getSetting("AnimeScripter", "InterpolateInt") : defaultInterpolateInt;
+		var UpscaleInt = app.settings.haveSetting("AnimeScripter", "UpscaleInt") ? app.settings.getSetting("AnimeScripter", "UpscaleInt") : defaultUpscaleInt;
+
+		DropdownUpscaler = DropdownUpscaler_array[DropdownUpscaler];
+		DropdownCugan = DropdownCugan_array[DropdownCugan];
+		DropdownSwinIr = DropdownSwinIr_array[DropdownSwinIr];
+		DropdownSegment = DropdownSegment_array[DropdownSegment];
+		
+		if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length != 1)) {
+			return alert("Please select one layer.");
+		}
 
 		if (outputFolder == "" || outputFolder == null) {
 			alert("No output directory selected");
@@ -322,78 +336,66 @@ var dialog = (function () {
 			alert("No main.py file selected");
 			return;
 		}
-		
-		var selection = app.project.selection;
-		if (selection.length == 0) {
-			alert("No files selected");
-			return;
-		} else if (selection.length >= 1) {
-			layer = selection[0];
-		}
 
-		var selection = app.project.activeItem.selectedLayers;
-		activeLayerName = selection[0];
-		var activeLayerPath = selection[0].source.file.fsName;
-		var activeLayerName = selection[0].name.replace('.mp4', '');
-		var inPoint = activeLayerName.inPoint; 
-		var startTime = activeLayerName.startTime;
-		var outPoint = activeLayerName.outPoint;
-		var duration = outPoint - startTime;
+		var comp = app.project.activeItem;
+		var layer = comp.selectedLayers[0];
+		var activeLayerPath = layer.source.file.fsName;
+		var activeLayerName = layer.name.replace('.mp4', '');
 		
 		var pyfile = File(mainPyFile);
 		var scriptPath = pyfile.parent.fsName;
-		
-		var cutVideoPath = outputFolder + "\\" + activeLayerName + "_cut" + ".mp4";
-		var cutCommand = "static_ffmpeg -i " + activeLayerName + " -ss " + (inPoint + startTime) + " -t " + duration + " -c copy " + cutVideoPath;
-		var videoDurationCommand = "static_ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " + activeLayerName;
-		var videoDuration = system.callSystem(videoDurationCommand);
-		var output_name;
-		
-		if (duration < videoDuration) {
-			shell.execute(cutCommand);
-			output_name = cutVideoPath;
+				
+
+		/*var inPoint = layer.inPoint;
+		var outPoint = layer.outPoint;
+
+		var duration = outPoint - inPoint;
+
+		if (duration !== layer.source.duration) {
+			output_name = outputFolder + "\\" + activeLayerName + "_trimmed" + ".mp4";
+			alert(inPoint)
+			alert(outPoint)
+			command = "cmd.exe /c" + " ffmpeg -i " + activeLayerPath + " -ss " + inPoint + " -to " + outPoint + "-vcodec copy" + output_name + "-y";
+			var result = system.callSystem(command);
+			activeLayerPath = output_name;
 		} else {
-			output_name = outputFolder + "\\" + activeLayerName + "_output" + ".mp4";
 		}
+		*/
+
+		output_name = outputFolder + "\\" + activeLayerName + "_" + module + ".mp4";
 		var command = "";
 		if (module == "interpolate") {
-			command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type rife -output " + output_name;
+			command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type rife -multi " + InterpolateInt + " -output " + output_name;
 		} else if (module == "upscale") {
 			if (DropdownUpscaler == "ShuffleCugan") {
-				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
+				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "shufflecugan" + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
 			} else if (DropdownUpscaler == "Cugan") {
-				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan;
+				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "cugan" + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan + " -multi " + UpscaleInt;
 			} else if (DropdownUpscaler == "UltraCompact") {
-				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
+				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "ultracompact" + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
 			} else if (DropdownUpscaler == "Compact") {
-				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
-			} else if (DropdownUpscaler == "SwinIR") {
-				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr;
-			} else if (DropdownUpscale == "ShuffleCugan"){
-				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
+				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "compact" + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
+			} else if (DropdownUpscaler == "Swwinir") {
+				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "swinir" + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt;
 			}
-		} else if (module == "interpolate") {
-			command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "rife" + " -output " + output_name;
 		} else if (module == "dedup") {
-			command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "dedup" + " -output " + output_name + "-kind_model" + "ffmpeg";
+			command = "cd" + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "dedup" + " -output " + output_name + " -kind_model " + "ffmpeg";
 		} else if (module == "segment") {
-			command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + "-kind_model " + DropdownSegment;
+			command = "cd" + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + "-kind_model " + DropdownSegment;
 		} else {
 			alert("Something went wrong");
 			return;
 		}
-		if (selection[0]) {
+		if (layer) {
 			try {
-				var psCommand = "powershell.exe -Command \"" + command + "\"";
-				alert(psCommand);
-				var result = system.callSystem(psCommand)
-			} catch (error) {
-				alert(error);
-			}
-			if (result) {
+				var cmdCommand = 'cmd.exe /c "' + command + '"';
+				var result = system.callSystem(cmdCommand);
 				var importOptions = new ImportOptions(File(output_name));
 				var importedFile = app.project.importFile(importOptions);
-				importedFile.parentFolder = app.project.rootFolder;
+				var inputLayer = comp.layers.add(importedFile);
+				inputLayer.moveBefore(layer);
+			} catch (error) {
+				alert(error);
 			}
 		}
 	}

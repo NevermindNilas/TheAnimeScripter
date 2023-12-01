@@ -71,7 +71,7 @@ Segment:
 ```
 -video :str      - Takes full path of input file.
 
--output :str     - Can be left empty for auto generation, takes full dir path or name only.
+-output :str     - Can be left empty for auto generation or takes full path in including file name.
 
 -model_type :str - Can be: Rife, Cugan, ShuffleCugan, Compact, SwinIR, Dedup, Segment, UltraCompact.
 
