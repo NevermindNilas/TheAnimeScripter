@@ -52,7 +52,7 @@ class Cugan:
             self.filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{self.kind_model}.pth"
         
         if not os.path.exists("src/cugan/weights"):
-            os.makedirs("src/cugan/weights")
+            os.makedirs("src/cugan/weights", exist_ok=True)
 
         if not os.path.exists(os.path.join(os.path.abspath("src/cugan/weights"), self.filename)):
             print(f"Downloading {self.model_type.upper()}  model...")

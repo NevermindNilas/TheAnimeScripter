@@ -8,6 +8,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from .IFNet_HDv3 import *
 import torch.nn.functional as F
 from .loss import *
+import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -25,6 +26,11 @@ class Model:
                 self.flownet, device_ids=[local_rank], output_device=local_rank
             )
 
+    def find_flownet(self):
+        self.abs_path = os.path.abspath(__file__)
+        self.directory = os.path.dirname(self.abs_path)
+        self.flownet_path = os.path.join(self.directory, "flownet.pkl")
+        
     def train(self):
         self.flownet.train()
 
@@ -35,6 +41,7 @@ class Model:
         self.flownet.to(device)
 
     def load_model(self, path, rank=0):
+        self.find_flownet()
         def convert(param):
             if rank == -1:
                 return {
@@ -48,12 +55,13 @@ class Model:
         if rank <= 0:
             if torch.cuda.is_available():
                 self.flownet.load_state_dict(
-                    convert(torch.load("{}/flownet.pkl".format(path))), False
+                    #convert(torch.load("{}/flownet.pkl".format(path))), False
+                    convert(torch.load(self.flownet_path)), False
                 )
             else:
                 self.flownet.load_state_dict(
                     convert(
-                        torch.load("{}/flownet.pkl".format(path), map_location="cpu")
+                        torch.load(self.flownet_path, map_location="cpu")
                     ),
                     False,
                 )
