@@ -317,11 +317,6 @@ var dialog = (function () {
 		var NumberOfThreadsInt = app.settings.haveSetting("AnimeScripter", "NumberOfThreadsInt") ? app.settings.getSetting("AnimeScripter", "NumberOfThreadsInt") : defaultNrThreads;
 		var InterpolateInt = app.settings.haveSetting("AnimeScripter", "InterpolateInt") ? app.settings.getSetting("AnimeScripter", "InterpolateInt") : defaultInterpolateInt;
 		var UpscaleInt = app.settings.haveSetting("AnimeScripter", "UpscaleInt") ? app.settings.getSetting("AnimeScripter", "UpscaleInt") : defaultUpscaleInt;
-
-		DropdownUpscaler = DropdownUpscaler_array[DropdownUpscaler];
-		DropdownCugan = DropdownCugan_array[DropdownCugan];
-		DropdownSwinIr = DropdownSwinIr_array[DropdownSwinIr];
-		DropdownSegment = DropdownSegment_array[DropdownSegment];
 		
 		if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length != 1)) {
 			return alert("Please select one layer.");
@@ -368,20 +363,20 @@ var dialog = (function () {
 			command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type rife -multi " + InterpolateInt + " -output " + output_name;
 		} else if (module == "upscale") {
 			if (DropdownUpscaler == "ShuffleCugan") {
-				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "shufflecugan" + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
+				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type shufflecugan -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
 			} else if (DropdownUpscaler == "Cugan") {
-				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "cugan" + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan + " -multi " + UpscaleInt;
+				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type cugan -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan + " -multi " + UpscaleInt;
 			} else if (DropdownUpscaler == "UltraCompact") {
-				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "ultracompact" + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
+				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type ultracompact -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
 			} else if (DropdownUpscaler == "Compact") {
-				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "compact" + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
+				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type compact -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
 			} else if (DropdownUpscaler == "Swwinir") {
-				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "swinir" + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt;
+				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type swinir -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt;
 			}
 		} else if (module == "dedup") {
-			command = "cd" + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "dedup" + " -output " + output_name + " -kind_model " + "ffmpeg";
+			command = "cd" + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type dedup -output " + output_name + " -kind_model " + "ffmpeg";
 		} else if (module == "segment") {
-			command = "cd" + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + "-kind_model " + DropdownSegment;
+			command = "cd" + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type segment -output " + output_name + "-kind_model " + DropdownSegment;
 		} else {
 			alert("Something went wrong");
 			return;
