@@ -71,6 +71,8 @@ Segment:
 ```
 -video :str      - Takes full path of input file.
 
+-output :str     - Can be left empty for auto generation, takes full dir path or name only.
+
 -model_type :str - Can be: Rife, Cugan, ShuffleCugan, Compact, SwinIR, Dedup, Segment, UltraCompact.
 
 -half :bool      - Set to True by default, utilizes FP16, more performance for free generally.
@@ -103,6 +105,7 @@ Segment:
 - [Bubble](https://github.com/Bubblemint864/AI-Models) - For the compact and soon swinir model.
 - [Xintao](https://github.com/xinntao/Real-ESRGAN) - for Realesrgan, specifically compact arch.
 - [Danielgatis](https://github.com/danielgatis/rembg) - for rembg and easy to use segmentation.
+- [AlixzFX](https://github.com/AlixzFX) - for debugging the scriptUI and inspiration
 
 # Benchmarks
 
