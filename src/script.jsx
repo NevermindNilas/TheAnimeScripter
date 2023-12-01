@@ -1,21 +1,20 @@
 var panelGlobal = this;
 var dialog = (function () {
-	const scriptName = "AnimeScripter";
-	const scriptVersion = "0.0.1";
-	const scriptAuthor = "Nilas";
-	const scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
+	var scriptName = "AnimeScripter";
+	var scriptVersion = "0.0.1";
+	var scriptAuthor = "Nilas";
+	var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
 
 	//DEFAULT VALUES
-	const defaultUpscaler = "ShuffleCugan";
-	const defaultNrThreads = 2;
-	const defaultCugan = "no-denoise";
-	const defaultSwinIR = "small";
-	const defaultSegment = "isnet-anime";
-	const defaultInterpolateInt = 2;
-	const defaultUpscaleInt = 2;
+	var defaultUpscaler = "ShuffleCugan";
+	var defaultNrThreads = 2;
+	var defaultCugan = "no-denoise";
+	var defaultSwinIR = "small";
+	var defaultSegment = "isnet-anime";
+	var defaultInterpolateInt = 2;
+	var defaultUpscaleInt = 2;
 
-	//DIALOG
-	var dialog = (panelGlobal instanceof Panel) ? panelGlobal : new Window("palette", undefined, undefined, {borderless: true, resizeable: true}); 
+	var dialog = (panelGlobal instanceof Panel) ? panelGlobal : new Window("palette", undefined, undefined, {resizeable: true}); 
 	    if ( !(panelGlobal instanceof Panel) ) dialog.text = "AnimeScripter by Nilas"; 
 	    dialog.orientation = "column"; 
 	    dialog.alignChildren = ["center","top"]; 
@@ -261,19 +260,28 @@ var dialog = (function () {
 	}
 
 	OutputButton.onClick = function() {
-		var outputFolder = Folder.selectDialog("Select an output directory");
-		if (outputFolder != null) {
-			app.settings.saveSetting("AnimeScripter", "outputDirectory", outputFolder.fsName);
+		try {
+			var folder = new Folder()
+			var outputFolder = folder.selectDlg("Select an output directory");
+			if (outputFolder != null) {
+				app.settings.saveSetting("AnimeScripter", "outputDirectory", outputFolder.fsName);
+			}
+			alert("successfully saved path");
+		} catch (error) {
+			alert(error);
 		}
-		alert("successfully saved path");
 	}
 
 	MainpyButton.onClick = function() {
-		var mainPyFile = File.openDialog("Select the main.py file");
-		if (mainPyFile != null) {
-			app.settings.saveSetting("AnimeScripter", "mainPyPath", mainPyFile.fsName);
+		try {
+			var mainPyFile = File.openDialog("Select the main.py file");
+			if (mainPyFile != null) {
+				app.settings.saveSetting("AnimeScripter", "mainPyPath", mainPyFile.fsName);
+			}
+			alert("successfully saved path");
+		} catch (error) {
+			alert(error);
 		}
-		alert("successfully saved path");
 	}
 
 	DropdownUpscaler.onChange = function() {
@@ -296,11 +304,7 @@ var dialog = (function () {
 		app.settings.saveSetting("AnimeScripter", "DropdownSegment", DropdownSegment.selection.index);
 	}
 	
-	dialog.layout.layout(true);
-	dialog.layout.resize();
-	dialog.onResizing = dialog.onResize = function () { this.layout.resize(); }
-
-	function process(module, layer, selection) {
+	function process(module) {
 		var outputFolder = app.settings.haveSetting("AnimeScripter", "outputDirectory") ? app.settings.getSetting("AnimeScripter", "outputDirectory") : "";
 		var mainPyFile = app.settings.haveSetting("AnimeScripter", "mainPyPath") ? app.settings.getSetting("AnimeScripter", "mainPyPath") : "";
 		var DropdownCugan = app.settings.haveSetting("AnimeScripter", "DropdownCugan") ? app.settings.getSetting("AnimeScripter", "DropdownCugan") : "defaultCugan";
@@ -308,7 +312,7 @@ var dialog = (function () {
 		var DropdownSegment = app.settings.haveSetting("AnimeScripter", "DropdownSegment") ? app.settings.getSetting("AnimeScripter", "DropdownSegment") : "defaultSegment";
 		var NumberOfThreadsInt = app.settings.haveSetting("AnimeScripter", "NumberOfThreadsInt") ? app.settings.getSetting("AnimeScripter", "NumberOfThreadsInt") : "defaultNrThreads";
 		var DropdownUpscaler = app.settings.haveSetting("AnimeScripter", "DropdownUpscaler") ? app.settings.getSetting("AnimeScripter", "DropdownUpscaler") : "defaultUpscaler";
-	
+
 		if (outputFolder == "" || outputFolder == null) {
 			alert("No output directory selected");
 			return;
@@ -318,63 +322,87 @@ var dialog = (function () {
 			alert("No main.py file selected");
 			return;
 		}
-	
-		var file = layer.file.fsName;
-		var inPoint = layer.inPoint; 
-		var startTime = layer.startTime;
-		var outPoint = layer.outPoint;
-		var duration = outPoint - startTime;
-	
-		var cutVideoPath = outputFolder + "/" + file + "_cut" + ".mp4";
-		var cutCommand = "static_ffmpeg -i " + file + " -ss " + (inPoint + startTime) + " -t " + duration + " -c copy " + cutVideoPath;
-	
-		var videoDurationCommand = "static_ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " + file;
-		var shell = new Shell();
-		var videoDuration = shell.execute(videoDurationCommand);
-		var output_name;
+		
+		var selection = app.project.selection;
+		if (selection.length == 0) {
+			alert("No files selected");
+			return;
+		} else if (selection.length >= 1) {
+			layer = selection[0];
+		}
 
+		var selection = app.project.activeItem.selectedLayers;
+		activeLayerName = selection[0];
+		var activeLayerPath = selection[0].source.file.fsName;
+		var activeLayerName = selection[0].name.replace('.mp4', '');
+		var inPoint = activeLayerName.inPoint; 
+		var startTime = activeLayerName.startTime;
+		var outPoint = activeLayerName.outPoint;
+		var duration = outPoint - startTime;
+		
+		var pyfile = File(mainPyFile);
+		var scriptPath = pyfile.parent.fsName;
+		
+		var cutVideoPath = outputFolder + "\\" + activeLayerName + "_cut" + ".mp4";
+		var cutCommand = "static_ffmpeg -i " + activeLayerName + " -ss " + (inPoint + startTime) + " -t " + duration + " -c copy " + cutVideoPath;
+		var videoDurationCommand = "static_ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " + activeLayerName;
+		var videoDuration = system.callSystem(videoDurationCommand);
+		var output_name;
+		
 		if (duration < videoDuration) {
 			shell.execute(cutCommand);
 			output_name = cutVideoPath;
 		} else {
-			output_name = outputFolder + "/" + file + "_output" + ".mp4";
+			output_name = outputFolder + "\\" + activeLayerName + "_output" + ".mp4";
 		}
 		var command = "";
 		if (module == "interpolate") {
-			command = "python " + mainPyFile + " -input " + file + " -model_type rife -output " + output_name;
+			command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type rife -output " + output_name;
 		} else if (module == "upscale") {
 			if (DropdownUpscaler == "ShuffleCugan") {
-				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
+				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
 			} else if (DropdownUpscaler == "Cugan") {
-				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan;
+				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan;
 			} else if (DropdownUpscaler == "UltraCompact") {
-				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
+				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
 			} else if (DropdownUpscaler == "Compact") {
-				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
+				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
 			} else if (DropdownUpscaler == "SwinIR") {
-				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr;
+				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr;
 			} else if (DropdownUpscale == "ShuffleCugan"){
-				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
+				command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
 			}
 		} else if (module == "interpolate") {
-			command = "python " + mainPyFile + " -input " + file + " -model_type " + "rife" + " -output " + output_name;
+			command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "rife" + " -output " + output_name;
 		} else if (module == "dedup") {
-			command = "python " + mainPyFile + " -input " + file + " -model_type " + "dedup" + " -output " + output_name + "-kind_model" + "ffmpeg";
+			command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + "dedup" + " -output " + output_name + "-kind_model" + "ffmpeg";
 		} else if (module == "segment") {
-			command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + "-kind_model " + DropdownSegment;
+			command = "python " + mainPyFile + " -video " + activeLayerPath + " -model_type " + DropdownUpscaler + " -output " + output_name + "-kind_model " + DropdownSegment;
+		} else {
+			alert("Something went wrong");
+			return;
 		}
-		if (selection.length > 0) {
-			if (layer instanceof FootageItem) {
-				if (file != null) {
-					var result = shell.execute(command);
-					if (result) {
-						var importOptions = new ImportOptions(File(output_name));
-						var importedFile = app.project.importFile(importOptions);
-						importedFile.parentFolder = app.project.rootFolder;
-					}
-				}
+		if (selection[0]) {
+			try {
+				var psCommand = "powershell.exe -Command \"" + command + "\"";
+				alert(psCommand);
+				var result = system.callSystem(psCommand)
+			} catch (error) {
+				alert(error);
+			}
+			if (result) {
+				var importOptions = new ImportOptions(File(output_name));
+				var importedFile = app.project.importFile(importOptions);
+				importedFile.parentFolder = app.project.rootFolder;
 			}
 		}
 	}
+	dialog.layout.layout(true);
+	dialog.layout.resize();
+	dialog.onResizing = dialog.onResize = function () { this.layout.resize(); }
+  
+	if ( dialog instanceof Window ) dialog.show();
+  
 	return dialog;
-}());
+  
+  }());
