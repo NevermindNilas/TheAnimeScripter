@@ -52,7 +52,7 @@ class Cugan:
             self.filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{self.kind_model}.pth"
         
         if not os.path.exists("src/cugan/weights"):
-            os.makedirs("src/cugan/weights", exist_ok=True)
+            os.makedirs("src/cugan/weights")
 
         if not os.path.exists(os.path.join(os.path.abspath("src/cugan/weights"), self.filename)):
             print(f"Downloading {self.model_type.upper()}  model...")
@@ -66,6 +66,9 @@ class Cugan:
         
         self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
         self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()
+
+        if torch.cuda.is_available():
+            print("ASOIFHNAOFBNASOFASO")
             
         if self.half:
             self.model.half()
@@ -137,10 +140,26 @@ class CuganMT():
         frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
         return frame.cpu().numpy()
 
-    def run(self):  
-        while True:
-            index, frame = self.read_buffer.get()
-            if index is None:
-                break
-            frame = self.process_frame(frame)
-            self.processed_frames[index] = frame
+    def process_frame_cpu(self, frame):
+        frame = np.transpose(frame, (2, 0, 1))
+        frame = torch.from_numpy(frame).unsqueeze(0).float().div_(255)
+        frame = self.inference(frame)
+        frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
+        return frame.numpy()
+        
+    def run(self):
+        # CPU Only not supported yet
+        if self.cuda_available:
+            while True:
+                index, frame = self.read_buffer.get()
+                if index is None:
+                    break
+                frame = self.process_frame(frame)
+                self.processed_frames[index] = frame
+        else:
+            while True:
+                index, frame = self.read_buffer.get()
+                if index is None:
+                    break
+                frame = self.process_frame_cpu(frame)
+                self.processed_frames[index] = frame

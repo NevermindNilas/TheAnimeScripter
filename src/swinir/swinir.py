@@ -178,11 +178,27 @@ class SwinMT(threading.Thread):
         frame = self.inference(frame)
         frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
         return frame.cpu().numpy()
+    
+    def process_frame_cpu(self, frame):
+        frame = np.transpose(frame, (2, 0, 1))
+        frame = torch.from_numpy(frame).unsqueeze(0).float().div_(255)
+        frame = self.inference(frame)
+        frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
+        return frame.numpy()
 
-    def run(self):  
-        while True:
-            index, frame = self.read_buffer.get()
-            if index is None:
-                break
-            frame = self.process_frame(frame)
-            self.processed_frames[index] = frame
+    def run(self):
+        # CPU Only not supported yet
+        if self.cuda_available:
+            while True:
+                index, frame = self.read_buffer.get()
+                if index is None:
+                    break
+                frame = self.process_frame(frame)
+                self.processed_frames[index] = frame
+        else:
+            while True:
+                index, frame = self.read_buffer.get()
+                if index is None:
+                    break
+                frame = self.process_frame_cpu(frame)
+                self.processed_frames[index] = frame

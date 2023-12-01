@@ -23,6 +23,11 @@ if /I "%UserInput%" EQU "Y" (
 )
 
 echo ------------------------------------
+echo         DOWNLOADING MODELS
+echo ------------------------------------
+python .\download_models.py
+
+echo ------------------------------------
 echo      DOWNLOADING DEPENDENCIES
 echo ------------------------------------
 python -m pip install --upgrade pip

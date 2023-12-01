@@ -8,11 +8,11 @@ from src.dedup.dedup import Dedup
 from src.swinir.swinir import Swin
 from src.segment.segment import Segment
 from src.compact.compact import Compact
+
 import torch
 import cv2
 
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
-
 
 def generate_output_filename(output, filename_without_ext):
     return os.path.join(output, f"{filename_without_ext}_output.mp4")
@@ -102,4 +102,5 @@ if __name__ == "__main__":
     
     if args.video is None:
         sys.exit("Please select a video file")
+
     main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output)
