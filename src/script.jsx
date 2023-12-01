@@ -300,25 +300,80 @@ var dialog = (function () {
 	dialog.layout.resize();
 	dialog.onResizing = dialog.onResize = function () { this.layout.resize(); }
 
-	function process(module) {
+	function process(module, layer, selection) {
 		var outputFolder = app.settings.haveSetting("AnimeScripter", "outputDirectory") ? app.settings.getSetting("AnimeScripter", "outputDirectory") : "";
 		var mainPyFile = app.settings.haveSetting("AnimeScripter", "mainPyPath") ? app.settings.getSetting("AnimeScripter", "mainPyPath") : "";
-
+		var DropdownCugan = app.settings.haveSetting("AnimeScripter", "DropdownCugan") ? app.settings.getSetting("AnimeScripter", "DropdownCugan") : "defaultCugan";
+		var DropdownSwinIr = app.settings.haveSetting("AnimeScripter", "DropdownSwinIr") ? app.settings.getSetting("AnimeScripter", "DropdownSwinIr") : "defaultSwinIR";
+		var DropdownSegment = app.settings.haveSetting("AnimeScripter", "DropdownSegment") ? app.settings.getSetting("AnimeScripter", "DropdownSegment") : "defaultSegment";
+		var NumberOfThreadsInt = app.settings.haveSetting("AnimeScripter", "NumberOfThreadsInt") ? app.settings.getSetting("AnimeScripter", "NumberOfThreadsInt") : "defaultNrThreads";
+		var DropdownUpscaler = app.settings.haveSetting("AnimeScripter", "DropdownUpscaler") ? app.settings.getSetting("AnimeScripter", "DropdownUpscaler") : "defaultUpscaler";
+	
 		if (outputFolder == "" || outputFolder == null) {
 			alert("No output directory selected");
 			return;
 		}
-
+	
 		if (mainPyFile == "" || mainPyFile == null) {
 			alert("No main.py file selected");
 			return;
 		}
-		var comp = app.project.activeItem;
-		var layer = comp.selectedLayers[0];
-		if (selection.length > 0 && selection[0] instanceof FootageItem) {
-			alert(selection[0].file.fsName);  // fsName gives the full path
+	
+		var file = layer.file.fsName;
+		var inPoint = layer.inPoint; 
+		var startTime = layer.startTime;
+		var outPoint = layer.outPoint;
+		var duration = outPoint - startTime;
+	
+		var cutVideoPath = outputFolder + "/" + file + "_cut" + ".mp4";
+		var cutCommand = "static_ffmpeg -i " + file + " -ss " + (inPoint + startTime) + " -t " + duration + " -c copy " + cutVideoPath;
+	
+		var videoDurationCommand = "static_ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 " + file;
+		var shell = new Shell();
+		var videoDuration = shell.execute(videoDurationCommand);
+		var output_name;
+
+		if (duration < videoDuration) {
+			shell.execute(cutCommand);
+			output_name = cutVideoPath;
 		} else {
-			alert("No footage item selected");
+			output_name = outputFolder + "/" + file + "_output" + ".mp4";
+		}
+		var command = "";
+		if (module == "interpolate") {
+			command = "python " + mainPyFile + " -input " + file + " -model_type rife -output " + output_name;
+		} else if (module == "upscale") {
+			if (DropdownUpscaler == "ShuffleCugan") {
+				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
+			} else if (DropdownUpscaler == "Cugan") {
+				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan;
+			} else if (DropdownUpscaler == "UltraCompact") {
+				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
+			} else if (DropdownUpscaler == "Compact") {
+				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
+			} else if (DropdownUpscaler == "SwinIR") {
+				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr;
+			} else if (DropdownUpscale == "ShuffleCugan"){
+				command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + " -nt " + NumberOfThreadsInt;
+			}
+		} else if (module == "interpolate") {
+			command = "python " + mainPyFile + " -input " + file + " -model_type " + "rife" + " -output " + output_name;
+		} else if (module == "dedup") {
+			command = "python " + mainPyFile + " -input " + file + " -model_type " + "dedup" + " -output " + output_name + "-kind_model" + "ffmpeg";
+		} else if (module == "segment") {
+			command = "python " + mainPyFile + " -input " + file + " -model_type " + DropdownUpscaler + " -output " + output_name + "-kind_model " + DropdownSegment;
+		}
+		if (selection.length > 0) {
+			if (layer instanceof FootageItem) {
+				if (file != null) {
+					var result = shell.execute(command);
+					if (result) {
+						var importOptions = new ImportOptions(File(output_name));
+						var importedFile = app.project.importFile(importOptions);
+						importedFile.parentFolder = app.project.rootFolder;
+					}
+				}
+			}
 		}
 	}
 	return dialog;
