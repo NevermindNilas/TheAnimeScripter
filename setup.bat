@@ -27,7 +27,7 @@ if /I "%UserInput%" EQU "Y" (
     echo ------------------------------------
     echo         DOWNLOADING MODELS
     echo ------------------------------------
-    python .\download_models.py
+    python .\src\download_models.py
 ) else (
     echo The models will not be downloaded, models will be automatically downloaded on runtime or can be downloaded manually,
     echo using 'python .\download_models.py' in the command line.

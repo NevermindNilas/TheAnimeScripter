@@ -18,11 +18,15 @@ Otherwise, run:
 
 ### Manual installation:
 
+- (The script still needs further adjusting for venv)
+
 - Download and install Python 3.11 from: https://www.python.org/downloads/release/python-3110/ whilst making sure to add it to System Path
 
 - Open a terminal inside the folder
 
-- pip install -r requirements.txt
+- ```python setup.py```
+
+- double click on ```run.bat```
 
 # Usage
 
