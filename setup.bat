@@ -22,10 +22,16 @@ if /I "%UserInput%" EQU "Y" (
     exit /b
 )
 
-echo ------------------------------------
-echo         DOWNLOADING MODELS
-echo ------------------------------------
-python .\download_models.py
+set /p UserInput=Do you want to download the models? After Effects users will have to. (Y/N):
+if /I "%UserInput%" EQU "Y" (
+    echo ------------------------------------
+    echo         DOWNLOADING MODELS
+    echo ------------------------------------
+    python .\download_models.py
+) else (
+    echo The models will not be downloaded, you can manually run python download_models.py
+    echo After Effects users will have to download them if they want to use the script.
+)
 
 echo ------------------------------------
 echo      DOWNLOADING DEPENDENCIES

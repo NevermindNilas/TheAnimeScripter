@@ -12,6 +12,13 @@ ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of default=
 
 class Cugan:
     def __init__(self, video, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type):
+        """
+        The principle behind everything is that we start a thread using _thread.start_new_thread in order to iterate and append the frames onto a buffer.
+        and then we start yet another one in order to write the processed frames onto the output video.
+
+        Each frame has an index associated with it, and we use that index to write the frames in the correct order and to avoid
+        any race conditions that may occur over time.
+        """
         self.video = video
         self.output = output
         self.half = half

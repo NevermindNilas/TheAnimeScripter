@@ -5,7 +5,9 @@ from src.compact.compact import Compact
 from src.cugan.cugan import Cugan
 from src.swinir.swinir import Swin
 
-
+"""
+After Effects doesn't like dynamically loading models, so we need to download them before the script is ran.
+"""
 def handle_swinir():
     pbar = tqdm(total=5, desc="Downloading SwinIR models", unit="", colour="green")
     for scale in [2, 4]:
