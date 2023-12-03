@@ -138,7 +138,8 @@ In no particular order:
 - [Massive] Added SwinIR.
 - [Massive] Added Compact
 - [Massive] Added FFMPEG Encoding using moviepy.
-- [Massive] Added Ultracompact
+- [Massive] Added Ultracompact.
 - [Massive] Improved the speed of Inference by upwards of 50% from personal testing!
 - Fixed issue where the last nt frames wouldn't be processed.
-- [Massive] Added segmentation
+- [Massive] Added Segmentation.
+- Added download_models.py for offline processing.
