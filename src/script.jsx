@@ -350,45 +350,48 @@ var dialog = (function () {
 			output_name = outputFolder + "\\" + activeLayerName + "_trimmed" + ".mp4";
 			alert(inPoint)
 			alert(outPoint)
-			command = "cmd.exe /c" + " ffmpeg -i " + activeLayerPath + " -ss " + inPoint + " -to " + outPoint + "-vcodec copy" + output_name + "-y";
+			command = "cmd.exe /c" + " static_ffmpeg -i " + activeLayerPath + " -ss " + inPoint + " -to " + outPoint + "-vcodec copy" + output_name + "-y";
 			var result = system.callSystem(command);
 			activeLayerPath = output_name;
 		} else {
 		}
 		*/
-
-		output_name = outputFolder + "\\" + activeLayerName + "_" + module + ".mp4";
+		alert(module)
+		output_name = outputFolder + activeLayerName + "_" + module + ".mp4";
 		var command = "";
 		if (module == "interpolate") {
 			command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type rife -multi " + InterpolateInt + " -output " + output_name;
 		} else if (module == "upscale") {
 			if (DropdownUpscaler == "ShuffleCugan") {
-				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type shufflecugan -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
+				//command = "python B:/TheAnimeScripter/main.py -video B:/TheAnimeScripter/input/input.mp4 -multi 2 -model_type shufflecugan -output B:/output.mp4 > B:/output.txt"
+				command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type shufflecugan -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
 			} else if (DropdownUpscaler == "Cugan") {
-				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type cugan -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan + " -multi " + UpscaleInt;
+				command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type cugan -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan + " -multi " + UpscaleInt;
 			} else if (DropdownUpscaler == "UltraCompact") {
-				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type ultracompact -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
+				command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type ultracompact -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
 			} else if (DropdownUpscaler == "Compact") {
-				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type compact -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
+				command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type compact -output " + output_name + " -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
 			} else if (DropdownUpscaler == "Swwinir") {
-				command = "cd " + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type swinir -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt;
+				command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type swinir -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt;
 			}
 		} else if (module == "dedup") {
-			command = "cd" + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type dedup -output " + output_name + " -kind_model " + "ffmpeg";
+			command = "cd" + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type dedup -output " + output_name + " -kind_model " + "ffmpeg";
 		} else if (module == "segment") {
-			command = "cd" + scriptPath + "&& python " + mainPyFile + " -video " + activeLayerPath + " -model_type segment -output " + output_name + "-kind_model " + DropdownSegment;
+			command = "cd" + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type segment -output " + output_name + "-kind_model " + DropdownSegment;
 		} else {
 			alert("Something went wrong");
 			return;
 		}
+		alert(command)
 		if (layer) {
 			try {
-				var cmdCommand = 'cmd.exe /c "' + command + '"';
+				var cmdCommand = 'cmd.exe /c "' + command
 				var result = system.callSystem(cmdCommand);
 				var importOptions = new ImportOptions(File(output_name));
 				var importedFile = app.project.importFile(importOptions);
 				var inputLayer = comp.layers.add(importedFile);
 				inputLayer.moveBefore(layer);
+				inputLayer.resize(comp.width, comp.height);
 			} catch (error) {
 				alert(error);
 			}
