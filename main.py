@@ -17,7 +17,7 @@ os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 def generate_output_filename(output, filename_without_ext):
     return os.path.join(output, f"{filename_without_ext}_output.mp4")
 
-def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
+def main(video_file, model_type, half, multi, kind_model, pro, nt, output, scripter):
     video_file = os.path.normpath(video_file)
 
     cap = cv2.VideoCapture(video_file)
@@ -60,7 +60,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
             print("Cugan only supports up to 4x scaling, auto setting scale to 4")
             multi = 4
         
-        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type)
+        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type, scripter)
         
     elif model_type == "swinir":
         
@@ -87,20 +87,24 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     else:
         sys.exit("Please select a valid model type", model_type, "was not found")
 
+def chain_models(video_file, model_type, half, multi, kind_model, pro, nt, output):
+    pass
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contact Sheet Generator")
     parser.add_argument("-video", type=str, help="", default="", action="store")
-    parser.add_argument("-model_type",required=False, type=str, help="rife, cugan, shufflecugan, swinir, dedup", default="rife", action="store")
+    parser.add_argument("-model_type", type=str, help="rife, cugan, shufflecugan, swinir, dedup", default="rife", action="store")
     parser.add_argument("-half", type=bool, help="", default=True, action="store")
     parser.add_argument("-multi", type=int, help="", default=2, action="store")
     parser.add_argument("-kind_model", type=str, help="", default="", action="store")
     parser.add_argument("-pro", type=bool, help="", default=False, action="store")
     parser.add_argument("-nt", type=int, help="", default=1, action="store")
-    parser.add_argument("-output", type=str, help="can be path or filename only", default="", action="store")
-    parser.add_argument("-scripter", type=bool, help="", default="", action="store")
+    parser.add_argument("-output", type=str, help="can be path to folder or filename only", default="", action="store")
+    parser.add_argument("-scripter", type=bool, help="", default=False, action="store")
+    parser.add_argument("-chain", type=bool, help="For chaining models", default=False, action="store")
     args = parser.parse_args()
     
     if args.video is None:
         sys.exit("Please select a video file")
 
-    main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output)
+    main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output, args.scripter)
