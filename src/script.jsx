@@ -356,7 +356,7 @@ var dialog = (function () {
 		} else {
 		}
 		*/
-		alert(module)
+		//alert(module)
 		output_name = outputFolder + activeLayerName + "_" + module + ".mp4";
 		var command = "";
 		if (module == "interpolate") {
@@ -382,7 +382,25 @@ var dialog = (function () {
 			alert("Something went wrong");
 			return;
 		}
-		alert(command)
+
+		function download_models(module) {
+			if (module == "upscale") {
+				if (DropdownUpscaler == "ShuffleCugan" || DropdownUpscaler == "Cugan") {
+					var path = scriptPath + "\\src\\cugan\\weights";
+					var folder = new Folder(path);
+					if (!folder.exists) {
+						folder.create();
+					}
+					var url = "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/sudo_shuffle_cugan_9.584.969.pth";
+					var dest = path + "\\sudo_shuffle_cugan_9.584.969.pth";
+					var command = 'cmd.exe /c curl ' + url + ' -o ' + dest;
+					system.callSystem(command);
+				}
+			}
+		}
+
+		download_models(module);
+		//alert(command)
 		if (layer) {
 			try {
 				var cmdCommand = 'cmd.exe /c "' + command
@@ -391,7 +409,7 @@ var dialog = (function () {
 				var importedFile = app.project.importFile(importOptions);
 				var inputLayer = comp.layers.add(importedFile);
 				inputLayer.moveBefore(layer);
-				inputLayer.resize(comp.width, comp.height);
+				//inputLayer.resize(comp.width, comp.height);
 			} catch (error) {
 				alert(error);
 			}
