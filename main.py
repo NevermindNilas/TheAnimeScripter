@@ -17,8 +17,6 @@ def generate_output_filename(output, filename_without_ext):
     return os.path.join(output, f"{filename_without_ext}_output.mp4")
 
 def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
-    import time
-    time.sleep(5)
     video_file = os.path.normpath(video_file)
 
     cap = cv2.VideoCapture(video_file)
