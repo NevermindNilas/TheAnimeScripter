@@ -1,91 +1,48 @@
-import os, torch, time, requests, _thread, numpy as np, concurrent.futures, shutil, sys
+"""
+TO DO
+"""
+import os, concurrent.futures, time, _thread, torch
 
 from tqdm import tqdm
+from queue import Queue
 from moviepy.editor import VideoFileClip
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
-from multiprocessing import Queue
-from .cugan_arch import UpCunet2x, UpCunet3x, UpCunet4x, UpCunet2x_fast
 
-'''
-ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of default=nokey=1:noprint_wrappers=1 .\input\input_shufflecugan.mp4 
-'''
-
-class Cugan:
-    def __init__(self, video, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type):
-        """
-        The principle behind everything is that we start a thread using _thread.start_new_thread in order to iterate and append the frames onto a buffer.
-        and then we start yet another one in order to write the processed frames onto the output video.
-
-        Each frame has an index associated with it, and we use that index to write the frames in the correct order and to avoid
-        any race conditions that may occur over time.
-        """
+class Esrgan():
+    def __init__(self, video, output, w, h, fps, model_type, kind_model, nt, tot_frame, half):
         self.video = video
         self.output = output
-        self.half = half
-        self.nt = nt
-        self.model_type = model_type
-        self.pro = pro
         self.w = w
         self.h = h
         self.fps = fps
-        self.scale = multi
-        self.tot_frame = tot_frame
+        self.model_type = model_type
         self.kind_model = kind_model
+        self.nt = nt
+        self.tot_frame = tot_frame
+        self.half = half
+        
         self.processed_frames = {}
-
+        self.threads_are_running = True
+        
         self.handle_model()
         self.initialize()
-        
+
         self.threads_are_running = True
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.nt) as executor:
             for _ in range(self.nt):
-                executor.submit(CuganMT(self.model, self.read_buffer, self.processed_frames, self.half, self.w, self.h).run)
+                executor.submit(EsrganMT(self.model, self.read_buffer, self.processed_frames, self.half, self.w, self.h).run)
                 
         while self.processing_index < self.tot_frame:
             time.sleep(0.1)
         
         self.threads_are_running = False
-        
+
     def handle_model(self):
-        if self.model_type == "shufflecugan":
-            self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
-            self.filename = "sudo_shuffle_cugan_9.584.969.pth"
-        else:
-            model_path_prefix = "cugan_pro" if self.pro else "cugan"
-            model_path_suffix = "-latest" if not self.pro else ""
-            model_path_middle = f"up{self.scale}x"
-            model_map = {2: UpCunet2x, 3: UpCunet3x, 4: UpCunet4x}
-            self.model = model_map[self.scale](in_channels=3, out_channels=3)
-            self.filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{self.kind_model}.pth"
-        
-        if not os.path.exists("src/cugan/weights"):
-            os.makedirs("src/cugan/weights")
-            
-        if not os.path.exists(os.path.join(os.path.abspath("src/cugan/weights"), self.filename)):
-            print(f"Downloading {self.model_type.upper()}  model...")
-            url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{self.filename}"
-            response = requests.get(url)
-            if response.status_code == 200:
-                with open(os.path.join("src/cugan/weights", self.filename), "wb") as file:
-                    file.write(response.content)
-
-        model_path = os.path.abspath(os.path.join("src/cugan/weights", self.filename))
-
-        self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
-        self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()
-
-        if self.half:
-            self.model.half()
-            
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        torch.set_grad_enabled(False)
-        if torch.cuda.is_available():
-            torch.backends.cudnn.enabled = True
-            torch.backends.cudnn.benchmark = True
-        if self.half:
-            torch.set_default_tensor_type(torch.cuda.HalfTensor)
-
+        """
+        TO DO
+        """
+    
     def initialize(self):
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
@@ -120,8 +77,8 @@ class Cugan:
             self.processing_index += 1
         self.writer.close()
         self.pbar.close()
-        
-class CuganMT():
+
+class EsrganMT():
     def __init__(self, model, read_buffer, processed_frames, half, w, h):
         self.model = model
         self.read_buffer = read_buffer

@@ -25,9 +25,9 @@ def download_models():
     answer = input().lower() # Added lower just in case
     if answer == "y":
         if platform.system() == "Windows":
-            subprocess.run([".\\venv\\Scripts\\python", ".\\src\\download_models.py"], check=True)
+            subprocess.run([".\\venv\\Scripts\\python", ".\\download_models.py"], check=True)
         else:
-            subprocess.run(["./venv/bin/python", "./src/download_models.py"], check=True)
+            subprocess.run(["./venv/bin/python", "./download_models.py"], check=True)
     else:
         print("The model(s) will be downloaded on runtime")
 

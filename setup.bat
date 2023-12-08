@@ -5,7 +5,7 @@ echo ------------------------------------
 curl https://www.python.org/ftp/python/3.11.0/python-3.11.0-amd64.exe --output %cd%\python-3.11.0-amd64.exe
 
 echo ------------------------------------
-echo      AUTO INSTALLING PYTHON
+echo         INSTALLING PYTHON
 echo ------------------------------------
 start /wait "" "%cd%\python-3.11.0-amd64.exe" 
 
@@ -22,21 +22,13 @@ if /I "%UserInput%" EQU "Y" (
     exit /b
 )
 
-set /p UserInput=Do you want to download the models? After Effects users will have to. (Y/N):
-if /I "%UserInput%" EQU "Y" (
-    echo ------------------------------------
-    echo         DOWNLOADING MODELS
-    echo ------------------------------------
-    python .\src\download_models.py
-) else (
-    echo The models will not be downloaded, models will be automatically downloaded on runtime or can be downloaded manually,
-    echo using 'python .\download_models.py' in the command line.
-    echo After Effects users will have to download them if they want to use the script.
-)
+echo ------------------------------------
+echo         DOWNLOADING MODELS
+echo ------------------------------------
+python .\download_models.py
 
 echo ------------------------------------
 echo      DOWNLOADING DEPENDENCIES
 echo ------------------------------------
-python -m pip install --upgrade pip
 pip install -r requirements.txt
 pause
