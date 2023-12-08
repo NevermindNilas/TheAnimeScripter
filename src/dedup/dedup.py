@@ -20,6 +20,8 @@ class Dedup():
             self.hash()
         elif self.kind_model == "vmaf":
             self.vmaf()
+        else:
+            self.kind_model == "ffmpeg"
     
     def ffmpeg(self):
         print("The output is 1 second long only to avoid Variable Framerate issues if further processing is wanted.")

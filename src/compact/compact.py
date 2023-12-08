@@ -36,10 +36,10 @@ class Compact():
         self.threads_are_running = False
     
     def handle_models(self):
-        if not os.path.exists("src/compact/weights"):
-            os.mkdir("src/compact/weights")
 
         if self.model_type == "compact":
+            if not os.path.exists("src/compact/weights"):
+                os.makedirs("src/compact/weights")
             self.filename = "2x_Bubble_AnimeScale_Compact_v1.pth"
             if not os.path.exists(os.path.join(os.path.abspath("src/compact/weights"), self.filename)):
                 print("Downloading Compact model...")
@@ -50,6 +50,8 @@ class Compact():
                         file.write(response.content)
                         
         elif self.model_type == "ultracompact":
+            if not os.path.exists("src/compact/weights"):
+                os.makedirs("src/compact/weights")
             self.filename = "sudo_UltraCompact_2x_1.121.175_G.pth"
             if not os.path.exists(os.path.join(os.path.abspath("src/compact/weights"), self.filename)):
                 print("Downloading UltraCompact model...")
@@ -88,7 +90,7 @@ class Compact():
         
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
-        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps)
+        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps, ffmpeg_params=["-b:v", "10000k", "-vcodec", "mpeg4"]) # TO DO: Change this
         self.pbar = tqdm(total=self.tot_frame, desc="Writing frames", unit="frames")
             
         self.read_buffer = Queue(maxsize=500)
