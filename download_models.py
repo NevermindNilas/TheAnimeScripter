@@ -5,11 +5,14 @@ from tqdm import tqdm
 """
 After Effects doesn't like dynamically loading models, so we need to download them before the script is ran.
 """
+"""
+In the future this will all be done inside a virtual environment, but for now it's all global.
+"""
 def handle_swinir():
     pbar = tqdm(total=5, desc="Downloading SwinIR models", unit="", colour="green")
 
-    if not os.path.exists("swinir/weights"):
-        os.makedirs("swinir/weights")
+    if not os.path.exists("src/swinir/weights"):
+        os.makedirs("src/swinir/weights")
 
     for scale in [2, 4]:
         model_type = {
@@ -25,7 +28,7 @@ def handle_swinir():
                 response = requests.get(url)
                 try:
                     if response.status_code == 200:
-                        with open(os.path.join("swinir/weights", filename), "wb") as file:
+                        with open(os.path.join("src/swinir/weights", filename), "wb") as file:
                             file.write(response.content)
                 except:
                     raise Exception(f"Could not download {filename}")
@@ -35,8 +38,8 @@ def handle_swinir():
 
 def handle_cugan():
     pbar = tqdm(total=16, desc="Downloading Cugan models", unit="", colour="green")
-    if not os.path.exists("cugan/weights"):
-        os.makedirs("cugan/weights")
+    if not os.path.exists("src/cugan/weights"):
+        os.makedirs("src/cugan/weights")
 
     for model_type in ["shufflecugan", "cugan"]:
         if model_type == "shufflecugan":
@@ -46,7 +49,7 @@ def handle_cugan():
                 response = requests.get(url)
                 try:
                     if response.status_code == 200:
-                        with open(os.path.join("cugan/weights", filename), "wb") as file:
+                        with open(os.path.join("src/cugan/weights", filename), "wb") as file:
                             file.write(response.content)
                 except:
                     raise Exception(f"Could not download {filename}")
@@ -65,7 +68,7 @@ def handle_cugan():
                         response = requests.get(url)
                         try:
                             if response.status_code == 200:
-                                with open(os.path.join("cugan/weights", filename), "wb") as file:
+                                with open(os.path.join("src/cugan/weights", filename), "wb") as file:
                                     file.write(response.content)
                         except:
                             raise Exception(f"Could not download {filename}")
@@ -76,8 +79,8 @@ def handle_cugan():
 def handle_compact():
     pbar = tqdm(total=2, desc="Downloading Compact models", unit="", colour="green")
 
-    if not os.path.exists("compact/weights"):
-        os.makedirs("compact/weights")
+    if not os.path.exists("src/compact/weights"):
+        os.makedirs("src/compact/weights")
 
     for model_type in ["compact", "ultracompact"]:
         if model_type == "compact":
@@ -98,7 +101,7 @@ def handle_compact():
                     response = requests.get(url)
                     try:
                         if response.status_code == 200:
-                            with open(os.path.join("compact/weights", filename), "wb") as file:
+                            with open(os.path.join("src/compact/weights", filename), "wb") as file:
                                 file.write(response.content)
                     except:
                         raise Exception(f"Could not download {filename}")

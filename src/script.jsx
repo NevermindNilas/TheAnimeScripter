@@ -13,13 +13,36 @@ var dialog = (function () {
 	var defaultSegment = "isnet-anime";
 	var defaultInterpolateInt = 2;
 	var defaultUpscaleInt = 2;
+	
+	/*
+	// Workaround for testing admin perms
+	var file = new File("C:/Windows/test.txt");
+	file.open('w');
+	var success = file.write("Test");
+	file.close();
+
+	if ( !success ) {
+		alert("You need to run After Effects as an administrator to use The Anime Scripter script.");
+		return;
+	}
+	
+	file.remove();
+	*/
 
 	var dialog = (panelGlobal instanceof Panel) ? panelGlobal : new Window("palette", undefined, undefined, {resizeable: true}); 
-	    if ( !(panelGlobal instanceof Panel) ) dialog.text = "AnimeScripter by Nilas"; 
-	    dialog.orientation = "column"; 
-	    dialog.alignChildren = ["center","top"]; 
-	    dialog.spacing = 20; 
-	    dialog.margins = 20; 
+	if ( !(panelGlobal instanceof Panel) ) dialog.text = "AnimeScripter by Nilas"; 
+	dialog.orientation = "column"; 
+	dialog.alignChildren = ["center","top"]; 
+	dialog.spacing = 10; 
+	dialog.margins = 5; 
+	
+	var statictext1 = dialog.add("group", undefined , {name: "statictext1"}); 
+	statictext1.getText = function() { var t=[]; for ( var n=0; n<statictext1.children.length; n++ ) { var text = statictext1.children[n].text || ''; if ( text === '' ) text = ' '; t.push( text ); } return t.join('\n'); }; 
+	statictext1.orientation = "column"; 
+	statictext1.alignChildren = ["center","center"]; 
+	statictext1.spacing = 0; 
+
+	statictext1.add("statictext", undefined, "The Anime Scripter"); 
 	
 	var divider1 = dialog.add("panel", undefined, undefined, {name: "divider1"}); 
 	    divider1.alignment = "fill"; 
@@ -36,7 +59,7 @@ var dialog = (function () {
 	// =================
 	var InterpolatedPanel = InterpolateUpscaleGroup.add("panel", undefined, undefined, {name: "InterpolatedPanel"}); 
 	    InterpolatedPanel.text = "Interpolate"; 
-	    InterpolatedPanel.preferredSize.width = 175; 
+	    InterpolatedPanel.preferredSize.width = 25; 
 	    InterpolatedPanel.orientation = "column"; 
 	    InterpolatedPanel.alignChildren = ["left","top"]; 
 	    InterpolatedPanel.spacing = 10; 
@@ -112,10 +135,13 @@ var dialog = (function () {
 	    DedupSegmentGroup.margins = 0; 
 	
 	var DedupButton = DedupSegmentGroup.add("button", undefined, undefined, {name: "DedupButton"}); 
-	    DedupButton.text = "Dedup"; 
+	    DedupButton.text = "Dedup";
+		DedupButton.preferredSize.width = 69;
 	
 	var SegmentButton = DedupSegmentGroup.add("button", undefined, undefined, {name: "SegmentButton"}); 
-	    SegmentButton.text = "Segment"; 
+	    SegmentButton.text = "Segment";
+		SegmentButton.enabled = false; 
+		SegmentButton.preferredSize.width = 69;
 	
 	// ONFIRSTRUNONLY
 	// ==============
@@ -136,18 +162,26 @@ var dialog = (function () {
 	
 	var OutputButton = group1.add("button", undefined, undefined, {name: "OutputButton"}); 
 	    OutputButton.text = "Output"; 
-	
+		OutputButton.preferredSize.width = 69;
+
 	var MainpyButton = group1.add("button", undefined, undefined, {name: "MainpyButton"}); 
 	    MainpyButton.text = "Main.py"; 
-	
+		MainpyButton.preferredSize.width = 69;
+
 	// DIALOG
 	// ======
 	var divider1 = dialog.add("panel", undefined, undefined, {name: "divider1"}); 
 	    divider1.alignment = "fill"; 
 	
+	var settingsGroup = dialog.add("group", undefined, {name: "settingsGroup"});
+	    settingsGroup.orientation = "row";
+	    settingsGroup.alignChildren = ["left","center"];
+	    settingsGroup.spacing = 10;
+	    settingsGroup.margins = 0;
+	
 	// SETTINGSPANEL
 	// =============
-	var SettingsPanel = dialog.add("panel", undefined, undefined, {name: "SettingsPanel"}); 
+	var SettingsPanel = settingsGroup.add("panel", undefined, undefined, {name: "SettingsPanel"}); 
 	    SettingsPanel.text = "Settings"; 
 	    SettingsPanel.orientation = "column"; 
 	    SettingsPanel.alignChildren = ["left","top"]; 
@@ -211,7 +245,7 @@ var dialog = (function () {
 	
 	var ChooseSwinIRText = group3.add("statictext", undefined, undefined, {name: "ChooseSwinIRText"}); 
 	    ChooseSwinIRText.text = "SwinIR"; 
-	    ChooseSwinIRText.preferredSize.width = 85; 
+	    ChooseSwinIRText.preferredSize.width = 75; 
 	    ChooseSwinIRText.justify = "center"; 
 	
 	var DropdownSwinIr_array = ["small","-","medium","-","large"]; 
@@ -308,6 +342,7 @@ var dialog = (function () {
 	}
 	
 	function process(module) {
+		
 		var outputFolder = app.settings.haveSetting("AnimeScripter", "outputDirectory") ? app.settings.getSetting("AnimeScripter", "outputDirectory") : "";
 		var mainPyFile = app.settings.haveSetting("AnimeScripter", "mainPyPath") ? app.settings.getSetting("AnimeScripter", "mainPyPath") : "";
 		var DropdownCugan = app.settings.haveSetting("AnimeScripter", "DropdownCugan") ? app.settings.getSetting("AnimeScripter", "DropdownCugan") : defaultCugan;
@@ -318,6 +353,12 @@ var dialog = (function () {
 		var InterpolateInt = app.settings.haveSetting("AnimeScripter", "InterpolateInt") ? app.settings.getSetting("AnimeScripter", "InterpolateInt") : defaultInterpolateInt;
 		var UpscaleInt = app.settings.haveSetting("AnimeScripter", "UpscaleInt") ? app.settings.getSetting("AnimeScripter", "UpscaleInt") : defaultUpscaleInt;
 		
+		// The script above stores the positional value of the selected upscaler in the array
+		// In order to work around it, we need to get the actual value of the selected upscaler
+		DropdownUpscaler = DropdownUpscaler_array[DropdownUpscaler];
+		DropdownSwinIr = DropdownSwinIr_array[DropdownSwinIr];
+		DropdownSegment = DropdownSegment_array[DropdownSegment];
+
 		if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length != 1)) {
 			return alert("Please select one layer.");
 		}
@@ -339,7 +380,17 @@ var dialog = (function () {
 		
 		var pyfile = File(mainPyFile);
 		var scriptPath = pyfile.parent.fsName;
-				
+
+		// Checking if the user has downloaded the models
+		weightsPath = scriptPath + "\\src\\cugan\\weights\\";
+		var weightsFile = new File(weightsPath);
+
+		if (!weightsFile.exists) {
+			alert("Models folder(s) not found, please make sure you have downloaded the models, run setup.bat or python .\\src\\download_models.py in the script folder and try again");
+			return;
+		}
+
+		// poor man's attempt at trimming the input for processing, not yet functional
 
 		/*var inPoint = layer.inPoint;
 		var outPoint = layer.outPoint;
@@ -356,8 +407,9 @@ var dialog = (function () {
 		} else {
 		}
 		*/
-		//alert(module)
-		output_name = outputFolder + activeLayerName + "_" + module + ".mp4";
+
+		var randomNumber = Math.floor(Math.random() * 10000);
+		output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".mp4";
 		var command = "";
 		if (module == "interpolate") {
 			command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type rife -multi " + InterpolateInt + " -output " + output_name;
@@ -374,33 +426,19 @@ var dialog = (function () {
 			} else if (DropdownUpscaler == "Swwinir") {
 				command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type swinir -output " + output_name + " -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt;
 			}
+			else{
+				alert("No model has been selected, weird")
+				return;
+			}
 		} else if (module == "dedup") {
-			command = "cd" + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type dedup -output " + output_name + " -kind_model " + "ffmpeg";
+			command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type dedup -output " + output_name + " -kind_model " + "ffmpeg";
 		} else if (module == "segment") {
-			command = "cd" + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type segment -output " + output_name + "-kind_model " + DropdownSegment;
+			command = "cd " + scriptPath + " && python " + mainPyFile + " -video " + activeLayerPath + " -model_type segment -output " + output_name + "-kind_model " + DropdownSegment;
 		} else {
 			alert("Something went wrong");
 			return;
 		}
 
-		function download_models(module) {
-			if (module == "upscale") {
-				if (DropdownUpscaler == "ShuffleCugan" || DropdownUpscaler == "Cugan") {
-					var path = scriptPath + "\\src\\cugan\\weights";
-					var folder = new Folder(path);
-					if (!folder.exists) {
-						folder.create();
-					}
-					var url = "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/sudo_shuffle_cugan_9.584.969.pth";
-					var dest = path + "\\sudo_shuffle_cugan_9.584.969.pth";
-					var command = 'cmd.exe /c curl ' + url + ' -o ' + dest;
-					system.callSystem(command);
-				}
-			}
-		}
-
-		download_models(module);
-		//alert(command)
 		if (layer) {
 			try {
 				var cmdCommand = 'cmd.exe /c "' + command
@@ -409,7 +447,16 @@ var dialog = (function () {
 				var importedFile = app.project.importFile(importOptions);
 				var inputLayer = comp.layers.add(importedFile);
 				inputLayer.moveBefore(layer);
-				//inputLayer.resize(comp.width, comp.height);
+
+				// Resize the layer to fit the comp
+				var compWidth = comp.width;
+				var compHeight = comp.height;
+				var layerWidth = inputLayer.source.width;
+				var layerHeight = inputLayer.source.height;
+				var scaleX = (compWidth / layerWidth) * 100;
+				var scaleY = (compHeight / layerHeight) * 100;
+				inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
+
 			} catch (error) {
 				alert(error);
 			}

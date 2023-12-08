@@ -1,6 +1,5 @@
 import argparse
 import os
-#os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 import sys
 from src.rife.rife import Rife
 from src.cugan.cugan import Cugan
@@ -17,12 +16,15 @@ os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 def generate_output_filename(output, filename_without_ext):
     return os.path.join(output, f"{filename_without_ext}_output.mp4")
 
-def main(video_file, model_type, half, multi, kind_model, pro, nt, output, scripter):
+def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
+    import time
+    time.sleep(5)
     video_file = os.path.normpath(video_file)
 
     cap = cv2.VideoCapture(video_file)
     w, h = cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     fps = cap.get(cv2.CAP_PROP_FPS)
+
     tot_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     cap.release()
 
@@ -37,9 +39,9 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output, scrip
             os.makedirs(output_path)
         output = generate_output_filename(output_path, filename_without_ext)
     
-    if h > 1080 and torch.cuda.is_available() and nt > 1 and model_type != "rife" and model_type != "dedup" and model_type != "segment":
+    if h > 1080 and torch.cuda.is_available() and nt > 1 and model_type not in ["rife", "dedup", "segment"]:
         print("For resolutions over 1080p, having more than 2 threads can cause memory issues depending on your GPU, please test with different thread counts")
-    
+
     if model_type == "rife":
 
         UHD = True if w >= 2160 or h >= 2160 else False
@@ -49,8 +51,9 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output, scrip
         
     elif model_type == "cugan" or model_type == "shufflecugan":
         
-        if model_type == "cugan" and h > 1080:
-            print("This may take a while, preferably use shufflecugan for over 1080p videos")
+        if model_type == "shufflecugan " and w < 1280 and h < 720:
+            print("For resolutions under 1280x720p, please use cugan or compact model instead")
+            sys.exit()
             
         if model_type == "shufflecugan" and multi != 2:
             print("The only scale that Shufflecugan works with is 2x, auto setting scale to 2")
@@ -60,7 +63,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output, scrip
             print("Cugan only supports up to 4x scaling, auto setting scale to 4")
             multi = 4
         
-        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type, scripter)
+        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type)
         
     elif model_type == "swinir":
         
@@ -100,11 +103,10 @@ if __name__ == "__main__":
     parser.add_argument("-pro", type=bool, help="", default=False, action="store")
     parser.add_argument("-nt", type=int, help="", default=1, action="store")
     parser.add_argument("-output", type=str, help="can be path to folder or filename only", default="", action="store")
-    parser.add_argument("-scripter", type=bool, help="", default=False, action="store")
     parser.add_argument("-chain", type=bool, help="For chaining models", default=False, action="store")
     args = parser.parse_args()
     
     if args.video is None:
         sys.exit("Please select a video file")
-
-    main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output, args.scripter)
+    
+    main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output)
