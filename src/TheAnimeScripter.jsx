@@ -1,7 +1,7 @@
 var panelGlobal = this;
 var dialog = (function () {
 	var scriptName = "AnimeScripter";
-	var scriptVersion = "0.0.3";
+	var scriptVersion = "0.0.4";
 	var scriptAuthor = "Nilas";
 	var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
 	var discordServer = "https://discord.gg/CdRD9GwS8J"
@@ -437,7 +437,7 @@ var dialog = (function () {
 		}
 
 		// For debugging purposes
-		alert("THIS IS THE COMMAND " + command)
+		//alert("THIS IS THE COMMAND " + command)
 
 		if (layer) {
 			try {
