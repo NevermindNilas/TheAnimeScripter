@@ -92,10 +92,13 @@ if __name__ == "__main__":
     parser.add_argument("-pro", type=bool, help="", default=False, action="store")
     parser.add_argument("-nt", type=int, help="", default=1, action="store")
     parser.add_argument("-output", type=str, help="can be path to folder or filename only", default="", action="store")
-    parser.add_argument("-chain", type=bool, help="For chaining models", default=False, action="store")
+    parser.add_argument("-chain", type=str, help="For chaining models", default=False, action="store")
     args = parser.parse_args()
     
     if args.video is None:
         sys.exit("Please select a video file")
-    
-    main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output)
+        
+    if not args.chain:
+        main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output)
+    else:
+        chain_models(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output)
