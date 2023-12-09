@@ -37,8 +37,7 @@ class Segment():
         self.read_buffer = Queue(maxsize=500)
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
-        self.writer = FFMPEG_VideoWriter(self.output, (self.w, self.h), self.fps, codec="png",
-                                     preset="medium", withmask=True)
+        self.writer = FFMPEG_VideoWriter(self.output, (self.w, self.h), self.fps, codec="png", preset="medium", withmask=True)
         
         _thread.start_new_thread(self.build_buffer, ())
         _thread.start_new_thread(self.write_thread, ())
