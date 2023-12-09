@@ -402,7 +402,7 @@ var dialog = (function () {
 			var newInPoint = Math.floor(inPoint - startTime);
 			var newOutPoint = Math.ceil(outPoint - startTime);
 
-			output_name = outputFolder + "\\" + activeLayerName + "_temp" + ".mp4";
+			output_name = outputFolder + "\\" + activeLayerName + "_temp.mp4";
 			try{
 				command = "cmd.exe /c " + " static_ffmpeg -i \"" + activeLayerPath + "\" -ss \"" + newInPoint + "\" -to \"" + newOutPoint + "\" -vcodec copy \"" + output_name + "\" -y ";
 				alert(command)
@@ -456,7 +456,7 @@ var dialog = (function () {
 		}
 
 		// For debugging purposes
-		alert("THIS IS THE COMMAND " + command)
+		//alert("THIS IS THE COMMAND " + command)
 
 		if (layer) {
 			try {
@@ -471,25 +471,24 @@ var dialog = (function () {
 				var inputLayer = comp.layers.add(importedFile);
 				inputLayer.moveBefore(layer);
 
+				var compWidth = comp.width;
+				var compHeight = comp.height;
+				var layerWidth = inputLayer.source.width;
+				var layerHeight = inputLayer.source.height;
+
 				// Resize the layer to fit the comp
 				if (module == "upscale"){
-					var compWidth = comp.width;
-					var compHeight = comp.height;
-					var layerWidth = inputLayer.source.width;
-					var layerHeight = inputLayer.source.height;
 					var scaleX = (compWidth / layerWidth) * 100;
 					var scaleY = (compHeight / layerHeight) * 100;
 					inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
 				}
-
 				// Removes the temp file that was created
-				if (removeFile.exists) {
+				if (removeFile && removeFile.exists) {
 					try {
 						removeFile.remove();
-					}
-					except(error) {
+					} catch (error) {
 						alert(error);
-						alert("Something went wrong trying to remove the temp file, maybe lack of admin permissions?");
+						alert("There might have been a problem removing the temp file. Do you have admin permissions?");
 					}
 				}
 			} catch (error) {
