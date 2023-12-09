@@ -23,7 +23,7 @@ def handle_swinir():
 
         for kind_model in ['small', 'medium', 'large']:
             filename = model_type[kind_model]
-            if not os.path.exists(os.path.join(os.path.abspath("swinir/weights"), filename)):
+            if not os.path.exists(os.path.join(os.path.abspath("src/swinir/weights"), filename)):
                 url = f"https://github.com/JingyunLiang/SwinIR/releases/download/v0.0/{filename}"
                 response = requests.get(url)
                 try:
@@ -44,7 +44,7 @@ def handle_cugan():
     for model_type in ["shufflecugan", "cugan"]:
         if model_type == "shufflecugan":
             filename = "sudo_shuffle_cugan_9.584.969.pth"
-            if not os.path.exists(os.path.join(os.path.abspath("cugan/weights"), filename)):
+            if not os.path.exists(os.path.join(os.path.abspath("src/cugan/weights"), filename)):
                 url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{filename}"
                 response = requests.get(url)
                 try:
@@ -63,7 +63,7 @@ def handle_cugan():
                     model_path_middle = f"up{scale}x"
                     filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{kind_model}.pth"
     
-                    if not os.path.exists(os.path.join(os.path.abspath("cugan/weights"), filename)):
+                    if not os.path.exists(os.path.join(os.path.abspath("src/cugan/weights"), filename)):
                         url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{filename}"
                         response = requests.get(url)
                         try:
