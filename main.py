@@ -6,7 +6,7 @@ import cv2
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 
 def generate_output_filename(output, filename_without_ext):
-    return os.path.join(output, f"{filename_without_ext}_output.mp4")
+    return os.path.join(output, f"{filename_without_ext}_output.m4v")
 
 def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     video_file = os.path.normpath(video_file)
@@ -16,6 +16,10 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     fps = cap.get(cv2.CAP_PROP_FPS)
     tot_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     cap.release()
+
+    # Following Xaymar's guide: https://www.xaymar.com/guides/obs/high-quality-recording/avc/
+    # These should be relatively good settings for most cases, feel free to change them as you see fit.
+    ffmpeg_params=["-c:v", "libx264", "-f", "m4v", "-pix_fmt", "yuv420p", "-preset", "fast", "-crf", "15", "-tune", "animation", "-movflags", "+faststart"]
 
     basename = os.path.basename(video_file)
     filename_without_ext = os.path.splitext(basename)[0]
@@ -51,15 +55,19 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
             print("Cugan only supports up to 4x scaling, auto setting scale to 4")
             multi = 4
         
-        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type)
+        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type, ffmpeg_params)
         
     elif model_type == "swinir":
         from src.swinir.swinir import Swin
+
+        # Swinir is for general purpose upscaling so we don't need animation tune
+        ffmpeg_params = ["-c:v", "libx264", "-f", "m4v", "-pix_fmt", "yuv420p", "-preset", "fast", "-crf", "15", "-movflags", "+faststart"]
+
         if multi != 2 and multi != 4:
             print("Swinir only supports 2x and 4x scaling, auto setting scale to 2")
             multi = 2
             
-        Swin(video_file, output, model_type, multi, half, nt, w, h, fps, kind_model, tot_frame)
+        Swin(video_file, output, model_type, multi, half, nt, w, h, fps, kind_model, tot_frame, ffmpeg_params)
         
     elif model_type in ["compact", "ultracompact"]:
         from src.compact.compact import Compact
@@ -67,7 +75,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
             print(f"{model_type.upper()} only supports up to 2x scaling, auto setting scale to 2")
             multi = 2
         
-        Compact(video_file, output, multi, half, w, h, nt, tot_frame, fps, model_type)
+        Compact(video_file, output, multi, half, w, h, nt, tot_frame, fps, model_type, ffmpeg_params)
         
     elif model_type == "dedup":
         from src.dedup.dedup import Dedup

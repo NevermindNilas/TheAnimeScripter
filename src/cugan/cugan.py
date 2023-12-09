@@ -11,7 +11,7 @@ ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of default=
 '''
 
 class Cugan:
-    def __init__(self, video, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type):
+    def __init__(self, video, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type, ffmpeg_params):
         """
         The principle behind everything is that we start a thread using _thread.start_new_thread in order to iterate and append the frames onto a buffer.
         and then we start yet another one in order to write the processed frames onto the output video.
@@ -35,6 +35,7 @@ class Cugan:
         self.scale = multi
         self.tot_frame = tot_frame
         self.kind_model = kind_model
+        self.ffmpeg_params = ffmpeg_params
         self.processed_frames = {}
 
         self.handle_model()
@@ -91,12 +92,9 @@ class Cugan:
             torch.set_default_tensor_type(torch.cuda.HalfTensor)
 
     def initialize(self):
-        print(self.video)
-        print(self.output)
-        print("______________________________________")
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
-        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps, ffmpeg_params=["-b:v", "10000k", "-vcodec", "mpeg4"]) # TO DO: Change this
+        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps, ffmpeg_params=self.ffmpeg_params)
         self.pbar = tqdm(total=self.tot_frame, desc="Writing frames", unit="frames")
         
         self.read_buffer = Queue(maxsize=500)
