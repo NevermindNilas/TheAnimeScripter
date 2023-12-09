@@ -19,6 +19,10 @@ class Cugan:
         Each frame has an index associated with it, and we use that index to write the frames in the correct order and to avoid
         any race conditions that may occur over time.
         """
+
+        if h > 1080 and torch.cuda.is_available() and nt > 2:
+            print("For resolutions over 1080p, having more than 2 threads can cause memory issues depending on your GPU, please test with different thread counts, recommended min gpu 3060/ti")
+
         self.video = video
         self.output = output
         self.half = half
