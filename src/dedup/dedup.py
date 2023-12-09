@@ -25,11 +25,14 @@ class Dedup():
     
     def ffmpeg(self):
         print("The output is 1 second long only to avoid Variable Framerate issues if further processing is wanted.")
-        subprocess.call(["static_ffmpeg", "-i", self.video, "-vf", "mpdecimate,setpts=N/FRAME_RATE/TB", "-t", "1", "-v", "quiet", "-stats", "-y", self.output])
+        subprocess.call(["static_ffmpeg", "-i", self.video, "-vf", "mpdecimate,setpts=N/FRAME_RATE/TB", "-v", "quiet", "-stats", "-y", self.output])
+
     def hash(self):
         pass
+
     def vmaf(self):
         pass 
+
     def ssim(self):
         pass
 
