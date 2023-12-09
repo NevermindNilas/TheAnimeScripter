@@ -91,6 +91,9 @@ class Cugan:
             torch.set_default_tensor_type(torch.cuda.HalfTensor)
 
     def initialize(self):
+        print(self.video)
+        print(self.output)
+        print("______________________________________")
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
         self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps, ffmpeg_params=["-b:v", "10000k", "-vcodec", "mpeg4"]) # TO DO: Change this
