@@ -375,7 +375,7 @@ var dialog = (function () {
 		var comp = app.project.activeItem;
 		var layer = comp.selectedLayers[0];
 		var activeLayerPath = layer.source.file.fsName;
-		var activeLayerName = layer.name.replace('.mp4', '');
+		var activeLayerName = layer.name.replace(/\.[^\.]*$/, '');
 		
 		var pyfile = File(mainPyFile);
 		var scriptPath = pyfile.parent.fsName;
@@ -401,7 +401,7 @@ var dialog = (function () {
 
 			var newInPoint = Math.floor(inPoint - startTime);
 			var newOutPoint = Math.ceil(outPoint - startTime);
-			
+
 			output_name = outputFolder + "\\" + activeLayerName + "_temp" + ".mp4";
 			try{
 				command = "cmd.exe /c " + " static_ffmpeg -i \"" + activeLayerPath + "\" -ss \"" + newInPoint + "\" -to \"" + newOutPoint + "\" -vcodec copy \"" + output_name + "\" -y ";
@@ -482,10 +482,16 @@ var dialog = (function () {
 					inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
 				}
 
+				// Removes the temp file that was created
 				if (removeFile.exists) {
-					removeFile.remove();
+					try {
+						removeFile.remove();
+					}
+					except(error) {
+						alert(error);
+						alert("Something went wrong trying to remove the temp file, maybe lack of admin permissions?");
+					}
 				}
-
 			} catch (error) {
 				alert(error);
 			}
