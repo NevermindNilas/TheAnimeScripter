@@ -8,7 +8,7 @@
 
 ### Automated Installation
 
-If Python 3.10 - 3.11 isn't installed in your system, run this file:
+If Python 3.10 - 3.11 isn't installed on your system, run this file:
 
 - ```setup.bat```
 
@@ -107,7 +107,7 @@ Segment:
                    Really CPU/GPU dependent, with my 3090 I max out at 4 for Cugan / Shufflecugan.
                    As for SwinIR I max out at 2
 
--chain :bool     - Not usable yet, for chaining multiple models in one run.
+-chain :str      - Not usable yet, for chaining multiple models in one run.
 ```
 
 # Acknowledgements

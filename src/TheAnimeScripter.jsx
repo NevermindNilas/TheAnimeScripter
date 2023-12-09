@@ -1,7 +1,7 @@
 var panelGlobal = this;
 var dialog = (function () {
 	var scriptName = "AnimeScripter";
-	var scriptVersion = "0.0.2";
+	var scriptVersion = "0.0.3";
 	var scriptAuthor = "Nilas";
 	var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
 	var discordServer = "https://discord.gg/CdRD9GwS8J"
@@ -162,17 +162,17 @@ var dialog = (function () {
 	    group1.margins = 0; 
 	
 	var OutputButton = group1.add("button", undefined, undefined, {name: "OutputButton"}); 
-	    OutputButton.text = "Output"; 
+	    OutputButton.text = "Output";
+		OutputButton.helpTip = "Select an output directory";
 		OutputButton.preferredSize.width = 69;
 
 	var MainpyButton = group1.add("button", undefined, undefined, {name: "MainpyButton"}); 
-	    MainpyButton.text = "Main.py"; 
+	    MainpyButton.text = "Main.py";
+		MainpyButton.helpTip = "Select the main.py file";
 		MainpyButton.preferredSize.width = 69;
 
 	// DIALOG
 	// ======
-	var divider1 = dialog.add("panel", undefined, undefined, {name: "divider1"}); 
-	    divider1.alignment = "fill"; 
 	
 	var settingsGroup = dialog.add("group", undefined, {name: "settingsGroup"});
 	    settingsGroup.orientation = "row";
@@ -197,9 +197,6 @@ var dialog = (function () {
 	    group2.spacing = 10; 
 	    group2.margins = 0; 
 	
-	var divider2 = group2.add("panel", undefined, undefined, {name: "divider2"}); 
-	    divider2.alignment = "fill"; 
-	
 	var ChooseUpscalerText = group2.add("statictext", undefined, undefined, {name: "ChooseUpscalerText"}); 
 	    ChooseUpscalerText.text = "Upscaler"; 
 	    ChooseUpscalerText.preferredSize.width = 61; 
@@ -207,7 +204,9 @@ var dialog = (function () {
 	
 	var DropdownUpscaler_array = ["ShuffleCugan","-","Cugan","-","UltraCompact","-","Compact","-","SwinIR"]; 
 	var DropdownUpscaler = group2.add("dropdownlist", undefined, undefined, {name: "DropdownUpscaler", items: DropdownUpscaler_array}); 
-		DropdownUpscaler.selection = app.settings.haveSetting("AnimeScripter", "DropdownUpscaler") ? app.settings.getSetting("AnimeScripter", "DropdownUpscaler") : 0; 
+		DropdownUpscaler.selection = app.settings.haveSetting("AnimeScripter", "DropdownUpscaler") ? app.settings.getSetting("AnimeScripter", "DropdownUpscaler") : 0;
+		DropdownUpscaler.helpTip = "Select an upscaler, ordered by speed: ShuffleCugan, UltraCompact, Compact, Cugan, SwinIR(general purpose)";
+	    DropdownUpscaler.preferredSize.width = 85;
 	
 	
 	var divider3 = group2.add("panel", undefined, undefined, {name: "divider3"}); 
@@ -217,7 +216,8 @@ var dialog = (function () {
 	    ChooseNrThreads.text = "Nr of Threads"; 
 	
 	var NumberOfThreadsInt = group2.add('edittext {justify: "center", properties: {name: "NumberOfThreadsInt"}}'); 
-		NumberOfThreadsInt.text = app.settings.haveSetting("AnimeScripter", "NumberOfThreadsInt") ? app.settings.getSetting("AnimeScripter", "NumberOfThreadsInt") : "2"; 		
+		NumberOfThreadsInt.text = app.settings.haveSetting("AnimeScripter", "NumberOfThreadsInt") ? app.settings.getSetting("AnimeScripter", "NumberOfThreadsInt") : "2";
+		NumberOfThreadsInt.helpTip = "Number of threads to use for inference, recommended 2 for 3060, 3 for 3080, 4 for 3090";	
 	    NumberOfThreadsInt.preferredSize.width = 73; 
 	
 	// GROUP3
@@ -228,9 +228,6 @@ var dialog = (function () {
 	    group3.spacing = 10; 
 	    group3.margins = 0; 
 	
-	var divider4 = group3.add("panel", undefined, undefined, {name: "divider4"}); 
-	    divider4.alignment = "fill"; 
-	
 	var ChooseCuganText = group3.add("statictext", undefined, undefined, {name: "ChooseCuganText"}); 
 	    ChooseCuganText.text = "Cugan"; 
 	    ChooseCuganText.preferredSize.width = 62; 
@@ -238,7 +235,9 @@ var dialog = (function () {
 	
 	var DropdownCugan_array = ["no-denoise","-","conservative","-","denoise1x","-","denoise2x",""]; 
 	var DropdownCugan = group3.add("dropdownlist", undefined, undefined, {name: "DropdownCugan", items: DropdownCugan_array}); 
-		DropdownCugan.selection = app.settings.haveSetting("AnimeScripter", "DropdownCugan") ? app.settings.getSetting("AnimeScripter", "DropdownCugan") : 0; 
+		DropdownCugan.selection = app.settings.haveSetting("AnimeScripter", "DropdownCugan") ? app.settings.getSetting("AnimeScripter", "DropdownCugan") : 0;
+		DropdownCugan.helpTip = "Select a denoiser, ordered by quality: no-denoise, conservative, denoise1x, denoise2x";
+		DropdownCugan.preferredSize.width = 84;
 	
 	
 	var divider5 = group3.add("panel", undefined, undefined, {name: "divider5"}); 
@@ -246,12 +245,13 @@ var dialog = (function () {
 	
 	var ChooseSwinIRText = group3.add("statictext", undefined, undefined, {name: "ChooseSwinIRText"}); 
 	    ChooseSwinIRText.text = "SwinIR"; 
-	    ChooseSwinIRText.preferredSize.width = 75; 
+	    ChooseSwinIRText.preferredSize.width = 70; 
 	    ChooseSwinIRText.justify = "center"; 
 	
 	var DropdownSwinIr_array = ["small","-","medium","-","large"]; 
 	var DropdownSwinIr = group3.add("dropdownlist", undefined, undefined, {name: "DropdownSwinIr", items: DropdownSwinIr_array}); 
-		DropdownSwinIr.selection = app.settings.haveSetting("AnimeScripter", "DropdownSwinIr") ? app.settings.getSetting("AnimeScripter", "DropdownSwinIr") : 0; 
+		DropdownSwinIr.selection = app.settings.haveSetting("AnimeScripter", "DropdownSwinIr") ? app.settings.getSetting("AnimeScripter", "DropdownSwinIr") : 0;
+		DropdownSwinIr.helpTip = "Select a model for SwinIR, ordered by speed: small, medium, large";
 	    DropdownSwinIr.preferredSize.width = 71; 
 	
 	// GROUP4
@@ -261,9 +261,6 @@ var dialog = (function () {
 	    group4.alignChildren = ["left","center"]; 
 	    group4.spacing = 10; 
 	    group4.margins = 0; 
-	
-	var divider6 = group4.add("panel", undefined, undefined, {name: "divider6"}); 
-	    divider6.alignment = "fill"; 
 	
 	var ChooseSegmentText = group4.add("statictext", undefined, undefined, {name: "ChooseSegmentText"}); 
 	    ChooseSegmentText.text = "Segment"; 
@@ -416,30 +413,31 @@ var dialog = (function () {
 			command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type rife -multi " + InterpolateInt + " -output \"" + output_name + "\"";
 		} else if (module == "upscale") {
 			if (DropdownUpscaler == "ShuffleCugan") {
-				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type shufflecugan -output \"" + output_name + "\" -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
+				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type shufflecugan -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
 			} else if (DropdownUpscaler == "Cugan") {
-				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type cugan -output \"" + output_name + "\" -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan + " -multi " + UpscaleInt;
+				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type cugan -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
 			} else if (DropdownUpscaler == "UltraCompact") {
-				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type ultracompact -output \"" + output_name + "\" -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
+				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type ultracompact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
 			} else if (DropdownUpscaler == "Compact") {
-				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type compact -output \"" + output_name + "\" -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt;
+				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type compact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
 			} else if (DropdownUpscaler == "Swwinir") {
-				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type swinir -output \"" + output_name + "\" -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt;
+				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type swinir -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
 			}
 			else{
 				alert("No model has been selected, weird")
 				return;
 			}
 		} else if (module == "dedup") {
-			command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type dedup -output \"" + output_name + "\" -kind_model " + "ffmpeg";
+			command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type dedup -kind_model " + "ffmpeg" + " -output \"" + output_name + "\"";
 		} else if (module == "segment") {
-			command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type segment -output \"" + output_name + "\"-kind_model " + DropdownSegment;
+			command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type segment -kind_model " + DropdownSegment + " -output \"" + output_name + "\"";
 		} else {
 			alert("Something went wrong");
 			return;
 		}
 
-		alert("THIS IS THE COMMAND " + command)
+		// For debugging purposes
+		//alert("THIS IS THE COMMAND " + command)
 
 		if (layer) {
 			try {
@@ -451,14 +449,15 @@ var dialog = (function () {
 				inputLayer.moveBefore(layer);
 
 				// Resize the layer to fit the comp
-				var compWidth = comp.width;
-				var compHeight = comp.height;
-				var layerWidth = inputLayer.source.width;
-				var layerHeight = inputLayer.source.height;
-				var scaleX = (compWidth / layerWidth) * 100;
-				var scaleY = (compHeight / layerHeight) * 100;
-				inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
-
+				if (module == "upscale"){
+					var compWidth = comp.width;
+					var compHeight = comp.height;
+					var layerWidth = inputLayer.source.width;
+					var layerHeight = inputLayer.source.height;
+					var scaleX = (compWidth / layerWidth) * 100;
+					var scaleY = (compHeight / layerHeight) * 100;
+					inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
+				}
 			} catch (error) {
 				alert(error);
 			}
