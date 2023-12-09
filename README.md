@@ -8,9 +8,13 @@
 
 ### Automated Installation
 
-If Python 3.11 isn't installed in your system, run this file:
+If Python 3.10 - 3.11 isn't installed in your system, run this file:
 
-```setup.bat```
+- ```setup.bat```
+
+or if it is already installed run:
+
+- ```update.bat```
 
 ### Manual installation
 
@@ -22,13 +26,15 @@ If Python 3.11 isn't installed in your system, run this file:
 
 ### How to use inside of After Effects
 
-- !On the first run of the script you may need to run After Effects with admin priviledges.!
+- !On the first run of the script you MAY have to run After Effects with admin priviledges.!
 
 - On the top left corner open File -> Scripts -> Install ScriptUI Panel -> (Look for the script.jsx file found within the /src subdirectory )
 
 - After Instalation you will be prompted with a restart of After Effects, do it.
 
 - Now that you've reopened After Effects, go to Window -> And at the bottom of you should have a script.jsx, click it -> Dock the panel wherever you please.
+
+- In the panel, set output to wherever you please and main.py to the main.py file found in the AnimeScripter directory
 
 # Usage
 
@@ -124,9 +130,14 @@ Segment:
 In no particular order:
 - Provide a bundled version with all of the dependencies.
 - Add Rife NCNN Vulkan.
-- Find a workaround for running after effects as an admin
-- Finish RealESRGAN
-- Add Pytorch segmentation
+- Find a workaround for running after effects as an admin.
+- Finish RealESRGAN.
+- Fix CPU inference.
+- Add testing.
+- Add a log.txt.
+- Better encoding options.
+- Fix slow startup times, probably through lazy loading.
+- Add Pytorch segmentation.
 - Maybe add TRT.
 
 # Done.
@@ -153,4 +164,5 @@ In no particular order:
 - [Massive] Added Segmentation.
 - Added download_models.py for offline processing.
 - [Massive] Added alpha testing of the After Effects script.
-- Fixed Path issues associated with spaces.
+- Fixed Path issues associated with spaces inside the script.
+- Introduced lazy loading for faster start-up times, more work needed.

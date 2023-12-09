@@ -1,14 +1,6 @@
 import argparse
 import os
 import sys
-from src.rife.rife import Rife
-from src.cugan.cugan import Cugan
-from src.dedup.dedup import Dedup
-from src.swinir.swinir import Swin
-from src.segment.segment import Segment
-from src.compact.compact import Compact
-
-import torch
 import cv2
 
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
@@ -36,18 +28,17 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
             os.makedirs(output_path)
         output = generate_output_filename(output_path, filename_without_ext)
     
-    if h > 1080 and torch.cuda.is_available() and nt > 1 and model_type not in ["rife", "dedup", "segment"]:
-        print("For resolutions over 1080p, having more than 2 threads can cause memory issues depending on your GPU, please test with different thread counts")
-
     if model_type == "rife":
+        from src.rife.rife import Rife
 
         UHD = True if w >= 2160 or h >= 2160 else False
         # UHD mode is auto decided by the script in order to avoid user errors.
 
         Rife(video_file, output, UHD, 1, multi, half, w, h, nt, fps, tot_frame, kind_model)
         
-    elif model_type == "cugan" or model_type == "shufflecugan":
-        
+    elif model_type in ["cugan", "shufflecugan"]:
+        from src.cugan.cugan import Cugan
+
         if model_type == "shufflecugan " and w < 1280 and h < 720:
             print("For resolutions under 1280x720p, please use cugan or compact model instead")
             sys.exit()
@@ -63,15 +54,15 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
         Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type)
         
     elif model_type == "swinir":
-        
+        from src.swinir.swinir import Swin
         if multi != 2 and multi != 4:
             print("Swinir only supports 2x and 4x scaling, auto setting scale to 2")
             multi = 2
             
         Swin(video_file, output, model_type, multi, half, nt, w, h, fps, kind_model, tot_frame)
         
-    elif model_type == "compact" or model_type == "ultracompact":
-        
+    elif model_type in ["compact", "ultracompact"]:
+        from src.compact.compact import Compact
         if multi > 2:
             print(f"{model_type.upper()} only supports up to 2x scaling, auto setting scale to 2")
             multi = 2
@@ -79,10 +70,11 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
         Compact(video_file, output, multi, half, w, h, nt, tot_frame, fps, model_type)
         
     elif model_type == "dedup":
-        
+        from src.dedup.dedup import Dedup
         Dedup(video_file, output, kind_model)
     
     elif model_type == "segment":
+        from src.segment.segment import Segment
         Segment(video_file, output, nt, half, w, h, fps, tot_frame, kind_model)
     else:
         sys.exit("Please select a valid model type", model_type, "was not found")
