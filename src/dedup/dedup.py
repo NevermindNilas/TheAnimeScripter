@@ -21,12 +21,14 @@ class Dedup():
         elif self.kind_model == "vmaf":
             self.vmaf()
         else:
-            self.kind_model == "ffmpeg"
+            self.ffmpeg()
     
     def ffmpeg(self):
-        print("The output is 1 second long only to avoid Variable Framerate issues if further processing is wanted.")
-        subprocess.call(["static_ffmpeg", "-i", self.video, "-vf", "mpdecimate,setpts=N/FRAME_RATE/TB", "-v", "quiet", "-stats", "-y", self.output])
-
+        try:
+            print("The output is 1 second long only to avoid Variable Framerate issues if further processing is wanted.")
+            subprocess.call(["static_ffmpeg", "-i", self.video, "-vf", "mpdecimate,setpts=N/FRAME_RATE/TB", "-an", "-v", "quiet", "-stats", "-y", self.output])
+        except:
+            raise Exception("FFmpeg failed to deduplicate the video")
     def hash(self):
         pass
 
