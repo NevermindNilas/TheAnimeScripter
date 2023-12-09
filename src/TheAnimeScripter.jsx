@@ -356,6 +356,7 @@ var dialog = (function () {
 		DropdownUpscaler = DropdownUpscaler_array[DropdownUpscaler];
 		DropdownSwinIr = DropdownSwinIr_array[DropdownSwinIr];
 		DropdownSegment = DropdownSegment_array[DropdownSegment];
+		DropdownCugan = DropdownCugan_array[DropdownCugan];
 
 		if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length != 1)) {
 			return alert("Please select one layer.");
@@ -388,26 +389,44 @@ var dialog = (function () {
 			return;
 		}
 
-		// poor man's attempt at trimming the input for processing, not yet functional
-
-		/*var inPoint = layer.inPoint;
+		var inPoint = layer.inPoint;
 		var outPoint = layer.outPoint;
-
 		var duration = outPoint - inPoint;
-
+		
+		// Checking if the layer is trimmed
 		if (duration !== layer.source.duration) {
-			output_name = outputFolder + "\\" + activeLayerName + "_trimmed" + ".mp4";
-			alert(inPoint)
-			alert(outPoint)
-			command = "cmd.exe /c" + " static_ffmpeg -i " + activeLayerPath + " -ss " + inPoint + " -to " + outPoint + "-vcodec copy" + output_name + "-y";
-			var result = system.callSystem(command);
-			activeLayerPath = output_name;
-		} else {
-		}
-		*/
+			// Really hackintosh approach to it, I am not taking the exact timecode and instead round it to the nearest whole number.
+			// I will look into exact timecode approaches but this works for now.
+			var startTime = layer.startTime;
 
-		var randomNumber = Math.floor(Math.random() * 10000);
-		output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
+			var newInPoint = Math.floor(inPoint - startTime);
+			var newOutPoint = Math.ceil(outPoint - startTime);
+			
+			output_name = outputFolder + "\\" + activeLayerName + "_temp" + ".mp4";
+			try{
+				command = "cmd.exe /c " + " static_ffmpeg -i \"" + activeLayerPath + "\" -ss \"" + newInPoint + "\" -to \"" + newOutPoint + "\" -vcodec copy \"" + output_name + "\" -y ";
+				alert(command)
+				system.callSystem(command);
+			}
+			catch (error) {
+				alert(error);
+				alert("Something went wrong trying to cut the clip, please contact me on the discord server");
+			}
+
+			activeLayerPath = output_name;
+
+			// This is for removing the temp file that was created
+			var removeFile = new File(activeLayerPath);
+
+			// Assigning the new temp file that was created for processing
+			var randomNumber = Math.floor(Math.random() * 10000);
+			output_name = output_name.replace("_temp.mp4", '')
+			output_name = output_name + "_" + module + "_" + randomNumber + ".m4v";
+		} else {
+			var randomNumber = Math.floor(Math.random() * 10000);
+			output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
+		}
+		
 		var command = "";
 		if (module == "interpolate") {
 			command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type rife -multi " + InterpolateInt + " -output \"" + output_name + "\"";
@@ -424,7 +443,7 @@ var dialog = (function () {
 				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type swinir -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
 			}
 			else{
-				alert("No model has been selected, weird")
+				alert("No model has been selected, weird, please try setting a model again, if it doesn't work contact me on the discord server")
 				return;
 			}
 		} else if (module == "dedup") {
@@ -437,7 +456,7 @@ var dialog = (function () {
 		}
 
 		// For debugging purposes
-		//alert("THIS IS THE COMMAND " + command)
+		alert("THIS IS THE COMMAND " + command)
 
 		if (layer) {
 			try {
@@ -462,6 +481,11 @@ var dialog = (function () {
 					var scaleY = (compHeight / layerHeight) * 100;
 					inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
 				}
+
+				if (removeFile.exists) {
+					removeFile.remove();
+				}
+
 			} catch (error) {
 				alert(error);
 			}
