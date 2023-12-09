@@ -9,7 +9,7 @@ from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 from .network import SwinIR as SwinIR_model
 
 class Swin():
-    def __init__(self, video, output, model_type, scale, half, nt, w, h, fps, kind_model, tot_frame):
+    def __init__(self, video, output, model_type, scale, half, nt, w, h, fps, kind_model, tot_frame, ffmpeg_params):
         self.video = video
         self.output = output
         self.model_type = model_type
@@ -21,6 +21,7 @@ class Swin():
         self.fps = fps
         self.kind_model = kind_model
         self.tot_frame = tot_frame
+        self.ffmpeg_params = ffmpeg_params
         self.processed_frames = {}
         
         self.handle_models()
@@ -114,7 +115,7 @@ class Swin():
         
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
-        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps)
+        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps, ffmpeg_params=self.ffmpeg_params)
         self.pbar = tqdm(total=self.tot_frame, desc="Writing frames", unit="frames")
         
         self.read_buffer = Queue(maxsize=500)

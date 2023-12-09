@@ -22,7 +22,9 @@ or if it is already installed run:
 
 - Open a terminal inside the folder
 
-- run ```update.bat``` ( let all the models be downloaded )
+- ```pip install -r requirements.txt```
+
+- ```python .\download_models.py```
 
 ### How to use inside of After Effects
 
@@ -166,3 +168,5 @@ In no particular order:
 - [Massive] Added alpha testing of the After Effects script.
 - Fixed Path issues associated with spaces inside the script.
 - Introduced lazy loading for faster start-up times, more work needed.
+- [Massive] Fixed the encoder, now it should be much higher resolution for less space.
+- The output will now default to .m4v to comply with After Effects' codec support. Sorrz

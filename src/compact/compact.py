@@ -9,7 +9,7 @@ from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 from .srvgg_arch import SRVGGNetCompact
 
 class Compact():
-    def __init__(self,video, output, multi, half, w, h, nt, tot_frame, fps, model_type):
+    def __init__(self,video, output, multi, half, w, h, nt, tot_frame, fps, model_type, ffmpeg_params):
         self.video = video
         self.output = output
         self.scale = multi
@@ -20,6 +20,7 @@ class Compact():
         self.fps = fps
         self.tot_frame = tot_frame
         self.model_type = model_type
+        self.ffmpeg_params = ffmpeg_params
         self.processed_frames = {}
         
         self.handle_models()
@@ -90,7 +91,7 @@ class Compact():
         
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
-        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps, ffmpeg_params=["-b:v", "10000k", "-vcodec", "mpeg4"]) # TO DO: Change this
+        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps, ffmpeg_params=self.ffmpeg_params)
         self.pbar = tqdm(total=self.tot_frame, desc="Writing frames", unit="frames")
             
         self.read_buffer = Queue(maxsize=500)

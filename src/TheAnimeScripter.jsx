@@ -407,7 +407,7 @@ var dialog = (function () {
 		*/
 
 		var randomNumber = Math.floor(Math.random() * 10000);
-		output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".mp4";
+		output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
 		var command = "";
 		if (module == "interpolate") {
 			command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type rife -multi " + InterpolateInt + " -output \"" + output_name + "\"";
@@ -437,12 +437,16 @@ var dialog = (function () {
 		}
 
 		// For debugging purposes
-		//alert("THIS IS THE COMMAND " + command)
+		alert("THIS IS THE COMMAND " + command)
 
 		if (layer) {
 			try {
 				var cmdCommand = 'cmd.exe /c "' + command
-				var result = system.callSystem(cmdCommand);
+				system.callSystem(cmdCommand);
+
+				// Added because the metadata would only finish writing after the script was done, I assume.
+				$.sleep(500);
+
 				var importOptions = new ImportOptions(File(output_name));
 				var importedFile = app.project.importFile(importOptions);
 				var inputLayer = comp.layers.add(importedFile);
