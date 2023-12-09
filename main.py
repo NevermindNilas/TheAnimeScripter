@@ -22,7 +22,6 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     cap = cv2.VideoCapture(video_file)
     w, h = cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
     fps = cap.get(cv2.CAP_PROP_FPS)
-
     tot_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     cap.release()
 

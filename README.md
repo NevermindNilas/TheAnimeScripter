@@ -12,13 +12,23 @@ If Python 3.11 isn't installed in your system, run this file:
 
 ```setup.bat```
 
-### Manual installation:
+### Manual installation
 
 - Download and install Python 3.11 from: https://www.python.org/downloads/release/python-3110/ whilst making sure to add it to System Path
 
 - Open a terminal inside the folder
 
-- ```python setup.py```
+- run ```update.bat``` ( let all the models be downloaded )
+
+### How to use inside of After Effects
+
+- !On the first run of the script you may need to run After Effects with admin priviledges.!
+
+- On the top left corner open File -> Scripts -> Install ScriptUI Panel -> (Look for the script.jsx file found within the /src subdirectory )
+
+- After Instalation you will be prompted with a restart of After Effects, do it.
+
+- Now that you've reopened After Effects, go to Window -> And at the bottom of you should have a script.jsx, click it -> Dock the panel wherever you please.
 
 # Usage
 
@@ -90,6 +100,8 @@ Segment:
 -nt :int         - Number of threads to utilize for Upscaling and Segmentation,
                    Really CPU/GPU dependent, with my 3090 I max out at 4 for Cugan / Shufflecugan.
                    As for SwinIR I max out at 2
+
+-chain :bool     - Not usable yet, for chaining multiple models in one run.
 ```
 
 # Acknowledgements
@@ -112,7 +124,8 @@ Segment:
 In no particular order:
 - Provide a bundled version with all of the dependencies.
 - Add Rife NCNN Vulkan.
-- Create a scriptUI for After Effects.
+- Find a workaround for running after effects as an admin
+- Finish RealESRGAN
 - Add Pytorch segmentation
 - Maybe add TRT.
 
@@ -139,3 +152,5 @@ In no particular order:
 - Fixed issue where the last nt frames wouldn't be processed.
 - [Massive] Added Segmentation.
 - Added download_models.py for offline processing.
+- [Massive] Added alpha testing of the After Effects script.
+- Fixed Path issues associated with spaces.
