@@ -89,7 +89,7 @@ def handle_compact():
                 url = f"https://github.com/Bubblemint864/AI-Models/releases/download/2x_Bubble_AnimeScale_Compact_v1/{filename}"
                 response = requests.get(url)
                 if response.status_code == 200:
-                    with open(os.path.join("compact/weights", filename), "wb") as file:
+                    with open(os.path.join("src/compact/weights", filename), "wb") as file:
                         file.write(response.content)
                 else:
                     raise Exception(f"Could not download {filename}")

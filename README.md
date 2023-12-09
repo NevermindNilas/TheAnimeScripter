@@ -137,7 +137,6 @@ In no particular order:
 - Fix CPU inference.
 - Add testing.
 - Add a log.txt.
-- Better encoding options.
 - Fix slow startup times, probably through lazy loading.
 - Add Pytorch segmentation.
 - Maybe add TRT.
@@ -169,4 +168,5 @@ In no particular order:
 - Fixed Path issues associated with spaces inside the script.
 - Introduced lazy loading for faster start-up times, more work needed.
 - [Massive] Fixed the encoder, now it should be much higher resolution for less space.
-- The output will now default to .m4v to comply with After Effects' codec support. Sorrz
+- The output will now default to .m4v to comply with After Effects' codec support.
+- [Massive] After Effects will now only upscale the trimmed part, not the whole clip.

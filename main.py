@@ -83,7 +83,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     
     elif model_type == "segment":
         from src.segment.segment import Segment
-        Segment(video_file, output, nt, half, w, h, fps, tot_frame, kind_model)
+        Segment(video_file, output, nt, half, w, h, fps, tot_frame, kind_model, ffmpeg_params)
     else:
         sys.exit("Please select a valid model type", model_type, "was not found")
 
