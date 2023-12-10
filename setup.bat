@@ -20,8 +20,7 @@ if /i "%consent%"=="Y" (
 echo ------------------------------------
 echo      DOWNLOADING DEPENDENCIES
 echo ------------------------------------
-call "%ProgramFiles%\Python311\Scripts\pip" install -r requirements.txt --no-warn-script-location.
-
+call "%ProgramFiles%\Python311\Scripts\pip" install --no-warn-script-location -r requirements.txt
 echo ------------------------------------
 echo         DOWNLOADING MODELS
 echo ------------------------------------
