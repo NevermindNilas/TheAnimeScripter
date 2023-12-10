@@ -7,17 +7,12 @@ curl https://www.python.org/ftp/python/3.11.0/python-3.11.0-amd64.exe --output %
 echo ------------------------------------
 echo         INSTALLING PYTHON
 echo ------------------------------------
-start /wait "" "%cd%\python-3.11.0-amd64.exe" 
-
-set /p UserInput=Do you agree with adding Python to system PATH? (Y/N):
-if /I "%UserInput%" EQU "Y" (
-    echo ------------------------------------
-    echo      ADDING PYTHON TO PATH
-    echo ------------------------------------
-    setx path "%path%;%localappdata%\Programs\Python\Python311"
+set /p consent="Do you agree with intalling Python 3.11 and adding it to System Path? This is necessary for the functionality of the script. (Y/N): "
+if /i "%consent%"=="Y" (
+    start /wait "" "%cd%\python-3.11.0-amd64.exe" /quiet InstallAllUsers=1 PrependPath=1
 ) else (
-    echo Installation has been cancelled this can be ran again otherwise,
-    echo Please refer to manual installation: https://github.com/NevermindNilas/TheAnimeScripter/tree/main#manual-installation
+    echo Python installation cancelled.
+    echo Feel free to run the script again or refer to manual installation on the github page
     pause
     exit /b
 )
@@ -25,5 +20,11 @@ if /I "%UserInput%" EQU "Y" (
 echo ------------------------------------
 echo      DOWNLOADING DEPENDENCIES
 echo ------------------------------------
-call update.bat
+call "%ProgramFiles%\Python311\Scripts\pip" install -r requirements.txt
+
+echo ------------------------------------
+echo      DOWNLOADING MODELS
+echo ------------------------------------
+call "%ProgramFiles%\Python311\python" download_models.py
 pause
+exit /b
