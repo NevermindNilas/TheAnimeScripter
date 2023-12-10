@@ -404,7 +404,7 @@ var dialog = (function () {
 
 			output_name = outputFolder + "\\" + activeLayerName + "_temp.mp4";
 			try{
-				command = "cmd.exe /c " + " static_ffmpeg -i \"" + activeLayerPath + "\" -ss \"" + newInPoint + "\" -to \"" + newOutPoint + "\" -vcodec copy \"" + output_name + "\" -y ";
+				command = "cmd.exe /c " + "mkdir C:\\TAS-Temp 2>nul & static_ffmpeg -i \"" + activeLayerPath + "\" -ss \"" + newInPoint + "\" -to \"" + newOutPoint + "\" -vcodec copy \"" + output_name + "\" -y ";
 				alert(command)
 				system.callSystem(command);
 			}
