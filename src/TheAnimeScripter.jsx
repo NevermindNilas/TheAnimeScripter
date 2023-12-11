@@ -340,7 +340,6 @@ var dialog = (function () {
 	}
 	
 	function process(module) {
-		
 		var outputFolder = app.settings.haveSetting("AnimeScripter", "outputDirectory") ? app.settings.getSetting("AnimeScripter", "outputDirectory") : "";
 		var mainPyFile = app.settings.haveSetting("AnimeScripter", "mainPyPath") ? app.settings.getSetting("AnimeScripter", "mainPyPath") : "";
 		var DropdownCugan = app.settings.haveSetting("AnimeScripter", "DropdownCugan") ? app.settings.getSetting("AnimeScripter", "DropdownCugan") : defaultCugan;
@@ -358,7 +357,7 @@ var dialog = (function () {
 		DropdownSegment = DropdownSegment_array[DropdownSegment];
 		DropdownCugan = DropdownCugan_array[DropdownCugan];
 
-		if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length != 1)) {
+		if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length < 1)) {
 			return alert("Please select one layer.");
 		}
 
@@ -385,7 +384,7 @@ var dialog = (function () {
 
 		// Multiple iterations are currently not possible, I am asssuming because of callsystem being a meanie,
 		// I am looking into making a .bat file that will execute each script and when finished the files will be imported to AE
-		
+
 		var comp = app.project.activeItem;
 		for (var i = 0 ; i < comp.selectedLayers.length ; i++) {
 
