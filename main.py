@@ -11,6 +11,13 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
 
     # Maybe making a dictionary of the metada would be better
     clip = VideoFileClip(video_file)
+    metadata = {
+        "fps": clip.fps,
+        "duration": clip.duration,
+        "width": clip.w,
+        "height": clip.h,
+        "nframes": clip.reader.nframes,
+    }
     w, h = clip.size
     fps = clip.fps
     tot_frame = clip.reader.nframes    
@@ -49,8 +56,8 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
                 # UHD mode is auto decided by the script in order to avoid user errors.
         UHD = True if w >= 3840 or h >= 2160 else False
             
-        Rife(video_file, output, UHD, 1, multi, half, w, h, nt, fps, tot_frame, kind_model)
-        
+        Rife(video_file, output, UHD, 1, multi, half, metadata, kind_model, ffmpeg_params)
+
     elif model_type in ["cugan", "shufflecugan"]:
         from src.cugan.cugan import Cugan
 
@@ -66,7 +73,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
             print("Cugan only supports up to 4x scaling, auto setting scale to 4")
             multi = 4
         
-        Cugan(video_file, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type, ffmpeg_params)
+        Cugan(video_file, output, multi, half, kind_model, pro, metadata, nt, model_type, ffmpeg_params)
         
     elif model_type == "swinir":
         from src.swinir.swinir import Swin
@@ -75,7 +82,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
             print("Swinir only supports 2x and 4x scaling, auto setting scale to 2")
             multi = 2
             
-        Swin(video_file, output, model_type, multi, half, nt, w, h, fps, kind_model, tot_frame, ffmpeg_params)
+        Swin(video_file, output, model_type, multi, half, nt, metadata, kind_model, ffmpeg_params)
         
     elif model_type in ["compact", "ultracompact"]:
         from src.compact.compact import Compact
@@ -83,7 +90,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
             print(f"{model_type.upper()} only supports up to 2x scaling, auto setting scale to 2")
             multi = 2
         
-        Compact(video_file, output, multi, half, w, h, nt, tot_frame, fps, model_type, ffmpeg_params)
+        Compact(video_file, output, multi, half, nt, metadata, model_type, ffmpeg_params)
         
     elif model_type == "dedup":
         from src.dedup.dedup import Dedup

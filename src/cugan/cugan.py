@@ -11,7 +11,7 @@ ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of default=
 '''
 
 class Cugan:
-    def __init__(self, video, output, multi, half, kind_model, pro, w, h, nt, fps, tot_frame, model_type, ffmpeg_params):
+    def __init__(self, video, output, multi, half, kind_model, pro, metadata, nt, model_type, ffmpeg_params):
         """
         The principle behind everything is that we start a thread using _thread.start_new_thread in order to iterate and append the frames onto a buffer.
         and then we start yet another one in order to write the processed frames onto the output video.
@@ -20,20 +20,14 @@ class Cugan:
         any race conditions that may occur over time.
         """
 
-        if h > 1080 and torch.cuda.is_available() and nt > 2:
-            print("For resolutions over 1080p, having more than 2 threads can cause memory issues depending on your GPU, please test with different thread counts, recommended min gpu 3060/ti")
-
         self.video = video
         self.output = output
         self.half = half
         self.nt = nt
         self.model_type = model_type
         self.pro = pro
-        self.w = w
-        self.h = h
-        self.fps = fps
+        self.metadata = metadata
         self.scale = multi
-        self.tot_frame = tot_frame
         self.kind_model = kind_model
         self.ffmpeg_params = ffmpeg_params
         self.processed_frames = {}
@@ -45,9 +39,9 @@ class Cugan:
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.nt) as executor:
             for _ in range(self.nt):
-                executor.submit(CuganMT(self.model, self.read_buffer, self.processed_frames, self.half, self.w, self.h).run)
+                executor.submit(CuganMT(self.model, self.read_buffer, self.processed_frames, self.half, self.metadata).run)
                 
-        while self.processing_index < self.tot_frame:
+        while self.processing_index < self.metadata["nframes"]:
             time.sleep(0.1)
         
         self.threads_are_running = False
@@ -94,8 +88,8 @@ class Cugan:
     def initialize(self):
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
-        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps, ffmpeg_params=self.ffmpeg_params)
-        self.pbar = tqdm(total=self.tot_frame, desc="Writing frames", unit="frames")
+        self.writer = FFMPEG_VideoWriter(self.output, (self.metadata["width"] * self.scale, self.metadata["height"] * self.scale), self.metadata["fps"], ffmpeg_params=self.ffmpeg_params)
+        self.pbar = tqdm(total=self.metadata["nframes"], desc="Writing frames", unit="frames")
         
         self.read_buffer = Queue(maxsize=500)
         _thread.start_new_thread(self.build_buffer, ())
@@ -127,14 +121,14 @@ class Cugan:
         self.pbar.close()
         
 class CuganMT():
-    def __init__(self, model, read_buffer, processed_frames, half, w, h):
+    def __init__(self, model, read_buffer, processed_frames, half, metadata):
         self.model = model
         self.read_buffer = read_buffer
         self.processed_frames = processed_frames
         self.half = half
         self.cuda_available = torch.cuda.is_available()
-        self.w = w
-        self.h = h
+        self.h = metadata["height"]
+        self.w = metadata["width"]
         if self.cuda_available:
             self.model = self.model.cuda()
 

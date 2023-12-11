@@ -9,18 +9,15 @@ from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 from .network import SwinIR as SwinIR_model
 
 class Swin():
-    def __init__(self, video, output, model_type, scale, half, nt, w, h, fps, kind_model, tot_frame, ffmpeg_params):
+    def __init__(self, video, output, model_type, scale, half, nt, metadata, kind_model, ffmpeg_params):
         self.video = video
         self.output = output
         self.model_type = model_type
         self.scale = scale
         self.half = half
         self.nt = nt
-        self.w = w
-        self.h = h
-        self.fps = fps
+        self.metadata = metadata
         self.kind_model = kind_model
-        self.tot_frame = tot_frame
         self.ffmpeg_params = ffmpeg_params
         self.processed_frames = {}
         
@@ -30,9 +27,9 @@ class Swin():
         self.threads_are_running = True
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.nt) as executor:
             for _ in range(self.nt):
-                executor.submit(SwinMT(self.model, self.read_buffer, self.processed_frames, self.half, self.h, self.w).run)
+                executor.submit(SwinMT(self.model, self.read_buffer, self.processed_frames, self.half, self.metadata).run)
                 
-        while self.processing_index < self.tot_frame:
+        while self.processing_index < self.metadata["nframes"]:
             time.sleep(0.1)
 
         self.threads_are_running = False
@@ -115,8 +112,8 @@ class Swin():
         
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
-        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps, ffmpeg_params=self.ffmpeg_params)
-        self.pbar = tqdm(total=self.tot_frame, desc="Writing frames", unit="frames")
+        self.writer = FFMPEG_VideoWriter(self.output, (self.metadata["width"] * self.scale, self.metadata["height"] * self.scale), self.metadata["fps"], ffmpeg_params=self.ffmpeg_params)
+        self.pbar = tqdm(total=self.metadata["nframes"], desc="Writing frames", unit="frames")
         
         self.read_buffer = Queue(maxsize=500)
         _thread.start_new_thread(self.build_buffer, ())
@@ -148,12 +145,12 @@ class Swin():
         self.pbar.close()
     
 class SwinMT(threading.Thread):
-    def __init__(self, model, read_buffer, processed_frames, half, h, w):
+    def __init__(self, model, read_buffer, processed_frames, half, metadata):
         self.model = model
         self.half = half
         self.read_buffer = read_buffer
-        self.h = h
-        self.w = w
+        self.h = metadata["height"]
+        self.w = metadata["width"]
         self.processed_frames = processed_frames
         self.cuda_available = torch.cuda.is_available()
         if self.cuda_available:
