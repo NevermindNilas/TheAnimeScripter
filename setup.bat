@@ -33,12 +33,12 @@ echo Installing requirements...
 timeout /t 2 /nobreak >nul
 
 :: Installing requirements
-start cmd /c "pip install -r requirements.txt && echo Requirements installation succeeded! || echo Requirements installation failed!"
+start powershell -Command "pip install -r requirements.txt; if ($?) { echo 'Requirements installation succeeded!' } else { echo 'Requirements installation failed!' }"
 
 :: timeout for a few seconds to make sure that the requirements were installed
 timeout /t 2 /nobreak >nul
 
-start cmd /c "python download_models.py"
+start powershell -Command "python download_models.py"
 
 echo handling ffmpeg...
 
