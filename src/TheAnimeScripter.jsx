@@ -378,7 +378,7 @@ var dialog = (function () {
 
 		var weightsFile = new File(weightsPath);
 		if (!weightsFile.exists) {
-			alert("Models folder(s) not found, please make sure you have downloaded the models, run setup.bat or python .\\src\\download_models.py in the script folder and try again");
+			alert("Models folder(s) not found, please make sure you have downloaded the models, run setup.bat or python download_models.py in the script folder and try again");
 			return;
 		}
 

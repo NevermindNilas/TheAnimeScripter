@@ -1,6 +1,4 @@
 import torch, threading, time, _thread, concurrent.futures
-
-from rembg import remove, new_session
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
