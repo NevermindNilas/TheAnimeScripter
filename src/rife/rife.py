@@ -8,9 +8,7 @@ from queue import Queue
 from .pytorch_msssim import ssim_matlab
 import time
 from moviepy.editor import VideoFileClip
-import os
-
-
+from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 '''
 Credit: https://github.com/hzwer/Practical-RIFE/blob/main/inference_video.py
 '''
@@ -34,30 +32,6 @@ class Rife():
         
         #self.handle_models()
         self._initialize()
-    
-    '''def handle_models():
-        map_models = {
-            "4.0":,
-            "4.1",
-            "4.2",
-            "4.3",
-            "4.4",
-            "4.5",
-            "4.6",
-            "4.7",
-            "4.8",
-            "4.9",
-            "4.10",
-            "4.11",
-            "4.12",
-            "4.12.lite",
-        }
-        
-        modelDir = 'src/rife/weights'
-        if not os.path.exists(modelDir):
-            os.makedirs(modelDir)
-            
-        pass'''
     
     def _initialize(self):
         if self.UHD == True and self.scale == 1.0:
@@ -89,7 +63,8 @@ class Rife():
         self.lastframe = self.videogen.get_frame(0)  
 
         self.w, self.h = int(self.w), int(self.h)
-        self.vid_out = cv2.VideoWriter(self.output, cv2.VideoWriter_fourcc(*'mp4v'), self.fps * self.multi,(self.w, self.h))
+        #self.vid_out = cv2.VideoWriter(self.output, cv2.VideoWriter_fourcc(*'mp4v'), self.fps * self.multi,(self.w, self.h))
+        self.vid_out = FFMPEG_VideoWriter(self.output, (self.w, self.h), self.fps * self.multi)
         self.padding = (0, ((self.w - 1) // 128 + 1) * 128 - self.w, 0, ((self.h - 1) // 128 + 1) * 128 - self.h)
         
         self.pbar = tqdm(total=self.tot_frame)
@@ -107,8 +82,8 @@ class Rife():
             if frame is None:
                 break
             self.pbar.update(1/self.multi)
-            self.vid_out.write(frame[:, :, ::-1])
-        
+            self.vid_out.write_frame(frame)
+
     def _build_read_buffer(self):
         try:
             for frame in self.frames:
@@ -201,4 +176,4 @@ class Rife():
         while not self.write_buffer.empty():
             time.sleep(0.1)
         self.pbar.close()
-        self.vid_out.release()
+        self.vid_out.close()
