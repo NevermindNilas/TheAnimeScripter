@@ -372,135 +372,142 @@ var dialog = (function () {
 			return;
 		}
 
-		var comp = app.project.activeItem;
-		var layer = comp.selectedLayers[0];
-		var activeLayerPath = layer.source.file.fsName;
-		var activeLayerName = layer.name.replace(/\.[^\.]*$/, '');
-		
 		var pyfile = File(mainPyFile);
 		var scriptPath = pyfile.parent.fsName;
-
 		// Checking if the user has downloaded the models
 		weightsPath = scriptPath + "\\src\\cugan\\weights\\";
-		var weightsFile = new File(weightsPath);
 
+		var weightsFile = new File(weightsPath);
 		if (!weightsFile.exists) {
 			alert("Models folder(s) not found, please make sure you have downloaded the models, run setup.bat or python .\\src\\download_models.py in the script folder and try again");
 			return;
 		}
 
-		var inPoint = layer.inPoint;
-		var outPoint = layer.outPoint;
-		var duration = outPoint - inPoint;
-		/*
-		// Broken because I didn't take into account edgecases where the input had a different framerate to the comp
-		// Checking if the layer is trimmed
-		if (duration !== layer.source.duration) {
-			// Really hackintosh approach to it, I am not taking the exact timecode and instead round it to the nearest whole number.
-			// I will look into exact timecode approaches but this works for now.
-			var startTime = layer.startTime;
+		// Multiple iterations are currently not possible, I am asssuming because of callsystem being a meanie,
+		// I am looking into making a .bat file that will execute each script and when finished the files will be imported to AE
+		
+		var comp = app.project.activeItem;
+		for (var i = 0 ; i < comp.selectedLayers.length ; i++) {
 
-			var newInPoint = Math.floor(inPoint - startTime);
-			var newOutPoint = Math.ceil(outPoint - startTime);
+			var layer = comp.selectedLayers[i];
+			var activeLayerPath = layer.source.file.fsName;
+			var activeLayerName = layer.name.replace(/\.[^\.]*$/, '');
+			
 
-			output_name = outputFolder + "\\" + activeLayerName + "_temp.mp4";
-			try{
-				var ffmpeg_path = scriptPath + "\\src\\ffmpeg\\ffmpeg.exe";
-				command = "cmd.exe /c " + "\"" + ffmpeg_path + "\" -i \"" + activeLayerPath + "\" -ss \"" + newInPoint + "\" -to \"" + newOutPoint + "\" -vcodec copy \"" + output_name + "\" -y ";
-				system.callSystem(command);
+			var inPoint = layer.inPoint;
+			var outPoint = layer.outPoint;
+			var duration = outPoint - inPoint;
+			/*
+			// Broken because I didn't take into account edgecases where the input had a different framerate to the comp
+			// Checking if the layer is trimmed
+			if (duration !== layer.source.duration) {
+				// Really hackintosh approach to it, I am not taking the exact timecode and instead round it to the nearest whole number.
+				// I will look into exact timecode approaches but this works for now.
+				var startTime = layer.startTime;
+
+				var newInPoint = Math.floor(inPoint - startTime);
+				var newOutPoint = Math.ceil(outPoint - startTime);
+
+				output_name = outputFolder + "\\" + activeLayerName + "_temp.mp4";
+				try{
+					var ffmpeg_path = scriptPath + "\\src\\ffmpeg\\ffmpeg.exe";
+					command = "cmd.exe /c " + "\"" + ffmpeg_path + "\" -i \"" + activeLayerPath + "\" -ss \"" + newInPoint + "\" -to \"" + newOutPoint + "\" -vcodec copy \"" + output_name + "\" -y ";
+					system.callSystem(command);
+				}
+				catch (error) {
+					alert(error);
+					alert("Something went wrong trying to cut the clip, please contact me on the discord server");
+				}
+
+				activeLayerPath = output_name;
+
+				// This is for removing the temp file that was created
+				var removeFile = new File(activeLayerPath);
+
+				// Assigning the new temp file that was created for processing
+				var randomNumber = Math.floor(Math.random() * 10000);
+				output_name = output_name.replace("_temp.mp4", '')
+				output_name = output_name + "_" + module + "_" + randomNumber + ".m4v";
+			} else {
+				var randomNumber = Math.floor(Math.random() * 10000);
+				output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
 			}
-			catch (error) {
-				alert(error);
-				alert("Something went wrong trying to cut the clip, please contact me on the discord server");
-			}
-
-			activeLayerPath = output_name;
-
-			// This is for removing the temp file that was created
-			var removeFile = new File(activeLayerPath);
-
-			// Assigning the new temp file that was created for processing
-			var randomNumber = Math.floor(Math.random() * 10000);
-			output_name = output_name.replace("_temp.mp4", '')
-			output_name = output_name + "_" + module + "_" + randomNumber + ".m4v";
-		} else {
+			*/
 			var randomNumber = Math.floor(Math.random() * 10000);
 			output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
-		}
-		*/
-		var randomNumber = Math.floor(Math.random() * 10000);
-		output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
 
-		var command = "";
-		if (module == "interpolate") {
-			command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type rife -multi " + InterpolateInt + " -output \"" + output_name + "\"";
-		} else if (module == "upscale") {
-			if (DropdownUpscaler == "ShuffleCugan") {
-				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type shufflecugan -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
-			} else if (DropdownUpscaler == "Cugan") {
-				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type cugan -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
-			} else if (DropdownUpscaler == "UltraCompact") {
-				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type ultracompact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
-			} else if (DropdownUpscaler == "Compact") {
-				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type compact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
-			} else if (DropdownUpscaler == "Swwinir") {
-				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type swinir -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
-			}
-			else{
-				alert("No model has been selected, weird, please try setting a model again, if it doesn't work contact me on the discord server")
+			var command = "";
+			if (module == "interpolate") {
+				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type rife -multi " + InterpolateInt + " -output \"" + output_name + "\"";
+			} else if (module == "upscale") {
+				if (DropdownUpscaler == "ShuffleCugan") {
+					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type shufflecugan -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+				} else if (DropdownUpscaler == "Cugan") {
+					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type cugan -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+				} else if (DropdownUpscaler == "UltraCompact") {
+					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type ultracompact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+				} else if (DropdownUpscaler == "Compact") {
+					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type compact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+				} else if (DropdownUpscaler == "Swwinir") {
+					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type swinir -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+				}
+				else{
+					alert("No model has been selected, weird, please try setting a model again, if it doesn't work contact me on the discord server")
+					return;
+				}
+			} else if (module == "dedup") {
+				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type dedup -kind_model " + "ffmpeg" + " -output \"" + output_name + "\"";
+			} else if (module == "segment") {
+				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type segment -kind_model " + DropdownSegment + " -output \"" + output_name + "\"";
+			} else {
+				alert("Something went wrong");
 				return;
 			}
-		} else if (module == "dedup") {
-			command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type dedup -kind_model " + "ffmpeg" + " -output \"" + output_name + "\"";
-		} else if (module == "segment") {
-			command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type segment -kind_model " + DropdownSegment + " -output \"" + output_name + "\"";
-		} else {
-			alert("Something went wrong");
-			return;
-		}
 
-		// For debugging purposes
-		alert("THIS IS THE COMMAND " + command)
+			// For debugging purposes
+			//alert("THIS IS THE COMMAND " + command)
 
-		if (layer) {
-			try {
-				var cmdCommand = 'cmd.exe /k "' + command + ' && pause "';
-				system.callSystem(cmdCommand);
+			if (layer) {
+				try {
+					var cmdCommand = 'cmd.exe /k "' + command + ' && pause "';
+					system.callSystem(cmdCommand);
 
-				// Added because the metadata would only finish writing after the script was done, I assume.
-				$.sleep(500);
+					// Added because the metadata would only finish writing after the script was done, I assume.
+					$.sleep(500);
 
-				var importOptions = new ImportOptions(File(output_name));
-				var importedFile = app.project.importFile(importOptions);
-				var inputLayer = comp.layers.add(importedFile);
-				inputLayer.moveBefore(layer);
+					var importOptions = new ImportOptions(File(output_name));
+					var importedFile = app.project.importFile(importOptions);
+					var inputLayer = comp.layers.add(importedFile);
+					inputLayer.moveBefore(layer);
 
-				var compWidth = comp.width;
-				var compHeight = comp.height;
-				var layerWidth = inputLayer.source.width;
-				var layerHeight = inputLayer.source.height;
+					var compWidth = comp.width;
+					var compHeight = comp.height;
+					var layerWidth = inputLayer.source.width;
+					var layerHeight = inputLayer.source.height;
 
-				// Resize the layer to fit the comp
-				if (module == "upscale"){
-					var scaleX = (compWidth / layerWidth) * 100;
-					var scaleY = (compHeight / layerHeight) * 100;
-					inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
-				}
-				/*
-				// Removes the temp file that was created
-				if (removeFile && removeFile.exists) {
-					try {
-						removeFile.remove();
-					} catch (error) {
-						alert(error);
-						alert("There might have been a problem removing the temp file. Do you have admin permissions?");
+					// Resize the layer to fit the comp
+					if (module == "upscale"){
+						var scaleX = (compWidth / layerWidth) * 100;
+						var scaleY = (compHeight / layerHeight) * 100;
+						inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
 					}
+					/*
+					// Removes the temp file that was created
+					if (removeFile && removeFile.exists) {
+						try {
+							removeFile.remove();
+						} catch (error) {
+							alert(error);
+							alert("There might have been a problem removing the temp file. Do you have admin permissions?");
+						}
+					}
+					*/
+				} catch (error) {
+					alert(error);
 				}
-				*/
-			} catch (error) {
-				alert(error);
 			}
 		}
+		
 	}
 	dialog.layout.layout(true);
 	dialog.layout.resize();
