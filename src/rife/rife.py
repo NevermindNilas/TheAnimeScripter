@@ -4,7 +4,6 @@ from tqdm import tqdm
 from torch.nn import functional as F
 import _thread
 from queue import Queue
-from .pytorch_msssim import ssim_matlab
 import time
 from moviepy.editor import VideoFileClip
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
@@ -43,13 +42,14 @@ class Rife():
             if self.half:
                 torch.set_default_tensor_type(torch.cuda.HalfTensor)
         try:
-            from src.rife.RIFE_HDv3 import Model
+            from .RIFE_HDv3 import Model
         except:
             raise Exception("Cannot load RIFE model, please check your weights")
         
         self.model = Model()
         if not hasattr(self.model, 'version'):
             self.model.version = 0
+
         self.model.load_model(self.modelDir, -1)
         self.model.eval()
         self.model.device()
@@ -135,33 +135,8 @@ class Rife():
             I0 = I1
             I1 = torch.from_numpy(np.transpose(frame, (2, 0, 1))).to(self.device, non_blocking=True).unsqueeze(0).float() / 255.
             I1 = self._pad_image(I1)
-            I0_small = F.interpolate(I0, (32, 32), mode='bilinear', align_corners=False)
-            I1_small = F.interpolate(I1, (32, 32), mode='bilinear', align_corners=False)
-            ssim = ssim_matlab(I0_small[:, :3], I1_small[:, :3])
 
-            break_flag = False
-            if ssim > 0.996:
-                frame = self.read_buffer.get()  # read a new frame
-                if frame is None:
-                    break_flag = True
-                    frame = self.lastframe
-                else:
-                    temp = frame
-
-                I1 = torch.from_numpy(np.transpose(frame, (2, 0, 1))).to(self.device, non_blocking=True).unsqueeze(
-                    0).float() / 255.
-                I1 = self._pad_image(I1)
-                I1 = self.model.inference(I0, I1, self.scale)
-                I1_small = F.interpolate(I1, (32, 32), mode='bilinear', align_corners=False)
-                ssim = ssim_matlab(I0_small[:, :3], I1_small[:, :3])
-                frame = (I1[0] * 255).byte().cpu().numpy().transpose(1, 2, 0)[:self.h, :self.w]
-
-            if ssim < 0.2:
-                output = []
-                for i in range(self.multi - 1):
-                    output.append(I0)
-            else:
-                output = self.make_inference(I0, I1, self.multi - 1)
+            output = self.make_inference(I0, I1, self.multi - 1)
 
             self.write_buffer.put(self.lastframe)
             for mid in output:
@@ -169,8 +144,6 @@ class Rife():
                 self.write_buffer.put(mid[:self.h, :self.w])
 
             self.lastframe = frame
-            if break_flag:
-                break
 
         self.write_buffer.put(self.lastframe)
         

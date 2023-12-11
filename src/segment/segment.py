@@ -80,7 +80,6 @@ class SegmentMT(threading.Thread):
         print("Sadly, due to onnxruntime limitations, CUDA drivers past 11.8 won't work meaning this process is being done on the CPU")
         print("If you want to use your GPU, you will have to downgrade your CUDA drivers, houray innovation!")
         
-        self.session = new_session(model)
         
     def inference(self, frame):
         frame = remove(frame, session=self.session)
