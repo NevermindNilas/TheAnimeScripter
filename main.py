@@ -1,9 +1,7 @@
 import argparse
 import os
 import sys
-import cv2
-
-os.environ["CUDA_MODULE_LOADING"] = "LAZY"
+from moviepy.editor import VideoFileClip
 
 def generate_output_filename(output, filename_without_ext):
     return os.path.join(output, f"{filename_without_ext}_output.mp4")
@@ -11,31 +9,27 @@ def generate_output_filename(output, filename_without_ext):
 def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     video_file = os.path.normpath(video_file)
 
-    # Barebones logging system, will further improve it later
-    log_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'log.txt')
-    sys.stdout = open(log_file_path, 'w')
-
-    cap = cv2.VideoCapture(video_file)
-    w, h = cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    tot_frame = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    cap.release()
+    # Maybe making a dictionary of the metada would be better
+    clip = VideoFileClip(video_file)
+    w, h = clip.size
+    fps = clip.fps
+    tot_frame = clip.reader.nframes    
+    clip.close()
 
     # Following Xaymar's guide: https://www.xaymar.com/guides/obs/high-quality-recording/avc/
     # These should be relatively good settings for most cases, feel free to change them as you see fit.
     if model_type == "swinir":
         # Swinir is for general purpose upscaling so we don't need animation tune
-        ffmpeg_params = ["-c:v", "libx264", "-f", "m4v", "-pix_fmt", "yuv420p", "-preset", "fast", "-crf", "15", "-movflags", "+faststart"]
+        ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf", "15", "-movflags", "+faststart"]
     else:
-        ffmpeg_params=["-c:v", "libx264", "-f", "m4v", "-pix_fmt", "yuv420p", "-preset", "fast", "-crf", "15", "-tune", "animation", "-movflags", "+faststart"]
-
-    basename = os.path.basename(video_file)
-    filename_without_ext = os.path.splitext(basename)[0]
-    
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    output_path = os.path.join(script_dir, 'output')
+        ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf", "15", "-tune", "animation", "-movflags", "+faststart"]
 
     if output == "":
+        basename = os.path.basename(video_file)
+        filename_without_ext = os.path.splitext(basename)[0]
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        output_path = os.path.join(script_dir, 'output')
+
         if not os.path.exists(output_path):
             os.makedirs(output_path)
 
@@ -44,12 +38,16 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
             ffmpeg_params[m4v_index] = "mp4"
 
         output = generate_output_filename(output_path, filename_without_ext)
+        
+    elif os.path.isdir(output):
+        basename = os.path.basename(video_file)
+        filename_without_ext = os.path.splitext(basename)[0]
+        output = generate_output_filename(output, filename_without_ext)
     
     if model_type == "rife":
         from src.rife.rife import Rife
-
-        UHD = True if w >= 2160 or h >= 2160 else False
-        # UHD mode is auto decided by the script in order to avoid user errors.
+                # UHD mode is auto decided by the script in order to avoid user errors.
+        UHD = True if w >= 3840 or h >= 2160 else False
 
         Rife(video_file, output, UHD, 1, multi, half, w, h, nt, fps, tot_frame, kind_model)
         
@@ -96,12 +94,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
         from src.segment.segment import Segment
         Segment(video_file, output, nt, half, w, h, fps, tot_frame, kind_model, ffmpeg_params)
     else:
-        sys.exit("Please select a valid model type", model_type, "was not found")
-
-    sys.stdout.close()
-    
-def chain_models(video_file, model_type, half, multi, kind_model, pro, nt, output):
-    pass
+        sys.exit("Please select a valid model type ", model_type, " was not found")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Contact Sheet Generator")
@@ -113,13 +106,10 @@ if __name__ == "__main__":
     parser.add_argument("-pro", type=bool, help="", default=False, action="store")
     parser.add_argument("-nt", type=int, help="", default=1, action="store")
     parser.add_argument("-output", type=str, help="can be path to folder or filename only", default="", action="store")
-    parser.add_argument("-chain", type=str, help="For chaining models", default=False, action="store")
+    #parser.add_argument("-chain", type=str, help="For chaining models", default=False, action="store")
     args = parser.parse_args()
     
     if args.video is None:
         sys.exit("Please select a video file")
         
-    if not args.chain:
-        main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output)
-    else:
-        chain_models(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output)
+    main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output)
