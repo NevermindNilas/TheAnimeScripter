@@ -1,4 +1,4 @@
-import os, requests, numpy as np, torch, _thread, threading, cv2, time, concurrent.futures, sys
+import os, requests, numpy as np, torch, _thread, threading, time, concurrent.futures, sys
 
 from torch import nn as nn
 from tqdm import tqdm

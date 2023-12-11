@@ -1,4 +1,4 @@
-import os, torch, threading, time, _thread, concurrent.futures
+import torch, threading, time, _thread, concurrent.futures
 
 from rembg import remove, new_session
 from tqdm import tqdm

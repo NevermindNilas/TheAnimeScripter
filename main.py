@@ -10,6 +10,10 @@ def generate_output_filename(output, filename_without_ext):
 
 def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     video_file = os.path.normpath(video_file)
+    
+    # Barebones logging system, will further improve it later
+    log_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'log.txt')
+    sys.stdout = open(log_file_path, 'w')
 
     cap = cv2.VideoCapture(video_file)
     w, h = cap.get(cv2.CAP_PROP_FRAME_WIDTH), cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
@@ -79,6 +83,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
         
     elif model_type == "dedup":
         from src.dedup.dedup import Dedup
+        
         Dedup(video_file, output, kind_model)
     
     elif model_type == "segment":
@@ -87,6 +92,8 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     else:
         sys.exit("Please select a valid model type", model_type, "was not found")
 
+    sys.stdout.close()
+    
 def chain_models(video_file, model_type, half, multi, kind_model, pro, nt, output):
     pass
 
