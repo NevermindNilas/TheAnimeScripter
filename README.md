@@ -1,12 +1,22 @@
 # TheAnimeScripter
 
-**TheAnimeScripter** is a Python script designed for all the editors out there. It incorporates various functionalities for video processing. This will eventually be a Script for After Effects.
+Welcome to TheAnimeScripter, a comprehensive tool designed for both video processing enthusiasts and professionals. Our tool offers a wide array of functionalities, including interpolation, upscaling, deduplication, segmentation, and more.
 
 [Join The Discord Server](https://discord.gg/bFA6xZxM5V)
 
-# Prerequisites
+## 🚀 Key Features
 
-### Automated Installation
+1. **Interpolation**: Boost your video quality by increasing the frame rate.
+2. **Upscaling**: Enhance the resolution of your videos for an improved viewing experience.
+3. **Deduplication**: Optimize your video size by removing duplicate frames.
+4. **Segmentation**: Separate the background from the foreground for easier and faster rotobrushing.
+5. **Integration with After Effects**: Seamlessly use our tool directly inside of After Effects.
+
+## 🛠️ Getting Started
+
+### Prerequisites
+
+#### Automated Installation
 
 If Python 3.10 - 3.11 isn't installed on your system, run this file:
 
@@ -18,7 +28,7 @@ if it is installed run:
 
 - ```python download_models.py```
 
-### Manual installation
+#### Manual installation
 
 - Download and install Python 3.11 from: https://www.python.org/downloads/release/python-3110/ whilst making sure to add it to System Path
 
@@ -32,7 +42,7 @@ if it is installed run:
 
 - inside the folder src make a folder named ffmpeg and drop ffmpeg.exe into it
 
-### How to use inside of After Effects
+#### How to use inside of After Effects
 
 - !On the first run of the script you MAY have to run After Effects with admin priviledges.!
 
@@ -44,7 +54,7 @@ if it is installed run:
 
 - In the panel, set output to wherever you please and main.py to the main.py file found in the AnimeScripter directory
 
-# Usage
+## 📚 Usage
 
 RIFE:
 ```py
@@ -86,7 +96,7 @@ Segment:
 - python main.py -video video_path_here -model_type segment -kind_model isnet-anime
 ```
 
-## Available Inputs and Models:
+## 📝 Available Inputs and Models:
 
 ```
 -video :str      - Takes full path of input file.
@@ -118,7 +128,7 @@ Segment:
 -chain :str      - Not usable yet, for chaining multiple models in one run.
 ```
 
-# Acknowledgements
+## 🙏 Acknowledgements
 
 - [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code and providing his models.
 - [HZWER](https://github.com/hzwer/Practical-RIFE) - For Rife.
@@ -129,11 +139,11 @@ Segment:
 - [Danielgatis](https://github.com/danielgatis/rembg) - for rembg and easy to use segmentation.
 - [AlixzFX](https://github.com/AlixzFX) - for debugging the scriptUI and inspiration
 
-# Benchmarks
+## 📈 Benchmarks
 
 - N/A
 
-# To-Do
+## 📋 To-Do
 
 In no particular order:
 - Provide a bundled version with all of the dependencies.
@@ -147,7 +157,7 @@ In no particular order:
 - Add Pytorch segmentation.
 - Maybe add TRT.
 
-# Done.
+## ✅ Done
 
 - [Massive] Added Rife interpolation
 - [Massive] Added Cugan Upscaling.
