@@ -19,7 +19,7 @@ set PYTHON_URL=https://www.python.org/ftp/python/3.11.0/python-3.11.0-amd64.exe
 set /p consent="Do you agree with installing Python 3.11 and adding it to System Path? This is necessary for the functionality of the script. (Y/N): "
 if /i "%consent%"=="Y" (
     powershell -Command "& { iwr '%PYTHON_URL%' -OutFile python-installer.exe }"
-    python-installer.exe /quiet InstallAllUsers=1 PrependPath=1 Include_test=0
+    python-installer.exe /passive InstallAllUsers=1 PrependPath=1 Include_test=0
 ) else (
     echo Python installation cancelled.
     echo Feel free to run the script again or refer to manual installation on the github page
@@ -27,18 +27,18 @@ if /i "%consent%"=="Y" (
     exit /b
 )
 
+:: Refreshing environment variables to make sure that python and pip are added to path
+call src\RefreshEnv.cmd
+
 echo Installing requirements...
 
-:: timeout for a few seconds to make sure that python and pip were installed to path
-timeout /t 2 /nobreak >nul
+:: timeout for a second, just to be sure
+timeout /t 1 /nobreak >nul
 
 :: Installing requirements
-start powershell -Command "pip install -r requirements.txt; if ($?) { echo 'Requirements installation succeeded!' } else { echo 'Requirements installation failed!' }"
+powershell -Command "pip install -r requirements.txt; if ($?) { echo 'Requirements installation succeeded!' } else { echo 'Requirements installation failed!' }"
 
-:: timeout for a few seconds to make sure that the requirements were installed
-timeout /t 2 /nobreak >nul
-
-start powershell -Command "python download_models.py"
+powershell -Command "python download_models.py"
 
 echo handling ffmpeg...
 

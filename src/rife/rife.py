@@ -1,4 +1,3 @@
-import cv2
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -29,8 +28,6 @@ class Rife():
         self.fps = fps
         self.tot_frame = tot_frame
         self.kind_model = kind_model
-        
-        #self.handle_models()
         self._initialize()
     
     def _initialize(self):
@@ -57,13 +54,11 @@ class Rife():
         self.model.eval()
         self.model.device()
 
-        
         self.videogen = VideoFileClip(self.video)
         self.frames = self.videogen.iter_frames()
         self.lastframe = self.videogen.get_frame(0)  
-
+        
         self.w, self.h = int(self.w), int(self.h)
-        #self.vid_out = cv2.VideoWriter(self.output, cv2.VideoWriter_fourcc(*'mp4v'), self.fps * self.multi,(self.w, self.h))
         self.vid_out = FFMPEG_VideoWriter(self.output, (self.w, self.h), self.fps * self.multi)
         self.padding = (0, ((self.w - 1) // 128 + 1) * 128 - self.w, 0, ((self.h - 1) // 128 + 1) * 128 - self.h)
         
@@ -93,6 +88,10 @@ class Rife():
         self.read_buffer.put(None)
     
     def make_inference(self, I0, I1, n):
+        res = []
+        for i in range(n):
+            res.append(self.model.inference(I0, I1, (i + 1) * 1. / (n + 1), self.scale))
+        """       
         if self.model.version >= 3.9:
             res = []
             for i in range(n):
@@ -108,6 +107,8 @@ class Rife():
                 return [*first_half, middle, *second_half]
             else:
                 return [*first_half, *second_half]
+        """
+        return res
     
     def _pad_image(self, img):
         if self.half:
