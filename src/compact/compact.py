@@ -1,4 +1,4 @@
-import os, requests, numpy as np, torch, _thread, threading, cv2, time, concurrent.futures
+import os, requests, torch, _thread, time, concurrent.futures
 
 from torch import nn as nn
 from tqdm import tqdm
@@ -9,16 +9,13 @@ from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 from .srvgg_arch import SRVGGNetCompact
 
 class Compact():
-    def __init__(self,video, output, multi, half, w, h, nt, tot_frame, fps, model_type, ffmpeg_params):
+    def __init__(self,video, output, multi, half, nt, metadata, model_type, ffmpeg_params):
         self.video = video
         self.output = output
         self.scale = multi
         self.half = half
-        self.w = w
-        self.h = h
         self.nt = nt
-        self.fps = fps
-        self.tot_frame = tot_frame
+        self.metadata = metadata
         self.model_type = model_type
         self.ffmpeg_params = ffmpeg_params
         self.processed_frames = {}
@@ -31,7 +28,7 @@ class Compact():
             for _ in range(self.nt):
                 executor.submit(CompactMT(self.model, self.read_buffer, self.processed_frames, self.half).run)
                 
-        while self.processing_index < self.tot_frame:
+        while self.processing_index < self.metadata["nframes"]:
             time.sleep(0.1)
         
         self.threads_are_running = False
@@ -82,7 +79,11 @@ class Compact():
                 act_type="prelu",
                 )
 
-        self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
+        if self.model_type == "compact":
+            self.model.load_state_dict(torch.load(model_path, map_location="cpu")["params"])
+        elif self.model_type == "ultracompact":
+            self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
+            
         self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()
         if self.half:
             self.model.half()
@@ -91,8 +92,8 @@ class Compact():
         
         self.video = VideoFileClip(self.video)
         self.frames = self.video.iter_frames()
-        self.writer = FFMPEG_VideoWriter(self.output, (self.w * self.scale, self.h * self.scale), self.fps, ffmpeg_params=self.ffmpeg_params)
-        self.pbar = tqdm(total=self.tot_frame, desc="Writing frames", unit="frames")
+        self.writer = FFMPEG_VideoWriter(self.output, (self.metadata["width"] * self.scale, self.metadata["height"] * self.scale), self.metadata["fps"], ffmpeg_params=self.ffmpeg_params)
+        self.pbar = tqdm(total=self.metadata["nframes"], desc="Writing frames", unit="frames")
             
         self.read_buffer = Queue(maxsize=500)
         _thread.start_new_thread(self.build_buffer, ())

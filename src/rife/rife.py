@@ -13,7 +13,7 @@ Credit: https://github.com/hzwer/Practical-RIFE/blob/main/inference_video.py
 
 @torch.inference_mode()
 class Rife():
-    def __init__(self, video, output, UHD, scale, multi, half, w, h, nt, fps, tot_frame, kind_model):
+    def __init__(self, video, output, UHD, scale, multi, half, metadata, kind_model, ffmpeg_params):
         self.video = video
         self.output = output
         self.half = half
@@ -21,12 +21,9 @@ class Rife():
         self.scale = scale
         self.multi = multi
         self.modelDir = 'src/rife'
-        self.w = w
-        self.h = h
-        self.nt = nt
-        self.fps = fps
-        self.tot_frame = tot_frame
+        self.metadata = metadata
         self.kind_model = kind_model
+        self.ffmpeg_params = ffmpeg_params
         self._initialize()
     
     def _initialize(self):
@@ -58,11 +55,10 @@ class Rife():
         self.frames = self.videogen.iter_frames()
         self.lastframe = self.videogen.get_frame(0)  
         
-        self.w, self.h = int(self.w), int(self.h)
-        self.vid_out = FFMPEG_VideoWriter(self.output, (self.w, self.h), self.fps * self.multi)
-        self.padding = (0, ((self.w - 1) // 128 + 1) * 128 - self.w, 0, ((self.h - 1) // 128 + 1) * 128 - self.h)
+        self.vid_out = FFMPEG_VideoWriter(self.output, (self.metadata["width"], self.metadata["height"]), self.metadata["fps"] * self.multi, ffmpeg_params=self.ffmpeg_params)
+        self.padding = (0, ((self.metadata["width"] - 1) // 128 + 1) * 128 - self.metadata["width"], 0, ((self.metadata["height"] - 1) // 128 + 1) * 128 - self.metadata["height"])
         
-        self.pbar = tqdm(total=self.tot_frame)
+        self.pbar = tqdm(total=self.metadata["nframes"])
         self.write_buffer = Queue(maxsize=500)
         self.read_buffer = Queue(maxsize=500)
         
@@ -141,7 +137,7 @@ class Rife():
             self.write_buffer.put(self.lastframe)
             for mid in output:
                 mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
-                self.write_buffer.put(mid[:self.h, :self.w])
+                self.write_buffer.put(mid[:self.metadata["height"], :self.metadata["width"]])
 
             self.lastframe = frame
 
