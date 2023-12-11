@@ -1,5 +1,3 @@
-static-ffmpeg
-scikit-image
 moviepy
 requests
 opencv-python
