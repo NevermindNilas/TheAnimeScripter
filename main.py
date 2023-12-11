@@ -49,6 +49,9 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
                 # UHD mode is auto decided by the script in order to avoid user errors.
         UHD = True if w >= 3840 or h >= 2160 else False
 
+        if kind_model == "":
+            kind_model = "4.13lite"
+            
         Rife(video_file, output, UHD, 1, multi, half, w, h, nt, fps, tot_frame, kind_model)
         
     elif model_type in ["cugan", "shufflecugan"]:
