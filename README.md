@@ -188,3 +188,4 @@ In no particular order:
 - [Massive] Fixed the encoder, now it should be much higher resolution for less space.
 - The output will now default to .m4v to comply with After Effects' codec support.
 - [Massive] After Effects will now only upscale the trimmed part, not the whole clip.
+- [Massive] Increased Rife performance by 50% and bumped up the version to 4.13
