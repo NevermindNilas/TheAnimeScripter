@@ -5,7 +5,6 @@ requests
 opencv-python
 tqdm
 timm
-rembg[gpu]
 numpy<1.26
 torch==2.1.0 
 torchvision 
