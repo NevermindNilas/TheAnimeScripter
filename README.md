@@ -44,8 +44,6 @@ if it is installed run:
 
 #### How to use inside of After Effects
 
-- !On the first run of the script you MAY have to run After Effects with admin priviledges.!
-
 - On the top left corner open File -> Scripts -> Install ScriptUI Panel -> (Look for the script.jsx file found within the /src subdirectory )
 
 - After Instalation you will be prompted with a restart of After Effects, do it.
