@@ -12,9 +12,11 @@ If Python 3.10 - 3.11 isn't installed on your system, run this file:
 
 - ```setup.bat```
 
-or if it is already installed run:
+if it is installed run:
 
-- ```update.bat```
+- ```pip install -r requirements.txt```
+
+- ```python download_models.py```
 
 ### Manual installation
 
@@ -24,7 +26,11 @@ or if it is already installed run:
 
 - ```pip install -r requirements.txt```
 
-- ```python .\download_models.py```
+- ```python download_models.py```
+
+- Download FFMPEG from: https://github.com/BtbN/FFmpeg-Builds/releases
+
+- inside the folder src make a folder named ffmpeg and drop ffmpeg.exe into it
 
 ### How to use inside of After Effects
 
@@ -132,10 +138,10 @@ Segment:
 In no particular order:
 - Provide a bundled version with all of the dependencies.
 - Add Rife NCNN Vulkan.
-- Find a workaround for running after effects as an admin.
 - Finish RealESRGAN.
 - Fix CPU inference.
 - Add testing.
+- Add Rife Multithreadding
 - Add a log.txt.
 - Fix slow startup times, probably through lazy loading.
 - Add Pytorch segmentation.
