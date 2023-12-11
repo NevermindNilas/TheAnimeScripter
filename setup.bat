@@ -29,8 +29,14 @@ if /i "%consent%"=="Y" (
 
 echo Installing requirements...
 
+:: timeout for a few seconds to make sure that python and pip were installed to path
+timeout /t 2 /nobreak >nul
+
 :: Installing requirements
 start cmd /c "pip install -r requirements.txt && echo Requirements installation succeeded! || echo Requirements installation failed!"
+
+:: timeout for a few seconds to make sure that the requirements were installed
+timeout /t 2 /nobreak >nul
 
 start cmd /c "python download_models.py"
 
