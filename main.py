@@ -6,11 +6,11 @@ import cv2
 os.environ["CUDA_MODULE_LOADING"] = "LAZY"
 
 def generate_output_filename(output, filename_without_ext):
-    return os.path.join(output, f"{filename_without_ext}_output.m4v")
+    return os.path.join(output, f"{filename_without_ext}_output.mp4")
 
 def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     video_file = os.path.normpath(video_file)
-    
+
     # Barebones logging system, will further improve it later
     log_file_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'log.txt')
     sys.stdout = open(log_file_path, 'w')
@@ -23,7 +23,11 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
 
     # Following Xaymar's guide: https://www.xaymar.com/guides/obs/high-quality-recording/avc/
     # These should be relatively good settings for most cases, feel free to change them as you see fit.
-    ffmpeg_params=["-c:v", "libx264", "-f", "m4v", "-pix_fmt", "yuv420p", "-preset", "fast", "-crf", "15", "-tune", "animation", "-movflags", "+faststart"]
+    if model_type == "swinir":
+        # Swinir is for general purpose upscaling so we don't need animation tune
+        ffmpeg_params = ["-c:v", "libx264", "-f", "m4v", "-pix_fmt", "yuv420p", "-preset", "fast", "-crf", "15", "-movflags", "+faststart"]
+    else:
+        ffmpeg_params=["-c:v", "libx264", "-f", "m4v", "-pix_fmt", "yuv420p", "-preset", "fast", "-crf", "15", "-tune", "animation", "-movflags", "+faststart"]
 
     basename = os.path.basename(video_file)
     filename_without_ext = os.path.splitext(basename)[0]
@@ -32,8 +36,13 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     output_path = os.path.join(script_dir, 'output')
 
     if output == "":
-        if  not os.path.exists(output_path):
+        if not os.path.exists(output_path):
             os.makedirs(output_path)
+
+        if "m4v" in ffmpeg_params:
+            m4v_index = ffmpeg_params.index("m4v")
+            ffmpeg_params[m4v_index] = "mp4"
+
         output = generate_output_filename(output_path, filename_without_ext)
     
     if model_type == "rife":
@@ -63,9 +72,6 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
         
     elif model_type == "swinir":
         from src.swinir.swinir import Swin
-
-        # Swinir is for general purpose upscaling so we don't need animation tune
-        ffmpeg_params = ["-c:v", "libx264", "-f", "m4v", "-pix_fmt", "yuv420p", "-preset", "fast", "-crf", "15", "-movflags", "+faststart"]
 
         if multi != 2 and multi != 4:
             print("Swinir only supports 2x and 4x scaling, auto setting scale to 2")
