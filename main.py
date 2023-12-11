@@ -18,9 +18,6 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
         "height": clip.h,
         "nframes": clip.reader.nframes,
     }
-    w, h = clip.size
-    fps = clip.fps
-    tot_frame = clip.reader.nframes    
     clip.close()
 
     # Following Xaymar's guide: https://www.xaymar.com/guides/obs/high-quality-recording/avc/
@@ -54,14 +51,14 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     if model_type == "rife":
         from src.rife.rife import Rife
                 # UHD mode is auto decided by the script in order to avoid user errors.
-        UHD = True if w >= 3840 or h >= 2160 else False
+        UHD = True if metadata["width"] >= 3840 or metadata["height"] >= 2160 else False
             
         Rife(video_file, output, UHD, 1, multi, half, metadata, kind_model, ffmpeg_params)
 
     elif model_type in ["cugan", "shufflecugan"]:
         from src.cugan.cugan import Cugan
 
-        if model_type == "shufflecugan " and w < 1280 and h < 720:
+        if model_type == "shufflecugan " and metadata["width"] < 1280 and metadata["height"] < 720:
             print("For resolutions under 1280x720p, please use cugan or compact model instead")
             sys.exit()
             
@@ -99,7 +96,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     
     elif model_type == "segment":
         from src.segment.segment import Segment
-        Segment(video_file, output, nt, half, w, h, fps, tot_frame, kind_model, ffmpeg_params)
+        #Segment(video_file, output, nt, half, w, h, fps, tot_frame, kind_model, ffmpeg_params)
     else:
         sys.exit("Please select a valid model type ", model_type, " was not found")
 
