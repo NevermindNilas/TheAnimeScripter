@@ -1,6 +1,6 @@
 # TheAnimeScripter
 
-Welcome to TheAnimeScripter, a comprehensive tool designed for both video processing enthusiasts and professionals. Our tool offers a wide array of functionalities, including interpolation, upscaling, deduplication, segmentation, and more.
+Welcome to TheAnimeScripter, a comprehensive tool designed for both video processing enthusiasts and professionals all within After Effects. Our tool offers a wide array of functionalities, including interpolation, upscaling, deduplication, segmentation, and more.
 
 [Join The Discord Server](https://discord.gg/bFA6xZxM5V)
 
@@ -27,6 +27,10 @@ if it is installed run:
 - ```pip install -r requirements.txt```
 
 - ```python download_models.py```
+
+- Download FFMPEG from: https://github.com/BtbN/FFmpeg-Builds/releases
+
+- inside the folder src make a folder named ffmpeg and drop ffmpeg.exe into it
 
 #### Manual installation
 
