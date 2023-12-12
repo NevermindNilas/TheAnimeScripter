@@ -24,8 +24,6 @@ class Dedup():
             root_dir = os.path.dirname(script_dir)
             ffmpeg_path = os.path.join(root_dir, "ffmpeg", "ffmpeg.exe")
             ffmpeg_command = f"{ffmpeg_path} -i \"{self.video}\" -vf \"mpdecimate,setpts=N/FRAME_RATE/TB\" -an -y \"{self.output}\" -v quiet -stats"
-            print("FFMPEG COMMAND: ", ffmpeg_command)          
-
             process = subprocess.run(ffmpeg_command)
                 
         except:
