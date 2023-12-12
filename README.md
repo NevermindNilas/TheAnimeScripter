@@ -20,7 +20,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 
 If Python 3.10 - 3.11 isn't installed on your system, run this file:
 
-- ```setup.bat```
+- run ```setup.bat``` ( as admin ) 
 
 if it is installed run:
 
@@ -28,9 +28,7 @@ if it is installed run:
 
 - ```python download_models.py```
 
-- Download FFMPEG from: https://github.com/BtbN/FFmpeg-Builds/releases
-
-- inside the folder src make a folder named ffmpeg and drop ffmpeg.exe into it
+- run ```get_ffmpeg.bat```
 
 #### Manual installation
 
