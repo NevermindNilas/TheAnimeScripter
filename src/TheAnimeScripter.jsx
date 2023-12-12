@@ -464,7 +464,7 @@ var dialog = (function () {
 			}
 
 			// For debugging purposes
-			//alert("THIS IS THE COMMAND " + command)
+			alert("THIS IS THE COMMAND " + command)
 
 			if (layer) {
 				try {
