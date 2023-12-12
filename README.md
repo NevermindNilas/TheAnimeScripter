@@ -138,7 +138,6 @@ Segment:
 - [JingyunLiang](https://github.com/JingyunLiang/SwinIR) - For SwinIR.
 - [Bubble](https://github.com/Bubblemint864/AI-Models) - For the compact and soon swinir model.
 - [Xintao](https://github.com/xinntao/Real-ESRGAN) - for Realesrgan, specifically compact arch.
-- [Danielgatis](https://github.com/danielgatis/rembg) - for rembg and easy to use segmentation.
 - [AlixzFX](https://github.com/AlixzFX) - for debugging the scriptUI and inspiration
 
 ## 📈 Benchmarks
@@ -148,16 +147,14 @@ Segment:
 ## 📋 To-Do
 
 In no particular order:
-- Provide a bundled version with all of the dependencies.
-- Add Rife NCNN Vulkan.
-- Finish RealESRGAN.
-- Fix CPU inference.
-- Add testing.
-- Add Rife Multithreadding
-- Add a log.txt.
-- Fix slow startup times, probably through lazy loading.
-- Add Pytorch segmentation.
-- Maybe add TRT.
+- Provide a bundled version with all of the dependencies included ( need assitance with this )
+- Add Rife NCNN Vulkan ( probably through ncnn api or directml )
+- Fix CPU inference. ( high priority )
+- Add testing. ( high priority )
+- Add Rife Multithreadding ( halfway done )
+- Fix slow startup times, probably through lazy loading. ( improved by about 50%, still room for improvement )
+- Add Pytorch segmentation. ( current models are all onnx, I will look into a pytorch conversion using onnx2torch )
+- Maybe add TRT. ( probably not )
 
 ## ✅ Done
 

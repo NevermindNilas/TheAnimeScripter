@@ -4,14 +4,14 @@ from tqdm import tqdm
 from torch.nn import functional as F
 import _thread
 from queue import Queue
-import time
 from moviepy.editor import VideoFileClip
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
+import os
+import time
 '''
 Credit: https://github.com/hzwer/Practical-RIFE/blob/main/inference_video.py
 '''
 
-@torch.inference_mode()
 class Rife():
     def __init__(self, video, output, UHD, scale, multi, half, metadata, kind_model, ffmpeg_params):
         self.video = video
@@ -20,7 +20,7 @@ class Rife():
         self.UHD = UHD
         self.scale = scale
         self.multi = multi
-        self.modelDir = 'src/rife'
+        self.modelDir = os.path.dirname(os.path.realpath(__file__))
         self.metadata = metadata
         self.kind_model = kind_model
         self.ffmpeg_params = ffmpeg_params
@@ -50,12 +50,12 @@ class Rife():
         self.model.load_model(self.modelDir, -1)
         self.model.eval()
         self.model.device()
-
+        
         self.videogen = VideoFileClip(self.video)
         self.frames = self.videogen.iter_frames()
         self.lastframe = self.videogen.get_frame(0)  
         
-        self.vid_out = FFMPEG_VideoWriter(self.output, (self.metadata["width"], self.metadata["height"]), self.metadata["fps"] * self.multi, ffmpeg_params=self.ffmpeg_params)
+        self.vid_out = FFMPEG_VideoWriter(self.output, (self.metadata["width"], self.metadata["height"]), self.metadata["fps"] * self.multi)
         self.padding = (0, ((self.metadata["width"] - 1) // 128 + 1) * 128 - self.metadata["width"], 0, ((self.metadata["height"] - 1) // 128 + 1) * 128 - self.metadata["height"])
         
         self.pbar = tqdm(total=self.metadata["nframes"])
@@ -87,23 +87,7 @@ class Rife():
         res = []
         for i in range(n):
             res.append(self.model.inference(I0, I1, (i + 1) * 1. / (n + 1), self.scale))
-        """       
-        if self.model.version >= 3.9:
-            res = []
-            for i in range(n):
-                res.append(self.model.inference(I0, I1, (i + 1) * 1. / (n + 1), self.scale))
-            return res
-        else:
-            middle = self.model.inference(I0, I1, self.scale)
-            if n == 1:
-                return [middle]
-            first_half = self.make_inference(I0, middle, n=n // 2)
-            second_half = self.make_inference(middle, I1, n=n // 2)
-            if n % 2:
-                return [*first_half, middle, *second_half]
-            else:
-                return [*first_half, *second_half]
-        """
+
         return res
     
     def _pad_image(self, img):
@@ -113,36 +97,26 @@ class Rife():
             return F.pad(img, self.padding)
         
     def process_video(self):
-        #output = []
-        I1 = torch.from_numpy(np.transpose(self.lastframe, (2, 0, 1))).to(self.device, non_blocking=True).unsqueeze(
-            0).float() / 255.
+        I1 = torch.from_numpy(np.transpose(self.lastframe, (2,0,1))).to(self.device, non_blocking=True).unsqueeze(0).float() / 255.
         I1 = self._pad_image(I1)
-        temp = None  # save lastframe when processing static frame
         while True:
-            if temp is not None:
-                frame = temp
-                temp = None
-            else:
-                frame = self.read_buffer.get()
-
+            frame = self.read_buffer.get()
             if frame is None:
                 break
-
             I0 = I1
-            I1 = torch.from_numpy(np.transpose(frame, (2, 0, 1))).to(self.device, non_blocking=True).unsqueeze(0).float() / 255.
+            I1 = torch.from_numpy(np.transpose(frame, (2,0,1))).to(self.device, non_blocking=True).unsqueeze(0).float() / 255.
             I1 = self._pad_image(I1)
 
             output = self.make_inference(I0, I1, self.multi - 1)
 
             self.write_buffer.put(self.lastframe)
+
             for mid in output:
                 mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
                 self.write_buffer.put(mid[:self.metadata["height"], :self.metadata["width"]])
 
             self.lastframe = frame
 
-        self.write_buffer.put(self.lastframe)
-        
         while not self.write_buffer.empty():
             time.sleep(0.1)
         self.pbar.close()
