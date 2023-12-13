@@ -527,7 +527,6 @@ var dialog = (function () {
 
 	function callCommand(command) {
 		try {
-			alert(output_name);
 			var cmdCommand = 'cmd.exe /k "' + command;
 			system.callSystem(cmdCommand);
 
