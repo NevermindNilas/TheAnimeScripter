@@ -58,8 +58,9 @@ class Cugan:
             self.model = model_map[self.scale](in_channels=3, out_channels=3)
             self.filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{self.kind_model}.pth"
         
-        if not os.path.exists("src/cugan/weights"):
-            os.makedirs("src/cugan/weights")
+        current_file_path = os.path.abspath(__file__)
+        if not os.path.exists(os.path.join(os.path.dirname(current_file_path), "weights")):
+            os.mkdir(os.path.join(os.path.dirname(current_file_path), "weights"))
             
         if not os.path.exists(os.path.join(os.path.abspath("src/cugan/weights"), self.filename)):
             print(f"Downloading {self.model_type.upper()}  model...")

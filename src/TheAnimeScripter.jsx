@@ -702,10 +702,10 @@ var dialog = (function () {
 					*/
 				} catch (error) {
 					alert(error);
+					alert("This could mean multiple things, 1. Try running AE as Administrator, if that fixed it, then close AE and run it as normal. 2. Open a terminal in the script folder and run the command: pip install -r requirements.txt, If it still that doesn't work, contact me on the discord server ")
 				}
 			}
 		}
-		
 	}
 	dialog.layout.layout(true);
 	dialog.layout.resize();
