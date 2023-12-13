@@ -596,7 +596,6 @@ var dialog = (function () {
 			var outPoint = layer.outPoint;
 			var duration = outPoint - inPoint;
 			/*
-			// Broken because I didn't take into account edgecases where the input had a different framerate to the comp
 			// Checking if the layer is trimmed
 			if (duration !== layer.source.duration) {
 				// Really hackintosh approach to it, I am not taking the exact timecode and instead round it to the nearest whole number.
@@ -630,10 +629,9 @@ var dialog = (function () {
 				var randomNumber = Math.floor(Math.random() * 10000);
 				output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
 			}
-			*/
 			var randomNumber = Math.floor(Math.random() * 10000);
 			output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
-
+			*/
 			var command = "";
 			if (module == "interpolate") {
 				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type rife -multi " + InterpolateInt + " -output \"" + output_name + "\"";

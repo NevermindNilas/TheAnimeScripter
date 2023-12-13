@@ -60,7 +60,7 @@ class Cugan:
 
         # Testing
         dir_name = os.path.dirname(os.path.abspath(__file__))
-        weights_dir = os.path.join(dir_name, "src", "cugan", "weights")
+        weights_dir = os.path.join(dir_name, "weights")
         if not os.path.exists(weights_dir):
             os.makedirs(weights_dir)
 
