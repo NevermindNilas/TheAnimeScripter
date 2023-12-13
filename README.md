@@ -11,6 +11,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 3. **Deduplication**: Optimize your video size by removing duplicate frames.
 4. **Segmentation**: Separate the background from the foreground for easier and faster rotobrushing.
 5. **Integration with After Effects**: Seamlessly use our tool directly inside of After Effects.
+6. **Model Chaining in After Effects**: Run multiple models at once.
 
 ## 🛠️ Getting Started
 
@@ -28,7 +29,7 @@ if it is installed run:
 
 - ```python download_models.py```
 
-- run ```get_ffmpeg.bat```
+- ```get_ffmpeg.bat```
 
 #### Manual installation
 
@@ -150,6 +151,7 @@ In no particular order:
 - Fix CPU inference. ( high priority )
 - Add testing. ( high priority )
 - Add Rife Multithreadding ( halfway done )
+- ADd DepthMap process ( high priority )
 - Fix slow startup times, probably through lazy loading. ( improved by about 50%, still room for improvement )
 - Add Pytorch segmentation. ( current models are all onnx, I will look into a pytorch conversion using onnx2torch )
 - Maybe add TRT. ( probably not )
@@ -183,4 +185,5 @@ In no particular order:
 - [Massive] Fixed the encoder, now it should be much higher resolution for less space.
 - The output will now default to .m4v to comply with After Effects' codec support.
 - [Massive] After Effects will now only upscale the trimmed part, not the whole clip.
-- [Massive] Increased Rife performance by 50% and bumped up the version to 4.13
+- [Massive] Increased Rife performance by 50% and bumped up the version to 4.13.
+- [Massive] Added Model chaining in the script, now multiple models can be ran at once.
