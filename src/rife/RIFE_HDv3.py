@@ -1,7 +1,13 @@
 import torch
+import torch.nn as nn
+import numpy as np
 from torch.optim import AdamW
+import torch.optim as optim
+import itertools
+from .warplayer import warp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from .IFNet_HDv3 import *
+import torch.nn.functional as F
 from .loss import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -39,7 +45,7 @@ class Model:
                 self.flownet.load_state_dict(convert(torch.load('{}/flownet.pkl'.format(path))), False)
             else:
                 self.flownet.load_state_dict(convert(torch.load('{}/flownet.pkl'.format(path), map_location ='cpu')), False)
-        
+
     def inference(self, img0, img1, timestep=0.5, scale=1.0):
         imgs = torch.cat((img0, img1), 1)
         scale_list = [8/scale, 4/scale, 2/scale, 1/scale]
