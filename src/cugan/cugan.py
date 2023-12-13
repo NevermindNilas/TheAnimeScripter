@@ -39,7 +39,7 @@ class Cugan:
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.nt) as executor:
             for _ in range(self.nt):
-                executor.submit(CuganMT(self.model, self.read_buffer, self.processed_frames, self.half, self.metadata).run)
+                executor.submit(CuganMT(self.model, self.read_buffer, self.processed_frames, self.half).run)
                 
         while self.processing_index < self.metadata["nframes"]:
             time.sleep(0.1)
@@ -121,30 +121,27 @@ class Cugan:
         self.pbar.close()
         
 class CuganMT():
-    def __init__(self, model, read_buffer, processed_frames, half, metadata):
+    def __init__(self, model, read_buffer, processed_frames, half):
         self.model = model
         self.read_buffer = read_buffer
         self.processed_frames = processed_frames
         self.half = half
         self.cuda_available = torch.cuda.is_available()
-        self.h = metadata["height"]
-        self.w = metadata["width"]
-        if self.cuda_available:
-            self.model = self.model.cuda()
 
     def inference(self, frame):
-        with torch.no_grad():
-            if self.half:
-                frame = frame.half()
-            return self.model(frame)
-        
+        if self.half:
+            frame = frame.half()
+        return self.model(frame)
+
+    @torch.inference_mode     
     def process_frame(self, frame):
-        frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float().div_(255)
-        if self.cuda_available:
-            frame = frame.cuda()
-        frame = self.inference(frame)
-        frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
-        return frame.cpu().numpy()
+        with torch.no_grad():
+            frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float().div_(255)
+            if self.cuda_available:
+                frame = frame.cuda()
+            frame = self.inference(frame)
+            frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
+            return frame.cpu().numpy()
     
     def process_frame_cpu(self, frame):
         """
