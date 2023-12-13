@@ -94,6 +94,11 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
         
         Dedup(video_file, output, kind_model)
     
+    elif model_type == "depth":
+        from src.midas.depth import Depth
+
+        Depth(video_file, output, half, metadata, nt, kind_model, ffmpeg_params)
+    
     elif model_type == "segment":
         from src.segment.segment import Segment
         #Segment(video_file, output, nt, half, w, h, fps, tot_frame, kind_model, ffmpeg_params)
