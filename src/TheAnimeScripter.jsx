@@ -1,7 +1,7 @@
 var panelGlobal = this;
 var dialog = (function () {
 	var scriptName = "AnimeScripter";
-	var scriptVersion = "0.0.4";
+	var scriptVersion = "0.0.5";
 	var scriptAuthor = "Nilas";
 	var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
 	var discordServer = "https://discord.gg/CdRD9GwS8J"
@@ -14,24 +14,9 @@ var dialog = (function () {
 	var defaultSegment = "isnet-anime";
 	var defaultInterpolateInt = 2;
 	var defaultUpscaleInt = 2;
-	
-	/*
-	// Workaround for testing admin perms
-	var file = new File("C:/Windows/test.txt");
-	file.open('w');
-	var success = file.write("Test");
-	file.close();
-
-	if ( !success ) {
-		alert("You need to run After Effects as an administrator to use The Anime Scripter script.");
-		return;
-	}
-	
-	file.remove();
-	*/
 
 	var dialog = (panelGlobal instanceof Panel) ? panelGlobal : new Window("palette", undefined, undefined, {resizeable: true}); 
-	if ( !(panelGlobal instanceof Panel) ) dialog.text = "AnimeScripter by Nilas"; 
+	if ( !(panelGlobal instanceof Panel) ) dialog.text = "AnimeScripter"; 
 	dialog.orientation = "column"; 
 	dialog.alignChildren = ["center","top"]; 
 	dialog.spacing = 10; 
@@ -43,7 +28,7 @@ var dialog = (function () {
 	statictext1.alignChildren = ["center","center"]; 
 	statictext1.spacing = 0; 
 
-	statictext1.add("statictext", undefined, "The Anime Scripter"); 
+	statictext1.add("statictext", undefined, "The Anime Scripter by Nilas"); 
 	
 	var divider1 = dialog.add("panel", undefined, undefined, {name: "divider1"}); 
 	    divider1.alignment = "fill"; 
@@ -170,10 +155,44 @@ var dialog = (function () {
 	    MainpyButton.text = "Main.py";
 		MainpyButton.helpTip = "Select the main.py file";
 		MainpyButton.preferredSize.width = 69;
+	
+
+	// CHAINPANEL
+	// ==========
+	var chainPanel = dialog.add("panel", undefined, undefined, {name: "chainPanel"}); 
+		chainPanel.text = "Chain The Processes"; 
+		chainPanel.orientation = "column"; 
+		chainPanel.alignChildren = ["left","top"]; 
+		chainPanel.spacing = 10; 
+		chainPanel.margins = 10; 
+
+	// GROUP1
+	// ======
+	var group1 = chainPanel.add("group", undefined, {name: "group1"}); 
+		group1.orientation = "row"; 
+		group1.alignChildren = ["left","center"]; 
+		group1.spacing = 10; 
+		group1.margins = 0; 
+
+	var chainButton = group1.add("button", undefined, undefined, {name: "chainButton"}); 
+		chainButton.helpTip = "Start of the chain"; 
+		chainButton.text = "Start";
+		chainButton.preferredSize.width = 69;
+
+	var dedupCheckmark = group1.add("checkbox", undefined, undefined, {name: "dedupCheckmark"}); 
+		dedupCheckmark.text = "Deduplicate";
+		dedupCheckmark.preferredSize.width = 86;
+
+	var upcsaleCheckmark = group1.add("checkbox", undefined, undefined, {name: "upcsaleCheckmark"}); 
+		upcsaleCheckmark.text = "Upscale"; 
+		upcsaleCheckmark.preferredSize.width = 64;
+
+	var interpolateCheckmark = group1.add("checkbox", undefined, undefined, {name: "interpolateCheckmark"}); 
+		interpolateCheckmark.text = "Interpolate";
+		interpolateCheckmark.preferredSize.width = 80;
 
 	// DIALOG
 	// ======
-	
 	var settingsGroup = dialog.add("group", undefined, {name: "settingsGroup"});
 	    settingsGroup.orientation = "row";
 	    settingsGroup.alignChildren = ["left","center"];
@@ -339,6 +358,187 @@ var dialog = (function () {
 		app.settings.saveSetting("AnimeScripter", "DropdownSegment", DropdownSegment.selection.index);
 	}
 	
+	UpscaleInt.onChange = function() {
+		app.settings.saveSetting("AnimeScripter", "UpscaleInt", UpscaleInt.text);
+	}
+
+	chainButton.onClick = function() {
+		if (dedupCheckmark.value == false && upcsaleCheckmark.value == false && interpolateCheckmark.value == false) {
+			alert("Please select at least one checkmark");
+			return;
+		}
+		chain_models();	
+	}
+
+	// The train of thoughts is running the process function for each module
+	function chain_models() {
+		var outputFolder = app.settings.haveSetting("AnimeScripter", "outputDirectory") ? app.settings.getSetting("AnimeScripter", "outputDirectory") : "";
+		var mainPyFile = app.settings.haveSetting("AnimeScripter", "mainPyPath") ? app.settings.getSetting("AnimeScripter", "mainPyPath") : "";
+		var DropdownCugan = app.settings.haveSetting("AnimeScripter", "DropdownCugan") ? app.settings.getSetting("AnimeScripter", "DropdownCugan") : defaultCugan;
+		var DropdownSwinIr = app.settings.haveSetting("AnimeScripter", "DropdownSwinIr") ? app.settings.getSetting("AnimeScripter", "DropdownSwinIr") : defaultSwinIR;
+		var DropdownSegment = app.settings.haveSetting("AnimeScripter", "DropdownSegment") ? app.settings.getSetting("AnimeScripter", "DropdownSegment") : defaultSegment;
+		var DropdownUpscaler = app.settings.haveSetting("AnimeScripter", "DropdownUpscaler") ? app.settings.getSetting("AnimeScripter", "DropdownUpscaler") : defaultUpscaler;
+		var NumberOfThreadsInt = app.settings.haveSetting("AnimeScripter", "NumberOfThreadsInt") ? app.settings.getSetting("AnimeScripter", "NumberOfThreadsInt") : defaultNrThreads;
+		var InterpolateInt = app.settings.haveSetting("AnimeScripter", "InterpolateInt") ? app.settings.getSetting("AnimeScripter", "InterpolateInt") : defaultInterpolateInt;
+		var UpscaleInt = app.settings.haveSetting("AnimeScripter", "UpscaleInt") ? app.settings.getSetting("AnimeScripter", "UpscaleInt") : defaultUpscaleInt;
+		
+		// The script above stores the positional value of the selected upscaler in the array
+		// In order to work around it, we need to get the actual value of the selected upscaler
+		DropdownUpscaler = DropdownUpscaler_array[DropdownUpscaler];
+		DropdownSwinIr = DropdownSwinIr_array[DropdownSwinIr];
+		DropdownSegment = DropdownSegment_array[DropdownSegment];
+		DropdownCugan = DropdownCugan_array[DropdownCugan];
+
+		if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length < 1)) {
+			return alert("Please select one layer.");
+		}
+
+		if (outputFolder == "" || outputFolder == null) {
+			alert("No output directory selected");
+			return;
+		}
+	
+		if (mainPyFile == "" || mainPyFile == null) {
+			alert("No main.py file selected");
+			return;
+		}
+
+		var pyfile = File(mainPyFile);
+		var scriptPath = pyfile.parent.fsName;
+		// Checking if the user has downloaded the models
+		weightsPath = scriptPath + "\\src\\cugan\\weights\\";
+
+		var weightsFile = new File(weightsPath);
+		if (!weightsFile.exists) {
+			alert("Models folder(s) not found, please make sure you have downloaded the models, run setup.bat or python download_models.py in the script folder and try again");
+			return;
+		}
+
+		var comp = app.project.activeItem;
+		for (var i = 0 ; i < comp.selectedLayers.length ; i++) 
+
+			var layer = comp.selectedLayers[i];
+			var activeLayerPath = layer.source.file.fsName;
+			var activeLayerName = layer.name.replace(/\.[^\.]*$/, '');
+			
+			var inPoint = layer.inPoint;
+			var outPoint = layer.outPoint;
+			var duration = outPoint - inPoint;
+
+			temp_output_name = outputFolder + "\\" + activeLayerName
+			output_name = outputFolder + "\\" + activeLayerName
+			if (dedupCheckmark.value == true) {
+				output_name = output_name + "_de" + ".m4v";
+				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type dedup -kind_model " + "ffmpeg" + " -output \"" + output_name + "\"";
+
+				callCommand(command);
+				// For removing the residue
+				if (upcsaleCheckmark.value == true || interpolateCheckmark.value == true) {
+					var remFile_1 = new File(output_name);
+				}
+			}
+
+			if (upcsaleCheckmark.value == true) {
+				if (output_name !== temp_output_name) {
+					activeLayerPath = output_name;
+					output_name = output_name.replace(".m4v", '') 
+					output_name = output_name + "_up" + ".m4v";
+				}
+				else {
+					output_name = output_name + "_up" + ".m4v";
+				}
+				if (DropdownUpscaler == "ShuffleCugan") {
+					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type shufflecugan -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+				} else if (DropdownUpscaler == "Cugan") {
+					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type cugan -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+				} else if (DropdownUpscaler == "UltraCompact") {
+					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type ultracompact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+				} else if (DropdownUpscaler == "Compact") {
+					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type compact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+				} else if (DropdownUpscaler == "Swwinir") {
+					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type swinir -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+				}
+				else{
+					alert("No model has been selected, weird, please try setting a model again, if it doesn't work contact me on the discord server")
+					return;
+				}
+				callCommand(command);
+
+				// For removing the residue
+				if (interpolateCheckmark.value == true) {
+					var remFile_2 = new File(output_name);
+				}
+			}
+
+			if (interpolateCheckmark.value == true) {
+				if (output_name !== temp_output_name) {
+					activeLayerPath = output_name;
+					output_name = output_name.replace(".m4v", '')
+					output_name = output_name + "_in" + ".m4v";
+				}
+				else {
+					output_name = output_name + "_in" + ".m4v";
+				}
+				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type rife -multi " + InterpolateInt + " -output \"" + output_name + "\"";
+				callCommand(command);
+			}
+
+			if (remFile_1 && remFile_1.exists) {
+				try {
+					remFile_1.remove();
+					} catch (error) {
+						alert(error);
+						alert("There might have been a problem removing the temp file. Do you have admin permissions?");
+				}
+			}
+
+			if (remFile_2 && remFile_2.exists) {
+				try {
+					remFile_2.remove();
+					} catch (error) {
+						alert(error);
+						alert("There might have been a problem removing the temp file. Do you have admin permissions?");
+				}
+			}
+
+			importFile();
+			function importFile() {
+				try {
+					var importOptions = new ImportOptions(File(output_name));
+					var importedFile = app.project.importFile(importOptions);
+					var inputLayer = comp.layers.add(importedFile);
+					inputLayer.moveBefore(layer);
+
+					if (upcsaleCheckmark == true) {
+						var compWidth = comp.width;
+						var compHeight = comp.height;
+						var layerWidth = inputLayer.source.width;
+						var layerHeight = inputLayer.source.height;
+						var scaleX = (compWidth / layerWidth) * 100;
+						var scaleY = (compHeight / layerHeight) * 100;
+						inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
+					} 
+				}catch (error) {
+					alert(error);
+					alert("Something went wrong trying to import the file, please contact me on discord")
+				}
+			}
+	}
+
+	function callCommand(command) {
+		try {
+			alert(output_name);
+			var cmdCommand = 'cmd.exe /k "' + command;
+			system.callSystem(cmdCommand);
+
+			// Added because the metadata would only finish writing after the script was done, I assume.
+			$.sleep(500);
+		} catch (error) {
+			alert(error);
+			alert("Something went wrong trying to process the chain, please contact me on discord")
+		}
+	}
+
 	function process(module) {
 		var outputFolder = app.settings.haveSetting("AnimeScripter", "outputDirectory") ? app.settings.getSetting("AnimeScripter", "outputDirectory") : "";
 		var mainPyFile = app.settings.haveSetting("AnimeScripter", "mainPyPath") ? app.settings.getSetting("AnimeScripter", "mainPyPath") : "";
@@ -464,11 +664,11 @@ var dialog = (function () {
 			}
 
 			// For debugging purposes
-			alert("THIS IS THE COMMAND " + command)
+			// alert("THIS IS THE COMMAND " + command)
 
 			if (layer) {
 				try {
-					var cmdCommand = 'cmd.exe /k "' + command + ' && pause "';
+					var cmdCommand = 'cmd.exe /k "' + command;
 					system.callSystem(cmdCommand);
 
 					// Added because the metadata would only finish writing after the script was done, I assume.

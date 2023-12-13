@@ -28,6 +28,7 @@ class Dedup():
                 
         except:
             raise Exception("FFmpeg failed to deduplicate the video, please try again or use another deduplication method.")
+        
     def hash(self):
         pass
 
