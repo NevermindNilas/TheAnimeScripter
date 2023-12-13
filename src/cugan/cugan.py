@@ -57,11 +57,13 @@ class Cugan:
             model_map = {2: UpCunet2x, 3: UpCunet3x, 4: UpCunet4x}
             self.model = model_map[self.scale](in_channels=3, out_channels=3)
             self.filename = f"{model_path_prefix}_{model_path_middle}{model_path_suffix}-{self.kind_model}.pth"
-        
-        current_file_path = os.path.abspath(__file__)
-        if not os.path.exists(os.path.join(os.path.dirname(current_file_path), "weights")):
-            os.mkdir(os.path.join(os.path.dirname(current_file_path), "weights"))
-            
+
+        # Testing
+        dir_name = os.path.dirname(os.path.abspath(__file__))
+        weights_dir = os.path.join(dir_name, "src", "cugan", "weights")
+        if not os.path.exists(weights_dir):
+            os.makedirs(weights_dir)
+
         if not os.path.exists(os.path.join(os.path.abspath("src/cugan/weights"), self.filename)):
             print(f"Downloading {self.model_type.upper()}  model...")
             url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{self.filename}"
