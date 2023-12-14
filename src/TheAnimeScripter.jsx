@@ -629,9 +629,9 @@ var dialog = (function () {
 				var randomNumber = Math.floor(Math.random() * 10000);
 				output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
 			}
+			*/
 			var randomNumber = Math.floor(Math.random() * 10000);
 			output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
-			*/
 			var command = "";
 			if (module == "interpolate") {
 				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type rife -multi " + InterpolateInt + " -output \"" + output_name + "\"";
@@ -661,7 +661,7 @@ var dialog = (function () {
 			}
 
 			// For debugging purposes
-			// alert("THIS IS THE COMMAND " + command)
+			alert("THIS IS THE COMMAND: " + command)
 
 			if (layer) {
 				try {

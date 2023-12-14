@@ -6,10 +6,6 @@ from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 from multiprocessing import Queue
 from .cugan_arch import UpCunet2x, UpCunet3x, UpCunet4x, UpCunet2x_fast
 
-'''
-ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of default=nokey=1:noprint_wrappers=1 .\input\input_shufflecugan.mp4 
-'''
-
 class Cugan:
     def __init__(self, video, output, multi, half, kind_model, pro, metadata, nt, model_type, ffmpeg_params):
         """
