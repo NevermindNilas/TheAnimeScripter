@@ -1,14 +1,15 @@
 import argparse
 import os
 import sys
-from moviepy.editor import VideoFileClip
+
 
 def generate_output_filename(output, filename_without_ext):
     return os.path.join(output, f"{filename_without_ext}_output.mp4")
 
 def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
+    from moviepy.editor import VideoFileClip
     video_file = os.path.normpath(video_file)
-
+    
     # Maybe making a dictionary of the metada would be better
     clip = VideoFileClip(video_file)
     metadata = {
@@ -24,10 +25,11 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
     # These should be relatively good settings for most cases, feel free to change them as you see fit.
     if model_type == "swinir":
         # Swinir is for general purpose upscaling so we don't need animation tune
-        ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf", "15", "-movflags", "+faststart"]
+        ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf", "15", "-movflags", "+faststart", "-y"]
     else:
-        ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf", "15", "-tune", "animation", "-movflags", "+faststart"]
+        ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf", "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
 
+    
     if output == "":
         basename = os.path.basename(video_file)
         filename_without_ext = os.path.splitext(basename)[0]
@@ -98,7 +100,7 @@ def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
         from src.midas.depth import Depth
 
         Depth(video_file, output, half, metadata, nt, kind_model, ffmpeg_params)
-    
+            
     elif model_type == "segment":
         from src.segment.segment import Segment
         #Segment(video_file, output, nt, half, w, h, fps, tot_frame, kind_model, ffmpeg_params)

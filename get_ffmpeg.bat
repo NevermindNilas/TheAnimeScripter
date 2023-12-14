@@ -1,6 +1,8 @@
 :: Handling ffmpeg
 @echo off
 
+echo Downloading FFMPEG binaries
+
 mkdir src\ffmpeg
 
 set FFMPEG_URL=https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
