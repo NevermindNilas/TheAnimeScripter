@@ -1,17 +1,17 @@
 var panelGlobal = this;
 var dialog = (function () {
 	var scriptName = "AnimeScripter";
-	var scriptVersion = "0.0.5";
+	var scriptVersion = "0.0.7";
 	var scriptAuthor = "Nilas";
 	var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
 	var discordServer = "https://discord.gg/CdRD9GwS8J"
 
 	//DEFAULT VALUES
-	var defaultUpscaler = "ShuffleCugan";
+	var defaultUpscaler = "ShuffleCugan" || 0;
 	var defaultNrThreads = 2;
-	var defaultCugan = "no-denoise";
-	var defaultSwinIR = "small";
-	var defaultSegment = "isnet-anime";
+	var defaultCugan = "no-denoise" || 0;
+	var defaultSwinIR = "small" || 4;
+	var defaultSegment = "isnet-anime" || 0;
 	var defaultInterpolateInt = 2;
 	var defaultUpscaleInt = 2;
 
@@ -369,7 +369,56 @@ var dialog = (function () {
 		}
 		chain_models();	
 	}
+	
+	function check_weights(scriptPath) {
+		// Checking if the user has downloaded the models
+		weightsPath = scriptPath + "\\src\\cugan\\weights\\";
 
+		var weightsFile = new File(weightsPath);
+		if (!weightsFile.exists) {
+			alert("Models folder(s) not found, please make sure you have downloaded the models, run setup.bat or python download_models.py in the script folder and try again");
+			return;
+		}
+	}
+
+	function callCommand(command) {
+		try {
+			var cmdCommand = 'cmd.exe /c "' + command;
+			system.callSystem(cmdCommand);
+
+			// Added because the metadata would only finish writing after the script was done, I assume.
+			$.sleep(500);
+		} catch (error) {
+			alert(error);
+			alert("Something went wrong trying to process the chain, please contact me on discord")
+		}
+	}
+	function handleTrimmedInput(inPoint, outPoint, layer, activeLayerPath, activeLayerName, outputFolder, scriptPath, module) {
+		var startTime = layer.startTime;
+		var newInPoint = inPoint - startTime;
+		var newOutPoint = outPoint - startTime;
+
+		output_name = outputFolder + "\\" + activeLayerName + "_temp.mp4";
+		var trimInputPath = scriptPath + "\\src\\trim_input.py"
+		
+		command = "cd \"" + scriptPath + "\" && python \"" + trimInputPath + "\" -ss " + newInPoint + " -to " + newOutPoint + " -i \"" + activeLayerPath + "\" -o \"" + output_name + "\"";
+		cmdCommand = 'cmd.exe /c "' + command;
+
+		system.callSystem(cmdCommand)
+
+		activeLayerPath = output_name;
+		// This is for removing the temp file that was created
+
+		var removeFile = new File(activeLayerPath);
+		// Assigning the new temp file that was created for processing
+
+		var randomNumber = Math.floor(Math.random() * 10000);
+		output_name = output_name.replace("_temp.mp4", '')
+		output_name = output_name + "_" + module + "_" + randomNumber + ".m4v";	
+
+		return [activeLayerPath, output_name, removeFile]	
+	}
+	
 	// The train of thoughts is running the process function for each module
 	function chain_models() {
 		var outputFolder = app.settings.haveSetting("AnimeScripter", "outputDirectory") ? app.settings.getSetting("AnimeScripter", "outputDirectory") : "";
@@ -406,13 +455,7 @@ var dialog = (function () {
 		var pyfile = File(mainPyFile);
 		var scriptPath = pyfile.parent.fsName;
 		// Checking if the user has downloaded the models
-		weightsPath = scriptPath + "\\src\\cugan\\weights\\";
-
-		var weightsFile = new File(weightsPath);
-		if (!weightsFile.exists) {
-			alert("Models folder(s) not found, please make sure you have downloaded the models, run setup.bat or python download_models.py in the script folder and try again");
-			return;
-		}
+		check_weights(scriptPath);
 
 		var comp = app.project.activeItem;
 		for (var i = 0 ; i < comp.selectedLayers.length ; i++) 
@@ -525,19 +568,6 @@ var dialog = (function () {
 			}
 	}
 
-	function callCommand(command) {
-		try {
-			var cmdCommand = 'cmd.exe /k "' + command;
-			system.callSystem(cmdCommand);
-
-			// Added because the metadata would only finish writing after the script was done, I assume.
-			$.sleep(500);
-		} catch (error) {
-			alert(error);
-			alert("Something went wrong trying to process the chain, please contact me on discord")
-		}
-	}
-
 	function process(module) {
 		var outputFolder = app.settings.haveSetting("AnimeScripter", "outputDirectory") ? app.settings.getSetting("AnimeScripter", "outputDirectory") : "";
 		var mainPyFile = app.settings.haveSetting("AnimeScripter", "mainPyPath") ? app.settings.getSetting("AnimeScripter", "mainPyPath") : "";
@@ -595,43 +625,22 @@ var dialog = (function () {
 			var inPoint = layer.inPoint;
 			var outPoint = layer.outPoint;
 			var duration = outPoint - inPoint;
-			/*
+
 			// Checking if the layer is trimmed
 			if (duration !== layer.source.duration) {
-				// Really hackintosh approach to it, I am not taking the exact timecode and instead round it to the nearest whole number.
-				// I will look into exact timecode approaches but this works for now.
-				var startTime = layer.startTime;
-
-				var newInPoint = Math.floor(inPoint - startTime);
-				var newOutPoint = Math.ceil(outPoint - startTime);
-
-				output_name = outputFolder + "\\" + activeLayerName + "_temp.mp4";
-				try{
-					var ffmpeg_path = scriptPath + "\\src\\ffmpeg\\ffmpeg.exe";
-					command = "cmd.exe /c " + "\"" + ffmpeg_path + "\" -i \"" + activeLayerPath + "\" -ss \"" + newInPoint + "\" -to \"" + newOutPoint + "\" -vcodec copy \"" + output_name + "\" -y ";
-					system.callSystem(command);
-				}
-				catch (error) {
-					alert(error);
-					alert("Something went wrong trying to cut the clip, please contact me on the discord server");
-				}
-
-				activeLayerPath = output_name;
-
-				// This is for removing the temp file that was created
-				var removeFile = new File(activeLayerPath);
-
-				// Assigning the new temp file that was created for processing
-				var randomNumber = Math.floor(Math.random() * 10000);
-				output_name = output_name.replace("_temp.mp4", '')
-				output_name = output_name + "_" + module + "_" + randomNumber + ".m4v";
+				var result = handleTrimmedInput(inPoint, outPoint, layer, activeLayerPath, activeLayerName, outputFolder, scriptPath, module)
+				activeLayerPath = result[0];
+				output_name = result[1];
+				removeFile = result[2];
 			} else {
 				var randomNumber = Math.floor(Math.random() * 10000);
 				output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
 			}
-			*/
+			
+			
 			var randomNumber = Math.floor(Math.random() * 10000);
 			output_name = outputFolder + "\\" + activeLayerName + "_" + module + "_" + randomNumber + ".m4v";
+
 			var command = "";
 			if (module == "interpolate") {
 				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type rife -multi " + InterpolateInt + " -output \"" + output_name + "\"";
@@ -644,7 +653,7 @@ var dialog = (function () {
 					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type ultracompact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
 				} else if (DropdownUpscaler == "Compact") {
 					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type compact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
-				} else if (DropdownUpscaler == "Swwinir") {
+				} else if (DropdownUpscaler == "Swinir") {
 					command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type swinir -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
 				}
 				else{
@@ -661,11 +670,11 @@ var dialog = (function () {
 			}
 
 			// For debugging purposes
-			alert("THIS IS THE COMMAND: " + command)
+			//alert("THIS IS THE COMMAND: " + command)
 
 			if (layer) {
 				try {
-					var cmdCommand = 'cmd.exe /k "' + command;
+					var cmdCommand = 'cmd.exe /c "' + command;
 					system.callSystem(cmdCommand);
 
 					// Added because the metadata would only finish writing after the script was done, I assume.
@@ -687,7 +696,7 @@ var dialog = (function () {
 						var scaleY = (compHeight / layerHeight) * 100;
 						inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
 					}
-					/*
+					
 					// Removes the temp file that was created
 					if (removeFile && removeFile.exists) {
 						try {
@@ -697,7 +706,7 @@ var dialog = (function () {
 							alert("There might have been a problem removing the temp file. Do you have admin permissions?");
 						}
 					}
-					*/
+					
 				} catch (error) {
 					alert(error);
 					alert("This could mean multiple things, 1. Try running AE as Administrator, if that fixed it, then close AE and run it as normal. 2. Open a terminal in the script folder and run the command: pip install -r requirements.txt, If it still that doesn't work, contact me on the discord server ")
