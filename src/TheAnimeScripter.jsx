@@ -1,7 +1,7 @@
 var panelGlobal = this;
 var dialog = (function () {
 	var scriptName = "AnimeScripter";
-	var scriptVersion = "0.0.7";
+	var scriptVersion = "0.0.8";
 	var scriptAuthor = "Nilas";
 	var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
 	var discordServer = "https://discord.gg/CdRD9GwS8J"
@@ -371,9 +371,10 @@ var dialog = (function () {
 	}
 	
 	function check_weights(scriptPath) {
-		// Checking if the user has downloaded the models
+		// Checking if the user has downloaded the Cugan Models
 		weightsPath = scriptPath + "\\src\\cugan\\weights\\";
 
+		// TO:DO, add checking for each model path
 		var weightsFile = new File(weightsPath);
 		if (!weightsFile.exists) {
 			alert("Models folder(s) not found, please make sure you have downloaded the models, run setup.bat or python download_models.py in the script folder and try again");
@@ -393,6 +394,7 @@ var dialog = (function () {
 			alert("Something went wrong trying to process the chain, please contact me on discord")
 		}
 	}
+
 	function handleTrimmedInput(inPoint, outPoint, layer, activeLayerPath, activeLayerName, outputFolder, scriptPath, module) {
 		var startTime = layer.startTime;
 		var newInPoint = inPoint - startTime;
@@ -407,14 +409,17 @@ var dialog = (function () {
 		system.callSystem(cmdCommand)
 
 		activeLayerPath = output_name;
+
 		// This is for removing the temp file that was created
-
 		var removeFile = new File(activeLayerPath);
-		// Assigning the new temp file that was created for processing
 
-		var randomNumber = Math.floor(Math.random() * 10000);
+
 		output_name = output_name.replace("_temp.mp4", '')
-		output_name = output_name + "_" + module + "_" + randomNumber + ".m4v";	
+
+		if (module !== "chain") {
+			var randomNumber = Math.floor(Math.random() * 10000);
+			output_name = output_name + "_" + module + "_" + randomNumber + ".m4v";	
+		}
 
 		return [activeLayerPath, output_name, removeFile]	
 	}
@@ -468,8 +473,18 @@ var dialog = (function () {
 			var outPoint = layer.outPoint;
 			var duration = outPoint - inPoint;
 
-			temp_output_name = outputFolder + "\\" + activeLayerName
-			output_name = outputFolder + "\\" + activeLayerName
+			if (duration !== layer.source.duration) {
+				module = "chain";
+				var result = handleTrimmedInput(inPoint, outPoint, layer, activeLayerPath, activeLayerName, outputFolder, scriptPath, module)
+				activeLayerPath = result[0];
+				output_name = result[1];
+				removeFile = result[2];
+				temp_output_name = output_name;
+			} else {
+				temp_output_name = outputFolder + "\\" + activeLayerName
+				output_name = outputFolder + "\\" + activeLayerName
+			}
+
 			if (dedupCheckmark.value == true) {
 				output_name = output_name + "_de" + ".m4v";
 				command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type dedup -kind_model " + "ffmpeg" + " -output \"" + output_name + "\"";
@@ -477,7 +492,7 @@ var dialog = (function () {
 				callCommand(command);
 				// For removing the residue
 				if (upcsaleCheckmark.value == true || interpolateCheckmark.value == true) {
-					var remFile_1 = new File(output_name);
+					var remFile_2 = new File(output_name);
 				}
 			}
 
@@ -509,7 +524,7 @@ var dialog = (function () {
 
 				// For removing the residue
 				if (interpolateCheckmark.value == true) {
-					var remFile_2 = new File(output_name);
+					var remFile_3 = new File(output_name);
 				}
 			}
 
@@ -526,9 +541,9 @@ var dialog = (function () {
 				callCommand(command);
 			}
 
-			if (remFile_1 && remFile_1.exists) {
+			if (removeFile && removeFile.exists) {
 				try {
-					remFile_1.remove();
+					removeFile.remove();
 					} catch (error) {
 						alert(error);
 						alert("There might have been a problem removing the temp file. Do you have admin permissions?");
@@ -538,6 +553,15 @@ var dialog = (function () {
 			if (remFile_2 && remFile_2.exists) {
 				try {
 					remFile_2.remove();
+					} catch (error) {
+						alert(error);
+						alert("There might have been a problem removing the temp file. Do you have admin permissions?");
+				}
+			}
+
+			if (remFile_3 && remFile_3.exists) {
+				try {
+					remFile_3.remove();
 					} catch (error) {
 						alert(error);
 						alert("There might have been a problem removing the temp file. Do you have admin permissions?");
