@@ -8,7 +8,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 
 ## 🚀 Key Features
 
-1. **Interpolation**: Boost your video quality by increasing the frame rate.
+1. **Interpolation**: Boost your video framerate through frame interpolation.
 2. **Upscaling**: Enhance the resolution of your videos for an improved viewing experience.
 3. **Deduplication**: Optimize your video size by removing duplicate frames.
 4. **Segmentation**: Separate the background from the foreground for easier and faster rotobrushing.
