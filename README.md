@@ -11,7 +11,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 3. **Deduplication**: Optimize your video size by removing duplicate frames.
 4. **Segmentation**: Separate the background from the foreground for easier and faster rotobrushing.
 5. **Integration with After Effects**: Seamlessly use our tool directly inside of After Effects.
-6. **Model Chaining in After Effects**: Run multiple models at once.
+6. **Model Chaining in After Effects**: Run multiple models all at once.
 
 ## 🛠️ Getting Started
 
