@@ -1,3 +1,5 @@
+![TAS-Banner](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7eebf967-5466-40a6-a6ba-14e8163c78bc)
+
 # TheAnimeScripter
 
 Welcome to TheAnimeScripter, a comprehensive tool designed for both video processing enthusiasts and professionals all within After Effects. Our tool offers a wide array of functionalities, including interpolation, upscaling, deduplication, segmentation, and more.
