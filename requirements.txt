@@ -3,6 +3,7 @@ requests
 opencv-python
 tqdm
 timm
+scikit-image
 numpy<1.26
 torch==2.1.0 
 torchvision 
