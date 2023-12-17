@@ -6,7 +6,7 @@ echo Downloading FFMPEG binaries
 mkdir src\ffmpeg
 
 set FFMPEG_URL=https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
-powershell -Command "& { iwr '%FFMPEG_URL%' -OutFile src\ffmpeg\ffmpeg.zip }"
+powershell -Command "& { (New-Object System.Net.WebClient).DownloadFile('%FFMPEG_URL%', 'src\ffmpeg\ffmpeg.zip') }"
 
 powershell -Command "& { Expand-Archive -Path 'src\ffmpeg\ffmpeg.zip' -DestinationPath 'src\ffmpeg\tmp'; }"
 
