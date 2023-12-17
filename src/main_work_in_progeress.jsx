@@ -7,21 +7,20 @@ var TheAnimeScripter = (function() {
     */
 
     var scriptName = "AnimeScripter";
-    var scriptVersion = "0.0.8";
+    var scriptVersion = "0.1.0";
     var scriptAuthor = "Nilas";
     var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
     var discordServer = "https://discord.gg/CdRD9GwS8J"
 
     //DEFAULT VALUES
-    var defaultUpscaler = "ShuffleCugan" || 0;
+    var defaultUpscaler = "ShuffleCugan";
     var defaultNrThreads = 2;
     var defaultCugan = "no-denoise" || 0;
     var defaultSwinIR = "small" || 4;
     var defaultSegment = "isnet-anime" || 0;
     var defaultInterpolateInt = 2;
     var defaultUpscaleInt = 2;
-    var buttonOutput = "";
-    var mainPyButton = "";
+    var mainPyPath = "";
     var outputFolder = "";
 
     // THEANIMESCRIPTER
@@ -158,6 +157,7 @@ var TheAnimeScripter = (function() {
     buttonInfo.text = "Info";
     buttonInfo.preferredSize.width = 105;
     buttonInfo.alignment = ["center", "top"];
+    buttonInfo.enabled = false;
 
     var buttonSettings = panelMore.add("button", undefined, undefined, {
         name: "buttonSettings"
@@ -174,7 +174,6 @@ var TheAnimeScripter = (function() {
 
     // FUNCTIONS
     buttonSettings.onClick = function() {
-        var panelGlobal = this;
         var settingsWindow = (function() {
 
             /*
@@ -439,7 +438,7 @@ var TheAnimeScripter = (function() {
                     var folder = new Folder()
                     var outputFolder = folder.selectDlg("Select an output directory");
                     if (outputFolder != null) {
-                        app.settings.saveSetting("AnimeScripter", "outputDirectory", outputFolder.fsName);
+                        app.settings.saveSetting("AnimeScripter", "outputFolder", outputFolder.fsName);
                     }
                     alert("successfully saved path");
                 } catch (error) {
@@ -449,9 +448,9 @@ var TheAnimeScripter = (function() {
 
             buttonMainPy.onClick = function() {
                 try {
-                    var mainPyFile = File.openDialog("Select the main.py file");
-                    if (mainPyFile != null) {
-                        app.settings.saveSetting("AnimeScripter", "mainPyPath", mainPyFile.fsName);
+                    var mainPyPath = File.openDialog("Select the main.py file");
+                    if (mainPyPath != null) {
+                        app.settings.saveSetting("AnimeScripter", "mainPyPath", mainPyPath.fsName);
                     }
                     alert("successfully saved path");
                 } catch (error) {
@@ -497,6 +496,27 @@ var TheAnimeScripter = (function() {
         }());
     }
 
+    buttonStartProcess.onClick = function() {
+        if (checkboxDeduplicate.value == false && checkboxUpscale.value == false && checkboxInterpolate.value == false) {
+            alert("Please select at least one process");
+            return;
+        }
+        chain_models();
+    }
+
+    function callCommand(command) {
+        try {
+            var cmdCommand = 'cmd.exe /c "' + command;
+            system.callSystem(cmdCommand);
+
+            // Added because the metadata would only finish writing after the script was done, I assume.
+            $.sleep(500);
+        } catch (error) {
+            alert(error);
+            alert("Something went wrong trying to process the chain, please contact me on discord")
+        }
+    }
+
     function check_weights(scriptPath) {
         // Checking if the user has downloaded the Cugan Models
         weightsPath = scriptPath + "\\src\\cugan\\weights\\";
@@ -538,11 +558,178 @@ var TheAnimeScripter = (function() {
         return [activeLayerPath, output_name, removeFile]
     }
 
-	function chain_models() {
-		var scriptPath = app.settings.getSetting("AnimeScripter", "mainPyPath");
-		var outputFolder = app.settings.getSetting("AnimeScripter", "outputDirectory");
-		
-	}
+    function chain_models() {
+        try {
+            var outputFolder = app.settings.haveSetting("AnimeScripter", "outputFolder") ? app.settings.getSetting("AnimeScripter", "outputFolder") : "";
+            var mainPyPath = app.settings.haveSetting("AnimeScripter", "mainPyPath") ? app.settings.getSetting("AnimeScripter", "mainPyPath") : "";
+            var interpolationInt = app.settings.haveSetting("AnimeScripter", "interpolationInt") ? app.settings.getSetting("AnimeScripter", "interpolationInt") : defaultInterpolateInt;
+            var numberOfThreadsInt = app.settings.haveSetting("AnimeScripter", "numberOfThreadsInt") ? app.settings.getSetting("AnimeScripter", "numberOfThreadsInt") : defaultNrThreads;
+            var upscaleInt = app.settings.haveSetting("AnimeScripter", "upscaleInt") ? app.settings.getSetting("AnimeScripter", "upscaleInt") : defaultUpscaleInt;
+            var dropdownCugan = app.settings.haveSetting("AnimeScripter", "dropdownCugan") ? app.settings.getSetting("AnimeScripter", "dropdownCugan") : defaultCugan;
+            var dropdownModel = app.settings.haveSetting("AnimeScripter", "dropdownModel") ? app.settings.getSetting("AnimeScripter", "dropdownModel") : defaultUpscaler;
+            var dropdownSwinIr = app.settings.haveSetting("AnimeScripter", "dropdownSwinIr") ? app.settings.getSetting("AnimeScripter", "dropdownSwinIr") : defaultSwinIR;
+            var dropdwonSegment = app.settings.haveSetting("AnimeScripter", "dropdwonSegment") ? app.settings.getSetting("AnimeScripter", "dropdwonSegment") : defaultSegment;
+
+            dropdownModel = dropdownModel_array[dropdownModel];
+            dropdwonCugan = dropdownCugan_array[dropdownCugan];
+            dropdownSwinIr = dropdownSwinIr_array[dropdownSwinIr];
+            dropdwonSegment = dropdwonSegment_array[dropdwonSegment];
+
+        } catch (error) {
+            alert("Something went wrong trying to get the data from settings, chain_models(), please contact me on discord");
+            return;
+        }
+
+        alert("I AM HERE")
+        if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length < 1)) {
+            alert("Please select one layer.");
+            return;
+        }
+
+        if (outputFolder == "" || outputFolder == null) {
+            alert("No output directory selected");
+            return;
+        }
+
+        if (mainPyPath == "" || mainPyPath == null) {
+            alert("No main.py file selected");
+            return;
+        }
+
+        var pyfile = File(mainPyPath);
+        var scriptPath = pyfile.parent.fsName;
+
+        // Checking if the user has downloaded the models
+        check_weights(scriptPath);
+
+        var comp = app.project.activeItem;
+        for (var i = 0; i < comp.selectedLayers.length; i++) {
+            var layer = comp.selectedLayers[i];
+            var activeLayerPath = layer.source.file.fsName;
+            var activeLayerName = layer.name;
+
+            var inPoint = layer.inPoint;
+            var outPoint = layer.outPoint;
+            var duration = outPoint - inPoint;
+
+            if (duration !== layer.source.duration) {
+                module = "chain";
+                var result = handleTrimmedInput(inPoint, outPoint, layer, activeLayerPath, activeLayerName, outputFolder, scriptPath, module)
+                activeLayerPath = result[0];
+                output_name = result[1];
+                removeFile = result[2];
+                temp_output_name = output_name;
+            } else {
+                temp_output_name = outputFolder + "\\" + activeLayerName
+                output_name = outputFolder + "\\" + activeLayerName
+            }
+
+            if (dedupCheckmark.value == true) {
+                output_name = output_name + "_de" + ".m4v";
+                command = "cd \"" + scriptPath + "\" && python \"" + mainPyPath + "\" -video \"" + activeLayerPath + "\" -model_type dedup -kind_model " + "ffmpeg" + " -output \"" + output_name + "\"";
+
+                callCommand(command);
+                // For removing the residue
+                if (upcsaleCheckmark.value == true || interpolateCheckmark.value == true) {
+                    var remFile_2 = new File(output_name);
+                }
+            }
+
+            if (upcsaleCheckmark.value == true) {
+                if (output_name !== temp_output_name) {
+                    activeLayerPath = output_name;
+                    output_name = output_name.replace(".m4v", '')
+                    output_name = output_name + "_up" + ".m4v";
+                } else {
+                    output_name = output_name + "_up" + ".m4v";
+                }
+                if (DropdownUpscaler == "ShuffleCugan") {
+                    command = "cd \"" + scriptPath + "\" && python \"" + mainPyPath + "\" -video \"" + activeLayerPath + "\" -model_type shufflecugan -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+                } else if (DropdownUpscaler == "Cugan") {
+                    command = "cd \"" + scriptPath + "\" && python \"" + mainPyPath + "\" -video \"" + activeLayerPath + "\" -model_type cugan -nt " + NumberOfThreadsInt + " -kind_model " + DropdownCugan + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+                } else if (DropdownUpscaler == "UltraCompact") {
+                    command = "cd \"" + scriptPath + "\" && python \"" + mainPyPath + "\" -video \"" + activeLayerPath + "\" -model_type ultracompact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+                } else if (DropdownUpscaler == "Compact") {
+                    command = "cd \"" + scriptPath + "\" && python \"" + mainPyPath + "\" -video \"" + activeLayerPath + "\" -model_type compact -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+                } else if (DropdownUpscaler == "Swwinir") {
+                    command = "cd \"" + scriptPath + "\" && python \"" + mainPyPath + "\" -video \"" + activeLayerPath + "\" -model_type swinir -nt " + NumberOfThreadsInt + " -kind_model " + DropdownSwinIr + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
+                } else {
+                    alert("No model has been selected, weird, please try setting a model again, if it doesn't work contact me on the discord server")
+                    return;
+                }
+                callCommand(command);
+
+                // For removing the residue
+                if (interpolateCheckmark.value == true) {
+                    var remFile_3 = new File(output_name);
+                }
+            }
+
+            if (interpolateCheckmark.value == true) {
+                if (output_name !== temp_output_name) {
+                    activeLayerPath = output_name;
+                    output_name = output_name.replace(".m4v", '')
+                    output_name = output_name + "_int" + ".m4v";
+                } else {
+                    output_name = output_name + "_int" + ".m4v";
+                }
+                command = "cd \"" + scriptPath + "\" && python \"" + mainPyPath + "\" -video \"" + activeLayerPath + "\" -model_type interpolation -multi " + InterpolationInt + " -output \"" + output_name + "\"";
+                callCommand(command);
+            }
+
+            if (removeFile && removeFile.exists) {
+                try {
+                    removeFile.remove();
+                } catch (error) {
+                    alert(error);
+                    alert("There might have been a problem removing one of the temp files. Do you have admin permissions?");
+                }
+            }
+
+            if (remFile_2 && remFile_2.exists) {
+                try {
+                    remFile_2.remove();
+                } catch (error) {
+                    alert(error);
+                    alert("There might have been a problem removing one of the temp files. Do you have admin permissions?");
+                }
+            }
+
+            if (remFile_3 && remFile_3.exists) {
+                try {
+                    remFile_3.remove();
+                } catch (error) {
+                    alert(error);
+                    alert("There might have been a problem removing one of the temp files. Do you have admin permissions?");
+                }
+            }
+
+            importFile();
+
+            function importFile() {
+                try {
+                    var importOptions = new ImportOptions(File(output_name));
+                    var importedFile = app.project.importFile(importOptions);
+                    var inputLayer = comp.layers.add(importedFile);
+                    inputLayer.moveBefore(layer);
+
+                    if (upcsaleCheckmark == true) {
+                        var compWidth = comp.width;
+                        var compHeight = comp.height;
+                        var layerWidth = inputLayer.source.width;
+                        var layerHeight = inputLayer.source.height;
+                        var scaleX = (compWidth / layerWidth) * 100;
+                        var scaleY = (compHeight / layerHeight) * 100;
+                        inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
+                    }
+
+                } catch (error) {
+                    alert(error);
+                    alert("Something went wrong trying to import the file, please contact me on discord")
+                }
+            }
+        }
+    }
 
     if (TheAnimeScripter instanceof Window) TheAnimeScripter.show();
     return TheAnimeScripter;
