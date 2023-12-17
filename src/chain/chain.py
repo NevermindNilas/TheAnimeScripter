@@ -3,6 +3,7 @@ import argparse
 import _thread
 import time
 
+from threading import Lock
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
@@ -13,7 +14,6 @@ from concurrent.futures import ThreadPoolExecutor
 I have basically reinvented VS, I am so cool and so dead inside
 """
 
-
 class main:
     def __init__(self, args):
         self.input = os.path.normpath(args.input)
@@ -23,59 +23,62 @@ class main:
         self.upscale = args.upscale
         self.upscale_factor = args.upscale_factor
         self.upscale_method = args.upscale_method
+        self.cugan_kind = args.cugan_kind
         self.dedup = args.dedup
         self.dedup_sens = args.dedup_sens
         self.dedup_method = args.dedup_method
         self.nt = args.nt
+        self.lock = Lock()
         self.half = args.half
 
-        self.processed_frames = {}
+        self.processed_frames = Queue()
 
         self.intitialize()
 
+        self.threads = []
         self.threads_are_running = True
+        
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             for _ in range(self.nt):
-                executor.submit(self.start_process)
+                thread = executor.submit(self.start_process)
+                self.threads.append(thread)
 
+        while not all(thread.done() for thread in self.threads):
+            time.sleep(0.01)
+            
         self.threads_are_running = False
-        
-        print("\nThreads are finished")
-        
+
         if self.dedup_method == "FFMPEG":
             if self.interpolate or self.upscale:
                 os.remove(self.input)
                 
-        self.write_buffer()
-
     def intitialize(self):
-        """
-        The dedup is above due to FFMPEG
-        """
-        
+
         if self.dedup:
             if self.dedup_method == "SSIM":
                 from dedup import DedupSSIM
-                self.dedup = DedupSSIM()
+                print("Not available yet")
+                # self.dedup = DedupSSIM()
 
             if self.dedup_method == "MSE":
                 from dedup import DedupMSE
-                self.dedup = DedupMSE()
+                print("Not available yet")
+                # self.dedup = DedupMSE()
 
             if self.dedup_method == "FFMPEG":
-                from dedup import DedupFFMPEG
+                from src.dedup.dedup import DedupFFMPEG
                 self.dedup = DedupFFMPEG(self.input, self.output)
                 self.input = self.dedup.run()
 
-        # Metadata needs a little time to be written.        
+        # Metadata needs a little time to be written.
         time.sleep(1)
-        
+
         self.video = VideoFileClip(self.input)
         self.frames = self.video.iter_frames()
         self.ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf",
                               "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
-        self.fps = self.video.fps * \
-            self.interpolate_factor if self.interpolate else self.video.fps
+        
+        self.fps = self.video.fps * self.interpolate_factor if self.interpolate else self.video.fps
 
         self.frame_size = (self.video.w * self.upscale_factor, self.video.h *
                            self.upscale_factor) if self.upscale else (self.video.w, self.video.h)
@@ -86,84 +89,86 @@ class main:
         self.pbar = tqdm(total=self.video.reader.nframes,
                          desc="Processing", unit="frames", colour="green")
 
-        if self.interpolate:
-            from rife import rife
-            UHD = True if self.frame_size[0] > 3840 or self.frame_size[1] > 2160 else False
-
-            self.interpolate = rife(
-                self.interpolate_factor, self.half, self.frame_size, UHD)
-
         if self.upscale:
             if self.upscale_method == "shufflecugan" or "cugan":
-                from cugan import cugan
-                self.upscale = cugan(self.upscale_method)
+                from src.cugan.cugan_node import Cugan
+                self.upscale = Cugan(self.upscale_method, self.upscale_factor, self.cugan_kind, self.half)
             else:
                 print("not yet implemented")
+                
+        if self.interpolate:
+            from src.rife.rife import Rife
+            UHD = True if self.frame_size[0] > 3840 or self.frame_size[1] > 2160 else False
+
+            self.interpolate = Rife(
+                self.interpolate_factor, self.half, self.frame_size, UHD)
+
 
         self.read_buffer = Queue(maxsize=500)
         _thread.start_new_thread(self.build_buffer, ())
+        _thread.start_new_thread(self.write_buffer, ())
 
     def build_buffer(self):
         for index, frame in enumerate(self.frames):
             if frame is None:
                 break
+                
             self.read_buffer.put((index, frame))
 
         for _ in range(self.nt):
             self.read_buffer.put(None)
-            
-        self.video.close()
-        
-    def write_buffer(self):
-        while True:
-            for index in sorted(self.processed_frames.keys()):
-                if index not in self.processed_frames:
-                    break
 
-                self.writer.write_frame(self.processed_frames[index])
-                del self.processed_frames[index]
-            break
+        self.video.close()
+
+    def start_process(self):
+        prev_frame = None
+        while True:
+            item = self.read_buffer.get()
+            if item is None:
+                print("\nThread finished")
+                break
+            index, frame = item
+            if self.upscale:
+                frame = self.upscale.run(frame)
+                
+            if self.interpolate and prev_frame is not None:
+                results = self.interpolate.run(
+                    prev_frame, frame, self.interpolate_factor, self.frame_size)
+                if results is not None:
+                    for result in results:
+                        with self.lock:
+                            self.processed_frames.put((index, result))
+                else:
+                    print("\nFailed to interpolate frame")
+                    
+            self.pbar.update(1)
+            with self.lock:
+                self.processed_frames.put((index, frame))
+            prev_frame = frame
+
+    def write_buffer(self):
+        buffer = []
+        while True:
+            while not self.processed_frames.empty():
+                with self.lock:
+                    frame = self.processed_frames.get()
+                buffer.append(frame)
+
+            buffer.sort(key=lambda x: x[0])
+
+            for _, frame in buffer:
+                self.writer.write_frame(frame)
+
+            buffer = []
+
+            if not self.threads_are_running and self.processed_frames.empty():
+                print("\nWrite_buffer finished")
+                break
+
+            time.sleep(0.1)
 
         self.writer.close()
         self.pbar.close()
-        
-    def start_process(self):
-        prev_frame = None
-        temp_index = 0
-        while True:
-            index, frame = self.read_buffer.get()
-            if index is None:
-                if self.upscale and prev_frame is not None:
-                    prev_frame = self.upscale.run(prev_frame)
-                    self.processed_frames[temp_index + 1] = prev_frame
-                break
-            self.pbar.update(1)
-
-            if self.dedup != "FFMPEG" and prev_frame is not None:
-                is_duplicate = self.dedup.run(
-                    prev_frame, frame, self.dedup_sens)
-                if is_duplicate:
-                    prev_frame = frame
-                    continue
-            """
-            if self.interpolate and prev_frame is not None:
-                results = self.interpolate.run(
-                    prev_frame, frame, self.interpolate_factor)
-                if results is not None:
-                    for i, result in enumerate(results):
-                        interpolated_index = index + i / len(results)
-                        if self.upscale:
-                            result = self.upscale.run(result)
-                        self.processed_frames[interpolated_index] = result
-
-            if self.upscale:
-                frame = self.upscale.run(frame)
-            """
-
-            self.processed_frames[index] = frame
-
-            prev_frame = frame
-            temp_index = index
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
@@ -188,3 +193,5 @@ if __name__ == "__main__":
         main(args)
     else:
         print("Please select a video file")
+    
+

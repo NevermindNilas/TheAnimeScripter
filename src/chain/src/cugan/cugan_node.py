@@ -15,7 +15,7 @@ class Cugan:
         self.handle_models()
 
     def handle_models(self):
-        if self.upscale_method == "shufflecgan":
+        if self.upscale_method == "shufflecugan":
             self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
             self.filename = "sudo_shuffle_cugan_9.584.969.pth"
         else:
@@ -33,7 +33,7 @@ class Cugan:
             os.makedirs(weights_dir)
 
         if not os.path.exists(os.path.join(weights_dir, self.filename)):
-            print(f"Downloading {self.model_type.upper()}  model...")
+            print(f"Downloading {self.upscale_method.upper()}  model...")
             url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{self.filename}"
             response = requests.get(url)
             if response.status_code == 200:
@@ -63,8 +63,12 @@ class Cugan:
             frame = torch.from_numpy(frame).permute(
                 2, 0, 1).unsqueeze(0).float().div_(255)
             if self.half:
-                frame = frame.half()
-            frame = self.model(frame)
+                frame = frame.cuda().half()
+            try:
+                frame = self.model(frame)
+            except Exception as e:
+                print(f"Error: {e}")
+                return None
             frame = frame.squeeze(0).permute(
                 1, 2, 0).mul_(255).clamp_(0, 255).byte()
             return frame.cpu().numpy()
