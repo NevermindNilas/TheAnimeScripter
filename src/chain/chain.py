@@ -191,18 +191,18 @@ if __name__ == "__main__":
     logging.basicConfig(filename=log_file_path, filemode='w', format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("--input", type=str, required=True)
-    argparser.add_argument("--output", type=str, required=True)
-    argparser.add_argument("--interpolate", type=bool, default=False)
-    argparser.add_argument("--interpolate_factor", type=int, default=2)
-    argparser.add_argument("--upscale", type=bool, default=False)
-    argparser.add_argument("--upscale_factor", type=int, default=2)
-    argparser.add_argument("--upscale_method", type=str,
+    argparser.add_argument("--input", "-i", type=str, required=True)
+    argparser.add_argument("--output", "-o", type=str, required=True)
+    argparser.add_argument("--interpolate", "-int", type=bool, default=False)
+    argparser.add_argument("--interpolate_factor", "-intfactor", type=int, default=2)
+    argparser.add_argument("--upscale", "-ups", type=bool, default=False)
+    argparser.add_argument("--upscale_factor", "-upsfactor", type=int, default=2)
+    argparser.add_argument("--upscale_method", "-upsmethod", type=str,
                            default="shufflecugan")
     argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
-    argparser.add_argument("--dedup", type=bool, default=False)
-    argparser.add_argument("--dedup_sens", type=int, default=5)
-    argparser.add_argument("--dedup_method", type=str, default="FFMPEG")
+    argparser.add_argument("--dedup", "-de", type=bool, default=False)
+    argparser.add_argument("--dedup_sens", "-desens", type=int, default=5)
+    argparser.add_argument("--dedup_method", "-demethod", type=str, default="FFMPEG")
     argparser.add_argument("--nt", type=int, default=2)
     argparser.add_argument("--half", type=bool, default=True)
 
