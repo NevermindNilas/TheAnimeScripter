@@ -71,8 +71,8 @@ class DedupFFMPEG():
             output) + os.path.basename(output).split(".")[0] + "_dedup_" + random_number + ".mp4"
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.ffmpeg_path = os.path.join(
-            dir_path, "src", "ffmpeg", "ffmpeg.exe")
+        dir_path = os.path.dirname(dir_path)
+        self.ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
 
     def run(self):
         ffmpeg_command = [self.ffmpeg_path, "-i", self.input, "-vf",
