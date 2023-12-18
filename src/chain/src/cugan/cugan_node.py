@@ -15,7 +15,7 @@ class Cugan:
         self.handle_models()
 
     def handle_models(self):
-        if self.upscale_method == "shufflecgan":
+        if self.upscale_method == "shufflecugan":
             self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
             self.filename = "sudo_shuffle_cugan_9.584.969.pth"
         else:
@@ -33,14 +33,14 @@ class Cugan:
             os.makedirs(weights_dir)
 
         if not os.path.exists(os.path.join(weights_dir, self.filename)):
-            print(f"Downloading {self.model_type.upper()}  model...")
+            print(f"Downloading {self.upscale_method.upper()}  model...")
             url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{self.filename}"
             response = requests.get(url)
             if response.status_code == 200:
                 with open(os.path.join(weights_dir, self.filename), "wb") as file:
                     file.write(response.content)
 
-        model_path = os.path.abspath(os.path.join(weights_dir, self.filename))
+        model_path = os.path.join(weights_dir, self.filename)
 
         self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
         self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()
@@ -63,7 +63,13 @@ class Cugan:
             frame = torch.from_numpy(frame).permute(
                 2, 0, 1).unsqueeze(0).float().div_(255)
             if self.half:
-                frame = frame.half()
+                frame = frame.cuda().half()
+            else:
+                try:
+                    frame = frame.cuda()
+                except:
+                    frame = frame.cpu()
+
             frame = self.model(frame)
             frame = frame.squeeze(0).permute(
                 1, 2, 0).mul_(255).clamp_(0, 255).byte()
