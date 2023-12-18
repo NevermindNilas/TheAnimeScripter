@@ -61,21 +61,21 @@ class Rife:
         else:
             return F.pad(img, self.padding)
 
-    def run(self, I0, I1, n):
+    def run(self, I0, I1, n, frame_size):
         buffer = []
         I0 = torch.from_numpy(np.transpose(I0, (2, 0, 1))).to(
             self.device, non_blocking=True).unsqueeze(0).float() / 255.
+        I0 = self.pad_image(I0)
         
         I1 = torch.from_numpy(np.transpose(I1, (2, 0, 1))).to(
             self.device, non_blocking=True).unsqueeze(0).float() / 255.
-        
         I1 = self.pad_image(I1)
-        I0 = self.pad_image(I0)
+        
 
         output = self.make_inference(I0, I1, n - 1)
 
-        for _ in output:
-            _ = (((_[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
-            buffer.append(_)
+        for mid in output:
+            mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
+            buffer.append(mid[:frame_size[1], :frame_size[0], :])
 
         return buffer
