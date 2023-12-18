@@ -40,13 +40,15 @@ powershell -Command "pip install -r requirements.txt; if ($?) { echo 'Requiremen
 
 powershell -Command "python download_models.py"
 
-echo handling ffmpeg...
+:: Handling ffmpeg
+@echo off
+
+echo Downloading FFMPEG binaries
 
 mkdir src\ffmpeg
 
-:: Handling ffmpeg
 set FFMPEG_URL=https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip
-powershell -Command "& { iwr '%FFMPEG_URL%' -OutFile src\ffmpeg\ffmpeg.zip }"
+powershell -Command "& { (New-Object System.Net.WebClient).DownloadFile('%FFMPEG_URL%', 'src\ffmpeg\ffmpeg.zip') }"
 
 powershell -Command "& { Expand-Archive -Path 'src\ffmpeg\ffmpeg.zip' -DestinationPath 'src\ffmpeg\tmp'; }"
 
@@ -55,6 +57,3 @@ powershell -Command "& { Move-Item -Path 'src\ffmpeg\tmp\ffmpeg-*-win64-gpl\bin\
 powershell -Command "& { Remove-Item -Path 'src\ffmpeg\tmp' -Recurse -Force; }"
 
 powershell -Command "& { Remove-Item -Path 'src\ffmpeg\ffmpeg.zip'; }"
-
-:: Removing the python installer
-powershell -Command "& { Remove-Item -Path 'python-installer.exe'; }"
