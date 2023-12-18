@@ -64,6 +64,7 @@ class Cugan:
                 2, 0, 1).unsqueeze(0).float().div_(255)
             if self.half:
                 frame = frame.cuda().half()
+<<<<<<< HEAD
             else:
                 try:
                     frame = frame.cuda()
@@ -71,6 +72,13 @@ class Cugan:
                     frame = frame.cpu()
 
             frame = self.model(frame)
+=======
+            try:
+                frame = self.model(frame)
+            except Exception as e:
+                print(f"Error: {e}")
+                return None
+>>>>>>> 36340abe592881990b8485ea3f31757db570dbe8
             frame = frame.squeeze(0).permute(
                 1, 2, 0).mul_(255).clamp_(0, 255).byte()
             return frame.cpu().numpy()
