@@ -1,37 +1,32 @@
+import os
 import torch
 import numpy as np
-from tqdm import tqdm
-from torch.nn import functional as F
-import _thread
-from queue import Queue
-from moviepy.editor import VideoFileClip
-from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
-import os
-import time
-'''
-Credit: https://github.com/hzwer/Practical-RIFE/blob/main/inference_video.py
-'''
 
-class Rife():
-    def __init__(self, video, output, UHD, scale, multi, half, metadata, kind_model, ffmpeg_params):
-        self.video = video
-        self.output = output
+from torch.nn import functional as F
+
+
+class Rife:
+    def __init__(self, interpolation_factor, half, frame_size, UHD):
+        self.interpolation_factor = interpolation_factor
         self.half = half
+        self.frame_size = frame_size
         self.UHD = UHD
-        self.scale = scale
-        self.multi = multi
+        self.scale = 1.0
+        self.width = self.frame_size[0]
+        self.height = self.frame_size[1]
         self.modelDir = os.path.dirname(os.path.realpath(__file__))
-        self.metadata = metadata
-        self.kind_model = kind_model
-        self.ffmpeg_params = ffmpeg_params
-        self._initialize()
-    
-    def _initialize(self):
+        self.padding = (0, ((self.width - 1) // 128 + 1) * 128 - self.width,
+                        0, ((self.height - 1) // 128 + 1) * 128 - self.height)
+
+        self.handle_model()
+
+    def handle_model(self):
         if self.UHD == True and self.scale == 1.0:
             self.scale = 0.5
         assert self.scale in [0.25, 0.5, 1.0, 2.0, 4.0]
 
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu")
         torch.set_grad_enabled(False)
         if torch.cuda.is_available():
             torch.backends.cudnn.enabled = True
@@ -41,8 +36,9 @@ class Rife():
         try:
             from .RIFE_HDv3 import Model
         except:
-            raise Exception("Cannot load RIFE model, please check your weights")
-        
+            raise Exception(
+                "Cannot load RIFE model, please check your weights")
+
         self.model = Model()
         if not hasattr(self.model, 'version'):
             self.model.version = 0
@@ -50,74 +46,36 @@ class Rife():
         self.model.load_model(self.modelDir, -1)
         self.model.eval()
         self.model.device()
-        
-        self.videogen = VideoFileClip(self.video)
-        self.frames = self.videogen.iter_frames()
-        self.lastframe = self.videogen.get_frame(0)  
-        
-        self.vid_out = FFMPEG_VideoWriter(self.output, (self.metadata["width"], self.metadata["height"]), self.metadata["fps"] * self.multi)
-        self.padding = (0, ((self.metadata["width"] - 1) // 128 + 1) * 128 - self.metadata["width"], 0, ((self.metadata["height"] - 1) // 128 + 1) * 128 - self.metadata["height"])
-        
-        self.pbar = tqdm(total=self.metadata["nframes"])
-        self.write_buffer = Queue(maxsize=500)
-        self.read_buffer = Queue(maxsize=500)
-        
-        _thread.start_new_thread(self._build_read_buffer, ())
-        _thread.start_new_thread(self._clear_write_buffer, ())
 
-        self.process_video()
-        
-    def _clear_write_buffer(self):
-        while True:
-            frame = self.write_buffer.get()
-            if frame is None:
-                break
-            self.pbar.update(1/self.multi)
-            self.vid_out.write_frame(frame)
-
-    def _build_read_buffer(self):
-        try:
-            for frame in self.frames:
-                self.read_buffer.put(frame)
-        except:
-            pass
-        self.read_buffer.put(None)
-    
     def make_inference(self, I0, I1, n):
         res = []
         for i in range(n):
-            res.append(self.model.inference(I0, I1, (i + 1) * 1. / (n + 1), self.scale))
+            res.append(self.model.inference(
+                I0, I1, (i + 1) * 1. / (n + 1), self.scale))
 
         return res
-    
-    def _pad_image(self, img):
+
+    def pad_image(self, img):
         if self.half:
             return F.pad(img, self.padding).half()
         else:
             return F.pad(img, self.padding)
+
+    def run(self, I0, I1, n, frame_size):
+        buffer = []
+        I0 = torch.from_numpy(np.transpose(I0, (2, 0, 1))).to(
+            self.device, non_blocking=True).unsqueeze(0).float() / 255.
+        I0 = self.pad_image(I0)
         
-    def process_video(self):
-        I1 = torch.from_numpy(np.transpose(self.lastframe, (2,0,1))).to(self.device, non_blocking=True).unsqueeze(0).float() / 255.
-        I1 = self._pad_image(I1)
-        while True:
-            frame = self.read_buffer.get()
-            if frame is None:
-                break
-            I0 = I1
-            I1 = torch.from_numpy(np.transpose(frame, (2,0,1))).to(self.device, non_blocking=True).unsqueeze(0).float() / 255.
-            I1 = self._pad_image(I1)
+        I1 = torch.from_numpy(np.transpose(I1, (2, 0, 1))).to(
+            self.device, non_blocking=True).unsqueeze(0).float() / 255.
+        I1 = self.pad_image(I1)
+        
 
-            output = self.make_inference(I0, I1, self.multi - 1)
+        output = self.make_inference(I0, I1, n - 1)
 
-            self.write_buffer.put(self.lastframe)
+        for mid in output:
+            mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
+            buffer.append(mid[:frame_size[1], :frame_size[0], :])
 
-            for mid in output:
-                mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
-                self.write_buffer.put(mid[:self.metadata["height"], :self.metadata["width"]])
-
-            self.lastframe = frame
-
-        while not self.write_buffer.empty():
-            time.sleep(0.1)
-        self.pbar.close()
-        self.vid_out.close()
+        return buffer

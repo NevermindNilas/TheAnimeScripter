@@ -1,126 +1,230 @@
-import argparse
 import os
-import sys
+import argparse
+import _thread
+import time
+import logging
+
+from tqdm import tqdm
+from moviepy.editor import VideoFileClip
+from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
+from multiprocessing import Queue
+from concurrent.futures import ThreadPoolExecutor
+
+"""
+I have absolutely no clue how to avoid race conditions,
+
+I have attempted with locks but I am not sure if I am doing it right,
+
+Also attempted turning the interpolation output into a different dictionary and then checking for each index
+if there is a frame at index + int but that didn't work either
+
+It seems like MT is not going to be possible right now.
+
+"""
 
 
-def generate_output_filename(output, filename_without_ext):
-    return os.path.join(output, f"{filename_without_ext}_output.mp4")
+class Main:
+    def __init__(self, args):
+        self.input = os.path.normpath(args.input)
+        self.output = os.path.normpath(args.output)
+        self.interpolate = args.interpolate
+        self.interpolate_factor = args.interpolate_factor
+        self.upscale = args.upscale
+        self.upscale_factor = args.upscale_factor
+        self.upscale_method = args.upscale_method.lower()
+        self.cugan_kind = args.cugan_kind
+        self.dedup = args.dedup
+        self.dedup_sens = args.dedup_sens
+        self.dedup_method = args.dedup_method
+        self.nt = args.nt
+        self.half = args.half
 
-def main(video_file, model_type, half, multi, kind_model, pro, nt, output):
-    from moviepy.editor import VideoFileClip
-    video_file = os.path.normpath(video_file)
-    
-    # Maybe making a dictionary of the metada would be better
-    clip = VideoFileClip(video_file)
-    metadata = {
-        "fps": clip.fps,
-        "duration": clip.duration,
-        "width": clip.w,
-        "height": clip.h,
-        "nframes": clip.reader.nframes,
-    }
-    clip.close()
+        self.intitialize()
+        self.threads_are_running = True
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            futures = {executor.submit(self.start_process)
+                       for _ in range(self.nt)}
 
-    # Following Xaymar's guide: https://www.xaymar.com/guides/obs/high-quality-recording/avc/
-    # These should be relatively good settings for most cases, feel free to change them as you see fit.
-    if model_type == "swinir":
-        # Swinir is for general purpose upscaling so we don't need animation tune
-        ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf", "15", "-movflags", "+faststart", "-y"]
-    else:
-        ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf", "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
+        while self.read_buffer.qsize() > 0 or self.processed_frames.qsize() > 0:
+            time.sleep(0.1)
 
-    
-    if output == "":
-        basename = os.path.basename(video_file)
-        filename_without_ext = os.path.splitext(basename)[0]
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        output_path = os.path.join(script_dir, 'output')
+        self.threads_are_running = False
 
-        if not os.path.exists(output_path):
-            os.makedirs(output_path)
+        if self.dedup_method == "FFmpeg":
+            if self.interpolate or self.upscale:
+                os.remove(self.input)
 
-        if "m4v" in ffmpeg_params:
-            m4v_index = ffmpeg_params.index("m4v")
-            ffmpeg_params[m4v_index] = "mp4"
+    def intitialize(self):
 
-        output = generate_output_filename(output_path, filename_without_ext)
+        if self.dedup:
+            if self.dedup_method == "SSIM":
+                from dedup import DedupSSIM
+                logging.info(f" {self.dedup_method} is not available yet")
+                # self.dedup_process = DedupSSIM()
+
+            if self.dedup_method == "MSE":
+                from dedup import DedupMSE
+                logging.info(f" {self.dedup_method} is not available yet")
+                # self.dedup_process = DedupMSE()
+
+            if self.dedup_method == "FFmpeg":
+                from src.dedup.dedup import DedupFFMPEG
+                self.dedup_process = DedupFFMPEG(self.input, self.output)
+                self.input = self.dedup_process.run()
+                logging.info(f" The new input is {self.input}")
+
+        # Metadata needs a little time to be written.
+        time.sleep(1)
+
+        self.video = VideoFileClip(self.input)
+        self.frames = self.video.iter_frames()
+        self.ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf",
+                              "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
         
-    elif os.path.isdir(output):
-        basename = os.path.basename(video_file)
-        filename_without_ext = os.path.splitext(basename)[0]
-        output = generate_output_filename(output, filename_without_ext)
-    
-    if model_type == "rife":
-        from src.rife.rife import Rife
-                # UHD mode is auto decided by the script in order to avoid user errors.
-        UHD = True if metadata["width"] >= 3840 or metadata["height"] >= 2160 else False
+        self.fps = self.video.fps * \
+            self.interpolate_factor if self.interpolate else self.video.fps
+
+        self.frame_size = (self.video.w * self.upscale_factor, self.video.h *
+                           self.upscale_factor) if self.upscale else (self.video.w, self.video.h)
+
+        self.writer = FFMPEG_VideoWriter(
+            self.output, self.frame_size, self.fps, ffmpeg_params=self.ffmpeg_params)
+
+        if self.upscale:
+            if self.upscale_method == "shufflecugan" or "cugan":
+                from src.cugan.cugan_node import Cugan
+                self.upscale_process = Cugan(
+                    self.upscale_method, self.upscale_factor, self.cugan_kind, self.half)
+            elif self.upscale_method == "compact" or "ultracompact":
+                from src.compact.compact import Compact
+                self.upscale_process = Compact(
+                    self.upscale_method, self.upscale_factor, self.half)
+            elif self.upscale_method == "swinir":
+                logging.info(f"{self.upscale_method}, not yet implemented")
+            else:
+                logging.info(f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
+
+        if self.interpolate:
+            from src.rife.rife import Rife
+            UHD = True if self.frame_size[0] > 3840 or self.frame_size[1] > 2160 else False
+
+            self.interpolate_process = Rife(
+                self.interpolate_factor, self.half, self.frame_size, UHD)
+            self.pbar = tqdm(total=self.video.reader.nframes * self.interpolate_factor,
+                             desc="Processing", unit="frames", colour="green") if self.interpolate else self.pbar
+        else:
+            self.pbar = tqdm(total=self.video.reader.nframes,
+                             desc="Processing", unit="frames", colour="green")
+
+        self.read_buffer = Queue(maxsize=500)
+        self.processed_frames = Queue(maxsize=500)
+
+        _thread.start_new_thread(self.build_buffer, ())
+        _thread.start_new_thread(self.clear_write_buffer, ())
+
+    def build_buffer(self):
+        for frame in self.frames:
+            self.read_buffer.put((frame))
+
+        for _ in range(self.nt):
+            self.read_buffer.put((None))  # Put two Nones into the queue
+
+    def start_process(self):
+        prev_frame = None
+        try:
+            while True:
+                frame = self.read_buffer.get()
+                if frame is None:
+                    break
+                
+                if self.upscale:
+                    frame = self.upscale_process.run(frame)
+
+                if self.interpolate: 
+                    if prev_frame is not None:
+                        results = self.interpolate_process.run(
+                            prev_frame, frame, self.interpolate_factor, self.frame_size)
+                        for result in results:
+                            self.processed_frames.put(result)
+                        prev_frame = frame
+                    else:
+                        prev_frame = frame
+
+                self.processed_frames.put((frame))
+        except Exception as e:
+            raise e
+
+    def clear_write_buffer(self):
+        self.processing_index = 0
+        while True:
+            if self.processed_frames.empty():
+                if self.read_buffer.empty() and self.threads_are_running == False:
+                    break
+                else:
+                    continue
+
+            frame = self.processed_frames.get(self.processing_index)
+
+            """
+            Attempt to write interpolated frames using MT, but I run into race conditions regardless of what I do
+            if self.interpolate:
+                counter = 0.001
+                while True:
+                    if self.interpolation_queue:
+                        while index + counter in self.interpolation_queue:
+                            frame = self.interpolation_queue.pop(index + counter)
+                            self.writer.write_frame(frame)
+                            counter += 0.001
+                        break 
+                
+            """
+            self.writer.write_frame(frame)
+            self.processing_index += 1
+            self.pbar.update(1)
             
-        Rife(video_file, output, UHD, 1, multi, half, metadata, kind_model, ffmpeg_params)
+        self.writer.close()
+        self.video.close()
+        self.pbar.close()
 
-    elif model_type in ["cugan", "shufflecugan"]:
-        from src.cugan.cugan import Cugan
-
-        if model_type == "shufflecugan " and metadata["width"] < 1280 and metadata["height"] < 720:
-            print("For resolutions under 1280x720p, please use cugan or compact model instead")
-            sys.exit()
-            
-        if model_type == "shufflecugan" and multi != 2:
-            print("The only scale that Shufflecugan works with is 2x, auto setting scale to 2")
-            multi = 2
-        
-        if multi > 4:
-            print("Cugan only supports up to 4x scaling, auto setting scale to 4")
-            multi = 4
-        
-        Cugan(video_file, output, multi, half, kind_model, pro, metadata, nt, model_type, ffmpeg_params)
-        
-    elif model_type == "swinir":
-        from src.swinir.swinir import Swin
-
-        if multi != 2 and multi != 4:
-            print("Swinir only supports 2x and 4x scaling, auto setting scale to 2")
-            multi = 2
-            
-        Swin(video_file, output, model_type, multi, half, nt, metadata, kind_model, ffmpeg_params)
-        
-    elif model_type in ["compact", "ultracompact"]:
-        from src.compact.compact import Compact
-        if multi > 2:
-            print(f"{model_type.upper()} only supports up to 2x scaling, auto setting scale to 2")
-            multi = 2
-        
-        Compact(video_file, output, multi, half, nt, metadata, model_type, ffmpeg_params)
-        
-    elif model_type == "dedup":
-        from src.dedup.dedup import Dedup
-        
-        Dedup(video_file, output, kind_model)
-    
-    elif model_type == "depth":
-        from src.midas.depth import Depth
-
-        Depth(video_file, output, half, metadata, nt, kind_model, ffmpeg_params)
-            
-    elif model_type == "segment":
-        from src.segment.segment import Segment
-        #Segment(video_file, output, nt, half, w, h, fps, tot_frame, kind_model, ffmpeg_params)
-    else:
-        sys.exit("Please select a valid model type ", model_type, " was not found")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Contact Sheet Generator")
-    parser.add_argument("-video", type=str, help="", default="", action="store")
-    parser.add_argument("-model_type", type=str, help="rife, cugan, shufflecugan, swinir, dedup", default="rife", action="store")
-    parser.add_argument("-half", type=bool, help="", default=True, action="store")
-    parser.add_argument("-multi", type=int, help="", default=2, action="store")
-    parser.add_argument("-kind_model", type=str, help="", default="", action="store")
-    parser.add_argument("-pro", type=bool, help="", default=False, action="store")
-    parser.add_argument("-nt", type=int, help="", default=1, action="store")
-    parser.add_argument("-output", type=str, help="can be path to folder or filename only", default="", action="store")
-    #parser.add_argument("-chain", type=str, help="For chaining models", default=False, action="store")
-    args = parser.parse_args()
-    
-    if args.video is None:
-        sys.exit("Please select a video file")
+    log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'log.txt')
+    logging.basicConfig(filename=log_file_path, filemode='w', format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument("--input", type=str, required=True)
+    argparser.add_argument("--output", type=str, required=True)
+    argparser.add_argument("--interpolate", type=int, default=1)
+    argparser.add_argument("--interpolate_factor", type=int, default=2)
+    argparser.add_argument("--upscale", type=int, default=1)
+    argparser.add_argument("--upscale_factor", type=int, default=2)
+    argparser.add_argument("--upscale_method",  type=str, default="ShuffleCugan")
+    argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
+    argparser.add_argument("--dedup", type=int, default=1)
+    argparser.add_argument("--dedup_sens", type=int, default=5)
+    argparser.add_argument("--dedup_method", type=str, default="FFmpeg")
+    argparser.add_argument("--nt", type=int, default=1)
+    argparser.add_argument("--half", type=int, default=1)
+
+    try:
+        args = argparser.parse_args()
+    except Exception as e:
+        logging.info(e)
         
-    main(args.video, args.model_type, args.half, args.multi, args.kind_model, args.pro, args.nt, args.output)
+    args.interpolate = True if args.interpolate == 1 else False
+    args.upscale = True if args.upscale == 1 else False
+    args.dedup = True if args.dedup == 1 else False
+    args.half = True if args.half == 1 else False
+    
+    args.upscale_method = args.upscale_method.lower()
+    args.cugan_kind = args.cugan_kind.lower()
+    
+    import time
+    args_dict = vars(args)
+    for arg in args_dict:
+        logging.info(f"{arg}: {args_dict[arg]}")
+
+    if args.input is not None:
+        Main(args)
+    else:
+        logging.info("No input file specified")
