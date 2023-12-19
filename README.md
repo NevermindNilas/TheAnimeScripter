@@ -38,9 +38,6 @@ if it is installed run:
 - Open a terminal inside the folder
 
 - ```pip install -r requirements.txt```
-
-- ```python download_models.py```
-
 - Download FFMPEG from: https://github.com/BtbN/FFmpeg-Builds/releases
 
 - inside the folder src make a folder named ffmpeg and drop ffmpeg.exe into it
