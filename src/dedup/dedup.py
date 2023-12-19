@@ -66,13 +66,12 @@ class DedupFFMPEG():
         Return full path to deduplicated video
         """
         self.input = input
-        random_number = str(random.randint(0, 100000))
         
         if no_process:
             self.output = output
         else:
             self.output = os.path.dirname(
-                output) + os.path.basename(output).split(".")[0] + "_dedup_" + random_number + ".mp4"
+                output) + os.path.basename(output).split(".")[0] + "_dedup" + ".mp4"
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = os.path.dirname(dir_path)

@@ -150,21 +150,6 @@ class Main:
                 if frame is None:
                     break
                 
-                # Maybe this will work?
-                if self.dedup != "FFmpeg" and not_processed_frame is not None:
-                    while True:
-                        result = self.dedup_process.run(not_processed_frame, frame, self.dedup_sens)
-                        if result:
-                            frame = self.read_buffer.get()
-                            if frame is None:
-                                break
-                            continue
-                        else:
-                            not_processed_frame = frame
-                            break
-                else:
-                    not_processed_frame = frame
-                                                    
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
 
