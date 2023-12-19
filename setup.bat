@@ -38,8 +38,6 @@ timeout /t 1 /nobreak >nul
 :: Installing requirements
 powershell -Command "pip install -r requirements.txt; if ($?) { echo 'Requirements installation succeeded!' } else { echo 'Requirements installation failed!' }"
 
-powershell -Command "python download_models.py"
-
 :: Handling ffmpeg
 @echo off
 
