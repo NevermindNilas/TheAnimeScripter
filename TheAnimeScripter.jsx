@@ -1,7 +1,7 @@
 var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
-    var scriptName = "new_ui_in_work";
+    var scriptName = "TheAnimeScripter";
     var scriptVersion = "0.1.0";
     var scriptAuthor = "Nilas";
     var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
@@ -512,12 +512,18 @@ var TheAnimeScripter = (function() {
 
     // START PROCESS FUNCTION
     buttonStartProcess.onClick = function() {
+        if (checkboxDeduplicate.value == false && checkboxUpscale.value == false && checkboxInterpolate.value == false) {
+            alert("Please select at least one of the checkboxes");
+            return;
+        }
+        
         start_chain();
     }
 
     function callCommand(command) {
         try {
-            var cmdCommand = 'cmd.exe /c "' + command;
+            var cmdCommand = 'cmd.exe /c "' + command + '"';
+
             system.callSystem(cmdCommand);
 
             // Added because the metadata would only finish writing after the script was done, I assume.
@@ -528,19 +534,7 @@ var TheAnimeScripter = (function() {
         }
     }
 
-    function check_weights(TheAnimeScripterPath) {
-        // Checking if the user has downloaded the Cugan Models
-        weightsPath = TheAnimeScripterPath + "\\src\\cugan\\weights\\";
-
-        // TO:DO, add checking for each model path
-        var weightsFile = new File(weightsPath);
-        if (!weightsFile.exists) {
-            alert("Models folder(s) not found, please make sure you have downloaded the models, run setup.bat or python download_models.py in the script folder and try again");
-            return;
-        }
-    }
-
-    function handleTrimmedInput(inPoint, outPoint, layer, activeLayerPath, activeLayerName, outputFolder, TheAnimeScripterPath, module) {
+    function handleTrimmedInput(inPoint, outPoint, layer, activeLayerPath, activeLayerName, outputFolder, TheAnimeScripterPath) {
         var startTime = layer.startTime;
         var newInPoint = inPoint - startTime;
         var newOutPoint = outPoint - startTime;
@@ -558,13 +552,9 @@ var TheAnimeScripter = (function() {
         // This is for removing the temp file that was created
         var removeFile = new File(activeLayerPath);
 
-
+        var randomNumber = Math.floor(Math.random() * 1000000);
         output_name = output_name.replace("_temp.mp4", '')
-
-        if (module !== "chain") {
-            var randomNumber = Math.floor(Math.random() * 10000);
-            output_name = output_name + "_" + module + "_" + randomNumber + ".m4v";
-        }
+        output_name = output_name + "_" + randomNumber + ".m4v";
 
         return [activeLayerPath, output_name, removeFile]
     }
@@ -590,10 +580,9 @@ var TheAnimeScripter = (function() {
             return app.executeCommand(2359);
         }
 
-        var pyFile = TheAnimeScripterPath + "src\\chain\\chain.py";
+        var pyFile = TheAnimeScripterPath + "\\main.py";
         var activeItem = app.project.activeItem;
 
-        //check_weights(TheAnimeScripterPath);
         var comp = app.project.activeItem;
         for (var i = 0; i < comp.selectedLayers.length; i++) {
             var layer = comp.selectedLayers[i];
@@ -604,29 +593,45 @@ var TheAnimeScripter = (function() {
             var outPoint = layer.outPoint;
             var duration = outPoint - inPoint;
 
+            var Trimmed = "False"
             if (duration !== layer.source.duration) {
-                module = "chain";
-                var result = handleTrimmedInput(inPoint, outPoint, layer, activeLayerPath, activeLayerName, outputFolder, TheAnimeScripterPath, module);
+                Trimmed = "True";
+                var result = handleTrimmedInput(inPoint, outPoint, layer, activeLayerPath, activeLayerName, outputFolder, TheAnimeScripterPath);
                 activeLayerPath = result[0];
                 output_name = result[1];
                 removeFile = result[2];
-                temp_output_name = output_name;
             } else {
-                temp_output_name = outputFolder + "\\" + activeLayerName
-                output_name = outputFolder + "\\" + activeLayerName
+                var randomNumber = Math.floor(Math.random() * 1000000);
+                output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + randomNumber + ".m4v";
             }
+
             //command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type shufflecugan -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
 
             // Is there a simpler way?
             try {
-                var command = "cd \"" + TheAnimeScripterPath+  "\" && python \"" + pyFile + "\" -i \"" + activeLayerPath + "\" -o \"" + output_name + "\" -int \""  + (checkboxInterpolate.value ? 1 : 0) + ' -intfactor ' + intInterpolate.text + ' -ups ' + (checkboxUpscale.value ? 1 : 0) + ' -upsfactor ' + intUpscale.text + ' -upsmethod "' + dropdownModel.selection.text + '" -cugan "' + dropdownCugan.selection.text + '" --nt ' + intNumberOfThreads.text + ' -de ' + (checkboxDeduplicate.value ? 1 : 0);
+                var attempt = [
+                    "cd", "\"" + TheAnimeScripterPath + "\"", 
+                    "&&", 
+                    "python", "\"" + pyFile + "\"", 
+                    "--input", "\"" + activeLayerPath + "\"", 
+                    "--output", "\"" + output_name + "\"", 
+                    "--interpolate", checkboxInterpolate.value ? "1" : "0", 
+                    "--interpolate_factor", intInterpolate.text, 
+                    "--upscale", checkboxUpscale.value ? "1" : "0", 
+                    "--upscale_factor", intUpscale.text, 
+                    "--dedup", checkboxDeduplicate.value ? "1" : "0", 
+                    "--half", "1",
+                    "--upscale_method", dropdownModel.selection.text, 
+                ];
+                var command = attempt.join(" ");
             } catch (error) {
                 alert(error);
             }
-            alert(command); 
-            callCommand(command);
 
-            if (removeFile && removeFile.exists) {
+            alert (command);
+            callCommand(command);
+            
+            if (removeFile && removeFile.exists && Trimmed == "True") {
                 try {
                     removeFile.remove();
                 } catch (error) {
@@ -635,30 +640,25 @@ var TheAnimeScripter = (function() {
                 }
             }
 
-            importFile();
-
-            function importFile() {
-                try {
-                    var importOptions = new ImportOptions(File(output_name));
-                    var importedFile = app.project.importFile(importOptions);
-                    var inputLayer = comp.layers.add(importedFile);
-                    inputLayer.moveBefore(layer);
-
-                    if (checkboxUpscale == true) {
-                        var compWidth = comp.width;
-                        var compHeight = comp.height;
-                        var layerWidth = inputLayer.source.width;
-                        var layerHeight = inputLayer.source.height;
-                        var scaleX = (compWidth / layerWidth) * 100;
-                        var scaleY = (compHeight / layerHeight) * 100;
-                        inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
-                    }
-
-                } catch (error) {
-                    alert(error);
-                    alert("Something went wrong trying to import the file, please contact me on discord")
+            try {
+                var importOptions = new ImportOptions(File(output_name));
+                var importedFile = app.project.importFile(importOptions);
+                var inputLayer = comp.layers.add(importedFile);
+                inputLayer.moveBefore(layer);
+                if (checkboxUpscale.value == true) {
+                    var compWidth = comp.width;
+                    var compHeight = comp.height;
+                    var layerWidth = inputLayer.source.width;
+                    var layerHeight = inputLayer.source.height;
+                    var scaleX = (compWidth / layerWidth) * 100;
+                    var scaleY = (compHeight / layerHeight) * 100;
+                    inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
                 }
+            } catch (error) {
+                alert(error);
+                alert("Something went wrong trying to import the file, please look at the output folder");
             }
+            
         }
     }
     if (TheAnimeScripter instanceof Window) TheAnimeScripter.show();
