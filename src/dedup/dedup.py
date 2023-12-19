@@ -61,14 +61,18 @@ class DedupMSE():
 
 
 class DedupFFMPEG():
-    def __init__(self, input, output):
+    def __init__(self, input, output, no_process):
         """
         Return full path to deduplicated video
         """
         self.input = input
         random_number = str(random.randint(0, 100000))
-        self.output = os.path.dirname(
-            output) + os.path.basename(output).split(".")[0] + "_dedup_" + random_number + ".mp4"
+        
+        if no_process:
+            self.output = output
+        else:
+            self.output = os.path.dirname(
+                output) + os.path.basename(output).split(".")[0] + "_dedup_" + random_number + ".mp4"
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = os.path.dirname(dir_path)
@@ -89,3 +93,5 @@ class DedupFFMPEG():
             ffmpeg_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
         return self.output
+
+    
