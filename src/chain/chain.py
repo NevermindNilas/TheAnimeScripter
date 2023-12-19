@@ -199,7 +199,7 @@ if __name__ == "__main__":
     argparser.add_argument("--upscale_factor", "-upsfactor", type=int, default=2)
     argparser.add_argument("--upscale_method", "-upsmethod", type=str,
                            default="shufflecugan")
-    argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
+    argparser.add_argument("--cugan_kind", "-cug_kind", type=str, default="no-denoise")
     argparser.add_argument("--dedup", "-de", type=bool, default=False)
     argparser.add_argument("--dedup_sens", "-desens", type=int, default=5)
     argparser.add_argument("--dedup_method", "-demethod", type=str, default="FFMPEG")
