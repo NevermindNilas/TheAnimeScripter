@@ -39,42 +39,54 @@ class Main:
         self.nt = args.nt
         self.half = args.half
 
+        self.Do_not_process = False
+        
         self.intitialize()
         self.threads_are_running = True
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            futures = {executor.submit(self.start_process)
-                       for _ in range(self.nt)}
+        
+        if self.Do_not_process:
+            return
+        else:
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                futures = {executor.submit(self.start_process)
+                        for _ in range(self.nt)}
 
         while self.read_buffer.qsize() > 0 or self.processed_frames.qsize() > 0:
             time.sleep(0.1)
 
         self.threads_are_running = False
 
-        if self.dedup_method == "FFmpeg":
+        if self.dedup_method == "FFmpeg" and self.Do_not_process == False:
             if self.interpolate or self.upscale:
                 os.remove(self.input)
 
     def intitialize(self):
-
         if self.dedup:
             if self.dedup_method == "SSIM":
-                from dedup import DedupSSIM
+                from src.dedup.dedup import DedupSSIM
                 logging.info(f" {self.dedup_method} is not available yet")
                 # self.dedup_process = DedupSSIM()
 
             if self.dedup_method == "MSE":
-                from dedup import DedupMSE
+                from src.dedup.dedup import DedupMSE
                 logging.info(f" {self.dedup_method} is not available yet")
                 # self.dedup_process = DedupMSE()
 
             if self.dedup_method == "FFmpeg":
                 from src.dedup.dedup import DedupFFMPEG
-                self.dedup_process = DedupFFMPEG(self.input, self.output)
-                self.input = self.dedup_process.run()
-                logging.info(f" The new input is {self.input}")
-
+                if self.interpolate == False and self.upscale == False:
+                    logging.info("The user has selected FFMPEG Dedup and no other processing, exiting after Dedup is done")
+                    self.Do_not_process = True
+                    self.dedup_process = DedupFFMPEG(self.input, self.output, self.Do_not_process)
+                    self.dedup_process.run()
+                    return
+                else:
+                    self.dedup_process = DedupFFMPEG(self.input, self.output, self.Do_not_process)            
+                    self.input = self.dedup_process.run()
+                    logging.info(f"The new input is: {self.input}")
+                    
         # Metadata needs a little time to be written.
-        time.sleep(1)
+        time.sleep(0.5)
 
         self.video = VideoFileClip(self.input)
         self.frames = self.video.iter_frames()
@@ -131,12 +143,28 @@ class Main:
 
     def start_process(self):
         prev_frame = None
+        not_processed_frame = None
         try:
             while True:
                 frame = self.read_buffer.get()
                 if frame is None:
                     break
                 
+                # Maybe this will work?
+                if self.dedup != "FFmpeg" and not_processed_frame is not None:
+                    while True:
+                        result = self.dedup_process.run(not_processed_frame, frame, self.dedup_sens)
+                        if result:
+                            frame = self.read_buffer.get()
+                            if frame is None:
+                                break
+                            continue
+                        else:
+                            not_processed_frame = frame
+                            break
+                else:
+                    not_processed_frame = frame
+                                                    
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
 
@@ -194,13 +222,13 @@ if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--input", type=str, required=True)
     argparser.add_argument("--output", type=str, required=True)
-    argparser.add_argument("--interpolate", type=int, default=1)
+    argparser.add_argument("--interpolate", type=int, default=0)
     argparser.add_argument("--interpolate_factor", type=int, default=2)
-    argparser.add_argument("--upscale", type=int, default=1)
+    argparser.add_argument("--upscale", type=int, default=0)
     argparser.add_argument("--upscale_factor", type=int, default=2)
     argparser.add_argument("--upscale_method",  type=str, default="ShuffleCugan")
     argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
-    argparser.add_argument("--dedup", type=int, default=1)
+    argparser.add_argument("--dedup", type=int, default=0)
     argparser.add_argument("--dedup_sens", type=int, default=5)
     argparser.add_argument("--dedup_method", type=str, default="FFmpeg")
     argparser.add_argument("--nt", type=int, default=1)
@@ -223,7 +251,12 @@ if __name__ == "__main__":
     for arg in args_dict:
         logging.info(f"{arg}: {args_dict[arg]}")
 
-    if args.input is not None:
+    if args.output:
+        if not os.path.isabs(args.output):
+            dir_path = os.path.dirname(args.input)
+            args.output = os.path.join(dir_path, args.output)
+            
+    if args.input is not None and args.output is not None:
         Main(args)
     else:
-        logging.info("No input file specified")
+        logging.info("No input or output was specified, exiting")
