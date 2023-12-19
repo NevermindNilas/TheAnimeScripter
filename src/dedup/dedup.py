@@ -72,8 +72,16 @@ class DedupFFMPEG():
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = os.path.dirname(dir_path)
+        
         self.ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
-
+        
+        # Check if FFMPEG exists at that path
+        if not os.path.exists(self.ffmpeg_path):
+            print("Couldn't find FFMPEG, downloading it now")
+            ffmpeg_bat_location = os.path.dirname(dir_path)
+            ffmpeg_bat_location = os.path.join(ffmpeg_bat_location, "get_ffmpeg.bat")
+            subprocess.call(ffmpeg_bat_location, shell=True)
+            
     def run(self):
         ffmpeg_command = [self.ffmpeg_path, "-i", self.input, "-vf",
                           "mpdecimate,setpts=N/FRAME_RATE/TB", "-an", "-y", self.output]

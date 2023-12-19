@@ -219,7 +219,6 @@ if __name__ == "__main__":
     args.upscale_method = args.upscale_method.lower()
     args.cugan_kind = args.cugan_kind.lower()
     
-    import time
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg}: {args_dict[arg]}")
