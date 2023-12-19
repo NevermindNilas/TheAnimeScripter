@@ -150,11 +150,9 @@ Segment:
 In no particular order:
 - Provide a bundled version with all of the dependencies included ( need assitance with this )
 - Add Rife NCNN Vulkan ( probably through ncnn api or directml )
-- Fix CPU inference. ( high priority )
 - Add testing. ( high priority )
 - Add Rife Multithreadding ( halfway done )
 - ADd DepthMap process ( high priority )
-- Fix slow startup times, probably through lazy loading. ( improved by about 50%, still room for improvement )
 - Add Pytorch segmentation. ( current models are all onnx, I will look into a pytorch conversion using onnx2torch )
 - Maybe add TRT. ( probably not )
 
@@ -189,3 +187,11 @@ In no particular order:
 - [Massive] After Effects will now only upscale the trimmed part, not the whole clip.
 - [Massive] Increased Rife performance by 50% and bumped up the version to 4.13.
 - [Massive] Added Model chaining in the script, now multiple models can be ran at once.
+- [Massive] New and Improved UI within After Effects.
+- About 20x faster FFMPEG download.
+- [Massive] Better start-up times and overall processing times.
+- [Massive] Upscaling and Interpolating now requires only 1 decode and encode cycle meaning faster processing times.
+- Fixed CPU Inference
+- The models can now be downloaded on the go.
+- Added logging for easier debugging
+- [Massive] Official 0.1 Release (12/19/2023)
