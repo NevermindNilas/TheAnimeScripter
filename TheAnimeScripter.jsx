@@ -628,18 +628,9 @@ var TheAnimeScripter = (function() {
                 alert(error);
             }
 
-            alert (command);
+            //alert (command);
             callCommand(command);
             
-            if (removeFile && removeFile.exists && Trimmed == "True") {
-                try {
-                    removeFile.remove();
-                } catch (error) {
-                    alert(error);
-                    alert("There might have been a problem removing one of the temp files. Do you have admin permissions?");
-                }
-            }
-
             try {
                 var importOptions = new ImportOptions(File(output_name));
                 var importedFile = app.project.importFile(importOptions);
@@ -658,6 +649,16 @@ var TheAnimeScripter = (function() {
                 alert(error);
                 alert("Something went wrong trying to import the file, please look at the output folder");
             }
+            
+            if (removeFile && removeFile.exists && Trimmed == "True") {
+                try {
+                    removeFile.remove();
+                } catch (error) {
+                    alert(error);
+                    alert("There might have been a problem removing one of the temp files. Do you have admin permissions?");
+                }
+            }
+
             
         }
     }
