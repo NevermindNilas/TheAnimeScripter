@@ -60,16 +60,17 @@ class DedupFFMPEG():
         Return full path to deduplicated video
         """
         self.input = input
-        
+
         if no_process:
             self.output = output
         else:
-            self.output = os.path.join(os.path.dirname(
-                output) + os.path.basename(output).split(".")[0] + "_dedup" + ".mp4")
+            filename_without_ext = os.path.splitext(os.path.basename(output))[0]
+            dirname = os.path.dirname(output)
+            self.output = os.path.join(dirname, filename_without_ext + "_dedup.mp4")
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = os.path.dirname(dir_path)
-        
+
         self.ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
 
         # Check if FFMPEG exists at that path
@@ -78,13 +79,11 @@ class DedupFFMPEG():
             print("This might add an aditional 1-5 seconds to the startup time of the process until caches are built, but it will only happen once")
             ffmpeg_bat_location = os.path.join(dir_path, "get_ffmpeg.bat")
             subprocess.call(ffmpeg_bat_location, shell=True)
-            
+
     def run(self):
         ffmpeg_command = [self.ffmpeg_path, "-i", self.input, "-vf",
                           "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB", "-an", "-y", self.output]
         subprocess.Popen(
             ffmpeg_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        
-        return self.output
 
-    
+        return self.output

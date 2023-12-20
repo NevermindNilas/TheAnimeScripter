@@ -508,31 +508,6 @@ var TheAnimeScripter = (function() {
         }
     }
 
-    function handleTrimmedInput(inPoint, outPoint, layer, activeLayerPath, activeLayerName, outputFolder, TheAnimeScripterPath) {
-        var startTime = layer.startTime;
-        var newInPoint = inPoint - startTime;
-        var newOutPoint = outPoint - startTime;
-
-        output_name = outputFolder + "\\" + activeLayerName + "_temp.mp4";
-        var trimInputPath = TheAnimeScripterPath + "\\src\\trim_input.py"
-
-        command = "cd \"" + TheAnimeScripterPath + "\" && python \"" + trimInputPath + "\" -ss " + newInPoint + " -to " + newOutPoint + " -i \"" + activeLayerPath + "\" -o \"" + output_name + "\"";
-        cmdCommand = 'cmd.exe /c "' + command;
-
-        system.callSystem(cmdCommand)
-
-        activeLayerPath = output_name;
-
-        // This is for removing the temp file that was created
-        var removeFile = new File(activeLayerPath);
-
-        var randomNumber = Math.floor(Math.random() * 1000000);
-        output_name = output_name.replace("_temp.mp4", '')
-        output_name = output_name + "_" + randomNumber + ".m4v";
-
-        return [activeLayerPath, output_name, removeFile]
-    }
-
     function start_chain() {
         if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length < 1)) {
             alert("Please select one layer.");
@@ -567,17 +542,13 @@ var TheAnimeScripter = (function() {
             var outPoint = layer.outPoint;
             var duration = outPoint - inPoint;
 
-            var Trimmed = "False"
-            if (duration !== layer.source.duration) {
-                Trimmed = "True";
-                var result = handleTrimmedInput(inPoint, outPoint, layer, activeLayerPath, activeLayerName, outputFolder, TheAnimeScripterPath);
-                activeLayerPath = result[0];
-                output_name = result[1];
-                removeFile = result[2];
-            } else {
-                var randomNumber = Math.floor(Math.random() * 1000000);
-                output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + randomNumber + ".m4v";
+            if (duration == layer.source.duration) {
+                inPoint = 0;
+                outPoint = 0;
             }
+
+            var randomNumber = Math.floor(Math.random() * 1000000);
+            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + randomNumber + ".m4v";
 
             //command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type shufflecugan -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
 
@@ -595,14 +566,17 @@ var TheAnimeScripter = (function() {
                     "--upscale_factor", intUpscale.text, 
                     "--dedup", checkboxDeduplicate.value ? "1" : "0", 
                     "--half", "1",
-                    "--upscale_method", dropdownModel.selection.text, 
+                    "--upscale_method", dropdownModel.selection.text,
+                    "--inpoint", inPoint,
+                    "--outpoint", outPoint,
                 ];
                 var command = attempt.join(" ");
             } catch (error) {
                 alert(error);
             }
 
-            //alert (command);
+
+            alert (command);
             callCommand(command);
             
             try {
