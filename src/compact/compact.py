@@ -69,18 +69,21 @@ class Compact():
             torch.set_default_tensor_type(torch.cuda.HalfTensor)
             self.model.half()
 
+    @torch.inference_mode
     def run(self, frame):
         with torch.no_grad():
             frame = torch.from_numpy(frame).permute(
-                2, 0, 1).unsqueeze(0).float().div_(255)
-        if self.half:
-            frame = frame.cuda().half()
-        else:
-            try:
-                frame = frame.cuda()
-            except:
-                frame = frame.cpu()
-        frame = self.model(frame)
-        frame = frame.squeeze(0).permute(
-            1, 2, 0).mul_(255).clamp_(0, 255).byte()
-        return frame.cpu().numpy()
+                2, 0, 1).unsqueeze(0).float().mul_(1/255)
+            if self.half:
+                frame = frame.cuda().half()
+            else:
+                try:
+                    frame = frame.cuda()
+                except:
+                    frame = frame.cpu()
+
+            frame = self.model(frame)
+            frame = frame.squeeze(0).permute(
+                1, 2, 0).mul_(255).clamp_(0, 255).byte()
+            return frame.cpu().numpy()
+

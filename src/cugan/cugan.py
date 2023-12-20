@@ -3,6 +3,7 @@ from .cugan_arch import UpCunet2x, UpCunet3x, UpCunet4x, UpCunet2x_fast
 import os
 import requests
 import torch
+from realcugan_ncnn_py import Realcugan
 
 
 class Cugan:
@@ -61,7 +62,7 @@ class Cugan:
     def run(self, frame):
         with torch.no_grad():
             frame = torch.from_numpy(frame).permute(
-                2, 0, 1).unsqueeze(0).float().div_(255)
+                2, 0, 1).unsqueeze(0).float().mul_(1/255)
             if self.half:
                 frame = frame.cuda().half()
             else:
@@ -74,3 +75,14 @@ class Cugan:
             frame = frame.squeeze(0).permute(
                 1, 2, 0).mul_(255).clamp_(0, 255).byte()
             return frame.cpu().numpy()
+
+class CuganAMD():
+    def __init__(self):
+        """
+        Barebones for now
+        """
+        self.realcugan = Realcugan(num_threads=1, gpuid=0, tta_mode=False, scale=2)
+        
+    def run(self, frame):
+        frame = self.realcugan.process_cv2(frame)
+        return frame
