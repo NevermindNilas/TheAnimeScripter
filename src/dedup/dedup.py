@@ -77,7 +77,7 @@ class DedupFFMPEG():
         dir_path = os.path.dirname(dir_path)
         
         self.ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
-        print(self.ffmpeg_path)
+
         # Check if FFMPEG exists at that path
         if not os.path.exists(self.ffmpeg_path):
             print("Couldn't find FFMPEG, downloading it now")
