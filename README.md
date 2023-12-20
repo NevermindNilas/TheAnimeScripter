@@ -19,7 +19,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 
 ### Prerequisites
 
-#### Automated Installation
+#### How to utilize
 
 If Python 3.10 - 3.11 isn't installed on your system, run this file:
 
@@ -29,13 +29,21 @@ if it is installed run:
 
 - ```pip install -r requirements.txt```
 
-#### Manual installation
+#### Manual installation and Build
 
 - Download and install Python 3.11 from: https://www.python.org/downloads/release/python-3110/ whilst making sure to add it to System Path
 
 - Open a terminal inside the folder
 
-- ```pip install -r requirements.txt```
+- ```python setup.py```
+
+- open a terminal, activate the VENV
+
+- ```pip install auto-py-to-exe``` (that's what I've used for building, simplifies everything)
+
+- in the terminal type ```auto-py-to-exe```
+
+- Select: One Directory and add the folder src
 
 #### How to use inside of After Effects
 
