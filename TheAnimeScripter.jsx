@@ -596,18 +596,7 @@ var TheAnimeScripter = (function() {
             } catch (error) {
                 alert(error);
                 alert("Something went wrong trying to import the file, please look at the output folder");
-            }
-            
-            if (removeFile && removeFile.exists && Trimmed == "True") {
-                try {
-                    removeFile.remove();
-                } catch (error) {
-                    alert(error);
-                    alert("There might have been a problem removing one of the temp files. Do you have admin permissions?");
-                }
-            }
-
-            
+            } 
         }
     }
     if (TheAnimeScripter instanceof Window) TheAnimeScripter.show();
