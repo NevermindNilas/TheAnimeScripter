@@ -69,6 +69,7 @@ if it is installed run:
 - [Bubble](https://github.com/Bubblemint864/AI-Models) - For the SwinIR Model
 - [Xintao](https://github.com/xinntao/Real-ESRGAN) - for Realesrgan, specifically compact arch.
 - [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai) - For Compact, UltraCompact, SuperUltraCompact models
+- [Tohrusky](https://github.com/Tohrusky/realcugan-ncnn-py) - For RealCugan-NCNN-Vulkan wrapper.
 - [AlixzFX](https://github.com/AlixzFX) - for debugging the scriptUI and inspiration
 
 ## 📈 Benchmarks
@@ -79,11 +80,12 @@ if it is installed run:
 
 In no particular order:
 - Provide a bundled version with all of the dependencies included ( need assitance with this )
-- Add Rife NCNN Vulkan ( probably through ncnn api or directml )
+- Add MT back
+- Add more functionalities to Cugan-AMD
+- Fix SwinIR
+- Improve performance
 - Add testing. ( high priority )
-- Add Rife Multithreadding ( halfway done )
 - ADd DepthMap process ( high priority )
-- Add Pytorch segmentation. ( current models are all onnx, I will look into a pytorch conversion using onnx2torch )
 - Maybe add TRT. ( probably not )
 
 ## ✅ Done
@@ -124,4 +126,8 @@ In no particular order:
 - Fixed CPU Inference
 - The models can now be downloaded on the go.
 - Added logging for easier debugging
-- [Massive] Official 0.1 Release (12/19/2023)
+- [Massive] Official 0.1 Release (12/19/2023).
+- Fixed Compact, Ultracompact issues
+- [Massive] Added SuperUltraCompact
+- [Massive] Added CUGAN NCNN Vulkan support, now AMD/Intel GPU/iGPU users will be able to take advantage of their systems.
+
