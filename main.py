@@ -3,12 +3,14 @@ import argparse
 import _thread
 import time
 import logging
+import warnings
 
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 from multiprocessing import Queue
 from concurrent.futures import ThreadPoolExecutor
+
 
 """
 I have absolutely no clue how to avoid race conditions,
@@ -43,15 +45,13 @@ class Main:
 
         self.intitialize()
         self.threads_are_running = True
-            
+
         if self.Do_not_process:
             return
         else:
-            with ThreadPoolExecutor(max_workers=self.nt) as executor:
-                futures = {executor.submit(self.start_process)
-                           for _ in range(self.nt)}
+            self.start_process()
 
-        while self.read_buffer.qsize() > 0 or self.processed_frames.qsize() > 0:
+        while self.read_buffer.qsize() > 0 and self.processed_frames.qsize() > 0:
             time.sleep(0.1)
 
         self.threads_are_running = False
@@ -93,7 +93,8 @@ class Main:
 
         self.video = VideoFileClip(self.input)
         self.frames = self.video.iter_frames()
-        self.ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf",
+        
+        self.ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
                               "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
 
         self.fps = self.video.fps * \
@@ -106,16 +107,19 @@ class Main:
             self.output, self.frame_size, self.fps, ffmpeg_params=self.ffmpeg_params)
 
         if self.upscale:
-            if self.upscale_method == "shufflecugan" or "cugan":
-                from src.cugan.cugan_node import Cugan
+            if self.upscale_method == "shufflecugan" or self.upscale_method == "cugan":
+                from src.cugan.cugan import Cugan
                 self.upscale_process = Cugan(
                     self.upscale_method, self.upscale_factor, self.cugan_kind, self.half)
-            elif self.upscale_method == "compact" or "ultracompact":
+            elif self.upscale_method == "compact" or self.upscale_method == "ultracompact" or self.upscale_method == "superultracompact":
                 from src.compact.compact import Compact
                 self.upscale_process = Compact(
-                    self.upscale_method, self.upscale_factor, self.half)
+                    self.upscale_method, self.half)
             elif self.upscale_method == "swinir":
-                logging.info(f"{self.upscale_method}, not yet implemented")
+                from src.swinir.swinir import Swinir
+                self.upscale_process = Swinir(
+                    self.upscale_method, self.upscale_factor, self.half)
+                print("processing swinir")
             else:
                 logging.info(
                     f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
@@ -147,7 +151,6 @@ class Main:
 
     def start_process(self):
         prev_frame = None
-        not_processed_frame = None
         try:
             while True:
                 frame = self.read_buffer.get()
@@ -182,19 +185,6 @@ class Main:
 
             frame = self.processed_frames.get(self.processing_index)
 
-            """
-            Attempt to write interpolated frames using MT, but I run into race conditions regardless of what I do
-            if self.interpolate:
-                counter = 0.001
-                while True:
-                    if self.interpolation_queue:
-                        while index + counter in self.interpolation_queue:
-                            frame = self.interpolation_queue.pop(index + counter)
-                            self.writer.write_frame(frame)
-                            counter += 0.001
-                        break 
-                
-            """
             self.writer.write_frame(frame)
             self.processing_index += 1
             self.pbar.update(1)
@@ -205,6 +195,9 @@ class Main:
 
 
 if __name__ == "__main__":
+
+    warnings.filterwarnings("ignore", category=UserWarning)
+
     log_file_path = os.path.join(os.path.dirname(
         os.path.abspath(__file__)), 'log.txt')
     logging.basicConfig(filename=log_file_path, filemode='w',
@@ -247,9 +240,16 @@ if __name__ == "__main__":
         if not os.path.isabs(args.output):
             dir_path = os.path.dirname(args.input)
             args.output = os.path.join(dir_path, args.output)
-            
+
+    if args.upscale_method == "shufflecugan" or args.upscale_method == "compact" or args.upscale_method == "ultracompact" or args.upscale_method == "superultracompact" or args.upscale_method == "swinir":
+        if args.upscale_factor != 2:
+            logging.info(
+                f"{args.upscale_method} only supports 2x upscaling, setting upscale_factor to 2, please use Cugan for 3x/4x upscaling")
+            args.upscale_factor = 2
+
     if args.nt > 1:
-        logging.info("Multi-threading is not supported yet, setting nt back to 1")
+        logging.info(
+            "Multi-threading is not supported yet, setting nt back to 1")
         args.nt = 1
 
     if args.input is not None and args.output is not None:
