@@ -4,6 +4,7 @@ import _thread
 import time
 import logging
 import warnings
+import cv2
 
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
@@ -22,6 +23,11 @@ Also attempted turning the interpolation output into a different dictionary and 
 if there is a frame at index + int but that didn't work either
 
 It seems like MT is not going to be possible right now.
+
+TO:DO
+
+    - FFMPEG has a to bytes feature through piping, maybe use that instead of decode - encode - decode
+    - Work on CUGAN-AMD
 
 """
 
@@ -90,13 +96,14 @@ class Main:
                         self.input, self.output, self.Do_not_process)
                     self.input = self.dedup_process.run()
                     logging.info(f"The new input is: {self.input}")
-
+            
         # Metadata needs a little time to be written.
         time.sleep(0.5)
 
         self.video = VideoFileClip(self.input)
         self.frames = self.video.iter_frames()
 
+        
         self.ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
                               "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
 
@@ -114,6 +121,9 @@ class Main:
                 from src.cugan.cugan import Cugan
                 self.upscale_process = Cugan(
                     self.upscale_method, self.upscale_factor, self.cugan_kind, self.half)
+            elif self.upscale_method == "cugan-amd":
+                from src.cugan.cugan import CuganAMD
+                self.upscale_process = CuganAMD()
             elif self.upscale_method == "compact" or self.upscale_method == "ultracompact" or self.upscale_method == "superultracompact":
                 from src.compact.compact import Compact
                 self.upscale_process = Compact(
@@ -171,7 +181,7 @@ class Main:
                     prev_frame = frame
                 elif self.interpolate:
                     prev_frame = frame
-
+                
                 self.processed_frames.append(frame)
         except Exception as e:
             logging.exception("An error occurred during processing")
