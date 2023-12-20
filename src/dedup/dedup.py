@@ -75,6 +75,7 @@ class DedupFFMPEG():
         # Check if FFMPEG exists at that path
         if not os.path.exists(self.ffmpeg_path):
             print("Couldn't find FFMPEG, downloading it now")
+            print("This might add an aditional 1-5 seconds to the startup time of the process until caches are built, but it will only happen once")
             ffmpeg_bat_location = os.path.join(dir_path, "get_ffmpeg.bat")
             subprocess.call(ffmpeg_bat_location, shell=True)
             

@@ -37,6 +37,8 @@ TO:DO
     - Maybe add TRT.
 """
 
+ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
+                              "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
 class Main:
     def __init__(self, args):
         self.input = os.path.normpath(args.input)
@@ -99,10 +101,6 @@ class Main:
         self.video = VideoFileClip(self.input)
         self.frames = self.video.iter_frames()
 
-        
-        self.ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
-                              "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
-
         self.fps = self.video.fps * \
             self.interpolate_factor if self.interpolate else self.video.fps
 
@@ -110,7 +108,7 @@ class Main:
                            self.upscale_factor) if self.upscale else (self.video.w, self.video.h)
 
         self.writer = FFMPEG_VideoWriter(
-            self.output, self.frame_size, self.fps, ffmpeg_params=self.ffmpeg_params)
+            self.output, self.frame_size, self.fps, ffmpeg_params=ffmpeg_params)
 
         if self.upscale:
             if self.upscale_method == "shufflecugan" or self.upscale_method == "cugan":
@@ -119,7 +117,9 @@ class Main:
                     self.upscale_method, self.upscale_factor, self.cugan_kind, self.half)
             elif self.upscale_method == "cugan-amd":
                 from src.cugan.cugan import CuganAMD
-                self.upscale_process = CuganAMD()
+                self.upscale_process = CuganAMD(
+                    self.nt, self.upscale_factor
+                )
             elif self.upscale_method == "compact" or self.upscale_method == "ultracompact" or self.upscale_method == "superultracompact":
                 from src.compact.compact import Compact
                 self.upscale_process = Compact(
@@ -177,11 +177,10 @@ class Main:
                     prev_frame = frame
                 elif self.interpolate:
                     prev_frame = frame
-                
+
                 self.processed_frames.append(frame)
         except Exception as e:
             logging.exception("An error occurred during processing")
-            
 
     def clear_write_buffer(self):
         self.processing_index = 0
@@ -193,7 +192,7 @@ class Main:
                     continue
 
             frame = self.processed_frames.popleft()
-            
+
             self.writer.write_frame(frame)
             self.processing_index += 1
             self.pbar.update(1)
