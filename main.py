@@ -3,7 +3,6 @@ import argparse
 import _thread
 import time
 import logging
-import warnings
 
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
@@ -26,7 +25,6 @@ It seems like MT is not going to be possible right now.
 TO:DO
 
     - FFMPEG has a to bytes feature through piping, maybe use that instead of having to decode - encode - decode and encode again.
-    - Work on CUGAN-AMD.
     - Add back MT support but for upscaling only.
     - Provide a bundled version with all of the dependencies included ( need assitance with this ).
     - Add more functionalities to Cugan-AMD.
@@ -38,7 +36,9 @@ TO:DO
 """
 
 ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
-                              "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
+                 "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
+
+
 class Main:
     def __init__(self, args):
         self.input = os.path.normpath(args.input)
@@ -54,6 +54,8 @@ class Main:
         self.dedup_method = args.dedup_method
         self.nt = args.nt
         self.half = args.half
+        self.inpoint = args.inpoint
+        self.outpoint = args.outpoint
 
         self.Do_not_process = False
 
@@ -61,6 +63,7 @@ class Main:
 
         self.threads_are_running = True
         if self.Do_not_process:
+            logging.info("The user has selected no other processing other than Dedup, exiting")
             return
         else:
             futures = []
@@ -78,23 +81,35 @@ class Main:
                 os.remove(self.input)
 
     def intitialize(self):
+        
+        if self.interpolate == False and self.upscale == False and self.dedup == True:
+            self.Do_not_process = True
+        
+        if self.outpoint != 0:
+            if self.dedup:
+                from src.trim_input import trim_input_dedup
+                self.trim_dedup_process = trim_input_dedup(
+                    self.input, self.output, self.inpoint, self.outpoint, self.Do_not_process)
+                self.input = self.trim_dedup_process.run()
+                self.dedup = False
+            else:
+                from src.trim_input import trim_input
+                self.trim_process = trim_input(
+                    self.input, self.output, self.inpoint, self.outpoint, self.Do_not_process)
+                self.input = self.trim_process.run()                
+            
+            logging.info(f"The new input is: {self.input}")
+                
         if self.dedup:
-            if self.dedup_method == "ffmpeg":
-                from src.dedup.dedup import DedupFFMPEG
-                if self.interpolate == False and self.upscale == False:
-                    logging.info(
-                        "The user has selected FFMPEG Dedup and no other processing, exiting after Dedup is done")
-                    self.Do_not_process = True
-                    self.dedup_process = DedupFFMPEG(
-                        self.input, self.output, self.Do_not_process)
-                    self.dedup_process.run()
-                    return
-                else:
-                    self.dedup_process = DedupFFMPEG(
-                        self.input, self.output, self.Do_not_process)
-                    self.input = self.dedup_process.run()
-                    logging.info(f"The new input is: {self.input}")
+            from src.dedup.dedup import DedupFFMPEG
+            self.dedup_process = DedupFFMPEG(
+                self.input, self.output, self.Do_not_process)
+            self.input = self.dedup_process.run()
+            logging.info(f"The new input is: {self.input}")
 
+        if self.Do_not_process == True:
+            return
+        
         # Metadata needs a little time to be written.
         time.sleep(0.5)
 
@@ -140,7 +155,7 @@ class Main:
             self.interpolate_process = Rife(
                 self.interpolate_factor, self.half, self.frame_size, UHD)
             self.pbar = tqdm(total=self.video.reader.nframes * self.interpolate_factor,
-                             desc="Processing", unit="frames", colour="green") if self.interpolate else self.pbar
+                             desc="Processing", unit="frames", colour="green")
         else:
             self.pbar = tqdm(total=self.video.reader.nframes,
                              desc="Processing", unit="frames", colour="green")
@@ -204,8 +219,6 @@ class Main:
 
 if __name__ == "__main__":
 
-    warnings.filterwarnings("ignore", category=UserWarning)
-
     log_file_path = os.path.join(os.path.dirname(
         os.path.abspath(__file__)), 'log.txt')
     logging.basicConfig(filename=log_file_path, filemode='w',
@@ -226,6 +239,8 @@ if __name__ == "__main__":
     argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
     argparser.add_argument("--nt", type=int, default=1)
     argparser.add_argument("--half", type=int, default=1)
+    argparser.add_argument("--inpoint", type=float, default=0)
+    argparser.add_argument("--outpoint", type=float, default=0)
 
     try:
         args = argparser.parse_args()
