@@ -576,6 +576,7 @@ var TheAnimeScripter = (function() {
             //alert (command);
             callCommand(command);
 
+            $.sleep(500);
             try {
                 var importOptions = new ImportOptions(File(output_name));
                 var importedFile = app.project.importFile(importOptions);
