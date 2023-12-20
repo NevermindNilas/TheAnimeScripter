@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "0.1.3";
+    var scriptVersion = "0.1.1";
     var scriptAuthor = "Nilas";
     var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
     var discordServer = "https://discord.gg/CdRD9GwS8J"
@@ -529,7 +529,7 @@ var TheAnimeScripter = (function() {
             return app.executeCommand(2359);
         }
 
-        var pyFile = TheAnimeScripterPath + "\\main.py";
+        var exeFile = TheAnimeScripterPath + "\\main.exe";
         var activeItem = app.project.activeItem;
 
         var comp = app.project.activeItem;
@@ -550,14 +550,11 @@ var TheAnimeScripter = (function() {
             var randomNumber = Math.floor(Math.random() * 1000000);
             output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + randomNumber + ".mp4";
 
-            //command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type shufflecugan -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
-
-            // Is there a simpler way?
             try {
                 var attempt = [
                     "cd", "\"" + TheAnimeScripterPath + "\"", 
                     "&&", 
-                    "python", "\"" + pyFile + "\"", 
+                    "\"" + exeFile + "\"", 
                     "--input", "\"" + activeLayerPath + "\"", 
                     "--output", "\"" + output_name + "\"", 
                     "--interpolate", checkboxInterpolate.value ? "1" : "0", 
