@@ -40,16 +40,16 @@ class Main:
         self.half = args.half
 
         self.Do_not_process = False
-        
+
         self.intitialize()
         self.threads_are_running = True
-        
+            
         if self.Do_not_process:
             return
         else:
-            with ThreadPoolExecutor(max_workers=1) as executor:
+            with ThreadPoolExecutor(max_workers=self.nt) as executor:
                 futures = {executor.submit(self.start_process)
-                        for _ in range(self.nt)}
+                           for _ in range(self.nt)}
 
         while self.read_buffer.qsize() > 0 or self.processed_frames.qsize() > 0:
             time.sleep(0.1)
@@ -75,16 +75,19 @@ class Main:
             if self.dedup_method == "FFmpeg":
                 from src.dedup.dedup import DedupFFMPEG
                 if self.interpolate == False and self.upscale == False:
-                    logging.info("The user has selected FFMPEG Dedup and no other processing, exiting after Dedup is done")
+                    logging.info(
+                        "The user has selected FFMPEG Dedup and no other processing, exiting after Dedup is done")
                     self.Do_not_process = True
-                    self.dedup_process = DedupFFMPEG(self.input, self.output, self.Do_not_process)
+                    self.dedup_process = DedupFFMPEG(
+                        self.input, self.output, self.Do_not_process)
                     self.dedup_process.run()
                     return
                 else:
-                    self.dedup_process = DedupFFMPEG(self.input, self.output, self.Do_not_process)            
+                    self.dedup_process = DedupFFMPEG(
+                        self.input, self.output, self.Do_not_process)
                     self.input = self.dedup_process.run()
                     logging.info(f"The new input is: {self.input}")
-                    
+
         # Metadata needs a little time to be written.
         time.sleep(0.5)
 
@@ -92,7 +95,7 @@ class Main:
         self.frames = self.video.iter_frames()
         self.ffmpeg_params = ["-c:v", "libx264", "-preset", "fast", "-crf",
                               "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
-        
+
         self.fps = self.video.fps * \
             self.interpolate_factor if self.interpolate else self.video.fps
 
@@ -114,7 +117,8 @@ class Main:
             elif self.upscale_method == "swinir":
                 logging.info(f"{self.upscale_method}, not yet implemented")
             else:
-                logging.info(f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
+                logging.info(
+                    f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
 
         if self.interpolate:
             from src.rife.rife import Rife
@@ -149,11 +153,11 @@ class Main:
                 frame = self.read_buffer.get()
                 if frame is None:
                     break
-                
+
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
 
-                if self.interpolate: 
+                if self.interpolate:
                     if prev_frame is not None:
                         results = self.interpolate_process.run(
                             prev_frame, frame, self.interpolate_factor, self.frame_size)
@@ -194,15 +198,17 @@ class Main:
             self.writer.write_frame(frame)
             self.processing_index += 1
             self.pbar.update(1)
-            
+
         self.writer.close()
         self.video.close()
         self.pbar.close()
 
 
 if __name__ == "__main__":
-    log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'log.txt')
-    logging.basicConfig(filename=log_file_path, filemode='w', format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+    log_file_path = os.path.join(os.path.dirname(
+        os.path.abspath(__file__)), 'log.txt')
+    logging.basicConfig(filename=log_file_path, filemode='w',
+                        format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--input", type=str, required=True)
@@ -211,7 +217,8 @@ if __name__ == "__main__":
     argparser.add_argument("--interpolate_factor", type=int, default=2)
     argparser.add_argument("--upscale", type=int, default=0)
     argparser.add_argument("--upscale_factor", type=int, default=2)
-    argparser.add_argument("--upscale_method",  type=str, default="ShuffleCugan")
+    argparser.add_argument("--upscale_method",  type=str,
+                           default="ShuffleCugan")
     argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
     argparser.add_argument("--dedup", type=int, default=0)
     argparser.add_argument("--dedup_sens", type=int, default=5)
@@ -223,15 +230,15 @@ if __name__ == "__main__":
         args = argparser.parse_args()
     except Exception as e:
         logging.info(e)
-        
+
     args.interpolate = True if args.interpolate == 1 else False
     args.upscale = True if args.upscale == 1 else False
     args.dedup = True if args.dedup == 1 else False
     args.half = True if args.half == 1 else False
-    
+
     args.upscale_method = args.upscale_method.lower()
     args.cugan_kind = args.cugan_kind.lower()
-    
+
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg}: {args_dict[arg]}")
@@ -241,6 +248,10 @@ if __name__ == "__main__":
             dir_path = os.path.dirname(args.input)
             args.output = os.path.join(dir_path, args.output)
             
+    if args.nt > 1:
+        logging.info("Multi-threading is not supported yet, setting nt back to 1")
+        args.nt = 1
+
     if args.input is not None and args.output is not None:
         Main(args)
     else:
