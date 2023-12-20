@@ -125,4 +125,5 @@ In no particular order:
 - Fixed Compact, Ultracompact issues
 - [Massive] Added SuperUltraCompact
 - [Massive] Added CUGAN NCNN Vulkan support, now AMD/Intel GPU/iGPU users will be able to take advantage of their systems.
+- [Massive] Added --inpoint and --outpoint variables for AE users, now you will ever need at most 2 decode encode processes instead of 3.
 
