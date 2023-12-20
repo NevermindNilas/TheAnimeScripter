@@ -74,11 +74,8 @@ if it is installed run:
 ## 📋 To-Do
 
 In no particular order:
-- Provide a bundled version with all of the dependencies included ( need assitance with this )
 - Add MT back
-- Add more functionalities to Cugan-AMD
 - Fix SwinIR
-- Improve performance
 - Add testing. ( high priority )
 - ADd DepthMap process ( high priority )
 - Maybe add TRT. ( probably not )
@@ -126,4 +123,4 @@ In no particular order:
 - [Massive] Added SuperUltraCompact
 - [Massive] Added CUGAN NCNN Vulkan support, now AMD/Intel GPU/iGPU users will be able to take advantage of their systems.
 - [Massive] Added --inpoint and --outpoint variables for AE users, now you will ever need at most 2 decode encode processes instead of 3.
-
+- [Massive] Release 0.1.1 (12/21/2023) 
