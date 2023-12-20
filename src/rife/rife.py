@@ -57,7 +57,7 @@ class Rife:
 
     def pad_image(self, img):
         if self.half:
-            return F.pad(img, self.padding).half()
+            return F.pad(img, self.padding).half().cuda()
         else:
             return F.pad(img, self.padding)
 
@@ -71,7 +71,6 @@ class Rife:
             self.device, non_blocking=True).unsqueeze(0).float() / 255.
         I1 = self.pad_image(I1)
         
-
         output = self.make_inference(I0, I1, n - 1)
 
         for mid in output:
