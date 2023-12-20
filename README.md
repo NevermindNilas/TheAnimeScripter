@@ -21,15 +21,11 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 
 #### How to utilize
 
-If Python 3.10 - 3.11 isn't installed on your system, run this file:
+- Download one of the freshest releases from: 
+- [Here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
 
-- run ```setup.bat``` ( as admin ) 
 
-if it is installed run:
-
-- ```pip install -r requirements.txt```
-
-#### Manual installation and Build
+#### Or Manual installation and Build
 
 - Download and install Python 3.11 from: https://www.python.org/downloads/release/python-3110/ whilst making sure to add it to System Path
 
@@ -53,7 +49,7 @@ if it is installed run:
 
 - Now that you've reopened After Effects, go to Window -> And at the bottom of you should have a TheAnimeScripter.jsx, click it -> Dock the panel wherever you please.
 
-- In the panel, set output to wherever you please and main.py to the main.py file found in the AnimeScripter directory
+- In the settings panel, set folder to the same directory as The Anime Scripter and output to wherever you please
 
 ## 📚 Usage
 
