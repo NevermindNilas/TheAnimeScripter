@@ -29,8 +29,6 @@ if it is installed run:
 
 - ```pip install -r requirements.txt```
 
-- ```get_ffmpeg.bat```
-
 #### Manual installation
 
 - Download and install Python 3.11 from: https://www.python.org/downloads/release/python-3110/ whilst making sure to add it to System Path
@@ -38,9 +36,6 @@ if it is installed run:
 - Open a terminal inside the folder
 
 - ```pip install -r requirements.txt```
-- Download FFMPEG from: https://github.com/BtbN/FFmpeg-Builds/releases
-
-- inside the folder src make a folder named ffmpeg and drop ffmpeg.exe into it
 
 #### How to use inside of After Effects
 

@@ -1,10 +1,6 @@
-from skimage.metrics import structural_similarity as ssim
-from skimage.metrics import mean_squared_error
 
-import cv2
 import os
 import subprocess
-import random
 
 """
 Glorified deduplication method, for the best performance use FFMPEG.
@@ -17,12 +13,11 @@ TO:DO
     - Only import the modules if they are needed, basically lazy loading
     
 """
-
+"""
 class DedupSSIM():
     def __init__(self):
-        """
-        Processes two frames and returns True if they are similar enough to be considered duplicates
-        """
+    
+        #Processes two frames and returns True if they are similar enough to be considered duplicates
         pass
 
     def run(self, I0, I1, dedup_sens):
@@ -41,9 +36,7 @@ class DedupSSIM():
 
 class DedupMSE():
     def __init__(self):
-        """
-        Processes two frames and returns True if they are similar enough to be considered duplicates
-        """
+        #Processes two frames and returns True if they are similar enough to be considered duplicates
         pass
 
     def run(self, I0, I1, dedup_sens):
@@ -58,6 +51,7 @@ class DedupMSE():
             return True
         else:
             return False
+"""
 
 
 class DedupFFMPEG():
@@ -70,8 +64,8 @@ class DedupFFMPEG():
         if no_process:
             self.output = output
         else:
-            self.output = os.path.dirname(
-                output) + os.path.basename(output).split(".")[0] + "_dedup" + ".mp4"
+            self.output = os.path.join(os.path.dirname(
+                output) + os.path.basename(output).split(".")[0] + "_dedup" + ".mp4")
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
         dir_path = os.path.dirname(dir_path)

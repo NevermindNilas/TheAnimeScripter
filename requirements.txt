@@ -1,9 +1,7 @@
 moviepy
 requests
-opencv-python
 tqdm
 timm
-scikit-image
 numpy<1.26
 realcugan-ncnn-py
 torch==2.1.0 
