@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "0.1.2";
+    var scriptVersion = "0.1.3";
     var scriptAuthor = "Nilas";
     var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
     var discordServer = "https://discord.gg/CdRD9GwS8J"
@@ -548,7 +548,7 @@ var TheAnimeScripter = (function() {
             }
 
             var randomNumber = Math.floor(Math.random() * 1000000);
-            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + randomNumber + ".m4v";
+            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + randomNumber + ".mp4";
 
             //command = "cd \"" + scriptPath + "\" && python \"" + mainPyFile + "\" -video \"" + activeLayerPath + "\" -model_type shufflecugan -nt " + NumberOfThreadsInt + " -multi " + UpscaleInt + " -output \"" + output_name + "\"";
 
@@ -576,9 +576,9 @@ var TheAnimeScripter = (function() {
             }
 
 
-            alert (command);
+            //alert (command);
             callCommand(command);
-            
+
             try {
                 var importOptions = new ImportOptions(File(output_name));
                 var importedFile = app.project.importFile(importOptions);
