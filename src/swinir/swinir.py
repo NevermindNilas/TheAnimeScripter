@@ -5,7 +5,6 @@ import numpy as np
 
 from .swinir_arch import SwinIR as SwinIR_model
 
-
 class Swinir():
     def __init__(self, upscale_factor, half):
         self.upscale_factor = upscale_factor
