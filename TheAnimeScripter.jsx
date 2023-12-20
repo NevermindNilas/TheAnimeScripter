@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "0.1.1";
+    var scriptVersion = "0.1.2";
     var scriptAuthor = "Nilas";
     var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
     var discordServer = "https://discord.gg/CdRD9GwS8J"
@@ -366,32 +366,6 @@ var TheAnimeScripter = (function() {
     });
     dropdownCugan.selection = 0;
     dropdownCugan.preferredSize.width = 109;
-
-    // GROUP7
-    // ======
-    var group7 = panel1.add("group", undefined, {
-        name: "group7"
-    });
-    group7.orientation = "row";
-    group7.alignChildren = ["left", "center"];
-    group7.spacing = 0;
-    group7.margins = 0;
-
-    var textSwinIr = group7.add("statictext", undefined, undefined, {
-        name: "textSwinIr"
-    });
-    textSwinIr.enabled = false;
-    textSwinIr.text = "SwinIR Model";
-    textSwinIr.preferredSize.width = 103;
-
-    var dropdownSwinIr_array = ["Small", "-", "Medium", "-", "Large"];
-    var dropdownSwinIr = group7.add("dropdownlist", undefined, undefined, {
-        name: "dropdownSwinIr",
-        items: dropdownSwinIr_array
-    });
-    dropdownSwinIr.enabled = false;
-    dropdownSwinIr.selection = 0;
-    dropdownSwinIr.preferredSize.width = 109;
 
     // GROUP8
     // ======
