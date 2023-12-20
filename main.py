@@ -25,9 +25,16 @@ It seems like MT is not going to be possible right now.
 
 TO:DO
 
-    - FFMPEG has a to bytes feature through piping, maybe use that instead of decode - encode - decode
-    - Work on CUGAN-AMD
-
+    - FFMPEG has a to bytes feature through piping, maybe use that instead of having to decode - encode - decode and encode again.
+    - Work on CUGAN-AMD.
+    - Add back MT support but for upscaling only.
+    - Provide a bundled version with all of the dependencies included ( need assitance with this ).
+    - Add more functionalities to Cugan-AMD.
+    - Fix SwinIR.
+    - Improve performance.
+    - Add testing.
+    - Add DepthMap process.
+    - Maybe add TRT.
 """
 
 
@@ -70,16 +77,6 @@ class Main:
 
     def intitialize(self):
         if self.dedup:
-            if self.dedup_method == "SSIM":
-                from src.dedup.dedup import DedupSSIM
-                logging.info(f" {self.dedup_method} is not available yet")
-                # self.dedup_process = DedupSSIM()
-
-            if self.dedup_method == "MSE":
-                from src.dedup.dedup import DedupMSE
-                logging.info(f" {self.dedup_method} is not available yet")
-                # self.dedup_process = DedupMSE()
-
             if self.dedup_method == "FFmpeg":
                 from src.dedup.dedup import DedupFFMPEG
                 if self.interpolate == False and self.upscale == False:
@@ -95,6 +92,17 @@ class Main:
                         self.input, self.output, self.Do_not_process)
                     self.input = self.dedup_process.run()
                     logging.info(f"The new input is: {self.input}")
+                    
+            elif self.dedup_method == "SSIM":
+                from src.dedup.dedup import DedupSSIM
+                logging.info(f" {self.dedup_method} is not available yet")
+                # self.dedup_process = DedupSSIM()
+
+            elif self.dedup_method == "MSE":
+                from src.dedup.dedup import DedupMSE
+                logging.info(f" {self.dedup_method} is not available yet")
+                # self.dedup_process = DedupMSE()
+
             
         # Metadata needs a little time to be written.
         time.sleep(0.5)
@@ -236,6 +244,9 @@ if __name__ == "__main__":
     except Exception as e:
         logging.info(e)
 
+    """
+    Whilst this is ugly, it was easier to work with the Extendscript interface this way
+    """
     args.interpolate = True if args.interpolate == 1 else False
     args.upscale = True if args.upscale == 1 else False
     args.dedup = True if args.dedup == 1 else False
