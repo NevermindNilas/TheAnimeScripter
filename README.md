@@ -62,12 +62,13 @@ if it is installed run:
 
 ## 🙏 Acknowledgements
 
-- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code and providing his models.
+- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code and shufflecugan model
 - [HZWER](https://github.com/hzwer/Practical-RIFE) - For Rife.
 - [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) - For Cugan.
 - [JingyunLiang](https://github.com/JingyunLiang/SwinIR) - For SwinIR.
-- [Bubble](https://github.com/Bubblemint864/AI-Models) - For the compact and soon swinir model.
+- [Bubble](https://github.com/Bubblemint864/AI-Models) - For the SwinIR Model
 - [Xintao](https://github.com/xinntao/Real-ESRGAN) - for Realesrgan, specifically compact arch.
+- [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai) - For Compact, UltraCompact, SuperUltraCompact models
 - [AlixzFX](https://github.com/AlixzFX) - for debugging the scriptUI and inspiration
 
 ## 📈 Benchmarks
