@@ -77,11 +77,14 @@ class Cugan:
             return frame.cpu().numpy()
 
 class CuganAMD():
-    def __init__(self):
+    def __init__(self, num_threads, upscale_factor):
         """
         Barebones for now
         """
-        self.realcugan = Realcugan(num_threads=1, gpuid=0, tta_mode=False, scale=2)
+        self.num_threads = num_threads
+        self.upscale_factor = upscale_factor
+        
+        self.realcugan = Realcugan(num_threads=self.num_threads, gpuid=0, tta_mode=False, scale=self.upscale_factor)
         
     def run(self, frame):
         frame = self.realcugan.process_cv2(frame)
