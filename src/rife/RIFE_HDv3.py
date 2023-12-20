@@ -1,14 +1,7 @@
 import torch
-import torch.nn as nn
-import numpy as np
 from torch.optim import AdamW
-import torch.optim as optim
-import itertools
-from .warplayer import warp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from .IFNet_HDv3 import *
-import torch.nn.functional as F
-from .loss import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -17,10 +10,8 @@ class Model:
         self.flownet = IFNet()
         self.device()
         self.optimG = AdamW(self.flownet.parameters(), lr=1e-6, weight_decay=1e-4)
-        self.epe = EPE()
         self.version = 4.8
         # self.vgg = VGGPerceptualLoss().to(device)
-        self.sobel = SOBEL()
         if local_rank != -1:
             self.flownet = DDP(self.flownet, device_ids=[local_rank], output_device=local_rank)
 

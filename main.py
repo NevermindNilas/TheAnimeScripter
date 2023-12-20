@@ -37,7 +37,6 @@ TO:DO
     - Maybe add TRT.
 """
 
-
 class Main:
     def __init__(self, args):
         self.input = os.path.normpath(args.input)
@@ -62,22 +61,23 @@ class Main:
         if self.Do_not_process:
             return
         else:
+            futures = []
             with ThreadPoolExecutor(max_workers=self.nt) as executor:
                 for _ in range(self.nt):
-                    executor.submit(self.start_process)
+                    futures.append(executor.submit(self.start_process))
 
-        while self.read_buffer.qsize() > 0 or len(self.processed_frames) > 0:
-            time.sleep(0.1)
+            while self.read_buffer.qsize() > 0 or len(self.processed_frames) > 0 or any(future.running() for future in futures):
+                time.sleep(0.1)
 
         self.threads_are_running = False
 
-        if self.dedup_method == "FFmpeg" and self.Do_not_process == False:
+        if self.dedup_method == "ffmpeg" and self.Do_not_process == False:
             if self.interpolate or self.upscale:
                 os.remove(self.input)
 
     def intitialize(self):
         if self.dedup:
-            if self.dedup_method == "FFmpeg":
+            if self.dedup_method == "ffmpeg":
                 from src.dedup.dedup import DedupFFMPEG
                 if self.interpolate == False and self.upscale == False:
                     logging.info(
@@ -92,18 +92,7 @@ class Main:
                         self.input, self.output, self.Do_not_process)
                     self.input = self.dedup_process.run()
                     logging.info(f"The new input is: {self.input}")
-                    
-            elif self.dedup_method == "SSIM":
-                from src.dedup.dedup import DedupSSIM
-                logging.info(f" {self.dedup_method} is not available yet")
-                # self.dedup_process = DedupSSIM()
 
-            elif self.dedup_method == "MSE":
-                from src.dedup.dedup import DedupMSE
-                logging.info(f" {self.dedup_method} is not available yet")
-                # self.dedup_process = DedupMSE()
-
-            
         # Metadata needs a little time to be written.
         time.sleep(0.5)
 
@@ -235,7 +224,7 @@ if __name__ == "__main__":
     argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
     argparser.add_argument("--dedup", type=int, default=0)
     argparser.add_argument("--dedup_sens", type=int, default=5)
-    argparser.add_argument("--dedup_method", type=str, default="FFmpeg")
+    argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
     argparser.add_argument("--nt", type=int, default=1)
     argparser.add_argument("--half", type=int, default=1)
 
@@ -254,6 +243,7 @@ if __name__ == "__main__":
 
     args.upscale_method = args.upscale_method.lower()
     args.cugan_kind = args.cugan_kind.lower()
+    args.dedup_method = args.dedup_method.lower()
 
     args_dict = vars(args)
     for arg in args_dict:
