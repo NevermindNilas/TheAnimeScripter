@@ -4,7 +4,6 @@ import _thread
 import time
 import logging
 import warnings
-import cv2
 
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
