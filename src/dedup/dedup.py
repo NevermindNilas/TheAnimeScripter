@@ -85,4 +85,4 @@ class DedupFFMPEG():
         subprocess.Popen(
             ffmpeg_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        return os.normpath(self.output)
+        return os.path.normpath(self.output)
