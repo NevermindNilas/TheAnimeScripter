@@ -68,10 +68,9 @@ class Main:
         else:
             futures = []
             with ThreadPoolExecutor(max_workers=self.nt) as executor:
-                for _ in range(self.nt):
-                    futures.append(executor.submit(self.start_process))
+                executor.submit(self.start_process)
 
-            while self.read_buffer.qsize() > 0 or len(self.processed_frames) > 0 or any(future.running() for future in futures):
+            while self.read_buffer.qsize() > 0 or len(self.processed_frames) > 0:
                 time.sleep(0.1)
 
         self.threads_are_running = False
