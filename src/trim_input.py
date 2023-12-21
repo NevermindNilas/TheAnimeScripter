@@ -31,7 +31,7 @@ class trim_input():
         subprocess.Popen(
             command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
-        return os.normpath(self.output)
+        return os.path.normpath(self.output)
 
 class trim_input_dedup():
     def __init__(self, input, output, inpoint, outpoint, Do_not_process):
@@ -63,6 +63,6 @@ class trim_input_dedup():
         subprocess.Popen(
             command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
-        return os.normpath(self.output)
+        return os.path.normpath(self.output)
         
         
