@@ -47,7 +47,7 @@ class Main:
         self.interpolate_factor = args.interpolate_factor
         self.upscale = args.upscale
         self.upscale_factor = args.upscale_factor
-        self.upscale_method = args.upscale_method.lower()
+        self.upscale_method = args.upscale_method
         self.cugan_kind = args.cugan_kind
         self.dedup = args.dedup
         self.dedup_sens = args.dedup_sens
@@ -68,9 +68,10 @@ class Main:
         else:
             futures = []
             with ThreadPoolExecutor(max_workers=self.nt) as executor:
-                executor.submit(self.start_process)
+                for _ in range(self.nt):
+                    futures.append(executor.submit(self.start_process))
 
-            while self.read_buffer.qsize() > 0 or len(self.processed_frames) > 0:
+            while self.read_buffer.qsize() > 0 or len(self.processed_frames) > 0 or any(future.running() for future in futures):
                 time.sleep(0.1)
 
         self.threads_are_running = False
