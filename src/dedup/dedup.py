@@ -60,10 +60,9 @@ class DedupFFMPEG():
         Return full path to deduplicated video
         """
         self.input = input
-
-        if no_process:
-            self.output = output
-        else:
+        self.output = output
+        
+        if not no_process:
             filename_without_ext = os.path.splitext(os.path.basename(output))[0]
             dirname = os.path.dirname(output)
             self.output = os.path.join(dirname, filename_without_ext + "_dedup.mp4")
