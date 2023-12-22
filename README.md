@@ -14,6 +14,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 4. **Segmentation**: Separate the background from the foreground for easier and faster rotobrushing.
 5. **Integration with After Effects**: Seamlessly use our tool directly inside of After Effects.
 6. **Model Chaining in After Effects**: Run Deduplication, Upscaling, Interpolation all in one.
+7. **No Frame Extraction**: The script does 0 frame extraction, everything is being done in memory without additional decode and encode cycles.
 
 ## 🛠️ Getting Started
 
@@ -39,7 +40,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 
 - in the terminal type ```auto-py-to-exe```
 
-- Select: One Directory and add the folder src
+- Select: One Directory, input folder is going to be main.py and additional files the folder src and get_ffmpeg.bat
 
 #### How to use inside of After Effects
 
@@ -122,9 +123,12 @@ In no particular order:
 - Fixed CPU Inference
 - The models can now be downloaded on the go.
 - Added logging for easier debugging
-- [Massive] Official 0.1 Release (12/19/2023).
+- [Massive] Official 0.1 Release (19/12/2023).
 - Fixed Compact, Ultracompact issues
 - [Massive] Added SuperUltraCompact
 - [Massive] Added CUGAN NCNN Vulkan support, now AMD/Intel GPU/iGPU users will be able to take advantage of their systems.
 - [Massive] Added --inpoint and --outpoint variables for AE users, now you will ever need at most 2 decode encode processes instead of 3.
-- [Massive] Release 0.1.1 (12/21/2023) 
+- [Massive] Release 0.1.1 (21/12/2023)
+- [Massive] Release 0.1.2 (22/12/2023)
+- [Massive] Lowered total processing steps from 2 to 1 meaning faster processing and less encoding needed
+- Some minor performance improvements, not very noticeable for high end computers.

@@ -3,6 +3,8 @@ import argparse
 import _thread
 import time
 import logging
+import subprocess
+import numpy as np
 
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
@@ -22,9 +24,9 @@ if there is a frame at index + int but that didn't work either
 
 It seems like MT is not going to be possible right now.
 
-TO:DO
+22/12/2023 - Massive refactoring compared to older iterations, expect more in the future
 
-    - FFMPEG has a to bytes feature through piping, maybe use that instead of having to decode - encode - decode and encode again.
+TO:DO
     - Add back MT support but for upscaling only.
     - Provide a bundled version with all of the dependencies included ( need assitance with this ).
     - Add more functionalities to Cugan-AMD.
@@ -37,6 +39,8 @@ TO:DO
 
 ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
                  "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
+
+mpdecimate_params = "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB"
 
 
 class Main:
@@ -57,75 +61,56 @@ class Main:
         self.inpoint = args.inpoint
         self.outpoint = args.outpoint
 
-        self.Do_not_process = False
+        # This is necessary on the top since the script heavily relies on FFMPEG, I will look into FFMPEG Reader from moviepy but it lacks the filtering abillity, so I will have to implement that myself using SSIM/MSE later on
+        self.check_ffmpeg()
 
+        # There's no need to start the process if the user only wants dedup and nothing else
+        if self.interpolate == False and self.upscale == False and self.dedup == True:
+            if self.outpoint != 0:
+                from src.trim_input import trim_input_dedup
+                trim_input_dedup(self.input, self.output, self.inpoint,
+                                 self.outpoint, mpdecimate_params, self.ffmpeg_path).run()
+            else:
+                from src.dedup.dedup import DedupFFMPEG
+                DedupFFMPEG(self.input, self.output,
+                            mpdecimate_params, self.ffmpeg_path).run()
+
+            return
+
+        self.get_video_metadata()
+        self.intitialize_models()
         self.intitialize()
 
         self.threads_are_running = True
-        if self.Do_not_process:
-            logging.info("The user has selected no other processing other than Dedup, exiting")
-            return
-        else:
-            futures = []
-            with ThreadPoolExecutor(max_workers=self.nt) as executor:
-                for _ in range(self.nt):
-                    futures.append(executor.submit(self.start_process))
 
-            while self.read_buffer.qsize() > 0 or len(self.processed_frames) > 0 or any(future.running() for future in futures):
-                time.sleep(0.1)
+        self.start_process()
+
+        while self.read_buffer.qsize() > 0 or len(self.processed_frames) > 0:
+            time.sleep(0.1)
 
         self.threads_are_running = False
 
-        if self.dedup_method == "ffmpeg" and self.Do_not_process == False:
-            if self.interpolate or self.upscale:
-                os.remove(self.input)
-
     def intitialize(self):
-        
-        if self.interpolate == False and self.upscale == False and self.dedup == True:
-            self.Do_not_process = True
-        
-        if self.outpoint != 0:
-            if self.dedup:
-                from src.trim_input import trim_input_dedup
-                self.trim_dedup_process = trim_input_dedup(
-                    self.input, self.output, self.inpoint, self.outpoint, self.Do_not_process)
-                self.input = self.trim_dedup_process.run()
-                self.dedup = False
-            else:
-                from src.trim_input import trim_input
-                self.trim_process = trim_input(
-                    self.input, self.output, self.inpoint, self.outpoint, self.Do_not_process)
-                self.input = self.trim_process.run()                
-            
-            logging.info(f"The new input is: {self.input}")
-                
-        if self.dedup:
-            from src.dedup.dedup import DedupFFMPEG
-            self.dedup_process = DedupFFMPEG(
-                self.input, self.output, self.Do_not_process)
-            self.input = self.dedup_process.run()
-            logging.info(f"The new input is: {self.input}")
-
-        if self.Do_not_process == True:
-            return
-        
-        # Metadata needs a little time to be written.
-        time.sleep(0.5)
-
-        self.video = VideoFileClip(self.input)
-        self.frames = self.video.iter_frames()
-
-        self.fps = self.video.fps * \
-            self.interpolate_factor if self.interpolate else self.video.fps
-
-        self.frame_size = (self.video.w * self.upscale_factor, self.video.h *
-                           self.upscale_factor) if self.upscale else (self.video.w, self.video.h)
 
         self.writer = FFMPEG_VideoWriter(
-            self.output, self.frame_size, self.fps, ffmpeg_params=ffmpeg_params)
+            self.output, (self.new_width, self.new_height), self.fps, ffmpeg_params=ffmpeg_params)
 
+        self.read_buffer = Queue(maxsize=500)
+        self.processed_frames = deque()
+        
+        _thread.start_new_thread(self.build_buffer, ())
+        _thread.start_new_thread(self.clear_write_buffer, ())
+
+    def intitialize_models(self):
+        self.new_width = self.width
+        self.new_height = self.height
+        
         if self.upscale:
+            
+            # Setting new width and height for processing
+            self.new_width *= self.upscale_factor
+            self.new_height *= self.upscale_factor
+            
             if self.upscale_method == "shufflecugan" or self.upscale_method == "cugan":
                 from src.cugan.cugan import Cugan
                 self.upscale_process = Cugan(
@@ -139,39 +124,59 @@ class Main:
                 from src.compact.compact import Compact
                 self.upscale_process = Compact(
                     self.upscale_method, self.half)
+
             elif self.upscale_method == "swinir":
                 from src.swinir.swinir import Swinir
                 self.upscale_process = Swinir(
                     self.upscale_factor, self.half)
                 print("processing swinir")
+
             else:
                 logging.info(
                     f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
 
         if self.interpolate:
             from src.rife.rife import Rife
-            UHD = True if self.frame_size[0] > 3840 or self.frame_size[1] > 2160 else False
 
+            UHD = True if self.new_width >= 3840 or self.new_height >= 2160 else False
             self.interpolate_process = Rife(
-                self.interpolate_factor, self.half, self.frame_size, UHD)
-            self.pbar = tqdm(total=self.video.reader.nframes * self.interpolate_factor,
-                             desc="Processing", unit="frames", colour="green")
-        else:
-            self.pbar = tqdm(total=self.video.reader.nframes,
-                             desc="Processing", unit="frames", colour="green")
-
-        self.read_buffer = Queue(maxsize=500)
-        self.processed_frames = deque()
-
-        _thread.start_new_thread(self.build_buffer, ())
-        _thread.start_new_thread(self.clear_write_buffer, ())
-
+                self.interpolate_factor, self.half, (self.new_width, self.new_height), UHD)
+            
     def build_buffer(self):
-        for frame in self.frames:
-            self.read_buffer.put(frame)
+        self.pbar = tqdm(
+            total=None if self.dedup else self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True)
+        if self.outpoint != 0:
+            if self.dedup:
+                ffmpeg_command = f"{self.ffmpeg_path} -ss {self.inpoint} -to {self.outpoint} -i {self.input} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats"
+                self.dedup = False
+            else:
+                ffmpeg_command = f'"{self.ffmpeg_path}" -ss {self.inpoint} -to {self.outpoint} -i {self.input} -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats'
 
-        for _ in range(self.nt):
-            self.read_buffer.put(None)
+        if self.dedup:
+            ffmpeg_command = f"{self.ffmpeg_path} -i {self.input} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -"
+        else:
+            ffmpeg_command = f'"{self.ffmpeg_path}" -i {self.input} -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -'
+
+        process = subprocess.Popen(
+            ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+
+        frame_size = self.width * self.height * 3
+        frame_count = 0
+        for chunk in iter(lambda: process.stdout.read(frame_size), b''):
+            if len(chunk) != frame_size:
+                logging.error(
+                    f"Read {len(chunk)} bytes but expected {frame_size}")
+                break
+            frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
+                (self.height, self.width, 3))
+            self.read_buffer.put(frame)
+            frame_count += 1
+
+        stderr = process.stderr.read().decode()
+        if stderr:
+            logging.error(f"ffmpeg error: {stderr}")
+
+        logging.info(f"Read {frame_count} frames")
 
     def start_process(self):
         prev_frame = None
@@ -186,7 +191,7 @@ class Main:
 
                 if self.interpolate and prev_frame is not None:
                     results = self.interpolate_process.run(
-                        prev_frame, frame, self.interpolate_factor, self.frame_size)
+                        prev_frame, frame, self.interpolate_factor)
                     for result in results:
                         self.processed_frames.append(result)
                     prev_frame = frame
@@ -198,23 +203,46 @@ class Main:
             logging.exception("An error occurred during processing")
 
     def clear_write_buffer(self):
-        self.processing_index = 0
-        while True:
-            if not self.processed_frames:
-                if self.read_buffer.empty() and self.threads_are_running == False:
-                    break
-                else:
-                    continue
+        try:
+            while True:
+                if not self.processed_frames:
+                    if self.read_buffer.empty() and self.threads_are_running == False:
+                        break
+                    else:
+                        continue
 
-            frame = self.processed_frames.popleft()
+                frame = self.processed_frames.popleft()
 
-            self.writer.write_frame(frame)
-            self.processing_index += 1
-            self.pbar.update(1)
+                self.writer.write_frame(frame)
+                self.pbar.update(1)
+        except Exception as e:
+            logging.exception("An error occurred during writing")
+        
+        finally:
+            self.writer.close()
+            self.pbar.close()
 
-        self.writer.close()
-        self.video.close()
-        self.pbar.close()
+    def get_video_metadata(self):
+        clip = VideoFileClip(self.input)
+        self.width = clip.size[0]
+        self.height = clip.size[1]
+        self.fps = clip.fps
+        self.nframes = clip.reader.nframes
+
+        clip.close()
+
+    def check_ffmpeg(self):
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+
+        self.ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
+
+        # Check if FFMPEG exists at that path
+        if not os.path.exists(self.ffmpeg_path):
+            print("Couldn't find FFMPEG, downloading it now")
+            print("This might add an aditional 1-5 seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
+            logging.info("The user doesn't have FFMPEG, downloading it now")
+            ffmpeg_bat_location = os.path.join(dir_path, "get_ffmpeg.bat")
+            subprocess.call(ffmpeg_bat_location, shell=True)
 
 
 if __name__ == "__main__":
