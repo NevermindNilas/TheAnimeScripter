@@ -3,15 +3,19 @@ from .cugan_arch import UpCunet2x, UpCunet3x, UpCunet4x, UpCunet2x_fast
 import os
 import requests
 import torch
+import torch.nn.functional as F
+
 from realcugan_ncnn_py import Realcugan
 
 
 class Cugan:
-    def __init__(self, upscale_method, upscale_factor, cugan_kind, half):
+    def __init__(self, upscale_method, upscale_factor, cugan_kind, half, width, height):
         self.upscale_method = upscale_method
         self.upscale_factor = upscale_factor
         self.cugan_kind = cugan_kind
         self.half = half
+        self.width = width
+        self.height = height
 
         self.handle_models()
 
@@ -57,6 +61,17 @@ class Cugan:
             torch.backends.cudnn.benchmark = True
         if self.half:
             torch.set_default_tensor_type(torch.cuda.HalfTensor)
+            
+        self.pad_width = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
+        self.pad_height = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
+        
+        self.upscaled_height = self.height * self.upscale_factor
+        self.upscaled_width = self.width * self.upscale_factor
+            
+    def pad_frame(self, frame):
+        if self.pad_width != 0 or self.pad_height != 0:
+            frame = F.pad(frame, [0, self.pad_width, 0, self.pad_height])
+        return frame
 
     @torch.inference_mode
     def run(self, frame):
@@ -71,11 +86,13 @@ class Cugan:
                 except:
                     frame = frame.cpu()
 
+            frame = self.pad_frame(frame)
             frame = self.model(frame)
+            frame = frame[:, :, :self.upscaled_height, :self.upscaled_width]
             frame = frame.squeeze(0).permute(
                 1, 2, 0).mul_(255).clamp_(0, 255).byte()
             return frame.cpu().numpy()
-
+            
 class CuganAMD():
     def __init__(self, num_threads, upscale_factor):
         """
