@@ -74,6 +74,6 @@ class Rife:
 
         for mid in output:
             mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
-            buffer.append(mid[:self.height, :self.width])
+            buffer.append(mid[:self.width, :self.height, :])
 
         return buffer
