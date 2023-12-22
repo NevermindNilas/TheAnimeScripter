@@ -1,0 +1,58 @@
+{
+  "name": "babel-plugin-react-require",
+  "version": "3.1.3",
+  "description": "Babel plugin that adds React import declaration if file contains JSX tags.",
+  "keywords": [
+    "babel",
+    "babel-plugin",
+    "react",
+    "jsx"
+  ],
+  "homepage": "https://github.com/vslinko/babel-plugin-react-require",
+  "bugs": {
+    "url": "https://github.com/vslinko/babel-plugin-react-require/issues",
+    "email": "vslinko@yahoo.com"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Vyacheslav Slinko",
+    "email": "vslinko@yahoo.com",
+    "url": "https://twitter.com/vslinko"
+  },
+  "main": "lib",
+  "repository": {
+    "type": "git",
+    "url": "vslinko/babel-plugin-react-require"
+  },
+  "scripts": {
+    "clean": "rimraf coverage lib",
+    "build": "babel src -d lib",
+    "build-examples": "babel examples -d built-examples",
+    "lint": "eslint src test",
+    "prepare": "npm run clean && npm run build && npm run build-examples",
+    "test": "jest",
+    "test-coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.7.7",
+    "@babel/core": "^7.7.7",
+    "@babel/plugin-syntax-jsx": "^7.7.4",
+    "@babel/plugin-transform-block-scoping": "^7.7.4",
+    "@babel/plugin-transform-classes": "^7.7.4",
+    "@babel/plugin-transform-destructuring": "^7.7.4",
+    "@babel/plugin-transform-modules-commonjs": "^7.7.5",
+    "@babel/plugin-transform-parameters": "^7.7.7",
+    "@babel/plugin-transform-shorthand-properties": "^7.7.4",
+    "@babel/register": "^7.7.7",
+    "babel-core": "^6.26.3",
+    "babel-plugin-inline-react-svg": "^1.1.0",
+    "babel-plugin-syntax-jsx": "^6.18.0",
+    "eslint": "^5.16.0",
+    "eslint-config-airbnb": "^17.1.1",
+    "eslint-plugin-import": "^2.19.1",
+    "eslint-plugin-jsx-a11y": "^6.2.3",
+    "eslint-plugin-react": "^7.17.0",
+    "jest": "^24.9.0",
+    "rimraf": "^3.0.0"
+  }
+}
