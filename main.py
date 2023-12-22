@@ -19,7 +19,6 @@ from collections import deque
 
 TO:DO
     - Fix SwinIR.
-    - Fix RIFE padding - not sure what's the issue, 3840x2160 inputs have padding issues, 1920x1080 seems to be fine though :/
     - Add testing.
     - Play around with better mpdecimate params
     - Something is keeping the process alive even after it's done, Not sure what it is just yet
