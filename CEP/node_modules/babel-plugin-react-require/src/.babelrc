@@ -1,0 +1,10 @@
+{
+  "plugins": [
+    "@babel/plugin-transform-classes",
+    "@babel/plugin-transform-parameters",
+    "@babel/plugin-transform-destructuring",
+    "@babel/plugin-transform-modules-commonjs",
+    "@babel/plugin-transform-shorthand-properties",
+    "@babel/plugin-transform-block-scoping"
+  ]
+}
