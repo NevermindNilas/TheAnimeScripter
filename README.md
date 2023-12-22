@@ -14,6 +14,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 4. **Segmentation**: Separate the background from the foreground for easier and faster rotobrushing.
 5. **Integration with After Effects**: Seamlessly use our tool directly inside of After Effects.
 6. **Model Chaining in After Effects**: Run Deduplication, Upscaling, Interpolation all in one.
+7. **No Frame Extraction**: The script does 0 frame extraction, everything is being done in memory without additional decode and encode cycles.
 
 ## 🛠️ Getting Started
 
