@@ -122,9 +122,12 @@ In no particular order:
 - Fixed CPU Inference
 - The models can now be downloaded on the go.
 - Added logging for easier debugging
-- [Massive] Official 0.1 Release (12/19/2023).
+- [Massive] Official 0.1 Release (19/12/2023).
 - Fixed Compact, Ultracompact issues
 - [Massive] Added SuperUltraCompact
 - [Massive] Added CUGAN NCNN Vulkan support, now AMD/Intel GPU/iGPU users will be able to take advantage of their systems.
 - [Massive] Added --inpoint and --outpoint variables for AE users, now you will ever need at most 2 decode encode processes instead of 3.
-- [Massive] Release 0.1.1 (12/21/2023) 
+- [Massive] Release 0.1.1 (21/12/2023)
+- [Massive] Release 0.1.2 (22/12/2023)
+- [Massive] Lowered total processing steps from 2 to 1 meaning faster processing and less encoding needed
+- Some minor performance improvements, not very noticeable for high end computers.
