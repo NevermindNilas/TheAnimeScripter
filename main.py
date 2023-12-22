@@ -31,6 +31,7 @@ TO:DO
     - Provide a bundled version with all of the dependencies included ( need assitance with this ).
     - Add more functionalities to Cugan-AMD.
     - Fix SwinIR.
+    - Fix RIFE padding - not sure what's the issue, 3840x2160 inputs have padding issues, 1920x1080 seems to be fine though :/
     - Improve performance.
     - Add testing.
     - Add DepthMap process.
@@ -114,11 +115,14 @@ class Main:
             # Setting new width and height for processing
             self.new_width *= self.upscale_factor
             self.new_height *= self.upscale_factor
-
+            logging.info(
+                f"Upscaling to {self.new_width}x{self.new_height}")
+            
             if self.upscale_method == "shufflecugan" or self.upscale_method == "cugan":
                 from src.cugan.cugan import Cugan
                 self.upscale_process = Cugan(
                     self.upscale_method, self.upscale_factor, self.cugan_kind, self.half)
+                
             elif self.upscale_method == "cugan-amd":
                 from src.cugan.cugan import CuganAMD
                 self.upscale_process = CuganAMD(
@@ -133,7 +137,6 @@ class Main:
                 from src.swinir.swinir import Swinir
                 self.upscale_process = Swinir(
                     self.upscale_factor, self.half)
-                print("processing swinir")
 
             else:
                 logging.info(
@@ -142,9 +145,9 @@ class Main:
         if self.interpolate:
             from src.rife.rife import Rife
 
-            UHD = True if self.new_width >= 3840 or self.new_height >= 2160 else False
+            UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
             self.interpolate_process = Rife(
-                self.interpolate_factor, self.half, (self.new_width, self.new_height), UHD)
+                self.interpolate_factor, self.half, self.new_width, self.new_height, UHD)
 
     def build_buffer(self):
         if self.interpolate:
@@ -168,10 +171,12 @@ class Main:
         ffmpeg_command.extend([
             "-f", "rawvideo",
             "-pix_fmt", "rgb24",
+            "-v", "quiet",
+            "-stats",
             "-",
         ])
 
-        #ffmpeg_command = f"{self.ffmpeg_path} -i {self.input} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats -"
+        # ffmpeg_command = f"{self.ffmpeg_path} -i {self.input} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats -"
         process = subprocess.Popen(
             ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -189,15 +194,16 @@ class Main:
             self.read_buffer.put(frame)
             frame_count += 1
 
-        # For terminating the pipe and subprocess properly
-        process.stdout.close()
-        process.terminate()
-
         stderr = process.stderr.read().decode()
         if stderr:
+            # This will output an error even if everything is correct  because it will try to read from a pipe which has no more data,
+            # Ignore errors like "root - ERROR - ffmpeg error: frame=   24 fps=0.0 q=-0.0 Lsize=  145800kB time=00:00:01.00 bitrate=1193200.4kbits/s speed=10.1x"
             logging.error(f"ffmpeg error: {stderr}")
 
-        logging.info(f"Read {frame_count} frames")
+        # For terminating the pipe and subprocess properly
+        process.stdout.close()
+        process.stderr.close()
+        process.terminate()
 
         logging.info(f"Read {frame_count} frames")
 
@@ -241,9 +247,8 @@ class Main:
         except Exception as e:
             logging.exception("An error occurred during writing")
 
-        finally:
-            self.writer.close()
-            self.pbar.close()
+        self.writer.close()
+        self.pbar.close()
 
     def get_video_metadata(self):
         clip = VideoFileClip(self.input)
