@@ -144,7 +144,7 @@ class Main:
             
     def build_buffer(self):
         self.pbar = tqdm(
-            total=None if self.dedup else self.total_frames, desc="Processing Frames", unit="frames", dynamic_ncols=True)
+            total=None if self.dedup else self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True)
         if self.outpoint != 0:
             if self.dedup:
                 ffmpeg_command = f"{self.ffmpeg_path} -i {self.input} -ss {self.inpoint} -to {self.outpoint} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats"
