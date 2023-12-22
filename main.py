@@ -5,37 +5,24 @@ import time
 import logging
 import subprocess
 import numpy as np
+import sys
 
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 from multiprocessing import Queue
-from concurrent.futures import ThreadPoolExecutor
 from collections import deque
 
 
 """
-I have absolutely no clue how to avoid race conditions,
-
-I have attempted with locks but I am not sure if I am doing it right,
-
-Also attempted turning the interpolation output into a different dictionary and then checking for each index
-if there is a frame at index + int but that didn't work either
-
-It seems like MT is not going to be possible right now.
-
 22/12/2023 - Massive refactoring compared to older iterations, expect more in the future
 
 TO:DO
-    - Add back MT support but for upscaling only.
-    - Provide a bundled version with all of the dependencies included ( need assitance with this ).
-    - Add more functionalities to Cugan-AMD.
     - Fix SwinIR.
     - Fix RIFE padding - not sure what's the issue, 3840x2160 inputs have padding issues, 1920x1080 seems to be fine though :/
-    - Improve performance.
     - Add testing.
-    - Add DepthMap process.
-    - Maybe add TRT.
+    - Play around with better mpdecimate params
+    - Something is keeping the process alive even after it's done, Not sure what it is just yet
 """
 
 ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
@@ -65,8 +52,8 @@ class Main:
         # This is necessary on the top since the script heavily relies on FFMPEG, I will look into FFMPEG Reader from moviepy but it lacks the filtering abillity, so I will have to implement that myself using SSIM/MSE later on
         self.check_ffmpeg()
 
-        """
-        # There's no need to start the process if the user only wants dedup and nothing else
+        # There's no need to start the decode encode cycle if the user only wants to dedup
+        # Therefore I just hand the input to ffmpeg and call upon mpdecimate
         if self.interpolate == False and self.upscale == False and self.dedup == True:
             if self.outpoint != 0:
                 from src.trim_input import trim_input_dedup
@@ -78,7 +65,6 @@ class Main:
                             mpdecimate_params, self.ffmpeg_path).run()
 
             return
-        """
 
         self.get_video_metadata()
         self.intitialize_models()
@@ -117,12 +103,12 @@ class Main:
             self.new_height *= self.upscale_factor
             logging.info(
                 f"Upscaling to {self.new_width}x{self.new_height}")
-            
+
             if self.upscale_method == "shufflecugan" or self.upscale_method == "cugan":
                 from src.cugan.cugan import Cugan
                 self.upscale_process = Cugan(
                     self.upscale_method, self.upscale_factor, self.cugan_kind, self.half)
-                
+
             elif self.upscale_method == "cugan-amd":
                 from src.cugan.cugan import CuganAMD
                 self.upscale_process = CuganAMD(
@@ -176,7 +162,6 @@ class Main:
             "-",
         ])
 
-        # ffmpeg_command = f"{self.ffmpeg_path} -i {self.input} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats -"
         process = subprocess.Popen(
             ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -196,7 +181,7 @@ class Main:
 
         stderr = process.stderr.read().decode()
         if stderr:
-            # This will output an error even if everything is correct  because it will try to read from a pipe which has no more data,
+            # This will output an error even if everything is correct  because it will try to read from a pipe which has no more data left,
             # Ignore errors like "root - ERROR - ffmpeg error: frame=   24 fps=0.0 q=-0.0 Lsize=  145800kB time=00:00:01.00 bitrate=1193200.4kbits/s speed=10.1x"
             logging.error(f"ffmpeg error: {stderr}")
 
