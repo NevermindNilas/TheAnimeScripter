@@ -39,7 +39,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 
 - in the terminal type ```auto-py-to-exe```
 
-- Select: One Directory, input folder is going to be main.py and additional files the folder src
+- Select: One Directory, input folder is going to be main.py and additional files the folder src and get_ffmpeg.bat
 
 #### How to use inside of After Effects
 
