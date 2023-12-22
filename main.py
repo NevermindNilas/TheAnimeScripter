@@ -1,12 +1,12 @@
 import os
 import argparse
 import _thread
-import time
 import logging
 import subprocess
 import numpy as np
-import sys
+import time
 
+from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
 from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
@@ -64,20 +64,23 @@ class Main:
                 DedupFFMPEG(self.input, self.output,
                             mpdecimate_params, self.ffmpeg_path).run()
 
+            logging.info("The user only wanted to dedup, exiting")
             return
 
         self.get_video_metadata()
         self.intitialize_models()
         self.intitialize()
+        
+        self.threads_done = False
+        
+        with ThreadPoolExecutor(max_workers = 1) as executor:
+            executor.submit(self.start_process)
 
-        self.threads_are_running = True
-
-        self.start_process()
-
-        while self.read_buffer.qsize() > 0 or len(self.processed_frames) > 0:
+        while self.read_buffer.qsize() > 0 and len (self.processed_frames) > 0:
             time.sleep(0.1)
-
-        self.threads_are_running = False
+        
+        self.threads_done = True
+        
 
     def intitialize(self):
 
@@ -215,12 +218,13 @@ class Main:
                 self.processed_frames.append(frame)
         except Exception as e:
             logging.exception("An error occurred during processing")
+            
 
     def clear_write_buffer(self):
         try:
             while True:
                 if not self.processed_frames:
-                    if self.read_buffer.empty() and self.threads_are_running == False:
+                    if self.read_buffer.empty() and self.threads_done:
                         break
                     else:
                         continue
@@ -234,6 +238,8 @@ class Main:
 
         self.writer.close()
         self.pbar.close()
+        print("Closing the process")
+        
 
     def get_video_metadata(self):
         clip = VideoFileClip(self.input)
@@ -246,6 +252,7 @@ class Main:
             f"Video Metadata: {self.width}x{self.height} @ {self.fps}fps, {self.nframes} frames")
 
         clip.close()
+
 
     def check_ffmpeg(self):
         dir_path = os.path.dirname(os.path.realpath(__file__))
