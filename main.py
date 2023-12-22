@@ -147,15 +147,15 @@ class Main:
             total=None if self.dedup else self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True)
         if self.outpoint != 0:
             if self.dedup:
-                ffmpeg_command = f"{self.ffmpeg_path} -i {self.input} -ss {self.inpoint} -to {self.outpoint} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats"
+                ffmpeg_command = f"{self.ffmpeg_path} -ss {self.inpoint} -to {self.outpoint} -i {self.input} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats"
                 self.dedup = False
             else:
-                ffmpeg_command = f'"{self.ffmpeg_path}" -i "{self.input}" -ss {self.inpoint} -to {self.outpoint} -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats'
+                ffmpeg_command = f'"{self.ffmpeg_path}" -ss {self.inpoint} -to {self.outpoint} -i {self.input} -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats'
+
+        if self.dedup:
+            ffmpeg_command = f"{self.ffmpeg_path} -i {self.input} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -"
         else:
-            if self.dedup:
-                ffmpeg_command = f"{self.ffmpeg_path} -i {self.input} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -"
-            else:
-                ffmpeg_command = f'"{self.ffmpeg_path}" -i "{self.input}" -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -'
+            ffmpeg_command = f'"{self.ffmpeg_path}" -i {self.input} -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -'
 
         process = subprocess.Popen(
             ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
@@ -217,9 +217,10 @@ class Main:
                 self.pbar.update(1)
         except Exception as e:
             logging.exception("An error occurred during writing")
-
-        self.writer.close()
-        self.pbar.close()
+        
+        finally:
+            self.writer.close()
+            self.pbar.close()
 
     def get_video_metadata(self):
         clip = VideoFileClip(self.input)
