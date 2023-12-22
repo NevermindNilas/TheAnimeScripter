@@ -110,7 +110,7 @@ class Main:
             if self.upscale_method == "shufflecugan" or self.upscale_method == "cugan":
                 from src.cugan.cugan import Cugan
                 self.upscale_process = Cugan(
-                    self.upscale_method, self.upscale_factor, self.cugan_kind, self.half)
+                    self.upscale_method, self.upscale_factor, self.cugan_kind, self.half, self.width, self.height)
 
             elif self.upscale_method == "cugan-amd":
                 from src.cugan.cugan import CuganAMD
