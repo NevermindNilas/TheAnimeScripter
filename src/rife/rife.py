@@ -15,15 +15,17 @@ class Rife:
         self.width = self.frame_size[0]
         self.height = self.frame_size[1]
         self.modelDir = os.path.dirname(os.path.realpath(__file__))
-        self.padding = (0, ((self.width - 1) // 128 + 1) * 128 - self.width,
-                        0, ((self.height - 1) // 128 + 1) * 128 - self.height)
 
         self.handle_model()
 
     def handle_model(self):
         if self.UHD == True and self.scale == 1.0:
             self.scale = 0.5
-        assert self.scale in [0.25, 0.5, 1.0, 2.0, 4.0]
+
+        tmp = max(128, int(128 / self.scale))
+        ph = ((self.height - 1) // tmp + 1) * tmp
+        pw = ((self.width - 1) // tmp + 1) * tmp
+        self.padding = (0, pw - self.width, 0, ph - self.height)
 
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
@@ -57,11 +59,11 @@ class Rife:
 
     def pad_image(self, img):
         if self.half:
-            return F.pad(img, self.padding).half().cuda()
+            return F.pad(img, self.padding).half()
         else:
             return F.pad(img, self.padding)
 
-    def run(self, I0, I1, n, frame_size):
+    def run(self, I0, I1, n):
         buffer = []
         I0 = torch.from_numpy(np.transpose(I0, (2, 0, 1))).to(
             self.device, non_blocking=True).unsqueeze(0).float() / 255.
@@ -75,6 +77,6 @@ class Rife:
 
         for mid in output:
             mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
-            buffer.append(mid[:frame_size[1], :frame_size[0], :])
+            buffer.append(mid[:self.height, :self.width])
 
         return buffer
