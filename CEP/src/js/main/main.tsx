@@ -45,11 +45,15 @@ const Main = () => {
       setOutputFolder(folder.data);
     }
   }
-  
+
   const start = async () => {
     var pyi = new PyInterface('TheAnimeScripter');
     await pyi.connect();
 
+    await pyi.evalAsync('request_from_JS', upScaleModel.name, denoiseOption.name,
+    selected.includes("1" as never), selected.includes("3" as never), selected.includes("2" as never),
+     upscaleValue, interpolateValue, outputFolder);
+     
   }
 
   const test = async () => {
