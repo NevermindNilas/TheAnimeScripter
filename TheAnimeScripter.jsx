@@ -572,7 +572,6 @@ var TheAnimeScripter = (function() {
                 alert(error);
             }
 
-
             //alert (command);
             callCommand(command);
 
