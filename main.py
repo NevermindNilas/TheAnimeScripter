@@ -64,6 +64,7 @@ class Main:
         # This is necessary on the top since the script heavily relies on FFMPEG, I will look into FFMPEG Reader from moviepy but it lacks the filtering abillity, so I will have to implement that myself using SSIM/MSE later on
         self.check_ffmpeg()
 
+        """
         # There's no need to start the process if the user only wants dedup and nothing else
         if self.interpolate == False and self.upscale == False and self.dedup == True:
             if self.outpoint != 0:
@@ -76,6 +77,7 @@ class Main:
                             mpdecimate_params, self.ffmpeg_path).run()
 
             return
+        """
 
         self.get_video_metadata()
         self.intitialize_models()
@@ -92,25 +94,27 @@ class Main:
 
     def intitialize(self):
 
+        self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
+
         self.writer = FFMPEG_VideoWriter(
             self.output, (self.new_width, self.new_height), self.fps, ffmpeg_params=ffmpeg_params)
 
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = deque()
-        
+
         _thread.start_new_thread(self.build_buffer, ())
         _thread.start_new_thread(self.clear_write_buffer, ())
 
     def intitialize_models(self):
         self.new_width = self.width
         self.new_height = self.height
-        
+
         if self.upscale:
-            
+
             # Setting new width and height for processing
             self.new_width *= self.upscale_factor
             self.new_height *= self.upscale_factor
-            
+
             if self.upscale_method == "shufflecugan" or self.upscale_method == "cugan":
                 from src.cugan.cugan import Cugan
                 self.upscale_process = Cugan(
@@ -141,24 +145,37 @@ class Main:
             UHD = True if self.new_width >= 3840 or self.new_height >= 2160 else False
             self.interpolate_process = Rife(
                 self.interpolate_factor, self.half, (self.new_width, self.new_height), UHD)
-            
+
     def build_buffer(self):
+        if self.interpolate:
+            self.nframes *= self.interpolate_factor
+
         self.pbar = tqdm(
-            total=None if self.dedup else self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True)
+            total=None if self.dedup else self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
+
+        ffmpeg_command = [
+            self.ffmpeg_path,
+            "-i", self.input,
+        ]
         if self.outpoint != 0:
-            if self.dedup:
-                ffmpeg_command = f"{self.ffmpeg_path} -ss {self.inpoint} -to {self.outpoint} -i {self.input} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats"
-                self.dedup = False
-            else:
-                ffmpeg_command = f'"{self.ffmpeg_path}" -ss {self.inpoint} -to {self.outpoint} -i {self.input} -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats'
+            ffmpeg_command.extend(
+                ["-ss", str(self.inpoint), "-to", str(self.outpoint)])
 
-        if self.dedup:
-            ffmpeg_command = f"{self.ffmpeg_path} -i {self.input} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -"
-        else:
-            ffmpeg_command = f'"{self.ffmpeg_path}" -i {self.input} -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -'
+        if self.dedup == True:
+            ffmpeg_command.extend(
+                ["-vf", mpdecimate_params, "-an"])
 
+        ffmpeg_command.extend([
+            "-f", "rawvideo",
+            "-pix_fmt", "rgb24",
+            "-",
+        ])
+
+        #ffmpeg_command = f"{self.ffmpeg_path} -i {self.input} -vf {mpdecimate_params} -an -f image2pipe -pix_fmt rgb24 -vcodec rawvideo -v quiet -stats -"
         process = subprocess.Popen(
-            ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        logging.info(f"Running command: {ffmpeg_command}")
 
         frame_size = self.width * self.height * 3
         frame_count = 0
@@ -172,9 +189,15 @@ class Main:
             self.read_buffer.put(frame)
             frame_count += 1
 
+        # For terminating the pipe and subprocess properly
+        process.stdout.close()
+        process.terminate()
+
         stderr = process.stderr.read().decode()
         if stderr:
             logging.error(f"ffmpeg error: {stderr}")
+
+        logging.info(f"Read {frame_count} frames")
 
         logging.info(f"Read {frame_count} frames")
 
@@ -217,7 +240,7 @@ class Main:
                 self.pbar.update(1)
         except Exception as e:
             logging.exception("An error occurred during writing")
-        
+
         finally:
             self.writer.close()
             self.pbar.close()
@@ -228,6 +251,9 @@ class Main:
         self.height = clip.size[1]
         self.fps = clip.fps
         self.nframes = clip.reader.nframes
+
+        logging.info(
+            f"Video Metadata: {self.width}x{self.height} @ {self.fps}fps, {self.nframes} frames")
 
         clip.close()
 
