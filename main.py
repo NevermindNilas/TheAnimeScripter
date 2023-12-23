@@ -81,9 +81,7 @@ class Main:
         while self.read_buffer.qsize() > 0 and len (self.processed_frames) > 0:
             time.sleep(0.1)
         
-        self.threads_done = True
-        time.sleep(0.5)
-        
+        self.threads_done = True        
 
     def intitialize(self):
 
@@ -112,7 +110,6 @@ class Main:
 
             if self.upscale_method == "shufflecugan" or self.upscale_method == "cugan":
                 from src.cugan.cugan import Cugan
-                print(f"The Types of all arguments are: upscale_method: {type(self.upscale_method)}, upscale_factor: {type(self.upscale_factor)}, cugan_kind: {type(self.cugan_kind)}, half: {type(self.half)}, width: {type(self.width)}, height: {type(self.height)}")
                 self.upscale_process = Cugan(
                     self.upscale_method, int(self.upscale_factor), self.cugan_kind, self.half, self.width, self.height)
 
