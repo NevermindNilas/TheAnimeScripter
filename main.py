@@ -5,6 +5,7 @@ import logging
 import subprocess
 import numpy as np
 import time
+from multiprocessing import Process
 
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
@@ -182,16 +183,21 @@ class Main:
             self.read_buffer.put(frame)
             frame_count += 1
 
+        """
         stderr = process.stderr.read().decode()
         if stderr:
             # This will output an error even if everything is correct  because it will try to read from a pipe which has no more data left,
             # Ignore errors like "root - ERROR - ffmpeg error: frame=   24 fps=0.0 q=-0.0 Lsize=  145800kB time=00:00:01.00 bitrate=1193200.4kbits/s speed=10.1x"
             logging.error(f"ffmpeg error: {stderr}")
+        """
 
         # For terminating the pipe and subprocess properly
         process.stdout.close()
         process.stderr.close()
         process.terminate()
+        
+        for _ in range(self.nt):
+            self.read_buffer.put(None)
 
         logging.info(f"Read {frame_count} frames")
 
@@ -224,7 +230,7 @@ class Main:
         try:
             while True:
                 if not self.processed_frames:
-                    if self.read_buffer.empty() and self.threads_done:
+                    if self.read_buffer.empty() and self.threads_done == True:
                         break
                     else:
                         continue
