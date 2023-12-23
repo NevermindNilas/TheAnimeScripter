@@ -3,7 +3,7 @@ import requests
 import torch
 import numpy as np
 
-from .swinir_arch import SwinIR as SwinIR_model
+from .swinir_arch import SwinIR as SwinIR_arch
 
 class Swinir():
     def __init__(self, upscale_factor, half, width, height):
@@ -15,6 +15,8 @@ class Swinir():
         self.filename = "2x_Bubble_AnimeScale_SwinIR_Small_v1.pth"
         self.model_path = os.path.join(self.weights_dir, self.filename)
         self.url = "https://github.com/Bubblemint864/AI-Models/releases/download/2x_Bubble_AnimeScale_SwinIR_Small_v1/2x_Bubble_AnimeScale_SwinIR_Small_v1.pth"
+        self.h_pad = (height // 8 + 1) * 8 - height
+        self.w_pad = (width // 8 + 1) * 8 - width
 
         self.handle_models()
 
@@ -39,7 +41,7 @@ class Swinir():
         pretrained_model = torch.load(self.model_path, map_location="cpu")
         pretrained_model = pretrained_model["params"]
 
-        self.model = SwinIR_model(
+        self.model = SwinIR_arch(
             upscale=2,
             in_chans=3,
             img_size=32,
@@ -72,8 +74,8 @@ class Swinir():
             return self.model(frame)
 
     def pad_frame(self, frame):
-        frame = torch.cat([frame, torch.flip(frame, [2])], 2)[:, :, :self.height, :]
-        frame = torch.cat([frame, torch.flip(frame, [3])], 3)[:, :, :, :self.width]
+        frame = torch.cat([frame, torch.flip(frame, [2])], 2)[:, :, :self.height + self.h_pad, :]
+        frame = torch.cat([frame, torch.flip(frame, [3])], 3)[:, :, :, :self.width + self.w_pad]
         return frame
 
     def transform_frame(self, frame):
