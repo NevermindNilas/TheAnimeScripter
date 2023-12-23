@@ -3,6 +3,7 @@ import argparse
 import _thread
 import logging
 import subprocess
+import sys
 import numpy as np
 import time
 
@@ -11,7 +12,8 @@ from tqdm import tqdm
 from moviepy.editor import VideoFileClip
 from multiprocessing import Queue
 from collections import deque
-
+script_dir = os.path.dirname(__file__)  # Path to the directory where your script is located
+sys.path.append(script_dir)  # Add this directory to the Python path
 
 """
 22/12/2023 - Massive refactoring compared to older iterations, expect more in the future
@@ -30,6 +32,7 @@ mpdecimate_params = "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/T
 
 class Main:
     def __init__(self, args):
+        ## args is a dictionary
         self.input = os.path.normpath(args.input)
         self.output = os.path.normpath(args.output)
         self.interpolate = args.interpolate
@@ -79,6 +82,7 @@ class Main:
             time.sleep(0.1)
         
         self.threads_done = True
+        time.sleep(0.5)
         
 
     def intitialize(self):
@@ -108,8 +112,9 @@ class Main:
 
             if self.upscale_method == "shufflecugan" or self.upscale_method == "cugan":
                 from src.cugan.cugan import Cugan
+                print(f"The Types of all arguments are: upscale_method: {type(self.upscale_method)}, upscale_factor: {type(self.upscale_factor)}, cugan_kind: {type(self.cugan_kind)}, half: {type(self.half)}, width: {type(self.width)}, height: {type(self.height)}")
                 self.upscale_process = Cugan(
-                    self.upscale_method, self.upscale_factor, self.cugan_kind, self.half, self.width, self.height)
+                    self.upscale_method, int(self.upscale_factor), self.cugan_kind, self.half, self.width, self.height)
 
             elif self.upscale_method == "cugan-amd":
                 from src.cugan.cugan import CuganAMD
@@ -135,7 +140,7 @@ class Main:
 
             UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
             self.interpolate_process = Rife(
-                self.interpolate_factor, self.half, self.new_width, self.new_height, UHD)
+                int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
 
     def build_buffer(self):
         if self.interpolate:
@@ -146,7 +151,7 @@ class Main:
 
         ffmpeg_command = [
             self.ffmpeg_path,
-            "-i", self.input,
+            "-i", str(self.input),
         ]
         if self.outpoint != 0:
             ffmpeg_command.extend(
