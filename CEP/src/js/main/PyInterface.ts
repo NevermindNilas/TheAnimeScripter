@@ -35,8 +35,10 @@ class PyInterface {
         return new Promise<void>((resolve, reject) => {
             this.client.connect(this.pipePath, () => {
                 resolve();
+                console.log('Connected to python script');
             }).on('error', (err: any) => {
                 reject(err);
+                console.log('Error connecting to python script');
             });
         });
     }
@@ -91,6 +93,7 @@ class PyInterface {
                 return acc;
             }, {})
         };
+        console.log(JSON.stringify(data));
         return this.send(data);
     }
 

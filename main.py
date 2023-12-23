@@ -31,6 +31,7 @@ mpdecimate_params = "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/T
 
 class Main:
     def __init__(self, args):
+        ## args is a dictionary
         self.input = os.path.normpath(args.input)
         self.output = os.path.normpath(args.output)
         self.interpolate = args.interpolate
@@ -115,12 +116,12 @@ class Main:
                 self.upscale_process = CuganAMD(
                     self.nt, self.upscale_factor
                 )
-            elif self.upscale_method == "compact" or self.upscale_method == "ultracompact" or self.upscale_method == "superultracompact":
+            elif self.upscale_method == "Compact" or self.upscale_method == "UltraCompact" or self.upscale_method == "SuperUltraCompact":
                 from src.compact.compact import Compact
                 self.upscale_process = Compact(
                     self.upscale_method, self.half)
 
-            elif self.upscale_method == "swinir":
+            elif self.upscale_method == "Swinir":
                 from src.swinir.swinir import Swinir
                 self.upscale_process = Swinir(
                     self.upscale_factor, self.half, self.width, self.height)
