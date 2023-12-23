@@ -11,8 +11,8 @@ class Rife:
         self.half = half
         self.UHD = UHD
         self.scale = 1.0
-        self.width = width
-        self.height = height
+        self.width = int(width)
+        self.height = int(height)
         self.modelDir = os.path.dirname(os.path.realpath(__file__))
 
         self.handle_model()
@@ -22,10 +22,10 @@ class Rife:
             self.scale = 0.5
 
         tmp = max(128, int(128 / self.scale))
-        ph = ((self.height - 1) // tmp + 1) * tmp
-        pw = ((self.width - 1) // tmp + 1) * tmp
-        self.padding = (0, pw - self.width, 0, ph - self.height)
-
+        ph = int(((self.height - 1) // tmp + 1) * tmp)
+        pw = int(((self.width - 1) // tmp + 1) * tmp)
+        self.padding = (0, pw - self.width, 0, ph - self.height) 
+        print(f"Padding: {self.padding}")
 
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")

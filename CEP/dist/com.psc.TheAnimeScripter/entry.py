@@ -11,8 +11,7 @@ def request_from_JS(args_list):
         # Only arg we need to check is output folder, all others were already verified by JS.
         print("request_from_JS")
         upscale_model, denoise_option, dedup_opt, interp_opt, upscale_opt, upscale_value, interp_value, output_folder = args_list
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
+            
         path = ""   
         
         if dedup_opt == False and interp_opt == False and upscale_opt == False:
@@ -30,7 +29,12 @@ def request_from_JS(args_list):
         print(path)     
         if path == "":
             return "No active footage selected."
-        
+        if os.path.exists(output_folder) == False:
+            return "Output folder does not exist."
+        else:
+            #remove ".mp4" from the end of the path variable
+            newpath = path[:-4]
+            output_folder = output_folder + "/" + os.path.basename(newpath) + "_upscaled.mp4"
        # Define the keys corresponding to the values in args_list
         arg_keys = ["upscale_model", "denoise_option", "dedup_opt", "interp_opt", 
                     "upscale_opt", "upscale_value", "interp_value", "output_folder"]
@@ -63,7 +67,7 @@ def request_from_JS(args_list):
         
         process_request(args)
         # to get out path, take the folder, add the name of the file
-        out_path = os.path.join(output_folder, os.path.basename(path))  # Or however things are named
+        out_path = output_folder
         source.replace("new_name", out_path) # Replace the source with the new one
         return "Success!"
     except Exception as e:
