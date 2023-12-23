@@ -22,6 +22,7 @@ TO:DO
     - Add testing.
     - Play around with better mpdecimate params
     - Something is keeping the process alive even after it's done, Not sure what it is just yet
+    - use alive_bar instead of tqdm ( it looks cooler :D )
 """
 
 ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
@@ -124,7 +125,7 @@ class Main:
             elif self.upscale_method == "swinir":
                 from src.swinir.swinir import Swinir
                 self.upscale_process = Swinir(
-                    self.upscale_factor, self.half)
+                    self.upscale_factor, self.half, self.width, self.height)
 
             else:
                 logging.info(
