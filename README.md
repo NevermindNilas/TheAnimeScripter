@@ -78,8 +78,6 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 ## 📋 To-Do
 
 In no particular order:
-- Add MT back
-- Fix SwinIR
 - Add testing. ( high priority )
 - ADd DepthMap process ( high priority )
 - Maybe add TRT. ( probably not )
