@@ -21,7 +21,6 @@ class Rife:
         if self.UHD == True:
             self.scale = 0.5
 
-
         ph = ((self.height - 1) // 64 + 1) * 64
         pw = ((self.width - 1) // 64 + 1) * 64
         self.padding = (0, pw - self.width, 0, ph - self.height)
