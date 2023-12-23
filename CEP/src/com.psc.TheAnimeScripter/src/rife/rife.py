@@ -21,10 +21,11 @@ class Rife:
         if self.UHD == True:
             self.scale = 0.5
 
-
-        ph = ((self.height - 1) // 64 + 1) * 64
-        pw = ((self.width - 1) // 64 + 1) * 64
-        self.padding = (0, pw - self.width, 0, ph - self.height)
+        tmp = max(128, int(128 / self.scale))
+        ph = int(((self.height - 1) // tmp + 1) * tmp)
+        pw = int(((self.width - 1) // tmp + 1) * tmp)
+        self.padding = (0, pw - self.width, 0, ph - self.height) 
+        print(f"Padding: {self.padding}")
 
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
@@ -73,6 +74,6 @@ class Rife:
 
         for mid in output:
             mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
-            buffer.append(mid[:self.height, :self.width, :])
+            buffer.append(mid[:self.width, :self.height, :])
 
         return buffer

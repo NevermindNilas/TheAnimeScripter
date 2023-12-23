@@ -8,7 +8,7 @@ import PyInterface from "./PyInterface";
 
 //import the host stuf from ad
 const Main = () => {
-  const [outputFolder, setOutputFolder] = useState("C:/Users/YourName/Desktop/Output");
+  const [outputFolder, setOutputFolder] = useState("");
   const UpScaleOptions = [
     {id: 1, name: "ShuffleCugan"},
     {id: 2, name: "Compact"},
@@ -23,53 +23,84 @@ const Main = () => {
     {id: 3, name: "Denoise 1x"},
     {id: 4, name: "Denoise 2x"},
   ];
-  const [denoiseOption, setDenoiseOption] = useState(CuganDenoiseOptions[0]);
-  const [upScaleModel, setUpScaleModel] = useState(UpScaleOptions[0]);
+  const [denoiseOption, setDenoiseOption] = useState('');
+  const [upScaleModel, setUpScaleModel] = useState('');
   const [selected, setSelected] = useState([]);
   const [upscaleValue, setUpscaleValue] = useState(2);
   const [interpolateValue, setInterpolateValue] = useState(2);
 
   const handleSelectionChange = (item: any) => {
     setUpScaleModel(item);
-    upScaleModel.name = item.name;
   }
 
   const handleDenoiseChange = (item: any) => {
     setDenoiseOption(item);
-    denoiseOption.name = item.name;
   }
 
   const selectOutputFolder = () => {
     const folder = window.cep.fs.showOpenDialog(false, true, "Select Output Folder", null, null);
     if (folder.err === 0) {
-      setOutputFolder(folder.data);
+      //folder.data is an array containing the string, turn into string
+      const outFolder = folder.data.toString();
+      setOutputFolder(outFolder);
+    }
+  }
+  
+  const returnStringFromID = (id: string) => {
+    switch (id) {
+      case "1":
+        return "shufflecugan";
+      case "2":
+        return "compact";
+      case "3":
+        return "ultracompact";
+      case "4":
+        return "superultracompact";
+      case "5":
+        return "cugan";
+      case "6":
+        return "cugan-amd";
+      default:
+        return "shufflecugan";
+    }
+  }
+
+  const returnDenoiseStringFromID = (id: string) => {
+    switch (id) {
+      case "1":
+        return "No Denoise";
+      case "2":
+        return "Conservative";
+      case "3":
+        return "Denoise 1x";
+      case "4":
+        return "Denoise 2x";
+      default:
+        return "No Denoise";
     }
   }
 
   const start = async () => {
     var pyi = new PyInterface('TheAnimeScripter');
     await pyi.connect();
+    const args = {
+      name: returnStringFromID(upScaleModel),
+      denoise: returnDenoiseStringFromID(denoiseOption),
+      check1: selected.includes("1" as never),
+      check2: selected.includes("3" as never),
+      check3: selected.includes("2" as never),
+      upscaleValue: upscaleValue,
+      interpolateValue: interpolateValue,
+      outputFolder: outputFolder
+    }
 
-    await pyi.evalAsync('request_from_JS', upScaleModel.name, denoiseOption.name,
-    selected.includes("1" as never), selected.includes("3" as never), selected.includes("2" as never),
-     upscaleValue, interpolateValue, outputFolder);
+    console.log(JSON.stringify(args));  
+    const result = await pyi.evalPy('request_from_JS', args.name, args.denoise, args.check1, args.check2, args.check3, args.upscaleValue, args.interpolateValue, args.outputFolder);
+     console.log(result);
      
   }
 
-  const test = async () => {
-    const data = {
-      outputFolder: outputFolder,
-      Deduplicatevalue: selected.includes("1" as never),
-      Upscalevalue: selected.includes("2" as never),
-      Interpolatevalue: selected.includes("3" as never),
-      upscaleValue: upscaleValue,
-      interpolateValue: interpolateValue,
-      upScaleModel: upScaleModel.name,
-      denoiseOption: denoiseOption.name
-    }
-    console.log(JSON.stringify(data));
-  }
-    
+ 
   return (
     <div>
       <Provider theme={darkTheme}>
@@ -110,7 +141,7 @@ const Main = () => {
         </Picker>
         <Slider width = '90vw' label="Upscale Value" value={upscaleValue} onChange={setUpscaleValue} labelValue="Upscale Value" />
         <Slider width = '90vw' label = "Interpolate Value" value={interpolateValue} onChange={setInterpolateValue} labelValue="Interpolate Value" />
-        <ActionButton aria-label = "Start" width = '85vw' onPress={test}>
+        <ActionButton aria-label = "Start" width = '85vw' onPress={start}>
         <Play/>
           Start
       </ActionButton>
