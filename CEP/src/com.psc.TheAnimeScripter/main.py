@@ -6,10 +6,12 @@ import subprocess
 import sys
 import numpy as np
 import time
+from multiprocessing import Process
 
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
+from moviepy.video.io.ffmpeg_writer import FFMPEG_VideoWriter
 from multiprocessing import Queue
 from collections import deque
 script_dir = os.path.dirname(__file__)  # Path to the directory where your script is located
@@ -20,15 +22,14 @@ sys.path.append(script_dir)  # Add this directory to the Python path
 
 TO:DO
     - Add testing.
-    - Fix Rife padding, again.
     - Play around with better mpdecimate params
-    - Find a way to add awarpsharp2 to the pipeline
 """
 
 ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
                  "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
 
 mpdecimate_params = "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB"
+
 
 class Main:
     def __init__(self, args):
@@ -48,8 +49,6 @@ class Main:
         self.half = args.half
         self.inpoint = args.inpoint
         self.outpoint = args.outpoint
-        self.sharpen = args.sharpen
-        self.sharpen_sens = args.sharpen_sens
 
         # This is necessary on the top since the script heavily relies on FFMPEG, I will look into FFMPEG Reader from moviepy but it lacks the filtering abillity, so I will have to implement that myself using SSIM/MSE later on
         self.check_ffmpeg()
@@ -88,9 +87,9 @@ class Main:
     def intitialize(self):
 
         self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
-            
-        #self.writer = FFMPEG_VideoWriter(
-        #    self.output, (self.new_width, self.new_height), self.fps, ffmpeg_params=ffmpeg_params)
+
+        self.writer = FFMPEG_VideoWriter(
+            self.output, (self.new_width, self.new_height), self.fps, ffmpeg_params=ffmpeg_params)
 
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = deque()
@@ -188,6 +187,7 @@ class Main:
 
         stderr = process.stderr.read().decode()
         if stderr:
+            # Ignore errors like "root - ERROR - ffmpeg error: frame=   24 fps=0.0 q=-0.0 Lsize=  145800kB time=00:00:01.00 bitrate=1193200.4kbits/s speed=10.1x"
             if "bitrate=" not in stderr:
                 logging.error(f"ffmpeg error: {stderr}")
 
@@ -212,16 +212,14 @@ class Main:
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
 
-                if self.interpolate:
-                    if prev_frame is not None:
-                        results = self.interpolate_process.run(
-                            prev_frame, frame, self.interpolate_factor)
-                        for result in results:
-                            self.processed_frames.append(result)
-                        
-                        prev_frame = frame
-                    else:
-                        prev_frame = frame
+                if self.interpolate and prev_frame is not None:
+                    results = self.interpolate_process.run(
+                        prev_frame, frame, int(self.interpolate_factor))
+                    for result in results:
+                        self.processed_frames.append(result)
+                    prev_frame = frame
+                elif self.interpolate:
+                    prev_frame = frame
 
                 self.processed_frames.append(frame)
         except Exception as e:
@@ -229,28 +227,6 @@ class Main:
             
 
     def clear_write_buffer(self):
-        command = [self.ffmpeg_path,
-                   '-y',
-                   '-f', 'rawvideo',
-                   '-vcodec', 'rawvideo',
-                   '-s', f'{self.new_width}x{self.new_height}',
-                   '-pix_fmt', 'rgb24',
-                   '-r', str(self.fps),  # Convert to string
-                   '-i', '-',
-                   '-an',
-                   '-c:v', 'libx264',
-                   '-preset', 'veryfast',
-                   '-crf', '15',
-                   '-tune', 'animation',
-                   '-movflags', '+faststart',
-                   self.output]
-
-        if self.sharpen:
-            command.insert(-1, '-vf')
-            command.insert(-1, f'cas={self.sharpen_sens}')
-            
-        pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-
         try:
             while True:
                 if not self.processed_frames:
@@ -261,18 +237,14 @@ class Main:
 
                 frame = self.processed_frames.popleft()
 
-                # Write the frame to FFmpeg
-                pipe.stdin.write(frame.tobytes())
-
+                self.writer.write_frame(frame)
                 self.pbar.update(1)
         except Exception as e:
             logging.exception("An error occurred during writing")
 
-        # Close the pipe
-        pipe.stdin.close()
-        pipe.wait()
-
+        self.writer.close()
         self.pbar.close()
+        print("Closing the process")
         
 
     def get_video_metadata(self):
@@ -326,8 +298,6 @@ if __name__ == "__main__":
     argparser.add_argument("--half", type=int, default=1)
     argparser.add_argument("--inpoint", type=float, default=0)
     argparser.add_argument("--outpoint", type=float, default=0)
-    argparser.add_argument("--sharpen", type=int, default=0)
-    argparser.add_argument("--sharpen_sens", type=int, default=0)
 
     try:
         args = argparser.parse_args()
@@ -341,18 +311,14 @@ if __name__ == "__main__":
     args.upscale = True if args.upscale == 1 else False
     args.dedup = True if args.dedup == 1 else False
     args.half = True if args.half == 1 else False
-    args.sharpen = True if args.sharpen == 1 else False
 
     args.upscale_method = args.upscale_method.lower()
     args.cugan_kind = args.cugan_kind.lower()
     args.dedup_method = args.dedup_method.lower()
 
-    args.sharpen_sens = args.sharpen_sens / 100
-    
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg}: {args_dict[arg]}")
-    
 
     if args.output and not os.path.isabs(args.output):
         dir_path = os.path.dirname(args.input)

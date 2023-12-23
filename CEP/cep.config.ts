@@ -1,7 +1,5 @@
 import { CEP_Config } from "vite-cep-plugin";
 import { version } from "./package.json";
-
-
 const config: CEP_Config = {
   version,
   id: "com.TheAnimeScripter.cep",
@@ -49,7 +47,7 @@ const config: CEP_Config = {
     jsxBin: "off",
   },
   installModules: [],
-  copyAssets: ["../com.psc.TheAnimeScripter"],
+  copyAssets: ["././com.psc.TheAnimeScripter"],
   copyZipAssets: [],
 };
 export default config;
