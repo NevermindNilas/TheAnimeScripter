@@ -11,8 +11,8 @@ class Rife:
         self.half = half
         self.UHD = UHD
         self.scale = 1.0
-        self.width = width
-        self.height = height
+        self.width = int(width)
+        self.height = int(height)
         self.modelDir = os.path.dirname(os.path.realpath(__file__))
 
         self.handle_model()
@@ -20,6 +20,7 @@ class Rife:
     def handle_model(self):
         if self.UHD == True:
             self.scale = 0.5
+
 
         ph = ((self.height - 1) // 64 + 1) * 64
         pw = ((self.width - 1) // 64 + 1) * 64
