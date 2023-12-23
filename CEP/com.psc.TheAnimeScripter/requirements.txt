@@ -1,0 +1,10 @@
+moviepy
+requests
+tqdm
+timm
+numpy<1.26
+realcugan-ncnn-py
+torch==2.1.0 
+torchvision 
+torchaudio 
+--extra-index-url https://download.pytorch.org/whl/cu121
