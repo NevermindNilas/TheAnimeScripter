@@ -334,7 +334,7 @@ var TheAnimeScripter = (function() {
     textUpscaleModel.text = "Upscale Model";
     textUpscaleModel.preferredSize.width = 103;
 
-    var dropdownModel_array = ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-AMD",];
+    var dropdownModel_array = ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-AMD", "-", "SwinIR"];
     var dropdownModel = group5.add("dropdownlist", undefined, undefined, {
         name: "dropdownModel",
         items: dropdownModel_array
