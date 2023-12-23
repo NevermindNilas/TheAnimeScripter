@@ -185,11 +185,16 @@ class FootageItem(Item):
     --------------------
     path: str
         The full path to the footage file.
-        
+    
+    Methods:
+    --------------------
+    replace(name: str = "New Footage", path: str = "") -> None
+        Replaces the footage with a new file.
     
     """
     def __init__(self, name: str = "New Footage", path: str = "", index: int = 1): ...
     path = str
+    def replace(self,  name: str = "New Footage", path: str = ""): ...
     
 class SolidItem(FootageItem):
     """
