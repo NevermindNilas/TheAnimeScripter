@@ -19,11 +19,8 @@ from collections import deque
 22/12/2023 - Massive refactoring compared to older iterations, expect more in the future
 
 TO:DO
-    - Fix SwinIR.
     - Add testing.
     - Play around with better mpdecimate params
-    - Something is keeping the process alive even after it's done, Not sure what it is just yet
-    - use alive_bar instead of tqdm ( it looks cooler :D )
 """
 
 ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
@@ -183,13 +180,11 @@ class Main:
             self.read_buffer.put(frame)
             frame_count += 1
 
-        """
         stderr = process.stderr.read().decode()
         if stderr:
-            # This will output an error even if everything is correct  because it will try to read from a pipe which has no more data left,
             # Ignore errors like "root - ERROR - ffmpeg error: frame=   24 fps=0.0 q=-0.0 Lsize=  145800kB time=00:00:01.00 bitrate=1193200.4kbits/s speed=10.1x"
-            logging.error(f"ffmpeg error: {stderr}")
-        """
+            if "bitrate=" not in stderr:
+                logging.error(f"ffmpeg error: {stderr}")
 
         # For terminating the pipe and subprocess properly
         process.stdout.close()
