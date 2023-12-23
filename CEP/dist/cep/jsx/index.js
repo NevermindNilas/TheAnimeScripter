@@ -44,7 +44,7 @@ var config = {
     jsxBin: "off"
   },
   installModules: [],
-  copyAssets: ["../com.psc.TheAnimeScripter"],
+  copyAssets: ["././com.psc.TheAnimeScripter"],
   copyZipAssets: []
 };
 
@@ -66,4 +66,4 @@ switch (BridgeTalk.appName) {
 }
 
 // https://extendscript.docsforadobe.dev/interapplication-communication/bridgetalk-class.html?highlight=bridgetalk#appname
-})(this);//# sourceMappingURL=index.js.map
+})(this);
