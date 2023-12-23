@@ -5,7 +5,6 @@ import logging
 import subprocess
 import numpy as np
 import time
-from multiprocessing import Process
 
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
@@ -20,6 +19,7 @@ from collections import deque
 
 TO:DO
     - Add testing.
+    - Fix Rife padding, again.
     - Play around with better mpdecimate params
 """
 
@@ -28,6 +28,7 @@ ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
 
 mpdecimate_params = "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB"
 
+sharpen_params = "unsharp=7:7:2.5:7:7:2.5"
 
 class Main:
     def __init__(self, args):
@@ -46,6 +47,7 @@ class Main:
         self.half = args.half
         self.inpoint = args.inpoint
         self.outpoint = args.outpoint
+        self.sharpen = args.sharpen
 
         # This is necessary on the top since the script heavily relies on FFMPEG, I will look into FFMPEG Reader from moviepy but it lacks the filtering abillity, so I will have to implement that myself using SSIM/MSE later on
         self.check_ffmpeg()
@@ -84,6 +86,8 @@ class Main:
 
         self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
 
+        if self.sharpen == True:
+            ffmpeg_params.extend(["-vf", "unsharp=5:5:1.0:5:5:0.0"])
         self.writer = FFMPEG_VideoWriter(
             self.output, (self.new_width, self.new_height), self.fps, ffmpeg_params=ffmpeg_params)
 
@@ -207,14 +211,16 @@ class Main:
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
 
-                if self.interpolate and prev_frame is not None:
-                    results = self.interpolate_process.run(
-                        prev_frame, frame, self.interpolate_factor)
-                    for result in results:
-                        self.processed_frames.append(result)
-                    prev_frame = frame
-                elif self.interpolate:
-                    prev_frame = frame
+                if self.interpolate:
+                    if prev_frame is not None:
+                        results = self.interpolate_process.run(
+                            prev_frame, frame, self.interpolate_factor)
+                        for result in results:
+                            self.processed_frames.append(result)
+                        
+                        prev_frame = frame
+                    else:
+                        prev_frame = frame
 
                 self.processed_frames.append(frame)
         except Exception as e:
@@ -293,6 +299,7 @@ if __name__ == "__main__":
     argparser.add_argument("--half", type=int, default=1)
     argparser.add_argument("--inpoint", type=float, default=0)
     argparser.add_argument("--outpoint", type=float, default=0)
+    argparser.add_argument("--sharpen", type=int, default=0)
 
     try:
         args = argparser.parse_args()
@@ -306,6 +313,7 @@ if __name__ == "__main__":
     args.upscale = True if args.upscale == 1 else False
     args.dedup = True if args.dedup == 1 else False
     args.half = True if args.half == 1 else False
+    args.sharpen = True if args.sharpen == 1 else False
 
     args.upscale_method = args.upscale_method.lower()
     args.cugan_kind = args.cugan_kind.lower()
