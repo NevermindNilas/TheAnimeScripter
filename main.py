@@ -86,9 +86,6 @@ class Main:
     def intitialize(self):
 
         self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
-            
-        #self.writer = FFMPEG_VideoWriter(
-        #    self.output, (self.new_width, self.new_height), self.fps, ffmpeg_params=ffmpeg_params)
 
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = deque()
@@ -324,7 +321,7 @@ if __name__ == "__main__":
     argparser.add_argument("--inpoint", type=float, default=0)
     argparser.add_argument("--outpoint", type=float, default=0)
     argparser.add_argument("--sharpen", type=int, default=0)
-    argparser.add_argument("--sharpen_sens", type=int, default=0)
+    argparser.add_argument("--sharpen_sens", type=float, default=0.8)
 
     try:
         args = argparser.parse_args()
