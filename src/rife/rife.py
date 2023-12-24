@@ -27,18 +27,13 @@ class Rife:
 
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
+        
         torch.set_grad_enabled(False)
         if torch.cuda.is_available():
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
-            if self.half:
-                torch.set_default_tensor_type(torch.cuda.HalfTensor)
-        try:
-            from .RIFE_HDv3 import Model
-        except:
-            raise Exception(
-                "Cannot load RIFE model, please check your weights")
-
+      
+        from .RIFE_HDv3 import Model
         self.model = Model()
         self.model.load_model(self.modelDir, -1)
         self.model.eval()

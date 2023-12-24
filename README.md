@@ -129,3 +129,4 @@ In no particular order:
 - [Massive] Release 0.1.2 (22/12/2023)
 - [Massive] Lowered total processing steps from 2 to 1 meaning faster processing and less encoding needed
 - Some minor performance improvements, not very noticeable for high end computers.
+- [Massive] Increased performance by ~25% by piping output directly to FFMPEG.
