@@ -3,17 +3,14 @@ import argparse
 import _thread
 import logging
 import subprocess
-import sys
 import numpy as np
 import time
-
+import warnings
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
 from multiprocessing import Queue
 from collections import deque
-script_dir = os.path.dirname(__file__)  # Path to the directory where your script is located
-sys.path.append(script_dir)  # Add this directory to the Python path
 
 """
 22/12/2023 - Massive refactoring compared to older iterations, expect more in the future
@@ -25,14 +22,17 @@ TO:DO
     - Find a way to add awarpsharp2 to the pipeline
 """
 
+warnings.filterwarnings("ignore")
+
 ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
                  "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
 
 mpdecimate_params = "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB"
 
+
 class Main:
     def __init__(self, args):
-        ## args is a dictionary
+        # args is a dictionary
         self.input = os.path.normpath(args.input)
         self.output = os.path.normpath(args.output)
         self.interpolate = args.interpolate
@@ -57,6 +57,9 @@ class Main:
         # There's no need to start the decode encode cycle if the user only wants to dedup
         # Therefore I just hand the input to ffmpeg and call upon mpdecimate
         if self.interpolate == False and self.upscale == False and self.dedup == True:
+            if self.sharpen == True:
+                mpdecimate_params += f',cas={self.sharpen_sens}'
+
             if self.outpoint != 0:
                 from src.trim_input import trim_input_dedup
                 trim_input_dedup(self.input, self.output, self.inpoint,
@@ -72,20 +75,18 @@ class Main:
         self.get_video_metadata()
         self.intitialize_models()
         self.intitialize()
-        
+
         self.threads_done = False
-        
-        with ThreadPoolExecutor(max_workers = 1) as executor:
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
             executor.submit(self.start_process)
 
-        while self.read_buffer.qsize() > 0 and len (self.processed_frames) > 0:
+        while self.read_buffer.qsize() > 0 and len(self.processed_frames) > 0:
             time.sleep(0.1)
-        
-        self.threads_done = True        
+
+        self.threads_done = True
 
     def intitialize(self):
-
-        self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
 
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = deque()
@@ -94,8 +95,10 @@ class Main:
         _thread.start_new_thread(self.clear_write_buffer, ())
 
     def intitialize_models(self):
+
         self.new_width = self.width
         self.new_height = self.height
+        self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
 
         if self.upscale:
 
@@ -189,7 +192,7 @@ class Main:
         process.stdout.close()
         process.stderr.close()
         process.terminate()
-        
+
         for _ in range(self.nt):
             self.read_buffer.put(None)
 
@@ -212,7 +215,7 @@ class Main:
                             prev_frame, frame, self.interpolate_factor)
                         for result in results:
                             self.processed_frames.append(result)
-                        
+
                         prev_frame = frame
                     else:
                         prev_frame = frame
@@ -220,7 +223,6 @@ class Main:
                 self.processed_frames.append(frame)
         except Exception as e:
             logging.exception("An error occurred during processing")
-            
 
     def clear_write_buffer(self):
         command = [self.ffmpeg_path,
@@ -229,7 +231,7 @@ class Main:
                    '-vcodec', 'rawvideo',
                    '-s', f'{self.new_width}x{self.new_height}',
                    '-pix_fmt', 'rgb24',
-                   '-r', str(self.fps),  # Convert to string
+                   '-r', str(self.fps),
                    '-i', '-',
                    '-an',
                    '-c:v', 'libx264',
@@ -242,8 +244,9 @@ class Main:
         if self.sharpen:
             command.insert(-1, '-vf')
             command.insert(-1, f'cas={self.sharpen_sens}')
-            
-        pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        pipe = subprocess.Popen(
+            command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
             while True:
@@ -267,7 +270,6 @@ class Main:
         pipe.wait()
 
         self.pbar.close()
-        
 
     def get_video_metadata(self):
         clip = VideoFileClip(self.input)
@@ -280,7 +282,6 @@ class Main:
             f"Video Metadata: {self.width}x{self.height} @ {self.fps}fps, {self.nframes} frames")
 
         clip.close()
-
 
     def check_ffmpeg(self):
         dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -341,12 +342,11 @@ if __name__ == "__main__":
     args.cugan_kind = args.cugan_kind.lower()
     args.dedup_method = args.dedup_method.lower()
 
-    args.sharpen_sens = args.sharpen_sens / 100
-    
+    args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
+
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg}: {args_dict[arg]}")
-    
 
     if args.output and not os.path.isabs(args.output):
         dir_path = os.path.dirname(args.input)
