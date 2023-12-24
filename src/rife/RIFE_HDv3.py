@@ -4,14 +4,12 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from .IFNet_HDv3 import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
 class Model:
     def __init__(self, local_rank=-1):
         self.flownet = IFNet()
         self.device()
         self.optimG = AdamW(self.flownet.parameters(), lr=1e-6, weight_decay=1e-4)
         self.version = 4.8
-        # self.vgg = VGGPerceptualLoss().to(device)
         if local_rank != -1:
             self.flownet = DDP(self.flownet, device_ids=[local_rank], output_device=local_rank)
 
