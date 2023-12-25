@@ -559,7 +559,7 @@ var TheAnimeScripter = (function() {
                 alert(error);
             }
 
-            alert (command);
+            //alert (command);
             callCommand(command);
 
             $.sleep(500);
