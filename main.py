@@ -43,7 +43,6 @@ class Main:
         self.upscale_method = args.upscale_method
         self.cugan_kind = args.cugan_kind
         self.dedup = args.dedup
-        self.dedup_sens = args.dedup_sens
         self.dedup_method = args.dedup_method
         self.nt = args.nt
         self.half = args.half
