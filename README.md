@@ -78,9 +78,11 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 ## 📋 To-Do
 
 In no particular order:
-- Add testing. ( high priority )
-- ADd DepthMap process ( high priority )
-- Maybe add TRT. ( probably not )
+- Add testing.
+- Fix Rife padding, again.
+- Play around with better mpdecimate params
+- Find a way to add awarpsharp2 to the pipeline
+- Add bounding box support for Segmentation
 
 ## ✅ Done
 
@@ -130,3 +132,4 @@ In no particular order:
 - [Massive] Lowered total processing steps from 2 to 1 meaning faster processing and less encoding needed
 - Some minor performance improvements, not very noticeable for high end computers.
 - [Massive] Increased performance by ~25% by piping output directly to FFMPEG.
+- [Massive] Added Anime Segmentation for Auto Rotobrushing. Still some work left to do
