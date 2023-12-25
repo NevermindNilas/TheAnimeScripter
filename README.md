@@ -1,4 +1,5 @@
-![TAS-Banner](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7eebf967-5466-40a6-a6ba-14e8163c78bc)
+![TasImage](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/69aadcac-8a7f-4538-987b-969683fa1c52)
+
 
 # TheAnimeScripter
 
