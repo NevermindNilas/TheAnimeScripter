@@ -20,6 +20,7 @@ TO:DO
     - Fix Rife padding, again.
     - Play around with better mpdecimate params
     - Find a way to add awarpsharp2 to the pipeline
+    - Add bounding box support for Segmentation
 """
 
 warnings.filterwarnings("ignore")
@@ -50,10 +51,21 @@ class Main:
         self.outpoint = args.outpoint
         self.sharpen = args.sharpen
         self.sharpen_sens = args.sharpen_sens
+        self.segment = args.segment
 
         # This is necessary on the top since the script heavily relies on FFMPEG, I will look into FFMPEG Reader from moviepy but it lacks the filtering abillity, so I will have to implement that myself using SSIM/MSE later on
         self.check_ffmpeg()
-
+        
+        if self.segment == True:
+            from src.segment.segment import Segment
+            
+            self.get_video_metadata()
+            
+            process = Segment(self.input, self.output, self.ffmpeg_path, self.width, self.height, self.fps, self.nframes, self.inpoint, self.outpoint)
+            result = process.run()
+            logging.info("The user only wanted to segment, exiting after processing")
+            return
+        
         # There's no need to start the decode encode cycle if the user only wants to dedup
         # Therefore I just hand the input to ffmpeg and call upon mpdecimate
         if self.interpolate == False and self.upscale == False and self.dedup == True:
@@ -322,7 +334,8 @@ if __name__ == "__main__":
     argparser.add_argument("--inpoint", type=float, default=0)
     argparser.add_argument("--outpoint", type=float, default=0)
     argparser.add_argument("--sharpen", type=int, default=0)
-    argparser.add_argument("--sharpen_sens", type=float, default=0.8)
+    argparser.add_argument("--sharpen_sens", type=float, default=50)
+    argparser.add_argument("--segment", type=int, default=0)
 
     try:
         args = argparser.parse_args()
@@ -337,6 +350,7 @@ if __name__ == "__main__":
     args.dedup = True if args.dedup == 1 else False
     args.half = True if args.half == 1 else False
     args.sharpen = True if args.sharpen == 1 else False
+    args.segment = True if args.segment == 1 else False
 
     args.upscale_method = args.upscale_method.lower()
     args.cugan_kind = args.cugan_kind.lower()

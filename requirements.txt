@@ -3,6 +3,7 @@ requests
 tqdm
 timm
 numpy<1.26
+onnxruntime
 realcugan-ncnn-py
 torch==2.1.0 
 torchvision 
