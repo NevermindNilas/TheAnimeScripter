@@ -1,11 +1,12 @@
+--extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/ORT-Nightly/pypi/simple/
+--extra-index-url https://download.pytorch.org/whl/cu121
 moviepy
 requests
 tqdm
 timm
 numpy<1.26
-onnxruntime
 realcugan-ncnn-py
+ort-nightly-gpu==1.17.0.dev20231215001
 torch==2.1.0 
 torchvision 
 torchaudio 
---extra-index-url https://download.pytorch.org/whl/cu121
