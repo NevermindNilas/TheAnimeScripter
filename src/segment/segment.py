@@ -52,7 +52,7 @@ class Segment():
         if not os.path.exists(os.path.join(dir_path , "weights")):
             os.mkdir(os.path.join(dir_path , "weights"))
             
-        if not os.path.exists(os.path.join(dir_path + "weights", filename)):
+        if not os.path.exists(os.path.join(dir_path, "weights", filename)):
             print("Downloading segmentation model...")
             logging.info("Couldn't find the model, downloading it now...")
             request = requests.get(url)
@@ -60,17 +60,14 @@ class Segment():
                 file.write(request.content)
         
         model_path = os.path.join(dir_path , "weights", filename)
-        # no cuda sadly, idk why they won't provide cuda 12 version, ffs
-        # device = "CPUExecutionProvider" if not "CUDAExecutionProvider" in rt.get_available_providers() else "CUDAExecutionProvider"
-        device = "CPUExecutionProvider"
+        if "CUDAExecutionProvider" in rt.get_available_providers():
+            try:
+                self.session = rt.InferenceSession(model_path, providers=["CUDAExecutionProvider"])
+            except:
+                self.session = rt.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+                logging.info("CUDAExecutionProvider is not available, using CPUExecutionProvider")
+                logging.info("Please download CUDA 12.1 toolkit from https://developer.nvidia.com/cuda-12-1-0-download-archive since that's the only supported version for now")
         
-        try:
-            self.session = rt.InferenceSession(model_path, providers=device)
-            logging.info("Model loaded successfully")
-        except:
-            logging.exception("Couldn't load the model")
-            raise Exception("Couldn't load the model")
-
     def get_character_bounding_box(self, image) -> tuple:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -250,6 +247,7 @@ class Segment():
         _thread.start_new_thread(self.write_buffer, ())
 
         while True:
-            if self.threads_done == True and self.read_buffer.empty() and self.processed_frames.empty() and self.writing_finished == True:
+            if self.threads_done == True and self.read_buffer.empty() and self.processed_frames.empty():
                 break
+            print("I am still alive")
             time.sleep(0.1)
