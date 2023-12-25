@@ -17,8 +17,7 @@ var TheAnimeScripter = (function() {
     var intInterpolate = app.settings.haveSetting(scriptName, "intInterpolate") ? app.settings.getSetting(scriptName, "intInterpolate") : 2;
     var intUpscale = app.settings.haveSetting(scriptName, "intUpscale") ? app.settings.getSetting(scriptName, "intUpscale") : 2;
     var intNumberOfThreads = app.settings.haveSetting(scriptName, "intNumberOfThreads") ? app.settings.getSetting(scriptName, "intNumberOfThreads") : 1;
-    var sliderDedupSens = app.settings.haveSetting(scriptName, "sliderDedupSens") ? app.settings.getSetting(scriptName, "sliderDedupSens") : 50;
-
+    var segmentValue = 0;
     // THEANIMESCRIPTER
     // ================
     var TheAnimeScripter = (panelGlobal instanceof Panel) ? panelGlobal : new Window("palette");
@@ -65,6 +64,9 @@ var TheAnimeScripter = (function() {
         name: "textDeduplicate"
     });
     textDeduplicate.text = "Deduplicate";
+    textDeduplicate.justify = "center";
+    textDeduplicate.alignment = ["left", "center"];
+    textDeduplicate.helpTip = "Deduplicate using FFMPEG's mpdecimate filter";
 
     // GROUP2
     // ======
@@ -87,6 +89,7 @@ var TheAnimeScripter = (function() {
     textUpscale.text = "Upscale";
     textUpscale.justify = "center";
     textUpscale.alignment = ["left", "center"];
+    textUpscale.helpTip = "Upscale using the model you choose";
 
     // GROUP3
     // ======
@@ -109,19 +112,39 @@ var TheAnimeScripter = (function() {
     textInterpolate.text = "Interpolate";
     textInterpolate.justify = "center";
     textInterpolate.alignment = ["left", "center"];
-
-    // PANELEXTRA
-    // ==========
-    var panelExtra = TheAnimeScripter.add("panel", undefined, undefined, {
-        name: "panelExtra"
+    textInterpolate.helpTip = "Interpolate using RIFE - current model supported 4.13.2";
+    
+    var group4 = panelChain.add("group", undefined, {
+        name: "group4"
     });
-    panelExtra.text = "Extra";
-    panelExtra.orientation = "column";
-    panelExtra.alignChildren = ["left", "top"];
-    panelExtra.spacing = 10;
-    panelExtra.margins = 10;
 
-    var buttonDepthMap = panelExtra.add("button", undefined, undefined, {
+    var checkboxSharpen = group4.add("checkbox", undefined, undefined, {
+        name: "checkboxSharpen"
+    });
+
+    checkboxSharpen.alignment = ["left", "center"];
+
+    var textSharpen = group4.add("statictext", undefined, undefined, {
+        name: "textSharpen"
+    });
+    textSharpen.text = "Sharpen";
+    textSharpen.justify = "center";
+    textSharpen.alignment = ["left", "center"];
+    textSharpen.helpTip = "Sharpen using Contrast Adaptive Sharpening";
+
+
+    // panelPostProcess
+    // ==========
+    var panelPostProcess = TheAnimeScripter.add("panel", undefined, undefined, {
+        name: "panelPostProcess"
+    });
+    panelPostProcess.text = "Post Process";
+    panelPostProcess.orientation = "column";
+    panelPostProcess.alignChildren = ["left", "top"];
+    panelPostProcess.spacing = 10;
+    panelPostProcess.margins = 10;
+
+    var buttonDepthMap = panelPostProcess.add("button", undefined, undefined, {
         name: "buttonDepthMap"
     });
     buttonDepthMap.enabled = false;
@@ -129,10 +152,9 @@ var TheAnimeScripter = (function() {
     buttonDepthMap.preferredSize.width = 105;
     buttonDepthMap.alignment = ["center", "top"];
 
-    var buttonSegment = panelExtra.add("button", undefined, undefined, {
+    var buttonSegment = panelPostProcess.add("button", undefined, undefined, {
         name: "buttonSegment"
     });
-    buttonSegment.enabled = false;
     buttonSegment.text = "Segment";
     buttonSegment.preferredSize.width = 105;
 
@@ -224,23 +246,30 @@ var TheAnimeScripter = (function() {
     generalPanel.spacing = 10;
     generalPanel.margins = 10;
 
-    var textDedupSensitivity = generalPanel.add("statictext", undefined, undefined, {
-        name: "textDedupSensitivity"
+    var textSharpen = generalPanel.add("statictext", undefined, undefined, {
+        name: "textSharpen"
     });
-    textDedupSensitivity.enabled = false;
-    textDedupSensitivity.text = "Deduplication Sensitivity";
-    textDedupSensitivity.justify = "center";
-    textDedupSensitivity.alignment = ["center", "top"];
+    textSharpen.text = "Sharpen";
+    textSharpen.justify = "center";
+    textSharpen.alignment = ["center", "top"];
 
-    var sliderDedupSens = generalPanel.add("slider", undefined, undefined, undefined, undefined, {
-        name: "sliderDedupSens"
+    var sliderSharpen = generalPanel.add("slider", undefined, undefined, undefined, undefined, {
+        name: "sliderSharpen"
     });
-    sliderDedupSens.enabled = false;
-    sliderDedupSens.minvalue = 0;
-    sliderDedupSens.maxvalue = 100;
-    sliderDedupSens.value = 50;
-    sliderDedupSens.preferredSize.width = 212;
-    sliderDedupSens.alignment = ["center", "top"];
+    sliderSharpen.minvalue = 0;
+    sliderSharpen.maxvalue = 100;
+    sliderSharpen.value = 50;
+    sliderSharpen.preferredSize.width = 212;
+    sliderSharpen.alignment = ["center", "top"];
+
+    var labelSharpen = generalPanel.add("statictext", undefined, sliderSharpen.value + "%", {
+        name: "labelSharpen"
+    });
+    labelSharpen.alignment = ["center", "top"];
+
+    sliderSharpen.onChange = function() {
+        labelSharpen.text = Math.round(sliderSharpen.value) + "%";
+    }
 
     // GROUP2
     // ======
@@ -367,58 +396,6 @@ var TheAnimeScripter = (function() {
     dropdownCugan.selection = 0;
     dropdownCugan.preferredSize.width = 109;
 
-    // GROUP8
-    // ======
-    var group8 = panel1.add("group", undefined, {
-        name: "group8"
-    });
-    group8.orientation = "row";
-    group8.alignChildren = ["left", "center"];
-    group8.spacing = 0;
-    group8.margins = 0;
-
-    var textSegment = group8.add("statictext", undefined, undefined, {
-        name: "textSegment"
-    });
-    textSegment.enabled = false;
-    textSegment.text = "Segment Model";
-    textSegment.preferredSize.width = 103;
-
-    var dropdwonSegment_array = ["isnet-anime", ""];
-    var dropdwonSegment = group8.add("dropdownlist", undefined, undefined, {
-        name: "dropdwonSegment",
-        items: dropdwonSegment_array
-    });
-    dropdwonSegment.enabled = false;
-    dropdwonSegment.selection = 0;
-    dropdwonSegment.preferredSize.width = 109;
-
-    // GROUP9
-    // ======
-    var group9 = panel1.add("group", undefined, {
-        name: "group9"
-    });
-    group9.orientation = "row";
-    group9.alignChildren = ["left", "center"];
-    group9.spacing = 0;
-    group9.margins = 0;
-
-    var textDedupMethod = group9.add("statictext", undefined, undefined, {
-        name: "textDedupMethod"
-    });
-    textDedupMethod.enabled = false;
-    textDedupMethod.text = "Dedup Method";
-    textDedupMethod.preferredSize.width = 103;
-
-    var dropdown1_array = ["FFmpeg", "-", "SSIM", "-", "MSE"];
-    var dropdown1 = group9.add("dropdownlist", undefined, undefined, {
-        name: "dropdown1",
-        items: dropdown1_array
-    });
-    dropdown1.enabled = false;
-    dropdown1.selection = 0;
-    dropdown1.preferredSize.width = 109;
-
     // GROUP10
     var buttonSettingsClose = settingsWindow.add("button", undefined, undefined, {
         name: "buttonSettingsClose"
@@ -475,22 +452,27 @@ var TheAnimeScripter = (function() {
         app.settings.saveSetting(scriptName, "intNumberOfThreads", intNumberOfThreads.text);
     }
 
-    sliderDedupSens.onChange = function() {
-        app.settings.saveSetting(scriptName, "sliderDedupSens", sliderDedupSens.value);
-    }
-
     buttonSettings.onClick = function() {
         settingsWindow.show();
     };
 
+    sliderSharpen.onChange = function() {
+        app.settings.saveSetting(scriptName, "sliderSharpen", sliderSharpen.value);
+    }
+
 
     // START PROCESS FUNCTION
     buttonStartProcess.onClick = function() {
-        if (checkboxDeduplicate.value == false && checkboxUpscale.value == false && checkboxInterpolate.value == false) {
+        if (checkboxDeduplicate.value == false && checkboxUpscale.value == false && checkboxInterpolate.value == false && checkboxSharpen.value == false) {
             alert("Please select at least one of the checkboxes");
             return;
         }
         
+        start_chain();
+    }
+
+    buttonSegment.onClick = function() {
+        segmentValue = 1;
         start_chain();
     }
 
@@ -566,13 +548,18 @@ var TheAnimeScripter = (function() {
                     "--upscale_method", dropdownModel.selection.text,
                     "--inpoint", inPoint,
                     "--outpoint", outPoint,
+                    "--sharpen", checkboxSharpen.value ? "1" : "0",
+                    "--sharpen_sens", sliderSharpen.value,
+                    "--segment", segmentValue, 
+
+
                 ];
                 var command = attempt.join(" ");
             } catch (error) {
                 alert(error);
             }
 
-            //alert (command);
+            alert (command);
             callCommand(command);
 
             $.sleep(500);

@@ -327,7 +327,6 @@ if __name__ == "__main__":
                            default="ShuffleCugan")
     argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
     argparser.add_argument("--dedup", type=int, default=0)
-    argparser.add_argument("--dedup_sens", type=int, default=5)
     argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
     argparser.add_argument("--nt", type=int, default=1)
     argparser.add_argument("--half", type=int, default=1)
