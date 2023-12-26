@@ -249,5 +249,4 @@ class Segment():
         while True:
             if self.threads_done == True and self.read_buffer.empty() and self.processed_frames.empty():
                 break
-            print("I am still alive")
             time.sleep(0.1)
