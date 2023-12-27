@@ -18,7 +18,6 @@ from collections import deque
 TO:DO
     - Add testing.
     - Fix Rife padding, again.
-    - Play around with better mpdecimate params
     - Find a way to add awarpsharp2 to the pipeline
     - Add bounding box support for Segmentation
 """
@@ -27,9 +26,6 @@ warnings.filterwarnings("ignore")
 
 ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
                  "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
-
-mpdecimate_params = "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB"
-
 
 class Main:
     def __init__(self, args):
@@ -51,6 +47,8 @@ class Main:
         self.sharpen = args.sharpen
         self.sharpen_sens = args.sharpen_sens
         self.segment = args.segment
+        self.mpdecimate_params = args.dedup_strenght
+        
 
         # This is necessary on the top since the script heavily relies on FFMPEG, I will look into FFMPEG Reader from moviepy but it lacks the filtering abillity, so I will have to implement that myself using SSIM/MSE later on
         self.check_ffmpeg()
@@ -61,7 +59,7 @@ class Main:
             self.get_video_metadata()
             
             process = Segment(self.input, self.output, self.ffmpeg_path, self.width, self.height, self.fps, self.nframes, self.inpoint, self.outpoint)
-            result = process.run()
+            process.run()
             logging.info("The user only wanted to segment, exiting after processing")
             return
         
@@ -69,16 +67,16 @@ class Main:
         # Therefore I just hand the input to ffmpeg and call upon mpdecimate
         if self.interpolate == False and self.upscale == False and self.dedup == True:
             if self.sharpen == True:
-                mpdecimate_params += f',cas={self.sharpen_sens}'
+                self.mpdecimate_params += f',cas={self.sharpen_sens}'
 
             if self.outpoint != 0:
                 from src.trim_input import trim_input_dedup
                 trim_input_dedup(self.input, self.output, self.inpoint,
-                                 self.outpoint, mpdecimate_params, self.ffmpeg_path).run()
+                                 self.outpoint, self.mpdecimate_params, self.ffmpeg_path).run()
             else:
                 from src.dedup.dedup import DedupFFMPEG
                 DedupFFMPEG(self.input, self.output,
-                            mpdecimate_params, self.ffmpeg_path).run()
+                            self.mpdecimate_params, self.ffmpeg_path).run()
 
             logging.info("The user only wanted to dedup, exiting")
             return
@@ -119,29 +117,31 @@ class Main:
             logging.info(
                 f"Upscaling to {self.new_width}x{self.new_height}")
 
-            if self.upscale_method == "shufflecugan" or self.upscale_method == "cugan":
-                from src.cugan.cugan import Cugan
-                self.upscale_process = Cugan(
-                    self.upscale_method, int(self.upscale_factor), self.cugan_kind, self.half, self.width, self.height)
+            match self.upscale_method:
+                case "shufflecugan" | "cugan":
+                    from src.cugan.cugan import Cugan
+                    self.upscale_process = Cugan(
+                        self.upscale_method, int(self.upscale_factor), self.cugan_kind, self.half, self.width, self.height)
 
-            elif self.upscale_method == "cugan-amd":
-                from src.cugan.cugan import CuganAMD
-                self.upscale_process = CuganAMD(
-                    self.nt, self.upscale_factor
-                )
-            elif self.upscale_method == "compact" or self.upscale_method == "ultracompact" or self.upscale_method == "superultracompact":
-                from src.compact.compact import Compact
-                self.upscale_process = Compact(
-                    self.upscale_method, self.half)
+                case "cugan-amd":
+                    from src.cugan.cugan import CuganAMD
+                    self.upscale_process = CuganAMD(
+                        self.nt, self.upscale_factor
+                    )
 
-            elif self.upscale_method == "swinir":
-                from src.swinir.swinir import Swinir
-                self.upscale_process = Swinir(
-                    self.upscale_factor, self.half, self.width, self.height)
+                case "compact" | "ultracompact" | "superultracompact":
+                    from src.compact.compact import Compact
+                    self.upscale_process = Compact(
+                        self.upscale_method, self.half)
 
-            else:
-                logging.info(
-                    f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
+                case "swinir":
+                    from src.swinir.swinir import Swinir
+                    self.upscale_process = Swinir(
+                        self.upscale_factor, self.half, self.width, self.height)
+    
+                case _:
+                    logging.info(
+                        f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
 
         if self.interpolate:
             from src.rife.rife import Rife
@@ -167,7 +167,7 @@ class Main:
 
         if self.dedup == True:
             ffmpeg_command.extend(
-                ["-vf", mpdecimate_params, "-an"])
+                ["-vf", self.mpdecimate_params, "-an"])
 
         ffmpeg_command.extend([
             "-f", "rawvideo",
@@ -327,6 +327,7 @@ if __name__ == "__main__":
     argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
     argparser.add_argument("--dedup", type=int, default=0)
     argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
+    argparser.add_argument("--dedup_strenght", type=str, default="light")
     argparser.add_argument("--nt", type=int, default=1)
     argparser.add_argument("--half", type=int, default=1)
     argparser.add_argument("--inpoint", type=float, default=0)
@@ -340,9 +341,7 @@ if __name__ == "__main__":
     except Exception as e:
         logging.info(e)
 
-    """
-    Whilst this is ugly, it was easier to work with the Extendscript interface this way
-    """
+    # Whilst this is ugly, it was easier to work with the Extendscript interface this way
     args.interpolate = True if args.interpolate == 1 else False
     args.upscale = True if args.upscale == 1 else False
     args.dedup = True if args.dedup == 1 else False
@@ -378,7 +377,16 @@ if __name__ == "__main__":
         logging.info(
             "Multi-threading is not supported yet, setting nt back to 1")
         args.nt = 1
-
+    
+    dedup_strenght_list = {
+        "light": "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB",
+        "medium": "mpdecimate=hi=64*100:lo=64*35:frac=0.2,setpts=N/FRAME_RATE/TB",
+        "hard": "mpdecimate=hi=64*200:lo=64*50:frac=0.33,setpts=N/FRAME_RATE/TB" # I have seen someone use these params for another project so I thought it would be interesting to add them
+    }
+    
+    # I just parse the strings directly to be easier to keep up with the variable names
+    args.dedup_strenght = dedup_strenght_list[args.dedup_strenght]
+    
     if args.input is not None and args.output is not None:
         Main(args)
     else:
