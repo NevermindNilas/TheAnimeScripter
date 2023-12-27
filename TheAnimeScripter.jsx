@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "0.1.3";
+    var scriptVersion = "0.1.4";
     var scriptAuthor = "Nilas";
     var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
     var discordServer = "https://discord.gg/CdRD9GwS8J"
@@ -17,6 +17,8 @@ var TheAnimeScripter = (function() {
     var intInterpolate = app.settings.haveSetting(scriptName, "intInterpolate") ? app.settings.getSetting(scriptName, "intInterpolate") : 2;
     var intUpscale = app.settings.haveSetting(scriptName, "intUpscale") ? app.settings.getSetting(scriptName, "intUpscale") : 2;
     var intNumberOfThreads = app.settings.haveSetting(scriptName, "intNumberOfThreads") ? app.settings.getSetting(scriptName, "intNumberOfThreads") : 1;
+    var sliderSharpen = app.settings.haveSetting(scriptName, "sliderSharpen") ? app.settings.getSetting(scriptName, "sliderSharpen") : 50;
+    var dropdownDedupStrenght = app.settings.haveSetting(scriptName, "dropdownDedupStrenght") ? app.settings.getSetting(scriptName, "dropdownDedupStrenght") : 0
     var segmentValue = 0;
     // THEANIMESCRIPTER
     // ================
@@ -396,6 +398,31 @@ var TheAnimeScripter = (function() {
     dropdownCugan.selection = 0;
     dropdownCugan.preferredSize.width = 109;
 
+    var group7 = panel1.add("group", undefined, {
+        name: "group7"
+    });
+
+    group7.orientation = "row";
+    group7.alignChildren = ["left", "center"];
+    group7.spacing = 0;
+    group7.margins = 0;
+
+    var dedupStrenghtText = group7.add("statictext", undefined, undefined, {
+        name: "dedupStrenghtText"
+    });
+
+    dedupStrenghtText.text = "Dedup Strenght";
+    dedupStrenghtText.preferredSize.width = 103;
+
+    var dedupStrenght_array = ["Light", "-", "Medium", "-", "High"];
+    var dropdownDedupStrenght = group7.add("dropdownlist", undefined, undefined, {
+        name: "dropdownDedup",
+        items: dedupStrenght_array
+    });
+
+    dropdownDedupStrenght.selection = 0;
+    dropdownDedupStrenght.preferredSize.width = 109;
+
     // GROUP10
     var buttonSettingsClose = settingsWindow.add("button", undefined, undefined, {
         name: "buttonSettingsClose"
@@ -456,10 +483,13 @@ var TheAnimeScripter = (function() {
         settingsWindow.show();
     };
 
-    sliderSharpen.onChange = function() {
+    sliderSharpen.onChanging = function() {
         app.settings.saveSetting(scriptName, "sliderSharpen", sliderSharpen.value);
     }
 
+    dropdownDedupStrenght.onChange = function() {
+        app.settings.saveSetting(scriptName, "dropdownDedupStrenght", dropdownDedupStrenght.selection.index);
+    }
 
     // START PROCESS FUNCTION
     buttonStartProcess.onClick = function() {
@@ -551,8 +581,7 @@ var TheAnimeScripter = (function() {
                     "--sharpen", checkboxSharpen.value ? "1" : "0",
                     "--sharpen_sens", sliderSharpen.value,
                     "--segment", segmentValue, 
-
-
+                    "--dedup_strenght", dropdownDedup.selection.text,
                 ];
                 var command = attempt.join(" ");
             } catch (error) {
@@ -576,6 +605,9 @@ var TheAnimeScripter = (function() {
                     var scaleX = (compWidth / layerWidth) * 100;
                     var scaleY = (compHeight / layerHeight) * 100;
                     inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
+                }
+                else {
+                    inputLayer.property("Scale").setValue([100, 100, 100]);
                 }
             } catch (error) {
                 alert(error);
