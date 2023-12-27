@@ -18,6 +18,7 @@ from collections import deque
 TO:DO
     - Add testing.
     - Fix Rife padding, again.
+    - Play around with better mpdecimate params
     - Find a way to add awarpsharp2 to the pipeline
     - Add bounding box support for Segmentation
 """
@@ -27,42 +28,32 @@ warnings.filterwarnings("ignore")
 ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
                  "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
 
+
 class Main:
     def __init__(self, args):
-        # args is a dictionary
-        self.input = os.path.normpath(args.input)
-        self.output = os.path.normpath(args.output)
-        self.interpolate = args.interpolate
-        self.interpolate_factor = args.interpolate_factor
-        self.upscale = args.upscale
-        self.upscale_factor = args.upscale_factor
-        self.upscale_method = args.upscale_method
-        self.cugan_kind = args.cugan_kind
-        self.dedup = args.dedup
-        self.dedup_method = args.dedup_method
-        self.nt = args.nt
-        self.half = args.half
-        self.inpoint = args.inpoint
-        self.outpoint = args.outpoint
-        self.sharpen = args.sharpen
-        self.sharpen_sens = args.sharpen_sens
-        self.segment = args.segment
-        self.mpdecimate_params = args.dedup_strenght
-        
+        attributes = ['input', 'output', 'interpolate', 'interpolate_factor', 'upscale', 'upscale_factor', 'upscale_method', 'cugan_kind',
+                      'dedup', 'dedup_method', 'nt', 'half', 'inpoint', 'outpoint', 'sharpen', 'sharpen_sens', 'segment', 'dedup_strenght']
 
-        # This is necessary on the top since the script heavily relies on FFMPEG, I will look into FFMPEG Reader from moviepy but it lacks the filtering abillity, so I will have to implement that myself using SSIM/MSE later on
+        for attr in attributes:
+            setattr(self, attr, getattr(args, attr))
+
+        # This is necessary on the top since the script heavily relies on FFMPEG, 
+        # I will look into FFMPEG Reader from moviepy but it lacks the filtering abillity, 
+        # so I will have to implement that myself using SSIM/MSE later on
         self.check_ffmpeg()
-        
+
         if self.segment == True:
             from src.segment.segment import Segment
-            
+
             self.get_video_metadata()
-            
-            process = Segment(self.input, self.output, self.ffmpeg_path, self.width, self.height, self.fps, self.nframes, self.inpoint, self.outpoint)
+
+            process = Segment(self.input, self.output, self.ffmpeg_path, self.width,
+                              self.height, self.fps, self.nframes, self.inpoint, self.outpoint)
             process.run()
-            logging.info("The user only wanted to segment, exiting after processing")
+            logging.info(
+                "The user only wanted to segment, exiting after processing")
             return
-        
+
         # There's no need to start the decode encode cycle if the user only wants to dedup
         # Therefore I just hand the input to ffmpeg and call upon mpdecimate
         if self.interpolate == False and self.upscale == False and self.dedup == True:
@@ -138,7 +129,7 @@ class Main:
                     from src.swinir.swinir import Swinir
                     self.upscale_process = Swinir(
                         self.upscale_factor, self.half, self.width, self.height)
-    
+
                 case _:
                     logging.info(
                         f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
@@ -342,16 +333,17 @@ if __name__ == "__main__":
         logging.info(e)
 
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
+
     args.interpolate = True if args.interpolate == 1 else False
+    args.sharpen = True if args.sharpen == 1 else False
     args.upscale = True if args.upscale == 1 else False
+    args.segment = True if args.segment == 1 else False
     args.dedup = True if args.dedup == 1 else False
     args.half = True if args.half == 1 else False
-    args.sharpen = True if args.sharpen == 1 else False
-    args.segment = True if args.segment == 1 else False
 
     args.upscale_method = args.upscale_method.lower()
-    args.cugan_kind = args.cugan_kind.lower()
     args.dedup_method = args.dedup_method.lower()
+    args.cugan_kind = args.cugan_kind.lower()
 
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
 
@@ -377,16 +369,16 @@ if __name__ == "__main__":
         logging.info(
             "Multi-threading is not supported yet, setting nt back to 1")
         args.nt = 1
-    
+
     dedup_strenght_list = {
         "light": "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB",
         "medium": "mpdecimate=hi=64*100:lo=64*35:frac=0.2,setpts=N/FRAME_RATE/TB",
-        "hard": "mpdecimate=hi=64*200:lo=64*50:frac=0.33,setpts=N/FRAME_RATE/TB" # I have seen someone use these params for another project so I thought it would be interesting to add them
+        "high": "mpdecimate=hi=64*200:lo=64*50:frac=0.33,setpts=N/FRAME_RATE/TB"
     }
-    
+
     # I just parse the strings directly to be easier to keep up with the variable names
     args.dedup_strenght = dedup_strenght_list[args.dedup_strenght]
-    
+
     if args.input is not None and args.output is not None:
         Main(args)
     else:
