@@ -18,8 +18,12 @@ var TheAnimeScripter = (function() {
     var intUpscale = app.settings.haveSetting(scriptName, "intUpscale") ? app.settings.getSetting(scriptName, "intUpscale") : 2;
     var intNumberOfThreads = app.settings.haveSetting(scriptName, "intNumberOfThreads") ? app.settings.getSetting(scriptName, "intNumberOfThreads") : 1;
     var sliderSharpen = app.settings.haveSetting(scriptName, "sliderSharpen") ? app.settings.getSetting(scriptName, "sliderSharpen") : 50;
+    
     var dropdownDedupStrenght = app.settings.haveSetting(scriptName, "dropdownDedupStrenght") ? app.settings.getSetting(scriptName, "dropdownDedupStrenght") : 0
+    var sliderSceneChange = app.settings.haveSetting(scriptName, "sliderSceneChange") ? app.settings.getSetting(scriptName, "sliderSceneChange") : 70;
     var segmentValue = 0;
+    var sceneChangeValue = 0;
+
     // THEANIMESCRIPTER
     // ================
     var TheAnimeScripter = (panelGlobal instanceof Panel) ? panelGlobal : new Window("palette");
@@ -157,8 +161,18 @@ var TheAnimeScripter = (function() {
     var buttonSegment = panelPostProcess.add("button", undefined, undefined, {
         name: "buttonSegment"
     });
-    buttonSegment.text = "Segment";
+    buttonSegment.text = "Auto Rotobrush";
     buttonSegment.preferredSize.width = 105;
+    buttonSegment.alignment = ["center", "top"];
+
+    var buttonSceneChange = panelPostProcess.add("button", undefined, undefined, {
+        name: "buttonSceneChange"
+    });
+
+    buttonSceneChange.text = "Auto Cut";
+    buttonSceneChange.preferredSize.width = 105;
+    buttonSceneChange.alignment = ["center", "top"];
+
 
     // PANELMORE
     // =========
@@ -271,6 +285,31 @@ var TheAnimeScripter = (function() {
 
     sliderSharpen.onChange = function() {
         labelSharpen.text = Math.round(sliderSharpen.value) + "%";
+    }
+
+    var textSceneChange = generalPanel.add("statictext", undefined, undefined, {
+        name: "textSceneChange"
+    });
+    textSceneChange.text = "Auto Cut Sensitivity";
+    textSceneChange.justify = "center";
+    textSceneChange.alignment = ["center", "top"];
+
+    var sliderSceneChange = generalPanel.add("slider", undefined, undefined, undefined, undefined, {
+        name: "sliderSceneChange"
+    });
+    sliderSceneChange.minvalue = 0;
+    sliderSceneChange.maxvalue = 100;
+    sliderSceneChange.value = 50;
+    sliderSceneChange.preferredSize.width = 212;
+    sliderSceneChange.alignment = ["center", "top"];
+
+    labelSceneChange = generalPanel.add("statictext", undefined, sliderSceneChange.value + "%", {
+        name: "labelSceneChange"
+    });
+    labelSceneChange.alignment = ["center", "top"];
+
+    sliderSceneChange.onChange = function() {
+        labelSceneChange.text = Math.round(sliderSceneChange.value) + "%";
     }
 
     // GROUP2
@@ -479,6 +518,10 @@ var TheAnimeScripter = (function() {
         app.settings.saveSetting(scriptName, "intNumberOfThreads", intNumberOfThreads.text);
     }
 
+    dropdownDedupStrenght.onChange = function() {
+        app.settings.saveSetting(scriptName, "dropdownDedupStrenght", dropdownDedupStrenght.selection.index);
+    }
+
     buttonSettings.onClick = function() {
         settingsWindow.show();
     };
@@ -487,11 +530,20 @@ var TheAnimeScripter = (function() {
         app.settings.saveSetting(scriptName, "sliderSharpen", sliderSharpen.value);
     }
 
-    dropdownDedupStrenght.onChange = function() {
-        app.settings.saveSetting(scriptName, "dropdownDedupStrenght", dropdownDedupStrenght.selection.index);
+    sliderSceneChange.onChanging = function() {
+        app.settings.saveSetting(scriptName, "sliderSceneChange", sliderSceneChange.value);
     }
 
-    // START PROCESS FUNCTION
+    buttonSceneChange.onClick = function() {
+        sceneChangeValue = 1;
+        start_chain();
+    }
+
+    buttonSegment.onClick = function() {
+        segmentValue = 1;
+        start_chain();
+    }
+
     buttonStartProcess.onClick = function() {
         if (checkboxDeduplicate.value == false && checkboxUpscale.value == false && checkboxInterpolate.value == false && checkboxSharpen.value == false) {
             alert("Please select at least one of the checkboxes");
@@ -501,19 +553,12 @@ var TheAnimeScripter = (function() {
         start_chain();
     }
 
-    buttonSegment.onClick = function() {
-        segmentValue = 1;
-        start_chain();
-    }
-
     function callCommand(command) {
         try {
             var cmdCommand = 'cmd.exe /c "' + command + '"';
 
             system.callSystem(cmdCommand);
 
-            // Added because the metadata would only finish writing after the script was done, I assume.
-            $.sleep(500);
         } catch (error) {
             alert(error);
             alert("Something went wrong trying to process the chain, please contact me on discord")
@@ -581,8 +626,11 @@ var TheAnimeScripter = (function() {
                     "--sharpen", checkboxSharpen.value ? "1" : "0",
                     "--sharpen_sens", sliderSharpen.value,
                     "--segment", segmentValue, 
-                    "--dedup_strenght", dropdownDedup.selection.text,
+                    "--dedup_strenght", dropdownDedupStrenght.selection.text,
+                    "--scenechange", sceneChangeValue,
+                    "--scenechange_sens", 100 - sliderSceneChange.value,
                 ];
+                // Slider Change Value works in reverse where as 0 is the most sensitive and 100% is the least sensitive, question FFMPEG devs about this
                 var command = attempt.join(" ");
             } catch (error) {
                 alert(error);
@@ -591,28 +639,64 @@ var TheAnimeScripter = (function() {
             //alert (command);
             callCommand(command);
 
-            $.sleep(500);
-            try {
-                var importOptions = new ImportOptions(File(output_name));
-                var importedFile = app.project.importFile(importOptions);
-                var inputLayer = comp.layers.add(importedFile);
-                inputLayer.moveBefore(layer);
-                if (checkboxUpscale.value == true) {
-                    var compWidth = comp.width;
-                    var compHeight = comp.height;
-                    var layerWidth = inputLayer.source.width;
-                    var layerHeight = inputLayer.source.height;
-                    var scaleX = (compWidth / layerWidth) * 100;
-                    var scaleY = (compHeight / layerHeight) * 100;
-                    inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
+            while(true) {    
+                if (sceneChangeValue == 1) {
+                    var sceneChangeLogPath = TheAnimeScripterPath + "\\_internal" + "\\src" + "\\scenechange" + "\\scenechangeresults.txt";
+                    var sceneChangeLog = new File(sceneChangeLogPath);
+                    sceneChangeLog.open("r");
+
+                    inPoint = layer.inPoint;
+                    outPoint = layer.outPoint;
+
+                    while (!sceneChangeLog.eof) {
+                        var line = sceneChangeLog.readln();
+                        var timestamp = parseFloat(line) + inPoint;
+                        var duplicateLayer = layer.duplicate();
+                        layer.outPoint = timestamp;
+                        duplicateLayer.inPoint = timestamp;
+
+                        layer = duplicateLayer;
+                    }
+                    sceneChangeLog.close();
+                    break;
                 }
                 else {
-                    inputLayer.property("Scale").setValue([100, 100, 100]);
+                    var maxAttempts = 100;
+                    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+                        try {
+                            var importOptions = new ImportOptions(File(output_name));
+                            var importedFile = app.project.importFile(importOptions);
+                            var inputLayer = comp.layers.add(importedFile);
+                            inputLayer.moveBefore(layer);
+                            if (checkboxUpscale.value == true) {
+                                var compWidth = comp.width;
+                                var compHeight = comp.height;
+                                var layerWidth = inputLayer.source.width;
+                                var layerHeight = inputLayer.source.height;
+                                var scaleX = (compWidth / layerWidth) * 100;
+                                var scaleY = (compHeight / layerHeight) * 100;
+                                inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
+                            }
+                            else {
+                                var layerWidth = layer.width;
+                                var layerHeight = layer.height;
+                                var scaleX = (layerWidth / inputLayer.source.width) * 100;
+                                var scaleY = (layerHeight / inputLayer.source.height) * 100;
+                                inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
+                            }
+                            break;
+                        } catch (error) {
+                            if (attempt == maxAttempts - 1) {
+                                alert("Failed to import file after " + maxAttempts + " attempts: " + output_name);
+                                alert("Error: " + error.toString());
+                            }
+                        }
+                    }
+                    break;
                 }
-            } catch (error) {
-                alert(error);
-                alert("Something went wrong trying to import the file, please look at the output folder");
-            } 
+            }
+            sceneChangeValue = 0;
+            segmentValue = 0;
         }
     }
     if (TheAnimeScripter instanceof Window) TheAnimeScripter.show();
