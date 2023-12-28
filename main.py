@@ -6,6 +6,7 @@ import subprocess
 import numpy as np
 import time
 import warnings
+
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
@@ -18,7 +19,6 @@ from collections import deque
 TO:DO
     - Add testing.
     - Fix Rife padding, again.
-    - Play around with better mpdecimate params
     - Find a way to add awarpsharp2 to the pipeline
     - Add bounding box support for Segmentation
 """
@@ -31,18 +31,44 @@ ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
 
 class Main:
     def __init__(self, args):
-        attributes = ['input', 'output', 'interpolate', 'interpolate_factor', 'upscale', 'upscale_factor', 'upscale_method', 'cugan_kind',
-                      'dedup', 'dedup_method', 'nt', 'half', 'inpoint', 'outpoint', 'sharpen', 'sharpen_sens', 'segment', 'dedup_strenght']
+        self.input = args.input
+        self.output = args.output
+        self.interpolate = args.interpolate
+        self.interpolate_factor = args.interpolate_factor
+        self.upscale = args.upscale
+        self.upscale_factor = args.upscale_factor
+        self.upscale_method = args.upscale_method
+        self.cugan_kind = args.cugan_kind
+        self.dedup = args.dedup
+        self.dedup_method = args.dedup_method
+        self.nt = args.nt
+        self.half = args.half
+        self.inpoint = args.inpoint
+        self.outpoint = args.outpoint
+        self.sharpen = args.sharpen
+        self.sharpen_sens = args.sharpen_sens
+        self.segment = args.segment
+        self.dedup_strenght = args.dedup_strenght
+        self.scenechange = args.scenechange
+        self.scenechange_sens = args.scenechange_sens
 
-        for attr in attributes:
-            setattr(self, attr, getattr(args, attr))
-
-        # This is necessary on the top since the script heavily relies on FFMPEG, 
-        # I will look into FFMPEG Reader from moviepy but it lacks the filtering abillity, 
-        # so I will have to implement that myself using SSIM/MSE later on
+        # This is necessary on the top since the script heavily relies on FFMPEG
         self.check_ffmpeg()
+        
+        if self.scenechange:
+            from src.scenechange.scene_change import Scenechange
 
-        if self.segment == True:
+            process = Scenechange(
+                self.input, self.ffmpeg_path, self.scenechange_sens)
+            
+            process.run()
+            
+            logging.info(
+                "Detecting scene changes")
+            
+            return
+
+        if self.segment:
             from src.segment.segment import Segment
 
             self.get_video_metadata()
@@ -50,6 +76,7 @@ class Main:
             process = Segment(self.input, self.output, self.ffmpeg_path, self.width,
                               self.height, self.fps, self.nframes, self.inpoint, self.outpoint)
             process.run()
+
             logging.info(
                 "The user only wanted to segment, exiting after processing")
             return
@@ -58,16 +85,16 @@ class Main:
         # Therefore I just hand the input to ffmpeg and call upon mpdecimate
         if self.interpolate == False and self.upscale == False and self.dedup == True:
             if self.sharpen == True:
-                self.mpdecimate_params += f',cas={self.sharpen_sens}'
+                self.dedup_strenght += f',cas={self.sharpen_sens}'
 
             if self.outpoint != 0:
                 from src.trim_input import trim_input_dedup
                 trim_input_dedup(self.input, self.output, self.inpoint,
-                                 self.outpoint, self.mpdecimate_params, self.ffmpeg_path).run()
+                                 self.outpoint, self.dedup_strenght, self.ffmpeg_path).run()
             else:
                 from src.dedup.dedup import DedupFFMPEG
                 DedupFFMPEG(self.input, self.output,
-                            self.mpdecimate_params, self.ffmpeg_path).run()
+                            self.dedup_strenght, self.ffmpeg_path).run()
 
             logging.info("The user only wanted to dedup, exiting")
             return
@@ -158,7 +185,7 @@ class Main:
 
         if self.dedup == True:
             ffmpeg_command.extend(
-                ["-vf", self.mpdecimate_params, "-an"])
+                ["-vf", self.dedup_strenght, "-an"])
 
         ffmpeg_command.extend([
             "-f", "rawvideo",
@@ -286,8 +313,7 @@ class Main:
         clip.close()
 
     def check_ffmpeg(self):
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-
+        dir_path = os.path.dirname(os.path.abspath(__file__))
         self.ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
 
         # Check if FFMPEG exists at that path
@@ -300,11 +326,13 @@ class Main:
 
 
 if __name__ == "__main__":
-
+    
     log_file_path = os.path.join(os.path.dirname(
         os.path.abspath(__file__)), 'log.txt')
+   
     logging.basicConfig(filename=log_file_path, filemode='w',
                         format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--input", type=str, required=True)
@@ -326,15 +354,17 @@ if __name__ == "__main__":
     argparser.add_argument("--sharpen", type=int, default=0)
     argparser.add_argument("--sharpen_sens", type=float, default=50)
     argparser.add_argument("--segment", type=int, default=0)
-
+    argparser.add_argument("--scenechange", type=int, default=0)
+    argparser.add_argument("--scenechange_sens", type=float, default=40)
+    
     try:
         args = argparser.parse_args()
     except Exception as e:
         logging.info(e)
 
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
-
     args.interpolate = True if args.interpolate == 1 else False
+    args.scenechange = True if args.scenechange == 1 else False
     args.sharpen = True if args.sharpen == 1 else False
     args.upscale = True if args.upscale == 1 else False
     args.segment = True if args.segment == 1 else False
@@ -342,10 +372,12 @@ if __name__ == "__main__":
     args.half = True if args.half == 1 else False
 
     args.upscale_method = args.upscale_method.lower()
+    args.dedup_strenght = args.dedup_strenght.lower()
     args.dedup_method = args.dedup_method.lower()
     args.cugan_kind = args.cugan_kind.lower()
-
+    
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
+    args.scenechange_sens /= 100 # same for scene change
 
     args_dict = vars(args)
     for arg in args_dict:
