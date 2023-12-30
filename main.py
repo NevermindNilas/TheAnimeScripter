@@ -115,6 +115,8 @@ class Main:
 
     def intitialize(self):
 
+        self.pbar = tqdm(total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
+
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = deque()
 
@@ -169,12 +171,6 @@ class Main:
                 int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
 
     def build_buffer(self):
-        if self.interpolate:
-            self.nframes *= self.interpolate_factor
-
-        self.pbar = tqdm(
-            total=None if self.dedup else self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
-
         ffmpeg_command = [
             self.ffmpeg_path,
             "-i", str(self.input),
@@ -217,6 +213,9 @@ class Main:
             if "bitrate=" not in stderr:
                 logging.error(f"ffmpeg error: {stderr}")
 
+        self.pbar.total = frame_count
+        self.pbar.refresh()
+        
         # For terminating the pipe and subprocess properly
         process.stdout.close()
         process.stderr.close()
@@ -287,14 +286,12 @@ class Main:
 
                 frame = self.processed_frames.popleft()
 
-                # Write the frame to FFmpeg
                 pipe.stdin.write(frame.tobytes())
 
                 self.pbar.update(1)
         except Exception as e:
             logging.exception("An error occurred during writing")
 
-        # Close the pipe
         pipe.stdin.close()
         pipe.wait()
 

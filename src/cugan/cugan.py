@@ -69,8 +69,7 @@ class Cugan:
         self.upscaled_width = self.width * self.upscale_factor
             
     def pad_frame(self, frame):
-        if self.pad_width != 0 or self.pad_height != 0:
-            frame = F.pad(frame, [0, self.pad_width, 0, self.pad_height])
+        frame = F.pad(frame, [0, self.pad_width, 0, self.pad_height])
         return frame
 
     @torch.inference_mode
@@ -85,12 +84,15 @@ class Cugan:
                     frame = frame.cuda()
                 except:
                     frame = frame.cpu()
-
-            frame = self.pad_frame(frame)
+            
+            if self.pad_width != 0 or self.pad_height != 0:
+                frame = self.pad_frame(frame)
+            
             frame = self.model(frame)
             frame = frame[:, :, :self.upscaled_height, :self.upscaled_width]
             frame = frame.squeeze(0).permute(
                 1, 2, 0).mul_(255).clamp_(0, 255).byte()
+
             return frame.cpu().numpy()
             
 class CuganAMD():

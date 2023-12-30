@@ -8,12 +8,13 @@ from moviepy.editor import VideoFileClip
 from tqdm import tqdm
 from multiprocessing import Process, Queue
 
-def main(args, ffmpeg_path, width, height, fps, nframes, upscale, interpolate):
+def main(init_args, ffmpeg_path, width, height, fps, nframes):
     
     read_buffer = Queue(maxsize=500)
     write_buffer = Queue(maxsize=500)
     
     procs = []
+    interpolate_process,  upscale_process, new_width, new_height, fps = intitialize_models(fps, width, height, init_args)
     
     proc = Process(target=build_read_buffer, args=(
         read_buffer, args.input, ffmpeg_path, width, height))
@@ -21,11 +22,11 @@ def main(args, ffmpeg_path, width, height, fps, nframes, upscale, interpolate):
     proc.start()
 
     # I will want to eventually multi-thread this, but for now it's fine
-    proc = Process(target=start_process, args=(read_buffer, write_buffer, width, height, upscale, interpolate))
+    proc = Process(target=start_process, args=(read_buffer, write_buffer, upscale_process, interpolate_process, init_args.interpolate_factor, init_args.upscale, init_args.interpolate))
     procs.append(proc)
     proc.start()
 
-    proc = Process(target=clear_write_buffer, args=(write_buffer, height, width, args.output, fps, ffmpeg_path, nframes))
+    proc = Process(target=clear_write_buffer, args=(write_buffer, new_width, new_height, args.output, fps, ffmpeg_path, nframes))
     procs.append(proc)
     proc.start()
 
@@ -57,49 +58,53 @@ def get_video_metadata(input):
 
     return width, height, fps, nframes
 
-def intitialize_models(fps, width, height, upscale, upscale_method, upscale_factor, interpolate, interpolate_factor, cugan_kind, half, nt):
+def intitialize_models(fps, width, height, args):
 
-    fps = fps * interpolate_factor if interpolate else fps
-    if upscale:
+    fps = fps * args.interpolate_factor if args.interpolate == True else fps
+    if args.upscale:
         logging.info(
-            f"Upscaling to {width*upscale_factor}x{height*upscale_factor}")
+            f"Upscaling to {width*args.upscale_factor}x{height*args.upscale_factor}")
         
-        match upscale_method:
+        match args.upscale_method:
             case "shufflecugan" | "cugan":
                 from src.cugan.cugan import Cugan
                 
                 upscale_process = Cugan(
-                    upscale_method, int(upscale_factor), cugan_kind, half, width, height)
+                    args.upscale_method, int(args.upscale_factor), args.cugan_kind, args.half, width, height)
                 
             case "cugan-amd":
                 from src.cugan.cugan import CuganAMD
                 upscale_process = CuganAMD(
-                    nt, upscale_factor
+                    args.nt, args.upscale_factor
                 )
                 
             case "compact" | "ultracompact" | "superultracompact":
                 from src.compact.compact import Compact
                 upscale_process = Compact(
-                    upscale_method, half)
+                    args.upscale_method, args.half)
                 
             case "swinir":
                 from src.swinir.swinir import Swinir
                 upscale_process = Swinir(
-                    upscale_factor, half, width, height)
+                    args.upscale_factor, args.half, width, height)
                 
             case _:
                 logging.info(
-                    f"There was an error in choosing the upscale method, {upscale_method} is not a valid option")
+                    f"There was an error in choosing the upscale method, {args.upscale_method} is not a valid option")
     
-        width *= upscale_factor
-        height *= upscale_factor
-        
-    if interpolate:
+        width *= args.upscale_factor
+        height *= args.upscale_factor
+    else:
+        upscale_process = None
+           
+    if args.interpolate:
         from src.rife.rife import Rife
         
         UHD = True if width >= 3840 and height >= 2160 else False
         interpolate_process = Rife(
-            int(interpolate_factor), half, width, height, UHD)
+            int(args.interpolate_factor), args.half, width, height, UHD)
+    else:
+        interpolate_process = None
     
     return interpolate_process, upscale_process, width, height, fps
        
@@ -150,7 +155,7 @@ def build_read_buffer(read_buffer, input, ffmpeg_path, width, height):
     logging.info(f"Read {frame_count} frames")
 
 
-def start_process(read_buffer, write_buffer, upscale_process, interpolate_process, interpolate_factor, upscale = False, interpolate = False):
+def start_process(read_buffer, write_buffer, upscale_process, interpolate_process, interpolate_factor, upscale, interpolate):
     prev_frame = None
     try:
         while True:
@@ -176,7 +181,7 @@ def start_process(read_buffer, write_buffer, upscale_process, interpolate_proces
     except Exception as e:
         logging.exception("An error occurred during processing")
 
-def clear_write_buffer(write_buffer, height, width, output, fps, ffmpeg_path, nframes):
+def clear_write_buffer(write_buffer, width, height, output, fps, ffmpeg_path, nframes):
     pbar = tqdm(total=nframes, desc="Writing frames")
     command = [ffmpeg_path,
            '-y',
@@ -299,7 +304,6 @@ if __name__ == "__main__":
     args.dedup_strenght = dedup_strenght_list[args.dedup_strenght]
 
     ffmpeg_path = get_ffmpeg_path()
-    width, height, fps, nframes = get_video_metadata(input)
-    upscale_process, interpolate_process, width, height, fps = intitialize_models(fps, width, height, args.upscale, args.upscale_method, args.upscale_factor, args.interpolate, args.interpolate_factor, args.cugan_kind, args.half, args.nt)
+    width, height, fps, nframes = get_video_metadata(args.input)
     
-    main(args, ffmpeg_path, width, height, fps, nframes, upscale_process, interpolate_process)
+    main(args, ffmpeg_path, width, height, fps, nframes)
