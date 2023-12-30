@@ -214,6 +214,10 @@ class Main:
                 logging.error(f"ffmpeg error: {stderr}")
 
         self.pbar.total = frame_count
+        
+        if self.interpolate == True:
+            self.pbar.total *= self.interpolate_factor
+            
         self.pbar.refresh()
         
         # For terminating the pipe and subprocess properly
