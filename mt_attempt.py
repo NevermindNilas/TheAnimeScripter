@@ -1,11 +1,36 @@
-from multiprocessing import Process, Queue
 import os
 import logging
 import subprocess
-from moviepy.editor import VideoFileClip
-import cv2
+import argparse
 import numpy as np
+
+from moviepy.editor import VideoFileClip
 from tqdm import tqdm
+from multiprocessing import Process, Queue
+
+def main(args, ffmpeg_path, width, height, fps, nframes, upscale, interpolate):
+    
+    read_buffer = Queue(maxsize=500)
+    write_buffer = Queue(maxsize=500)
+    
+    procs = []
+    
+    proc = Process(target=build_read_buffer, args=(
+        read_buffer, args.input, ffmpeg_path, width, height))
+    procs.append(proc)
+    proc.start()
+
+    # I will want to eventually multi-thread this, but for now it's fine
+    proc = Process(target=start_process, args=(read_buffer, write_buffer, width, height, upscale, interpolate))
+    procs.append(proc)
+    proc.start()
+
+    proc = Process(target=clear_write_buffer, args=(write_buffer, height, width, args.output, fps, ffmpeg_path, nframes))
+    procs.append(proc)
+    proc.start()
+
+    for proc in procs:
+        proc.join()
 
 def get_ffmpeg_path():
     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -31,8 +56,54 @@ def get_video_metadata(input):
         f"Video Metadata: {width}x{height} @ {fps}fps, {nframes} frames")
 
     return width, height, fps, nframes
+
+def intitialize_models(fps, width, height, upscale, upscale_method, upscale_factor, interpolate, interpolate_factor, cugan_kind, half, nt):
+
+    fps = fps * interpolate_factor if interpolate else fps
+    if upscale:
+        logging.info(
+            f"Upscaling to {width*upscale_factor}x{height*upscale_factor}")
+        
+        match upscale_method:
+            case "shufflecugan" | "cugan":
+                from src.cugan.cugan import Cugan
+                
+                upscale_process = Cugan(
+                    upscale_method, int(upscale_factor), cugan_kind, half, width, height)
+                
+            case "cugan-amd":
+                from src.cugan.cugan import CuganAMD
+                upscale_process = CuganAMD(
+                    nt, upscale_factor
+                )
+                
+            case "compact" | "ultracompact" | "superultracompact":
+                from src.compact.compact import Compact
+                upscale_process = Compact(
+                    upscale_method, half)
+                
+            case "swinir":
+                from src.swinir.swinir import Swinir
+                upscale_process = Swinir(
+                    upscale_factor, half, width, height)
+                
+            case _:
+                logging.info(
+                    f"There was an error in choosing the upscale method, {upscale_method} is not a valid option")
+    
+        width *= upscale_factor
+        height *= upscale_factor
+        
+    if interpolate:
+        from src.rife.rife import Rife
+        
+        UHD = True if width >= 3840 and height >= 2160 else False
+        interpolate_process = Rife(
+            int(interpolate_factor), half, width, height, UHD)
+    
+    return interpolate_process, upscale_process, width, height, fps
        
-def build_buffer(read_buffer, input, ffmpeg_path, width, height):
+def build_read_buffer(read_buffer, input, ffmpeg_path, width, height):
     ffmpeg_command = [
         ffmpeg_path,
         "-i", str(input),
@@ -79,7 +150,8 @@ def build_buffer(read_buffer, input, ffmpeg_path, width, height):
     logging.info(f"Read {frame_count} frames")
 
 
-def start_process(read_buffer, write_buffer, width, height):
+def start_process(read_buffer, write_buffer, upscale_process, interpolate_process, interpolate_factor, upscale = False, interpolate = False):
+    prev_frame = None
     try:
         while True:
             frame = read_buffer.get()
@@ -87,7 +159,18 @@ def start_process(read_buffer, write_buffer, width, height):
                 read_buffer.put(None)
                 break
             
-            frame = cv2.resize(frame, (width, height))
+            if upscale == True:
+                frame = upscale_process.run(frame)
+                
+            if interpolate == True:
+                if prev_frame is not None:
+                    results = interpolate_process.run(prev_frame, frame, interpolate_factor)
+                    for result in results:
+                        write_buffer.put(result)
+                    prev_frame = frame
+                else:
+                    prev_frame = frame
+            
             write_buffer.put(frame)
             
     except Exception as e:
@@ -117,10 +200,8 @@ def clear_write_buffer(write_buffer, height, width, output, fps, ffmpeg_path, nf
         while True:
             frame = write_buffer.get()
             if frame is None:
-                write_buffer.put(None)
                 break
             
-            # Write the frame to FFmpeg
             pipe.stdin.write(frame.tobytes())
             pbar.update(1)
 
@@ -132,40 +213,93 @@ def clear_write_buffer(write_buffer, height, width, output, fps, ffmpeg_path, nf
 
 if __name__ == "__main__":
 
-    input = r"H:\TheAnimeScripter\input\test.mp4"
-    output = r"H:\TheAnimeScripter\input\output.mp4"
-
     log_file_path = os.path.join(os.path.dirname(
         os.path.abspath(__file__)), 'log.txt')
-
+   
     logging.basicConfig(filename=log_file_path, filemode='w',
                         format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument("--input", type=str, required=True)
+    argparser.add_argument("--output", type=str, required=True)
+    argparser.add_argument("--interpolate", type=int, default=0)
+    argparser.add_argument("--interpolate_factor", type=int, default=2)
+    argparser.add_argument("--upscale", type=int, default=0)
+    argparser.add_argument("--upscale_factor", type=int, default=2)
+    argparser.add_argument("--upscale_method",  type=str,
+                           default="ShuffleCugan")
+    argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
+    argparser.add_argument("--dedup", type=int, default=0)
+    argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
+    argparser.add_argument("--dedup_strenght", type=str, default="light")
+    argparser.add_argument("--nt", type=int, default=1)
+    argparser.add_argument("--half", type=int, default=1)
+    argparser.add_argument("--inpoint", type=float, default=0)
+    argparser.add_argument("--outpoint", type=float, default=0)
+    argparser.add_argument("--sharpen", type=int, default=0)
+    argparser.add_argument("--sharpen_sens", type=float, default=50)
+    argparser.add_argument("--segment", type=int, default=0)
+    argparser.add_argument("--scenechange", type=int, default=0)
+    argparser.add_argument("--scenechange_sens", type=float, default=40)
+    
+    try:
+        args = argparser.parse_args()
+    except Exception as e:
+        logging.info(e)
+
+    # Whilst this is ugly, it was easier to work with the Extendscript interface this way
+    args.interpolate = True if args.interpolate == 1 else False
+    args.scenechange = True if args.scenechange == 1 else False
+    args.sharpen = True if args.sharpen == 1 else False
+    args.upscale = True if args.upscale == 1 else False
+    args.segment = True if args.segment == 1 else False
+    args.dedup = True if args.dedup == 1 else False
+    args.half = True if args.half == 1 else False
+
+    args.upscale_method = args.upscale_method.lower()
+    args.dedup_strenght = args.dedup_strenght.lower()
+    args.dedup_method = args.dedup_method.lower()
+    args.cugan_kind = args.cugan_kind.lower()
+    
+    args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
+    args.scenechange_sens /= 100 # same for scene change
+
+    args.input = os.path.normpath(args.input)
+    args.output = os.path.normpath(args.output)
+    
+    args_dict = vars(args)
+    for arg in args_dict:
+        logging.info(f"{arg}: {args_dict[arg]}")
+
+    if args.output and not os.path.isabs(args.output):
+        dir_path = os.path.dirname(args.input)
+        args.output = os.path.join(dir_path, args.output)
+
+    if args.upscale_method in ["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir"] and args.upscale_factor != 2:
+        logging.info(
+            f"{args.upscale_method} only supports 2x upscaling, setting upscale_factor to 2, please use Cugan for 3x/4x upscaling")
+        args.upscale_factor = 2
+
+    if args.upscale_factor not in [2, 3, 4]:
+        logging.info(
+            f"{args.upscale_factor} is not a valid upscale factor, setting upscale_factor to 2")
+        args.upscale_factor = 2
+
+    if args.nt > 1:
+        logging.info(
+            "Multi-threading is not supported yet, setting nt back to 1")
+        args.nt = 1
+
+    dedup_strenght_list = {
+        "light": "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB",
+        "medium": "mpdecimate=hi=64*100:lo=64*35:frac=0.2,setpts=N/FRAME_RATE/TB",
+        "high": "mpdecimate=hi=64*200:lo=64*50:frac=0.33,setpts=N/FRAME_RATE/TB"
+    }
+
+    args.dedup_strenght = dedup_strenght_list[args.dedup_strenght]
+
     ffmpeg_path = get_ffmpeg_path()
     width, height, fps, nframes = get_video_metadata(input)
+    upscale_process, interpolate_process, width, height, fps = intitialize_models(fps, width, height, args.upscale, args.upscale_method, args.upscale_factor, args.interpolate, args.interpolate_factor, args.cugan_kind, args.half, args.nt)
     
-    read_buffer = Queue(maxsize=500)
-    write_buffer = Queue(maxsize=500)
-
-    procs = []
-    proc = Process(target=build_buffer, args=(
-        read_buffer, input, ffmpeg_path, width, height))
-    procs.append(proc)
-    proc.start()
-
-    width *= 2
-    height *= 2
-
-    num_processes = 2
-
-    for _ in range(num_processes):
-        proc = Process(target=start_process, args=(read_buffer, write_buffer, width, height))
-        procs.append(proc)
-        proc.start()
-
-    proc = Process(target=clear_write_buffer, args=(write_buffer, height, width, output, fps, ffmpeg_path, nframes))
-    procs.append(proc)
-    proc.start()
-
-    for proc in procs:
-        proc.join()
+    main(args, ffmpeg_path, width, height, fps, nframes, upscale_process, interpolate_process)

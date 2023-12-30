@@ -18,10 +18,9 @@ class Scenechange():
         ]
         output = subprocess.check_output(command, stderr=subprocess.STDOUT).decode()
 
-        # Extract PTS times
         pts_times = re.findall(r'pts_time:(\d+\.\d+)', output)
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        # Convert to seconds and write to file
+        
         with open(os.path.join(dir_path, 'scenechangeresults.txt'), 'w') as f:
             for pts_time in pts_times:
                 f.write(str(float(pts_time)) + '\n')

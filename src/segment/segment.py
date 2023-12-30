@@ -5,13 +5,12 @@ import logging
 import time
 import os
 import requests
-import onnxruntime as rt
 import cv2
+import torch
 
+from .train import AnimeSegmentation
 from tqdm import tqdm
 from queue import Queue
-
-SCALE = 255
 
 class Segment():
     def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint=0, outpoint=0):
@@ -31,7 +30,6 @@ class Segment():
             print(f"{attr}: {value}")
             
         """
-
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = Queue(maxsize=500)
         self.threads_done = False
@@ -43,9 +41,8 @@ class Segment():
         _thread.start_new_thread(self.build_buffer, ())
 
     def handle_model(self):
-        
-        filename = "isnetis.onnx"
-        url = "https://huggingface.co/skytnt/anime-seg/resolve/main/isnetis.onnx?download=true"
+        filename = "isnetis.ckpt"
+        url = r"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/isnetis.ckpt"
         
         dir_path = os.path.dirname(os.path.realpath(__file__))
         
@@ -58,15 +55,16 @@ class Segment():
             request = requests.get(url)
             with open(os.path.join(dir_path , "weights", filename), "wb") as file:
                 file.write(request.content)
-        
         model_path = os.path.join(dir_path , "weights", filename)
-        if "CUDAExecutionProvider" in rt.get_available_providers():
-            try:
-                self.session = rt.InferenceSession(model_path, providers=["CUDAExecutionProvider"])
-            except:
-                self.session = rt.InferenceSession(model_path, providers=["CPUExecutionProvider"])
-                logging.info("CUDAExecutionProvider is not available, using CPUExecutionProvider")
-                logging.info("Please download CUDA 12.1 toolkit from https://developer.nvidia.com/cuda-12-1-0-download-archive since that's the only supported version for now")
+        
+        if torch.cuda.is_available():
+            device = "cuda:0"
+        else:
+            device = "cpu"
+        
+        self.model = AnimeSegmentation.try_load("isnet_is", model_path, device, img_size=1024)
+        self.model.eval()
+        self.model.to(device)
         
     def get_character_bounding_box(self, image) -> tuple:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -85,34 +83,24 @@ class Segment():
         
         return x, y, w, h
                 
-    def get_mask(self, session_infer: rt.InferenceSession, img: np.ndarray, size_infer: int = 1024):
-        # from https://github.com/shirayu/rm_anime_bg/blob/main/rm_anime_bg/cli.py#L170
-        img = (img / SCALE).astype(np.float32)
-        h_orig, w_orig = self.height , self.width
-
-        if h_orig > w_orig:
-            h_infer, w_infer = (size_infer, int(size_infer * w_orig / h_orig))
-        else:
-            h_infer, w_infer = (int(size_infer * h_orig / w_orig), size_infer)
-
-        h_padding, w_padding = size_infer - h_infer, size_infer - w_infer
-        img_infer = np.zeros([size_infer, size_infer, 3], dtype=np.float32)
-        img_infer[
-            h_padding // 2 : h_padding // 2 + h_infer,
-            w_padding // 2 : w_padding // 2 + w_infer,
-        ] = cv2.resize(img, (w_infer, h_infer))
-        img_infer = np.transpose(img_infer, (2, 0, 1))
-        img_infer = img_infer[np.newaxis, :]
-
-        mask = session_infer.run(None, {"img": img_infer})[0][0]
-        mask = np.transpose(mask, (1, 2, 0))
-        mask = mask[
-            h_padding // 2 : h_padding // 2 + h_infer,
-            w_padding // 2 : w_padding // 2 + w_infer,
-        ]
-        mask = cv2.resize(mask, (w_orig, h_orig))[:, :, np.newaxis]
-        
-        return mask
+    def get_mask(self, input_img):
+        s = 1024
+        input_img = (input_img / 255).astype(np.float32)
+        h, w = h0, w0 = input_img.shape[:-1]
+        h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
+        ph, pw = s - h, s - w
+        img_input = np.zeros([s, s, 3], dtype=np.float32)
+        img_input[ph // 2:ph // 2 + h, pw // 2:pw // 2 + w] = cv2.resize(input_img, (w, h))
+        img_input = np.transpose(img_input, (2, 0, 1))
+        img_input = img_input[np.newaxis, :]
+        tmpImg = torch.from_numpy(img_input).type(torch.FloatTensor).to(self.model.device)
+        with torch.no_grad():
+            pred = self.model(tmpImg)
+            pred = pred.cpu().numpy()[0]
+            pred = np.transpose(pred, (1, 2, 0))
+            pred = pred[ph // 2:ph // 2 + h, pw // 2:pw // 2 + w]
+            pred = cv2.resize(pred, (w0, h0))[:, :, np.newaxis]
+            return pred
     
     def build_buffer(self):
         ffmpeg_command = [
@@ -217,16 +205,12 @@ class Segment():
                 if frame is None and self.read_buffer.empty():
                     break
                                 
-                mask = self.get_mask(self.session, frame)
-                
-                mask[mask < 0.0] = 0.0
-                mask[mask > 1.0] = 1.0
+                mask = self.get_mask(frame)
                 
                 frame = (frame * mask + green_img * (1 - mask)).astype(np.uint8)
                 
-                mask = (mask * SCALE).astype(np.uint8)
+                mask = (mask * 255).astype(np.uint8)
                 mask = np.squeeze(mask, axis=2)
-                
                 
                 frame_with_mask = np.concatenate((frame, mask[..., np.newaxis]), axis=2)
                 
