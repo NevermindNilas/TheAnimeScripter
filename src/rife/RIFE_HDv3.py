@@ -18,7 +18,10 @@ class Model:
 
     def device(self):
         self.flownet.to(device)
-
+    
+    def half(self):
+        self.flownet.half()
+        
     def load_model(self, path, rank=0):
         def convert(param):
             if rank == -1:

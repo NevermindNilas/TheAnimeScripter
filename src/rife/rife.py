@@ -32,11 +32,14 @@ class Rife:
         if torch.cuda.is_available():
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
+            if self.half:
+                torch.set_default_tensor_type(torch.cuda.HalfTensor)
       
         from .RIFE_HDv3 import Model
         self.model = Model()
         self.model.load_model(self.modelDir, -1)
         self.model.eval()
+        self.model.half()
         self.model.device()
 
     def make_inference(self, I0, I1, n):
@@ -53,7 +56,7 @@ class Rife:
         else:
             return F.pad(img, self.padding)
 
-    def run(self, I0, I1, n):
+    def run(self, I0, I1):
         buffer = []
         I0 = torch.from_numpy(np.transpose(I0, (2, 0, 1))).to(
             self.device, non_blocking=True).unsqueeze(0).float() / 255.
@@ -63,7 +66,7 @@ class Rife:
         I0 = self.pad_image(I0)
         I1 = self.pad_image(I1)
         
-        output = self.make_inference(I0, I1, n - 1)
+        output = self.make_inference(I0, I1, self.interpolation_factor - 1)
 
         for mid in output:
             mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
