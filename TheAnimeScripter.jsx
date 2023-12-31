@@ -587,6 +587,13 @@ var TheAnimeScripter = (function() {
         }
 
         var exeFile = TheAnimeScripterPath + "\\main.exe";
+
+        var exeFilePath = new File(exeFile);
+        if (!exeFilePath.exists) {
+            alert("The main.exe file does not exist, please make sure you have downloaded the latest version of The Anime Scripter, if you have opted for building it yourself please make sure you have built it correctly");
+            return;
+        }
+
         var activeItem = app.project.activeItem;
 
         var comp = app.project.activeItem;
