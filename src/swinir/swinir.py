@@ -3,6 +3,7 @@ import requests
 import torch
 import numpy as np
 
+from torch.nn import functional as F
 from .swinir_arch import SwinIR as SwinIR_arch
 
 class Swinir():
@@ -74,8 +75,7 @@ class Swinir():
             return self.model(frame)
 
     def pad_frame(self, frame):
-        frame = torch.cat([frame, torch.flip(frame, [2])], 2)[:, :, :self.height + self.h_pad, :]
-        frame = torch.cat([frame, torch.flip(frame, [3])], 3)[:, :, :, :self.width + self.w_pad]
+        frame = F.pad(frame, (0, self.w_pad, 0, self.h_pad), mode='reflect')
         return frame
 
     def transform_frame(self, frame):
@@ -84,10 +84,11 @@ class Swinir():
         if self.width % 8 != 0 or self.height % 8 != 0:
             frame = self.pad_frame(frame)
         return frame
-
+    
     @torch.inference_mode
     def run(self, frame):
         frame = self.transform_frame(frame)
         frame = self.inference(frame)
+        frame = frame[:, :, :self.height * self.upscale_factor, :self.width * self.upscale_factor]
         frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
         return frame.cpu().numpy()
