@@ -51,6 +51,7 @@ class Main:
         self.dedup_strenght = args.dedup_strenght
         self.scenechange = args.scenechange
         self.scenechange_sens = args.scenechange_sens
+        self.depth = args.depth
 
         # This is necessary on the top since the script heavily relies on FFMPEG
         self.check_ffmpeg()
@@ -68,6 +69,20 @@ class Main:
             
             return
 
+        if self.depth:
+            from src.depth.depth import Depth
+
+            self.get_video_metadata()
+            process = Depth(
+                self.input, self.output, self.ffmpeg_path, self.width, self.height, self.fps, self.nframes, self.half, self.inpoint, self.outpoint)
+            
+            process.run()
+            
+            logging.info(
+                "Detecting depth")
+            
+            return
+        
         if self.segment:
             from src.segment.segment import Segment
 
@@ -78,7 +93,7 @@ class Main:
             process.run()
 
             logging.info(
-                "The user only wanted to segment, exiting after processing")
+                "Segmenting video")
             return
 
         # There's no need to start the decode encode cycle if the user only wants to dedup
@@ -244,7 +259,7 @@ class Main:
                 if self.interpolate:
                     if prev_frame is not None:
                         results = self.interpolate_process.run(
-                            prev_frame, frame, self.interpolate_factor)
+                            prev_frame, frame)
                         for result in results:
                             self.processed_frames.append(result)
 
@@ -357,6 +372,7 @@ if __name__ == "__main__":
     argparser.add_argument("--segment", type=int, default=0)
     argparser.add_argument("--scenechange", type=int, default=0)
     argparser.add_argument("--scenechange_sens", type=float, default=40)
+    argparser.add_argument("--depth", type=int, default=0)
     
     try:
         args = argparser.parse_args()
@@ -370,6 +386,7 @@ if __name__ == "__main__":
     args.upscale = True if args.upscale == 1 else False
     args.segment = True if args.segment == 1 else False
     args.dedup = True if args.dedup == 1 else False
+    args.depth = True if args.depth == 1 else False
     args.half = True if args.half == 1 else False
 
     args.upscale_method = args.upscale_method.lower()
