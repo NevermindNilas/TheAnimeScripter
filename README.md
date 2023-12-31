@@ -71,7 +71,8 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 - [Xintao](https://github.com/xinntao/Real-ESRGAN) - for Realesrgan, specifically compact arch.
 - [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai) - For Compact, UltraCompact, SuperUltraCompact models
 - [Tohrusky](https://github.com/Tohrusky/realcugan-ncnn-py) - For RealCugan-NCNN-Vulkan wrapper.
-- [SkyTNT](https://github.com/SkyTNT/anime-segmentation) - For Anime Segmentation
+- [SkyTNT](https://github.com/SkyTNT/anime-segmentation) - For Anime Segmentation.
+- [ISL-ORG](https://github.com/isl-org/MiDaS) - For Depth Map Processing.
 
 ## 📈 Benchmarks
 
