@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "0.1.4";
+    var scriptVersion = "0.1.5";
     var scriptAuthor = "Nilas";
     var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
     var discordServer = "https://discord.gg/CdRD9GwS8J"
@@ -18,11 +18,11 @@ var TheAnimeScripter = (function() {
     var intUpscale = app.settings.haveSetting(scriptName, "intUpscale") ? app.settings.getSetting(scriptName, "intUpscale") : 2;
     var intNumberOfThreads = app.settings.haveSetting(scriptName, "intNumberOfThreads") ? app.settings.getSetting(scriptName, "intNumberOfThreads") : 1;
     var sliderSharpen = app.settings.haveSetting(scriptName, "sliderSharpen") ? app.settings.getSetting(scriptName, "sliderSharpen") : 50;
-    
     var dropdownDedupStrenght = app.settings.haveSetting(scriptName, "dropdownDedupStrenght") ? app.settings.getSetting(scriptName, "dropdownDedupStrenght") : 0
     var sliderSceneChange = app.settings.haveSetting(scriptName, "sliderSceneChange") ? app.settings.getSetting(scriptName, "sliderSceneChange") : 70;
     var segmentValue = 0;
     var sceneChangeValue = 0;
+    var depthValue = 0;
 
     // THEANIMESCRIPTER
     // ================
@@ -153,7 +153,6 @@ var TheAnimeScripter = (function() {
     var buttonDepthMap = panelPostProcess.add("button", undefined, undefined, {
         name: "buttonDepthMap"
     });
-    buttonDepthMap.enabled = false;
     buttonDepthMap.text = "Depth Map";
     buttonDepthMap.preferredSize.width = 105;
     buttonDepthMap.alignment = ["center", "top"];
@@ -539,6 +538,11 @@ var TheAnimeScripter = (function() {
         start_chain();
     }
 
+    buttonDepthMap.onClick = function() {
+        depthValue = 1;
+        start_chain();
+    }
+
     buttonSegment.onClick = function() {
         segmentValue = 1;
         start_chain();
@@ -636,6 +640,7 @@ var TheAnimeScripter = (function() {
                     "--dedup_strenght", dropdownDedupStrenght.selection.text,
                     "--scenechange", sceneChangeValue,
                     "--scenechange_sens", 100 - sliderSceneChange.value,
+                    "--depth", depthValue,
                 ];
                 // Slider Change Value works in reverse where as 0 is the most sensitive and 100% is the least sensitive, question FFMPEG devs about this
                 var command = attempt.join(" ");
@@ -704,6 +709,7 @@ var TheAnimeScripter = (function() {
             }
             sceneChangeValue = 0;
             segmentValue = 0;
+            depthValue = 0;
         }
     }
     if (TheAnimeScripter instanceof Window) TheAnimeScripter.show();

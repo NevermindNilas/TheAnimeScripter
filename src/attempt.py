@@ -16,7 +16,8 @@ Attempt to multithread the reading of frames from a video file
 
 3 threads are about 50% faster compared to 1 thread
 
-There are some race conditions to avoid, still, but it is a good start
+4 threads and above give little to no improvements and introduce race conditions for some apparent reason. I think it's due to the blocking nature of Threading
+
 """
 def read_frame(clip, start, end):
     for i in range(start, end):
