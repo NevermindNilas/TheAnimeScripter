@@ -19,12 +19,11 @@ from collections import deque
 TO:DO
     - Add testing.
     - Fix Rife padding, again.
-    - Find a way to add awarpsharp2 to the pipeline
     - Add bounding box support for Segmentation
 """
 
 warnings.filterwarnings("ignore")
-
+# Subject to change, I am thinking to add a custom ffmpeg option in the future
 ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
                  "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
 
@@ -55,18 +54,18 @@ class Main:
 
         # This is necessary on the top since the script heavily relies on FFMPEG
         self.check_ffmpeg()
-        
+
         if self.scenechange:
             from src.scenechange.scene_change import Scenechange
 
             process = Scenechange(
                 self.input, self.ffmpeg_path, self.scenechange_sens)
-            
+
             process.run()
-            
+
             logging.info(
                 "Detecting scene changes")
-            
+
             return
 
         if self.depth:
@@ -75,14 +74,14 @@ class Main:
             self.get_video_metadata()
             process = Depth(
                 self.input, self.output, self.ffmpeg_path, self.width, self.height, self.fps, self.nframes, self.half, self.inpoint, self.outpoint)
-            
+
             process.run()
-            
+
             logging.info(
                 "Detecting depth")
-            
+
             return
-        
+
         if self.segment:
             from src.segment.segment import Segment
 
@@ -112,6 +111,7 @@ class Main:
                             self.dedup_strenght, self.ffmpeg_path).run()
 
             logging.info("The user only wanted to dedup, exiting")
+            
             return
 
         self.get_video_metadata()
@@ -130,7 +130,8 @@ class Main:
 
     def intitialize(self):
 
-        self.pbar = tqdm(total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
+        self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
+                         unit="frames", dynamic_ncols=True, colour="green")
 
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = deque()
@@ -145,8 +146,6 @@ class Main:
         self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
 
         if self.upscale:
-
-            # Setting new width and height for processing
             self.new_width *= self.upscale_factor
             self.new_height *= self.upscale_factor
             logging.info(
@@ -229,12 +228,12 @@ class Main:
                 logging.error(f"ffmpeg error: {stderr}")
 
         self.pbar.total = frame_count
-        
+
         if self.interpolate == True:
             self.pbar.total *= self.interpolate_factor
-            
+
         self.pbar.refresh()
-        
+
         # For terminating the pipe and subprocess properly
         process.stdout.close()
         process.stderr.close()
@@ -342,13 +341,12 @@ class Main:
 
 
 if __name__ == "__main__":
-    
+
     log_file_path = os.path.join(os.path.dirname(
         os.path.abspath(__file__)), 'log.txt')
-   
+
     logging.basicConfig(filename=log_file_path, filemode='w',
                         format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--input", type=str, required=True)
@@ -373,7 +371,7 @@ if __name__ == "__main__":
     argparser.add_argument("--scenechange", type=int, default=0)
     argparser.add_argument("--scenechange_sens", type=float, default=40)
     argparser.add_argument("--depth", type=int, default=0)
-    
+
     try:
         args = argparser.parse_args()
     except Exception as e:
@@ -393,9 +391,9 @@ if __name__ == "__main__":
     args.dedup_strenght = args.dedup_strenght.lower()
     args.dedup_method = args.dedup_method.lower()
     args.cugan_kind = args.cugan_kind.lower()
-    
+
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
-    args.scenechange_sens /= 100 # same for scene change
+    args.scenechange_sens /= 100  # same for scene change
 
     args_dict = vars(args)
     for arg in args_dict:

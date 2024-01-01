@@ -8,6 +8,13 @@ from moviepy.editor import VideoFileClip
 from tqdm import tqdm
 from multiprocessing import Process, Queue
 
+"""
+Little to no improvements when multithreading the reading of frames from a video file
+
+I assume it's due to the I/O bottleneck, but I am not exactly sure,
+
+For now I will put this on hold and come back to it at a later date
+"""
 def main(init_args, ffmpeg_path, width, height, fps, nframes):
     
     read_buffer = Queue(maxsize=500)
