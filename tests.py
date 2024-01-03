@@ -7,8 +7,8 @@ num_threads = int(input("Number of tests to run in parallel: "))
 # Check for FFMPEG
 dir_path = os.path.dirname(os.path.realpath(__file__))
 if not os.path.exists(os.path.join(dir_path, "ffmpeg")):
-    batPath = r"H:\TheAnimeScripter\get_ffmpeg.bat"
-    subprocess.call(batPath)
+    bat_path = r"H:\TheAnimeScripter\get_ffmpeg.bat"
+    subprocess.call(bat_path)
     
 
 semaphore = threading.Semaphore(num_threads)
@@ -30,9 +30,19 @@ def run_command(command):
 
 commands: list = []
 counter = 0
+
+for dedup in "light", "medium", "high":
+    commands.append(f"python .\\main.py --input .\\input\\test.mp4 --output output_dedup_{dedup}.mp4 --dedup_strenght {dedup}")
+
+# Sharpen tests
+for sharpen in "0", "50":
+    commands.append(f"python .\\main.py --input .\\input\\test.mp4 --output output_sharpen_{sharpen}.mp4 --sharpen 1 --sharpen_sens {sharpen}")
+
+# Interpolate tests
 for interpolate_factor in range(2, 4):
     commands.append(f"python .\\main.py --input .\\input\\test.mp4 --output output_interpolate_{interpolate_factor}.mp4 --interpolate 1 --interpolate_factor {interpolate_factor}")
 
+# Upscale tests
 for upscale_method in "shufflecugan", "cugan", "cugan-amd", "swinir", "compact", "ultracompact", "superultracompact":
     if upscale_method == "shufflecugan":
         commands.append(f"python .\\main.py --input .\\input\\test.mp4 --output output_{upscale_method}.mp4 --upscale 1 --upscale_factor 2 --upscale_method {upscale_method}")
@@ -46,9 +56,6 @@ for upscale_method in "shufflecugan", "cugan", "cugan-amd", "swinir", "compact",
 
     else:
         commands.append(f"python .\\main.py --input .\\input\\test.mp4 --output output_{upscale_method}.mp4 --upscale 1 --upscale_factor 2 --upscale_method {upscale_method}")
-
-for dedup in "light", "medium", "high":
-    commands.append(f"python .\\main.py --input .\\input\\test.mp4 --output output_dedup_{dedup}.mp4 --dedup_strenght {dedup}")
 
 # Combination with upscale and interpolate
 for combination in "shufflecugan", "cugan", "cugan-amd", "swinir", "compact", "ultracompact", "superultracompact":
