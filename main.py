@@ -24,9 +24,6 @@ TO:DO
 
 warnings.filterwarnings("ignore")
 # Subject to change, I am thinking to add a custom ffmpeg option in the future
-ffmpeg_params = ["-c:v", "libx264", "-preset", "veryfast", "-crf",
-                 "15", "-tune", "animation", "-movflags", "+faststart", "-y"]
-
 
 class Main:
     def __init__(self, args):
