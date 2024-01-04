@@ -20,6 +20,7 @@ var TheAnimeScripter = (function() {
     var sliderSharpen = app.settings.haveSetting(scriptName, "sliderSharpen") ? app.settings.getSetting(scriptName, "sliderSharpen") : 50;
     var dropdownDedupStrenght = app.settings.haveSetting(scriptName, "dropdownDedupStrenght") ? app.settings.getSetting(scriptName, "dropdownDedupStrenght") : 0
     var sliderSceneChange = app.settings.haveSetting(scriptName, "sliderSceneChange") ? app.settings.getSetting(scriptName, "sliderSceneChange") : 70;
+    var dropdownEncoder = app.settings.haveSetting(scriptName, "dropdownEncoder") ? app.settings.getSetting(scriptName, "dropdownEncoder") : 0;
     var segmentValue = 0;
     var sceneChangeValue = 0;
     var depthValue = 0;
@@ -119,7 +120,7 @@ var TheAnimeScripter = (function() {
     textInterpolate.justify = "center";
     textInterpolate.alignment = ["left", "center"];
     textInterpolate.helpTip = "Interpolate using RIFE - current model supported 4.13.2";
-    
+
     var group4 = panelChain.add("group", undefined, {
         name: "group4"
     });
@@ -381,7 +382,7 @@ var TheAnimeScripter = (function() {
     var panel1 = settingsWindow.add("panel", undefined, undefined, {
         name: "panel1"
     });
-    panel1.text = "Model Picker";
+    panel1.text = "Model Selection";
     panel1.orientation = "column";
     panel1.alignChildren = ["left", "top"];
     panel1.spacing = 10;
@@ -460,6 +461,42 @@ var TheAnimeScripter = (function() {
 
     dropdownDedupStrenght.selection = 0;
     dropdownDedupStrenght.preferredSize.width = 109;
+
+    var panel2 = settingsWindow.add("panel", undefined, undefined, {
+        name: "panel2"
+    });
+
+    panel2.text = "Encoder Selection";
+    panel2.orientation = "column";
+    panel2.alignChildren = ["left", "top"];
+    panel2.spacing = 10;
+    panel2.margins = 10;
+
+    var group8 = panel2.add("group", undefined, {
+        name: "group8"
+    });
+
+    group8.orientation = "row";
+    group8.alignChildren = ["left", "center"];
+    group8.spacing = 0;
+    group8.margins = 0;
+
+    var textEncoderSelection = group8.add("statictext", undefined, undefined, {
+        name: "textEncoderSelection"
+    });
+
+    textEncoderSelection.text = "Encoder";
+    textEncoderSelection.preferredSize.width = 103;
+    textEncoderSelection.helpTip = "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs and QSV for Intel iGPUs";
+
+    var dropdownEncoder_array = ["X264", "-", "X264 Animation", "-", "NVENC H264", "-", "NVENC H265", "-", "QSV H264", "-", "QSV H265"];
+    var dropdownEncoder = group8.add("dropdownlist", undefined, undefined, {
+        name: "dropdownEncoder",
+        items: dropdownEncoder_array
+    });
+
+    dropdownEncoder.selection = 0;
+    dropdownEncoder.preferredSize.width = 109;
 
     // GROUP10
     var buttonSettingsClose = settingsWindow.add("button", undefined, undefined, {
@@ -548,12 +585,16 @@ var TheAnimeScripter = (function() {
         start_chain();
     }
 
+    dropdownEncoder.onChange = function() {
+        app.settings.saveSetting(scriptName, "dropdownEncoder", dropdownEncoder.selection.index);
+    }
+
     buttonStartProcess.onClick = function() {
         if (checkboxDeduplicate.value == false && checkboxUpscale.value == false && checkboxInterpolate.value == false && checkboxSharpen.value == false) {
             alert("Please select at least one of the checkboxes");
             return;
         }
-        
+
         start_chain();
     }
 
@@ -620,27 +661,28 @@ var TheAnimeScripter = (function() {
 
             try {
                 var attempt = [
-                    "cd", "\"" + TheAnimeScripterPath + "\"", 
-                    "&&", 
-                    "\"" + exeFile + "\"", 
-                    "--input", "\"" + activeLayerPath + "\"", 
-                    "--output", "\"" + output_name + "\"", 
-                    "--interpolate", checkboxInterpolate.value ? "1" : "0", 
-                    "--interpolate_factor", intInterpolate.text, 
-                    "--upscale", checkboxUpscale.value ? "1" : "0", 
-                    "--upscale_factor", intUpscale.text, 
-                    "--dedup", checkboxDeduplicate.value ? "1" : "0", 
+                    "cd", "\"" + TheAnimeScripterPath + "\"",
+                    "&&",
+                    "\"" + exeFile + "\"",
+                    "--input", "\"" + activeLayerPath + "\"",
+                    "--output", "\"" + output_name + "\"",
+                    "--interpolate", checkboxInterpolate.value ? "1" : "0",
+                    "--interpolate_factor", intInterpolate.text,
+                    "--upscale", checkboxUpscale.value ? "1" : "0",
+                    "--upscale_factor", intUpscale.text,
+                    "--dedup", checkboxDeduplicate.value ? "1" : "0",
                     "--half", "1",
                     "--upscale_method", dropdownModel.selection.text,
                     "--inpoint", inPoint,
                     "--outpoint", outPoint,
                     "--sharpen", checkboxSharpen.value ? "1" : "0",
                     "--sharpen_sens", sliderSharpen.value,
-                    "--segment", segmentValue, 
+                    "--segment", segmentValue,
                     "--dedup_strenght", dropdownDedupStrenght.selection.text,
                     "--scenechange", sceneChangeValue,
                     "--scenechange_sens", 100 - sliderSceneChange.value,
                     "--depth", depthValue,
+                    "--encoder", dropdownEncoder.selection.text
                 ];
                 // Slider Change Value works in reverse where as 0 is the most sensitive and 100% is the least sensitive, question FFMPEG devs about this
                 var command = attempt.join(" ");
@@ -648,10 +690,10 @@ var TheAnimeScripter = (function() {
                 alert(error);
             }
 
-            alert (command);
+            alert(command);
             callCommand(command);
 
-            while(true) {    
+            while (true) {
                 if (sceneChangeValue == 1) {
                     var sceneChangeLogPath = TheAnimeScripterPath + "\\_internal" + "\\src" + "\\scenechange" + "\\scenechangeresults.txt";
                     var sceneChangeLog = new File(sceneChangeLogPath);
@@ -671,9 +713,9 @@ var TheAnimeScripter = (function() {
                     }
                     sceneChangeLog.close();
                     break;
-                }
-                else {
-                    var maxAttempts = 100;
+                } else {
+                    // Increased Max Attempts, just in case
+                    var maxAttempts = 500;
                     for (var attempt = 0; attempt < maxAttempts; attempt++) {
                         try {
                             var importOptions = new ImportOptions(File(output_name));
@@ -688,8 +730,7 @@ var TheAnimeScripter = (function() {
                                 var scaleX = (compWidth / layerWidth) * 100;
                                 var scaleY = (compHeight / layerHeight) * 100;
                                 inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
-                            }
-                            else {
+                            } else {
                                 var layerWidth = layer.width;
                                 var layerHeight = layer.height;
                                 var scaleX = (layerWidth / inputLayer.source.width) * 100;

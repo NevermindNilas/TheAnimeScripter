@@ -32,6 +32,13 @@ def encode_settings(encode_method, new_width, new_height, fps, output, ffmpeg_pa
                             '-crf', '15',
                             output])
         
+        case "x265_amimation":
+            command.extend(['-c:v', 'libx265',
+                            '-preset', 'veryfast',
+                            '-tune', 'animation',
+                            '-crf', '15',
+                            output])
+        
         case "x265_animation":
             command.extend(['-c:v', 'libx265',
                             '-preset', 'veryfast',
