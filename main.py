@@ -7,22 +7,21 @@ import numpy as np
 import time
 import warnings
 
+from queue import SimpleQueue
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from moviepy.editor import VideoFileClip
 from multiprocessing import Queue
-from collections import deque
 
 """
 TO:DO
     - Add testing.
     - Fix Rife padding, again.
     - Add bounding box support for Segmentation
+    - Multihread the writing process, probably through an indexing system, going to be a freaking nightmare
 """
 
 warnings.filterwarnings("ignore")
-# Subject to change, I am thinking to add a custom ffmpeg option in the future
-
 
 class Main:
     def __init__(self, args):
@@ -91,6 +90,7 @@ class Main:
 
             logging.info(
                 "Segmenting video")
+            
             return
 
         # There's no need to start the decode encode cycle if the user only wants to dedup
@@ -119,9 +119,9 @@ class Main:
         self.threads_done = False
 
         with ThreadPoolExecutor(max_workers=1) as executor:
-            executor.submit(self.start_process)
+            executor.submit(self.process)
 
-        while self.read_buffer.qsize() > 0 and len(self.processed_frames) > 0:
+        while self.read_buffer.qsize() > 0 and self.processed_frames.qsize() > 0:
             time.sleep(0.1)
 
         self.threads_done = True
@@ -132,7 +132,7 @@ class Main:
                          unit="frames", dynamic_ncols=True, colour="green")
 
         self.read_buffer = Queue(maxsize=500)
-        self.processed_frames = Queue(maxsize=500)
+        self.processed_frames = SimpleQueue()
 
         _thread.start_new_thread(self.build_buffer, ())
         _thread.start_new_thread(self.clear_write_buffer, ())
@@ -224,7 +224,7 @@ class Main:
                 break
             frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                 (self.height, self.width, 3))
-            self.read_buffer.put(frame)
+            self.read_buffer.put((frame_count, frame))  # Modified line
             frame_count += 1
 
         stderr = process.stderr.read().decode()
@@ -232,10 +232,10 @@ class Main:
             if "bitrate=" not in stderr:
                 logging.error(f"ffmpeg error: {stderr}")
 
-        self.pbar.total = frame_count
-
         if self.interpolate == True:
-            self.pbar.total *= self.interpolate_factor
+            frame_count = frame_count * self.interpolate_factor
+
+        self.pbar.total = frame_count
 
         self.pbar.refresh()
 
@@ -249,29 +249,32 @@ class Main:
 
         logging.info(f"Read {frame_count} frames")
 
-    def start_process(self):
+    def process(self):
         prev_frame = None
         try:
             while True:
-                frame = self.read_buffer.get()
-                if frame is None:
+                item = self.read_buffer.get()
+                if item is None:
                     break
-
+                
+                _, frame = item
+                
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
-
+                    
                 if self.interpolate:
                     if prev_frame is not None:
-                        results = self.interpolate_process.run(
-                            prev_frame, frame)
+                        results = self.interpolate_process.run(prev_frame, frame)
+                        
                         for result in results:
                             self.processed_frames.put(result)
-
+                            
                         prev_frame = frame
                     else:
                         prev_frame = frame
-
+                        
                 self.processed_frames.put(frame)
+                
         except Exception as e:
             logging.exception("An error occurred during processing")
 
@@ -280,29 +283,30 @@ class Main:
             from src.encode_settings import encode_settings
             command: list = encode_settings(self.encode_method, self.new_width, self.new_height, self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
         except Exception as e:
-            logging.exception(
-                f"There was an error in choosing the encode method, {self.encode_method} is not a valid option")
+            logging.exception(f"There was an error in choosing the encode method, {self.encode_method} is not a valid option")
             return
-
-        pipe = subprocess.Popen(
-            command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-
+        pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        index_counter = 0
         try:
             while True:
                 if self.processed_frames.empty() and self.threads_done == True:
                     break
 
-                frame = self.processed_frames.get()
+                if self.processed_frames:
+                    frame = self.processed_frames.get()
 
                 pipe.stdin.write(frame.tobytes())
-
                 self.pbar.update(1)
+                
+                index_counter += 1
+
+                            
         except Exception as e:
             logging.exception("An error occurred during writing")
-
+            
         pipe.stdin.close()
         pipe.wait()
-
         self.pbar.close()
 
     def get_video_metadata(self):
@@ -333,7 +337,7 @@ class Main:
 if __name__ == "__main__":
 
     log_file_path = os.path.join(os.path.dirname(
-        os.path.abspath(__file__)), 'log.txt')
+        os.path.abspath(__file__)), 'logs.txt')
 
     logging.basicConfig(filename=log_file_path, filemode='w',
                         format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -346,8 +350,7 @@ if __name__ == "__main__":
     argparser.add_argument("--interpolate_method", type=str, default="rife")
     argparser.add_argument("--upscale", type=int, default=0)
     argparser.add_argument("--upscale_factor", type=int, default=2)
-    argparser.add_argument("--upscale_method",  type=str,
-                           default="ShuffleCugan")
+    argparser.add_argument("--upscale_method",  type=str, default="ShuffleCugan")
     argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
     argparser.add_argument("--dedup", type=int, default=0)
     argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
@@ -364,10 +367,7 @@ if __name__ == "__main__":
     argparser.add_argument("--depth", type=int, default=0)
     argparser.add_argument("--encode_method", type=str, default="x264")
 
-    try:
-        args = argparser.parse_args()
-    except Exception as e:
-        logging.info(e)
+    args = argparser.parse_args()
 
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
     args.interpolate = True if args.interpolate == 1 else False
@@ -401,8 +401,7 @@ if __name__ == "__main__":
         args.upscale_factor = 2
 
     if args.interpolate_factor >= 6:
-        print(f"Interpolation factor was set to {args.interpolate_factor}, each image processed is kept in VRAM and uses as much as 1GB of VRAM / image if the input is 3840x2160, 
-              this might cause VRAM overflows on some gpus, if you experience some form of blocking, try lowering the interpolation factor")
+        print(f"Interpolation factor was set to {args.interpolate_factor}, each image processed is kept in VRAM and uses as much as 1GB of VRAM / image if the input is 3840x2160, this might cause VRAM overflows on some gpus, if you experience some form of blocking, try lowering the interpolation factor")
         print("I will try to implement a workaround for this in the future")
 
     dedup_strenght_list = {
