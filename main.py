@@ -13,6 +13,7 @@ from tqdm import tqdm
 from moviepy.editor import VideoFileClip
 from multiprocessing import Queue
 
+main_path = os.path.dirname(os.path.realpath(__file__))
 """
 TO:DO
     - Add testing.
@@ -54,11 +55,10 @@ class Main:
 
         if self.scenechange:
             from src.scenechange.scene_change import Scenechange
+            
+            scenechange = Scenechange(self.input, self.ffmpeg_path, self.scenechange_sens, main_path)
 
-            process = Scenechange(
-                self.input, self.ffmpeg_path, self.scenechange_sens)
-
-            process.run()
+            scenechange.run()
 
             logging.info(
                 "Detecting scene changes")
@@ -336,11 +336,10 @@ class Main:
 
 if __name__ == "__main__":
 
-    log_file_path = os.path.join(os.path.dirname(
-        os.path.abspath(__file__)), 'logs.txt')
+    log_file_path = os.path.join(main_path, "log.txt")
 
     logging.basicConfig(filename=log_file_path, filemode='w',
-                        format='%(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+                        format='%(message)s', level=logging.INFO)
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--input", type=str, required=True)
@@ -387,9 +386,16 @@ if __name__ == "__main__":
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
     args.scenechange_sens /= 100  # same for scene change
 
+    logging.info("============== Arguments ==============")
+    logging.info("")
     args_dict = vars(args)
     for arg in args_dict:
-        logging.info(f"{arg}: {args_dict[arg]}")
+        logging.info(f"{arg.upper()}: {args_dict[arg]}")
+        
+    logging.info("")
+    logging.info("============== Processing Outputs ==============")
+    
+        
 
     if args.output and not os.path.isabs(args.output):
         dir_path = os.path.dirname(args.input)

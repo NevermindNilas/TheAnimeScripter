@@ -8,7 +8,7 @@ class DedupFFMPEG():
         
     def run(self):
         ffmpeg_command = [self.ffmpeg_path, "-i", self.input, "-vf",
-                          self.dedup_strenght, "-an", "-y", self.output]
+                          self.mpdecimate_params, "-an", "-y", self.output]
         subprocess.Popen(
             ffmpeg_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
