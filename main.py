@@ -14,8 +14,6 @@ from multiprocessing import Queue
 from collections import deque
 
 """
-22/12/2023 - Massive refactoring compared to older iterations, expect more in the future
-
 TO:DO
     - Add testing.
     - Fix Rife padding, again.
@@ -281,9 +279,10 @@ class Main:
         try:  
             from src.encode_settings import encode_settings
             command: list = encode_settings(self.encode_method, self.new_width, self.new_height, self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
-        except:
-            logging.info(
+        except Exception as e:
+            logging.exception(
                 f"There was an error in choosing the encode method, {self.encode_method} is not a valid option")
+            return
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -396,42 +395,41 @@ if __name__ == "__main__":
         dir_path = os.path.dirname(args.input)
         args.output = os.path.join(dir_path, args.output)
 
-    if args.upscale_method in ["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir"] and args.upscale_factor != 2:
+    if args.upscale_factor not in [2, 3, 4] or (args.upscale_method in ["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir"] and args.upscale_factor != 2):
         logging.info(
-            f"{args.upscale_method} only supports 2x upscaling, setting upscale_factor to 2, please use Cugan for 3x/4x upscaling")
+            f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 2.")
         args.upscale_factor = 2
 
-    if args.upscale_factor not in [2, 3, 4]:
-        logging.info(
-            f"{args.upscale_factor} is not a valid upscale factor, setting upscale_factor to 2")
-        args.upscale_factor = 2
-
-    if args.nt > 1:
-        logging.info(
-            "Multi-threading is not supported yet, setting nt back to 1")
-        args.nt = 1
+    if args.interpolate_factor >= 6:
+        print(f"Interpolation factor was set to {args.interpolate_factor}, each image processed is kept in VRAM and uses as much as 1GB of VRAM / image if the input is 3840x2160, 
+              this might cause VRAM overflows on some gpus, if you experience some form of blocking, try lowering the interpolation factor")
+        print("I will try to implement a workaround for this in the future")
 
     dedup_strenght_list = {
         "light": "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB",
         "medium": "mpdecimate=hi=64*100:lo=64*35:frac=0.2,setpts=N/FRAME_RATE/TB",
         "high": "mpdecimate=hi=64*200:lo=64*50:frac=0.33,setpts=N/FRAME_RATE/TB"
     }
-    # I just parse the strings directly to be easier to keep up with the variable names
     args.dedup_strenght = dedup_strenght_list[args.dedup_strenght]
     
-    # Same Here
-    encode_list = {
-        "X264": "x264",
-        "X264 Animation": "x264_animation",
-        "X265": "x265",
-        "X265 Animation": "x265_animation",
-        "NVENC H264": "nvenc_h264",
-        "NVENC H265": "nvenc_h265",
-        "QSV H264": "qsv_h264",
-        "QSV H265": "qsv_h265"
-    }
-    args.encode_method = encode_list[args.encode_method]
-    
+    if args.encode_method not in ["x264", "x264_animation", "x265", "x265_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265"]:
+        try:
+            # This is for JSX compatibility
+            encode_list = {
+                "X264": "x264",
+                "X264 Animation": "x264_animation",
+                "X265": "x265",
+                "X265 Animation": "x265_animation",
+                "NVENC H264": "nvenc_h264",
+                "NVENC H265": "nvenc_h265",
+                "QSV H264": "qsv_h264",
+                "QSV H265": "qsv_h265"
+            }
+            args.encode_method = encode_list[args.encode_method]
+        except Exception as e:
+            logging.exception(
+                f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
+            args.encode_method = "x264"
 
     if args.input is not None and args.output is not None:
         Main(args)
