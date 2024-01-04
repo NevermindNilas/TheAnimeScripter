@@ -38,7 +38,6 @@ def encode_settings(encode_method, new_width, new_height, fps, output, ffmpeg_pa
                             '-tune', 'animation',
                             '-crf', '15',
                             output])
-        
             
         case "nvenc_h264":
             command.extend(['-c:v', 'h264_nvenc',
