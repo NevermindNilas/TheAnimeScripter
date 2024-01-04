@@ -3,10 +3,11 @@ import re
 import os
 
 class Scenechange():
-    def __init__(self, input, ffmpeg_path, scenechange_sens):
+    def __init__(self, input, ffmpeg_path, scenechange_sens, output_dir):
         self.input = input
         self.ffmpeg_path = ffmpeg_path
         self.scenechange_sens = scenechange_sens
+        self.output_dir = output_dir
 
     def run(self):
         command = [
@@ -19,8 +20,7 @@ class Scenechange():
         output = subprocess.check_output(command, stderr=subprocess.STDOUT).decode()
 
         pts_times = re.findall(r'pts_time:(\d+\.\d+)', output)
-        dir_path = os.path.dirname(os.path.realpath(__file__))
         
-        with open(os.path.join(dir_path, 'scenechangeresults.txt'), 'w') as f:
+        with open(os.path.join(self.output_dir, 'scenechangeresults.txt'), 'w') as f:
             for pts_time in pts_times:
                 f.write(str(float(pts_time)) + '\n')
