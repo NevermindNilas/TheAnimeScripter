@@ -31,6 +31,13 @@ def run_command(command):
 commands: list = []
 counter = 0
 
+# Segment Test:
+commands.append(f"python .\\main.py --input .\\input\\test.mp4 --output output_segment.mp4 --segment 1")
+
+# Depth Test:
+commands.append(f"python .\\main.py --input .\\input\\test.mp4 --output output_depth.mp4 --depth 1")
+
+# Dedup tests
 for dedup in "light", "medium", "high":
     commands.append(f"python .\\main.py --input .\\input\\test.mp4 --output output_dedup_{dedup}.mp4 --dedup_strenght {dedup}")
 
