@@ -416,9 +416,22 @@ if __name__ == "__main__":
         "medium": "mpdecimate=hi=64*100:lo=64*35:frac=0.2,setpts=N/FRAME_RATE/TB",
         "high": "mpdecimate=hi=64*200:lo=64*50:frac=0.33,setpts=N/FRAME_RATE/TB"
     }
-
     # I just parse the strings directly to be easier to keep up with the variable names
     args.dedup_strenght = dedup_strenght_list[args.dedup_strenght]
+    
+    # Same Here
+    encode_list = {
+        "X264": "x264",
+        "X264 Animation": "x264_animation",
+        "X265": "x265",
+        "X265 Animation": "x265_animation",
+        "NVENC H264": "nvenc_h264",
+        "NVENC H265": "nvenc_h265",
+        "QSV H264": "qsv_h264",
+        "QSV H265": "qsv_h265"
+    }
+    args.encode_method = encode_list[args.encode_method]
+    
 
     if args.input is not None and args.output is not None:
         Main(args)
