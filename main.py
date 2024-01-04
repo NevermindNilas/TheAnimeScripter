@@ -25,12 +25,14 @@ TO:DO
 warnings.filterwarnings("ignore")
 # Subject to change, I am thinking to add a custom ffmpeg option in the future
 
+
 class Main:
     def __init__(self, args):
         self.input = args.input
         self.output = args.output
         self.interpolate = args.interpolate
         self.interpolate_factor = args.interpolate_factor
+        self.interpolate_method = args.interpolate_method
         self.upscale = args.upscale
         self.upscale_factor = args.upscale_factor
         self.upscale_method = args.upscale_method
@@ -48,6 +50,7 @@ class Main:
         self.scenechange = args.scenechange
         self.scenechange_sens = args.scenechange_sens
         self.depth = args.depth
+        self.encode_method = args.encode_method
 
         # This is necessary on the top since the script heavily relies on FFMPEG
         self.check_ffmpeg()
@@ -108,7 +111,7 @@ class Main:
                             self.dedup_strenght, self.ffmpeg_path).run()
 
             logging.info("The user only wanted to dedup, exiting")
-            
+
             return
 
         self.get_video_metadata()
@@ -131,7 +134,7 @@ class Main:
                          unit="frames", dynamic_ncols=True, colour="green")
 
         self.read_buffer = Queue(maxsize=500)
-        self.processed_frames = deque()
+        self.processed_frames = Queue(maxsize=500)
 
         _thread.start_new_thread(self.build_buffer, ())
         _thread.start_new_thread(self.clear_write_buffer, ())
@@ -175,11 +178,18 @@ class Main:
                         f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
 
         if self.interpolate:
-            from src.rife.rife import Rife
+            if self.interpolate_method == "rife":
+                from src.rife.rife import Rife
 
-            UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
-            self.interpolate_process = Rife(
-                int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
+                UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
+                self.interpolate_process = Rife(
+                    int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
+            elif self.interpolate_method == "rife-ncnn":
+                # Need to implenet Rife NCNN
+                # Current options are with frame extraction which is not ideal, I will look into rife ncnn wrapper but it only supports python 3.10
+                # And building with cmake throws a tantrum, so I will look into it later
+                logging.info(
+                    f"There was an error in choosing the interpolation method, {self.interpolate_method} is not a valid option")
 
     def build_buffer(self):
         ffmpeg_command = [
@@ -257,49 +267,33 @@ class Main:
                         results = self.interpolate_process.run(
                             prev_frame, frame)
                         for result in results:
-                            self.processed_frames.append(result)
+                            self.processed_frames.put(result)
 
                         prev_frame = frame
                     else:
                         prev_frame = frame
 
-                self.processed_frames.append(frame)
+                self.processed_frames.put(frame)
         except Exception as e:
             logging.exception("An error occurred during processing")
 
     def clear_write_buffer(self):
-        command = [self.ffmpeg_path,
-                   '-y',
-                   '-f', 'rawvideo',
-                   '-vcodec', 'rawvideo',
-                   '-s', f'{self.new_width}x{self.new_height}',
-                   '-pix_fmt', 'rgb24',
-                   '-r', str(self.fps),
-                   '-i', '-',
-                   '-an',
-                   '-c:v', 'libx264',
-                   '-preset', 'veryfast',
-                   '-crf', '15',
-                   '-tune', 'animation',
-                   '-movflags', '+faststart',
-                   self.output]
-
-        if self.sharpen:
-            command.insert(-1, '-vf')
-            command.insert(-1, f'cas={self.sharpen_sens}')
+        try:  
+            from src.encode_settings import encode_settings
+            command: list = encode_settings(self.encode_method, self.new_width, self.new_height, self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
+        except:
+            logging.info(
+                f"There was an error in choosing the encode method, {self.encode_method} is not a valid option")
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
             while True:
-                if not self.processed_frames:
-                    if self.read_buffer.empty() and self.threads_done == True:
-                        break
-                    else:
-                        continue
+                if self.processed_frames.empty() and self.threads_done == True:
+                    break
 
-                frame = self.processed_frames.popleft()
+                frame = self.processed_frames.get()
 
                 pipe.stdin.write(frame.tobytes())
 
@@ -331,7 +325,7 @@ class Main:
         # Check if FFMPEG exists at that path
         if not os.path.exists(self.ffmpeg_path):
             print("Couldn't find FFMPEG, downloading it now")
-            print("This might add an aditional 1-5 seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
+            print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
             logging.info("The user doesn't have FFMPEG, downloading it now")
             ffmpeg_bat_location = os.path.join(dir_path, "get_ffmpeg.bat")
             subprocess.call(ffmpeg_bat_location, shell=True)
@@ -350,6 +344,7 @@ if __name__ == "__main__":
     argparser.add_argument("--output", type=str, required=True)
     argparser.add_argument("--interpolate", type=int, default=0)
     argparser.add_argument("--interpolate_factor", type=int, default=2)
+    argparser.add_argument("--interpolate_method", type=str, default="rife")
     argparser.add_argument("--upscale", type=int, default=0)
     argparser.add_argument("--upscale_factor", type=int, default=2)
     argparser.add_argument("--upscale_method",  type=str,
@@ -368,6 +363,7 @@ if __name__ == "__main__":
     argparser.add_argument("--scenechange", type=int, default=0)
     argparser.add_argument("--scenechange_sens", type=float, default=40)
     argparser.add_argument("--depth", type=int, default=0)
+    argparser.add_argument("--encode_method", type=str, default="x264")
 
     try:
         args = argparser.parse_args()
