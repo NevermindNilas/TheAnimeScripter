@@ -62,7 +62,10 @@ def move_jsx_file(jsx_path):
     dist_dir = os.path.join(base_dir, "dist")
     main_dir = os.path.join(dist_dir, "main")
     target_path = os.path.join(main_dir, os.path.basename(jsx_path))
-    shutil.copy(jsx_path, target_path)
+    try:
+        shutil.copy(jsx_path, target_path)
+    except Exception as e:
+        print("Error while copying jsx file: ", e)
 
 
 def clean_up():
