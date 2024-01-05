@@ -49,7 +49,7 @@ def create_executable():
         "./venv/bin/pyinstaller" if platform.system() != "Windows" else ".\\venv\\Scripts\\pyinstaller",
         "--noconfirm",
         "--onedir",
-        "--windowed",
+        "--console",
         "--add-data", f"{src_path};src/",
         "--add-data", f"{bat_path};.",
         "--add-data", f"{jsx_path};.",
@@ -69,11 +69,11 @@ def move_jsx_file(jsx_path):
 
 
 def clean_up():
-    print("Cleaning up...")
     clean_permission = input(
         "Do you want to clean up the residue files? (y/n) ")
 
     if clean_permission.lower() == "y":
+        print("Cleaning up...")
         try:
             spec_file = os.path.join(base_dir, "main.spec")
             if os.path.exists(spec_file):
