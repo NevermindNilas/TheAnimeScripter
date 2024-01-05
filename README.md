@@ -79,8 +79,8 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - `--segment` : (int, default=0) Set to 1 if you want to enable segmentation, 0 to disable.
 - `--scenechange` : (int, default=0) Set to 1 if you want to enable scene change detection, 0 to disable.
 - `--scenechange_sens` : (float, default=40) Sensitivity of scene change detection.
-- `--depth` : (int, default=0) Depth of the video.
-- `--encode_method` : (str, default="x264") Method to use for encoding.
+- `--depth` : (int, default=0) Generate Depth Maps, 1 to enable, 0 to disable
+- `--encode_method` : (str, default="x264") Method to use for encoding. Options: x264, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265 ( only available for processeses that include Upscaling or Interpolation ).
 
 ## 🙏 Acknowledgements
 
