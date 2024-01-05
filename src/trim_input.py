@@ -10,11 +10,8 @@ class trim_input_dedup():
         self.ffmpeg_path = ffmpeg_path
             
     def run(self):        
-        command = f'"{self.ffmpeg_path}" -i "{self.input}" -ss {self.inpoint} -to {self.outpoint} -vf {self.mpdecimate_params} -an -y "{self.output}" -v quiet -stats'
+        command = f'"{self.ffmpeg_path}" -i "{self.input}" -ss {self.inpoint} -to {self.outpoint} -vf {self.mpdecimate_params} -vcodec libx264 -crf 15 -an -y "{self.output}" -v quiet -stats'
         
         subprocess.Popen(
             command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        
-        return os.path.normpath(self.output)
-        
         

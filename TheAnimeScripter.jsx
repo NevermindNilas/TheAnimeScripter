@@ -600,15 +600,20 @@ var TheAnimeScripter = (function() {
 
     function callCommand(command) {
         try {
-            var cmdCommand = 'cmd.exe /c "' + command + '"';
-
-            system.callSystem(cmdCommand);
-
+            if (command) {
+                var cmdCommand = 'cmd.exe /c "' + command + '"';
+                alert(cmdCommand);
+                system.callSystem(cmdCommand);
+            } else {
+                throw new Error("Command is undefined");
+            }
         } catch (error) {
-            alert(error);
-            alert("Something went wrong trying to process the chain, please contact me on discord")
+            alert("Something went wrong trying to process the chain, please contact me on discord");
+            return error.toString();
         }
+        return null;
     }
+
 
     function start_chain() {
         if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length < 1)) {
@@ -656,7 +661,7 @@ var TheAnimeScripter = (function() {
                 outPoint = 0;
             }
 
-            var randomNumber = Math.floor(Math.random() * 1000000);
+            var randomNumber = Math.floor(Math.random() * 10000000);
             output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + randomNumber + ".mp4";
 
             try {
@@ -678,20 +683,18 @@ var TheAnimeScripter = (function() {
                     "--sharpen", checkboxSharpen.value ? "1" : "0",
                     "--sharpen_sens", sliderSharpen.value,
                     "--segment", segmentValue,
-                    "--dedup_strenght", dropdownDedupStrenght.selection.text,
+                    //"--dedup_strenght", dropdownDedupStrenght.selection.text,
                     "--scenechange", sceneChangeValue,
+                    //"--depth", depthValue,
+                    //"--encoder", dropdownEncoder.selection.text,
                     "--scenechange_sens", 100 - sliderSceneChange.value,
-                    "--depth", depthValue,
-                    "--encoder", dropdownEncoder.selection.text
                 ];
-                // Slider Change Value works in reverse where as 0 is the most sensitive and 100% is the least sensitive, question FFMPEG devs about this
+                alert(attempt);
                 var command = attempt.join(" ");
+                callCommand(command);
             } catch (error) {
                 alert(error);
             }
-
-            alert(command);
-            callCommand(command);
 
             while (true) {
                 if (sceneChangeValue == 1) {
