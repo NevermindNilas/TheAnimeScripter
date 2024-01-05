@@ -13,6 +13,8 @@ from tqdm import tqdm
 from moviepy.editor import VideoFileClip
 from multiprocessing import Queue
 
+# Some default values
+script_version = "0.1.5"
 main_path = os.path.dirname(os.path.realpath(__file__))
 """
 TO:DO
@@ -310,7 +312,7 @@ class Main:
 
                 if self.processed_frames:
                     frame = self.processed_frames.get()
-                
+
                 frame = np.ascontiguousarray(frame)
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update(1)
@@ -404,6 +406,11 @@ if __name__ == "__main__":
 
     logging.info("============== Arguments ==============")
     logging.info("")
+
+    logging.info("Script Version: " + script_version)
+
+    logging.info("")
+
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
@@ -436,13 +443,13 @@ if __name__ == "__main__":
             # This is for JSX compatibility
             encode_list = {
                 "X264": "x264",
-                "X264 Animation": "x264_animation",
+                "X264_Animation": "x264_animation",
                 "X265": "x265",
-                "X265 Animation": "x265_animation",
-                "NVENC H264": "nvenc_h264",
-                "NVENC H265": "nvenc_h265",
-                "QSV H264": "qsv_h264",
-                "QSV H265": "qsv_h265"
+                "X265_Animation": "x265_animation",
+                "NVENC_H264": "nvenc_h264",
+                "NVENC_H265": "nvenc_h265",
+                "QSV_H264": "qsv_h264",
+                "QSV_H265": "qsv_h265"
             }
             args.encode_method = encode_list[args.encode_method]
         except Exception as e:

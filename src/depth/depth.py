@@ -5,11 +5,13 @@ import subprocess
 import numpy as np
 import _thread
 import time
+import cv2
 
 from tqdm import tqdm
 from multiprocessing import Queue
 
 os.environ['TORCH_HOME'] = os.path.dirname(os.path.realpath(__file__))
+
 
 class Depth():
     def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, half, inpoint=0, outpoint=0):
@@ -29,6 +31,8 @@ class Depth():
         self.threads_done = False
         self.read_buffer = Queue(maxsize=100)
         self.processed_frames = Queue(maxsize=100)
+
+        #self.temp_output = os.path.splitext(self.output)[0] + "_temp.mp4"
 
         _thread.start_new_thread(self.build_buffer, ())
 
@@ -78,6 +82,7 @@ class Depth():
 
             frame_size = self.width * self.height * 3
 
+            frame_count = 0
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
                     logging.error(
@@ -86,6 +91,10 @@ class Depth():
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
                 self.read_buffer.put(frame)
+                frame_count += 1
+
+            self.pbar.total = frame_count
+            self.pbar.refresh()
 
             stderr = process.stderr.read().decode()
             if stderr:
@@ -106,7 +115,7 @@ class Depth():
                    '-f', 'rawvideo',
                    '-vcodec', 'rawvideo',
                    '-s', f'{self.width}x{self.height}',
-                   '-pix_fmt', 'gray',
+                   '-pix_fmt', 'rgb24',
                    '-r', str(self.fps),
                    '-i', '-',
                    '-an',
@@ -122,18 +131,16 @@ class Depth():
 
         try:
             while True:
-                if not self.processed_frames:
-                    if self.read_buffer.empty() and self.threads_done == True:
-                        break
-                    continue
+                if not self.processed_frames.empty():
+                    frame = self.processed_frames.get()
+                    if frame is None:
+                        if self.read_buffer.empty() and self.threads_done == True:
+                            break
 
-                frame = self.processed_frames.get()
-
-                # Write the frame to FFmpeg
-                if frame is not None:
+                    # Write the frame to FFmpeg
                     pipe.stdin.write(frame.tobytes())
 
-                self.pbar.update(1)
+                    self.pbar.update(1)
         except Exception as e:
             logging.exception("An error occurred during writing")
 
@@ -141,10 +148,9 @@ class Depth():
             # Close the pipe
             pipe.stdin.close()
             pipe.wait()
-
             self.pbar.close()
             self.writing_finished = True
-
+        
     def start_process(self):
         try:
             while True:
@@ -182,8 +188,10 @@ class Depth():
 
                     output = prediction.cpu().numpy()
                     formatted = (output * 255 / np.max(output)).astype('uint8')
-
-                self.processed_frames.put(formatted)
+                    
+                formatted_rgb = cv2.cvtColor(formatted, cv2.COLOR_GRAY2RGB)
+                formatted_rgb = np.ascontiguousarray(formatted_rgb)
+                self.processed_frames.put(formatted_rgb)
 
         except Exception as e:
             logging.exception("An error occurred during processing")
@@ -202,3 +210,35 @@ class Depth():
             if self.threads_done == True and self.read_buffer.empty() and self.processed_frames.empty():
                 break
             time.sleep(0.1)
+            
+        #self.convert_color_space()
+        
+    def convert_color_space(self):
+        """
+        After Effects doesn't like gray color spaces so we need to convert it from gray to RGB at the end
+
+        I will fix the color space encoding later
+        """
+
+        print(f"\nConverting color space from grayscale to RGB")
+        ffmpeg_command = [
+            self.ffmpeg_path,
+            "-i", self.temp_output,
+            "-vf", "format=rgb24",
+            "-vcodec", "libx264",
+            "-crf", "15",
+            self.output
+        ]
+
+        logging.info(
+            f"Running depth conversion command using: {ffmpeg_command}")
+        
+        try:
+            if os.path.exists(self.temp_output):
+                time.sleep(1)
+                
+                subprocess.run(
+                    ffmpeg_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                
+        except:
+            logging.exception("wtf")

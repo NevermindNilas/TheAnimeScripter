@@ -489,7 +489,7 @@ var TheAnimeScripter = (function() {
     textEncoderSelection.preferredSize.width = 103;
     textEncoderSelection.helpTip = "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs and QSV for Intel iGPUs";
 
-    var dropdownEncoder_array = ["X264", "-", "X264 Animation", "-", "NVENC H264", "-", "NVENC H265", "-", "QSV H264", "-", "QSV H265"];
+    var dropdownEncoder_array = ["X264", "-", "X264_Animation", "-", "NVENC_H264", "-", "NVENC_H265", "-", "QSV_H264", "-", "QSV_H265"];
     var dropdownEncoder = group8.add("dropdownlist", undefined, undefined, {
         name: "dropdownEncoder",
         items: dropdownEncoder_array
@@ -683,13 +683,12 @@ var TheAnimeScripter = (function() {
                     "--sharpen", checkboxSharpen.value ? "1" : "0",
                     "--sharpen_sens", sliderSharpen.value,
                     "--segment", segmentValue,
-                    //"--dedup_strenght", dropdownDedupStrenght.selection.text,
+                    "--dedup_strenght", dropdownDedupStrenght.selection.text,
                     "--scenechange", sceneChangeValue,
-                    //"--depth", depthValue,
-                    //"--encoder", dropdownEncoder.selection.text,
+                    "--depth", depthValue,
+                    "--encode_method", dropdownEncoder.selection.text,
                     "--scenechange_sens", 100 - sliderSceneChange.value,
                 ];
-                alert(attempt);
                 var command = attempt.join(" ");
                 callCommand(command);
             } catch (error) {
@@ -718,8 +717,9 @@ var TheAnimeScripter = (function() {
                     break;
                 } else {
                     // Increased Max Attempts, just in case
-                    var maxAttempts = 500;
+                    var maxAttempts = 10;
                     for (var attempt = 0; attempt < maxAttempts; attempt++) {
+                        $.sleep(1000); // Sleeping for a second, metadata is not always written instantly
                         try {
                             var importOptions = new ImportOptions(File(output_name));
                             var importedFile = app.project.importFile(importOptions);
