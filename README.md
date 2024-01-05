@@ -142,3 +142,4 @@ In no particular order:
 - [Massive] Release 0.1.4 (28/12/2023)
 - Increased segmentation performance by 5X
 - [Massive] Added Depth Processing
+- [Massive] Huge increase in performance, 2X in Upscale, 1.5x in Interpolation

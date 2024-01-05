@@ -75,13 +75,14 @@ class Cugan:
         with torch.no_grad():
             frame = torch.from_numpy(frame).permute(
                 2, 0, 1).unsqueeze(0).float().mul_(1/255)
-            if self.half:
-                frame = frame.cuda().half()
-            else:
-                try:
+            
+            try:
+                if self.half:
+                    frame = frame.cuda().half()
+                else:
                     frame = frame.cuda()
-                except:
-                    frame = frame.cpu()
+            except:
+                frame = frame.cpu()
             
             if self.pad_width != 0 or self.pad_height != 0:
                 frame = self.pad_frame(frame)
