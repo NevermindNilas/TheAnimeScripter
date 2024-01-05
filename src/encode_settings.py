@@ -8,7 +8,7 @@ def encode_settings(encode_method, new_width, new_height, fps, output, ffmpeg_pa
                '-r', str(fps),
                '-i', '-',
                '-an']
-
+    
     # Settings from: https://www.xaymar.com/guides/obs/high-quality-recording/
     # X265 is broken for some reason, I don't know why just yet
     # TO-DO: Add AMF Support
