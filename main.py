@@ -24,6 +24,7 @@ TO:DO
 
 warnings.filterwarnings("ignore")
 
+
 class Main:
     def __init__(self, args):
         self.input = args.input
@@ -55,8 +56,9 @@ class Main:
 
         if self.scenechange:
             from src.scenechange.scene_change import Scenechange
-            
-            scenechange = Scenechange(self.input, self.ffmpeg_path, self.scenechange_sens, main_path)
+
+            scenechange = Scenechange(
+                self.input, self.ffmpeg_path, self.scenechange_sens, main_path)
 
             scenechange.run()
 
@@ -90,7 +92,7 @@ class Main:
 
             logging.info(
                 "Segmenting video")
-            
+
             return
 
         # There's no need to start the decode encode cycle if the user only wants to dedup
@@ -108,23 +110,14 @@ class Main:
                 DedupFFMPEG(self.input, self.output,
                             self.dedup_strenght, self.ffmpeg_path).run()
 
-            logging.info("The user only wanted to dedup, exiting")
+            logging.info(
+                "Deduping video")
 
             return
 
         self.get_video_metadata()
         self.intitialize_models()
         self.intitialize()
-
-        self.threads_done = False
-
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            executor.submit(self.process)
-
-        while self.read_buffer.qsize() > 0 and self.processed_frames.qsize() > 0:
-            time.sleep(0.1)
-
-        self.threads_done = True
 
     def intitialize(self):
 
@@ -134,8 +127,18 @@ class Main:
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = SimpleQueue()
 
+        self.threads_done = False
+
         _thread.start_new_thread(self.build_buffer, ())
         _thread.start_new_thread(self.clear_write_buffer, ())
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(self.process)
+
+        while self.read_buffer.qsize() > 0 and self.processed_frames.qsize() > 0:
+            time.sleep(0.1)
+
+        self.threads_done = True
 
     def intitialize_models(self):
 
@@ -213,7 +216,8 @@ class Main:
         process = subprocess.Popen(
             ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        logging.info(f"Running command: {ffmpeg_command}")
+        logging.info(
+            f"Building the buffer with: {ffmpeg_command}")
 
         frame_size = self.width * self.height * 3
         frame_count = 0
@@ -256,37 +260,48 @@ class Main:
                 item = self.read_buffer.get()
                 if item is None:
                     break
-                
+
                 _, frame = item
-                
+
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
-                    
+
                 if self.interpolate:
                     if prev_frame is not None:
-                        results = self.interpolate_process.run(prev_frame, frame)
-                        
+                        results = self.interpolate_process.run(
+                            prev_frame, frame)
+
                         for result in results:
                             self.processed_frames.put(result)
-                            
+
                         prev_frame = frame
                     else:
                         prev_frame = frame
-                        
+
                 self.processed_frames.put(frame)
-                
+
         except Exception as e:
             logging.exception("An error occurred during processing")
 
     def clear_write_buffer(self):
-        try:  
+        import cv2
+        try:
             from src.encode_settings import encode_settings
-            command: list = encode_settings(self.encode_method, self.new_width, self.new_height, self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
+            command: list = encode_settings(self.encode_method, self.new_width, self.new_height,
+                                            self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
+
+            logging.info(
+                f"Encoding options: {command}")
+
         except Exception as e:
-            logging.exception(f"There was an error in choosing the encode method, {self.encode_method} is not a valid option")
+            logging.exception(
+                f"There was an error in choosing the encode method, {self.encode_method} is not a valid option")
+
             return
-        pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        
+
+        pipe = subprocess.Popen(
+            command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+
         index_counter = 0
         try:
             while True:
@@ -295,16 +310,16 @@ class Main:
 
                 if self.processed_frames:
                     frame = self.processed_frames.get()
-
+                
+                frame = np.ascontiguousarray(frame)
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update(1)
-                
+
                 index_counter += 1
 
-                            
         except Exception as e:
             logging.exception("An error occurred during writing")
-            
+
         pipe.stdin.close()
         pipe.wait()
         self.pbar.close()
@@ -349,7 +364,8 @@ if __name__ == "__main__":
     argparser.add_argument("--interpolate_method", type=str, default="rife")
     argparser.add_argument("--upscale", type=int, default=0)
     argparser.add_argument("--upscale_factor", type=int, default=2)
-    argparser.add_argument("--upscale_method",  type=str, default="ShuffleCugan")
+    argparser.add_argument("--upscale_method",  type=str,
+                           default="ShuffleCugan")
     argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
     argparser.add_argument("--dedup", type=int, default=0)
     argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
@@ -391,11 +407,9 @@ if __name__ == "__main__":
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
-        
+
     logging.info("")
     logging.info("============== Processing Outputs ==============")
-    
-        
 
     if args.output and not os.path.isabs(args.output):
         dir_path = os.path.dirname(args.input)
@@ -416,7 +430,7 @@ if __name__ == "__main__":
         "high": "mpdecimate=hi=64*200:lo=64*50:frac=0.33,setpts=N/FRAME_RATE/TB"
     }
     args.dedup_strenght = dedup_strenght_list[args.dedup_strenght]
-    
+
     if args.encode_method not in ["x264", "x264_animation", "x265", "x265_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265"]:
         try:
             # This is for JSX compatibility
