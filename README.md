@@ -22,29 +22,19 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 
 ## 🛠️ Getting Started
 
-### Prerequisites
+#### How to download
 
-#### How to utilize
+- Download one of the latest releases from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
 
-- Download one of the freshest releases from: 
-- [Here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
+#### Or Manually build
 
-
-#### Or Manual installation and Build
+- **Notation needed, the code in the repository can include unexpected bugs, if you want stable builds then download from the releases page, but if you want the cutting edge builds, then follow along.**
 
 - Download and install Python 3.11 from: https://www.python.org/downloads/release/python-3110/ whilst making sure to add it to System Path
 
 - Open a terminal inside the folder
 
-- ```python setup.py```
-
-- open a terminal, activate the VENV
-
-- ```pip install auto-py-to-exe``` (that's what I've used for building, simplifies everything)
-
-- in the terminal type ```auto-py-to-exe```
-
-- Select: One Directory, input folder is going to be main.py and additional files the folder src and get_ffmpeg.bat
+- run: ```python build.py```
 
 #### How to use inside of After Effects
 
