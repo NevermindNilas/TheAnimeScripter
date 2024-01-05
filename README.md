@@ -56,13 +56,31 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 
 - In the settings panel, set folder to the same directory as The Anime Scripter and output to wherever you please
 
-## 📚 Usage
+## 📚 Available Inputs
 
-- N/A
-
-## 📝 Available Inputs and Models:
-
-- N/A
+- `--input` : (str, required) Absolute path of the input video.
+- `--output` : (str, required) Output string of the video, can be absolute path or just a name.
+- `--interpolate` : (int, default=0) Set to 1 if you want to enable interpolation, 0 to disable.
+- `--interpolate_factor` : (int, default=2) Factor by which to interpolate.
+- `--interpolate_method` : (str, default="rife") Method to use for interpolation. Options: "Rife", "Rife-ncnn".
+- `--upscale` : (int, default=0) Set to 1 if you want to enable upscaling, 0 to disable.
+- `--upscale_factor` : (int, default=2) Factor by which to upscale.
+- `--upscale_method` : (str, default="ShuffleCugan") Method to use for upscaling.
+- `--cugan_kind` : (str, default="no-denoise") Kind of Cugan to use.
+- `--dedup` : (int, default=0) Set to 1 if you want to enable deduplication, 0 to disable.
+- `--dedup_method` : (str, default="ffmpeg") Method to use for deduplication.
+- `--dedup_strenght` : (str, default="light") Strength of deduplication.
+- `--nt` : (int, default=1) Number of threads to use.
+- `--half` : (int, default=1) Set to 1 to use half precision, 0 for full precision.
+- `--inpoint` : (float, default=0) Inpoint for the video.
+- `--outpoint` : (float, default=0) Outpoint for the video.
+- `--sharpen` : (int, default=0) Set to 1 if you want to enable sharpening, 0 to disable.
+- `--sharpen_sens` : (float, default=50) Sensitivity of sharpening.
+- `--segment` : (int, default=0) Set to 1 if you want to enable segmentation, 0 to disable.
+- `--scenechange` : (int, default=0) Set to 1 if you want to enable scene change detection, 0 to disable.
+- `--scenechange_sens` : (float, default=40) Sensitivity of scene change detection.
+- `--depth` : (int, default=0) Depth of the video.
+- `--encode_method` : (str, default="x264") Method to use for encoding.
 
 ## 🙏 Acknowledgements
 
