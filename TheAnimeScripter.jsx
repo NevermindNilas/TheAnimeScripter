@@ -602,7 +602,7 @@ var TheAnimeScripter = (function() {
         try {
             if (command) {
                 var cmdCommand = 'cmd.exe /c "' + command + '"';
-                alert(cmdCommand);
+                //alert(cmdCommand)
                 system.callSystem(cmdCommand);
             } else {
                 throw new Error("Command is undefined");
@@ -697,7 +697,7 @@ var TheAnimeScripter = (function() {
 
             while (true) {
                 if (sceneChangeValue == 1) {
-                    var sceneChangeLogPath = TheAnimeScripterPath + "\\_internal" + "\\src" + "\\scenechange" + "\\scenechangeresults.txt";
+                    var sceneChangeLogPath = TheAnimeScripterPath + "\\_internal" + "\\scenechangeresults.txt";
                     var sceneChangeLog = new File(sceneChangeLogPath);
                     sceneChangeLog.open("r");
 
