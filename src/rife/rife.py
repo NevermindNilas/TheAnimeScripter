@@ -28,8 +28,11 @@ class Rife:
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
         
+        # Doing a torch cuda check is rather expensive on start-up times so I just decided to keep it simple
+        cuda_available = 0
         torch.set_grad_enabled(False)
         if torch.cuda.is_available():
+            cuda_available = 1
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -39,7 +42,11 @@ class Rife:
         self.model = Model()
         self.model.load_model(self.modelDir, -1)
         self.model.eval()
-        self.model.half()
+        
+        if cuda_available == 1:
+            if self.half:
+                self.model.half()
+                
         self.model.device()
 
     def make_inference(self, I0, I1, n):
