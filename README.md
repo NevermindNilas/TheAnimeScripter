@@ -97,7 +97,30 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 
 ## 📈 Benchmarks
 
-- N/A
+The following benchmarks were conducted on a system with a 13700k and 3090 GPU for 1920x1080p inputs and take x264 encoding into account:
+
+With FP16 on for every test except NCNN.
+- **Interpolation**: 
+    - Rife ( v4.13 ): ~91 FPS ( Fastmode True, Essemble False )
+    - Rife NCNN: N/A
+
+- **Upscaling 2x**: 
+    - Shufflecugan: ~20 FPS
+    - Compact: ~19 FPS
+    - UltraCompact: ~23 FPS
+    - SuperUltraCompact: ~27 FPS
+    - SwinIR: ~1.5 FPS
+    - Cugan: N/A
+    - Cugan-NCNN: ~7 FPS
+
+- **Depth Map Generation**:
+    - DPT-Hybrid: ~17 FPS
+    - DPT-Large: N/A
+
+- **Segmentation**:
+    - Isnet-Anime: ~10 FPS ( with BF16 / AMP Autocast )
+
+Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
 
 ## 📋 To-Do
 
