@@ -50,6 +50,7 @@ def create_executable():
         "--noconfirm",
         "--onedir",
         "--console",
+        "--noupx",
         "--add-data", f"{src_path};src/",
         "--add-data", f"{bat_path};.",
         "--add-data", f"{jsx_path};.",

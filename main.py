@@ -286,7 +286,6 @@ class Main:
             logging.exception("An error occurred during processing")
 
     def clear_write_buffer(self):
-        import cv2
         try:
             from src.encode_settings import encode_settings
             command: list = encode_settings(self.encode_method, self.new_width, self.new_height,
