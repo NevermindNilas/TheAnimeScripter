@@ -647,8 +647,10 @@ var TheAnimeScripter = (function() {
         var activeItem = app.project.activeItem;
 
         var comp = app.project.activeItem;
-        for (var i = 0; i < comp.selectedLayers.length; i++) {
-            var layer = comp.selectedLayers[i];
+        var i = 0;
+        var selectedLayers = comp.selectedLayers.slice();
+        while (i < selectedLayers.length) {
+            var layer = selectedLayers[i];
             var activeLayerPath = layer.source.file.fsName;
             var activeLayerName = layer.name;
 
@@ -737,6 +739,7 @@ var TheAnimeScripter = (function() {
                             var importOptions = new ImportOptions(File(output_name));
                             var importedFile = app.project.importFile(importOptions);
                             var inputLayer = comp.layers.add(importedFile);
+                            inputLayer.startTime = layer.inPoint;
                             inputLayer.moveBefore(layer);
                             if (checkboxUpscale.value == true) {
                                 var compWidth = comp.width;
@@ -767,6 +770,7 @@ var TheAnimeScripter = (function() {
             sceneChangeValue = 0;
             segmentValue = 0;
             depthValue = 0;
+            i++;
         }
     }
     if (TheAnimeScripter instanceof Window) TheAnimeScripter.show();
