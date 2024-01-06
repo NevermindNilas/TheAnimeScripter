@@ -14,7 +14,7 @@ from moviepy.editor import VideoFileClip
 from multiprocessing import Queue
 
 # Some default values
-script_version = "0.1.5"
+script_version = "0.1.6"
 main_path = os.path.dirname(os.path.realpath(__file__))
 """
 TO:DO
