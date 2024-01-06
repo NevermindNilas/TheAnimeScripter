@@ -177,3 +177,5 @@ In no particular order:
 - Increased segmentation performance by 5X
 - [Massive] Added Depth Processing
 - [Massive] Huge increase in performance, 2X in Upscale, 1.5x in Interpolation
+- [Massive] Release 0.1.5 (06/01/2024)
+- Fixed relative timeline issues for inPoint / outPoint inside of AE

@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "0.1.5";
+    var scriptVersion = "0.1.6";
     var scriptAuthor = "Nilas";
     var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
     var discordServer = "https://discord.gg/CdRD9GwS8J"
@@ -652,13 +652,26 @@ var TheAnimeScripter = (function() {
             var activeLayerPath = layer.source.file.fsName;
             var activeLayerName = layer.name;
 
-            var inPoint = layer.inPoint;
-            var outPoint = layer.outPoint;
-            var duration = outPoint - inPoint;
+            var sourceInPoint, sourceOutPoint;
 
-            if (duration == layer.source.duration) {
-                inPoint = 0;
-                outPoint = 0;
+            sourceInPoint = layer.inPoint;
+            sourceOutPoint = layer.outPoint;
+
+            // Hardly makes sense 
+            // But this should now account for when the layer doesn't start at 0.00 timecode and it was shifted to the left ( negative ) or right
+            // Should also work if a layer was trimmed or put inside a comp that has a greater than 0 start time
+            if (layer.startTime < 0) {
+                sourceInPoint = sourceInPoint + Math.abs(layer.startTime);
+                sourceOutPoint = sourceOutPoint + Math.abs(layer.startTime);
+            }
+            else if (layer.startTime > 0) {
+                sourceInPoint = sourceInPoint - Math.abs(layer.startTime);
+                sourceOutPoint = sourceOutPoint - Math.abs(layer.startTime);
+            }
+
+            if (layer.duration == layer.source.duration) {
+                sourceInPoint = 0;
+                sourceOutPoint = 0;
             }
 
             var randomNumber = Math.floor(Math.random() * 10000000);
@@ -678,8 +691,8 @@ var TheAnimeScripter = (function() {
                     "--dedup", checkboxDeduplicate.value ? "1" : "0",
                     "--half", "1",
                     "--upscale_method", dropdownModel.selection.text,
-                    "--inpoint", inPoint,
-                    "--outpoint", outPoint,
+                    "--inpoint", sourceInPoint,
+                    "--outpoint", sourceOutPoint,
                     "--sharpen", checkboxSharpen.value ? "1" : "0",
                     "--sharpen_sens", sliderSharpen.value,
                     "--segment", segmentValue,
