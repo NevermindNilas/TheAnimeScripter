@@ -3,18 +3,15 @@ import argparse
 import _thread
 import logging
 import subprocess
-import numpy as np
 import time
+import numpy as np
 import warnings
 
-from queue import SimpleQueue
+from queue import SimpleQueue, Queue
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
-from moviepy.editor import VideoFileClip
-from multiprocessing import Queue
 
 # Some default values
-script_version = "0.1.6"
 main_path = os.path.dirname(os.path.realpath(__file__))
 """
 TO:DO
@@ -23,11 +20,9 @@ TO:DO
     - Add bounding box support for Segmentation
     - Multihread the writing process, probably through an indexing system, going to be a freaking nightmare
 """
-
 warnings.filterwarnings("ignore")
 
-
-class Main:
+class videoProcessor:
     def __init__(self, args):
         self.input = args.input
         self.output = args.output
@@ -119,9 +114,9 @@ class Main:
 
         self.get_video_metadata()
         self.intitialize_models()
-        self.intitialize()
+        self.start()
 
-    def intitialize(self):
+    def start(self):
 
         self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
                          unit="frames", dynamic_ncols=True, colour="green")
@@ -303,7 +298,6 @@ class Main:
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        index_counter = 0
         try:
             while True:
                 if self.processed_frames.empty() and self.threads_done == True:
@@ -316,8 +310,6 @@ class Main:
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update(1)
 
-                index_counter += 1
-
         except Exception as e:
             logging.exception("An error occurred during writing")
 
@@ -326,16 +318,17 @@ class Main:
         self.pbar.close()
 
     def get_video_metadata(self):
-        clip = VideoFileClip(self.input)
-        self.width = clip.size[0]
-        self.height = clip.size[1]
-        self.fps = clip.fps
-        self.nframes = clip.reader.nframes
+        import cv2
+        cap = cv2.VideoCapture(self.input)
+        self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.fps = cap.get(cv2.CAP_PROP_FPS)
+        self.nframes = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         logging.info(
             f"Video Metadata: {self.width}x{self.height} @ {self.fps}fps, {self.nframes} frames")
 
-        clip.close()
+        cap.release()
 
     def check_ffmpeg(self):
         dir_path = os.path.dirname(os.path.abspath(__file__))
@@ -350,8 +343,8 @@ class Main:
             subprocess.call(ffmpeg_bat_location, shell=True)
 
 
-if __name__ == "__main__":
-
+def main():
+    script_version = "0.1.6"
     log_file_path = os.path.join(main_path, "log.txt")
 
     logging.basicConfig(filename=log_file_path, filemode='w',
@@ -457,6 +450,10 @@ if __name__ == "__main__":
             args.encode_method = "x264"
 
     if args.input is not None and args.output is not None:
-        Main(args)
+        videoProcessor(args)
     else:
         logging.info("No input or output was specified, exiting")
+
+
+if __name__ == "__main__":
+    main()
