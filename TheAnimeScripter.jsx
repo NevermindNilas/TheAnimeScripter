@@ -767,11 +767,11 @@ var TheAnimeScripter = (function() {
                     break;
                 }
             }
-            sceneChangeValue = 0;
-            segmentValue = 0;
-            depthValue = 0;
             i++;
         }
+        sceneChangeValue = 0;
+        segmentValue = 0;
+        depthValue = 0;
     }
     if (TheAnimeScripter instanceof Window) TheAnimeScripter.show();
     return TheAnimeScripter;
