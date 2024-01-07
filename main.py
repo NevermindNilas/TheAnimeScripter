@@ -225,7 +225,7 @@ class videoProcessor:
                 break
             frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                 (self.height, self.width, 3))
-            self.read_buffer.put((frame_count, frame))  # Modified line
+            self.read_buffer.put(frame)  # Modified line
             frame_count += 1
 
         stderr = process.stderr.read().decode()
@@ -245,8 +245,7 @@ class videoProcessor:
         process.stderr.close()
         process.terminate()
 
-        for _ in range(self.nt):
-            self.read_buffer.put(None)
+        self.read_buffer.put(None)
 
         logging.info(f"Read {frame_count} frames")
 
@@ -254,11 +253,12 @@ class videoProcessor:
         prev_frame = None
         try:
             while True:
-                item = self.read_buffer.get()
-                if item is None:
-                    break
-
-                _, frame = item
+                frame = self.read_buffer.get()
+                if frame is None:
+                    if self.read_buffer.empty():
+                        break
+                    else:
+                        continue
 
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
@@ -302,9 +302,8 @@ class videoProcessor:
             while True:
                 if self.processed_frames.empty() and self.threads_done == True:
                     break
-
-                if self.processed_frames:
-                    frame = self.processed_frames.get()
+                
+                frame = self.processed_frames.get()
 
                 frame = np.ascontiguousarray(frame)
                 pipe.stdin.write(frame.tobytes())
