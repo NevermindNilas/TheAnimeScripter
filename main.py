@@ -15,7 +15,6 @@ from tqdm import tqdm
 main_path = os.path.dirname(os.path.realpath(__file__))
 """
 TO:DO
-    - Add testing.
     - Fix Rife padding, again.
     - Add bounding box support for Segmentation
     - Multihread the writing process, probably through an indexing system, going to be a freaking nightmare
@@ -164,7 +163,7 @@ class videoProcessor:
                 case "compact" | "ultracompact" | "superultracompact":
                     from src.compact.compact import Compact
                     self.upscale_process = Compact(
-                        self.upscale_method, self.half)
+                        self.upscale_method, self.half, self.width, self.height)
 
                 case "swinir":
                     from src.swinir.swinir import Swinir
@@ -190,6 +189,7 @@ class videoProcessor:
                     f"There was an error in choosing the interpolation method, {self.interpolate_method} is not a valid option")
 
     def build_buffer(self):
+        
         ffmpeg_command = [
             self.ffmpeg_path,
             "-i", str(self.input),
@@ -215,7 +215,7 @@ class videoProcessor:
 
         logging.info(
             f"Building the buffer with: {ffmpeg_command}")
-
+        self.reading_done = False
         frame_size = self.width * self.height * 3
         frame_count = 0
         for chunk in iter(lambda: process.stdout.read(frame_size), b''):
@@ -244,9 +244,10 @@ class videoProcessor:
         process.stdout.close()
         process.stderr.close()
         process.terminate()
-
+        
         self.read_buffer.put(None)
 
+        self.reading_done = True
         logging.info(f"Read {frame_count} frames")
 
     def process(self):
@@ -255,10 +256,9 @@ class videoProcessor:
             while True:
                 frame = self.read_buffer.get()
                 if frame is None:
-                    if self.read_buffer.empty():
+                    if self.read_buffer.empty() and self.reading_done == True:
                         break
-                    else:
-                        continue
+
 
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
