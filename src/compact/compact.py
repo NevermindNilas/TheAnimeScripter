@@ -1,16 +1,21 @@
 import os
 import torch
 import requests
-import numpy as np
+from torch.nn import functional as F
 
 from .srvgg_arch import SRVGGNetCompact
 
 
 class Compact():
-    def __init__(self, upscale_method, half):
+    def __init__(self, upscale_method, half, width, height):
         self.upscale_method = upscale_method
         self.half = half
-
+        self.width = width
+        self.height = height
+        
+        self.pad_width = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
+        self.pad_height = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
+        
         self.handle_models()
 
     def handle_models(self):
@@ -69,19 +74,27 @@ class Compact():
             torch.set_default_tensor_type(torch.cuda.HalfTensor)
             self.model.half()
 
+    def pad_frame(self, frame):
+        frame = F.pad(frame, [0, self.pad_width, 0, self.pad_height])
+        return frame
+    
     @torch.inference_mode
     def run(self, frame):
         with torch.no_grad():
             frame = torch.from_numpy(frame).permute(
                 2, 0, 1).unsqueeze(0).float().mul_(1/255)
-            if self.half:
-                frame = frame.cuda().half()
-            else:
-                try:
+            
+            try:
+                if self.half:
+                    frame = frame.cuda().half()
+                else:
                     frame = frame.cuda()
-                except:
-                    frame = frame.cpu()
+            except:
+                frame = frame.cpu()
 
+            if self.pad_width != 0 or self.pad_height != 0:
+                frame = self.pad_frame(frame)
+                
             frame = self.model(frame)
             frame = frame.squeeze(0).permute(
                 1, 2, 0).mul_(255).clamp_(0, 255).byte()

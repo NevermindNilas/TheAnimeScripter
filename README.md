@@ -95,10 +95,10 @@ With FP16 on for every test except NCNN.
     - Rife NCNN: N/A
 
 - **Upscaling 2x**: 
-    - Shufflecugan: ~20 FPS
-    - Compact: ~19 FPS
-    - UltraCompact: ~23 FPS
-    - SuperUltraCompact: ~27 FPS
+    - Shufflecugan: ~21 FPS
+    - Compact: ~15 FPS
+    - UltraCompact: ~25 FPS
+    - SuperUltraCompact: N/A (needs fixing)
     - SwinIR: ~1.5 FPS
     - Cugan: N/A
     - Cugan-NCNN: ~7 FPS
