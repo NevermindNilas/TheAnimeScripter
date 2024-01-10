@@ -2,10 +2,13 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "0.1.6";
-    var scriptAuthor = "Nilas";
-    var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
-    var discordServer = "https://discord.gg/CdRD9GwS8J"
+
+    /*
+    scriptVersion = "0.1.6";
+    scriptAuthor = "Nilas";
+    scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
+    discordServer = "https://discord.gg/CdRD9GwS8J"
+    */
 
     // Default Values for the settings
     var outputFolder = app.settings.haveSetting(scriptName, "outputFolder") ? app.settings.getSetting(scriptName, "outputFolder") : "undefined";
@@ -654,6 +657,7 @@ var TheAnimeScripter = (function() {
             var activeLayerPath = layer.source.file.fsName;
             var activeLayerName = layer.name;
 
+            /*
             var sourceInPoint, sourceOutPoint;
 
             sourceInPoint = layer.inPoint;
@@ -662,6 +666,35 @@ var TheAnimeScripter = (function() {
             // Hardly makes sense 
             // But this should now account for when the layer doesn't start at 0.00 timecode and it was shifted to the left ( negative ) or right
             // Should also work if a layer was trimmed or put inside a comp that has a greater than 0 start time
+            if (layer.startTime < 0) {
+                sourceInPoint = sourceInPoint + Math.abs(layer.startTime);
+                sourceOutPoint = sourceOutPoint + Math.abs(layer.startTime);
+            }
+            else if (layer.startTime > 0) {
+                sourceInPoint = sourceInPoint - Math.abs(layer.startTime);
+                sourceOutPoint = sourceOutPoint - Math.abs(layer.startTime);
+            }
+
+            if (layer.duration == layer.source.duration) {
+                sourceInPoint = 0;
+                sourceOutPoint = 0;
+            }
+            */
+
+            // Testing for different comp framerates.
+            var sourceInPoint, sourceOutPoint;
+
+            sourceInPoint = layer.inPoint;
+            sourceOutPoint = layer.outPoint;
+
+            var compFrameRate = app.project.activeItem.frameRate;
+            var layerFrameRate = layer.source.frameRate;
+
+            var frameRateRatio = compFrameRate / layerFrameRate;
+
+            sourceInPoint = sourceInPoint * frameRateRatio;
+            sourceOutPoint = sourceOutPoint * frameRateRatio;
+
             if (layer.startTime < 0) {
                 sourceInPoint = sourceInPoint + Math.abs(layer.startTime);
                 sourceOutPoint = sourceOutPoint + Math.abs(layer.startTime);
