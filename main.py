@@ -18,8 +18,10 @@ TO:DO
     - Fix Rife padding, again.
     - Add bounding box support for Segmentation
     - Multihread the writing process, probably through an indexing system, going to be a freaking nightmare
+    - Look into Vevid params
 """
 warnings.filterwarnings("ignore")
+
 
 class videoProcessor:
     def __init__(self, args):
@@ -46,6 +48,8 @@ class videoProcessor:
         self.scenechange_sens = args.scenechange_sens
         self.depth = args.depth
         self.encode_method = args.encode_method
+        self.colour_grade = args.colour_grade
+        self.colour_grade_sensitivity = args.colour_grade_sensitivity
 
         # This is necessary on the top since the script heavily relies on FFMPEG
         self.check_ffmpeg()
@@ -68,8 +72,7 @@ class videoProcessor:
 
             self.get_video_metadata()
             process = Depth(
-                self.input, self.output, self.ffmpeg_path, self.width, self.height, self.fps, self.nframes, self.half, self.inpoint, self.outpoint)
-
+                self.input, self.output, self.ffmpeg_path, self.height, self.height, self.fps, self.nframes, self.half, self.inpoint, self.outpoint)
             process.run()
 
             logging.info(
@@ -88,6 +91,22 @@ class videoProcessor:
 
             logging.info(
                 "Segmenting video")
+
+            return
+
+        if self.colour_grade:
+            from src.vevid.vevid import Vevid
+            self.get_video_metadata()
+            
+            # Needs further polishing, it does the job for now.
+            b = 1 / self.colour_grade_sensitivity
+            g = 1 / self.colour_grade_sensitivity + 0.1
+            
+            process = Vevid(self.input, self.output, self.height, self.width, self.fps, self.half, self.ffmpeg_path, self.nframes, self.inpoint, self.outpoint, b, g)                
+            process.run()
+
+            logging.info(
+                "Colour grading video")
 
             return
 
@@ -189,7 +208,7 @@ class videoProcessor:
                     f"There was an error in choosing the interpolation method, {self.interpolate_method} is not a valid option")
 
     def build_buffer(self):
-        
+
         ffmpeg_command = [
             self.ffmpeg_path,
             "-i", str(self.input),
@@ -225,7 +244,7 @@ class videoProcessor:
                 break
             frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                 (self.height, self.width, 3))
-            self.read_buffer.put(frame)  # Modified line
+            self.read_buffer.put_nowait(frame)  # Modified line
             frame_count += 1
 
         stderr = process.stderr.read().decode()
@@ -244,8 +263,8 @@ class videoProcessor:
         process.stdout.close()
         process.stderr.close()
         process.terminate()
-        
-        self.read_buffer.put(None)
+
+        self.read_buffer.put_nowait(None)
 
         self.reading_done = True
         logging.info(f"Read {frame_count} frames")
@@ -259,7 +278,6 @@ class videoProcessor:
                     if self.read_buffer.empty() and self.reading_done == True:
                         break
 
-
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
 
@@ -269,41 +287,38 @@ class videoProcessor:
                             prev_frame, frame)
 
                         for result in results:
-                            self.processed_frames.put(result)
+                            self.processed_frames.put_nowait(result)
 
                         prev_frame = frame
                     else:
                         prev_frame = frame
 
-                self.processed_frames.put(frame)
+                self.processed_frames.put_nowait(frame)
 
         except Exception as e:
             logging.exception("An error occurred during processing")
 
+        finally:
+            self.processed_frames.put_nowait(None)
+
     def clear_write_buffer(self):
-        try:
-            from src.encode_settings import encode_settings
-            command: list = encode_settings(self.encode_method, self.new_width, self.new_height,
-                                            self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
 
-            logging.info(
-                f"Encoding options: {command}")
+        from src.encode_settings import encode_settings
+        command: list = encode_settings(self.encode_method, self.new_width, self.new_height,
+                                        self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
 
-        except Exception as e:
-            logging.exception(
-                f"There was an error in choosing the encode method, {self.encode_method} is not a valid option")
-
-            return
+        logging.info(
+            f"Encoding options: {command}")
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
             while True:
-                if self.processed_frames.empty() and self.threads_done == True:
-                    break
-                
                 frame = self.processed_frames.get()
+                if frame is None:
+                    if self.processed_frames.empty() and self.threads_done == True:
+                        break
 
                 frame = np.ascontiguousarray(frame)
                 pipe.stdin.write(frame.tobytes())
@@ -312,9 +327,10 @@ class videoProcessor:
         except Exception as e:
             logging.exception("An error occurred during writing")
 
-        pipe.stdin.close()
-        pipe.wait()
-        self.pbar.close()
+        finally:
+            pipe.stdin.close()
+            pipe.wait()
+            self.pbar.close()
 
     def get_video_metadata(self):
         import cv2
@@ -358,7 +374,7 @@ def main():
     argparser.add_argument("--upscale", type=int, default=0)
     argparser.add_argument("--upscale_factor", type=int, default=2)
     argparser.add_argument("--upscale_method",  type=str,
-                           default="ShuffleCugan")
+                           default="shufflecugan")
     argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
     argparser.add_argument("--dedup", type=int, default=0)
     argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
@@ -371,13 +387,16 @@ def main():
     argparser.add_argument("--sharpen_sens", type=float, default=50)
     argparser.add_argument("--segment", type=int, default=0)
     argparser.add_argument("--scenechange", type=int, default=0)
-    argparser.add_argument("--scenechange_sens", type=float, default=40)
+    argparser.add_argument("--scenechange_sens", type=float, default=50)
     argparser.add_argument("--depth", type=int, default=0)
     argparser.add_argument("--encode_method", type=str, default="x264")
+    argparser.add_argument("--colour_grade", type=int, default=0)
+    argparser.add_argument("--colour_grade_sensitivity", type=float, default=50)
 
     args = argparser.parse_args()
 
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
+    args.colour_grade = True if args.colour_grade == 1 else False
     args.interpolate = True if args.interpolate == 1 else False
     args.scenechange = True if args.scenechange == 1 else False
     args.sharpen = True if args.sharpen == 1 else False
@@ -394,20 +413,22 @@ def main():
 
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
     args.scenechange_sens /= 100  # same for scene change
+    args.colour_grade_sensitivity /= 100 # same for colour grade
+    # Technically based on the paper, it can go higher than 1.0, needs a bit more testing
 
     logging.info("============== Arguments ==============")
     logging.info("")
 
     logging.info("Script Version: " + script_version)
 
-    logging.info("")
-
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
 
+
     logging.info("")
     logging.info("============== Processing Outputs ==============")
+    logging.info("")
 
     if args.output and not os.path.isabs(args.output):
         dir_path = os.path.dirname(args.input)
