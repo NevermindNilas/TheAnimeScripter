@@ -17,14 +17,17 @@ main_path = os.path.dirname(os.path.realpath(__file__))
 TO:DO
     - Fix Rife padding, again.
     - Add bounding box support for Segmentation
-    - Look into Vevid params
+    - Look into Vevid params, b and G params need more polishing
     - Look into Rife NCNN / Wrapper
     - Fix x265 encoding
     - Look into GMFSS
     - Fix timestepping for Rife, hand each output directly to the write buffer instead of storing it in a list
+    - Status bar isn't updating properly, needs fixing
+    - Make the jsx file default to the last selected settings, even after reboot
+    - Script dies when long videos are processed, needs testing
+    - Weird behaviour with webm files, needs testing
 """
 warnings.filterwarnings("ignore")
-
 
 class videoProcessor:
     def __init__(self, args):
@@ -56,6 +59,7 @@ class videoProcessor:
 
         # This is necessary on the top since the script heavily relies on FFMPEG
         self.check_ffmpeg()
+        self.get_video_metadata()
 
         if self.scenechange:
             from src.scenechange.scene_change import Scenechange
@@ -73,7 +77,6 @@ class videoProcessor:
         if self.depth:
             from src.depth.depth import Depth
 
-            self.get_video_metadata()
             process = Depth(
                 self.input, self.output, self.ffmpeg_path, self.height, self.height, self.fps, self.nframes, self.half, self.inpoint, self.outpoint)
             process.run()
@@ -86,7 +89,6 @@ class videoProcessor:
         if self.segment:
             from src.segment.segment import Segment
 
-            self.get_video_metadata()
 
             process = Segment(self.input, self.output, self.ffmpeg_path, self.width,
                               self.height, self.fps, self.nframes, self.inpoint, self.outpoint)
@@ -99,7 +101,6 @@ class videoProcessor:
 
         if self.colour_grade:
             from src.vevid.vevid import Vevid
-            self.get_video_metadata()
 
             # Needs further polishing, it does the job for now.
             b = 1 / self.colour_grade_sensitivity
@@ -119,7 +120,7 @@ class videoProcessor:
         if self.interpolate == False and self.upscale == False and self.dedup == True:
             if self.sharpen == True:
                 self.dedup_strenght += f',cas={self.sharpen_sens}'
-
+                
             if self.outpoint != 0:
                 from src.trim_input import trim_input_dedup
                 trim_input_dedup(self.input, self.output, self.inpoint,
@@ -134,7 +135,6 @@ class videoProcessor:
 
             return
 
-        self.get_video_metadata()
         self.intitialize_models()
         self.start()
 
@@ -257,16 +257,22 @@ class videoProcessor:
         self.reading_done = False
         frame_size = self.width * self.height * 3
         frame_count = 0
-        for chunk in iter(lambda: process.stdout.read(frame_size), b''):
-            if len(chunk) != frame_size:
-                logging.error(
-                    f"Read {len(chunk)} bytes but expected {frame_size}")
-                break
-            frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
-                (self.height, self.width, 3))
-            self.read_buffer.put_nowait(frame)  # Modified line
-            frame_count += 1
-
+        try:
+            for chunk in iter(lambda: process.stdout.read(frame_size), b''):
+                if len(chunk) != frame_size:
+                    logging.error(
+                        f"Read {len(chunk)} bytes but expected {frame_size}")
+                    break
+                frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
+                    (self.height, self.width, 3))
+                
+                self.read_buffer.put(frame)
+                
+                frame_count += 1
+        except Exception as e:
+            logging.exception(
+                f"An error occurred during reading, {e}")
+            
         stderr = process.stderr.read().decode()
         if stderr:
             if "bitrate=" not in stderr:
@@ -284,7 +290,7 @@ class videoProcessor:
         process.stderr.close()
         process.terminate()
 
-        self.read_buffer.put_nowait(None)
+        self.read_buffer.put(None)
 
         self.reading_done = True
         logging.info(f"Read {frame_count} frames")
@@ -359,9 +365,12 @@ class videoProcessor:
         self.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.fps = cap.get(cv2.CAP_PROP_FPS)
         self.nframes = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
+        self.codec = "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
 
         logging.info(
-            f"Video Metadata: {self.width}x{self.height} @ {self.fps}fps, {self.nframes} frames")
+            f"Video Metadata: {self.width}x{self.height} @ {self.fps}fps, {self.nframes} frames, {self.codec} codec")
 
         cap.release()
 
