@@ -146,18 +146,11 @@ class videoProcessor:
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = SimpleQueue()
 
-        self.threads_done = False
-
         _thread.start_new_thread(self.build_buffer, ())
         _thread.start_new_thread(self.clear_write_buffer, ())
 
         with ThreadPoolExecutor(max_workers=1) as executor:
             executor.submit(self.process)
-
-        while self.read_buffer.qsize() > 0 and self.processed_frames.qsize() > 0:
-            time.sleep(0.1)
-
-        self.threads_done = True
 
     def intitialize_models(self):
 
@@ -238,7 +231,7 @@ class videoProcessor:
 
         if self.dedup == True:
             ffmpeg_command.extend(
-                ["-vf", self.dedup_strenght, "-an"])
+                ["-vf", self.dedup_strenght])
 
         ffmpeg_command.extend([
             "-f", "rawvideo",
@@ -262,7 +255,7 @@ class videoProcessor:
                 if len(chunk) != frame_size:
                     logging.error(
                         f"Read {len(chunk)} bytes but expected {frame_size}")
-                    break
+                    continue
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
                 
@@ -281,29 +274,28 @@ class videoProcessor:
         if self.interpolate == True:
             frame_count = frame_count * self.interpolate_factor
 
+        logging.info(f"Read {frame_count} frames")
         self.pbar.total = frame_count
-
         self.pbar.refresh()
 
         # For terminating the pipe and subprocess properly
         process.stdout.close()
         process.stderr.close()
         process.terminate()
-
-        self.read_buffer.put(None)
-
+        
         self.reading_done = True
-        logging.info(f"Read {frame_count} frames")
+        self.read_buffer.put(None)        
 
     def process(self):
         prev_frame = None
+        self.processing_done = False
         try:
             while True:
                 frame = self.read_buffer.get()
                 if frame is None:
-                    if self.read_buffer.empty() and self.reading_done == True:
+                    if self.reading_done == True:
                         break
-
+                    
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
 
@@ -325,6 +317,7 @@ class videoProcessor:
             logging.exception("An error occurred during processing")
 
         finally:
+            self.processing_done = True
             self.processed_frames.put_nowait(None)
 
     def clear_write_buffer(self):
@@ -343,7 +336,7 @@ class videoProcessor:
             while True:
                 frame = self.processed_frames.get()
                 if frame is None:
-                    if self.processed_frames.empty() and self.threads_done == True:
+                    if self.processing_done == True:
                         break
 
                 frame = np.ascontiguousarray(frame)
@@ -395,35 +388,40 @@ def main():
                         format='%(message)s', level=logging.INFO)
 
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("--input", type=str, required=True)
-    argparser.add_argument("--output", type=str, required=True)
-    argparser.add_argument("--interpolate", type=int, default=0)
-    argparser.add_argument("--interpolate_factor", type=int, default=2)
-    argparser.add_argument("--interpolate_method", type=str, default="rife")
-    argparser.add_argument("--upscale", type=int, default=0)
-    argparser.add_argument("--upscale_factor", type=int, default=2)
-    argparser.add_argument("--upscale_method",  type=str,
-                           default="shufflecugan")
-    argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
-    argparser.add_argument("--dedup", type=int, default=0)
-    argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
-    argparser.add_argument("--dedup_strenght", type=str, default="light")
-    argparser.add_argument("--nt", type=int, default=1)
-    argparser.add_argument("--half", type=int, default=1)
-    argparser.add_argument("--inpoint", type=float, default=0)
-    argparser.add_argument("--outpoint", type=float, default=0)
-    argparser.add_argument("--sharpen", type=int, default=0)
-    argparser.add_argument("--sharpen_sens", type=float, default=50)
-    argparser.add_argument("--segment", type=int, default=0)
-    argparser.add_argument("--scenechange", type=int, default=0)
-    argparser.add_argument("--scenechange_sens", type=float, default=50)
-    argparser.add_argument("--depth", type=int, default=0)
-    argparser.add_argument("--encode_method", type=str, default="x264")
-    argparser.add_argument("--colour_grade", type=int, default=0)
-    argparser.add_argument("--colour_grade_sensitivity",
-                           type=float, default=50)
+    try:
+        argparser.add_argument("--input", type=str, required=True)
+        argparser.add_argument("--output", type=str, required=True)
+        argparser.add_argument("--interpolate", type=int, default=0)
+        argparser.add_argument("--interpolate_factor", type=int, default=2)
+        argparser.add_argument("--interpolate_method", type=str, default="rife")
+        argparser.add_argument("--upscale", type=int, default=0)
+        argparser.add_argument("--upscale_factor", type=int, default=2)
+        argparser.add_argument("--upscale_method",  type=str,
+                            default="shufflecugan")
+        argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
+        argparser.add_argument("--dedup", type=int, default=0)
+        argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
+        argparser.add_argument("--dedup_strenght", type=str, default="light")
+        argparser.add_argument("--nt", type=int, default=1)
+        argparser.add_argument("--half", type=int, default=1)
+        argparser.add_argument("--inpoint", type=float, default=0)
+        argparser.add_argument("--outpoint", type=float, default=0)
+        argparser.add_argument("--sharpen", type=int, default=0)
+        argparser.add_argument("--sharpen_sens", type=float, default=50)
+        argparser.add_argument("--segment", type=int, default=0)
+        argparser.add_argument("--scenechange", type=int, default=0)
+        argparser.add_argument("--scenechange_sens", type=float, default=50)
+        argparser.add_argument("--depth", type=int, default=0)
+        argparser.add_argument("--encode_method", type=str, default="x264")
+        argparser.add_argument("--colour_grade", type=int, default=0)
+        argparser.add_argument("--colour_grade_sensitivity",
+                            type=float, default=50)
 
-    args = argparser.parse_args()
+        args = argparser.parse_args()
+        
+    except Exception as e:
+        logging.exception(
+            f"There was an error in parsing the arguments, {e}")
 
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
     args.colour_grade = True if args.colour_grade == 1 else False

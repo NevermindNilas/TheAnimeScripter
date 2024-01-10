@@ -1,13 +1,14 @@
 def encode_settings(encode_method, new_width, new_height, fps, output, ffmpeg_path, sharpen, sharpen_sens):
     command = [ffmpeg_path,
-               '-y',
-               '-f', 'rawvideo',
-               '-vcodec', 'rawvideo',
-               '-s', f'{new_width}x{new_height}',
-               '-pix_fmt', 'rgb24',
-               '-r', str(fps),
-               '-i', '-',
-               '-an']
+                '-y',
+                '-f', 'rawvideo',
+                '-vcodec', 'rawvideo',
+                '-s', f'{new_width}x{new_height}',
+                '-pix_fmt', 'rgb24',
+                '-r', str(fps),
+                '-i', '-',
+                '-an',
+                ]
     
     # Settings from: https://www.xaymar.com/guides/obs/high-quality-recording/
     # X265 is broken for some reason, I don't know why just yet
