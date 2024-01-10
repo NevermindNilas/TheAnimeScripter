@@ -17,8 +17,11 @@ main_path = os.path.dirname(os.path.realpath(__file__))
 TO:DO
     - Fix Rife padding, again.
     - Add bounding box support for Segmentation
-    - Multihread the writing process, probably through an indexing system, going to be a freaking nightmare
     - Look into Vevid params
+    - Look into Rife NCNN / Wrapper
+    - Fix x265 encoding
+    - Look into GMFSS
+    - Fix timestepping for Rife, hand each output directly to the write buffer instead of storing it in a list
 """
 warnings.filterwarnings("ignore")
 
@@ -97,12 +100,13 @@ class videoProcessor:
         if self.colour_grade:
             from src.vevid.vevid import Vevid
             self.get_video_metadata()
-            
+
             # Needs further polishing, it does the job for now.
             b = 1 / self.colour_grade_sensitivity
             g = 1 / self.colour_grade_sensitivity + 0.1
-            
-            process = Vevid(self.input, self.output, self.height, self.width, self.fps, self.half, self.ffmpeg_path, self.nframes, self.inpoint, self.outpoint, b, g)                
+
+            process = Vevid(self.input, self.output, self.height, self.width, self.fps,
+                            self.half, self.ffmpeg_path, self.nframes, self.inpoint, self.outpoint, b, g)
             process.run()
 
             logging.info(
@@ -157,6 +161,8 @@ class videoProcessor:
 
     def intitialize_models(self):
 
+        # Generating output data,
+        # This is necessary for the encode_settings function to work properly
         self.new_width = self.width
         self.new_height = self.height
         self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
@@ -194,18 +200,31 @@ class videoProcessor:
                         f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
 
         if self.interpolate:
-            if self.interpolate_method == "rife":
-                from src.rife.rife import Rife
+            match self.interpolate_method:
+                case "rife":
+                    from src.rife.rife import Rife
 
-                UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
-                self.interpolate_process = Rife(
-                    int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
-            elif self.interpolate_method == "rife-ncnn":
-                # Need to implenet Rife NCNN
-                # Current options are with frame extraction which is not ideal, I will look into rife ncnn wrapper but it only supports python 3.10
-                # And building with cmake throws a tantrum, so I will look into it later
-                logging.info(
-                    f"There was an error in choosing the interpolation method, {self.interpolate_method} is not a valid option")
+                    UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
+                    self.interpolate_process = Rife(
+                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
+
+                case "gmfss":
+                    from src.gmfss.gmfss_fortuna_union import Gmfss
+
+                    UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
+                    self.interpolate_process = Gmfss(
+                        int(self.interpolate_factor), self.half, self.new_width, self.new_height)
+
+                case "rife-ncnn":
+                    # Need to implement Rife NCNN
+                    # Current options are with frame extraction which is not ideal, I will look into rife ncnn wrapper but it only supports python 3.10
+                    # And building with cmake throws a tantrum, so I will look into it later
+                    logging.info(
+                        f"Rife NCNN is not implemented yet, please use Rife or GMFSS for now")
+
+                case _:
+                    logging.info(
+                        f"There was an error in choosing the interpolation method, {self.interpolate_method} is not a valid option")
 
     def build_buffer(self):
 
@@ -234,6 +253,7 @@ class videoProcessor:
 
         logging.info(
             f"Building the buffer with: {ffmpeg_command}")
+
         self.reading_done = False
         frame_size = self.width * self.height * 3
         frame_count = 0
@@ -391,7 +411,8 @@ def main():
     argparser.add_argument("--depth", type=int, default=0)
     argparser.add_argument("--encode_method", type=str, default="x264")
     argparser.add_argument("--colour_grade", type=int, default=0)
-    argparser.add_argument("--colour_grade_sensitivity", type=float, default=50)
+    argparser.add_argument("--colour_grade_sensitivity",
+                           type=float, default=50)
 
     args = argparser.parse_args()
 
@@ -413,7 +434,7 @@ def main():
 
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
     args.scenechange_sens /= 100  # same for scene change
-    args.colour_grade_sensitivity /= 100 # same for colour grade
+    args.colour_grade_sensitivity /= 100  # same for colour grade
     # Technically based on the paper, it can go higher than 1.0, needs a bit more testing
 
     logging.info("============== Arguments ==============")
@@ -424,7 +445,6 @@ def main():
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
-
 
     logging.info("")
     logging.info("============== Processing Outputs ==============")
@@ -440,8 +460,8 @@ def main():
         args.upscale_factor = 2
 
     if args.interpolate_factor >= 6:
-        print(f"Interpolation factor was set to {args.interpolate_factor}, each image processed is kept in VRAM and uses as much as 1GB of VRAM / image if the input is 3840x2160, this might cause VRAM overflows on some gpus, if you experience some form of blocking, try lowering the interpolation factor")
-        print("I will try to implement a workaround for this in the future")
+        print(
+            f"Interpolation factor was set to {args.interpolate_factor}, each image processed is kept in VRAM and uses as much as 1GB of VRAM / image if the input is 3840x2160, this might cause VRAM overflows on some gpus, if you experience some form of blocking, try lowering the interpolation factor")
 
     dedup_strenght_list = {
         "light": "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB",
