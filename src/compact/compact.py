@@ -66,14 +66,18 @@ class Compact():
 
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
-        torch.set_grad_enabled(False)
+        
         if torch.cuda.is_available():
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
-        if self.half:
-            torch.set_default_tensor_type(torch.cuda.HalfTensor)
-            self.model.half()
-
+            if self.half:
+                torch.set_default_dtype(torch.float16)
+                torch.set_default_device("cuda")
+                self.model.half()
+                
+        self.upscaled_height = self.height * 2
+        self.upscaled_width = self.width * 2
+        
     def pad_frame(self, frame):
         frame = F.pad(frame, [0, self.pad_width, 0, self.pad_height])
         return frame
@@ -83,7 +87,7 @@ class Compact():
         with torch.no_grad():
             frame = torch.from_numpy(frame).permute(
                 2, 0, 1).unsqueeze(0).float().mul_(1/255)
-            
+
             try:
                 if self.half:
                     frame = frame.cuda().half()
@@ -94,9 +98,11 @@ class Compact():
 
             if self.pad_width != 0 or self.pad_height != 0:
                 frame = self.pad_frame(frame)
-                
+
             frame = self.model(frame)
+            frame = frame[:, :, :self.upscaled_height, :self.upscaled_width]
             frame = frame.squeeze(0).permute(
                 1, 2, 0).mul_(255).clamp_(0, 255).byte()
+
             return frame.cpu().numpy()
 
