@@ -61,7 +61,6 @@ class Cugan:
             torch.backends.cudnn.benchmark = True
             if self.half:
                 torch.set_default_dtype(torch.float16)
-                torch.set_default_device('cuda')
 
         self.pad_width = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
         self.pad_height = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
