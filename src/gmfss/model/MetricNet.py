@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.gmflow.geometry import forward_backward_consistency_check
+from .gmflow.geometry import forward_backward_consistency_check
 
 
 backwarp_tenGrid = {}
