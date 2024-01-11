@@ -501,9 +501,9 @@ def main():
     if args.intepolate_method not in ["rife", "gmfss", "rife-ncnn"]:
         try:
             interpolate_list = {
-                "Rife 4.14": "rife",
+                "Rife_4.14": "rife",
                 "GMFSS": "gmfss",
-                "Rife NCNN": "rife-ncnn" # Not available yet
+                "Rife_NCNN": "rife-ncnn" # Not available yet
             }
             args.interpolate_method = interpolate_list[args.interpolate_method]
         except Exception as e:
