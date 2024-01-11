@@ -260,8 +260,8 @@ class videoProcessor:
                     (self.height, self.width, 3))
 
                 self.read_buffer.put(frame)
-
                 frame_count += 1
+
         except Exception as e:
             logging.exception(
                 f"An error occurred during reading, {e}")
@@ -271,10 +271,11 @@ class videoProcessor:
             if "bitrate=" not in stderr:
                 logging.error(f"ffmpeg error: {stderr}")
 
+        logging.info(f"Built buffer with {frame_count} frames")
+        
         if self.interpolate == True:
             frame_count = frame_count * self.interpolate_factor
 
-        logging.info(f"Read {frame_count} frames")
         self.pbar.total = frame_count
         self.pbar.refresh()
 

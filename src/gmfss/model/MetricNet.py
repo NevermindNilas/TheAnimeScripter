@@ -3,16 +3,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from .gmflow.geometry import forward_backward_consistency_check
+from .util import MyPReLU
 
+torch.fx.wrap('backwarp')
+torch.fx.wrap('forward_backward_consistency_check')
 
 backwarp_tenGrid = {}
+
 
 def backwarp(tenIn, tenflow):
     if str(tenflow.shape) not in backwarp_tenGrid:
         tenHor = torch.linspace(start=-1.0, end=1.0, steps=tenflow.shape[3], dtype=tenflow.dtype, device=tenflow.device).view(1, 1, 1, -1).repeat(1, 1, tenflow.shape[2], 1)
         tenVer = torch.linspace(start=-1.0, end=1.0, steps=tenflow.shape[2], dtype=tenflow.dtype, device=tenflow.device).view(1, 1, -1, 1).repeat(1, 1, 1, tenflow.shape[3])
 
-        backwarp_tenGrid[str(tenflow.shape)] = torch.cat([tenHor, tenVer], 1).cuda()
+        backwarp_tenGrid[str(tenflow.shape)] = torch.cat([tenHor, tenVer], 1)
     # end
 
     tenflow = torch.cat([tenflow[:, 0:1, :, :] / ((tenIn.shape[3] - 1.0) / 2.0), tenflow[:, 1:2, :, :] / ((tenIn.shape[2] - 1.0) / 2.0)], 1)
@@ -25,19 +29,19 @@ class MetricNet(nn.Module):
         super(MetricNet, self).__init__()
         self.metric_in = nn.Conv2d(14, 64, 3, 1, 1)
         self.metric_net1 = nn.Sequential(
-            nn.PReLU(),
+            MyPReLU(),
             nn.Conv2d(64, 64, 3, 1, 1)
         )
         self.metric_net2 = nn.Sequential(
-            nn.PReLU(),
+            MyPReLU(),
             nn.Conv2d(64, 64, 3, 1, 1)
         )
         self.metric_net3 = nn.Sequential(
-            nn.PReLU(),
+            MyPReLU(),
             nn.Conv2d(64, 64, 3, 1, 1)
         )
         self.metric_out = nn.Sequential(
-            nn.PReLU(),
+            MyPReLU(),
             nn.Conv2d(64, 2, 3, 1, 1)
         )
 
@@ -49,7 +53,7 @@ class MetricNet(nn.Module):
 
         flow01 = torch.cat([flow01[:, 0:1, :, :] / ((flow01.shape[3] - 1.0) / 2.0), flow01[:, 1:2, :, :] / ((flow01.shape[2] - 1.0) / 2.0)], 1)
         flow10 = torch.cat([flow10[:, 0:1, :, :] / ((flow10.shape[3] - 1.0) / 2.0), flow10[:, 1:2, :, :] / ((flow10.shape[2] - 1.0) / 2.0)], 1)
-        
+
         img = torch.cat((img0, img1), 1)
         metric = torch.cat((-metric0, -metric1), 1)
         flow = torch.cat((flow01, flow10), 1)
