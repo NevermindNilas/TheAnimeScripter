@@ -20,6 +20,10 @@ class Cugan:
         self.handle_models()
 
     def handle_models(self):
+        
+        # Apparently this can improve performance slightly
+        torch.set_float32_matmul_precision("medium")
+        
         if self.upscale_method == "shufflecugan":
             self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
             self.filename = "sudo_shuffle_cugan_9.584.969.pth"

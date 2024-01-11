@@ -30,9 +30,9 @@ class GMFSS():
 
     def handle_model(self):
 
+        # Apparently this can improve performance slightly
         torch.set_float32_matmul_precision("medium")
         
-        # Check if the model is already downloaded
         dir_path = os.path.dirname(os.path.realpath(__file__))
 
         download = False
