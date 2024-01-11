@@ -3,7 +3,6 @@ import argparse
 import _thread
 import logging
 import subprocess
-import time
 import numpy as np
 import warnings
 
@@ -15,17 +14,17 @@ from tqdm import tqdm
 main_path = os.path.dirname(os.path.realpath(__file__))
 """
 TO:DO
-    - Fix Rife padding, again.
+    - Fix Rife padding.
     - Add bounding box support for Segmentation
     - Look into Vevid params, b and G params need more polishing
     - Look into Rife NCNN / Wrapper
     - Fix x265 encoding
-    - Look into GMFSS
     - Fix timestepping for Rife, hand each output directly to the write buffer instead of storing it in a list
     - Status bar isn't updating properly, needs fixing
     - Make the jsx file default to the last selected settings, even after reboot
     - Script dies when long videos are processed, needs testing
-    - Weird behaviour with webm files, needs testing
+    - Get system info and display it in the log file for easier debugging
+    - Cupy compile issues with Pyinstaller, needs fixing
 """
 warnings.filterwarnings("ignore")
 
@@ -372,7 +371,6 @@ class videoProcessor:
         dir_path = os.path.dirname(os.path.abspath(__file__))
         self.ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
 
-        # Check if FFMPEG exists at that path
         if not os.path.exists(self.ffmpeg_path):
             print("Couldn't find FFMPEG, downloading it now")
             print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")

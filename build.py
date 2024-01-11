@@ -2,6 +2,7 @@ import subprocess
 import os
 import platform
 import shutil
+import filecmp
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -45,19 +46,20 @@ def create_executable():
     bat_path = os.path.join(base_dir, "get_ffmpeg.bat")
     jsx_path = os.path.join(base_dir, "TheAnimeScripter.jsx")
     main_path = os.path.join(base_dir, "main.py")
+
     subprocess.run([
         "./venv/bin/pyinstaller" if platform.system() != "Windows" else ".\\venv\\Scripts\\pyinstaller",
         "--noconfirm",
         "--onedir",
         "--console",
         "--noupx",
+        "--clean",
         "--add-data", f"{src_path};src/",
         "--add-data", f"{bat_path};.",
         "--add-data", f"{jsx_path};.",
         main_path
     ], check=True)
     move_jsx_file(jsx_path)
-
 
 def move_jsx_file(jsx_path):
     dist_dir = os.path.join(base_dir, "dist")

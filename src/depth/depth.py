@@ -32,7 +32,6 @@ class Depth():
         self.read_buffer = Queue(maxsize=100)
         self.processed_frames = Queue(maxsize=100)
 
-
         _thread.start_new_thread(self.build_buffer, ())
 
     def handle_model(self):
@@ -53,6 +52,15 @@ class Depth():
 
         if torch.cuda.is_available():
             self.model.cuda()
+
+        # Checking for BF16 support, if not, then we will use FP32
+        if self.half:
+            try:
+                torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16)
+            except:
+                logging.warning(
+                    "Your GPU does not support BF16 mixed precision, using FP32 instead")
+                self.half = False
 
     def build_buffer(self):
 
@@ -149,7 +157,7 @@ class Depth():
             pipe.wait()
             self.pbar.close()
             self.writing_finished = True
-        
+
     def start_process(self):
         try:
             while True:
@@ -187,7 +195,7 @@ class Depth():
 
                     output = prediction.cpu().numpy()
                     formatted = (output * 255 / np.max(output)).astype('uint8')
-                
+
                 # Converting to RGB due to After Effects Compatability
                 # It really doesn't like Gray Scale inputs for some apparent reason
                 # More testing is needed
@@ -209,7 +217,6 @@ class Depth():
         _thread.start_new_thread(self.write_buffer, ())
 
         while True:
-            if self.threads_done == True and self.read_buffer.empty() and self.processed_frames.empty():
+            if self.read_buffer.empty() and self.processed_frames.empty():
                 break
             time.sleep(0.1)
-            
