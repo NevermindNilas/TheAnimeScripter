@@ -29,6 +29,7 @@ TO:DO
 """
 warnings.filterwarnings("ignore")
 
+
 class videoProcessor:
     def __init__(self, args):
         self.input = args.input
@@ -89,7 +90,6 @@ class videoProcessor:
         if self.segment:
             from src.segment.segment import Segment
 
-
             process = Segment(self.input, self.output, self.ffmpeg_path, self.width,
                               self.height, self.fps, self.nframes, self.inpoint, self.outpoint)
             process.run()
@@ -120,7 +120,7 @@ class videoProcessor:
         if self.interpolate == False and self.upscale == False and self.dedup == True:
             if self.sharpen == True:
                 self.dedup_strenght += f',cas={self.sharpen_sens}'
-                
+
             if self.outpoint != 0:
                 from src.trim_input import trim_input_dedup
                 trim_input_dedup(self.input, self.output, self.inpoint,
@@ -202,11 +202,11 @@ class videoProcessor:
                         int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
 
                 case "gmfss":
-                    from src.gmfss.gmfss_fortuna_union import Gmfss
+                    from src.gmfss.gmfss_fortuna_union import GMFSS
 
                     UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
-                    self.interpolate_process = Gmfss(
-                        int(self.interpolate_factor), self.half, self.new_width, self.new_height)
+                    self.interpolate_process = GMFSS(
+                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
 
                 case "rife-ncnn":
                     # Need to implement Rife NCNN
@@ -245,7 +245,7 @@ class videoProcessor:
             ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         logging.info(
-            f"Building the buffer with: {ffmpeg_command}")
+            f"Building the buffer with: {' '.join(ffmpeg_command)}")
 
         self.reading_done = False
         frame_size = self.width * self.height * 3
@@ -258,14 +258,14 @@ class videoProcessor:
                     continue
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
-                
+
                 self.read_buffer.put(frame)
-                
+
                 frame_count += 1
         except Exception as e:
             logging.exception(
                 f"An error occurred during reading, {e}")
-            
+
         stderr = process.stderr.read().decode()
         if stderr:
             if "bitrate=" not in stderr:
@@ -282,9 +282,9 @@ class videoProcessor:
         process.stdout.close()
         process.stderr.close()
         process.terminate()
-        
+
         self.reading_done = True
-        self.read_buffer.put(None)        
+        self.read_buffer.put(None)
 
     def process(self):
         prev_frame = None
@@ -295,7 +295,7 @@ class videoProcessor:
                 if frame is None:
                     if self.reading_done == True:
                         break
-                    
+
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
 
@@ -327,7 +327,7 @@ class videoProcessor:
                                         self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
 
         logging.info(
-            f"Encoding options: {command}")
+            f"Encoding options: {' '.join(command)}")
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -358,7 +358,7 @@ class videoProcessor:
         self.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self.fps = cap.get(cv2.CAP_PROP_FPS)
         self.nframes = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        
+
         fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
         self.codec = "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
 
@@ -393,11 +393,12 @@ def main():
         argparser.add_argument("--output", type=str, required=True)
         argparser.add_argument("--interpolate", type=int, default=0)
         argparser.add_argument("--interpolate_factor", type=int, default=2)
-        argparser.add_argument("--interpolate_method", type=str, default="rife")
+        argparser.add_argument("--interpolate_method",
+                               type=str, default="rife")
         argparser.add_argument("--upscale", type=int, default=0)
         argparser.add_argument("--upscale_factor", type=int, default=2)
         argparser.add_argument("--upscale_method",  type=str,
-                            default="shufflecugan")
+                               default="shufflecugan")
         argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
         argparser.add_argument("--dedup", type=int, default=0)
         argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
@@ -415,10 +416,10 @@ def main():
         argparser.add_argument("--encode_method", type=str, default="x264")
         argparser.add_argument("--colour_grade", type=int, default=0)
         argparser.add_argument("--colour_grade_sensitivity",
-                            type=float, default=50)
+                               type=float, default=50)
 
         args = argparser.parse_args()
-        
+
     except Exception as e:
         logging.exception(
             f"There was an error in parsing the arguments, {e}")
