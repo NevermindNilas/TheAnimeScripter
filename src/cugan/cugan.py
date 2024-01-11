@@ -5,6 +5,7 @@ import requests
 import torch
 import torch.nn.functional as F
 
+from tqdm import tqdm
 from realcugan_ncnn_py import Realcugan
 
 
@@ -44,27 +45,34 @@ class Cugan:
         if not os.path.exists(os.path.join(weights_dir, self.filename)):
             print(f"Downloading {self.upscale_method.upper()}  model...")
             url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{self.filename}"
-            response = requests.get(url)
-            if response.status_code == 200:
-                with open(os.path.join(weights_dir, self.filename), "wb") as file:
-                    file.write(response.content)
+            response = requests.get(url, stream=True)
+
+            total_size_in_bytes= int(response.headers.get('content-length', 0))
+            progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
+
+            with open(os.path.join(weights_dir, self.filename), 'wb') as file:
+                for data in response.iter_content(chunk_size=1024):
+                    progress_bar.update(len(data))
+                    file.write(data)
+            progress_bar.close()
 
         model_path = os.path.join(weights_dir, self.filename)
 
         self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
         self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()
 
-        if self.half:
-            self.model.half()
 
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
+        self.cuda_available = False
         if torch.cuda.is_available():
+            self.cuda_available = True
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
                 torch.set_default_dtype(torch.float16)
+                self.model.half()
 
         self.pad_width = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
         self.pad_height = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
@@ -82,14 +90,14 @@ class Cugan:
             frame = torch.from_numpy(frame).permute(
                 2, 0, 1).unsqueeze(0).float().mul_(1/255)
 
-            try:
+            if self.cuda_available:
                 if self.half:
-                    frame = frame.cuda().half()
+                    frame = frame.half()
                 else:
                     frame = frame.cuda()
-            except:
+            else:
                 frame = frame.cpu()
-
+                
             if self.pad_width != 0 or self.pad_height != 0:
                 frame = self.pad_frame(frame)
 
