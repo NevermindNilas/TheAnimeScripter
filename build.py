@@ -2,7 +2,6 @@ import subprocess
 import os
 import platform
 import shutil
-import filecmp
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -23,11 +22,9 @@ def activate_venv():
 def install_requirements():
     print("Installing the requirements...")
     if platform.system() == "Windows":
-        subprocess.run([".\\venv\\Scripts\\python", "-m", "pip",
-                       "install", "-r", "requirements.txt"], check=True)
+        subprocess.run([".\\venv\\Scripts\\pip3", "install", "--pre", "-r", "requirements.txt"], check=True)
     else:
-        subprocess.run(["./venv/bin/python", "-m", "pip",
-                       "install", "-r", "requirements.txt"], check=True)
+        subprocess.run(["./venv/bin/pip3", "install", "--pre", "-r", "requirements.txt"], check=True)
 
 
 def install_pyinstaller():
