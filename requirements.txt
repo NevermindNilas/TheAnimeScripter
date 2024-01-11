@@ -2,6 +2,7 @@
 requests
 opencv-python
 tqdm
+cupy-cuda12x
 timm
 numpy<1.26
 kornia
