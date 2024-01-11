@@ -1,5 +1,5 @@
 import os
-import requests
+import wget
 import torch
 import numpy as np
 
@@ -35,10 +35,7 @@ class Swinir():
     def download_model(self):
         if not os.path.exists(self.model_path):
             print(f"Downloading SWINIR model...")
-            response = requests.get(self.url)
-            if response.status_code == 200:
-                with open(self.model_path, "wb") as file:
-                    file.write(response.content)
+            wget.download(self.url, out=self.model_path)
 
     def load_model(self):
         pretrained_model = torch.load(self.model_path, map_location="cpu")

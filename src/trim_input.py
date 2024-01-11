@@ -1,4 +1,3 @@
-import os
 import subprocess
 class trim_input_dedup():
     def __init__(self, input, output, inpoint, outpoint, mpdecimate_params, ffmpeg_path):

@@ -1,5 +1,5 @@
 import os
-import requests
+import wget
 import torch
 import numpy as np
 
@@ -51,15 +51,10 @@ class GMFSS():
                         "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/metric_union.pkl",
                         "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife.pkl",
                         ]
-
+            
             for url in url_list:
-                response = requests.get(url)
-                if response.status_code == 200:
-                    with open(os.path.join(dir_path, "weights", url.split("/")[-1]), "wb") as file:
-                        file.write(response.content)
-                else:
-                    print(f"Failed to download {url}")
-                    return
+                print(f"Downloading {url}...")
+                wget.download(url, out=os.path.join(dir_path, "weights"))
                 
         model_dir = os.path.join(dir_path, "weights")
         model_type = "union"

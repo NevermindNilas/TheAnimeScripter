@@ -1,8 +1,8 @@
 import os
 import torch
-import requests
-from torch.nn import functional as F
+import wget
 
+from torch.nn import functional as F
 from .srvgg_arch import SRVGGNetCompact
 
 
@@ -39,10 +39,7 @@ class Compact():
         if not os.path.exists(os.path.join(weights_dir, filename)):
             print(f"Downloading {self.upscale_method.upper()} model...")
             url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{filename}"
-            response = requests.get(url)
-            if response.status_code == 200:
-                with open(os.path.join(weights_dir, filename), "wb") as file:
-                    file.write(response.content)
+            wget.download(url, out=os.path.join(weights_dir, filename))
 
         model_path = os.path.join(weights_dir, filename)
 

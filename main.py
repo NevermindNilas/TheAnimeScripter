@@ -18,7 +18,6 @@ TO:DO
     - Add bounding box support for Segmentation
     - Look into Vevid params, b and G params need more polishing
     - Look into Rife NCNN / Wrapper
-    - Fix x265 encoding
     - Fix timestepping for Rife, hand each output directly to the write buffer instead of storing it in a list
     - Status bar isn't updating properly, needs fixing
     - Make the jsx file default to the last selected settings, even after reboot
@@ -483,8 +482,6 @@ def main():
             encode_list = {
                 "X264": "x264",
                 "X264_Animation": "x264_animation",
-                "X265": "x265",
-                "X265_Animation": "x265_animation",
                 "NVENC_H264": "nvenc_h264",
                 "NVENC_H265": "nvenc_h265",
                 "QSV_H264": "qsv_h264",
