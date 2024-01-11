@@ -498,7 +498,7 @@ def main():
                 f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
             args.encode_method = "x264"
     
-    if args.intepolate_method not in ["rife", "gmfss", "rife-ncnn"]:
+    if args.interpolate_method not in ["rife", "gmfss", "rife-ncnn"]:
         try:
             interpolate_list = {
                 "Rife_4.14": "rife",
