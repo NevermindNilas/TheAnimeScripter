@@ -19,6 +19,10 @@ class Compact():
         self.handle_models()
 
     def handle_models(self):
+        
+        # Apparently this can improve performance slightly
+        torch.set_float32_matmul_precision("medium")
+        
         if self.upscale_method == "compact":
             filename = "2x_AnimeJaNai_V2_Compact_36k.pth"
         elif self.upscale_method == "ultracompact":

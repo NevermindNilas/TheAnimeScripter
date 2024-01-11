@@ -18,6 +18,10 @@ class Rife:
         self.handle_model()
 
     def handle_model(self):
+        
+        # Apparently this can improve performance slightly
+        torch.set_float32_matmul_precision("medium")
+        
         if self.UHD == True:
             self.scale = 0.5
 

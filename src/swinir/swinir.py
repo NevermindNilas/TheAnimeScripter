@@ -6,6 +6,8 @@ import numpy as np
 from torch.nn import functional as F
 from .swinir_arch import SwinIR as SwinIR_arch
 
+# Apparently this can improve performance slightly
+torch.set_float32_matmul_precision("medium")
 class Swinir():
     def __init__(self, upscale_factor, half, width, height):
         self.upscale_factor = upscale_factor
