@@ -436,7 +436,7 @@ var TheAnimeScripter = (function() {
     textInterpolateModel.text = "Interpolate Model";
     textInterpolateModel.preferredSize.width = 103;
 
-    var dropdownInterpolate = ["Rife 4.14", "-", "GMFSS"];
+    var dropdownInterpolate = ["Rife_4.14", "-", "GMFSS"];
     var dropdownInterpolate = group6.add("dropdownlist", undefined, undefined, {
         name: "dropdownInterpolate",
         items: dropdownInterpolate
