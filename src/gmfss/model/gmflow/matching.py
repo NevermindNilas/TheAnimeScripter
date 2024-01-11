@@ -15,7 +15,7 @@ def global_correlation_softmax(feature0, feature1,
     correlation = torch.matmul(feature0, feature1).view(b, h, w, h, w) / (c ** 0.5)  # [B, H, W, H, W]
 
     # flow from softmax
-    init_grid = coords_grid(b, h, w).to(correlation.device)  # [B, 2, H, W]
+    init_grid = coords_grid(b, h, w).to(correlation)  # [B, 2, H, W]
     grid = init_grid.view(b, 2, -1).permute(0, 2, 1)  # [B, H*W, 2]
 
     correlation = correlation.view(b, h * w, h * w)  # [B, H*W, H*W]
@@ -40,7 +40,7 @@ def local_correlation_softmax(feature0, feature1, local_radius,
                               padding_mode='zeros',
                               ):
     b, c, h, w = feature0.size()
-    coords_init = coords_grid(b, h, w).to(feature0.device)  # [B, 2, H, W]
+    coords_init = coords_grid(b, h, w).to(feature0)  # [B, 2, H, W]
     coords = coords_init.view(b, 2, -1).permute(0, 2, 1)  # [B, H*W, 2]
 
     local_h = 2 * local_radius + 1
@@ -48,7 +48,7 @@ def local_correlation_softmax(feature0, feature1, local_radius,
 
     window_grid = generate_window_grid(-local_radius, local_radius,
                                        -local_radius, local_radius,
-                                       local_h, local_w, device=feature0.device)  # [2R+1, 2R+1, 2]
+                                       local_h, local_w, device=feature0.device).to(feature0.dtype)  # [2R+1, 2R+1, 2]
     window_grid = window_grid.reshape(-1, 2).repeat(b, 1, 1, 1)  # [B, 1, (2R+1)^2, 2]
     sample_coords = coords.unsqueeze(-2) + window_grid  # [B, H*W, (2R+1)^2, 2]
 
@@ -70,7 +70,7 @@ def local_correlation_softmax(feature0, feature1, local_radius,
     corr = torch.matmul(feature0_view, window_feature).view(b, h * w, -1) / (c ** 0.5)  # [B, H*W, (2R+1)^2]
 
     # mask invalid locations
-    corr[~valid] = -1e9
+    corr[~valid] = -1e9 if feature0.dtype == torch.float else -1e4
 
     prob = F.softmax(corr, -1)  # [B, H*W, (2R+1)^2]
 

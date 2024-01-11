@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .utils import split_feature, merge_splits
+from .utils import merge_splits, split_feature
 
 
 def single_head_full_attention(q, k, v):
@@ -21,7 +21,7 @@ def generate_shift_window_attn_mask(input_resolution, window_size_h, window_size
     # Ref: https://github.com/microsoft/Swin-Transformer/blob/main/models/swin_transformer.py
     # calculate attention mask for SW-MSA
     h, w = input_resolution
-    img_mask = torch.zeros((1, h, w, 1)).to(device)  # 1 H W 1
+    img_mask = torch.zeros((1, h, w, 1), device=device)  # 1 H W 1
     h_slices = (slice(0, -window_size_h),
                 slice(-window_size_h, -shift_size_h),
                 slice(-shift_size_h, None))
@@ -376,7 +376,7 @@ class FeatureFlowAttention(nn.Module):
     def forward_local_window_attn(self, feature0, flow,
                                   local_window_radius=1,
                                   ):
-        assert flow.size(1) == 2
+        # assert flow.size(1) == 2
         assert local_window_radius > 0
 
         b, c, h, w = feature0.size()

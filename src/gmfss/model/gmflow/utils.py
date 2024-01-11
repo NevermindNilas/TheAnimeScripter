@@ -1,4 +1,5 @@
 import torch
+
 from .position import PositionEmbeddingSine
 
 
@@ -55,8 +56,8 @@ def merge_splits(splits,
 def normalize_img(img0, img1):
     # loaded images are in [0, 255]
     # normalize by ImageNet mean and std
-    mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(img1.device)
-    std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(img1.device)
+    mean = torch.tensor([0.485, 0.456, 0.406], dtype=img1.dtype, device=img1.device).view(1, 3, 1, 1)
+    std = torch.tensor([0.229, 0.224, 0.225], dtype=img1.dtype, device=img1.device).view(1, 3, 1, 1)
     img0 = (img0 - mean) / std
     img1 = (img1 - mean) / std
 
