@@ -52,7 +52,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - `--output` : (str, required) Output string of the video, can be absolute path or just a name.
 - `--interpolate` : (int, default=0) Set to 1 if you want to enable interpolation, 0 to disable.
 - `--interpolate_factor` : (int, default=2) Factor by which to interpolate.
-- `--interpolate_method` : (str, default="rife") Method to use for interpolation. Options: "Rife", "Rife-ncnn".
+- `--interpolate_method` : (str, default="rife") Method to use for interpolation. Options: "Rife", "GMFSS".
 - `--upscale` : (int, default=0) Set to 1 if you want to enable upscaling, 0 to disable.
 - `--upscale_factor` : (int, default=2) Factor by which to upscale.
 - `--upscale_method` : (str, default="ShuffleCugan") Method to use for upscaling.
