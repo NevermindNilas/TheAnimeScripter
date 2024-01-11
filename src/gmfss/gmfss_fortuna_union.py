@@ -5,7 +5,7 @@ import numpy as np
 
 from torch.nn import functional as F
 
-# FP16 doesn't work for now, fix coming soon
+# from: https://github.com/HolyWu/vs-gmfss_fortuna/blob/master/vsgmfss_fortuna/__init__.py
 class GMFSS():
     def __init__(self, interpolation_factor, half, width, height, UHD):
 
@@ -30,6 +30,8 @@ class GMFSS():
 
     def handle_model(self):
 
+        torch.set_float32_matmul_precision("medium")
+        
         # Check if the model is already downloaded
         dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -40,10 +42,13 @@ class GMFSS():
 
         if download:
             print("Downloading GMFSS models...")
-            url_list = ["https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/feat.pkl",
+            url_list = ["https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/feat_base.pkl",
+                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/feat_union.pkl",
                         "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/flownet.pkl",
-                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/fusionnet.pkl",
-                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/metric.pkl",
+                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/fusionnet_base.pkl",
+                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/fusionnet_union.pkl",
+                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/metric_base.pkl",
+                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/metric_union.pkl",
                         "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife.pkl",
                         ]
 
@@ -55,7 +60,10 @@ class GMFSS():
                 else:
                     print(f"Failed to download {url}")
                     return
-
+                
+        model_dir = os.path.join(dir_path, "weights")
+        model_type = "union"
+        
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
 
@@ -69,31 +77,31 @@ class GMFSS():
             if self.half:
                 torch.set_default_tensor_type(torch.cuda.HalfTensor)
 
-        from .model.GMFSS_infer_u import Model
+        from .model.GMFSS import GMFSS as Model
 
-        self.model = Model()
-        self.model.load_model(os.path.join(dir_path, "weights"), -1)
-        self.model.eval()
-        
+        self.model = Model(model_dir, model_type, self.scale, ensemble=False)
+        self.model.eval().to(self.device, memory_format=torch.channels_last)
+
         if self.cuda_available:
             if self.half:
                 self.model.half()
                 
-        self.model.device()
-        
+        self.dtype = torch.half if self.half else torch.float  
+              
     def pad_image(self, img):
         img = F.pad(img, self.padding)
         if self.cuda_available and self.half:
             img = img.half()
         return img
 
-    def make_inference(self, I0, I1, reuse_things, n):
+    def make_inference(self, I0, I1, n):
         res = []
-        for i in range(n):
-            res.append(self.model.inference(
-                I0, I1, reuse_things, (i+1) * 1. / (n+1)))
+        for i in range(n-1):
+            timestep = torch.tensor((i+1) * 1. / (n+1), dtype=self.dtype, device=self.device)
+            res.append(self.model(I0, I1, timestep))
         return res
-
+    
+    @torch.inference_mode()
     def run(self, I0, I1):
         buffer = []
         I0 = torch.from_numpy(np.transpose(I0, (2, 0, 1))).to(
@@ -104,8 +112,7 @@ class GMFSS():
         I0 = self.pad_image(I0)
         I1 = self.pad_image(I1)
         
-        reuse_things = self.model.reuse(I0, I1, self.scale)
-        output = self.make_inference(I0, I1, reuse_things, self.interpolation_factor-1)
+        output = self.make_inference(I0, I1, self.interpolation_factor)
 
         for mid in output:
             mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))

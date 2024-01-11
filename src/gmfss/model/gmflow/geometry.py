@@ -3,7 +3,7 @@ import torch.nn.functional as F
 
 
 def coords_grid(b, h, w, homogeneous=False, device=None):
-    y, x = torch.meshgrid(torch.arange(h), torch.arange(w))  # [H, W]
+    y, x = torch.meshgrid(torch.arange(h), torch.arange(w), indexing='ij')  # [H, W]
 
     stacks = [x, y]
 
@@ -26,7 +26,7 @@ def generate_window_grid(h_min, h_max, w_min, w_max, len_h, len_w, device=None):
 
     x, y = torch.meshgrid([torch.linspace(w_min, w_max, len_w, device=device),
                            torch.linspace(h_min, h_max, len_h, device=device)],
-                          )
+                          indexing='ij')
     grid = torch.stack((x, y), -1).transpose(0, 1).float()  # [H, W, 2]
 
     return grid
@@ -34,7 +34,7 @@ def generate_window_grid(h_min, h_max, w_min, w_max, len_h, len_w, device=None):
 
 def normalize_coords(coords, h, w):
     # coords: [B, H, W, 2]
-    c = torch.Tensor([(w - 1) / 2., (h - 1) / 2.]).float().to(coords.device)
+    c = torch.tensor([(w - 1) / 2., (h - 1) / 2.], dtype=coords.dtype, device=coords.device)
     return (coords - c) / c  # [-1, 1]
 
 
@@ -66,7 +66,7 @@ def flow_warp(feature, flow, mask=False, padding_mode='zeros'):
     b, c, h, w = feature.size()
     assert flow.size(1) == 2
 
-    grid = coords_grid(b, h, w).to(flow.device) + flow  # [B, 2, H, W]
+    grid = coords_grid(b, h, w).to(flow) + flow  # [B, 2, H, W]
 
     return bilinear_sample(feature, grid, padding_mode=padding_mode,
                            return_mask=mask)
@@ -90,7 +90,7 @@ def forward_backward_consistency_check(fwd_flow, bwd_flow,
 
     threshold = alpha * flow_mag + beta
 
-    fwd_occ = (diff_fwd > threshold).float()  # [B, H, W]
-    bwd_occ = (diff_bwd > threshold).float()
+    fwd_occ = (diff_fwd > threshold).to(fwd_flow.dtype)  # [B, H, W]
+    bwd_occ = (diff_bwd > threshold).to(bwd_flow.dtype)
 
     return fwd_occ, bwd_occ

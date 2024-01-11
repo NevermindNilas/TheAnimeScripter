@@ -84,6 +84,8 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - [Tohrusky](https://github.com/Tohrusky/realcugan-ncnn-py) - For RealCugan-NCNN-Vulkan wrapper.
 - [SkyTNT](https://github.com/SkyTNT/anime-segmentation) - For Anime Segmentation.
 - [ISL-ORG](https://github.com/isl-org/MiDaS) - For Depth Map Processing.
+- [98mxr](https://github.com/98mxr/GMFSS_Fortuna) - For GMFSS Fortuna Union.
+- [HolyWU](https://github.com/HolyWu/vs-gmfss_fortuna/tree/master) - For his easy VS GMFSS code.
 
 ## 📈 Benchmarks
 
