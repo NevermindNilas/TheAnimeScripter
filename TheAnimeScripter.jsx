@@ -24,6 +24,8 @@ var TheAnimeScripter = (function() {
     var dropdownDedupStrenght = app.settings.haveSetting(scriptName, "dropdownDedupStrenght") ? app.settings.getSetting(scriptName, "dropdownDedupStrenght") : 0
     var sliderSceneChange = app.settings.haveSetting(scriptName, "sliderSceneChange") ? app.settings.getSetting(scriptName, "sliderSceneChange") : 70;
     var dropdownEncoder = app.settings.haveSetting(scriptName, "dropdownEncoder") ? app.settings.getSetting(scriptName, "dropdownEncoder") : 0;
+    var dropdownInterpolate = app.settings.haveSetting(scriptName, "dropdownInterpolate") ? app.settings.getSetting(scriptName, "dropdownInterpolate") : 0;
+
     var segmentValue = 0;
     var sceneChangeValue = 0;
     var depthValue = 0;
@@ -416,24 +418,51 @@ var TheAnimeScripter = (function() {
     dropdownModel.selection = 0;
     dropdownModel.preferredSize.width = 109;
 
-    // GROUP6
+    // GROUP 6
     // ======
+
     var group6 = panel1.add("group", undefined, {
         name: "group6"
     });
+
     group6.orientation = "row";
     group6.alignChildren = ["left", "center"];
     group6.spacing = 0;
     group6.margins = 0;
 
-    var cuganDenoiseText = group6.add("statictext", undefined, undefined, {
+    var textInterpolateModel = group6.add("statictext", undefined, undefined, {
+        name: "textInterpolateModel"
+    });
+    textInterpolateModel.text = "Interpolate Model";
+    textInterpolateModel.preferredSize.width = 103;
+
+    var dropdownInterpolate = ["Rife 4.14", "-", "GMFSS"];
+    var dropdownInterpolate = group6.add("dropdownlist", undefined, undefined, {
+        name: "dropdownInterpolate",
+        items: dropdownInterpolate
+    });
+    dropdownInterpolate.helpTip = "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070, read more in INFO";
+    dropdownInterpolate.selection = 0;
+    dropdownInterpolate.preferredSize.width = 109;
+
+    // GROUP 7
+    // ======
+    var group7 = panel1.add("group", undefined, {
+        name: "group7"
+    });
+    group7.orientation = "row";
+    group7.alignChildren = ["left", "center"];
+    group7.spacing = 0;
+    group7.margins = 0;
+
+    var cuganDenoiseText = group7.add("statictext", undefined, undefined, {
         name: "cuganDenoiseText"
     });
     cuganDenoiseText.text = "Cugan Denoise";
     cuganDenoiseText.preferredSize.width = 103;
 
     var dropdownCugan_array = ["No-Denoise", "-", "Conservative", "-", "Denoise1x", "-", "Denoise2x"];
-    var dropdownCugan = group6.add("dropdownlist", undefined, undefined, {
+    var dropdownCugan = group7.add("dropdownlist", undefined, undefined, {
         name: "dropdownCugan",
         items: dropdownCugan_array
     });
@@ -698,8 +727,7 @@ var TheAnimeScripter = (function() {
             if (layer.startTime < 0) {
                 sourceInPoint = sourceInPoint + Math.abs(layer.startTime);
                 sourceOutPoint = sourceOutPoint + Math.abs(layer.startTime);
-            }
-            else if (layer.startTime > 0) {
+            } else if (layer.startTime > 0) {
                 sourceInPoint = sourceInPoint - Math.abs(layer.startTime);
                 sourceOutPoint = sourceOutPoint - Math.abs(layer.startTime);
             }
@@ -721,17 +749,18 @@ var TheAnimeScripter = (function() {
                     "--output", "\"" + output_name + "\"",
                     "--interpolate", checkboxInterpolate.value ? "1" : "0",
                     "--interpolate_factor", intInterpolate.text,
+                    "--interpolate_method", dropdownInterpolate.selection.text,
                     "--upscale", checkboxUpscale.value ? "1" : "0",
                     "--upscale_factor", intUpscale.text,
-                    "--dedup", checkboxDeduplicate.value ? "1" : "0",
-                    "--half", "1",
                     "--upscale_method", dropdownModel.selection.text,
+                    "--dedup", checkboxDeduplicate.value ? "1" : "0",
+                    "--dedup_strenght", dropdownDedupStrenght.selection.text,
+                    "--half", "1",
                     "--inpoint", sourceInPoint,
                     "--outpoint", sourceOutPoint,
                     "--sharpen", checkboxSharpen.value ? "1" : "0",
                     "--sharpen_sens", sliderSharpen.value,
                     "--segment", segmentValue,
-                    "--dedup_strenght", dropdownDedupStrenght.selection.text,
                     "--scenechange", sceneChangeValue,
                     "--depth", depthValue,
                     "--encode_method", dropdownEncoder.selection.text,

@@ -497,6 +497,19 @@ def main():
             logging.exception(
                 f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
             args.encode_method = "x264"
+    
+    if args.intepolate_method not in ["rife", "gmfss", "rife-ncnn"]:
+        try:
+            interpolate_list = {
+                "Rife 4.14": "rife",
+                "GMFSS": "gmfss",
+                "Rife NCNN": "rife-ncnn" # Not available yet
+            }
+            args.interpolate_method = interpolate_list[args.interpolate_method]
+        except Exception as e:
+            logging.exception(
+                f"There was an error in choosing the interpolation method, {args.interpolate_method} is not a valid option, setting the interpolation method to rife")
+            args.interpolate_method = "rife"
 
     if args.input is not None and args.output is not None:
         videoProcessor(args)
