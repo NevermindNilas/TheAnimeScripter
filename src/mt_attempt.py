@@ -4,7 +4,6 @@ import subprocess
 import argparse
 import numpy as np
 
-from moviepy.editor import VideoFileClip
 from tqdm import tqdm
 from multiprocessing import Process, Queue
 

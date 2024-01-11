@@ -1,7 +1,7 @@
 from .cugan_arch import UpCunet2x, UpCunet3x, UpCunet4x, UpCunet2x_fast
 
+import wget
 import os
-import requests
 import torch
 import torch.nn.functional as F
 
@@ -43,24 +43,14 @@ class Cugan:
             os.makedirs(weights_dir)
 
         if not os.path.exists(os.path.join(weights_dir, self.filename)):
-            print(f"Downloading {self.upscale_method.upper()}  model...")
+            print(f"Downloading {self.upscale_method.upper()} model...")
             url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/{self.filename}"
-            response = requests.get(url, stream=True)
-
-            total_size_in_bytes= int(response.headers.get('content-length', 0))
-            progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
-
-            with open(os.path.join(weights_dir, self.filename), 'wb') as file:
-                for data in response.iter_content(chunk_size=1024):
-                    progress_bar.update(len(data))
-                    file.write(data)
-            progress_bar.close()
+            wget.download(url, out=os.path.join(weights_dir, self.filename))
 
         model_path = os.path.join(weights_dir, self.filename)
 
         self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
         self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()
-
 
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu")
@@ -92,7 +82,7 @@ class Cugan:
 
             if self.cuda_available:
                 if self.half:
-                    frame = frame.half()
+                    frame = frame.cuda().half()
                 else:
                     frame = frame.cuda()
             else:

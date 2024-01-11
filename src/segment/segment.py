@@ -4,9 +4,9 @@ import subprocess
 import logging
 import time
 import os
-import requests
 import cv2
 import torch
+import wget 
 
 from .train import AnimeSegmentation
 from tqdm import tqdm
@@ -51,10 +51,9 @@ class Segment():
             
         if not os.path.exists(os.path.join(dir_path, "weights", filename)):
             print("Downloading segmentation model...")
-            logging.info("Couldn't find the model, downloading it now...")
-            request = requests.get(url)
-            with open(os.path.join(dir_path , "weights", filename), "wb") as file:
-                file.write(request.content)
+            logging.info("Couldn't find the segmentation model, downloading it now...")
+            wget.download(url, out=os.path.join(dir_path , "weights", filename))
+            
         model_path = os.path.join(dir_path , "weights", filename)
         
         if torch.cuda.is_available():

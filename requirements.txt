@@ -1,5 +1,5 @@
---extra-index-url https://download.pytorch.org/whl/cu121
-requests
+--extra-index-url https://download.pytorch.org/whl/nightly/cu121
+wget
 opencv-python
 tqdm
 cupy-cuda12x
@@ -10,3 +10,4 @@ scipy
 realcugan-ncnn-py
 pytorch-lightning
 torch
+torchvision
