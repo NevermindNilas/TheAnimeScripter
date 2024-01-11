@@ -92,8 +92,10 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 The following benchmarks were conducted on a system with a 13700k and 3090 GPU for 1920x1080p inputs and take x264 encoding into account:
 
 With FP16 on for every test except NCNN.
-- **Interpolation**: 
-    - Rife ( v4.13 ): ~91 FPS ( Fastmode True, Essemble False )
+- **Interpolation 2x**:
+    - Rife ( v4.13 ): ~100 FPS ( Fastmode True, Ensemble False, No longer availbe )
+    - Rife ( v4.14 ): ~100 FPS ( Fastmode True, Ensemble False )
+    - GMFSS Fortuna Union: ~7 FPS ( Ensemble False for Rife )
     - Rife NCNN: N/A
 
 - **Upscaling 2x**: 
