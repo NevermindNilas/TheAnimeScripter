@@ -184,3 +184,4 @@ In no particular order:
 - [Massive] Release 0.1.5 (06/01/2024)
 - Fixed relative timeline issues for inPoint / outPoint inside of AE
 - Added multi layer support and timecode accurate placement in AE
+- [Massive] Added GMFSS Fortuna Union
