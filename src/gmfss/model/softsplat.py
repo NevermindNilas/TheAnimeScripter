@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 
 import collections
-import cupy
 import os
 import re
-import torch
 import typing
 
+import cupy
+import torch
 
 ##########################################################
 
@@ -237,6 +237,11 @@ def softsplat(tenIn:torch.Tensor, tenFlow:torch.Tensor, tenMetric:torch.Tensor, 
     if strMode.split('-')[0] == 'linear': assert(tenMetric is not None)
     if strMode.split('-')[0] == 'soft': assert(tenMetric is not None)
 
+    orig_dtype = tenIn.dtype
+    tenIn = tenIn.float()
+    tenFlow = tenFlow.float()
+    tenMetric = tenMetric.float()
+
     if strMode == 'avg':
         tenIn = torch.cat([tenIn, tenIn.new_ones([tenIn.shape[0], 1, tenIn.shape[2], tenIn.shape[3]])], 1)
 
@@ -270,7 +275,7 @@ def softsplat(tenIn:torch.Tensor, tenFlow:torch.Tensor, tenMetric:torch.Tensor, 
         tenOut = tenOut[:, :-1, :, :] / tenNormalize
     # end
 
-    return tenOut
+    return tenOut.to(orig_dtype)
 # end
 
 
