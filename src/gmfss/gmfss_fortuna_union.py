@@ -82,11 +82,12 @@ class GMFSS():
         self.model = Model(model_dir, model_type, self.scale, ensemble=False)
         self.model.eval().to(self.device, memory_format=torch.channels_last)
 
+        self.dtype = torch.float
         if self.cuda_available:
             if self.half:
                 self.model.half()
+                self.dtype = torch.half  
                 
-        self.dtype = torch.half if self.half else torch.float  
               
     def pad_image(self, img):
         img = F.pad(img, self.padding)
