@@ -29,10 +29,10 @@ class Rife:
             "cuda" if torch.cuda.is_available() else "cpu")
         
         # Doing a torch cuda check is rather expensive on start-up times so I just decided to keep it simple
-        cuda_available = 0
+        self.cuda_available = False
         torch.set_grad_enabled(False)
         if torch.cuda.is_available():
-            cuda_available = 1
+            self.cuda_available = True
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -43,7 +43,7 @@ class Rife:
         self.model.load_model(self.modelDir, -1)
         self.model.eval()
         
-        if cuda_available == 1:
+        if self.cuda_available == True:
             if self.half:
                 self.model.half()
                 
@@ -58,10 +58,10 @@ class Rife:
         return res
 
     def pad_image(self, img):
-        if self.half:
-            return F.pad(img, self.padding).half()
-        else:
-            return F.pad(img, self.padding)
+        img = F.pad(img, self.padding)
+        if self.cuda_available and self.half:
+            img = img.half()
+        return img
 
     def run(self, I0, I1):
         buffer = []

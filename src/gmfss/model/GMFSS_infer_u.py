@@ -3,12 +3,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from model.gmflow.gmflow import GMFlow
-from model.IFNet_HDv3 import IFNet
-from model.MetricNet import MetricNet
-from model.FeatureNet import FeatureNet
-from model.FusionNet_u import GridNet
-from model.softsplat import softsplat as warp
+from .gmflow.gmflow import GMFlow
+from .IFNet_HDv3 import IFNet
+from .MetricNet import MetricNet
+from .FeatureNet import FeatureNet
+from .FusionNet_u import GridNet
+from .softsplat import softsplat as warp
 
 device = torch.device("cuda")
     
@@ -27,6 +27,13 @@ class Model:
         self.metricnet.eval()
         self.feat_ext.eval()
         self.fusionnet.eval()
+    
+    def half(self):
+        self.flownet.half()
+        self.ifnet.half()
+        self.metricnet.half()
+        self.feat_ext.half()
+        self.fusionnet.half()
 
     def device(self):
         self.flownet.to(device)
