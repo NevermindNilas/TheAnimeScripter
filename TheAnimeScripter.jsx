@@ -124,7 +124,7 @@ var TheAnimeScripter = (function() {
     textInterpolate.text = "Interpolate";
     textInterpolate.justify = "center";
     textInterpolate.alignment = ["left", "center"];
-    textInterpolate.helpTip = "Interpolate using RIFE - current model supported 4.13.2";
+    textInterpolate.helpTip = "Interpolate using the selected model from the Dropdown";
 
     var group4 = panelChain.add("group", undefined, {
         name: "group4"
@@ -435,13 +435,14 @@ var TheAnimeScripter = (function() {
     });
     textInterpolateModel.text = "Interpolate Model";
     textInterpolateModel.preferredSize.width = 103;
+    textInterpolateModel.helpTip = "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO";
 
     var dropdownInterpolate = ["Rife_4.14", "-", "GMFSS"];
     var dropdownInterpolate = group6.add("dropdownlist", undefined, undefined, {
         name: "dropdownInterpolate",
         items: dropdownInterpolate
     });
-    dropdownInterpolate.helpTip = "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070, read more in INFO";
+    dropdownInterpolate.helpTip = "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO";
     dropdownInterpolate.selection = 0;
     dropdownInterpolate.preferredSize.width = 109;
 
