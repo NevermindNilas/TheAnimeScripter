@@ -4,11 +4,9 @@ opencv-python
 tqdm
 cupy-cuda12x
 timm
-numpy<1.26
+numpy
 kornia
 scipy
 realcugan-ncnn-py
 pytorch-lightning
-torch==2.1.0 
-torchvision
-torchaudio 
+torch
