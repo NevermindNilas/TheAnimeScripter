@@ -53,7 +53,7 @@ class GMFSS():
                         ]
             
             for url in url_list:
-                print(f"Downloading {url}...")
+                print(f"\nDownloading {url.split('/')[-1]}")
                 wget.download(url, out=os.path.join(dir_path, "weights"))
                 
         model_dir = os.path.join(dir_path, "weights")
@@ -84,34 +84,31 @@ class GMFSS():
                 self.dtype = torch.half  
                 
               
+    @torch.inference_mode()
+    def make_inference(self, n):
+        timestep = torch.tensor((n+1) * 1. / (self.interpolation_factor+1), dtype=self.dtype, device=self.device)
+        output = self.model(self.I0, self.I1, timestep)
+        output = (((output[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
+        
+        return output[:self.height, :self.width, :]
+
+    @torch.inference_mode()
     def pad_image(self, img):
         img = F.pad(img, self.padding)
-        if self.cuda_available and self.half:
-            img = img.half()
         return img
 
-    def make_inference(self, I0, I1, n):
-        res = []
-        for i in range(n-1):
-            timestep = torch.tensor((i+1) * 1. / (n+1), dtype=self.dtype, device=self.device)
-            res.append(self.model(I0, I1, timestep))
-        return res
-    
     @torch.inference_mode()
     def run(self, I0, I1):
-        buffer = []
-        I0 = torch.from_numpy(np.transpose(I0, (2, 0, 1))).to(
-            self.device, non_blocking=True).unsqueeze(0).float() / 255.
-        I1 = torch.from_numpy(np.transpose(I1, (2, 0, 1))).to(
+        self.I0 = torch.from_numpy(np.transpose(I0, (2, 0, 1))).to(
             self.device, non_blocking=True).unsqueeze(0).float() / 255.
 
-        I0 = self.pad_image(I0)
-        I1 = self.pad_image(I1)
-        
-        output = self.make_inference(I0, I1, self.interpolation_factor)
+        self.I1 = torch.from_numpy(np.transpose(I1, (2, 0, 1))).to(
+            self.device, non_blocking=True).unsqueeze(0).float() / 255.
 
-        for mid in output:
-            mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
-            buffer.append(mid[:self.height, :self.width, :])
+        if self.cuda_available and self.half:
+            self.I0 = self.I0.half()
+            self.I1 = self.I1.half()
 
-        return buffer
+        if self.padding != (0, 0, 0, 0):
+            self.I0 = self.pad_image(self.I0)
+            self.I1 = self.pad_image(self.I1)
