@@ -40,7 +40,6 @@ def install_pyinstaller():
 def create_executable():
     print("Creating executable with PyInstaller...")
     src_path = os.path.join(base_dir, "src")
-    bat_path = os.path.join(base_dir, "get_ffmpeg.bat")
     jsx_path = os.path.join(base_dir, "TheAnimeScripter.jsx")
     main_path = os.path.join(base_dir, "main.py")
 
@@ -52,8 +51,6 @@ def create_executable():
         "--noupx",
         "--clean",
         "--add-data", f"{src_path};src/",
-        "--add-data", f"{bat_path};.",
-        "--add-data", f"{jsx_path};.",
         main_path
     ], check=True)
     move_jsx_file(jsx_path)
