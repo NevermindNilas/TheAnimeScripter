@@ -191,12 +191,12 @@ class videoProcessor:
 
         if self.interpolate:
             match self.interpolate_method:
-                case "rife":
+                case "rife414" | "rife413lite" | "rife":
                     from src.rife.rife import Rife
 
                     UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
                     self.interpolate_process = Rife(
-                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
+                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.interpolate_method)
 
                 case "gmfss":
                     from src.gmfss.gmfss_fortuna_union import GMFSS
@@ -375,6 +375,8 @@ class videoProcessor:
             print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
             logging.info("The user doesn't have FFMPEG, downloading it now")
             get_ffmpeg()
+            
+        print("\n")
 
 
 def main():
@@ -492,10 +494,20 @@ def main():
                 f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
             args.encode_method = "x264"
 
-    if args.interpolate_method not in ["rife", "gmfss", "rife-ncnn"]:
+    if args.interpolate_method not in ["rife", "rife414", "rife413lite", "gmfss", "rife-ncnn"]:
+        """
+        I will keep a default rife value that will always utilize the latest available model
+        Unless the user doesn't explicitly specify the interpolation method
+        This is also the default argument for args.interpolate_method
+        I am not planning to add one too many arches, and probably will only add the latest ones
+        It will always be Ensemble False and FastMode true just because the usecase is more than likely going to be for massive interpolations
+        like 8x/16x and performance is key.
+        """
         try:
+            # This is for JSX compatibility as well
             interpolate_list = {
-                "Rife_4.14": "rife",
+                "Rife_4.14": "rife414",
+                "Rife_4.13_Lite": "rife413lite",
                 "GMFSS": "gmfss",
                 "Rife_NCNN": "rife-ncnn"  # Not available yet
             }
