@@ -5,9 +5,7 @@ import os
 import torch
 import torch.nn.functional as F
 
-from tqdm import tqdm
 from realcugan_ncnn_py import Realcugan
-
 
 class Cugan:
     def __init__(self, upscale_method, upscale_factor, cugan_kind, half, width, height):
