@@ -21,7 +21,7 @@ class Rife:
 
     def handle_model(self):
 
-        if not os.path.exists(os.path.join(self.modelDir, "rife_414.pkl")):
+        if not os.path.exists(os.path.join(self.modelDir, "flownet.pkl")):
             self.get_rife()
 
         # Apparently this can improve performance slightly
