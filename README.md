@@ -95,6 +95,7 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 With FP16 on for every test except NCNN.
 - **Interpolation 2x**:
     - Rife ( v4.13 ): ~100 FPS ( Fastmode True, Ensemble False, No longer available )
+    - Rife ( v4.13_lite ) ~120 FPS ( Fastmode True, Ensemble False )
     - Rife ( v4.14 ): ~100 FPS ( Fastmode True, Ensemble False )
     - GMFSS Fortuna Union: ~7 FPS ( Ensemble False for Rife )
     - Rife NCNN: N/A
