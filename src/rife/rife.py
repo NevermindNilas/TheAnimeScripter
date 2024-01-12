@@ -65,6 +65,7 @@ class Rife:
         img = F.pad(img, self.padding)
         return img
 
+    @torch.inference_mode()
     def run(self, I0, I1):
         buffer = []
         I0 = torch.from_numpy(np.transpose(I0, (2, 0, 1))).to(

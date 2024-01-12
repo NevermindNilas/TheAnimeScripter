@@ -86,6 +86,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - [ISL-ORG](https://github.com/isl-org/MiDaS) - For Depth Map Processing.
 - [98mxr](https://github.com/98mxr/GMFSS_Fortuna) - For GMFSS Fortuna Union.
 - [HolyWU](https://github.com/HolyWu/vs-gmfss_fortuna/tree/master) - For VS GMFSS code.
+- [FFmpeg Group](https://github.com/FFmpeg/FFmpeg) - For FFmpeg
 
 ## 📈 Benchmarks
 
