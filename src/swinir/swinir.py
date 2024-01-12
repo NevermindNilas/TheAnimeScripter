@@ -57,7 +57,13 @@ class Swinir():
 
         self.model.load_state_dict(pretrained_model)
         self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        self.cuda_is_available = False
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+            self.cuda_is_available = True
+        else:
+            self.device = torch.device("cpu")
 
         torch.set_grad_enabled(False)
         if torch.cuda.is_available():
@@ -68,8 +74,9 @@ class Swinir():
                 self.model.half()
 
     def inference(self, frame):
-        if self.half:
-            frame = frame.half()
+        if self.cuda_is_available:
+            if self.half:
+                frame = frame.half()
         with torch.no_grad():
             return self.model(frame)
 
