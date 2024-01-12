@@ -205,7 +205,7 @@ class videoProcessor:
                     self.interpolate_process = GMFSS(
                         int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
 
-                case "rife-ncnn":
+                case "rife_ncnn":
                     # Need to implement Rife NCNN
                     # Current options are with frame extraction which is not ideal, I will look into rife ncnn wrapper but it only supports python 3.10
                     # And building with cmake throws a tantrum, so I will look into it later
@@ -435,6 +435,7 @@ def main():
     args.half = True if args.half == 1 else False
 
     args.upscale_method = args.upscale_method.lower()
+    args.interpolate_method = args.interpolate_method.lower()
     args.dedup_strenght = args.dedup_strenght.lower()
     args.dedup_method = args.dedup_method.lower()
     args.cugan_kind = args.cugan_kind.lower()
@@ -477,24 +478,12 @@ def main():
     }
     args.dedup_strenght = dedup_strenght_list[args.dedup_strenght]
 
-    if args.encode_method not in ["x264", "x264_animation", "x265", "x265_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265"]:
-        try:
-            # This is for JSX compatibility
-            encode_list = {
-                "X264": "x264",
-                "X264_Animation": "x264_animation",
-                "NVENC_H264": "nvenc_h264",
-                "NVENC_H265": "nvenc_h265",
-                "QSV_H264": "qsv_h264",
-                "QSV_H265": "qsv_h265"
-            }
-            args.encode_method = encode_list[args.encode_method]
-        except Exception as e:
-            logging.exception(
-                f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
-            args.encode_method = "x264"
+    if args.encode_method not in ["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265"]:
+        logging.exception(
+            f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
+        args.encode_method = "x264"
 
-    if args.interpolate_method not in ["rife", "rife414", "rife413lite", "gmfss", "rife-ncnn"]:
+    if args.interpolate_method not in ["rife", "rife414", "rife413lite", "gmfss", "rife_ncnn"]:
         """
         I will keep a default rife value that will always utilize the latest available model
         Unless the user doesn't explicitly specify the interpolation method
@@ -506,10 +495,8 @@ def main():
         try:
             # This is for JSX compatibility as well
             interpolate_list = {
-                "Rife_4.14": "rife414",
-                "Rife_4.13_Lite": "rife413lite",
-                "GMFSS": "gmfss",
-                "Rife_NCNN": "rife-ncnn"  # Not available yet
+                "rife_4.14": "rife414",
+                "rife_4.13_lite": "rife413lite",
             }
             args.interpolate_method = interpolate_list[args.interpolate_method]
         except Exception as e:
