@@ -55,7 +55,10 @@ class GMFSS():
             for url in url_list:
                 print(f"\nDownloading {url.split('/')[-1]}")
                 wget.download(url, out=os.path.join(dir_path, "weights"))
-                
+            
+            print("\nDownload complete!")
+            print("\n")
+            
         model_dir = os.path.join(dir_path, "weights")
         model_type = "union"
         
