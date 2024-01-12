@@ -81,39 +81,34 @@ class Rife:
         url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{self.filename}"
         
         wget.download(url, out=os.path.join(self.modelDir, "flownet.pkl"))
+        
+    @torch.inference_mode()
+    def make_inference(self, n):
+        output = self.model.inference(
+                    self.I0, self.I1, n, self.scale)
+        
+        output = (((output[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
+        
+        return output[:self.height, :self.width, :]
 
-    def make_inference(self, I0, I1, n):
-        res = []
-        for i in range(n):
-            res.append(self.model.inference(
-                I0, I1, (i + 1) * 1. / (n + 1), self.scale))
-
-        return res
-
+    @torch.inference_mode()
     def pad_image(self, img):
         img = F.pad(img, self.padding)
         return img
 
     @torch.inference_mode()
     def run(self, I0, I1):
-        buffer = []
-        I0 = torch.from_numpy(np.transpose(I0, (2, 0, 1))).to(
+        self.I0 = torch.from_numpy(np.transpose(I0, (2, 0, 1))).to(
             self.device, non_blocking=True).unsqueeze(0).float() / 255.
-        I1 = torch.from_numpy(np.transpose(I1, (2, 0, 1))).to(
+
+        self.I1 = torch.from_numpy(np.transpose(I1, (2, 0, 1))).to(
             self.device, non_blocking=True).unsqueeze(0).float() / 255.
 
         if self.cuda_available and self.half:
-            I0 = I0.half()
-            I1 = I1.half()
+            self.I0 = self.I0.half()
+            self.I1 = self.I1.half()
 
         if self.padding != (0, 0, 0, 0):
-            I0 = self.pad_image(I0)
-            I1 = self.pad_image(I1)
-
-        output = self.make_inference(I0, I1, self.interpolation_factor - 1)
-
-        for mid in output:
-            mid = (((mid[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
-            buffer.append(mid[:self.height, :self.width, :])
-
-        return buffer
+            self.I0 = self.pad_image(self.I0)
+            self.I1 = self.pad_image(self.I1)
+        
