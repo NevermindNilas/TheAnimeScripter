@@ -299,16 +299,18 @@ class videoProcessor:
 
                 if self.interpolate:
                     if prev_frame is not None:
-                        results = self.interpolate_process.run(
-                            prev_frame, frame)
-
-                        for result in results:
-                            self.processed_frames.put_nowait(result)
+                        
+                        self.interpolate_process.run(prev_frame, frame)
+                        
+                        for i in range(self.interpolate_factor - 1):
+                            result = self.interpolate_process.make_inference((i + 1) * 1. / (self.interpolate_factor + 1))
+                            
+                            self.processed_frames.put(result)
 
                         prev_frame = frame
                     else:
                         prev_frame = frame
-
+                
                 self.processed_frames.put_nowait(frame)
 
         except Exception as e:
@@ -467,9 +469,8 @@ def main():
             f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 2.")
         args.upscale_factor = 2
 
-    if args.interpolate_factor >= 6:
-        print(
-            f"Interpolation factor was set to {args.interpolate_factor}, each image processed is kept in VRAM and uses as much as 1GB of VRAM / image if the input is 3840x2160, this might cause VRAM overflows on some gpus, if you experience some form of blocking, try lowering the interpolation factor")
+    if args.interpolate_factor > 2 and args.interpolation_method == "gmfss":
+        print(f"Interpolation factor was set to {args.interpolate_factor}, and you are using GMFSS, good luck soldier")
 
     dedup_strenght_list = {
         "light": "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB",
