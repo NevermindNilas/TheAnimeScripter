@@ -21,7 +21,6 @@ TO:DO
     - Fix timestepping for Rife, hand each output directly to the write buffer instead of storing it in a list
     - Status bar isn't updating properly, needs fixing
     - Make the jsx file default to the last selected settings, even after reboot
-    - Script dies when long videos are processed, needs testing
     - Get system info and display it in the log file for easier debugging
     - Cupy compile issues with Pyinstaller, needs fixing
 """

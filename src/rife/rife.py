@@ -63,8 +63,6 @@ class Rife:
 
     def pad_image(self, img):
         img = F.pad(img, self.padding)
-        if self.cuda_available and self.half:
-            img = img.half()
         return img
 
     def run(self, I0, I1):
@@ -74,8 +72,13 @@ class Rife:
         I1 = torch.from_numpy(np.transpose(I1, (2, 0, 1))).to(
             self.device, non_blocking=True).unsqueeze(0).float() / 255.
         
-        I0 = self.pad_image(I0)
-        I1 = self.pad_image(I1)
+        if self.cuda_available and self.half:
+            I0 = I0.half()
+            I1 = I1.half()
+        
+        if self.padding != (0, 0, 0, 0):
+            I0 = self.pad_image(I0)
+            I1 = self.pad_image(I1)
         
         output = self.make_inference(I0, I1, self.interpolation_factor - 1)
 

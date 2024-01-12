@@ -94,8 +94,10 @@ class Compact():
                 frame = frame.cuda()
         except:
             frame = frame.cpu()
+            
         if self.pad_width != 0 or self.pad_height != 0:
             frame = self.pad_frame(frame)
+            
         frame = self.model(frame)
         frame = frame[:, :, :self.upscaled_height, :self.upscaled_width]
         frame = frame.squeeze(0).permute(
