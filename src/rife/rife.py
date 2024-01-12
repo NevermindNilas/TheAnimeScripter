@@ -7,20 +7,34 @@ from torch.nn import functional as F
 
 
 class Rife:
-    def __init__(self, interpolation_factor, half, width, height, UHD):
+    def __init__(self, interpolation_factor, half, width, height, UHD, interpolation_method):
         self.interpolation_factor = interpolation_factor
         self.half = half
         self.UHD = UHD
         self.scale = 1.0
         self.width = int(width)
         self.height = int(height)
-        self.modelDir = os.path.join(os.path.dirname(
-            os.path.realpath(__file__)), "rife4_14")
+        self.interpolation_method = interpolation_method
 
         self.handle_model()
 
     def handle_model(self):
+        
+        match self.interpolation_method:
+            case "rife" | "rife414":
+                    
+                    self.interpolation_method = "rife414"
+                    from .rife414.RIFE_HDv3 import Model
+                    self.filename = "rife414.pkl"
+                    
+            case "rife413lite":
 
+                    from .rife413lite.RIFE_HDv3 import Model
+                    self.filename = "rife413lite.pkl"
+
+        self.modelDir = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), self.interpolation_method)
+                    
         if not os.path.exists(os.path.join(self.modelDir, "flownet.pkl")):
             self.get_rife()
 
@@ -47,15 +61,6 @@ class Rife:
             if self.half:
                 torch.set_default_tensor_type(torch.cuda.HalfTensor)
 
-        try:
-            from .rife4_14.RIFE_HDv3 import Model
-        except:
-            print(
-                "Failed to import the Rife Model, this is probably because RIFE was not downloaded successfully, do you have internet connection?")
-            logging.error(
-                "Failed to import the Rife Model, do you have internet connection?")
-            return
-
         self.model = Model()
         self.model.load_model(self.modelDir, -1)
         self.model.eval()
@@ -72,8 +77,9 @@ class Rife:
         print("Downloading RIFE model...")
         logging.info(
             "Couldn't find RIFE model, downloading it now...")
+
+        url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{self.filename}"
         
-        url = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_414.pkl"
         wget.download(url, out=os.path.join(self.modelDir, "flownet.pkl"))
 
     def make_inference(self, I0, I1, n):
