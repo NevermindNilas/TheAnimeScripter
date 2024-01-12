@@ -370,11 +370,11 @@ class videoProcessor:
         self.ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
 
         if not os.path.exists(self.ffmpeg_path):
+            from src.get_ffmpeg import get_ffmpeg
             print("Couldn't find FFMPEG, downloading it now")
             print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
             logging.info("The user doesn't have FFMPEG, downloading it now")
-            ffmpeg_bat_location = os.path.join(dir_path, "get_ffmpeg.bat")
-            subprocess.call(ffmpeg_bat_location, shell=True)
+            get_ffmpeg()
 
 
 def main():
