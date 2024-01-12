@@ -469,7 +469,7 @@ def main():
             f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 2.")
         args.upscale_factor = 2
 
-    if args.interpolate_factor > 2 and args.interpolation_method == "gmfss":
+    if args.interpolate_factor > 2 and args.interpolate_method == "gmfss":
         print(f"Interpolation factor was set to {args.interpolate_factor}, and you are using GMFSS, good luck soldier")
 
     dedup_strenght_list = {
