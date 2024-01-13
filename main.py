@@ -369,14 +369,14 @@ class videoProcessor:
 
     def check_ffmpeg(self):
         dir_path = os.path.dirname(os.path.abspath(__file__))
-        self.ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
+        self.ffmpeg_path = os.path.join(dir_path, "src", "ffmpeg", "ffmpeg.exe")
 
         if not os.path.exists(self.ffmpeg_path):
             from src.get_ffmpeg import get_ffmpeg
             print("Couldn't find FFMPEG, downloading it now")
             print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
             logging.info("The user doesn't have FFMPEG, downloading it now")
-            get_ffmpeg()
+            get_ffmpeg(ffmpeg_path=self.ffmpeg_path)
             
         print("\n")
 
@@ -479,7 +479,7 @@ def main():
     }
     args.dedup_strenght = dedup_strenght_list[args.dedup_strenght]
 
-    if args.encode_method not in ["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265"]:
+    if args.encode_method not in ["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1"]:
         logging.exception(
             f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
         args.encode_method = "x264"
