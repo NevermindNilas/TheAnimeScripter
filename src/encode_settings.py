@@ -17,40 +17,53 @@ def encode_settings(encode_method, new_width, new_height, fps, output, ffmpeg_pa
         case "x264":
             command.extend(['-c:v', 'libx264',
                             '-preset', 'veryfast',
-                            '-crf', '15',
+                            '-crf', '14',
                             output])
 
         case "x264_animation":
             command.extend(['-c:v', 'libx264',
                             '-preset', 'veryfast',
                             '-tune', 'animation',
-                            '-crf', '15',
+                            '-crf', '14',
                             output])
             
         case "nvenc_h264":
             command.extend(['-c:v', 'h264_nvenc',
                             '-preset', 'p1',
-                            '-cq', '15',
+                            '-cq', '14',
                             output])
             
         case "nvenc_h265":
             command.extend(['-c:v', 'hevc_nvenc',
                             '-preset', 'p1',
-                            '-cq', '15',
+                            '-cq', '14',
                             output])
             
         case "qsv_h264":
             command.extend(['-c:v', 'h264_qsv',
                             '-preset', 'veryfast',
-                            '-global_quality', '15',
+                            '-global_quality', '14',
                             output])
             
         case "qsv_h265":
             command.extend(['-c:v', 'hevc_qsv',
                             '-preset', 'veryfast',
-                            '-global_quality', '15',
+                            '-global_quality', '14',
                             output])
 
+        # I can't test nvenc av1, so I'm not sure if it works, but hey, there it is :)
+        case "nvenc_av1":
+            command.extend(['-c:v', 'av1_nvenc',
+                            '-preset', 'p1',
+                            '-cq', '14',
+                            output])
+            
+        case "av1":
+            command.extend(['-c:v', 'libsvtav1',
+                            "-preset", "8",
+                            '-crf', '14',
+                            output])
+            
     if sharpen:
         command.insert(-1, '-vf')
         command.insert(-1, f'cas={sharpen_sens}')

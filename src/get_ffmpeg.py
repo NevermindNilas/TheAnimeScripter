@@ -4,10 +4,12 @@ import wget
 import glob
 import zipfile
 
-def get_ffmpeg():
+def get_ffmpeg(ffmpeg_path):
     FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+    
+    # https://jeremylee.sh/bins/ffmpeg.7z
 
-    ffmpeg_dir = os.path.join(os.getcwd(), "ffmpeg")
+    ffmpeg_dir = os.path.dirname(ffmpeg_path)
 
     os.makedirs(ffmpeg_dir, exist_ok=True)
 
