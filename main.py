@@ -436,8 +436,8 @@ def main():
     args.depth = True if args.depth == 1 else False
     args.half = True if args.half == 1 else False
 
-    args.upscale_method = args.upscale_method.lower()
     args.interpolate_method = args.interpolate_method.lower()
+    args.upscale_method = args.upscale_method.lower()
     args.dedup_strenght = args.dedup_strenght.lower()
     args.dedup_method = args.dedup_method.lower()
     args.cugan_kind = args.cugan_kind.lower()

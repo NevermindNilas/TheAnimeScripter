@@ -2,7 +2,6 @@
 wget
 opencv-python
 tqdm
-cupy-cuda12x
 timm
 numpy
 kornia
