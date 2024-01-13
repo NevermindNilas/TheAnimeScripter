@@ -437,7 +437,7 @@ var TheAnimeScripter = (function() {
     textInterpolateModel.preferredSize.width = 103;
     textInterpolateModel.helpTip = "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO";
 
-    var dropdownInterpolate = ["Rife_4.14", "-", "GMFSS"];
+    var dropdownInterpolate = ["Rife_4.14", "-", "Rife_4.13_lite"];
     var dropdownInterpolate = group6.add("dropdownlist", undefined, undefined, {
         name: "dropdownInterpolate",
         items: dropdownInterpolate
