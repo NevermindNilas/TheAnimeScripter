@@ -16,7 +16,6 @@ main_path = os.path.dirname(os.path.realpath(__file__))
 TO:DO
     - Fix Rife padding.
     - Add bounding box support for Segmentation
-    - Look into Vevid params, b and G params need more polishing
     - Look into Rife NCNN / Wrapper
     - Fix timestepping for Rife, hand each output directly to the write buffer instead of storing it in a list
     - Status bar isn't updating properly, needs fixing
@@ -52,9 +51,9 @@ class videoProcessor:
         self.scenechange_sens = args.scenechange_sens
         self.depth = args.depth
         self.encode_method = args.encode_method
-        self.colour_grade = args.colour_grade
-        self.colour_grade_sensitivity = args.colour_grade_sensitivity
-
+        self.motion_blur = args.motion_blur
+        self.motion_blur_sens = args.motion_blur_sens
+        
         # This is necessary on the top since the script heavily relies on FFMPEG
         self.check_ffmpeg()
         self.get_video_metadata()
@@ -76,8 +75,7 @@ class videoProcessor:
             from src.depth.depth import Depth
 
             process = Depth(
-                self.input, self.output, self.ffmpeg_path, self.height, self.height, self.fps, self.nframes, self.half, self.inpoint, self.outpoint)
-            process.run()
+                self.input, self.output, self.ffmpeg_path, self.width, self.height, self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method)
 
             logging.info(
                 "Detecting depth")
@@ -95,21 +93,18 @@ class videoProcessor:
                 "Segmenting video")
 
             return
-
-        if self.colour_grade:
-            from src.vevid.vevid import Vevid
-
-            # Needs further polishing, it does the job for now.
-            b = 1 / self.colour_grade_sensitivity
-            g = 1 / self.colour_grade_sensitivity + 0.1
-
-            process = Vevid(self.input, self.output, self.height, self.width, self.fps,
-                            self.half, self.ffmpeg_path, self.nframes, self.inpoint, self.outpoint, b, g)
+        
+        if self.motion_blur:
+            from src.motionblur.motionblur import Motionblur
+            
+            process = Motionblur(self.input, self.output, self.ffmpeg_path, self.width,
+                              self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.motion_blur_sens, self.interpolate_method, self.interpolate_factor, self.half)
+            
             process.run()
-
+            
             logging.info(
-                "Colour grading video")
-
+                "Adding motion blur")
+            
             return
 
         # There's no need to start the decode encode cycle if the user only wants to dedup
@@ -415,9 +410,8 @@ def main():
         argparser.add_argument("--scenechange_sens", type=float, default=50)
         argparser.add_argument("--depth", type=int, default=0)
         argparser.add_argument("--encode_method", type=str, default="x264")
-        argparser.add_argument("--colour_grade", type=int, default=0)
-        argparser.add_argument("--colour_grade_sensitivity",
-                               type=float, default=50)
+        argparser.add_argument("--motion_blur", type=int, default=0)
+        argparser.add_argument("--motion_blur_sens", type=float, default=50)
 
         args = argparser.parse_args()
 
@@ -426,7 +420,6 @@ def main():
             f"There was an error in parsing the arguments, {e}")
 
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
-    args.colour_grade = True if args.colour_grade == 1 else False
     args.interpolate = True if args.interpolate == 1 else False
     args.scenechange = True if args.scenechange == 1 else False
     args.sharpen = True if args.sharpen == 1 else False
@@ -444,8 +437,6 @@ def main():
 
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
     args.scenechange_sens /= 100  # same for scene change
-    args.colour_grade_sensitivity /= 100  # same for colour grade
-    # Technically based on the paper, it can go higher than 1.0, needs a bit more testing
 
     logging.info("============== Arguments ==============")
     logging.info("")
@@ -468,9 +459,6 @@ def main():
         logging.info(
             f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 2.")
         args.upscale_factor = 2
-
-    if args.interpolate_factor > 2 and args.interpolate_method == "gmfss":
-        print(f"Interpolation factor was set to {args.interpolate_factor}, and you are using GMFSS, good luck soldier")
 
     dedup_strenght_list = {
         "light": "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB",
