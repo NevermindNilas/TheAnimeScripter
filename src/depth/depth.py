@@ -154,6 +154,29 @@ class Depth():
                 formatted_rgb = cv2.cvtColor(formatted, cv2.COLOR_GRAY2RGB)
                 self.processed_frames.put_nowait(formatted_rgb)
 
+                """
+                # Needs Testing
+                
+                frame = self.transform(frame).to(self.device)
+
+                with torch.cuda.amp.autocast(enabled=self.half, dtype=torch.bfloat16) if self.half else torch.no_grad():
+                    prediction = self.model(frame)
+
+                    prediction = torch.nn.functional.interpolate(
+                        prediction.unsqueeze(1),
+                        size=(self.height, self.width),
+                        mode="bicubic",
+                        align_corners=False,
+                    ).squeeze()
+
+                output = prediction.float().cpu().detach().numpy()
+                output *= 255 / np.max(output)  # In-place multiplication
+                formatted = output.astype('uint8')
+
+                formatted_rgb = np.stack([formatted]*3, axis=-1)  # Convert grayscale to RGB
+                self.processed_frames.put_nowait(formatted_rgb)
+                
+                """
         except Exception as e:
             logging.exception("An error occurred during processing")
 
@@ -165,7 +188,7 @@ class Depth():
         from src.encode_settings import encode_settings
 
         command: list = encode_settings(self.encode_method, self.width, self.height,
-                                        self.fps, self.output, self.ffmpeg_path, 0, 0)
+                                        self.fps, self.output, self.ffmpeg_path, False, 0)
 
         logging.info(
             f"Encoding options: {' '.join(command)}")
