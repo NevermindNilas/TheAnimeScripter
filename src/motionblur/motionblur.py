@@ -1,55 +1,47 @@
-import time
-import torch
+import subprocess
 import _thread
 import logging
-import subprocess
 import numpy as np
+import time
+import cv2
 
-from tqdm import tqdm
-from queue import Queue, SimpleQueue
 from concurrent.futures import ThreadPoolExecutor
+from tqdm import tqdm
+from multiprocessing import Queue
 
-# https://github.com/JalaliLabUCLA/phycv/blob/main/scripts/run_vevid_lite_video.py
 
+class Motionblur():
+    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint, outpoint, motion_blur_sens, interpolate_method, interpolate_factor, half):
 
-class Vevid:
-    def __init__(self, input, output, height, width, fps, half, ffmpeg_path, nframes, inpoint=0, outpoint=0, b=0.5, g=0.6):
         self.input = input
         self.output = output
-        self.height = height
-        self.width = width
-        self.fps = fps
-        self.half = half
         self.ffmpeg_path = ffmpeg_path
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.nframes = nframes
         self.inpoint = inpoint
         self.outpoint = outpoint
+        self.motion_blur_sens = motion_blur_sens
+        self.interpolate_method = interpolate_method
+        self.interpolate_factor = interpolate_factor
+        self.half = half
 
-        self.processing_finished = False
-        self.nframes = nframes
-        # Params based on script
-        self.b = 0.5
-        self.G = 0.6
+        self.handle_model()
 
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+        self.read_buffer = Queue(maxsize=500)
+        self.processed_frames = Queue(maxsize=500)
 
-        if torch.cuda.is_available():
-            from phycv import VEVID_GPU
-            self.vevid = VEVID_GPU(device=self.device)
-
-            torch.backends.cudnn.enabled = True
-            torch.backends.cudnn.benchmark = True
-            if self.half:
-                torch.set_default_dtype(torch.float16)
-
-        else:
-            from phycv import VEVID
-            self.vevid = VEVID(device=self.device)
-
-        self.read_buffer = Queue(maxsize=100)
-        self.processed_frames = Queue(maxsize=100)
-
+        self.writing_finished = False
         _thread.start_new_thread(self.build_buffer, ())
+
+    def handle_model(self):
+
+        from src.rife.rife import Rife
+
+        UHD = False if self.height < 3840 or self.width < 2160 else True
+        self.interpolate_process = Rife(
+            self.interpolate_factor, self.half, self.width, self.height, UHD, self.interpolate_method)
 
     def build_buffer(self):
 
@@ -70,6 +62,7 @@ class Vevid:
             "-",
         ])
 
+        self.reading_done = False
         try:
             process = subprocess.Popen(
                 ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -105,27 +98,38 @@ class Vevid:
             process.terminate()
             self.read_buffer.put(None)
 
-    def process(self):
-        while True:
-            frame = self.read_buffer.get()
-            if frame is None:
-                if self.reading_done == True and self.read_buffer.empty():
+            self.reading_done = True
+
+    def start_process(self):
+        prev_frame = None
+        try:
+            while True:
+                frame = self.read_buffer.get()
+
+                if frame is None:
+                    self.reading_done = True
                     break
 
-            frame = torch.from_numpy(frame).permute(
-                2, 0, 1).mul_(1/255)
+                if prev_frame is not None:
+                    self.interpolate_process.run(prev_frame, frame)
 
-        
-            frame = frame.to(self.device)
-            self.vevid.load_img(img_array=frame)
+                    for i in range(self.interpolate_factor - 1):
+                        result = self.interpolate_process.make_inference(
+                            (i + 1) * 1. / (self.interpolate_factor + 1))
 
-            # Going to support Lite mode only for now
-            self.vevid.apply_kernel(b = self.b, G = self.G, lite=True)
+                        self.processed_frames.put(result)
+                        
+                    prev_frame = frame
+                else:
+                    self.processed_frames.put(frame)
+                    prev_frame = frame
 
-            frame = self.vevid.vevid_output.cpu().numpy()
-            
-            print("Procesed frame")
-            self.processed_frames.put_nowait(frame)
+        except Exception as e:
+            logging.exception("An error occurred during processing")
+
+        finally:
+            self.processed_frames.put(None)
+            self.processing_done = True
 
     def write_buffer(self):
         command = [self.ffmpeg_path,
@@ -144,39 +148,39 @@ class Vevid:
                    '-movflags', '+faststart',
                    self.output]
 
+        logging.info(
+            f"Encoding options: {' '.join(command)}")
+
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
             while True:
-                if not self.processed_frames.empty():
-                    frame = self.processed_frames.get()
-                    if frame is None:
-                        if self.threads_done == True:
-                            break
+                frame = self.processed_frames.get()
+                if frame is None:
+                    if self.processing_done == True:
+                        break
+                
+                frame = np.ascontiguousarray(frame)
+                pipe.stdin.write(frame.tobytes())
+                self.pbar.update(1)
 
-                    # Write the frame to FFmpeg
-                    pipe.stdin.write(frame.tobytes())
-
-                    self.pbar.update(1)
         except Exception as e:
             logging.exception("An error occurred during writing")
 
         finally:
-            # Close the pipe
             pipe.stdin.close()
             pipe.wait()
             self.pbar.close()
-            self.processing_finished = True
 
     def run(self):
         self.pbar = tqdm(
             total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
-        
-        _thread.start_new_thread(self.process, ())
+
         _thread.start_new_thread(self.write_buffer, ())
 
-        while True:
-            if self.processing_finished == True and self.read_buffer.empty() and self.processed_frames.empty():
-                break
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            executor.submit(self.start_process)
+
+        while self.reading_done == False and self.writing_finished == False:
             time.sleep(0.1)
