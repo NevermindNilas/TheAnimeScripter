@@ -256,6 +256,56 @@ var TheAnimeScripter = (function() {
     buttonOutput.text = "Set Output";
     buttonOutput.preferredSize.width = 101;
     buttonOutput.helpTip = "Set it to wherever you want the output to be saved.";
+
+    // PANELDEFAULTPATHS
+    // =================
+    var panelDefaultPaths = settingsWindow.add("panel", undefined, undefined, {
+        name: "panelDefaultPaths"
+    });
+    panelDefaultPaths.text = "Script Paths";
+    panelDefaultPaths.orientation = "column";
+    panelDefaultPaths.alignChildren = ["center", "top"];
+    panelDefaultPaths.spacing = 10;
+    panelDefaultPaths.margins = 10;
+    panelDefaultPaths.preferredSize.width = 235;
+
+    // Group 2
+
+    var group2 = panelDefaultPaths.add("group", undefined, {
+        name: "group2"
+    });
+
+    group2.orientation = "column";
+    group2.alignChildren = ["center", "center"];
+    group2.spacing = 10;
+    group2.margins = 0;
+
+    var labelTASPath = group2.add("statictext", undefined, "TAS Path:");
+    var textTheAnimeScripterFolderValue = group2.add("statictext", undefined, undefined, {
+        name: "textTheAnimeScripterFolderValue"
+    });
+
+    textTheAnimeScripterFolderValue.text = TheAnimeScripterPath;
+
+    // Group 3
+
+    var group3 = panelDefaultPaths.add("group", undefined, {
+        name: "group3"
+    });
+
+    group3.orientation = "column";
+    group3.alignChildren = ["center", "center"];
+    group3.spacing = 10;
+    group3.margins = 0;
+
+    var labelOutputPath = group3.add("statictext", undefined, "Output Path:");
+    var textOutputFolderValue = group3.add("statictext", undefined, undefined, {
+        name: "textOutputFolderValue"
+    });
+
+    textOutputFolderValue.text = outputFolder;
+
+
     // GENERALPANEL
     // ============
     var generalPanel = settingsWindow.add("panel", undefined, undefined, {
@@ -544,18 +594,20 @@ var TheAnimeScripter = (function() {
     buttonOutput.onClick = function() {
         var folder = Folder.selectDialog("Select Output folder");
         if (folder != null) {
-            alert("Stored the output folder, this will be saved in memory until you change it again")
             outputFolder = folder.fsName;
             app.settings.saveSetting(scriptName, "outputFolder", outputFolder);
+
+            textOutputFolderValue.text = outputFolder;
         }
     };
 
     buttonFolder.onClick = function() {
         var folder = Folder.selectDialog("Select The Anime Scripter folder");
         if (folder != null) {
-            alert("Stored the The Anime Scripter folder, this will be saved in memory until you change it again")
             TheAnimeScripterPath = folder.fsName;
             app.settings.saveSetting(scriptName, "TheAnimeScripterPath", TheAnimeScripterPath);
+
+            textTheAnimeScripterFolderValue.text = TheAnimeScripterPath;
         }
     };
 
