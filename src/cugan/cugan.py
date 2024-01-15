@@ -7,6 +7,7 @@ import torch.nn.functional as F
 
 from realcugan_ncnn_py import Realcugan
 
+
 class Cugan:
     def __init__(self, upscale_method, upscale_factor, cugan_kind, half, width, height):
         self.upscale_method = upscale_method
@@ -19,10 +20,9 @@ class Cugan:
         self.handle_models()
 
     def handle_models(self):
-        
         # Apparently this can improve performance slightly
         torch.set_float32_matmul_precision("medium")
-        
+
         if self.upscale_method == "shufflecugan":
             self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
             self.filename = "sudo_shuffle_cugan_9.584.969.pth"
@@ -47,15 +47,15 @@ class Cugan:
 
         model_path = os.path.join(weights_dir, self.filename)
 
-        self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
-        self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()
+        self.cuda_available = torch.cuda.is_available()
+        map_location = "cuda" if self.cuda_available else "cpu"
+        self.model.load_state_dict(torch.load(
+            model_path, map_location=map_location))
+        self.model = self.model.eval().cuda() if self.cuda_available else self.model.eval()
 
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if self.cuda_available else "cpu")
 
-        self.cuda_available = False
-        if torch.cuda.is_available():
-            self.cuda_available = True
+        if self.cuda_available:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -85,7 +85,7 @@ class Cugan:
                     frame = frame.cuda()
             else:
                 frame = frame.cpu()
-                
+
             if self.pad_width != 0 or self.pad_height != 0:
                 frame = self.pad_frame(frame)
 
