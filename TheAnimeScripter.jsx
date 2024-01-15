@@ -19,7 +19,6 @@ var TheAnimeScripter = (function() {
     var dropdwonSegment = app.settings.haveSetting(scriptName, "dropdwonSegment") ? app.settings.getSetting(scriptName, "dropdwonSegment") : 0;
     var intInterpolate = app.settings.haveSetting(scriptName, "intInterpolate") ? app.settings.getSetting(scriptName, "intInterpolate") : 2;
     var intUpscale = app.settings.haveSetting(scriptName, "intUpscale") ? app.settings.getSetting(scriptName, "intUpscale") : 2;
-    var intNumberOfThreads = app.settings.haveSetting(scriptName, "intNumberOfThreads") ? app.settings.getSetting(scriptName, "intNumberOfThreads") : 1;
     var sliderSharpen = app.settings.haveSetting(scriptName, "sliderSharpen") ? app.settings.getSetting(scriptName, "sliderSharpen") : 50;
     var dropdownDedupStrenght = app.settings.haveSetting(scriptName, "dropdownDedupStrenght") ? app.settings.getSetting(scriptName, "dropdownDedupStrenght") : 0
     var sliderSceneChange = app.settings.haveSetting(scriptName, "sliderSceneChange") ? app.settings.getSetting(scriptName, "sliderSceneChange") : 70;
@@ -311,7 +310,7 @@ var TheAnimeScripter = (function() {
     var generalPanel = settingsWindow.add("panel", undefined, undefined, {
         name: "generalPanel"
     });
-    generalPanel.text = "General";
+    generalPanel.text = "General Settings";
     generalPanel.orientation = "column";
     generalPanel.alignChildren = ["left", "top"];
     generalPanel.spacing = 10;
@@ -419,18 +418,6 @@ var TheAnimeScripter = (function() {
     group4.alignChildren = ["left", "center"];
     group4.spacing = 0;
     group4.margins = 0;
-
-    var textNumberOfThreads = group4.add("statictext", undefined, undefined, {
-        name: "textNumberOfThreads"
-    });
-    textNumberOfThreads.enabled = false;
-    textNumberOfThreads.text = "Number of Threads";
-    textNumberOfThreads.preferredSize.width = 172;
-
-    var intNumberOfThreads = group4.add('edittext {justify: "center", properties: {name: "intNumberOfThreads"}}');
-    intNumberOfThreads.enabled = false;
-    intNumberOfThreads.text = "1";
-    intNumberOfThreads.preferredSize.width = 40;
 
     // PANEL1
     // ======
@@ -625,10 +612,6 @@ var TheAnimeScripter = (function() {
 
     intUpscale.onChange = function() {
         app.settings.saveSetting(scriptName, "intUpscale", intUpscale.text);
-    }
-
-    intNumberOfThreads.onChange = function() {
-        app.settings.saveSetting(scriptName, "intNumberOfThreads", intNumberOfThreads.text);
     }
 
     dropdownDedupStrenght.onChange = function() {
