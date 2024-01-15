@@ -74,30 +74,14 @@ class Depth():
                 self.half = False
 
     def build_buffer(self):
-
-        ffmpeg_command = [
-            self.ffmpeg_path,
-            "-i", str(self.input),
-        ]
-
-        if self.outpoint != 0:
-            ffmpeg_command.extend(
-                ["-ss", str(self.inpoint), "-to", str(self.outpoint)])
-
-        ffmpeg_command.extend([
-            "-f", "rawvideo",
-            "-pix_fmt", "rgb24",
-            "-v", "quiet",
-            "-stats",
-            "-",
-        ])
-
+        
+        from src.ffmpegSettings import decodeSettings
+        command: list = decodeSettings(self.input, self.inpoint, self.outpoint, False, 0, self.ffmpeg_path)
+        
         self.reading_done = False
         try:
             process = subprocess.Popen(
-                ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            logging.info(f"Running command: {ffmpeg_command}")
+                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
             frame_size = self.width * self.height * 3
 
@@ -185,13 +169,10 @@ class Depth():
 
     def write_buffer(self):
 
-        from src.encode_settings import encode_settings
+        from src.ffmpegSettings import encodeSettings
 
-        command: list = encode_settings(self.encode_method, self.width, self.height,
+        command: list = encodeSettings(self.encode_method, self.width, self.height,
                                         self.fps, self.output, self.ffmpeg_path, False, 0)
-
-        logging.info(
-            f"Encoding options: {' '.join(command)}")
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
