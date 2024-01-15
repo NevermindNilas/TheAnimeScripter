@@ -15,10 +15,11 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 2. **Upscaling**: Enhance the resolution of your videos for an improved viewing experience.
 3. **Deduplication**: Optimize your video size by removing duplicate frames.
 4. **Segmentation**: Separate the background from the foreground for easier and faster rotobrushing.
-5. **Auto Clip Cutting**: Increase your productivity by automatically cutting your clips using a Scene Change Filter.
-6. **Integration with After Effects**: Seamlessly use our tool directly inside of After Effects.
-7. **Model Chaining in After Effects**: Run Deduplication, Upscaling, Interpolation all in one.
-8. **No Frame Extraction**: The script does 0 frame extraction, everything is being done in memory without additional decode and encode cycles.
+5. **Depth Map Generation**: Generate a depth map for 3D effects and more advanced video editing.
+6. **Auto Clip Cutting**: Increase your productivity by automatically cutting your clips using a Scene Change Filter.
+7. **Integration with After Effects**: Seamlessly use our tool directly inside of After Effects.
+8. **Model Chaining in After Effects**: Run Deduplication, Upscaling, Interpolation all in one.
+9. **No Frame Extraction**: The script does 0 frame extraction, everything is being done in memory without additional decode and encode cycles.
 
 ## 🛠️ Getting Started
 
@@ -110,11 +111,11 @@ With FP16 on for every test except NCNN.
     - Cugan-NCNN: ~7 FPS
 
 - **Depth Map Generation**:
-    - DPT-Hybrid: ~17 FPS
+    - DPT-Hybrid: ~17 FPS ( with BF16 / AMP Autocast )
     - DPT-Large: N/A
 
 - **Segmentation**:
-    - Isnet-Anime: ~10 FPS ( with BF16 / AMP Autocast )
+    - Isnet-Anime: ~10 FPS
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
 

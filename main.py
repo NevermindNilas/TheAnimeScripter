@@ -25,6 +25,7 @@ TO:DO
 """
 warnings.filterwarnings("ignore")
 
+
 class videoProcessor:
     def __init__(self, args):
         self.input = args.input
@@ -52,7 +53,7 @@ class videoProcessor:
         self.encode_method = args.encode_method
         self.motion_blur = args.motion_blur
         self.motion_blur_sens = args.motion_blur_sens
-        
+
         # This is necessary on the top since the script heavily relies on FFMPEG
         self.check_ffmpeg()
         self.get_video_metadata()
@@ -62,7 +63,7 @@ class videoProcessor:
 
             logging.info(
                 "Detecting scene changes")
-            
+
             scenechange = Scenechange(
                 self.input, self.ffmpeg_path, self.scenechange_sens, main_path)
 
@@ -75,35 +76,34 @@ class videoProcessor:
 
             logging.info(
                 "Detecting depth")
-            
+
             process = Depth(
                 self.input, self.output, self.ffmpeg_path, self.width, self.height, self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method)
-
 
             return
 
         if self.segment:
             from src.segment.segment import Segment
 
-            process = Segment(self.input, self.output, self.ffmpeg_path, self.width,
-                              self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method)
-
             logging.info(
                 "Segmenting video")
 
+            process = Segment(self.input, self.output, self.ffmpeg_path, self.width,
+                              self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method)
+
             return
-        
+
         if self.motion_blur:
             from src.motionblur.motionblur import Motionblur
-            
+
             logging.info(
                 "Adding motion blur")
-            
+
             process = Motionblur(self.input, self.output, self.ffmpeg_path, self.width,
-                              self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.motion_blur_sens, self.interpolate_method, self.interpolate_factor, self.half)
-            
+                                 self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.motion_blur_sens, self.interpolate_method, self.interpolate_factor, self.half)
+
             process.run()
-            
+
             return
 
         # There's no need to start the decode encode cycle if the user only wants to dedup
@@ -211,11 +211,12 @@ class videoProcessor:
                         f"There was an error in choosing the interpolation method, {self.interpolate_method} is not a valid option")
 
     def build_buffer(self):
-        
+
         from src.ffmpegSettings import decodeSettings
-        
-        command: list = decodeSettings(self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_strenght, self.ffmpeg_path)
-        
+
+        command: list = decodeSettings(
+            self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_strenght, self.ffmpeg_path)
+
         process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -267,7 +268,7 @@ class videoProcessor:
             while True:
                 frame = self.read_buffer.get()
                 if frame is None:
-                    if self.reading_done == True:
+                    if self.reading_done == True and self.read_buffer.empty():
                         break
 
                 if self.upscale:
@@ -275,18 +276,19 @@ class videoProcessor:
 
                 if self.interpolate:
                     if prev_frame is not None:
-                        
+
                         self.interpolate_process.run(prev_frame, frame)
-                        
+
                         for i in range(self.interpolate_factor - 1):
-                            result = self.interpolate_process.make_inference((i + 1) * 1. / (self.interpolate_factor + 1))
-                            
+                            result = self.interpolate_process.make_inference(
+                                (i + 1) * 1. / (self.interpolate_factor + 1))
+
                             self.processed_frames.put(result)
 
                         prev_frame = frame
                     else:
                         prev_frame = frame
-                
+
                 self.processed_frames.put_nowait(frame)
 
         except Exception as e:
@@ -300,7 +302,7 @@ class videoProcessor:
 
         from src.ffmpegSettings import encodeSettings
         command: list = encodeSettings(self.encode_method, self.new_width, self.new_height,
-                                        self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
+                                       self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -309,7 +311,7 @@ class videoProcessor:
             while True:
                 frame = self.processed_frames.get()
                 if frame is None:
-                    if self.processing_done == True:
+                    if self.processing_done == True and self.processed_frames.empty():
                         break
 
                 frame = np.ascontiguousarray(frame)
@@ -342,7 +344,8 @@ class videoProcessor:
 
     def check_ffmpeg(self):
         dir_path = os.path.dirname(os.path.abspath(__file__))
-        self.ffmpeg_path = os.path.join(dir_path, "src", "ffmpeg", "ffmpeg.exe")
+        self.ffmpeg_path = os.path.join(
+            dir_path, "src", "ffmpeg", "ffmpeg.exe")
 
         if not os.path.exists(self.ffmpeg_path):
             from src.get_ffmpeg import get_ffmpeg
@@ -350,7 +353,7 @@ class videoProcessor:
             print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
             logging.info("The user doesn't have FFMPEG, downloading it now")
             get_ffmpeg(ffmpeg_path=self.ffmpeg_path)
-            
+
         print("\n")
 
 
