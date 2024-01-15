@@ -147,6 +147,7 @@ class Segment():
     def write_buffer(self):
 
         from src.ffmpegSettings import encodeSettings
+        
         command: list = encodeSettings(
             self.encode_method, self.width, self.height, self.fps, self.output, self.ffmpeg_path, False, 0)
         
@@ -208,5 +209,4 @@ class Segment():
             logging.exception(f"An error occurred during processing {e}")
 
         finally:
-            logging.info("Processing of Segmentation is now finished")
             self.processing_done = True
