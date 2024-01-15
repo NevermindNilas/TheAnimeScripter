@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
 # Some default values
-main_path = os.path.dirname(os.path.realpath(__file__))
+main_path = os.path.dirname(os.path.abspath(__file__))
 """
 TO:DO
     - Fix Rife padding.
@@ -212,32 +212,13 @@ class videoProcessor:
                         f"There was an error in choosing the interpolation method, {self.interpolate_method} is not a valid option")
 
     def build_buffer(self):
-
-        ffmpeg_command = [
-            self.ffmpeg_path,
-            "-i", str(self.input),
-        ]
-        if self.outpoint != 0:
-            ffmpeg_command.extend(
-                ["-ss", str(self.inpoint), "-to", str(self.outpoint)])
-
-        if self.dedup == True:
-            ffmpeg_command.extend(
-                ["-vf", self.dedup_strenght])
-
-        ffmpeg_command.extend([
-            "-f", "rawvideo",
-            "-pix_fmt", "rgb24",
-            "-v", "quiet",
-            "-stats",
-            "-",
-        ])
-
+        
+        from src.ffmpegSettings import decodeSettings
+        
+        command: list = decodeSettings(self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_strenght, self.ffmpeg_path)
+        
         process = subprocess.Popen(
-            ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-        logging.info(
-            f"Building the buffer with: {' '.join(ffmpeg_command)}")
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         self.reading_done = False
         frame_size = self.width * self.height * 3
@@ -258,26 +239,27 @@ class videoProcessor:
             logging.exception(
                 f"An error occurred during reading, {e}")
 
-        stderr = process.stderr.read().decode()
-        if stderr:
-            if "bitrate=" not in stderr:
-                logging.error(f"ffmpeg error: {stderr}")
+        finally:
+            stderr = process.stderr.read().decode()
+            if stderr:
+                if "bitrate=" not in stderr:
+                    logging.error(f"ffmpeg error: {stderr}")
 
-        logging.info(f"Built buffer with {frame_count} frames")
+            logging.info(f"Built buffer with {frame_count} frames")
 
-        if self.interpolate == True:
-            frame_count = frame_count * self.interpolate_factor
+            if self.interpolate == True:
+                frame_count = frame_count * self.interpolate_factor
 
-        self.pbar.total = frame_count
-        self.pbar.refresh()
+            self.pbar.total = frame_count
+            self.pbar.refresh()
 
-        # For terminating the pipe and subprocess properly
-        process.stdout.close()
-        process.stderr.close()
-        process.terminate()
+            # For terminating the pipe and subprocess properly
+            process.stdout.close()
+            process.stderr.close()
+            process.terminate()
 
-        self.reading_done = True
-        self.read_buffer.put(None)
+            self.reading_done = True
+            self.read_buffer.put(None)
 
     def process(self):
         prev_frame = None
@@ -317,12 +299,9 @@ class videoProcessor:
 
     def clear_write_buffer(self):
 
-        from src.encode_settings import encode_settings
-        command: list = encode_settings(self.encode_method, self.new_width, self.new_height,
+        from src.ffmpegSettings import encodeSettings
+        command: list = encodeSettings(self.encode_method, self.new_width, self.new_height,
                                         self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
-
-        logging.info(
-            f"Encoding options: {' '.join(command)}")
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -377,7 +356,7 @@ class videoProcessor:
 
 
 def main():
-    script_version = "0.1.6"
+    script_version = "0.1.7"
     log_file_path = os.path.join(main_path, "log.txt")
 
     logging.basicConfig(filename=log_file_path, filemode='w',
@@ -432,6 +411,7 @@ def main():
     args.interpolate_method = args.interpolate_method.lower()
     args.upscale_method = args.upscale_method.lower()
     args.dedup_strenght = args.dedup_strenght.lower()
+    args.encode_method = args.encode_method.lower()
     args.dedup_method = args.dedup_method.lower()
     args.cugan_kind = args.cugan_kind.lower()
 

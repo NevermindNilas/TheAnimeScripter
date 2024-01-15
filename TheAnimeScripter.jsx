@@ -246,7 +246,7 @@ var TheAnimeScripter = (function() {
         name: "buttonFolder"
     });
     buttonFolder.helpTip = "Set it to wherever The Anime Scripter folder is situated.";
-    buttonFolder.text = "Set Folder";
+    buttonFolder.text = "Set TAS Folder";
     buttonFolder.preferredSize.width = 100;
 
     var buttonOutput = group1.add("button", undefined, undefined, {
@@ -319,7 +319,7 @@ var TheAnimeScripter = (function() {
     var textSharpen = generalPanel.add("statictext", undefined, undefined, {
         name: "textSharpen"
     });
-    textSharpen.text = "Sharpen";
+    textSharpen.text = "Sharpenening Sensitivity";
     textSharpen.justify = "center";
     textSharpen.alignment = ["center", "top"];
 
