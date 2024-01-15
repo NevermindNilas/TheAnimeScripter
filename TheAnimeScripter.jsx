@@ -437,7 +437,7 @@ var TheAnimeScripter = (function() {
     var panel1 = settingsWindow.add("panel", undefined, undefined, {
         name: "panel1"
     });
-    panel1.text = "Model Selection";
+    panel1.text = "Advanced Settings";
     panel1.orientation = "column";
     panel1.alignChildren = ["left", "top"];
     panel1.spacing = 10;
@@ -545,17 +545,8 @@ var TheAnimeScripter = (function() {
     dropdownDedupStrenght.selection = 0;
     dropdownDedupStrenght.preferredSize.width = 109;
 
-    var panel2 = settingsWindow.add("panel", undefined, undefined, {
-        name: "panel2"
-    });
-
-    panel2.text = "Encoder Selection";
-    panel2.orientation = "column";
-    panel2.alignChildren = ["left", "top"];
-    panel2.spacing = 10;
-    panel2.margins = 10;
-
-    var group8 = panel2.add("group", undefined, {
+    // Create a new group8
+    var group8 = panel1.add("group", undefined, {
         name: "group8"
     });
 
@@ -564,6 +555,7 @@ var TheAnimeScripter = (function() {
     group8.spacing = 0;
     group8.margins = 0;
 
+    // Move the encoder to group8
     var textEncoderSelection = group8.add("statictext", undefined, undefined, {
         name: "textEncoderSelection"
     });
