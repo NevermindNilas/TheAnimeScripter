@@ -25,7 +25,6 @@ TO:DO
 """
 warnings.filterwarnings("ignore")
 
-
 class videoProcessor:
     def __init__(self, args):
         self.input = args.input
@@ -61,24 +60,25 @@ class videoProcessor:
         if self.scenechange:
             from src.scenechange.scene_change import Scenechange
 
+            logging.info(
+                "Detecting scene changes")
+            
             scenechange = Scenechange(
                 self.input, self.ffmpeg_path, self.scenechange_sens, main_path)
 
             scenechange.run()
-
-            logging.info(
-                "Detecting scene changes")
 
             return
 
         if self.depth:
             from src.depth.depth import Depth
 
+            logging.info(
+                "Detecting depth")
+            
             process = Depth(
                 self.input, self.output, self.ffmpeg_path, self.width, self.height, self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method)
 
-            logging.info(
-                "Detecting depth")
 
             return
 
@@ -86,8 +86,7 @@ class videoProcessor:
             from src.segment.segment import Segment
 
             process = Segment(self.input, self.output, self.ffmpeg_path, self.width,
-                              self.height, self.fps, self.nframes, self.inpoint, self.outpoint)
-            process.run()
+                              self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method)
 
             logging.info(
                 "Segmenting video")
@@ -97,13 +96,13 @@ class videoProcessor:
         if self.motion_blur:
             from src.motionblur.motionblur import Motionblur
             
+            logging.info(
+                "Adding motion blur")
+            
             process = Motionblur(self.input, self.output, self.ffmpeg_path, self.width,
                               self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.motion_blur_sens, self.interpolate_method, self.interpolate_factor, self.half)
             
             process.run()
-            
-            logging.info(
-                "Adding motion blur")
             
             return
 
@@ -113,6 +112,9 @@ class videoProcessor:
             if self.sharpen == True:
                 self.dedup_strenght += f',cas={self.sharpen_sens}'
 
+            logging.info(
+                "Deduping video")
+
             if self.outpoint != 0:
                 from src.trim_input import trim_input_dedup
                 trim_input_dedup(self.input, self.output, self.inpoint,
@@ -121,9 +123,6 @@ class videoProcessor:
                 from src.dedup.dedup import DedupFFMPEG
                 DedupFFMPEG(self.input, self.output,
                             self.dedup_strenght, self.ffmpeg_path).run()
-
-            logging.info(
-                "Deduping video")
 
             return
 

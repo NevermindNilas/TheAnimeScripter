@@ -48,14 +48,11 @@ class Rife:
         pw = ((self.width - 1) // 64 + 1) * 64
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+        self.cuda_available = torch.cuda.is_available()
+        self.device = torch.device("cuda" if self.cuda_available else "cpu")
 
-        # Doing a torch cuda check is rather expensive on start-up times so I just decided to keep it simple
-        self.cuda_available = False
         torch.set_grad_enabled(False)
-        if torch.cuda.is_available():
-            self.cuda_available = True
+        if self.cuda_available:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -65,9 +62,8 @@ class Rife:
         self.model.load_model(self.modelDir, -1)
         self.model.eval()
 
-        if self.cuda_available == True:
-            if self.half:
-                self.model.half()
+        if self.cuda_available and self.half:
+            self.model.half()
 
         self.model.device()
 
