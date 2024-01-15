@@ -1,7 +1,7 @@
 import logging
 
 
-def encodeSettings(encode_method, new_width, new_height, fps, output, ffmpeg_path, sharpen, sharpen_sens):
+def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: float, output: str, ffmpeg_path: str, sharpen: bool, sharpen_sens: float):
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
     new_width: int - The width of the output video in pixels.
@@ -83,7 +83,7 @@ def encodeSettings(encode_method, new_width, new_height, fps, output, ffmpeg_pat
     return command
 
 
-def decodeSettings(input, inpoint, outpoint, dedup, dedup_strenght, ffmpeg_path):
+def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, dedup_strenght: float, ffmpeg_path: str):
     """
     input: str - The path to the input video file.
     inpoint: float - The start time of the segment to decode, in seconds.

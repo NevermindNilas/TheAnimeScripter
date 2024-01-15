@@ -29,47 +29,46 @@ class GMFSS():
         self.handle_model()
 
     def handle_model(self):
-
         # Apparently this can improve performance slightly
         torch.set_float32_matmul_precision("medium")
         
         dir_path = os.path.dirname(os.path.realpath(__file__))
+        weights_dir = os.path.join(dir_path, "weights")
 
-        download = False
-        if not os.path.exists(os.path.join(dir_path, "weights")):
-            os.mkdir(os.path.join(dir_path, "weights"))
-            download = True
+        if not os.path.exists(weights_dir):
+            os.mkdir(weights_dir)
+
+        url_list = ["https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/feat_base.pkl",
+                    "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/feat_union.pkl",
+                    "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/flownet.pkl",
+                    "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/fusionnet_base.pkl",
+                    "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/fusionnet_union.pkl",
+                    "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/metric_base.pkl",
+                    "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/metric_union.pkl",
+                    "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife.pkl",
+                    ]
+
+        download = any(not os.path.exists(os.path.join(weights_dir, url.split('/')[-1])) for url in url_list)
 
         if download:
             print("Downloading GMFSS models...")
-            url_list = ["https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/feat_base.pkl",
-                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/feat_union.pkl",
-                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/flownet.pkl",
-                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/fusionnet_base.pkl",
-                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/fusionnet_union.pkl",
-                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/metric_base.pkl",
-                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/metric_union.pkl",
-                        "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife.pkl",
-                        ]
-            
             for url in url_list:
-                print(f"\nDownloading {url.split('/')[-1]}")
-                wget.download(url, out=os.path.join(dir_path, "weights"))
-            
-            print("\nDownload complete!")
+                filename = url.split('/')[-1]
+                if not os.path.exists(os.path.join(weights_dir, filename)):
+                    print(f"\nDownloading {filename}")
+                    wget.download(url, out=weights_dir)
+                else:
+                    print(f"\n{filename} already exists. Skipping download.")
             print("\n")
             
         model_dir = os.path.join(dir_path, "weights")
         model_type = "union"
         
-        self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+        self.cuda_available = torch.cuda.is_available()
+        self.device = torch.device("cuda" if self.cuda_available else "cpu")
 
-        # Doing a torch cuda check is rather expensive on start-up times so I just decided to keep it simple
-        self.cuda_available = False
         torch.set_grad_enabled(False)
-        if torch.cuda.is_available():
-            self.cuda_available = True
+        if self.cuda_available:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -81,10 +80,9 @@ class GMFSS():
         self.model.eval().to(self.device, memory_format=torch.channels_last)
 
         self.dtype = torch.float
-        if self.cuda_available:
-            if self.half:
-                self.model.half()
-                self.dtype = torch.half  
+        if self.cuda_available and self.half:
+            self.model.half()
+            self.dtype = torch.half
                 
               
     @torch.inference_mode()
