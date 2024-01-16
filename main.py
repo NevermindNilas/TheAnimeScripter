@@ -52,7 +52,6 @@ class videoProcessor:
         self.depth = args.depth
         self.encode_method = args.encode_method
         self.motion_blur = args.motion_blur
-        self.motion_blur_sens = args.motion_blur_sens
 
         # This is necessary on the top since the script heavily relies on FFMPEG
         self.check_ffmpeg()
@@ -77,8 +76,8 @@ class videoProcessor:
             logging.info(
                 "Detecting depth")
 
-            process = Depth(
-                self.input, self.output, self.ffmpeg_path, self.width, self.height, self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method)
+            Depth(self.input, self.output, self.ffmpeg_path, self.width, self.height, 
+                  self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method)
 
             return
 
@@ -88,8 +87,8 @@ class videoProcessor:
             logging.info(
                 "Segmenting video")
 
-            process = Segment(self.input, self.output, self.ffmpeg_path, self.width,
-                              self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method)
+            Segment(self.input, self.output, self.ffmpeg_path, self.width,
+                    self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method)
 
             return
 
@@ -99,10 +98,8 @@ class videoProcessor:
             logging.info(
                 "Adding motion blur")
 
-            process = Motionblur(self.input, self.output, self.ffmpeg_path, self.width,
-                                 self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.motion_blur_sens, self.interpolate_method, self.interpolate_factor, self.half)
-
-            process.run()
+            Motionblur(self.input, self.output, self.ffmpeg_path, self.width,
+                       self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.interpolate_method, self.interpolate_factor, self.half, self.encode_method, self.dedup, self.dedup_strenght)
 
             return
 
@@ -392,7 +389,6 @@ def main():
         argparser.add_argument("--depth", type=int, default=0)
         argparser.add_argument("--encode_method", type=str, default="x264")
         argparser.add_argument("--motion_blur", type=int, default=0)
-        argparser.add_argument("--motion_blur_sens", type=float, default=50)
 
         args = argparser.parse_args()
 
