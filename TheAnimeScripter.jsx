@@ -67,18 +67,11 @@ var TheAnimeScripter = (function() {
     group1.spacing = 10;
     group1.margins = 0;
 
-    var checkboxDeduplicate = group1.add("checkbox", undefined, undefined, {
+    var checkboxDeduplicate = group1.add("checkbox", undefined, "Deduplicate", {
         name: "checkboxDeduplicate"
     });
     checkboxDeduplicate.alignment = ["left", "center"];
-
-    var textDeduplicate = group1.add("statictext", undefined, undefined, {
-        name: "textDeduplicate"
-    });
-    textDeduplicate.text = "Deduplicate";
-    textDeduplicate.justify = "center";
-    textDeduplicate.alignment = ["left", "center"];
-    textDeduplicate.helpTip = "Deduplicate using FFMPEG's mpdecimate filter";
+    checkboxDeduplicate.helpTip = "Deduplicate using FFMPEG's mpdecimate filter";
 
     // GROUP2
     // ======
@@ -90,18 +83,11 @@ var TheAnimeScripter = (function() {
     group2.spacing = 10;
     group2.margins = 0;
 
-    var checkboxUpscale = group2.add("checkbox", undefined, undefined, {
+    var checkboxUpscale = group2.add("checkbox", undefined, "Upscale", {
         name: "checkboxUpscale"
     });
     checkboxUpscale.alignment = ["left", "center"];
-
-    var textUpscale = group2.add("statictext", undefined, undefined, {
-        name: "textUpscale"
-    });
-    textUpscale.text = "Upscale";
-    textUpscale.justify = "center";
-    textUpscale.alignment = ["left", "center"];
-    textUpscale.helpTip = "Upscale using the model you choose";
+    checkboxUpscale.helpTip = "Upscale using the model you choose";
 
     // GROUP3
     // ======
@@ -113,36 +99,21 @@ var TheAnimeScripter = (function() {
     group3.spacing = 10;
     group3.margins = 0;
 
-    var checkboxInterpolate = group3.add("checkbox", undefined, undefined, {
+    var checkboxInterpolate = group3.add("checkbox", undefined, "Interpolate", {
         name: "checkboxInterpolate"
     });
     checkboxInterpolate.alignment = ["left", "center"];
-
-    var textInterpolate = group3.add("statictext", undefined, undefined, {
-        name: "textInterpolate"
-    });
-    textInterpolate.text = "Interpolate";
-    textInterpolate.justify = "center";
-    textInterpolate.alignment = ["left", "center"];
-    textInterpolate.helpTip = "Interpolate using the selected model from the Dropdown";
+    checkboxInterpolate.helpTip = "Interpolate using the selected model from the Dropdown";
 
     var group4 = panelChain.add("group", undefined, {
         name: "group4"
     });
 
-    var checkboxSharpen = group4.add("checkbox", undefined, undefined, {
+    var checkboxSharpen = group4.add("checkbox", undefined, "Sharpen", {
         name: "checkboxSharpen"
     });
-
     checkboxSharpen.alignment = ["left", "center"];
-
-    var textSharpen = group4.add("statictext", undefined, undefined, {
-        name: "textSharpen"
-    });
-    textSharpen.text = "Sharpen";
-    textSharpen.justify = "center";
-    textSharpen.alignment = ["left", "center"];
-    textSharpen.helpTip = "Sharpen using Contrast Adaptive Sharpening";
+    checkboxSharpen.helpTip = "Sharpen using Contrast Adaptive Sharpening";
 
 
     // panelPostProcess
