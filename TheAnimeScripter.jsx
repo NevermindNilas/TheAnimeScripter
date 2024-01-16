@@ -28,6 +28,7 @@ var TheAnimeScripter = (function() {
     var segmentValue = 0;
     var sceneChangeValue = 0;
     var depthValue = 0;
+    var motionBlurValue = 0;
 
     // THEANIMESCRIPTER
     // ================
@@ -165,7 +166,7 @@ var TheAnimeScripter = (function() {
     var buttonSegment = panelPostProcess.add("button", undefined, undefined, {
         name: "buttonSegment"
     });
-    buttonSegment.text = "Auto Rotobrush";
+    buttonSegment.text = "Rotobrush";
     buttonSegment.preferredSize.width = 105;
     buttonSegment.alignment = ["center", "top"];
 
@@ -176,6 +177,15 @@ var TheAnimeScripter = (function() {
     buttonSceneChange.text = "Auto Cut";
     buttonSceneChange.preferredSize.width = 105;
     buttonSceneChange.alignment = ["center", "top"];
+
+    var buttonMotionBlur = panelPostProcess.add("button", undefined, undefined, {
+        name: "buttonMotionBlur"
+    });
+
+    buttonMotionBlur.text = "Motion Blur";
+    buttonMotionBlur.preferredSize.width = 105;
+    buttonMotionBlur.alignment = ["center", "top"];
+    buttonMotionBlur.helpTip = "Motion Blur using average weighted frame blending, use interpolation factor and model to determine how many frames to blend and the quality of the blending`";
 
 
     // PANELMORE
@@ -645,6 +655,11 @@ var TheAnimeScripter = (function() {
         start_chain();
     }
 
+    buttonMotionBlur.onClick = function() {
+        motionBlurValue = 1;
+        start_chain();
+    }
+
     dropdownEncoder.onChange = function() {
         app.settings.saveSetting(scriptName, "dropdownEncoder", dropdownEncoder.selection.index);
     }
@@ -754,6 +769,7 @@ var TheAnimeScripter = (function() {
                     "--depth", depthValue,
                     "--encode_method", dropdownEncoder.selection.text,
                     "--scenechange_sens", 100 - sliderSceneChange.value,
+                    "--motion_blur", motionBlurValue,
                 ];
                 var command = attempt.join(" ");
                 callCommand(command);
@@ -823,6 +839,7 @@ var TheAnimeScripter = (function() {
         sceneChangeValue = 0;
         segmentValue = 0;
         depthValue = 0;
+        motionBlurValue = 0;
     }
     if (TheAnimeScripter instanceof Window) TheAnimeScripter.show();
     return TheAnimeScripter;
