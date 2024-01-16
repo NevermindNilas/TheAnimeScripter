@@ -41,7 +41,7 @@ class Motionblur():
         self.processed_frames = Queue(maxsize=500)
 
         self.pbar = tqdm(
-            desc="Processing", total=self.nframes, unit="frames", unit_scale=True, dynamic_ncols=True, leave=False)
+            desc="Processing", total=self.nframes, unit="frames", unit_scale=True, dynamic_ncols=True, leave=False, colour="green")
 
         self.writing_finished = False
         _thread.start_new_thread(self.build_buffer, ())
