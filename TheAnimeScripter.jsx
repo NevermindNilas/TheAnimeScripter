@@ -4,7 +4,7 @@ var TheAnimeScripter = (function() {
     var scriptName = "TheAnimeScripter";
 
     /*
-    scriptVersion = "0.1.6";
+    scriptVersion = "0.1.7";
     scriptAuthor = "Nilas";
     scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
     discordServer = "https://discord.gg/CdRD9GwS8J"
@@ -700,7 +700,7 @@ var TheAnimeScripter = (function() {
 
         var exeFilePath = new File(exeFile);
         if (!exeFilePath.exists) {
-            alert("The main.exe file does not exist, please make sure you have downloaded the latest version of The Anime Scripter, if you have opted for building it yourself please make sure you have built it correctly");
+            alert("Cannot find main.exe, please make sure you have selected the correct folder in settings!");
             return;
         }
 
@@ -714,59 +714,20 @@ var TheAnimeScripter = (function() {
             var activeLayerPath = layer.source.file.fsName;
             var activeLayerName = layer.name;
 
-            /*
             var sourceInPoint, sourceOutPoint;
 
-            sourceInPoint = layer.inPoint;
-            sourceOutPoint = layer.outPoint;
+            sourceInPoint = layer.inPoint - layer.startTime;
+            sourceOutPoint = layer.outPoint - layer.startTime;
 
-            // Hardly makes sense 
-            // But this should now account for when the layer doesn't start at 0.00 timecode and it was shifted to the left ( negative ) or right
-            // Should also work if a layer was trimmed or put inside a comp that has a greater than 0 start time
-            if (layer.startTime < 0) {
-                sourceInPoint = sourceInPoint + Math.abs(layer.startTime);
-                sourceOutPoint = sourceOutPoint + Math.abs(layer.startTime);
+            if (layer.inPoint > sourceInPoint) {
+                sourceInPoint = layer.inPoint - layer.startTime;
             }
-            else if (layer.startTime > 0) {
-                sourceInPoint = sourceInPoint - Math.abs(layer.startTime);
-                sourceOutPoint = sourceOutPoint - Math.abs(layer.startTime);
+            if (layer.outPoint < sourceOutPoint) {
+                sourceOutPoint = layer.outPoint - layer.startTime;
             }
 
-            if (layer.duration == layer.source.duration) {
-                sourceInPoint = 0;
-                sourceOutPoint = 0;
-            }
-            */
-
-            // Testing for different comp framerates.
-            var sourceInPoint, sourceOutPoint;
-
-            sourceInPoint = layer.inPoint;
-            sourceOutPoint = layer.outPoint;
-
-            var compFrameRate = app.project.activeItem.frameRate;
-            var layerFrameRate = layer.source.frameRate;
-
-            var frameRateRatio = compFrameRate / layerFrameRate;
-
-            sourceInPoint = sourceInPoint * frameRateRatio;
-            sourceOutPoint = sourceOutPoint * frameRateRatio;
-
-            if (layer.startTime < 0) {
-                sourceInPoint = sourceInPoint + Math.abs(layer.startTime);
-                sourceOutPoint = sourceOutPoint + Math.abs(layer.startTime);
-            } else if (layer.startTime > 0) {
-                sourceInPoint = sourceInPoint - Math.abs(layer.startTime);
-                sourceOutPoint = sourceOutPoint - Math.abs(layer.startTime);
-            }
-
-            if (layer.duration == layer.source.duration) {
-                sourceInPoint = 0;
-                sourceOutPoint = 0;
-            }
-
-            var randomNumber = Math.floor(Math.random() * 10000000);
-            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + randomNumber + ".mp4";
+            var randomNumbers = Math.floor(Math.random() * 10000);
+            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + "TAS" + randomNumbers + ".mp4";
 
             try {
                 var attempt = [
