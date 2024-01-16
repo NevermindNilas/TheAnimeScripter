@@ -17,9 +17,10 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 4. **Segmentation**: Separate the background from the foreground for easier and faster rotobrushing.
 5. **Depth Map Generation**: Generate a depth map for 3D effects and more advanced video editing.
 6. **Auto Clip Cutting**: Increase your productivity by automatically cutting your clips using a Scene Change Filter.
-7. **Integration with After Effects**: Seamlessly use our tool directly inside of After Effects.
-8. **Model Chaining in After Effects**: Run Deduplication, Upscaling, Interpolation all in one.
-9. **No Frame Extraction**: The script does 0 frame extraction, everything is being done in memory without additional decode and encode cycles.
+7. **Motion Blur**: Add motion blur to your videos for a more realistic look.
+8. **Integration with After Effects**: Seamlessly use our tool directly inside of After Effects.
+9. **Model Chaining in After Effects**: Run Deduplication, Upscaling, Interpolation all in one.
+10. **No Frame Extraction**: The script does 0 frame extraction, everything is being done in memory without additional decode and encode cycles.
 
 ## 🛠️ Getting Started
 
