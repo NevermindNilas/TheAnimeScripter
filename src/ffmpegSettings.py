@@ -83,7 +83,7 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
     return command
 
 
-def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, dedup_strenght: float, ffmpeg_path: str):
+def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, dedup_strenght: str, ffmpeg_path: str):
     """
     input: str - The path to the input video file.
     inpoint: float - The start time of the segment to decode, in seconds.

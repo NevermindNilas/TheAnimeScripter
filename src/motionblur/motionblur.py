@@ -2,17 +2,22 @@ import subprocess
 import _thread
 import logging
 import numpy as np
-import time
-import cv2
 
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 from multiprocessing import Queue
 
+"""
+For this to work really fast, I need to write in C or Rust probably
+
+I am looking into TMix and TBlend but I am not sure how to implement it yet due to the fact
+
+Until then, the I/O Bottleneck will be the limiting factor
+"""
+
 
 class Motionblur():
-    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint, outpoint, motion_blur_sens, interpolate_method, interpolate_factor, half):
-
+    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint, outpoint, interpolate_method, interpolate_factor, half, encode_method, dedup, dedup_strenght):
         self.input = input
         self.output = output
         self.ffmpeg_path = ffmpeg_path
@@ -22,18 +27,29 @@ class Motionblur():
         self.nframes = nframes
         self.inpoint = inpoint
         self.outpoint = outpoint
-        self.motion_blur_sens = motion_blur_sens
         self.interpolate_method = interpolate_method
         self.interpolate_factor = interpolate_factor
         self.half = half
+        self.encode_method = encode_method
+        self.dedup = dedup
+        self.dedup_strenght = dedup_strenght
 
         self.handle_model()
 
         self.read_buffer = Queue(maxsize=500)
+        self.interpolated_frames = Queue(maxsize=500)
         self.processed_frames = Queue(maxsize=500)
+
+        self.pbar = tqdm(
+            desc="Processing", total=self.nframes, unit="frames", unit_scale=True, dynamic_ncols=True, leave=False)
 
         self.writing_finished = False
         _thread.start_new_thread(self.build_buffer, ())
+        _thread.start_new_thread(self.clear_write_buffer, ())
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            executor.submit(self.interpolate_frames)
+            executor.submit(self.blend_frames)
 
     def handle_model(self):
 
@@ -45,111 +61,121 @@ class Motionblur():
 
     def build_buffer(self):
 
-        ffmpeg_command = [
-            self.ffmpeg_path,
-            "-i", str(self.input),
-        ]
+        from src.ffmpegSettings import decodeSettings
 
-        if self.outpoint != 0:
-            ffmpeg_command.extend(
-                ["-ss", str(self.inpoint), "-to", str(self.outpoint)])
+        command: list = decodeSettings(
+            self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_strenght, self.ffmpeg_path)
 
-        ffmpeg_command.extend([
-            "-f", "rawvideo",
-            "-pix_fmt", "rgb24",
-            "-v", "quiet",
-            "-stats",
-            "-",
-        ])
+        process = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         self.reading_done = False
+        frame_size = self.width * self.height * 3
+        frame_count = 0
         try:
-            process = subprocess.Popen(
-                ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            logging.info(f"Running command: {ffmpeg_command}")
-
-            frame_size = self.width * self.height * 3
-
-            frame_count = 0
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
                     logging.error(
                         f"Read {len(chunk)} bytes but expected {frame_size}")
-                    break
+                    continue
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
+
                 self.read_buffer.put(frame)
                 frame_count += 1
 
-            self.pbar.total = frame_count
-            self.pbar.refresh()
+        except Exception as e:
+            logging.exception(
+                f"An error occurred during reading, {e}")
 
+        finally:
             stderr = process.stderr.read().decode()
             if stderr:
                 if "bitrate=" not in stderr:
                     logging.error(f"ffmpeg error: {stderr}")
-        except:
-            logging.exception("An error occurred during reading")
-        finally:
+
+            logging.info(f"Built buffer with {frame_count} frames")
+
+            self.pbar.total = frame_count
+            self.pbar.refresh()
+
             # For terminating the pipe and subprocess properly
             process.stdout.close()
             process.stderr.close()
             process.terminate()
-            self.read_buffer.put(None)
 
             self.reading_done = True
+            self.read_buffer.put(None)
 
-    def start_process(self):
+    def interpolate_frames(self):
         prev_frame = None
+        self.interpolation_done = False
         try:
             while True:
                 frame = self.read_buffer.get()
-
                 if frame is None:
-                    self.reading_done = True
-                    break
-
+                    if self.reading_done == True and self.read_buffer.empty():
+                        break
                 if prev_frame is not None:
                     self.interpolate_process.run(prev_frame, frame)
-
                     for i in range(self.interpolate_factor - 1):
                         result = self.interpolate_process.make_inference(
                             (i + 1) * 1. / (self.interpolate_factor + 1))
-
-                        self.processed_frames.put(result)
-                        
+                        self.interpolated_frames.put_nowait(result)
                     prev_frame = frame
                 else:
                     self.processed_frames.put(frame)
                     prev_frame = frame
 
         except Exception as e:
-            logging.exception("An error occurred during processing")
+            logging.exception(f"An error occurred during interpolation {e}")
 
         finally:
+            self.interpolation_done = True
+            self.interpolated_frames.put(None)
+
+    def blend_frames(self):
+        self.blending_done = False
+        frame_buffer = []
+        try:
+            while True:
+                frame = self.interpolated_frames.get()
+                if frame is None:
+                    if self.interpolated_frames.qsize() < self.interpolate_factor and self.interpolation_done == True:
+                        break
+                frame_buffer.append(frame)
+                if len(frame_buffer) == self.interpolate_factor:
+                    motion_blur_frame = np.zeros_like(
+                        frame, dtype=np.float32)
+
+                    weights = np.exp(-0.5 * (np.linspace(-1, 1,
+                                     self.interpolate_factor)**2))
+                    weights /= np.sum(weights)
+
+                    total_weight = 0
+
+                    for i in range(self.interpolate_factor):
+                        weight = weights[i]
+                        motion_blur_frame += weight * frame_buffer[i]
+                        total_weight += weight
+                    motion_blur_frame /= total_weight
+                    motion_blur_frame = motion_blur_frame.astype(np.uint8)
+
+                    self.processed_frames.put_nowait(motion_blur_frame)
+                    frame_buffer = []
+
+        except Exception as e:
+            logging.exception(f"An error occurred during blending {e}")
+
+        finally:
+            self.blending_done = True
             self.processed_frames.put(None)
-            self.processing_done = True
 
-    def write_buffer(self):
-        command = [self.ffmpeg_path,
-                   '-y',
-                   '-f', 'rawvideo',
-                   '-vcodec', 'rawvideo',
-                   '-s', f'{self.width}x{self.height}',
-                   '-pix_fmt', 'rgb24',
-                   '-r', str(self.fps),
-                   '-i', '-',
-                   '-an',
-                   '-c:v', 'libx264',
-                   '-preset', 'veryfast',
-                   '-crf', '15',
-                   '-tune', 'animation',
-                   '-movflags', '+faststart',
-                   self.output]
+    def clear_write_buffer(self):
+        from src.ffmpegSettings import encodeSettings
 
-        logging.info(
-            f"Encoding options: {' '.join(command)}")
+        command: list = encodeSettings(self.encode_method, self.width, self.height,
+                                       self.fps, self.output, self.ffmpeg_path, False, 0)
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -158,29 +184,16 @@ class Motionblur():
             while True:
                 frame = self.processed_frames.get()
                 if frame is None:
-                    if self.processing_done == True:
+                    if self.blending_done == True and self.processed_frames.empty():
                         break
-                
-                frame = np.ascontiguousarray(frame)
+
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update(1)
 
         except Exception as e:
-            logging.exception("An error occurred during writing")
+            logging.exception(f"An error occurred during writing {e}")
 
         finally:
             pipe.stdin.close()
             pipe.wait()
             self.pbar.close()
-
-    def run(self):
-        self.pbar = tqdm(
-            total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
-
-        _thread.start_new_thread(self.write_buffer, ())
-
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            executor.submit(self.start_process)
-
-        while self.reading_done == False and self.writing_finished == False:
-            time.sleep(0.1)
