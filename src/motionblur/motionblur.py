@@ -135,7 +135,7 @@ class Motionblur():
             self.interpolated_frames.put(None)
 
     def blend_frames(self):
-        self.blending_done = False
+        self.processing_done = False
         frame_buffer = []
         try:
             while True:
@@ -168,9 +168,9 @@ class Motionblur():
             logging.exception(f"An error occurred during blending {e}")
 
         finally:
-            self.blending_done = True
+            self.processing_done = True
             self.processed_frames.put(None)
-
+            
     def clear_write_buffer(self):
         from src.ffmpegSettings import encodeSettings
 
@@ -184,9 +184,10 @@ class Motionblur():
             while True:
                 frame = self.processed_frames.get()
                 if frame is None:
-                    if self.blending_done == True and self.processed_frames.empty():
+                    if self.processing_done == True and self.processed_frames.empty():
                         break
 
+                frame = np.ascontiguousarray(frame)
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update(1)
 
