@@ -54,7 +54,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - `--output` : (str, required) Output string of the video, can be absolute path or just a name.
 - `--interpolate` : (int, default=0) Set to 1 if you want to enable interpolation, 0 to disable.
 - `--interpolate_factor` : (int, default=2) Factor by which to interpolate.
-- `--interpolate_method` : (str, default="rife") Method to use for interpolation. Options: "Rife", "GMFSS", "RIFE413Lite".
+- `--interpolate_method` : (str, default="rife") Method to use for interpolation. Options: "Rife", "GMFSS", "Rife413Lite", "Rife414Lite.
 - `--upscale` : (int, default=0) Set to 1 if you want to enable upscaling, 0 to disable.
 - `--upscale_factor` : (int, default=2) Factor by which to upscale.
 - `--upscale_method` : (str, default="ShuffleCugan") Method to use for upscaling.
@@ -100,6 +100,7 @@ With FP16 on for every test except NCNN.
     - Rife ( v4.13 ): ~100 FPS ( Fastmode True, Ensemble False, No longer available )
     - Rife ( v4.13_lite ) ~120 FPS ( Fastmode True, Ensemble False )
     - Rife ( v4.14 ): ~100 FPS ( Fastmode True, Ensemble False )
+    - Rife ( v4.14_lite ): ~100FPS ( Fastmode True, Ensemble False ) ( Unexpected numbers, needs more testing )
     - GMFSS Fortuna Union: ~7 FPS ( Ensemble False for Rife )
     - Rife NCNN: N/A
 
@@ -191,3 +192,4 @@ In no particular order:
 - Added multi layer support and timecode accurate placement in AE
 - [Massive] Added GMFSS Fortuna Union
 - [Massive] Release 0.1.6 (14/01/2024)
+- Added Rife 4.14 Lite
