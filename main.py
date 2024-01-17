@@ -10,6 +10,7 @@ from queue import SimpleQueue, Queue
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
+
 # Some default values
 main_path = os.path.dirname(os.path.abspath(__file__))
 """

@@ -28,3 +28,5 @@ def get_ffmpeg(ffmpeg_path):
     os.remove(ffmpeg_zip_path)
     for directory in glob.glob(os.path.join(ffmpeg_dir, "ffmpeg-*-win64-gpl")):
         shutil.rmtree(directory)
+        
+    

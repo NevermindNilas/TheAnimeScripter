@@ -1,6 +1,5 @@
 import logging
 
-
 def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: float, output: str, ffmpeg_path: str, sharpen: bool, sharpen_sens: float):
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
@@ -12,6 +11,7 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
     sharpen: bool - Whether to apply a sharpening filter to the video.
     sharpen_sens: float - The sensitivity of the sharpening filter.
     """
+    
     command = [ffmpeg_path,
                '-y',
                '-f', 'rawvideo',
