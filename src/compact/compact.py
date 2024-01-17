@@ -24,11 +24,11 @@ class Compact():
         torch.set_float32_matmul_precision("medium")
 
         if self.upscale_method == "compact":
-            filename = "2x_AnimeJaNai_V3_SmoothRC21_Compact_50k_fp32.pth"
+            filename = "2x_AnimeJaNai_HD_V3_Compact_583k.pth"
         elif self.upscale_method == "ultracompact":
-            filename = "2x_AnimeJaNai_V2_UltraCompact_30k.pth"
+            filename = "2x_AnimeJaNai_HD_V3_UltraCompact_425k.pth"
         elif self.upscale_method == "superultracompact":
-            filename = "2x_AnimeJaNai_V2_SuperUltraCompact_100k.pth"
+            filename = "2x_AnimeJaNai_HD_V3_SuperUltraCompact_5k.pth"
 
         dir_name = os.path.dirname(os.path.abspath(__file__))
         weights_dir = os.path.join(dir_name, "weights")
