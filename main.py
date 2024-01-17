@@ -93,12 +93,12 @@ class videoProcessor:
             return
 
         if self.motion_blur:
-            from src.motionblur.motionblur import Motionblur
+            from src.motionblur.motionblur import motionBlur
 
             logging.info(
                 "Adding motion blur")
 
-            Motionblur(self.input, self.output, self.ffmpeg_path, self.width,
+            motionBlur(self.input, self.output, self.ffmpeg_path, self.width,
                        self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.interpolate_method, self.interpolate_factor, self.half, self.encode_method, self.dedup, self.dedup_strenght)
 
             return
@@ -108,18 +108,20 @@ class videoProcessor:
         if self.interpolate == False and self.upscale == False and self.dedup == True:
             if self.sharpen == True:
                 self.dedup_strenght += f',cas={self.sharpen_sens}'
+                
 
             logging.info(
                 "Deduping video")
 
             if self.outpoint != 0:
-                from src.trim_input import trim_input_dedup
+                from src.dedup.dedup import trim_input_dedup
                 trim_input_dedup(self.input, self.output, self.inpoint,
-                                 self.outpoint, self.dedup_strenght, self.ffmpeg_path).run()
+                                 self.outpoint, self.dedup_strenght, self.ffmpeg_path, self.encode_method)
+                
             else:
-                from src.dedup.dedup import DedupFFMPEG
-                DedupFFMPEG(self.input, self.output,
-                            self.dedup_strenght, self.ffmpeg_path).run()
+                from src.dedup.dedup import dedup_ffmpeg
+                dedup_ffmpeg(self.input, self.output,
+                            self.dedup_strenght, self.ffmpeg_path, self.encode_method)
 
             return
 
@@ -351,7 +353,7 @@ class videoProcessor:
             logging.info("The user doesn't have FFMPEG, downloading it now")
             get_ffmpeg(ffmpeg_path=self.ffmpeg_path)
 
-        print("\n")
+            print("\n")
 
 
 def main():
@@ -444,7 +446,8 @@ def main():
         "high": "mpdecimate=hi=64*200:lo=64*50:frac=0.33,setpts=N/FRAME_RATE/TB"
     }
     args.dedup_strenght = dedup_strenght_list[args.dedup_strenght]
-
+    logging.info(f"Setting dedup strenght to {args.dedup_strenght}")
+    
     if args.encode_method not in ["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1"]:
         logging.exception(
             f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")

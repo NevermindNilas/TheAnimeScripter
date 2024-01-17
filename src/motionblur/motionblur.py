@@ -16,7 +16,7 @@ Until then, the I/O Bottleneck will be the limiting factor
 """
 
 
-class Motionblur():
+class motionBlur():
     def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint, outpoint, interpolate_method, interpolate_factor, half, encode_method, dedup, dedup_strenght):
         self.input = input
         self.output = output
