@@ -185,7 +185,7 @@ class videoProcessor:
 
         if self.interpolate:
             match self.interpolate_method:
-                case "rife414" | "rife413lite" | "rife":
+                case "rife414" | "rife414lite" | "rife413lite" | "rife":
                     from src.rife.rife import Rife
 
                     UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
@@ -454,7 +454,7 @@ def main():
             f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
         args.encode_method = "x264"
 
-    if args.interpolate_method not in ["rife", "rife414", "rife413lite", "gmfss", "rife_ncnn"]:
+    if args.interpolate_method not in ["rife", "rife414", "rife414lite", "rife413lite", "gmfss", "rife_ncnn"]:
         """
         I will keep a default rife value that will always utilize the latest available model
         Unless the user doesn't explicitly specify the interpolation method
@@ -464,12 +464,17 @@ def main():
         like 8x/16x and performance is key.
         """
         try:
-            # This is for JSX compatibility as well
+            # This is for JSX compatibility
             interpolate_list = {
                 "rife_4.14": "rife414",
+                "rife_4.14_lite": "rife414lite",
                 "rife_4.13_lite": "rife413lite",
             }
             args.interpolate_method = interpolate_list[args.interpolate_method]
+            
+            logging.info(
+                f"Switched interpolation method to {args.interpolate_method}")
+            
         except Exception as e:
             logging.exception(
                 f"There was an error in choosing the interpolation method, {args.interpolate_method} is not a valid option, setting the interpolation method to rife")

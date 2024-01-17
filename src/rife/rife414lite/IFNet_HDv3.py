@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from src.rife.warplayer import warp
-# from train_log.refine import *
-
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
@@ -44,7 +42,7 @@ class Head(nn.Module):
 class ResConv(nn.Module):
     def __init__(self, c, dilation=1):
         super(ResConv, self).__init__()
-        self.conv = nn.Conv2d(c, c, 3, 1, dilation, dilation=dilation, groups=1\
+        self.conv = nn.Conv2d(c, c, 3, 1, dilation, dilation=dilation, groups=2\
 )
         self.beta = nn.Parameter(torch.ones((1, c, 1, 1)), requires_grad=True)
         self.relu = nn.LeakyReLU(0.2, True)

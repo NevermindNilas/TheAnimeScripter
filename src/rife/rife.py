@@ -7,33 +7,38 @@ from torch.nn import functional as F
 
 
 class Rife:
-    def __init__(self, interpolation_factor, half, width, height, UHD, interpolation_method):
+    def __init__(self, interpolation_factor, half, width, height, UHD, interpolate_method):
         self.interpolation_factor = interpolation_factor
         self.half = half
         self.UHD = UHD
         self.scale = 1.0
         self.width = int(width)
         self.height = int(height)
-        self.interpolation_method = interpolation_method
+        self.interpolate_method = interpolate_method
 
         self.handle_model()
 
     def handle_model(self):
         
-        match self.interpolation_method:
+        match self.interpolate_method:
             case "rife" | "rife414":
                     
-                    self.interpolation_method = "rife414"
-                    from .rife414.RIFE_HDv3 import Model
-                    self.filename = "rife414.pkl"
+                self.interpolate_method = "rife414"
+                from .rife414.RIFE_HDv3 import Model
+                self.filename = "rife414.pkl"
+            
+            case "rife414lite":
+                
+                from .rife414lite.RIFE_HDv3 import Model
+                self.filename = "rife414lite.pkl"
                     
             case "rife413lite":
 
-                    from .rife413lite.RIFE_HDv3 import Model
-                    self.filename = "rife413lite.pkl"
+                from .rife413lite.RIFE_HDv3 import Model
+                self.filename = "rife413lite.pkl"
 
         self.modelDir = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), self.interpolation_method)
+            os.path.dirname(os.path.realpath(__file__)), self.interpolate_method)
                     
         if not os.path.exists(os.path.join(self.modelDir, "flownet.pkl")):
             self.get_rife()
