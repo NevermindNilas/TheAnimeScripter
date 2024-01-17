@@ -7,7 +7,7 @@ def dedup_ffmpeg(input, output, mpdecimate_params, ffmpeg_path, encode_method="l
 
 def trim_input_dedup(input, output, inpoint, outpoint, mpdecimate_params, ffmpeg_path, encode_method="libx264"):
     encode_options = handle_encoder(encode_method)
-    command = [ffmpeg_path, "-i", input, "-ss", str(inpoint), "-to", str(outpoint), "-vf", mpdecimate_params, "-an"] + flatten_dict(encode_options) + ["-y", output, "-v", "quiet", "-stats"]
+    command = [ffmpeg_path, "-ss", str(inpoint), "-to", str(outpoint), "-i", input, "-vf", mpdecimate_params, "-an"] + flatten_dict(encode_options) + ["-y", output, "-v", "quiet", "-stats"]
     subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def handle_encoder(encode_method):
