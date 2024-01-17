@@ -23,7 +23,7 @@ class Model:
 
     def device(self):
         self.flownet.to(device)
-        
+    
     def half(self):
         self.flownet.half()
 
