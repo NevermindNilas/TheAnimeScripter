@@ -4,6 +4,7 @@ opencv-python
 tqdm
 timm
 numpy
+cupy-cuda12x
 kornia
 scipy
 realcugan-ncnn-py
