@@ -18,7 +18,7 @@ class Cugan:
         self.height = height
 
         self.handle_models()
-
+        
     def handle_models(self):
         # Apparently this can improve performance slightly
         torch.set_float32_matmul_precision("medium")
