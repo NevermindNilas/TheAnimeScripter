@@ -116,8 +116,8 @@ def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, ded
     return command
 
 def get_dedup_strength(dedup_sens):
-    hi = interpolate(dedup_sens, 0, 100, 64*24, 64*200)
-    lo = interpolate(dedup_sens, 0, 100, 64*12, 64*50)
+    hi = interpolate(dedup_sens, 0, 100, 64*2, 64*200)
+    lo = interpolate(dedup_sens, 0, 100, 64*2, 64*50)
     frac = interpolate(dedup_sens, 0, 100, 0.1, 0.33)
     return f"mpdecimate=hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB"
 
