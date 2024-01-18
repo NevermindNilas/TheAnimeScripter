@@ -61,7 +61,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - `--cugan_kind` : (str, default="no-denoise") Kind of Cugan to use.
 - `--dedup` : (int, default=0) Set to 1 if you want to enable deduplication, 0 to disable.
 - `--dedup_method` : (str, default="ffmpeg") Method to use for deduplication.
-- `--dedup_strenght` : (str, default="light") Strength of deduplication.
+- `--dedup_sens` : (float, default=50) Sensitivy of deduplication.
 - `--nt` : (int, default=1) Number of threads to use.
 - `--half` : (int, default=1) Set to 1 to use half precision, 0 for full precision.
 - `--inpoint` : (float, default=0) Inpoint for the video.
