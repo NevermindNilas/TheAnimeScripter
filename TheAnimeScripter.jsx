@@ -15,7 +15,6 @@ var TheAnimeScripter = (function() {
     var TheAnimeScripterPath = app.settings.haveSetting(scriptName, "TheAnimeScripterPath") ? app.settings.getSetting(scriptName, "TheAnimeScripterPath") : "undefined";
     var dropdownModel = app.settings.haveSetting(scriptName, "dropdownModel") ? app.settings.getSetting(scriptName, "dropdownModel") : 0;
     var dropdownCugan = app.settings.haveSetting(scriptName, "dropdownCugan") ? app.settings.getSetting(scriptName, "dropdownCugan") : 0;
-    var dropdownSwinIr = app.settings.haveSetting(scriptName, "dropdownSwinIr") ? app.settings.getSetting(scriptName, "dropdownSwinIr") : 0;
     var dropdwonSegment = app.settings.haveSetting(scriptName, "dropdwonSegment") ? app.settings.getSetting(scriptName, "dropdwonSegment") : 0;
     var intInterpolate = app.settings.haveSetting(scriptName, "intInterpolate") ? app.settings.getSetting(scriptName, "intInterpolate") : 2;
     var intUpscale = app.settings.haveSetting(scriptName, "intUpscale") ? app.settings.getSetting(scriptName, "intUpscale") : 2;
@@ -421,6 +420,7 @@ var TheAnimeScripter = (function() {
     intUpscale.text = "2";
     intUpscale.preferredSize.width = 40;
     intUpscale.alignment = ["left", "top"];
+    intUpscale.enabled = false;
 
     // GROUP4
     // ======
@@ -579,14 +579,20 @@ var TheAnimeScripter = (function() {
 
     dropdownModel.onChange = function() {
         app.settings.saveSetting(scriptName, "dropdownModel", dropdownModel.selection.index);
+
+        if (dropdownModel.selection.index == 0 | dropdownModel.selection.index == 2 | dropdownModel.selection.index == 4 | dropdownModel.selection.index == 6 | dropdownModel.selection.index == 12) {
+            intUpscale.text = "2";
+            intUpscale.enabled = false;
+            dropdownCugan.enabled = false;
+        } else {
+            intUpscale.enabled = true;
+            dropdownCugan.enabled = true;
+        }
     }
 
     dropdownCugan.onChange = function() {
         app.settings.saveSetting(scriptName, "dropdownCugan", dropdownCugan.selection.index);
-    }
 
-    dropdownSwinIr.onChange = function() {
-        app.settings.saveSetting(scriptName, "dropdownSwinIr", dropdownSwinIr.selection.index);
     }
 
     dropdwonSegment.onChange = function() {
@@ -599,6 +605,14 @@ var TheAnimeScripter = (function() {
 
     intUpscale.onChange = function() {
         app.settings.saveSetting(scriptName, "intUpscale", intUpscale.text);
+
+        if ((dropdownModel.selection.index == 8 || dropdownModel.selection.index == 10)) {
+            if (parseInt(intUpscale.text) < 2) {
+                intUpscale.text = "2";
+            } else if (parseInt(intUpscale.text) > 4) {
+                intUpscale.text = "4";
+            }
+        }
     }
 
     dropdownDedupStrenght.onChange = function() {
