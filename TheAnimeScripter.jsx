@@ -2,9 +2,9 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
+    var scriptVersion = "0.1.7";
 
     /*
-    scriptVersion = "0.1.7";
     scriptAuthor = "Nilas";
     scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
     discordServer = "https://discord.gg/CdRD9GwS8J"
