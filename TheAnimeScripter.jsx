@@ -24,6 +24,7 @@ var TheAnimeScripter = (function() {
     var sliderSceneChange = app.settings.haveSetting(scriptName, "sliderSceneChange") ? app.settings.getSetting(scriptName, "sliderSceneChange") : 70;
     var dropdownEncoder = app.settings.haveSetting(scriptName, "dropdownEncoder") ? app.settings.getSetting(scriptName, "dropdownEncoder") : 0;
     var dropdownInterpolate = app.settings.haveSetting(scriptName, "dropdownInterpolate") ? app.settings.getSetting(scriptName, "dropdownInterpolate") : 0;
+    var sliderDedupSenstivity = app.settings.haveSetting(scriptName, "sliderDedupSenstivity") ? app.settings.getSetting(scriptName, "sliderDedupSenstivity") : 50;
 
     var segmentValue = 0;
     var sceneChangeValue = 0;
@@ -347,6 +348,31 @@ var TheAnimeScripter = (function() {
         labelSceneChange.text = Math.round(sliderSceneChange.value) + "%";
     }
 
+    var textDedupSens = generalPanel.add("statictext", undefined, undefined, {
+        name: "textDedupSens"
+    });
+    textDedupSens.text = "Deduplication Sensitivity";
+    textDedupSens.justify = "center";
+    textDedupSens.alignment = ["center", "top"];
+
+    var sliderDedupSens = generalPanel.add("slider", undefined, undefined, undefined, undefined, {
+        name: "sliderDedupSens"
+    });
+    sliderDedupSens.minvalue = 0;
+    sliderDedupSens.maxvalue = 100;
+    sliderDedupSens.value = 50;
+    sliderDedupSens.preferredSize.width = 212;
+    sliderDedupSens.alignment = ["center", "top"];
+
+    var labelDedupSens = generalPanel.add("statictext", undefined, sliderDedupSens.value + "%", {
+        name: "labelDedupSens"
+    });
+    labelDedupSens.alignment = ["center", "top"];
+
+    sliderDedupSens.onChange = function() {
+        labelDedupSens.text = Math.round(sliderDedupSens.value) + "%";
+    }
+
     // GROUP2
     // ======
     var group2 = generalPanel.add("group", undefined, {
@@ -487,31 +513,6 @@ var TheAnimeScripter = (function() {
     });
     dropdownCugan.selection = 0;
     dropdownCugan.preferredSize.width = 109;
-
-    var group7 = panel1.add("group", undefined, {
-        name: "group7"
-    });
-
-    group7.orientation = "row";
-    group7.alignChildren = ["left", "center"];
-    group7.spacing = 0;
-    group7.margins = 0;
-
-    var dedupStrenghtText = group7.add("statictext", undefined, undefined, {
-        name: "dedupStrenghtText"
-    });
-
-    dedupStrenghtText.text = "Dedup Strenght";
-    dedupStrenghtText.preferredSize.width = 103;
-
-    var dedupStrenght_array = ["Light", "-", "Medium", "-", "High"];
-    var dropdownDedupStrenght = group7.add("dropdownlist", undefined, undefined, {
-        name: "dropdownDedup",
-        items: dedupStrenght_array
-    });
-
-    dropdownDedupStrenght.selection = 0;
-    dropdownDedupStrenght.preferredSize.width = 109;
 
     // Create a new group8
     var group8 = panel1.add("group", undefined, {
@@ -729,7 +730,7 @@ var TheAnimeScripter = (function() {
                     "--upscale_factor", intUpscale.text,
                     "--upscale_method", dropdownModel.selection.text,
                     "--dedup", checkboxDeduplicate.value ? "1" : "0",
-                    "--dedup_strenght", dropdownDedupStrenght.selection.text,
+                    "--dedup_sens", sliderDedupSens.value,
                     "--half", "1",
                     "--inpoint", sourceInPoint,
                     "--outpoint", sourceOutPoint,
