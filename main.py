@@ -5,25 +5,26 @@ import logging
 import subprocess
 import numpy as np
 import warnings
+import sys
 
 from queue import SimpleQueue, Queue
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
 
-
 # Some default values
-main_path = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    main_path = os.path.dirname(sys.executable)
+else:
+    main_path = os.path.dirname(os.path.abspath(__file__))
+
 scriptVersion = "0.1.7"
 """
 TO:DO
-    - Fix Rife padding.
     - Add bounding box support for Segmentation
     - Look into Rife NCNN / Wrapper
-    - Fix timestepping for Rife, hand each output directly to the write buffer instead of storing it in a list
     - Status bar isn't updating properly, needs fixing
     - Make the jsx file default to the last selected settings, even after reboot
     - Get system info and display it in the log file for easier debugging
-    - Cupy compile issues with Pyinstaller, needs fixing
 """
 warnings.filterwarnings("ignore")
 
@@ -360,7 +361,6 @@ class videoProcessor:
 
 def main():
     log_file_path = os.path.join(main_path, "log.txt")
-
     logging.basicConfig(filename=log_file_path, filemode='w',
                         format='%(message)s', level=logging.INFO)
 
