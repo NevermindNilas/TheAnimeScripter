@@ -40,6 +40,7 @@ class videoProcessor:
         self.cugan_kind = args.cugan_kind
         self.dedup = args.dedup
         self.dedup_method = args.dedup_method
+        self.dedup_sens = args.dedup_sens
         self.nt = args.nt
         self.half = args.half
         self.inpoint = args.inpoint
@@ -47,7 +48,6 @@ class videoProcessor:
         self.sharpen = args.sharpen
         self.sharpen_sens = args.sharpen_sens
         self.segment = args.segment
-        self.dedup_strenght = args.dedup_strenght
         self.scenechange = args.scenechange
         self.scenechange_sens = args.scenechange_sens
         self.depth = args.depth
@@ -100,7 +100,7 @@ class videoProcessor:
                 "Adding motion blur")
 
             motionBlur(self.input, self.output, self.ffmpeg_path, self.width,
-                       self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.interpolate_method, self.interpolate_factor, self.half, self.encode_method, self.dedup, self.dedup_strenght)
+                       self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.interpolate_method, self.interpolate_factor, self.half, self.encode_method, self.dedup, self.dedup_sens)
 
             return
 
@@ -108,7 +108,7 @@ class videoProcessor:
         # Therefore I just hand the input to ffmpeg and call upon mpdecimate
         if self.interpolate == False and self.upscale == False and self.dedup == True:
             if self.sharpen == True:
-                self.dedup_strenght += f',cas={self.sharpen_sens}'
+                self.dedup_sens += f',cas={self.sharpen_sens}'
                 
 
             logging.info(
@@ -117,12 +117,12 @@ class videoProcessor:
             if self.outpoint != 0:
                 from src.dedup.dedup import trim_input_dedup
                 trim_input_dedup(self.input, self.output, self.inpoint,
-                                 self.outpoint, self.dedup_strenght, self.ffmpeg_path, self.encode_method)
+                                 self.outpoint, self.dedup_sens, self.ffmpeg_path, self.encode_method)
                 
             else:
                 from src.dedup.dedup import dedup_ffmpeg
                 dedup_ffmpeg(self.input, self.output,
-                            self.dedup_strenght, self.ffmpeg_path, self.encode_method)
+                            self.dedup_sens, self.ffmpeg_path, self.encode_method)
 
             return
 
@@ -215,7 +215,7 @@ class videoProcessor:
         from src.ffmpegSettings import decodeSettings
 
         command: list = decodeSettings(
-            self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_strenght, self.ffmpeg_path)
+            self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_sens, self.ffmpeg_path)
 
         process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -379,7 +379,7 @@ def main():
         argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
         argparser.add_argument("--dedup", type=int, default=0)
         argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
-        argparser.add_argument("--dedup_strenght", type=str, default="light")
+        argparser.add_argument("--dedup_sens", type=float, default=50)
         argparser.add_argument("--nt", type=int, default=1)
         argparser.add_argument("--half", type=int, default=1)
         argparser.add_argument("--inpoint", type=float, default=0)
@@ -411,7 +411,6 @@ def main():
 
     args.interpolate_method = args.interpolate_method.lower()
     args.upscale_method = args.upscale_method.lower()
-    args.dedup_strenght = args.dedup_strenght.lower()
     args.encode_method = args.encode_method.lower()
     args.dedup_method = args.dedup_method.lower()
     args.cugan_kind = args.cugan_kind.lower()
@@ -441,13 +440,10 @@ def main():
             f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 2.")
         args.upscale_factor = 2
 
-    dedup_strenght_list = {
-        "light": "mpdecimate=hi=64*24:lo=64*12:frac=0.1,setpts=N/FRAME_RATE/TB",
-        "medium": "mpdecimate=hi=64*100:lo=64*35:frac=0.2,setpts=N/FRAME_RATE/TB",
-        "high": "mpdecimate=hi=64*200:lo=64*50:frac=0.33,setpts=N/FRAME_RATE/TB"
-    }
-    args.dedup_strenght = dedup_strenght_list[args.dedup_strenght]
-    logging.info(f"Setting dedup strenght to {args.dedup_strenght}")
+    if args.dedup:
+        from src.ffmpegSettings import get_dedup_strength
+        args.dedup_sens = get_dedup_strength(args.dedup_sens)
+        logging.info(f"Setting dedup strenght to {args.dedup_sens}")
     
     if args.encode_method not in ["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1"]:
         logging.exception(
@@ -484,7 +480,6 @@ def main():
         videoProcessor(args)
     else:
         logging.info("No input or output was specified, exiting")
-
 
 if __name__ == "__main__":
     main()
