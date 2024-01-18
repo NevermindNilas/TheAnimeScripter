@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 # Some default values
 main_path = os.path.dirname(os.path.abspath(__file__))
+scriptVersion = "0.1.7"
 """
 TO:DO
     - Fix Rife padding.
@@ -77,7 +78,7 @@ class videoProcessor:
             logging.info(
                 "Detecting depth")
 
-            Depth(self.input, self.output, self.ffmpeg_path, self.width, self.height, 
+            Depth(self.input, self.output, self.ffmpeg_path, self.width, self.height,
                   self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method)
 
             return
@@ -109,7 +110,6 @@ class videoProcessor:
         if self.interpolate == False and self.upscale == False and self.dedup == True:
             if self.sharpen == True:
                 self.dedup_sens += f',cas={self.sharpen_sens}'
-                
 
             logging.info(
                 "Deduping video")
@@ -118,11 +118,11 @@ class videoProcessor:
                 from src.dedup.dedup import trim_input_dedup
                 trim_input_dedup(self.input, self.output, self.inpoint,
                                  self.outpoint, self.dedup_sens, self.ffmpeg_path, self.encode_method)
-                
+
             else:
                 from src.dedup.dedup import dedup_ffmpeg
                 dedup_ffmpeg(self.input, self.output,
-                            self.dedup_sens, self.ffmpeg_path, self.encode_method)
+                             self.dedup_sens, self.ffmpeg_path, self.encode_method)
 
             return
 
@@ -223,7 +223,7 @@ class videoProcessor:
         self.reading_done = False
         frame_size = self.width * self.height * 3
         frame_count = 0
-        
+
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
@@ -232,7 +232,7 @@ class videoProcessor:
                     continue
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
-                
+
                 self.read_buffer.put(frame)
                 frame_count += 1
 
@@ -359,47 +359,48 @@ class videoProcessor:
 
 
 def main():
-    script_version = "0.1.7"
     log_file_path = os.path.join(main_path, "log.txt")
 
     logging.basicConfig(filename=log_file_path, filemode='w',
                         format='%(message)s', level=logging.INFO)
 
     argparser = argparse.ArgumentParser()
-    try:
-        argparser.add_argument("--input", type=str, required=True)
-        argparser.add_argument("--output", type=str, required=True)
-        argparser.add_argument("--interpolate", type=int, default=0)
-        argparser.add_argument("--interpolate_factor", type=int, default=2)
-        argparser.add_argument("--interpolate_method",
-                               type=str, default="rife")
-        argparser.add_argument("--upscale", type=int, default=0)
-        argparser.add_argument("--upscale_factor", type=int, default=2)
-        argparser.add_argument("--upscale_method",  type=str,
-                               default="shufflecugan")
-        argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
-        argparser.add_argument("--dedup", type=int, default=0)
-        argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
-        argparser.add_argument("--dedup_sens", type=float, default=50)
-        argparser.add_argument("--nt", type=int, default=1)
-        argparser.add_argument("--half", type=int, default=1)
-        argparser.add_argument("--inpoint", type=float, default=0)
-        argparser.add_argument("--outpoint", type=float, default=0)
-        argparser.add_argument("--sharpen", type=int, default=0)
-        argparser.add_argument("--sharpen_sens", type=float, default=50)
-        argparser.add_argument("--segment", type=int, default=0)
-        argparser.add_argument("--scenechange", type=int, default=0)
-        argparser.add_argument("--scenechange_sens", type=float, default=50)
-        argparser.add_argument("--depth", type=int, default=0)
-        argparser.add_argument("--encode_method", type=str, default="x264")
-        argparser.add_argument("--motion_blur", type=int, default=0)
+    # This is for JSX Debugging mostly
+    argparser.add_argument("--version", action="store_true")
+    argparser.add_argument("--input", type=str)
+    argparser.add_argument("--output", type=str)
+    argparser.add_argument("--interpolate", type=int, default=0)
+    argparser.add_argument("--interpolate_factor", type=int, default=2)
+    argparser.add_argument("--interpolate_method",
+                           type=str, default="rife")
+    argparser.add_argument("--upscale", type=int, default=0)
+    argparser.add_argument("--upscale_factor", type=int, default=2)
+    argparser.add_argument("--upscale_method",  type=str,
+                           default="shufflecugan")
+    argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
+    argparser.add_argument("--dedup", type=int, default=0)
+    argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
+    argparser.add_argument("--dedup_sens", type=float, default=50)
+    argparser.add_argument("--nt", type=int, default=1)
+    argparser.add_argument("--half", type=int, default=1)
+    argparser.add_argument("--inpoint", type=float, default=0)
+    argparser.add_argument("--outpoint", type=float, default=0)
+    argparser.add_argument("--sharpen", type=int, default=0)
+    argparser.add_argument("--sharpen_sens", type=float, default=50)
+    argparser.add_argument("--segment", type=int, default=0)
+    argparser.add_argument("--scenechange", type=int, default=0)
+    argparser.add_argument("--scenechange_sens", type=float, default=50)
+    argparser.add_argument("--depth", type=int, default=0)
+    argparser.add_argument("--encode_method", type=str, default="x264")
+    argparser.add_argument("--motion_blur", type=int, default=0)
+    args = argparser.parse_args()
 
-        args = argparser.parse_args()
-
-    except Exception as e:
-        logging.exception(
-            f"There was an error in parsing the arguments, {e}")
-
+    if args.version:
+        print(scriptVersion)
+        return
+    else:
+        args.version = scriptVersion
+    
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
     args.interpolate = True if args.interpolate == 1 else False
     args.scenechange = True if args.scenechange == 1 else False
@@ -422,8 +423,6 @@ def main():
     logging.info("============== Arguments ==============")
     logging.info("")
 
-    logging.info("Script Version: " + script_version)
-
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
@@ -445,7 +444,7 @@ def main():
         from src.ffmpegSettings import get_dedup_strength
         args.dedup_sens = get_dedup_strength(args.dedup_sens)
         logging.info(f"Setting dedup strenght to {args.dedup_sens}")
-    
+
     if args.encode_method not in ["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1"]:
         logging.exception(
             f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
@@ -468,19 +467,28 @@ def main():
                 "rife_4.13_lite": "rife413lite",
             }
             args.interpolate_method = interpolate_list[args.interpolate_method]
-            
+
             logging.info(
                 f"Switched interpolation method to {args.interpolate_method}")
-            
+
         except Exception as e:
             logging.exception(
                 f"There was an error in choosing the interpolation method, {args.interpolate_method} is not a valid option, setting the interpolation method to rife")
             args.interpolate_method = "rife"
 
-    if args.input is not None and args.output is not None:
+    if args.output is None:
+        logging.info(
+            "No output was specified, generating output name")
+
+        import random
+        randomNumber = random.randint(0, 100000)
+        args.output = os.path.splitext(args.input)[0] + "_TAS" + str(randomNumber) + ".mp4"
+
+    if args.input is not None:
         videoProcessor(args)
     else:
-        logging.info("No input or output was specified, exiting")
+        logging.info("No input was specified, exiting")
+
 
 if __name__ == "__main__":
     main()
