@@ -519,6 +519,7 @@ var TheAnimeScripter = (function() {
     });
     dropdownCugan.selection = 0;
     dropdownCugan.preferredSize.width = 109;
+    dropdownCugan.enabled = false;
 
     // Create a new group8
     var group8 = panel1.add("group", undefined, {
