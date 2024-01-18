@@ -223,6 +223,7 @@ class videoProcessor:
         self.reading_done = False
         frame_size = self.width * self.height * 3
         frame_count = 0
+        
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
@@ -231,7 +232,7 @@ class videoProcessor:
                     continue
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
-
+                
                 self.read_buffer.put(frame)
                 frame_count += 1
 
