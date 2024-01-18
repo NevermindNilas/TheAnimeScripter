@@ -171,6 +171,12 @@ var TheAnimeScripter = (function() {
     panelMore.spacing = 10;
     panelMore.margins = 10;
 
+    var textScriptVersion = panelMore.add("statictext", undefined, undefined, {
+        name: "textScriptVersion"
+    });
+
+    textScriptVersion.text = "Script Version: " + scriptVersion;
+
     var buttonInfo = panelMore.add("button", undefined, undefined, {
         name: "buttonInfo"
     });
@@ -541,8 +547,7 @@ var TheAnimeScripter = (function() {
 
     dropdownEncoder.selection = 0;
     dropdownEncoder.preferredSize.width = 109;
-
-    // GROUP10
+    
     var buttonSettingsClose = settingsWindow.add("button", undefined, undefined, {
         name: "buttonSettingsClose"
     });
