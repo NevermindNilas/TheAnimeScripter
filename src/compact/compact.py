@@ -43,13 +43,13 @@ class Compact():
 
         model_path = os.path.join(weights_dir, filename)
 
-        num_conv_map = {
+        num_map = {
             "compact": [64, 16],
             "ultracompact": [64, 8],
             "superultracompact": [24, 8]
         }
 
-        num_feat, num_conv = num_conv_map[self.upscale_method]
+        num_feat, num_conv = num_map[self.upscale_method]
 
         self.model = SRVGGNetCompact(
             num_in_ch=3,
@@ -60,20 +60,21 @@ class Compact():
             act_type="prelu",
         )
 
+        self.cuda_available = torch.cuda.is_available()
+        
         self.model.load_state_dict(torch.load(
             model_path, map_location="cpu")["params"])
 
-        self.model.eval().cuda() if torch.cuda.is_available() else self.model.eval()
+        self.model.eval().cuda() if self.cuda_available else self.model.eval()
 
         self.device = torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu")
+            "cuda" if self.cuda_available else "cpu")
 
-        if torch.cuda.is_available():
+        if self.cuda_available:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
                 torch.set_default_dtype(torch.float16)
-                torch.set_default_device("cuda")
                 self.model.half()
 
         self.upscaled_height = self.height * 2
@@ -85,21 +86,24 @@ class Compact():
 
     @torch.inference_mode
     def run(self, frame):
-        frame = torch.from_numpy(frame).permute(
-            2, 0, 1).unsqueeze(0).float().mul_(1/255)
-        try:
-            if self.half:
-                frame = frame.cuda().half()
+        with torch.no_grad():
+            frame = torch.from_numpy(frame).permute(
+                2, 0, 1).unsqueeze(0).float().mul_(1/255)
+
+            if self.cuda_available:
+                if self.half:
+                    frame = frame.cuda().half()
+                else:
+                    frame = frame.cuda()
             else:
-                frame = frame.cuda()
-        except:
-            frame = frame.cpu()
-            
-        if self.pad_width != 0 or self.pad_height != 0:
-            frame = self.pad_frame(frame)
-            
-        frame = self.model(frame)
-        frame = frame[:, :, :self.upscaled_height, :self.upscaled_width]
-        frame = frame.squeeze(0).permute(
-            1, 2, 0).mul_(255).clamp_(0, 255).byte()
-        return frame.cpu().numpy()
+                frame = frame.cpu()
+
+            if self.pad_width != 0 or self.pad_height != 0:
+                frame = self.pad_frame(frame)
+
+            frame = self.model(frame)
+            frame = frame[:, :, :self.upscaled_height, :self.upscaled_width]
+            frame = frame.squeeze(0).permute(
+                1, 2, 0).mul_(255).clamp_(0, 255).byte()
+
+            return frame.cpu().numpy()
