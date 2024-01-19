@@ -17,7 +17,7 @@ if getattr(sys, 'frozen', False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "0.1.7"
+scriptVersion = "0.2.0"
 """
 TO:DO
     - Add bounding box support for Segmentation
