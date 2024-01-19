@@ -194,3 +194,5 @@ In no particular order:
 - [Massive] Added GMFSS Fortuna Union
 - [Massive] Release 0.1.6 (14/01/2024)
 - Added Rife 4.14 Lite
+- Fixed CUPY CUDA issues for GMFSS
+- [Massive] Release 0.1.7 (19/01/2024)
