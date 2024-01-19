@@ -1,7 +1,7 @@
 import torch
 
 from torch.optim import AdamW
-from .warplayer import warp
+from src.rife.warplayer import warp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from .IFNet_HDv3 import *
 

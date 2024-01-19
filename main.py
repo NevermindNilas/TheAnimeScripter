@@ -291,14 +291,14 @@ class videoProcessor:
                     else:
                         prev_frame = frame
 
-                self.processed_frames.put_nowait(frame)
+                self.processed_frames.put(frame)
 
         except Exception as e:
             logging.exception("An error occurred during processing")
 
         finally:
             self.processing_done = True
-            self.processed_frames.put_nowait(None)
+            self.processed_frames.put(None)
 
     def clear_write_buffer(self):
 
