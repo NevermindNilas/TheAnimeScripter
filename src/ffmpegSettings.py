@@ -68,6 +68,21 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
                             '-preset', 'p1',
                             '-cq', '14',
                             ])
+        
+        # I can't quite test these out since I do not have an AMD GPU but they are there just in case   
+        case "h264_amf":
+            command.extend(['-c:v', 'h264_amf',
+                            '-quality', 'speed',
+                            '-rc', 'cqp',
+                            '-qp', '14',
+                            ])
+
+        case "hevc_amf":
+            command.extend(['-c:v', 'hevc_amf',
+                            '-quality', 'speed',
+                            '-rc', 'cqp',
+                            '-qp', '14',
+                            ])
 
         case "av1":
             command.extend(['-c:v', 'libsvtav1',
