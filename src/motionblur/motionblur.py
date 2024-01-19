@@ -2,6 +2,8 @@ import subprocess
 import _thread
 import logging
 import numpy as np
+import torch
+import collections
 
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
@@ -136,33 +138,31 @@ class motionBlur():
 
     def blend_frames(self):
         self.processing_done = False
-        frame_buffer = []
+        frame_buffer = collections.deque(maxlen=self.interpolate_factor)
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
         try:
             while True:
                 frame = self.interpolated_frames.get()
                 if frame is None:
                     if self.interpolated_frames.qsize() < self.interpolate_factor and self.interpolation_done == True:
                         break
-                frame_buffer.append(frame)
+                frame_buffer.append(torch.from_numpy(frame).to(device))                
+
                 if len(frame_buffer) == self.interpolate_factor:
-                    motion_blur_frame = np.zeros_like(
-                        frame, dtype=np.float32)
+                    motion_blur_frame = torch.zeros_like(frame_buffer[0], dtype=torch.float32)
 
-                    weights = np.exp(-0.5 * (np.linspace(-1, 1,
-                                     self.interpolate_factor)**2))
-                    weights /= np.sum(weights)
-
-                    total_weight = 0
+                    weights = torch.exp(-0.5 * (torch.linspace(-1, 1, self.interpolate_factor)**2)).to(device)
+                    weights /= torch.sum(weights)
 
                     for i in range(self.interpolate_factor):
                         weight = weights[i]
                         motion_blur_frame += weight * frame_buffer[i]
-                        total_weight += weight
-                    motion_blur_frame /= total_weight
-                    motion_blur_frame = motion_blur_frame.astype(np.uint8)
 
-                    self.processed_frames.put_nowait(motion_blur_frame)
-                    frame_buffer = []
+                    motion_blur_frame /= torch.sum(weights)
+                    motion_blur_frame = motion_blur_frame.byte()
+
+                    self.processed_frames.put_nowait(motion_blur_frame.cpu().numpy())
+                    frame_buffer.clear()
 
         except Exception as e:
             logging.exception(f"An error occurred during blending {e}")
