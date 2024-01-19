@@ -444,7 +444,7 @@ def main():
         args.dedup_sens = get_dedup_strength(args.dedup_sens)
         logging.info(f"Setting dedup strenght to {args.dedup_sens}")
 
-    if args.encode_method not in ["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1"]:
+    if args.encode_method not in ["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1", "h264_amf", "hevc_amf"]:
         logging.exception(
             f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
         args.encode_method = "x264"
