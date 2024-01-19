@@ -30,54 +30,56 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
             command.extend(['-c:v', 'libx264',
                             '-preset', 'veryfast',
                             '-crf', '14',
-                            output])
+                            ])
 
         case "x264_animation":
             command.extend(['-c:v', 'libx264',
                             '-preset', 'veryfast',
                             '-tune', 'animation',
                             '-crf', '14',
-                            output])
+                            ])
 
         case "nvenc_h264":
             command.extend(['-c:v', 'h264_nvenc',
                             '-preset', 'p1',
                             '-cq', '14',
-                            output])
+                            ])
 
         case "nvenc_h265":
             command.extend(['-c:v', 'hevc_nvenc',
                             '-preset', 'p1',
                             '-cq', '14',
-                            output])
+                            ])
 
         case "qsv_h264":
             command.extend(['-c:v', 'h264_qsv',
                             '-preset', 'veryfast',
                             '-global_quality', '14',
-                            output])
+                            ])
 
         case "qsv_h265":
             command.extend(['-c:v', 'hevc_qsv',
                             '-preset', 'veryfast',
                             '-global_quality', '14',
-                            output])
+                            ])
 
         case "nvenc_av1":
             command.extend(['-c:v', 'av1_nvenc',
                             '-preset', 'p1',
                             '-cq', '14',
-                            output])
+                            ])
 
         case "av1":
             command.extend(['-c:v', 'libsvtav1',
                             "-preset", "8",
                             '-crf', '14',
-                            output])
+                            ])
 
     if sharpen:
-        command.insert(-1, '-vf')
-        command.insert(-1, f'cas={sharpen_sens}')
+        command.extend(['-vf', f'cas={sharpen_sens}'])
+
+    command.extend(['-pix_fmt', 'yuv420p',
+                    output])
 
     logging.info(f"Encoding options: {' '.join(command)}")
     return command
