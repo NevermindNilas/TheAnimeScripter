@@ -355,7 +355,6 @@ class videoProcessor:
             print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
             logging.info("The user doesn't have FFMPEG, downloading it now")
             get_ffmpeg(ffmpeg_path=self.ffmpeg_path)
-
             print("\n")
 
 
@@ -400,7 +399,7 @@ def main():
         return
     else:
         args.version = scriptVersion
-    
+
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
     args.interpolate = True if args.interpolate == 1 else False
     args.scenechange = True if args.scenechange == 1 else False
@@ -482,7 +481,8 @@ def main():
 
         import random
         randomNumber = random.randint(0, 100000)
-        args.output = os.path.splitext(args.input)[0] + "_TAS" + str(randomNumber) + ".mp4"
+        args.output = os.path.splitext(
+            args.input)[0] + "_TAS" + str(randomNumber) + ".mp4"
 
     if args.input is not None:
         videoProcessor(args)
