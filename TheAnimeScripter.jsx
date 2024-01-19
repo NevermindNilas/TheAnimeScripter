@@ -771,7 +771,7 @@ var TheAnimeScripter = (function() {
 
             while (true) {
                 if (sceneChangeValue == 1) {
-                    var sceneChangeLogPath = TheAnimeScripterPath + "\\_internal" + "\\scenechangeresults.txt";
+                    var sceneChangeLogPath = TheAnimeScripterPath + "\\scenechangeresults.txt";
                     var sceneChangeLog = new File(sceneChangeLogPath);
                     sceneChangeLog.open("r");
 
