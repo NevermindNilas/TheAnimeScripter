@@ -23,8 +23,8 @@ class Rife:
         match self.interpolate_method:
             case "rife" | "rife4.14":
                     
-                self.interpolate_method = "rife414"
                 from .rife414.RIFE_HDv3 import Model
+                self.interpolate_method = "rife414"
                 self.filename = "rife414.pkl"
             
             case "rife4.14-lite":

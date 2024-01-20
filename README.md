@@ -32,7 +32,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 
 - **Notation needed, the code in the repository can include unexpected bugs, if you want stable builds then download from the releases page, but if you want the cutting edge builds, then follow along.**
 
-- Download and install Python 3.11 from: https://www.python.org/downloads/release/python-3110/ whilst making sure to add it to System Path
+- Download and install Python 3.12 from: https://www.python.org/downloads/release/python-3121/ whilst making sure to add it to System Path
 
 - Open a terminal inside the folder
 
