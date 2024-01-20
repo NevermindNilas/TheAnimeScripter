@@ -21,20 +21,21 @@ class Rife:
     def handle_model(self):
         
         match self.interpolate_method:
-            case "rife" | "rife414":
+            case "rife" | "rife4.14":
                     
                 self.interpolate_method = "rife414"
                 from .rife414.RIFE_HDv3 import Model
                 self.filename = "rife414.pkl"
             
-            case "rife414lite":
+            case "rife4.14-lite":
                 
                 from .rife414lite.RIFE_HDv3 import Model
+                self.interpolate_method = "rife414lite"
                 self.filename = "rife414lite.pkl"
                     
-            case "rife413lite":
-
+            case "rife4.13-lite":
                 from .rife413lite.RIFE_HDv3 import Model
+                self.interpolate_method = "rife413lite"
                 self.filename = "rife413lite.pkl"
 
         self.modelDir = os.path.join(
