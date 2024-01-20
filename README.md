@@ -54,7 +54,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - `--output` : (str) Output string of the video, can be absolute path or just a name.
 - `--interpolate` : (int, default=0) Set to 1 if you want to enable interpolation, 0 to disable.
 - `--interpolate_factor` : (int, default=2) Factor by which to interpolate.
-- `--interpolate_method` : (str, default="rife") Method to use for interpolation. Options: "Rife", "GMFSS", "Rife413Lite", "Rife414Lite.
+- `--interpolate_method` : (str, default="rife") Method to use for interpolation. Options: "rife", "rife4.14", "rife4.14-lite", "rife4.13-lite", "rife-ncnn", "rife4.14-ncnn", "rife4.14-lite-ncnn", "rife4.13-lite-ncnn"
 - `--upscale` : (int, default=0) Set to 1 if you want to enable upscaling, 0 to disable.
 - `--upscale_factor` : (int, default=2) Factor by which to upscale.
 - `--upscale_method` : (str, default="ShuffleCugan") Method to use for upscaling.
@@ -94,32 +94,29 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 
 ## 📈 Benchmarks
 
-The following benchmarks were conducted on a system with a 13700k and 3090 GPU for 1920x1080p inputs and take x264 encoding into account:
+The following benchmarks were conducted on a system with a 13700k and 3090 GPU for 1920x1080p inputs and take x264 encoding into account, FP16 on where possible.
 
-With FP16 on for every test except NCNN.
-- **Interpolation 2x**:
-    - Rife ( v4.13 ): ~100 FPS ( Fastmode True, Ensemble False, No longer available )
-    - Rife ( v4.13_lite ) ~120 FPS ( Fastmode True, Ensemble False )
-    - Rife ( v4.14 ): ~100 FPS ( Fastmode True, Ensemble False )
-    - Rife ( v4.14_lite ): ~100FPS ( Fastmode True, Ensemble False ) ( Unexpected numbers, needs more testing )
-    - GMFSS Fortuna Union: ~7 FPS ( Ensemble False for Rife )
-    - Rife NCNN: N/A
-
-- **Upscaling 2x**: 
-    - Shufflecugan: ~21 FPS
-    - Compact: ~15 FPS
-    - UltraCompact: ~25 FPS
-    - SuperUltraCompact: N/A (needs fixing)
-    - SwinIR: ~1.5 FPS
-    - Cugan: N/A
-    - Cugan-NCNN: ~7 FPS
-
-- **Depth Map Generation**:
-    - DPT-Hybrid: ~17 FPS ( with BF16 / AMP Autocast )
-    - DPT-Large: N/A
-
-- **Segmentation**:
-    - Isnet-Anime: ~10 FPS
+| Test Category | Method | FPS | Notes |
+| --- | --- | --- | --- |
+| **Interpolation 2x** | Rife (v4.13) | ~100 | Fastmode True, Ensemble False, No longer available |
+| | Rife (v4.13_lite) | ~120 | Fastmode True, Ensemble False |
+| | Rife (v4.14) | ~100 | Fastmode True, Ensemble False |
+| | Rife (v4.14_lite) | ~100 | Fastmode True, Ensemble False |
+| | Rife (v4.13_lite_ncnn) | ~60 | Fastmode True, Ensemble False |
+| | Rife (v4.14-lite-ncnn) | ~50 | Fastmode True, Ensemble False |
+| | Rife (v4.14-ncnn) | ~50 | Fastmode True, Ensemble False |
+| | GMFSS Fortuna Union | ~7 | Ensemble False for Rife |
+| | Rife NCNN | N/A | |
+| **Upscaling 2x** | Shufflecugan | ~21 | |
+| | Compact | ~15 | |
+| | UltraCompact | ~25 | |
+| | SuperUltraCompact | N/A | Needs fixing |
+| | SwinIR | ~1.5 | |
+| | Cugan | N/A | |
+| | Cugan-NCNN | ~7 | |
+| **Depth Map Generation** | DPT-Hybrid | ~17 | With BF16 / AMP Autocast |
+| | DPT-Large | N/A | |
+| **Segmentation** | Isnet-Anime | ~10 | |
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
 
@@ -196,3 +193,4 @@ In no particular order:
 - Added Rife 4.14 Lite
 - Fixed CUPY CUDA issues for GMFSS
 - [Massive] Release 0.1.7 (19/01/2024)
+- [Massive] Added Rife NCNN
