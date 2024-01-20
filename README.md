@@ -109,7 +109,6 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | | Rife (v4.14-lite-ncnn) | ~50 | Fastmode True, Ensemble False |
 | | Rife (v4.14-ncnn) | ~50 | Fastmode True, Ensemble False |
 | | GMFSS Fortuna Union | ~7 | Ensemble False for Rife |
-| | Rife NCNN | N/A | |
 | **Upscaling 2x** | Shufflecugan | ~21 | |
 | | Compact | ~15 | |
 | | UltraCompact | ~25 | |
