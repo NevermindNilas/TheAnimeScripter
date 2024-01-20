@@ -91,6 +91,9 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - [98mxr](https://github.com/98mxr/GMFSS_Fortuna) - For GMFSS Fortuna Union.
 - [HolyWU](https://github.com/HolyWu/vs-gmfss_fortuna/tree/master) - For VS GMFSS code.
 - [FFmpeg Group](https://github.com/FFmpeg/FFmpeg) - For FFmpeg
+- [Nihui](https://github.com/nihui/rife-ncnn-vulkan) - For Rife NCNN
+- [Media2x](https://github.com/media2x/rife-ncnn-vulkan-python) - For Rife NCNN Wrapper
+- [TNTWise](https://github.com/TNTwise/rife-ncnn-vulkan) - For newest models of Rife NCNN
 
 ## 📈 Benchmarks
 
