@@ -1,5 +1,6 @@
 import logging
 
+
 def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: float, output: str, ffmpeg_path: str, sharpen: bool, sharpen_sens: float):
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
@@ -11,7 +12,7 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
     sharpen: bool - Whether to apply a sharpening filter to the video.
     sharpen_sens: float - The sensitivity of the sharpening filter.
     """
-    
+
     command = [ffmpeg_path,
                '-y',
                '-f', 'rawvideo',
@@ -68,8 +69,14 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
                             '-preset', 'p1',
                             '-cq', '14',
                             ])
-        
-        # I can't quite test these out since I do not have an AMD GPU but they are there just in case   
+
+        case "av1":
+            command.extend(['-c:v', 'libsvtav1',
+                            "-preset", "8",
+                            '-crf', '14',
+                            ])
+            
+        # I can't quite test these out since I do not have an AMD GPU but they are there just in case
         case "h264_amf":
             command.extend(['-c:v', 'h264_amf',
                             '-quality', 'speed',
@@ -82,12 +89,6 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
                             '-quality', 'speed',
                             '-rc', 'cqp',
                             '-qp', '14',
-                            ])
-
-        case "av1":
-            command.extend(['-c:v', 'libsvtav1',
-                            "-preset", "8",
-                            '-crf', '14',
                             ])
 
     if sharpen:
@@ -132,11 +133,13 @@ def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, ded
     logging.info(f"Decoding options: {' '.join(map(str, command))}")
     return command
 
+
 def get_dedup_strength(dedup_sens):
     hi = interpolate(dedup_sens, 0, 100, 64*2, 64*150)
     lo = interpolate(dedup_sens, 0, 100, 64*2, 64*30)
     frac = interpolate(dedup_sens, 0, 100, 0.1, 0.3)
     return f"mpdecimate=hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB"
+
 
 def interpolate(x, x1, x2, y1, y2):
     return y1 + (x - x1) * (y2 - y1) / (x2 - x1)
