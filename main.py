@@ -185,27 +185,24 @@ class videoProcessor:
                         f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
 
         if self.interpolate:
+            UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
             match self.interpolate_method:
-                case "rife414" | "rife414lite" | "rife413lite" | "rife":
+                case "rife4.14" | "rife4.14-lite" | "rife4.13-lite" | "rife":
                     from src.rife.rife import Rife
 
-                    UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
                     self.interpolate_process = Rife(
                         int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.interpolate_method)
 
                 case "gmfss":
                     from src.gmfss.gmfss_fortuna_union import GMFSS
 
-                    UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
                     self.interpolate_process = GMFSS(
                         int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
 
-                case "rife_ncnn":
-                    # Need to implement Rife NCNN
-                    # Current options are with frame extraction which is not ideal, I will look into rife ncnn wrapper but it only supports python 3.10
-                    # And building with cmake throws a tantrum, so I will look into it later
-                    logging.info(
-                        f"Rife NCNN is not implemented yet, please use Rife or GMFSS for now")
+                case "rife-ncnn" | "rife4.13-lite-ncnn" | "rife4.14-lite-ncnn" | "rife4.14-ncnn":
+                    from src.rifencnn.rifencnn import rifeNCNN
+                    
+                    self.interpolate_process = rifeNCNN(UHD, self.interpolate_method)
 
                 case _:
                     logging.info(
@@ -449,7 +446,7 @@ def main():
             f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
         args.encode_method = "x264"
 
-    if args.interpolate_method not in ["rife", "rife414", "rife414lite", "rife413lite", "gmfss", "rife_ncnn"]:
+    if args.interpolate_method not in ["rife", "rife4.14", "rife4.14-lite", "rife4.13-lite", "gmfss", "rife-ncnn", "rife4.13-lite-ncnn", "rife4.14-lite-ncnn", "rife.4.14-ncnn"]:
         """
         I will keep a default rife value that will always utilize the latest available model
         Unless the user doesn't explicitly specify the interpolation method
@@ -457,13 +454,18 @@ def main():
         I am not planning to add one too many arches, and probably will only add the latest ones
         It will always be Ensemble False and FastMode true just because the usecase is more than likely going to be for massive interpolations
         like 8x/16x and performance is key.
+        
+        The same applies to Rife NCNN, I will only add the latest models, and the default will be the latest one
         """
         try:
             # This is for JSX compatibility
             interpolate_list = {
-                "rife_4.14": "rife414",
-                "rife_4.14_lite": "rife414lite",
-                "rife_4.13_lite": "rife413lite",
+                "rife_4.14": "rife4.14",
+                "rife_4.14_lite": "rife4.14lite",
+                "rife_4.13_lite": "rife4.13lite",
+                "rife_4.13_lite_ncnn": "rife4.13-lite-ncnn",
+                "rife_4.14_lite_ncnn": "rife4.14-lite-ncnn",
+                "rife_4.14_ncnn": "rife.4.14-ncnn",
             }
             args.interpolate_method = interpolate_list[args.interpolate_method]
 
