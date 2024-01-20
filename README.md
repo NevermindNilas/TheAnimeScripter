@@ -103,9 +103,9 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | --- | --- | --- | --- |
 | **Interpolation 2x** | Rife (v4.13) | ~100 | Fastmode True, Ensemble False, No longer available |
 | | Rife (v4.13-lite) | ~120 | Fastmode True, Ensemble False |
-| | Rife (v4.14) | ~100 | Fastmode True, Ensemble False |
 | | Rife (v4.14-lite) | ~100 | Fastmode True, Ensemble False |
-| | Rife (v4.13_lite_ncnn) | ~60 | Fastmode True, Ensemble False |
+| | Rife (v4.14) | ~100 | Fastmode True, Ensemble False |
+| | Rife (v4.13-lite-ncnn) | ~60 | Fastmode True, Ensemble False |
 | | Rife (v4.14-lite-ncnn) | ~50 | Fastmode True, Ensemble False |
 | | Rife (v4.14-ncnn) | ~50 | Fastmode True, Ensemble False |
 | | GMFSS Fortuna Union | ~7 | Ensemble False for Rife |
