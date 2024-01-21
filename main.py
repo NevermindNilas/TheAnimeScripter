@@ -131,15 +131,19 @@ class videoProcessor:
         self.start()
 
     def start(self):
-
-        self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
-                         unit="frames", dynamic_ncols=True, colour="green")
+        
+        if self.dedup == False and self.interpolate == True:
+            self.pbar = tqdm(total=self.nframes * self.interpolate_factor, desc="Processing Frames",
+                             unit="frames", colour="green")
+        else:
+            self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
+                             unit="frames", colour="green")
 
         self.read_buffer = Queue(maxsize=500)
-        self.processed_frames = SimpleQueue()
+        self.processed_frames = Queue(maxsize=500)
 
         _thread.start_new_thread(self.build_buffer, ())
-        _thread.start_new_thread(self.clear_write_buffer, ())
+        _thread.start_new_thread(self.write_buffer, ())
 
         with ThreadPoolExecutor(max_workers=1) as executor:
             executor.submit(self.process)
@@ -201,15 +205,15 @@ class videoProcessor:
 
                 case "rife-ncnn" | "rife4.13-lite-ncnn" | "rife4.14-lite-ncnn" | "rife4.14-ncnn":
                     from src.rifencnn.rifencnn import rifeNCNN
-                    
-                    self.interpolate_process = rifeNCNN(UHD, self.interpolate_method)
+
+                    self.interpolate_process = rifeNCNN(
+                        UHD, self.interpolate_method)
 
                 case _:
                     logging.info(
                         f"There was an error in choosing the interpolation method, {self.interpolate_method} is not a valid option")
 
     def build_buffer(self):
-
         from src.ffmpegSettings import decodeSettings
 
         command: list = decodeSettings(
@@ -237,38 +241,38 @@ class videoProcessor:
         except Exception as e:
             logging.exception(
                 f"An error occurred during reading, {e}")
+            raise e
 
         finally:
-            stderr = process.stderr.read().decode()
-            if stderr:
-                if "bitrate=" not in stderr:
-                    logging.error(f"ffmpeg error: {stderr}")
+            logging.info(
+                f"Built buffer with {frame_count} frames")
 
-            logging.info(f"Built buffer with {frame_count} frames")
-
-            if self.interpolate == True:
-                frame_count = frame_count * self.interpolate_factor
-
-            self.pbar.total = frame_count
-            self.pbar.refresh()
-
-            # For terminating the pipe and subprocess properly
+            if self.dedup:
+                if self.interpolate:
+                    frame_count = frame_count * self.interpolate_factor
+                # This can and will add aditional delay to the pbar where it seems to be out of sync
+                # with the actual writing thread
+                self.pbar.total = frame_count
+                self.pbar.refresh()
+            
             process.stdout.close()
-            process.stderr.close()
             process.terminate()
-
+            
             self.reading_done = True
             self.read_buffer.put(None)
 
     def process(self):
         prev_frame = None
         self.processing_done = False
+        frame_count = 0
         try:
             while True:
                 frame = self.read_buffer.get()
                 if frame is None:
                     if self.reading_done == True and self.read_buffer.empty():
                         break
+                    else:
+                        continue
 
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
@@ -283,46 +287,71 @@ class videoProcessor:
                                 (i + 1) * 1. / (self.interpolate_factor + 1))
 
                             self.processed_frames.put(result)
+                            frame_count += 1
 
                         prev_frame = frame
                     else:
                         prev_frame = frame
 
                 self.processed_frames.put(frame)
+                frame_count += 1
 
         except Exception as e:
-            logging.exception("An error occurred during processing")
+            logging.exception(
+                f"An error occurred during reading, {e}")
+            raise e
 
         finally:
+            if prev_frame is not None:
+                self.processed_frames.put(prev_frame)
+                frame_count += 1
+
+            logging.info(
+                f"Processed {frame_count} frames")
+            
+            self.pbar.total = frame_count
+            self.pbar.refresh()
+            
             self.processing_done = True
             self.processed_frames.put(None)
 
-    def clear_write_buffer(self):
+    def write_buffer(self):
 
         from src.ffmpegSettings import encodeSettings
         command: list = encodeSettings(self.encode_method, self.new_width, self.new_height,
                                        self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
 
-        pipe = subprocess.Popen(
+        process = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
+        frame_count = 0
         try:
             while True:
                 frame = self.processed_frames.get()
                 if frame is None:
                     if self.processing_done == True and self.processed_frames.empty():
                         break
+                    else:
+                        continue
 
+                frame_count += 1
+                print(frame_count)
                 frame = np.ascontiguousarray(frame)
-                pipe.stdin.write(frame.tobytes())
-                self.pbar.update(1)
+                process.stdin.write(frame.tobytes())
+                self.pbar.update()
 
         except Exception as e:
-            logging.exception("An error occurred during writing")
+            logging.exception(
+                f"An error occurred during reading, {e}")
+            raise e
 
         finally:
-            pipe.stdin.close()
-            pipe.wait()
+            logging.info(
+                f"Wrote {frame_count} frames")
+            
+            process.stdin.close()
+            process.terminate()
+            
             self.pbar.close()
 
     def get_video_metadata(self):
@@ -454,7 +483,7 @@ def main():
         I am not planning to add one too many arches, and probably will only add the latest ones
         It will always be Ensemble False and FastMode true just because the usecase is more than likely going to be for massive interpolations
         like 8x/16x and performance is key.
-        
+
         The same applies to Rife NCNN, I will only add the latest models, and the default will be the latest one
         """
         try:
