@@ -335,7 +335,6 @@ class videoProcessor:
                         continue
 
                 frame_count += 1
-                print(frame_count)
                 frame = np.ascontiguousarray(frame)
                 process.stdin.write(frame.tobytes())
                 self.pbar.update()
