@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "0.1.7";
+    var scriptVersion = "0.2.0";
 
     /*
     scriptAuthor = "Nilas";
@@ -459,7 +459,7 @@ var TheAnimeScripter = (function() {
     textUpscaleModel.text = "Upscale Model";
     textUpscaleModel.preferredSize.width = 103;
 
-    var dropdownModel_array = ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-AMD", "-", "SwinIR"];
+    var dropdownModel_array = ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "SwinIR"];
     var dropdownModel = group5.add("dropdownlist", undefined, undefined, {
         name: "dropdownModel",
         items: dropdownModel_array
@@ -487,7 +487,7 @@ var TheAnimeScripter = (function() {
     textInterpolateModel.preferredSize.width = 103;
     textInterpolateModel.helpTip = "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO";
 
-    var dropdownInterpolate = ["Rife_4.14", "-", "Rife_4.14_lite", "-" , "Rife_4.13_lite", "-", "GMFSS"];
+    var dropdownInterpolate = ["Rife4.14", "-", "Rife4.14-Lite", "-" , "Rife4.13-Lite", "-", "Rife4.14-NCNN", "-", "Rife4.14-Lite-NCNN", "-", "Rife4.13-Lite-NCNN", "-",  "GMFSS"];
     var dropdownInterpolate = group6.add("dropdownlist", undefined, undefined, {
         name: "dropdownInterpolate",
         items: dropdownInterpolate
@@ -540,7 +540,7 @@ var TheAnimeScripter = (function() {
     textEncoderSelection.preferredSize.width = 103;
     textEncoderSelection.helpTip = "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs and QSV for Intel iGPUs";
 
-    var dropdownEncoder_array = ["X264", "-", "X264_Animation", "-" , "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "QSV_H264", "-", "QSV_H265", "-", "NVENC_AV1"];
+    var dropdownEncoder_array = ["X264", "-", "X264_Animation", "-" , "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "QSV_H264", "-", "QSV_H265", "-", "NVENC_AV1", "-", "H264_AMF", "-", "HEVC_AMF"];
     var dropdownEncoder = group8.add("dropdownlist", undefined, undefined, {
         name: "dropdownEncoder",
         items: dropdownEncoder_array
