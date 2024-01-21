@@ -168,7 +168,7 @@ class videoProcessor:
                     self.upscale_process = Cugan(
                         self.upscale_method, int(self.upscale_factor), self.cugan_kind, self.half, self.width, self.height)
 
-                case "cugan-amd":
+                case "cugan-ncnn":
                     from src.cugan.cugan import CuganAMD
                     self.upscale_process = CuganAMD(
                         self.nt, self.upscale_factor
@@ -308,9 +308,6 @@ class videoProcessor:
 
             logging.info(
                 f"Processed {frame_count} frames")
-            
-            self.pbar.total = frame_count
-            self.pbar.refresh()
             
             self.processing_done = True
             self.processed_frames.put(None)
@@ -485,25 +482,9 @@ def main():
 
         The same applies to Rife NCNN, I will only add the latest models, and the default will be the latest one
         """
-        try:
-            # This is for JSX compatibility
-            interpolate_list = {
-                "rife_4.14": "rife4.14",
-                "rife_4.14_lite": "rife4.14lite",
-                "rife_4.13_lite": "rife4.13lite",
-                "rife_4.13_lite_ncnn": "rife4.13-lite-ncnn",
-                "rife_4.14_lite_ncnn": "rife4.14-lite-ncnn",
-                "rife_4.14_ncnn": "rife.4.14-ncnn",
-            }
-            args.interpolate_method = interpolate_list[args.interpolate_method]
-
-            logging.info(
-                f"Switched interpolation method to {args.interpolate_method}")
-
-        except Exception as e:
-            logging.exception(
-                f"There was an error in choosing the interpolation method, {args.interpolate_method} is not a valid option, setting the interpolation method to rife")
-            args.interpolate_method = "rife"
+        logging.exception(
+            f"There was an error in choosing the interpolation method, {args.interpolate_method} is not a valid option, setting the interpolation method to rife")
+        args.interpolate_method = "rife"
 
     if args.output is None:
         logging.info(
