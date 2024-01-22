@@ -540,7 +540,7 @@ var TheAnimeScripter = (function() {
     textEncoderSelection.preferredSize.width = 103;
     textEncoderSelection.helpTip = "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs and QSV for Intel iGPUs";
 
-    var dropdownEncoder_array = ["X264", "-", "X264_Animation", "-" , "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "QSV_H264", "-", "QSV_H265", "-", "NVENC_AV1", "-", "H264_AMF", "-", "HEVC_AMF"];
+    var dropdownEncoder_array = ["X264", "-", "X264_Animation", "-" , "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"];
     var dropdownEncoder = group8.add("dropdownlist", undefined, undefined, {
         name: "dropdownEncoder",
         items: dropdownEncoder_array
