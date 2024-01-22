@@ -57,6 +57,10 @@ class videoProcessor:
         self.motion_blur = args.motion_blur
 
         # This is necessary on the top since the script heavily relies on FFMPEG
+        logging.info(
+            "\n============== Processing Outputs ==============")
+
+        self.checkSystem()
         self.check_ffmpeg()
         self.get_video_metadata()
 
@@ -131,7 +135,7 @@ class videoProcessor:
         self.start()
 
     def start(self):
-        
+
         if self.dedup == False and self.interpolate == True:
             self.pbar = tqdm(total=self.nframes * self.interpolate_factor, desc="Processing Frames",
                              unit="frames", colour="green")
@@ -254,10 +258,10 @@ class videoProcessor:
                 # with the actual writing thread
                 self.pbar.total = frame_count
                 self.pbar.refresh()
-            
+
             process.stdout.close()
             process.terminate()
-            
+
             self.reading_done = True
             self.read_buffer.put(None)
 
@@ -308,7 +312,7 @@ class videoProcessor:
 
             logging.info(
                 f"Processed {frame_count} frames")
-            
+
             self.processing_done = True
             self.processed_frames.put(None)
 
@@ -344,10 +348,10 @@ class videoProcessor:
         finally:
             logging.info(
                 f"Wrote {frame_count} frames")
-            
+
             process.stdin.close()
             process.terminate()
-            
+
             self.pbar.close()
 
     def get_video_metadata(self):
@@ -378,6 +382,13 @@ class videoProcessor:
             logging.info("The user doesn't have FFMPEG, downloading it now")
             get_ffmpeg(ffmpeg_path=self.ffmpeg_path)
             print("\n")
+
+    def checkSystem(self):
+        # For easier debugging purposes, I will log the system info in the log file
+        import GPUtil
+        gpus = GPUtil.getGPUs()
+        gpu_name = gpus[0].name if gpus else "No GPU detected"
+        logging.info(f"GPU: {gpu_name}")
 
 
 def main():
@@ -441,16 +452,13 @@ def main():
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
     args.scenechange_sens /= 100  # same for scene change
 
-    logging.info("============== Arguments ==============")
-    logging.info("")
+    logging.info("============== Arguments ==============\n")
 
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
 
-    logging.info("")
-    logging.info("============== Processing Outputs ==============")
-    logging.info("")
+    logging.info("\n============== Arguments Checker ==============")
 
     if args.output and not os.path.isabs(args.output):
         dir_path = os.path.dirname(args.input)
