@@ -36,4 +36,3 @@ class rifeNCNN():
     def run(self, prev_frame, frame):
         self.frame1 = Image.fromarray(prev_frame)
         self.frame2 = Image.fromarray(frame)
-        pass
