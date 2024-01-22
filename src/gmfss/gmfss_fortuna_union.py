@@ -2,6 +2,7 @@ import os
 import wget
 import torch
 import numpy as np
+import logging
 
 from torch.nn import functional as F
 
@@ -65,6 +66,13 @@ class GMFSS():
         model_type = "union"
         
         self.cuda_available = torch.cuda.is_available()
+        
+        if not self.cuda_available:
+            logging.info(
+                "CUDA is not available, using CPU. Expect significant slowdows or no functionality at all. If you have a NVIDIA GPU, please install CUDA and make sure that CUDA_Path is in the environment variables.")
+            logging.info(
+                "CUDA Installation link: https://developer.nvidia.com/cuda-downloads")
+            
         self.device = torch.device("cuda" if self.cuda_available else "cpu")
 
         torch.set_grad_enabled(False)
