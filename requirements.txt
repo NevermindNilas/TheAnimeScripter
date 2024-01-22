@@ -7,6 +7,7 @@ numpy
 cupy-cuda12x
 kornia
 scipy
+gputil
 realcugan-ncnn-py
 pytorch-lightning
 torch
