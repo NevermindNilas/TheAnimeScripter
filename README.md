@@ -73,6 +73,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - `--scenechange` : (int, default=0) Set to 1 if you want to enable scene change detection, 0 to disable.
 - `--scenechange_sens` : (float, default=40) Sensitivity of scene change detection.
 - `--depth` : (int, default=0) Generate Depth Maps, 1 to enable, 0 to disable
+- `--depth_method` : (str, default="small") Choose which model to utilize, can be small, base, large
 - `--encode_method` : (str, default="x264") Method to use for encoding. Options: x264, x264_animation, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf
 - `--motion_blur` : (int, default=0) Add motion blur using gaussian weighting between multiple frames, relies on interpolate factor and method
 - `--ytdlp` : (str, default="") Download a youtube video, needs full url.
