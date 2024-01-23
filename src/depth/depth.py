@@ -20,7 +20,7 @@ os.environ['TORCH_HOME'] = os.path.dirname(os.path.realpath(__file__))
 
 
 class Depth():
-    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, half, inpoint=0, outpoint=0, encode_method="x264"):
+    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, half, inpoint=0, outpoint=0, encode_method="x264", depth_method="small"):
 
         self.input = input
         self.output = output
@@ -33,7 +33,8 @@ class Depth():
         self.inpoint = inpoint
         self.outpoint = outpoint
         self.encode_method = encode_method
-
+        self.depth_method = depth_method
+        
         self.handle_model()
 
         self.pbar = tqdm(
@@ -50,21 +51,24 @@ class Depth():
 
     def handle_model(self):
         
-        # I will add an option to choose later, but the small model is 90% (subjectively) as good as the large model and 3x the performance.
-        model = "vits"
+        match self.depth_method:
+            case "small":
+                model = "vits"
+                self.model = DPT_DINOv2(encoder='vits', features=64, out_channels=[
+                                        48, 96, 192, 384], localhub=False)
+                url = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vits14.pth?download=true"
+            case "base":
+                model = "vitb"
+                self.model = DPT_DINOv2(encoder='vitb', features=128, out_channels=[
+                                        96, 192, 384, 768], localhub=False)
+                url = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vitb14.pth?download=true"
+            
+            case "large":
+                model = "vitl"
+                url = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vitl14.pth?download=true"
+                self.model = DPT_DINOv2(encoder='vitl', features=256, out_channels=[
+                                        256, 512, 1024, 1024], localhub=False)
 
-        if model == 'vits':
-            self.model = DPT_DINOv2(encoder='vits', features=64, out_channels=[
-                                    48, 96, 192, 384], localhub=False)
-            url = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vits14.pth?download=true"
-        elif model == 'vitb':
-            self.model = DPT_DINOv2(encoder='vitb', features=128, out_channels=[
-                                    96, 192, 384, 768], localhub=False)
-            url = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vitb14.pth?download=true"
-        elif model == 'vitl':
-            url = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vitl14.pth?download=true"
-            self.model = DPT_DINOv2(encoder='vitl', features=256, out_channels=[
-                                    256, 512, 1024, 1024], localhub=False)
 
         weightsDir = os.path.join(os.path.dirname(
             os.path.realpath(__file__)), "weights")
