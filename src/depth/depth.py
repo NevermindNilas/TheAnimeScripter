@@ -177,8 +177,6 @@ class Depth():
                 depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
                 
                 depth = depth.cpu().numpy().astype(np.uint8)
-                cv2.imshow("Depth", depth)
-                cv2.waitKey(2)
                 depth = cv2.cvtColor(depth, cv2.COLOR_GRAY2RGB)
                 
                 self.processed_frames.put(depth)
