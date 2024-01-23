@@ -94,7 +94,7 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
     if sharpen:
         command.extend(['-vf', f'cas={sharpen_sens}'])
 
-    command.extend(['-pix_fmt', 'yuv422p',
+    command.extend(['-pix_fmt', 'yuv420p',
                     output])
 
     logging.info(f"Encoding options: {' '.join(command)}")
