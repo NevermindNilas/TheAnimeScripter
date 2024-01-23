@@ -1,3 +1,24 @@
+"""
+    The Anime Scripter is a tool that allows you to automate the process of
+    Video Upscaling, Interpolating and many more all inside of the Adobe Suite
+    Copyright (C) 2023-present Nilas Tiago
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see {http://www.gnu.org/licenses/}.
+
+    Home: https://github.com/NevermindNilas/TheAnimeScripter
+"""
+
 import os
 import argparse
 import _thread
@@ -18,14 +39,6 @@ else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
 scriptVersion = "0.2.0"
-"""
-TO:DO
-    - Add bounding box support for Segmentation
-    - Look into Rife NCNN / Wrapper
-    - Status bar isn't updating properly, needs fixing
-    - Make the jsx file default to the last selected settings, even after reboot
-    - Get system info and display it in the log file for easier debugging
-"""
 warnings.filterwarnings("ignore")
 
 
@@ -56,10 +69,10 @@ class videoProcessor:
         self.encode_method = args.encode_method
         self.motion_blur = args.motion_blur
 
-        # This is necessary on the top since the script heavily relies on FFMPEG
         logging.info(
             "\n============== Processing Outputs ==============")
 
+        # This is necessary on the top since the script heavily relies on FFMPEG
         self.checkSystem()
         self.check_ffmpeg()
         self.get_video_metadata()
@@ -425,6 +438,7 @@ def main():
     argparser.add_argument("--depth", type=int, default=0)
     argparser.add_argument("--encode_method", type=str, default="x264")
     argparser.add_argument("--motion_blur", type=int, default=0)
+    argparser.add_argument("--ytdlp", type=str, default="")
     args = argparser.parse_args()
 
     if args.version:
@@ -494,15 +508,28 @@ def main():
             f"There was an error in choosing the interpolation method, {args.interpolate_method} is not a valid option, setting the interpolation method to rife")
         args.interpolate_method = "rife"
 
+    import random
+    randomNumber = random.randint(0, 100000)
+    
+    if args.ytdlp != "":
+        if args.output is None:
+            args.output = os.path.join(main_path, "temp", "TAS" + str(randomNumber))
+
+        logging.info(
+            f"Downloading {args.ytdlp} video")
+        
+        from src.ytdlp import ytdlp
+        ytdlp(args.ytdlp, args.output)
+        return
+    
     if args.output is None:
         logging.info(
             "No output was specified, generating output name")
 
-        import random
-        randomNumber = random.randint(0, 100000)
         args.output = os.path.splitext(
             args.input)[0] + "_TAS" + str(randomNumber) + ".mp4"
 
+    
     if args.input is not None:
         videoProcessor(args)
     else:

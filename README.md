@@ -50,6 +50,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 
 ## 📚 Available Inputs
 
+- `--version` : (bool, action=store_true) Outputs the script version
 - `--input` : (str) Absolute path of the input video.
 - `--output` : (str) Output string of the video, can be absolute path or just a name.
 - `--interpolate` : (int, default=0) Set to 1 if you want to enable interpolation, 0 to disable.
@@ -74,7 +75,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - `--depth` : (int, default=0) Generate Depth Maps, 1 to enable, 0 to disable
 - `--encode_method` : (str, default="x264") Method to use for encoding. Options: x264, x264_animation, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf
 - `--motion_blur` : (int, default=0) Add motion blur using gaussian weighting between multiple frames, relies on interpolate factor and method
-- `--version` : (bool, action=store_true) Outputs the script version
+- `--ytdlp` : (str, default="") Download a youtube video, needs full url.
 
 ## 🙏 Acknowledgements
 
