@@ -508,28 +508,18 @@ def main():
             f"There was an error in choosing the interpolation method, {args.interpolate_method} is not a valid option, setting the interpolation method to rife")
         args.interpolate_method = "rife"
 
-    import random
-    randomNumber = random.randint(0, 100000)
-    
-    if args.ytdlp != "":
-        if args.output is None:
-            args.output = os.path.join(main_path, "temp", "TAS" + str(randomNumber))
+    if args.output is None:
+        import random
+        randomNumber = random.randint(0, 100000)
+        args.output = os.path.join(main_path, "temp", "TAS" + str(randomNumber))
+        logging.info("No output was specified, generating output name")
 
-        logging.info(
-            f"Downloading {args.ytdlp} video")
-        
+    if args.ytdlp != "":
+        logging.info(f"Downloading {args.ytdlp} video")
         from src.ytdlp import ytdlp
         ytdlp(args.ytdlp, args.output)
         return
-    
-    if args.output is None:
-        logging.info(
-            "No output was specified, generating output name")
 
-        args.output = os.path.splitext(
-            args.input)[0] + "_TAS" + str(randomNumber) + ".mp4"
-
-    
     if args.input is not None:
         videoProcessor(args)
     else:
