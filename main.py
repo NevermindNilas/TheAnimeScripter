@@ -511,7 +511,11 @@ def main():
     if args.output is None:
         import random
         randomNumber = random.randint(0, 100000)
-        args.output = os.path.join(main_path, "temp", "TAS" + str(randomNumber))
+        
+        if not os.path.exists(os.path.join(main_path, "output")):
+            os.makedirs(os.path.join(main_path, "output"), exist_ok=True)
+            
+        args.output = os.path.join(main_path, "output", "TAS" + str(randomNumber) + ".mp4")
         logging.info("No output was specified, generating output name")
 
     if args.ytdlp != "":

@@ -1,14 +1,28 @@
 import subprocess
+import logging
+
 
 def dedup_ffmpeg(input, output, mpdecimate_params, ffmpeg_path, encode_method="libx264"):
     encode_options = handle_encoder(encode_method)
-    ffmpeg_command = [ffmpeg_path, "-i", input, "-vf", mpdecimate_params, "-an"] + flatten_dict(encode_options) + ["-y", output]
-    subprocess.Popen(ffmpeg_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ffmpeg_command = [ffmpeg_path, "-i", input, "-vf", mpdecimate_params,
+                      "-an"] + flatten_dict(encode_options) + [output]
+
+    logging.info(f"Encoding options: {' '.join(ffmpeg_command)}")
+
+    subprocess.Popen(ffmpeg_command, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL)
+
 
 def trim_input_dedup(input, output, inpoint, outpoint, mpdecimate_params, ffmpeg_path, encode_method="libx264"):
     encode_options = handle_encoder(encode_method)
-    command = [ffmpeg_path, "-ss", str(inpoint), "-to", str(outpoint), "-i", input, "-vf", mpdecimate_params, "-an"] + flatten_dict(encode_options) + ["-y", output, "-v", "quiet", "-stats"]
-    subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    command = [ffmpeg_path, "-ss", str(inpoint), "-to", str(outpoint), "-i", input, "-vf", mpdecimate_params,
+               "-an"] + flatten_dict(encode_options) + [output, "-v", "quiet", "-stats"]
+
+    logging.info(f"Encoding options: {' '.join(command)}")
+
+    subprocess.Popen(command, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL)
+
 
 def handle_encoder(encode_method):
     if encode_method == "x264":
@@ -29,6 +43,7 @@ def handle_encoder(encode_method):
         return {'-c:v': 'libsvtav1', "-preset": "8", '-crf': '14'}
     else:
         return {'-c:v': 'libx264', '-preset': 'veryfast', '-crf': '14'}
+
 
 def flatten_dict(d):
     return [item for sublist in d.items() for item in sublist]
