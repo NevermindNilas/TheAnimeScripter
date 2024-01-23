@@ -66,6 +66,7 @@ class videoProcessor:
         self.scenechange = args.scenechange
         self.scenechange_sens = args.scenechange_sens
         self.depth = args.depth
+        self.depth_method = args.depth_method
         self.encode_method = args.encode_method
         self.motion_blur = args.motion_blur
 
@@ -97,7 +98,7 @@ class videoProcessor:
                 "Detecting depth")
 
             Depth(self.input, self.output, self.ffmpeg_path, self.width, self.height,
-                  self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method)
+                  self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method, self.depth_method)
 
             return
 
@@ -436,6 +437,7 @@ def main():
     argparser.add_argument("--scenechange", type=int, default=0)
     argparser.add_argument("--scenechange_sens", type=float, default=50)
     argparser.add_argument("--depth", type=int, default=0)
+    argparser.add_argument("--depth_method", type=str, default="small")
     argparser.add_argument("--encode_method", type=str, default="x264")
     argparser.add_argument("--motion_blur", type=int, default=0)
     argparser.add_argument("--ytdlp", type=str, default="")
@@ -461,6 +463,7 @@ def main():
     args.upscale_method = args.upscale_method.lower()
     args.encode_method = args.encode_method.lower()
     args.dedup_method = args.dedup_method.lower()
+    args.depth_method = args.depth_method.lower()
     args.cugan_kind = args.cugan_kind.lower()
 
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
@@ -473,10 +476,6 @@ def main():
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
 
     logging.info("\n============== Arguments Checker ==============")
-
-    if args.output and not os.path.isabs(args.output):
-        dir_path = os.path.dirname(args.input)
-        args.output = os.path.join(dir_path, args.output)
 
     if args.upscale_factor not in [2, 3, 4] or (args.upscale_method in ["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir"] and args.upscale_factor != 2):
         logging.info(
@@ -507,7 +506,12 @@ def main():
         logging.exception(
             f"There was an error in choosing the interpolation method, {args.interpolate_method} is not a valid option, setting the interpolation method to rife")
         args.interpolate_method = "rife"
-
+    
+    if args.depth_method not in ["small", "base", "large"]:
+        logging.exception(
+            f"There was an error in choosing the depth method, {args.depth_method} is not a valid option, setting the depth method to small")
+        args.depth_method = "small"
+        
     if args.output is None:
         import random
         randomNumber = random.randint(0, 100000)
