@@ -119,9 +119,11 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | | SwinIR | ~1.5 | |
 | | Cugan | N/A | |
 | | Cugan-NCNN | ~7 | |
-| **Depth Map Generation** | DPT-Hybrid | ~17 | With BF16 / AMP Autocast |
-| | DPT-Large | N/A | |
+| **Depth Map Generation** | Depth Anything VITS | ~16 | FP16 on for every test |
+| | Depth Anything VITB | ~11 | |
+| | Depth Anything VITL | ~7 | |
 | **Segmentation** | Isnet-Anime | ~10 | |
+| **Motion Blur** | 2xRife + Gaussian Averaging | ~40FPS | Still in work |
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
 
