@@ -123,7 +123,7 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | | Depth Anything VITB | ~11 | |
 | | Depth Anything VITL | ~7 | |
 | **Segmentation** | Isnet-Anime | ~10 | |
-| **Motion Blur** | 2xRife + Gaussian Averaging | ~40FPS | Still in work |
+| **Motion Blur** | 2xRife + Gaussian Averaging | ~40 | Still in work |
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
 
