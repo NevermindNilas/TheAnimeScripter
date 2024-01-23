@@ -158,6 +158,23 @@ var TheAnimeScripter = (function() {
     buttonMotionBlur.alignment = ["center", "top"];
     buttonMotionBlur.helpTip = "Motion Blur using average weighted frame blending, use interpolation factor and model to determine how many frames to blend and the quality of the blending`";
 
+    buttonGetVideo = panelPostProcess.add("button", undefined, undefined, {
+        name: "buttonGetVideo"
+    });
+
+    buttonGetVideo.text = "Get Video";
+    buttonGetVideo.preferredSize.width = 105;
+    buttonGetVideo.alignment = ["center", "top"];
+    buttonGetVideo.helpTip = "Get Video from Youtube using YT-DLP";
+
+    textGetVideo = panelPostProcess.add("edittext", undefined, undefined, {
+        name: "textGetVideo"
+    });
+
+    textGetVideo.text = "Add Youtube URL";
+    textGetVideo.preferredSize.width = 105;
+    textGetVideo.alignment = ["center", "top"];
+
 
     // PANELMORE
     // =========
@@ -665,6 +682,15 @@ var TheAnimeScripter = (function() {
         start_chain();
     }
 
+    buttonGetVideo.onClick = function(){
+        if (textGetVideo.text == "Add Youtube URL") {
+            alert("Please add a Youtube URL");
+            return;
+        }
+
+        startDownload();
+    }
+
     function callCommand(command) {
         try {
             if (command) {
@@ -833,6 +859,57 @@ var TheAnimeScripter = (function() {
         depthValue = 0;
         motionBlurValue = 0;
     }
+
+    function startDownload() {
+        if (outputFolder == "undefined" || outputFolder == null) {
+            alert("The output folder has not been selected, please go to settings");
+            return;
+        }
+
+        if (TheAnimeScripterPath == "undefined" || TheAnimeScripterPath == null) {
+            alert("The Anime Scripter directory has not been selected, please go to settings");
+            return;
+        }
+
+        if (app.preferences.getPrefAsLong("Main Pref Section v2", "Pref_SCRIPTING_FILE_NETWORK_SECURITY") != 1) {
+            alert("Please tick the \"Allow Scripts to Write Files and Access Network\" checkbox in Scripting & Expressions");
+            return app.executeCommand(2359);
+        }
+
+        var exeFile = TheAnimeScripterPath + "\\main.exe";
+
+        var exeFilePath = new File(exeFile);
+        if (!exeFilePath.exists) {
+            alert("Cannot find main.exe, please make sure you have selected the correct folder in settings!");
+            return;
+        }
+
+        var randomNumbers = Math.floor(Math.random() * 10000);
+        var outputName = outputFolder + "\\" + "TAS" + randomNumbers + ".mp4";
+
+        try {
+            var attempt = [
+                "cd", "\"" + TheAnimeScripterPath + "\"",
+                "&&",
+                "\"" + exeFile + "\"",
+                "--output", "\"" + outputName + "\"",
+                "--ytdlp", "\"" + textGetVideo.text + "\"",
+            ];
+            var command = attempt.join(" ");
+            callCommand(command);
+        } catch (error) {
+            alert(error);
+        }
+        
+        try{
+            var newImportOptions = new ImportOptions(File(outputName));
+            newImportOptions.importAs = ImportAsType.FOOTAGE;
+        } catch (error) {
+            alert(error);
+        }
+    
+    }
+
     if (TheAnimeScripter instanceof Window) TheAnimeScripter.show();
     return TheAnimeScripter;
 }());
