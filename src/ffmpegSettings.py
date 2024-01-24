@@ -25,7 +25,9 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
                ]
 
     # Settings from: https://www.xaymar.com/guides/obs/high-quality-recording/
-    # TO-DO: Add AMF Support
+    # Looking into adding a "Max compression" or a more custom way of setting the FFMPEG Params
+    # My only concern is that it might be too complicated for the average user
+    # Time will tell
     match encode_method:
         case "x264":
             command.extend(['-c:v', 'libx264',
