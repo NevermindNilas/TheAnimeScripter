@@ -7,7 +7,7 @@ import collections
 
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
-from multiprocessing import Queue
+from queue import Queue
 
 """
 For this to work really fast, I need to write in C or Rust probably
