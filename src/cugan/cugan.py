@@ -97,7 +97,7 @@ class Cugan:
             return frame.cpu().numpy()
 
 
-class CuganAMD():
+class CuganNCNN():
     def __init__(self, num_threads, upscale_factor):
         """
         Barebones for now

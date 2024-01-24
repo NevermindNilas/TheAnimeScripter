@@ -58,7 +58,6 @@ class videoProcessor:
         self.dedup = args.dedup
         self.dedup_method = args.dedup_method
         self.dedup_sens = args.dedup_sens
-        self.nt = args.nt
         self.half = args.half
         self.inpoint = args.inpoint
         self.outpoint = args.outpoint
@@ -200,9 +199,9 @@ class videoProcessor:
                         self.upscale_method, int(self.upscale_factor), self.cugan_kind, self.half, self.width, self.height)
 
                 case "cugan-ncnn":
-                    from src.cugan.cugan import CuganAMD
-                    self.upscale_process = CuganAMD(
-                        self.nt, self.upscale_factor
+                    from src.cugan.cugan import CuganNCNN
+                    self.upscale_process = CuganNCNN(
+                        1, self.upscale_factor
                     )
 
                 case "compact" | "ultracompact" | "superultracompact":
