@@ -28,9 +28,9 @@ import numpy as np
 import warnings
 import sys
 
-from queue import SimpleQueue, Queue
-from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
+from queue import Queue
+from concurrent.futures import ThreadPoolExecutor
 
 # Some default values
 if getattr(sys, 'frozen', False):
@@ -40,6 +40,8 @@ else:
 
 scriptVersion = "0.2.0"
 warnings.filterwarnings("ignore")
+
+# TODO: Refactor the code a bit since main.py is getting a bit too overcrowded
 
 
 class videoProcessor:
@@ -69,13 +71,14 @@ class videoProcessor:
         self.depth_method = args.depth_method
         self.encode_method = args.encode_method
         self.motion_blur = args.motion_blur
+        self.vevid = args.vevid
 
         logging.info(
             "\n============== Processing Outputs ==============")
 
         # This is necessary on the top since the script heavily relies on FFMPEG
         self.checkSystem()
-        self.check_ffmpeg()
+        self.ffmpeg_path = check_ffmpeg()
         self.get_video_metadata()
 
         if self.scenechange:
@@ -124,8 +127,18 @@ class videoProcessor:
 
             return
 
-        # There's no need to start the decode encode cycle if the user only wants to dedup
-        # Therefore I just hand the input to ffmpeg and call upon mpdecimate
+        if self.vevid:
+            from src.vevid.vevid import Vevid
+
+            logging.info(
+                "Running VEViD")
+
+            Vevid(self.input, self.output, self.inpoint, self.outpoint, self.nframes, self.dedup,
+                  self.dedup_sens, self.encode_method, self.ffmpeg_path, self.width, self.height, self.fps, self.half)
+            
+            return
+
+        # If the user only wanted dedup / dedup + sharpen, we can skip the rest of the code and just run the dedup function from within FFMPEG
         if self.interpolate == False and self.upscale == False and self.dedup == True:
             if self.sharpen == True:
                 self.dedup_sens += f',cas={self.sharpen_sens}'
@@ -158,7 +171,7 @@ class videoProcessor:
                              unit="frames", colour="green")
 
         self.read_buffer = Queue(maxsize=500)
-        self.processed_frames = Queue(maxsize=500)
+        self.processed_frames = Queue()
 
         _thread.start_new_thread(self.build_buffer, ())
         _thread.start_new_thread(self.write_buffer, ())
@@ -202,10 +215,6 @@ class videoProcessor:
                     self.upscale_process = Swinir(
                         self.upscale_factor, self.half, self.width, self.height)
 
-                case _:
-                    logging.info(
-                        f"There was an error in choosing the upscale method, {self.upscale_method} is not a valid option")
-
         if self.interpolate:
             UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
             match self.interpolate_method:
@@ -215,21 +224,17 @@ class videoProcessor:
                     self.interpolate_process = Rife(
                         int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.interpolate_method)
 
-                case "gmfss":
-                    from src.gmfss.gmfss_fortuna_union import GMFSS
-
-                    self.interpolate_process = GMFSS(
-                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
-
                 case "rife-ncnn" | "rife4.13-lite-ncnn" | "rife4.14-lite-ncnn" | "rife4.14-ncnn":
                     from src.rifencnn.rifencnn import rifeNCNN
 
                     self.interpolate_process = rifeNCNN(
                         UHD, self.interpolate_method)
+                    
+                case "gmfss":
+                    from src.gmfss.gmfss_fortuna_union import GMFSS
 
-                case _:
-                    logging.info(
-                        f"There was an error in choosing the interpolation method, {self.interpolate_method} is not a valid option")
+                    self.interpolate_process = GMFSS(
+                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
 
     def build_buffer(self):
         from src.ffmpegSettings import decodeSettings
@@ -269,7 +274,7 @@ class videoProcessor:
                 if self.interpolate:
                     frame_count = frame_count * self.interpolate_factor
                 # This can and will add aditional delay to the pbar where it seems to be out of sync
-                # with the actual writing thread
+                # with the actual writing thread, no idea how to fix it yet
                 self.pbar.total = frame_count
                 self.pbar.refresh()
 
@@ -365,7 +370,6 @@ class videoProcessor:
 
             process.stdin.close()
             process.terminate()
-
             self.pbar.close()
 
     def get_video_metadata(self):
@@ -384,19 +388,6 @@ class videoProcessor:
 
         cap.release()
 
-    def check_ffmpeg(self):
-        dir_path = os.path.dirname(os.path.abspath(__file__))
-        self.ffmpeg_path = os.path.join(
-            dir_path, "src", "ffmpeg", "ffmpeg.exe")
-
-        if not os.path.exists(self.ffmpeg_path):
-            from src.get_ffmpeg import get_ffmpeg
-            print("Couldn't find FFMPEG, downloading it now")
-            print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
-            logging.info("The user doesn't have FFMPEG, downloading it now")
-            get_ffmpeg(ffmpeg_path=self.ffmpeg_path)
-            print("\n")
-
     def checkSystem(self):
         # For easier debugging purposes, I will log the system info in the log file
         import GPUtil
@@ -405,13 +396,29 @@ class videoProcessor:
         logging.info(f"GPU: {gpu_name}")
 
 
+def check_ffmpeg():
+    # I wanted this to be a easier to grab from anywhere within the script
+    # I will probably move this to a different file later on
+    ffmpeg_path = os.path.join(
+        main_path, "src", "ffmpeg", "ffmpeg.exe")
+
+    if not os.path.exists(ffmpeg_path):
+        from src.get_ffmpeg import get_ffmpeg
+        print("Couldn't find FFMPEG, downloading it now")
+        print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
+        logging.info("The user doesn't have FFMPEG, downloading it now")
+        get_ffmpeg(ffmpeg_path=ffmpeg_path)
+        print("\n")
+
+    return ffmpeg_path
+
+
 def main():
     log_file_path = os.path.join(main_path, "log.txt")
     logging.basicConfig(filename=log_file_path, filemode='w',
                         format='%(message)s', level=logging.INFO)
 
     argparser = argparse.ArgumentParser()
-    # This is for JSX Debugging mostly
     argparser.add_argument("--version", action="store_true")
     argparser.add_argument("--input", type=str)
     argparser.add_argument("--output", type=str)
@@ -426,7 +433,7 @@ def main():
     argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
     argparser.add_argument("--dedup", type=int, default=0)
     argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
-    argparser.add_argument("--dedup_sens", type=float, default=50)
+    argparser.add_argument("--dedup_sens", type=float, default=35)
     argparser.add_argument("--nt", type=int, default=1)
     argparser.add_argument("--half", type=int, default=1)
     argparser.add_argument("--inpoint", type=float, default=0)
@@ -441,6 +448,7 @@ def main():
     argparser.add_argument("--encode_method", type=str, default="x264")
     argparser.add_argument("--motion_blur", type=int, default=0)
     argparser.add_argument("--ytdlp", type=str, default="")
+    argparser.add_argument("--vevid", type=int, default=0)
     args = argparser.parse_args()
 
     if args.version:
@@ -455,6 +463,7 @@ def main():
     args.sharpen = True if args.sharpen == 1 else False
     args.upscale = True if args.upscale == 1 else False
     args.segment = True if args.segment == 1 else False
+    args.vevid = True if args.vevid == 1 else False
     args.dedup = True if args.dedup == 1 else False
     args.depth = True if args.depth == 1 else False
     args.half = True if args.half == 1 else False
@@ -484,8 +493,9 @@ def main():
 
     if args.dedup:
         from src.ffmpegSettings import get_dedup_strength
+        # Dedup Sens will be overwritten with the mpdecimate params in order to minimize on the amount of variables used throughout the script
         args.dedup_sens = get_dedup_strength(args.dedup_sens)
-        logging.info(f"Setting dedup strenght to {args.dedup_sens}")
+        logging.info(f"Setting dedup params to {args.dedup_sens}")
 
     if args.encode_method not in ["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1", "h264_amf", "hevc_amf"]:
         logging.exception(
@@ -496,30 +506,30 @@ def main():
         """
         I will keep a default rife value that will always utilize the latest available model
         Unless the user doesn't explicitly specify the interpolation method
-        This is also the default argument for args.interpolate_method
         I am not planning to add one too many arches, and probably will only add the latest ones
         It will always be Ensemble False and FastMode true just because the usecase is more than likely going to be for massive interpolations
         like 8x/16x and performance is key.
 
-        The same applies to Rife NCNN, I will only add the latest models, and the default will be the latest one
+        The same applies to Rife NCNN, I will only add the latest models
         """
         logging.exception(
             f"There was an error in choosing the interpolation method, {args.interpolate_method} is not a valid option, setting the interpolation method to rife")
         args.interpolate_method = "rife"
-    
+
     if args.depth_method not in ["small", "base", "large"]:
         logging.exception(
             f"There was an error in choosing the depth method, {args.depth_method} is not a valid option, setting the depth method to small")
         args.depth_method = "small"
-        
+
     if args.output is None:
         import random
         randomNumber = random.randint(0, 100000)
-        
+
         if not os.path.exists(os.path.join(main_path, "output")):
             os.makedirs(os.path.join(main_path, "output"), exist_ok=True)
-            
-        args.output = os.path.join(main_path, "output", "TAS" + str(randomNumber) + ".mp4")
+
+        args.output = os.path.join(
+            main_path, "output", "TAS" + str(randomNumber) + ".mp4")
         logging.info("No output was specified, generating output name")
 
     if args.ytdlp != "":
@@ -531,6 +541,7 @@ def main():
     if args.input is not None:
         videoProcessor(args)
     else:
+        print("No input was specified, exiting")
         logging.info("No input was specified, exiting")
 
 

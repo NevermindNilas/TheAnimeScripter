@@ -10,7 +10,7 @@ import wget
 from torchvision.transforms import Compose
 from concurrent.futures import ThreadPoolExecutor
 from tqdm import tqdm
-from multiprocessing import Queue
+from queue import Queue
 import torch.nn.functional as F
 
 from .dpt import DPT_DINOv2
@@ -48,6 +48,7 @@ class Depth():
 
         with ThreadPoolExecutor(max_workers=1) as executor:
             executor.submit(self.start_process)
+   
 
     def handle_model(self):
         
@@ -138,7 +139,7 @@ class Depth():
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
 
-                self.read_buffer.put_nowait(frame)
+                self.read_buffer.put(frame)
                 frame_count += 1
 
             stderr = process.stderr.read().decode()
@@ -175,9 +176,7 @@ class Depth():
 
                 depth = F.interpolate(depth[None], (self.height, self.width), mode='bilinear', align_corners=False)[0, 0]
                 depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-                
-                depth = depth.cpu().numpy().astype(np.uint8)
-                depth = cv2.cvtColor(depth, cv2.COLOR_GRAY2RGB)
+                depth = frame.cpu().numpy().astype(np.uint8)
                 
                 self.processed_frames.put(depth)
 
@@ -203,7 +202,8 @@ class Depth():
                 if frame is None:
                     if self.processing_finished == True:
                         break
-                
+    
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update(1)
 
