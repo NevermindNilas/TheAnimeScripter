@@ -15,9 +15,9 @@ class Swinir():
         self.width = width
         self.height = height
         self.weights_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "weights")
-        self.filename = "2x_Bubble_AnimeScale_SwinIR_Small_v1.pth"
+        self.filename = "2xHFA2kSwinIR-S.pth"
         self.model_path = os.path.join(self.weights_dir, self.filename)
-        self.url = "https://github.com/Bubblemint864/AI-Models/releases/download/2x_Bubble_AnimeScale_SwinIR_Small_v1/2x_Bubble_AnimeScale_SwinIR_Small_v1.pth"
+        self.url = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/2xHFA2kSwinIR-S.pth"
         self.h_pad = (height // 8 + 1) * 8 - height
         self.w_pad = (width // 8 + 1) * 8 - width
 
@@ -43,15 +43,13 @@ class Swinir():
 
         self.model = SwinIR_arch(
             upscale=2,
-            in_chans=3,
-            img_size=32,
+            img_size=64,
             window_size=8,
-            img_range=1.,
             depths=[6, 6, 6, 6],
             embed_dim=60,
             num_heads=[6, 6, 6, 6],
             mlp_ratio=2,
-            upsampler="pixelshuffle",
+            upsampler="pixelshuffledirect",
             resi_connection="1conv",
         )
 
