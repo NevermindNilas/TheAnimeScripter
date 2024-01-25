@@ -19,7 +19,7 @@ class ytdlp():
             get_ffmpeg(ffmpeg_path)
         
         ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',
+            'format': 'bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]',
             'outtmpl': self.output,
             'ffmpeg_location': os.path.dirname(ffmpeg_path),
         }

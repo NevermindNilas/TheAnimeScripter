@@ -904,6 +904,15 @@ var TheAnimeScripter = (function() {
         try{
             var newImportOptions = new ImportOptions(File(outputName));
             newImportOptions.importAs = ImportAsType.FOOTAGE;
+            
+            var comp = app.project.activeItem;
+            if (!(comp instanceof CompItem)) {
+                alert("No composition is active. Please select a composition and try again.");
+                return;
+            }
+            
+            var footageItem = app.project.importFile(newImportOptions);
+            var inputLayer = comp.layers.add(footageItem);
         } catch (error) {
             alert(error);
         }
