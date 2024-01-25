@@ -398,7 +398,7 @@ def check_ffmpeg():
     # I will probably move this to a different file later on
     ffmpeg_path = os.path.join(
         main_path, "src", "ffmpeg", "ffmpeg.exe")
-
+    
     if not os.path.exists(ffmpeg_path):
         from src.get_ffmpeg import get_ffmpeg
         print("Couldn't find FFMPEG, downloading it now")
