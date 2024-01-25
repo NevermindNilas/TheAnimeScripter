@@ -32,6 +32,7 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 
 # Some default values
+
 if getattr(sys, 'frozen', False):
     main_path = os.path.dirname(sys.executable)
 else:
@@ -76,7 +77,7 @@ class videoProcessor:
 
         # This is necessary on the top since the script heavily relies on FFMPEG
         self.checkSystem()
-        self.ffmpeg_path = check_ffmpeg()
+        self.check_ffmpeg()
         self.get_video_metadata()
 
         if self.scenechange:
@@ -125,17 +126,6 @@ class videoProcessor:
 
             return
 
-        if self.vevid:
-            from src.vevid.vevid import Vevid
-
-            logging.info(
-                "Running VEViD")
-
-            Vevid(self.input, self.output, self.inpoint, self.outpoint, self.nframes, self.dedup,
-                  self.dedup_sens, self.encode_method, self.ffmpeg_path, self.width, self.height, self.fps, self.half)
-            
-            return
-
         # If the user only wanted dedup / dedup + sharpen, we can skip the rest of the code and just run the dedup function from within FFMPEG
         if self.interpolate == False and self.upscale == False and self.dedup == True:
             if self.sharpen == True:
@@ -155,12 +145,10 @@ class videoProcessor:
                              self.dedup_sens, self.ffmpeg_path, self.encode_method)
 
             return
-
         self.intitialize_models()
         self.start()
 
     def start(self):
-
         if self.dedup == False and self.interpolate == True:
             self.pbar = tqdm(total=self.nframes * self.interpolate_factor, desc="Processing Frames",
                              unit="frames", colour="green")
@@ -196,43 +184,39 @@ class videoProcessor:
                     from src.cugan.cugan import Cugan
                     self.upscale_process = Cugan(
                         self.upscale_method, int(self.upscale_factor), self.cugan_kind, self.half, self.width, self.height)
-
                 case "cugan-ncnn":
                     from src.cugan.cugan import CuganNCNN
                     self.upscale_process = CuganNCNN(
                         1, self.upscale_factor
                     )
-
                 case "compact" | "ultracompact" | "superultracompact":
                     from src.compact.compact import Compact
                     self.upscale_process = Compact(
                         self.upscale_method, self.half, self.width, self.height)
-
                 case "swinir":
                     from src.swinir.swinir import Swinir
                     self.upscale_process = Swinir(
                         self.upscale_factor, self.half, self.width, self.height)
+
 
         if self.interpolate:
             UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
             match self.interpolate_method:
                 case "rife4.14" | "rife4.14-lite" | "rife4.13-lite" | "rife":
                     from src.rife.rife import Rife
-
+                    
                     self.interpolate_process = Rife(
                         int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.interpolate_method)
-
                 case "rife-ncnn" | "rife4.13-lite-ncnn" | "rife4.14-lite-ncnn" | "rife4.14-ncnn":
                     from src.rifencnn.rifencnn import rifeNCNN
-
                     self.interpolate_process = rifeNCNN(
                         UHD, self.interpolate_method)
                     
                 case "gmfss":
                     from src.gmfss.gmfss_fortuna_union import GMFSS
-
                     self.interpolate_process = GMFSS(
                         int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
+
 
     def build_buffer(self):
         from src.ffmpegSettings import decodeSettings
@@ -262,8 +246,7 @@ class videoProcessor:
         except Exception as e:
             logging.exception(
                 f"An error occurred during reading, {e}")
-            raise e
-
+            
         finally:
             logging.info(
                 f"Built buffer with {frame_count} frames")
@@ -320,7 +303,6 @@ class videoProcessor:
         except Exception as e:
             logging.exception(
                 f"An error occurred during reading, {e}")
-            raise e
 
         finally:
             if prev_frame is not None:
@@ -360,7 +342,6 @@ class videoProcessor:
         except Exception as e:
             logging.exception(
                 f"An error occurred during reading, {e}")
-            raise e
 
         finally:
             logging.info(
@@ -393,21 +374,24 @@ class videoProcessor:
         logging.info(f"GPU: {gpu_name}")
 
 
-def check_ffmpeg():
-    # I wanted this to be a easier to grab from anywhere within the script
-    # I will probably move this to a different file later on
-    ffmpeg_path = os.path.join(
-        main_path, "src", "ffmpeg", "ffmpeg.exe")
-    
-    if not os.path.exists(ffmpeg_path):
-        from src.get_ffmpeg import get_ffmpeg
-        print("Couldn't find FFMPEG, downloading it now")
-        print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
-        logging.info("The user doesn't have FFMPEG, downloading it now")
-        get_ffmpeg(ffmpeg_path=ffmpeg_path)
-        print("\n")
+    def check_ffmpeg(self):
+        # I wanted this to be a easier to grab from anywhere within the script
+        # I will probably move this to a different file later on
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        self.ffmpeg_path = os.path.join(
+            dir_path, "src", "ffmpeg", "ffmpeg.exe")
+        
+        logging.info(
+            f"FFMPEG Path: {self.ffmpeg_path}")
+        
+        if not os.path.exists(self.ffmpeg_path):
+            from src.get_ffmpeg import get_ffmpeg
+            print("Couldn't find FFMPEG, downloading it now")
+            print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
+            logging.info("The user doesn't have FFMPEG, downloading it now")
+            get_ffmpeg(ffmpeg_path=self.ffmpeg_path)
+            print("\n")
 
-    return ffmpeg_path
 
 
 def main():
@@ -519,6 +503,7 @@ def main():
         args.depth_method = "small"
 
     if args.output is None:
+        logging.info("No output was specified, generating output name")
         import random
         randomNumber = random.randint(0, 100000)
 
@@ -527,9 +512,12 @@ def main():
 
         args.output = os.path.join(
             main_path, "output", "TAS" + str(randomNumber) + ".mp4")
-        logging.info("No output was specified, generating output name")
+        
+        logging.info(f"Output name: {args.output}")
+        
+        
 
-    if args.ytdlp != "":
+    if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
         from src.ytdlp import ytdlp
         ytdlp(args.ytdlp, args.output)

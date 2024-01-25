@@ -11,6 +11,6 @@ gputil
 yt-dlp
 realcugan-ncnn-py
 pytorch-lightning
-torch
-torchvision
+torch==2.3.0.dev20240122+cu121
+torchvision==0.18.0.dev20240122+cu121
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp312-cp312-win_amd64.whl

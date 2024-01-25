@@ -185,7 +185,6 @@ class Depth():
                     (depth.max() - depth.min()) * 255.0
                 depth = depth.cpu().numpy().astype(np.uint8)
 
-                print(depth.shape)
                 self.processed_frames.put(depth)
                 frame_count += 1
 
