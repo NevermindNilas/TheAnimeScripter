@@ -44,6 +44,7 @@ def create_executable():
     src_path = os.path.join(base_dir, "src")
     jsx_path = os.path.join(base_dir, "TheAnimeScripter.jsx")
     main_path = os.path.join(base_dir, "main.py")
+    icon_path = os.path.join(base_dir, "demos", "icon.ico")
 
     subprocess.run([
         "./venv/bin/pyinstaller" if platform.system() != "Windows" else ".\\venv\\Scripts\\pyinstaller",
@@ -57,6 +58,7 @@ def create_executable():
         "--collect-all", "cupyx",
         "--collect-all", "cupy_backends",
         "--collect-all", "fastrlock",
+        "--icon", f"{icon_path}",
         main_path
     ], check=True)
 

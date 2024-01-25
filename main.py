@@ -483,7 +483,7 @@ def main():
             f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
         args.encode_method = "x264"
 
-    if args.interpolate_method not in ["rife", "rife4.14", "rife4.14-lite", "rife4.13-lite", "gmfss", "rife-ncnn", "rife4.13-lite-ncnn", "rife4.14-lite-ncnn", "rife.4.14-ncnn"]:
+    if args.interpolate_method not in ["rife", "rife4.14", "rife4.14-lite", "rife4.13-lite", "gmfss", "rife-ncnn", "rife4.13-lite-ncnn", "rife4.14-lite-ncnn", "rife4.14-ncnn"]:
         """
         I will keep a default rife value that will always utilize the latest available model
         Unless the user doesn't explicitly specify the interpolation method
