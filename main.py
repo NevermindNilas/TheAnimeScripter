@@ -38,7 +38,7 @@ if getattr(sys, 'frozen', False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "0.2.0"
+scriptVersion = "0.2.1"
 warnings.filterwarnings("ignore")
 
 # TODO: Refactor the code a bit since main.py is getting a bit too overcrowded
@@ -251,13 +251,12 @@ class videoProcessor:
             logging.info(
                 f"Built buffer with {frame_count} frames")
 
-            if self.dedup:
-                if self.interpolate:
-                    frame_count = frame_count * self.interpolate_factor
-                # This can and will add aditional delay to the pbar where it seems to be out of sync
-                # with the actual writing thread, no idea how to fix it yet
-                self.pbar.total = frame_count
-                self.pbar.refresh()
+
+            if self.interpolate:
+                frame_count = frame_count * self.interpolate_factor
+                
+            self.pbar.total = frame_count
+            self.pbar.refresh()
 
             process.stdout.close()
             process.terminate()
