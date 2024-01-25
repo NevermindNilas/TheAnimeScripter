@@ -149,16 +149,11 @@ class videoProcessor:
         self.start()
 
     def start(self):
-        if self.dedup == False and self.interpolate == True:
-            self.pbar = tqdm(total=self.nframes * self.interpolate_factor, desc="Processing Frames",
-                             unit="frames", colour="green")
-        else:
-            self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
-                             unit="frames", colour="green")
+        self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
+                         unit="frames", colour="green")
 
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = Queue()
-        
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             executor.submit(self.build_buffer)
