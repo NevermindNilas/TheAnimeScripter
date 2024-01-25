@@ -174,8 +174,6 @@ class Segment():
                     (frame, mask[..., np.newaxis]), axis=2)
 
                 self.processed_frames.put(frame_with_mask)
-
-                self.processed_frames.put(frame)
                 frame_count += 1
 
         except Exception as e:

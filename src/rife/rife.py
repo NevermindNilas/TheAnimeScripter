@@ -5,15 +5,14 @@ import logging
 
 from torch.nn import functional as F
 
-
 class Rife:
     def __init__(self, interpolation_factor, half, width, height, UHD, interpolate_method):
         self.interpolation_factor = interpolation_factor
         self.half = half
         self.UHD = UHD
         self.scale = 1.0
-        self.width = int(width)
-        self.height = int(height)
+        self.width = width
+        self.height = height
         self.interpolate_method = interpolate_method
 
         self.handle_model()
@@ -82,7 +81,9 @@ class Rife:
 
         url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{self.filename}"
         
+        print("wget")
         wget.download(url, out=os.path.join(self.modelDir, "flownet.pkl"))
+        print("wget done")
         
     @torch.inference_mode()
     def make_inference(self, n):
