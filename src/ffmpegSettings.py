@@ -133,12 +133,15 @@ def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, ded
     """
     command = [
         ffmpeg_path,
-        "-i", str(input),
     ]
     if outpoint != 0:
         command.extend(
             ["-ss", str(inpoint), "-to", str(outpoint)])
 
+    command.extend([
+        "-i", input,
+    ])
+    
     if dedup:
         command.extend(
             ["-vf", dedup_strenght])
