@@ -1,5 +1,4 @@
 import numpy as np
-import _thread
 import subprocess
 import logging
 import os
@@ -26,23 +25,24 @@ class Segment():
         self.outpoint = outpoint
         self.encode_method = encode_method
 
-        self.read_buffer = Queue(maxsize=500)
-        self.processed_frames = Queue(maxsize=500)
-
         self.pbar = tqdm(
             total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
 
         self.handle_model()
 
-        _thread.start_new_thread(self.build_buffer, ())
-        _thread.start_new_thread(self.write_buffer, ())
+        self.read_buffer = Queue(maxsize=500)
+        self.processed_frames = Queue()
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            executor.submit(self.start_process)
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            executor.submit(self.build_buffer)
+            executor.submit(self.process)
+            executor.submit(self.write_buffer)
+        
 
     def handle_model(self):
         filename = "isnetis.ckpt"
-        url = r"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/isnetis.ckpt"
+        url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{
+            filename}"
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -58,15 +58,16 @@ class Segment():
         model_path = os.path.join(dir_path, "weights", filename)
 
         if torch.cuda.is_available():
-            device = "cuda:0"
+            self.device = "cuda:0"
         else:
-            device = "cpu"
+            self.device = "cpu"
 
         self.model = AnimeSegmentation.try_load(
-            "isnet_is", model_path, device, img_size=1024)
+            "isnet_is", model_path, self.device, img_size=1024)
         self.model.eval()
-        self.model.to(device)
-
+        self.model.to(self.device)
+        
+    """
     def get_character_bounding_box(self, image) -> tuple:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -84,6 +85,7 @@ class Segment():
         h = max([b[1] + b[3] for b in boxes]) - y
 
         return x, y, w, h
+    """
 
     def get_mask(self, input_img):
         s = 1024
@@ -97,7 +99,7 @@ class Segment():
         img_input = np.transpose(img_input, (2, 0, 1))
         img_input = img_input[np.newaxis, :]
         tmpImg = torch.from_numpy(img_input).type(
-            torch.FloatTensor).to(self.model.device)
+            torch.FloatTensor).to(self.device)
         with torch.no_grad():
             pred = self.model(tmpImg)
             pred = pred.cpu().numpy()[0]
@@ -112,88 +114,56 @@ class Segment():
         command: list = decodeSettings(
             self.input, self.inpoint, self.outpoint, False, 0, self.ffmpeg_path)
 
+        process = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        self.reading_done = False
+        frame_size = self.width * self.height * 3
+        frame_count = 0
+
         try:
-            self.reading_done = False
-            process = subprocess.Popen(
-                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            frame_size = self.width * self.height * 3
-
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
                     logging.error(
                         f"Read {len(chunk)} bytes but expected {frame_size}")
-                    break
+                    continue
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
+
                 self.read_buffer.put(frame)
-
-            stderr = process.stderr.read().decode()
-            if stderr:
-                if "bitrate=" not in stderr:
-                    logging.error(f"ffmpeg error: {stderr}")
+                frame_count += 1
 
         except Exception as e:
-            logging.exception(f"An error occurred during reading {e}")
+            logging.exception(
+                f"An error occurred during reading, {e}")
+            raise e
 
         finally:
-            # For terminating the pipe and subprocess properly
+            logging.info(
+                f"Built buffer with {frame_count} frames")
+
             process.stdout.close()
-            process.stderr.close()
             process.terminate()
-            self.read_buffer.put(None)
+
             self.reading_done = True
+            self.read_buffer.put(None)
 
-    def write_buffer(self):
-
-        from src.ffmpegSettings import encodeSettings
-        
-        command: list = encodeSettings(
-            self.encode_method, self.width, self.height, self.fps, self.output, self.ffmpeg_path, False, 0)
-        
-        command = [item.replace('rgb24', 'rgba')
-                   if 'rgb24' in item else item for item in command]
-
-        pipe = subprocess.Popen(
-            command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-
-        try:
-            while True:
-                if not self.processed_frames:
-                    if self.read_buffer.empty() and self.processing_done:
-                        break
-                    continue
-
-                frame = self.processed_frames.get()
-
-                if frame is not None:
-                    pipe.stdin.write(frame.tobytes())
-
-                self.pbar.update(1)
-        except Exception as e:
-            logging.exception(f"An error occurred during writing {e}")
-
-        finally:
-            # Close the pipe
-            pipe.stdin.close()
-            pipe.wait()
-
-            self.pbar.close()
-            self.writing_finished = True
-
-    def start_process(self):
+    def process(self):
         green_img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
         green_img[..., 1] = 255  # 255 for greenscreen
-        last_bounding_box = None  # for caching the bounding box of the last input, TO DO
+        prev_frame = None
         self.processing_done = False
+        frame_count = 0
         try:
             while True:
                 frame = self.read_buffer.get()
-                if frame is None and self.read_buffer.empty():
-                    break
-
+                if frame is None:
+                    if self.reading_done == True and self.read_buffer.empty():
+                        break
+                    else:
+                        continue
+                
                 mask = self.get_mask(frame)
-
                 frame = (frame * mask + green_img *
                          (1 - mask)).astype(np.uint8)
 
@@ -205,8 +175,57 @@ class Segment():
 
                 self.processed_frames.put(frame_with_mask)
 
+                self.processed_frames.put(frame)
+                frame_count += 1
+
         except Exception as e:
-            logging.exception(f"An error occurred during processing {e}")
+            logging.exception(
+                f"An error occurred during reading, {e}")
+            raise e
 
         finally:
+            if prev_frame is not None:
+                self.processed_frames.put(prev_frame)
+                frame_count += 1
+
+            logging.info(
+                f"Processed {frame_count} frames")
+
             self.processing_done = True
+            self.processed_frames.put(None)
+
+    def write_buffer(self):
+
+        from src.ffmpegSettings import encodeSettings
+        command: list = encodeSettings(self.encode_method, self.width, self.height,
+                                       self.fps, self.output, self.ffmpeg_path, sharpen=False, sharpen_sens=0, grayscale=False)
+
+        pipe = subprocess.Popen(
+            command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        frame_count = 0
+        try:
+            while True:
+                frame = self.processed_frames.get()
+                if frame is None:
+                    if self.processing_done == True and self.processed_frames.empty():
+                        break
+                    else:
+                        continue
+
+                frame_count += 1
+                frame = np.ascontiguousarray(frame)
+                pipe.stdin.write(frame.tobytes())
+                self.pbar.update()
+
+        except Exception as e:
+            logging.exception(
+                f"An error occurred during reading, {e}")
+            raise e
+
+        finally:
+            logging.info(
+                f"Wrote {frame_count} frames")
+
+            pipe.stdin.close()
+            self.pbar.close()

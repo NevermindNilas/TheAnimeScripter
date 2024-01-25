@@ -1,7 +1,7 @@
 import logging
 
 
-def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: float, output: str, ffmpeg_path: str, sharpen: bool, sharpen_sens: float):
+def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: float, output: str, ffmpeg_path: str, sharpen: bool, sharpen_sens: float, grayscale: bool = False):
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
     new_width: int - The width of the output video in pixels.
@@ -11,14 +11,26 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
     ffmpeg_path: str - The path to the FFmpeg executable.
     sharpen: bool - Whether to apply a sharpening filter to the video.
     sharpen_sens: float - The sensitivity of the sharpening filter.
+    grayscale: bool - Whether to encode the video in grayscale.
     """
+    if grayscale:
+        pix_fmt = 'gray'
+        output_pix_fmt = "yuv420p16le"
+        if encode_method not in ["x264", "x264_animation", "av1"]:
+            logging.info(
+                "The selected encoder does not support yuv420p16le, switching to yuv420p10le.")
+            output_pix_fmt = 'yuv420p10le'
+
+    else:
+        pix_fmt = 'rgb24'
+        output_pix_fmt = 'yuv420p'
 
     command = [ffmpeg_path,
                '-y',
                '-f', 'rawvideo',
                '-vcodec', 'rawvideo',
                '-s', f'{new_width}x{new_height}',
-               '-pix_fmt', 'rgb24',
+               '-pix_fmt', f'{pix_fmt}',
                '-r', str(fps),
                '-i', '-',
                '-an',
@@ -77,7 +89,7 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
                             "-preset", "8",
                             '-crf', '14',
                             ])
-            
+
         # I can't quite test these out since I do not have an AMD GPU but they are there just in case
         case "h264_amf":
             command.extend(['-c:v', 'h264_amf',
@@ -92,11 +104,18 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
                             '-rc', 'cqp',
                             '-qp', '14',
                             ])
-            
-    if sharpen:
-        command.extend(['-vf', f'cas={sharpen_sens}'])
 
-    command.extend(['-pix_fmt', 'yuv420p',
+    filters = []
+    if sharpen:
+        filters.append(f'cas={sharpen_sens}')
+    if grayscale:
+        # Will need to look into Dithering and see if it's worth adding
+        filters.append('format=gray')
+
+    if filters:
+        command.extend(['-vf', ','.join(filters)])
+
+    command.extend(['-pix_fmt', f'{output_pix_fmt}',
                     output])
 
     logging.info(f"Encoding options: {' '.join(command)}")
