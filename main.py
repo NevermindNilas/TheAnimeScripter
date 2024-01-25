@@ -21,7 +21,6 @@
 
 import os
 import argparse
-import _thread
 import logging
 import subprocess
 import numpy as np
@@ -171,12 +170,12 @@ class videoProcessor:
 
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = Queue()
+        
 
-        _thread.start_new_thread(self.build_buffer, ())
-        _thread.start_new_thread(self.write_buffer, ())
-
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            executor.submit(self.build_buffer)
             executor.submit(self.process)
+            executor.submit(self.write_buffer)
 
     def intitialize_models(self):
 
@@ -338,9 +337,9 @@ class videoProcessor:
 
         from src.ffmpegSettings import encodeSettings
         command: list = encodeSettings(self.encode_method, self.new_width, self.new_height,
-                                       self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens)
+                                       self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens, grayscale=False)
 
-        process = subprocess.Popen(
+        pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
         frame_count = 0
@@ -352,10 +351,10 @@ class videoProcessor:
                         break
                     else:
                         continue
-
+                
                 frame_count += 1
                 frame = np.ascontiguousarray(frame)
-                process.stdin.write(frame.tobytes())
+                pipe.stdin.write(frame.tobytes())
                 self.pbar.update()
 
         except Exception as e:
@@ -367,8 +366,7 @@ class videoProcessor:
             logging.info(
                 f"Wrote {frame_count} frames")
 
-            process.stdin.close()
-            process.terminate()
+            pipe.stdin.close()
             self.pbar.close()
 
     def get_video_metadata(self):

@@ -175,7 +175,7 @@ class motionBlur():
         from src.ffmpegSettings import encodeSettings
 
         command: list = encodeSettings(self.encode_method, self.width, self.height,
-                                       self.fps, self.output, self.ffmpeg_path, False, 0)
+                                       self.fps, self.output, self.ffmpeg_path, False, 0, grayscale=False)
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)

@@ -3,7 +3,6 @@ import torch
 import logging
 import subprocess
 import numpy as np
-import _thread
 import cv2
 import wget
 
@@ -34,7 +33,7 @@ class Depth():
         self.outpoint = outpoint
         self.encode_method = encode_method
         self.depth_method = depth_method
-        
+
         self.handle_model()
 
         self.pbar = tqdm(
@@ -43,15 +42,13 @@ class Depth():
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = Queue()
 
-        _thread.start_new_thread(self.build_buffer, ())
-        _thread.start_new_thread(self.write_buffer, ())
-
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            executor.submit(self.start_process)
-   
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            executor.submit(self.build_buffer)
+            executor.submit(self.process)
+            executor.submit(self.write_buffer)
 
     def handle_model(self):
-        
+
         match self.depth_method:
             case "small":
                 model = "vits"
@@ -63,21 +60,25 @@ class Depth():
                 self.model = DPT_DINOv2(encoder='vitb', features=128, out_channels=[
                                         96, 192, 384, 768], localhub=False)
                 url = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vitb14.pth?download=true"
-            
+
             case "large":
                 model = "vitl"
                 url = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vitl14.pth?download=true"
                 self.model = DPT_DINOv2(encoder='vitl', features=256, out_channels=[
                                         256, 512, 1024, 1024], localhub=False)
 
-
         weightsDir = os.path.join(os.path.dirname(
             os.path.realpath(__file__)), "weights")
 
         model_path = os.path.join(
             weightsDir, f"depth_anything_{model}14.pth")
-        
+
         if not os.path.exists(model_path):
+            print("Couldn't find the depth model, downloading it now...")
+
+            logging.info(
+                "Couldn't find the depth model, downloading it now...")
+
             os.makedirs(weightsDir, exist_ok=True)
             wget.download(url, model_path)
 
@@ -117,102 +118,123 @@ class Depth():
         ])
 
     def build_buffer(self):
-
         from src.ffmpegSettings import decodeSettings
+
         command: list = decodeSettings(
             self.input, self.inpoint, self.outpoint, False, 0, self.ffmpeg_path)
 
+        process = subprocess.Popen(
+            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
         self.reading_done = False
+        frame_size = self.width * self.height * 3
+        frame_count = 0
+
         try:
-            process = subprocess.Popen(
-                command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            frame_size = self.width * self.height * 3
-
-            frame_count = 0
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
                     logging.error(
                         f"Read {len(chunk)} bytes but expected {frame_size}")
-                    break
-
+                    continue
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
 
                 self.read_buffer.put(frame)
                 frame_count += 1
 
-            stderr = process.stderr.read().decode()
-            if stderr:
-                if "bitrate=" not in stderr:
-                    logging.error(f"ffmpeg error: {stderr}")
-        except:
-            logging.exception("An error occurred during reading")
-        finally:
-            # For terminating the pipe and subprocess properly
-            process.stdout.close()
-            process.stderr.close()
-            process.terminate()
-            self.read_buffer.put(None)
-            self.reading_done = True
+        except Exception as e:
+            logging.exception(
+                f"An error occurred during reading, {e}")
+            raise e
 
-    def start_process(self):
+        finally:
+            logging.info(
+                f"Built buffer with {frame_count} frames")
+
+            process.stdout.close()
+            process.terminate()
+
+            self.reading_done = True
+            self.read_buffer.put(None)
+
+    def process(self):
+        self.processing_done = False
+        frame_count = 0
         try:
             while True:
                 frame = self.read_buffer.get()
                 if frame is None:
-                    self.reading_done = True
-                    break
-                
+                    if self.reading_done == True and self.read_buffer.empty():
+                        break
+                    else:
+                        continue
+
                 frame = frame/255
                 frame = self.transform({'image': frame})['image']
                 frame = torch.from_numpy(frame).unsqueeze(0).to(self.device)
 
                 if self.half and self.cudaIsAvailable:
                     frame = frame.half()
-                    
+
                 with torch.no_grad():
                     depth = self.model(frame)
 
-                depth = F.interpolate(depth[None], (self.height, self.width), mode='bilinear', align_corners=False)[0, 0]
-                depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-                depth = frame.cpu().numpy().astype(np.uint8)
-                
+                depth = F.interpolate(
+                    depth[None], (self.height, self.width), mode='bilinear', align_corners=False)[0, 0]
+                depth = (depth - depth.min()) / \
+                    (depth.max() - depth.min()) * 255.0
+                depth = depth.cpu().numpy().astype(np.uint8)
+
+                print(depth.shape)
                 self.processed_frames.put(depth)
+                frame_count += 1
 
         except Exception as e:
-            logging.exception("An error occurred during processing")
+            logging.exception(
+                f"An error occurred during reading, {e}")
+            raise e
 
         finally:
-            self.processing_finished = True
+            logging.info(
+                f"Processed {frame_count} frames")
+
+            self.processing_done = True
+            self.processed_frames.put(None)
 
     def write_buffer(self):
 
         from src.ffmpegSettings import encodeSettings
-
         command: list = encodeSettings(self.encode_method, self.width, self.height,
-                                       self.fps, self.output, self.ffmpeg_path, False, 0)
+                                       self.fps, self.output, self.ffmpeg_path, False, 0, grayscale=True)
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
+        frame_count = 0
         try:
             while True:
                 frame = self.processed_frames.get()
                 if frame is None:
-                    if self.processing_finished == True:
+                    if self.processing_done == True and self.processed_frames.empty():
                         break
-    
-                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+                    else:
+                        continue
+
+                frame_count += 1
+                # frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
                 pipe.stdin.write(frame.tobytes())
-                self.pbar.update(1)
+                self.pbar.update()
 
         except Exception as e:
-            logging.exception("An error occurred during writing")
+            logging.exception(
+                f"An error occurred during reading, {e}")
+            raise e
 
         finally:
+            logging.info(
+                f"Wrote {frame_count} frames")
+
             pipe.stdin.close()
-            pipe.wait()
             self.pbar.close()
 
             return
