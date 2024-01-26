@@ -478,7 +478,7 @@ def main():
         ytdlp(args.ytdlp, args.output)
         return
 
-    args.ffmpeg_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "ffmpeg", "ffmpeg.exe")
+    args.ffmpeg_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "src", "ffmpeg", "ffmpeg.exe")
     
     if not os.path.exists(args.ffmpeg_path):
         from src.get_ffmpeg import get_ffmpeg
