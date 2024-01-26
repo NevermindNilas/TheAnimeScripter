@@ -148,18 +148,6 @@ class videoProcessor:
         self.intitialize_models()
         self.start()
 
-    def start(self):
-        self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
-                         unit="frames", colour="green")
-
-        self.read_buffer = Queue(maxsize=500)
-        self.processed_frames = Queue()
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            executor.submit(self.build_buffer)
-            executor.submit(self.process)
-            executor.submit(self.write_buffer)
-
     def intitialize_models(self):
 
         # Generating output data,
@@ -193,25 +181,35 @@ class videoProcessor:
                     self.upscale_process = Swinir(
                         self.upscale_factor, self.half, self.width, self.height)
 
-
         if self.interpolate:
             UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
             match self.interpolate_method:
                 case "rife4.14" | "rife4.14-lite" | "rife4.13-lite" | "rife":
                     from src.rife.rife import Rife
-                    
+
                     self.interpolate_process = Rife(
                         int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.interpolate_method)
                 case "rife-ncnn" | "rife4.13-lite-ncnn" | "rife4.14-lite-ncnn" | "rife4.14-ncnn":
                     from src.rifencnn.rifencnn import rifeNCNN
                     self.interpolate_process = rifeNCNN(
                         UHD, self.interpolate_method)
-                    
+
                 case "gmfss":
                     from src.gmfss.gmfss_fortuna_union import GMFSS
                     self.interpolate_process = GMFSS(
                         int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
 
+    def start(self):
+        self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
+                         unit="frames", colour="green")
+
+        self.read_buffer = Queue(maxsize=500)
+        self.processed_frames = Queue()
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            executor.submit(self.build_buffer)
+            executor.submit(self.process)
+            executor.submit(self.write_buffer)
 
     def build_buffer(self):
         from src.ffmpegSettings import decodeSettings
@@ -225,7 +223,6 @@ class videoProcessor:
         self.reading_done = False
         frame_size = self.width * self.height * 3
         frame_count = 0
-
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
@@ -234,28 +231,21 @@ class videoProcessor:
                     continue
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
-
                 self.read_buffer.put(frame)
                 frame_count += 1
-
         except Exception as e:
-            logging.exception(
-                f"An error occurred during reading, {e}")
-            
+            logging.info(
+                f"Something went wrong while reading the frames, {e}")
         finally:
             logging.info(
                 f"Built buffer with {frame_count} frames")
-
-
             if self.interpolate:
                 frame_count = frame_count * self.interpolate_factor
-                
+
             self.pbar.total = frame_count
             self.pbar.refresh()
-
             process.stdout.close()
             process.terminate()
-
             self.reading_done = True
             self.read_buffer.put(None)
 
@@ -271,32 +261,25 @@ class videoProcessor:
                         break
                     else:
                         continue
-
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
-
                 if self.interpolate:
                     if prev_frame is not None:
-
                         self.interpolate_process.run(prev_frame, frame)
-
                         for i in range(self.interpolate_factor - 1):
                             result = self.interpolate_process.make_inference(
                                 (i + 1) * 1. / (self.interpolate_factor + 1))
-
                             self.processed_frames.put(result)
                             frame_count += 1
-
                         prev_frame = frame
                     else:
                         prev_frame = frame
-
                 self.processed_frames.put(frame)
                 frame_count += 1
-
+                
         except Exception as e:
-            logging.exception(
-                f"An error occurred during reading, {e}")
+            logging.info(
+                f"Something went wrong while processing the frames, {e}")
 
         finally:
             if prev_frame is not None:
@@ -327,15 +310,15 @@ class videoProcessor:
                         break
                     else:
                         continue
-                
+
                 frame_count += 1
                 frame = np.ascontiguousarray(frame)
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update()
-
+                
         except Exception as e:
-            logging.exception(
-                f"An error occurred during reading, {e}")
+            logging.info(
+                f"Something went wrong while writing the frames, {e}")
 
         finally:
             logging.info(
@@ -367,17 +350,16 @@ class videoProcessor:
         gpu_name = gpus[0].name if gpus else "No GPU detected"
         logging.info(f"GPU: {gpu_name}")
 
-
     def check_ffmpeg(self):
         # I wanted this to be a easier to grab from anywhere within the script
         # I will probably move this to a different file later on
         dir_path = os.path.dirname(os.path.realpath(__file__))
         self.ffmpeg_path = os.path.join(
             dir_path, "src", "ffmpeg", "ffmpeg.exe")
-        
+
         logging.info(
             f"FFMPEG Path: {self.ffmpeg_path}")
-        
+
         if not os.path.exists(self.ffmpeg_path):
             from src.get_ffmpeg import get_ffmpeg
             print("Couldn't find FFMPEG, downloading it now")
@@ -385,7 +367,6 @@ class videoProcessor:
             logging.info("The user doesn't have FFMPEG, downloading it now")
             get_ffmpeg(ffmpeg_path=self.ffmpeg_path)
             print("\n")
-
 
 
 def main():
@@ -506,10 +487,8 @@ def main():
 
         args.output = os.path.join(
             main_path, "output", "TAS" + str(randomNumber) + ".mp4")
-        
+
         logging.info(f"Output name: {args.output}")
-        
-        
 
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
