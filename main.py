@@ -71,13 +71,13 @@ class videoProcessor:
         self.encode_method = args.encode_method
         self.motion_blur = args.motion_blur
         self.vevid = args.vevid
-
+        self.ffmpeg_path = args.ffmpeg_path
+        
         logging.info(
             "\n============== Processing Outputs ==============")
 
         # This is necessary on the top since the script heavily relies on FFMPEG
         self.checkSystem()
-        self.check_ffmpeg()
         self.get_video_metadata()
 
         if self.scenechange:
@@ -350,24 +350,6 @@ class videoProcessor:
         gpu_name = gpus[0].name if gpus else "No GPU detected"
         logging.info(f"GPU: {gpu_name}")
 
-    def check_ffmpeg(self):
-        # I wanted this to be a easier to grab from anywhere within the script
-        # I will probably move this to a different file later on
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        self.ffmpeg_path = os.path.join(
-            dir_path, "src", "ffmpeg", "ffmpeg.exe")
-
-        logging.info(
-            f"FFMPEG Path: {self.ffmpeg_path}")
-
-        if not os.path.exists(self.ffmpeg_path):
-            from src.get_ffmpeg import get_ffmpeg
-            print("Couldn't find FFMPEG, downloading it now")
-            print("This might add an aditional few seconds to the startup time of the process until FFMPEG is downloaded and caches are built, but it will only happen once")
-            logging.info("The user doesn't have FFMPEG, downloading it now")
-            get_ffmpeg(ffmpeg_path=self.ffmpeg_path)
-            print("\n")
-
 
 def main():
     log_file_path = os.path.join(main_path, "log.txt")
@@ -496,6 +478,12 @@ def main():
         ytdlp(args.ytdlp, args.output)
         return
 
+    args.ffmpeg_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "ffmpeg", "ffmpeg.exe")
+    
+    if not os.path.exists(args.ffmpeg_path):
+        from src.get_ffmpeg import get_ffmpeg
+        args.ffmpeg_path = get_ffmpeg()
+    
     if args.input is not None:
         videoProcessor(args)
     else:

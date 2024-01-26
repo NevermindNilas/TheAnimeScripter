@@ -81,9 +81,7 @@ class Rife:
 
         url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{self.filename}"
         
-        print("wget")
         wget.download(url, out=os.path.join(self.modelDir, "flownet.pkl"))
-        print("wget done")
         
     @torch.inference_mode()
     def make_inference(self, n):
