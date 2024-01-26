@@ -96,6 +96,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - [Media2x](https://github.com/media2x/rife-ncnn-vulkan-python) - For Rife NCNN Wrapper
 - [TNTWise](https://github.com/TNTwise/rife-ncnn-vulkan) - For newest implementations of Rife
 - [YT-DLP](https://github.com/yt-dlp/yt-dlp) - For YT-DLP
+- [Phhofm](https://github.com/phhofm) - For SwinIR Models
 
 ## 📈 Benchmarks
 
