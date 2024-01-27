@@ -180,6 +180,10 @@ class videoProcessor:
                     from src.swinir.swinir import Swinir
                     self.upscale_process = Swinir(
                         self.upscale_factor, self.half, self.width, self.height)
+                case "span":
+                    from src.span.span import SpanSR
+                    self.upscale_process = SpanSR(
+                        self.upscale_factor, self.half, self.width, self.height)
 
         if self.interpolate:
             UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
@@ -424,7 +428,7 @@ def main():
 
     logging.info("\n============== Arguments Checker ==============")
 
-    if args.upscale_factor not in [2, 3, 4] or (args.upscale_method in ["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir"] and args.upscale_factor != 2):
+    if args.upscale_factor not in [2, 3, 4] or (args.upscale_method in ["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span"] and args.upscale_factor != 2):
         logging.info(
             f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 2.")
         args.upscale_factor = 2
