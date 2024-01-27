@@ -96,7 +96,8 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - [Media2x](https://github.com/media2x/rife-ncnn-vulkan-python) - For Rife NCNN Wrapper
 - [TNTWise](https://github.com/TNTwise/rife-ncnn-vulkan) - For newest implementations of Rife
 - [YT-DLP](https://github.com/yt-dlp/yt-dlp) - For YT-DLP
-- [Phhofm](https://github.com/phhofm) - For SwinIR Models
+- [Hongyuanyu](https://github.com/hongyuanyu/span) - For SPAN
+- [Phhofm](https://github.com/phhofm) - For SwinIR and SPAN Models
 
 ## 📈 Benchmarks
 
@@ -201,3 +202,4 @@ In no particular order:
 - Fixed CUPY CUDA issues for GMFSS
 - [Massive] Release 0.1.7 (19/01/2024)
 - [Massive] Added Rife NCNN
+- ...
