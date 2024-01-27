@@ -115,10 +115,11 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | **Upscaling 2x** | Shufflecugan | ~21 | |
 | | Compact | ~15 | |
 | | UltraCompact | ~25 | |
-| | SuperUltraCompact | N/A | Needs fixing |
-| | SwinIR | ~1.5 | |
+| | SuperUltraCompact | ~30 | |
+| | SwinIR | ~1 | |
 | | Cugan | N/A | |
 | | Cugan-NCNN | ~7 | |
+| | SPAN | ~9 | |
 | **Depth Map Generation** | Depth Anything VITS | ~16 | FP16 on for every test |
 | | Depth Anything VITB | ~11 | |
 | | Depth Anything VITL | ~7 | |
