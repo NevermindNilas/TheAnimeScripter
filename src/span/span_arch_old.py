@@ -1,11 +1,8 @@
 from collections import OrderedDict
-
 import torch
+from torch import nn as nn
 import torch.nn.functional as F
-from torch import nn
 
-training = False
-upscale = 2
 
 def _make_pair(value):
     if isinstance(value, int):
@@ -105,7 +102,6 @@ class Conv3XC(nn.Module):
         self.stride = s
         self.has_relu = relu
         gain = gain1
-        self.training = training
 
         self.sk = nn.Conv2d(in_channels=c_in, out_channels=c_out, kernel_size=1, padding=0, stride=s, bias=bias)
         self.conv = nn.Sequential(
@@ -115,11 +111,9 @@ class Conv3XC(nn.Module):
         )
 
         self.eval_conv = nn.Conv2d(in_channels=c_in, out_channels=c_out, kernel_size=3, padding=1, stride=s, bias=bias)
-
-        if self.training is False:
-            self.eval_conv.weight.requires_grad = False
-            self.eval_conv.bias.requires_grad = False
-            self.update_params()
+        self.eval_conv.weight.requires_grad = False
+        self.eval_conv.bias.requires_grad = False
+        self.update_params()
 
     def update_params(self):
         w1 = self.conv[0].weight.data.clone().detach()
@@ -202,10 +196,10 @@ class SPAN(nn.Module):
     """
 
     def __init__(self,
-                 num_in_ch=3,
-                 num_out_ch=3,
+                 num_in_ch,
+                 num_out_ch,
                  feature_channels=48,
-                 upscale=upscale,
+                 upscale=4,
                  bias=True,
                  img_range=255.,
                  rgb_mean=(0.4488, 0.4371, 0.4040)
@@ -249,4 +243,6 @@ class SPAN(nn.Module):
         output = self.upsampler(out)
 
         return output
+
+
 
