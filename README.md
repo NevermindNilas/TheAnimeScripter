@@ -58,12 +58,11 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - `--interpolate_method` : (str, default="rife") Method to use for interpolation. Options: "rife", "rife4.14", "rife4.14-lite", "rife4.13-lite", "rife-ncnn", "rife4.14-ncnn", "rife4.14-lite-ncnn", "rife4.13-lite-ncnn"
 - `--upscale` : (int, default=0) Set to 1 if you want to enable upscaling, 0 to disable.
 - `--upscale_factor` : (int, default=2) Factor by which to upscale.
-- `--upscale_method` : (str, default="ShuffleCugan") Method to use for upscaling.
-- `--cugan_kind` : (str, default="no-denoise") Kind of Cugan to use.
+- `--upscale_method` : (str, default="ShuffleCugan") Method to use for upscaling. Options: "cugan / cugan-ncnn / shufflecugan ", "swinir", "compact / ultracompact / superultracompact", "span"
+- `--cugan_kind` : (str, default="no-denoise") Kind of Cugan to use. Options: "no-denoise", "conservative", "denoise1x", "denoise2x"
 - `--dedup` : (int, default=0) Set to 1 if you want to enable deduplication, 0 to disable.
 - `--dedup_method` : (str, default="ffmpeg") Method to use for deduplication.
 - `--dedup_sens` : (float, default=50) Sensitivy of deduplication.
-- `--nt` : (int, default=1) Number of threads to use.
 - `--half` : (int, default=1) Set to 1 to use half precision, 0 for full precision.
 - `--inpoint` : (float, default=0) Inpoint for the video.
 - `--outpoint` : (float, default=0) Outpoint for the video.
@@ -124,18 +123,14 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | | Depth Anything VITB | ~11 | |
 | | Depth Anything VITL | ~7 | |
 | **Segmentation** | Isnet-Anime | ~10 | |
-| **Motion Blur** | 2xRife + Gaussian Averaging | ~40 | Still in work |
+| **Motion Blur** | 2xRife + Gaussian Averaging | ~20 | Still in work |
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
 
 ## 📋 To-Do
 
 In no particular order:
-- Add testing.
-- Fix Rife padding, again.
-- Play around with better mpdecimate params
-- Find a way to add awarpsharp2 to the pipeline
-- Add bounding box support for Segmentation
+- Add Multithreadding
 
 ## ✅ Done
 
