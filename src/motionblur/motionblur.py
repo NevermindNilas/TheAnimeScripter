@@ -42,6 +42,10 @@ class motionBlur():
         self.interpolated_frames = Queue(maxsize=500)
         self.processed_frames = Queue(maxsize=500)
 
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.weights = torch.exp(-0.5 * (torch.linspace(-1, 1, self.interpolate_factor)**2)).to(device)
+        self.weights /= torch.sum(self.weights)
+        
         self.pbar = tqdm(
             desc="Processing", total=self.nframes, unit="frames", unit_scale=True, dynamic_ncols=True, leave=False, colour="green")
 
@@ -149,17 +153,8 @@ class motionBlur():
                 frame_buffer.append(torch.from_numpy(frame).to(device))                
 
                 if len(frame_buffer) == self.interpolate_factor:
-                    motion_blur_frame = torch.zeros_like(frame_buffer[0], dtype=torch.float32)
-
-                    weights = torch.exp(-0.5 * (torch.linspace(-1, 1, self.interpolate_factor)**2)).to(device)
-                    weights /= torch.sum(weights)
-
-                    for i in range(self.interpolate_factor):
-                        weight = weights[i]
-                        motion_blur_frame += weight * frame_buffer[i]
-
-                    motion_blur_frame /= torch.sum(weights)
-                    motion_blur_frame = motion_blur_frame.byte()
+                    motion_blur_frame = torch.stack(list(frame_buffer)) * self.weights[:, None, None, None]
+                    motion_blur_frame = motion_blur_frame.sum(dim=0).byte()
 
                     self.processed_frames.put_nowait(motion_blur_frame.cpu().numpy())
                     frame_buffer.clear()
