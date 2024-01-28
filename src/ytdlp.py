@@ -46,7 +46,8 @@ class ytdlp():
 
         if self.ytdlp_quality:
             from .ffmpegSettings import encodeYTDLP
-            command = encodeYTDLP(temp_name, self.output, ffmpeg_path, self.encode_method)
+            command = encodeYTDLP(temp_name, self.output,
+                                  ffmpeg_path, self.encode_method)
             subprocess.run(command)
             os.remove(temp_name)
 
