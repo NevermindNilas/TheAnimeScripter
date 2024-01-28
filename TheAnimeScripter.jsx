@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "0.2.0";
+    var scriptVersion = "0.2.1";
 
     /*
     scriptAuthor = "Nilas";
@@ -24,6 +24,7 @@ var TheAnimeScripter = (function() {
     var dropdownEncoder = app.settings.haveSetting(scriptName, "dropdownEncoder") ? app.settings.getSetting(scriptName, "dropdownEncoder") : 0;
     var dropdownInterpolate = app.settings.haveSetting(scriptName, "dropdownInterpolate") ? app.settings.getSetting(scriptName, "dropdownInterpolate") : 0;
     var sliderDedupSenstivity = app.settings.haveSetting(scriptName, "sliderDedupSenstivity") ? app.settings.getSetting(scriptName, "sliderDedupSenstivity") : 50;
+    var dropdownDepth = app.settings.haveSetting(scriptName, "dropdownDepth") ? app.settings.getSetting(scriptName, "dropdownDepth") : 0;
 
     var segmentValue = 0;
     var sceneChangeValue = 0;
@@ -439,6 +440,28 @@ var TheAnimeScripter = (function() {
     intUpscale.alignment = ["left", "top"];
     intUpscale.enabled = false;
 
+    var group4 = generalPanel.add("group", undefined, {
+        name: "group4"
+    });
+    group4.orientation = "row";
+    group4.alignChildren = ["left", "center"];
+    group4.spacing = 25;
+    group4.margins = 0;
+
+    var checkboxEnsemble = group4.add("checkbox", undefined, "Rife Ensemble", {
+        name: "checkboxEnsemble"
+    });
+
+    checkboxEnsemble.alignment = ["left", "center"];
+    checkboxEnsemble.helpTip = "Turn on ensemble for Rife, higher quality outputs for a slight tax in performance";
+
+    var checkboxYTDLPQuality = group4.add("checkbox", undefined, "YT-DLP Quality", {
+        name: "checkboxYTDLPQuality"
+    });
+
+    checkboxYTDLPQuality.alignment = ["left", "center"];
+    checkboxYTDLPQuality.helpTip = "Turn on higher quality download for YT-DLP, will download the highest quality available from yt (4k/8k) and then re-encode the video to the desired encoder, turn off for 1920x1080p only downloads";
+
     // GROUP4
     // ======
     var group4 = generalPanel.add("group", undefined, {
@@ -476,7 +499,7 @@ var TheAnimeScripter = (function() {
     textUpscaleModel.text = "Upscale Model";
     textUpscaleModel.preferredSize.width = 103;
 
-    var dropdownModel_array = ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "SwinIR"];
+    var dropdownModel_array = ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "SwinIR", "-", "Span"];
     var dropdownModel = group5.add("dropdownlist", undefined, undefined, {
         name: "dropdownModel",
         items: dropdownModel_array
@@ -537,8 +560,7 @@ var TheAnimeScripter = (function() {
     dropdownCugan.selection = 0;
     dropdownCugan.preferredSize.width = 109;
     dropdownCugan.enabled = false;
-
-    // Create a new group8
+    
     var group8 = panel1.add("group", undefined, {
         name: "group8"
     });
@@ -548,8 +570,32 @@ var TheAnimeScripter = (function() {
     group8.spacing = 0;
     group8.margins = 0;
 
-    // Move the encoder to group8
-    var textEncoderSelection = group8.add("statictext", undefined, undefined, {
+    var textDepthSelection = group8.add("statictext", undefined, undefined, {
+        name: "textDepthSelection"
+    });
+
+    textDepthSelection.text = "Depth Model";
+    textDepthSelection.preferredSize.width = 103;
+    textDepthSelection.helpTip = "Choose which depth map model you want to utilize, ordered by speed, read more in INFO";
+
+    var dropdownDepth_array = ["Small", "-", "Base", "-", "Large"];
+    var dropdownDepth = group8.add("dropdownlist", undefined, undefined, {
+        name: "dropdownDepth",
+        items: dropdownDepth_array
+    });
+    
+    dropdownDepth.selection = 0;
+    dropdownDepth.preferredSize.width = 109;
+
+    var group9 = panel1.add("group", undefined, {
+        name: "group9"
+    });
+    group9.orientation = "row";
+    group9.alignChildren = ["left", "center"];
+    group9.spacing = 0;
+    group9.margins = 0;
+
+    var textEncoderSelection = group9.add("statictext", undefined, undefined, {
         name: "textEncoderSelection"
     });
 
@@ -558,7 +604,7 @@ var TheAnimeScripter = (function() {
     textEncoderSelection.helpTip = "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs and QSV for Intel iGPUs";
 
     var dropdownEncoder_array = ["X264", "-", "X264_Animation", "-" , "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"];
-    var dropdownEncoder = group8.add("dropdownlist", undefined, undefined, {
+    var dropdownEncoder = group9.add("dropdownlist", undefined, undefined, {
         name: "dropdownEncoder",
         items: dropdownEncoder_array
     });
@@ -598,7 +644,7 @@ var TheAnimeScripter = (function() {
     dropdownModel.onChange = function() {
         app.settings.saveSetting(scriptName, "dropdownModel", dropdownModel.selection.index);
 
-        if (dropdownModel.selection.index == 0 | dropdownModel.selection.index == 2 | dropdownModel.selection.index == 4 | dropdownModel.selection.index == 6 | dropdownModel.selection.index == 12) {
+        if (dropdownModel.selection.index == 0 | dropdownModel.selection.index == 2 | dropdownModel.selection.index == 4 | dropdownModel.selection.index == 6 | dropdownModel.selection.index == 12 | dropdownModel.selection.index == 14) {
             intUpscale.text = "2";
             intUpscale.enabled = false;
             dropdownCugan.enabled = false;
@@ -785,9 +831,11 @@ var TheAnimeScripter = (function() {
                     "--segment", segmentValue,
                     "--scenechange", sceneChangeValue,
                     "--depth", depthValue,
+                    "--depth_method", dropdownDepth.selection.text,
                     "--encode_method", dropdownEncoder.selection.text,
                     "--scenechange_sens", 100 - sliderSceneChange.value,
                     "--motion_blur", motionBlurValue,
+                    "--ensemble", checkboxEnsemble.value ? "1" : "0",
                 ];
                 var command = attempt.join(" ");
                 callCommand(command);
@@ -894,6 +942,7 @@ var TheAnimeScripter = (function() {
                 "\"" + exeFile + "\"",
                 "--output", "\"" + outputName + "\"",
                 "--ytdlp", "\"" + textGetVideo.text + "\"",
+                "--ytdlp_quality", checkboxYTDLPQuality.value ? "1" : "0",
             ];
             var command = attempt.join(" ");
             callCommand(command);
