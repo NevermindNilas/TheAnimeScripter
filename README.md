@@ -6,7 +6,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 [Join The Discord Server](https://discord.gg/bFA6xZxM5V)
 
 ## 🔥 Deduplicated, Upscaled, Interpolated and Sharpened Demo
-https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e49-47fa-99a7-73ba5c7d197b
+https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/c1ff9ec4-1af7-4edd-ac42-43ba4f78b151
 
 
 ## 🚀 Key Features
