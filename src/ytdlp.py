@@ -79,7 +79,7 @@ class ytdlp():
                 case "hevc_amf":
                     command.extend(
                         ['-c:v', 'hevc_amf', '-quality', 'speed', '-rc', 'cqp', '-qp', '14'])
-                    
+
             command.append(self.output)
             subprocess.run(command)
 
