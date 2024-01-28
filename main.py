@@ -71,6 +71,7 @@ class videoProcessor:
         self.encode_method = args.encode_method
         self.motion_blur = args.motion_blur
         self.ffmpeg_path = args.ffmpeg_path
+        self.ensemble = args.ensemble
         
         logging.info(
             "\n============== Processing Outputs ==============")
@@ -191,7 +192,7 @@ class videoProcessor:
                     from src.rife.rife import Rife
 
                     self.interpolate_process = Rife(
-                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.interpolate_method)
+                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.interpolate_method, self.ensemble)
                 case "rife-ncnn" | "rife4.13-lite-ncnn" | "rife4.14-lite-ncnn" | "rife4.14-ncnn":
                     from src.rifencnn.rifencnn import rifeNCNN
                     self.interpolate_process = rifeNCNN(
@@ -367,6 +368,7 @@ def main():
     argparser.add_argument("--interpolate_factor", type=int, default=2)
     argparser.add_argument("--interpolate_method",
                            type=str, default="rife")
+    argparser.add_argument("--ensemble", type=int, default=0)
     argparser.add_argument("--upscale", type=int, default=0)
     argparser.add_argument("--upscale_factor", type=int, default=2)
     argparser.add_argument("--upscale_method",  type=str,
@@ -399,6 +401,7 @@ def main():
         args.version = scriptVersion
 
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
+    args.ensemble = True if args.ensemble == 1 else False
     args.ytdlp_quality = True if args.ytdlp_quality == 1 else False
     args.interpolate = True if args.interpolate == 1 else False
     args.scenechange = True if args.scenechange == 1 else False
@@ -448,9 +451,6 @@ def main():
         I will keep a default rife value that will always utilize the latest available model
         Unless the user doesn't explicitly specify the interpolation method
         I am not planning to add one too many arches, and probably will only add the latest ones
-        It will always be Ensemble False and FastMode true just because the usecase is more than likely going to be for massive interpolations
-        like 8x/16x and performance is key.
-
         The same applies to Rife NCNN, I will only add the latest models
         """
         logging.exception(
