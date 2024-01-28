@@ -77,6 +77,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7bca1442-2e4
 - `--motion_blur` : (int, default=0) Add motion blur using gaussian weighting between multiple frames, relies on interpolate factor and method
 - `--ytdlp` : (str, default="") Download a youtube video, needs full url.
 - `--ytdlp_quality` : (int, default = 0) Allow 4k/8k videos to be downloaded then reencoded to selected `--encode_method`
+- `--ensemble` : (int, default = 0) Activate Ensemble for higher quality outputs from Rife ( doesn't work with ncnn versions for now )
 
 ## 🙏 Acknowledgements
 

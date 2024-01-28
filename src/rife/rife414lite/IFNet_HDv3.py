@@ -101,6 +101,7 @@ class IFNet(nn.Module):
             channel = x.shape[1] // 2
             img0 = x[:, :channel]
             img1 = x[:, channel:]
+        
         if not torch.is_tensor(timestep):
             timestep = (x[:, :1].clone() * 0 + 1) * timestep
         else:
