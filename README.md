@@ -28,6 +28,9 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/c1ff9ec4-1af
 9. **Model Chaining in After Effects**: Run Deduplication, Upscaling, Interpolation all in one.
 10. **No Frame Extraction**: The script does 0 frame extraction, everything is being done in memory without additional decode and encode cycles.
 
+## ✅ Stats
+![Alt](https://repobeats.axiom.co/api/embed/4754b52201c8220b8611a8c6e43c53ed3dc82a9f.svg "Repobeats analytics image")
+
 ## 🛠️ Getting Started
 
 #### How to download
@@ -142,6 +145,3 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | | 2xRife + Gaussian Averaging | ~20 | Still in work |
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
-
-## ✅ Stats
-![Alt](https://repobeats.axiom.co/api/embed/4754b52201c8220b8611a8c6e43c53ed3dc82a9f.svg "Repobeats analytics image")
