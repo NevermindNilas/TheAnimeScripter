@@ -20,7 +20,6 @@ class ytdlp():
             __file__), "ffmpeg", "ffmpeg.exe")
 
         if not os.path.isfile(ffmpeg_path):
-            logging.info("Couldn't find FFMPEG, downloading it now...")
             ffmpeg_path = get_ffmpeg()
 
         if not self.ytdlp_quality:
