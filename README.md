@@ -106,15 +106,19 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 
 | Test Category | Method | FPS | Notes |
 | --- | --- | --- | --- |
-| **Interpolation 2x** | Rife (v4.13) | ~100 | Fastmode True, Ensemble False, No longer available |
-| | Rife (v4.13-lite) | ~120 | Fastmode True, Ensemble False |
-| | Rife (v4.14-lite) | ~100 | Fastmode True, Ensemble False |
-| | Rife (v4.14) | ~100 | Fastmode True, Ensemble False |
-| | Rife (v4.13-lite-ncnn) | ~60 | Fastmode True, Ensemble False |
-| | Rife (v4.14-lite-ncnn) | ~50 | Fastmode True, Ensemble False |
-| | Rife (v4.14-ncnn) | ~50 | Fastmode True, Ensemble False |
+| **Interpolation 2x** |
+| | Rife (v4.13-lite) | ~120 | Ensemble False |
+| | Rife (v4.14-lite) | ~100 | Ensemble False |
+| | Rife (v4.14) | ~100 | Ensemble False |
+| | Rife (v4.13-lite) | ~100 | Ensemble True |
+| | Rife (v4.14-lite) | ~80 | Ensemble True |
+| | Rife (v4.14) | ~80 | Ensemble True |
+| | Rife (v4.13-lite-ncnn) | ~60 |  |
+| | Rife (v4.14-lite-ncnn) | ~50 |  |
+| | Rife (v4.14-ncnn) | ~50 |  |
 | | GMFSS Fortuna Union | ~7 | Ensemble False for Rife |
-| **Upscaling 2x** | Shufflecugan | ~21 | |
+| **Upscaling 2x** | 
+| | Shufflecugan | ~21 | |
 | | Compact | ~15 | |
 | | UltraCompact | ~25 | |
 | | SuperUltraCompact | ~30 | |
@@ -122,11 +126,14 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | | Cugan | N/A | |
 | | Cugan-NCNN | ~7 | |
 | | SPAN | ~9 | |
-| **Depth Map Generation** | Depth Anything VITS | ~16 | FP16 on for every test |
+| **Depth Map Generation** | 
+| | Depth Anything VITS | ~16 | |
 | | Depth Anything VITB | ~11 | |
 | | Depth Anything VITL | ~7 | |
-| **Segmentation** | Isnet-Anime | ~10 | |
-| **Motion Blur** | 2xRife + Gaussian Averaging | ~20 | Still in work |
+| **Segmentation** | 
+| | Isnet-Anime | ~10 | |
+| **Motion Blur** | 
+| | 2xRife + Gaussian Averaging | ~20 | Still in work |
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
 
