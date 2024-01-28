@@ -1,5 +1,4 @@
 import subprocess
-import _thread
 import logging
 import numpy as np
 import torch
