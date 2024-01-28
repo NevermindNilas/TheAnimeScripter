@@ -141,7 +141,7 @@ def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, ded
     command.extend([
         "-i", input,
     ])
-    
+
     if dedup:
         command.extend(
             ["-vf", dedup_strenght])
@@ -168,12 +168,13 @@ def get_dedup_strength(dedup_sens):
 def interpolate(x, x1, x2, y1, y2):
     return y1 + (x - x1) * (y2 - y1) / (x2 - x1)
 
+
 def encodeYTDLP(input, output, ffmpeg_path, encode_method):
     # This is for non rawvideo bytestreams, it's simpler to keep track this way
     # And have everything FFMPEG related organized in one file
-    
+
     command = [ffmpeg_path, '-i', input]
-    
+
     match encode_method:
         # I know that superfast isn't exactly the best preset for x264, but I fear that someone will try to convert a 4k 24 min video
         # On a i7 4770k and it will take 3 business days to finish
@@ -207,9 +208,9 @@ def encodeYTDLP(input, output, ffmpeg_path, encode_method):
         case "hevc_amf":
             command.extend(
                 ['-c:v', 'hevc_amf', '-quality', 'speed', '-rc', 'cqp', '-qp', '14'])
-    
+
     command.append(output)
-    
+
     logging.info(f"Encoding options: {' '.join(command)}")
-    
+
     return command
