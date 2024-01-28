@@ -6,7 +6,7 @@ import logging
 from torch.nn import functional as F
 
 class Rife:
-    def __init__(self, interpolation_factor, half, width, height, UHD, interpolate_method):
+    def __init__(self, interpolation_factor, half, width, height, UHD, interpolate_method, ensemble=False):
         self.interpolation_factor = interpolation_factor
         self.half = half
         self.UHD = UHD
@@ -14,6 +14,7 @@ class Rife:
         self.width = width
         self.height = height
         self.interpolate_method = interpolate_method
+        self.ensemble = ensemble
 
         self.handle_model()
 
@@ -21,7 +22,6 @@ class Rife:
         
         match self.interpolate_method:
             case "rife" | "rife4.14":
-                    
                 from .rife414.RIFE_HDv3 import Model
                 self.interpolate_method = "rife414"
                 self.filename = "rife414.pkl"
@@ -86,7 +86,7 @@ class Rife:
     @torch.inference_mode()
     def make_inference(self, n):
         output = self.model.inference(
-                    self.I0, self.I1, n, self.scale)
+                    self.I0, self.I1, n, self.scale, self.ensemble)
         
         output = (((output[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
         

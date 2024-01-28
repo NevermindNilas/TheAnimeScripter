@@ -45,9 +45,9 @@ class Model:
             else:
                 self.flownet.load_state_dict(convert(torch.load('{}/flownet.pkl'.format(path), map_location ='cpu')), False)
         
-    def inference(self, img0, img1, timestep=0.5, scale=1.0):
+    def inference(self, img0, img1, timestep=0.5, scale=1.0, ensemble=False):
         imgs = torch.cat((img0, img1), 1)
         scale_list = [8/scale, 4/scale, 2/scale, 1/scale]
-        flow, mask, merged = self.flownet(imgs, timestep, scale_list)
+        flow, mask, merged = self.flownet(imgs, timestep, scale_list, ensemble=ensemble)
         return merged[3]
     
