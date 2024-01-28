@@ -70,7 +70,6 @@ class videoProcessor:
         self.depth_method = args.depth_method
         self.encode_method = args.encode_method
         self.motion_blur = args.motion_blur
-        self.vevid = args.vevid
         self.ffmpeg_path = args.ffmpeg_path
         
         logging.info(
@@ -390,7 +389,7 @@ def main():
     argparser.add_argument("--encode_method", type=str, default="x264")
     argparser.add_argument("--motion_blur", type=int, default=0)
     argparser.add_argument("--ytdlp", type=str, default="")
-    argparser.add_argument("--vevid", type=int, default=0)
+    argparser.add_argument("--ytdlp_quality", type=int, default=0)
     args = argparser.parse_args()
 
     if args.version:
@@ -400,12 +399,12 @@ def main():
         args.version = scriptVersion
 
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
+    args.ytdlp_quality = True if args.ytdlp_quality == 1 else False
     args.interpolate = True if args.interpolate == 1 else False
     args.scenechange = True if args.scenechange == 1 else False
     args.sharpen = True if args.sharpen == 1 else False
     args.upscale = True if args.upscale == 1 else False
     args.segment = True if args.segment == 1 else False
-    args.vevid = True if args.vevid == 1 else False
     args.dedup = True if args.dedup == 1 else False
     args.depth = True if args.depth == 1 else False
     args.half = True if args.half == 1 else False
@@ -479,7 +478,7 @@ def main():
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
         from src.ytdlp import ytdlp
-        ytdlp(args.ytdlp, args.output)
+        ytdlp(args.ytdlp, args.output, args.ytdlp_quality, args.encode_method)
         return
 
     args.ffmpeg_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "src", "ffmpeg", "ffmpeg.exe")
