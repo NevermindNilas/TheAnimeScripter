@@ -116,14 +116,14 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | | Rife (v4.13-lite-ncnn) | ~60 |  |
 | | Rife (v4.14-lite-ncnn) | ~50 |  |
 | | Rife (v4.14-ncnn) | ~50 |  |
-| | GMFSS Fortuna Union | ~7 | Ensemble False for Rife |
+| | GMFSS Fortuna Union | ~7 | Ensemble False |
 | **Upscaling 2x** | 
 | | Shufflecugan | ~21 | |
 | | Compact | ~15 | |
 | | UltraCompact | ~25 | |
 | | SuperUltraCompact | ~30 | |
 | | SwinIR | ~1 | |
-| | Cugan | N/A | |
+| | Cugan | ~9 | |
 | | Cugan-NCNN | ~7 | |
 | | SPAN | ~9 | |
 | **Depth Map Generation** | 
