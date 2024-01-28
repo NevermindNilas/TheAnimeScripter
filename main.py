@@ -351,8 +351,11 @@ class videoProcessor:
         # For easier debugging purposes, I will log the system info in the log file
         import GPUtil
         gpus = GPUtil.getGPUs()
-        gpu_name = gpus[0].name if gpus else "No GPU detected"
-        logging.info(f"GPU: {gpu_name}")
+        if gpus:
+            for gpu in gpus:
+                logging.info(f"GPU: {gpu.name}")
+        else:
+            logging.info("No GPU detected")
 
 
 def main():
@@ -364,34 +367,32 @@ def main():
     argparser.add_argument("--version", action="store_true")
     argparser.add_argument("--input", type=str)
     argparser.add_argument("--output", type=str)
-    argparser.add_argument("--interpolate", type=int, default=0)
+    argparser.add_argument("--interpolate", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--interpolate_factor", type=int, default=2)
-    argparser.add_argument("--interpolate_method",
-                           type=str, default="rife")
-    argparser.add_argument("--ensemble", type=int, default=0)
-    argparser.add_argument("--upscale", type=int, default=0)
-    argparser.add_argument("--upscale_factor", type=int, default=2)
-    argparser.add_argument("--upscale_method",  type=str,
-                           default="shufflecugan")
-    argparser.add_argument("--cugan_kind", type=str, default="no-denoise")
-    argparser.add_argument("--dedup", type=int, default=0)
+    argparser.add_argument("--interpolate_method", type=str, choices=["rife", "rife4.14", "rife4.14-lite", "rife4.13-lite", "gmfss", "rife-ncnn", "rife4.13-lite-ncnn", "rife4.14-lite-ncnn", "rife4.14-ncnn"], default="rife")
+    argparser.add_argument("--ensemble", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--upscale", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--upscale_factor", type=int, choices=[2, 3, 4], default=2)
+    argparser.add_argument("--upscale_method",  type=str, choices=["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span"], default="shufflecugan")
+    argparser.add_argument("--cugan_kind", type=str, choices= ["no-denoise", "conservative", "denoise1x", "denoise2x"] , default="no-denoise")
+    argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
     argparser.add_argument("--dedup_sens", type=float, default=35)
     argparser.add_argument("--nt", type=int, default=1)
-    argparser.add_argument("--half", type=int, default=1)
+    argparser.add_argument("--half", type=int, choices=[0, 1], default=1)
     argparser.add_argument("--inpoint", type=float, default=0)
     argparser.add_argument("--outpoint", type=float, default=0)
-    argparser.add_argument("--sharpen", type=int, default=0)
+    argparser.add_argument("--sharpen", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--sharpen_sens", type=float, default=50)
-    argparser.add_argument("--segment", type=int, default=0)
-    argparser.add_argument("--scenechange", type=int, default=0)
+    argparser.add_argument("--segment", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--scenechange", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--scenechange_sens", type=float, default=50)
-    argparser.add_argument("--depth", type=int, default=0)
-    argparser.add_argument("--depth_method", type=str, default="small")
-    argparser.add_argument("--encode_method", type=str, default="x264")
+    argparser.add_argument("--depth", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--depth_method", type=str, choices=["small", "base", "large"], default="small")
+    argparser.add_argument("--encode_method", type=str, choices=["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1", "h264_amf", "hevc_amf"], default="x264")
     argparser.add_argument("--motion_blur", type=int, default=0)
     argparser.add_argument("--ytdlp", type=str, default="")
-    argparser.add_argument("--ytdlp_quality", type=int, default=0)
+    argparser.add_argument("--ytdlp_quality", type=int, choices=[0, 1], default=0)
     args = argparser.parse_args()
 
     if args.version:
@@ -440,27 +441,6 @@ def main():
         # Dedup Sens will be overwritten with the mpdecimate params in order to minimize on the amount of variables used throughout the script
         args.dedup_sens = get_dedup_strength(args.dedup_sens)
         logging.info(f"Setting dedup params to {args.dedup_sens}")
-
-    if args.encode_method not in ["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1", "h264_amf", "hevc_amf"]:
-        logging.exception(
-            f"There was an error in choosing the encode method, {args.encode_method} is not a valid option, setting the encoder to x264")
-        args.encode_method = "x264"
-
-    if args.interpolate_method not in ["rife", "rife4.14", "rife4.14-lite", "rife4.13-lite", "gmfss", "rife-ncnn", "rife4.13-lite-ncnn", "rife4.14-lite-ncnn", "rife4.14-ncnn"]:
-        """
-        I will keep a default rife value that will always utilize the latest available model
-        Unless the user doesn't explicitly specify the interpolation method
-        I am not planning to add one too many arches, and probably will only add the latest ones
-        The same applies to Rife NCNN, I will only add the latest models
-        """
-        logging.exception(
-            f"There was an error in choosing the interpolation method, {args.interpolate_method} is not a valid option, setting the interpolation method to rife")
-        args.interpolate_method = "rife"
-
-    if args.depth_method not in ["small", "base", "large"]:
-        logging.exception(
-            f"There was an error in choosing the depth method, {args.depth_method} is not a valid option, setting the depth method to small")
-        args.depth_method = "small"
 
     if args.output is None:
         logging.info("No output was specified, generating output name")

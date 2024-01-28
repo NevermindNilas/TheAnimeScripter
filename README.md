@@ -1,3 +1,9 @@
+<p align="center">
+    <a href="https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F"><img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F&labelColor=%23697689&countColor=%23ff8a65&style=plastic&labelStyle=none" /></a> 
+    <a href="https://github.com/NevermindNilas/TheAnimeScripter/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/NevermindNilas/TheAnimeScripter.svg?style=flat-square" /></a>
+    <a href="https://github.com/NevermindNilas/TheAnimeScripter/releases"><img alt="GitHub All Releases" src="https://img.shields.io/github/downloads/NevermindNilas/TheAnimeScripter/total.svg?style=flat-square&color=%2364ff82" /></a>
+    <a href="https://github.com/NevermindNilas/TheAnimeScripter/commits"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/NevermindNilas/TheAnimeScripter.svg?style=flat-square" /></a>
+</p>
 
 # TheAnimeScripter
 
@@ -137,74 +143,5 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
 
-## 📋 To-Do
-
-In no particular order:
-- Add Multithreadding
-
-## ✅ Done
-
-- [Massive] Added Rife interpolation
-- [Massive] Added Cugan Upscaling.
-- [Massive] Added Cugan Multithreading.
-- Added Frame deduplication.
-- [Massive] Added Shuffle Cugan - 50% faster for the same quality.
-- Removed unnecessary implementations like frame-by-frame output.
-- Fixed rife output issues.
-- Increased performance for Rife ever so slightly.
-- Placed Output in the same folder as input.
-- Fixed requirements.txt issue where it wouldn't download torch compiled with CUDA.
-- kind-model now defaults to shufflecugan.
-- Fixed issue when input path has spaces.
-- Added scripts to make it easier to get things going.
-- [Massive] Added SwinIR.
-- [Massive] Added Compact
-- [Massive] Added FFMPEG Encoding using moviepy.
-- [Massive] Added Ultracompact.
-- [Massive] Improved the speed of Inference by upwards of 50% from personal testing!
-- Fixed issue where the last nt frames wouldn't be processed.
-- [Massive] Added Segmentation.
-- Added download_models.py for offline processing.
-- [Massive] Added alpha testing of the After Effects script.
-- Fixed Path issues associated with spaces inside the script.
-- Introduced lazy loading for faster start-up times, more work needed.
-- [Massive] Fixed the encoder, now it should be much higher resolution for less space.
-- The output will now default to .m4v to comply with After Effects' codec support.
-- [Massive] After Effects will now only upscale the trimmed part, not the whole clip.
-- [Massive] Increased Rife performance by 50% and bumped up the version to 4.13.
-- [Massive] Added Model chaining in the script, now multiple models can be ran at once.
-- [Massive] New and Improved UI within After Effects.
-- About 20x faster FFMPEG download.
-- [Massive] Better start-up times and overall processing times.
-- [Massive] Upscaling and Interpolating now requires only 1 decode and encode cycle meaning faster processing times.
-- Fixed CPU Inference
-- The models can now be downloaded on the go.
-- Added logging for easier debugging
-- [Massive] Official 0.1 Release (19/12/2023).
-- Fixed Compact, Ultracompact issues
-- [Massive] Added SuperUltraCompact
-- [Massive] Added CUGAN NCNN Vulkan support, now AMD/Intel GPU/iGPU users will be able to take advantage of their systems.
-- [Massive] Added --inpoint and --outpoint variables for AE users, now you will ever need at most 2 decode encode processes instead of 3.
-- [Massive] Release 0.1.1 (21/12/2023)
-- [Massive] Release 0.1.2 (22/12/2023)
-- [Massive] Lowered total processing steps from 2 to 1 meaning faster processing and less encoding needed
-- Some minor performance improvements, not very noticeable for high end computers.
-- [Massive] Increased performance by ~25% by piping output directly to FFMPEG.
-- [Massive] Added Anime Segmentation for Auto Rotobrushing. Still some work left to do
-- [Massive] Release 0.1.3 (25/12/2023)
-- [Massive] Added Automated Scene Change Detect and cut inside of After Effects
-- Added dedup strenght chooser for more accurate dead frame removal.
-- [Massive] Release 0.1.4 (28/12/2023)
-- Increased segmentation performance by 5X
-- [Massive] Added Depth Processing
-- [Massive] Huge increase in performance, 2X in Upscale, 1.5x in Interpolation
-- [Massive] Release 0.1.5 (06/01/2024)
-- Fixed relative timeline issues for inPoint / outPoint inside of AE
-- Added multi layer support and timecode accurate placement in AE
-- [Massive] Added GMFSS Fortuna Union
-- [Massive] Release 0.1.6 (14/01/2024)
-- Added Rife 4.14 Lite
-- Fixed CUPY CUDA issues for GMFSS
-- [Massive] Release 0.1.7 (19/01/2024)
-- [Massive] Added Rife NCNN
-- ...
+## ✅ Stats
+![Alt](https://repobeats.axiom.co/api/embed/4754b52201c8220b8611a8c6e43c53ed3dc82a9f.svg "Repobeats analytics image")

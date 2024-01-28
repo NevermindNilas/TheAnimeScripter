@@ -43,6 +43,7 @@ def create_executable():
     print("Creating executable with PyInstaller...")
     src_path = os.path.join(base_dir, "src")
     jsx_path = os.path.join(base_dir, "TheAnimeScripter.jsx")
+    license_path = os.path.join(base_dir, "LICENSE")
     main_path = os.path.join(base_dir, "main.py")
     icon_path = os.path.join(base_dir, "demos", "icon.ico")
 
@@ -62,15 +63,16 @@ def create_executable():
         main_path
     ], check=True)
 
-    move_jsx_file(jsx_path)
+    move_extras(jsx_path, license_path)
 
 
-def move_jsx_file(jsx_path):
+def move_extras(jsx_path, license_path):
     dist_dir = os.path.join(base_dir, "dist")
     main_dir = os.path.join(dist_dir, "main")
     target_path = os.path.join(main_dir, os.path.basename(jsx_path))
     try:
         shutil.copy(jsx_path, target_path)
+        shutil.copy(license_path, main_dir)
     except Exception as e:
         print("Error while copying jsx file: ", e)
 
