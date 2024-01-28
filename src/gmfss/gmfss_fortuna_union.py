@@ -94,7 +94,7 @@ class GMFSS():
                 
               
     @torch.inference_mode()
-    def make_inference(self, n):
+    def make_inference(self, n, ensemble=False):
         timestep = torch.tensor((n+1) * 1. / (self.interpolation_factor+1), dtype=self.dtype, device=self.device)
         output = self.model(self.I0, self.I1, timestep)
         output = (((output[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
