@@ -2,9 +2,9 @@ import subprocess
 import os
 import platform
 import shutil
+import pkg_resources
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-
 
 def create_venv():
     print("Creating the virtual environment...")
@@ -38,7 +38,6 @@ def install_pyinstaller():
         subprocess.run(["./venv/bin/python", "-m", "pip",
                        "install", "pyinstaller"], check=True)
 
-
 def create_executable():
     print("Creating executable with PyInstaller...")
     src_path = os.path.join(base_dir, "src")
@@ -46,7 +45,7 @@ def create_executable():
     license_path = os.path.join(base_dir, "LICENSE")
     main_path = os.path.join(base_dir, "main.py")
     icon_path = os.path.join(base_dir, "demos", "icon.ico")
-
+    cugan_ncnn_models_path = os.path.join(pkg_resources.get_distribution("realcugan_ncnn_py").location, "realcugan_ncnn_py", "models")
     subprocess.run([
         "./venv/bin/pyinstaller" if platform.system() != "Windows" else ".\\venv\\Scripts\\pyinstaller",
         "--noconfirm",
@@ -55,6 +54,7 @@ def create_executable():
         "--noupx",
         "--clean",
         "--add-data", f"{src_path};src/",
+        "--add-data", f"{cugan_ncnn_models_path};realcugan_ncnn_py/models",
         "--collect-all", "cupy",
         "--collect-all", "cupyx",
         "--collect-all", "cupy_backends",
