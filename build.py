@@ -46,6 +46,7 @@ def create_executable():
     main_path = os.path.join(base_dir, "main.py")
     icon_path = os.path.join(base_dir, "demos", "icon.ico")
     cugan_ncnn_models_path = os.path.join(pkg_resources.get_distribution("realcugan_ncnn_py").location, "realcugan_ncnn_py", "models")
+    rife_ncnn_models_path = os.path.join(pkg_resources.get_distribution("rife_ncnn_vulkan_python").location, "rife_ncnn_vulkan_python", "models")
     subprocess.run([
         "./venv/bin/pyinstaller" if platform.system() != "Windows" else ".\\venv\\Scripts\\pyinstaller",
         "--noconfirm",
@@ -55,6 +56,8 @@ def create_executable():
         "--clean",
         "--add-data", f"{src_path};src/",
         "--add-data", f"{cugan_ncnn_models_path};realcugan_ncnn_py/models",
+        "--add-data", f"{rife_ncnn_models_path};rife_ncnn_vulkan_python/models",
+        "--hidden-import", "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
         "--collect-all", "cupy",
         "--collect-all", "cupyx",
         "--collect-all", "cupy_backends",
