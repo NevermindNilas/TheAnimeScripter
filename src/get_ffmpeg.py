@@ -18,8 +18,12 @@ def get_ffmpeg():
     
     print(
         "Couldn't find FFMPEG, downloading it now, this will add a few seconds onto the first run, but it will be cached for future runs.")
+    
     dir_path = os.path.dirname(os.path.realpath(__file__))
     ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
+    
+    logging.info(
+        f"FFMPEG path: {ffmpeg_path}")
     
     FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
     ffmpeg_dir = os.path.dirname(ffmpeg_path)
