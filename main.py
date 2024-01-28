@@ -373,7 +373,7 @@ def main():
     argparser.add_argument("--ensemble", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--upscale", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--upscale_factor", type=int, choices=[2, 3, 4], default=2)
-    argparser.add_argument("--upscale_method",  type=str, choices=["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span"], default="shufflecugan")
+    argparser.add_argument("--upscale_method",  type=str, choices=["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span", "cugan-ncnn"], default="shufflecugan")
     argparser.add_argument("--cugan_kind", type=str, choices= ["no-denoise", "conservative", "denoise1x", "denoise2x"] , default="no-denoise")
     argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
