@@ -329,6 +329,7 @@ class videoProcessor:
                 f"Wrote {frame_count} frames")
 
             pipe.stdin.close()
+            pipe.terminate()
             self.pbar.close()
 
     def get_video_metadata(self):
