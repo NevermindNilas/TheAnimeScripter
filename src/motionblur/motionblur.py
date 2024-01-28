@@ -46,12 +46,12 @@ class motionBlur():
             desc="Processing", total=self.nframes, unit="frames", unit_scale=True, dynamic_ncols=True, leave=False, colour="green")
 
         self.writing_finished = False
-        _thread.start_new_thread(self.build_buffer, ())
-        _thread.start_new_thread(self.clear_write_buffer, ())
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            executor.submit(self.build_buffer)
             executor.submit(self.interpolate_frames)
             executor.submit(self.blend_frames)
+            executor.submit(self.clear_write_buffer)
 
     def handle_model(self):
 
@@ -196,5 +196,4 @@ class motionBlur():
 
         finally:
             pipe.stdin.close()
-            pipe.wait()
             self.pbar.close()
