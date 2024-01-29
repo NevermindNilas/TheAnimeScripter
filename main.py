@@ -19,6 +19,24 @@
     Home: https://github.com/NevermindNilas/TheAnimeScripter
 """
 
+"""
+# Going to play around with these later, code from holy wu
+self.nt = 2
+self.num_streams = 2
+self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+self.stream = [torch.cuda.Stream(device=self.device)
+               for _ in range(self.num_streams)]
+self.stream_lock = [Lock() for _ in range(self.num_streams)]
+self.index = -1
+self.index_lock = Lock()
+with self.index_lock:
+    self.index = (self.index + 1) % self.num_streams
+    local_index = self.index
+
+with self.stream_lock[local_index], torch.cuda.stream(self.stream[local_index]):
+
+"""
 import os
 import argparse
 import logging
@@ -38,7 +56,7 @@ if getattr(sys, 'frozen', False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "0.2.1"
+scriptVersion = "0.2.2"
 warnings.filterwarnings("ignore")
 
 # TODO: Refactor the code a bit since main.py is getting a bit too overcrowded
@@ -149,9 +167,6 @@ class videoProcessor:
         self.start()
 
     def intitialize_models(self):
-
-        # Generating output data,
-        # This is necessary for the encode_settings function to work properly
         self.new_width = self.width
         self.new_height = self.height
         self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
@@ -209,7 +224,7 @@ class videoProcessor:
 
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = Queue()
-
+        
         with ThreadPoolExecutor(max_workers=3) as executor:
             executor.submit(self.build_buffer)
             executor.submit(self.process)
@@ -257,6 +272,8 @@ class videoProcessor:
         prev_frame = None
         self.processing_done = False
         frame_count = 0
+
+
         try:
             while True:
                 frame = self.read_buffer.get()
@@ -357,7 +374,6 @@ class videoProcessor:
         else:
             logging.info("No GPU detected")
 
-
 def main():
     log_file_path = os.path.join(main_path, "log.txt")
     logging.basicConfig(filename=log_file_path, filemode='w',
@@ -390,7 +406,7 @@ def main():
     argparser.add_argument("--depth", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--depth_method", type=str, choices=["small", "base", "large"], default="small")
     argparser.add_argument("--encode_method", type=str, choices=["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1", "h264_amf", "hevc_amf"], default="x264")
-    argparser.add_argument("--motion_blur", type=int, default=0)
+    argparser.add_argument("--motion_blur", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--ytdlp", type=str, default="")
     argparser.add_argument("--ytdlp_quality", type=int, choices=[0, 1], default=0)
     args = argparser.parse_args()
