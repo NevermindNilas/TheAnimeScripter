@@ -11,7 +11,6 @@ rife-v4.14
 Barebones until I figure out how this exactly works
 """
 
-
 class rifeNCNN():
     def __init__(self, UHD, interpolate_method):
         self.UHD = UHD
@@ -22,7 +21,7 @@ class rifeNCNN():
                 self.interpolate_method = "rife-v4.14"
             case "rife4.14-lite-ncnn":
                 self.interpolate_method = "rife-v4.14-lite"
-            case "rife4.14-ncnn":
+            case "rife4.13-lite-ncnn":
                 self.interpolate_method = "rife-v4.13-lite"
 
         self.rife = Rife(gpuid=0, model=self.interpolate_method, scale=2,
