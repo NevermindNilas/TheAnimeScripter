@@ -810,32 +810,32 @@ var TheAnimeScripter = (function() {
 
             try {
                 var attempt = [
-                    "cd", "\"" + TheAnimeScripterPath + "\"",
-                    "&&",
-                    "\"" + exeFile + "\"",
-                    "--input", "\"" + activeLayerPath + "\"",
-                    "--output", "\"" + output_name + "\"",
-                    "--interpolate", checkboxInterpolate.value ? "1" : "0",
-                    "--interpolate_factor", intInterpolate.text,
-                    "--interpolate_method", dropdownInterpolate.selection.text,
-                    "--upscale", checkboxUpscale.value ? "1" : "0",
-                    "--upscale_factor", intUpscale.text,
-                    "--upscale_method", dropdownModel.selection.text,
-                    "--dedup", checkboxDeduplicate.value ? "1" : "0",
-                    "--dedup_sens", sliderDedupSens.value,
-                    "--half", "1",
-                    "--inpoint", sourceInPoint,
-                    "--outpoint", sourceOutPoint,
-                    "--sharpen", checkboxSharpen.value ? "1" : "0",
-                    "--sharpen_sens", sliderSharpen.value,
-                    "--segment", segmentValue,
-                    "--scenechange", sceneChangeValue,
-                    "--depth", depthValue,
-                    "--depth_method", dropdownDepth.selection.text,
-                    "--encode_method", dropdownEncoder.selection.text,
-                    "--scenechange_sens", 100 - sliderSceneChange.value,
-                    "--motion_blur", motionBlurValue,
-                    "--ensemble", checkboxEnsemble.value ? "1" : "0",
+                        "cd", "\"" + TheAnimeScripterPath + "\"",
+                        "&&",
+                        "\"" + exeFile + "\"",
+                        "--input", "\"" + activeLayerPath + "\"",
+                        "--output", "\"" + output_name + "\"",
+                        "--interpolate", checkboxInterpolate.value ? "1" : "0",
+                        "--interpolate_factor", intInterpolate.text,
+                        "--interpolate_method", dropdownInterpolate.selection.text.toLowerCase(),
+                        "--upscale", checkboxUpscale.value ? "1" : "0",
+                        "--upscale_factor", intUpscale.text,
+                        "--upscale_method", dropdownModel.selection.text.toLowerCase(),
+                        "--dedup", checkboxDeduplicate.value ? "1" : "0",
+                        "--dedup_sens", sliderDedupSens.value,
+                        "--half", "1",
+                        "--inpoint", sourceInPoint,
+                        "--outpoint", sourceOutPoint,
+                        "--sharpen", checkboxSharpen.value ? "1" : "0",
+                        "--sharpen_sens", sliderSharpen.value,
+                        "--segment", segmentValue,
+                        "--scenechange", sceneChangeValue,
+                        "--depth", depthValue,
+                        "--depth_method", dropdownDepth.selection.text.toLowerCase(),
+                        "--encode_method", dropdownEncoder.selection.text.toLowerCase(),
+                        "--scenechange_sens", 100 - sliderSceneChange.value,
+                        "--motion_blur", motionBlurValue,
+                        "--ensemble", checkboxEnsemble.value ? "1" : "0",
                 ];
                 var command = attempt.join(" ");
                 callCommand(command);
@@ -864,8 +864,7 @@ var TheAnimeScripter = (function() {
                     sceneChangeLog.close();
                     break;
                 } else {
-                    // Increased Max Attempts, just in case
-                    var maxAttempts = 10;
+                    var maxAttempts = 5;
                     for (var attempt = 0; attempt < maxAttempts; attempt++) {
                         $.sleep(1000); // Sleeping for a second, metadata is not always written instantly
                         try {
