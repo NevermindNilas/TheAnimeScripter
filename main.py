@@ -329,7 +329,6 @@ class videoProcessor:
                 f"Wrote {frame_count} frames")
 
             pipe.stdin.close()
-            pipe.terminate()
             self.pbar.close()
 
     def get_video_metadata(self):
@@ -413,13 +412,6 @@ def main():
     args.dedup = True if args.dedup == 1 else False
     args.depth = True if args.depth == 1 else False
     args.half = True if args.half == 1 else False
-
-    args.interpolate_method = args.interpolate_method.lower()
-    args.upscale_method = args.upscale_method.lower()
-    args.encode_method = args.encode_method.lower()
-    args.dedup_method = args.dedup_method.lower()
-    args.depth_method = args.depth_method.lower()
-    args.cugan_kind = args.cugan_kind.lower()
 
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
     args.scenechange_sens /= 100  # same for scene change
