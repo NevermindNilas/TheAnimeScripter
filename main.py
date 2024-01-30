@@ -220,7 +220,7 @@ class videoProcessor:
                 case "gmfss":
                     from src.gmfss.gmfss_fortuna_union import GMFSS
                     self.interpolate_process = GMFSS(
-                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD)
+                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.ensemble)
 
     def start(self):
         self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
@@ -307,6 +307,10 @@ class videoProcessor:
                 f"Something went wrong while processing the frames, {e}")
 
         finally:
+            if prev_frame is not None:
+                self.processed_frames.put(prev_frame)
+                frame_count += 1
+                
             logging.info(
                 f"Processed {frame_count} frames")
 
