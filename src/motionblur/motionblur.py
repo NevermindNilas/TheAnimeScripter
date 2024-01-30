@@ -69,7 +69,7 @@ class motionBlur():
         from src.ffmpegSettings import decodeSettings
 
         command: list = decodeSettings(
-            self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_strenght, self.ffmpeg_path)
+            self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_strenght, self.ffmpeg_path, False, 0, "")
 
         process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
