@@ -87,6 +87,9 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/c1ff9ec4-1af
 - `--ytdlp` : (str, default="") Download a youtube video, needs full url.
 - `--ytdlp_quality` : (int, default = 0) Allow 4k/8k videos to be downloaded then reencoded to selected `--encode_method`
 - `--ensemble` : (int, default = 0) Activate Ensemble for higher quality outputs from Rife ( doesn't work with ncnn versions for now )
+- `--resize` : (int, choices=[0, 1], default=0) Set to 1 if you want to enable resizing, 0 to disable. An alternative method to use for upscaling, specifically targetting lower end GPUs.
+- `--resize_factor` : (int, default=2) Factor by which to resize the decoded video. Can also be a negative value. The resizing will always try to maintain the original aspect ratio
+- `--resize_method` : (str, choices=["fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos", "spline"], default="bicubic") "lanczos" is recommended for upscaling and "area" for downscaling.
 
 ## 🙏 Acknowledgements
 

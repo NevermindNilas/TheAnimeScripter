@@ -123,7 +123,7 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
     return command
 
 
-def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, dedup_strenght: str, ffmpeg_path: str):
+def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, dedup_strenght: str, ffmpeg_path: str, resize: bool, resize_factor: int, resize_method: str):
     """
     input: str - The path to the input video file.
     inpoint: float - The start time of the segment to decode, in seconds.
@@ -131,6 +131,10 @@ def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, ded
     dedup: bool - Whether to apply a deduplication filter to the video.
     dedup_strenght: float - The strength of the deduplication filter.
     ffmpeg_path: str - The path to the FFmpeg executable.
+    resize: bool - Whether to resize the video.
+    resize_factor: int - The factor to resize the video by.
+    resize_method: str - The method to use for resizing the video. Options include: "fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos",
+    "spline",
     """
     command = [
         ffmpeg_path,
@@ -143,9 +147,18 @@ def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, ded
         "-i", input,
     ])
 
+    filters = []
     if dedup:
-        command.extend(
-            ["-vf", dedup_strenght])
+        filters.append(dedup_strenght)
+
+    if resize:
+        if resize_factor < 0:
+            resize_factor = 1 / abs(resize_factor)
+        filters.append(
+            f'scale=iw*{resize_factor}:ih*{resize_factor}:flags={resize_method}')
+
+    if filters:
+        command.extend(["-vf", ','.join(filters)])
 
     command.extend([
         "-f", "rawvideo",

@@ -19,24 +19,6 @@
     Home: https://github.com/NevermindNilas/TheAnimeScripter
 """
 
-"""
-# Going to play around with these later, code from holy wu
-self.nt = 2
-self.num_streams = 2
-self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-self.stream = [torch.cuda.Stream(device=self.device)
-               for _ in range(self.num_streams)]
-self.stream_lock = [Lock() for _ in range(self.num_streams)]
-self.index = -1
-self.index_lock = Lock()
-with self.index_lock:
-    self.index = (self.index + 1) % self.num_streams
-    local_index = self.index
-
-with self.stream_lock[local_index], torch.cuda.stream(self.stream[local_index]):
-
-"""
 import os
 import argparse
 import logging
@@ -90,7 +72,10 @@ class videoProcessor:
         self.motion_blur = args.motion_blur
         self.ffmpeg_path = args.ffmpeg_path
         self.ensemble = args.ensemble
-        
+        self.resize = args.resize
+        self.resize_factor = args.resize_factor
+        self.resize_method = args.resize_method
+
         logging.info(
             "\n============== Processing Outputs ==============")
 
@@ -185,8 +170,7 @@ class videoProcessor:
                 case "cugan-ncnn":
                     from src.cugan.cugan import CuganNCNN
                     self.upscale_process = CuganNCNN(
-                        1, self.upscale_factor
-                    )
+                        1, self.upscale_factor)
                 case "compact" | "ultracompact" | "superultracompact":
                     from src.compact.compact import Compact
                     self.upscale_process = Compact(
@@ -228,7 +212,7 @@ class videoProcessor:
 
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = Queue()
-        
+
         with ThreadPoolExecutor(max_workers=3) as executor:
             executor.submit(self.build_buffer)
             executor.submit(self.process)
@@ -238,7 +222,7 @@ class videoProcessor:
         from src.ffmpegSettings import decodeSettings
 
         command: list = decodeSettings(
-            self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_sens, self.ffmpeg_path)
+            self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_sens, self.ffmpeg_path, self.resize, self.resize_factor, self.resize_method)
 
         process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -277,7 +261,6 @@ class videoProcessor:
         self.processing_done = False
         frame_count = 0
 
-
         try:
             while True:
                 frame = self.read_buffer.get()
@@ -301,7 +284,7 @@ class videoProcessor:
                         prev_frame = frame
                 self.processed_frames.put(frame)
                 frame_count += 1
-                
+
         except Exception as e:
             logging.info(
                 f"Something went wrong while processing the frames, {e}")
@@ -310,7 +293,7 @@ class videoProcessor:
             if prev_frame is not None:
                 self.processed_frames.put(prev_frame)
                 frame_count += 1
-                
+
             logging.info(
                 f"Processed {frame_count} frames")
 
@@ -340,7 +323,7 @@ class videoProcessor:
                 frame = np.ascontiguousarray(frame)
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update()
-                
+
         except Exception as e:
             logging.info(
                 f"Something went wrong while writing the frames, {e}")
@@ -365,7 +348,19 @@ class videoProcessor:
 
         logging.info(
             f"Video Metadata: {self.width}x{self.height} @ {self.fps}fps, {self.nframes} frames, {self.codec} codec")
+        
+        if self.resize:
+            aspect_ratio = self.width / self.height
+            self.width = int(self.width * self.resize_factor) if self.resize_factor > 0 else int(self.width / abs(self.resize_factor))
+            self.height = int(self.width / aspect_ratio)
 
+            # Ensure the width and height are even
+            self.width += self.width % 2
+            self.height += self.height % 2
+                
+            logging.info(
+                f"Resizing to {self.width}x{self.height} using {self.resize_method}")
+            
         cap.release()
 
     def checkSystem(self):
@@ -378,6 +373,7 @@ class videoProcessor:
         else:
             logging.info("No GPU detected")
 
+
 def main():
     log_file_path = os.path.join(main_path, "log.txt")
     logging.basicConfig(filename=log_file_path, filemode='w',
@@ -387,14 +383,19 @@ def main():
     argparser.add_argument("--version", action="store_true")
     argparser.add_argument("--input", type=str)
     argparser.add_argument("--output", type=str)
-    argparser.add_argument("--interpolate", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--interpolate", type=int,
+                           choices=[0, 1], default=0)
     argparser.add_argument("--interpolate_factor", type=int, default=2)
-    argparser.add_argument("--interpolate_method", type=str, choices=["rife", "rife4.14", "rife4.14-lite", "rife4.13-lite", "gmfss", "rife-ncnn", "rife4.13-lite-ncnn", "rife4.14-lite-ncnn", "rife4.14-ncnn"], default="rife")
+    argparser.add_argument("--interpolate_method", type=str, choices=["rife", "rife4.14", "rife4.14-lite", "rife4.13-lite",
+                           "gmfss", "rife-ncnn", "rife4.13-lite-ncnn", "rife4.14-lite-ncnn", "rife4.14-ncnn"], default="rife")
     argparser.add_argument("--ensemble", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--upscale", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--upscale_factor", type=int, choices=[2, 3, 4], default=2)
-    argparser.add_argument("--upscale_method",  type=str, choices=["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span", "cugan-ncnn", "omnisr"], default="shufflecugan")
-    argparser.add_argument("--cugan_kind", type=str, choices= ["no-denoise", "conservative", "denoise1x", "denoise2x"] , default="no-denoise")
+    argparser.add_argument("--upscale_factor", type=int,
+                           choices=[2, 3, 4], default=2)
+    argparser.add_argument("--upscale_method",  type=str, choices=[
+                           "shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span", "cugan-ncnn", "omnisr"], default="shufflecugan")
+    argparser.add_argument("--cugan_kind", type=str, choices=[
+                           "no-denoise", "conservative", "denoise1x", "denoise2x"], default="no-denoise")
     argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
     argparser.add_argument("--dedup_sens", type=float, default=35)
@@ -405,14 +406,24 @@ def main():
     argparser.add_argument("--sharpen", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--sharpen_sens", type=float, default=50)
     argparser.add_argument("--segment", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--scenechange", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--scenechange", type=int,
+                           choices=[0, 1], default=0)
     argparser.add_argument("--scenechange_sens", type=float, default=50)
     argparser.add_argument("--depth", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--depth_method", type=str, choices=["small", "base", "large"], default="small")
-    argparser.add_argument("--encode_method", type=str, choices=["x264", "x264_animation", "nvenc_h264", "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1", "h264_amf", "hevc_amf"], default="x264")
-    argparser.add_argument("--motion_blur", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--depth_method", type=str,
+                           choices=["small", "base", "large"], default="small")
+    argparser.add_argument("--encode_method", type=str, choices=["x264", "x264_animation", "nvenc_h264",
+                           "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1", "h264_amf", "hevc_amf"], default="x264")
+    argparser.add_argument("--motion_blur", type=int,
+                           choices=[0, 1], default=0)
     argparser.add_argument("--ytdlp", type=str, default="")
-    argparser.add_argument("--ytdlp_quality", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--ytdlp_quality", type=int,
+                           choices=[0, 1], default=0)
+    argparser.add_argument("--resize", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--resize_factor", type=int, default=2, help="Resize factor for the decoded video, can also be a negative value, it will always keep the desired aspect ratio")
+    argparser.add_argument("--resize_method", type=str, choices=[
+        "fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos",
+        "spline"], default="bicubic", help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling") # Thank god for ChatGPT
     args = argparser.parse_args()
 
     if args.version:
@@ -422,13 +433,14 @@ def main():
         args.version = scriptVersion
 
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
-    args.ensemble = True if args.ensemble == 1 else False
     args.ytdlp_quality = True if args.ytdlp_quality == 1 else False
     args.interpolate = True if args.interpolate == 1 else False
     args.scenechange = True if args.scenechange == 1 else False
+    args.ensemble = True if args.ensemble == 1 else False
     args.sharpen = True if args.sharpen == 1 else False
     args.upscale = True if args.upscale == 1 else False
     args.segment = True if args.segment == 1 else False
+    args.resize = True if args.resize == 1 else False
     args.dedup = True if args.dedup == 1 else False
     args.depth = True if args.depth == 1 else False
     args.half = True if args.half == 1 else False
@@ -474,12 +486,13 @@ def main():
         ytdlp(args.ytdlp, args.output, args.ytdlp_quality, args.encode_method)
         return
 
-    args.ffmpeg_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "src", "ffmpeg", "ffmpeg.exe")
-    
+    args.ffmpeg_path = os.path.join(os.path.dirname(
+        os.path.realpath(__file__)), "src", "ffmpeg", "ffmpeg.exe")
+
     if not os.path.exists(args.ffmpeg_path):
         from src.get_ffmpeg import get_ffmpeg
         args.ffmpeg_path = get_ffmpeg()
-    
+
     if args.input is not None:
         videoProcessor(args)
     else:
