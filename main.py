@@ -307,10 +307,6 @@ class videoProcessor:
                 f"Something went wrong while processing the frames, {e}")
 
         finally:
-            if prev_frame is not None:
-                self.processed_frames.put(prev_frame)
-                frame_count += 1
-
             logging.info(
                 f"Processed {frame_count} frames")
 
