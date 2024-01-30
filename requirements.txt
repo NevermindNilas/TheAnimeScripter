@@ -9,6 +9,8 @@ kornia
 scipy
 gputil
 yt-dlp
+omegaconf
+einops
 realcugan-ncnn-py
 pytorch-lightning
 torch==2.3.0.dev20240122+cu121
