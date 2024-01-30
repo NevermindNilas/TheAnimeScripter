@@ -187,6 +187,10 @@ class videoProcessor:
                     from src.omnisr.omnisr import OmniSR
                     self.upscale_process = OmniSR(
                         self.upscale_factor, self.half, self.width, self.height)
+                case "vcisr":
+                    from src.vcisr.vcisr import VCISR
+                    self.upscale_process = VCISR(
+                        self.upscale_factor, self.half, self.width, self.height)
 
         if self.interpolate:
             UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
@@ -348,19 +352,20 @@ class videoProcessor:
 
         logging.info(
             f"Video Metadata: {self.width}x{self.height} @ {self.fps}fps, {self.nframes} frames, {self.codec} codec")
-        
+
         if self.resize:
             aspect_ratio = self.width / self.height
-            self.width = int(self.width * self.resize_factor) if self.resize_factor > 0 else int(self.width / abs(self.resize_factor))
+            self.width = int(self.width * self.resize_factor) if self.resize_factor > 0 else int(
+                self.width / abs(self.resize_factor))
             self.height = int(self.width / aspect_ratio)
 
             # Ensure the width and height are even
             self.width += self.width % 2
             self.height += self.height % 2
-                
+
             logging.info(
                 f"Resizing to {self.width}x{self.height} using {self.resize_method}")
-            
+
         cap.release()
 
     def checkSystem(self):
@@ -393,7 +398,7 @@ def main():
     argparser.add_argument("--upscale_factor", type=int,
                            choices=[2, 3, 4], default=2)
     argparser.add_argument("--upscale_method",  type=str, choices=[
-                           "shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span", "cugan-ncnn", "omnisr"], default="shufflecugan")
+                           "shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span", "cugan-ncnn", "omnisr", "vcisr"], default="shufflecugan")
     argparser.add_argument("--cugan_kind", type=str, choices=[
                            "no-denoise", "conservative", "denoise1x", "denoise2x"], default="no-denoise")
     argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
@@ -420,10 +425,11 @@ def main():
     argparser.add_argument("--ytdlp_quality", type=int,
                            choices=[0, 1], default=0)
     argparser.add_argument("--resize", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--resize_factor", type=int, default=2, help="Resize factor for the decoded video, can also be a negative value, it will always keep the desired aspect ratio")
+    argparser.add_argument("--resize_factor", type=int, default=2,
+                           help="Resize factor for the decoded video, can also be a negative value, it will always keep the desired aspect ratio")
     argparser.add_argument("--resize_method", type=str, choices=[
         "fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos",
-        "spline"], default="bicubic", help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling") # Thank god for ChatGPT
+        "spline"], default="bicubic", help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling")  # Thank god for ChatGPT
     args = argparser.parse_args()
 
     if args.version:
@@ -461,6 +467,11 @@ def main():
             f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 2.")
         args.upscale_factor = 2
 
+    if args.upscale_method == "vcisr" and args.upscale_factor != 4:
+        logging.info(
+            f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 4.")
+        args.upscale_factor = 4
+        
     if args.dedup:
         from src.ffmpegSettings import get_dedup_strength
         # Dedup Sens will be overwritten with the mpdecimate params in order to minimize on the amount of variables used throughout the script
