@@ -8,13 +8,14 @@ from torch.nn import functional as F
 
 # from: https://github.com/HolyWu/vs-gmfss_fortuna/blob/master/vsgmfss_fortuna/__init__.py
 class GMFSS():
-    def __init__(self, interpolation_factor, half, width, height, UHD):
+    def __init__(self, interpolation_factor, half, width, height, UHD, ensemble=False):
 
         self.width = width
         self.height = height
         self.half = half
         self.interpolation_factor = interpolation_factor
         self.UHD = UHD
+        self.ensemble = ensemble
 
         # Yoinked from rife, needs further testing if these are the optimal
         # FLownet, from what I recall needs 32 paddings
@@ -84,7 +85,7 @@ class GMFSS():
 
         from .model.GMFSS import GMFSS as Model
 
-        self.model = Model(model_dir, model_type, self.scale, ensemble=False)
+        self.model = Model(model_dir, model_type, self.scale, ensemble=self.ensemble)
         self.model.eval().to(self.device, memory_format=torch.channels_last)
 
         self.dtype = torch.float
@@ -94,7 +95,7 @@ class GMFSS():
                 
               
     @torch.inference_mode()
-    def make_inference(self, n, ensemble=False):
+    def make_inference(self, n):
         timestep = torch.tensor((n+1) * 1. / (self.interpolation_factor+1), dtype=self.dtype, device=self.device)
         output = self.model(self.I0, self.I1, timestep)
         output = (((output[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
