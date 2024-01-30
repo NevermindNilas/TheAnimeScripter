@@ -67,7 +67,7 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/c1ff9ec4-1af
 - `--interpolate_method` : (str, default="rife") Method to use for interpolation. Options: "rife", "rife4.14", "rife4.14-lite", "rife4.13-lite", "rife-ncnn", "rife4.14-ncnn", "rife4.14-lite-ncnn", "rife4.13-lite-ncnn"
 - `--upscale` : (int, default=0) Set to 1 if you want to enable upscaling, 0 to disable.
 - `--upscale_factor` : (int, default=2) Factor by which to upscale.
-- `--upscale_method` : (str, default="ShuffleCugan") Method to use for upscaling. Options: "cugan / cugan-ncnn / shufflecugan ", "swinir", "compact / ultracompact / superultracompact", "span"
+- `--upscale_method` : (str, default="ShuffleCugan") Method to use for upscaling. Options: "cugan / cugan-ncnn / shufflecugan ", "swinir", "compact / ultracompact / superultracompact", "span", "omnisr"
 - `--cugan_kind` : (str, default="no-denoise") Kind of Cugan to use. Options: "no-denoise", "conservative", "denoise1x", "denoise2x"
 - `--dedup` : (int, default=0) Set to 1 if you want to enable deduplication, 0 to disable.
 - `--dedup_method` : (str, default="ffmpeg") Method to use for deduplication.
@@ -107,7 +107,8 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/c1ff9ec4-1af
 - [TNTWise](https://github.com/TNTwise/rife-ncnn-vulkan) - For newest implementations of Rife
 - [YT-DLP](https://github.com/yt-dlp/yt-dlp) - For YT-DLP
 - [Hongyuanyu](https://github.com/hongyuanyu/span) - For SPAN
-- [Phhofm](https://github.com/phhofm) - For SwinIR and SPAN Models
+- [Phhofm](https://github.com/phhofm) - For SwinIR, Span and OmniSR Models
+- [Francis0625](https://github.com/Francis0625/Omni-SR) - For OmniSR
 
 ## 📈 Benchmarks
 
@@ -135,6 +136,7 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | | Cugan | ~9 | |
 | | Cugan-NCNN | ~7 | |
 | | SPAN | ~9 | |
+| | OmniSR | ~1 | |
 | **Depth Map Generation** | 
 | | Depth Anything VITS | ~16 | |
 | | Depth Anything VITB | ~11 | |
@@ -142,6 +144,6 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | **Segmentation** | 
 | | Isnet-Anime | ~10 | |
 | **Motion Blur** | 
-| | 2xRife + Gaussian Averaging | ~20 | Still in work |
+| | 2xRife + Gaussian Averaging | ~23 | Still in work |
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
