@@ -7,7 +7,7 @@ Shared buffers are used for relative_coords_table, relative_position_index, and 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-#from fairscale.nn import checkpoint_wrapper
+
 from omegaconf import OmegaConf
 from timm.models.layers import to_2tuple, trunc_normal_
 
