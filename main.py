@@ -440,17 +440,8 @@ if __name__ == "__main__":
         logging.info(f"Setting dedup params to {args.dedup_sens}")
 
     if args.output is None:
-        logging.info("No output was specified, generating output name")
-        import random
-        randomNumber = random.randint(0, 100000)
-
-        if not os.path.exists(os.path.join(main_path, "output")):
-            os.makedirs(os.path.join(main_path, "output"), exist_ok=True)
-
-        args.output = os.path.join(
-            main_path, "output", "TAS" + str(randomNumber) + ".mp4")
-
-        logging.info(f"Output name: {args.output}")
+        from src.generateOutput import outputNameGenerator
+        args.output = outputNameGenerator(args, main_path)
 
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
