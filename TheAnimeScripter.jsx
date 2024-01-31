@@ -804,39 +804,38 @@ var TheAnimeScripter = (function() {
             if (layer.outPoint < sourceOutPoint) {
                 sourceOutPoint = layer.outPoint - layer.startTime;
             }
-
             // Should be a more robust output naming scheme, granted longer but it works.
             var output_name = "";
             if (checkboxDeduplicate.value) {
-                output_name += "_D" + sliderDedupSens.value;
+                output_name += "-De" + sliderDedupSens.value;
             }
 
             if (checkboxInterpolate.value) {
-                output_name += "_I" + intInterpolate.text;
+                output_name += "-Int" + sliderInterpolate.value;
             }
 
             if (checkboxUpscale.value) {
-                output_name += "_U" + intUpscale.text;
+                output_name += "-Up" + intUpscale.text;
             }
 
             if (checkboxSharpen.value) {
-                output_name += "_S" + sliderSharpen.value;
+                output_name += "-Sh" + sliderSharpen.value;
             }
 
             if (segmentValue == 1) {
-                output_name += "_Seg";
+                output_name += "-Segment";
             }
 
             if (depthValue == 1) {
-                output_name += "_Depth";
+                output_name += "-Depth";
             }
 
             if (motionBlurValue == 1) {
-                output_name += "_MB";
+                output_name += "-MotionBlur";
             }
 
-            randomNumbers = Math.floor(Math.random() * 1000);
-            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + output_name + "_" + randomNumbers + ".mp4";
+            randomNumbers = Math.floor(Math.random() * 100);
+            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + output_name + "-" + randomNumbers + ".mp4";
 
             try {
                 var attempt = [
