@@ -112,7 +112,7 @@ class Segment():
         from src.ffmpegSettings import decodeSettings
 
         command: list = decodeSettings(
-            self.input, self.inpoint, self.outpoint, False, 0, self.ffmpeg_path, False, 0, "")
+            self.input, self.inpoint, self.outpoint, False, 0, self.ffmpeg_path, False, 0, 0, "")
 
         process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
