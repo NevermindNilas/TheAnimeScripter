@@ -3,7 +3,7 @@ import shutil
 import wget
 import glob
 import zipfile
-import logging
+import picologging as logging
 
 #https://jeremylee.sh/bins/ffmpeg.7z
 
@@ -44,5 +44,8 @@ def get_ffmpeg():
     os.remove(ffmpeg_zip_path)
     for directory in glob.glob(os.path.join(ffmpeg_dir, "ffmpeg-*-win64-gpl")):
         shutil.rmtree(directory)
+    
+    # Force a new line
+    print("\n")
         
     return ffmpeg_path

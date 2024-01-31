@@ -112,7 +112,6 @@ https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/c1ff9ec4-1af
 - [Hongyuanyu](https://github.com/hongyuanyu/span) - For SPAN
 - [Phhofm](https://github.com/phhofm) - For SwinIR, Span and OmniSR Models
 - [Francis0625](https://github.com/Francis0625/Omni-SR) - For OmniSR
-- [Kiteretsu77](https://github.com/Kiteretsu77/VCISR-official) - For VCISR
 
 ## 📈 Benchmarks
 
