@@ -86,8 +86,11 @@ class videoProcessor:
 
         if self.resize:
             aspect_ratio = self.width / self.height
-            self.width = int(self.width * self.resize_factor)
-            self.height = int(self.width / aspect_ratio)
+            self.width = round(self.width * self.resize_factor / 2) * 2
+            self.height = round(self.width / aspect_ratio / 2) * 2
+            
+            logging.info(
+                f"Resizing to {self.width}x{self.height}, aspect ratio: {aspect_ratio}")
 
         if self.scenechange:
             from src.scenechange.scene_change import Scenechange
@@ -228,7 +231,7 @@ class videoProcessor:
         from src.ffmpegSettings import decodeSettings
 
         command: list = decodeSettings(
-            self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_sens, self.ffmpeg_path, self.resize, self.resize_factor, self.resize_method)
+            self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_sens, self.ffmpeg_path, self.resize, self.width, self.height, self.resize_method)
 
         process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
