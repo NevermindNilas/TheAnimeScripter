@@ -1,5 +1,5 @@
 import os
-import logging
+import picologging as logging
 import subprocess
 
 from yt_dlp import YoutubeDL

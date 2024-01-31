@@ -4,12 +4,13 @@ opencv-python
 tqdm
 timm
 numpy
+psutil
+picologging
 cupy-cuda12x
 kornia
 scipy
 gputil
 yt-dlp
-omegaconf
 einops
 realcugan-ncnn-py
 pytorch-lightning
