@@ -3,61 +3,58 @@ import logging
 import subprocess
 
 from yt_dlp import YoutubeDL
+from .get_ffmpeg import get_ffmpeg
+from .ffmpegSettings import encodeYTDLP
 
-
-class ytdlp():
-    def __init__(self, ytdlp, output, ytdlp_quality, encode_method):
-        self.link = ytdlp
+class VideoDownloader():
+    def __init__(self, video_link, output, quality, encode_method):
+        self.link = video_link
         self.output = output
-        self.ytdlp_quality = ytdlp_quality
+        self.quality = quality
         self.encode_method = encode_method
-        self.run()
+        
+        self.setup_ffmpeg()
+        self.download_video()
+        if self.quality:
+            self.encode_video()
+            self.cleanup()
 
-    def run(self):
-        from .get_ffmpeg import get_ffmpeg
-
-        ffmpeg_path = os.path.join(os.path.dirname(
-            __file__), "ffmpeg", "ffmpeg.exe")
-
+    def setup_ffmpeg(self):
+        ffmpeg_path = os.path.join(os.path.dirname(__file__), "ffmpeg", "ffmpeg.exe")
         if not os.path.isfile(ffmpeg_path):
-            ffmpeg_path = get_ffmpeg()
-
-        if not self.ytdlp_quality:
-            ydl_opts = {
-                'format': 'bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]',
-                'outtmpl': self.output,
-                'ffmpeg_location': os.path.dirname(ffmpeg_path),
-            }
-
+            self.ffmpeg_path = get_ffmpeg()
         else:
-            temp_name = os.path.splitext(self.output)[0] + '.webm'
+            self.ffmpeg_path = ffmpeg_path
 
-            logging.info(
-                f"Downloading video in webm format to: {temp_name}")
-
-            ydl_opts = {
-                'format': 'bestvideo+bestaudio',
-                'outtmpl': temp_name,
-                'ffmpeg_location': os.path.dirname(ffmpeg_path),
-            }
-
+    def download_video(self):
+        ydl_opts = self.get_ydl_opts()
         with YoutubeDL(ydl_opts) as ydl:
             ydl.download([self.link])
 
-        if self.ytdlp_quality:
-            from .ffmpegSettings import encodeYTDLP
-            command = encodeYTDLP(temp_name, self.output,
-                                  ffmpeg_path, self.encode_method)
-            subprocess.run(command)
-            os.remove(temp_name)
+    def get_ydl_opts(self):
+        if not self.quality:
+            return {
+                'format': 'bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]',
+                'outtmpl': self.output,
+                'ffmpeg_location': os.path.dirname(self.ffmpeg_path),
+            }
+        else:
+            self.temp_name = os.path.splitext(self.output)[0] + '.webm'
+            logging.info(f"Downloading video in webm format to: {self.temp_name}")
+            return {
+                'format': 'bestvideo+bestaudio',
+                'outtmpl': self.temp_name,
+                'ffmpeg_location': os.path.dirname(self.ffmpeg_path),
+            }
 
-            logging.info(
-                f"Removing residual webm file: {temp_name}")
+    def encode_video(self):
+        command = encodeYTDLP(self.temp_name, self.output, self.ffmpeg_path, self.encode_method)
+        subprocess.run(command)
 
-        logging.info(
-            "Downloaded video from: " + self.link)
+    def cleanup(self):
+        os.remove(self.temp_name)
+        logging.info(f"Removing residual webm file: {self.temp_name}")
 
-        logging.info(
-            f"Saved video to: {self.output}")
-
-        return
+    def log_success(self):
+        logging.info("Downloaded video from: " + self.link)
+        logging.info(f"Saved video to: {self.output}")
