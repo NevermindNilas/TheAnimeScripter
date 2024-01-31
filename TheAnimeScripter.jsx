@@ -805,8 +805,38 @@ var TheAnimeScripter = (function() {
                 sourceOutPoint = layer.outPoint - layer.startTime;
             }
 
-            var randomNumbers = Math.floor(Math.random() * 10000);
-            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + "TAS" + randomNumbers + ".mp4";
+            // Should be a more robust output naming scheme, granted longer but it works.
+            var output_name = "TAS";
+            if (checkboxDeduplicate.value) {
+                output_name += "_D" + sliderDedupSens.value;
+            }
+
+            if (checkboxInterpolate.value) {
+                output_name += "_I" + intInterpolate.text;
+            }
+
+            if (checkboxUpscale.value) {
+                output_name += "_U" + intUpscale.text;
+            }
+
+            if (checkboxSharpen.value) {
+                output_name += "_S" + sliderSharpen.value;
+            }
+
+            if (segmentValue == 1) {
+                output_name += "_Seg";
+            }
+
+            if (depthValue == 1) {
+                output_name += "_Depth";
+            }
+
+            if (motionBlurValue == 1) {
+                output_name += "_MB";
+            }
+
+            randomNumbers = Math.floor(Math.random() * 1000);
+            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + output_name + "_" + randomNumbers + ".mp4";
 
             try {
                 var attempt = [
@@ -932,7 +962,7 @@ var TheAnimeScripter = (function() {
         }
 
         var randomNumbers = Math.floor(Math.random() * 10000);
-        var outputName = outputFolder + "\\" + "TAS" + randomNumbers + ".mp4";
+        var outputName = outputFolder + "\\" + "TAS" + "_YTDLP_ " + randomNumbers + ".mp4";
 
         try {
             var attempt = [
