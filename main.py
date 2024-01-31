@@ -86,16 +86,8 @@ class videoProcessor:
 
         if self.resize:
             aspect_ratio = self.width / self.height
-            self.width = int(self.width * self.resize_factor) if self.resize_factor > 0 else int(
-                self.width / abs(self.resize_factor))
+            self.width = int(self.width * self.resize_factor)
             self.height = int(self.width / aspect_ratio)
-
-            # Ensure the width and height are even
-            self.width += self.width % 2
-            self.height += self.height % 2
-
-            logging.info(
-                f"Resizing to {self.width}x{self.height} using {self.resize_method}")
 
         if self.scenechange:
             from src.scenechange.scene_change import Scenechange
@@ -396,8 +388,8 @@ if __name__ == "__main__":
     argparser.add_argument("--ytdlp_quality", type=int,
                            choices=[0, 1], default=0)
     argparser.add_argument("--resize", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--resize_factor", type=int, default=2,
-                           help="Resize factor for the decoded video, can also be a negative value, it will always keep the desired aspect ratio")
+    argparser.add_argument("--resize_factor", type=float, default=2,
+                           help="Resize factor for the decoded video, can also be values between 0 & 1 for downscaling though it needs more work, it will always keep the desired aspect ratio")
     argparser.add_argument("--resize_method", type=str, choices=[
         "fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos",
         "spline"], default="bicubic", help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling")  # Thank god for ChatGPT
