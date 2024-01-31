@@ -21,7 +21,6 @@
 
 import os
 import argparse
-import logging
 import subprocess
 import numpy as np
 import warnings
@@ -29,8 +28,11 @@ import sys
 
 from tqdm import tqdm
 from queue import Queue
+import picologging as logging
 from concurrent.futures import ThreadPoolExecutor
 
+from src.checkSpecs import checkSystem
+from src.getVideoMetadata import getVideoMetadata
 # Some default values
 
 if getattr(sys, 'frozen', False):
@@ -40,8 +42,6 @@ else:
 
 scriptVersion = "0.2.2"
 warnings.filterwarnings("ignore")
-
-# TODO: Refactor the code a bit since main.py is getting a bit too overcrowded
 
 
 class videoProcessor:
@@ -77,11 +77,25 @@ class videoProcessor:
         self.resize_method = args.resize_method
 
         logging.info(
+            "\n============== Video Metadata ==============")
+        self.width, self.height, self.fps, self.nframes = getVideoMetadata(
+            self.input, self.inpoint, self.outpoint)
+
+        logging.info(
             "\n============== Processing Outputs ==============")
 
-        # This is necessary on the top since the script heavily relies on FFMPEG
-        self.checkSystem()
-        self.get_video_metadata()
+        if self.resize:
+            aspect_ratio = self.width / self.height
+            self.width = int(self.width * self.resize_factor) if self.resize_factor > 0 else int(
+                self.width / abs(self.resize_factor))
+            self.height = int(self.width / aspect_ratio)
+
+            # Ensure the width and height are even
+            self.width += self.width % 2
+            self.height += self.height % 2
+
+            logging.info(
+                f"Resizing to {self.width}x{self.height} using {self.resize_method}")
 
         if self.scenechange:
             from src.scenechange.scene_change import Scenechange
@@ -186,10 +200,6 @@ class videoProcessor:
                 case "omnisr":
                     from src.omnisr.omnisr import OmniSR
                     self.upscale_process = OmniSR(
-                        self.upscale_factor, self.half, self.width, self.height)
-                case "vcisr":
-                    from src.vcisr.vcisr import VCISR
-                    self.upscale_process = VCISR(
                         self.upscale_factor, self.half, self.width, self.height)
 
         if self.interpolate:
@@ -339,47 +349,8 @@ class videoProcessor:
             pipe.stdin.close()
             self.pbar.close()
 
-    def get_video_metadata(self):
-        import cv2
-        cap = cv2.VideoCapture(self.input)
-        self.width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        self.fps = cap.get(cv2.CAP_PROP_FPS)
-        self.nframes = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
-        self.codec = "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
-
-        logging.info(
-            f"Video Metadata: {self.width}x{self.height} @ {self.fps}fps, {self.nframes} frames, {self.codec} codec")
-
-        if self.resize:
-            aspect_ratio = self.width / self.height
-            self.width = int(self.width * self.resize_factor) if self.resize_factor > 0 else int(
-                self.width / abs(self.resize_factor))
-            self.height = int(self.width / aspect_ratio)
-
-            # Ensure the width and height are even
-            self.width += self.width % 2
-            self.height += self.height % 2
-
-            logging.info(
-                f"Resizing to {self.width}x{self.height} using {self.resize_method}")
-
-        cap.release()
-
-    def checkSystem(self):
-        # For easier debugging purposes, I will log the system info in the log file
-        import GPUtil
-        gpus = GPUtil.getGPUs()
-        if gpus:
-            for gpu in gpus:
-                logging.info(f"GPU: {gpu.name}")
-        else:
-            logging.info("No GPU detected")
-
-
-def main():
+if __name__ == "__main__":
     log_file_path = os.path.join(main_path, "log.txt")
     logging.basicConfig(filename=log_file_path, filemode='w',
                         format='%(message)s', level=logging.INFO)
@@ -398,7 +369,7 @@ def main():
     argparser.add_argument("--upscale_factor", type=int,
                            choices=[2, 3, 4], default=2)
     argparser.add_argument("--upscale_method",  type=str, choices=[
-                           "shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span", "cugan-ncnn", "omnisr", "vcisr"], default="shufflecugan")
+                           "shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span", "cugan-ncnn", "omnisr"], default="shufflecugan")
     argparser.add_argument("--cugan_kind", type=str, choices=[
                            "no-denoise", "conservative", "denoise1x", "denoise2x"], default="no-denoise")
     argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
@@ -434,7 +405,7 @@ def main():
 
     if args.version:
         print(scriptVersion)
-        return
+        sys.exit()
     else:
         args.version = scriptVersion
 
@@ -454,7 +425,7 @@ def main():
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
     args.scenechange_sens /= 100  # same for scene change
 
-    logging.info("============== Arguments ==============\n")
+    logging.info("============== Arguments ==============")
 
     args_dict = vars(args)
     for arg in args_dict:
@@ -467,11 +438,6 @@ def main():
             f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 2.")
         args.upscale_factor = 2
 
-    if args.upscale_method == "vcisr" and args.upscale_factor != 4:
-        logging.info(
-            f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 4.")
-        args.upscale_factor = 4
-        
     if args.dedup:
         from src.ffmpegSettings import get_dedup_strength
         # Dedup Sens will be overwritten with the mpdecimate params in order to minimize on the amount of variables used throughout the script
@@ -495,7 +461,7 @@ def main():
         logging.info(f"Downloading {args.ytdlp} video")
         from src.ytdlp import ytdlp
         ytdlp(args.ytdlp, args.output, args.ytdlp_quality, args.encode_method)
-        return
+        sys.exit()
 
     args.ffmpeg_path = os.path.join(os.path.dirname(
         os.path.realpath(__file__)), "src", "ffmpeg", "ffmpeg.exe")
@@ -504,12 +470,11 @@ def main():
         from src.get_ffmpeg import get_ffmpeg
         args.ffmpeg_path = get_ffmpeg()
 
+    logging.info("\n============== System Checker ==============")
+    checkSystem()
+    
     if args.input is not None:
         videoProcessor(args)
     else:
         print("No input was specified, exiting")
         logging.info("No input was specified, exiting")
-
-
-if __name__ == "__main__":
-    main()

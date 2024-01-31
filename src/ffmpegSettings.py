@@ -1,4 +1,4 @@
-import logging
+import picologging as logging
 
 
 def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: float, output: str, ffmpeg_path: str, sharpen: bool, sharpen_sens: float, grayscale: bool = False):
