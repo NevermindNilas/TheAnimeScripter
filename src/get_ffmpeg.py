@@ -3,7 +3,7 @@ import shutil
 import wget
 import glob
 import zipfile
-import picologging as logging
+import logging
 
 #https://jeremylee.sh/bins/ffmpeg.7z
 

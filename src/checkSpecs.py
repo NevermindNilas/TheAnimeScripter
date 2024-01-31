@@ -1,4 +1,4 @@
-import picologging as logging
+import logging
 import GPUtil
 import psutil
 

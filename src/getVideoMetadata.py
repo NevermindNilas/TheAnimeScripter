@@ -1,5 +1,5 @@
 import cv2
-import picologging as logging
+import logging
 
 def getVideoMetadata(input, inPoint, outPoint):
     cap = cv2.VideoCapture(input)

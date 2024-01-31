@@ -2,7 +2,7 @@ import os
 import wget
 import torch
 import numpy as np
-import picologging as logging
+import logging
 
 from torch.nn import functional as F
 
