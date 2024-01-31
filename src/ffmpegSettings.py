@@ -152,8 +152,6 @@ def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, ded
         filters.append(dedup_strenght)
 
     if resize:
-        if resize_factor < 0:
-            resize_factor = 1 / abs(resize_factor)
         filters.append(
             f'scale=iw*{resize_factor}:ih*{resize_factor}:flags={resize_method}')
 
