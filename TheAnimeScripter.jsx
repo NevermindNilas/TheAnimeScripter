@@ -806,7 +806,7 @@ var TheAnimeScripter = (function() {
             }
 
             // Should be a more robust output naming scheme, granted longer but it works.
-            var output_name = "TAS";
+            var output_name = "";
             if (checkboxDeduplicate.value) {
                 output_name += "_D" + sliderDedupSens.value;
             }
@@ -836,7 +836,7 @@ var TheAnimeScripter = (function() {
             }
 
             randomNumbers = Math.floor(Math.random() * 1000);
-            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "_" + output_name + "_" + randomNumbers + ".mp4";
+            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + output_name + "_" + randomNumbers + ".mp4";
 
             try {
                 var attempt = [
