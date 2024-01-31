@@ -445,8 +445,8 @@ if __name__ == "__main__":
 
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
-        from src.ytdlp import ytdlp
-        ytdlp(args.ytdlp, args.output, args.ytdlp_quality, args.encode_method)
+        from src.ytdlp import VideoDownloader
+        VideoDownloader(args.ytdlp, args.output, args.ytdlp_quality, args.encode_method)
         sys.exit()
 
     args.ffmpeg_path = os.path.join(os.path.dirname(
