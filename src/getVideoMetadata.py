@@ -18,6 +18,7 @@ def getVideoMetadata(input, inPoint, outPoint):
 
     logging.info(f"Width: {width}")
     logging.info(f"Height: {height}")
+    logging.info(f"AspectRatio: {width/height}")
     logging.info(f"FPS: {fps}")
     logging.info(f"Number of frames: {nframes}")
     logging.info(f"Codec: {codec}")
