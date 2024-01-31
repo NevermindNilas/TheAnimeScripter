@@ -1,6 +1,6 @@
 import os
 import torch
-import picologging as logging
+import logging
 import subprocess
 import numpy as np
 import cv2

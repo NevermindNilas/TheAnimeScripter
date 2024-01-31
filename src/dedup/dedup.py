@@ -1,5 +1,5 @@
 import subprocess
-import picologging as logging
+import logging
 
 
 def dedup_ffmpeg(input, output, mpdecimate_params, ffmpeg_path, encode_method="libx264"):
