@@ -6,7 +6,11 @@ def outputNameGenerator(args, main_path):
     if not os.path.exists(os.path.join(main_path, "output")):
         os.makedirs(os.path.join(main_path, "output"), exist_ok=True)
     
-    output_name = os.path.splitext(os.path.basename(args.input))[0]
+    if args.input is not None:
+        output_name = os.path.splitext(os.path.basename(args.input))[0]
+    else:
+        output_name = "TAS"
+        
     if args.dedup:
         output_name += "-De"
 
