@@ -27,9 +27,12 @@ class rifeNCNN():
                 self.interpolate_method = "rife-v4.13-lite"
             case "rife4.6-ncnn":
                 self.interpolate_method = "rife-v4.6"
+                
+        if ensemble:
+            self.interpolate_method += "-ensemble"
 
         self.rife = Rife(gpuid=0, model=self.interpolate_method, scale=2,
-                         tta_mode=False, tta_temporal_mode=ensemble, uhd_mode=self.UHD, num_threads=1)
+                         tta_mode=False, tta_temporal_mode=False, uhd_mode=self.UHD, num_threads=1)
 
     def make_inference(self, timestep):
         output = self.rife.process(self.frame1, self.frame2, timestep=timestep)
