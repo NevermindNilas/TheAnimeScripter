@@ -25,10 +25,10 @@ import subprocess
 import numpy as np
 import warnings
 import sys
+import logging
 
 from tqdm import tqdm
 from queue import Queue
-import picologging as logging
 from concurrent.futures import ThreadPoolExecutor
 
 from src.checkSpecs import checkSystem
@@ -205,15 +205,15 @@ class videoProcessor:
         if self.interpolate:
             UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
             match self.interpolate_method:
-                case "rife4.14" | "rife4.14-lite" | "rife4.13-lite" | "rife":
+                case "rife" | "rife4.6" | "rife4.13-lite" | "rife4.14-lite" | "rife4.14":
                     from src.rife.rife import Rife
 
                     self.interpolate_process = Rife(
                         int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.interpolate_method, self.ensemble)
-                case "rife-ncnn" | "rife4.13-lite-ncnn" | "rife4.14-lite-ncnn" | "rife4.14-ncnn":
+                case "rife-ncnn" | "rife4.6-ncnn" | "rife4.13-lite-ncnn" | "rife4.14-lite-ncnn" | "rife4.14-ncnn":
                     from src.rifencnn.rifencnn import rifeNCNN
                     self.interpolate_process = rifeNCNN(
-                        UHD, self.interpolate_method)
+                        UHD, self.interpolate_method, self.ensemble)
 
                 case "gmfss":
                     from src.gmfss.gmfss_fortuna_union import GMFSS
@@ -362,8 +362,8 @@ if __name__ == "__main__":
     argparser.add_argument("--interpolate", type=int,
                            choices=[0, 1], default=0)
     argparser.add_argument("--interpolate_factor", type=int, default=2)
-    argparser.add_argument("--interpolate_method", type=str, choices=["rife", "rife4.14", "rife4.14-lite", "rife4.13-lite",
-                           "gmfss", "rife-ncnn", "rife4.13-lite-ncnn", "rife4.14-lite-ncnn", "rife4.14-ncnn"], default="rife")
+    argparser.add_argument("--interpolate_method", type=str, choices=["rife", "rife4.6", "rife4.14", "rife4.14-lite", "rife4.13-lite",
+                           "gmfss", "rife-ncnn", "rife4.6-ncnn", "rife4.13-lite-ncnn", "rife4.14-lite-ncnn", "rife4.14-ncnn"], default="rife")
     argparser.add_argument("--ensemble", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--upscale", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--upscale_factor", type=int,
