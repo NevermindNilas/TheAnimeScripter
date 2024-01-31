@@ -5,7 +5,6 @@ tqdm
 timm
 numpy
 psutil
-picologging
 cupy-cuda12x
 kornia
 scipy

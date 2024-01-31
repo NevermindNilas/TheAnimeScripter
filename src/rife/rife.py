@@ -1,7 +1,7 @@
 import os
 import torch
 import numpy as np
-import picologging as logging
+import logging
 
 from torch.nn import functional as F
 
@@ -36,6 +36,11 @@ class Rife:
                 from .rife413lite.RIFE_HDv3 import Model
                 self.interpolate_method = "rife413lite"
                 self.filename = "rife413lite.pkl"
+            
+            case "rife4.6":
+                from .rife46.RIFE_HDv3 import Model
+                self.interpolate_method = "rife46"
+                self.filename = "rife46.pkl"
 
         self.modelDir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), self.interpolate_method)
