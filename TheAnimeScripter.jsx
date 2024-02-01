@@ -58,6 +58,21 @@ var TheAnimeScripter = (function() {
     buttonStartProcess.preferredSize.width = 104;
     buttonStartProcess.alignment = ["center", "top"];
 
+    var group0 = panelChain.add("group", undefined, {
+        name: "group0"
+    });
+
+    group0.orientation = "row";
+    group0.alignChildren = ["left", "center"];
+    group0.spacing = 10;
+    group0.margins = 0;
+
+    var checkboxResize = group0.add("checkbox", undefined, "Resize", {
+        name: "checkboxResize"
+    });
+    checkboxResize.alignment = ["left", "center"];
+    checkboxResize.helpTip = "Resize by a desired factor before further processing, meant as an substitute for upscaling on lower end GPUs";
+
     // GROUP1
     // ======
     var group1 = panelChain.add("group", undefined, {
@@ -396,6 +411,29 @@ var TheAnimeScripter = (function() {
         labelDedupSens.text = Math.round(sliderDedupSens.value) + "%";
     }
 
+    var group1 = generalPanel.add("group", undefined, {
+        name: "group1"
+    });
+
+    group1.orientation = "row";
+    group1.alignChildren = ["left", "center"];
+    group1.spacing = 0;
+    group1.margins = 0;
+
+    var textResizeMultiplier = group1.add("statictext", undefined, undefined, {
+        name: "textResizeMultiplier"
+    });
+
+    textResizeMultiplier.text = "Resize Multiplier";
+    textResizeMultiplier.preferredSize.width = 172;
+    textResizeMultiplier.alignment = ["left", "center"];
+    textResizeMultiplier.helpTip = "Resize by a desired factor before further processing, meant as an substitute for upscaling on lower end GPUs, set it to values between 0.0 and 1.0 for downscaling or 1.0 and above for upscaling";
+
+    var intResize = group1.add('edittext {justify: "center", properties: {name: "intResize"}}');
+    intResize.text = "1";
+    intResize.preferredSize.width = 40;
+    intResize.alignment = ["left", "center"];
+
     // GROUP2
     // ======
     var group2 = generalPanel.add("group", undefined, {
@@ -499,12 +537,12 @@ var TheAnimeScripter = (function() {
     textUpscaleModel.text = "Upscale Model";
     textUpscaleModel.preferredSize.width = 103;
 
-    var dropdownModel_array = ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "SwinIR", "-", "Span"];
+    var dropdownModel_array = ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "Span", "-", "SwinIR", "-", "OmniSR"];
     var dropdownModel = group5.add("dropdownlist", undefined, undefined, {
         name: "dropdownModel",
         items: dropdownModel_array
     });
-    dropdownModel.helpTip = "Choose which model you want to utilize, ordered by speed, read more in INFO";
+    dropdownModel.helpTip = "Choose which model you want to utilize, read more in INFO, for AMD users choose NCNN models";
     dropdownModel.selection = 0;
     dropdownModel.preferredSize.width = 109;
 
