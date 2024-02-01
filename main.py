@@ -33,7 +33,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
-# Some default values
 
 if getattr(sys, 'frozen', False):
     main_path = os.path.dirname(sys.executable)
@@ -146,7 +145,7 @@ class videoProcessor:
                 filters.append(f'cas={self.sharpen_sens}')
 
             if self.resize:
-                filters.append(f"scale={self.width}x{self.height}, flags={self.resize_method}")
+                filters.append(f"scale={self.width}x{self.height}:flags={self.resize_method}")
 
             self.dedup_sens = ','.join(filters)
 
