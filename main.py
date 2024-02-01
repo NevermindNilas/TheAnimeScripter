@@ -403,7 +403,7 @@ if __name__ == "__main__":
                            help="Resize factor for the decoded video, can also be values between 0 & 1 for downscaling though it needs more work, it will always keep the desired aspect ratio")
     argparser.add_argument("--resize_method", type=str, choices=[
         "fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos",
-        "spline"], default="bicubic", help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling")  # Thank god for ChatGPT
+        "spline"], default="bicubic", help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling")
     args = argparser.parse_args()
 
     if args.version:
