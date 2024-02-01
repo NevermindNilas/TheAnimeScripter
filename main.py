@@ -140,8 +140,15 @@ class videoProcessor:
 
         # If the user only wanted dedup / dedup + sharpen, we can skip the rest of the code and just run the dedup function from within FFMPEG
         if self.interpolate == False and self.upscale == False and self.dedup == True:
-            if self.sharpen == True:
-                self.dedup_sens += f',cas={self.sharpen_sens}'
+            filters = []
+
+            if self.sharpen:
+                filters.append(f'cas={self.sharpen_sens}')
+
+            if self.resize:
+                filters.append(f"scale={self.width}x{self.height}, flags={self.resize_method}")
+
+            self.dedup_sens = ','.join(filters)
 
             logging.info(
                 "Deduping video")
@@ -247,8 +254,10 @@ class videoProcessor:
                     continue
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
+
                 self.read_buffer.put(frame)
                 frame_count += 1
+                
         except Exception as e:
             logging.info(
                 f"Something went wrong while reading the frames, {e}")
