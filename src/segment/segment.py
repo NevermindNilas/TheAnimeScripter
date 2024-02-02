@@ -172,7 +172,7 @@ class Segment():
 
                 frame_with_mask = np.concatenate(
                     (frame, mask[..., np.newaxis]), axis=2)
-
+                
                 self.processed_frames.put(frame_with_mask)
                 frame_count += 1
 
@@ -210,9 +210,9 @@ class Segment():
                         break
                     else:
                         continue
-
+                    
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
                 frame_count += 1
-                frame = np.ascontiguousarray(frame)
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update()
 

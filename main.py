@@ -39,7 +39,7 @@ if getattr(sys, 'frozen', False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "0.2.2"
+scriptVersion = "1.0.0"
 warnings.filterwarnings("ignore")
 
 
@@ -138,31 +138,32 @@ class videoProcessor:
             return
 
         # If the user only wanted dedup / dedup + sharpen, we can skip the rest of the code and just run the dedup function from within FFMPEG
-        if self.interpolate == False and self.upscale == False and self.dedup == True:
-            filters = []
+        if self.interpolate == False and self.upscale == False:
+            if self.dedup == True or self.resize == True:
+                filters = []
 
-            if self.sharpen:
-                filters.append(f'cas={self.sharpen_sens}')
+                if self.sharpen:
+                    filters.append(f'cas={self.sharpen_sens}')
 
-            if self.resize:
-                filters.append(f"scale={self.width}x{self.height}:flags={self.resize_method}")
+                if self.resize:
+                    filters.append(f"scale={self.width}x{self.height}:flags={self.resize_method}")
 
-            self.dedup_sens = ','.join(filters)
+                self.dedup_sens += ','.join(filters)
 
-            logging.info(
-                "Deduping video")
+                logging.info(
+                    "Deduping video")
 
-            if self.outpoint != 0:
-                from src.dedup.dedup import trim_input_dedup
-                trim_input_dedup(self.input, self.output, self.inpoint,
-                                 self.outpoint, self.dedup_sens, self.ffmpeg_path, self.encode_method)
+                if self.outpoint != 0:
+                    from src.dedup.dedup import trim_input_dedup
+                    trim_input_dedup(self.input, self.output, self.inpoint,
+                                    self.outpoint, self.dedup_sens, self.ffmpeg_path, self.encode_method)
 
-            else:
-                from src.dedup.dedup import dedup_ffmpeg
-                dedup_ffmpeg(self.input, self.output,
-                             self.dedup_sens, self.ffmpeg_path, self.encode_method)
+                else:
+                    from src.dedup.dedup import dedup_ffmpeg
+                    dedup_ffmpeg(self.input, self.output,
+                                self.dedup_sens, self.ffmpeg_path, self.encode_method)
 
-            return
+                return
         self.intitialize_models()
         self.start()
 
@@ -288,6 +289,7 @@ class videoProcessor:
                         continue
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
+                    
                 if self.interpolate:
                     if prev_frame is not None:
                         self.interpolate_process.run(prev_frame, frame)
@@ -300,6 +302,7 @@ class videoProcessor:
                     else:
                         prev_frame = frame
                 self.processed_frames.put(frame)
+                
                 frame_count += 1
 
         except Exception as e:
