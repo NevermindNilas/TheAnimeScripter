@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "0.2.2";
+    var scriptVersion = "1.0.0";
 
     /*
     scriptAuthor = "Nilas";
@@ -31,6 +31,7 @@ var TheAnimeScripter = (function() {
     var depthValue = 0;
     var motionBlurValue = 0;
 
+    var exeFile = TheAnimeScripterPath + "\\main.exe";
     // THEANIMESCRIPTER
     // ================
     var TheAnimeScripter = (panelGlobal instanceof Panel) ? panelGlobal : new Window("palette");
@@ -430,7 +431,7 @@ var TheAnimeScripter = (function() {
     textResizeMultiplier.helpTip = "Resize by a desired factor before further processing, meant as an substitute for upscaling on lower end GPUs, set it to values between 0.0 and 1.0 for downscaling or 1.0 and above for upscaling";
 
     var intResize = group1.add('edittext {justify: "center", properties: {name: "intResize"}}');
-    intResize.text = "1";
+    intResize.text = "2";
     intResize.preferredSize.width = 40;
     intResize.alignment = ["left", "center"];
 
@@ -787,8 +788,10 @@ var TheAnimeScripter = (function() {
 
     buttonStartProcess.onClick = function() {
         if (checkboxDeduplicate.value == false && checkboxUpscale.value == false && checkboxInterpolate.value == false && checkboxSharpen.value == false) {
-            alert("Please select at least one of the checkboxes");
-            return;
+            if (checkboxResize.value == false) {
+                alert("Please select at least one of the checkboxes");
+                return;
+            }
         }
 
         start_chain();
@@ -841,8 +844,6 @@ var TheAnimeScripter = (function() {
             return app.executeCommand(2359);
         }
 
-        var exeFile = TheAnimeScripterPath + "\\main.exe";
-
         var exeFilePath = new File(exeFile);
         if (!exeFilePath.exists) {
             alert("Cannot find main.exe, please make sure you have selected the correct folder in settings!");
@@ -870,38 +871,9 @@ var TheAnimeScripter = (function() {
             if (layer.outPoint < sourceOutPoint) {
                 sourceOutPoint = layer.outPoint - layer.startTime;
             }
-            // Should be a more robust output naming scheme, granted longer but it works.
-            var output_name = "";
-            if (checkboxDeduplicate.value) {
-                output_name += "-De" + sliderDedupSens.value;
-            }
 
-            if (checkboxInterpolate.value) {
-                output_name += "-Int" + sliderInterpolate.value;
-            }
-
-            if (checkboxUpscale.value) {
-                output_name += "-Up" + intUpscale.text;
-            }
-
-            if (checkboxSharpen.value) {
-                output_name += "-Sh" + sliderSharpen.value;
-            }
-
-            if (segmentValue == 1) {
-                output_name += "-Segment";
-            }
-
-            if (depthValue == 1) {
-                output_name += "-Depth";
-            }
-
-            if (motionBlurValue == 1) {
-                output_name += "-MotionBlur";
-            }
-
-            randomNumbers = Math.floor(Math.random() * 100);
-            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + output_name + "-" + randomNumbers + ".mp4";
+            randomNumbers = Math.floor(Math.random() * 1000);
+            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "-" + randomNumbers + ".mp4";
 
             try {
                 var attempt = [
@@ -931,9 +903,9 @@ var TheAnimeScripter = (function() {
                         "--scenechange_sens", 100 - sliderSceneChange.value,
                         "--motion_blur", motionBlurValue,
                         "--ensemble", checkboxEnsemble.value ? "1" : "0",
-                        "--resize", intResize.text,
+                        "--resize", checkboxResize.value ? "1" : "0",
                         "--resize_method", dropdownResize.selection.text.toLowerCase(),
-                        "--resize_factor", intInterpolate.text,
+                        "--resize_factor", intResize.text,
                 ];
                 var command = attempt.join(" ");
                 callCommand(command);
@@ -971,7 +943,7 @@ var TheAnimeScripter = (function() {
                             var inputLayer = comp.layers.add(importedFile);
                             inputLayer.startTime = layer.inPoint;
                             inputLayer.moveBefore(layer);
-                            if (checkboxUpscale.value == true) {
+                            if (checkboxUpscale.value == true || checkboxResize.value == true) {
                                 var compWidth = comp.width;
                                 var compHeight = comp.height;
                                 var layerWidth = inputLayer.source.width;
