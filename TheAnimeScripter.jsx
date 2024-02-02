@@ -565,7 +565,7 @@ var TheAnimeScripter = (function() {
     textInterpolateModel.preferredSize.width = 103;
     textInterpolateModel.helpTip = "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO";
 
-    var dropdownInterpolate = ["Rife4.14", "-", "Rife4.14-Lite", "-" , "Rife4.13-Lite", "-", "Rife4.14-NCNN", "-", "Rife4.14-Lite-NCNN", "-", "Rife4.13-Lite-NCNN", "-",  "GMFSS"];
+    var dropdownInterpolate = ["Rife4.14", "-", "Rife4.14-Lite", "-" , "Rife4.13-Lite", "-", "Rife4.6", "-", "Rife4.14-NCNN", "-", "Rife4.14-Lite-NCNN", "-", "Rife4.13-Lite-NCNN", "-", "Rife4.6-NCNN", "-", "GMFSS"];
     var dropdownInterpolate = group6.add("dropdownlist", undefined, undefined, {
         name: "dropdownInterpolate",
         items: dropdownInterpolate
@@ -579,6 +579,7 @@ var TheAnimeScripter = (function() {
     var group7 = panel1.add("group", undefined, {
         name: "group7"
     });
+
     group7.orientation = "row";
     group7.alignChildren = ["left", "center"];
     group7.spacing = 0;
@@ -647,9 +648,36 @@ var TheAnimeScripter = (function() {
         items: dropdownEncoder_array
     });
 
+
     dropdownEncoder.selection = 0;
     dropdownEncoder.preferredSize.width = 109;
+
+    groupd10 = panel1.add("group", undefined, {
+        name: "group10"
+    });
+
+    groupd10.orientation = "row";
+    groupd10.alignChildren = ["left", "center"];
+    groupd10.spacing = 0;
+    groupd10.margins = 0;
     
+    var textResizeSelection = groupd10.add("statictext", undefined, undefined, {
+        name: "textResizeMethod"
+    });
+
+    textResizeSelection.text = "Resize Method";
+    textResizeSelection.preferredSize.width = 103;
+    textResizeSelection.helpTip = "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Bicubic, for downscaling I would suggest Bilinear";
+
+    var dropdownResize_array = ["Fast_Bilinear", "-", "Bilinear", "-", "Bicubic", "-", "Experimental", "-", "Neighbor", "-", "Area", "-", "Bicublin", "-", "Gauss", "-", "Sinc", "-", "Lanczos", "-", "Spline"];
+    var dropdownResize = groupd10.add("dropdownlist", undefined, undefined, {
+        name: "dropdownResize",
+        items: dropdownResize_array
+    });
+    
+    dropdownResize.selection = 0;
+    dropdownResize.preferredSize.width = 109;
+
     var buttonSettingsClose = settingsWindow.add("button", undefined, undefined, {
         name: "buttonSettingsClose"
     });
@@ -903,6 +931,9 @@ var TheAnimeScripter = (function() {
                         "--scenechange_sens", 100 - sliderSceneChange.value,
                         "--motion_blur", motionBlurValue,
                         "--ensemble", checkboxEnsemble.value ? "1" : "0",
+                        "--resize", intResize.text,
+                        "--resize_method", dropdownResize.selection.text.toLowerCase(),
+                        "--resize_factor", intInterpolate.text,
                 ];
                 var command = attempt.join(" ");
                 callCommand(command);
