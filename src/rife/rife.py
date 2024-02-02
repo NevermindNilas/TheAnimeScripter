@@ -54,8 +54,8 @@ class Rife:
         if self.UHD == True:
             self.scale = 0.5
 
-        ph = ((self.height - 1) // 32 + 1) * 32
-        pw = ((self.width - 1) // 32 + 1) * 32
+        ph = ((self.height - 1) // 64 + 1) * 64
+        pw = ((self.width - 1) // 64 + 1) * 64
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
         self.cuda_available = torch.cuda.is_available()
@@ -98,9 +98,9 @@ class Rife:
         output = (((output[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
         return output
 
-    def pad_frame(self, frame):
-        frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
-        return frame
+    def pad_frame(self):
+        self.I0 = F.pad(self.I0, [0, self.padding[1], 0, self.padding[3]])
+        self.I1 = F.pad(self.I1, [0, self.padding[1], 0, self.padding[3]])
 
     @torch.inference_mode()
     def run(self, I0, I1):
@@ -113,10 +113,7 @@ class Rife:
         if self.cuda_available and self.half:
             self.I0 = self.I0.half()
             self.I1 = self.I1.half()
-
+            
         if self.padding != (0, 0, 0, 0):
-            self.I0 = self.pad_frame(self.I0)
-            self.I1 = self.pad_frame(self.I1)
-        
-
-        
+            self.pad_frame()
+            

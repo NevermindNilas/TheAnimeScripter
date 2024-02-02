@@ -10,6 +10,9 @@ def outputNameGenerator(args, main_path):
         output_name = os.path.splitext(os.path.basename(args.input))[0]
     else:
         output_name = "TAS"
+    
+    if args.resize:
+        output_name += "-Re" + str(args.resize_factor)
         
     if args.dedup:
         output_name += "-De"
