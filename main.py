@@ -334,7 +334,7 @@ class videoProcessor:
             while True:
                 frame = self.processed_frames.get()
                 if frame is None:
-                    if self.processing_done == True and self.processed_frames.empty():
+                    if self.processing_done == True and self.processed_frames.empty() and self.reading_done == True:
                         break
                     else:
                         continue
@@ -355,7 +355,13 @@ class videoProcessor:
             pipe.stdin.close()
             self.pbar.close()
 
-
+        if self.processing_done and self.reading_done and self.processed_frames.empty() and self.read_buffer.empty():
+            # sometimes the process doesn't terminate properly, this is a workaround for those edgecases
+            logging.info(
+                f"Video processing complete, output: {self.output}")
+            
+            pipe.terminate()
+            
 if __name__ == "__main__":
     log_file_path = os.path.join(main_path, "log.txt")
     logging.basicConfig(filename=log_file_path, filemode='w',
@@ -467,7 +473,6 @@ if __name__ == "__main__":
         from src.get_ffmpeg import get_ffmpeg
         args.ffmpeg_path = get_ffmpeg()
 
-    logging.info("\n============== System Checker ==============")
     checkSystem()
     
     if args.input is not None:
