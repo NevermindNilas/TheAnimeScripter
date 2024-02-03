@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "1.0.0";
+    var scriptVersion = "1.1.0";
 
     /*
     scriptAuthor = "Nilas";
