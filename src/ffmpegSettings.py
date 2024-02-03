@@ -34,7 +34,7 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
                '-r', str(fps),
                '-i', '-',
                '-an',
-               "-vsync", 'vfr'
+               "-fps_mode", 'vfr'
                ]
 
     # Settings from: https://www.xaymar.com/guides/obs/high-quality-recording/
@@ -118,6 +118,8 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
 
     command.extend(['-pix_fmt', f'{output_pix_fmt}',
                     output])
+    
+    command.extend(['-v', 'error', '-stats'])
 
     logging.info(f"Encoding options: {' '.join(command)}")
     return command

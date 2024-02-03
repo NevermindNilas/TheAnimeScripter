@@ -2,6 +2,10 @@ import cv2
 import logging
 
 def getVideoMetadata(input, inPoint, outPoint):
+    
+    logging.info(
+        "\n============== Video Metadata ==============")
+    
     cap = cv2.VideoCapture(input)
     
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))

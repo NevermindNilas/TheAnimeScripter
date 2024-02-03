@@ -39,7 +39,7 @@ if getattr(sys, 'frozen', False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.0.0"
+scriptVersion = "1.1.0"
 warnings.filterwarnings("ignore")
 
 
@@ -75,8 +75,6 @@ class videoProcessor:
         self.resize_factor = args.resize_factor
         self.resize_method = args.resize_method
 
-        logging.info(
-            "\n============== Video Metadata ==============")
         self.width, self.height, self.fps, self.nframes = getVideoMetadata(
             self.input, self.inpoint, self.outpoint)
 
@@ -267,10 +265,10 @@ class videoProcessor:
             if self.interpolate:
                 frame_count = frame_count * self.interpolate_factor
 
-            self.pbar.total = frame_count
-            self.pbar.refresh()
             process.stdout.close()
             process.terminate()
+            self.pbar.total = frame_count
+            self.pbar.refresh()
             self.reading_done = True
             self.read_buffer.put(None)
 
@@ -321,7 +319,7 @@ class videoProcessor:
             self.processed_frames.put(None)
 
     def write_buffer(self):
-
+        
         from src.ffmpegSettings import encodeSettings
         command: list = encodeSettings(self.encode_method, self.new_width, self.new_height,
                                        self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens, grayscale=False)
@@ -355,13 +353,16 @@ class videoProcessor:
             pipe.stdin.close()
             self.pbar.close()
 
-        if self.processing_done and self.reading_done and self.processed_frames.empty() and self.read_buffer.empty():
-            # sometimes the process doesn't terminate properly, this is a workaround for those edgecases
+            stderr_output = pipe.stderr.read().decode()
             logging.info(
-                f"Video processing complete, output: {self.output}")
+                f"FFMPEG Output Log:")
             
+            if stderr_output:
+                logging.info(stderr_output)
+
+            # Hope this works
             pipe.terminate()
-            
+
 if __name__ == "__main__":
     log_file_path = os.path.join(main_path, "log.txt")
     logging.basicConfig(filename=log_file_path, filemode='w',
