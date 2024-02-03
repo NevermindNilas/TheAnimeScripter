@@ -26,6 +26,7 @@ import numpy as np
 import warnings
 import sys
 import logging
+import time
 
 from tqdm import tqdm
 from queue import Queue
@@ -74,6 +75,7 @@ class videoProcessor:
         self.resize = args.resize
         self.resize_factor = args.resize_factor
         self.resize_method = args.resize_method
+        self.availableRam = args.availableRAM
 
         self.width, self.height, self.fps, self.nframes = getVideoMetadata(
             self.input, self.inpoint, self.outpoint)
@@ -224,7 +226,16 @@ class videoProcessor:
         self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
                          unit="frames", colour="green")
 
-        self.read_buffer = Queue(maxsize=500)
+        # Not the best way to handle this, but it works
+        # Otherwise buffer overflows will occur and the script will not work as intended.
+        # See issue https://github.com/NevermindNilas/TheAnimeScripter/issues/10
+        if self.availableRam > 31:
+            self.read_buffer = Queue()
+        elif self.availableRam > 15:
+            self.read_buffer = Queue(maxsize=1000)
+        else:
+            self.read_buffer = Queue(maxsize=500)
+            
         self.processed_frames = Queue()
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -253,7 +264,7 @@ class videoProcessor:
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
 
-                self.read_buffer.put(frame)
+                self.read_buffer.put(frame, timeout=0.01)
                 frame_count += 1
                 
         except Exception as e:
@@ -474,7 +485,7 @@ if __name__ == "__main__":
         from src.get_ffmpeg import get_ffmpeg
         args.ffmpeg_path = get_ffmpeg()
 
-    checkSystem()
+    args.availableRAM = checkSystem()
     
     if args.input is not None:
         videoProcessor(args)
