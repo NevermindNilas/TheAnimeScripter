@@ -4,11 +4,10 @@ opencv-python
 tqdm
 timm
 numpy
-psutil
 cupy-cuda12x
 kornia
 scipy
-gputil
+wmi
 yt-dlp
 einops
 realcugan-ncnn-py
