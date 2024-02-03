@@ -16,6 +16,8 @@ def checkSystem():
         logging.info(f"RAM: {system_ram} GB")
         for gpu in gpu_info:
             logging.info(f"Graphics Card: {gpu.Name}")
-
+        
     except Exception as e:
         logging.error(f"An error occurred while checking the system: {e}")
+        
+    return system_ram
