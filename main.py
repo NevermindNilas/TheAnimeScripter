@@ -26,7 +26,6 @@ import numpy as np
 import warnings
 import sys
 import logging
-import time
 
 from tqdm import tqdm
 from queue import Queue
@@ -40,7 +39,7 @@ if getattr(sys, 'frozen', False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.1.0"
+scriptVersion = "1.1.1"
 warnings.filterwarnings("ignore")
 
 
@@ -75,7 +74,8 @@ class videoProcessor:
         self.resize = args.resize
         self.resize_factor = args.resize_factor
         self.resize_method = args.resize_method
-        self.availableRam = args.availableRAM
+        self.available_ram = args.available_ram
+        self.custom_model = args.custom_model
 
         self.width, self.height, self.fps, self.nframes = getVideoMetadata(
             self.input, self.inpoint, self.outpoint)
@@ -182,27 +182,27 @@ class videoProcessor:
                 case "shufflecugan" | "cugan":
                     from src.cugan.cugan import Cugan
                     self.upscale_process = Cugan(
-                        self.upscale_method, int(self.upscale_factor), self.cugan_kind, self.half, self.width, self.height)
+                        self.upscale_method, self.upscale_factor, self.cugan_kind, self.half, self.width, self.height, self.custom_model)
                 case "cugan-ncnn":
                     from src.cugan.cugan import CuganNCNN
                     self.upscale_process = CuganNCNN(
-                        1, self.upscale_factor)
+                        1, self.upscale_factor, self.custom_model)
                 case "compact" | "ultracompact" | "superultracompact":
                     from src.compact.compact import Compact
                     self.upscale_process = Compact(
-                        self.upscale_method, self.half, self.width, self.height)
+                        self.upscale_method, self.upscale_factor, self.half, self.width, self.height, self.custom_model)
                 case "swinir":
                     from src.swinir.swinir import Swinir
                     self.upscale_process = Swinir(
-                        self.upscale_factor, self.half, self.width, self.height)
+                        self.upscale_factor, self.half, self.width, self.height, self.custom_model)
                 case "span":
                     from src.span.span import SpanSR
                     self.upscale_process = SpanSR(
-                        self.upscale_factor, self.half, self.width, self.height)
+                        self.upscale_factor, self.half, self.width, self.height, self.custom_model)
                 case "omnisr":
                     from src.omnisr.omnisr import OmniSR
                     self.upscale_process = OmniSR(
-                        self.upscale_factor, self.half, self.width, self.height)
+                        self.upscale_factor, self.half, self.width, self.height, self.custom_model)
 
         if self.interpolate:
             UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
@@ -229,9 +229,9 @@ class videoProcessor:
         # Not the best way to handle this, but it works
         # Otherwise buffer overflows will occur and the script will not work as intended.
         # See issue https://github.com/NevermindNilas/TheAnimeScripter/issues/10
-        if self.availableRam > 31:
+        if self.available_ram > 31:
             self.read_buffer = Queue()
-        elif self.availableRam > 15:
+        elif self.available_ram > 15:
             self.read_buffer = Queue(maxsize=1000)
         else:
             self.read_buffer = Queue(maxsize=500)
@@ -393,9 +393,10 @@ if __name__ == "__main__":
     argparser.add_argument("--upscale_factor", type=int,
                            choices=[2, 3, 4], default=2)
     argparser.add_argument("--upscale_method",  type=str, choices=[
-                           "shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span", "cugan-ncnn", "omnisr"], default="shufflecugan")
+                           "shufflecugan", "cugan", "compact", "ultracompact", "superultracompact", "swinir", "span", "cugan-ncnn", "omnisr"], default="shufflecugan")
     argparser.add_argument("--cugan_kind", type=str, choices=[
                            "no-denoise", "conservative", "denoise1x", "denoise2x"], default="no-denoise")
+    argparser.add_argument("--custom_model", type=str, default="")
     argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
     argparser.add_argument("--dedup_sens", type=float, default=35)
@@ -485,7 +486,7 @@ if __name__ == "__main__":
         from src.get_ffmpeg import get_ffmpeg
         args.ffmpeg_path = get_ffmpeg()
 
-    args.availableRAM = checkSystem()
+    args.available_ram = checkSystem()
     
     if args.input is not None:
         videoProcessor(args)

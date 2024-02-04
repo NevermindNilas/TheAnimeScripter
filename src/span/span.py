@@ -4,14 +4,16 @@ import wget
 import os
 import torch
 import torch.nn.functional as F
+import logging
 
 
 class SpanSR:
-    def __init__(self, upscale_factor, half, width, height):
+    def __init__(self, upscale_factor, half, width, height, custom_model):
         self.upscale_factor = upscale_factor
         self.half = half
         self.width = width
         self.height = height
+        self.custom_model = custom_model
 
         self.handle_models()
 
@@ -19,25 +21,40 @@ class SpanSR:
         # Apparently this can improve performance slightly
         torch.set_float32_matmul_precision("medium")
 
-        dir_name = os.path.dirname(os.path.abspath(__file__))
-        weights_dir = os.path.join(dir_name, "weights")
-        if not os.path.exists(weights_dir):
-            os.makedirs(weights_dir)
-        
-        self.filename = "2xHFA2kSPAN_27k.pth"
-        if not os.path.exists(os.path.join(weights_dir, self.filename)):
-            print(f"Downloading Span model...")
-            url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{self.filename}"
-            wget.download(url, out=os.path.join(weights_dir, self.filename))
+        self.model = SPAN(3, 3, upscale=self.upscale_factor,
+                          feature_channels=48)
+        if self.custom_model == "":
+            self.filename = "2xHFA2kSPAN_27k.pth"
 
-        model_path = os.path.join(weights_dir, self.filename)
-        self.model = SPAN(3, 3, upscale=2, feature_channels=48)
+            dir_name = os.path.dirname(os.path.abspath(__file__))
+            weights_dir = os.path.join(dir_name, "weights")
+            if not os.path.exists(weights_dir):
+                os.makedirs(weights_dir)
+
+            if not os.path.exists(os.path.join(weights_dir, self.filename)):
+                print(f"Downloading Span model...")
+                url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{
+                    self.filename}"
+                wget.download(url, out=os.path.join(
+                    weights_dir, self.filename))
+
+            model_path = os.path.join(weights_dir, self.filename)
+
+        else:
+            logging.info(f"Using custom model: {self.custom_model}")
+            model_path = self.custom_model
 
         self.cuda_available = torch.cuda.is_available()
-        
-        self.model.load_state_dict(torch.load(
-            model_path, map_location="cpu")["params"])
 
+        if model_path.endswith('.pth'):
+            state_dict = torch.load(model_path, map_location="cpu")
+            if "params" in state_dict:
+                self.model.load_state_dict(state_dict["params"])
+            else:
+                self.model.load_state_dict(state_dict)
+        elif model_path.endswith('.onnx'):
+            self.model = torch.onnx.load(model_path)
+            
         self.model = self.model.eval().cuda() if self.cuda_available else self.model.eval()
         self.device = torch.device("cuda" if self.cuda_available else "cpu")
 
@@ -63,14 +80,7 @@ class SpanSR:
         with torch.no_grad():
             frame = torch.from_numpy(frame).permute(
                 2, 0, 1).unsqueeze(0).float().mul_(1/255)
-
-            if self.cuda_available:
-                if self.half:
-                    frame = frame.cuda().half()
-                else:
-                    frame = frame.cuda()
-            else:
-                frame = frame.cpu()
+            frame = frame.to(self.device)
 
             if self.pad_width != 0 or self.pad_height != 0:
                 frame = self.pad_frame(frame)
