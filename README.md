@@ -94,6 +94,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 - `--resize` : (int, choices=[0, 1], default=0) Set to 1 if you want to enable resizing, 0 to disable. An alternative method to use for upscaling, specifically targetting lower end GPUs.
 - `--resize_factor` : (int, default=2) Factor by which to resize the decoded video. Can also be a float value in between 0 and 1 for downscaling. The resizing will always try to maintain the original aspect ratio
 - `--resize_method` : (str, choices=["fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos", "spline"], default="bicubic") "lanczos" is recommended for upscaling and "area" for downscaling.
+- `--custom_model` :(str, default = "") Choose a different model for the supported upscaling arches. It relies on `--upscaling_factor` and `--upscaling_method`. The input must be a full path to a desired .pth or .onnx file.
 
 ## 🙏 Acknowledgements
 
