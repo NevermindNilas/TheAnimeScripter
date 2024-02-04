@@ -19,8 +19,9 @@ class Scenechange():
         scene_manager.add_detector(
             ContentDetector(threshold=self.scenechange_sens))
 
-        video_manager.set_duration(
-            start_time=self.inPoint, end_time=self.outPoint)
+        if self.outPoint != 0:
+            video_manager.set_duration(
+                start_time=self.inPoint, end_time=self.outPoint)
 
         video_manager.set_downscale_factor()
 
