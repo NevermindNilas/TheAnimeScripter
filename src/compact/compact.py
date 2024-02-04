@@ -1,17 +1,20 @@
 import os
 import torch
 import wget
+import logging
 
 from torch.nn import functional as F
 from .srvgg_arch import SRVGGNetCompact
 
 
 class Compact():
-    def __init__(self, upscale_method, half, width, height):
+    def __init__(self, upscale_method, upscale_factor, half, width, height, custom_model):
         self.upscale_method = upscale_method
+        self.upscale_factor = upscale_factor
         self.half = half
         self.width = width
         self.height = height
+        self.custom_model = custom_model
 
         self.pad_width = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
         self.pad_height = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
@@ -23,27 +26,32 @@ class Compact():
         # Apparently this can improve performance slightly
         torch.set_float32_matmul_precision("medium")
 
-        if self.upscale_method == "compact":
-            filename = "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k.pth"
-            
-        elif self.upscale_method == "ultracompact":
-            filename = "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k.pth"
-            
-        elif self.upscale_method == "superultracompact":
-            filename = "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k.pth"
+        if self.custom_model == "":
+            if self.upscale_method == "compact":
+                filename = "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k.pth"
 
-        dir_name = os.path.dirname(os.path.abspath(__file__))
-        weights_dir = os.path.join(dir_name, "weights")
+            elif self.upscale_method == "ultracompact":
+                filename = "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k.pth"
 
-        if not os.path.exists(weights_dir):
-            os.makedirs(weights_dir)
+            elif self.upscale_method == "superultracompact":
+                filename = "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k.pth"
 
-        if not os.path.exists(os.path.join(weights_dir, filename)):
-            print(f"Downloading {self.upscale_method.upper()} model...")
-            url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{filename}"
-            wget.download(url, out=os.path.join(weights_dir, filename))
+            dir_name = os.path.dirname(os.path.abspath(__file__))
+            weights_dir = os.path.join(dir_name, "weights")
 
-        model_path = os.path.join(weights_dir, filename)
+            if not os.path.exists(weights_dir):
+                os.makedirs(weights_dir)
+
+            if not os.path.exists(os.path.join(weights_dir, filename)):
+                print(f"Downloading {self.upscale_method.upper()} model...")
+                url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{
+                    filename}"
+                wget.download(url, out=os.path.join(weights_dir, filename))
+
+            model_path = os.path.join(weights_dir, filename)
+        else:
+            logging.info(f"Using custom model: {self.custom_model}")
+            model_path = self.custom_model
 
         num_map = {
             "compact": [64, 16],
@@ -52,20 +60,25 @@ class Compact():
         }
 
         num_feat, num_conv = num_map[self.upscale_method]
-
         self.model = SRVGGNetCompact(
             num_in_ch=3,
             num_out_ch=3,
             num_feat=num_feat,
             num_conv=num_conv,
-            upscale=2,
+            upscale=self.upscale_factor,
             act_type="prelu",
         )
-
-        self.cuda_available = torch.cuda.is_available()
         
-        self.model.load_state_dict(torch.load(
-            model_path, map_location="cpu")["params"])
+        self.cuda_available = torch.cuda.is_available()
+
+        if model_path.endswith('.pth'):
+            state_dict = torch.load(model_path, map_location="cpu")
+            if "params" in state_dict:
+                self.model.load_state_dict(state_dict["params"])
+            else:
+                self.model.load_state_dict(state_dict)
+        elif model_path.endswith('.onnx'):
+            self.model = torch.onnx.load(model_path)
 
         self.model.eval().cuda() if self.cuda_available else self.model.eval()
 
