@@ -15,8 +15,8 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 [Join The Discord Server](https://discord.gg/bFA6xZxM5V)
 
 ## Promo Video
-[![Promo Video](https://img.youtube.com/vi/V7ryKMezqeQ/0.jpg)](https://youtu.be/V7ryKMezqeQ)
 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/V7ryKMezqeQ" frameborder="0" allowfullscreen></iframe>
 
 
 ## 🚀 Key Features
@@ -46,70 +46,81 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 Empower your video editing journey with these robust, efficient features designed to elevate your content to new heights.
 
 
-
-## ✅ Stats
-![Alt](https://repobeats.axiom.co/api/embed/4754b52201c8220b8611a8c6e43c53ed3dc82a9f.svg "Repobeats analytics image")
-
 ## 🛠️ Getting Started
 
-#### How to download
+### How to Download
 
 - Download one of the latest releases from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
 
-#### Or Manually build
+### Or Manually Build
 
-- **Notation needed, the code in the repository can include unexpected bugs, if you want stable builds then download from the releases page, but if you want the cutting edge builds, then follow along.**
+- **Cutting Edge Builds:**
+  - Download and install Python 3.12 from [here](https://www.python.org/downloads/release/python-3121/) (add to System Path).
+  - Open a terminal inside the folder.
+  - Run: `python build.py`
 
-- Download and install Python 3.12 from: https://www.python.org/downloads/release/python-3121/ whilst making sure to add it to System Path
+### How to Use Inside of After Effects
 
-- Open a terminal inside the folder
+1. Open `File -> Scripts -> Install ScriptUI Panel`.
+2. Choose `TheAnimeScripter.jsx` file from the folder.
+3. Restart After Effects when prompted.
+4. After reopening, go to `Window -> TheAnimeScripter.jsx`.
+5. Dock the panel wherever you prefer.
 
-- run: ```python build.py```
-
-#### How to use inside of After Effects
-
-- On the top left corner open File -> Scripts -> Install ScriptUI Panel -> (Look for the TheAnimeScripter.jsx file found in folder )
-
-- After Instalation you will be prompted with a restart of After Effects, do it.
-
-- Now that you've reopened After Effects, go to Window -> And at the bottom of you should have a TheAnimeScripter.jsx, click it -> Dock the panel wherever you please.
-
-- In the settings panel, set folder to the same directory as The Anime Scripter and output to wherever you please
+In the settings panel:
+- Set the folder to the same directory as The Anime Scripter.
+- Specify the output location.
 
 ## 📚 Available Inputs
 
-- `--version` : (bool, action=store_true) Outputs the script version
-- `--input` : (str) Absolute path of the input video.
-- `--output` : (str) Output string of the video, can be absolute path or just a name.
-- `--interpolate` : (int, default=0) Set to 1 if you want to enable interpolation, 0 to disable.
-- `--interpolate_factor` : (int, default=2) Factor by which to interpolate.
-- `--interpolate_method` : (str, default="rife") Method to use for interpolation. Options: "rife", "rife4.6", "rife4.14", "rife4.14-lite", "rife4.13-lite", "rife-ncnn", "rife4.6-ncnn", "rife4.14-ncnn", "rife4.14-lite-ncnn", "rife4.13-lite-ncnn"
-- `--upscale` : (int, default=0) Set to 1 if you want to enable upscaling, 0 to disable.
-- `--upscale_factor` : (int, default=2) Factor by which to upscale.
-- `--upscale_method` : (str, default="ShuffleCugan") Method to use for upscaling. Options: "cugan / cugan-ncnn / shufflecugan ", "swinir", "compact / ultracompact / superultracompact", "span", "omnisr"
-- `--cugan_kind` : (str, default="no-denoise") Kind of Cugan to use. Options: "no-denoise", "conservative", "denoise1x", "denoise2x"
-- `--dedup` : (int, default=0) Set to 1 if you want to enable deduplication, 0 to disable.
-- `--dedup_method` : (str, default="ffmpeg") Method to use for deduplication.
-- `--dedup_sens` : (float, default=50) Sensitivy of deduplication.
-- `--half` : (int, default=1) Set to 1 to use half precision, 0 for full precision.
-- `--inpoint` : (float, default=0) Inpoint for the video.
-- `--outpoint` : (float, default=0) Outpoint for the video.
-- `--sharpen` : (int, default=0) Set to 1 if you want to enable sharpening, 0 to disable.
-- `--sharpen_sens` : (float, default=50) Sensitivity of sharpening.
-- `--segment` : (int, default=0) Set to 1 if you want to enable segmentation, 0 to disable.
-- `--scenechange` : (int, default=0) Set to 1 if you want to enable scene change detection, 0 to disable.
-- `--scenechange_sens` : (float, default=40) Sensitivity of scene change detection.
-- `--depth` : (int, default=0) Generate Depth Maps, 1 to enable, 0 to disable
-- `--depth_method` : (str, default="small") Choose which model to utilize, can be small, base, large
-- `--encode_method` : (str, default="x264") Method to use for encoding. Options: x264, x264_animation, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf
-- `--motion_blur` : (int, default=0) Add motion blur using gaussian weighting between multiple frames, relies on interpolate factor and method
-- `--ytdlp` : (str, default="") Download a youtube video, needs full url.
-- `--ytdlp_quality` : (int, default = 0) Allow 4k/8k videos to be downloaded then reencoded to selected `--encode_method`
-- `--ensemble` : (int, default = 0) Activate Ensemble for higher quality outputs from Rife ( doesn't work with ncnn versions for now )
-- `--resize` : (int, choices=[0, 1], default=0) Set to 1 if you want to enable resizing, 0 to disable. An alternative method to use for upscaling, specifically targetting lower end GPUs.
-- `--resize_factor` : (int, default=2) Factor by which to resize the decoded video. Can also be a float value in between 0 and 1 for downscaling. The resizing will always try to maintain the original aspect ratio
-- `--resize_method` : (str, choices=["fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos", "spline"], default="bicubic") "lanczos" is recommended for upscaling and "area" for downscaling.
-- `--custom_model` :(str, default = "") Choose a different model for the supported upscaling arches. It relies on `--upscaling_factor` and `--upscaling_method`. The input must be a full path to a desired .pth or .onnx file.
+- `--version`: (bool, action=store_true) Outputs the script version.
+- `--input`: (str) Absolute path of the input video.
+- `--output`: (str) Output string of the video, can be an absolute path or just a name.
+- `--interpolate`: (int, default=0) Enable interpolation (1) or disable (0).
+- `--interpolate_factor`: (int, default=2) Factor for interpolation.
+- `--interpolate_method`: (str, default="rife") Interpolation method:
+  - Options: "rife", "rife4.6", "rife4.14", "rife4.14-lite", "rife4.13-lite", "rife-ncnn", "rife4.6-ncnn", "rife4.14-ncnn", "rife4.14-lite-ncnn", "rife4.13-lite-ncnn".
+  
+- `--upscale`: (int, default=0) Enable upscaling (1) or disable (0).
+- `--upscale_factor`: (int, default=2) Factor for upscaling.
+- `--upscale_method`: (str, default="ShuffleCugan") Upscaling method:
+  - Options: "cugan / cugan-ncnn / shufflecugan", "swinir", "compact / ultracompact / superultracompact", "span", "omnisr".
+  
+- `--cugan_kind`: (str, default="no-denoise") Cugan denoising kind:
+  - Options: "no-denoise", "conservative", "denoise1x", "denoise2x".
+
+- `--dedup`: (int, default=0) Enable deduplication (1) or disable (0).
+- `--dedup_method`: (str, default="ffmpeg") Deduplication method.
+
+- `--dedup_sens`: (float, default=50) Sensitivity of deduplication.
+- `--half`: (int, default=1) Use half precision (1) or full precision (0).
+- `--inpoint`: (float, default=0) Inpoint for the video.
+- `--outpoint`: (float, default=0) Outpoint for the video.
+- `--sharpen`: (int, default=0) Enable sharpening (1) or disable (0).
+- `--sharpen_sens`: (float, default=50) Sensitivity of sharpening.
+- `--segment`: (int, default=0) Enable segmentation (1) or disable (0).
+- `--scenechange`: (int, default=0) Enable scene change detection (1) or disable (0).
+- `--scenechange_sens`: (float, default=40) Sensitivity of scene change detection.
+- `--depth`: (int, default=0) Generate Depth Maps (1) or disable (0).
+- `--depth_method`: (str, default="small") Depth map generation method:
+  - Options: "small", "base", "large".
+  
+- `--encode_method`: (str, default="x264") Encoding method:
+  - Options: x264, x264_animation, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf.
+  
+- `--motion_blur`: (int, default=0) Add motion blur using gaussian weighting between frames.
+
+- `--ytdlp`: (str, default="") Download a YouTube video, needs a full URL.
+- `--ytdlp_quality`: (int, default=0) Allow 4k/8k videos to be downloaded then reencoded to the selected `--encode_method`.
+
+- `--ensemble`: (int, default=0) Activate Ensemble for higher quality outputs from Rife (doesn't work with ncnn versions for now).
+- `--resize`: (int, choices=[0, 1], default=0) Enable resizing (1) or disable (0).
+- `--resize_factor`: (int, default=2) Factor for resizing the decoded video. Can also be a float value between 0 and 1 for downscaling.
+- `--resize_method`: (str, choices=["fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos", "spline"], default="bicubic") Resizing method:
+  - Options: "lanczos" (recommended for upscaling), "area" (recommended for downscaling).
+
+- `--custom_model`: (str, default="") Choose a different model for supported upscaling arches. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
+
 
 ## 🙏 Acknowledgements
 
@@ -170,3 +181,7 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | | 2xRife + Gaussian Averaging | ~23 | Still in work |
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
+
+
+## ✅ Stats
+![Alt](https://repobeats.axiom.co/api/embed/4754b52201c8220b8611a8c6e43c53ed3dc82a9f.svg "Repobeats analytics image")
