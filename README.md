@@ -142,6 +142,7 @@ In the settings panel:
 - [Hongyuanyu](https://github.com/hongyuanyu/span) - For SPAN
 - [Phhofm](https://github.com/phhofm) - For SwinIR, Span and OmniSR Models
 - [Francis0625](https://github.com/Francis0625/Omni-SR) - For OmniSR
+- [Breakthrough](https://github.com/Breakthrough/PySceneDetect) - For Automated Scene Detection
 
 ## 📈 Benchmarks
 

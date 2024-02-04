@@ -30,7 +30,6 @@ import logging
 from tqdm import tqdm
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
-
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
 
@@ -39,7 +38,7 @@ if getattr(sys, 'frozen', False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.1.2"
+scriptVersion = "1.1.3"
 warnings.filterwarnings("ignore")
 
 
@@ -98,7 +97,7 @@ class videoProcessor:
                 "Detecting scene changes")
 
             scenechange = Scenechange(
-                self.input, self.ffmpeg_path, self.scenechange_sens, main_path)
+                self.input, self.scenechange_sens, main_path, self.inpoint, self.outpoint)
 
             scenechange.run()
 
@@ -268,7 +267,7 @@ class videoProcessor:
                 frame_count += 1
                 
         except Exception as e:
-            logging.info(
+            logging.exception(
                 f"Something went wrong while reading the frames, {e}")
         finally:
             logging.info(
@@ -315,7 +314,7 @@ class videoProcessor:
                 frame_count += 1
 
         except Exception as e:
-            logging.info(
+            logging.exception(
                 f"Something went wrong while processing the frames, {e}")
 
         finally:
@@ -354,7 +353,7 @@ class videoProcessor:
                 self.pbar.update()
 
         except Exception as e:
-            logging.info(
+            logging.exception(
                 f"Something went wrong while writing the frames, {e}")
 
         finally:
@@ -448,7 +447,7 @@ if __name__ == "__main__":
     args.half = True if args.half == 1 else False
 
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
-    args.scenechange_sens /= 100  # same for scene change
+    args.scenechange_sens = 100 - args.scenechange_sens  # To keep up the previous logic where 0 is the least sensitive and 100 is the most sensitive
 
     logging.info("============== Arguments ==============")
 
