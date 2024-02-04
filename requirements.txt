@@ -10,6 +10,7 @@ scipy
 wmi
 yt-dlp
 einops
+scenedetect[opencv,progress_bar]
 realcugan-ncnn-py
 pytorch-lightning
 torch==2.3.0.dev20240122+cu121

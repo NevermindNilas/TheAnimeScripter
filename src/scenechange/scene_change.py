@@ -1,26 +1,38 @@
-import subprocess
-import re
 import os
 
+from scenedetect import VideoManager
+from scenedetect import SceneManager
+from scenedetect.detectors import ContentDetector
+
+
 class Scenechange():
-    def __init__(self, input, ffmpeg_path, scenechange_sens, output_dir):
+    def __init__(self, input, scenechange_sens, output_dir, inPoint, outPoint):
         self.input = input
-        self.ffmpeg_path = ffmpeg_path
         self.scenechange_sens = scenechange_sens
         self.output_dir = output_dir
+        self.inPoint = inPoint
+        self.outPoint = outPoint
 
     def run(self):
-        command = [
-            self.ffmpeg_path,
-            '-i', self.input,
-            '-filter:v', f"select='gt(scene,{self.scenechange_sens})',showinfo",
-            '-f', 'null',
-            '-'
-        ]
-        output = subprocess.check_output(command, stderr=subprocess.STDOUT).decode()
+        video_manager = VideoManager([self.input])
+        scene_manager = SceneManager()
+        scene_manager.add_detector(
+            ContentDetector(threshold=self.scenechange_sens))
 
-        pts_times = re.findall(r'pts_time:(\d+\.\d+)', output)
-        
+        video_manager.set_duration(
+            start_time=self.inPoint, end_time=self.outPoint)
+
+        video_manager.set_downscale_factor()
+
+        video_manager.start()
+        scene_manager.detect_scenes(frame_source=video_manager)
+
+        scene_list = scene_manager.get_scene_list()
+
         with open(os.path.join(self.output_dir, 'scenechangeresults.txt'), 'w') as f:
-            for pts_time in pts_times:
-                f.write(str(float(pts_time)) + '\n')
+            for i, scene in enumerate(scene_list):
+                start_time = scene[0].get_seconds()
+                end_time = scene[1].get_seconds()
+                print(
+                    f'Scene {i + 1}: Start Time {start_time} - End Time {end_time}')
+                f.write(f"{end_time}\n")
