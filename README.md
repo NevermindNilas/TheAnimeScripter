@@ -21,16 +21,31 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 
 ## 🚀 Key Features
 
-1. **Interpolation**: Boost your video framerate through frame interpolation.
-2. **Upscaling**: Enhance the resolution of your videos for an improved viewing experience.
-3. **Deduplication**: Optimize your video size by removing duplicate frames.
-4. **Segmentation**: Separate the background from the foreground for easier and faster rotobrushing.
-5. **Depth Map Generation**: Generate a depth map for 3D effects and more advanced video editing.
-6. **Auto Clip Cutting**: Increase your productivity by automatically cutting your clips using a Scene Change Filter.
-7. **Motion Blur**: Add motion blur to your videos for a more realistic look.
-8. **Integration with After Effects**: Seamlessly use our tool directly inside of After Effects.
-9. **Model Chaining in After Effects**: Run Deduplication, Upscaling, Interpolation all in one.
-10. **No Frame Extraction**: The script does 0 frame extraction, everything is being done in memory without additional decode and encode cycles.
+1. **Smooth Motion Interpolation:** Elevate video quality with seamless frame interpolation for fluid motion.
+
+2. **Crystal-Clear Upscaling:** Immerse audiences in enhanced resolution, delivering sharper, more detailed visuals.
+
+3. **Optimal Video Size Deduplication:** Streamline videos by intelligently removing redundant frames, optimizing file size.
+
+4. **Effortless Background-Foreground Segmentation:** Simplify rotobrushing tasks with precision and ease.
+
+5. **3D Wizardry - Depth Map Generation:** Unlock advanced editing possibilities with detailed depth maps for immersive 3D effects.
+
+6. **Auto Clip Cutting with Scene Change Filter:** Boost productivity by automatically cutting clips with a Scene Change Filter.
+
+7. **Realistic Dynamics - Motion Blur:** Infuse realism into videos with customizable motion blur for a cinematic touch.
+
+8. **Seamless After Effects Integration:** Enhance After Effects projects effortlessly with our seamless integration.
+
+9. **Multi-Effect Magic - Model Chaining:** Combine features seamlessly within After Effects, running Deduplication, Upscaling, and Interpolation in one go.
+
+10. **Efficient In-Memory Processing:** Experience swift transformations without additional frame extraction cycles.
+
+11. **Custom Model Support for Creativity:** Unleash your creativity by incorporating your own trained models effortlessly.
+
+Empower your video editing journey with these robust, efficient features designed to elevate your content to new heights.
+
+
 
 ## ✅ Stats
 ![Alt](https://repobeats.axiom.co/api/embed/4754b52201c8220b8611a8c6e43c53ed3dc82a9f.svg "Repobeats analytics image")

@@ -53,8 +53,11 @@ class Cugan:
             model_path = os.path.join(weights_dir, self.filename)
 
         else:
-            self.model = model_map[self.upscale_factor](
-                in_channels=3, out_channels=3)
+            if self.upscale_method == "shufflecugan":
+                self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
+            else:    
+                self.model = model_map[self.upscale_factor](
+                    in_channels=3, out_channels=3)
 
             logging.info(
                 f"Using custom model: {self.custom_model}")
