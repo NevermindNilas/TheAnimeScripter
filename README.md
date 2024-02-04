@@ -15,9 +15,7 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 [Join The Discord Server](https://discord.gg/bFA6xZxM5V)
 
 ## Promo Video
-
-<iframe width="560" height="315" src="https://www.youtube.com/embed/V7ryKMezqeQ" frameborder="0" allowfullscreen></iframe>
-
+[![Promo Video](https://img.youtube.com/vi/V7ryKMezqeQ/0.jpg)](https://youtu.be/V7ryKMezqeQ)
 
 ## 🚀 Key Features
 
