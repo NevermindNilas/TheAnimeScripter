@@ -108,8 +108,12 @@ def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, ded
         filters.append(dedup_strenght)
 
     if resize:
-        filters.append(
-            f'scale={width}:{height}:flags={resize_method}')
+        if resize_method in ["spline16", "spline36", "point"]:
+            filters.append(
+                f'zscale={width}:{height}:filter={resize_method}')
+        else:
+            filters.append(
+                f'scale={width}:{height}:flags={resize_method}')
 
     if filters:
         command.extend(["-vf", ','.join(filters)])
