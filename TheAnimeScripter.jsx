@@ -708,19 +708,6 @@ var TheAnimeScripter = (function() {
         }
     };
 
-    dropdownModel.onChange = function() {
-        app.settings.saveSetting(scriptName, "dropdownModel", dropdownModel.selection.index);
-
-        if (dropdownModel.selection.index == 0 | dropdownModel.selection.index == 2 | dropdownModel.selection.index == 4 | dropdownModel.selection.index == 6 | dropdownModel.selection.index == 12 | dropdownModel.selection.index == 14) {
-            intUpscale.text = "2";
-            intUpscale.enabled = false;
-            dropdownCugan.enabled = false;
-        } else {
-            intUpscale.enabled = true;
-            dropdownCugan.enabled = true;
-        }
-    }
-
     dropdownCugan.onChange = function() {
         app.settings.saveSetting(scriptName, "dropdownCugan", dropdownCugan.selection.index);
 
@@ -732,18 +719,6 @@ var TheAnimeScripter = (function() {
 
     intInterpolate.onChange = function() {
         app.settings.saveSetting(scriptName, "intInterpolate", intInterpolate.text);
-    }
-
-    intUpscale.onChange = function() {
-        app.settings.saveSetting(scriptName, "intUpscale", intUpscale.text);
-
-        if ((dropdownModel.selection.index == 8 || dropdownModel.selection.index == 10)) {
-            if (parseInt(intUpscale.text) < 2) {
-                intUpscale.text = "2";
-            } else if (parseInt(intUpscale.text) > 4) {
-                intUpscale.text = "4";
-            }
-        }
     }
 
     dropdownDedupStrenght.onChange = function() {
