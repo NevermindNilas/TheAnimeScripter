@@ -72,53 +72,7 @@ In the settings panel:
 
 ## 📚 Available Inputs
 
-- `--version`: (bool, action=store_true) Outputs the script version.
-- `--input`: (str) Absolute path of the input video.
-- `--output`: (str) Output string of the video, can be an absolute path or just a name.
-- `--interpolate`: (int, default=0) Enable interpolation (1) or disable (0).
-- `--interpolate_factor`: (int, default=2) Factor for interpolation.
-- `--interpolate_method`: (str, default="rife") Interpolation method:
-  - Options: "rife", "rife4.6", "rife4.14", "rife4.14-lite", "rife4.13-lite", "rife-ncnn", "rife4.6-ncnn", "rife4.14-ncnn", "rife4.14-lite-ncnn", "rife4.13-lite-ncnn".
-  
-- `--upscale`: (int, default=0) Enable upscaling (1) or disable (0).
-- `--upscale_factor`: (int, default=2) Factor for upscaling.
-- `--upscale_method`: (str, default="ShuffleCugan") Upscaling method:
-  - Options: "cugan / cugan-ncnn / shufflecugan", "swinir", "compact / ultracompact / superultracompact", "span", "omnisr".
-  
-- `--cugan_kind`: (str, default="no-denoise") Cugan denoising kind:
-  - Options: "no-denoise", "conservative", "denoise1x", "denoise2x".
-
-- `--dedup`: (int, default=0) Enable deduplication (1) or disable (0).
-- `--dedup_method`: (str, default="ffmpeg") Deduplication method.
-
-- `--dedup_sens`: (float, default=50) Sensitivity of deduplication.
-- `--half`: (int, default=1) Use half precision (1) or full precision (0).
-- `--inpoint`: (float, default=0) Inpoint for the video.
-- `--outpoint`: (float, default=0) Outpoint for the video.
-- `--sharpen`: (int, default=0) Enable sharpening (1) or disable (0).
-- `--sharpen_sens`: (float, default=50) Sensitivity of sharpening.
-- `--segment`: (int, default=0) Enable segmentation (1) or disable (0).
-- `--scenechange`: (int, default=0) Enable scene change detection (1) or disable (0).
-- `--scenechange_sens`: (float, default=40) Sensitivity of scene change detection.
-- `--depth`: (int, default=0) Generate Depth Maps (1) or disable (0).
-- `--depth_method`: (str, default="small") Depth map generation method:
-  - Options: "small", "base", "large".
-  
-- `--encode_method`: (str, default="x264") Encoding method:
-  - Options: x264, x264_animation, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf.
-  
-- `--motion_blur`: (int, default=0) Add motion blur using gaussian weighting between frames.
-
-- `--ytdlp`: (str, default="") Download a YouTube video, needs a full URL.
-- `--ytdlp_quality`: (int, default=0) Allow 4k/8k videos to be downloaded then reencoded to the selected `--encode_method`.
-
-- `--ensemble`: (int, default=0) Activate Ensemble for higher quality outputs from Rife (doesn't work with ncnn versions for now).
-- `--resize`: (int, choices=[0, 1], default=0) Enable resizing (1) or disable (0).
-- `--resize_factor`: (int, default=2) Factor for resizing the decoded video. Can also be a float value between 0 and 1 for downscaling.
-- `--resize_method`: (str, choices=["fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos", "spline"], default="bicubic") Resizing method:
-  - Options: "lanczos" (recommended for upscaling), "area" (recommended for downscaling).
-
-- `--custom_model`: (str, default="") Choose a different model for supported upscaling arches. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
+The available inputs have been moved to [Parameters Guide](PARAMETERS.MD).
 
 
 ## 🙏 Acknowledgements

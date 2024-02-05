@@ -13,7 +13,7 @@ from queue import Queue
 
 
 class Segment():
-    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint=0, outpoint=0, encode_method="x264"):
+    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint=0, outpoint=0, encode_method="x264", custom_encoder=""):
         self.input = input
         self.output = output
         self.ffmpeg_path = ffmpeg_path
@@ -24,6 +24,7 @@ class Segment():
         self.inpoint = inpoint
         self.outpoint = outpoint
         self.encode_method = encode_method
+        self.custom_encoder = custom_encoder
 
         self.pbar = tqdm(
             total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
@@ -196,7 +197,7 @@ class Segment():
 
         from src.ffmpegSettings import encodeSettings
         command: list = encodeSettings(self.encode_method, self.width, self.height,
-                                       self.fps, self.output, self.ffmpeg_path, sharpen=False, sharpen_sens=0, grayscale=False)
+                                       self.fps, self.output, self.ffmpeg_path, sharpen=False, sharpen_sens=0, custom_encoder=self.custom_encoder, grayscale=False)
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -218,8 +219,7 @@ class Segment():
 
         except Exception as e:
             logging.exception(
-                f"An error occurred during reading, {e}")
-            raise e
+                f"Something went wrong while writing the frames, {e}")
 
         finally:
             logging.info(
@@ -227,3 +227,14 @@ class Segment():
 
             pipe.stdin.close()
             self.pbar.close()
+
+            stderr_output = pipe.stderr.read().decode()
+            
+            logging.info(
+                "============== FFMPEG Output Log ============\n")
+            
+            if stderr_output:
+                logging.info(stderr_output)
+
+            # Hope this works
+            pipe.terminate()

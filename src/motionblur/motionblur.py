@@ -18,7 +18,7 @@ Until then, the I/O Bottleneck will be the limiting factor
 
 
 class motionBlur():
-    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint, outpoint, interpolate_method, interpolate_factor, half, encode_method, dedup, dedup_strenght):
+    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint, outpoint, interpolate_method, interpolate_factor, half, encode_method, dedup, dedup_strenght, custom_encoder=""):
         self.input = input
         self.output = output
         self.ffmpeg_path = ffmpeg_path
@@ -34,6 +34,7 @@ class motionBlur():
         self.encode_method = encode_method
         self.dedup = dedup
         self.dedup_strenght = dedup_strenght
+        self.custom_encoder = custom_encoder
 
         self.handle_model()
 
@@ -169,11 +170,12 @@ class motionBlur():
         from src.ffmpegSettings import encodeSettings
 
         command: list = encodeSettings(self.encode_method, self.width, self.height,
-                                       self.fps, self.output, self.ffmpeg_path, False, 0, grayscale=False)
+                                       self.fps, self.output, self.ffmpeg_path, False, 0, self.custom_encoder, grayscale=False)
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-
+        
+        frame_count = 0
         try:
             while True:
                 frame = self.processed_frames.get()
@@ -182,12 +184,28 @@ class motionBlur():
                         break
 
                 frame = np.ascontiguousarray(frame)
+                frame_count += 1
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update(1)
 
         except Exception as e:
-            logging.exception(f"An error occurred during writing {e}")
+            logging.exception(
+                f"Something went wrong while writing the frames, {e}")
 
         finally:
+            logging.info(
+                f"Wrote {frame_count} frames")
+
             pipe.stdin.close()
             self.pbar.close()
+
+            stderr_output = pipe.stderr.read().decode()
+            
+            logging.info(
+                "============== FFMPEG Output Log ============\n")
+            
+            if stderr_output:
+                logging.info(stderr_output)
+
+            # Hope this works
+            pipe.terminate()

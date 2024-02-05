@@ -1,0 +1,93 @@
+#####################################################
+#               Available Parameters             #
+#####################################################
+
+## Overview:
+
+The video processing script is a powerful tool for enhancing and manipulating videos with a wide range of options. It supports functionalities such as interpolation, upscaling, deduplication, denoising, sharpening, scene change detection, depth map generation, and more. Users can customize the processing pipeline to meet their specific requirements using a comprehensive set of parameters.
+
+### Command-Line Arguments:
+
+1. `--version` (bool, action=store_true): Outputs the script version.
+
+#### Input and Output:
+
+2. `--input` (str): Absolute path of the input video.
+3. `--output` (str): Output string or absolute path for the processed video.
+
+#### Interpolation Settings:
+
+4. `--interpolate` (int, default=0): Enable interpolation (1) or disable (0).
+5. `--interpolate_factor` (int, default=2): Factor for interpolation.
+6. `--interpolate_method` (str, default="rife"): Interpolation method:
+   - Options: "rife", "rife4.6", "rife4.14", "rife4.14-lite", "rife4.13-lite", "rife-ncnn", "rife4.6-ncnn", "rife4.14-ncnn", "rife4.14-lite-ncnn", "rife4.13-lite-ncnn".
+7. `--ensemble` (int, default=0): Activate Ensemble for higher quality outputs from Rife (doesn't work with ncnn versions for now).
+
+#### Upscaling Settings:
+
+8. `--upscale` (int, default=0): Enable upscaling (1) or disable (0).
+9. `--upscale_factor` (int, default=2): Factor for upscaling.
+10. `--upscale_method` (str, default="ShuffleCugan"): Upscaling method:
+    - Options: "cugan / cugan-ncnn / shufflecugan", "swinir", "compact / ultracompact / superultracompact", "span", "omnisr".
+11. `--cugan_kind` (str, default="no-denoise"): Cugan denoising kind:
+    - Options: "no-denoise", "conservative", "denoise1x", "denoise2x".
+12. `--custom_model` (str, default=""): Choose a different model for supported upscaling architectures. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
+
+#### Denoising Settings specific to CUGAN / CUGAN-NCNN:
+
+13. `--dedup` (int, default=0): Enable deduplication (1) or disable (0).
+14. `--dedup_method` (str, default="ffmpeg"): Deduplication method.
+15. `--dedup_sens` (float, default=50): Sensitivity of deduplication.
+
+#### Precision and Trimming:
+
+16. `--half` (int, default=1): Use half precision (1) or full precision (0).
+17. `--inpoint` (float, default=0): Inpoint for the video.
+18. `--outpoint` (float, default=0): Outpoint for the video.
+
+#### Sharpening Settings:
+
+19. `--sharpen` (int, default=0): Enable sharpening (1) or disable (0).
+20. `--sharpen_sens` (float, default=50): Sensitivity of sharpening.
+
+#### Segmentation Settings:
+21. `--segment` (int, default=0): Enable segmentation (1) or disable (0).
+
+#### Scene Change Detection:
+
+22. `--scenechange` (int, default=0): Enable scene change detection (1) or disable (0).
+23. `--scenechange_sens` (float, default=40): Sensitivity of scene change detection.
+
+#### Depth Map Generation:
+
+24. `--depth` (int, default=0): Generate Depth Maps (1) or disable (0).
+25. `--depth_method` (str, default="small"): Depth map generation method:
+    - Options: "small", "base", "large".
+
+#### Motion Blur:
+
+26. `--motion_blur` (int, default=0): Add motion blur using Gaussian weighting between frames.
+
+#### YouTube Video Download:
+
+27. `--ytdlp` (str, default=""): Download a YouTube video, needs a full URL.
+28. `--ytdlp_quality` (int, default=0): Allow 4k/8k videos to be downloaded then re-encoded to the selected `--encode_method`.
+
+#### Resizing:
+
+29. `--resize` (int, choices=[0, 1], default=0): Enable resizing (1) or disable (0).
+30. `--resize_factor` (int, default=2): Factor for resizing the decoded video. Can also be a float value between 0 and 1 for downscaling.
+31. `--resize_method` (str, choices=["fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos", "spline"], default="bicubic"): Resizing method:
+    - Options: "lanczos" (recommended for upscaling), "area" (recommended for downscaling).
+
+#### Encoding Settings:
+
+32. `--encode_method` (str, default="x264"): Encoding method:
+    - Options: x264, x264_animation, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf.
+33. `--custom_encoder` (str, default=""): Comprehensive encoding option allowing users to specify their own `ffmpeg` parameters, including filters. Input a string of `ffmpeg` parameters, separated by spaces.
+
+   Example: `--custom_encoder="-b:v 1M -vf hqdn3d"`
+
+   Note: Parameters specified with `--custom_encoder` will override the default encoding parameters. Ensure familiarity with `ffmpeg` and its parameters before using this option.
+
+#####################################################
