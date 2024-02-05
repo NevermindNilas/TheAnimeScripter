@@ -71,7 +71,7 @@ The video processing script is a powerful tool for enhancing and manipulating vi
 #### YouTube Video Download:
 
 - `--ytdlp` (str, default=""): Download a YouTube video, needs a full URL.
-- `--ytdlp_quality` (int, default=0): Allow 4k/8k videos to be downloaded then re-encoded to the selected `--encode_method`.
+- `--ytdlp_quality` (int, default=0): Allow 4k/8k videos to be downloaded then re-encoded to the selected `--encode_method` or `--custom_encoder`.
 
 #### Resizing:
 
@@ -83,7 +83,7 @@ The video processing script is a powerful tool for enhancing and manipulating vi
 #### Encoding Settings:
 
 - `--encode_method` (str, default="x264"): Encoding method:
-    - Options: x264, x264_animation, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf.
+    - Options: x264, x264_animation, x265, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf.
 - `--custom_encoder` (str, default=""): Comprehensive encoding option allowing users to specify their own `ffmpeg` parameters, including filters. Input a string of `ffmpeg` parameters, separated by spaces.
 
    Example: `--custom_encoder="-b:v 1M -vf hqdn3d"`

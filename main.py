@@ -38,7 +38,7 @@ if getattr(sys, 'frozen', False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.1.4"
+scriptVersion = "1.1.5"
 warnings.filterwarnings("ignore")
 
 
@@ -122,7 +122,7 @@ class videoProcessor:
                 "Segmenting video")
 
             Segment(self.input, self.output, self.ffmpeg_path, self.width,
-                    self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_methodm, self.custom_encoder)
+                    self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method, self.custom_encoder)
 
             return
 
@@ -414,7 +414,7 @@ if __name__ == "__main__":
     argparser.add_argument("--depth", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--depth_method", type=str,
                            choices=["small", "base", "large"], default="small")
-    argparser.add_argument("--encode_method", type=str, choices=["x264", "x264_animation", "nvenc_h264",
+    argparser.add_argument("--encode_method", type=str, choices=["x264", "x264_animation", "x265", "nvenc_h264",
                            "nvenc_h265", "qsv_h264", "qsv_h265", "nvenc_av1", "av1", "h264_amf", "hevc_amf"], default="x264")
     argparser.add_argument("--motion_blur", type=int,
                            choices=[0, 1], default=0)
@@ -426,7 +426,7 @@ if __name__ == "__main__":
                            help="Resize factor for the decoded video, can also be values between 0 & 1 for downscaling though it needs more work, it will always keep the desired aspect ratio")
     argparser.add_argument("--resize_method", type=str, choices=[
         "fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos",
-        "spline"], default="bicubic", help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling")
+        "point", "spline", "spline16", "spline36"], default="bicubic", help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling")
     argparser.add_argument("--custom_encoder", type=str, default="")
     args = argparser.parse_args()
 
@@ -478,7 +478,7 @@ if __name__ == "__main__":
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
         from src.ytdlp import VideoDownloader
-        VideoDownloader(args.ytdlp, args.output, args.ytdlp_quality, args.encode_method)
+        VideoDownloader(args.ytdlp, args.output, args.ytdlp_quality, args.encode_method, args.custom_encoder)
         sys.exit()
 
     args.ffmpeg_path = os.path.join(os.path.dirname(
