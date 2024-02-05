@@ -7,11 +7,12 @@ from .get_ffmpeg import get_ffmpeg
 from .ffmpegSettings import encodeYTDLP
 
 class VideoDownloader():
-    def __init__(self, video_link, output, quality, encode_method):
+    def __init__(self, video_link, output, quality, encode_method, custom_encoder):
         self.link = video_link
         self.output = output
         self.quality = quality
         self.encode_method = encode_method
+        self.custom_encoder = custom_encoder
         
         self.setup_ffmpeg()
         self.download_video()
@@ -48,7 +49,7 @@ class VideoDownloader():
             }
 
     def encode_video(self):
-        command = encodeYTDLP(self.temp_name, self.output, self.ffmpeg_path, self.encode_method)
+        command = encodeYTDLP(self.temp_name, self.output, self.ffmpeg_path, self.encode_method, self.custom_encoder)
         subprocess.run(command)
 
     def cleanup(self):

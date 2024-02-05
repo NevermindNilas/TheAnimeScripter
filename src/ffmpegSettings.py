@@ -37,82 +37,16 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
                "-fps_mode", 'vfr'
                ]
 
-    # Settings from: https://www.xaymar.com/guides/obs/high-quality-recording/
-    # Looking into adding a "Max compression" or a more custom way of setting the FFMPEG Params
-    # My only concern is that it might be too complicated for the average user
-    # Time will tell
+
     if custom_encoder == "":
-        match encode_method:
-            case "x264":
-                command.extend(['-c:v', 'libx264',
-                                '-preset', 'veryfast',
-                                '-crf', '14',
-                                ])
+        command.extend(match_encoder(encode_method))
 
-            case "x264_animation":
-                command.extend(['-c:v', 'libx264',
-                                '-preset', 'veryfast',
-                                '-tune', 'animation',
-                                '-crf', '14',
-                                ])
-
-            case "nvenc_h264":
-                command.extend(['-c:v', 'h264_nvenc',
-                                '-preset', 'p1',
-                                '-cq', '14',
-                                ])
-
-            case "nvenc_h265":
-                command.extend(['-c:v', 'hevc_nvenc',
-                                '-preset', 'p1',
-                                '-cq', '14',
-                                ])
-
-            case "qsv_h264":
-                command.extend(['-c:v', 'h264_qsv',
-                                '-preset', 'veryfast',
-                                '-global_quality', '14',
-                                ])
-
-            case "qsv_h265":
-                command.extend(['-c:v', 'hevc_qsv',
-                                '-preset', 'veryfast',
-                                '-global_quality', '14',
-                                ])
-
-            case "nvenc_av1":
-                command.extend(['-c:v', 'av1_nvenc',
-                                '-preset', 'p1',
-                                '-cq', '14',
-                                ])
-
-            case "av1":
-                command.extend(['-c:v', 'libsvtav1',
-                                "-preset", "8",
-                                '-crf', '14',
-                                ])
-
-            # I can't quite test these out since I do not have an AMD GPU but they are there just in case
-            case "h264_amf":
-                command.extend(['-c:v', 'h264_amf',
-                                '-quality', 'speed',
-                                '-rc', 'cqp',
-                                '-qp', '14',
-                                ])
-
-            case "hevc_amf":
-                command.extend(['-c:v', 'hevc_amf',
-                                '-quality', 'speed',
-                                '-rc', 'cqp',
-                                '-qp', '14',
-                                ])
-            
         filters = []
         if sharpen:
             filters.append('cas={}'.format(sharpen_sens))
         if grayscale:
             filters.append('format=gray')
-        
+
         if filters:
             custom_encoder_list.extend(['-vf', ','.join(filters)])
 
@@ -121,10 +55,11 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
 
         if '-vf' in custom_encoder_list:
             vf_index = custom_encoder_list.index('-vf')
-            
+
             if sharpen:
-                custom_encoder_list[vf_index + 1] += ',cas={}'.format(sharpen_sens)
-            
+                custom_encoder_list[vf_index +
+                                    1] += ',cas={}'.format(sharpen_sens)
+
             if grayscale:
                 custom_encoder_list[vf_index + 1] += ',format=gray'
         else:
@@ -133,19 +68,19 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
                 filters.append('cas={}'.format(sharpen_sens))
             if grayscale:
                 filters.append('format=gray')
-            
+
             if filters:
                 custom_encoder_list.extend(['-vf', ','.join(filters)])
 
         command.extend(custom_encoder_list)
-        
+
     command.extend(['-pix_fmt', output_pix_fmt, output])
-    
+
     logging.info(f"Encoding options: {' '.join(map(str, command))}")
     return command
 
 
-def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, dedup_strenght: str, ffmpeg_path: str, resize: bool, width : int, height : int, resize_method: str):
+def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, dedup_strenght: str, ffmpeg_path: str, resize: bool, width: int, height: int, resize_method: str):
     """
     input: str - The path to the input video file.
     inpoint: float - The start time of the segment to decode, in seconds.
@@ -202,48 +137,57 @@ def interpolate(x, x1, x2, y1, y2):
     return y1 + (x - x1) * (y2 - y1) / (x2 - x1)
 
 
-def encodeYTDLP(input, output, ffmpeg_path, encode_method):
+def encodeYTDLP(input, output, ffmpeg_path, encode_method, custom_encoder):
     # This is for non rawvideo bytestreams, it's simpler to keep track this way
     # And have everything FFMPEG related organized in one file
 
     command = [ffmpeg_path, '-i', input]
 
-    match encode_method:
-        # I know that superfast isn't exactly the best preset for x264, but I fear that someone will try to convert a 4k 24 min video
-        # On a i7 4770k and it will take 3 business days to finish
-        case "x264":
-            command.extend(
-                ['-c:v', 'libx264', '-preset', 'superfast', '-crf', '14'])
-        case "x264_animation":
-            command.extend(
-                ['-c:v', 'libx264', '-preset', 'superfast', '-tune', 'animation', '-crf', '14'])
-        case "nvenc_h264":
-            command.extend(
-                ['-c:v', 'h264_nvenc', '-preset', 'p1', '-cq', '14'])
-        case "nvenc_h265":
-            command.extend(
-                ['-c:v', 'hevc_nvenc', '-preset', 'p1', '-cq', '14'])
-        case "qsv_h264":
-            command.extend(
-                ['-c:v', 'h264_qsv', '-preset', 'veryfast', '-global_quality', '14'])
-        case "qsv_h265":
-            command.extend(
-                ['-c:v', 'hevc_qsv', '-preset', 'veryfast', '-global_quality', '14'])
-        case "nvenc_av1":
-            command.extend(
-                ['-c:v', 'av1_nvenc', '-preset', 'p1', '-cq', '14'])
-        case "av1":
-            command.extend(
-                ['-c:v', 'libsvtav1', '-preset', '8', '-crf', '14'])
-        case "h264_amf":
-            command.extend(
-                ['-c:v', 'h264_amf', '-quality', 'speed', '-rc', 'cqp', '-qp', '14'])
-        case "hevc_amf":
-            command.extend(
-                ['-c:v', 'hevc_amf', '-quality', 'speed', '-rc', 'cqp', '-qp', '14'])
+    if custom_encoder == "":
+        command.extend(match_encoder(encode_method))
+    else:
+        command.extend(custom_encoder.split())
 
     command.append(output)
 
     logging.info(f"Encoding options: {' '.join(command)}")
 
+    return command
+
+
+def match_encoder(encode_method: str):
+    """
+    encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
+    """
+    command = []
+    # Settings inspiration from: https://www.xaymar.com/guides/obs/high-quality-recording/
+    match encode_method:
+        case "x264":
+            command.extend(['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '14'])
+        case "x264_animation":
+            command.extend(['-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'animation', '-crf', '14'])
+        case "x265":
+            command.extend(['-c:v', 'libx265', '-preset', 'veryfast', '-crf', '14'])
+        
+        # Experimental, not tested    
+        #case "x265_animation":
+        #    command.extend(['-c:v', 'libx265', '-preset', 'veryfast', '-crf', '14', '-psy-rd', '1.0', '-psy-rdoq', '10.0'])
+            
+        case "nvenc_h264":
+            command.extend(['-c:v', 'h264_nvenc', '-preset', 'p1', '-cq', '14'])
+        case "nvenc_h265":
+            command.extend(['-c:v', 'hevc_nvenc', '-preset', 'p1', '-cq', '14'])
+        case "qsv_h264":
+            command.extend(['-c:v', 'h264_qsv', '-preset', 'veryfast', '-global_quality', '14'])
+        case "qsv_h265":
+            command.extend(['-c:v', 'hevc_qsv', '-preset', 'veryfast', '-global_quality', '14'])
+        case "nvenc_av1":
+            command.extend(['-c:v', 'av1_nvenc', '-preset', 'p1', '-cq', '14'])
+        case "av1":
+            command.extend(['-c:v', 'libsvtav1', "-preset", "8", '-crf', '14'])
+        case "h264_amf":
+            command.extend(['-c:v', 'h264_amf', '-quality', 'speed', '-rc', 'cqp', '-qp', '14'])
+        case "hevc_amf":
+            command.extend(['-c:v', 'hevc_amf', '-quality', 'speed', '-rc', 'cqp', '-qp', '14'])
+            
     return command
