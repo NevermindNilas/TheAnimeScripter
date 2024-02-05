@@ -38,7 +38,7 @@ if getattr(sys, 'frozen', False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.1.3"
+scriptVersion = "1.1.4"
 warnings.filterwarnings("ignore")
 
 
@@ -75,6 +75,7 @@ class videoProcessor:
         self.resize_method = args.resize_method
         self.available_ram = args.available_ram
         self.custom_model = args.custom_model
+        self.custom_encoder = args.custom_encoder
 
         self.width, self.height, self.fps, self.nframes = getVideoMetadata(
             self.input, self.inpoint, self.outpoint)
@@ -110,7 +111,7 @@ class videoProcessor:
                 "Detecting depth")
 
             Depth(self.input, self.output, self.ffmpeg_path, self.width, self.height,
-                  self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method, self.depth_method)
+                  self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method, self.depth_method, self.custom_encoder)
 
             return
 
@@ -121,7 +122,7 @@ class videoProcessor:
                 "Segmenting video")
 
             Segment(self.input, self.output, self.ffmpeg_path, self.width,
-                    self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method)
+                    self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_methodm, self.custom_encoder)
 
             return
 
@@ -132,7 +133,7 @@ class videoProcessor:
                 "Adding motion blur")
 
             motionBlur(self.input, self.output, self.ffmpeg_path, self.width,
-                       self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.interpolate_method, self.interpolate_factor, self.half, self.encode_method, self.dedup, self.dedup_sens)
+                       self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.interpolate_method, self.interpolate_factor, self.half, self.encode_method, self.dedup, self.dedup_sens, self.custom_encoder)
 
             return
 
@@ -332,7 +333,7 @@ class videoProcessor:
         
         from src.ffmpegSettings import encodeSettings
         command: list = encodeSettings(self.encode_method, self.new_width, self.new_height,
-                                       self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens, grayscale=False)
+                                       self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens, self.custom_encoder, grayscale=False)
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -364,8 +365,9 @@ class videoProcessor:
             self.pbar.close()
 
             stderr_output = pipe.stderr.read().decode()
+            
             logging.info(
-                f"FFMPEG Output Log:")
+                "\n============== FFMPEG Output Log ============")
             
             if stderr_output:
                 logging.info(stderr_output)
@@ -425,6 +427,7 @@ if __name__ == "__main__":
     argparser.add_argument("--resize_method", type=str, choices=[
         "fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos",
         "spline"], default="bicubic", help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling")
+    argparser.add_argument("--custom_encoder", type=str, default="")
     args = argparser.parse_args()
 
     if args.version:
