@@ -19,7 +19,7 @@ os.environ['TORCH_HOME'] = os.path.dirname(os.path.realpath(__file__))
 
 
 class Depth():
-    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, half, inpoint=0, outpoint=0, encode_method="x264", depth_method="small"):
+    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, half, inpoint=0, outpoint=0, encode_method="x264", depth_method="small", custom_encoder=""):
 
         self.input = input
         self.output = output
@@ -33,6 +33,7 @@ class Depth():
         self.outpoint = outpoint
         self.encode_method = encode_method
         self.depth_method = depth_method
+        self.custom_encoder = custom_encoder
 
         self.handle_model()
 
@@ -204,7 +205,7 @@ class Depth():
 
         from src.ffmpegSettings import encodeSettings
         command: list = encodeSettings(self.encode_method, self.width, self.height,
-                                       self.fps, self.output, self.ffmpeg_path, False, 0, grayscale=True)
+                                       self.fps, self.output, self.ffmpeg_path, False, 0, self.custom_encoder, grayscale=True)
 
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -220,14 +221,12 @@ class Depth():
                         continue
 
                 frame_count += 1
-                # frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update()
 
         except Exception as e:
             logging.exception(
-                f"An error occurred during reading, {e}")
-            raise e
+                f"Something went wrong while writing the frames, {e}")
 
         finally:
             logging.info(
@@ -236,4 +235,13 @@ class Depth():
             pipe.stdin.close()
             self.pbar.close()
 
-            return
+            stderr_output = pipe.stderr.read().decode()
+            
+            logging.info(
+                "============== FFMPEG Output Log ============\n")
+            
+            if stderr_output:
+                logging.info(stderr_output)
+
+            # Hope this works
+            pipe.terminate()

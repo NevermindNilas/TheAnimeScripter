@@ -1,7 +1,7 @@
 import logging
 
 
-def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: float, output: str, ffmpeg_path: str, sharpen: bool, sharpen_sens: float, grayscale: bool = False):
+def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: float, output: str, ffmpeg_path: str, sharpen: bool, sharpen_sens: float, custom_encoder, grayscale: bool = False):
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
     new_width: int - The width of the output video in pixels.
@@ -41,87 +41,107 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
     # Looking into adding a "Max compression" or a more custom way of setting the FFMPEG Params
     # My only concern is that it might be too complicated for the average user
     # Time will tell
-    match encode_method:
-        case "x264":
-            command.extend(['-c:v', 'libx264',
-                            '-preset', 'veryfast',
-                            '-crf', '14',
-                            ])
+    if custom_encoder == "":
+        match encode_method:
+            case "x264":
+                command.extend(['-c:v', 'libx264',
+                                '-preset', 'veryfast',
+                                '-crf', '14',
+                                ])
 
-        case "x264_animation":
-            command.extend(['-c:v', 'libx264',
-                            '-preset', 'veryfast',
-                            '-tune', 'animation',
-                            '-crf', '14',
-                            ])
+            case "x264_animation":
+                command.extend(['-c:v', 'libx264',
+                                '-preset', 'veryfast',
+                                '-tune', 'animation',
+                                '-crf', '14',
+                                ])
 
-        case "nvenc_h264":
-            command.extend(['-c:v', 'h264_nvenc',
-                            '-preset', 'p1',
-                            '-cq', '14',
-                            ])
+            case "nvenc_h264":
+                command.extend(['-c:v', 'h264_nvenc',
+                                '-preset', 'p1',
+                                '-cq', '14',
+                                ])
 
-        case "nvenc_h265":
-            command.extend(['-c:v', 'hevc_nvenc',
-                            '-preset', 'p1',
-                            '-cq', '14',
-                            ])
+            case "nvenc_h265":
+                command.extend(['-c:v', 'hevc_nvenc',
+                                '-preset', 'p1',
+                                '-cq', '14',
+                                ])
 
-        case "qsv_h264":
-            command.extend(['-c:v', 'h264_qsv',
-                            '-preset', 'veryfast',
-                            '-global_quality', '14',
-                            ])
+            case "qsv_h264":
+                command.extend(['-c:v', 'h264_qsv',
+                                '-preset', 'veryfast',
+                                '-global_quality', '14',
+                                ])
 
-        case "qsv_h265":
-            command.extend(['-c:v', 'hevc_qsv',
-                            '-preset', 'veryfast',
-                            '-global_quality', '14',
-                            ])
+            case "qsv_h265":
+                command.extend(['-c:v', 'hevc_qsv',
+                                '-preset', 'veryfast',
+                                '-global_quality', '14',
+                                ])
 
-        case "nvenc_av1":
-            command.extend(['-c:v', 'av1_nvenc',
-                            '-preset', 'p1',
-                            '-cq', '14',
-                            ])
+            case "nvenc_av1":
+                command.extend(['-c:v', 'av1_nvenc',
+                                '-preset', 'p1',
+                                '-cq', '14',
+                                ])
 
-        case "av1":
-            command.extend(['-c:v', 'libsvtav1',
-                            "-preset", "8",
-                            '-crf', '14',
-                            ])
+            case "av1":
+                command.extend(['-c:v', 'libsvtav1',
+                                "-preset", "8",
+                                '-crf', '14',
+                                ])
 
-        # I can't quite test these out since I do not have an AMD GPU but they are there just in case
-        case "h264_amf":
-            command.extend(['-c:v', 'h264_amf',
-                            '-quality', 'speed',
-                            '-rc', 'cqp',
-                            '-qp', '14',
-                            ])
+            # I can't quite test these out since I do not have an AMD GPU but they are there just in case
+            case "h264_amf":
+                command.extend(['-c:v', 'h264_amf',
+                                '-quality', 'speed',
+                                '-rc', 'cqp',
+                                '-qp', '14',
+                                ])
 
-        case "hevc_amf":
-            command.extend(['-c:v', 'hevc_amf',
-                            '-quality', 'speed',
-                            '-rc', 'cqp',
-                            '-qp', '14',
-                            ])
+            case "hevc_amf":
+                command.extend(['-c:v', 'hevc_amf',
+                                '-quality', 'speed',
+                                '-rc', 'cqp',
+                                '-qp', '14',
+                                ])
+            
+        filters = []
+        if sharpen:
+            filters.append('cas={}'.format(sharpen_sens))
+        if grayscale:
+            filters.append('format=gray')
+        
+        if filters:
+            custom_encoder_list.extend(['-vf', ','.join(filters)])
 
-    filters = []
-    if sharpen:
-        filters.append(f'cas={sharpen_sens}')
-    if grayscale:
-        # Will need to look into Dithering and see if it's worth adding
-        filters.append('format=gray')
+    else:
+        custom_encoder_list = custom_encoder.split()
 
-    if filters:
-        command.extend(['-vf', ','.join(filters)])
+        if '-vf' in custom_encoder_list:
+            vf_index = custom_encoder_list.index('-vf')
+            
+            if sharpen:
+                custom_encoder_list[vf_index + 1] += ',cas={}'.format(sharpen_sens)
+            
+            if grayscale:
+                custom_encoder_list[vf_index + 1] += ',format=gray'
+        else:
+            filters = []
+            if sharpen:
+                filters.append('cas={}'.format(sharpen_sens))
+            if grayscale:
+                filters.append('format=gray')
+            
+            if filters:
+                custom_encoder_list.extend(['-vf', ','.join(filters)])
 
-    command.extend(['-pix_fmt', f'{output_pix_fmt}',
-                    output])
+        command.extend(custom_encoder_list)
+        
+    command.extend(['-pix_fmt', output_pix_fmt, output])
     
-    command.extend(['-v', 'error', '-stats'])
-
-    logging.info(f"Encoding options: {' '.join(command)}")
+    logging.info(f"Encoding options: {' '.join(map(str, command))}")
     return command
 
 
