@@ -7,13 +7,14 @@ import logging
 from .omnisr_arch import omnisr
 
 class OmniSR:
-    def __init__(self, upscale_factor, half, width, height, custom_model):
+    def __init__(self, upscale_factor, half, width, height, custom_model, nt):
         self.upscale_factor = upscale_factor
         self.half = half
         self.width = width
         self.height = height
         self.custom_model = custom_model
-
+        self.nt = nt
+        
         self.handle_models()
 
     def handle_models(self):
@@ -63,6 +64,8 @@ class OmniSR:
         self.device = torch.device("cuda" if self.cuda_available else "cpu")
 
         if self.cuda_available:
+            self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
+            self.current_stream = 0
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -79,11 +82,19 @@ class OmniSR:
         frame = F.pad(frame, [0, self.pad_width, 0, self.pad_height])
         return frame
 
-    @torch.inference_mode
+    @torch.inference_mode()
     def run(self, frame):
         with torch.no_grad():
             frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float().mul_(1/255)
-            frame = frame.to(self.device)
+
+            if self.cuda_available:
+                torch.cuda.set_stream(self.stream[self.current_stream])
+                if self.half:
+                    frame = frame.cuda().half()
+                else:
+                    frame = frame.cuda()
+            else:
+                frame = frame.cpu()
 
             if self.pad_width != 0 or self.pad_height != 0:
                 frame = self.pad_frame(frame)
@@ -91,5 +102,9 @@ class OmniSR:
             frame = self.model(frame)
             frame = frame[:, :, :self.upscaled_height, :self.upscaled_width]
             frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
+
+            if self.cuda_available:
+                torch.cuda.synchronize(self.stream[self.current_stream])
+                self.current_stream = (self.current_stream + 1) % len(self.stream)
 
             return frame.cpu().numpy()

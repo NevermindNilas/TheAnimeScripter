@@ -26,6 +26,7 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
         output_pix_fmt = 'yuv420p'
 
     command = [ffmpeg_path,
+               '-hide_banner',
                '-y',
                '-f', 'rawvideo',
                '-vcodec', 'rawvideo',
