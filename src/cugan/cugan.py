@@ -3,6 +3,8 @@ import os
 import torch
 import torch.nn.functional as F
 import logging
+import onnxruntime as ort
+import numpy as np
 
 from realcugan_ncnn_py import Realcugan
 from .cugan_arch import UpCunet2x, UpCunet3x, UpCunet4x, UpCunet2x_fast
@@ -55,7 +57,7 @@ class Cugan:
         else:
             if self.upscale_method == "shufflecugan":
                 self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
-            else:    
+            else:
                 self.model = model_map[self.upscale_factor](
                     in_channels=3, out_channels=3)
 
@@ -134,3 +136,81 @@ class CuganNCNN():
     def run(self, frame):
         frame = self.realcugan.process_cv2(frame)
         return frame
+
+
+class cuganDirectML():
+    def __init__(self, upscale_method, upscale_factor, cugan_kind, half, width, height, custom_model):
+        """
+        I don't quite fully comprehend this, but it's a start
+        """
+        self.upscale_method = upscale_method
+        self.upscale_factor = upscale_factor
+        self.cugan_kind = cugan_kind
+        self.half = half
+        self.width = width
+        self.height = height
+        self.custom_model = custom_model
+
+        self.handle_models()
+
+    def handle_models(self):
+        if not os.path.exists("weights"):
+            os.makedirs("weights")
+            
+        if self.custom_model == "":
+            dir_name = os.path.dirname(os.path.abspath(__file__))
+            model_path = os.path.join(dir_name, "weights", "sudo_shuffle_cugan_fp16_op17_clamped_9.584.969.onnx")
+            
+            if not os.path.exists(model_path):
+                url = f"https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/sudo_shuffle_cugan_fp16_op17_clamped_9.584.969.onnx"
+                wget.download(url, out=model_path)
+                
+            providers = ort.get_all_providers()
+            print(providers)
+            sess_options = ort.SessionOptions()
+            if 'DmlExecutionProvider' in ort.get_all_providers():
+                sess_options.add_session_config_entry('session_device_id', '0')
+                sess_options.add_session_config_entry(
+                    'session_execution_provider', 'DmlExecutionProvider')
+            else:
+                print("DirectML not available, using CPU instead.")
+            
+            self.session = ort.InferenceSession(model_path, sess_options)
+        
+        else:
+            raise NotImplementedError("Custom models are not supported yet.")
+        
+        self.input_name = self.session.get_inputs()[0].name
+        self.output_name = self.session.get_outputs()[0].name
+        
+        self.pad_width = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
+        self.pad_height = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
+
+        self.upscaled_height = self.height * self.upscale_factor
+        self.upscaled_width = self.width * self.upscale_factor
+    
+    def pad_frame(self, frame):
+        frame = np.pad(frame, ((0, self.pad_height), (0, self.pad_width), (0, 0)), mode='constant')
+        return frame
+    
+    def run(self, frame):
+        frame = frame.astype(np.float16)
+        
+        frame = frame.transpose(2, 0, 1) / 255.0
+        
+        if self.pad_width != 0 or self.pad_height != 0:
+            frame = self.pad_frame(frame)
+        
+        frame = frame[np.newaxis, ...]
+        
+        output = self.session.run([self.output_name], {self.input_name: frame})
+        output = output[0]   
+        
+        output = output[:, :, :self.upscaled_height, :self.upscaled_width]
+        
+        output = output.squeeze(0).transpose(1, 2, 0) * 255.0
+        
+        return output
+        
+        
+        

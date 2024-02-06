@@ -1,4 +1,4 @@
---extra-index-url https://download.pytorch.org/whl/nightly/cu121
+--extra-index-url https://download.pytorch.org/whl/cu121
 wget
 opencv-python
 tqdm
@@ -8,11 +8,12 @@ cupy-cuda12x
 kornia
 scipy
 wmi
+onnxruntime-directml
 yt-dlp
 einops
 scenedetect[opencv,progress_bar]
 realcugan-ncnn-py
 pytorch-lightning
-torch==2.3.0.dev20240122+cu121
-torchvision==0.18.0.dev20240122+cu121
-https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp312-cp312-win_amd64.whl
+torch 
+torchvision 
+torchaudio

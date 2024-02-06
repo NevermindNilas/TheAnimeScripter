@@ -16,7 +16,7 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
     if grayscale:
         pix_fmt = 'gray'
         output_pix_fmt = "yuv420p16le"
-        if encode_method not in ["x264", "x264_animation", "av1"]:
+        if encode_method not in ["x264", "x264_animation", "x265", "av1"]:
             logging.info(
                 "The selected encoder does not support yuv420p16le, switching to yuv420p10le.")
             output_pix_fmt = 'yuv420p10le'
