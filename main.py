@@ -32,13 +32,14 @@ from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
+from threading import Lock
 
 if getattr(sys, 'frozen', False):
     main_path = os.path.dirname(sys.executable)
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.1.5"
+scriptVersion = "1.1.7"
 warnings.filterwarnings("ignore")
 
 
@@ -76,7 +77,8 @@ class videoProcessor:
         self.available_ram = args.available_ram
         self.custom_model = args.custom_model
         self.custom_encoder = args.custom_encoder
-
+        self.nt = args.nt
+        
         self.width, self.height, self.fps, self.nframes = getVideoMetadata(
             self.input, self.inpoint, self.outpoint)
 
@@ -182,27 +184,27 @@ class videoProcessor:
                 case "shufflecugan" | "cugan":
                     from src.cugan.cugan import Cugan
                     self.upscale_process = Cugan(
-                        self.upscale_method, self.upscale_factor, self.cugan_kind, self.half, self.width, self.height, self.custom_model)
+                        self.upscale_method, self.upscale_factor, self.cugan_kind, self.half, self.width, self.height, self.custom_model, self.nt)
                 case "cugan-ncnn":
                     from src.cugan.cugan import CuganNCNN
                     self.upscale_process = CuganNCNN(
-                        1, self.upscale_factor, self.custom_model)
+                        self.nt, self.upscale_factor, self.custom_model)
                 case "compact" | "ultracompact" | "superultracompact":
                     from src.compact.compact import Compact
                     self.upscale_process = Compact(
-                        self.upscale_method, self.upscale_factor, self.half, self.width, self.height, self.custom_model)
+                        self.upscale_method, self.upscale_factor, self.half, self.width, self.height, self.custom_model, self.nt)
                 case "swinir":
                     from src.swinir.swinir import Swinir
                     self.upscale_process = Swinir(
-                        self.upscale_factor, self.half, self.width, self.height, self.custom_model)
+                        self.upscale_factor, self.half, self.width, self.height, self.custom_model, self.nt)
                 case "span":
                     from src.span.span import SpanSR
                     self.upscale_process = SpanSR(
-                        self.upscale_factor, self.half, self.width, self.height, self.custom_model)
+                        self.upscale_factor, self.half, self.width, self.height, self.custom_model, self.nt)
                 case "omnisr":
                     from src.omnisr.omnisr import OmniSR
                     self.upscale_process = OmniSR(
-                        self.upscale_factor, self.half, self.width, self.height, self.custom_model)
+                        self.upscale_factor, self.half, self.width, self.height, self.custom_model, self.nt)
                 
                 case "shufflecugan_directml":
                     from src.cugan.cugan import cuganDirectML
@@ -242,10 +244,11 @@ class videoProcessor:
             self.read_buffer = Queue(maxsize=500)
             
         self.processed_frames = Queue()
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        
+        with ThreadPoolExecutor(max_workers= self.nt + 2) as executor:
             executor.submit(self.build_buffer)
-            executor.submit(self.process)
+            for _ in range(self.nt):
+                executor.submit(self.process)
             executor.submit(self.write_buffer)
 
     def build_buffer(self):
@@ -464,7 +467,12 @@ if __name__ == "__main__":
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
 
     logging.info("\n============== Arguments Checker ==============")
-
+    if args.interpolate:
+        if args.nt >= 2:
+            logging.info(
+                f"Interpolation is enabled, setting nt to 1")
+            args.nt = 1
+            
     if args.upscale_factor not in [2, 3, 4] or (args.upscale_method in ["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span"] and args.upscale_factor != 2):
         logging.info(
             f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 2.")

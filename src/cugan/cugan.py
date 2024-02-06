@@ -11,7 +11,7 @@ from .cugan_arch import UpCunet2x, UpCunet3x, UpCunet4x, UpCunet2x_fast
 
 
 class Cugan:
-    def __init__(self, upscale_method, upscale_factor, cugan_kind, half, width, height, custom_model):
+    def __init__(self, upscale_method, upscale_factor, cugan_kind, half, width, height, custom_model, nt):
         self.upscale_method = upscale_method
         self.upscale_factor = upscale_factor
         self.cugan_kind = cugan_kind
@@ -19,6 +19,7 @@ class Cugan:
         self.width = width
         self.height = height
         self.custom_model = custom_model
+        self.nt = nt
 
         self.handle_models()
 
@@ -81,6 +82,8 @@ class Cugan:
         self.device = torch.device("cuda" if self.cuda_available else "cpu")
 
         if self.cuda_available:
+            self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
+            self.current_stream = 0
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -97,13 +100,13 @@ class Cugan:
         frame = F.pad(frame, [0, self.pad_width, 0, self.pad_height])
         return frame
 
-    @torch.inference_mode
+    @torch.inference_mode()
     def run(self, frame):
         with torch.no_grad():
-            frame = torch.from_numpy(frame).permute(
-                2, 0, 1).unsqueeze(0).float().mul_(1/255)
+            frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float().mul_(1/255)
 
             if self.cuda_available:
+                torch.cuda.set_stream(self.stream[self.current_stream])
                 if self.half:
                     frame = frame.cuda().half()
                 else:
@@ -116,11 +119,13 @@ class Cugan:
 
             frame = self.model(frame)
             frame = frame[:, :, :self.upscaled_height, :self.upscaled_width]
-            frame = frame.squeeze(0).permute(
-                1, 2, 0).mul_(255).clamp_(0, 255).byte()
+            frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
+
+            if self.cuda_available:
+                torch.cuda.synchronize(self.stream[self.current_stream])
+                self.current_stream = (self.current_stream + 1) % len(self.stream)
 
             return frame.cpu().numpy()
-
 
 class CuganNCNN():
     def __init__(self, num_threads, upscale_factor):
@@ -174,6 +179,8 @@ class cuganDirectML():
                     'session_execution_provider', 'DmlExecutionProvider')
             else:
                 print("DirectML not available, using CPU instead.")
+                sess_options.add_session_config_entry(
+                    'session_execution_provider', 'CPUExecutionProvider')
             
             self.session = ort.InferenceSession(model_path, sess_options)
         
