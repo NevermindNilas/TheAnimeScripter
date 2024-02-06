@@ -150,7 +150,11 @@ class videoProcessor:
                 if self.resize:
                     filters.append(f"scale={self.width}x{self.height}:flags={self.resize_method}")
 
-                self.dedup_sens += ','.join(filters)
+                if self.dedup:
+                    self.dedup_sens += ','.join(filters)
+                
+                else:
+                    self.dedup_sens = ','.join(filters)
 
                 logging.info(
                     "Deduping video")
@@ -245,11 +249,11 @@ class videoProcessor:
             
         self.processed_frames = Queue()
         
-        with ThreadPoolExecutor(max_workers= self.nt + 2) as executor:
+        with ThreadPoolExecutor(max_workers= 3) as executor:
             executor.submit(self.build_buffer)
-            for _ in range(self.nt):
-                executor.submit(self.process)
+            executor.submit(self.process)
             executor.submit(self.write_buffer)
+        
 
     def build_buffer(self):
         from src.ffmpegSettings import decodeSettings
@@ -304,6 +308,7 @@ class videoProcessor:
                         break
                     else:
                         continue
+                    
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
                     
