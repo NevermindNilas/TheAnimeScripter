@@ -77,7 +77,7 @@ The video processing script is a powerful tool for enhancing and manipulating vi
 
 - `--resize` (int, choices=[0, 1], default=0): Enable resizing (1) or disable (0).
 - `--resize_factor` (int, default=2): Factor for resizing the decoded video. Can also be a float value between 0 and 1 for downscaling.
-- `--resize_method` (str, choices=["fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos", "spline"], default="bicubic"): Resizing method:
+- `--resize_method` (str, choices=["fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos", "spline", "spline16", "spline36", "point"], default="bicubic"): Resizing method:
     - Options: "lanczos" (recommended for upscaling), "area" (recommended for downscaling).
 
 #### Encoding Settings:
