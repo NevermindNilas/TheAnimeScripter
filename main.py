@@ -26,13 +26,13 @@ import numpy as np
 import warnings
 import sys
 import logging
+import time
 
 from tqdm import tqdm
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
-from threading import Lock
 
 if getattr(sys, 'frozen', False):
     main_path = os.path.dirname(sys.executable)
@@ -237,16 +237,7 @@ class videoProcessor:
         self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
                          unit="frames", colour="green")
 
-        # Not the best way to handle this, but it works
-        # Otherwise buffer overflows will occur and the script will not work as intended.
-        # See issue https://github.com/NevermindNilas/TheAnimeScripter/issues/10
-        if self.available_ram > 31:
-            self.read_buffer = Queue()
-        elif self.available_ram > 15:
-            self.read_buffer = Queue(maxsize=1000)
-        else:
-            self.read_buffer = Queue(maxsize=500)
-            
+        self.read_buffer = Queue()
         self.processed_frames = Queue()
         
         with ThreadPoolExecutor(max_workers= 3) as executor:
@@ -267,6 +258,9 @@ class videoProcessor:
         self.reading_done = False
         frame_size = self.width * self.height * 3
         frame_count = 0
+        
+        # See issue https://github.com/NevermindNilas/TheAnimeScripter/issues/10
+        buffer_limit = 250 if self.available_ram < 8 else 500 if self.available_ram < 16 else 1000
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
@@ -276,7 +270,11 @@ class videoProcessor:
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
 
-                self.read_buffer.put(frame, timeout=0.01)
+                if self.read_buffer.qsize() > buffer_limit:
+                    while self.processed_frames.qsize() > buffer_limit:
+                        time.sleep(1)
+
+                self.read_buffer.put(frame)
                 frame_count += 1
                 
         except Exception as e:
