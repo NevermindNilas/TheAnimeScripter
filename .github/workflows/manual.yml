@@ -33,11 +33,14 @@ jobs:
       run: |
         python -c "from main import scriptVersion; print(scriptVersion)"
 
+    - name: Install 7z
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y p7zip-full
+
     - name: Archive files
-      uses: theapache64/rar-action@v1.0.0
-      with:
-        path_to_archive: ./dist
-        archive_name: TAS_${{ steps.get_version.outputs.VERSION }}.rar
+      run: |
+        7z a -mx=9 TAS_${{ steps.get_version.outputs.VERSION }}.7z ./dist
 
     - name: Create Release
       id: create_release
@@ -56,6 +59,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.TAS_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./TAS_${{ steps.get_version.outputs.VERSION }}.rar
-        asset_name: TAS_${{ steps.get_version.outputs.VERSION }}.rar
-        asset_content_type: application/x-rar-compressed
+        asset_path: ./TAS_${{ steps.get_version.outputs.VERSION }}.7z
+        asset_name: TAS_${{ steps.get_version.outputs.VERSION }}.7z
+        asset_content_type: application/x-7z-compressed
