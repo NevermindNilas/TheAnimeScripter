@@ -35,8 +35,7 @@ jobs:
 
     - name: Install 7z
       run: |
-        sudo apt-get update
-        sudo apt-get install -y p7zip-full
+        choco install -y 7zip
 
     - name: Archive files
       run: |
