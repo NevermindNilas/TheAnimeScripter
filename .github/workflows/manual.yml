@@ -43,7 +43,7 @@ jobs:
       id: create_release
       uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.TAS_TOKEN }}
       with:
         tag_name: TAS_${{ steps.get_version.outputs.VERSION }}
         release_name: TAS_${{ steps.get_version.outputs.VERSION }}
@@ -53,7 +53,7 @@ jobs:
       id: upload_release_asset
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.TAS_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./TAS_${{ steps.get_version.outputs.VERSION }}.rar
