@@ -26,7 +26,7 @@ jobs:
     - name: Extract version
       id: get_version
       run: |
-        echo ::set-output name=VERSION::$(python -c "from build import script_version; print(script_version)")
+        echo ::set-output name=VERSION::$(python -c "from main import scriptVersion; print(scriptVersion)")
 
     - name: Create Release
       id: create_release
@@ -34,6 +34,6 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.get_version.outputs.VERSION }}
-        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        tag_name: TAS_${{ steps.get_version.outputs.VERSION }}
+        release_name: TAS_${{ steps.get_version.outputs.VERSION }}
         draft: true
