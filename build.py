@@ -4,6 +4,7 @@ import platform
 import shutil
 import pkg_resources
 
+script_version = "1.2.0"
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
 def create_venv():
