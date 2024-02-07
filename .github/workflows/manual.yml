@@ -33,6 +33,12 @@ jobs:
       run: |
         python -c "from main import scriptVersion; print(scriptVersion)"
 
+    - name: Archive files
+      uses: theapache64/rar-action@v1.0.0
+      with:
+        path_to_archive: ./dist
+        archive_name: TAS_${{ steps.get_version.outputs.VERSION }}.rar
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -42,3 +48,14 @@ jobs:
         tag_name: TAS_${{ steps.get_version.outputs.VERSION }}
         release_name: TAS_${{ steps.get_version.outputs.VERSION }}
         draft: true
+
+    - name: Upload Release Asset
+      id: upload_release_asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./TAS_${{ steps.get_version.outputs.VERSION }}.rar
+        asset_name: TAS_${{ steps.get_version.outputs.VERSION }}.rar
+        asset_content_type: application/x-rar-compressed
