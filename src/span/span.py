@@ -104,3 +104,20 @@ class SpanSR:
                 self.current_stream = (self.current_stream + 1) % len(self.stream)
 
             return frame.cpu().numpy()
+
+class spanNCNN():
+    def __init__(self, upscale_factor, half, width, height, custom_model, ):
+        self.upscale_factor = upscale_factor
+        self.half = half
+        self.width = width
+        self.height = height
+        self.custom_model = custom_model
+        
+        self.model = Realesrgan(
+            gpuid=0, tta_mode=False, model=0
+        )
+        
+    def run(self, frame):
+            
+        frame = self.model.process_cv2(frame)
+        return frame

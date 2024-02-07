@@ -13,30 +13,19 @@ def create_venv():
 
 def activate_venv():
     print("Activating the virtual environment...")
-    if platform.system() == "Windows":
-        os.system(".\\venv\\Scripts\\activate")
-    else:
-        os.system("source ./venv/bin/activate")
+    os.system(".\\venv\\Scripts\\activate")
 
 
 def install_requirements():
     print("Installing the requirements...")
-    if platform.system() == "Windows":
-        subprocess.run([".\\venv\\Scripts\\pip3", "install",
-                       "--pre", "-r", "requirements.txt"], check=True)
-    else:
-        subprocess.run(["./venv/bin/pip3", "install", "--pre",
-                       "-r", "requirements.txt"], check=True)
+    subprocess.run([".\\venv\\Scripts\\pip3", "install",
+                   "--pre", "-r", "requirements.txt"], check=True)
 
 
 def install_pyinstaller():
     print("Installing PyInstaller...")
-    if platform.system() == "Windows":
-        subprocess.run([".\\venv\\Scripts\\python", "-m", "pip",
-                       "install", "pyinstaller"], check=True)
-    else:
-        subprocess.run(["./venv/bin/python", "-m", "pip",
-                       "install", "pyinstaller"], check=True)
+    subprocess.run([".\\venv\\Scripts\\python", "-m", "pip",
+                   "install", "pyinstaller"], check=True)
 
 def create_executable():
     print("Creating executable with PyInstaller...")
