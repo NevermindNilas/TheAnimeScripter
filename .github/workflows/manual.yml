@@ -28,6 +28,11 @@ jobs:
       run: |
         echo ::set-output name=VERSION::$(python -c "from main import scriptVersion; print(scriptVersion)")
 
+    - name: Print version
+      id: print_version
+      run: |
+        python -c "from main import scriptVersion; print(scriptVersion)"
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
