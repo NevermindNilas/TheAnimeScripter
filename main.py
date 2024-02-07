@@ -21,16 +21,18 @@
 
 import os
 import argparse
-import subprocess
-import numpy as np
 import warnings
 import sys
 import logging
+import numpy as np
+import subprocess
 import time
+
 
 from tqdm import tqdm
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
+
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
 
@@ -151,28 +153,25 @@ class videoProcessor:
                     filters.append(f"scale={self.width}x{self.height}:flags={self.resize_method}")
 
                 if self.dedup:
-                    self.dedup_sens += ','.join(filters)
-                
-                else:
-                    self.dedup_sens = ','.join(filters)
-
+                    filters.append(f'mpdecimate={self.dedup_sens}')
+                    
                 logging.info(
                     "Deduping video")
 
                 if self.outpoint != 0:
                     from src.dedup.dedup import trim_input_dedup
                     trim_input_dedup(self.input, self.output, self.inpoint,
-                                    self.outpoint, self.dedup_sens, self.ffmpeg_path, self.encode_method)
+                                    self.outpoint, filters, self.ffmpeg_path, self.encode_method)
 
                 else:
                     from src.dedup.dedup import dedup_ffmpeg
                     dedup_ffmpeg(self.input, self.output,
-                                self.dedup_sens, self.ffmpeg_path, self.encode_method)
+                                filters, self.ffmpeg_path, self.encode_method)
 
                 return
         self.intitialize_models()
         self.start()
-
+        
     def intitialize_models(self):
         self.new_width = self.width
         self.new_height = self.height
@@ -209,11 +208,14 @@ class videoProcessor:
                     from src.omnisr.omnisr import OmniSR
                     self.upscale_process = OmniSR(
                         self.upscale_factor, self.half, self.width, self.height, self.custom_model, self.nt)
-                
                 case "shufflecugan_directml":
                     from src.cugan.cugan import cuganDirectML
                     self.upscale_process = cuganDirectML(
                         self.upscale_method, self.upscale_factor, self.cugan_kind, self.half, self.width, self.height, self.custom_model)
+                case "span-ncnn":
+                    from src.span.span import spanNCNN
+                    self.upscale_process = spanNCNN(
+                        self.upscale_factor, self.half, self.width, self.height, self.custom_model)
 
         if self.interpolate:
             UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
@@ -234,16 +236,16 @@ class videoProcessor:
                         int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.ensemble)
 
     def start(self):
-        self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
-                         unit="frames", colour="green")
-
-        self.read_buffer = Queue()
-        self.processed_frames = Queue()
-        
-        with ThreadPoolExecutor(max_workers= 3) as executor:
-            executor.submit(self.build_buffer)
-            executor.submit(self.process)
-            executor.submit(self.write_buffer)
+       self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
+                        unit="frames", colour="green")
+       
+       self.read_buffer = Queue()
+       self.processed_frames = Queue()
+       
+       with ThreadPoolExecutor(max_workers= 3) as executor:
+           executor.submit(self.build_buffer)
+           executor.submit(self.process)
+           executor.submit(self.write_buffer)
         
 
     def build_buffer(self):
@@ -405,7 +407,7 @@ if __name__ == "__main__":
     argparser.add_argument("--upscale_factor", type=int,
                            choices=[2, 3, 4], default=2)
     argparser.add_argument("--upscale_method",  type=str, choices=[
-                           "shufflecugan", "shufflecugan_directml", "cugan", "compact", "ultracompact", "superultracompact", "swinir", "span", "cugan-ncnn", "omnisr"], default="shufflecugan")
+                           "shufflecugan", "shufflecugan_directml", "cugan", "compact", "ultracompact", "superultracompact", "swinir", "span", "span-ncnn", "cugan-ncnn", "omnisr"], default="shufflecugan")
     argparser.add_argument("--cugan_kind", type=str, choices=[
                            "no-denoise", "conservative", "denoise1x", "denoise2x"], default="no-denoise")
     argparser.add_argument("--custom_model", type=str, default="")
@@ -475,12 +477,7 @@ if __name__ == "__main__":
             logging.info(
                 f"Interpolation is enabled, setting nt to 1")
             args.nt = 1
-            
-    if args.upscale_factor not in [2, 3, 4] or (args.upscale_method in ["shufflecugan", "compact", "ultracompact", "superultracompact", "swinir", "span"] and args.upscale_factor != 2):
-        logging.info(
-            f"Invalid upscale factor for {args.upscale_method}. Setting upscale_factor to 2.")
-        args.upscale_factor = 2
-
+    
     if args.dedup:
         from src.ffmpegSettings import get_dedup_strength
         # Dedup Sens will be overwritten with the mpdecimate params in order to minimize on the amount of variables used throughout the script

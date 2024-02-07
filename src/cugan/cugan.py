@@ -9,7 +9,6 @@ import numpy as np
 from realcugan_ncnn_py import Realcugan
 from .cugan_arch import UpCunet2x, UpCunet3x, UpCunet4x, UpCunet2x_fast
 
-
 class Cugan:
     def __init__(self, upscale_method, upscale_factor, cugan_kind, half, width, height, custom_model, nt):
         self.upscale_method = upscale_method
