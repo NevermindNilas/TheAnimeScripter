@@ -13,19 +13,6 @@ var TheAnimeScripter = (function() {
     // Default Values for the settings
     var outputFolder = app.settings.haveSetting(scriptName, "outputFolder") ? app.settings.getSetting(scriptName, "outputFolder") : "undefined";
     var theAnimeScripterPath = app.settings.haveSetting(scriptName, "theAnimeScripterPath") ? app.settings.getSetting(scriptName, "theAnimeScripterPath") : "undefined";
-    var dropdownModel = app.settings.haveSetting(scriptName, "dropdownModel") ? app.settings.getSetting(scriptName, "dropdownModel") : 0;
-    var dropdownCugan = app.settings.haveSetting(scriptName, "dropdownCugan") ? app.settings.getSetting(scriptName, "dropdownCugan") : 0;
-    var dropdwonSegment = app.settings.haveSetting(scriptName, "dropdwonSegment") ? app.settings.getSetting(scriptName, "dropdwonSegment") : 0;
-    var intInterpolate = app.settings.haveSetting(scriptName, "intInterpolate") ? app.settings.getSetting(scriptName, "intInterpolate") : 2;
-    var intUpscale = app.settings.haveSetting(scriptName, "intUpscale") ? app.settings.getSetting(scriptName, "intUpscale") : 2;
-    var sliderSharpen = app.settings.haveSetting(scriptName, "sliderSharpen") ? app.settings.getSetting(scriptName, "sliderSharpen") : 50;
-    var dropdownDedupStrenght = app.settings.haveSetting(scriptName, "dropdownDedupStrenght") ? app.settings.getSetting(scriptName, "dropdownDedupStrenght") : 0
-    var sliderSceneChange = app.settings.haveSetting(scriptName, "sliderSceneChange") ? app.settings.getSetting(scriptName, "sliderSceneChange") : 70;
-    var dropdownEncoder = app.settings.haveSetting(scriptName, "dropdownEncoder") ? app.settings.getSetting(scriptName, "dropdownEncoder") : 0;
-    var dropdownInterpolate = app.settings.haveSetting(scriptName, "dropdownInterpolate") ? app.settings.getSetting(scriptName, "dropdownInterpolate") : 0;
-    var sliderDedupSenstivity = app.settings.haveSetting(scriptName, "sliderDedupSenstivity") ? app.settings.getSetting(scriptName, "sliderDedupSenstivity") : 50;
-    var dropdownDepth = app.settings.haveSetting(scriptName, "dropdownDepth") ? app.settings.getSetting(scriptName, "dropdownDepth") : 0;
-
     var segmentValue = 0;
     var sceneChangeValue = 0;
     var depthValue = 0;
@@ -399,160 +386,49 @@ var TheAnimeScripter = (function() {
     panel1.spacing = 10;
     panel1.margins = 10;
 
-    // GROUP5
-    // ======
-    var group5 = panel1.add("group", undefined, {
-        name: "group5"
-    });
-    group5.orientation = "row";
-    group5.alignChildren = ["left", "center"];
-    group5.spacing = 0;
-    group5.margins = 0;
+    var dropdownValues = {}
 
-    var textUpscaleModel = group5.add("statictext", undefined, undefined, {
-        name: "textUpscaleModel"
-    });
-    textUpscaleModel.text = "Upscale Model";
-    textUpscaleModel.preferredSize.width = 103;
+    function createDropdownField(panel, text, name, dropdownArray, helpTip) {
+        var group = panel.add("group", undefined, { name: "group" + name });
+        group.orientation = "row";
+        group.alignChildren = ["left", "center"];
+        group.spacing = 0;
+        group.margins = 0;
 
-    var dropdownModel_array = ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "Span", "-", "SwinIR", "-", "OmniSR"];
-    var dropdownModel = group5.add("dropdownlist", undefined, undefined, {
-        name: "dropdownModel",
-        items: dropdownModel_array
-    });
-    dropdownModel.helpTip = "Choose which model you want to utilize, read more in INFO, for AMD users choose NCNN models";
-    dropdownModel.selection = 0;
-    dropdownModel.preferredSize.width = 109;
+        var staticText = group.add("statictext", undefined, undefined, { name: "text" + name });
+        staticText.text = text;
+        staticText.preferredSize.width = 103;
 
-    // GROUP 6
-    // ======
+        var dropdown = group.add("dropdownlist", undefined, undefined, {
+            name: "dropdown" + name,
+            items: dropdownArray
+        });
+        dropdown.helpTip = helpTip;
+        dropdown.selection = 0;
+        dropdown.preferredSize.width = 109;
 
-    var group6 = panel1.add("group", undefined, {
-        name: "group6"
-    });
+        dropdown.onChange = function() {
+            dropdownValues[name] = dropdown.selection.text;
+        }
 
-    group6.orientation = "row";
-    group6.alignChildren = ["left", "center"];
-    group6.spacing = 0;
-    group6.margins = 0;
+        dropdownValues[name] = dropdown.selection.text;
 
-    var textInterpolateModel = group6.add("statictext", undefined, undefined, {
-        name: "textInterpolateModel"
-    });
-    textInterpolateModel.text = "Interpolate Model";
-    textInterpolateModel.preferredSize.width = 103;
-    textInterpolateModel.helpTip = "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO";
+        return dropdown;
+    }
 
-    var dropdownInterpolate = ["Rife4.14", "-", "Rife4.14-Lite", "-" , "Rife4.13-Lite", "-", "Rife4.6", "-", "Rife4.14-NCNN", "-", "Rife4.14-Lite-NCNN", "-", "Rife4.13-Lite-NCNN", "-", "Rife4.6-NCNN", "-", "GMFSS"];
-    var dropdownInterpolate = group6.add("dropdownlist", undefined, undefined, {
-        name: "dropdownInterpolate",
-        items: dropdownInterpolate
-    });
-    dropdownInterpolate.helpTip = "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO";
-    dropdownInterpolate.selection = 0;
-    dropdownInterpolate.preferredSize.width = 109;
+    createDropdownField(panel1, "Upscale Model", "Model", ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "Span", "-", "SwinIR", "-", "OmniSR"], "Choose which model you want to utilize, read more in INFO, for AMD users choose NCNN models");
+    createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.14", "-", "Rife4.14-Lite", "-" , "Rife4.13-Lite", "-", "Rife4.6", "-", "Rife4.14-NCNN", "-", "Rife4.14-Lite-NCNN", "-", "Rife4.13-Lite-NCNN", "-", "Rife4.6-NCNN", "-", "GMFSS"], "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO");
+    createDropdownField(panel1, "Cugan Denoise", "Cugan", ["No-Denoise", "-", "Conservative", "-", "Denoise1x", "-", "Denoise2x"]);
+    createDropdownField(panel1, "Depth Model", "Depth", ["Small", "-", "Base", "-", "Large"], "Choose which depth map model you want to utilize, ordered by speed, read more in INFO");
+    createDropdownField(panel1, "Encoder", "Encoder", ["X264", "-", "X264_Animation", "-" , "X265", "-", "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs and QSV for Intel iGPUs");
+    createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear", "-", "Bilinear", "-", "Bicubic", "-", "Experimental", "-", "Neighbor", "-", "Area", "-", "Bicublin", "-", "Gauss", "-", "Sinc", "-", "Lanczos", "-", "Spline", "-",  "Spline16", "-", "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
 
-    // GROUP 7
-    // ======
-    var group7 = panel1.add("group", undefined, {
-        name: "group7"
-    });
-
-    group7.orientation = "row";
-    group7.alignChildren = ["left", "center"];
-    group7.spacing = 0;
-    group7.margins = 0;
-
-    var cuganDenoiseText = group7.add("statictext", undefined, undefined, {
-        name: "cuganDenoiseText"
-    });
-    cuganDenoiseText.text = "Cugan Denoise";
-    cuganDenoiseText.preferredSize.width = 103;
-
-    var dropdownCugan_array = ["No-Denoise", "-", "Conservative", "-", "Denoise1x", "-", "Denoise2x"];
-    var dropdownCugan = group7.add("dropdownlist", undefined, undefined, {
-        name: "dropdownCugan",
-        items: dropdownCugan_array
-    });
-    dropdownCugan.selection = 0;
-    dropdownCugan.preferredSize.width = 109;
-    
-    var group8 = panel1.add("group", undefined, {
-        name: "group8"
-    });
-
-    group8.orientation = "row";
-    group8.alignChildren = ["left", "center"];
-    group8.spacing = 0;
-    group8.margins = 0;
-
-    var textDepthSelection = group8.add("statictext", undefined, undefined, {
-        name: "textDepthSelection"
-    });
-
-    textDepthSelection.text = "Depth Model";
-    textDepthSelection.preferredSize.width = 103;
-    textDepthSelection.helpTip = "Choose which depth map model you want to utilize, ordered by speed, read more in INFO";
-
-    var dropdownDepth_array = ["Small", "-", "Base", "-", "Large"];
-    var dropdownDepth = group8.add("dropdownlist", undefined, undefined, {
-        name: "dropdownDepth",
-        items: dropdownDepth_array
-    });
-    
-    dropdownDepth.selection = 0;
-    dropdownDepth.preferredSize.width = 109;
-
-    var group9 = panel1.add("group", undefined, {
-        name: "group9"
-    });
-    group9.orientation = "row";
-    group9.alignChildren = ["left", "center"];
-    group9.spacing = 0;
-    group9.margins = 0;
-
-    var textEncoderSelection = group9.add("statictext", undefined, undefined, {
-        name: "textEncoderSelection"
-    });
-
-    textEncoderSelection.text = "Encoder";
-    textEncoderSelection.preferredSize.width = 103;
-    textEncoderSelection.helpTip = "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs and QSV for Intel iGPUs";
-
-    var dropdownEncoder_array = ["X264", "-", "X264_Animation", "-" , "X265", "-", "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"];
-    var dropdownEncoder = group9.add("dropdownlist", undefined, undefined, {
-        name: "dropdownEncoder",
-        items: dropdownEncoder_array
-    });
-
-    dropdownEncoder.selection = 0;
-    dropdownEncoder.preferredSize.width = 109;
-
-    groupd10 = panel1.add("group", undefined, {
-        name: "group10"
-    });
-
-    groupd10.orientation = "row";
-    groupd10.alignChildren = ["left", "center"];
-    groupd10.spacing = 0;
-    groupd10.margins = 0;
-    
-    var textResizeSelection = groupd10.add("statictext", undefined, undefined, {
-        name: "textResizeMethod"
-    });
-
-    textResizeSelection.text = "Resize Method";
-    textResizeSelection.preferredSize.width = 103;
-    textResizeSelection.helpTip = "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Bicubic, for downscaling I would suggest Bilinear";
-
-    var dropdownResize_array = ["Fast_Bilinear", "-", "Bilinear", "-", "Bicubic", "-", "Experimental", "-", "Neighbor", "-", "Area", "-", "Bicublin", "-", "Gauss", "-", "Sinc", "-", "Lanczos", "-", "Spline", "-",  "Spline16", "-", "Spline36"];
-    var dropdownResize = groupd10.add("dropdownlist", undefined, undefined, {
-        name: "dropdownResize",
-        items: dropdownResize_array
-    });
-    
-    dropdownResize.selection = 0;
-    dropdownResize.preferredSize.width = 109;
+    var upscaleModel = dropdownValues["Model"];
+    var interpolateModel = dropdownValues["Interpolate"];
+    var cuganDenoise = dropdownValues["Cugan"];
+    var depthModel = dropdownValues["Depth"];
+    var encoderMethod = dropdownValues["Encoder"];
+    var resizeMethod = dropdownValues["Resize"];
 
     var buttonSettingsClose = settingsWindow.add("button", undefined, undefined, {
         name: "buttonSettingsClose"
@@ -571,6 +447,7 @@ var TheAnimeScripter = (function() {
 
             textOutputFolderValue.text = outputFolder;
         }
+        alert("Output folder set to: " + outputFolder);
     };
 
     buttonFolder.onClick = function() {
@@ -581,16 +458,8 @@ var TheAnimeScripter = (function() {
 
             textTheAnimeScripterFolderValue.text = theAnimeScripterPath;
         }
+        alert("The Anime Scripter folder set to: " + theAnimeScripterPath);
     };
-
-    dropdownCugan.onChange = function() {
-        app.settings.saveSetting(scriptName, "dropdownCugan", dropdownCugan.selection.index);
-
-    }
-
-    dropdwonSegment.onChange = function() {
-        app.settings.saveSetting(scriptName, "dropdwonSegment", dropdwonSegment.selection.index);
-    }
 
     buttonSettings.onClick = function() {
         settingsWindow.show();
@@ -614,10 +483,6 @@ var TheAnimeScripter = (function() {
     buttonMotionBlur.onClick = function() {
         motionBlurValue = 1;
         start_chain();
-    }
-
-    dropdownEncoder.onChange = function() {
-        app.settings.saveSetting(scriptName, "dropdownEncoder", dropdownEncoder.selection.index);
     }
 
     buttonStartProcess.onClick = function() {
@@ -742,10 +607,10 @@ var TheAnimeScripter = (function() {
                         "--output", "\"" + output_name + "\"",
                         "--interpolate", checkboxInterpolate.value ? "1" : "0",
                         "--interpolate_factor", interpolateValue,
-                        "--interpolate_method", dropdownInterpolate.selection.text.toLowerCase(),
+                        "--interpolate_method", interpolateModel.toLowerCase(),
                         "--upscale", checkboxUpscale.value ? "1" : "0",
                         "--upscale_factor", upscaleValue,
-                        "--upscale_method", dropdownModel.selection.text.toLowerCase(),
+                        "--upscale_method", upscaleModel.toLowerCase(),
                         "--dedup", checkboxDeduplicate.value ? "1" : "0",
                         "--dedup_sens", dedupSensValue,
                         "--half", "1",
@@ -756,13 +621,13 @@ var TheAnimeScripter = (function() {
                         "--segment", segmentValue,
                         "--scenechange", sceneChangeValue,
                         "--depth", depthValue,
-                        "--depth_method", dropdownDepth.selection.text.toLowerCase(),
-                        "--encode_method", dropdownEncoder.selection.text.toLowerCase(),
+                        "--depth_method", depthModel.toLowerCase(),
+                        "--encode_method", encoderMethod.toLowerCase(),
                         "--scenechange_sens", 100 - sliderSceneChange.value,
                         "--motion_blur", motionBlurValue,
                         "--ensemble", checkboxEnsemble.value ? "1" : "0",
                         "--resize", checkboxResize.value ? "1" : "0",
-                        "--resize_method", dropdownResize.selection.text.toLowerCase(),
+                        "--resize_method", resizeMethod.toLowerCase(),
                         "--resize_factor", resizeValue,
                 ];
                 var command = attempt.join(" ");
@@ -892,7 +757,6 @@ var TheAnimeScripter = (function() {
         } catch (error) {
             alert(error);
         }
-    
     }
 
     if (TheAnimeScripter instanceof Window) TheAnimeScripter.show();
