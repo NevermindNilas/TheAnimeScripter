@@ -12,7 +12,7 @@ var TheAnimeScripter = (function() {
 
     // Default Values for the settings
     var outputFolder = app.settings.haveSetting(scriptName, "outputFolder") ? app.settings.getSetting(scriptName, "outputFolder") : "undefined";
-    var TheAnimeScripterPath = app.settings.haveSetting(scriptName, "TheAnimeScripterPath") ? app.settings.getSetting(scriptName, "TheAnimeScripterPath") : "undefined";
+    var theAnimeScripterPath = app.settings.haveSetting(scriptName, "theAnimeScripterPath") ? app.settings.getSetting(scriptName, "theAnimeScripterPath") : "undefined";
     var dropdownModel = app.settings.haveSetting(scriptName, "dropdownModel") ? app.settings.getSetting(scriptName, "dropdownModel") : 0;
     var dropdownCugan = app.settings.haveSetting(scriptName, "dropdownCugan") ? app.settings.getSetting(scriptName, "dropdownCugan") : 0;
     var dropdwonSegment = app.settings.haveSetting(scriptName, "dropdwonSegment") ? app.settings.getSetting(scriptName, "dropdwonSegment") : 0;
@@ -31,7 +31,7 @@ var TheAnimeScripter = (function() {
     var depthValue = 0;
     var motionBlurValue = 0;
 
-    var exeFile = TheAnimeScripterPath + "\\main.exe";
+    var exeFile = theAnimeScripterPath + "\\main.exe";
     // THEANIMESCRIPTER
     // ================
     var TheAnimeScripter = (panelGlobal instanceof Panel) ? panelGlobal : new Window("palette");
@@ -576,10 +576,10 @@ var TheAnimeScripter = (function() {
     buttonFolder.onClick = function() {
         var folder = Folder.selectDialog("Select The Anime Scripter folder");
         if (folder != null) {
-            TheAnimeScripterPath = folder.fsName;
-            app.settings.saveSetting(scriptName, "TheAnimeScripterPath", TheAnimeScripterPath);
+            theAnimeScripterPath = folder.fsName;
+            app.settings.saveSetting(scriptName, "theAnimeScripterPath", theAnimeScripterPath);
 
-            textTheAnimeScripterFolderValue.text = TheAnimeScripterPath;
+            textTheAnimeScripterFolderValue.text = theAnimeScripterPath;
         }
     };
 
@@ -691,7 +691,7 @@ var TheAnimeScripter = (function() {
             return;
         }
 
-        if (TheAnimeScripterPath == "undefined" || TheAnimeScripterPath == null) {
+        if (theAnimeScripterPath == "undefined" || theAnimeScripterPath == null) {
             alert("The Anime Scripter directory has not been selected, please go to settings");
             return;
         }
@@ -700,8 +700,8 @@ var TheAnimeScripter = (function() {
             alert("Please tick the \"Allow Scripts to Write Files and Access Network\" checkbox in Scripting & Expressions");
             return app.executeCommand(2359);
         }
-        
-        var exeFile = TheAnimeScripterPath + "\\main.exe";
+
+        var exeFile = theAnimeScripterPath + "\\main.exe";
         var exeFilePath = new File(exeFile);
         if (!exeFilePath.exists) {
             alert("Cannot find main.exe, please make sure you have selected the correct folder in settings!");
@@ -735,7 +735,7 @@ var TheAnimeScripter = (function() {
 
             try {
                 var attempt = [
-                        "cd", "\"" + TheAnimeScripterPath + "\"",
+                        "cd", "\"" + theAnimeScripterPath + "\"",
                         "&&",
                         "\"" + exeFile + "\"",
                         "--input", "\"" + activeLayerPath + "\"",
@@ -773,7 +773,7 @@ var TheAnimeScripter = (function() {
 
             while (true) {
                 if (sceneChangeValue == 1) {
-                    var sceneChangeLogPath = TheAnimeScripterPath + "\\scenechangeresults.txt";
+                    var sceneChangeLogPath = theAnimeScripterPath + "\\scenechangeresults.txt";
                     var sceneChangeLog = new File(sceneChangeLogPath);
                     sceneChangeLog.open("r");
 
@@ -841,7 +841,7 @@ var TheAnimeScripter = (function() {
             return;
         }
 
-        if (TheAnimeScripterPath == "undefined" || TheAnimeScripterPath == null) {
+        if (theAnimeScripterPath == "undefined" || theAnimeScripterPath == null) {
             alert("The Anime Scripter directory has not been selected, please go to settings");
             return;
         }
@@ -851,7 +851,7 @@ var TheAnimeScripter = (function() {
             return app.executeCommand(2359);
         }
 
-        var exeFile = TheAnimeScripterPath + "\\main.exe";
+        var exeFile = theAnimeScripterPath + "\\main.exe";
 
         var exeFilePath = new File(exeFile);
         if (!exeFilePath.exists) {
@@ -864,7 +864,7 @@ var TheAnimeScripter = (function() {
 
         try {
             var attempt = [
-                "cd", "\"" + TheAnimeScripterPath + "\"",
+                "cd", "\"" + theAnimeScripterPath + "\"",
                 "&&",
                 "\"" + exeFile + "\"",
                 "--output", "\"" + outputName + "\"",
