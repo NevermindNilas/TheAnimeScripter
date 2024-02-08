@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "1.1.0";
+    var scriptVersion = "1.2.0";
 
     /*
     scriptAuthor = "Nilas";
@@ -204,19 +204,14 @@ var TheAnimeScripter = (function() {
     panelMore.spacing = 10;
     panelMore.margins = 10;
 
-    var textScriptVersion = panelMore.add("statictext", undefined, undefined, {
-        name: "textScriptVersion"
+    var buttonPreRender = panelMore.add("button", undefined, "Pre-Render", {
+        name: "buttonPreRender"
     });
 
-    textScriptVersion.text = "Script Version: " + scriptVersion;
-
-    var buttonInfo = panelMore.add("button", undefined, undefined, {
-        name: "buttonInfo"
-    });
-    buttonInfo.text = "Info";
-    buttonInfo.preferredSize.width = 105;
-    buttonInfo.alignment = ["center", "top"];
-    buttonInfo.enabled = false;
+    buttonPreRender.text = "Pre-Render";
+    buttonPreRender.alignment = ["left", "center"];
+    buttonPreRender.helpTip = "Pre-Render the video before further processing, useful for already modified videos or multi layered compositions";
+    buttonPreRender.preferredSize.width = 105;
 
     var buttonSettings = panelMore.add("button", undefined, undefined, {
         name: "buttonSettings"
@@ -224,6 +219,12 @@ var TheAnimeScripter = (function() {
     buttonSettings.text = "Settings";
     buttonSettings.preferredSize.width = 105;
     buttonSettings.alignment = ["center", "top"];
+
+    var textScriptVersion = TheAnimeScripter.add("statictext", undefined, undefined, {
+        name: "textScriptVersion"
+    });
+
+    textScriptVersion.text = "Script Version: " + scriptVersion;
 
     TheAnimeScripter.layout.layout(true);
     TheAnimeScripter.layout.resize();
@@ -277,55 +278,6 @@ var TheAnimeScripter = (function() {
     buttonOutput.preferredSize.width = 101;
     buttonOutput.helpTip = "Set it to wherever you want the output to be saved.";
 
-    // PANELDEFAULTPATHS
-    // =================
-    var panelDefaultPaths = settingsWindow.add("panel", undefined, undefined, {
-        name: "panelDefaultPaths"
-    });
-    panelDefaultPaths.text = "Script Paths";
-    panelDefaultPaths.orientation = "column";
-    panelDefaultPaths.alignChildren = ["center", "top"];
-    panelDefaultPaths.spacing = 10;
-    panelDefaultPaths.margins = 10;
-    panelDefaultPaths.preferredSize.width = 235;
-
-    // Group 2
-
-    var group2 = panelDefaultPaths.add("group", undefined, {
-        name: "group2"
-    });
-
-    group2.orientation = "column";
-    group2.alignChildren = ["center", "center"];
-    group2.spacing = 10;
-    group2.margins = 0;
-
-    var labelTASPath = group2.add("statictext", undefined, "TAS Path:");
-    var textTheAnimeScripterFolderValue = group2.add("statictext", undefined, undefined, {
-        name: "textTheAnimeScripterFolderValue"
-    });
-
-    textTheAnimeScripterFolderValue.text = TheAnimeScripterPath;
-
-    // Group 3
-
-    var group3 = panelDefaultPaths.add("group", undefined, {
-        name: "group3"
-    });
-
-    group3.orientation = "column";
-    group3.alignChildren = ["center", "center"];
-    group3.spacing = 10;
-    group3.margins = 0;
-
-    var labelOutputPath = group3.add("statictext", undefined, "Output Path:");
-    var textOutputFolderValue = group3.add("statictext", undefined, undefined, {
-        name: "textOutputFolderValue"
-    });
-
-    textOutputFolderValue.text = outputFolder;
-
-
     // GENERALPANEL
     // ============
     var generalPanel = settingsWindow.add("panel", undefined, undefined, {
@@ -336,155 +288,52 @@ var TheAnimeScripter = (function() {
     generalPanel.alignChildren = ["left", "top"];
     generalPanel.spacing = 10;
     generalPanel.margins = 10;
+    
+    var labelValues = {};
+    function createSlider(panel, text, name) {
+        var group = panel.add("group", undefined, { name: "group" + name });
+        group.orientation = "row";
+        group.alignChildren = ["fill", "center"];
 
-    var textSharpen = generalPanel.add("statictext", undefined, undefined, {
-        name: "textSharpen"
-    });
-    textSharpen.text = "Sharpenening Sensitivity";
-    textSharpen.justify = "center";
-    textSharpen.alignment = ["center", "top"];
+        var staticText = group.add("statictext", undefined, text, { name: "text" + name });
+        staticText.justify = "center";
+        staticText.alignment = ["left", "center"];
 
-    var sliderSharpen = generalPanel.add("slider", undefined, undefined, undefined, undefined, {
-        name: "sliderSharpen"
-    });
-    sliderSharpen.minvalue = 0;
-    sliderSharpen.maxvalue = 100;
-    sliderSharpen.value = 50;
-    sliderSharpen.preferredSize.width = 212;
-    sliderSharpen.alignment = ["center", "top"];
+        var filler = group.add("statictext", undefined, "", { name: "filler" + name });
+        filler.alignment = ["fill", "center"];
 
-    var labelSharpen = generalPanel.add("statictext", undefined, sliderSharpen.value + "%", {
-        name: "labelSharpen"
-    });
-    labelSharpen.alignment = ["center", "top"];
+        var label = group.add("statictext", undefined, "50%", { name: "label" + name });
+        label.alignment = ["right", "center"];
 
-    sliderSharpen.onChange = function() {
-        labelSharpen.text = Math.round(sliderSharpen.value) + "%";
+        var slider = panel.add("slider", undefined, undefined, undefined, undefined, { name: "slider" + name });
+        slider.minvalue = 0;
+        slider.maxvalue = 100;
+        slider.value = 50;
+        slider.preferredSize.width = 212;
+        slider.alignment = ["center", "top"];
+
+        slider.onChange = function() {
+            var value = Math.round(slider.value);
+            label.text = value + "%";
+            labelValues[name] = value;
+        }
     }
 
-    var textSceneChange = generalPanel.add("statictext", undefined, undefined, {
-        name: "textSceneChange"
-    });
-    textSceneChange.text = "Auto Cut Sensitivity";
-    textSceneChange.justify = "center";
-    textSceneChange.alignment = ["center", "top"];
+    createSlider(generalPanel, "Sharpenening Sensitivity", "Sharpen");
+    createSlider(generalPanel, "Auto Cut Sensitivity", "SceneChange");
+    createSlider(generalPanel, "Deduplication Sensitivity", "DedupSens");
 
-    var sliderSceneChange = generalPanel.add("slider", undefined, undefined, undefined, undefined, {
-        name: "sliderSceneChange"
-    });
-    sliderSceneChange.minvalue = 0;
-    sliderSceneChange.maxvalue = 100;
-    sliderSceneChange.value = 50;
-    sliderSceneChange.preferredSize.width = 212;
-    sliderSceneChange.alignment = ["center", "top"];
-
-    labelSceneChange = generalPanel.add("statictext", undefined, sliderSceneChange.value + "%", {
-        name: "labelSceneChange"
-    });
-    labelSceneChange.alignment = ["center", "top"];
-
-    sliderSceneChange.onChange = function() {
-        labelSceneChange.text = Math.round(sliderSceneChange.value) + "%";
-    }
-
-    var textDedupSens = generalPanel.add("statictext", undefined, undefined, {
-        name: "textDedupSens"
-    });
-    textDedupSens.text = "Deduplication Sensitivity";
-    textDedupSens.justify = "center";
-    textDedupSens.alignment = ["center", "top"];
-
-    var sliderDedupSens = generalPanel.add("slider", undefined, undefined, undefined, undefined, {
-        name: "sliderDedupSens"
-    });
-    sliderDedupSens.minvalue = 0;
-    sliderDedupSens.maxvalue = 100;
-    sliderDedupSens.value = 50;
-    sliderDedupSens.preferredSize.width = 212;
-    sliderDedupSens.alignment = ["center", "top"];
-
-    var labelDedupSens = generalPanel.add("statictext", undefined, sliderDedupSens.value + "%", {
-        name: "labelDedupSens"
-    });
-    labelDedupSens.alignment = ["center", "top"];
-
-    sliderDedupSens.onChange = function() {
-        labelDedupSens.text = Math.round(sliderDedupSens.value) + "%";
-    }
-
-    var group1 = generalPanel.add("group", undefined, {
-        name: "group1"
-    });
-
-    group1.orientation = "row";
-    group1.alignChildren = ["left", "center"];
-    group1.spacing = 0;
-    group1.margins = 0;
-
-    var textResizeMultiplier = group1.add("statictext", undefined, undefined, {
-        name: "textResizeMultiplier"
-    });
-
-    textResizeMultiplier.text = "Resize Multiplier";
-    textResizeMultiplier.preferredSize.width = 172;
-    textResizeMultiplier.alignment = ["left", "center"];
-    textResizeMultiplier.helpTip = "Resize by a desired factor before further processing, meant as an substitute for upscaling on lower end GPUs, set it to values between 0.0 and 1.0 for downscaling or 1.0 and above for upscaling";
-
-    var intResize = group1.add('edittext {justify: "center", properties: {name: "intResize"}}');
-    intResize.text = "2";
-    intResize.preferredSize.width = 40;
-    intResize.alignment = ["left", "center"];
-
-    // GROUP2
-    // ======
-    var group2 = generalPanel.add("group", undefined, {
-        name: "group2"
-    });
-    group2.orientation = "row";
-    group2.alignChildren = ["left", "center"];
-    group2.spacing = 0;
-    group2.margins = 0;
-
-    var textInterpolationMultiplier = group2.add("statictext", undefined, undefined, {
-        name: "textInterpolationMultiplier"
-    });
-    textInterpolationMultiplier.text = "Interpolation Multiplier";
-    textInterpolationMultiplier.preferredSize.width = 172;
-    textInterpolationMultiplier.alignment = ["left", "center"];
-
-    var intInterpolate = group2.add('edittext {justify: "center", properties: {name: "intInterpolate"}}');
-    intInterpolate.text = "2";
-    intInterpolate.preferredSize.width = 40;
-    intInterpolate.alignment = ["left", "center"];
-
-    // GROUP3
-    // ======
-    var group3 = generalPanel.add("group", undefined, {
-        name: "group3"
-    });
-    group3.orientation = "row";
-    group3.alignChildren = ["left", "center"];
-    group3.spacing = 0;
-    group3.margins = 0;
-
-    var textUpscaleMultiplier = group3.add("statictext", undefined, undefined, {
-        name: "textUpscaleMultiplier"
-    });
-    textUpscaleMultiplier.text = "Upscale Multiplier";
-    textUpscaleMultiplier.preferredSize.width = 172;
-
-    var intUpscale = group3.add('edittext {justify: "center", properties: {name: "intUpscale"}}');
-    intUpscale.text = "2";
-    intUpscale.preferredSize.width = 40;
-    intUpscale.alignment = ["left", "top"];
-    intUpscale.enabled = false;
+    var sharpenValue = labelValues["Sharpen"];
+    var sceneChangeValue = labelValues["SceneChange"];
+    var dedupSensValue = labelValues["DedupSens"];
 
     var group4 = generalPanel.add("group", undefined, {
         name: "group4"
     });
+
     group4.orientation = "row";
     group4.alignChildren = ["left", "center"];
-    group4.spacing = 25;
+    group4.spacing = 45;
     group4.margins = 0;
 
     var checkboxEnsemble = group4.add("checkbox", undefined, "Rife Ensemble", {
@@ -494,23 +343,51 @@ var TheAnimeScripter = (function() {
     checkboxEnsemble.alignment = ["left", "center"];
     checkboxEnsemble.helpTip = "Turn on ensemble for Rife, higher quality outputs for a slight tax in performance";
 
-    var checkboxYTDLPQuality = group4.add("checkbox", undefined, "YT-DLP Quality", {
+    var checkboxYTDLPQuality = group4.add("checkbox", undefined, "YT-DLP 4K", {
         name: "checkboxYTDLPQuality"
     });
 
     checkboxYTDLPQuality.alignment = ["left", "center"];
     checkboxYTDLPQuality.helpTip = "Turn on higher quality download for YT-DLP, will download the highest quality available from yt (4k/8k) and then re-encode the video to the desired encoder, turn off for 1920x1080p only downloads";
+    
+    var fieldValues = {}
+    function createMultiplierField(panel, text, name, defaultValue) {
+        var group = panel.add("group", undefined, { name: "group" + name });
+        group.orientation = "row";
+        group.alignChildren = ["fill", "center"];
+        group.spacing = 0;
+        group.margins = 0;
 
-    // GROUP4
-    // ======
-    var group4 = generalPanel.add("group", undefined, {
-        name: "group4"
-    });
-    group4.orientation = "row";
-    group4.alignChildren = ["left", "center"];
-    group4.spacing = 0;
-    group4.margins = 0;
+        var staticText = group.add("statictext", undefined, undefined, { name: "text" + name });
+        staticText.text = text;
+        staticText.preferredSize.width = 172;
+        staticText.alignment = ["left", "center"];
 
+        var filler = group.add("statictext", undefined, "", { name: "filler" + name });
+        filler.alignment = ["fill", "center"];
+
+        var editText = group.add('edittext {justify: "center", properties: {name: "' + name + '"}}');
+            editText.text = defaultValue;
+            editText.preferredSize.width = 40;
+            editText.alignment = ["right", "center"];
+
+            editText.onChange = function() {
+                fieldValues[name] = editText.text;
+            }
+
+            fieldValues[name] = defaultValue;
+
+            return editText;
+    }
+
+    createMultiplierField(generalPanel, "Resize Multiplier", "Resize", "2");
+    createMultiplierField(generalPanel, "Interpolation Multiplier", "Interpolate", "2");
+    createMultiplierField(generalPanel, "Upscale Multiplier", "Upscale", "2");
+
+    var resizeValue = fieldValues["Resize"];
+    var interpolateValue = fieldValues["Interpolate"];
+    var upscaleValue = fieldValues["Upscale"];
+    
     // PANEL1
     // ======
     var panel1 = settingsWindow.add("panel", undefined, undefined, {
@@ -599,7 +476,6 @@ var TheAnimeScripter = (function() {
     });
     dropdownCugan.selection = 0;
     dropdownCugan.preferredSize.width = 109;
-    dropdownCugan.enabled = false;
     
     var group8 = panel1.add("group", undefined, {
         name: "group8"
@@ -643,12 +519,11 @@ var TheAnimeScripter = (function() {
     textEncoderSelection.preferredSize.width = 103;
     textEncoderSelection.helpTip = "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs and QSV for Intel iGPUs";
 
-    var dropdownEncoder_array = ["X264", "-", "X264_Animation", "-" , "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"];
+    var dropdownEncoder_array = ["X264", "-", "X264_Animation", "-" , "X265", "-", "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"];
     var dropdownEncoder = group9.add("dropdownlist", undefined, undefined, {
         name: "dropdownEncoder",
         items: dropdownEncoder_array
     });
-
 
     dropdownEncoder.selection = 0;
     dropdownEncoder.preferredSize.width = 109;
@@ -670,7 +545,7 @@ var TheAnimeScripter = (function() {
     textResizeSelection.preferredSize.width = 103;
     textResizeSelection.helpTip = "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Bicubic, for downscaling I would suggest Bilinear";
 
-    var dropdownResize_array = ["Fast_Bilinear", "-", "Bilinear", "-", "Bicubic", "-", "Experimental", "-", "Neighbor", "-", "Area", "-", "Bicublin", "-", "Gauss", "-", "Sinc", "-", "Lanczos", "-", "Spline"];
+    var dropdownResize_array = ["Fast_Bilinear", "-", "Bilinear", "-", "Bicubic", "-", "Experimental", "-", "Neighbor", "-", "Area", "-", "Bicublin", "-", "Gauss", "-", "Sinc", "-", "Lanczos", "-", "Spline", "-",  "Spline16", "-", "Spline36"];
     var dropdownResize = groupd10.add("dropdownlist", undefined, undefined, {
         name: "dropdownResize",
         items: dropdownResize_array
@@ -717,25 +592,9 @@ var TheAnimeScripter = (function() {
         app.settings.saveSetting(scriptName, "dropdwonSegment", dropdwonSegment.selection.index);
     }
 
-    intInterpolate.onChange = function() {
-        app.settings.saveSetting(scriptName, "intInterpolate", intInterpolate.text);
-    }
-
-    dropdownDedupStrenght.onChange = function() {
-        app.settings.saveSetting(scriptName, "dropdownDedupStrenght", dropdownDedupStrenght.selection.index);
-    }
-
     buttonSettings.onClick = function() {
         settingsWindow.show();
     };
-
-    sliderSharpen.onChanging = function() {
-        app.settings.saveSetting(scriptName, "sliderSharpen", sliderSharpen.value);
-    }
-
-    sliderSceneChange.onChanging = function() {
-        app.settings.saveSetting(scriptName, "sliderSceneChange", sliderSceneChange.value);
-    }
 
     buttonSceneChange.onClick = function() {
         sceneChangeValue = 1;
@@ -781,6 +640,10 @@ var TheAnimeScripter = (function() {
         startDownload();
     }
 
+    buttonPreRender.onClick = function() {
+        pre_render();
+    }
+
     function callCommand(command) {
         try {
             if (command) {
@@ -797,6 +660,25 @@ var TheAnimeScripter = (function() {
         return null;
     }
 
+    function pre_render() {
+        var comp = app.project.activeItem;
+        var selectedLayers = comp.selectedLayers;
+        var newComp = app.project.items.addComp('New Composition', comp.width, comp.height, comp.pixelAspect, comp.duration, comp.frameRate);
+
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var layer = selectedLayers[i];
+            newComp.layers.add(layer.source);
+        }
+
+        var renderQueue = app.project.renderQueue;
+        var render = renderQueue.items.add(newComp);
+        var outputModule = render.outputModule(1);
+        outputModule.applyTemplate("Lossless");
+        var outputPath = outputModule.file.fsName;
+        renderQueue.render();
+        var importedFile = app.project.importFile(new ImportOptions(new File(outputPath)));
+        app.project.activeItem = importedFile;
+    }
 
     function start_chain() {
         if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length < 1)) {
@@ -818,7 +700,8 @@ var TheAnimeScripter = (function() {
             alert("Please tick the \"Allow Scripts to Write Files and Access Network\" checkbox in Scripting & Expressions");
             return app.executeCommand(2359);
         }
-
+        
+        var exeFile = TheAnimeScripterPath + "\\main.exe";
         var exeFilePath = new File(exeFile);
         if (!exeFilePath.exists) {
             alert("Cannot find main.exe, please make sure you have selected the correct folder in settings!");
@@ -858,18 +741,18 @@ var TheAnimeScripter = (function() {
                         "--input", "\"" + activeLayerPath + "\"",
                         "--output", "\"" + output_name + "\"",
                         "--interpolate", checkboxInterpolate.value ? "1" : "0",
-                        "--interpolate_factor", intInterpolate.text,
+                        "--interpolate_factor", interpolateValue,
                         "--interpolate_method", dropdownInterpolate.selection.text.toLowerCase(),
                         "--upscale", checkboxUpscale.value ? "1" : "0",
-                        "--upscale_factor", intUpscale.text,
+                        "--upscale_factor", upscaleValue,
                         "--upscale_method", dropdownModel.selection.text.toLowerCase(),
                         "--dedup", checkboxDeduplicate.value ? "1" : "0",
-                        "--dedup_sens", sliderDedupSens.value,
+                        "--dedup_sens", dedupSensValue,
                         "--half", "1",
                         "--inpoint", sourceInPoint,
                         "--outpoint", sourceOutPoint,
                         "--sharpen", checkboxSharpen.value ? "1" : "0",
-                        "--sharpen_sens", sliderSharpen.value,
+                        "--sharpen_sens", sharpenValue,
                         "--segment", segmentValue,
                         "--scenechange", sceneChangeValue,
                         "--depth", depthValue,
@@ -880,7 +763,7 @@ var TheAnimeScripter = (function() {
                         "--ensemble", checkboxEnsemble.value ? "1" : "0",
                         "--resize", checkboxResize.value ? "1" : "0",
                         "--resize_method", dropdownResize.selection.text.toLowerCase(),
-                        "--resize_factor", intResize.text,
+                        "--resize_factor", resizeValue,
                 ];
                 var command = attempt.join(" ");
                 callCommand(command);
