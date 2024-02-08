@@ -28,13 +28,13 @@ import numpy as np
 import subprocess
 import time
 
-
 from tqdm import tqdm
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
+from src.initializeModels import intitialize_models
 
 if getattr(sys, 'frozen', False):
     main_path = os.path.dirname(sys.executable)
@@ -76,7 +76,7 @@ class videoProcessor:
         self.resize = args.resize
         self.resize_factor = args.resize_factor
         self.resize_method = args.resize_method
-        self.available_ram = args.available_ram
+        self.availableRam = args.availableRam
         self.custom_model = args.custom_model
         self.custom_encoder = args.custom_encoder
         self.nt = args.nt
@@ -115,7 +115,7 @@ class videoProcessor:
                 "Detecting depth")
 
             Depth(self.input, self.output, self.ffmpeg_path, self.width, self.height,
-                  self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method, self.depth_method, self.custom_encoder)
+                  self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method, self.depth_method, self.custom_encoder, self.availableRam)
 
             return
 
@@ -126,7 +126,7 @@ class videoProcessor:
                 "Segmenting video")
 
             Segment(self.input, self.output, self.ffmpeg_path, self.width,
-                    self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method, self.custom_encoder)
+                    self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method, self.custom_encoder, self.availableRam)
 
             return
 
@@ -153,7 +153,7 @@ class videoProcessor:
                     filters.append(f"scale={self.width}x{self.height}:flags={self.resize_method}")
 
                 if self.dedup:
-                    filters.append(f'mpdecimate={self.dedup_sens}')
+                    filters.append(f'{self.dedup_sens}')
                     
                 logging.info(
                     "Deduping video")
@@ -169,83 +169,22 @@ class videoProcessor:
                                 filters, self.ffmpeg_path, self.encode_method)
 
                 return
-        self.intitialize_models()
+        
         self.start()
         
-    def intitialize_models(self):
-        self.new_width = self.width
-        self.new_height = self.height
-        self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
-
-        if self.upscale:
-            self.new_width *= self.upscale_factor
-            self.new_height *= self.upscale_factor
-            logging.info(
-                f"Upscaling to {self.new_width}x{self.new_height}")
-
-            match self.upscale_method:
-                case "shufflecugan" | "cugan":
-                    from src.cugan.cugan import Cugan
-                    self.upscale_process = Cugan(
-                        self.upscale_method, self.upscale_factor, self.cugan_kind, self.half, self.width, self.height, self.custom_model, self.nt)
-                case "cugan-ncnn":
-                    from src.cugan.cugan import CuganNCNN
-                    self.upscale_process = CuganNCNN(
-                        self.nt, self.upscale_factor, self.custom_model)
-                case "compact" | "ultracompact" | "superultracompact":
-                    from src.compact.compact import Compact
-                    self.upscale_process = Compact(
-                        self.upscale_method, self.upscale_factor, self.half, self.width, self.height, self.custom_model, self.nt)
-                case "swinir":
-                    from src.swinir.swinir import Swinir
-                    self.upscale_process = Swinir(
-                        self.upscale_factor, self.half, self.width, self.height, self.custom_model, self.nt)
-                case "span":
-                    from src.span.span import SpanSR
-                    self.upscale_process = SpanSR(
-                        self.upscale_factor, self.half, self.width, self.height, self.custom_model, self.nt)
-                case "omnisr":
-                    from src.omnisr.omnisr import OmniSR
-                    self.upscale_process = OmniSR(
-                        self.upscale_factor, self.half, self.width, self.height, self.custom_model, self.nt)
-                case "shufflecugan_directml":
-                    from src.cugan.cugan import cuganDirectML
-                    self.upscale_process = cuganDirectML(
-                        self.upscale_method, self.upscale_factor, self.cugan_kind, self.half, self.width, self.height, self.custom_model)
-                case "span-ncnn":
-                    from src.span.span import spanNCNN
-                    self.upscale_process = spanNCNN(
-                        self.upscale_factor, self.half, self.width, self.height, self.custom_model)
-
-        if self.interpolate:
-            UHD = True if self.new_width >= 3840 and self.new_height >= 2160 else False
-            match self.interpolate_method:
-                case "rife" | "rife4.6" | "rife4.13-lite" | "rife4.14-lite" | "rife4.14":
-                    from src.rife.rife import Rife
-
-                    self.interpolate_process = Rife(
-                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.interpolate_method, self.ensemble)
-                case "rife-ncnn" | "rife4.6-ncnn" | "rife4.13-lite-ncnn" | "rife4.14-lite-ncnn" | "rife4.14-ncnn":
-                    from src.rifencnn.rifencnn import rifeNCNN
-                    self.interpolate_process = rifeNCNN(
-                        UHD, self.interpolate_method, self.ensemble)
-
-                case "gmfss":
-                    from src.gmfss.gmfss_fortuna_union import GMFSS
-                    self.interpolate_process = GMFSS(
-                        int(self.interpolate_factor), self.half, self.new_width, self.new_height, UHD, self.ensemble)
-
     def start(self):
-       self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
-                        unit="frames", colour="green")
-       
-       self.read_buffer = Queue()
-       self.processed_frames = Queue()
-       
-       with ThreadPoolExecutor(max_workers= 3) as executor:
-           executor.submit(self.build_buffer)
-           executor.submit(self.process)
-           executor.submit(self.write_buffer)
+        self.new_width, self.new_height, self.upscale_process, self.interpolate_process = intitialize_models(self)
+        self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps 
+        self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
+                            unit="frames", colour="green")
+        
+        self.read_buffer = Queue()
+        self.processed_frames = Queue()
+        
+        with ThreadPoolExecutor(max_workers= 3) as executor:
+            executor.submit(self.build_buffer)
+            executor.submit(self.process)
+            executor.submit(self.write_buffer)
         
 
     def build_buffer(self):
@@ -262,7 +201,7 @@ class videoProcessor:
         frame_count = 0
         
         # See issue https://github.com/NevermindNilas/TheAnimeScripter/issues/10
-        buffer_limit = 250 if self.available_ram < 8 else 500 if self.available_ram < 16 else 1000
+        buffer_limit = 250 if self.availableRam < 8 else 500 if self.availableRam < 16 else 1000
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
@@ -501,7 +440,7 @@ if __name__ == "__main__":
         from src.get_ffmpeg import get_ffmpeg
         args.ffmpeg_path = get_ffmpeg()
 
-    args.available_ram = checkSystem()
+    args.availableRam = checkSystem()
     
     if args.input is not None:
         videoProcessor(args)

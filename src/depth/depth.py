@@ -5,6 +5,7 @@ import subprocess
 import numpy as np
 import cv2
 import wget
+import time
 
 from torchvision.transforms import Compose
 from concurrent.futures import ThreadPoolExecutor
@@ -19,8 +20,7 @@ os.environ['TORCH_HOME'] = os.path.dirname(os.path.realpath(__file__))
 
 
 class Depth():
-    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, half, inpoint=0, outpoint=0, encode_method="x264", depth_method="small", custom_encoder=""):
-
+    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, half, inpoint=0, outpoint=0, encode_method="x264", depth_method="small", custom_encoder="", availableRam=0):
         self.input = input
         self.output = output
         self.ffmpeg_path = ffmpeg_path
@@ -34,6 +34,7 @@ class Depth():
         self.encode_method = encode_method
         self.depth_method = depth_method
         self.custom_encoder = custom_encoder
+        self.availableRam = availableRam
 
         self.handle_model()
 
@@ -131,6 +132,7 @@ class Depth():
         frame_size = self.width * self.height * 3
         frame_count = 0
 
+        buffer_limit = 250 if self.available_ram < 8 else 500 if self.available_ram < 16 else 1000
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
@@ -140,21 +142,26 @@ class Depth():
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3))
 
+                if self.read_buffer.qsize() > buffer_limit:
+                    while self.processed_frames.qsize() > buffer_limit:
+                        time.sleep(1)
+
                 self.read_buffer.put(frame)
                 frame_count += 1
-
+                
         except Exception as e:
             logging.exception(
-                f"An error occurred during reading, {e}")
-            raise e
-
+                f"Something went wrong while reading the frames, {e}")
         finally:
             logging.info(
                 f"Built buffer with {frame_count} frames")
+            if self.interpolate:
+                frame_count = frame_count * self.interpolate_factor
 
             process.stdout.close()
             process.terminate()
-
+            self.pbar.total = frame_count
+            self.pbar.refresh()
             self.reading_done = True
             self.read_buffer.put(None)
 
@@ -202,7 +209,6 @@ class Depth():
             self.processed_frames.put(None)
 
     def write_buffer(self):
-
         from src.ffmpegSettings import encodeSettings
         command: list = encodeSettings(self.encode_method, self.width, self.height,
                                        self.fps, self.output, self.ffmpeg_path, False, 0, self.custom_encoder, grayscale=True)
