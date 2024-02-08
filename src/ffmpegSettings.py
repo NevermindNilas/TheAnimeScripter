@@ -47,9 +47,8 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
             filters.append('cas={}'.format(sharpen_sens))
         if grayscale:
             filters.append('format=gray')
-
         if filters:
-            custom_encoder_list.extend(['-vf', ','.join(filters)])
+            command.extend(['-vf', ','.join(filters)])
 
     else:
         custom_encoder_list = custom_encoder.split()
