@@ -13,6 +13,7 @@ yt-dlp
 einops
 scenedetect[opencv,progress_bar]
 realcugan-ncnn-py
+span-ncnn-py
 pytorch-lightning
 torch 
 torchvision 
