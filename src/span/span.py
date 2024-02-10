@@ -1,4 +1,5 @@
 from .span_arch import SPAN
+from realesrgan_ncnn_py import Realesrgan
 
 import wget
 import os
