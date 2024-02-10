@@ -17,4 +17,4 @@ pytorch-lightning
 torch 
 torchvision 
 torchaudio
-rife-ncnn-vulkan-python-tas
+https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-tas_2.0.0-cp312-cp312-win_amd64.whl
