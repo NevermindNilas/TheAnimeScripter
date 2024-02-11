@@ -175,7 +175,7 @@ var TheAnimeScripter = (function() {
         name: "textGetVideo"
     });
 
-    textGetVideo.text = "Add Youtube URL";
+    textGetVideo.text = " Add Youtube URL";
     textGetVideo.preferredSize.width = 105;
     textGetVideo.alignment = ["center", "top"];
 
@@ -416,7 +416,7 @@ var TheAnimeScripter = (function() {
         return dropdown;
     }
 
-    createDropdownField(panel1, "Upscale Model", "Model", ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "Span", "-", "SwinIR", "-", "OmniSR"], "Choose which model you want to utilize, read more in INFO, for AMD users choose NCNN models");
+    createDropdownField(panel1, "Upscale Model", "Model", ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "Span", "-", "Span-NCNN", "-", "SwinIR", "-", "OmniSR"], "Choose which model you want to utilize, read more in INFO, for AMD users choose NCNN models");
     createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.14", "-", "Rife4.14-Lite", "-" , "Rife4.13-Lite", "-", "Rife4.6", "-", "Rife4.14-NCNN", "-", "Rife4.14-Lite-NCNN", "-", "Rife4.13-Lite-NCNN", "-", "Rife4.6-NCNN", "-", "GMFSS"], "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO");
     createDropdownField(panel1, "Cugan Denoise", "Cugan", ["No-Denoise", "-", "Conservative", "-", "Denoise1x", "-", "Denoise2x"]);
     createDropdownField(panel1, "Depth Model", "Depth", ["Small", "-", "Base", "-", "Large"], "Choose which depth map model you want to utilize, ordered by speed, read more in INFO");
@@ -430,6 +430,39 @@ var TheAnimeScripter = (function() {
     var encoderMethod = dropdownValues["Encoder"];
     var resizeMethod = dropdownValues["Resize"];
 
+    var panelCustomSettings = settingsWindow.add("panel", undefined, undefined, {
+        name: "panelCustomSettings"
+    });
+
+    panelCustomSettings.text = "Custom Settings";
+    panelCustomSettings.orientation = "column";
+    panelCustomSettings.alignChildren = ["left", "top"];
+
+    var buttonCustomModel = panelCustomSettings.add("button", [0,0,202,30], undefined, {
+        name: "buttonCustomModel"
+    });
+
+    buttonCustomModel.text = "Custom Upscaling Model";
+    buttonCustomModel.preferredSize.width = 105;
+    buttonCustomModel.alignment = ["center", "top"];
+    buttonCustomModel.helpTip = "Add a custom model to utilize, can be either .pth or .onnx, this will override the custom model of your choice in the dropdown, it has to be one of the supported architectures ( Shufflecugan, Cugan ... ) and it also relies on the upscale multiplier to match the model";
+
+    var labelCustomEncoder = panelCustomSettings.add("statictext", undefined, undefined, {
+        name: "labelCustomEncoder"
+    });
+    
+    labelCustomEncoder.text = "Custom FFMPEG Encoding Parameteres";
+    labelCustomEncoder.alignment = ["center", "top"];
+
+    var textCustomEncoder = panelCustomSettings.add("edittext", [0,0,202,25], undefined, {
+        name: "textCustomEncoder"
+    });
+
+    textCustomEncoder.text = "";
+    textCustomEncoder.preferredSize.width = 105;
+    textCustomEncoder.alignment = ["center", "top"];
+    textCustomEncoder.helpTip = "Add custom FFMPEG encoding parameters, this will override the encoding method of your choice in the dropdown, you need to declare every new option including codec, video and filters that you might like to use, for example: -c:v libx264 -crf 23 -preset veryfast -tune animation -vf \"scale=1920:1080\"";
+    
     var buttonSettingsClose = settingsWindow.add("button", undefined, undefined, {
         name: "buttonSettingsClose"
     });
