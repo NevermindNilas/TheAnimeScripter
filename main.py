@@ -116,7 +116,7 @@ class videoProcessor:
                 "Detecting depth")
 
             Depth(self.input, self.output, self.ffmpeg_path, self.width, self.height,
-                  self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method, self.depth_method, self.custom_encoder, self.availableRam)
+                  self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method, self.depth_method, self.custom_encoder, self.availableRam, self.nt)
 
             return
 
@@ -127,7 +127,7 @@ class videoProcessor:
                 "Segmenting video")
 
             Segment(self.input, self.output, self.ffmpeg_path, self.width,
-                    self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method, self.custom_encoder, self.availableRam)
+                    self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method, self.custom_encoder, self.availableRam, self.nt)
 
             return
 
@@ -183,7 +183,6 @@ class videoProcessor:
 
         self.read_buffer = Queue()
         self.processed_frames = Queue()
-        self.current_stream = 0
         
         with ThreadPoolExecutor(max_workers=3) as executor:
             executor.submit(self.build_buffer)
@@ -237,26 +236,32 @@ class videoProcessor:
             self.read_buffer.put(None)
 
     def process_frame(self, frame):
-        if self.denoise:
-            frame = self.denoise_process.run(frame)
-            
-        if self.upscale:
-            frame = self.upscale_process.run(frame)
-            
-        if self.interpolate:
-            if self.prev_frame is not None:
-                self.interpolate_process.run(self.prev_frame, frame)
-                for i in range(self.interpolate_factor - 1):
-                    result = self.interpolate_process.make_inference(
-                        (i + 1) * 1. / (self.interpolate_factor + 1))
-                    self.processed_frames.put(result)
-                self.prev_frame = frame
-            else:
-                self.prev_frame = frame
+        try:
+            if self.denoise:
+                frame = self.denoise_process.run(frame)
                 
-        self.processed_frames.put(frame)
-        
+            if self.upscale:
+                frame = self.upscale_process.run(frame)
+                
+            if self.interpolate:
+                if self.prev_frame is not None:
+                    self.interpolate_process.run(self.prev_frame, frame)
+                    for i in range(self.interpolate_factor - 1):
+                        result = self.interpolate_process.make_inference(
+                            (i + 1) * 1. / (self.interpolate_factor + 1))
+                        self.processed_frames.put(result)
+                    self.prev_frame = frame
+                else:
+                    self.prev_frame = frame
+                    
+            self.processed_frames.put(frame)
+            
+        except Exception as e:
+            logging.exception(
+                f"Something went wrong while processing the frames, {e}")
+            
     def process(self):
+        self.processing_done = False
         frame_count = 0
         self.prev_frame = None
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
