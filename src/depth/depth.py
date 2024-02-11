@@ -20,7 +20,7 @@ os.environ['TORCH_HOME'] = os.path.dirname(os.path.realpath(__file__))
 
 
 class Depth():
-    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, half, inpoint=0, outpoint=0, encode_method="x264", depth_method="small", custom_encoder="", availableRam=0):
+    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, half, inpoint=0, outpoint=0, encode_method="x264", depth_method="small", custom_encoder="", availableRam=0, nt=1):
         self.input = input
         self.output = output
         self.ffmpeg_path = ffmpeg_path
@@ -35,13 +35,14 @@ class Depth():
         self.depth_method = depth_method
         self.custom_encoder = custom_encoder
         self.availableRam = availableRam
+        self.nt = nt
 
-        self.handle_model()
+        self.handle_models()
 
         self.pbar = tqdm(
             total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
 
-        self.read_buffer = Queue(maxsize=500)
+        self.read_buffer = Queue()
         self.processed_frames = Queue()
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -49,7 +50,7 @@ class Depth():
             executor.submit(self.process)
             executor.submit(self.write_buffer)
 
-    def handle_model(self):
+    def handle_models(self):
 
         match self.depth_method:
             case "small":
@@ -123,7 +124,7 @@ class Depth():
         from src.ffmpegSettings import decodeSettings
 
         command: list = decodeSettings(
-            self.input, self.inpoint, self.outpoint, False, 0, self.ffmpeg_path, False, 0, 0, "")
+            self.input, self.inpoint, self.outpoint, False, 0, self.ffmpeg_path, False, 0, 0, None)
 
         process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -132,7 +133,7 @@ class Depth():
         frame_size = self.width * self.height * 3
         frame_count = 0
 
-        buffer_limit = 250 if self.available_ram < 8 else 500 if self.available_ram < 16 else 1000
+        buffer_limit = 250 if self.availableRam < 8 else 500 if self.availableRam < 16 else 1000
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
@@ -148,15 +149,13 @@ class Depth():
 
                 self.read_buffer.put(frame)
                 frame_count += 1
-                
+
         except Exception as e:
             logging.exception(
                 f"Something went wrong while reading the frames, {e}")
         finally:
             logging.info(
                 f"Built buffer with {frame_count} frames")
-            if self.interpolate:
-                frame_count = frame_count * self.interpolate_factor
 
             process.stdout.close()
             process.terminate()
@@ -165,48 +164,54 @@ class Depth():
             self.reading_done = True
             self.read_buffer.put(None)
 
+    def process_frame(self, frame):
+        try:
+            frame = frame/255
+            frame = self.transform({'image': frame})['image']
+
+            frame = torch.from_numpy(frame).unsqueeze(0).to(self.device)
+
+            if self.cudaIsAvailable:
+                if self.half:
+                    frame = frame.cuda().half()
+                else:
+                    frame = frame.cuda()
+            else:
+                frame = frame.cpu()
+
+            with torch.no_grad():
+                depth = self.model(frame)
+
+            depth = F.interpolate(
+                depth[None], (self.height, self.width), mode='bilinear', align_corners=False)[0, 0]
+            depth = (depth - depth.min()) / \
+                (depth.max() - depth.min()) * 255.0
+
+            depth = depth.cpu().numpy().astype(np.uint8)
+            self.processed_frames.put(depth)
+            
+        except Exception as e:
+            logging.exception(
+                f"Something went wrong while processing the frame, {e}")
+
     def process(self):
         self.processing_done = False
         frame_count = 0
-        try:
+        with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
                 frame = self.read_buffer.get()
                 if frame is None:
-                    if self.reading_done == True and self.read_buffer.empty():
+                    if self.reading_done == True:
+                        self.processing_done = True
                         break
-                    else:
-                        continue
 
-                frame = frame/255
-                frame = self.transform({'image': frame})['image']
-                frame = torch.from_numpy(frame).unsqueeze(0).to(self.device)
-
-                if self.half and self.cudaIsAvailable:
-                    frame = frame.half()
-
-                with torch.no_grad():
-                    depth = self.model(frame)
-
-                depth = F.interpolate(
-                    depth[None], (self.height, self.width), mode='bilinear', align_corners=False)[0, 0]
-                depth = (depth - depth.min()) / \
-                    (depth.max() - depth.min()) * 255.0
-                depth = depth.cpu().numpy().astype(np.uint8)
-
-                self.processed_frames.put(depth)
+                executor.submit(self.process_frame, frame)
                 frame_count += 1
 
-        except Exception as e:
-            logging.exception(
-                f"An error occurred during reading, {e}")
-            raise e
+        logging.info(
+            f"Processed {frame_count} frames")
 
-        finally:
-            logging.info(
-                f"Processed {frame_count} frames")
-
-            self.processing_done = True
-            self.processed_frames.put(None)
+        self.processed_frames.put(None)
 
     def write_buffer(self):
         from src.ffmpegSettings import encodeSettings
@@ -221,7 +226,7 @@ class Depth():
             while True:
                 frame = self.processed_frames.get()
                 if frame is None:
-                    if self.processing_done == True and self.processed_frames.empty():
+                    if self.processing_done == True:
                         break
                     else:
                         continue
@@ -242,10 +247,10 @@ class Depth():
             self.pbar.close()
 
             stderr_output = pipe.stderr.read().decode()
-            
+
             logging.info(
                 "============== FFMPEG Output Log ============\n")
-            
+
             if stderr_output:
                 logging.info(stderr_output)
 
