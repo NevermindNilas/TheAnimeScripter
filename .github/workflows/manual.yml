@@ -18,19 +18,6 @@ jobs:
       with:
         python-version: '3'
 
-    - name: Cache Python dependencies
-      uses: actions/cache@v2
-      with:
-        path: ~\AppData\Local\pip\Cache
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-
-    - name: Install pip packages
-      continue-on-error: true
-      run: pip install -r ./requirements.txt
-      if: steps.cache-python.outputs.cache-hit != 'true'
-
     - name: Run build script
       run: python build.py --venv
 
