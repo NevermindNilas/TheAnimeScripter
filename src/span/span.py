@@ -1,4 +1,5 @@
 from .span_arch import SPAN
+from span_ncnn_py import Span
 
 import wget
 import os
@@ -113,7 +114,7 @@ class spanNCNN():
         self.height = height
         self.custom_model = custom_model
         
-        self.model = Realesrgan(
+        self.model = Span(
             gpuid=0, tta_mode=False, model=0
         )
         
