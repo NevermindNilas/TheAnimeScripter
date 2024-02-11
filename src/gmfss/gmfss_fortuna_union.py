@@ -11,7 +11,7 @@ from torch.nn import functional as F
 
 
 class GMFSS():
-    def __init__(self, interpolation_factor, half, width, height, UHD, ensemble=False):
+    def __init__(self, interpolation_factor, half, width, height, UHD, ensemble=False, nt=1):
 
         self.width = width
         self.height = height
@@ -19,11 +19,10 @@ class GMFSS():
         self.interpolation_factor = interpolation_factor
         self.UHD = UHD
         self.ensemble = ensemble
+        self.nt = nt
 
-        # Yoinked from rife, needs further testing if these are the optimal
-        # FLownet, from what I recall needs 32 paddings
-        ph = ((self.height - 1) // 64 + 1) * 64
-        pw = ((self.width - 1) // 64 + 1) * 64
+        ph = ((self.height - 1) // 32 + 1) * 32
+        pw = ((self.width - 1) // 32 + 1) * 32
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
         if self.UHD == True:
@@ -94,6 +93,8 @@ class GMFSS():
 
         torch.set_grad_enabled(False)
         if self.cuda_available:
+            self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
+            self.current_stream = 0
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -112,11 +113,19 @@ class GMFSS():
 
     @torch.inference_mode()
     def make_inference(self, n):
+        if self.cuda_available:
+            torch.cuda.set_stream(self.stream[self.current_stream])
+            
         timestep = torch.tensor(
             (n+1) * 1. / (self.interpolation_factor+1), dtype=self.dtype, device=self.device)
         output = self.model(self.I0, self.I1, timestep)
         output = (((output[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
 
+        
+        if self.cuda_available:
+            torch.cuda.synchronize(self.stream[self.current_stream])
+            self.current_stream = (self.current_stream + 1) % len(self.stream)
+            
         return output[:self.height, :self.width, :]
 
     @torch.inference_mode()
