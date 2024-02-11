@@ -28,7 +28,7 @@ The video processing script is a powerful tool for enhancing and manipulating vi
 - `--upscale` (int, default=0): Enable upscaling (1) or disable (0).
 - `--upscale_factor` (int, default=2): Factor for upscaling.
 - `--upscale_method` (str, default="ShuffleCugan"): Upscaling method:
-    - Options: "cugan / cugan-ncnn / shufflecugan", "swinir", "compact / ultracompact / superultracompact", "span", "omnisr".
+    - Options: "cugan / cugan-ncnn / shufflecugan", "swinir", "compact / ultracompact / superultracompact", "span / span-ncnn", "omnisr".
 - `--cugan_kind` (str, default="no-denoise"): Cugan denoising kind:
     - Options: "no-denoise", "conservative", "denoise1x", "denoise2x".
 - `--custom_model` (str, default=""): Choose a different model for supported upscaling architectures. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
@@ -38,6 +38,10 @@ The video processing script is a powerful tool for enhancing and manipulating vi
 - `--dedup` (int, default=0): Enable deduplication (1) or disable (0).
 - `--dedup_method` (str, default="ffmpeg"): Deduplication method.
 - `--dedup_sens` (float, default=50): Sensitivity of deduplication.
+
+##### Denoising settings:
+
+- `--denoise` (int, default=0): Enable denoising (1) or disable (0).
 
 #### Precision and Trimming:
 

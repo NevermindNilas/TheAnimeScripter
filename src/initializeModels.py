@@ -5,6 +5,7 @@ def intitialize_models(self):
     new_height = self.height
     upscale_process = None
     interpolate_process = None
+    denoise_process = None
     
     if self.upscale:
         new_width *= self.upscale_factor
@@ -61,4 +62,9 @@ def intitialize_models(self):
                 interpolate_process = GMFSS(
                     int(self.interpolate_factor), self.half, new_width, new_height, UHD, self.ensemble)
                 
-    return new_width, new_height, upscale_process, interpolate_process
+    if self.denoise:
+        from src.dpir.dpir import DPIR
+        denoise_process = DPIR(
+            self.half, new_width, new_height, self.custom_model, self.nt)
+                
+    return new_width, new_height, upscale_process, interpolate_process, denoise_process
