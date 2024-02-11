@@ -13,7 +13,7 @@ from tqdm import tqdm
 from queue import Queue
 
 class Segment():
-    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint=0, outpoint=0, encode_method="x264", custom_encoder="", availableRam=0):
+    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint=0, outpoint=0, encode_method="x264", custom_encoder="", availableRam=0, nt=1):
         self.input = input
         self.output = output
         self.ffmpeg_path = ffmpeg_path
@@ -26,11 +26,12 @@ class Segment():
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
         self.availableRam = availableRam
-
-        self.pbar = tqdm(
-            total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
+        self.nt = nt
 
         self.handle_model()
+        
+        self.pbar = tqdm(
+            total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
 
         self.read_buffer = Queue(maxsize=500)
         self.processed_frames = Queue()
@@ -124,7 +125,7 @@ class Segment():
         frame_count = 0
 
         # See issue https://github.com/NevermindNilas/TheAnimeScripter/issues/10
-        buffer_limit = 250 if self.available_ram < 8 else 500 if self.available_ram < 16 else 1000
+        buffer_limit = 250 if self.availableRam < 8 else 500 if self.availableRam < 16 else 1000
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
@@ -147,8 +148,6 @@ class Segment():
         finally:
             logging.info(
                 f"Built buffer with {frame_count} frames")
-            if self.interpolate:
-                frame_count = frame_count * self.interpolate_factor
 
             process.stdout.close()
             process.terminate()
@@ -157,49 +156,40 @@ class Segment():
             self.reading_done = True
             self.read_buffer.put(None)
 
+    def process_frame(self, frame):
+        try:
+            mask = self.get_mask(frame)
+            frame = (frame * mask + self.green_img *
+                     (1 - mask)).astype(np.uint8)
+            mask = (mask * 255).astype(np.uint8)
+            mask = np.squeeze(mask, axis=2)
+            frame_with_mask = np.concatenate(
+                (frame, mask[..., np.newaxis]), axis=2)
+            
+            self.processed_frames.put(frame_with_mask)
+        except Exception as e:
+            logging.exception(
+                f"An error occurred while processing the frame, {e}")
+            
     def process(self):
-        green_img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-        green_img[..., 1] = 255  # 255 for greenscreen
-        prev_frame = None
+        self.green_img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+        self.green_img[..., 1] = 255  # 255 for greenscreen
         self.processing_done = False
         frame_count = 0
-        try:
+        with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
                 frame = self.read_buffer.get()
                 if frame is None:
                     if self.reading_done == True and self.read_buffer.empty():
+                        self.processing_done = True
                         break
                     else:
                         continue
                 
-                mask = self.get_mask(frame)
-                frame = (frame * mask + green_img *
-                         (1 - mask)).astype(np.uint8)
-
-                mask = (mask * 255).astype(np.uint8)
-                mask = np.squeeze(mask, axis=2)
-
-                frame_with_mask = np.concatenate(
-                    (frame, mask[..., np.newaxis]), axis=2)
-                
-                self.processed_frames.put(frame_with_mask)
+                executor.submit(self.process_frame, frame)
                 frame_count += 1
 
-        except Exception as e:
-            logging.exception(
-                f"An error occurred during reading, {e}")
-            raise e
-
-        finally:
-            if prev_frame is not None:
-                self.processed_frames.put(prev_frame)
-                frame_count += 1
-
-            logging.info(
-                f"Processed {frame_count} frames")
-
-            self.processing_done = True
-            self.processed_frames.put(None)
+        self.processed_frames.put(None)
 
     def write_buffer(self):
 
