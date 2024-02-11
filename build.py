@@ -3,40 +3,24 @@ import os
 import platform
 import shutil
 import pkg_resources
-import argparse
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-parser = argparse.ArgumentParser(description='Build script')
-parser.add_argument('--venv', action='store_true', help='Use a virtual environment')
-args = parser.parse_args()
 
 def create_venv():
-    if args.venv:
-        print("Creating the virtual environment...")
-        subprocess.run(["python", "-m", "venv", "venv"], check=True)
-    else:
-        print("Skipping virtual environment creation...")
+    print("Creating the virtual environment...")
+    subprocess.run(["python", "-m", "venv", "venv"], check=True)
 
 def activate_venv():
-    if args.venv:
-        print("Activating the virtual environment...")
-        os.system(".\\venv\\Scripts\\activate")
-    else:
-        print("Skipping virtual environment activation...")
+    print("Activating the virtual environment...")
+    os.system(".\\venv\\Scripts\\activate")
 
 def install_requirements():
     print("Installing the requirements...")
-    if args.venv:
-        subprocess.run([".\\venv\\Scripts\\pip3", "install", "--pre", "-r", "requirements.txt"], check=True)
-    else:
-        subprocess.run(["pip3", "install", "--pre", "-r", "requirements.txt"], check=True)
+    subprocess.run([".\\venv\\Scripts\\pip3", "install", "--pre", "-r", "requirements.txt"], check=True)
 
 def install_pyinstaller():
     print("Installing PyInstaller...")
-    if args.venv:
-        subprocess.run([".\\venv\\Scripts\\python", "-m", "pip", "install", "pyinstaller"], check=True)
-    else:
-        subprocess.run(["python", "-m", "pip", "install", "pyinstaller"], check=True)
+    subprocess.run([".\\venv\\Scripts\\python", "-m", "pip", "install", "pyinstaller"], check=True)
 
 
 def create_executable():
