@@ -31,7 +31,6 @@ import time
 from tqdm import tqdm
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
-from threading import Lock, Thread
 
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
