@@ -80,7 +80,8 @@ class videoProcessor:
         self.custom_model = args.custom_model
         self.custom_encoder = args.custom_encoder
         self.nt = args.nt
-        
+        self.denoise = args.denoise
+
         self.width, self.height, self.fps, self.nframes = getVideoMetadata(
             self.input, self.inpoint, self.outpoint)
 
@@ -91,7 +92,7 @@ class videoProcessor:
             aspect_ratio = self.width / self.height
             self.width = round(self.width * self.resize_factor / 2) * 2
             self.height = round(self.width / aspect_ratio / 2) * 2
-            
+
             logging.info(
                 f"Resizing to {self.width}x{self.height}, aspect ratio: {aspect_ratio}")
 
@@ -150,42 +151,43 @@ class videoProcessor:
                     filters.append(f'cas={self.sharpen_sens}')
 
                 if self.resize:
-                    filters.append(f"scale={self.width}x{self.height}:flags={self.resize_method}")
+                    filters.append(f"scale={self.width}x{
+                                   self.height}:flags={self.resize_method}")
 
                 if self.dedup:
                     filters.append(f'{self.dedup_sens}')
-                    
+
                 logging.info(
                     "Deduping video")
 
                 if self.outpoint != 0:
                     from src.dedup.dedup import trim_input_dedup
                     trim_input_dedup(self.input, self.output, self.inpoint,
-                                    self.outpoint, filters, self.ffmpeg_path, self.encode_method)
+                                     self.outpoint, filters, self.ffmpeg_path, self.encode_method)
 
                 else:
                     from src.dedup.dedup import dedup_ffmpeg
                     dedup_ffmpeg(self.input, self.output,
-                                filters, self.ffmpeg_path, self.encode_method)
+                                 filters, self.ffmpeg_path, self.encode_method)
 
                 return
-        
+
         self.start()
-        
+
     def start(self):
-        self.new_width, self.new_height, self.upscale_process, self.interpolate_process = intitialize_models(self)
-        self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps 
+        self.new_width, self.new_height, self.upscale_process, self.interpolate_process, self.denoise_process = intitialize_models(
+            self)
+        self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
         self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
-                            unit="frames", colour="green")
-        
+                         unit="frames", colour="green")
+
         self.read_buffer = Queue()
         self.processed_frames = Queue()
-        
-        with ThreadPoolExecutor(max_workers= 3) as executor:
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
             executor.submit(self.build_buffer)
             executor.submit(self.process)
             executor.submit(self.write_buffer)
-        
 
     def build_buffer(self):
         from src.ffmpegSettings import decodeSettings
@@ -199,8 +201,7 @@ class videoProcessor:
         self.reading_done = False
         frame_size = self.width * self.height * 3
         frame_count = 0
-        
-        # See issue https://github.com/NevermindNilas/TheAnimeScripter/issues/10
+
         buffer_limit = 250 if self.availableRam < 8 else 500 if self.availableRam < 16 else 1000
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
@@ -217,7 +218,7 @@ class videoProcessor:
 
                 self.read_buffer.put(frame)
                 frame_count += 1
-                
+
         except Exception as e:
             logging.exception(
                 f"Something went wrong while reading the frames, {e}")
@@ -247,10 +248,13 @@ class videoProcessor:
                         break
                     else:
                         continue
-                    
+
+                if self.denoise:
+                    frame = self.denoise_process.run(frame)
+
                 if self.upscale:
                     frame = self.upscale_process.run(frame)
-                    
+
                 if self.interpolate:
                     if prev_frame is not None:
                         self.interpolate_process.run(prev_frame, frame)
@@ -262,8 +266,8 @@ class videoProcessor:
                         prev_frame = frame
                     else:
                         prev_frame = frame
+
                 self.processed_frames.put(frame)
-                
                 frame_count += 1
 
         except Exception as e:
@@ -282,7 +286,7 @@ class videoProcessor:
             self.processed_frames.put(None)
 
     def write_buffer(self):
-        
+
         from src.ffmpegSettings import encodeSettings
         command: list = encodeSettings(self.encode_method, self.new_width, self.new_height,
                                        self.fps, self.output, self.ffmpeg_path, self.sharpen, self.sharpen_sens, self.custom_encoder, grayscale=False)
@@ -310,22 +314,23 @@ class videoProcessor:
                 f"Something went wrong while writing the frames, {e}")
 
         finally:
+            self.pbar.close()
             logging.info(
                 f"Wrote {frame_count} frames")
 
             pipe.stdin.close()
-            self.pbar.close()
 
             stderr_output = pipe.stderr.read().decode()
-            
+
             logging.info(
                 "\n============== FFMPEG Output Log ============")
-            
+
             if stderr_output:
                 logging.info(stderr_output)
 
             # Hope this works
             pipe.terminate()
+
 
 if __name__ == "__main__":
     log_file_path = os.path.join(main_path, "log.txt")
@@ -380,6 +385,7 @@ if __name__ == "__main__":
         "fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos",
         "point", "spline", "spline16", "spline36"], default="bicubic", help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling")
     argparser.add_argument("--custom_encoder", type=str, default="")
+    argparser.add_argument("--denoise", type=int, choices=[0, 1], default=0)
     args = argparser.parse_args()
 
     if args.version:
@@ -393,6 +399,7 @@ if __name__ == "__main__":
     args.interpolate = True if args.interpolate == 1 else False
     args.scenechange = True if args.scenechange == 1 else False
     args.ensemble = True if args.ensemble == 1 else False
+    args.denoise = True if args.denoise == 1 else False
     args.sharpen = True if args.sharpen == 1 else False
     args.upscale = True if args.upscale == 1 else False
     args.segment = True if args.segment == 1 else False
@@ -402,7 +409,8 @@ if __name__ == "__main__":
     args.half = True if args.half == 1 else False
 
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
-    args.scenechange_sens = 100 - args.scenechange_sens  # To keep up the previous logic where 0 is the least sensitive and 100 is the most sensitive
+    # To keep up the previous logic where 0 is the least sensitive and 100 is the most sensitive
+    args.scenechange_sens = 100 - args.scenechange_sens
 
     logging.info("============== Arguments ==============")
 
@@ -416,7 +424,7 @@ if __name__ == "__main__":
             logging.info(
                 f"Interpolation is enabled, setting nt to 1")
             args.nt = 1
-    
+
     if args.dedup:
         from src.ffmpegSettings import get_dedup_strength
         # Dedup Sens will be overwritten with the mpdecimate params in order to minimize on the amount of variables used throughout the script
@@ -430,7 +438,8 @@ if __name__ == "__main__":
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
         from src.ytdlp import VideoDownloader
-        VideoDownloader(args.ytdlp, args.output, args.ytdlp_quality, args.encode_method, args.custom_encoder)
+        VideoDownloader(args.ytdlp, args.output, args.ytdlp_quality,
+                        args.encode_method, args.custom_encoder)
         sys.exit()
 
     args.ffmpeg_path = os.path.join(os.path.dirname(
@@ -441,7 +450,7 @@ if __name__ == "__main__":
         args.ffmpeg_path = get_ffmpeg()
 
     args.availableRam = checkSystem()
-    
+
     if args.input is not None:
         videoProcessor(args)
     else:

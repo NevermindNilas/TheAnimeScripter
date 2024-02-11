@@ -80,6 +80,11 @@ class GMFSS():
         self.cuda_available = torch.cuda.is_available()
 
         if not self.cuda_available:
+            print(
+                "CUDA is not available, using CPU. Expect significant slowdows or no functionality at all. If you have a NVIDIA GPU, please install CUDA and make sure that CUDA_Path is in the environment variables.")
+            print(
+                "CUDA Installation link: https://developer.nvidia.com/cuda-downloads")
+            
             logging.info(
                 "CUDA is not available, using CPU. Expect significant slowdows or no functionality at all. If you have a NVIDIA GPU, please install CUDA and make sure that CUDA_Path is in the environment variables.")
             logging.info(
