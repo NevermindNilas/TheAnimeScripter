@@ -6,7 +6,7 @@ import logging
 from torch.nn import functional as F
 
 class Rife:
-    def __init__(self, interpolation_factor, half, width, height, UHD, interpolate_method, ensemble=False):
+    def __init__(self, interpolation_factor, half, width, height, UHD, interpolate_method, ensemble=False, nt=1):
         self.interpolation_factor = interpolation_factor
         self.half = half
         self.UHD = UHD
@@ -15,6 +15,7 @@ class Rife:
         self.height = height
         self.interpolate_method = interpolate_method
         self.ensemble = ensemble
+        self.nt = nt
 
         self.handle_model()
 
@@ -65,6 +66,8 @@ class Rife:
         if self.cuda_available:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
+            self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
+            self.current_stream = 0
             if self.half:
                 torch.set_default_tensor_type(torch.cuda.HalfTensor)
 
@@ -90,12 +93,20 @@ class Rife:
         
     @torch.inference_mode()
     def make_inference(self, n):
+        if self.cuda_available:
+            torch.cuda.set_stream(self.stream[self.current_stream])
+            
         output = self.model.inference(
                     self.I0, self.I1, n, self.scale, self.ensemble)
         
         output = output[:, :, :self.height, :self.width]
 
         output = (((output[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
+        
+        if self.cuda_available:
+            torch.cuda.synchronize(self.stream[self.current_stream])
+            self.current_stream = (self.current_stream + 1) % len(self.stream)
+            
         return output
 
     def pad_frame(self):

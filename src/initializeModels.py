@@ -52,7 +52,7 @@ def intitialize_models(self):
             case "rife" | "rife4.6" | "rife4.13-lite" | "rife4.14-lite" | "rife4.14":
                 from src.rife.rife import Rife
                 interpolate_process = Rife(
-                    int(self.interpolate_factor), self.half, new_width, new_height, UHD, self.interpolate_method, self.ensemble)
+                    int(self.interpolate_factor), self.half, new_width, new_height, UHD, self.interpolate_method, self.ensemble, self.nt)
             case "rife-ncnn" | "rife4.6-ncnn" | "rife4.13-lite-ncnn" | "rife4.14-lite-ncnn" | "rife4.14-ncnn":
                 from src.rifencnn.rifencnn import rifeNCNN
                 interpolate_process = rifeNCNN(
@@ -60,7 +60,7 @@ def intitialize_models(self):
             case "gmfss":
                 from src.gmfss.gmfss_fortuna_union import GMFSS
                 interpolate_process = GMFSS(
-                    int(self.interpolate_factor), self.half, new_width, new_height, UHD, self.ensemble)
+                    int(self.interpolate_factor), self.half, new_width, new_height, UHD, self.ensemble, self.nt)
                 
     if self.denoise:
         from src.dpir.dpir import DPIR

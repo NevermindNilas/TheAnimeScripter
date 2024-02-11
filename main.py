@@ -31,6 +31,7 @@ import time
 from tqdm import tqdm
 from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
+from threading import Lock, Thread
 
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
@@ -183,7 +184,8 @@ class videoProcessor:
 
         self.read_buffer = Queue()
         self.processed_frames = Queue()
-
+        self.current_stream = 0
+        
         with ThreadPoolExecutor(max_workers=3) as executor:
             executor.submit(self.build_buffer)
             executor.submit(self.process)
@@ -235,55 +237,47 @@ class videoProcessor:
             self.reading_done = True
             self.read_buffer.put(None)
 
+    def process_frame(self, frame):
+        if self.denoise:
+            frame = self.denoise_process.run(frame)
+            
+        if self.upscale:
+            frame = self.upscale_process.run(frame)
+            
+        if self.interpolate:
+            if self.prev_frame is not None:
+                self.interpolate_process.run(self.prev_frame, frame)
+                for i in range(self.interpolate_factor - 1):
+                    result = self.interpolate_process.make_inference(
+                        (i + 1) * 1. / (self.interpolate_factor + 1))
+                    self.processed_frames.put(result)
+                self.prev_frame = frame
+            else:
+                self.prev_frame = frame
+                
+        self.processed_frames.put(frame)
+        
     def process(self):
-        prev_frame = None
-        self.processing_done = False
         frame_count = 0
-
-        try:
+        self.prev_frame = None
+        with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
                 frame = self.read_buffer.get()
                 if frame is None:
-                    if self.reading_done == True and self.read_buffer.empty():
+                    if self.reading_done == True:
+                        self.processing_done = True
                         break
-                    else:
-                        continue
-
-                if self.denoise:
-                    frame = self.denoise_process.run(frame)
-
-                if self.upscale:
-                    frame = self.upscale_process.run(frame)
-
-                if self.interpolate:
-                    if prev_frame is not None:
-                        self.interpolate_process.run(prev_frame, frame)
-                        for i in range(self.interpolate_factor - 1):
-                            result = self.interpolate_process.make_inference(
-                                (i + 1) * 1. / (self.interpolate_factor + 1))
-                            self.processed_frames.put(result)
-                            frame_count += 1
-                        prev_frame = frame
-                    else:
-                        prev_frame = frame
-
-                self.processed_frames.put(frame)
+                
+                executor.submit(self.process_frame, frame)
                 frame_count += 1
-
-        except Exception as e:
-            logging.exception(
-                f"Something went wrong while processing the frames, {e}")
-
-        finally:
-            if prev_frame is not None:
-                self.processed_frames.put(prev_frame)
-                frame_count += 1
-
-            logging.info(
-                f"Processed {frame_count} frames")
-
-            self.processing_done = True
-            self.processed_frames.put(None)
+        
+        if self.prev_frame is not None:
+            self.processed_frames.put(self.prev_frame)
+            
+        logging.info(
+            f"Processed {frame_count} frames")
+        
+        self.processed_frames.put(None)
 
     def write_buffer(self):
 
