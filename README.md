@@ -117,24 +117,36 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 | | GMFSS Fortuna Union | ~7 | Ensemble False |
 | **Upscaling 2x** | 
 | | Shufflecugan | ~21 | |
+| | | ~24 | 2 Threads / Streams
 | | Compact | ~15 | |
+| | | ~19 | 2 Threads / Streams
 | | UltraCompact | ~25 | |
+| | | ~30 | 2 Threads / Streams
 | | SuperUltraCompact | ~30 | |
+| | | ~35 | 2 Threads / Streams
 | | SwinIR | ~1 | |
+| | | ~1.5 | 2 Threads / Streams
 | | Cugan | ~9 | |
+| | | ~12 | 2 Threads / Streams
 | | Cugan-NCNN | ~7 | |
 | | SPAN | ~9 | |
 | | OmniSR | ~1 | |
 | **Depth Map Generation** | 
 | | Depth Anything VITS | ~16 | |
+| |  | ~30 | 2 Threads / Streams|
 | | Depth Anything VITB | ~11 | |
+| | | ~18 | 2 Threads / Streams|
 | | Depth Anything VITL | ~7 | |
+| | | ~12 | 2 Threads / Streams|
 | **Segmentation** | 
 | | Isnet-Anime | ~10 | |
+| | | ~15 | 2 Threads / Streams|
 | **Motion Blur** | 
 | | 2xRife + Gaussian Averaging | ~23 | Still in work |
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
+
+There were no visible improvements in speed 
 
 
 ## ✅ Stats
