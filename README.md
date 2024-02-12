@@ -146,7 +146,7 @@ The following benchmarks were conducted on a system with a 13700k and 3090 GPU f
 
 Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
 
-There were no visible improvements in speed 
+There were no visible improvements in speed when using 2 streams for interpolation alone, I am assuming due to an I/O bottleneck. It will require further testing to confirm. 
 
 
 ## ✅ Stats
