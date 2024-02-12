@@ -133,7 +133,7 @@ class Depth():
         frame_size = self.width * self.height * 3
         frame_count = 0
 
-        buffer_limit = 250 if self.availableRam < 8 else 500 if self.availableRam < 16 else 1000
+        buffer_limit = 100 if self.availableRam < 8 else 150 if self.availableRam < 16 else 250
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
