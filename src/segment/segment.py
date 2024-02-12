@@ -33,7 +33,7 @@ class Segment():
         self.pbar = tqdm(
             total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
 
-        self.read_buffer = Queue(maxsize=500)
+        self.read_buffer = Queue()
         self.processed_frames = Queue()
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -125,7 +125,7 @@ class Segment():
         frame_count = 0
 
         # See issue https://github.com/NevermindNilas/TheAnimeScripter/issues/10
-        buffer_limit = 250 if self.availableRam < 8 else 500 if self.availableRam < 16 else 1000
+        buffer_limit = 100 if self.availableRam < 8 else 150 if self.availableRam < 16 else 250
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
