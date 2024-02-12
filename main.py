@@ -81,6 +81,7 @@ class videoProcessor:
         self.custom_encoder = args.custom_encoder
         self.nt = args.nt
         self.denoise = args.denoise
+        self.buffer_limit = args.buffer_limit
 
         self.width, self.height, self.fps, self.nframes = getVideoMetadata(
             self.input, self.inpoint, self.outpoint)
@@ -202,7 +203,9 @@ class videoProcessor:
         frame_size = self.width * self.height * 3
         frame_count = 0
 
-        buffer_limit = 250 if self.availableRam < 8 else 500 if self.availableRam < 16 else 1000
+
+        buffer_limit = 100 if self.availableRam < 8 else 150 if self.availableRam < 16 else 250
+            
         try:
             for chunk in iter(lambda: process.stdout.read(frame_size), b''):
                 if len(chunk) != frame_size:
@@ -335,6 +338,12 @@ if __name__ == "__main__":
     logging.basicConfig(filename=log_file_path, filemode='w',
                         format='%(message)s', level=logging.INFO)
 
+    command_line_args = sys.argv
+    command_line_string = ' '.join(command_line_args)
+    
+    logging.info(
+        f"Command Line argument: {command_line_string}\n")
+    
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--version", action="store_true")
     argparser.add_argument("--input", type=str)
@@ -384,6 +393,7 @@ if __name__ == "__main__":
         "point", "spline", "spline16", "spline36"], default="bicubic", help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling")
     argparser.add_argument("--custom_encoder", type=str, default="")
     argparser.add_argument("--denoise", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--buffer_limit", type=int, default = 100)
     args = argparser.parse_args()
 
     if args.version:

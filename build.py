@@ -66,27 +66,32 @@ def move_extras(jsx_path, license_path):
 
 
 def clean_up():
-    print("Cleaning up...")
-    try:
-        spec_file = os.path.join(base_dir, "main.spec")
-        if os.path.exists(spec_file):
-            os.remove(spec_file)
-    except Exception as e:
-        print("Error while removing spec file: ", e)
+    answer = input("Do answerou want to clean up the build files? (y/n): ")
+    
+    if answer.lower() != "y":
+        print("Cleaning up...")
+        try:
+            spec_file = os.path.join(base_dir, "main.spec")
+            if os.path.exists(spec_file):
+                os.remove(spec_file)
+        except Exception as e:
+            print("Error while removing spec file: ", e)
 
-    try:
-        venv_file = os.path.join(base_dir, "venv")
-        if os.path.exists(venv_file):
-            shutil.rmtree(venv_file)
-    except Exception as e:
-        print("Error while removing the venv: ", e)
+        try:
+            venv_file = os.path.join(base_dir, "venv")
+            if os.path.exists(venv_file):
+                shutil.rmtree(venv_file)
+        except Exception as e:
+            print("Error while removing the venv: ", e)
 
-    try:
-        build_dir = os.path.join(base_dir, "build")
-        if os.path.exists(build_dir):
-            shutil.rmtree(build_dir)
-    except Exception as e:
-        print("Error while removing the build directory: ", e)
+        try:
+            build_dir = os.path.join(base_dir, "build")
+            if os.path.exists(build_dir):
+                shutil.rmtree(build_dir)
+        except Exception as e:
+            print("Error while removing the build directory: ", e)
+    else:
+        print("Skipping Cleanup...")
 
     print("Done!, you can find the built executable in the dist folder")
 
