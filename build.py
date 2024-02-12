@@ -12,7 +12,7 @@ def create_venv():
 
 def activate_venv():
     print("Activating the virtual environment...")
-    os.system(".\\venv\\Scripts\\activate")
+    subprocess.run(".\\venv\\Scripts\\activate", shell=True, check=True)
 
 def install_requirements():
     print("Installing the requirements...")
@@ -68,7 +68,7 @@ def move_extras(jsx_path, license_path):
 def clean_up():
     answer = input("Do answerou want to clean up the build files? (y/n): ")
     
-    if answer.lower() != "y":
+    if answer.lower() == "y":
         print("Cleaning up...")
         try:
             spec_file = os.path.join(base_dir, "main.spec")
