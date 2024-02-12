@@ -277,7 +277,7 @@ var TheAnimeScripter = (function() {
     generalPanel.margins = 10;
     
     var labelValues = {};
-    function createSlider(panel, text, name) {
+    function createSlider(panel, text, name, defaultValue) {
         var group = panel.add("group", undefined, { name: "group" + name });
         group.orientation = "row";
         group.alignChildren = ["fill", "center"];
@@ -289,15 +289,14 @@ var TheAnimeScripter = (function() {
         var filler = group.add("statictext", undefined, "", { name: "filler" + name });
         filler.alignment = ["fill", "center"];
 
-        var label = group.add("statictext", undefined, "50%", { name: "label" + name });
+        var label = group.add("statictext", undefined, defaultValue + "%", { name: "label" + name });
         label.alignment = ["right", "center"];
 
-        var slider = panel.add("slider", undefined, undefined, undefined, undefined, { name: "slider" + name });
-        slider.minvalue = 0;
-        slider.maxvalue = 100;
-        slider.value = 50;
+        var slider = panel.add("slider", undefined, defaultValue, 0, 100, { name: "slider" + name });
         slider.preferredSize.width = 212;
         slider.alignment = ["center", "top"];
+
+        labelValues[name] = defaultValue;
 
         slider.onChange = function() {
             var value = Math.round(slider.value);
@@ -306,13 +305,13 @@ var TheAnimeScripter = (function() {
         }
     }
 
-    createSlider(generalPanel, "Sharpenening Sensitivity", "Sharpen");
-    createSlider(generalPanel, "Auto Cut Sensitivity", "SceneChange");
-    createSlider(generalPanel, "Deduplication Sensitivity", "DedupSens");
+    createSlider(generalPanel, "Sharpenening Sensitivity", "Sharpen", 50);
+    createSlider(generalPanel, "Auto Cut Sensitivity", "SceneChange", 50);
+    createSlider(generalPanel, "Deduplication Sensitivity", "DedupSens", 50);
 
-    var sharpenValue = labelValues["Sharpen"];
-    var sceneChangeValue = labelValues["SceneChange"];
-    var dedupSensValue = labelValues["DedupSens"];
+    sharpenSensValue = labelValues["Sharpen"];
+    sceneChangeSensValue = labelValues["SceneChange"];
+    dedupSensValue = labelValues["DedupSens"];
 
     var group4 = generalPanel.add("group", undefined, {
         name: "group4"
@@ -370,10 +369,12 @@ var TheAnimeScripter = (function() {
     createMultiplierField(generalPanel, "Resize Multiplier", "Resize", "2");
     createMultiplierField(generalPanel, "Interpolation Multiplier", "Interpolate", "2");
     createMultiplierField(generalPanel, "Upscale Multiplier", "Upscale", "2");
+    createMultiplierField(generalPanel, "Number of Threads", "Threads", "1")
 
     var resizeValue = fieldValues["Resize"];
     var interpolateValue = fieldValues["Interpolate"];
     var upscaleValue = fieldValues["Upscale"];
+    var threadsValue = fieldValues["Threads"];
     
     // PANEL1
     // ======
@@ -500,22 +501,22 @@ var TheAnimeScripter = (function() {
 
     buttonSceneChange.onClick = function() {
         sceneChangeValue = 1;
-        start_chain();
+        startChain();
     }
 
     buttonDepthMap.onClick = function() {
         depthValue = 1;
-        start_chain();
+        startChain();
     }
 
     buttonSegment.onClick = function() {
         segmentValue = 1;
-        start_chain();
+        startChain();
     }
 
     buttonMotionBlur.onClick = function() {
         motionBlurValue = 1;
-        start_chain();
+        startChain();
     }
 
     buttonStartProcess.onClick = function() {
@@ -526,7 +527,7 @@ var TheAnimeScripter = (function() {
             }
         }
 
-        start_chain();
+        startChain();
     }
 
     buttonGetVideo.onClick = function(){
@@ -539,7 +540,7 @@ var TheAnimeScripter = (function() {
     }
 
     buttonPreRender.onClick = function() {
-        pre_render();
+        preRender();
     }
 
     function callCommand(command) {
@@ -558,27 +559,56 @@ var TheAnimeScripter = (function() {
         return null;
     }
 
-    function pre_render() {
+    function preRender() {
+        if (typeof outputFolder === 'undefined') {
+            alert("The output folder has not been selected, please go to settings");
+            return;
+        }
+
         var comp = app.project.activeItem;
         var selectedLayers = comp.selectedLayers;
-        var newComp = app.project.items.addComp('New Composition', comp.width, comp.height, comp.pixelAspect, comp.duration, comp.frameRate);
+
+        var maxEndTime = 0;
+        for (var i = 0; i < selectedLayers.length; i++) {
+            var layer = selectedLayers[i];
+            var endTime = layer.startTime + layer.outPoint;
+            if (endTime > maxEndTime) {
+                maxEndTime = endTime;
+            }
+        }
+
+        var newComp = app.project.items.addComp('New Composition', comp.width, comp.height, comp.pixelAspect, maxEndTime, comp.frameRate);
 
         for (var i = 0; i < selectedLayers.length; i++) {
             var layer = selectedLayers[i];
-            newComp.layers.add(layer.source);
+            var newLayer = newComp.layers.add(layer.source);
+            newLayer.startTime = layer.startTime;
+            newLayer.inPoint = layer.inPoint;
+            newLayer.outPoint = layer.outPoint;
+            newLayer.enabled = layer.enabled;
+            newLayer.solo = layer.solo;
+            newLayer.shy = layer.shy;
+            newLayer.locked = layer.locked;
+            newLayer.name = layer.name;
         }
 
         var renderQueue = app.project.renderQueue;
         var render = renderQueue.items.add(newComp);
         var outputModule = render.outputModule(1);
-        outputModule.applyTemplate("Lossless");
-        var outputPath = outputModule.file.fsName;
+
+        randomNumbers = Math.floor(Math.random() * 1000);
+        var outputFileExtension = (parseFloat(app.version) >= 23.0) ? ".mp4" : ".mov";
+        var outputName = outputFolder + "/TAS_" + randomNumbers + outputFileExtension;
+        outputModule.file = new File(outputName);
+
         renderQueue.render();
-        var importedFile = app.project.importFile(new ImportOptions(new File(outputPath)));
-        app.project.activeItem = importedFile;
+        var importedFile = app.project.importFile(new ImportOptions(new File(outputName)));
+        var newLayer = comp.layers.add(importedFile);
+
+        newComp.remove();
     }
 
-    function start_chain() {
+    function startChain() {
         if (((!app.project) || (!app.project.activeItem)) || (app.project.activeItem.selectedLayers.length < 1)) {
             alert("Please select one layer.");
             return;
@@ -650,20 +680,22 @@ var TheAnimeScripter = (function() {
                         "--inpoint", sourceInPoint,
                         "--outpoint", sourceOutPoint,
                         "--sharpen", checkboxSharpen.value ? "1" : "0",
-                        "--sharpen_sens", sharpenValue,
+                        "--sharpen_sens", sharpenSensValue,
                         "--segment", segmentValue,
                         "--scenechange", sceneChangeValue,
                         "--depth", depthValue,
                         "--depth_method", depthModel.toLowerCase(),
                         "--encode_method", encoderMethod.toLowerCase(),
-                        "--scenechange_sens", 100 - sliderSceneChange.value,
+                        "--scenechange_sens", sceneChangeSensValue,
                         "--motion_blur", motionBlurValue,
                         "--ensemble", checkboxEnsemble.value ? "1" : "0",
                         "--resize", checkboxResize.value ? "1" : "0",
                         "--resize_method", resizeMethod.toLowerCase(),
                         "--resize_factor", resizeValue,
+                        "--nt", threadsValue,
                 ];
                 var command = attempt.join(" ");
+                alert(command);
                 callCommand(command);
             } catch (error) {
                 alert(error);
@@ -690,7 +722,7 @@ var TheAnimeScripter = (function() {
                     sceneChangeLog.close();
                     break;
                 } else {
-                    var maxAttempts = 5;
+                    var maxAttempts = 3;
                     for (var attempt = 0; attempt < maxAttempts; attempt++) {
                         $.sleep(1000); // Sleeping for a second, metadata is not always written instantly
                         try {
