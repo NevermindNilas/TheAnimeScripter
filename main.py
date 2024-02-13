@@ -26,7 +26,6 @@ import sys
 import logging
 import numpy as np
 import subprocess
-import time
 
 from tqdm import tqdm
 from queue import Queue
@@ -76,7 +75,6 @@ class videoProcessor:
         self.resize = args.resize
         self.resize_factor = args.resize_factor
         self.resize_method = args.resize_method
-        self.availableRam = args.availableRam
         self.custom_model = args.custom_model
         self.custom_encoder = args.custom_encoder
         self.nt = args.nt
@@ -117,7 +115,7 @@ class videoProcessor:
                 "Detecting depth")
 
             Depth(self.input, self.output, self.ffmpeg_path, self.width, self.height,
-                  self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method, self.depth_method, self.custom_encoder, self.availableRam, self.nt)
+                  self.fps, self.nframes, self.half, self.inpoint, self.outpoint, self.encode_method, self.depth_method, self.custom_encoder, self.nt)
 
             return
 
@@ -128,7 +126,7 @@ class videoProcessor:
                 "Segmenting video")
 
             Segment(self.input, self.output, self.ffmpeg_path, self.width,
-                    self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method, self.custom_encoder, self.availableRam, self.nt)
+                    self.height, self.fps, self.nframes, self.inpoint, self.outpoint, self.encode_method, self.custom_encoder, self.nt)
 
             return
 
@@ -182,7 +180,7 @@ class videoProcessor:
         self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
                          unit="frames", colour="green")
 
-        self.read_buffer = Queue()
+        self.read_buffer = Queue(self.buffer_limit)
         self.processed_frames = Queue()
         
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -197,46 +195,35 @@ class videoProcessor:
             self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_sens, self.ffmpeg_path, self.resize, self.width, self.height, self.resize_method)
 
         process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**8)
 
         self.reading_done = False
         frame_size = self.width * self.height * 3
         frame_count = 0
 
-
-        buffer_limit = 100 if self.availableRam < 8 else 150 if self.availableRam < 16 else 250
+        while True:
+            chunk = process.stdout.read(frame_size)
+            if len(chunk) < frame_size:
+                logging.info(
+                    f"Read {len(chunk)} bytes but expected {frame_size}")
+                process.stdout.close()
+                process.terminate()
+                self.reading_done = True
+                self.read_buffer.put(None)
+                logging.info(
+                    f"Built buffer with {frame_count} frames")
+                
+                if self.interpolate:
+                    frame_count *= self.interpolate_factor
+                    
+                self.pbar.total = frame_count
+                break
             
-        try:
-            for chunk in iter(lambda: process.stdout.read(frame_size), b''):
-                if len(chunk) != frame_size:
-                    logging.error(
-                        f"Read {len(chunk)} bytes but expected {frame_size}")
-                    continue
-                frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
-                    (self.height, self.width, 3))
-
-                if self.read_buffer.qsize() > buffer_limit:
-                    while self.processed_frames.qsize() > buffer_limit:
-                        time.sleep(1)
-
-                self.read_buffer.put(frame)
-                frame_count += 1
-
-        except Exception as e:
-            logging.exception(
-                f"Something went wrong while reading the frames, {e}")
-        finally:
-            logging.info(
-                f"Built buffer with {frame_count} frames")
-            if self.interpolate:
-                frame_count = frame_count * self.interpolate_factor
-
-            process.stdout.close()
-            process.terminate()
-            self.pbar.total = frame_count
-            self.pbar.refresh()
-            self.reading_done = True
-            self.read_buffer.put(None)
+            frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
+                (self.height, self.width, 3))
+            self.read_buffer.put(frame)
+            
+            frame_count += 1
 
     def process_frame(self, frame):
         try:
@@ -457,7 +444,7 @@ if __name__ == "__main__":
         from src.get_ffmpeg import get_ffmpeg
         args.ffmpeg_path = get_ffmpeg()
 
-    args.availableRam = checkSystem()
+    checkSystem()
 
     if args.input is not None:
         videoProcessor(args)

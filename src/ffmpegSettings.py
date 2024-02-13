@@ -95,6 +95,7 @@ def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, ded
     command = [
         ffmpeg_path,
     ]
+    
     if outpoint != 0:
         command.extend(
             ["-ss", str(inpoint), "-to", str(outpoint)])
@@ -121,9 +122,7 @@ def decodeSettings(input: str, inpoint: float, outpoint: float, dedup: bool, ded
     command.extend([
         "-f", "rawvideo",
         "-pix_fmt", "rgb24",
-        "-v", "quiet",
-        "-stats",
-        "-",
+        "pipe:1",
     ])
 
     logging.info(f"Decoding options: {' '.join(map(str, command))}")

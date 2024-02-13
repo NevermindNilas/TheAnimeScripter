@@ -20,7 +20,7 @@ os.environ['TORCH_HOME'] = os.path.dirname(os.path.realpath(__file__))
 
 
 class Depth():
-    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, half, inpoint=0, outpoint=0, encode_method="x264", depth_method="small", custom_encoder="", availableRam=0, nt=1):
+    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, half, inpoint=0, outpoint=0, encode_method="x264", depth_method="small", custom_encoder="", nt=1):
         self.input = input
         self.output = output
         self.ffmpeg_path = ffmpeg_path
@@ -34,7 +34,6 @@ class Depth():
         self.encode_method = encode_method
         self.depth_method = depth_method
         self.custom_encoder = custom_encoder
-        self.availableRam = availableRam
         self.nt = nt
 
         self.handle_models()
@@ -42,7 +41,7 @@ class Depth():
         self.pbar = tqdm(
             total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
 
-        self.read_buffer = Queue()
+        self.read_buffer = Queue(maxsize=100)
         self.processed_frames = Queue()
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -127,42 +126,35 @@ class Depth():
             self.input, self.inpoint, self.outpoint, False, 0, self.ffmpeg_path, False, 0, 0, None)
 
         process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**8)
 
         self.reading_done = False
         frame_size = self.width * self.height * 3
         frame_count = 0
 
-        buffer_limit = 100 if self.availableRam < 8 else 150 if self.availableRam < 16 else 250
-        try:
-            for chunk in iter(lambda: process.stdout.read(frame_size), b''):
-                if len(chunk) != frame_size:
-                    logging.error(
-                        f"Read {len(chunk)} bytes but expected {frame_size}")
-                    continue
-                frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
-                    (self.height, self.width, 3))
-
-                if self.read_buffer.qsize() > buffer_limit:
-                    while self.processed_frames.qsize() > buffer_limit:
-                        time.sleep(1)
-
-                self.read_buffer.put(frame)
-                frame_count += 1
-
-        except Exception as e:
-            logging.exception(
-                f"Something went wrong while reading the frames, {e}")
-        finally:
-            logging.info(
-                f"Built buffer with {frame_count} frames")
-
-            process.stdout.close()
-            process.terminate()
-            self.pbar.total = frame_count
-            self.pbar.refresh()
-            self.reading_done = True
-            self.read_buffer.put(None)
+        while True:
+            chunk = process.stdout.read(frame_size)
+            if len(chunk) < frame_size:
+                logging.info(
+                    f"Read {len(chunk)} bytes but expected {frame_size}")
+                process.stdout.close()
+                process.terminate()
+                self.reading_done = True
+                self.read_buffer.put(None)
+                logging.info(
+                    f"Built buffer with {frame_count} frames")
+                
+                if self.interpolate:
+                    frame_count *= self.interpolate_factor
+                    
+                self.pbar.total = frame_count
+                break
+            
+            frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
+                (self.height, self.width, 3))
+            self.read_buffer.put(frame)
+            
+            frame_count += 1
 
     def process_frame(self, frame):
         try:
