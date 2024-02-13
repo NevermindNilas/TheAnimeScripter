@@ -21,5 +21,3 @@ def checkSystem():
         
     except Exception as e:
         logging.error(f"An error occurred while checking the system: {e}")
-        
-    return system_ram, available_ram
