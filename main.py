@@ -34,17 +34,18 @@ from concurrent.futures import ThreadPoolExecutor
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import intitialize_models
+from src.ffmpegSettings import BuildBuffer
 
 if getattr(sys, 'frozen', False):
     main_path = os.path.dirname(sys.executable)
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.1.8"
+scriptVersion = "1.1.9"
 warnings.filterwarnings("ignore")
 
 
-class videoProcessor:
+class VideoProcessor:
     def __init__(self, args):
         self.input = args.input
         self.output = args.output
@@ -180,50 +181,14 @@ class videoProcessor:
         self.pbar = tqdm(total=self.nframes, desc="Processing Frames",
                          unit="frames", colour="green")
 
-        self.read_buffer = Queue(self.buffer_limit)
         self.processed_frames = Queue()
+        self.bufferBuilder = BuildBuffer(self.input, self.ffmpeg_path, self.inpoint, self.outpoint,
+                                     self.dedup, self.dedup_sens, self.width, self.height, self.resize, self.resize_method, self.buffer_limit)
         
         with ThreadPoolExecutor(max_workers=3) as executor:
-            executor.submit(self.build_buffer)
+            executor.submit(self.bufferBuilder.start(verbose=True))
             executor.submit(self.process)
             executor.submit(self.write_buffer)
-
-    def build_buffer(self):
-        from src.ffmpegSettings import decodeSettings
-
-        command: list = decodeSettings(
-            self.input, self.inpoint, self.outpoint, self.dedup, self.dedup_sens, self.ffmpeg_path, self.resize, self.width, self.height, self.resize_method)
-
-        process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**8)
-
-        self.reading_done = False
-        frame_size = self.width * self.height * 3
-        frame_count = 0
-
-        while True:
-            chunk = process.stdout.read(frame_size)
-            if len(chunk) < frame_size:
-                logging.info(
-                    f"Read {len(chunk)} bytes but expected {frame_size}")
-                process.stdout.close()
-                process.terminate()
-                self.reading_done = True
-                self.read_buffer.put(None)
-                logging.info(
-                    f"Built buffer with {frame_count} frames")
-                
-                if self.interpolate:
-                    frame_count *= self.interpolate_factor
-                    
-                self.pbar.total = frame_count
-                break
-            
-            frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
-                (self.height, self.width, 3))
-            self.read_buffer.put(frame)
-            
-            frame_count += 1
 
     def process_frame(self, frame):
         try:
@@ -256,9 +221,9 @@ class videoProcessor:
         self.prev_frame = None
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
-                frame = self.read_buffer.get()
+                frame = self.bufferBuilder.read()
                 if frame is None:
-                    if self.reading_done == True:
+                    if self.bufferBuilder.isReadingDone():
                         self.processing_done = True
                         break
                 
@@ -282,12 +247,13 @@ class videoProcessor:
         pipe = subprocess.Popen(
             command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
+        updatedOnce = False
         frame_count = 0
         try:
             while True:
                 frame = self.processed_frames.get()
                 if frame is None:
-                    if self.processing_done == True and self.processed_frames.empty() and self.reading_done == True:
+                    if self.processing_done == True and self.processed_frames.empty():
                         break
                     else:
                         continue
@@ -296,6 +262,14 @@ class videoProcessor:
                 frame = np.ascontiguousarray(frame)
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update()
+                
+                if self.bufferBuilder.isReadingDone() == True and updatedOnce == False:
+                    updatedOnce = True
+                    if self.interpolate:
+                        self.pbar.total = self.bufferBuilder.getDecodedFrames() * self.interpolate_factor
+                    else:
+                        self.pbar.total = self.bufferBuilder.getDecodedFrames()
+                    
 
         except Exception as e:
             logging.exception(
@@ -420,11 +394,6 @@ if __name__ == "__main__":
                 f"Interpolation is enabled, setting nt to 1")
             args.nt = 1
 
-    if args.dedup:
-        from src.ffmpegSettings import get_dedup_strength
-        # Dedup Sens will be overwritten with the mpdecimate params in order to minimize on the amount of variables used throughout the script
-        args.dedup_sens = get_dedup_strength(args.dedup_sens)
-        logging.info(f"Setting dedup params to {args.dedup_sens}")
 
     if args.output is None:
         from src.generateOutput import outputNameGenerator
@@ -447,7 +416,7 @@ if __name__ == "__main__":
     checkSystem()
 
     if args.input is not None:
-        videoProcessor(args)
+        VideoProcessor(args)
     else:
         print("No input was specified, exiting")
         logging.info("No input was specified, exiting")
