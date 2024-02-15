@@ -13,7 +13,8 @@ rife-v4.14
 Barebones until I figure out how this exactly works
 """
 
-class rifeNCNN():
+
+class rifeNCNN:
     def __init__(self, UHD, interpolate_method, ensemble=False):
         self.UHD = UHD
         self.interpolate_method = interpolate_method
@@ -27,12 +28,19 @@ class rifeNCNN():
                 self.interpolate_method = "rife-v4.13-lite"
             case "rife4.6-ncnn":
                 self.interpolate_method = "rife-v4.6"
-                
+
         if ensemble:
             self.interpolate_method += "-ensemble"
 
-        self.rife = Rife(gpuid=0, model=self.interpolate_method, scale=2,
-                         tta_mode=False, tta_temporal_mode=False, uhd_mode=self.UHD, num_threads=1)
+        self.rife = Rife(
+            gpuid=0,
+            model=self.interpolate_method,
+            scale=2,
+            tta_mode=False,
+            tta_temporal_mode=False,
+            uhd_mode=self.UHD,
+            num_threads=1,
+        )
 
     def make_inference(self, timestep):
         output = self.rife.process(self.frame1, self.frame2, timestep=timestep)

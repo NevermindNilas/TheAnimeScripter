@@ -94,4 +94,8 @@ The video processing script is a powerful tool for enhancing and manipulating vi
 
    Note: Parameters specified with `--custom_encoder` will override the default encoding parameters. Ensure familiarity with `ffmpeg` and its parameters before using this option.
 
+#### Performance Settings:
+- `--nt` (int, default=1): Allocate the number of threads for the script to use. Relatively dodgy, use with caution.
+- `--buffer_limit` (int, default=50): Set the limit for how many frames can be in the decoding and encoding buffers at any given time. This can be used to reduce memory usage at the cost of potential performance loss due to overhead. A value that is too high can lead to Out of Memory errors. Don't set this too high unless you have a lot of RAM to spare.
+  
 #####################################################

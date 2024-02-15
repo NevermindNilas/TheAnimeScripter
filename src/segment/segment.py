@@ -5,15 +5,29 @@ import os
 import cv2
 import torch
 import wget
-import time
 
 from concurrent.futures import ThreadPoolExecutor
 from .train import AnimeSegmentation
 from tqdm import tqdm
 from queue import Queue
 
-class Segment():
-    def __init__(self, input, output, ffmpeg_path, width, height, fps, nframes, inpoint=0, outpoint=0, encode_method="x264", custom_encoder="", nt=1):
+
+class Segment:
+    def __init__(
+        self,
+        input,
+        output,
+        ffmpeg_path,
+        width,
+        height,
+        fps,
+        nframes,
+        inpoint=0,
+        outpoint=0,
+        encode_method="x264",
+        custom_encoder="",
+        nt=1,
+    ):
         self.input = input
         self.output = output
         self.ffmpeg_path = ffmpeg_path
@@ -28,9 +42,14 @@ class Segment():
         self.nt = nt
 
         self.handle_model()
-        
+
         self.pbar = tqdm(
-            total=self.nframes, desc="Processing Frames", unit="frames", dynamic_ncols=True, colour="green")
+            total=self.nframes,
+            desc="Processing Frames",
+            unit="frames",
+            dynamic_ncols=True,
+            colour="green",
+        )
 
         self.read_buffer = Queue(maxsize=100)
         self.processed_frames = Queue()
@@ -39,7 +58,6 @@ class Segment():
             executor.submit(self.build_buffer)
             executor.submit(self.process)
             executor.submit(self.write_buffer)
-        
 
     def handle_model(self):
         filename = "isnetis.ckpt"
@@ -53,8 +71,7 @@ class Segment():
 
         if not os.path.exists(os.path.join(dir_path, "weights", filename)):
             print("Downloading segmentation model...")
-            logging.info(
-                "Couldn't find the segmentation model, downloading it now...")
+            logging.info("Couldn't find the segmentation model, downloading it now...")
             wget.download(url, out=os.path.join(dir_path, "weights", filename))
 
         model_path = os.path.join(dir_path, "weights", filename)
@@ -65,10 +82,11 @@ class Segment():
             self.device = "cpu"
 
         self.model = AnimeSegmentation.try_load(
-            "isnet_is", model_path, self.device, img_size=1024)
+            "isnet_is", model_path, self.device, img_size=1024
+        )
         self.model.eval()
         self.model.to(self.device)
-        
+
     """
     def get_character_bounding_box(self, image) -> tuple:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -96,17 +114,17 @@ class Segment():
         h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
         ph, pw = s - h, s - w
         img_input = np.zeros([s, s, 3], dtype=np.float32)
-        img_input[ph // 2:ph // 2 + h, pw // 2:pw //
-                  2 + w] = cv2.resize(input_img, (w, h))
+        img_input[ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w] = cv2.resize(
+            input_img, (w, h)
+        )
         img_input = np.transpose(img_input, (2, 0, 1))
         img_input = img_input[np.newaxis, :]
-        tmpImg = torch.from_numpy(img_input).type(
-            torch.FloatTensor).to(self.device)
+        tmpImg = torch.from_numpy(img_input).type(torch.FloatTensor).to(self.device)
         with torch.no_grad():
             pred = self.model(tmpImg)
             pred = pred.cpu().numpy()[0]
             pred = np.transpose(pred, (1, 2, 0))
-            pred = pred[ph // 2:ph // 2 + h, pw // 2:pw // 2 + w]
+            pred = pred[ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w]
             pred = cv2.resize(pred, (w0, h0))[:, :, np.newaxis]
             return pred
 
@@ -114,10 +132,21 @@ class Segment():
         from src.ffmpegSettings import decodeSettings
 
         command: list = decodeSettings(
-            self.input, self.inpoint, self.outpoint, False, 0, self.ffmpeg_path, False, 0, 0, "")
+            self.input,
+            self.inpoint,
+            self.outpoint,
+            False,
+            0,
+            self.ffmpeg_path,
+            False,
+            0,
+            0,
+            "",
+        )
 
         process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**8)
+            command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**8
+        )
 
         self.reading_done = False
         frame_size = self.width * self.height * 3
@@ -126,42 +155,38 @@ class Segment():
         while True:
             chunk = process.stdout.read(frame_size)
             if len(chunk) < frame_size:
-                logging.info(
-                    f"Read {len(chunk)} bytes but expected {frame_size}")
+                logging.info(f"Read {len(chunk)} bytes but expected {frame_size}")
                 process.stdout.close()
                 process.terminate()
                 self.reading_done = True
                 self.read_buffer.put(None)
-                logging.info(
-                    f"Built buffer with {frame_count} frames")
-                
+                logging.info(f"Built buffer with {frame_count} frames")
+
                 if self.interpolate:
                     frame_count *= self.interpolate_factor
-                    
+
                 self.pbar.total = frame_count
                 break
-            
+
             frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
-                (self.height, self.width, 3))
+                (self.height, self.width, 3)
+            )
             self.read_buffer.put(frame)
-            
+
             frame_count += 1
 
     def process_frame(self, frame):
         try:
             mask = self.get_mask(frame)
-            frame = (frame * mask + self.green_img *
-                     (1 - mask)).astype(np.uint8)
+            frame = (frame * mask + self.green_img * (1 - mask)).astype(np.uint8)
             mask = (mask * 255).astype(np.uint8)
             mask = np.squeeze(mask, axis=2)
-            frame_with_mask = np.concatenate(
-                (frame, mask[..., np.newaxis]), axis=2)
-            
+            frame_with_mask = np.concatenate((frame, mask[..., np.newaxis]), axis=2)
+
             self.processed_frames.put(frame_with_mask)
         except Exception as e:
-            logging.exception(
-                f"An error occurred while processing the frame, {e}")
-            
+            logging.exception(f"An error occurred while processing the frame, {e}")
+
     def process(self):
         self.green_img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
         self.green_img[..., 1] = 255  # 255 for greenscreen
@@ -171,57 +196,63 @@ class Segment():
             while True:
                 frame = self.read_buffer.get()
                 if frame is None:
-                    if self.reading_done == True and self.read_buffer.empty():
+                    if self.reading_done and self.read_buffer.empty():
                         self.processing_done = True
                         break
                     else:
                         continue
-                
+
                 executor.submit(self.process_frame, frame)
                 frame_count += 1
 
         self.processed_frames.put(None)
 
     def write_buffer(self):
-
         from src.ffmpegSettings import encodeSettings
-        command: list = encodeSettings(self.encode_method, self.width, self.height,
-                                       self.fps, self.output, self.ffmpeg_path, sharpen=False, sharpen_sens=0, custom_encoder=self.custom_encoder, grayscale=False)
 
-        pipe = subprocess.Popen(
-            command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        command: list = encodeSettings(
+            self.encode_method,
+            self.width,
+            self.height,
+            self.fps,
+            self.output,
+            self.ffmpeg_path,
+            sharpen=False,
+            sharpen_sens=0,
+            custom_encoder=self.custom_encoder,
+            grayscale=False,
+        )
+
+        pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
         frame_count = 0
         try:
             while True:
                 frame = self.processed_frames.get()
                 if frame is None:
-                    if self.processing_done == True and self.processed_frames.empty():
+                    if self.processing_done and self.processed_frames.empty():
                         break
                     else:
                         continue
-                    
+
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
                 frame_count += 1
                 pipe.stdin.write(frame.tobytes())
                 self.pbar.update()
 
         except Exception as e:
-            logging.exception(
-                f"Something went wrong while writing the frames, {e}")
+            logging.exception(f"Something went wrong while writing the frames, {e}")
 
         finally:
-            logging.info(
-                f"Wrote {frame_count} frames")
+            logging.info(f"Wrote {frame_count} frames")
 
             pipe.stdin.close()
             self.pbar.close()
 
             stderr_output = pipe.stderr.read().decode()
-            
-            logging.info(
-                "============== FFMPEG Output Log ============\n")
-            
+
+            logging.info("============== FFMPEG Output Log ============\n")
+
             if stderr_output:
                 logging.info(stderr_output)
 

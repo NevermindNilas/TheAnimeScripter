@@ -30,7 +30,7 @@ def get_net(net_name, img_size):
         return InSPyReNet_Res2Net50(base_size=img_size)
     elif net_name == "inspyrnet_swin":
         return InSPyReNet_SwinB(base_size=img_size)
-    raise NotImplemented
+    raise NotImplementedError
 
 class AnimeSegmentation(pl.LightningModule):
 
