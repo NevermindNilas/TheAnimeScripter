@@ -6,7 +6,18 @@ import os
 from queue import Queue
 
 
-def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: float, output: str, ffmpegPath: str, sharpen: bool, sharpen_sens: float, custom_encoder, grayscale: bool = False):
+def encodeSettings(
+    encode_method: str,
+    new_width: int,
+    new_height: int,
+    fps: float,
+    output: str,
+    ffmpegPath: str,
+    sharpen: bool,
+    sharpen_sens: float,
+    custom_encoder,
+    grayscale: bool = False,
+):
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
     new_width: int - The width of the output video in pixels.
@@ -19,74 +30,82 @@ def encodeSettings(encode_method: str, new_width: int, new_height: int, fps: flo
     grayscale: bool - Whether to encode the video in grayscale.
     """
     if grayscale:
-        pix_fmt = 'gray'
+        pix_fmt = "gray"
         output_pix_fmt = "yuv420p16le"
         if encode_method not in ["x264", "x264_animation", "x265", "av1"]:
             logging.info(
-                "The selected encoder does not support yuv420p16le, switching to yuv420p10le.")
-            output_pix_fmt = 'yuv420p10le'
+                "The selected encoder does not support yuv420p16le, switching to yuv420p10le."
+            )
+            output_pix_fmt = "yuv420p10le"
 
     else:
-        pix_fmt = 'rgb24'
-        output_pix_fmt = 'yuv420p'
+        pix_fmt = "rgb24"
+        output_pix_fmt = "yuv420p"
 
-    command = [ffmpegPath,
-               '-hide_banner',
-               '-y',
-               '-f', 'rawvideo',
-               '-vcodec', 'rawvideo',
-               '-s', f'{new_width}x{new_height}',
-               '-pix_fmt', f'{pix_fmt}',
-               '-r', str(fps),
-               '-i', '-',
-               '-an',
-               "-fps_mode", 'vfr'
-               ]
+    command = [
+        ffmpegPath,
+        "-hide_banner",
+        "-y",
+        "-f",
+        "rawvideo",
+        "-vcodec",
+        "rawvideo",
+        "-s",
+        f"{new_width}x{new_height}",
+        "-pix_fmt",
+        f"{pix_fmt}",
+        "-r",
+        str(fps),
+        "-i",
+        "-",
+        "-an",
+        "-fps_mode",
+        "vfr",
+    ]
 
     if custom_encoder == "":
         command.extend(match_encoder(encode_method))
 
         filters = []
         if sharpen:
-            filters.append('cas={}'.format(sharpen_sens))
+            filters.append("cas={}".format(sharpen_sens))
         if grayscale:
-            filters.append('format=gray')
+            filters.append("format=gray")
         if filters:
-            command.extend(['-vf', ','.join(filters)])
+            command.extend(["-vf", ",".join(filters)])
 
     else:
         custom_encoder_list = custom_encoder.split()
 
-        if '-vf' in custom_encoder_list:
-            vf_index = custom_encoder_list.index('-vf')
+        if "-vf" in custom_encoder_list:
+            vf_index = custom_encoder_list.index("-vf")
 
             if sharpen:
-                custom_encoder_list[vf_index +
-                                    1] += ',cas={}'.format(sharpen_sens)
+                custom_encoder_list[vf_index + 1] += ",cas={}".format(sharpen_sens)
 
             if grayscale:
-                custom_encoder_list[vf_index + 1] += ',format=gray'
+                custom_encoder_list[vf_index + 1] += ",format=gray"
         else:
             filters = []
             if sharpen:
-                filters.append('cas={}'.format(sharpen_sens))
+                filters.append("cas={}".format(sharpen_sens))
             if grayscale:
-                filters.append('format=gray')
+                filters.append("format=gray")
 
             if filters:
-                custom_encoder_list.extend(['-vf', ','.join(filters)])
+                custom_encoder_list.extend(["-vf", ",".join(filters)])
 
         command.extend(custom_encoder_list)
 
-    command.extend(['-pix_fmt', output_pix_fmt, output])
+    command.extend(["-pix_fmt", output_pix_fmt, output])
 
     logging.info(f"Encoding options: {' '.join(map(str, command))}")
     return command
 
 
 def getDedupStrenght(dedupSens):
-    hi = interpolate(dedupSens, 0, 100, 64*2, 64*150)
-    lo = interpolate(dedupSens, 0, 100, 64*2, 64*30)
+    hi = interpolate(dedupSens, 0, 100, 64 * 2, 64 * 150)
+    lo = interpolate(dedupSens, 0, 100, 64 * 2, 64 * 30)
     frac = interpolate(dedupSens, 0, 100, 0.1, 0.3)
     return f"hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB"
 
@@ -99,7 +118,7 @@ def encodeYTDLP(input, output, ffmpegPath, encode_method, custom_encoder):
     # This is for non rawvideo bytestreams, it's simpler to keep track this way
     # And have everything FFMPEG related organized in one file
 
-    command = [ffmpegPath, '-i', input]
+    command = [ffmpegPath, "-i", input]
 
     if custom_encoder == "":
         command.extend(match_encoder(encode_method))
@@ -121,46 +140,56 @@ def match_encoder(encode_method: str):
     # Settings inspiration from: https://www.xaymar.com/guides/obs/high-quality-recording/
     match encode_method:
         case "x264":
-            command.extend(['-c:v', 'libx264', '-preset',
-                           'veryfast', '-crf', '14'])
+            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "14"])
         case "x264_animation":
-            command.extend(['-c:v', 'libx264', '-preset',
-                           'veryfast', '-tune', 'animation', '-crf', '14'])
+            command.extend(
+                [
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "veryfast",
+                    "-tune",
+                    "animation",
+                    "-crf",
+                    "14",
+                ]
+            )
         case "x265":
-            command.extend(['-c:v', 'libx265', '-preset',
-                           'veryfast', '-crf', '14'])
+            command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "14"])
 
         # Experimental, not tested
         # case "x265_animation":
         #    command.extend(['-c:v', 'libx265', '-preset', 'veryfast', '-crf', '14', '-psy-rd', '1.0', '-psy-rdoq', '10.0'])
 
         case "nvenc_h264":
-            command.extend(
-                ['-c:v', 'h264_nvenc', '-preset', 'p1', '-cq', '14'])
+            command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "14"])
         case "nvenc_h265":
-            command.extend(
-                ['-c:v', 'hevc_nvenc', '-preset', 'p1', '-cq', '14'])
+            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "14"])
         case "qsv_h264":
-            command.extend(['-c:v', 'h264_qsv', '-preset',
-                           'veryfast', '-global_quality', '14'])
+            command.extend(
+                ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "14"]
+            )
         case "qsv_h265":
-            command.extend(['-c:v', 'hevc_qsv', '-preset',
-                           'veryfast', '-global_quality', '14'])
+            command.extend(
+                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "14"]
+            )
         case "nvenc_av1":
-            command.extend(['-c:v', 'av1_nvenc', '-preset', 'p1', '-cq', '14'])
+            command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "14"])
         case "av1":
-            command.extend(['-c:v', 'libsvtav1', "-preset", "8", '-crf', '14'])
+            command.extend(["-c:v", "libsvtav1", "-preset", "8", "-crf", "14"])
         case "h264_amf":
-            command.extend(['-c:v', 'h264_amf', '-quality',
-                           'speed', '-rc', 'cqp', '-qp', '14'])
+            command.extend(
+                ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp", "14"]
+            )
         case "hevc_amf":
-            command.extend(['-c:v', 'hevc_amf', '-quality',
-                           'speed', '-rc', 'cqp', '-qp', '14'])
+            command.extend(
+                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "14"]
+            )
 
     return command
 
 
-class BuildBuffer():
+class BuildBuffer:
     def __init__(
         self,
         input: str = "",
@@ -207,25 +236,28 @@ class BuildBuffer():
         self.buffSize = buffSize
         self.queueSize = queueSize
 
-    def getDedupStrenght(self,
-                         hi_min: float = 64*2,
-                         hi_max: float = 64*150,
-                         lo_min: float = 64*2,
-                         lo_max: float = 64*30,
-                         frac_min: float = 0.1,
-                         frac_max: float = 0.3) -> str:
+    def getDedupStrenght(
+        self,
+        hi_min: float = 64 * 2,
+        hi_max: float = 64 * 150,
+        lo_min: float = 64 * 2,
+        lo_max: float = 64 * 30,
+        frac_min: float = 0.1,
+        frac_max: float = 0.3,
+    ) -> str:
+        
         """
         Get FFMPEG dedup Params based on the dedupSens attribute.
         The min maxes are based on preset values that work well for most content.
 
         returns: str - hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB
         """
+        def interpolate(x, x1, x2, y1, y2):
+            return y1 + (x - x1) * (y2 - y1) / (x2 - x1)
+        
         hi = interpolate(self.dedupSens, 0, 100, hi_min, hi_max)
         lo = interpolate(self.dedupSens, 0, 100, lo_min, lo_max)
         frac = interpolate(self.dedupSens, 0, 100, frac_min, frac_max)
-
-        def interpolate(x, x1, x2, y1, y2):
-            return y1 + (x - x1) * (y2 - y1) / (x2 - x1)
 
         return f"hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB"
 
@@ -248,34 +280,41 @@ class BuildBuffer():
         ]
 
         if self.outpoint != 0:
-            command.extend(
-                ["-ss", str(self.inpoint), "-to", str(self.outpoint)])
+            command.extend(["-ss", str(self.inpoint), "-to", str(self.outpoint)])
 
-        command.extend([
-            "-i", self.input,
-        ])
+        command.extend(
+            [
+                "-i",
+                self.input,
+            ]
+        )
 
         filters = []
         if self.dedup:
-            filters.append(
-                f"mpdecimate={self.getDedupStrenght()}")
+            filters.append(f"mpdecimate={self.getDedupStrenght()}")
 
         if self.resize:
             if self.resizeMethod in ["spline16", "spline36", "point"]:
                 filters.append(
-                    f'zscale={self.width}:{self.height}:filter={self.resizeMethod}')
+                    f"zscale={self.width}:{self.height}:filter={self.resizeMethod}"
+                )
             else:
                 filters.append(
-                    f'scale={self.width}:{self.height}:flags={self.resizeMethod}')
+                    f"scale={self.width}:{self.height}:flags={self.resizeMethod}"
+                )
 
         if filters:
-            command.extend(["-vf", ','.join(filters)])
+            command.extend(["-vf", ",".join(filters)])
 
-        command.extend([
-            "-f", "rawvideo",
-            "-pix_fmt", "rgb24",
-            "pipe:1",
-        ])
+        command.extend(
+            [
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "pipe:1",
+            ]
+        )
 
         return command
 
@@ -287,7 +326,7 @@ class BuildBuffer():
         queue : queue.Queue, optional - The queue to put the frames into. If None, a new queue will be created.
         verbose : bool - Whether to log the progress of the decoding.
         """
-        self.readBuffer = queue if queue is not None else Queue()
+        self.readBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
         command = self.decodeSettings()
 
         if verbose:
@@ -295,7 +334,11 @@ class BuildBuffer():
 
         try:
             process = subprocess.Popen(
-                command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=self.buffSize)
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                bufsize=self.buffSize,
+            )
 
             self.readingDone = False
             frame_size = self.width * self.height * 3
@@ -306,23 +349,23 @@ class BuildBuffer():
                 if len(chunk) < frame_size:
                     if verbose:
                         logging.info(
-                            f"Read {len(chunk)} bytes but expected {frame_size}")
+                            f"Read {len(chunk)} bytes but expected {frame_size}"
+                        )
 
-                        logging.info(
-                            f"Built buffer with {self.decodedFrames} frames")
+                        logging.info(f"Built buffer with {self.decodedFrames} frames")
 
-                        
                     process.stdout.close()
                     process.terminate()
                     self.readingDone = True
                     self.readBuffer.put(None)
 
                     break
-
+                
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
-                    (self.height, self.width, 3))
+                    (self.height, self.width, 3)
+                )
+                
                 self.readBuffer.put(frame)
-
                 self.decodedFrames += 1
 
         except Exception as e:
@@ -331,8 +374,6 @@ class BuildBuffer():
             self.readingDone = True
             self.readBuffer.put(None)
 
-
-        
     def read(self):
         """
         Returns a numpy array in RGB format.
@@ -344,7 +385,7 @@ class BuildBuffer():
         Check if the reading is done, safelock for the queue environment.
         """
         return self.readingDone
-    
+
     def getDecodedFrames(self):
         """
         Get the amount of processed frames.

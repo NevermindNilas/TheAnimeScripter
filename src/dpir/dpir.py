@@ -1,8 +1,6 @@
-import wget
 import os
 import torch
 import torch.nn.functional as F
-import logging
 
 
 from models.network_unet import UNetRes
