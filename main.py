@@ -26,7 +26,6 @@ import sys
 import logging
 import numpy as np
 import subprocess
-from memory_profiler import profile
 
 from tqdm import tqdm
 from queue import Queue
