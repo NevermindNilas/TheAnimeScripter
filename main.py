@@ -24,24 +24,21 @@ import argparse
 import warnings
 import sys
 import logging
-import numpy as np
-import subprocess
 
 from tqdm import tqdm
-from queue import Queue
 from concurrent.futures import ThreadPoolExecutor
 
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import intitialize_models
-from src.ffmpegSettings import BuildBuffer
+from src.ffmpegSettings import BuildBuffer, WriteBuffer
 
 if getattr(sys, "frozen", False):
     main_path = os.path.dirname(sys.executable)
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.1.10"
+scriptVersion = "1.1.11"
 warnings.filterwarnings("ignore")
 
 
@@ -70,7 +67,6 @@ class VideoProcessor:
         self.depth = args.depth
         self.depth_method = args.depth_method
         self.encode_method = args.encode_method
-        self.motion_blur = args.motion_blur
         self.ffmpeg_path = args.ffmpeg_path
         self.ensemble = args.ensemble
         self.resize = args.resize
@@ -160,50 +156,24 @@ class VideoProcessor:
 
             return
 
-        if self.motion_blur:
-            from src.motionblur.motionblur import motionBlur
-
-            logging.info("Adding motion blur")
-
-            motionBlur(
-                self.input,
-                self.output,
-                self.ffmpeg_path,
-                self.width,
-                self.height,
-                self.fps,
-                self.nframes,
-                self.inpoint,
-                self.outpoint,
-                self.interpolate_method,
-                self.interpolate_factor,
-                self.half,
-                self.encode_method,
-                self.dedup,
-                self.dedup_sens,
-                self.custom_encoder,
-            )
-
-            return
-
-        # If the user only wanted dedup / dedup + sharpen, we can skip the rest of the code and just run the dedup function from within FFMPEG
-        if self.interpolate and self.upscale:
+        # If the user only wanted dedup / dedup + sharpen, we can skip the rest of the code and just run the dedup +/ resize function from within FFMPEG
+        if not self.interpolate and not self.upscale and not self.denoise:
             if self.dedup or self.resize:
                 filters = []
 
                 if self.sharpen:
                     filters.append(f"cas={self.sharpen_sens}")
-
+                    logging.info(f"Sharpening with CAS, sensitivity: {self.sharpen_sens}")
+                    
                 if self.resize:
                     filters.append(
                         f"scale={self.width}x{
                                    self.height}:flags={self.resize_method}"
                     )
-
+                    
                 if self.dedup:
                     filters.append(f"{self.dedup_sens}")
-
-                logging.info("Deduping video")
+                    logging.info(f"Deduping with FFMPEG, sensitivity: {self.dedup_sens}")
 
                 if self.outpoint != 0:
                     from src.dedup.dedup import trim_input_dedup
@@ -233,7 +203,7 @@ class VideoProcessor:
 
         self.start()
 
-    def process_frame(self, frame):
+    def processFrame(self, frame):
         try:
             if self.denoise:
                 frame = self.denoise_process.run(frame)
@@ -242,141 +212,109 @@ class VideoProcessor:
                 frame = self.upscale_process.run(frame)
 
             if self.interpolate:
-                if self.prev_frame is not None:
-                    self.interpolate_process.run(self.prev_frame, frame)
+                if self.prevFrame is not None:
+                    self.interpolate_process.run(self.prevFrame, frame)
                     for i in range(self.interpolate_factor - 1):
                         result = self.interpolate_process.make_inference(
                             (i + 1) * 1.0 / (self.interpolate_factor + 1)
                         )
-                        self.processed_frames.put(result)
-                    self.prev_frame = frame
-                else:
-                    self.prev_frame = frame
+                        self.writeBuffer.write(result)
+                        self.pbar.update(1)
 
-            self.processed_frames.put(frame)
-            
+                    self.prevFrame = frame
+                else:
+                    self.prevFrame = frame
+
+            self.writeBuffer.write(frame)
+            self.pbar.update(1)
+
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
-            
+
     def process(self):
-        self.processing_done = False
-        frame_count = 0
-        self.prev_frame = None
+        frameCount = 0
+        updatedOnce = False
+        self.prevFrame = None
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
-                if self.processed_frames.qsize() < self.processed_frames.maxsize:
-                    frame = self.bufferBuilder.read()
+                if self.readBuffer.getSizeOfQueue() < self.buffer_limit:
+                    frame = self.readBuffer.read()
                     if frame is None:
-                        if self.bufferBuilder.isReadingDone():
-                            self.processing_done = True
+                        if (
+                            self.readBuffer.isReadingDone()
+                            and self.readBuffer.getSizeOfQueue() == 0
+                        ):
                             break
-                        
-                executor.submit(self.process_frame, frame)
-                frame_count += 1
 
-        if self.prev_frame is not None:
-            self.processed_frames.put(self.prev_frame)
+                    executor.submit(self.processFrame, frame)
+                    frameCount += 1
 
-        logging.info(f"Processed {frame_count} frames")
+                print(
+                    f"size of read:{self.readBuffer.getSizeOfQueue()} size of write:{self.writeBuffer.getSizeOfQueue()}"
+                )
 
-        self.processed_frames.put(None)
-
-    def write_buffer(self):
-        from src.ffmpegSettings import encodeSettings
-
-        command: list = encodeSettings(
-            self.encode_method,
-            self.new_width,
-            self.new_height,
-            self.fps,
-            self.output,
-            self.ffmpeg_path,
-            self.sharpen,
-            self.sharpen_sens,
-            self.custom_encoder,
-            grayscale=False,
-        )
-
-        pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-
-        updatedOnce = False
-        frame_count = 0
-
-        try:
-            while True:
-                frame = self.processed_frames.get()
-                if frame is None:
-                    if self.processing_done and self.processed_frames.empty():
-                        break
-                    else:
-                        continue
-
-                frame_count += 1
-                frame = np.ascontiguousarray(frame)
-                pipe.stdin.write(frame.tobytes())
-                self.pbar.update()
-
-                if self.bufferBuilder.isReadingDone() and not updatedOnce:
+                if self.readBuffer.isReadingDone() and not updatedOnce:
+                    self.pbar.total = self.readBuffer.getDecodedFrames()
                     updatedOnce = True
-                    if self.interpolate:
-                        self.pbar.total = (
-                            self.bufferBuilder.getDecodedFrames()
-                            * self.interpolate_factor
-                        )
-                    else:
-                        self.pbar.total = self.bufferBuilder.getDecodedFrames()
 
-        except Exception as e:
-            logging.exception(f"Something went wrong while writing the frames, {e}")
+        if self.prevFrame is not None:
+            self.writeBuffer.write(self.prevFrame)
 
-        finally:
-            self.pbar.close()
-            logging.info(f"Wrote {frame_count} frames")
+        logging.info(f"Processed {frameCount} frames")
 
-            pipe.stdin.close()
-
-            stderr_output = pipe.stderr.read().decode()
-
-            logging.info("\n============== FFMPEG Output Log ============")
-
-            if stderr_output:
-                logging.info(stderr_output)
-
-            pipe.terminate()
+        self.writeBuffer.close()
 
     def start(self):
-        (
-            self.new_width,
-            self.new_height,
-            self.upscale_process,
-            self.interpolate_process,
-            self.denoise_process,
-        ) = intitialize_models(self)
-        
         self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
         self.pbar = tqdm(
             total=self.nframes, desc="Processing Frames", unit="frames", colour="green"
         )
 
-        self.processed_frames = Queue(self.buffer_limit)
-        self.bufferBuilder = BuildBuffer(
-            self.input,
-            self.ffmpeg_path,
-            self.inpoint,
-            self.outpoint,
-            self.dedup,
-            self.dedup_sens,
-            self.width,
-            self.height,
-            self.resize,
-            self.resize_method,
-            self.buffer_limit,
-        )
-        
+        try:
+            (
+                self.new_width,
+                self.new_height,
+                self.upscale_process,
+                self.interpolate_process,
+                self.denoise_process,
+            ) = intitialize_models(self)
+
+            self.readBuffer = BuildBuffer(
+                self.input,
+                self.ffmpeg_path,
+                self.inpoint,
+                self.outpoint,
+                self.dedup,
+                self.dedup_sens,
+                self.width,
+                self.height,
+                self.resize,
+                self.resize_method,
+                self.buffer_limit,
+            )
+
+            self.writeBuffer = WriteBuffer(
+                self.output,
+                self.ffmpeg_path,
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
+                self.fps,
+                self.buffer_limit,
+                self.sharpen,
+                self.sharpen_sens,
+                grayscale=False,
+            )
+
+        except Exception as e:
+            logging.exception(f"Something went wrong, {e}")
+
         with ThreadPoolExecutor(max_workers=3) as executor:
-            executor.submit(self.bufferBuilder.start, verbose=True)
+            executor.submit(self.readBuffer.start, verbose=True)
             executor.submit(self.process)
-            executor.submit(self.write_buffer)
+            executor.submit(self.writeBuffer.start, verbose=True)
+
 
 if __name__ == "__main__":
     log_file_path = os.path.join(main_path, "log.txt")
@@ -385,9 +323,10 @@ if __name__ == "__main__":
     )
 
     command_line_args = sys.argv
+    logging.info("============== Command Line Arguments ==============")
     command_line_string = " ".join(command_line_args)
 
-    logging.info(f"Command Line argument: {command_line_string}\n")
+    logging.info(f"{command_line_string}\n")
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--version", action="store_true")
@@ -475,7 +414,6 @@ if __name__ == "__main__":
         ],
         default="x264",
     )
-    argparser.add_argument("--motion_blur", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--ytdlp", type=str, default="")
     argparser.add_argument("--ytdlp_quality", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--resize", type=int, choices=[0, 1], default=0)
@@ -519,6 +457,7 @@ if __name__ == "__main__":
         args.version = scriptVersion
 
     # Whilst this is ugly, it was easier to work with the Extendscript interface this way
+    # This is a temporary solution until I can find a better way to handle the arguments
     args.ytdlp_quality = True if args.ytdlp_quality == 1 else False
     args.interpolate = True if args.interpolate == 1 else False
     args.scenechange = True if args.scenechange == 1 else False
@@ -542,16 +481,12 @@ if __name__ == "__main__":
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
 
     logging.info("\n============== Arguments Checker ==============")
-    if args.interpolate:
-        if args.nt >= 2:
-            logging.info("Interpolation is enabled, setting nt to 1")
-
-            args.nt = 1
-
     if args.output is None:
         from src.generateOutput import outputNameGenerator
 
         args.output = outputNameGenerator(args, main_path)
+
+        logging.info(f"Output was not specified, using {args.output}")
 
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
