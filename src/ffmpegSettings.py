@@ -6,114 +6,6 @@ import os
 from queue import Queue
 
 
-def encodeSettings(
-    encode_method: str,
-    new_width: int,
-    new_height: int,
-    fps: float,
-    output: str,
-    ffmpegPath: str,
-    sharpen: bool,
-    sharpen_sens: float,
-    custom_encoder,
-    grayscale: bool = False,
-):
-    """
-    encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
-    new_width: int - The width of the output video in pixels.
-    new_height: int - The height of the output video in pixels.
-    fps: float - The frames per second of the output video.
-    output: str - The path to the output file.
-    ffmpegPath: str - The path to the FFmpeg executable.
-    sharpen: bool - Whether to apply a sharpening filter to the video.
-    sharpen_sens: float - The sensitivity of the sharpening filter.
-    grayscale: bool - Whether to encode the video in grayscale.
-    """
-    if grayscale:
-        pix_fmt = "gray"
-        output_pix_fmt = "yuv420p16le"
-        if encode_method not in ["x264", "x264_animation", "x265", "av1"]:
-            logging.info(
-                "The selected encoder does not support yuv420p16le, switching to yuv420p10le."
-            )
-            output_pix_fmt = "yuv420p10le"
-
-    else:
-        pix_fmt = "rgb24"
-        output_pix_fmt = "yuv420p"
-
-    command = [
-        ffmpegPath,
-        "-hide_banner",
-        "-y",
-        "-f",
-        "rawvideo",
-        "-vcodec",
-        "rawvideo",
-        "-s",
-        f"{new_width}x{new_height}",
-        "-pix_fmt",
-        f"{pix_fmt}",
-        "-r",
-        str(fps),
-        "-i",
-        "-",
-        "-an",
-        "-fps_mode",
-        "vfr",
-    ]
-
-    if custom_encoder == "":
-        command.extend(match_encoder(encode_method))
-
-        filters = []
-        if sharpen:
-            filters.append("cas={}".format(sharpen_sens))
-        if grayscale:
-            filters.append("format=gray")
-        if filters:
-            command.extend(["-vf", ",".join(filters)])
-
-    else:
-        custom_encoder_list = custom_encoder.split()
-
-        if "-vf" in custom_encoder_list:
-            vf_index = custom_encoder_list.index("-vf")
-
-            if sharpen:
-                custom_encoder_list[vf_index + 1] += ",cas={}".format(sharpen_sens)
-
-            if grayscale:
-                custom_encoder_list[vf_index + 1] += ",format=gray"
-        else:
-            filters = []
-            if sharpen:
-                filters.append("cas={}".format(sharpen_sens))
-            if grayscale:
-                filters.append("format=gray")
-
-            if filters:
-                custom_encoder_list.extend(["-vf", ",".join(filters)])
-
-        command.extend(custom_encoder_list)
-
-    command.extend(["-pix_fmt", output_pix_fmt, output])
-
-    logging.info(f"Encoding options: {' '.join(map(str, command))}")
-    return command
-
-
-def getDedupStrenght(dedupSens):
-    hi = interpolate(dedupSens, 0, 100, 64 * 2, 64 * 150)
-    lo = interpolate(dedupSens, 0, 100, 64 * 2, 64 * 30)
-    frac = interpolate(dedupSens, 0, 100, 0.1, 0.3)
-    return f"hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB"
-
-
-def interpolate(x, x1, x2, y1, y2):
-    return y1 + (x - x1) * (y2 - y1) / (x2 - x1)
-
-
 def encodeYTDLP(input, output, ffmpegPath, encode_method, custom_encoder):
     # This is for non rawvideo bytestreams, it's simpler to keep track this way
     # And have everything FFMPEG related organized in one file
@@ -207,7 +99,6 @@ class BuildBuffer:
     ):
         """
         A class meant to Pipe the Output of FFMPEG into a Queue for further processing.
-        Still has slight OOM issues, but it's a good start.
 
         input: str - The path to the input video file.
         ffmpegPath: str - The path to the FFmpeg executable.
@@ -245,16 +136,16 @@ class BuildBuffer:
         frac_min: float = 0.1,
         frac_max: float = 0.3,
     ) -> str:
-        
         """
         Get FFMPEG dedup Params based on the dedupSens attribute.
         The min maxes are based on preset values that work well for most content.
 
         returns: str - hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB
         """
+
         def interpolate(x, x1, x2, y1, y2):
             return y1 + (x - x1) * (y2 - y1) / (x2 - x1)
-        
+
         hi = interpolate(self.dedupSens, 0, 100, hi_min, hi_max)
         lo = interpolate(self.dedupSens, 0, 100, lo_min, lo_max)
         frac = interpolate(self.dedupSens, 0, 100, frac_min, frac_max)
@@ -329,9 +220,6 @@ class BuildBuffer:
         self.readBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
         command = self.decodeSettings()
 
-        if verbose:
-            logging.info(f"Decoding options: {' '.join(map(str, command))}")
-
         try:
             process = subprocess.Popen(
                 command,
@@ -360,11 +248,11 @@ class BuildBuffer:
                     self.readBuffer.put(None)
 
                     break
-                
+
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3)
                 )
-                
+
                 self.readBuffer.put(frame)
                 self.decodedFrames += 1
 
@@ -391,3 +279,192 @@ class BuildBuffer:
         Get the amount of processed frames.
         """
         return self.decodedFrames
+
+    def getSizeOfQueue(self):
+        """
+        Get the size of the queue.
+        """
+        return self.readBuffer.qsize()
+
+
+class WriteBuffer:
+    def __init__(
+        self,
+        output: str,
+        ffmpegPath: str,
+        encode_method: str,
+        custom_encoder: str,
+        width: int = 1920,
+        height: int = 1080,
+        fps: float = 60.0,
+        queueSize: int = 50,
+        sharpen: bool = False,
+        sharpen_sens: float = 0.0,
+        grayscale: bool = False,
+    ):
+        """
+        A class meant to Pipe the input to FFMPEG from a queue.
+
+        output: str - The path to the output video file.
+        ffmpegPath: str - The path to the FFmpeg executable.
+        encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
+        custom_encoder: str - A custom encoder string to use for encoding the video.
+        grayscale: bool - Whether to encode the video in grayscale.
+        width: int - The width of the output video in pixels.
+        height: int - The height of the output video in pixels.
+        fps: float - The frames per second of the output video.
+        sharpen: bool - Whether to apply a sharpening filter to the video.
+        sharpen_sens: float - The sensitivity of the sharpening filter.
+        queueSize: int - The size of the queue.
+        """
+        self.output = os.path.normpath(output)
+        self.ffmpegPath = os.path.normpath(ffmpegPath)
+        self.encode_method = encode_method
+        self.custom_encoder = custom_encoder
+        self.grayscale = grayscale
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.sharpen = sharpen
+        self.sharpen_sens = sharpen_sens
+        self.queueSize = queueSize
+
+    def encodeSettings(self, verbose: bool = False) -> list:
+        """
+        This will return the command for FFMPEG to work with, it will be used inside of the scope of the class.
+
+        verbose : bool - Whether to log the progress of the encoding.
+        """
+
+        if self.grayscale:
+            pix_fmt = "gray"
+            output_pix_fmt = "yuv420p16le"
+            if self.encode_method not in ["x264", "x264_animation", "x265", "av1"]:
+                if verbose:
+                    logging.info(
+                        "The selected encoder does not support yuv420p16le, switching to yuv420p10le."
+                    )
+                output_pix_fmt = "yuv420p10le"
+
+        else:
+            pix_fmt = "rgb24"
+            output_pix_fmt = "yuv420p"
+
+        command = [
+            self.ffmpegPath,
+            "-hide_banner",
+            "-y",
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-s",
+            f"{self.width}x{self.height}",
+            "-pix_fmt",
+            f"{pix_fmt}",
+            "-r",
+            str(self.fps),
+            "-i",
+            "-",
+            "-an",
+            "-fps_mode",
+            "vfr",
+        ]
+
+        if self.custom_encoder == "":
+            command.extend(match_encoder(self.encode_method))
+
+            filters = []
+            if self.sharpen:
+                filters.append("cas={}".format(self.sharpen_sens))
+            if self.grayscale:
+                filters.append("format=gray")
+            if filters:
+                command.extend(["-vf", ",".join(filters)])
+
+        else:
+            custom_encoder_list = self.custom_encoder.split()
+
+            if "-vf" in custom_encoder_list:
+                vf_index = custom_encoder_list.index("-vf")
+
+                if self.sharpen:
+                    custom_encoder_list[vf_index + 1] += ",cas={}".format(
+                        self.sharpen_sens
+                    )
+
+                if self.grayscale:
+                    custom_encoder_list[vf_index + 1] += ",format=gray"
+            else:
+                filters = []
+                if self.sharpen:
+                    filters.append("cas={}".format(self.sharpen_sens))
+                if self.grayscale:
+                    filters.append("format=gray")
+
+                if filters:
+                    custom_encoder_list.extend(["-vf", ",".join(filters)])
+
+            command.extend(custom_encoder_list)
+
+        command.extend(["-pix_fmt", output_pix_fmt, self.output])
+        return command
+
+    def start(self, verbose: bool = False, queue: Queue = None):
+        """
+        The actual underlying logic for encoding, it starts a queue and gets the necessary FFMPEG command from encodeSettings.
+        This is meant to be used in a separate thread for faster processing.
+
+        verbose : bool - Whether to log the progress of the encoding.
+        queue : queue.Queue, optional - The queue to get the frames
+        """
+
+        command = self.encodeSettings(verbose=verbose)
+
+        self.writeBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
+
+        if verbose:
+            logging.info(f"Encoding options: {' '.join(map(str, command))}")
+
+        try:
+            process = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
+
+            writtenFrames = 0
+            while True:
+                frame = queue.get()
+                if frame is None:
+                    if verbose:
+                        logging.info(f"Encoded {writtenFrames} frames")
+
+                    process.stdin.close()
+                    process.wait()
+                    break
+                process.stdin.write(frame.tobytes())
+
+        except Exception as e:
+            if verbose:
+                logging.error(f"An error occurred: {str(e)}")
+            process.stdin.close()
+            process.wait()
+
+    def write(self, frame: np.ndarray):
+        """
+        Add a frame to the queue. Must be in RGB format.
+        """
+        self.writeBuffer.put(frame)
+
+    def close(self):
+        """
+        Close the queue.
+        """
+        self.writeBuffer.put(None)
+
+    def getSizeOfQueue(self):
+        """
+        Get the size of the queue.
+        """
+        return self.writeBuffer.qsize()
