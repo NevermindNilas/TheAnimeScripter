@@ -32,13 +32,11 @@ def outputNameGenerator(args, main_path):
     if args.depth:
         output_name += "-Depth"
 
-    if args.motion_blur:
-        output_name += "-MotionBlur"
-    
     if not args.ytdlp == "":
         output_name += "-YTDLP"
 
     random_number = random.randint(0, 1000)
     output_name = os.path.join(main_path, "output", output_name + "-" + str(random_number) + ".mp4")
     
-    return output_name
+    
+    return os.path.normpath(output_name)

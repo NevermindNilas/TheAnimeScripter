@@ -5,26 +5,26 @@ import glob
 import zipfile
 import logging
 
-#https://jeremylee.sh/bins/ffmpeg.7z
+# https://jeremylee.sh/bins/ffmpeg.7z
+
 
 def get_ffmpeg():
     """
     This script will download and extract the latest ffmpeg.exe binary for windows.
     I do not need any other files from the ffmpeg build, so anything unnecessary is removed.
     """
-    
-    logging.info(
-        "Getting FFMPEG")
-    
+
+    logging.info("Getting FFMPEG")
+
     print(
-        "Couldn't find FFMPEG, downloading it now, this will add a few seconds onto the first run, but it will be cached for future runs.")
-    
+        "Couldn't find FFMPEG, downloading it now, this will add a few seconds onto the first run, but it will be cached for future runs."
+    )
+
     dir_path = os.path.dirname(os.path.realpath(__file__))
     ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
-    
-    logging.info(
-        f"FFMPEG path: {ffmpeg_path}")
-    
+
+    logging.info(f"FFMPEG path: {ffmpeg_path}")
+
     FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
     ffmpeg_dir = os.path.dirname(ffmpeg_path)
 
@@ -33,7 +33,7 @@ def get_ffmpeg():
 
     wget.download(FFMPEG_URL, out=ffmpeg_zip_path)
 
-    with zipfile.ZipFile(ffmpeg_zip_path, 'r') as zip_ref:
+    with zipfile.ZipFile(ffmpeg_zip_path, "r") as zip_ref:
         zip_ref.extractall(ffmpeg_dir)
 
     for root, dirs, files in os.walk(ffmpeg_dir):
@@ -44,8 +44,8 @@ def get_ffmpeg():
     os.remove(ffmpeg_zip_path)
     for directory in glob.glob(os.path.join(ffmpeg_dir, "ffmpeg-*-win64-gpl")):
         shutil.rmtree(directory)
-    
+
     # Force a new line
     print("\n")
-        
+
     return ffmpeg_path

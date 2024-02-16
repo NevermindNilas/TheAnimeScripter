@@ -68,10 +68,6 @@ The video processing script is a powerful tool for enhancing and manipulating vi
 - `--depth_method` (str, default="small"): Depth map generation method:
     - Options: "small", "base", "large".
 
-#### Motion Blur:
-
-- `--motion_blur` (int, default=0): Add motion blur using Gaussian weighting between frames.
-
 #### YouTube Video Download:
 
 - `--ytdlp` (str, default=""): Download a YouTube video, needs a full URL.
@@ -90,7 +86,7 @@ The video processing script is a powerful tool for enhancing and manipulating vi
     - Options: x264, x264_animation, x265, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf.
 - `--custom_encoder` (str, default=""): Comprehensive encoding option allowing users to specify their own `ffmpeg` parameters, including filters. Input a string of `ffmpeg` parameters, separated by spaces.
 
-   Example: `--custom_encoder="-b:v 1M -vf hqdn3d"`
+    Example: `--custom_encoder="-c:v libx264 -crf 14 -vf hqdn3d"`
 
    Note: Parameters specified with `--custom_encoder` will override the default encoding parameters. Ensure familiarity with `ffmpeg` and its parameters before using this option.
 
