@@ -3,6 +3,7 @@ import subprocess
 import numpy as np
 import os
 
+from tqdm import tqdm
 from queue import Queue
 
 
@@ -95,7 +96,7 @@ class BuildBuffer:
         resize: bool = False,
         resizeMethod: str = "bilinear",
         buffSize: int = 10**8,
-        queueSize: int = 100,
+        queueSize: int = 50,
     ):
         """
         A class meant to Pipe the Output of FFMPEG into a Queue for further processing.
@@ -300,6 +301,7 @@ class WriteBuffer:
         queueSize: int = 50,
         sharpen: bool = False,
         sharpen_sens: float = 0.0,
+        nFrames: int = 0,
         grayscale: bool = False,
     ):
         """
@@ -316,6 +318,7 @@ class WriteBuffer:
         sharpen: bool - Whether to apply a sharpening filter to the video.
         sharpen_sens: float - The sensitivity of the sharpening filter.
         queueSize: int - The size of the queue.
+        nFrames: int - The amount of frames for the pbar to start with.
         """
         self.output = os.path.normpath(output)
         self.ffmpegPath = os.path.normpath(ffmpegPath)
@@ -328,6 +331,7 @@ class WriteBuffer:
         self.sharpen = sharpen
         self.sharpen_sens = sharpen_sens
         self.queueSize = queueSize
+        self.nframes = nFrames
 
     def encodeSettings(self, verbose: bool = False) -> list:
         """
@@ -410,7 +414,7 @@ class WriteBuffer:
         command.extend(["-pix_fmt", output_pix_fmt, self.output])
         return command
 
-    def start(self, verbose: bool = False, queue: Queue = None):
+    def start(self, verbose: bool = False, queue: Queue = None, pbar: tqdm = None):
         """
         The actual underlying logic for encoding, it starts a queue and gets the necessary FFMPEG command from encodeSettings.
         This is meant to be used in a separate thread for faster processing.
@@ -422,35 +426,40 @@ class WriteBuffer:
         command = self.encodeSettings(verbose=verbose)
 
         self.writeBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
-
+        
+        self.pbar = pbar if pbar is not None else tqdm(total=self.nframes, desc="Processing Frames", unit="frames", colour="green")
         if verbose:
             logging.info(f"Encoding options: {' '.join(map(str, command))}")
 
         try:
-            process = subprocess.Popen(
+            self.process = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
             )
 
             writtenFrames = 0
             while True:
-                frame = queue.get()
+                frame = self.writeBuffer.get()
                 if frame is None:
                     if verbose:
                         logging.info(f"Encoded {writtenFrames} frames")
 
-                    process.stdin.close()
-                    process.wait()
+                    self.process.stdin.close()
+                    self.process.wait()
                     break
-                process.stdin.write(frame.tobytes())
+                
+                frame = np.ascontiguousarray(frame)
+                self.process.stdin.write(frame.tobytes())
+                self.pbar.update(1)
+                writtenFrames += 1
 
         except Exception as e:
             if verbose:
                 logging.error(f"An error occurred: {str(e)}")
-            process.stdin.close()
-            process.wait()
-
+            self.process.stdin.close()
+            self.process.wait()
+        
     def write(self, frame: np.ndarray):
         """
         Add a frame to the queue. Must be in RGB format.
@@ -468,3 +477,20 @@ class WriteBuffer:
         Get the size of the queue.
         """
         return self.writeBuffer.qsize()
+    
+    def getSTDOUT(self):
+        """
+        Get the STDOUT of the subprocess.
+        """
+        stderr_output = self.process.stderr.read().decode()
+        
+        logging.info("\n============== FFMPEG Output Log ============")
+        
+        if stderr_output:
+            logging.info(stderr_output)
+
+    def pbarClose(self):
+        self.pbar.close()
+    
+    def pbarUpdateTotal(self, total: int):
+        self.pbar.total = total
