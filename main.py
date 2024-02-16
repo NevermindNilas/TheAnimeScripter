@@ -25,9 +25,7 @@ import warnings
 import sys
 import logging
 
-from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
-
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import intitialize_models
@@ -163,17 +161,21 @@ class VideoProcessor:
 
                 if self.sharpen:
                     filters.append(f"cas={self.sharpen_sens}")
-                    logging.info(f"Sharpening with CAS, sensitivity: {self.sharpen_sens}")
-                    
+                    logging.info(
+                        f"Sharpening with CAS, sensitivity: {self.sharpen_sens}"
+                    )
+
                 if self.resize:
                     filters.append(
                         f"scale={self.width}x{
                                    self.height}:flags={self.resize_method}"
                     )
-                    
+
                 if self.dedup:
                     filters.append(f"{self.dedup_sens}")
-                    logging.info(f"Deduping with FFMPEG, sensitivity: {self.dedup_sens}")
+                    logging.info(
+                        f"Deduping with FFMPEG, sensitivity: {self.dedup_sens}"
+                    )
 
                 if self.outpoint != 0:
                     from src.dedup.dedup import trim_input_dedup
@@ -219,14 +221,12 @@ class VideoProcessor:
                             (i + 1) * 1.0 / (self.interpolate_factor + 1)
                         )
                         self.writeBuffer.write(result)
-                        self.pbar.update(1)
 
                     self.prevFrame = frame
                 else:
                     self.prevFrame = frame
 
             self.writeBuffer.write(frame)
-            self.pbar.update(1)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
@@ -249,12 +249,11 @@ class VideoProcessor:
                     executor.submit(self.processFrame, frame)
                     frameCount += 1
 
-                print(
-                    f"size of read:{self.readBuffer.getSizeOfQueue()} size of write:{self.writeBuffer.getSizeOfQueue()}"
-                )
-
                 if self.readBuffer.isReadingDone() and not updatedOnce:
-                    self.pbar.total = self.readBuffer.getDecodedFrames()
+                    decodedFrames = self.readBuffer.getDecodedFrames()
+                    if self.interpolate:
+                        decodedFrames = decodedFrames * self.interpolate_factor
+                    self.writeBuffer.pbarUpdateTotal(decodedFrames)
                     updatedOnce = True
 
         if self.prevFrame is not None:
@@ -263,13 +262,10 @@ class VideoProcessor:
         logging.info(f"Processed {frameCount} frames")
 
         self.writeBuffer.close()
+        self.writeBuffer.pbarClose()
+        self.writeBuffer.getSTDOUT()
 
     def start(self):
-        self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
-        self.pbar = tqdm(
-            total=self.nframes, desc="Processing Frames", unit="frames", colour="green"
-        )
-
         try:
             (
                 self.new_width,
@@ -278,6 +274,10 @@ class VideoProcessor:
                 self.interpolate_process,
                 self.denoise_process,
             ) = intitialize_models(self)
+
+            self.fps = (
+                self.fps * self.interpolate_factor if self.interpolate else self.fps
+            )
 
             self.readBuffer = BuildBuffer(
                 self.input,
@@ -298,13 +298,14 @@ class VideoProcessor:
                 self.ffmpeg_path,
                 self.encode_method,
                 self.custom_encoder,
-                self.width,
-                self.height,
+                self.new_width,
+                self.new_height,
                 self.fps,
                 self.buffer_limit,
                 self.sharpen,
                 self.sharpen_sens,
                 grayscale=False,
+                nFrames=self.nframes,
             )
 
         except Exception as e:
@@ -487,6 +488,10 @@ if __name__ == "__main__":
         args.output = outputNameGenerator(args, main_path)
 
         logging.info(f"Output was not specified, using {args.output}")
+        
+    if args.nt > 1:
+        logging.info("Multithreading is off temporarely, using 1 thread")
+        args.nt = 1
 
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
