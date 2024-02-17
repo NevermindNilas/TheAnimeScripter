@@ -29,7 +29,8 @@ from concurrent.futures import ThreadPoolExecutor
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import intitialize_models
-from src.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.ffmpegSettings import BuildBuffer, WriteBuffer, getDedupStrenght
+from src.dedup.dedup import dedupFFMPEG
 
 if getattr(sys, "frozen", False):
     main_path = os.path.dirname(sys.executable)
@@ -172,34 +173,21 @@ class VideoProcessor:
                     )
 
                 if self.dedup:
-                    filters.append(f"{self.dedup_sens}")
+                    self.dedup_sens = getDedupStrenght(self.dedup_sens)
+                    filters.append(f"mpdecimate={self.dedup_sens}")
                     logging.info(
                         f"Deduping with FFMPEG, sensitivity: {self.dedup_sens}"
                     )
-
-                if self.outpoint != 0:
-                    from src.dedup.dedup import trim_input_dedup
-
-                    trim_input_dedup(
-                        self.input,
-                        self.output,
-                        self.inpoint,
-                        self.outpoint,
-                        filters,
-                        self.ffmpeg_path,
-                        self.encode_method,
-                    )
-
-                else:
-                    from src.dedup.dedup import dedup_ffmpeg
-
-                    dedup_ffmpeg(
-                        self.input,
-                        self.output,
-                        filters,
-                        self.ffmpeg_path,
-                        self.encode_method,
-                    )
+                    
+                dedupFFMPEG(
+                    self.input,
+                    self.output,
+                    filters,
+                    self.ffmpeg_path,
+                    self.encode_method,
+                    self.inpoint,
+                    self.outpoint,
+                )
 
                 return
 
@@ -488,7 +476,7 @@ if __name__ == "__main__":
         args.output = outputNameGenerator(args, main_path)
 
         logging.info(f"Output was not specified, using {args.output}")
-        
+
     if args.nt > 1:
         logging.info("Multithreading is off temporarely, using 1 thread")
         args.nt = 1
