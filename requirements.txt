@@ -1,7 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cu121
 wget
 opencv-python
-tqdm
 timm
 numpy
 cupy-cuda12x
