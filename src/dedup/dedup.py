@@ -1,7 +1,7 @@
 import subprocess
 import logging
 
-from src.ffmpegSettings import match_encoder
+from src.ffmpegSettings import matchEncoder
 
 
 def dedupFFMPEG(
@@ -13,7 +13,7 @@ def dedupFFMPEG(
     inpoint=None,
     outpoint=None,
 ):
-    encode_options = match_encoder(encode_method)
+    encode_options = matchEncoder(encode_method)
 
     filters = " ".join(filters)
 
