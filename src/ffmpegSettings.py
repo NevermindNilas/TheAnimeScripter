@@ -7,6 +7,30 @@ from tqdm import tqdm
 from queue import Queue
 
 
+def getDedupStrenght(
+    dedupSens: float = 0.0,
+    hi_min: float = 64 * 2,
+    hi_max: float = 64 * 150,
+    lo_min: float = 64 * 2,
+    lo_max: float = 64 * 30,
+    frac_min: float = 0.1,
+    frac_max: float = 0.3,
+) -> str:
+    """
+    Get FFMPEG dedup Params based on the dedupSens attribute.
+    The min maxes are based on preset values that work well for most content.
+    returns: str - hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB
+    """
+
+    def interpolate(x, x1, x2, y1, y2):
+        return y1 + (x - x1) * (y2 - y1) / (x2 - x1)
+
+    hi = interpolate(dedupSens, 0, 100, hi_min, hi_max)
+    lo = interpolate(dedupSens, 0, 100, lo_min, lo_max)
+    frac = interpolate(dedupSens, 0, 100, frac_min, frac_max)
+    return f"hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB"
+
+
 def encodeYTDLP(input, output, ffmpegPath, encode_method, custom_encoder):
     # This is for non rawvideo bytestreams, it's simpler to keep track this way
     # And have everything FFMPEG related organized in one file
@@ -128,31 +152,6 @@ class BuildBuffer:
         self.buffSize = buffSize
         self.queueSize = queueSize
 
-    def getDedupStrenght(
-        self,
-        hi_min: float = 64 * 2,
-        hi_max: float = 64 * 150,
-        lo_min: float = 64 * 2,
-        lo_max: float = 64 * 30,
-        frac_min: float = 0.1,
-        frac_max: float = 0.3,
-    ) -> str:
-        """
-        Get FFMPEG dedup Params based on the dedupSens attribute.
-        The min maxes are based on preset values that work well for most content.
-
-        returns: str - hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB
-        """
-
-        def interpolate(x, x1, x2, y1, y2):
-            return y1 + (x - x1) * (y2 - y1) / (x2 - x1)
-
-        hi = interpolate(self.dedupSens, 0, 100, hi_min, hi_max)
-        lo = interpolate(self.dedupSens, 0, 100, lo_min, lo_max)
-        frac = interpolate(self.dedupSens, 0, 100, frac_min, frac_max)
-
-        return f"hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB"
-
     def decodeSettings(self) -> list:
         """
         This returns a command for FFMPEG to work with, it will be used inside of the scope of the class.
@@ -183,7 +182,7 @@ class BuildBuffer:
 
         filters = []
         if self.dedup:
-            filters.append(f"mpdecimate={self.getDedupStrenght()}")
+            filters.append(f"mpdecimate={getDedupStrenght(self.dedupSens)}")
 
         if self.resize:
             if self.resizeMethod in ["spline16", "spline36", "point"]:
@@ -426,8 +425,17 @@ class WriteBuffer:
         command = self.encodeSettings(verbose=verbose)
 
         self.writeBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
-        
-        self.pbar = pbar if pbar is not None else tqdm(total=self.nframes, desc="Processing Frames", unit="frames", colour="green")
+
+        self.pbar = (
+            pbar
+            if pbar is not None
+            else tqdm(
+                total=self.nframes,
+                desc="Processing Frames",
+                unit="frames",
+                colour="green",
+            )
+        )
         if verbose:
             logging.info(f"Encoding options: {' '.join(map(str, command))}")
 
@@ -448,7 +456,7 @@ class WriteBuffer:
                     self.process.stdin.close()
                     self.process.wait()
                     break
-                
+
                 frame = np.ascontiguousarray(frame)
                 self.process.stdin.write(frame.tobytes())
                 self.pbar.update(1)
@@ -459,7 +467,7 @@ class WriteBuffer:
                 logging.error(f"An error occurred: {str(e)}")
             self.process.stdin.close()
             self.process.wait()
-        
+
     def write(self, frame: np.ndarray):
         """
         Add a frame to the queue. Must be in RGB format.
@@ -477,20 +485,20 @@ class WriteBuffer:
         Get the size of the queue.
         """
         return self.writeBuffer.qsize()
-    
+
     def getSTDOUT(self):
         """
         Get the STDOUT of the subprocess.
         """
         stderr_output = self.process.stderr.read().decode()
-        
+
         logging.info("\n============== FFMPEG Output Log ============")
-        
+
         if stderr_output:
             logging.info(stderr_output)
 
     def pbarClose(self):
         self.pbar.close()
-    
+
     def pbarUpdateTotal(self, total: int):
         self.pbar.total = total
