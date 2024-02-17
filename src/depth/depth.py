@@ -1,19 +1,18 @@
 import os
 import torch
 import logging
-import subprocess
 import numpy as np
 import cv2
 import wget
+import torch.nn.functional as F
 
 from torchvision.transforms import Compose
 from concurrent.futures import ThreadPoolExecutor
-from tqdm import tqdm
-from queue import Queue
-import torch.nn.functional as F
 
 from .dpt import DPT_DINOv2
 from .util.transform import Resize, NormalizeImage, PrepareForNet
+
+from src.ffmpegSettings import BuildBuffer, WriteBuffer
 
 os.environ["TORCH_HOME"] = os.path.dirname(os.path.realpath(__file__))
 
@@ -27,7 +26,6 @@ class Depth:
         width,
         height,
         fps,
-        nframes,
         half,
         inpoint=0,
         outpoint=0,
@@ -35,6 +33,7 @@ class Depth:
         depth_method="small",
         custom_encoder="",
         nt=1,
+        buffer_limit=50,
     ):
         self.input = input
         self.output = output
@@ -42,7 +41,6 @@ class Depth:
         self.width = width
         self.height = height
         self.fps = fps
-        self.nframes = nframes
         self.half = half
         self.inpoint = inpoint
         self.outpoint = outpoint
@@ -50,26 +48,47 @@ class Depth:
         self.depth_method = depth_method
         self.custom_encoder = custom_encoder
         self.nt = nt
+        self.buffer_limit = buffer_limit
 
-        self.handle_models()
+        self.handleModels()
 
-        self.pbar = tqdm(
-            total=self.nframes,
-            desc="Processing Frames",
-            unit="frames",
-            dynamic_ncols=True,
-            colour="green",
-        )
+        try:
+            self.readBuffer = BuildBuffer(
+                input = self.input,
+                ffmpegPath= self.ffmpeg_path,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
+                dedup=False,
+                dedupSens=None,
+                width=self.width,
+                height=self.height,
+                resize=False,
+                resizeMethod=None,
+                queueSize=self.buffer_limit,
+            )
 
-        self.read_buffer = Queue(maxsize=100)
-        self.processed_frames = Queue()
+            self.writeBuffer = WriteBuffer(
+                self.output,
+                self.ffmpeg_path,
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
+                self.fps,
+                self.buffer_limit,
+                sharpen=False,
+                sharpen_sens=None,
+                grayscale=True,
+            )
+        except Exception as e:
+            logging.exception(f"Something went wrong, {e}")
 
         with ThreadPoolExecutor(max_workers=3) as executor:
-            executor.submit(self.build_buffer)
+            executor.submit(self.readBuffer.start, verbose=True)
             executor.submit(self.process)
-            executor.submit(self.write_buffer)
+            executor.submit(self.writeBuffer.start, verbose=True)
 
-    def handle_models(self):
+    def handleModels(self):
         match self.depth_method:
             case "small":
                 model = "vits"
@@ -153,54 +172,7 @@ class Depth:
             ]
         )
 
-    def build_buffer(self):
-        from src.ffmpegSettings import decodeSettings
-
-        command: list = decodeSettings(
-            self.input,
-            self.inpoint,
-            self.outpoint,
-            False,
-            0,
-            self.ffmpeg_path,
-            False,
-            0,
-            0,
-            None,
-        )
-
-        process = subprocess.Popen(
-            command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=10**8
-        )
-
-        self.reading_done = False
-        frame_size = self.width * self.height * 3
-        frame_count = 0
-
-        while True:
-            chunk = process.stdout.read(frame_size)
-            if len(chunk) < frame_size:
-                logging.info(f"Read {len(chunk)} bytes but expected {frame_size}")
-                process.stdout.close()
-                process.terminate()
-                self.reading_done = True
-                self.read_buffer.put(None)
-                logging.info(f"Built buffer with {frame_count} frames")
-
-                if self.interpolate:
-                    frame_count *= self.interpolate_factor
-
-                self.pbar.total = frame_count
-                break
-
-            frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
-                (self.height, self.width, 3)
-            )
-            self.read_buffer.put(frame)
-
-            frame_count += 1
-
-    def process_frame(self, frame):
+    def processFrame(self, frame):
         try:
             frame = frame / 255
             frame = self.transform({"image": frame})["image"]
@@ -227,76 +199,27 @@ class Depth:
             depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
 
             depth = depth.cpu().numpy().astype(np.uint8)
-            self.processed_frames.put(depth)
+            self.writeBuffer.write(depth)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
-        self.processing_done = False
-        frame_count = 0
+        frameCount = 0
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
-                frame = self.read_buffer.get()
-                if frame is None:
-                    if self.reading_done:
-                        self.processing_done = True
-                        break
+                if self.readBuffer.getSizeOfQueue() < self.buffer_limit:
+                    frame = self.readBuffer.read()
+                    if frame is None:
+                        if (
+                            self.readBuffer.isReadingDone()
+                            and self.readBuffer.getSizeOfQueue() == 0
+                        ):
+                            break
 
-                executor.submit(self.process_frame, frame)
-                frame_count += 1
+                    executor.submit(self.processFrame, frame)
+                    frameCount += 1
 
-        logging.info(f"Processed {frame_count} frames")
+        logging.info(f"Processed {frameCount} frames")
 
-        self.processed_frames.put(None)
-
-    def write_buffer(self):
-        from src.ffmpegSettings import encodeSettings
-
-        command: list = encodeSettings(
-            self.encode_method,
-            self.width,
-            self.height,
-            self.fps,
-            self.output,
-            self.ffmpeg_path,
-            False,
-            0,
-            self.custom_encoder,
-            grayscale=True,
-        )
-
-        pipe = subprocess.Popen(command, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-
-        frame_count = 0
-        try:
-            while True:
-                frame = self.processed_frames.get()
-                if frame is None:
-                    if self.processing_done:
-                        break
-                    else:
-                        continue
-
-                frame_count += 1
-                pipe.stdin.write(frame.tobytes())
-                self.pbar.update()
-
-        except Exception as e:
-            logging.exception(f"Something went wrong while writing the frames, {e}")
-
-        finally:
-            logging.info(f"Wrote {frame_count} frames")
-
-            pipe.stdin.close()
-            self.pbar.close()
-
-            stderr_output = pipe.stderr.read().decode()
-
-            logging.info("============== FFMPEG Output Log ============\n")
-
-            if stderr_output:
-                logging.info(stderr_output)
-
-            # Hope this works
-            pipe.terminate()
+        self.writeBuffer.close()
