@@ -6,14 +6,15 @@ from yt_dlp import YoutubeDL
 from .get_ffmpeg import get_ffmpeg
 from .ffmpegSettings import encodeYTDLP
 
-class VideoDownloader():
+
+class VideoDownloader:
     def __init__(self, video_link, output, quality, encode_method, custom_encoder):
         self.link = video_link
         self.output = output
         self.quality = quality
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
-        
+
         self.setup_ffmpeg()
         self.download_video()
         if self.quality:
@@ -35,21 +36,27 @@ class VideoDownloader():
     def get_ydl_opts(self):
         if not self.quality:
             return {
-                'format': 'bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]',
-                'outtmpl': self.output,
-                'ffmpeg_location': os.path.dirname(self.ffmpeg_path),
+                "format": "bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]",
+                "outtmpl": self.output,
+                "ffmpeg_location": os.path.dirname(self.ffmpeg_path),
             }
         else:
-            self.temp_name = os.path.splitext(self.output)[0] + '.webm'
+            self.temp_name = os.path.splitext(self.output)[0] + ".webm"
             logging.info(f"Downloading video in webm format to: {self.temp_name}")
             return {
-                'format': 'bestvideo+bestaudio',
-                'outtmpl': self.temp_name,
-                'ffmpeg_location': os.path.dirname(self.ffmpeg_path),
+                "format": "bestvideo+bestaudio",
+                "outtmpl": self.temp_name,
+                "ffmpeg_location": os.path.dirname(self.ffmpeg_path),
             }
 
     def encode_video(self):
-        command = encodeYTDLP(self.temp_name, self.output, self.ffmpeg_path, self.encode_method, self.custom_encoder)
+        command = encodeYTDLP(
+            self.temp_name,
+            self.output,
+            self.ffmpeg_path,
+            self.encode_method,
+            self.custom_encoder,
+        )
         subprocess.run(command)
 
     def cleanup(self):
