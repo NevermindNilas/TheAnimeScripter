@@ -2,8 +2,9 @@ import logging
 import subprocess
 import numpy as np
 import os
+import sys
+import threading
 
-from tqdm import tqdm
 from queue import Queue
 
 
@@ -300,7 +301,6 @@ class WriteBuffer:
         queueSize: int = 50,
         sharpen: bool = False,
         sharpen_sens: float = 0.0,
-        nFrames: int = 0,
         grayscale: bool = False,
     ):
         """
@@ -330,7 +330,6 @@ class WriteBuffer:
         self.sharpen = sharpen
         self.sharpen_sens = sharpen_sens
         self.queueSize = queueSize
-        self.nframes = nFrames
 
     def encodeSettings(self, verbose: bool = False) -> list:
         """
@@ -357,6 +356,9 @@ class WriteBuffer:
             self.ffmpegPath,
             "-hide_banner",
             "-y",
+            "-v",
+            "error",
+            "-stats",
             "-f",
             "rawvideo",
             "-vcodec",
@@ -413,7 +415,7 @@ class WriteBuffer:
         command.extend(["-pix_fmt", output_pix_fmt, self.output])
         return command
 
-    def start(self, verbose: bool = False, queue: Queue = None, pbar: tqdm = None):
+    def start(self, verbose: bool = False, queue: Queue = None):
         """
         The actual underlying logic for encoding, it starts a queue and gets the necessary FFMPEG command from encodeSettings.
         This is meant to be used in a separate thread for faster processing.
@@ -426,16 +428,6 @@ class WriteBuffer:
 
         self.writeBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
 
-        self.pbar = (
-            pbar
-            if pbar is not None
-            else tqdm(
-                total=self.nframes,
-                desc="Processing Frames",
-                unit="frames",
-                colour="green",
-            )
-        )
         if verbose:
             logging.info(f"Encoding options: {' '.join(map(str, command))}")
 
@@ -443,8 +435,19 @@ class WriteBuffer:
             self.process = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                universal_newlines=True,
+                bufsize=1,
             )
+
+            def print_output():
+                for line in iter(self.process.stdout.readline, ""):
+                    print("\r" + line.strip(), end="")
+                    sys.stdout.flush()
+
+            output_thread = threading.Thread(target=print_output)
+            output_thread.start()
 
             writtenFrames = 0
             while True:
@@ -458,15 +461,15 @@ class WriteBuffer:
                     break
 
                 frame = np.ascontiguousarray(frame)
-                self.process.stdin.write(frame.tobytes())
-                self.pbar.update(1)
+                self.process.stdin.buffer.write(
+                    frame.tobytes()
+                )
                 writtenFrames += 1
 
+            output_thread.join()
         except Exception as e:
             if verbose:
                 logging.error(f"An error occurred: {str(e)}")
-            self.process.stdin.close()
-            self.process.wait()
 
     def write(self, frame: np.ndarray):
         """
@@ -479,26 +482,3 @@ class WriteBuffer:
         Close the queue.
         """
         self.writeBuffer.put(None)
-
-    def getSizeOfQueue(self):
-        """
-        Get the size of the queue.
-        """
-        return self.writeBuffer.qsize()
-
-    def getSTDOUT(self):
-        """
-        Get the STDOUT of the subprocess.
-        """
-        stderr_output = self.process.stderr.read().decode()
-
-        logging.info("\n============== FFMPEG Output Log ============")
-
-        if stderr_output:
-            logging.info(stderr_output)
-
-    def pbarClose(self):
-        self.pbar.close()
-
-    def pbarUpdateTotal(self, total: int):
-        self.pbar.total = total

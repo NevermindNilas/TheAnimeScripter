@@ -221,7 +221,6 @@ class VideoProcessor:
 
     def process(self):
         frameCount = 0
-        updatedOnce = False
         self.prevFrame = None
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
@@ -237,21 +236,12 @@ class VideoProcessor:
                     executor.submit(self.processFrame, frame)
                     frameCount += 1
 
-                if self.readBuffer.isReadingDone() and not updatedOnce:
-                    decodedFrames = self.readBuffer.getDecodedFrames()
-                    if self.interpolate:
-                        decodedFrames = decodedFrames * self.interpolate_factor
-                    self.writeBuffer.pbarUpdateTotal(decodedFrames)
-                    updatedOnce = True
-
         if self.prevFrame is not None:
             self.writeBuffer.write(self.prevFrame)
 
         logging.info(f"Processed {frameCount} frames")
 
         self.writeBuffer.close()
-        self.writeBuffer.pbarClose()
-        self.writeBuffer.getSTDOUT()
 
     def start(self):
         try:
@@ -293,7 +283,6 @@ class VideoProcessor:
                 self.sharpen,
                 self.sharpen_sens,
                 grayscale=False,
-                nFrames=self.nframes,
             )
 
         except Exception as e:
@@ -476,10 +465,6 @@ if __name__ == "__main__":
         args.output = outputNameGenerator(args, main_path)
 
         logging.info(f"Output was not specified, using {args.output}")
-
-    if args.nt > 1:
-        logging.info("Multithreading is off temporarely, using 1 thread")
-        args.nt = 1
 
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")

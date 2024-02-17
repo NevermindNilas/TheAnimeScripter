@@ -3,7 +3,6 @@ import logging
 
 from src.ffmpegSettings import matchEncoder
 
-
 def dedupFFMPEG(
     input,
     output,
@@ -23,9 +22,10 @@ def dedupFFMPEG(
         ffmpeg_command += ["-ss", str(inpoint), "-to", str(outpoint)]
 
     ffmpeg_command += (
-        ["-i", input, "-vf", filters, "-an"] + encode_options + [output, "-y"]
+        ["-i", input, "-vf", filters, "-an"]
+        + encode_options
+        + [output, "-y", "-v", "error", "-stats"]
     )
-
     logging.info(f"Encoding options: {' '.join(ffmpeg_command)}")
 
     logging.info("\n============== FFMPEG Output Log ============")
