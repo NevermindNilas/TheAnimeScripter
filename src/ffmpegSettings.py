@@ -33,9 +33,6 @@ def getDedupStrenght(
 
 
 def encodeYTDLP(input, output, ffmpegPath, encode_method, custom_encoder):
-    # This is for non rawvideo bytestreams, it's simpler to keep track this way
-    # And have everything FFMPEG related organized in one file
-
     command = [ffmpegPath, "-i", input]
 
     if custom_encoder == "":
@@ -103,6 +100,10 @@ def matchEncoder(encode_method: str):
             command.extend(
                 ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "14"]
             )
+        case "vp9":
+            command.extend(["-c:v", "libvpx-vp9", "-crf", "14"])
+        case "qsv_vp9":
+            command.extend(["-c:v", "vp9_qsv", "-preset", "veryfast"])
 
     return command
 
@@ -237,10 +238,6 @@ class BuildBuffer:
                 chunk = process.stdout.read(frame_size)
                 if len(chunk) < frame_size:
                     if verbose:
-                        logging.info(
-                            f"Read {len(chunk)} bytes but expected {frame_size}"
-                        )
-
                         logging.info(f"Built buffer with {self.decodedFrames} frames")
 
                     process.stdout.close()
@@ -317,7 +314,6 @@ class WriteBuffer:
         sharpen: bool - Whether to apply a sharpening filter to the video.
         sharpen_sens: float - The sensitivity of the sharpening filter.
         queueSize: int - The size of the queue.
-        nFrames: int - The amount of frames for the pbar to start with.
         """
         self.output = os.path.normpath(output)
         self.ffmpegPath = os.path.normpath(ffmpegPath)
@@ -461,9 +457,7 @@ class WriteBuffer:
                     break
 
                 frame = np.ascontiguousarray(frame)
-                self.process.stdin.buffer.write(
-                    frame.tobytes()
-                )
+                self.process.stdin.buffer.write(frame.tobytes())
                 writtenFrames += 1
 
             output_thread.join()

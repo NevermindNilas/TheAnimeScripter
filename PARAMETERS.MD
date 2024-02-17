@@ -4,7 +4,7 @@
 
 ## Overview:
 
-The video processing script is a powerful tool for enhancing and manipulating videos with a wide range of options. It supports functionalities such as interpolation, upscaling, deduplication, denoising, sharpening, scene change detection, depth map generation, and more. Users can customize the processing pipeline to meet their specific requirements using a comprehensive set of parameters.
+The Anime Scripter is a powerful tool for enhancing and manipulating videos with a wide range of options. It supports functionalities such as interpolation, upscaling, deduplication, denoising, sharpening, scene change detection, depth map generation, and more. Users can customize the processing pipeline to meet their specific requirements using a comprehensive set of parameters.
 
 ### Command-Line Arguments:
 
@@ -55,6 +55,7 @@ The video processing script is a powerful tool for enhancing and manipulating vi
 - `--sharpen_sens` (float, default=50): Sensitivity of sharpening.
 
 #### Segmentation Settings:
+
 - `--segment` (int, default=0): Enable segmentation (1) or disable (0).
 
 #### Scene Change Detection:
@@ -83,7 +84,7 @@ The video processing script is a powerful tool for enhancing and manipulating vi
 #### Encoding Settings:
 
 - `--encode_method` (str, default="x264"): Encoding method:
-    - Options: x264, x264_animation, x265, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf.
+    - Options: x264, x264_animation, x265, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf, vp9, qsv_vp9.
 - `--custom_encoder` (str, default=""): Comprehensive encoding option allowing users to specify their own `ffmpeg` parameters, including filters. Input a string of `ffmpeg` parameters, separated by spaces.
 
     Example: `--custom_encoder="-c:v libx264 -crf 14 -vf hqdn3d"`
