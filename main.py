@@ -121,7 +121,6 @@ class VideoProcessor:
                 self.width,
                 self.height,
                 self.fps,
-                self.nframes,
                 self.half,
                 self.inpoint,
                 self.outpoint,
@@ -129,6 +128,7 @@ class VideoProcessor:
                 self.depth_method,
                 self.custom_encoder,
                 self.nt,
+                self.buffer_limit,
             )
 
             return
@@ -389,6 +389,8 @@ if __name__ == "__main__":
             "av1",
             "h264_amf",
             "hevc_amf",
+            "vp9",
+            "qsv_vp9",
         ],
         default="x264",
     )
