@@ -6,21 +6,30 @@ import pkg_resources
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
+
 def create_venv():
     print("Creating the virtual environment...")
     subprocess.run(["python", "-m", "venv", "venv"], check=True)
+
 
 def activate_venv():
     print("Activating the virtual environment...")
     subprocess.run(".\\venv\\Scripts\\activate", shell=True, check=True)
 
+
 def install_requirements():
     print("Installing the requirements...")
-    subprocess.run([".\\venv\\Scripts\\pip3", "install", "--pre", "-r", "requirements.txt"], check=True)
+    subprocess.run(
+        [".\\venv\\Scripts\\pip3", "install", "--pre", "-r", "requirements.txt"],
+        check=True,
+    )
+
 
 def install_pyinstaller():
     print("Installing PyInstaller...")
-    subprocess.run([".\\venv\\Scripts\\python", "-m", "pip", "install", "pyinstaller"], check=True)
+    subprocess.run(
+        [".\\venv\\Scripts\\python", "-m", "pip", "install", "pyinstaller"], check=True
+    )
 
 
 def create_executable():
@@ -30,26 +39,48 @@ def create_executable():
     license_path = os.path.join(base_dir, "LICENSE")
     main_path = os.path.join(base_dir, "main.py")
     icon_path = os.path.join(base_dir, "demos", "icon.ico")
-    cugan_ncnn_models_path = os.path.join(pkg_resources.get_distribution("realcugan_ncnn_py").location, "realcugan_ncnn_py", "models")
-    rife_ncnn_models_path = os.path.join(pkg_resources.get_distribution("rife_ncnn_vulkan_python").location, "rife_ncnn_vulkan_python", "models")
-    subprocess.run([
-        "./venv/bin/pyinstaller" if platform.system() != "Windows" else ".\\venv\\Scripts\\pyinstaller",
-        "--noconfirm",
-        "--onedir",
-        "--console",
-        "--noupx",
-        "--clean",
-        "--add-data", f"{src_path};src/",
-        "--add-data", f"{cugan_ncnn_models_path};realcugan_ncnn_py/models",
-        "--add-data", f"{rife_ncnn_models_path};rife_ncnn_vulkan_python/models",
-        "--hidden-import", "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
-        "--collect-all", "cupy",
-        "--collect-all", "cupyx",
-        "--collect-all", "cupy_backends",
-        "--collect-all", "fastrlock",
-        "--icon", f"{icon_path}",
-        main_path
-    ], check=True)
+    cugan_ncnn_models_path = os.path.join(
+        pkg_resources.get_distribution("realcugan_ncnn_py").location,
+        "realcugan_ncnn_py",
+        "models",
+    )
+    rife_ncnn_models_path = os.path.join(
+        pkg_resources.get_distribution("rife_ncnn_vulkan_python").location,
+        "rife_ncnn_vulkan_python",
+        "models",
+    )
+    subprocess.run(
+        [
+            "./venv/bin/pyinstaller"
+            if platform.system() != "Windows"
+            else ".\\venv\\Scripts\\pyinstaller",
+            "--noconfirm",
+            "--onedir",
+            "--console",
+            "--noupx",
+            "--clean",
+            "--add-data",
+            f"{src_path};src/",
+            "--add-data",
+            f"{cugan_ncnn_models_path};realcugan_ncnn_py/models",
+            "--add-data",
+            f"{rife_ncnn_models_path};rife_ncnn_vulkan_python/models",
+            "--hidden-import",
+            "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
+            "--collect-all",
+            "cupy",
+            "--collect-all",
+            "cupyx",
+            "--collect-all",
+            "cupy_backends",
+            "--collect-all",
+            "fastrlock",
+            "--icon",
+            f"{icon_path}",
+            main_path,
+        ],
+        check=True,
+    )
 
     move_extras(jsx_path, license_path)
 
@@ -67,7 +98,7 @@ def move_extras(jsx_path, license_path):
 
 def clean_up():
     answer = input("Do you want to clean up the residual files? (y/n): ")
-    
+
     if answer.lower() == "y":
         print("Cleaning up...")
         try:
