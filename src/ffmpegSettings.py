@@ -38,7 +38,7 @@ def encodeYTDLP(input, output, ffmpegPath, encode_method, custom_encoder):
     command = [ffmpegPath, "-i", input]
 
     if custom_encoder == "":
-        command.extend(match_encoder(encode_method))
+        command.extend(matchEncoder(encode_method))
     else:
         command.extend(custom_encoder.split())
 
@@ -49,7 +49,7 @@ def encodeYTDLP(input, output, ffmpegPath, encode_method, custom_encoder):
     return command
 
 
-def match_encoder(encode_method: str):
+def matchEncoder(encode_method: str):
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
     """
@@ -375,7 +375,7 @@ class WriteBuffer:
         ]
 
         if self.custom_encoder == "":
-            command.extend(match_encoder(self.encode_method))
+            command.extend(matchEncoder(self.encode_method))
 
             filters = []
             if self.sharpen:
