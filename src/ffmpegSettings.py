@@ -410,6 +410,9 @@ class WriteBuffer:
 
                 if self.grayscale:
                     custom_encoder_list[vf_index + 1] += ",format=gray"
+                    
+                if self.transparent:
+                    custom_encoder_list[vf_index + 1] += ",format=rgba"
             else:
                 filters = []
                 if self.sharpen:
