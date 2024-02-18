@@ -145,12 +145,12 @@ class VideoProcessor:
                 self.width,
                 self.height,
                 self.fps,
-                self.nframes,
                 self.inpoint,
                 self.outpoint,
                 self.encode_method,
                 self.custom_encoder,
                 self.nt,
+                self.buffer_limit,
             )
 
             return

@@ -104,6 +104,9 @@ def matchEncoder(encode_method: str):
             command.extend(["-c:v", "libvpx-vp9", "-crf", "14"])
         case "qsv_vp9":
             command.extend(["-c:v", "vp9_qsv", "-preset", "veryfast"])
+        # Needs further testing, -qscale:v 14 seems to be extremely lossy
+        case "prores":
+            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "20"])
 
     return command
 
@@ -299,6 +302,7 @@ class WriteBuffer:
         sharpen: bool = False,
         sharpen_sens: float = 0.0,
         grayscale: bool = False,
+        transparent: bool = False,
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -326,6 +330,7 @@ class WriteBuffer:
         self.sharpen = sharpen
         self.sharpen_sens = sharpen_sens
         self.queueSize = queueSize
+        self.transparent = transparent
 
     def encodeSettings(self, verbose: bool = False) -> list:
         """
@@ -334,7 +339,16 @@ class WriteBuffer:
         verbose : bool - Whether to log the progress of the encoding.
         """
 
-        if self.grayscale:
+        if self.transparent:
+            if self.encode_method not in ["prores", "prores_ks"]:
+                if verbose:
+                    logging.info("Switching internally to prores for transparency support")
+                self.encode_method = "prores"
+                
+            pix_fmt = "rgba"
+            output_pix_fmt = "yuva444p10le"
+            
+        elif self.grayscale:
             pix_fmt = "gray"
             output_pix_fmt = "yuv420p16le"
             if self.encode_method not in ["x264", "x264_animation", "x265", "av1"]:
