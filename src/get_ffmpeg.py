@@ -5,9 +5,6 @@ import glob
 import zipfile
 import logging
 
-# https://jeremylee.sh/bins/ffmpeg.7z
-
-
 def get_ffmpeg():
     """
     This script will download and extract the latest ffmpeg.exe binary for windows.

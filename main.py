@@ -37,7 +37,7 @@ if getattr(sys, "frozen", False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.2.0"
+scriptVersion = "1.2.1"
 warnings.filterwarnings("ignore")
 
 
@@ -462,7 +462,7 @@ if __name__ == "__main__":
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
 
     logging.info("\n============== Arguments Checker ==============")
-    if args.output is None:
+    if args.output is None or os.path.isdir(args.output):
         from src.generateOutput import outputNameGenerator
 
         args.output = outputNameGenerator(args, main_path)
@@ -482,9 +482,7 @@ if __name__ == "__main__":
         )
         sys.exit()
 
-    args.ffmpeg_path = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), "src", "ffmpeg", "ffmpeg.exe"
-    )
+    args.ffmpeg_path = os.path.join(main_path, "src", "ffmpeg", "ffmpeg.exe")
 
     if not os.path.exists(args.ffmpeg_path):
         from src.get_ffmpeg import get_ffmpeg
