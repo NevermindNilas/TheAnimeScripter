@@ -55,56 +55,56 @@ def matchEncoder(encode_method: str):
     # Settings inspiration from: https://www.xaymar.com/guides/obs/high-quality-recording/
     match encode_method:
         case "x264":
-            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "14"])
+            command.extend(["-c:v", "libx264", "-preset", "ultrafast", "-crf", "15"])
         case "x264_animation":
             command.extend(
                 [
                     "-c:v",
                     "libx264",
                     "-preset",
-                    "veryfast",
+                    "ultrafast",
                     "-tune",
                     "animation",
                     "-crf",
-                    "14",
+                    "15",
                 ]
             )
         case "x265":
-            command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "14"])
+            command.extend(["-c:v", "libx265", "-preset", "ultrafast", "-crf", "15"])
 
         # Experimental, not tested
         # case "x265_animation":
-        #    command.extend(['-c:v', 'libx265', '-preset', 'veryfast', '-crf', '14', '-psy-rd', '1.0', '-psy-rdoq', '10.0'])
+        #    command.extend(['-c:v', 'libx265', '-preset', 'veryfast', '-crf', '15', '-psy-rd', '1.0', '-psy-rdoq', '10.0'])
 
         case "nvenc_h264":
-            command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "14"])
+            command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "15"])
         case "nvenc_h265":
-            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "14"])
+            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "15"])
         case "qsv_h264":
             command.extend(
-                ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "14"]
+                ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "15"]
             )
         case "qsv_h265":
             command.extend(
-                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "14"]
+                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "15"]
             )
         case "nvenc_av1":
-            command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "14"])
+            command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "15"])
         case "av1":
-            command.extend(["-c:v", "libsvtav1", "-preset", "8", "-crf", "14"])
+            command.extend(["-c:v", "libsvtav1", "-preset", "8", "-crf", "15"])
         case "h264_amf":
             command.extend(
-                ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp", "14"]
+                ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15"]
             )
         case "hevc_amf":
             command.extend(
-                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "14"]
+                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15"]
             )
         case "vp9":
-            command.extend(["-c:v", "libvpx-vp9", "-crf", "14"])
+            command.extend(["-c:v", "libvpx-vp9", "-crf", "15"])
         case "qsv_vp9":
             command.extend(["-c:v", "vp9_qsv", "-preset", "veryfast"])
-        # Needs further testing, -qscale:v 14 seems to be extremely lossy
+        # Needs further testing, -qscale:v 15 seems to be extremely lossy
         case "prores":
             command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "20"])
 
