@@ -16,7 +16,7 @@ var TheAnimeScripter = (function() {
     var segmentValue = 0;
     var sceneChangeValue = 0;
     var depthValue = 0;
-    var motionBlurValue = 0;
+    var customModelPath = "undefined";
 
     var exeFile = theAnimeScripterPath + "\\main.exe";
     // THEANIMESCRIPTER
@@ -152,15 +152,6 @@ var TheAnimeScripter = (function() {
     buttonSceneChange.text = "Auto Cut";
     buttonSceneChange.preferredSize.width = 105;
     buttonSceneChange.alignment = ["center", "top"];
-
-    var buttonMotionBlur = panelPostProcess.add("button", undefined, undefined, {
-        name: "buttonMotionBlur"
-    });
-
-    buttonMotionBlur.text = "Motion Blur";
-    buttonMotionBlur.preferredSize.width = 105;
-    buttonMotionBlur.alignment = ["center", "top"];
-    buttonMotionBlur.helpTip = "Motion Blur using average weighted frame blending, use interpolation factor and model to determine how many frames to blend and the quality of the blending`";
 
     buttonGetVideo = panelPostProcess.add("button", undefined, undefined, {
         name: "buttonGetVideo"
@@ -309,9 +300,9 @@ var TheAnimeScripter = (function() {
     createSlider(generalPanel, "Auto Cut Sensitivity", "SceneChange", 50);
     createSlider(generalPanel, "Deduplication Sensitivity", "DedupSens", 50);
 
-    sharpenSensValue = labelValues["Sharpen"];
-    sceneChangeSensValue = labelValues["SceneChange"];
-    dedupSensValue = labelValues["DedupSens"];
+    var sharpenSensValue = function() { return labelValues["Sharpen"]; };
+    var sceneChangeSensValue = function() { return labelValues["SceneChange"]; };
+    var dedupSensValue = function() { return labelValues["DedupSens"]; };
 
     var group4 = generalPanel.add("group", undefined, {
         name: "group4"
@@ -353,17 +344,17 @@ var TheAnimeScripter = (function() {
         filler.alignment = ["fill", "center"];
 
         var editText = group.add('edittext {justify: "center", properties: {name: "' + name + '"}}');
-            editText.text = defaultValue;
-            editText.preferredSize.width = 40;
-            editText.alignment = ["right", "center"];
+        editText.text = defaultValue;
+        editText.preferredSize.width = 40;
+        editText.alignment = ["right", "center"];
 
-            editText.onChange = function() {
-                fieldValues[name] = editText.text;
-            }
+        editText.onChange = function() {
+            fieldValues[name] = editText.text;
+        }
 
-            fieldValues[name] = defaultValue;
+        fieldValues[name] = defaultValue;
 
-            return editText;
+        return editText;
     }
 
     createMultiplierField(generalPanel, "Resize Multiplier", "Resize", "2");
@@ -371,10 +362,10 @@ var TheAnimeScripter = (function() {
     createMultiplierField(generalPanel, "Upscale Multiplier", "Upscale", "2");
     createMultiplierField(generalPanel, "Number of Threads", "Threads", "1")
 
-    var resizeValue = fieldValues["Resize"];
-    var interpolateValue = fieldValues["Interpolate"];
-    var upscaleValue = fieldValues["Upscale"];
-    var threadsValue = fieldValues["Threads"];
+    var resizeValue = function() { return fieldValues["Resize"]; };
+    var interpolateValue = function() { return fieldValues["Interpolate"]; };
+    var upscaleValue = function() { return fieldValues["Upscale"]; };
+    var threadsValue = function() { return fieldValues["Threads"]; };
     
     // PANEL1
     // ======
@@ -424,12 +415,12 @@ var TheAnimeScripter = (function() {
     createDropdownField(panel1, "Encoder", "Encoder", ["X264", "-", "X264_Animation", "-" , "X265", "-", "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs and QSV for Intel iGPUs");
     createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear", "-", "Bilinear", "-", "Bicubic", "-", "Experimental", "-", "Neighbor", "-", "Area", "-", "Bicublin", "-", "Gauss", "-", "Sinc", "-", "Lanczos", "-", "Spline", "-",  "Spline16", "-", "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
 
-    var upscaleModel = dropdownValues["Model"];
-    var interpolateModel = dropdownValues["Interpolate"];
-    var cuganDenoise = dropdownValues["Cugan"];
-    var depthModel = dropdownValues["Depth"];
-    var encoderMethod = dropdownValues["Encoder"];
-    var resizeMethod = dropdownValues["Resize"];
+    var upscaleModel = function() { return dropdownValues["Model"]; };
+    var interpolateModel = function() { return dropdownValues["Interpolate"]; };
+    var cuganDenoise = function() { return dropdownValues["Cugan"]; };
+    var depthModel = function() { return dropdownValues["Depth"]; };
+    var encoderMethod = function() { return dropdownValues["Encoder"]; };
+    var resizeMethod = function() { return dropdownValues["Resize"]; };
 
     var panelCustomSettings = settingsWindow.add("panel", undefined, undefined, {
         name: "panelCustomSettings"
@@ -514,11 +505,6 @@ var TheAnimeScripter = (function() {
         startChain();
     }
 
-    buttonMotionBlur.onClick = function() {
-        motionBlurValue = 1;
-        startChain();
-    }
-
     buttonStartProcess.onClick = function() {
         if (checkboxDeduplicate.value == false && checkboxUpscale.value == false && checkboxInterpolate.value == false && checkboxSharpen.value == false) {
             if (checkboxResize.value == false) {
@@ -541,6 +527,15 @@ var TheAnimeScripter = (function() {
 
     buttonPreRender.onClick = function() {
         preRender();
+    }
+
+    buttonCustomModel.onClick = function() {
+        var customModel = File.openDialog("Select a Custom Model", "*.pth;*.onnx", false);
+        if (customModel != null) {
+            customModelPath = customModel.fsName;
+            customModelName = customModel.name;
+            alert("Custom Model set to: " + customModelName);
+        }
     }
 
     function callCommand(command) {
@@ -590,6 +585,20 @@ var TheAnimeScripter = (function() {
             newLayer.shy = layer.shy;
             newLayer.locked = layer.locked;
             newLayer.name = layer.name;
+
+            // Copy transformations
+            newLayer.position.setValue(layer.position.value);
+            newLayer.scale.setValue(layer.scale.value);
+            newLayer.rotation.setValue(layer.rotation.value);
+            newLayer.opacity.setValue(layer.opacity.value);
+
+            for (var j = 1; j <= layer.effect.numProperties; j++) {
+                var effect = layer.effect(j);
+                var newEffect = newLayer.effect.addProperty(effect.matchName);
+                for (var k = 1; k <= effect.numProperties; k++) {
+                    newEffect.property(k).setValue(effect.property(k).value);
+                }
+            }
         }
 
         var renderQueue = app.project.renderQueue;
@@ -669,39 +678,42 @@ var TheAnimeScripter = (function() {
 
             try {
                 var attempt = [
-                        "cd", "\"" + theAnimeScripterPath + "\"",
-                        "&&",
-                        "\"" + exeFile + "\"",
-                        "--input", "\"" + activeLayerPath + "\"",
-                        "--output", "\"" + output_name + "\"",
-                        "--interpolate", checkboxInterpolate.value ? "1" : "0",
-                        "--interpolate_factor", interpolateValue,
-                        "--interpolate_method", interpolateModel.toLowerCase(),
-                        "--upscale", checkboxUpscale.value ? "1" : "0",
-                        "--upscale_factor", upscaleValue,
-                        "--upscale_method", upscaleModel.toLowerCase(),
-                        "--dedup", checkboxDeduplicate.value ? "1" : "0",
-                        "--dedup_sens", dedupSensValue,
-                        "--half", "1",
-                        "--inpoint", sourceInPoint,
-                        "--outpoint", sourceOutPoint,
-                        "--sharpen", checkboxSharpen.value ? "1" : "0",
-                        "--sharpen_sens", sharpenSensValue,
-                        "--segment", segmentValue,
-                        "--scenechange", sceneChangeValue,
-                        "--depth", depthValue,
-                        "--depth_method", depthModel.toLowerCase(),
-                        "--encode_method", encoderMethod.toLowerCase(),
-                        "--scenechange_sens", sceneChangeSensValue,
-                        "--motion_blur", motionBlurValue,
-                        "--ensemble", checkboxEnsemble.value ? "1" : "0",
-                        "--resize", checkboxResize.value ? "1" : "0",
-                        "--resize_method", resizeMethod.toLowerCase(),
-                        "--resize_factor", resizeValue,
-                        "--nt", threadsValue,
+                    "cd", "\"" + theAnimeScripterPath + "\"",
+                    "&&",
+                    "\"" + exeFile + "\"",
+                    "--input", "\"" + activeLayerPath + "\"",
+                    "--output", "\"" + output_name + "\"",
+                    "--interpolate", checkboxInterpolate.value ? "1" : "0",
+                    "--interpolate_factor", interpolateValue(),
+                    "--interpolate_method", interpolateModel().toLowerCase(),
+                    "--upscale", checkboxUpscale.value ? "1" : "0",
+                    "--upscale_factor", upscaleValue(),
+                    "--upscale_method", upscaleModel().toLowerCase(),
+                    "--dedup", checkboxDeduplicate.value ? "1" : "0",
+                    "--dedup_sens", dedupSensValue(),
+                    "--half", "1",
+                    "--inpoint", sourceInPoint,
+                    "--outpoint", sourceOutPoint,
+                    "--sharpen", checkboxSharpen.value ? "1" : "0",
+                    "--sharpen_sens", sharpenSensValue(),
+                    "--segment", segmentValue,
+                    "--scenechange", sceneChangeValue,
+                    "--depth", depthValue,
+                    "--depth_method", depthModel().toLowerCase(),
+                    "--encode_method", encoderMethod().toLowerCase(),
+                    "--scenechange_sens", sceneChangeSensValue(),
+                    "--ensemble", checkboxEnsemble.value ? "1" : "0",
+                    "--resize", checkboxResize.value ? "1" : "0",
+                    "--resize_method", resizeMethod().toLowerCase(),
+                    "--resize_factor", resizeValue(),
+                    "--nt", threadsValue(),
                 ];
+
+                if (customModelPath && customModelPath !== "undefined") {
+                    attempt.push("--custom_model", customModelPath);
+                }
+
                 var command = attempt.join(" ");
-                alert(command);
                 callCommand(command);
             } catch (error) {
                 alert(error);
@@ -768,7 +780,6 @@ var TheAnimeScripter = (function() {
         sceneChangeValue = 0;
         segmentValue = 0;
         depthValue = 0;
-        motionBlurValue = 0;
     }
 
     function startDownload() {
@@ -796,7 +807,7 @@ var TheAnimeScripter = (function() {
         }
 
         var randomNumbers = Math.floor(Math.random() * 10000);
-        var outputName = outputFolder + "\\" + "TAS" + "_YTDLP_ " + randomNumbers + ".mp4";
+        var outputName = outputFolder + "\\" + "TAS" + "_YTDLP_" + randomNumbers + ".mp4";
 
         try {
             var attempt = [
