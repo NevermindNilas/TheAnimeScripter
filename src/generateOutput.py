@@ -1,42 +1,39 @@
 import os
 import random
 
+
 def outputNameGenerator(args, main_path):
-    
-    if not os.path.exists(os.path.join(main_path, "output")):
-        os.makedirs(os.path.join(main_path, "output"), exist_ok=True)
-    
-    if args.input is not None:
-        output_name = os.path.splitext(os.path.basename(args.input))[0]
-    else:
-        output_name = "TAS"
-    
+    os.makedirs(os.path.join(main_path, "output"), exist_ok=True)
+
+    parts = [os.path.splitext(os.path.basename(args.input))[0] if args.input else "TAS"]
+
     if args.resize:
-        output_name += "-Re" + str(args.resize_factor)
-        
+        parts.append(f"-Re{args.resize_factor}")
+
     if args.dedup:
-        output_name += "-De"
+        parts.append("-De")
 
     if args.interpolate:
-        output_name += "-Int" + str(args.interpolate_factor)
+        parts.append(f"-Int{args.interpolate_factor}")
 
     if args.upscale:
-        output_name += "-Up" + str(args.upscale_factor)
+        parts.append(f"-Up{args.upscale_factor}")
 
     if args.sharpen:
-        output_name += "-Sh" + str(args.sharpen_sens)
+        parts.append(f"-Sh{args.sharpen_sens}")
 
     if args.segment:
-        output_name += "-Segment"
+        parts.append("-Segment")
 
     if args.depth:
-        output_name += "-Depth"
+        parts.append("-Depth")
 
-    if not args.ytdlp == "":
-        output_name += "-YTDLP"
+    if args.ytdlp:
+        parts.append("-YTDLP")
 
-    random_number = random.randint(0, 1000)
-    output_name = os.path.join(main_path, "output", output_name + "-" + str(random_number) + ".mp4")
-    
-    
+    parts.append(f"-{random.randint(0, 1000)}")
+
+    extension = ".mov" if args.segment else ".mp4"
+    output_name = os.path.join(main_path, "output", "".join(parts) + extension)
+
     return os.path.normpath(output_name)
