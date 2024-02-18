@@ -58,16 +58,7 @@ def matchEncoder(encode_method: str):
             command.extend(["-c:v", "libx264", "-preset", "ultrafast", "-crf", "15"])
         case "x264_animation":
             command.extend(
-                [
-                    "-c:v",
-                    "libx264",
-                    "-preset",
-                    "ultrafast",
-                    "-tune",
-                    "animation",
-                    "-crf",
-                    "15",
-                ]
+                [ "-c:v", "libx264", "-preset", "ultrafast", "-tune", "animation", "-crf", "15",]
             )
         case "x265":
             command.extend(["-c:v", "libx265", "-preset", "ultrafast", "-crf", "15"])
@@ -106,7 +97,7 @@ def matchEncoder(encode_method: str):
             command.extend(["-c:v", "vp9_qsv", "-preset", "veryfast"])
         # Needs further testing, -qscale:v 15 seems to be extremely lossy
         case "prores":
-            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "20"])
+            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "15"])
 
     return command
 
@@ -342,12 +333,14 @@ class WriteBuffer:
         if self.transparent:
             if self.encode_method not in ["prores", "prores_ks"]:
                 if verbose:
-                    logging.info("Switching internally to prores for transparency support")
+                    logging.info(
+                        "Switching internally to prores for transparency support"
+                    )
                 self.encode_method = "prores"
-                
+
             pix_fmt = "rgba"
             output_pix_fmt = "yuva444p10le"
-            
+
         elif self.grayscale:
             pix_fmt = "gray"
             output_pix_fmt = "yuv420p16le"
@@ -394,6 +387,8 @@ class WriteBuffer:
                 filters.append("cas={}".format(self.sharpen_sens))
             if self.grayscale:
                 filters.append("format=gray")
+            if self.transparent:
+                filters.append("format=rgba")
             if filters:
                 command.extend(["-vf", ",".join(filters)])
 
@@ -410,7 +405,7 @@ class WriteBuffer:
 
                 if self.grayscale:
                     custom_encoder_list[vf_index + 1] += ",format=gray"
-                    
+
                 if self.transparent:
                     custom_encoder_list[vf_index + 1] += ",format=rgba"
             else:
@@ -419,7 +414,8 @@ class WriteBuffer:
                     filters.append("cas={}".format(self.sharpen_sens))
                 if self.grayscale:
                     filters.append("format=gray")
-
+                if self.transparent:
+                    filters.append("format=rgba")
                 if filters:
                     custom_encoder_list.extend(["-vf", ",".join(filters)])
 

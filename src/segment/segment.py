@@ -151,7 +151,6 @@ class Segment:
             mask = np.squeeze(mask, axis=2)
             frame_with_mask = np.concatenate((frame, mask[..., np.newaxis]), axis=2)
 
-            print(frame_with_mask.shape)
             self.writeBuffer.write(frame_with_mask)
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
