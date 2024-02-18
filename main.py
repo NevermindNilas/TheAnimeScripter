@@ -391,6 +391,7 @@ if __name__ == "__main__":
             "hevc_amf",
             "vp9",
             "qsv_vp9",
+            "prores",
         ],
         default="x264",
     )
