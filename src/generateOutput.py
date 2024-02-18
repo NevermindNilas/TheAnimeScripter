@@ -3,6 +3,9 @@ import random
 
 
 def outputNameGenerator(args, main_path):
+    if args.output and os.path.isdir(args.output):
+        main_path = args.output
+
     os.makedirs(os.path.join(main_path, "output"), exist_ok=True)
 
     parts = [os.path.splitext(os.path.basename(args.input))[0] if args.input else "TAS"]
