@@ -97,6 +97,7 @@ def move_extras(jsx_path, license_path):
 
 
 def clean_up():
+    print("\n")
     answer = input("Do you want to clean up the residual files? (y/n): ")
 
     if answer.lower() == "y":
