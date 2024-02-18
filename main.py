@@ -485,9 +485,9 @@ if __name__ == "__main__":
     args.ffmpeg_path = os.path.join(main_path, "src", "ffmpeg", "ffmpeg.exe")
 
     if not os.path.exists(args.ffmpeg_path):
-        from src.get_ffmpeg import get_ffmpeg
+        from src.getFFMPEG import getFFMPEG
 
-        args.ffmpeg_path = get_ffmpeg()
+        args.ffmpeg_path = getFFMPEG()
 
     checkSystem()
 

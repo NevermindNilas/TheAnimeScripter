@@ -3,7 +3,7 @@ import logging
 import subprocess
 
 from yt_dlp import YoutubeDL
-from .get_ffmpeg import get_ffmpeg
+from .getFFMPEG import getFFMPEG
 from .ffmpegSettings import encodeYTDLP
 
 
@@ -24,7 +24,7 @@ class VideoDownloader:
     def setup_ffmpeg(self):
         ffmpeg_path = os.path.join(os.path.dirname(__file__), "ffmpeg", "ffmpeg.exe")
         if not os.path.isfile(ffmpeg_path):
-            self.ffmpeg_path = get_ffmpeg()
+            self.ffmpeg_path = getFFMPEG()
         else:
             self.ffmpeg_path = ffmpeg_path
 
