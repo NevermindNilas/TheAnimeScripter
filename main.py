@@ -37,7 +37,7 @@ if getattr(sys, "frozen", False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.1.11"
+scriptVersion = "1.1.12"
 warnings.filterwarnings("ignore")
 
 
