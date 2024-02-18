@@ -658,8 +658,14 @@ var TheAnimeScripter = (function() {
                 sourceOutPoint = layer.outPoint - layer.startTime;
             }
 
+            if (segmentValue == 1) {
+                var outputFileExtension = ".mov";
+            } else {
+                var outputFileExtension = ".mp4";
+            }
+
             randomNumbers = Math.floor(Math.random() * 1000);
-            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "-" + randomNumbers + ".mp4";
+            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "-" + randomNumbers + outputFileExtension;
 
             try {
                 var attempt = [
