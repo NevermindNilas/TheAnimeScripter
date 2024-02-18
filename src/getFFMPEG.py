@@ -5,7 +5,7 @@ import glob
 import zipfile
 import logging
 
-def get_ffmpeg():
+def getFFMPEG():
     """
     This script will download and extract the latest ffmpeg.exe binary for windows.
     I do not need any other files from the ffmpeg build, so anything unnecessary is removed.
