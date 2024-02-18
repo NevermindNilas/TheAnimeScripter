@@ -55,17 +55,13 @@ def matchEncoder(encode_method: str):
     # Settings inspiration from: https://www.xaymar.com/guides/obs/high-quality-recording/
     match encode_method:
         case "x264":
-            command.extend(["-c:v", "libx264", "-preset", "ultrafast", "-crf", "15"])
+            command.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "15"])
         case "x264_animation":
             command.extend(
-                [ "-c:v", "libx264", "-preset", "ultrafast", "-tune", "animation", "-crf", "15",]
+                [ "-c:v", "libx264", "-preset", "fast", "-tune", "animation", "-crf", "15",]
             )
         case "x265":
-            command.extend(["-c:v", "libx265", "-preset", "ultrafast", "-crf", "15"])
-
-        # Experimental, not tested
-        # case "x265_animation":
-        #    command.extend(['-c:v', 'libx265', '-preset', 'veryfast', '-crf', '15', '-psy-rd', '1.0', '-psy-rdoq', '10.0'])
+            command.extend(["-c:v", "libx265", "-preset", "fast", "-crf", "15"])
 
         case "nvenc_h264":
             command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "15"])
@@ -168,7 +164,11 @@ class BuildBuffer:
 
         if self.outpoint != 0:
             command.extend(["-ss", str(self.inpoint), "-to", str(self.outpoint)])
-
+        
+        """
+        command.extend(["-c:v", "h264_qsv"])
+        """
+        
         command.extend(
             [
                 "-i",
@@ -216,6 +216,9 @@ class BuildBuffer:
         self.readBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
         command = self.decodeSettings()
 
+        if verbose:
+            logging.info(f"Decoding options: {' '.join(map(str, command))}")
+            
         try:
             process = subprocess.Popen(
                 command,

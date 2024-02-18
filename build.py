@@ -20,7 +20,7 @@ def activate_venv():
 def install_requirements():
     print("Installing the requirements...")
     subprocess.run(
-        [".\\venv\\Scripts\\pip3", "install", "--pre", "-r", "requirements.txt"],
+        [".\\venv\\Scripts\\pip3", "install", "-r", "requirements.txt"],
         check=True,
     )
 
@@ -49,6 +49,22 @@ def create_executable():
         "rife_ncnn_vulkan_python",
         "models",
     )
+    hidden_imports = [
+        "yt_dlp.compat._legacy",
+        "yt_dlp.compat._deprecated",
+        "yt_dlp.utils._legacy",
+        "yt_dlp.utils._deprecated",
+        "Cryptodome",
+        "websockets",
+        "requests",
+        "urllib3",
+        "mutagen",
+        "brotli",
+        "certifi",
+        "secretstorage",
+    ]
+    
+    excluded_imports = ["youtube_dl", "youtube_dlc", "test", "ytdlp_plugins", "devscripts"]
     subprocess.run(
         [
             "./venv/bin/pyinstaller"
@@ -67,6 +83,8 @@ def create_executable():
             f"{rife_ncnn_models_path};rife_ncnn_vulkan_python/models",
             "--hidden-import",
             "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
+            *["--hidden-import=" + hi for hi in hidden_imports],
+            *["--exclude-module=" + ei for ei in excluded_imports],
             "--collect-all",
             "cupy",
             "--collect-all",
