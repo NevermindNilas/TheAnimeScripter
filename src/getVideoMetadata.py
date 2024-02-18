@@ -3,13 +3,17 @@ import logging
 
 def getVideoMetadata(input, inPoint, outPoint):
     
-    logging.info(
-        "\n============== Video Metadata ==============")
+    logging.info("\n============== Video Metadata ==============")
     
     cap = cv2.VideoCapture(input)
     
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    if width == 0 or height == 0:
+        logging.error("Width or height are zero. Please check the input video file, it may require adding quotation marks on either side of the file path.")
+        raise ValueError("Width or height cannot be zero.")
+    
     fps = cap.get(cv2.CAP_PROP_FPS)
     nframes = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
