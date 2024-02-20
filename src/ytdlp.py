@@ -3,30 +3,22 @@ import logging
 import subprocess
 
 from yt_dlp import YoutubeDL
-from .getFFMPEG import getFFMPEG
 from .ffmpegSettings import encodeYTDLP
 
 
 class VideoDownloader:
-    def __init__(self, video_link, output, quality, encode_method, custom_encoder):
+    def __init__(self, video_link, output, quality, encode_method, custom_encoder, ffmpeg_path:str = None):
         self.link = video_link
         self.output = output
         self.quality = quality
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
+        self.ffmpeg_path = ffmpeg_path
 
-        self.setup_ffmpeg()
         self.download_video()
         if self.quality:
             self.encode_video()
             self.cleanup()
-
-    def setup_ffmpeg(self):
-        ffmpeg_path = os.path.join(os.path.dirname(__file__), "ffmpeg", "ffmpeg.exe")
-        if not os.path.isfile(ffmpeg_path):
-            self.ffmpeg_path = getFFMPEG()
-        else:
-            self.ffmpeg_path = ffmpeg_path
 
     def download_video(self):
         ydl_opts = self.get_ydl_opts()
