@@ -26,6 +26,7 @@ import sys
 import logging
 
 from concurrent.futures import ThreadPoolExecutor
+from src.getFFMPEG import getFFMPEG
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import intitialize_models
@@ -469,6 +470,8 @@ if __name__ == "__main__":
 
         logging.info(f"Output was not specified, using {args.output}")
 
+    args.ffmpeg_path = getFFMPEG()
+
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
         from src.ytdlp import VideoDownloader
@@ -479,19 +482,12 @@ if __name__ == "__main__":
             args.ytdlp_quality,
             args.encode_method,
             args.custom_encoder,
+            args.ffmpeg_path,
         )
         sys.exit()
 
-    args.ffmpeg_path = os.path.join(main_path, "src", "ffmpeg", "ffmpeg.exe")
-
-    if not os.path.exists(args.ffmpeg_path):
-        from src.getFFMPEG import getFFMPEG
-
-        args.ffmpeg_path = getFFMPEG()
-
-    checkSystem()
-
     if args.input is not None:
+        checkSystem()
         args.input = os.path.normpath(args.input)
         VideoProcessor(args)
     else:
