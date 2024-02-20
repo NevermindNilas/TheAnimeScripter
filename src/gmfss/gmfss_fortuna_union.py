@@ -65,7 +65,6 @@ class GMFSS():
                 f"Downloading {zip_filename}")
             wget.download(zip_url, out=weights_dir)
 
-            # Extract the zip file  
             with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
                 print(f"\nExtracting {zip_filename}")
                 zip_ref.extractall(weights_dir)

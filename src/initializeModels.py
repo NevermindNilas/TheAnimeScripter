@@ -30,7 +30,7 @@ def intitialize_models(self):
                 from src.cugan.cugan import CuganNCNN
 
                 upscale_process = CuganNCNN(
-                    self.nt, self.upscale_factor, self.custom_model
+                    self.nt, self.upscale_factor,
                 )
             case "compact" | "ultracompact" | "superultracompact":
                 from src.compact.compact import Compact

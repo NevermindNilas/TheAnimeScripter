@@ -10,8 +10,8 @@ def checkSystem():
         proc_info = computer.Win32_Processor()[0]
         gpu_info = computer.Win32_VideoController()
         os_name = os_info.Name.encode("utf-8").split(b"|")[0].decode("utf-8")
-        system_ram = float(os_info.TotalVisibleMemorySize) / 1048576
-        available_ram = float(os_info.FreePhysicalMemory) / 1048576
+        system_ram = float(os_info.TotalVisibleMemorySize) / 1048576  # in GB
+        available_ram = float(os_info.FreePhysicalMemory) / 1048576  # in GB
 
         logging.info(f"OS Name: {os_name}")
         logging.info(f"CPU: {proc_info.Name}")

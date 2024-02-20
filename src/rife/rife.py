@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import logging
 
+from src.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
 
 
@@ -34,34 +35,25 @@ class Rife:
         match self.interpolate_method:
             case "rife" | "rife4.14":
                 from .rife414.RIFE_HDv3 import Model
-
-                self.interpolate_method = "rife414"
                 self.filename = "rife414.pkl"
 
             case "rife4.14-lite":
                 from .rife414lite.RIFE_HDv3 import Model
-
-                self.interpolate_method = "rife414lite"
                 self.filename = "rife414lite.pkl"
 
             case "rife4.13-lite":
                 from .rife413lite.RIFE_HDv3 import Model
-
-                self.interpolate_method = "rife413lite"
                 self.filename = "rife413lite.pkl"
 
             case "rife4.6":
                 from .rife46.RIFE_HDv3 import Model
-
-                self.interpolate_method = "rife46"
                 self.filename = "rife46.pkl"
-
-        self.modelDir = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), self.interpolate_method
-        )
-
-        if not os.path.exists(os.path.join(self.modelDir, "flownet.pkl")):
-            self.get_rife()
+                
+        if not os.path.exists(os.path.join(weightsDir, "rife", self.interpolate_method)):
+            modelDir = os.path.dirname(downloadModels(self.interpolate_method))
+        else:
+            filenameWithoutExtension = os.path.splitext(self.filename)[0]
+            modelDir = os.path.dirname(os.path.join(weightsDir, "rife", filenameWithoutExtension, "flownet.pkl"))
 
         # Apparently this can improve performance slightly
         torch.set_float32_matmul_precision("medium")
@@ -86,23 +78,13 @@ class Rife:
                 torch.set_default_tensor_type(torch.cuda.HalfTensor)
 
         self.model = Model()
-        self.model.load_model(self.modelDir, -1)
+        self.model.load_model(modelDir, -1)
         self.model.eval()
 
         if self.cuda_available and self.half:
             self.model.half()
 
         self.model.device()
-
-    def get_rife(self):
-        import wget
-
-        print("Downloading RIFE model...")
-        logging.info("Couldn't find RIFE model, downloading it now...")
-
-        url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{self.filename}"
-
-        wget.download(url, out=os.path.join(self.modelDir, "flownet.pkl"))
 
     @torch.inference_mode()
     def make_inference(self, n):

@@ -707,6 +707,7 @@ var TheAnimeScripter = (function() {
                     "--resize_method", resizeMethod().toLowerCase(),
                     "--resize_factor", resizeValue(),
                     "--nt", threadsValue(),
+		    "--buffer_limit", 200,
                 ];
 
                 if (customModelPath && customModelPath !== "undefined") {

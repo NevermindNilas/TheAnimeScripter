@@ -34,4 +34,4 @@ def delete_files(directory, file_endings=None, dir_names=None):
 
 if __name__ == "__main__":
     delete_files('./', file_endings=['.pth', '.pkl', '.cpkl', '.ckpt', ".onnx"],
-                 dir_names=['__pycache__', 'ffmpeg', 'hub'])
+                 dir_names=['__pycache__', 'ffmpeg', 'hub', 'weights', 'dist', 'build', 'venv'])

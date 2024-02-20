@@ -1,9 +1,8 @@
 import os
-import wget
 import torch
-import numpy as np
 import logging
 
+from src.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
 from .swinir_arch import SwinIR as SwinIR_arch
 
@@ -40,18 +39,11 @@ class Swinir:
         if self.custom_model == "":
             self.filename = "2xHFA2kSwinIR-S.pth"
 
-            dir_name = os.path.dirname(os.path.abspath(__file__))
-            weights_dir = os.path.join(dir_name, "weights")
-            if not os.path.exists(weights_dir):
-                os.makedirs(weights_dir)
-
-            if not os.path.exists(os.path.join(weights_dir, self.filename)):
-                print(f"Downloading SWINIR model...")
-                url = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/2xHFA2kSwinIR-S.pth"
-                wget.download(url, out=os.path.join(weights_dir, self.filename))
-
-            model_path = os.path.join(weights_dir, self.filename)
-
+            if not os.path.exists(os.path.join(weightsDir, "swinir", self.filename)):
+                model_path = downloadModels(model="swinir")
+            else:
+                model_path = os.path.join(weightsDir, "swinir", self.filename)
+                
         else:
             logging.info(f"Using custom model: {self.custom_model}")
             model_path = self.custom_model
