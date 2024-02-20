@@ -3,8 +3,8 @@ import logging
 import os
 import cv2
 import torch
-import wget
 
+from src.downloadModels import downloadModels, weightsDir
 from concurrent.futures import ThreadPoolExecutor
 from .train import AnimeSegmentation
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
@@ -77,20 +77,10 @@ class Segment:
 
     def handleModel(self):
         filename = "isnetis.ckpt"
-        url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{
-            filename}"
-
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-
-        if not os.path.exists(os.path.join(dir_path, "weights")):
-            os.mkdir(os.path.join(dir_path, "weights"))
-
-        if not os.path.exists(os.path.join(dir_path, "weights", filename)):
-            print("Downloading segmentation model...")
-            logging.info("Couldn't find the segmentation model, downloading it now...")
-            wget.download(url, out=os.path.join(dir_path, "weights", filename))
-
-        model_path = os.path.join(dir_path, "weights", filename)
+        if not os.path.exists(os.path.join(weightsDir, "segment", filename)):
+            model_path = downloadModels(model="segment")
+        else:
+            model_path = os.path.join(weightsDir, "segment", filename)
 
         if torch.cuda.is_available():
             self.device = "cuda:0"

@@ -7,7 +7,6 @@ cupy-cuda12x
 kornia
 scipy
 wmi
-onnxruntime-directml
 yt-dlp
 einops
 scenedetect[opencv,progress_bar]

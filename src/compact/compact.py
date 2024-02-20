@@ -1,12 +1,15 @@
 import os
 import torch
-import wget
 import logging
 
+from src.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
 from .srvgg_arch import SRVGGNetCompact
-from threading import Lock
 
+dirPath = os.path.dirname(os.path.realpath(__file__))
+
+# Apparently this can improve performance slightly
+torch.set_float32_matmul_precision("medium")
 class Compact():
     def __init__(self, upscale_method, upscale_factor, half, width, height, custom_model, nt):
         self.upscale_method = upscale_method
@@ -23,10 +26,6 @@ class Compact():
         self.handle_models()
 
     def handle_models(self):
-
-        # Apparently this can improve performance slightly
-        torch.set_float32_matmul_precision("medium")
-
         if self.custom_model == "":
             if self.upscale_method == "compact":
                 filename = "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k.pth"
@@ -36,20 +35,12 @@ class Compact():
 
             elif self.upscale_method == "superultracompact":
                 filename = "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k.pth"
+                
+            if not os.path.exists(os.path.join(weightsDir, "compact", filename)):
+                model_path = downloadModels(model=self.upscale_method)
+            else:
+                model_path = os.path.join(weightsDir, "compact", filename)
 
-            dir_name = os.path.dirname(os.path.abspath(__file__))
-            weights_dir = os.path.join(dir_name, "weights")
-
-            if not os.path.exists(weights_dir):
-                os.makedirs(weights_dir)
-
-            if not os.path.exists(os.path.join(weights_dir, filename)):
-                print(f"Downloading {self.upscale_method.upper()} model...")
-                url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{
-                    filename}"
-                wget.download(url, out=os.path.join(weights_dir, filename))
-
-            model_path = os.path.join(weights_dir, filename)
         else:
             logging.info(f"Using custom model: {self.custom_model}")
             model_path = self.custom_model

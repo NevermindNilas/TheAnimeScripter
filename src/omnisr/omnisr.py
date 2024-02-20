@@ -1,9 +1,9 @@
-import wget
 import os
 import torch
 import torch.nn.functional as F
 import logging
 
+from src.downloadModels import downloadModels, weightsDir
 from .omnisr_arch import omnisr
 
 class OmniSR:
@@ -26,24 +26,17 @@ class OmniSR:
             window_size=8,
             num_in_ch=3,
             num_out_ch=3,
-            num_feat=64 # Might have to look into this
+            num_feat=64
         )
         
         if self.custom_model == "":
             self.filename = "2xHFA2kOmniSR.pth"
 
-            dir_name = os.path.dirname(os.path.abspath(__file__))
-            weights_dir = os.path.join(dir_name, "weights")
-            if not os.path.exists(weights_dir):
-                os.makedirs(weights_dir)
-
-            if not os.path.exists(os.path.join(weights_dir, self.filename)):
-                print(f"Downloading OmniSR model...")
-                url = f"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/{self.filename}"
-                wget.download(url, out=os.path.join(weights_dir, self.filename))
-
-            model_path = os.path.join(weights_dir, self.filename)
-
+            if not os.path.exists(os.path.join(weightsDir, "omnisr", self.filename)):
+                model_path = downloadModels(model="omnisr")
+            else:
+                model_path = os.path.join(weightsDir, "omnisr", self.filename)
+                
         else:
             logging.info(f"Using custom model: {self.custom_model}")
 
