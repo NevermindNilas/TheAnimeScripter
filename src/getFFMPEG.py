@@ -6,43 +6,39 @@ import zipfile
 import logging
 
 def getFFMPEG():
-    """
-    This script will download and extract the latest ffmpeg.exe binary for windows.
-    I do not need any other files from the ffmpeg build, so anything unnecessary is removed.
-    """
+    ffmpegPath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "ffmpeg", "ffmpeg.exe")
+    logging.info(f"FFMPEG Path: {ffmpegPath}")
 
+    if not os.path.isfile(ffmpegPath):
+        downloadAndExtractFFMPEG(ffmpegPath)
+
+    return ffmpegPath
+
+def downloadAndExtractFFMPEG(ffmpegPath):
     logging.info("Getting FFMPEG")
-
-    print(
-        "Couldn't find FFMPEG, downloading it now, this will add a few seconds onto the first run, but it will be cached for future runs."
-    )
-
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    ffmpeg_path = os.path.join(dir_path, "ffmpeg", "ffmpeg.exe")
-
-    logging.info(f"FFMPEG path: {ffmpeg_path}")
+    print("Couldn't find FFMPEG, downloading it now. This will take a few seconds on the first run, but will be cached for future runs.")
 
     FFMPEG_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-    ffmpeg_dir = os.path.dirname(ffmpeg_path)
+    ffmpegDir = os.path.dirname(ffmpegPath)
 
-    os.makedirs(ffmpeg_dir, exist_ok=True)
-    ffmpeg_zip_path = os.path.join(ffmpeg_dir, "ffmpeg.zip")
+    os.makedirs(ffmpegDir, exist_ok=True)
+    ffmpegZipPath = os.path.join(ffmpegDir, "ffmpeg.zip")
 
-    wget.download(FFMPEG_URL, out=ffmpeg_zip_path)
+    wget.download(FFMPEG_URL, out=ffmpegZipPath)
+    extractFFMPEG(ffmpegZipPath, ffmpegDir)
 
-    with zipfile.ZipFile(ffmpeg_zip_path, "r") as zip_ref:
-        zip_ref.extractall(ffmpeg_dir)
+    print("\n")
+    return ffmpegPath
 
-    for root, dirs, files in os.walk(ffmpeg_dir):
+def extractFFMPEG(ffmpegZipPath, ffmpegDir):
+    with zipfile.ZipFile(ffmpegZipPath, "r") as zipRef:
+        zipRef.extractall(ffmpegDir)
+
+    for root, dirs, files in os.walk(ffmpegDir):
         for file in files:
             if file == "ffmpeg.exe":
-                shutil.move(os.path.join(root, file), ffmpeg_dir)
+                shutil.move(os.path.join(root, file), ffmpegDir)
 
-    os.remove(ffmpeg_zip_path)
-    for directory in glob.glob(os.path.join(ffmpeg_dir, "ffmpeg-*-win64-gpl")):
+    os.remove(ffmpegZipPath)
+    for directory in glob.glob(os.path.join(ffmpegDir, "ffmpeg-*-win64-gpl")):
         shutil.rmtree(directory)
-
-    # Force a new line
-    print("\n")
-
-    return ffmpeg_path

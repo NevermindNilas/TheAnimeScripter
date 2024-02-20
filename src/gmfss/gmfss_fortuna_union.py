@@ -1,10 +1,9 @@
 import os
-import wget
 import torch
 import numpy as np
 import logging
-import zipfile
 
+from src.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
 
 # from: https://github.com/HolyWu/vs-gmfss_fortuna/blob/master/vsgmfss_fortuna/__init__.py
@@ -35,43 +34,11 @@ class GMFSS():
     def handle_model(self):
         torch.set_float32_matmul_precision("medium")
 
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        weights_dir = os.path.join(dir_path, "weights")
-        
-        if not os.path.exists(weights_dir):
-            os.makedirs(weights_dir)
-
-        files_to_check = [
-            "feat_base.pkl",
-            "feat_union.pkl",
-            "flownet.pkl",
-            "fusionnet_base.pkl",
-            "fusionnet_union.pkl",
-            "metric_base.pkl",
-            "metric_union.pkl",
-            "rife.pkl",
-        ]
-
-        all_files_exist = all(os.path.exists(os.path.join(
-            weights_dir, filename)) for filename in files_to_check)
-
-        if not all_files_exist:
-            zip_url = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/gmfss-fortuna-union.zip"
-            zip_filename = zip_url.split('/')[-1]
-            zip_filepath = os.path.join(weights_dir, zip_filename)
-
-            print(f"\nDownloading {zip_filename}")
-            logging.info(
-                f"Downloading {zip_filename}")
-            wget.download(zip_url, out=weights_dir)
-
-            with zipfile.ZipFile(zip_filepath, 'r') as zip_ref:
-                print(f"\nExtracting {zip_filename}")
-                zip_ref.extractall(weights_dir)
-                
-            os.remove(zip_filepath)
+        if not os.path.exists(os.path.join(weightsDir, "gmfss")):
+            modelDir = os.path.dirname(downloadModels("gmfss"))
         else:
-            logging.info("Weights already exist, skipping download")
+            modelDir = os.path.join(weightsDir, "gmfss")
+
 
         model_type = "union"
 
@@ -101,7 +68,7 @@ class GMFSS():
 
         from .model.GMFSS import GMFSS as Model
 
-        self.model = Model(weights_dir, model_type,
+        self.model = Model(modelDir,  model_type,
                            self.scale, ensemble=self.ensemble)
         self.model.eval().to(self.device, memory_format=torch.channels_last)
 

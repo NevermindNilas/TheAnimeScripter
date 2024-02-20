@@ -39,6 +39,8 @@ def downloadModels(
 ) -> str:
     os.makedirs(weightsDir, exist_ok=True)
 
+    print(weightsDir)
+    
     match model:
         case "cugan" | "shufflecugan":
             cuganFolderPath = os.path.join(weightsDir, "cugan")

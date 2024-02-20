@@ -1,7 +1,6 @@
 import os
 import torch
 import numpy as np
-import logging
 
 from src.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
@@ -48,11 +47,11 @@ class Rife:
             case "rife4.6":
                 from .rife46.RIFE_HDv3 import Model
                 self.filename = "rife46.pkl"
-                
-        if not os.path.exists(os.path.join(weightsDir, "rife", self.interpolate_method)):
+        
+        filenameWithoutExtension = os.path.splitext(self.filename)[0]
+        if not os.path.exists(os.path.join(weightsDir, "rife", filenameWithoutExtension, "flownet.pkl")):
             modelDir = os.path.dirname(downloadModels(self.interpolate_method))
         else:
-            filenameWithoutExtension = os.path.splitext(self.filename)[0]
             modelDir = os.path.dirname(os.path.join(weightsDir, "rife", filenameWithoutExtension, "flownet.pkl"))
 
         # Apparently this can improve performance slightly
