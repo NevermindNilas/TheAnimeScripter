@@ -1,3 +1,0 @@
-{
-  "plugins": ["@babel/plugin-syntax-jsx", "../lib/index"]
-}

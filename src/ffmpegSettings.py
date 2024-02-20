@@ -3,7 +3,6 @@ import subprocess
 import numpy as np
 import os
 import sys
-import threading
 
 from queue import Queue
 
@@ -360,10 +359,9 @@ class WriteBuffer:
 
         command = [
             self.ffmpegPath,
-            "-hide_banner",
             "-y",
             "-v",
-            "error",
+            "warning",
             "-stats",
             "-f",
             "rawvideo",
@@ -447,19 +445,10 @@ class WriteBuffer:
             self.process = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
+                stdout=sys.stdout,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                bufsize=1,
             )
-
-            def print_output():
-                for line in iter(self.process.stdout.readline, ""):
-                    print("\r" + line.strip(), end="")
-                    sys.stdout.flush()
-
-            output_thread = threading.Thread(target=print_output)
-            output_thread.start()
 
             writtenFrames = 0
             while True:
@@ -476,7 +465,6 @@ class WriteBuffer:
                 self.process.stdin.buffer.write(frame.tobytes())
                 writtenFrames += 1
 
-            output_thread.join()
         except Exception as e:
             if verbose:
                 logging.error(f"An error occurred: {str(e)}")

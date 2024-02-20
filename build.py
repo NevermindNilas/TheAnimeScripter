@@ -49,22 +49,12 @@ def create_executable():
         "rife_ncnn_vulkan_python",
         "models",
     )
-    hidden_imports = [
-        "yt_dlp.compat._legacy",
-        "yt_dlp.compat._deprecated",
-        "yt_dlp.utils._legacy",
-        "yt_dlp.utils._deprecated",
-        "Cryptodome",
-        "websockets",
-        "requests",
-        "urllib3",
-        "mutagen",
-        "brotli",
-        "certifi",
-        "secretstorage",
-    ]
-    
-    excluded_imports = ["youtube_dl", "youtube_dlc", "test", "ytdlp_plugins", "devscripts"]
+    span_ncnn_models_path = os.path.join(
+        pkg_resources.get_distribution("span_ncnn_py").location,
+        "span_ncnn_py",
+        "models",
+    )
+
     subprocess.run(
         [
             "./venv/bin/pyinstaller"
@@ -81,10 +71,14 @@ def create_executable():
             f"{cugan_ncnn_models_path};realcugan_ncnn_py/models",
             "--add-data",
             f"{rife_ncnn_models_path};rife_ncnn_vulkan_python/models",
+            "--add-data",
+            f"{span_ncnn_models_path};span_ncnn_py/models",
+            "--hidden-import",
+            "realcugan_ncnn_py.realcugan_ncnn_wrapper",
+            "--hidden-import",
+            "span_ncnn_py.span_ncnn_wrapper",
             "--hidden-import",
             "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
-            *["--hidden-import=" + hi for hi in hidden_imports],
-            *["--exclude-module=" + ei for ei in excluded_imports],
             "--collect-all",
             "cupy",
             "--collect-all",
