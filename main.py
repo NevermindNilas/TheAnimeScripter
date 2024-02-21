@@ -39,7 +39,7 @@ if getattr(sys, "frozen", False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.2.4"
+scriptVersion = "1.3.0"
 warnings.filterwarnings("ignore")
 
 
@@ -79,7 +79,7 @@ class VideoProcessor:
         self.denoise = args.denoise
         self.buffer_limit = args.buffer_limit
 
-        self.width, self.height, self.fps, self.nframes = getVideoMetadata(
+        self.width, self.height, self.fps = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
         )
 
