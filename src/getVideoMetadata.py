@@ -35,4 +35,4 @@ def getVideoMetadata(input, inPoint, outPoint):
 
     cap.release()
 
-    return width, height, fps, nframes
+    return width, height, fps
