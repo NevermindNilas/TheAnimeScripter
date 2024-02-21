@@ -25,6 +25,7 @@ import warnings
 import sys
 import logging
 
+from threading import Semaphore
 from concurrent.futures import ThreadPoolExecutor
 from src.getFFMPEG import getFFMPEG
 from src.checkSpecs import checkSystem
@@ -38,7 +39,7 @@ if getattr(sys, "frozen", False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.2.3"
+scriptVersion = "1.2.4"
 warnings.filterwarnings("ignore")
 
 
@@ -219,23 +220,25 @@ class VideoProcessor:
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
+        finally:
+            self.semaphore.release()
 
     def process(self):
         frameCount = 0
         self.prevFrame = None
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
-                if self.readBuffer.getSizeOfQueue() < self.buffer_limit:
-                    frame = self.readBuffer.read()
-                    if frame is None:
-                        if (
-                            self.readBuffer.isReadingDone()
-                            and self.readBuffer.getSizeOfQueue() == 0
-                        ):
-                            break
+                frame = self.readBuffer.read()
+                if frame is None:
+                    if (
+                        self.readBuffer.isReadingDone()
+                        and self.readBuffer.getSizeOfQueue() == 0
+                    ):
+                        break
 
-                    executor.submit(self.processFrame, frame)
-                    frameCount += 1
+                self.semaphore.acquire()
+                executor.submit(self.processFrame, frame)
+                frameCount += 1
 
         if self.prevFrame is not None:
             self.writeBuffer.write(self.prevFrame)
@@ -289,6 +292,8 @@ class VideoProcessor:
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
 
+        self.semaphore = Semaphore(self.nt * 4)
+        
         with ThreadPoolExecutor(max_workers=3) as executor:
             executor.submit(self.readBuffer.start, verbose=True)
             executor.submit(self.process)
