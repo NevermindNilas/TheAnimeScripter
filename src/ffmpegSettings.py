@@ -223,7 +223,7 @@ class BuildBuffer:
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
-                bufsize=self.buffSize,
+                bufsize=1,
             )
 
             self.readingDone = False
@@ -247,7 +247,7 @@ class BuildBuffer:
                     (self.height, self.width, 3)
                 )
 
-                self.readBuffer.put(frame)
+                self.readBuffer.put(frame, block=True)
                 self.decodedFrames += 1
 
         except Exception as e:
@@ -373,6 +373,8 @@ class WriteBuffer:
             f"{pix_fmt}",
             "-r",
             str(self.fps),
+            "-thread_queue_size",
+            "100",
             "-i",
             "-",
             "-an",
@@ -448,6 +450,7 @@ class WriteBuffer:
                 stdout=sys.stdout,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
+                bufsize=1,
             )
 
             writtenFrames = 0
@@ -473,7 +476,7 @@ class WriteBuffer:
         """
         Add a frame to the queue. Must be in RGB format.
         """
-        self.writeBuffer.put(frame)
+        self.writeBuffer.put(frame, block=True)
 
     def close(self):
         """
