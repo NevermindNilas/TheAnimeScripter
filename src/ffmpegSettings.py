@@ -247,7 +247,7 @@ class BuildBuffer:
                     (self.height, self.width, 3)
                 )
 
-                self.readBuffer.put(frame, block=True)
+                self.readBuffer.put(frame)
                 self.decodedFrames += 1
 
         except Exception as e:
@@ -345,13 +345,7 @@ class WriteBuffer:
 
         elif self.grayscale:
             pix_fmt = "gray"
-            output_pix_fmt = "yuv420p16le"
-            if self.encode_method not in ["x264", "x264_animation", "x265", "av1"]:
-                if verbose:
-                    logging.info(
-                        "The selected encoder does not support yuv420p16le, switching to yuv420p10le."
-                    )
-                output_pix_fmt = "yuv420p10le"
+            output_pix_fmt = "yuv420p10le"
 
         else:
             pix_fmt = "rgb24"
@@ -450,7 +444,6 @@ class WriteBuffer:
                 stdout=sys.stdout,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-                bufsize=1,
             )
 
             writtenFrames = 0
@@ -476,7 +469,7 @@ class WriteBuffer:
         """
         Add a frame to the queue. Must be in RGB format.
         """
-        self.writeBuffer.put(frame, block=True)
+        self.writeBuffer.put(frame)
 
     def close(self):
         """
