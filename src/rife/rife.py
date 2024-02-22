@@ -71,14 +71,13 @@ class Rife:
         if self.cuda_available:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
-            self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
-            self.current_stream = 0
             if self.half:
-                torch.set_default_tensor_type(torch.cuda.HalfTensor)
+                torch.set_default_dtype(torch.float16)
 
         self.model = Model()
         self.model.load_model(modelDir, -1)
         self.model.eval()
+        
 
         if self.cuda_available and self.half:
             self.model.half()
@@ -87,18 +86,9 @@ class Rife:
 
     @torch.inference_mode()
     def make_inference(self, n):
-        if self.cuda_available:
-            torch.cuda.set_stream(self.stream[self.current_stream])
-
         output = self.model.inference(self.I0, self.I1, n, self.scale, self.ensemble)
-
         output = output[:, :, : self.height, : self.width]
-
         output = (output[0] * 255.0).byte().cpu().numpy().transpose(1, 2, 0)
-
-        if self.cuda_available:
-            torch.cuda.synchronize(self.stream[self.current_stream])
-            self.current_stream = (self.current_stream + 1) % len(self.stream)
 
         return output
 

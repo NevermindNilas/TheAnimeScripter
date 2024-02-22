@@ -106,8 +106,9 @@ class Cugan:
         frame = F.pad(frame, [0, self.pad_width, 0, self.pad_height])
         return frame
 
+    @torch.inference_mode()
     def run(self, frame):
-        with torch.inference_mode():
+        with torch.no_grad():
             frame = (
                 torch.from_numpy(frame)
                 .permute(2, 0, 1)

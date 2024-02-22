@@ -25,10 +25,10 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
         filename = filename[:-4]
 
     logging.info(
-        f"Downloaded {model.upper()} model to: {os.path.join(weightsDir, filename)}"
+        f"Downloaded {model.upper()} model to: {os.path.join(folderPath, filename)}"
     )
     print(
-        f"\nDownloaded {model.upper()} model to: {os.path.join(weightsDir, filename)}"
+        f"\nDownloaded {model.upper()} model to: {os.path.join(folderPath, filename)}"
     )
 
     return os.path.join(folderPath, filename)
