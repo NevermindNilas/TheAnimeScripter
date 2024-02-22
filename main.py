@@ -462,7 +462,7 @@ if __name__ == "__main__":
     args.scenechange_sens = 100 - args.scenechange_sens
 
     logging.info("============== Arguments ==============")
-
+    
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
