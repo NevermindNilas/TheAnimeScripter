@@ -14,6 +14,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 - `--input` (str): Absolute path of the input video.
 - `--output` (str): Output string or absolute path for the processed video.
+- `--audio` (int, default=1): Enable audio processing (1) or disable (0).
 
 #### Interpolation Settings:
 

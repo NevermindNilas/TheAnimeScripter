@@ -3,6 +3,7 @@ import subprocess
 import numpy as np
 import os
 import sys
+import shutil
 
 from queue import Queue
 
@@ -57,7 +58,16 @@ def matchEncoder(encode_method: str):
             command.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "15"])
         case "x264_animation":
             command.extend(
-                [ "-c:v", "libx264", "-preset", "fast", "-tune", "animation", "-crf", "15",]
+                [
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "fast",
+                    "-tune",
+                    "animation",
+                    "-crf",
+                    "15",
+                ]
             )
         case "x265":
             command.extend(["-c:v", "libx265", "-preset", "fast", "-crf", "15"])
@@ -143,6 +153,25 @@ class BuildBuffer:
         self.buffSize = buffSize
         self.queueSize = queueSize
 
+    def parameters(self):
+        """
+        Returns the parameters of the class.
+        """
+        return {
+            "input": self.input,
+            "ffmpegPath": self.ffmpegPath,
+            "inpoint": self.inpoint,
+            "outpoint": self.outpoint,
+            "dedup": self.dedup,
+            "dedupSens": self.dedupSens,
+            "resize": self.resize,
+            "width": self.width,
+            "height": self.height,
+            "resizeMethod": self.resizeMethod,
+            "buffSize": self.buffSize,
+            "queueSize": self.queueSize,
+        }
+
     def decodeSettings(self) -> list:
         """
         This returns a command for FFMPEG to work with, it will be used inside of the scope of the class.
@@ -163,11 +192,11 @@ class BuildBuffer:
 
         if self.outpoint != 0:
             command.extend(["-ss", str(self.inpoint), "-to", str(self.outpoint)])
-        
+
         """
         command.extend(["-c:v", "h264_qsv"])
         """
-        
+
         command.extend(
             [
                 "-i",
@@ -217,7 +246,7 @@ class BuildBuffer:
 
         if verbose:
             logging.info(f"Decoding options: {' '.join(map(str, command))}")
-            
+
         try:
             process = subprocess.Popen(
                 command,
@@ -284,10 +313,11 @@ class BuildBuffer:
 class WriteBuffer:
     def __init__(
         self,
-        output: str,
-        ffmpegPath: str,
-        encode_method: str,
-        custom_encoder: str,
+        input: str = "",
+        output: str = "",
+        ffmpegPath: str = "",
+        encode_method: str = "x264",
+        custom_encoder: str = "",
         width: int = 1920,
         height: int = 1080,
         fps: float = 60.0,
@@ -296,6 +326,7 @@ class WriteBuffer:
         sharpen_sens: float = 0.0,
         grayscale: bool = False,
         transparent: bool = False,
+        audio: bool = True,
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -312,6 +343,7 @@ class WriteBuffer:
         sharpen_sens: float - The sensitivity of the sharpening filter.
         queueSize: int - The size of the queue.
         """
+        self.input = input
         self.output = os.path.normpath(output)
         self.ffmpegPath = os.path.normpath(ffmpegPath)
         self.encode_method = encode_method
@@ -324,6 +356,7 @@ class WriteBuffer:
         self.sharpen_sens = sharpen_sens
         self.queueSize = queueSize
         self.transparent = transparent
+        self.audio = audio
 
     def encodeSettings(self, verbose: bool = False) -> list:
         """
@@ -447,6 +480,7 @@ class WriteBuffer:
             )
 
             writtenFrames = 0
+            self.isWritingDone = False
             while True:
                 frame = self.writeBuffer.get()
                 if frame is None:
@@ -455,6 +489,7 @@ class WriteBuffer:
 
                     self.process.stdin.close()
                     self.process.wait()
+                    self.isWritingDone = True
                     break
 
                 frame = np.ascontiguousarray(frame)
@@ -464,6 +499,10 @@ class WriteBuffer:
         except Exception as e:
             if verbose:
                 logging.error(f"An error occurred: {str(e)}")
+
+        finally:
+            if self.audio:
+                self.mergeAudio()
 
     def write(self, frame: np.ndarray):
         """
@@ -476,3 +515,61 @@ class WriteBuffer:
         Close the queue.
         """
         self.writeBuffer.put(None)
+
+    def isWritingDone(self):
+        """
+        Check if the writing is done, safelock for the queue environment.
+        """
+        return self.isWritingDone
+
+    def mergeAudio(self):
+        try:
+            audioFile = os.path.splitext(self.output)[0] + "_audio.aac"
+            extractCommand = [
+                self.ffmpegPath,
+                "-v",
+                "error",
+                "-stats",
+                "-i",
+                self.input,
+                "-vn",
+                "-acodec",
+                "copy",
+                audioFile,
+            ]
+            subprocess.run(extractCommand)
+
+            mergedFile = os.path.splitext(self.output)[0] + "_merged.mp4"
+
+            ffmpegCommand = [
+                self.ffmpegPath,
+                "-v",
+                "error",
+                "-stats",
+                "-i",
+                audioFile,
+                "-i",
+                self.output,
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-map",
+                "1:v:0",
+                "-map",
+                "0:a:0",
+                "-shortest",
+                "-y",
+                mergedFile,
+            ]
+
+            logging.info(
+                f"Merging audio with: {' '.join(ffmpegCommand)}"
+            )
+
+            subprocess.run(ffmpegCommand)
+            shutil.move(mergedFile, self.output)
+            os.remove(audioFile)
+
+        except Exception as e:
+            logging.error(f"An error occurred: {str(e)}")
