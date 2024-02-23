@@ -39,7 +39,7 @@ if getattr(sys, "frozen", False):
 else:
     main_path = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.3.0"
+scriptVersion = "1.3.1"
 warnings.filterwarnings("ignore")
 
 
@@ -78,6 +78,7 @@ class VideoProcessor:
         self.nt = args.nt
         self.denoise = args.denoise
         self.buffer_limit = args.buffer_limit
+        self.audio = args.audio
 
         self.width, self.height, self.fps = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
@@ -276,6 +277,7 @@ class VideoProcessor:
             )
 
             self.writeBuffer = WriteBuffer(
+                self.input,
                 self.output,
                 self.ffmpeg_path,
                 self.encode_method,
@@ -287,6 +289,8 @@ class VideoProcessor:
                 self.sharpen,
                 self.sharpen_sens,
                 grayscale=False,
+                transparent=False,
+                audio=self.audio
             )
 
         except Exception as e:
@@ -298,8 +302,7 @@ class VideoProcessor:
             executor.submit(self.readBuffer.start, verbose=True)
             executor.submit(self.process)
             executor.submit(self.writeBuffer.start, verbose=True)
-
-
+        
 if __name__ == "__main__":
     log_file_path = os.path.join(main_path, "log.txt")
     logging.basicConfig(
@@ -435,6 +438,7 @@ if __name__ == "__main__":
     argparser.add_argument("--custom_encoder", type=str, default="")
     argparser.add_argument("--denoise", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--buffer_limit", type=int, default=50)
+    argparser.add_argument("--audio", type=int, choices=[0, 1], default=1, help="Keep the audio track and later merge it back into the video, if dedup is true this will be set to False automatically")
     args = argparser.parse_args()
 
     if args.version:
@@ -456,6 +460,7 @@ if __name__ == "__main__":
     args.resize = True if args.resize == 1 else False
     args.dedup = True if args.dedup == 1 else False
     args.depth = True if args.depth == 1 else False
+    args.audio = True if args.audio == 1 else False
     args.half = True if args.half == 1 else False
 
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
@@ -477,6 +482,10 @@ if __name__ == "__main__":
 
     args.ffmpeg_path = getFFMPEG()
 
+    if args.dedup:
+        args.audio = False
+        logging.info("Dedup is enabled, audio will be disabled")
+        
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
         from src.ytdlp import VideoDownloader
