@@ -2,12 +2,7 @@ import os
 import random
 
 
-def outputNameGenerator(args, main_path):
-    if args.output and os.path.isdir(args.output):
-        main_path = args.output
-
-    os.makedirs(os.path.join(main_path, "output"), exist_ok=True)
-
+def outputNameGenerator(args):
     parts = [os.path.splitext(os.path.basename(args.input))[0] if args.input else "TAS"]
 
     if args.resize:
@@ -36,7 +31,13 @@ def outputNameGenerator(args, main_path):
 
     parts.append(f"-{random.randint(0, 1000)}")
 
-    extension = ".mov" if args.segment else ".mp4"
-    output_name = os.path.join(main_path, "output", "".join(parts) + extension)
-
-    return os.path.normpath(output_name)
+    if args.ytdlp:
+        extension = ".mp4"
+    elif args.input:
+        extension = os.path.splitext(args.input)[1]
+    else:
+        extension = ".mp4"
+        
+    outputName = "".join(parts) + extension
+    
+    return outputName

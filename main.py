@@ -33,11 +33,12 @@ from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import intitialize_models
 from src.ffmpegSettings import BuildBuffer, WriteBuffer, getDedupStrenght
 from src.dedup.dedup import dedupFFMPEG
+from src.generateOutput import outputNameGenerator
 
 if getattr(sys, "frozen", False):
-    main_path = os.path.dirname(sys.executable)
+    mainPath = os.path.dirname(sys.executable)
 else:
-    main_path = os.path.dirname(os.path.abspath(__file__))
+    mainPath = os.path.dirname(os.path.abspath(__file__))
 
 scriptVersion = "1.3.1"
 warnings.filterwarnings("ignore")
@@ -103,7 +104,7 @@ class VideoProcessor:
             scenechange = Scenechange(
                 self.input,
                 self.scenechange_sens,
-                main_path,
+                mainPath,
                 self.inpoint,
                 self.outpoint,
             )
@@ -160,7 +161,7 @@ class VideoProcessor:
 
         # If the user only wanted dedup / dedup + sharpen, we can skip the rest of the code and just run the dedup +/ resize function from within FFMPEG
         if not self.interpolate and not self.upscale and not self.denoise:
-            if self.dedup or self.resize:
+            if self.dedup or self.resize or self.sharpen:
                 filters = []
 
                 if self.sharpen:
@@ -181,7 +182,7 @@ class VideoProcessor:
                     logging.info(
                         f"Deduping with FFMPEG, sensitivity: {self.dedup_sens}"
                     )
-                    
+
                 dedupFFMPEG(
                     self.input,
                     self.output,
@@ -290,21 +291,22 @@ class VideoProcessor:
                 self.sharpen_sens,
                 grayscale=False,
                 transparent=False,
-                audio=self.audio
+                audio=self.audio,
             )
 
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
 
         self.semaphore = Semaphore(self.nt * 4)
-        
+
         with ThreadPoolExecutor(max_workers=3) as executor:
             executor.submit(self.readBuffer.start, verbose=True)
             executor.submit(self.process)
             executor.submit(self.writeBuffer.start, verbose=True)
-        
+
+
 if __name__ == "__main__":
-    log_file_path = os.path.join(main_path, "log.txt")
+    log_file_path = os.path.join(mainPath, "log.txt")
     logging.basicConfig(
         filename=log_file_path, filemode="w", format="%(message)s", level=logging.INFO
     )
@@ -438,7 +440,13 @@ if __name__ == "__main__":
     argparser.add_argument("--custom_encoder", type=str, default="")
     argparser.add_argument("--denoise", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--buffer_limit", type=int, default=50)
-    argparser.add_argument("--audio", type=int, choices=[0, 1], default=1, help="Keep the audio track and later merge it back into the video, if dedup is true this will be set to False automatically")
+    argparser.add_argument(
+        "--audio",
+        type=int,
+        choices=[0, 1],
+        default=1,
+        help="Keep the audio track and later merge it back into the video, if dedup is true this will be set to False automatically",
+    )
     args = argparser.parse_args()
 
     if args.version:
@@ -467,28 +475,29 @@ if __name__ == "__main__":
     args.scenechange_sens = 100 - args.scenechange_sens
 
     logging.info("============== Arguments ==============")
-    
+
     args_dict = vars(args)
     for arg in args_dict:
         logging.info(f"{arg.upper()}: {args_dict[arg]}")
 
+    checkSystem()
+
     logging.info("\n============== Arguments Checker ==============")
-    if args.output is None or os.path.isdir(args.output):
-        from src.generateOutput import outputNameGenerator
-
-        args.output = outputNameGenerator(args, main_path)
-
-        logging.info(f"Output was not specified, using {args.output}")
-
     args.ffmpeg_path = getFFMPEG()
 
     if args.dedup:
         args.audio = False
         logging.info("Dedup is enabled, audio will be disabled")
-        
+
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
         from src.ytdlp import VideoDownloader
+
+        if args.output is None:
+            outputFolder = os.path.join(mainPath, "output")
+            os.makedirs(os.path.join(outputFolder), exist_ok=True)
+            
+        args.output = os.path.join(outputFolder, outputNameGenerator(args))
 
         VideoDownloader(
             args.ytdlp,
@@ -500,10 +509,33 @@ if __name__ == "__main__":
         )
         sys.exit()
 
-    if args.input is not None:
-        checkSystem()
-        args.input = os.path.normpath(args.input)
+    if os.path.isfile(args.input):
+        print(f"Processing {args.input}")
+        if args.output is None or os.path.isdir(args.output):
+            args.output = outputNameGenerator(args, mainPath)
         VideoProcessor(args)
+
+    elif os.path.isdir(args.input):
+        videoFiles = [
+            os.path.join(args.input, file)
+            for file in os.listdir(args.input)
+            if file.endswith((".mp4", ".mkv", ".mov", ".avi"))
+        ]
+
+        for videoFile in videoFiles:
+            args.input = os.path.abspath(videoFile)
+            logging.info(f"Processing {args.input}")
+            print(f"Processing {args.input}")
+            
+            if args.output is None:
+                outputFolder = os.path.join(mainPath, "output")
+                os.makedirs(os.path.join(outputFolder), exist_ok=True)
+                args.output = os.path.join(outputFolder, outputNameGenerator(args))
+                
+            VideoProcessor(args)
+            args.output = None
+
+
     else:
         print("No input was specified, exiting")
         logging.info("No input was specified, exiting")
