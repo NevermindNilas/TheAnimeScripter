@@ -101,6 +101,3 @@ The available inputs have been moved to [Parameters Guide](PARAMETERS.MD).
 ## 📈 Benchmarks
 
 - N/A for now.
-
-## ✅ Stats
-![Alt](https://repobeats.axiom.co/api/embed/4754b52201c8220b8611a8c6e43c53ed3dc82a9f.svg "Repobeats analytics image")
