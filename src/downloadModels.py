@@ -39,8 +39,6 @@ def downloadModels(
 ) -> str:
     os.makedirs(weightsDir, exist_ok=True)
 
-    print(weightsDir)
-    
     match model:
         case "cugan" | "shufflecugan":
             cuganFolderPath = os.path.join(weightsDir, "cugan")
@@ -112,6 +110,13 @@ def downloadModels(
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, segmentFolderPath)
 
+        case "realesrgan":
+            realesrganFolderPath = os.path.join(weightsDir, "realesrgan")
+            os.makedirs(realesrganFolderPath, exist_ok=True)
+            filename = "2xHFA2kShallowESRGAN.pth"
+            fullUrl = f"{url}{filename}"
+            return downloadAndLog(model, filename, fullUrl, realesrganFolderPath)
+        
         case _:
             print(f"Model {model} not found.")
             return None

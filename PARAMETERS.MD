@@ -29,7 +29,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--upscale` (int, default=0): Enable upscaling (1) or disable (0).
 - `--upscale_factor` (int, default=2): Factor for upscaling.
 - `--upscale_method` (str, default="ShuffleCugan"): Upscaling method:
-    - Options: "cugan / cugan-ncnn / shufflecugan", "swinir", "compact / ultracompact / superultracompact", "span / span-ncnn", "omnisr", "realesrgan-ncnn".
+    - Options: "cugan / cugan-ncnn / shufflecugan", "swinir", "compact / ultracompact / superultracompact", "span / span-ncnn", "omnisr", "realesrgan / realesrgan-ncnn".
 - `--cugan_kind` (str, default="no-denoise"): Cugan denoising kind:
     - Options: "no-denoise", "conservative", "denoise1x", "denoise2x".
 - `--custom_model` (str, default=""): Choose a different model for supported upscaling architectures. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
