@@ -99,6 +99,16 @@ def intitialize_models(self):
                     self.height,
                     self.custom_model,
                 )
+            
+            case "realesrgan-ncnn":
+                from src.realesrgan.realesrgan import RealEsrganNCNN
+                
+                upscale_process = RealEsrganNCNN(
+                    self.upscale_factor,
+                )
+                
+            case "realesrgan":
+                raise NotImplementedError("realesrgan is not supported in this version")
                 
     if self.interpolate:
         logging.info(
