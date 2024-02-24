@@ -1,5 +1,6 @@
 import subprocess
 import logging
+import sys
 
 from src.ffmpegSettings import matchEncoder
 
@@ -28,11 +29,7 @@ def dedupFFMPEG(
     )
     logging.info(f"Encoding options: {' '.join(ffmpeg_command)}")
 
-    logging.info("\n============== FFMPEG Output Log ============")
-
-    process = subprocess.Popen(
-        ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    subprocess.run(
+        ffmpeg_command, stdout=sys.stdout, stderr=sys.stderr, universal_newlines=True
     )
 
-    for line in iter(process.stdout.readline, b""):
-        logging.info(line.decode().strip())
