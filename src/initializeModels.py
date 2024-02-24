@@ -77,18 +77,7 @@ def intitialize_models(self):
                     self.custom_model,
                     self.nt,
                 )
-            case "shufflecugan_directml":
-                from src.cugan.cugan import cuganDirectML
 
-                upscale_process = cuganDirectML(
-                    self.upscale_method,
-                    self.upscale_factor,
-                    self.cugan_kind,
-                    self.half,
-                    self.width,
-                    self.height,
-                    self.custom_model,
-                )
             case "span-ncnn":
                 from src.span.span import spanNCNN
 
@@ -118,7 +107,6 @@ def intitialize_models(self):
                 upscale_process = RealEsrganNCNN(
                     self.upscale_factor,
                 )
-                
                 
     if self.interpolate:
         logging.info(
