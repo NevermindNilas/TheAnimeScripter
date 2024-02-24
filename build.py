@@ -54,6 +54,11 @@ def create_executable():
         "span_ncnn_py",
         "models",
     )
+    realesrgan_ncnn_models_path = os.path.join(
+        pkg_resources.get_distribution("realesrgan_ncnn_vulkan_python").location,
+        "realesrgan_ncnn_vulkan_python",
+        "models",
+    )
 
     subprocess.run(
         [
@@ -73,6 +78,8 @@ def create_executable():
             f"{rife_ncnn_models_path};rife_ncnn_vulkan_python/models",
             "--add-data",
             f"{span_ncnn_models_path};span_ncnn_py/models",
+            "--add-data",
+            f"{realesrgan_ncnn_models_path};realesrgan_ncnn_vulkan_python/models",
             "--hidden-import",
             "realcugan_ncnn_py.realcugan_ncnn_wrapper",
             "--hidden-import",
