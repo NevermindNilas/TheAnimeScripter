@@ -524,6 +524,17 @@ class WriteBuffer:
 
     def mergeAudio(self):
         try:
+            # Checking first if the clip has audio to begin with, if not we skip the audio merge
+            ffmpegCommand = [
+                self.ffmpegPath,
+                "-i",
+                self.input,
+            ]
+            result = subprocess.run(ffmpegCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if "Stream #0:1" not in result.stderr.decode():
+                logging.info("No audio stream found, skipping audio merge")
+                return
+
             audioFile = os.path.splitext(self.output)[0] + "_audio.aac"
             extractCommand = [
                 self.ffmpegPath,
