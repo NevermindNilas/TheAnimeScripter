@@ -511,8 +511,13 @@ if __name__ == "__main__":
 
     if os.path.isfile(args.input):
         print(f"Processing {args.input}")
-        if args.output is None or os.path.isdir(args.output):
-            args.output = outputNameGenerator(args, mainPath)
+        if args.output is None:
+            outputFolder = os.path.join(mainPath, "output")
+            os.makedirs(os.path.join(outputFolder), exist_ok=True)
+            args.output = os.path.join(outputFolder, outputNameGenerator(args))
+        elif os.path.isdir(args.output):
+            args.output = os.path.join(args.output, outputNameGenerator(args))
+
         VideoProcessor(args)
 
     elif os.path.isdir(args.input):
