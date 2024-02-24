@@ -100,54 +100,7 @@ The available inputs have been moved to [Parameters Guide](PARAMETERS.MD).
 
 ## 📈 Benchmarks
 
-The following benchmarks were conducted on a system with a 13700k and 3090 GPU for 1920x1080p inputs and take x264 encoding into account, FP16 on where possible.
-
-| Test Category | Method | FPS | Notes |
-| --- | --- | --- | --- |
-| **Interpolation 2x** |
-| | Rife (v4.13-lite) | ~120 | Ensemble False |
-| | Rife (v4.14-lite) | ~100 | Ensemble False |
-| | Rife (v4.14) | ~100 | Ensemble False |
-| | Rife (v4.13-lite) | ~100 | Ensemble True |
-| | Rife (v4.14-lite) | ~80 | Ensemble True |
-| | Rife (v4.14) | ~80 | Ensemble True |
-| | Rife (v4.13-lite-ncnn) | ~60 |  |
-| | Rife (v4.14-lite-ncnn) | ~50 |  |
-| | Rife (v4.14-ncnn) | ~50 |  |
-| | GMFSS Fortuna Union | ~7 | Ensemble False |
-| **Upscaling 2x** | 
-| | Shufflecugan | ~21 | |
-| | | ~24 | 2 Threads / Streams
-| | Compact | ~15 | |
-| | | ~19 | 2 Threads / Streams
-| | UltraCompact | ~25 | |
-| | | ~30 | 2 Threads / Streams
-| | SuperUltraCompact | ~30 | |
-| | | ~35 | 2 Threads / Streams
-| | SwinIR | ~1 | |
-| | | ~1.5 | 2 Threads / Streams
-| | Cugan | ~9 | |
-| | | ~12 | 2 Threads / Streams
-| | Cugan-NCNN | ~7 | |
-| | SPAN | ~9 | |
-| | OmniSR | ~1 | |
-| **Depth Map Generation** | 
-| | Depth Anything VITS | ~16 | |
-| |  | ~30 | 2 Threads / Streams|
-| | Depth Anything VITB | ~11 | |
-| | | ~18 | 2 Threads / Streams|
-| | Depth Anything VITL | ~7 | |
-| | | ~12 | 2 Threads / Streams|
-| **Segmentation** | 
-| | Isnet-Anime | ~10 | |
-| | | ~15 | 2 Threads / Streams|
-| **Motion Blur** | 
-| | 2xRife + Gaussian Averaging | ~23 | Still in work |
-
-Please note that these benchmarks are approximate and actual performance may vary based on specific video content, settings, and other factors.
-
-There were no visible improvements in speed when using 2 streams for interpolation alone, I am assuming due to an I/O bottleneck. It will require further testing to confirm. 
-
+- N/A for now.
 
 ## ✅ Stats
 ![Alt](https://repobeats.axiom.co/api/embed/4754b52201c8220b8611a8c6e43c53ed3dc82a9f.svg "Repobeats analytics image")
