@@ -359,6 +359,7 @@ if __name__ == "__main__":
             "span-ncnn",
             "cugan-ncnn",
             "omnisr",
+            "realesrgan",
             "realesrgan-ncnn",
         ],
         default="shufflecugan",
