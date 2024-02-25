@@ -99,16 +99,18 @@ class Rife:
     @torch.inference_mode()
     def run(self, I0, I1):
         self.I0 = (
-            torch.from_numpy(np.transpose(I0, (2, 0, 1)))
+            torch.from_numpy(I0)
             .to(self.device, non_blocking=True)
+            .permute(2, 0, 1)
             .unsqueeze(0)
             .float()
             / 255.0
         )
 
         self.I1 = (
-            torch.from_numpy(np.transpose(I1, (2, 0, 1)))
+            torch.from_numpy(I1)
             .to(self.device, non_blocking=True)
+            .permute(2, 0, 1)
             .unsqueeze(0)
             .float()
             / 255.0
