@@ -37,7 +37,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 #### Deduplication settings:
 
 - `--dedup` (int, default=0): Enable deduplication (1) or disable (0).
-- `--dedup_method` (str, default="ffmpeg"): Deduplication method.
+- `--dedup_method` (str, default="ffmpeg"): Deduplication method. Deduplication Methods: "ffmpeg, ssim, psnr"
 - `--dedup_sens` (float, default=50): Sensitivity of deduplication.
 
 ##### Denoising settings:
