@@ -116,6 +116,7 @@ class BuildBuffer:
         outpoint: float = 0.0,
         dedup: bool = False,
         dedupSens: float = 0.0,
+        dedupMethod: str = "ffmpeg",
         width: int = 1920,
         height: int = 1080,
         resize: bool = False,
@@ -146,6 +147,7 @@ class BuildBuffer:
         self.outpoint = outpoint
         self.dedup = dedup
         self.dedupSens = dedupSens
+        self.dedupeMethod = dedupMethod
         self.resize = resize
         self.width = width
         self.height = height
@@ -206,7 +208,8 @@ class BuildBuffer:
 
         filters = []
         if self.dedup:
-            filters.append(f"mpdecimate={getDedupStrenght(self.dedupSens)}")
+            if self.dedupeMethod == "ffmpeg":
+                filters.append(f"mpdecimate={getDedupStrenght(self.dedupSens)}")
 
         if self.resize:
             if self.resizeMethod in ["spline16", "spline36", "point"]:
