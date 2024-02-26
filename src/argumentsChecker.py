@@ -6,7 +6,29 @@ from .generateOutput import outputNameGenerator
 from .checkSpecs import checkSystem
 from .getFFMPEG import getFFMPEG
 
-def argumentChecker(args, mainPath):
+def argumentChecker(args, mainPath, scriptVersion):
+    if args.version:
+        print(scriptVersion)
+        sys.exit()
+    else:
+        args.version = scriptVersion
+
+    # Whilst this is ugly, it was easier to work with the Extendscript interface this way
+    # This is a temporary solution until I can find a better way to handle the arguments
+    args.ytdlp_quality = True if args.ytdlp_quality == 1 else False
+    args.interpolate = True if args.interpolate == 1 else False
+    args.scenechange = True if args.scenechange == 1 else False
+    args.ensemble = True if args.ensemble == 1 else False
+    args.denoise = True if args.denoise == 1 else False
+    args.sharpen = True if args.sharpen == 1 else False
+    args.upscale = True if args.upscale == 1 else False
+    args.segment = True if args.segment == 1 else False
+    args.resize = True if args.resize == 1 else False
+    args.dedup = True if args.dedup == 1 else False
+    args.depth = True if args.depth == 1 else False
+    args.audio = True if args.audio == 1 else False
+    args.half = True if args.half == 1 else False
+    
     args.sharpen_sens /= 100  # CAS works from 0.0 to 1.0
     args.scenechange_sens = 100 - args.scenechange_sens
 
