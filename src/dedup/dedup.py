@@ -1,35 +1,77 @@
-import subprocess
-import logging
-import sys
+import cv2
 
-from src.ffmpegSettings import matchEncoder
+from skimage.metrics import structural_similarity as ssim
+from skimage.metrics import mean_squared_error as mse
+from skimage.metrics import peak_signal_noise_ratio as psnr
 
-def dedupFFMPEG(
-    input,
-    output,
-    filters,
-    ffmpeg_path,
-    encode_method="libx264",
-    inpoint=None,
-    outpoint=None,
-):
-    encode_options = matchEncoder(encode_method)
 
-    filters = " ".join(filters)
+class DedupSSIM:
+    def __init__(
+        self,
+        ssimThreshold=0.9,
+        sampleSize=32,
+    ):
+        self.ssimThreshold = ssimThreshold
+        self.sampleSize = sampleSize
 
-    ffmpeg_command = [ffmpeg_path, "-hide_banner"]
+    def run(self, prevFrame, frame):
+        """
+        Returns True if the frames are duplicates
+        """
+        prevFrame = cv2.resize(prevFrame, (self.sampleSize, self.sampleSize))
+        frame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
 
-    if outpoint != 0:
-        ffmpeg_command += ["-ss", str(inpoint), "-to", str(outpoint)]
+        prevFrame = cv2.cvtColor(prevFrame, cv2.COLOR_BGR2GRAY)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    ffmpeg_command += (
-        ["-i", input, "-vf", filters, "-an"]
-        + encode_options
-        + [output, "-y", "-v", "error", "-stats"]
-    )
-    logging.info(f"Encoding options: {' '.join(ffmpeg_command)}")
+        score = ssim(prevFrame, frame)
 
-    subprocess.run(
-        ffmpeg_command, stdout=sys.stdout, stderr=sys.stderr, universal_newlines=True
-    )
+        return score > self.ssimThreshold
 
+
+class DedupPSNR:
+    def __init__(
+        self,
+        psnrThreshold=30,
+        sampleSize=32,
+    ):
+        self.psnrThreshold = psnrThreshold
+        self.sampleSize = sampleSize
+
+    def run(self, prevFrame, frame):
+        """
+        Returns True if the frames are duplicates
+        """
+        prevFrame = cv2.resize(prevFrame, (self.sampleSize, self.sampleSize))
+        frame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
+
+        prevFrame = cv2.cvtColor(prevFrame, cv2.COLOR_BGR2GRAY)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        score = psnr(prevFrame, frame)
+
+        return score > self.psnrThreshold
+
+
+class DedupMSE:
+    def __init__(
+        self,
+        mseThreshold=0.9,
+        sampleSize=32,
+    ):
+        self.mseThreshold = mseThreshold
+        self.sampleSize = sampleSize
+
+    def run(self, prevFrame, frame):
+        """
+        Returns True if the frames are duplicates
+        """
+        prevFrame = cv2.resize(prevFrame, (self.sampleSize, self.sampleSize))
+        frame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
+
+        prevFrame = cv2.cvtColor(prevFrame, cv2.COLOR_BGR2GRAY)
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        score = mse(prevFrame, frame)
+
+        return score < self.mseThreshold

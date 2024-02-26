@@ -7,6 +7,7 @@ def intitialize_models(self):
     upscale_process = None
     interpolate_process = None
     denoise_process = None
+    dedup_process = None
 
     if self.upscale:
         new_width *= self.upscale_factor
@@ -158,5 +159,35 @@ def intitialize_models(self):
         denoise_process = DPIR(
             self.half, new_width, new_height, self.custom_model, self.nt
         )
+        
+    if self.dedup:
+        match self.dedup_method:
+            case "ssim":
+                from src.dedup.dedup import DedupSSIM
 
-    return new_width, new_height, upscale_process, interpolate_process, denoise_process
+                dedup_process = DedupSSIM(
+                    self.dedup_sens, 32 # sample size will remain constant until further testing
+                )
+
+            case "mse":
+                raise NotImplementedError("MSE deduplication is not implemented yet")
+                """
+                from src.dedup.dedup import DedupMSE
+
+                dedup_process = DedupMSE(
+                    self.dedup_sensitivity, self.sample_size
+                )
+                """
+            
+            case "psnr":
+                from src.dedup.dedup import DedupPSNR
+
+                dedup_process = DedupPSNR(
+                    30, 32 # Needs a bit more testing, proof of concept for now.
+                )
+                
+            case "ffmpeg":
+                # FFMPEG works on decode so it's not possible to use it with the current processing pipeline
+                pass
+
+    return new_width, new_height, upscale_process, interpolate_process, denoise_process, dedup_process

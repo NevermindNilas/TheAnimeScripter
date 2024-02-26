@@ -31,18 +31,24 @@ from src.getFFMPEG import getFFMPEG
 from src.checkSpecs import checkSystem
 from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import intitialize_models
-from src.ffmpegSettings import BuildBuffer, WriteBuffer, getDedupStrenght
-from src.dedup.dedup import dedupFFMPEG
+from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
+
 
 if getattr(sys, "frozen", False):
     mainPath = os.path.dirname(sys.executable)
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.3.2"
+scriptVersion = "1.3.3"
 warnings.filterwarnings("ignore")
 
+"""
+TO:DO
+ - add MSE and figure out an approach for PSNR dedup sens
+ - Look more into ESRGAN's poor performance compared to NCNN
+ - Add shufflecugan-ncnn pipeline
+"""
 
 class VideoProcessor:
     def __init__(self, args):
@@ -159,48 +165,17 @@ class VideoProcessor:
 
             return
 
-        # If the user only wanted dedup / dedup + sharpen, we can skip the rest of the code and just run the dedup +/ resize function from within FFMPEG
-        if not self.interpolate and not self.upscale and not self.denoise:
-            if self.dedup or self.resize or self.sharpen:
-                filters = []
-
-                if self.sharpen:
-                    filters.append(f"cas={self.sharpen_sens}")
-                    logging.info(
-                        f"Sharpening with CAS, sensitivity: {self.sharpen_sens}"
-                    )
-
-                if self.resize:
-                    filters.append(
-                        f"scale={self.width}x{
-                                   self.height}:flags={self.resize_method}"
-                    )
-
-                if self.dedup:
-                    self.dedup_sens = getDedupStrenght(self.dedup_sens)
-                    filters.append(f"mpdecimate={self.dedup_sens}")
-                    logging.info(
-                        f"Deduping with FFMPEG, sensitivity: {self.dedup_sens}"
-                    )
-
-                dedupFFMPEG(
-                    self.input,
-                    self.output,
-                    filters,
-                    self.ffmpeg_path,
-                    self.encode_method,
-                    self.inpoint,
-                    self.outpoint,
-                )
-
-                return
-
         self.start()
 
     def processFrame(self, frame):
         try:
-            if self.denoise:
-                frame = self.denoise_process.run(frame)
+            if self.dedup and self.dedup_process is not None and self.prevFrame is not None:
+                result = self.dedup_process.run(self.prevFrame, frame)
+                if result:
+                    self.dedupCount += 1
+                    self.semaphore.release()
+                    return
+
 
             if self.upscale:
                 frame = self.upscale_process.run(frame)
@@ -214,12 +189,9 @@ class VideoProcessor:
                         )
                         self.writeBuffer.write(result)
 
-                    self.prevFrame = frame
-                else:
-                    self.prevFrame = frame
-
             self.writeBuffer.write(frame)
-
+            self.prevFrame = frame
+            
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
         finally:
@@ -227,6 +199,7 @@ class VideoProcessor:
 
     def process(self):
         frameCount = 0
+        self.dedupCount = 0
         self.prevFrame = None
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
@@ -244,9 +217,11 @@ class VideoProcessor:
 
         if self.prevFrame is not None:
             self.writeBuffer.write(self.prevFrame)
-
+        
         logging.info(f"Processed {frameCount} frames")
-
+        if self.dedupCount > 0:
+            logging.info(f"Deduplicated {self.dedupCount} frames")
+            
         self.writeBuffer.close()
 
     def start(self):
@@ -257,6 +232,7 @@ class VideoProcessor:
                 self.upscale_process,
                 self.interpolate_process,
                 self.denoise_process,
+                self.dedup_process,
             ) = intitialize_models(self)
 
             self.fps = (
@@ -270,6 +246,7 @@ class VideoProcessor:
                 self.outpoint,
                 self.dedup,
                 self.dedup_sens,
+                self.dedup_method,
                 self.width,
                 self.height,
                 self.resize,
@@ -293,12 +270,11 @@ class VideoProcessor:
                 transparent=False,
                 audio=self.audio,
             )
-
+        
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
 
         self.semaphore = Semaphore(self.nt * 4)
-
         with ThreadPoolExecutor(max_workers=3) as executor:
             executor.submit(self.readBuffer.start, verbose=True)
             executor.submit(self.process)
@@ -372,7 +348,7 @@ if __name__ == "__main__":
     )
     argparser.add_argument("--custom_model", type=str, default="")
     argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--dedup_method", type=str, default="ffmpeg")
+    argparser.add_argument("--dedup_method", type=str, default="ffmpeg", choices=["ffmpeg", "ssim", "psnr"])
     argparser.add_argument("--dedup_sens", type=float, default=35)
     argparser.add_argument("--nt", type=int, default=1)
     argparser.add_argument("--half", type=int, choices=[0, 1], default=1)
@@ -490,6 +466,9 @@ if __name__ == "__main__":
     if args.dedup:
         args.audio = False
         logging.info("Dedup is enabled, audio will be disabled")
+        
+    if args.dedup_method == "ssim":
+        args.dedup_sens = 1 - (args.dedup_sens / 1000) # SSIM works from -1 to 1, but results prove to be efficient only inbetween ~0.9 and 0.999, lower values are not reliable and may remove important frames
 
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
