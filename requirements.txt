@@ -9,7 +9,8 @@ scipy
 wmi
 yt-dlp
 einops
-scenedetect[opencv,progress_bar]
+scikit-image
+scenedetect[opencv]
 realcugan-ncnn-py
 pytorch-lightning
 torch 
