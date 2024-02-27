@@ -41,12 +41,22 @@ class rifeNCNN:
             uhd_mode=self.UHD,
             num_threads=1,
         )
-
+        
+        self.frame1 = None
+        
     def make_inference(self, timestep):
         output = self.rife.process(self.frame1, self.frame2, timestep=timestep)
 
         return output
 
-    def run(self, prev_frame, frame):
-        self.frame1 = Image.fromarray(prev_frame)
+    def cacheFrame(self):
+        self.frame1 = self.frame2.copy()
+        
+    def run(self, frame):
+        if self.frame1 is None:
+            self.frame1 = Image.fromarray(frame)
+            return False
+        
         self.frame2 = Image.fromarray(frame)
+        
+        return True

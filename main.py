@@ -172,9 +172,8 @@ class VideoProcessor:
             if (
                 self.dedup
                 and self.dedup_process is not None
-                and self.prevFrame is not None
             ):
-                result = self.dedup_process.run(self.prevFrame, frame)
+                result = self.dedup_process.run(frame)
                 if result:
                     self.dedupCount += 1
                     self.semaphore.release()
@@ -183,16 +182,18 @@ class VideoProcessor:
             if self.upscale:
                 frame = self.upscale_process.run(frame)
 
-            if self.interpolate and self.prevFrame is not None:
-                    self.interpolate_process.run(self.prevFrame, frame)
+            if self.interpolate:
+                run = self.interpolate_process.run(frame)
+                if run:
                     for i in range(self.interpolate_factor - 1):
                         result = self.interpolate_process.make_inference(
                             (i + 1) * 1.0 / (self.interpolate_factor + 1)
                         )
                         self.writeBuffer.write(result)
+                    
+                    self.interpolate_process.cacheFrame()
 
             self.writeBuffer.write(frame)
-            self.prevFrame = frame
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
@@ -351,7 +352,7 @@ if __name__ == "__main__":
     argparser.add_argument("--custom_model", type=str, default="")
     argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
     argparser.add_argument(
-        "--dedup_method", type=str, default="ffmpeg", choices=["ffmpeg", "ssim", "psnr"]
+        "--dedup_method", type=str, default="ffmpeg", choices=["ffmpeg", "ssim", "psnr", "msssim"]
     )
     argparser.add_argument("--dedup_sens", type=float, default=35)
     argparser.add_argument("--nt", type=int, default=1)
