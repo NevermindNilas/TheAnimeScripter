@@ -76,6 +76,8 @@ class GMFSS():
         if self.cuda_available and self.half:
             self.model.half()
             self.dtype = torch.half
+            
+        self.I0 = None
 
     @torch.inference_mode()
     def make_inference(self, n):
@@ -99,18 +101,41 @@ class GMFSS():
         img = F.pad(img, self.padding)
         return img
 
+    def cacheFrame(self):
+        self.I0 = self.I1.clone()
+        
     @torch.inference_mode()
-    def run(self, I0, I1):
-        self.I0 = torch.from_numpy(np.transpose(I0, (2, 0, 1))).to(
-            self.device, non_blocking=True).unsqueeze(0).float() / 255.
-
-        self.I1 = torch.from_numpy(np.transpose(I1, (2, 0, 1))).to(
-            self.device, non_blocking=True).unsqueeze(0).float() / 255.
-
+    def run(self, I1):
+        if self.I0 is None:
+            self.I0 = (
+                torch.from_numpy(I1)
+                .to(self.device, non_blocking=True)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .float()
+                / 255.0
+            )
+            if self.cuda_available and self.half:
+                self.I0 = self.I0.half()
+                
+            if self.padding != (0, 0, 0, 0):
+                self.I0 = F.pad(self.I0, [0, self.padding[1], 0, self.padding[3]])
+                
+            return False
+        
+        self.I1 = (
+            torch.from_numpy(I1)
+            .to(self.device, non_blocking=True)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            .float()
+            / 255.0
+        )
+        
         if self.cuda_available and self.half:
-            self.I0 = self.I0.half()
             self.I1 = self.I1.half()
 
         if self.padding != (0, 0, 0, 0):
-            self.I0 = self.pad_image(self.I0)
-            self.I1 = self.pad_image(self.I1)
+            self.I1 = F.pad(self.I1, [0, self.padding[1], 0, self.padding[3]])
+            
+        return True
