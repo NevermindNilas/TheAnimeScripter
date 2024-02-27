@@ -49,6 +49,7 @@ TO:DO
  - Add shufflecugan-ncnn pipeline
 """
 
+
 class VideoProcessor:
     def __init__(self, args):
         self.input = args.input
@@ -168,19 +169,21 @@ class VideoProcessor:
 
     def processFrame(self, frame):
         try:
-            if self.dedup and self.dedup_process is not None and self.prevFrame is not None:
+            if (
+                self.dedup
+                and self.dedup_process is not None
+                and self.prevFrame is not None
+            ):
                 result = self.dedup_process.run(self.prevFrame, frame)
                 if result:
                     self.dedupCount += 1
                     self.semaphore.release()
                     return
 
-
             if self.upscale:
                 frame = self.upscale_process.run(frame)
 
-            if self.interpolate:
-                if self.prevFrame is not None:
+            if self.interpolate and self.prevFrame is not None:
                     self.interpolate_process.run(self.prevFrame, frame)
                     for i in range(self.interpolate_factor - 1):
                         result = self.interpolate_process.make_inference(
@@ -190,7 +193,7 @@ class VideoProcessor:
 
             self.writeBuffer.write(frame)
             self.prevFrame = frame
-            
+
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
         finally:
@@ -216,11 +219,11 @@ class VideoProcessor:
 
         if self.prevFrame is not None:
             self.writeBuffer.write(self.prevFrame)
-        
+
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
             logging.info(f"Deduplicated {self.dedupCount} frames")
-            
+
         self.writeBuffer.close()
 
     def start(self):
@@ -269,7 +272,7 @@ class VideoProcessor:
                 transparent=False,
                 audio=self.audio,
             )
-        
+
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
 
@@ -347,7 +350,9 @@ if __name__ == "__main__":
     )
     argparser.add_argument("--custom_model", type=str, default="")
     argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--dedup_method", type=str, default="ffmpeg", choices=["ffmpeg", "ssim", "psnr"])
+    argparser.add_argument(
+        "--dedup_method", type=str, default="ffmpeg", choices=["ffmpeg", "ssim", "psnr"]
+    )
     argparser.add_argument("--dedup_sens", type=float, default=35)
     argparser.add_argument("--nt", type=int, default=1)
     argparser.add_argument("--half", type=int, choices=[0, 1], default=1)
@@ -449,15 +454,14 @@ if __name__ == "__main__":
             args.input = os.path.abspath(videoFile)
             logging.info(f"Processing {args.input}")
             print(f"Processing {args.input}")
-            
+
             if args.output is None:
                 outputFolder = os.path.join(mainPath, "output")
                 os.makedirs(os.path.join(outputFolder), exist_ok=True)
                 args.output = os.path.join(outputFolder, outputNameGenerator(args))
-                
+
             VideoProcessor(args)
             args.output = None
-
 
     else:
         print("No input was specified, exiting")
