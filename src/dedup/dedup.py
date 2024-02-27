@@ -1,5 +1,4 @@
 import cv2
-
 from skimage.metrics import structural_similarity as ssim
 from skimage.metrics import mean_squared_error as mse
 from skimage.metrics import peak_signal_noise_ratio as psnr
@@ -13,19 +12,25 @@ class DedupSSIM:
     ):
         self.ssimThreshold = ssimThreshold
         self.sampleSize = sampleSize
-
-    def run(self, prevFrame, frame):
+        self.prevFrame = None
+        
+    def run(self, frame):
         """
         Returns True if the frames are duplicates
         """
-        prevFrame = cv2.resize(prevFrame, (self.sampleSize, self.sampleSize))
+        if self.prevFrame is None:
+            self.prevFrame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
+            self.prevFrame = cv2.cvtColor(self.prevFrame, cv2.COLOR_BGR2GRAY)
+            return False
+        
         frame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
-
-        prevFrame = cv2.cvtColor(prevFrame, cv2.COLOR_BGR2GRAY)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        score = ssim(prevFrame, frame)
+        score = ssim(self.prevFrame, frame)
 
+        if self.prevFrame is not None:
+            self.prevFrame = frame
+            
         return score > self.ssimThreshold
 
 
