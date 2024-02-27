@@ -18,19 +18,18 @@ class DedupSSIM:
         """
         Returns True if the frames are duplicates
         """
-        if self.prevFrame is None:
-            self.prevFrame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
-            self.prevFrame = cv2.cvtColor(self.prevFrame, cv2.COLOR_BGR2GRAY)
-            return False
-        
         frame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        if self.prevFrame is None:
+            self.prevFrame = frame.copy()
+            return False
 
         score = ssim(self.prevFrame, frame)
 
         if self.prevFrame is not None:
-            self.prevFrame = frame
-            
+            self.prevFrame = frame.copy()
+
         return score > self.ssimThreshold
 
 
@@ -43,17 +42,21 @@ class DedupPSNR:
         self.psnrThreshold = psnrThreshold
         self.sampleSize = sampleSize
 
-    def run(self, prevFrame, frame):
+    def run(self, frame):
         """
         Returns True if the frames are duplicates
         """
-        prevFrame = cv2.resize(prevFrame, (self.sampleSize, self.sampleSize))
         frame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
-
-        prevFrame = cv2.cvtColor(prevFrame, cv2.COLOR_BGR2GRAY)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        score = psnr(prevFrame, frame)
+        if self.prevFrame is None:
+            self.prevFrame = frame.copy()
+            return False
+
+        score = psnr(self.prevFrame, frame)
+
+        if self.prevFrame is not None:
+            self.prevFrame = frame.copy()
 
         return score > self.psnrThreshold
 
