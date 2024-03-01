@@ -1,6 +1,5 @@
 import subprocess
 import os
-import platform
 import shutil
 import pkg_resources
 
@@ -35,8 +34,6 @@ def install_pyinstaller():
 def create_executable():
     print("Creating executable with PyInstaller...")
     src_path = os.path.join(base_dir, "src")
-    jsx_path = os.path.join(base_dir, "TheAnimeScripter.jsx")
-    license_path = os.path.join(base_dir, "LICENSE")
     main_path = os.path.join(base_dir, "main.py")
     icon_path = os.path.join(base_dir, "demos", "icon.ico")
     cugan_ncnn_models_path = os.path.join(
@@ -62,9 +59,7 @@ def create_executable():
 
     subprocess.run(
         [
-            "./venv/bin/pyinstaller"
-            if platform.system() != "Windows"
-            else ".\\venv\\Scripts\\pyinstaller",
+            ".\\venv\\Scripts\\pyinstaller",
             "--noconfirm",
             "--onedir",
             "--console",
@@ -101,16 +96,18 @@ def create_executable():
         check=True,
     )
 
-    move_extras(jsx_path, license_path)
 
-
-def move_extras(jsx_path, license_path):
+def move_extras():
+    jsx_path = os.path.join(base_dir, "TheAnimeScripter.jsx")
+    license_path = os.path.join(base_dir, "LICENSE")
+    txt_path = os.path.join(base_dir, "readme.txt")
     dist_dir = os.path.join(base_dir, "dist")
     main_dir = os.path.join(dist_dir, "main")
     target_path = os.path.join(main_dir, os.path.basename(jsx_path))
     try:
         shutil.copy(jsx_path, target_path)
         shutil.copy(license_path, main_dir)
+        shutil.copy(txt_path, main_dir)
     except Exception as e:
         print("Error while copying jsx file: ", e)
 
@@ -153,4 +150,5 @@ if __name__ == "__main__":
     install_requirements()
     install_pyinstaller()
     create_executable()
+    move_extras()
     clean_up()
