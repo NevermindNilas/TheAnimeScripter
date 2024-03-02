@@ -1,7 +1,7 @@
 import subprocess
 import os
 import shutil
-import pkg_resources
+from importlib.metadata import distribution
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -37,23 +37,19 @@ def create_executable():
     main_path = os.path.join(base_dir, "main.py")
     icon_path = os.path.join(base_dir, "demos", "icon.ico")
     cugan_ncnn_models_path = os.path.join(
-        pkg_resources.get_distribution("realcugan_ncnn_py").location,
-        "realcugan_ncnn_py",
+        distribution("realcugan_ncnn_py").locate_file("realcugan_ncnn_py"),
         "models",
     )
     rife_ncnn_models_path = os.path.join(
-        pkg_resources.get_distribution("rife_ncnn_vulkan_python").location,
-        "rife_ncnn_vulkan_python",
+        distribution("rife_ncnn_vulkan_python").locate_file("rife_ncnn_vulkan_python"),
         "models",
     )
     span_ncnn_models_path = os.path.join(
-        pkg_resources.get_distribution("span_ncnn_py").location,
-        "span_ncnn_py",
+        distribution("span_ncnn_py").locate_file("span_ncnn_py"),
         "models",
     )
     realesrgan_ncnn_models_path = os.path.join(
-        pkg_resources.get_distribution("realesrgan_ncnn_vulkan_python").location,
-        "realesrgan_ncnn_vulkan_python",
+        distribution("realesrgan_ncnn_py").locate_file("realesrgan_ncnn_py"),
         "models",
     )
 
@@ -74,13 +70,15 @@ def create_executable():
             "--add-data",
             f"{span_ncnn_models_path};span_ncnn_py/models",
             "--add-data",
-            f"{realesrgan_ncnn_models_path};realesrgan_ncnn_vulkan_python/models",
+            f"{realesrgan_ncnn_models_path};realesrgan_ncnn_py/models",
             "--hidden-import",
             "realcugan_ncnn_py.realcugan_ncnn_wrapper",
             "--hidden-import",
             "span_ncnn_py.span_ncnn_wrapper",
             "--hidden-import",
             "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
+            "--hidden-import",
+            "realesrgan_ncnn_py.realesrgan_ncnn_py_wrapper",
             "--collect-all",
             "cupy",
             "--collect-all",
@@ -98,16 +96,18 @@ def create_executable():
 
 
 def move_extras():
-    jsx_path = os.path.join(base_dir, "TheAnimeScripter.jsx")
-    license_path = os.path.join(base_dir, "LICENSE")
-    txt_path = os.path.join(base_dir, "readme.txt")
     dist_dir = os.path.join(base_dir, "dist")
     main_dir = os.path.join(dist_dir, "main")
+    jsx_path = os.path.join(base_dir, "TheAnimeScripter.jsx")
+    license_path = os.path.join(base_dir, "LICENSE")
+    readme_path = os.path.join(base_dir, "README.md")
+    readme_txt_path = os.path.join(base_dir, "README.txt")
     target_path = os.path.join(main_dir, os.path.basename(jsx_path))
     try:
         shutil.copy(jsx_path, target_path)
         shutil.copy(license_path, main_dir)
-        shutil.copy(txt_path, main_dir)
+        shutil.copy(readme_path, main_dir)
+        shutil.copy(readme_txt_path, main_dir)
     except Exception as e:
         print("Error while copying jsx file: ", e)
 
