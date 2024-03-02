@@ -1,33 +1,23 @@
 import os
 import random
 
-
 def outputNameGenerator(args):
+    arg_map = {
+        'resize': f"-Re{args.resize_factor}",
+        'dedup': "-De",
+        'interpolate': f"-Int{args.interpolate_factor}",
+        'upscale': f"-Up{args.upscale_factor}",
+        'sharpen': f"-Sh{args.sharpen_sens}",
+        'segment': "-Segment",
+        'depth': "-Depth",
+        'ytdlp': "-YTDLP"
+    }
+
     parts = [os.path.splitext(os.path.basename(args.input))[0] if args.input else "TAS"]
 
-    if args.resize:
-        parts.append(f"-Re{args.resize_factor}")
-
-    if args.dedup:
-        parts.append("-De")
-
-    if args.interpolate:
-        parts.append(f"-Int{args.interpolate_factor}")
-
-    if args.upscale:
-        parts.append(f"-Up{args.upscale_factor}")
-
-    if args.sharpen:
-        parts.append(f"-Sh{args.sharpen_sens}")
-
-    if args.segment:
-        parts.append("-Segment")
-
-    if args.depth:
-        parts.append("-Depth")
-
-    if args.ytdlp:
-        parts.append("-YTDLP")
+    for arg, format_str in arg_map.items():
+        if getattr(args, arg, None):
+            parts.append(format_str)
 
     parts.append(f"-{random.randint(0, 1000)}")
 
