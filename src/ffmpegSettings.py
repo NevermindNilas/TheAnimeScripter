@@ -52,10 +52,9 @@ def matchEncoder(encode_method: str):
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
     """
     command = []
-    # Settings inspiration from: https://www.xaymar.com/guides/obs/high-quality-recording/
     match encode_method:
         case "x264":
-            command.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "15"])
+            command.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "16"])
         case "x264_animation":
             command.extend(
                 [
@@ -66,43 +65,43 @@ def matchEncoder(encode_method: str):
                     "-tune",
                     "animation",
                     "-crf",
-                    "15",
+                    "16",
                 ]
             )
         case "x265":
-            command.extend(["-c:v", "libx265", "-preset", "fast", "-crf", "15"])
+            command.extend(["-c:v", "libx265", "-preset", "fast", "-crf", "16"])
 
         case "nvenc_h264":
-            command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "15"])
+            command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "16"])
         case "nvenc_h265":
-            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "15"])
+            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "16"])
         case "qsv_h264":
             command.extend(
-                ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "15"]
+                ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "16"]
             )
         case "qsv_h265":
             command.extend(
-                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "15"]
+                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "16"]
             )
         case "nvenc_av1":
-            command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "15"])
+            command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "16"])
         case "av1":
-            command.extend(["-c:v", "libsvtav1", "-preset", "8", "-crf", "15"])
+            command.extend(["-c:v", "libsvtav1", "-preset", "8", "-crf", "16"])
         case "h264_amf":
             command.extend(
-                ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15"]
+                ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp", "16"]
             )
         case "hevc_amf":
             command.extend(
-                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15"]
+                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "16"]
             )
         case "vp9":
-            command.extend(["-c:v", "libvpx-vp9", "-crf", "15"])
+            command.extend(["-c:v", "libvpx-vp9", "-crf", "16"])
         case "qsv_vp9":
             command.extend(["-c:v", "vp9_qsv", "-preset", "veryfast"])
         # Needs further testing, -qscale:v 15 seems to be extremely lossy
         case "prores":
-            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "15"])
+            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "16"])
 
     return command
 
@@ -194,10 +193,6 @@ class BuildBuffer:
 
         if self.outpoint != 0:
             command.extend(["-ss", str(self.inpoint), "-to", str(self.outpoint)])
-
-        """
-        command.extend(["-c:v", "h264_qsv"])
-        """
 
         command.extend(
             [
@@ -427,6 +422,9 @@ class WriteBuffer:
 
         else:
             custom_encoder_list = self.custom_encoder.split()
+
+            if "-pix_fmt" in custom_encoder_list:
+                raise ValueError("The '-pix_fmt' option is hardcoded in the script and should not be included in the custom encoder settings.")
 
             if "-vf" in custom_encoder_list:
                 vf_index = custom_encoder_list.index("-vf")
