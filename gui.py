@@ -1,7 +1,11 @@
 import sys
 import time
-from PyQt5.QtCore import QProcess, QTimer
-from PyQt5.QtWidgets import (
+import os
+import json
+
+from pypresence import Presence
+from PyQt6.QtCore import QProcess, QTimer
+from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
     QWidget,
@@ -14,7 +18,16 @@ from PyQt5.QtWidgets import (
     QFileDialog,
     QTextEdit,
 )
-from pypresence import Presence
+
+class StreamToTextEdit:
+    def __init__(self, text_edit):
+        self.text_edit = text_edit
+
+    def write(self, message):
+        self.text_edit.append(message)
+
+    def flush(self):
+        pass
 
 
 class VideoProcessingApp(QMainWindow):
@@ -30,7 +43,7 @@ class VideoProcessingApp(QMainWindow):
 
         self.start_time = int(time.time())
         self.timer = QTimer()
-        self.timer.timeout.connect(self.update_presence)
+        self.timer.timeout.connect(self.updatePresence)
         self.timer.start(1000)
 
         self.setStyleSheet("""
@@ -91,11 +104,17 @@ class VideoProcessingApp(QMainWindow):
         self.outputWindow = QTextEdit()
         self.outputWindow.setReadOnly(True)
 
+        sys.stdout = StreamToTextEdit(self.outputWindow)
+        sys.stderr = StreamToTextEdit(self.outputWindow)
+
         self.layout.addLayout(self.inputLayout)
         self.layout.addLayout(self.outputLayout)
         self.layout.addLayout(self.checkboxLayout)
         self.layout.addWidget(self.runButton)
         self.layout.addWidget(self.outputWindow)
+
+        self.settingsFile = "settings.json"
+        self.loadSettings()
 
     def createCheckbox(self, text):
         checkbox = QCheckBox(text)
@@ -107,11 +126,11 @@ class VideoProcessingApp(QMainWindow):
             self.inputEntry.setText(filePath)
 
     def browseOutput(self):
-        filePath, _ = QFileDialog.getSaveFileName(self, "Select Output File")
-        if filePath:
-            self.outputEntry.setText(filePath)
+        directory = QFileDialog.getExistingDirectory(self, "Select Output Directory")
+        if directory:
+            self.outputEntry.setText(directory)
 
-    def update_presence(self):
+    def updatePresence(self):
         self.RPC.update(
             details="Idle",
             start=self.start_time,
@@ -135,6 +154,9 @@ class VideoProcessingApp(QMainWindow):
         if self.inputEntry.text():
             command.append("--input")
             command.append(self.inputEntry.text())
+        else:
+            self.outputWindow.append("Input file not selected")
+            return
 
         if self.outputEntry.text():
             command.append("--output")
@@ -144,23 +166,56 @@ class VideoProcessingApp(QMainWindow):
             checkbox = self.checkboxLayout.itemAt(i).widget()
             if isinstance(checkbox, QCheckBox) and checkbox.isChecked():
                 command.append(f"--{checkbox.text().lower().replace(' ', '_')}")
-
+            if checkbox.text() == "Half Precision Mode":
+                command.append("--half 1")
+        
+        if not os.path.isfile("main.exe"):
+            self.outputWindow.append("main.exe not found")
+            return
+        
         self.process = QProcess()
         self.process.readyReadStandardOutput.connect(self.handleStdout)
         self.process.readyReadStandardError.connect(self.handleStderr)
         self.process.start(command[0], command[1:])
 
     def handleStdout(self):
-        data = self.process.readAllStandardOutput().data().decode()
+        data = bytes(self.process.readAllStandardOutput()).decode()
         self.outputWindow.append(data)
 
     def handleStderr(self):
-        data = self.process.readAllStandardError().data().decode()
+        data = bytes(self.process.readAllStandardError()).decode()
         self.outputWindow.append(data)
+
+    def loadSettings(self):
+        if os.path.exists(self.settingsFile):
+            with open(self.settingsFile, "r") as file:
+                settings = json.load(file)
+            self.inputEntry.setText(settings.get("input_path", ""))
+            self.outputEntry.setText(settings.get("output_path", ""))
+            for i in range(self.checkboxLayout.count()):
+                checkbox = self.checkboxLayout.itemAt(i).widget()
+                if isinstance(checkbox, QCheckBox):
+                    checkbox.setChecked(settings.get(checkbox.text(), False))
+
+    def saveSettings(self):
+        settings = {
+            "input_path": self.inputEntry.text(),
+            "output_path": self.outputEntry.text()
+        }
+        for i in range(self.checkboxLayout.count()):
+            checkbox = self.checkboxLayout.itemAt(i).widget()
+            if isinstance(checkbox, QCheckBox):
+                settings[checkbox.text()] = checkbox.isChecked()
+        with open(self.settingsFile, "w") as file:
+            json.dump(settings, file, indent=4)
+
+    def closeEvent(self, event):
+        self.saveSettings()
+        event.accept()
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = VideoProcessingApp()
     window.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
