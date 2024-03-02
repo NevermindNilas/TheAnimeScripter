@@ -689,6 +689,7 @@ var TheAnimeScripter = (function() {
                     "--upscale", checkboxUpscale.value ? "1" : "0",
                     "--upscale_factor", upscaleValue(),
                     "--upscale_method", upscaleModel().toLowerCase(),
+                    "--cugan_kind", cuganDenoise().toLowerCase(),
                     "--dedup", checkboxDeduplicate.value ? "1" : "0",
                     "--dedup_sens", dedupSensValue(),
                     "--half", "1",
@@ -707,11 +708,15 @@ var TheAnimeScripter = (function() {
                     "--resize_method", resizeMethod().toLowerCase(),
                     "--resize_factor", resizeValue(),
                     "--nt", threadsValue(),
-		    "--buffer_limit", 200,
+		            "--buffer_limit", 100,
                 ];
 
                 if (customModelPath && customModelPath !== "undefined") {
                     attempt.push("--custom_model", customModelPath);
+                }
+
+                if (textCustomEncoder.text && textCustomEncoder.text !== "") {
+                    attempt.push("--custom_encoder", textCustomEncoder.text);
                 }
 
                 var command = attempt.join(" ");
