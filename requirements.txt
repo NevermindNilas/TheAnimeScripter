@@ -6,6 +6,7 @@ numpy
 cupy-cuda12x
 kornia
 scipy
+pypresence
 wmi
 yt-dlp
 einops
