@@ -33,5 +33,5 @@ def delete_files(directory, file_endings=None, dir_names=None):
         os.remove(log_file)
 
 if __name__ == "__main__":
-    delete_files('./', file_endings=['.pth', '.pkl', '.cpkl', '.ckpt', ".onnx"],
+    delete_files('./', file_endings=['.pth', '.pkl', '.cpkl', '.ckpt', ".onnx", ".json"],
                  dir_names=['__pycache__', 'ffmpeg', 'hub', 'weights', 'dist', 'build', 'venv'])

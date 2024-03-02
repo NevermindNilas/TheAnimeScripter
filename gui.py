@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QTextEdit,
 )
 
+
 class StreamToTextEdit:
     def __init__(self, text_edit):
         self.text_edit = text_edit
@@ -47,6 +48,9 @@ class VideoProcessingApp(QMainWindow):
         self.timer.start(1000)
 
         self.setStyleSheet("""
+            QMainWindow {
+                background-color: #202020;
+            }
             QWidget {
                 background-color: #202020;
                 color: #FFFFFF;
@@ -54,13 +58,27 @@ class VideoProcessingApp(QMainWindow):
             QPushButton {
                 background-color: #404040;
                 color: #FFFFFF;
+                border-radius: 5px;
+                padding: 5px 10px;
+            }
+            QPushButton:hover {
+                background-color: #FF4B4B;
             }
             QLineEdit {
                 background-color: #404040;
                 color: #FFFFFF;
+                border-radius: 5px;
+                padding: 5px;
             }
             QCheckBox {
                 color: #FFFFFF;
+                padding: 5px;
+            }
+            QTextEdit {
+                background-color: #404040;
+                color: #FFFFFF;
+                border-radius: 5px;
+                padding: 5px;
             }
         """)
 
@@ -69,10 +87,23 @@ class VideoProcessingApp(QMainWindow):
 
         self.layout = QVBoxLayout()
         centralWidget.setLayout(self.layout)
+        
+        # Create settings panel
+        self.settingsPanel = QWidget()
+        self.settingsLayout = QVBoxLayout()
+        self.settingsPanel.setLayout(self.settingsLayout)
 
+        # Add widgets to the settings panel
+        self.settingsLabel = QLabel("Settings")
+        self.settingsLayout.addWidget(self.settingsLabel)
+
+        # Add the settings panel to the main layout
+        self.layout.addWidget(self.settingsPanel)
+        
         self.inputLayout = QHBoxLayout()
         self.inputLabel = QLabel("Input Path:")
         self.inputEntry = QLineEdit()
+        self.inputEntry.setFixedWidth(1100)
         self.inputButton = QPushButton("Browse")
         self.inputButton.clicked.connect(self.browseInput)
         self.inputLayout.addWidget(self.inputLabel)
@@ -82,6 +113,7 @@ class VideoProcessingApp(QMainWindow):
         self.outputLayout = QHBoxLayout()
         self.outputLabel = QLabel("Output Path:")
         self.outputEntry = QLineEdit()
+        self.outputEntry.setFixedWidth(1100)
         self.outputButton = QPushButton("Browse")
         self.outputButton.clicked.connect(self.browseOutput)
         self.outputLayout.addWidget(self.outputLabel)
@@ -168,11 +200,11 @@ class VideoProcessingApp(QMainWindow):
                 command.append(f"--{checkbox.text().lower().replace(' ', '_')}")
             if checkbox.text() == "Half Precision Mode":
                 command.append("--half 1")
-        
+
         if not os.path.isfile("main.exe"):
             self.outputWindow.append("main.exe not found")
             return
-        
+
         self.process = QProcess()
         self.process.readyReadStandardOutput.connect(self.handleStdout)
         self.process.readyReadStandardError.connect(self.handleStderr)
