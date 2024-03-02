@@ -97,7 +97,7 @@ The available inputs have been moved to [Parameters Guide](PARAMETERS.MD).
 - [Francis0625](https://github.com/Francis0625/Omni-SR) - For OmniSR
 - [Breakthrough](https://github.com/Breakthrough/PySceneDetect) - For Automated Scene Detection
 - [Final2X](https://github.com/Final2x/realesrgan-ncnn-py) - For RealESRGAN-NCNN-Py and RealCugan-NCNN-Py
-- [scikit-image](https://github.com/scikit-image/scikit-image) - For SSIM and PSNR.
+- [scikit-image](https://github.com/scikit-image/scikit-image) - For SSIM
 
 ## 📈 Benchmarks
 
