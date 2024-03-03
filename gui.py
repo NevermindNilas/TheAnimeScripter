@@ -82,7 +82,7 @@ class VideoProcessingApp(QMainWindow):
         self.inputEntry = self.createPathWidgets("Input Path:", self.browseInput)
         self.outputEntry = self.createPathWidgets("Output Path:", self.browseOutput)
 
-        for option in ["Resize", "Dedup", "Interpolate", "Upscale", "Segment", "Depth"]:
+        for option in ["Resize", "Dedup", "Interpolate", "Upscale", "Segment", "Depth", "Sharpen"]:
             self.createCheckbox(option)
 
         self.outputWindow = QTextEdit()
