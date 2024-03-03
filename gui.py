@@ -16,11 +16,9 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QAction
 from PyQt6.QtCore import QTimer
-from src.uiLogic import uiStyleSheet, runCommand, StreamToTextEdit
+from src.uiLogic import uiStyleSheet, runCommand, StreamToTextEdit, loadSettings, saveSettings
 import sys
 import time
-import os
-import json
 from pypresence import Presence
 
 
@@ -50,7 +48,7 @@ class VideoProcessingApp(QMainWindow):
         self.createWidgets()
 
         self.settingsFile = "settings.json"
-        self.loadSettings()
+        loadSettings(self)
 
     def createMenuBar(self):
         self.menuBar = QMenuBar()
@@ -91,8 +89,11 @@ class VideoProcessingApp(QMainWindow):
         self.runButton.clicked.connect(lambda: runCommand(self))
 
         self.layout.addWidget(self.pathGroup)
+        self.layout.addSpacing(5)
         self.layout.addWidget(self.checkboxGroup)
+        self.layout.addSpacing(5)
         self.layout.addWidget(self.outputGroup)
+        self.layout.addSpacing(5)
         self.layout.addWidget(self.runButton)
 
     def createGroup(self, title, layout):
@@ -137,39 +138,8 @@ class VideoProcessingApp(QMainWindow):
             small_text="Idle",
         )
 
-    def handleStdout(self):
-        data = bytes(self.process.readAllStandardOutput()).decode()
-        self.outputWindow.append(data)
-
-    def handleStderr(self):
-        data = bytes(self.process.readAllStandardError()).decode()
-        self.outputWindow.append(data)
-
-    def loadSettings(self):
-        if os.path.exists(self.settingsFile):
-            with open(self.settingsFile, "r") as file:
-                settings = json.load(file)
-            self.inputEntry.setText(settings.get("input_path", ""))
-            self.outputEntry.setText(settings.get("output_path", ""))
-            for i in range(self.checkboxLayout.count()):
-                checkbox = self.checkboxLayout.itemAt(i).widget()
-                if isinstance(checkbox, QCheckBox):
-                    checkbox.setChecked(settings.get(checkbox.text(), False))
-
-    def saveSettings(self):
-        settings = {
-            "input_path": self.inputEntry.text(),
-            "output_path": self.outputEntry.text(),
-        }
-        for i in range(self.checkboxLayout.count()):
-            checkbox = self.checkboxLayout.itemAt(i).widget()
-            if isinstance(checkbox, QCheckBox):
-                settings[checkbox.text()] = checkbox.isChecked()
-        with open(self.settingsFile, "w") as file:
-            json.dump(settings, file, indent=4)
-
     def closeEvent(self, event):
-        self.saveSettings()
+        saveSettings(self)
         event.accept()
 
     def openSettings(self):

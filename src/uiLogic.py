@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QCheckBox
 from PyQt6.QtCore import QProcess
 
 import os
+import json
 
 def uiStyleSheet() -> str:
     """
@@ -64,6 +65,7 @@ def uiStyleSheet() -> str:
         }
     """
 
+
 def runCommand(self) -> None:
     self.RPC.update(
         details="Processing",
@@ -112,3 +114,28 @@ class StreamToTextEdit:
 
     def flush(self):
         pass
+
+
+def loadSettings(self):
+    if os.path.exists(self.settingsFile):
+        with open(self.settingsFile, "r") as file:
+            settings = json.load(file)
+        self.inputEntry.setText(settings.get("input_path", ""))
+        self.outputEntry.setText(settings.get("output_path", ""))
+        for i in range(self.checkboxLayout.count()):
+            checkbox = self.checkboxLayout.itemAt(i).widget()
+            if isinstance(checkbox, QCheckBox):
+                checkbox.setChecked(settings.get(checkbox.text(), False))
+
+
+def saveSettings(self):
+    settings = {
+        "input_path": self.inputEntry.text(),
+        "output_path": self.outputEntry.text(),
+    }
+    for i in range(self.checkboxLayout.count()):
+        checkbox = self.checkboxLayout.itemAt(i).widget()
+        if isinstance(checkbox, QCheckBox):
+            settings[checkbox.text()] = checkbox.isChecked()
+    with open(self.settingsFile, "w") as file:
+        json.dump(settings, file, indent=4)
