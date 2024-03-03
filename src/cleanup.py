@@ -13,7 +13,7 @@ def delete_files(directory, file_endings=None, dir_names=None):
                     print(f'Deleting {file_path}')
                     os.remove(file_path)
         if dir_names:
-            for dir in dirs:
+            for dir in dirs.copy():
                 if dir in dir_names:
                     dir_path = os.path.join(root, dir)
                     print(f'Deleting {dir_path}')
@@ -31,7 +31,6 @@ def delete_files(directory, file_endings=None, dir_names=None):
     if os.path.exists(log_file):
         print(f'Deleting {log_file}')
         os.remove(log_file)
-
 if __name__ == "__main__":
     delete_files('./', file_endings=['.pth', '.pkl', '.cpkl', '.ckpt', ".onnx", ".json"],
                  dir_names=['__pycache__', 'ffmpeg', 'hub', 'weights', 'dist', 'build', 'venv'])

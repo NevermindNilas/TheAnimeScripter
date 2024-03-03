@@ -327,7 +327,6 @@ if __name__ == "__main__":
         type=str,
         choices=[
             "shufflecugan",
-            "shufflecugan_directml",
             "cugan",
             "compact",
             "ultracompact",
