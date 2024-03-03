@@ -8,30 +8,35 @@ from PyQt6.QtWidgets import (
     QCheckBox,
     QFileDialog,
     QTextEdit,
-    QMenuBar,
-    QMenu,
     QVBoxLayout,
     QLabel,
     QGroupBox,
+    QStackedWidget,
 )
-from PyQt6.QtGui import QAction
-from PyQt6.QtCore import QTimer
-from src.uiLogic import uiStyleSheet, runCommand, StreamToTextEdit, loadSettings, saveSettings
+from PyQt6.QtGui import QIntValidator
+from PyQt6.QtCore import QTimer, Qt
+from src.uiLogic import uiStyleSheet, runCommand, StreamToTextEdit, loadSettings, saveSettings, updatePresence
+
 import sys
 import time
 from pypresence import Presence
+from main import scriptVersion
 
+TITLE = f"The Anime Scripter - {scriptVersion} (Alpha)"
 
 class VideoProcessingApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("The Anime Scripter - 1.4.0")
+        self.setWindowTitle(TITLE)
         self.setFixedSize(1280, 720)
 
         self.client_id = "1213461768785891388"
         self.RPC = Presence(self.client_id)
-        self.RPC.connect()
+        try:
+            self.RPC.connect()
+        except ConnectionRefusedError:
+            print("Could not connect to Discord. Is Discord running?")
 
         self.start_time = int(time.time())
         self.timer = QTimer()
@@ -40,24 +45,16 @@ class VideoProcessingApp(QMainWindow):
 
         self.setStyleSheet(uiStyleSheet())
 
+        self.stackedWidget = QStackedWidget()
         self.centralWidget = QWidget()
-        self.setCentralWidget(self.centralWidget)
+        self.stackedWidget.addWidget(self.centralWidget)
+        self.setCentralWidget(self.stackedWidget)
 
-        self.createMenuBar()
         self.createLayouts()
         self.createWidgets()
 
         self.settingsFile = "settings.json"
         loadSettings(self)
-
-    def createMenuBar(self):
-        self.menuBar = QMenuBar()
-        self.settingsMenu = QMenu("Settings", self)
-        self.settingsAction = QAction("Open Settings", self)
-        self.settingsAction.triggered.connect(self.openSettings)
-        self.settingsMenu.addAction(self.settingsAction)
-        self.menuBar.addMenu(self.settingsMenu)
-        self.setMenuBar(self.menuBar)
 
     def createLayouts(self):
         self.layout = QVBoxLayout()
@@ -68,6 +65,16 @@ class VideoProcessingApp(QMainWindow):
         self.outputLayout = QVBoxLayout()
 
     def createWidgets(self):
+        inputFields = [
+            ("Interpolate Factor:", 2, 100),
+            ("Upscale Factor:", 2, 4),
+            ("Resize Factor:", 1, 4)
+        ]
+
+        for label, defaultValue, maxValue in inputFields:
+            layout, entry = self.createInputField(label, defaultValue, maxValue)
+            self.checkboxLayout.addLayout(layout)
+
         self.pathGroup = self.createGroup("Paths", self.pathLayout)
         self.checkboxGroup = self.createGroup("Options", self.checkboxLayout)
         self.outputGroup = self.createGroup("Terminal", self.outputLayout)
@@ -75,7 +82,7 @@ class VideoProcessingApp(QMainWindow):
         self.inputEntry = self.createPathWidgets("Input Path:", self.browseInput)
         self.outputEntry = self.createPathWidgets("Output Path:", self.browseOutput)
 
-        for option in ["Dedup", "Interpolate", "Upscale", "Segment", "Scene Change", "Depth"]:
+        for option in ["Resize", "Dedup", "Interpolate", "Upscale", "Segment", "Depth"]:
             self.createCheckbox(option)
 
         self.outputWindow = QTextEdit()
@@ -85,16 +92,15 @@ class VideoProcessingApp(QMainWindow):
         sys.stdout = StreamToTextEdit(self.outputWindow)
         sys.stderr = StreamToTextEdit(self.outputWindow)
 
-        self.runButton = QPushButton("Run")
-        self.runButton.clicked.connect(lambda: runCommand(self))
+        self.runButton = self.createButton("Run", lambda: runCommand(self, TITLE))
+        self.settingsButton = self.createButton("Settings", self.openSettings)
 
-        self.layout.addWidget(self.pathGroup)
-        self.layout.addSpacing(5)
-        self.layout.addWidget(self.checkboxGroup)
-        self.layout.addSpacing(5)
-        self.layout.addWidget(self.outputGroup)
-        self.layout.addSpacing(5)
-        self.layout.addWidget(self.runButton)
+        self.buttonLayout = QHBoxLayout()
+        self.buttonLayout.addWidget(self.runButton)
+        self.buttonLayout.addWidget(self.settingsButton)
+
+        self.addWidgetsToLayout(self.layout, [self.pathGroup, self.checkboxGroup, self.outputGroup], 5)
+        self.layout.addLayout(self.buttonLayout)
 
     def createGroup(self, title, layout):
         group = QGroupBox(title)
@@ -106,17 +112,39 @@ class VideoProcessingApp(QMainWindow):
         label = QLabel(label)
         entry = QLineEdit()
         entry.setFixedWidth(1050)
-        button = QPushButton("Browse")
-        button.clicked.connect(slot)
+        button = self.createButton("Browse", slot)
         layout.addWidget(label)
         layout.addWidget(entry)
         layout.addWidget(button)
         self.pathLayout.addLayout(layout)
         return entry
 
+    def createInputField(self, label, defaultValue, maxValue):
+        layout = QHBoxLayout()
+        layout.addStretch(1)
+        label = QLabel(label)
+        entry = QLineEdit()
+        entry.setText(str(defaultValue))
+        entry.setValidator(QIntValidator(0, maxValue))
+        entry.setFixedWidth(30)
+        entry.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(label)
+        layout.addWidget(entry)
+        return layout, entry
+
     def createCheckbox(self, text):
         checkbox = QCheckBox(text)
         self.checkboxLayout.addWidget(checkbox)
+
+    def createButton(self, text, slot):
+        button = QPushButton(text)
+        button.clicked.connect(slot)
+        return button
+
+    def addWidgetsToLayout(self, layout, widgets, spacing):
+        for widget in widgets:
+            layout.addWidget(widget)
+            layout.addSpacing(spacing)
 
     def browseInput(self):
         filePath, _ = QFileDialog.getOpenFileName(self, "Select Input File")
@@ -129,14 +157,7 @@ class VideoProcessingApp(QMainWindow):
             self.outputEntry.setText(directory)
 
     def updatePresence(self):
-        self.RPC.update(
-            details="Idle",
-            start=self.start_time,
-            large_image="icon",
-            small_image="icon",
-            large_text="The Anime Scripter - 1.4.0",
-            small_text="Idle",
-        )
+        updatePresence(self.RPC, self.start_time, TITLE)
 
     def closeEvent(self, event):
         saveSettings(self)
@@ -147,14 +168,15 @@ class VideoProcessingApp(QMainWindow):
         settingsLayout = QVBoxLayout()
         settingsLabel = QLabel("Settings go here")
         settingsLayout.addWidget(settingsLabel)
-        backButton = QPushButton("Back")
-        backButton.clicked.connect(self.goBack)
+        backButton = self.createButton("Back", self.goBack)
         settingsLayout.addWidget(backButton)
         self.settingsWidget.setLayout(settingsLayout)
-        self.setCentralWidget(self.settingsWidget)
+        self.stackedWidget.addWidget(self.settingsWidget)
+        self.stackedWidget.setCurrentWidget(self.settingsWidget)
 
     def goBack(self):
-        self.setCentralWidget(self.centralWidget)
+        self.stackedWidget.removeWidget(self.settingsWidget)
+        self.stackedWidget.setCurrentWidget(self.centralWidget)
 
 
 if __name__ == "__main__":

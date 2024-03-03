@@ -400,6 +400,8 @@ class WriteBuffer:
             str(self.fps),
             "-thread_queue_size",
             "100",
+            "-max_interleave_delta",
+            "0",
             "-i",
             "-",
             "-an",

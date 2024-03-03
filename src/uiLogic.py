@@ -66,13 +66,13 @@ def uiStyleSheet() -> str:
     """
 
 
-def runCommand(self) -> None:
+def runCommand(self, TITLE) -> None:
     self.RPC.update(
         details="Processing",
         start=self.start_time,
         large_image="icon",
         small_image="icon",
-        large_text="The Anime Scripter - 1.4.0",
+        large_text=TITLE,
         small_text="Processing",
     )
 
@@ -84,10 +84,13 @@ def runCommand(self) -> None:
     else:
         self.outputWindow.append("Input file not selected")
         return
+    
     if self.outputEntry.text():
         command.append("--output")
         command.append(self.outputEntry.text())
-
+    else:
+        self.outputWindow.append("Output directory was not selected, using default")
+        
     for i in range(self.checkboxLayout.count()):
         checkbox = self.checkboxLayout.itemAt(i).widget()
         if isinstance(checkbox, QCheckBox) and checkbox.isChecked():
@@ -139,3 +142,13 @@ def saveSettings(self):
             settings[checkbox.text()] = checkbox.isChecked()
     with open(self.settingsFile, "w") as file:
         json.dump(settings, file, indent=4)
+
+def updatePresence(RPC, start_time, TITLE):
+    RPC.update(
+        details="Idle",
+        start=start_time,
+        large_image="icon",
+        small_image="icon",
+        large_text=TITLE,
+        small_text="Idle",
+    )
