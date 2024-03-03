@@ -8,6 +8,7 @@ kornia
 scipy
 pypresence
 wmi
+spandrel
 yt-dlp
 einops
 scikit-image
