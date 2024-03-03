@@ -1,34 +1,27 @@
-import sys
-import time
-import os
-import json
-
-from pypresence import Presence
-from PyQt6.QtCore import QProcess, QTimer
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
     QWidget,
-    QVBoxLayout,
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QPushButton,
     QCheckBox,
     QFileDialog,
     QTextEdit,
+    QMenuBar,
+    QMenu,
+    QVBoxLayout,
+    QLabel,
+    QGroupBox,
 )
-
-
-class StreamToTextEdit:
-    def __init__(self, text_edit):
-        self.text_edit = text_edit
-
-    def write(self, message):
-        self.text_edit.append(message)
-
-    def flush(self):
-        pass
+from PyQt6.QtGui import QAction
+from PyQt6.QtCore import QTimer
+from src.uiLogic import uiStyleSheet, runCommand, StreamToTextEdit
+import sys
+import time
+import os
+import json
+from pypresence import Presence
 
 
 class VideoProcessingApp(QMainWindow):
@@ -47,106 +40,78 @@ class VideoProcessingApp(QMainWindow):
         self.timer.timeout.connect(self.updatePresence)
         self.timer.start(1000)
 
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #202020;
-            }
-            QWidget {
-                background-color: #202020;
-                color: #FFFFFF;
-            }
-            QPushButton {
-                background-color: #404040;
-                color: #FFFFFF;
-                border-radius: 5px;
-                padding: 5px 10px;
-            }
-            QPushButton:hover {
-                background-color: #FF4B4B;
-            }
-            QLineEdit {
-                background-color: #404040;
-                color: #FFFFFF;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QCheckBox {
-                color: #FFFFFF;
-                padding: 5px;
-            }
-            QTextEdit {
-                background-color: #404040;
-                color: #FFFFFF;
-                border-radius: 5px;
-                padding: 5px;
-            }
-        """)
+        self.setStyleSheet(uiStyleSheet())
 
-        centralWidget = QWidget()
-        self.setCentralWidget(centralWidget)
+        self.centralWidget = QWidget()
+        self.setCentralWidget(self.centralWidget)
 
+        self.createMenuBar()
+        self.createLayouts()
+        self.createWidgets()
+
+        self.settingsFile = "settings.json"
+        self.loadSettings()
+
+    def createMenuBar(self):
+        self.menuBar = QMenuBar()
+        self.settingsMenu = QMenu("Settings", self)
+        self.settingsAction = QAction("Open Settings", self)
+        self.settingsAction.triggered.connect(self.openSettings)
+        self.settingsMenu.addAction(self.settingsAction)
+        self.menuBar.addMenu(self.settingsMenu)
+        self.setMenuBar(self.menuBar)
+
+    def createLayouts(self):
         self.layout = QVBoxLayout()
-        centralWidget.setLayout(self.layout)
-        
-        # Create settings panel
-        self.settingsPanel = QWidget()
-        self.settingsLayout = QVBoxLayout()
-        self.settingsPanel.setLayout(self.settingsLayout)
+        self.centralWidget.setLayout(self.layout)
 
-        # Add widgets to the settings panel
-        self.settingsLabel = QLabel("Settings")
-        self.settingsLayout.addWidget(self.settingsLabel)
-
-        # Add the settings panel to the main layout
-        self.layout.addWidget(self.settingsPanel)
-        
-        self.inputLayout = QHBoxLayout()
-        self.inputLabel = QLabel("Input Path:")
-        self.inputEntry = QLineEdit()
-        self.inputEntry.setFixedWidth(1100)
-        self.inputButton = QPushButton("Browse")
-        self.inputButton.clicked.connect(self.browseInput)
-        self.inputLayout.addWidget(self.inputLabel)
-        self.inputLayout.addWidget(self.inputEntry)
-        self.inputLayout.addWidget(self.inputButton)
-
-        self.outputLayout = QHBoxLayout()
-        self.outputLabel = QLabel("Output Path:")
-        self.outputEntry = QLineEdit()
-        self.outputEntry.setFixedWidth(1100)
-        self.outputButton = QPushButton("Browse")
-        self.outputButton.clicked.connect(self.browseOutput)
-        self.outputLayout.addWidget(self.outputLabel)
-        self.outputLayout.addWidget(self.outputEntry)
-        self.outputLayout.addWidget(self.outputButton)
-
+        self.pathLayout = QVBoxLayout()
         self.checkboxLayout = QVBoxLayout()
-        self.createCheckbox("Dedup")
-        self.createCheckbox("Interpolate")
-        self.createCheckbox("Upscale")
-        self.createCheckbox("Half Precision Mode")
-        self.createCheckbox("Segment")
-        self.createCheckbox("Scene Change")
-        self.createCheckbox("Depth")
-        self.createCheckbox("Keep Audio")
+        self.outputLayout = QVBoxLayout()
 
-        self.runButton = QPushButton("Run")
-        self.runButton.clicked.connect(self.runCommand)
+    def createWidgets(self):
+        self.pathGroup = self.createGroup("Paths", self.pathLayout)
+        self.checkboxGroup = self.createGroup("Options", self.checkboxLayout)
+        self.outputGroup = self.createGroup("Terminal", self.outputLayout)
+
+        self.inputEntry = self.createPathWidgets("Input Path:", self.browseInput)
+        self.outputEntry = self.createPathWidgets("Output Path:", self.browseOutput)
+
+        for option in ["Dedup", "Interpolate", "Upscale", "Segment", "Scene Change", "Depth"]:
+            self.createCheckbox(option)
 
         self.outputWindow = QTextEdit()
         self.outputWindow.setReadOnly(True)
+        self.outputLayout.addWidget(self.outputWindow)
 
         sys.stdout = StreamToTextEdit(self.outputWindow)
         sys.stderr = StreamToTextEdit(self.outputWindow)
 
-        self.layout.addLayout(self.inputLayout)
-        self.layout.addLayout(self.outputLayout)
-        self.layout.addLayout(self.checkboxLayout)
-        self.layout.addWidget(self.runButton)
-        self.layout.addWidget(self.outputWindow)
+        self.runButton = QPushButton("Run")
+        self.runButton.clicked.connect(lambda: runCommand(self))
 
-        self.settingsFile = "settings.json"
-        self.loadSettings()
+        self.layout.addWidget(self.pathGroup)
+        self.layout.addWidget(self.checkboxGroup)
+        self.layout.addWidget(self.outputGroup)
+        self.layout.addWidget(self.runButton)
+
+    def createGroup(self, title, layout):
+        group = QGroupBox(title)
+        group.setLayout(layout)
+        return group
+
+    def createPathWidgets(self, label, slot):
+        layout = QHBoxLayout()
+        label = QLabel(label)
+        entry = QLineEdit()
+        entry.setFixedWidth(1050)
+        button = QPushButton("Browse")
+        button.clicked.connect(slot)
+        layout.addWidget(label)
+        layout.addWidget(entry)
+        layout.addWidget(button)
+        self.pathLayout.addLayout(layout)
+        return entry
 
     def createCheckbox(self, text):
         checkbox = QCheckBox(text)
@@ -172,44 +137,6 @@ class VideoProcessingApp(QMainWindow):
             small_text="Idle",
         )
 
-    def runCommand(self):
-        self.RPC.update(
-            details="Processing",
-            start=self.start_time,
-            large_image="icon",
-            small_image="icon",
-            large_text="The Anime Scripter - 1.4.0",
-            small_text="Processing",
-        )
-        command = ["./main.exe"]
-
-        if self.inputEntry.text():
-            command.append("--input")
-            command.append(self.inputEntry.text())
-        else:
-            self.outputWindow.append("Input file not selected")
-            return
-
-        if self.outputEntry.text():
-            command.append("--output")
-            command.append(self.outputEntry.text())
-
-        for i in range(self.checkboxLayout.count()):
-            checkbox = self.checkboxLayout.itemAt(i).widget()
-            if isinstance(checkbox, QCheckBox) and checkbox.isChecked():
-                command.append(f"--{checkbox.text().lower().replace(' ', '_')}")
-            if checkbox.text() == "Half Precision Mode":
-                command.append("--half 1")
-
-        if not os.path.isfile("main.exe"):
-            self.outputWindow.append("main.exe not found")
-            return
-
-        self.process = QProcess()
-        self.process.readyReadStandardOutput.connect(self.handleStdout)
-        self.process.readyReadStandardError.connect(self.handleStderr)
-        self.process.start(command[0], command[1:])
-
     def handleStdout(self):
         data = bytes(self.process.readAllStandardOutput()).decode()
         self.outputWindow.append(data)
@@ -232,7 +159,7 @@ class VideoProcessingApp(QMainWindow):
     def saveSettings(self):
         settings = {
             "input_path": self.inputEntry.text(),
-            "output_path": self.outputEntry.text()
+            "output_path": self.outputEntry.text(),
         }
         for i in range(self.checkboxLayout.count()):
             checkbox = self.checkboxLayout.itemAt(i).widget()
@@ -244,6 +171,20 @@ class VideoProcessingApp(QMainWindow):
     def closeEvent(self, event):
         self.saveSettings()
         event.accept()
+
+    def openSettings(self):
+        self.settingsWidget = QWidget()
+        settingsLayout = QVBoxLayout()
+        settingsLabel = QLabel("Settings go here")
+        settingsLayout.addWidget(settingsLabel)
+        backButton = QPushButton("Back")
+        backButton.clicked.connect(self.goBack)
+        settingsLayout.addWidget(backButton)
+        self.settingsWidget.setLayout(settingsLayout)
+        self.setCentralWidget(self.settingsWidget)
+
+    def goBack(self):
+        self.setCentralWidget(self.centralWidget)
 
 
 if __name__ == "__main__":
