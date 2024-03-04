@@ -90,7 +90,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
     Example: `--custom_encoder="-c:v libx264 -crf 14 -vf hqdn3d"`
 
-   Note: Parameters specified with `--custom_encoder` will override the default encoding parameters. Ensure familiarity with `ffmpeg` and its parameters before using this option.
+   Note: Parameters specified with `--custom_encoder` will override the default encoding parameters with the exception of input stream and `-pix_fmt` color chanels. Ensure familiarity with `ffmpeg` and its parameters before using this option.
 
 #### Performance Settings:
 - `--nt` (int, default=1): Allocate the number of threads for the script to use. Relatively dodgy, use with caution.
