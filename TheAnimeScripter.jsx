@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "1.3.0";
+    var scriptVersion = "1.4.0";
 
     /*
     scriptAuthor = "Nilas";
@@ -408,12 +408,13 @@ var TheAnimeScripter = (function() {
         return dropdown;
     }
 
-    createDropdownField(panel1, "Upscale Model", "Model", ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "Span", "-", "Span-NCNN", "-", "SwinIR", "-", "OmniSR"], "Choose which model you want to utilize, read more in INFO, for AMD users choose NCNN models");
+    createDropdownField(panel1, "Upscale Model", "Model", ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "Span", "-", "Span-NCNN", "-", "SwinIR", "-", "OmniSR", "-", "RealEsrgan", "-", "RealEsrgan-NCNN"], "Choose which model you want to utilize, read more in INFO, for AMD users choose NCNN models");
     createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.14", "-", "Rife4.14-Lite", "-" , "Rife4.13-Lite", "-", "Rife4.6", "-", "Rife4.14-NCNN", "-", "Rife4.14-Lite-NCNN", "-", "Rife4.13-Lite-NCNN", "-", "Rife4.6-NCNN", "-", "GMFSS"], "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO");
     createDropdownField(panel1, "Cugan Denoise", "Cugan", ["No-Denoise", "-", "Conservative", "-", "Denoise1x", "-", "Denoise2x"]);
     createDropdownField(panel1, "Depth Model", "Depth", ["Small", "-", "Base", "-", "Large"], "Choose which depth map model you want to utilize, ordered by speed, read more in INFO");
-    createDropdownField(panel1, "Encoder", "Encoder", ["X264", "-", "X264_Animation", "-" , "X265", "-", "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs and QSV for Intel iGPUs");
+    createDropdownField(panel1, "Encoder", "Encoder", ["X264", "-", "X264_Animation", "-" , "X265", "-", "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs, AMF for AMD GPUs and QSV for Intel iGPUs");
     createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear", "-", "Bilinear", "-", "Bicubic", "-", "Experimental", "-", "Neighbor", "-", "Area", "-", "Bicublin", "-", "Gauss", "-", "Sinc", "-", "Lanczos", "-", "Spline", "-",  "Spline16", "-", "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
+    createDropdownField(panel1, "Dedup Method", "Dedup", ["FFMPEG", "-", "SSIM"], "Choose which deduplication method you want to utilize, FFMPEG is faster but less accurate, SSIM is slower but more accurate");
 
     var upscaleModel = function() { return dropdownValues["Model"]; };
     var interpolateModel = function() { return dropdownValues["Interpolate"]; };
@@ -421,6 +422,7 @@ var TheAnimeScripter = (function() {
     var depthModel = function() { return dropdownValues["Depth"]; };
     var encoderMethod = function() { return dropdownValues["Encoder"]; };
     var resizeMethod = function() { return dropdownValues["Resize"]; };
+    var dedupMethod = function() { return dropdownValues["Dedup"]; };
 
     var panelCustomSettings = settingsWindow.add("panel", undefined, undefined, {
         name: "panelCustomSettings"
@@ -542,7 +544,6 @@ var TheAnimeScripter = (function() {
         try {
             if (command) {
                 var cmdCommand = 'cmd.exe /c "' + command + '"';
-                //alert(cmdCommand)
                 system.callSystem(cmdCommand);
             } else {
                 throw new Error("Command is undefined");
@@ -645,8 +646,6 @@ var TheAnimeScripter = (function() {
             return;
         }
 
-        var activeItem = app.project.activeItem;
-
         var comp = app.project.activeItem;
         var i = 0;
         var selectedLayers = comp.selectedLayers.slice();
@@ -692,6 +691,7 @@ var TheAnimeScripter = (function() {
                     "--cugan_kind", cuganDenoise().toLowerCase(),
                     "--dedup", checkboxDeduplicate.value ? "1" : "0",
                     "--dedup_sens", dedupSensValue(),
+                    "--dedup_method", dedupMethod().toLowerCase(),
                     "--half", "1",
                     "--inpoint", sourceInPoint,
                     "--outpoint", sourceOutPoint,
@@ -716,7 +716,7 @@ var TheAnimeScripter = (function() {
                 }
 
                 if (textCustomEncoder.text && textCustomEncoder.text !== "") {
-                    attempt.push("--custom_encoder", textCustomEncoder.text);
+                    attempt.push("--custom_encoder", '"' + textCustomEncoder.text + '"');
                 }
 
                 var command = attempt.join(" ");
