@@ -32,15 +32,13 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 
 6. **Auto Clip Cutting with Scene Change Filter:** Boost productivity by automatically cutting clips with a Scene Change Filter.
 
-7. **Realistic Dynamics - Motion Blur:** Infuse realism into videos with customizable motion blur for a cinematic touch.
+7. **Seamless After Effects Integration:** Enhance After Effects projects effortlessly with our seamless integration.
 
-8. **Seamless After Effects Integration:** Enhance After Effects projects effortlessly with our seamless integration.
+8. **Multi-Effect Magic - Model Chaining:** Combine features seamlessly within After Effects, running Deduplication, Upscaling, and Interpolation in one go.
 
-9. **Multi-Effect Magic - Model Chaining:** Combine features seamlessly within After Effects, running Deduplication, Upscaling, and Interpolation in one go.
+9. **Efficient In-Memory Processing:** Experience swift transformations without additional frame extraction cycles.
 
-10. **Efficient In-Memory Processing:** Experience swift transformations without additional frame extraction cycles.
-
-11. **Custom Model Support for Creativity:** Unleash your creativity by incorporating your own trained models effortlessly.
+10. **Custom Model Support for Creativity:** Unleash your creativity by incorporating your own trained models effortlessly.
 
 Empower your video editing journey with these robust, efficient features designed to elevate your content to new heights.
 
