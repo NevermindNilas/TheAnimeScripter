@@ -97,6 +97,8 @@ class Swinir:
                 .mul_(1 / 255)
             )
 
+            frame = frame.contiguous(memory_format=torch.channels_last)
+
             if self.cuda_available:
                 torch.cuda.set_stream(self.stream[self.current_stream])
                 if self.half:

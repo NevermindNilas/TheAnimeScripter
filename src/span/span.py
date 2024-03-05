@@ -83,6 +83,8 @@ class SpanSR:
                 .mul_(1 / 255)
             )
 
+            frame = frame.contiguous(memory_format=torch.channels_last)
+
             if self.cuda_available:
                 torch.cuda.set_stream(self.stream[self.current_stream])
                 if self.half:
@@ -102,6 +104,8 @@ class SpanSR:
             if self.cuda_available:
                 torch.cuda.synchronize(self.stream[self.current_stream])
                 self.current_stream = (self.current_stream + 1) % len(self.stream)
+
+            frame = frame.contiguous(memory_format=torch.contiguous_format)
 
             return frame.cpu().numpy()
 
