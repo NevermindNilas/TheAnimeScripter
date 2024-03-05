@@ -12,12 +12,14 @@ def delete_files(directory, file_endings=None, dir_names=None):
                     file_path = os.path.join(root, file)
                     print(f'Deleting {file_path}')
                     os.remove(file_path)
-        if dir_names:
-            for dir in dirs.copy():
+
+    if dir_names:
+        for root, dirs, files in os.walk(directory, topdown=False):
+            for dir in dirs:
                 if dir in dir_names:
                     dir_path = os.path.join(root, dir)
                     print(f'Deleting {dir_path}')
-                    shutil.rmtree(dir_path)
+                    shutil.rmtree(dir_path, ignore_errors=True)
 
     # Use absolute paths for the output directory and log file
     dir_path = os.path.dirname(os.path.abspath(__file__))
