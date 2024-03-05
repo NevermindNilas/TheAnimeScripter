@@ -24,7 +24,6 @@ import argparse
 import warnings
 import sys
 import logging
-import numpy as np
 
 from threading import Semaphore
 from concurrent.futures import ThreadPoolExecutor
@@ -40,7 +39,7 @@ if getattr(sys, "frozen", False):
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.4.1"
+scriptVersion = "1.4.2"
 warnings.filterwarnings("ignore")
 
 """
