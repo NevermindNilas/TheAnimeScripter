@@ -132,7 +132,7 @@ class Cugan:
 
             frame = self.model(frame)
             frame = frame[:, :, : self.upscaled_height, : self.upscaled_width]
-            frame = frame.squeeze(0).permute(1, 2, 0).contiguous().mul_(255).clamp_(0, 255).byte()
+            frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
 
             if self.cuda_available:
                 torch.cuda.synchronize(self.stream[self.current_stream])
