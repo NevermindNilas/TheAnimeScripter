@@ -112,7 +112,9 @@ class Rife:
                 
             if self.padding != (0, 0, 0, 0):
                 self.I0 = F.pad(self.I0, [0, self.padding[1], 0, self.padding[3]])
-                
+
+            self.I0 = self.I0.contiguous(memory_format=torch.channels_last)
+             
             return False
         
         self.I1 = (
@@ -129,5 +131,7 @@ class Rife:
 
         if self.padding != (0, 0, 0, 0):
             self.I1 = F.pad(self.I1, [0, self.padding[1], 0, self.padding[3]])
+
+        self.I1 = self.I1.contiguous(memory_format=torch.channels_last)
             
         return True
