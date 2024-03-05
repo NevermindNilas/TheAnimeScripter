@@ -4,12 +4,8 @@ import numpy as np
 import logging
 import torch.nn.functional as F
 
-# Whilst there are a bunch of supported models,
-# I will only be using a couple of them for the time being
+# will be on wait for the next release of spandrel
 from spandrel import ImageModelDescriptor, ModelLoader
-from src.cugan.cugan_arch import (
-    UpCunet2x_fast,
-)  # Only needed until the model is added to spandrel
 from downloadModels import downloadModels, weightsDir
 
 
@@ -57,10 +53,6 @@ class Upscaler:
         torch.set_float32_matmul_precision("medium")
 
         if not self.customModel:
-            if self.upscaleMethod == "shufflecugan":
-                self.model = UpCunet2x_fast(in_channels=3, out_channels=3)
-                self.filename = "sudo_shuffle_cugan_9.584.969.pth"
-
             if not os.path.exists(
                 os.path.join(weightsDir, self.upscaleMethod, self.filename)
             ):
@@ -82,24 +74,23 @@ class Upscaler:
                     f"Custom model file {self.customModel} not found"
                 )
 
-        if not self.upscaleMethod == "shufflecugan":
+        try:
+            self.model = ModelLoader.load_from_file(modelPath)
+        except Exception as e:
+            logging.error(
+                f"Error loading model: {e}, attempting to load state dict"
+            )
             try:
-                self.model = ModelLoader.load_from_file(modelPath)
-                # assert isinstance(self.model, ImageModelDescriptor)
+                self.model = ModelLoader.load_from_state_dict(modelPath)
             except Exception as e:
-                logging.error(
-                    f"Error loading model: {e}, attempting to load state dict"
+                logging.error(f"Error loading from state dictionary: {e}")
+                raise FileNotFoundError(
+                    f"Model file {modelPath} is not a valid model file"
                 )
-                try:
-                    self.model = ModelLoader.load_from_state_dict(modelPath)
-                except Exception as e:
-                    logging.error(f"Error loading from state dictionary: {e}")
-                    raise FileNotFoundError(
-                        f"Model file {modelPath} is not a valid model file"
-                    )
-        else:
-            self.model.load_state_dict(torch.load(modelPath))
-
+            
+        if self.customModel:
+            assert isinstance(self.model, ImageModelDescriptor)
+        
         self.isCudaAvailable = torch.cuda.is_available()
         self.model = (
             self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()

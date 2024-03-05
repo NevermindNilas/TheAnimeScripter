@@ -159,7 +159,7 @@ class CuganNCNN:
         frame = self.realcugan.process_cv2(frame)
         return frame
 
-    """
+"""
 
 class cuganDirectML():
     def __init__(self, upscale_method, upscale_factor, cugan_kind, half, width, height, custom_model):
