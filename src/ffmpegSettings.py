@@ -495,7 +495,6 @@ class WriteBuffer:
                     self.isWritingDone = True
                     break
 
-                frame = np.ascontiguousarray(frame)
                 self.process.stdin.buffer.write(frame.tobytes())
                 writtenFrames += 1
 
