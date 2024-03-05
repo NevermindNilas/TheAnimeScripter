@@ -1,6 +1,5 @@
 import os
 import torch
-import numpy as np
 import logging
 
 from src.downloadModels import downloadModels, weightsDir
@@ -24,7 +23,7 @@ class GMFSS():
         pw = ((self.width - 1) // 32 + 1) * 32
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
-        if self.UHD == True:
+        if self.UHD:
             self.scale = 0.5
         else:
             self.scale = 1.0
@@ -87,7 +86,7 @@ class GMFSS():
         timestep = torch.tensor(
             (n+1) * 1. / (self.interpolation_factor+1), dtype=self.dtype, device=self.device)
         output = self.model(self.I0, self.I1, timestep)
-        output = (((output[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
+        output = (((output[0] * 255.).byte().cpu().contiguous().numpy().transpose(1, 2, 0)))
 
         
         if self.cuda_available:

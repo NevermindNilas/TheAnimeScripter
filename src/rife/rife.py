@@ -1,6 +1,5 @@
 import os
 import torch
-import numpy as np
 
 from src.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
@@ -90,7 +89,7 @@ class Rife:
     def make_inference(self, n):
         output = self.model.inference(self.I0, self.I1, n, self.scale, self.ensemble)
         output = output[:, :, : self.height, : self.width]
-        output = (output[0] * 255.0).byte().cpu().numpy().transpose(1, 2, 0)
+        output = (output[0] * 255.0).byte().cpu().contiguous().numpy().transpose(1, 2, 0)
 
         return output
 
