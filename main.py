@@ -24,6 +24,7 @@ import argparse
 import warnings
 import sys
 import logging
+import numpy as np
 
 from threading import Semaphore
 from concurrent.futures import ThreadPoolExecutor
