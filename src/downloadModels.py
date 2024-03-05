@@ -54,7 +54,12 @@ def downloadModels(
         case "compact" | "ultracompact" | "superultracompact":
             compactFolderPath = os.path.join(weightsDir, "compact")
             os.makedirs(compactFolderPath, exist_ok=True)
-            filename = f"2x_AnimeJaNai_HD_V3_Sharp1_{model.capitalize()}_430k.pth"
+            filenameMap = {
+                "compact": "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k.pth",
+                "ultracompact": "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k.pth",
+                "superultracompact": "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k.pth",
+            }
+            filename = filenameMap.get(model)
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, compactFolderPath)
 

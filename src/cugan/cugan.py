@@ -102,6 +102,7 @@ class Cugan:
         self.upscaled_height = self.height * self.upscale_factor
         self.upscaled_width = self.width * self.upscale_factor
 
+    @torch.inference_mode()
     def pad_frame(self, frame):
         frame = F.pad(frame, [0, self.pad_width, 0, self.pad_height])
         return frame
@@ -131,14 +132,13 @@ class Cugan:
 
             frame = self.model(frame)
             frame = frame[:, :, : self.upscaled_height, : self.upscaled_width]
-            frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
+            frame = frame.squeeze(0).permute(1, 2, 0).contiguous().mul_(255).clamp_(0, 255).byte()
 
             if self.cuda_available:
                 torch.cuda.synchronize(self.stream[self.current_stream])
                 self.current_stream = (self.current_stream + 1) % len(self.stream)
 
             return frame.cpu().numpy()
-
 
 class CuganNCNN:
     def __init__(self, num_threads, upscale_factor):
