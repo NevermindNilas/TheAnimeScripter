@@ -86,7 +86,7 @@ class GMFSS():
         timestep = torch.tensor(
             (n+1) * 1. / (self.interpolation_factor+1), dtype=self.dtype, device=self.device)
         output = self.model(self.I0, self.I1, timestep)
-        output = (((output[0] * 255.).byte().cpu().contiguous().numpy().transpose(1, 2, 0)))
+        output = (((output[0] * 255.).byte().cpu().numpy().transpose(1, 2, 0)))
 
         
         if self.cuda_available:
