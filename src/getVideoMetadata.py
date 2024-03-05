@@ -11,8 +11,7 @@ def getVideoMetadata(input, inPoint, outPoint):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     if width == 0 or height == 0:
-        logging.error("Width or height are zero. Please check the input video file, it may require adding quotation marks on either side of the file path.")
-        raise ValueError("Width or height cannot be zero.")
+        raise ValueError("Width or height cannot be zero. Please check the input video file, it may require adding quotation marks on either side of the file path.")
     
     fps = cap.get(cv2.CAP_PROP_FPS)
     nframes = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
