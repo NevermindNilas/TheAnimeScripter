@@ -24,6 +24,10 @@ jobs:
     - name: Run build script
       run: python build.py --venv
 
+    - name: Create Zip
+      run: |
+        7z a -mx=9 output.zip ./dist
+
     - name: Extract version
       id: get_version
       run: |
