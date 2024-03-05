@@ -191,7 +191,7 @@ class VideoProcessor:
                         self.writeBuffer.write(result)
                     
                     self.interpolate_process.cacheFrame()
-
+            
             self.writeBuffer.write(frame)
 
         except Exception as e:

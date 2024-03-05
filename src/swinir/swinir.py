@@ -8,6 +8,8 @@ from .swinir_arch import SwinIR as SwinIR_arch
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
+
+
 class Swinir:
     def __init__(self, upscale_factor, half, width, height, custom_model, nt):
         self.upscale_factor = upscale_factor
@@ -35,7 +37,7 @@ class Swinir:
             upsampler="pixelshuffledirect",
             resi_connection="1conv",
         )
-        
+
         if self.custom_model == "":
             self.filename = "2xHFA2kSwinIR-S.pth"
 
@@ -43,23 +45,25 @@ class Swinir:
                 model_path = downloadModels(model="swinir")
             else:
                 model_path = os.path.join(weightsDir, "swinir", self.filename)
-                
+
         else:
             logging.info(f"Using custom model: {self.custom_model}")
             model_path = self.custom_model
 
         self.cuda_available = torch.cuda.is_available()
 
-        if model_path.endswith('.pth'):
+        if model_path.endswith(".pth"):
             state_dict = torch.load(model_path, map_location="cpu")
             if "params" in state_dict:
                 self.model.load_state_dict(state_dict["params"])
             else:
                 self.model.load_state_dict(state_dict)
-        elif model_path.endswith('.onnx'):
+        elif model_path.endswith(".onnx"):
             self.model = torch.onnx.load(model_path)
 
-        self.model = self.model.eval().cuda() if self.cuda_available else self.model.eval()
+        self.model = (
+            self.model.eval().cuda() if self.cuda_available else self.model.eval()
+        )
         self.device = torch.device("cuda" if self.cuda_available else "cpu")
 
         if self.cuda_available:
@@ -77,6 +81,7 @@ class Swinir:
         self.upscaled_height = self.height * self.upscale_factor
         self.upscaled_width = self.width * self.upscale_factor
 
+    @torch.inference_mode()
     def pad_frame(self, frame):
         frame = F.pad(frame, [0, self.pad_width, 0, self.pad_height])
         return frame
@@ -84,7 +89,13 @@ class Swinir:
     @torch.inference_mode()
     def run(self, frame):
         with torch.no_grad():
-            frame = torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float().mul_(1/255)
+            frame = (
+                torch.from_numpy(frame)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .float()
+                .mul_(1 / 255)
+            )
 
             if self.cuda_available:
                 torch.cuda.set_stream(self.stream[self.current_stream])
@@ -99,8 +110,15 @@ class Swinir:
                 frame = self.pad_frame(frame)
 
             frame = self.model(frame)
-            frame = frame[:, :, :self.upscaled_height, :self.upscaled_width]
-            frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
+            frame = frame[:, :, : self.upscaled_height, : self.upscaled_width]
+            frame = (
+                frame.squeeze(0)
+                .permute(1, 2, 0)
+                .contiguous()
+                .mul_(255)
+                .clamp_(0, 255)
+                .byte()
+            )
 
             if self.cuda_available:
                 torch.cuda.synchronize(self.stream[self.current_stream])
