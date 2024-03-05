@@ -90,6 +90,10 @@ class VideoProcessor:
             self.input, self.inpoint, self.outpoint
         )
 
+        self.fps = (
+            self.fps * self.interpolate_factor if self.interpolate else self.fps
+        )
+        
         logging.info("\n============== Processing Outputs ==============")
 
         if self.resize:
@@ -236,10 +240,6 @@ class VideoProcessor:
                 self.denoise_process,
                 self.dedup_process,
             ) = intitialize_models(self)
-
-            self.fps = (
-                self.fps * self.interpolate_factor if self.interpolate else self.fps
-            )
 
             self.readBuffer = BuildBuffer(
                 self.input,
