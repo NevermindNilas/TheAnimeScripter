@@ -136,6 +136,13 @@ def downloadModels(
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, nafnetFolderPath)
         
+        case "span-denoise":
+            spanFolderPath = os.path.join(weightsDir, "span-denoise")
+            os.makedirs(spanFolderPath, exist_ok=True)
+            filename = "1x_span_anime_pretrain.pth"
+            fullUrl = f"{url}{filename}"
+            return downloadAndLog(model, filename, fullUrl, spanFolderPath)
+        
         case _:
             print(f"Model {model} not found.")
             return None

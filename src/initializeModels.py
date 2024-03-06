@@ -174,7 +174,7 @@ def intitialize_models(self):
                 )
                 """
 
-            case "scunet" | "kbnet" | "nafnet":
+            case "scunet" | "kbnet" | "nafnet" | "span":
                 from src.unifiedDenoise import UnifiedDenoise
 
                 denoise_process = UnifiedDenoise(
