@@ -82,9 +82,11 @@ class VideoProcessor:
         self.custom_model = args.custom_model
         self.custom_encoder = args.custom_encoder
         self.nt = args.nt
-        self.denoise = args.denoise
         self.buffer_limit = args.buffer_limit
         self.audio = args.audio
+        self.denoise = args.denoise
+        self.denoise_method = args.denoise_method
+        self.sample_size = args.sample_size
 
         self.width, self.height, self.fps = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
@@ -338,6 +340,7 @@ if __name__ == "__main__":
             "omnisr",
             "realesrgan",
             "realesrgan-ncnn",
+            "shufflecugan-ncnn",
         ],
         default="shufflecugan",
     )
@@ -353,6 +356,7 @@ if __name__ == "__main__":
         "--dedup_method", type=str, default="ffmpeg", choices=["ffmpeg", "ssim"]
     )
     argparser.add_argument("--dedup_sens", type=float, default=35)
+    argparser.add_argument("--sample_size", type=int, default=32)
     argparser.add_argument("--nt", type=int, default=1)
     argparser.add_argument("--half", type=int, choices=[0, 1], default=1)
     argparser.add_argument("--inpoint", type=float, default=0)
@@ -419,7 +423,6 @@ if __name__ == "__main__":
         help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling",
     )
     argparser.add_argument("--custom_encoder", type=str, default="")
-    argparser.add_argument("--denoise", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--buffer_limit", type=int, default=50)
     argparser.add_argument(
         "--audio",
@@ -428,6 +431,9 @@ if __name__ == "__main__":
         default=1,
         help="Keep the audio track and later merge it back into the video, if dedup is true this will be set to False automatically",
     )
+    argparser.add_argument("--denoise", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--denoise_method", type=str, default="scunet", choices=["scunet", "nafnet", "dpir", "kbnet"])
+
     args = argparser.parse_args()
     args.ffmpeg_path = argumentChecker(args, mainPath, scriptVersion)
 

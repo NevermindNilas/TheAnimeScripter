@@ -1,98 +1,79 @@
 import os
 import torch
-import numpy as np
 import logging
+import numpy as np
 import torch.nn.functional as F
 
-# will be on wait for the next release of spandrel
-from spandrel import ImageModelDescriptor, ModelLoader
+from spandrel import ModelLoader, ImageModelDescriptor
 from downloadModels import downloadModels, weightsDir
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
 
-class Upscaler:
+
+class UnifiedDenoise:
     def __init__(
         self,
-        upscaleMethod: str = "shufflecugan",
-        upscaleFactor: int = 2,
-        cuganKind: str = "conservative",
-        half: bool = False,
+        model: str = "scunet",
         width: int = 1920,
         height: int = 1080,
+        half: bool = False,
         customModel: str = None,
-        nt: int = 1,
     ):
         """
-        Initialize the upscaler with the desired model
-
+        Initialize the denoiser with the desired model
+        
         Args:
-            upscaleMethod (str): The method to use for upscaling
-            upscaleFactor (int): The factor to upscale by
-            cuganKind (str): The kind of cugan to use
-            half (bool): Whether to use half precision
+            model (str): The model to use for denoising
             width (int): The width of the input frame
             height (int): The height of the input frame
+            half (bool): Whether to use half precision
             customModel (str): The path to a custom model file
-            nt (int): The number of threads to use
         """
-        self.upscaleMethod = upscaleMethod
-        self.upscaleFactor = upscaleFactor
-        self.cuganKind = cuganKind
-        self.half = half
+        
+        self.model = model
         self.width = width
         self.height = height
+        self.half = half
         self.customModel = customModel
-        self.nt = nt
 
         self.handleModel()
 
     def handleModel(self):
         """
-        Load the desired model
+        Load the Model
         """
 
         if not self.customModel:
             filenameMap = {
-                "shufflecugan": "sudo_shuffle_cugan_9.584.969.pth",
-                "cugan": f"cugan_up{self.upscaleFactor}x-latest-{self.cuganKind}.pth",
-                "span": "2xHFA2kSPAN_27k.pth",
-                "swinir": "2xHFA2kSwinIR-S.pth",
-                "omnisr": "2xHFA2kOmniSR.pth",
+                "dpir": "placeholder",
+                "scunet": "scunet_color_real_psnr.pth",
+                "kbnet": "placeholder",
+                "nafnet": "placeholder",
             }
-            self.filename = filenameMap.get(self.upscaleMethod)
-            if not os.path.exists(
-                os.path.join(weightsDir, self.upscaleMethod, self.filename)
-            ):
-                modelPath = downloadModels(
-                    model=self.upscaleMethod,
-                    cuganKind=self.cuganKind,
-                    upscaleFactor=self.upscaleFactor,
-                )
+            self.filename = filenameMap.get(self.model)
+            if not os.path.exists(os.path.join(weightsDir, self.model, self.filename)):
+                modelPath = downloadModels(model=self.model)
 
             else:
-                modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
+                modelPath = os.path.join(weightsDir, self.model, self.filename)
 
         else:
             if os.path.isfile(self.customModel):
                 modelPath = self.customModel
 
             else:
-                raise FileNotFoundError(
-                    f"Custom model file {self.customModel} not found"
-                )
+                raise FileNotFoundError(f"Model file {self.customModel} not found")
 
         try:
             self.model = ModelLoader.load_from_file(modelPath)
         except Exception as e:
-            logging.error(f"Error loading model: {e}, attempting to load state dict")
+            logging.error(f"Error loading model: {e}")
             try:
-                self.model = ModelLoader.load_from_state_dict(modelPath)
+                self.model = ModelLoader.load_from_file(modelPath)
             except Exception as e:
-                logging.error(f"Error loading from state dictionary: {e}")
-                raise FileNotFoundError(
-                    f"Model file {modelPath} is not a valid model file"
-                )
+                logging.error(f"Error loading model: {e}")
+                raise FileNotFoundError(f"Error loading model: {e}")
 
         if self.customModel:
             assert isinstance(self.model, ImageModelDescriptor)
