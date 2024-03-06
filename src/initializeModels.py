@@ -114,7 +114,7 @@ def intitialize_models(self):
                 from src.cugan.cugan import ShuffleCuganNCNN
 
                 upscale_process = ShuffleCuganNCNN()
-                
+
 
     if self.interpolate:
         logging.info(
@@ -175,14 +175,15 @@ def intitialize_models(self):
                 """
 
             case "scunet" | "kbnet" | "nafnet":
-                from src.unifiedDenoise import unifiedDenoise
+                from src.unifiedDenoise import UnifiedDenoise
 
-                denoise_process = unifiedDenoise(
+                denoise_process = UnifiedDenoise(
                     self.denoise_method,
                     self.width,
                     self.height,
                     self.half,
                     self.custom_model,
+                    self.nt,
                 )
 
     if self.dedup:
