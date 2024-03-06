@@ -39,14 +39,8 @@ if getattr(sys, "frozen", False):
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.4.2"
+scriptVersion = "1.4.3"
 warnings.filterwarnings("ignore")
-
-"""
-TO:DO
- - Look more into ESRGAN's poor performance compared to NCNN
- - Add shufflecugan-ncnn pipeline
-"""
 
 
 class VideoProcessor:
@@ -338,7 +332,6 @@ if __name__ == "__main__":
             "omnisr",
             "realesrgan",
             "realesrgan-ncnn",
-            "shufflecugan-ncnn",
         ],
         default="shufflecugan",
     )

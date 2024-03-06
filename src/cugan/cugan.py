@@ -6,8 +6,6 @@ import logging
 from src.downloadModels import downloadModels, weightsDir
 from realcugan_ncnn_py import Realcugan
 from .cugan_arch import UpCunet2x, UpCunet3x, UpCunet4x, UpCunet2x_fast
-from upscale_ncnn_py import UPSCALE
-
 
 class Cugan:
     def __init__(
@@ -161,19 +159,6 @@ class CuganNCNN:
 
     def run(self, frame):
         frame = self.realcugan.process_cv2(frame)
-        return frame
-
-
-class ShuffleCuganNCNN:
-    def __init__(self):
-        self.model = UPSCALE(
-            gpuid=0, 
-            tta_mode=False, 
-            model=29
-        )
-
-    def run(self, frame):
-        frame = self.model.process_cv2(frame)
         return frame
 
 
