@@ -1,22 +1,22 @@
 """
-    The Anime Scripter is a tool that allows you to automate the process of
-    Video Upscaling, Interpolating and many more all inside of the Adobe Suite
-    Copyright (C) 2023-present Nilas Tiago
+The Anime Scripter is a tool that allows you to automate the process of
+Video Upscaling, Interpolating and many more all inside of the Adobe Suite
+Copyright (C) 2023-present Nilas Tiago
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Affero General Public License as
-    published by the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Affero General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
 
-    You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see {http://www.gnu.org/licenses/}.
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see {http://www.gnu.org/licenses/}.
 
-    Home: https://github.com/NevermindNilas/TheAnimeScripter
+Home: https://github.com/NevermindNilas/TheAnimeScripter
 """
 
 import os
@@ -92,10 +92,8 @@ class VideoProcessor:
             self.input, self.inpoint, self.outpoint
         )
 
-        self.fps = (
-            self.fps * self.interpolate_factor if self.interpolate else self.fps
-        )
-        
+        self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
+
         logging.info("\n============== Processing Outputs ==============")
 
         if self.resize:
@@ -174,15 +172,15 @@ class VideoProcessor:
 
     def processFrame(self, frame):
         try:
-            if (
-                self.dedup
-                and self.dedup_process is not None
-            ):
+            if self.dedup and self.dedup_process is not None:
                 result = self.dedup_process.run(frame)
                 if result:
                     self.dedupCount += 1
                     self.semaphore.release()
                     return
+
+            if self.denoise:
+                frame = self.denoise_process.run(frame)
 
             if self.upscale:
                 frame = self.upscale_process.run(frame)
@@ -195,9 +193,9 @@ class VideoProcessor:
                             (i + 1) * 1.0 / (self.interpolate_factor + 1)
                         )
                         self.writeBuffer.write(result)
-                    
+
                     self.interpolate_process.cacheFrame()
-            
+
             self.writeBuffer.write(frame)
 
         except Exception as e:
@@ -432,7 +430,12 @@ if __name__ == "__main__":
         help="Keep the audio track and later merge it back into the video, if dedup is true this will be set to False automatically",
     )
     argparser.add_argument("--denoise", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--denoise_method", type=str, default="scunet", choices=["scunet", "nafnet", "dpir", "kbnet"])
+    argparser.add_argument(
+        "--denoise_method",
+        type=str,
+        default="scunet",
+        choices=["scunet", "nafnet", "dpir"],
+    )
 
     args = argparser.parse_args()
     args.ffmpeg_path = argumentChecker(args, mainPath, scriptVersion)

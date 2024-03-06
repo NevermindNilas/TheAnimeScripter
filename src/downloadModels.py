@@ -122,6 +122,20 @@ def downloadModels(
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, realesrganFolderPath)
         
+        case "scunet":
+            scunetFolderPath = os.path.join(weightsDir, "scunet")
+            os.makedirs(scunetFolderPath, exist_ok=True)
+            filename = "scunet_color_real_psnr.pth"
+            fullUrl = f"{url}{filename}"
+            return downloadAndLog(model, filename, fullUrl, scunetFolderPath)
+        
+        case "nafnet":
+            nafnetFolderPath = os.path.join(weightsDir, "nafnet")
+            os.makedirs(nafnetFolderPath, exist_ok=True)
+            filename = "NAFNet-GoPro-width64.pth"
+            fullUrl = f"{url}{filename}"
+            return downloadAndLog(model, filename, fullUrl, nafnetFolderPath)
+        
         case _:
             print(f"Model {model} not found.")
             return None
