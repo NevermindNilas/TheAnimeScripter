@@ -95,6 +95,7 @@ The available inputs have been moved to [Parameters Guide](PARAMETERS.MD).
 - [Breakthrough](https://github.com/Breakthrough/PySceneDetect) - For Automated Scene Detection
 - [Final2X](https://github.com/Final2x/realesrgan-ncnn-py) - For RealESRGAN-NCNN-Py and RealCugan-NCNN-Py
 - [Chainner-org](https://github.com/chaiNNer-org/spandrel) - For Spandrel and easy to use arch implementations.
+- [Kim2091](https://openmodeldb.info/models/1x-span-anime-pretrain) - For Span 1x Model
 
 ## 📈 Benchmarks
 

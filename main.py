@@ -434,7 +434,8 @@ if __name__ == "__main__":
         "--denoise_method",
         type=str,
         default="scunet",
-        choices=["scunet", "nafnet", "dpir"],
+        choices=["scunet", "nafnet", "dpir", "span"],
+        help="Choose the desired denoiser, span is the best for animation purposes whilst scunet is better for general purpose.",
     )
 
     args = argparser.parse_args()
