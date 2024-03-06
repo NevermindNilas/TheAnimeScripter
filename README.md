@@ -84,7 +84,6 @@ The available inputs have been moved to [Parameters Guide](PARAMETERS.MD).
 - [SkyTNT](https://github.com/SkyTNT/anime-segmentation) - For Anime Segmentation.
 - [LiheYoung](https://github.com/LiheYoung/Depth-Anything) - For Depth Anything.
 - [98mxr](https://github.com/98mxr/GMFSS_Fortuna) - For GMFSS Fortuna Union.
-- [HolyWU](https://github.com/HolyWu/vs-gmfss_fortuna/tree/master) - For VS GMFSS code.
 - [FFmpeg Group](https://github.com/FFmpeg/FFmpeg) - For FFmpeg
 - [Nihui](https://github.com/nihui/rife-ncnn-vulkan) - For Rife NCNN
 - [Media2x](https://github.com/media2x/rife-ncnn-vulkan-python) - For Rife NCNN Wrapper
@@ -95,7 +94,7 @@ The available inputs have been moved to [Parameters Guide](PARAMETERS.MD).
 - [Francis0625](https://github.com/Francis0625/Omni-SR) - For OmniSR
 - [Breakthrough](https://github.com/Breakthrough/PySceneDetect) - For Automated Scene Detection
 - [Final2X](https://github.com/Final2x/realesrgan-ncnn-py) - For RealESRGAN-NCNN-Py and RealCugan-NCNN-Py
-- [scikit-image](https://github.com/scikit-image/scikit-image) - For SSIM
+- [Chainner-org](https://github.com/chaiNNer-org/spandrel) - For Spandrel and easy to use arch implementations.
 
 ## 📈 Benchmarks
 
