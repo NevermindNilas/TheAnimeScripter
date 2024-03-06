@@ -32,4 +32,4 @@ Github: https://github.com/NevermindNilas/TheAnimeScripter
     - The resize multiplier supports fractional values like 0.5 for downscaling the clip (3840x2160 -> 1920x1080).
     - All upscalers, except CUGAN, have 2x models (1920x1080 -> 3840x2160). CUGAN can go up to 4x but expect significant slowdowns depending on the clip's resolution.
     - GMFSS, Depth Map, and Segmentation require CUDA-capable GPUs for acceleration; otherwise, the script will fallback to CPU with potential performance issues.
-
+    - The Denoising algorithms are extremely slow by nature and require high end GPUs for good performances, recommended NVidia 3090/4080.

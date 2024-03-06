@@ -46,7 +46,12 @@ def argumentChecker(args, mainPath, scriptVersion):
     if args.dedup:
         args.audio = False
         logging.info("Dedup is enabled, audio will be disabled")
-        
+    
+    if args.denoise:
+        if args.denoise_method == "nafnet" and args.half:
+            logging.info("NAFNet does not support half precision, setting half to False")
+            args.half = False
+            
     if args.dedup_method == "ssim":
         args.dedup_sens = 1 - (args.dedup_sens / 1000) # SSIM works from -1 to 1, but results prove to be efficient only inbetween ~0.9 and 0.999, lower values are not reliable and may remove important frames
 
