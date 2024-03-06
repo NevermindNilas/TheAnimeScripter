@@ -31,7 +31,8 @@ def intitialize_models(self):
                 from src.cugan.cugan import CuganNCNN
 
                 upscale_process = CuganNCNN(
-                    self.nt, self.upscale_factor,
+                    self.nt,
+                    self.upscale_factor,
                 )
             case "compact" | "ultracompact" | "superultracompact":
                 from src.compact.compact import Compact
@@ -89,10 +90,10 @@ def intitialize_models(self):
                     self.height,
                     self.custom_model,
                 )
-            
+
             case "realesrgan":
                 from src.realesrgan.realesrgan import RealEsrgan
-                
+
                 upscale_process = RealEsrgan(
                     self.upscale_factor,
                     self.width,
@@ -101,18 +102,25 @@ def intitialize_models(self):
                     self.nt,
                     self.half,
                 )
-                
+
             case "realesrgan-ncnn":
                 from src.realesrgan.realesrgan import RealEsrganNCNN
-                
+
                 upscale_process = RealEsrganNCNN(
                     self.upscale_factor,
                 )
+
+            case "shufflecugan-ncnn":
+                from src.cugan.cugan import ShuffleCuganNCNN
+
+                upscale_process = ShuffleCuganNCNN()
                 
+
     if self.interpolate:
         logging.info(
-            f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolate_factor, '.3f')}fps")
-        
+            f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolate_factor, '.3f')}fps"
+        )
+
         UHD = True if new_width >= 3840 or new_height >= 2160 else False
         match self.interpolate_method:
             case "rife" | "rife4.6" | "rife4.13-lite" | "rife4.14-lite" | "rife4.14":
@@ -154,23 +162,48 @@ def intitialize_models(self):
                 )
 
     if self.denoise:
-        from src.dpir.dpir import DPIR
+        match self.denoise_method:
+            case "dpir":
+                raise NotImplementedError("DPIR is not yet implemented")
 
-        denoise_process = DPIR(
-            self.half, new_width, new_height, self.custom_model, self.nt
-        )
-        
+                """
+                from src.dpir.dpir import DPIR
+
+                denoise_process = DPIR(
+                    self.half, new_width, new_height, self.custom_model, self.nt
+                )
+                """
+
+            case "scunet" | "kbnet" | "nafnet":
+                from src.unifiedDenoise import unifiedDenoise
+
+                denoise_process = unifiedDenoise(
+                    self.denoise_method,
+                    self.width,
+                    self.height,
+                    self.half,
+                    self.custom_model,
+                )
+
     if self.dedup:
         match self.dedup_method:
             case "ssim":
                 from src.dedup.dedup import DedupSSIM
 
                 dedup_process = DedupSSIM(
-                    self.dedup_sens, 32 # sample size will remain constant until further testing
+                    self.dedup_sens,
+                    self.sample_size, # Should probably remain 32, values higher result in no real benefits but I still give the option to choose
                 )
-                
+
             case "ffmpeg":
                 # FFMPEG works on decode so it's not possible to use it with the current processing pipeline
                 pass
 
-    return new_width, new_height, upscale_process, interpolate_process, denoise_process, dedup_process
+    return (
+        new_width,
+        new_height,
+        upscale_process,
+        interpolate_process,
+        denoise_process,
+        dedup_process,
+    )
