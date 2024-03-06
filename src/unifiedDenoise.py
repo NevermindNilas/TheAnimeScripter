@@ -47,11 +47,18 @@ class UnifiedDenoise:
         """
 
         if not self.customModel:
+            if self.model == "span":
+                # This is so that span ( for upscaling ) doesn't overlap with span-denoise,
+                # Hackintoshy solution until I think of a better way
+                self.model = "span-denoise"
+
             filenameMap = {
                 "dpir": "placeholder",
                 "scunet": "scunet_color_real_psnr.pth",
                 "nafnet": "NAFNet-GoPro-width64.pth",
+                "span-denoise": "1x_span_anime_pretrain.pth"
             }
+
             self.filename = filenameMap.get(self.model)
             if not os.path.exists(os.path.join(weightsDir, self.model, self.filename)):
                 modelPath = downloadModels(model=self.model)
