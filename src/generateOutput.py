@@ -8,6 +8,7 @@ def outputNameGenerator(args):
         'interpolate': f"-Int{args.interpolate_factor}",
         'upscale': f"-Up{args.upscale_factor}",
         'sharpen': f"-Sh{args.sharpen_sens}",
+        'denoise': f"-De{args.denoise_method}",
         'segment': "-Segment",
         'depth': "-Depth",
         'ytdlp': "-YTDLP"
