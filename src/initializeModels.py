@@ -110,12 +110,6 @@ def intitialize_models(self):
                     self.upscale_factor,
                 )
 
-            case "shufflecugan-ncnn":
-                from src.cugan.cugan import ShuffleCuganNCNN
-
-                upscale_process = ShuffleCuganNCNN()
-
-
     if self.interpolate:
         logging.info(
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolate_factor, '.3f')}fps"
