@@ -10,6 +10,50 @@ cuganUrl = (
 )
 
 
+def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
+    match model:
+        case "compact":
+            return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k.pth"
+
+        case "ultracompact":
+            return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k.pth"
+
+        case "superultracompact":
+            return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k.pth"
+
+        case "span":
+            return "2xHFA2kSPAN_27k.pth"
+
+        case "omnisr":
+            return "2xHFA2kOmniSR.pth"
+
+        case "shufflecugan":
+            return "sudo_shuffle_cugan_9.584.969.pth"
+
+        case "cugan":
+            return f"cugan_up{upscaleFactor}x-latest-{cuganKind}.pth"
+        
+        case "segment":
+            return "isnetis.ckpt"
+        
+        case "scunet":
+            return "scunet_color_real_psnr.pth"
+        
+        case "realesrgan":
+            return "2xHFA2kShallowESRGAN.pth"
+        
+        case "nafnet":
+            return "NAFNet-GoPro-width64.pth"
+        
+        case "span-denoise":
+            return "1x_span_anime_pretrain.pth"
+        
+        case "gmfss":
+            return "gmfss-fortuna-union.zip"
+        
+        case _:
+            raise ValueError(f"Model {model} not found.")
+
 def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str):
     print(f"Downloading {model.upper()} model...\n")
     logging.info(f"Downloading {model.upper()} model...")
@@ -38,56 +82,37 @@ def downloadModels(
     model: str = None, cuganKind: str = None, upscaleFactor: int = 2
 ) -> str:
     os.makedirs(weightsDir, exist_ok=True)
+    
+    filename = modelsMap(model, upscaleFactor, cuganKind)
 
     match model:
         case "cugan" | "shufflecugan":
-            cuganFolderPath = os.path.join(weightsDir, "cugan")
+            cuganFolderPath = os.path.join(weightsDir, model)
             os.makedirs(cuganFolderPath, exist_ok=True)
-            filename = (
-                "sudo_shuffle_cugan_9.584.969.pth"
-                if model == "shufflecugan"
-                else f"cugan_up{upscaleFactor}x-latest-{cuganKind}.pth"
-            )
             fullUrl = f"{url if model == 'shufflecugan' else cuganUrl}{filename}"
             return downloadAndLog(model, filename, fullUrl, cuganFolderPath)
 
         case "compact" | "ultracompact" | "superultracompact":
-            compactFolderPath = os.path.join(weightsDir, "compact")
+            compactFolderPath = os.path.join(weightsDir, model)
             os.makedirs(compactFolderPath, exist_ok=True)
-            filenameMap = {
-                "compact": "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k.pth",
-                "ultracompact": "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k.pth",
-                "superultracompact": "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k.pth",
-            }
-            filename = filenameMap.get(model)
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, compactFolderPath)
 
         case "span":
             spanFolderPath = os.path.join(weightsDir, "span")
             os.makedirs(spanFolderPath, exist_ok=True)
-            filename = "2xHFA2kSPAN_27k.pth"
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, spanFolderPath)
-
-        case "swinir":
-            swinirFolderPath = os.path.join(weightsDir, "swinir")
-            os.makedirs(swinirFolderPath, exist_ok=True)
-            filename = "2xHFA2kSwinIR-S.pth"
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, swinirFolderPath)
 
         case "omnisr":
             omnisrFolderPath = os.path.join(weightsDir, "omnisr")
             os.makedirs(omnisrFolderPath, exist_ok=True)
-            filename = "2xHFA2kOmniSR.pth"
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, omnisrFolderPath)
 
         case "gmfss":
             gmfssFolderPath = os.path.join(weightsDir, "gmfss")
             os.makedirs(gmfssFolderPath, exist_ok=True)
-            filename = "gmfss-fortuna-union.zip"
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, gmfssFolderPath)
 
@@ -121,28 +146,25 @@ def downloadModels(
             filename = "2xHFA2kShallowESRGAN.pth"
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, realesrganFolderPath)
-        
+
         case "scunet":
             scunetFolderPath = os.path.join(weightsDir, "scunet")
             os.makedirs(scunetFolderPath, exist_ok=True)
-            filename = "scunet_color_real_psnr.pth"
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, scunetFolderPath)
-        
+
         case "nafnet":
             nafnetFolderPath = os.path.join(weightsDir, "nafnet")
             os.makedirs(nafnetFolderPath, exist_ok=True)
-            filename = "NAFNet-GoPro-width64.pth"
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, nafnetFolderPath)
-        
+
         case "span-denoise":
             spanFolderPath = os.path.join(weightsDir, "span-denoise")
             os.makedirs(spanFolderPath, exist_ok=True)
-            filename = "1x_span_anime_pretrain.pth"
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, spanFolderPath)
-        
+
         case _:
             print(f"Model {model} not found.")
             return None

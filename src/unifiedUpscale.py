@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 # will be on wait for the next release of spandrel
 from spandrel import ImageModelDescriptor, ModelLoader
-from downloadModels import downloadModels, weightsDir
+from .downloadModels import downloadModels, weightsDir, modelsMap
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
@@ -53,14 +53,7 @@ class Upscaler:
         """
 
         if not self.customModel:
-            filenameMap = {
-                "shufflecugan": "sudo_shuffle_cugan_9.584.969.pth",
-                "cugan": f"cugan_up{self.upscaleFactor}x-latest-{self.cuganKind}.pth",
-                "span": "2xHFA2kSPAN_27k.pth",
-                "swinir": "2xHFA2kSwinIR-S.pth",
-                "omnisr": "2xHFA2kOmniSR.pth",
-            }
-            self.filename = filenameMap.get(self.upscaleMethod)
+            self.filename = modelsMap(self.upscaleMethod, self.upscaleFactor, self.cuganKind)
             if not os.path.exists(
                 os.path.join(weightsDir, self.upscaleMethod, self.filename)
             ):
@@ -83,16 +76,9 @@ class Upscaler:
                 )
 
         try:
-            self.model = ModelLoader.load_from_file(modelPath)
+            self.model = ModelLoader().load_from_file(modelPath)
         except Exception as e:
             logging.error(f"Error loading model: {e}, attempting to load state dict")
-            try:
-                self.model = ModelLoader.load_from_state_dict(modelPath)
-            except Exception as e:
-                logging.error(f"Error loading from state dictionary: {e}")
-                raise FileNotFoundError(
-                    f"Model file {modelPath} is not a valid model file"
-                )
 
         if self.customModel:
             assert isinstance(self.model, ImageModelDescriptor)
