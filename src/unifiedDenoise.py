@@ -5,7 +5,7 @@ import numpy as np
 import torch.nn.functional as F
 
 from spandrel import ModelLoader, ImageModelDescriptor
-from .downloadModels import downloadModels, weightsDir
+from .downloadModels import downloadModels, weightsDir, modelsMap
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
@@ -52,14 +52,8 @@ class UnifiedDenoise:
                 # Hackintoshy solution until I think of a better way
                 self.model = "span-denoise"
 
-            filenameMap = {
-                "dpir": "placeholder",
-                "scunet": "scunet_color_real_psnr.pth",
-                "nafnet": "NAFNet-GoPro-width64.pth",
-                "span-denoise": "1x_span_anime_pretrain.pth"
-            }
+            self.filename = modelsMap(self.model)
 
-            self.filename = filenameMap.get(self.model)
             if not os.path.exists(os.path.join(weightsDir, self.model, self.filename)):
                 modelPath = downloadModels(model=self.model)
 
