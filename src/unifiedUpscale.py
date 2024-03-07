@@ -78,7 +78,7 @@ class Upscaler:
         try:
             self.model = ModelLoader().load_from_file(modelPath)
         except Exception as e:
-            logging.error(f"Error loading model: {e}, attempting to load state dict")
+            logging.error(f"Error loading model: {e}")
 
         if self.customModel:
             assert isinstance(self.model, ImageModelDescriptor)
