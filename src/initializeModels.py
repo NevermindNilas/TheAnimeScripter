@@ -10,14 +10,23 @@ def intitialize_models(self):
     dedup_process = None
 
     if self.upscale:
+        from src.unifiedUpscale import Upscaler
+
         new_width *= self.upscale_factor
         new_height *= self.upscale_factor
         logging.info(f"Upscaling to {new_width}x{new_height}")
         match self.upscale_method:
-            case "shufflecugan" | "cugan":
-                from src.cugan.cugan import Cugan
-
-                upscale_process = Cugan(
+            case (
+                "shufflecugan"
+                | "cugan"
+                | "compact"
+                | "ultracompact"
+                | "superultracompact"
+                | "span"
+                | "omnisr"
+                | "realesrgan"
+            ):
+                upscale_process = Upscaler(
                     self.upscale_method,
                     self.upscale_factor,
                     self.cugan_kind,
@@ -27,88 +36,31 @@ def intitialize_models(self):
                     self.custom_model,
                     self.nt,
                 )
+
             case "cugan-ncnn":
-                from src.cugan.cugan import CuganNCNN
+                from unifiedUpscaleNCNN import CuganNCNN
 
                 upscale_process = CuganNCNN(
                     self.nt,
                     self.upscale_factor,
                 )
-            case "compact" | "ultracompact" | "superultracompact":
-                from src.compact.compact import Compact
-
-                upscale_process = Compact(
-                    self.upscale_method,
-                    self.upscale_factor,
-                    self.half,
-                    self.width,
-                    self.height,
-                    self.custom_model,
-                    self.nt,
-                )
-            case "swinir":
-                from src.swinir.swinir import Swinir
-
-                upscale_process = Swinir(
-                    self.upscale_factor,
-                    self.half,
-                    self.width,
-                    self.height,
-                    self.custom_model,
-                    self.nt,
-                )
-            case "span":
-                from src.span.span import SpanSR
-
-                upscale_process = SpanSR(
-                    self.upscale_factor,
-                    self.half,
-                    self.width,
-                    self.height,
-                    self.custom_model,
-                    self.nt,
-                )
-            case "omnisr":
-                from src.omnisr.omnisr import OmniSR
-
-                upscale_process = OmniSR(
-                    self.upscale_factor,
-                    self.half,
-                    self.width,
-                    self.height,
-                    self.custom_model,
-                    self.nt,
-                )
 
             case "span-ncnn":
-                from src.span.span import spanNCNN
+                from unifiedUpscaleNCNN import SpanNCNN
 
-                upscale_process = spanNCNN(
+                upscale_process = SpanNCNN(
                     self.upscale_factor,
-                    self.half,
-                    self.width,
-                    self.height,
-                    self.custom_model,
-                )
-
-            case "realesrgan":
-                from src.realesrgan.realesrgan import RealEsrgan
-
-                upscale_process = RealEsrgan(
-                    self.upscale_factor,
-                    self.width,
-                    self.height,
-                    self.custom_model,
-                    self.nt,
                     self.half,
                 )
 
             case "realesrgan-ncnn":
-                from src.realesrgan.realesrgan import RealEsrganNCNN
+                from unifiedUpscaleNCNN import RealEsrganNCNN
 
                 upscale_process = RealEsrganNCNN(
                     self.upscale_factor,
+                    self.half,
                 )
+
 
     if self.interpolate:
         logging.info(
@@ -160,14 +112,6 @@ def intitialize_models(self):
             case "dpir":
                 raise NotImplementedError("DPIR is not yet implemented")
 
-                """
-                from src.dpir.dpir import DPIR
-
-                denoise_process = DPIR(
-                    self.half, new_width, new_height, self.custom_model, self.nt
-                )
-                """
-
             case "scunet" | "kbnet" | "nafnet" | "span":
                 from src.unifiedDenoise import UnifiedDenoise
 
@@ -187,7 +131,7 @@ def intitialize_models(self):
 
                 dedup_process = DedupSSIM(
                     self.dedup_sens,
-                    self.sample_size, # Should probably remain 32, values higher result in no real benefits but I still give the option to choose
+                    self.sample_size,  # Should probably remain 32, values higher result in no real benefits from subjective testing.
                 )
 
             case "ffmpeg":

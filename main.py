@@ -201,6 +201,8 @@ class VideoProcessor:
         frameCount = 0
         self.dedupCount = 0
         self.prevFrame = None
+        self.semaphore = Semaphore(self.nt * 4)
+
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
                 frame = self.readBuffer.read()
@@ -270,7 +272,6 @@ class VideoProcessor:
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
 
-        self.semaphore = Semaphore(self.nt * 4)
         with ThreadPoolExecutor(max_workers=3) as executor:
             executor.submit(self.readBuffer.start, verbose=True)
             executor.submit(self.process)
@@ -325,7 +326,6 @@ if __name__ == "__main__":
             "compact",
             "ultracompact",
             "superultracompact",
-            "swinir",
             "span",
             "span-ncnn",
             "cugan-ncnn",
