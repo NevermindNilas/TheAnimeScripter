@@ -39,7 +39,7 @@ if getattr(sys, "frozen", False):
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.4.3"
+scriptVersion = "1.4.4"
 warnings.filterwarnings("ignore")
 
 
@@ -200,7 +200,6 @@ class VideoProcessor:
     def process(self):
         frameCount = 0
         self.dedupCount = 0
-        self.prevFrame = None
         self.semaphore = Semaphore(self.nt * 4)
 
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
@@ -216,9 +215,6 @@ class VideoProcessor:
                 self.semaphore.acquire()
                 executor.submit(self.processFrame, frame)
                 frameCount += 1
-
-        if self.prevFrame is not None:
-            self.writeBuffer.write(self.prevFrame)
 
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
@@ -269,13 +265,13 @@ class VideoProcessor:
                 audio=self.audio,
             )
 
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.readBuffer.start, verbose=True)
+                executor.submit(self.process)
+                executor.submit(self.writeBuffer.start, verbose=True)
+
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            executor.submit(self.readBuffer.start, verbose=True)
-            executor.submit(self.process)
-            executor.submit(self.writeBuffer.start, verbose=True)
 
 
 if __name__ == "__main__":
