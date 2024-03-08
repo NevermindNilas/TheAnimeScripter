@@ -269,7 +269,7 @@ class BuildBuffer:
                     self.readBuffer.put(None)
 
                     break
-
+                
                 frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
                     (self.height, self.width, 3)
                 )
