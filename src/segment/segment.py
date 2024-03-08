@@ -4,7 +4,8 @@ import os
 import cv2
 import torch
 
-from src.downloadModels import downloadModels, weightsDir
+from threading import Semaphore
+from src.downloadModels import downloadModels, weightsDir, modelsMap
 from concurrent.futures import ThreadPoolExecutor
 from .train import AnimeSegmentation
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
@@ -56,6 +57,7 @@ class Segment:
         )
 
         self.writeBuffer = WriteBuffer(
+            self.input,
             self.output,
             self.ffmpeg_path,
             self.encode_method,
@@ -68,6 +70,7 @@ class Segment:
             sharpen_sens=None,
             grayscale=False,
             transparent=True,
+            audio=False,
         )
 
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -76,7 +79,7 @@ class Segment:
             executor.submit(self.writeBuffer.start, verbose=True)
 
     def handleModel(self):
-        filename = "isnetis.ckpt"
+        filename = modelsMap("segment")
         if not os.path.exists(os.path.join(weightsDir, "segment", filename)):
             model_path = downloadModels(model="segment")
         else:
@@ -92,26 +95,6 @@ class Segment:
         )
         self.model.eval()
         self.model.to(self.device)
-
-    """
-    def get_character_bounding_box(self, image) -> tuple:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        _, thresh = cv2.threshold(
-            gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-        contours, _ = cv2.findContours(
-            thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
-
-        boxes = [cv2.boundingRect(c) for c in contours]
-        x = min([b[0] for b in boxes])
-        y = min([b[1] for b in boxes])
-        w = max([b[0] + b[2] for b in boxes]) - x
-        h = max([b[1] + b[3] for b in boxes]) - y
-
-        return x, y, w, h
-    """
 
     def get_mask(self, input_img):
         s = 1024
@@ -145,22 +128,25 @@ class Segment:
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
+        finally:
+            self.semaphore.release()
+            
     def process(self):
         frameCount = 0
+        self.semaphore = Semaphore(self.nt * 4)
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
-                if self.readBuffer.getSizeOfQueue() < self.buffer_limit:
-                    frame = self.readBuffer.read()
-                    if frame is None:
-                        if (
-                            self.readBuffer.isReadingDone()
-                            and self.readBuffer.getSizeOfQueue() == 0
-                        ):
-                            break
+                frame = self.readBuffer.read()
+                if frame is None:
+                    if (
+                        self.readBuffer.isReadingDone()
+                        and self.readBuffer.getSizeOfQueue() == 0
+                    ):
+                        break
 
-                    executor.submit(self.processFrame, frame)
-                    frameCount += 1
+                self.semaphore.acquire()
+                executor.submit(self.processFrame, frame)
+                frameCount += 1
 
         logging.info(f"Processed {frameCount} frames")
-
         self.writeBuffer.close()

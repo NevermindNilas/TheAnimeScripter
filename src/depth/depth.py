@@ -6,12 +6,11 @@ import cv2
 import wget
 import torch.nn.functional as F
 
+from threading import Semaphore
 from torchvision.transforms import Compose
 from concurrent.futures import ThreadPoolExecutor
-
 from .dpt import DPT_DINOv2
 from .util.transform import Resize, NormalizeImage, PrepareForNet
-
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 
 os.environ["TORCH_HOME"] = os.path.dirname(os.path.realpath(__file__))
@@ -54,8 +53,8 @@ class Depth:
 
         try:
             self.readBuffer = BuildBuffer(
-                input = self.input,
-                ffmpegPath= self.ffmpeg_path,
+                input=self.input,
+                ffmpegPath=self.ffmpeg_path,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
                 dedup=False,
@@ -68,6 +67,7 @@ class Depth:
             )
 
             self.writeBuffer = WriteBuffer(
+                self.input,
                 self.output,
                 self.ffmpeg_path,
                 self.encode_method,
@@ -79,6 +79,7 @@ class Depth:
                 sharpen=False,
                 sharpen_sens=None,
                 grayscale=True,
+                audio=False,
             )
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
@@ -143,8 +144,7 @@ class Depth:
 
         if not os.path.exists(model_path):
             raise Exception(
-                f"Model {
-                    model_path} does not exist. Please download it from https://huggingface.co/spaces/LiheYoung/Depth-Anything"
+                f"Model {model_path} does not exist. Please download it from https://huggingface.co/spaces/LiheYoung/Depth-Anything"
             )
 
         self.model.load_state_dict(
@@ -204,21 +204,25 @@ class Depth:
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
+        finally:
+            self.semaphore.release()
+
     def process(self):
         frameCount = 0
+        self.semaphore = Semaphore(self.nt * 4)
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
-                if self.readBuffer.getSizeOfQueue() < self.buffer_limit:
-                    frame = self.readBuffer.read()
-                    if frame is None:
-                        if (
-                            self.readBuffer.isReadingDone()
-                            and self.readBuffer.getSizeOfQueue() == 0
-                        ):
-                            break
+                frame = self.readBuffer.read()
+                if frame is None:
+                    if (
+                        self.readBuffer.isReadingDone()
+                        and self.readBuffer.getSizeOfQueue() == 0
+                    ):
+                        break
 
-                    executor.submit(self.processFrame, frame)
-                    frameCount += 1
+                self.semaphore.acquire()
+                executor.submit(self.processFrame, frame)
+                frameCount += 1
 
         logging.info(f"Processed {frameCount} frames")
 
