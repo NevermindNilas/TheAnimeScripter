@@ -99,16 +99,6 @@ class Upscaler:
                 torch.set_default_dtype(torch.float16)
                 self.model.half()
 
-        # Hardcoded these for the moment being. I will need to check what padding is needed for each model
-        self.padWidth = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
-        self.padHeight = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
-
-        self.upscaledHeight = self.height * self.upscaleFactor
-        self.upscaledWidth = self.width * self.upscaleFactor
-
-    def pad_frame(self, frame):
-        frame = F.pad(frame, [0, self.padWidth, 0, self.padHeight])
-        return frame
 
     @torch.inference_mode()
     def run(self, frame: np.ndarray) -> np.ndarray:
@@ -130,17 +120,13 @@ class Upscaler:
             if self.isCudaAvailable:
                 torch.cuda.set_stream(self.stream[self.currentStream])
                 if self.half:
-                    frame = frame.cuda().half()
+                    frame = frame.cuda(non_blocking=True).half()
                 else:
-                    frame = frame.cuda()
+                    frame = frame.cuda(non_blocking=True)
             else:
                 frame = frame.cpu()
 
-            if self.padWidth != 0 or self.padHeight != 0:
-                frame = self.pad_frame(frame)
-
             frame = self.model(frame)
-            frame = frame[:, :, : self.upscaledHeight, : self.upscaledWidth]
             frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
 
             if self.isCudaAvailable:

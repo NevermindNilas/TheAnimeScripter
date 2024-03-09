@@ -62,8 +62,7 @@ def argumentChecker(args, mainPath, scriptVersion):
         if args.output is None:
             outputFolder = os.path.join(mainPath, "output")
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
-            
-        args.output = os.path.join(outputFolder, outputNameGenerator(args))
+            args.output = os.path.join(outputFolder, outputNameGenerator(args))
 
         VideoDownloader(
             args.ytdlp,
