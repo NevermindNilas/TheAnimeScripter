@@ -48,10 +48,10 @@ class Rife:
                 self.filename = "rife46.pkl"
         
         filenameWithoutExtension = os.path.splitext(self.filename)[0]
-        if not os.path.exists(os.path.join(weightsDir, "rife", filenameWithoutExtension, "flownet.pkl")):
+        if not os.path.exists(os.path.join(weightsDir, filenameWithoutExtension, "flownet.pkl")):
             modelDir = os.path.dirname(downloadModels(self.interpolate_method))
         else:
-            modelDir = os.path.dirname(os.path.join(weightsDir, "rife", filenameWithoutExtension, "flownet.pkl"))
+            modelDir = os.path.dirname(os.path.join(weightsDir, filenameWithoutExtension, "flownet.pkl"))
 
         # Apparently this can improve performance slightly
         torch.set_float32_matmul_precision("medium")
@@ -76,13 +76,11 @@ class Rife:
         self.model = Model()
         self.model.load_model(modelDir, -1)
         self.model.eval()
-        
 
         if self.cuda_available and self.half:
             self.model.half()
 
         self.model.device()
-
         self.I0 = None
              
     @torch.inference_mode()
