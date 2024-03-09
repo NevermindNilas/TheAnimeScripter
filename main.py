@@ -86,7 +86,7 @@ class VideoProcessor:
             self.input, self.inpoint, self.outpoint
         )
 
-        self.fps = self.fps * self.interpolate_factor if self.interpolate else self.fps
+        self.outputFPS = self.fps * self.interpolate_factor if self.interpolate else self.fps
 
         logging.info("\n============== Processing Outputs ==============")
 
@@ -127,7 +127,7 @@ class VideoProcessor:
                 self.ffmpeg_path,
                 self.width,
                 self.height,
-                self.fps,
+                self.outputFPS,
                 self.half,
                 self.inpoint,
                 self.outpoint,
@@ -151,7 +151,7 @@ class VideoProcessor:
                 self.ffmpeg_path,
                 self.width,
                 self.height,
-                self.fps,
+                self.outputFPS,
                 self.inpoint,
                 self.outpoint,
                 self.encode_method,
@@ -256,7 +256,7 @@ class VideoProcessor:
                 self.custom_encoder,
                 self.new_width,
                 self.new_height,
-                self.fps,
+                self.outputFPS,
                 self.buffer_limit,
                 self.sharpen,
                 self.sharpen_sens,

@@ -102,10 +102,8 @@ class Segment:
         h, w = h0, w0 = input_img.shape[:-1]
         h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
         ph, pw = s - h, s - w
-        img_input = np.zeros([s, s, 3], dtype=np.float32)
-        img_input[ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w] = cv2.resize(
-            input_img, (w, h)
-        )
+        img_input = cv2.resize(input_img, (w, h))
+        img_input = np.pad(img_input, ((ph // 2, ph - ph // 2), (pw // 2, pw - pw // 2), (0, 0)))
         img_input = np.transpose(img_input, (2, 0, 1))
         img_input = img_input[np.newaxis, :]
         tmpImg = torch.from_numpy(img_input).type(torch.FloatTensor).to(self.device)

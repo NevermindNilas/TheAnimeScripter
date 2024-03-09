@@ -51,6 +51,18 @@ def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
         case "gmfss":
             return "gmfss-fortuna-union.zip"
         
+        case "rife" | "rife4.14":
+            return "rife414"
+        
+        case "rife4.14-lite":
+            return "rife414lite"
+        
+        case "rife4.13-lite":
+            return "rife413lite"
+        
+        case "rife4.6":
+            return "rife46"
+        
         case _:
             raise ValueError(f"Model {model} not found.")
 
@@ -117,19 +129,9 @@ def downloadModels(
             return downloadAndLog(model, filename, fullUrl, gmfssFolderPath)
 
         case "rife" | "rife4.14" | "rife4.14-lite" | "rife4.13-lite" | "rife4.6":
-            # The model names inside the repo are different from the ones used in the code
-            model_mapping = {
-                "rife": "rife414",
-                "rife4.14": "rife414",
-                "rife4.14-lite": "rife414lite",
-                "rife4.13-lite": "rife413lite",
-                "rife4.6": "rife46",
-            }
-            model = model_mapping.get(model, model)
-            rifeFolderPath = os.path.join(weightsDir, "rife", model)
+            rifeFolderPath = os.path.join(weightsDir, filename)
             os.makedirs(rifeFolderPath, exist_ok=True)
-            filename = f"rife{model[4:]}.pkl"
-            fullUrl = f"{url}{filename}"
+            fullUrl = f"{url}{filename}.pkl"
             outFileName = "flownet.pkl"
             return downloadAndLog(model, outFileName, fullUrl, rifeFolderPath)
 
