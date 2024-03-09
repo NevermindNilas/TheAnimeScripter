@@ -33,25 +33,24 @@ class Rife:
         match self.interpolate_method:
             case "rife" | "rife4.14":
                 from .rife414.RIFE_HDv3 import Model
-                self.filename = "rife414.pkl"
+                self.filename = "rife414"
 
             case "rife4.14-lite":
                 from .rife414lite.RIFE_HDv3 import Model
-                self.filename = "rife414lite.pkl"
+                self.filename = "rife414lite"
 
             case "rife4.13-lite":
                 from .rife413lite.RIFE_HDv3 import Model
-                self.filename = "rife413lite.pkl"
+                self.filename = "rife413lite"
 
             case "rife4.6":
                 from .rife46.RIFE_HDv3 import Model
-                self.filename = "rife46.pkl"
+                self.filename = "rife46"
         
-        filenameWithoutExtension = os.path.splitext(self.filename)[0]
-        if not os.path.exists(os.path.join(weightsDir, filenameWithoutExtension, "flownet.pkl")):
+        if not os.path.exists(os.path.join(weightsDir, self.filename, "flownet.pkl")):
             modelDir = os.path.dirname(downloadModels(self.interpolate_method))
         else:
-            modelDir = os.path.dirname(os.path.join(weightsDir, filenameWithoutExtension, "flownet.pkl"))
+            modelDir = os.path.dirname(os.path.join(weightsDir, self.filename, "flownet.pkl"))
 
         # Apparently this can improve performance slightly
         torch.set_float32_matmul_precision("medium")
