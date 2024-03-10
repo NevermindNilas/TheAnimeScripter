@@ -101,15 +101,15 @@ class UniversalNCNN:
                     f"Invalid upscale method {self.upscaleMethod} with factor {self.upscaleFactor} and kind {self.cuganKind}"
                 )
 
-        if nt == 1:
-            nt == 2  # bumping this boy up to 2 threads just to be safe
+        if self.nt == 1:
+            self.nt == 2  # bumping this boy up to 2 threads just to be safe
 
         self.model = UPSCALE(
             gpuid=0,
             tta_mode=False,
             tilesize=0,
             model=self.modelId,
-            num_threads=nt,
+            num_threads=self.nt,
         )
 
     def run(self, frame):
