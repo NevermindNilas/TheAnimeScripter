@@ -75,14 +75,22 @@ def runCommand(self, TITLE) -> None:
         large_text=TITLE,
         small_text="Processing",
     )
-
-    command = ["./main.exe"]
+    mainExePath = os.path.join(os.path.dirname(__file__), "main.exe")
+    if not os.path.isfile(mainExePath):
+        try:
+            mainExePath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "main.py")
+            command = ["python", mainExePath]
+        except FileNotFoundError:
+            self.outputWindow.append("main.exe nor main.py not found")
+            return
+    else:
+        command = [mainExePath]
 
     if self.inputEntry.text():
         command.append("--input")
         command.append(self.inputEntry.text())
     else:
-        self.outputWindow.append("Input file not selected")
+        self.outputWindow.append("Input file or folder was not selected")
         return
     
     if self.outputEntry.text():
@@ -97,10 +105,6 @@ def runCommand(self, TITLE) -> None:
             command.append(f"--{checkbox.text().lower().replace(' ', '_')}")
         if checkbox.text() == "Half Precision Mode":
             command.append("--half 1")
-
-    if not os.path.isfile("main.exe"):
-        self.outputWindow.append("main.exe not found")
-        return
 
     self.process = QProcess()
     self.process.readyReadStandardOutput.connect(self.handleStdout)
