@@ -25,7 +25,7 @@ Github: https://github.com/NevermindNilas/TheAnimeScripter
     https://github.com/NevermindNilas/TheAnimeScripter?tab=readme-ov-file#%EF%B8%8F-getting-started
 
 # Things to consider:
-    - Utilize CUDA capable accelerations if you have an NVIDIA GPU of series 1000 or higher for optimal performance.
+    - The Script will Utilize CUDA acceleration automatically if you have an NVIDIA GPU of series 1000 or higher for optimal performance.
     - AMD / Intel GPU users should use the NCNN Versions of upscalers / interpolators to avoid falling back to CPU and ensure optimal performance.
     - GMFSS may experience VRAM limitations for high-resolution clips; ensure your GPU has 8 GB or more VRAM for 1080p footage.
     - Enabling the Rife Ensemble triggers internal calls to the warp algorithm, providing better results with some loss in performance. Enable it if the performance loss is acceptable.
