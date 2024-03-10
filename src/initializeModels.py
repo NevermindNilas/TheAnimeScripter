@@ -37,30 +37,15 @@ def intitialize_models(self):
                     self.nt,
                 )
 
-            case "cugan-ncnn":
-                from unifiedUpscaleNCNN import CuganNCNN
+            case "cugan-ncnn" | "span-ncnn" | "realesrgan-ncnn" | "shufflecugan-ncnn":
+                from .unifiedUpscaleNCNN import UniversalNCNN
 
-                upscale_process = CuganNCNN(
+                upscale_process = UniversalNCNN(
+                    self.upscale_method,
+                    self.upscale_factor,
+                    self.cugan_kind,
                     self.nt,
-                    self.upscale_factor,
                 )
-
-            case "span-ncnn":
-                from unifiedUpscaleNCNN import SpanNCNN
-
-                upscale_process = SpanNCNN(
-                    self.upscale_factor,
-                    self.half,
-                )
-
-            case "realesrgan-ncnn":
-                from unifiedUpscaleNCNN import RealEsrganNCNN
-
-                upscale_process = RealEsrganNCNN(
-                    self.upscale_factor,
-                    self.half,
-                )
-
 
     if self.interpolate:
         logging.info(

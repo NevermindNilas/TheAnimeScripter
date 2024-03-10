@@ -328,6 +328,7 @@ if __name__ == "__main__":
             "omnisr",
             "realesrgan",
             "realesrgan-ncnn",
+            "shufflecugan-ncnn",
         ],
         default="shufflecugan",
     )
