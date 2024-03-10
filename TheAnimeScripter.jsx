@@ -408,7 +408,7 @@ var TheAnimeScripter = (function() {
         return dropdown;
     }
 
-    createDropdownField(panel1, "Upscale Model", "Model", ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "Span", "-", "Span-NCNN", "-", "OmniSR", "-", "RealEsrgan", "-", "RealEsrgan-NCNN"], "Choose which model you want to utilize, read more in INFO, for AMD users choose NCNN models");
+    createDropdownField(panel1, "Upscale Model", "Model", ["ShuffleCugan", "-", "ShuffleCugan-NCNN", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Cugan", "-", "Cugan-NCNN", "-", "Span", "-", "Span-NCNN", "-", "OmniSR", "-", "RealEsrgan", "-", "RealEsrgan-NCNN"], "Choose which model you want to utilize, read more in INFO, for AMD users choose NCNN models");
     createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.14", "-", "Rife4.14-Lite", "-" , "Rife4.13-Lite", "-", "Rife4.6", "-", "Rife4.14-NCNN", "-", "Rife4.14-Lite-NCNN", "-", "Rife4.13-Lite-NCNN", "-", "Rife4.6-NCNN", "-", "GMFSS"], "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO");
     createDropdownField(panel1, "Cugan Denoise", "Cugan", ["No-Denoise", "-", "Conservative", "-", "Denoise1x", "-", "Denoise2x"]);
     createDropdownField(panel1, "Depth Model", "Depth", ["Small", "-", "Base", "-", "Large"], "Choose which depth map model you want to utilize, ordered by speed, read more in INFO");
