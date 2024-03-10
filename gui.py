@@ -68,7 +68,8 @@ class VideoProcessingApp(QMainWindow):
         inputFields = [
             ("Interpolate Factor:", 2, 100),
             ("Upscale Factor:", 2, 4),
-            ("Resize Factor:", 1, 4)
+            ("Resize Factor:", 1, 4),
+            ("Number of Threads:", 1, 2) # Experimental feature, needs more work but it's there
         ]
 
         for label, defaultValue, maxValue in inputFields:
