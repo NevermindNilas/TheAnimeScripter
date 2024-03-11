@@ -96,43 +96,31 @@ class Rife:
 
     def cacheFrame(self):
         self.I0 = self.I1.clone()
-        
+    
     @torch.inference_mode()
-    def run(self, I1):
-        if self.I0 is None:
-            self.I0 = (
-                torch.from_numpy(I1)
-                .to(self.device, non_blocking=True)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .float()
-                / 255.0
-            )
-            if self.cuda_available and self.half:
-                self.I0 = self.I0.half()
-                
-            if self.padding != (0, 0, 0, 0):
-                self.I0 = F.pad(self.I0, [0, self.padding[1], 0, self.padding[3]])
-
-            self.I0 = self.I0.contiguous(memory_format=torch.channels_last)
-             
-            return False
-        
-        self.I1 = (
-            torch.from_numpy(I1)
+    def processFrame(self, frame):
+        frame = (
+            torch.from_numpy(frame)
             .to(self.device, non_blocking=True)
             .permute(2, 0, 1)
             .unsqueeze(0)
             .float()
             / 255.0
         )
-        
+
         if self.cuda_available and self.half:
-            self.I1 = self.I1.half()
+            frame = frame.half()
 
         if self.padding != (0, 0, 0, 0):
-            self.I1 = F.pad(self.I1, [0, self.padding[1], 0, self.padding[3]])
+            frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
 
-        self.I1 = self.I1.contiguous(memory_format=torch.channels_last)
-            
+        return frame.contiguous(memory_format=torch.channels_last)
+
+    @torch.inference_mode()
+    def run(self, I1):
+        if self.I0 is None:
+            self.I0 = self.processFrame(I1)
+            return False
+
+        self.I1 = self.processFrame(I1)
         return True
