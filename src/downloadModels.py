@@ -51,7 +51,10 @@ def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
         case "gmfss":
             return "gmfss-fortuna-union.zip"
         
-        case "rife" | "rife4.14":
+        case "rife" | "rife4.15":
+            return "rife415"
+        
+        case "rife4.14":
             return "rife414"
         
         case "rife4.14-lite":
@@ -128,7 +131,7 @@ def downloadModels(
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, gmfssFolderPath)
 
-        case "rife" | "rife4.14" | "rife4.14-lite" | "rife4.13-lite" | "rife4.6":
+        case "rife" | "rife4.14" | "rife4.14-lite" | "rife4.13-lite" | "rife4.6" | "rife4.15":
             rifeFolderPath = os.path.join(weightsDir, filename)
             os.makedirs(rifeFolderPath, exist_ok=True)
             fullUrl = f"{url}{filename}.pkl"

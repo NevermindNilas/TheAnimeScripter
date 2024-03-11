@@ -31,7 +31,11 @@ class Rife:
 
     def handle_model(self):
         match self.interpolate_method:
-            case "rife" | "rife4.14":
+            case "rife" | "rife4.15":
+                from .rife415.RIFE_HDv3 import Model
+                self.filename = "rife415"
+
+            case "rife4.14":
                 from .rife414.RIFE_HDv3 import Model
                 self.filename = "rife414"
 
