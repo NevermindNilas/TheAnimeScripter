@@ -258,24 +258,21 @@ class BuildBuffer:
             self.decodedFrames = 0
 
             while True:
-                chunk = process.stdout.read(frame_size)
-                if len(chunk) < frame_size:
-                    if verbose:
-                        logging.info(f"Built buffer with {self.decodedFrames} frames")
-
-                    process.stdout.close()
-                    process.terminate()
-                    self.readingDone = True
-                    self.readBuffer.put(None)
-
-                    break
-                
-                frame = np.frombuffer(chunk, dtype=np.uint8).reshape(
-                    (self.height, self.width, 3)
-                )
+                frame = np.frombuffer(
+                    process.stdout.read(frame_size), dtype=np.uint8
+                ).reshape((self.height, self.width, 3))
 
                 self.readBuffer.put(frame)
                 self.decodedFrames += 1
+
+        except ValueError:
+            if verbose:
+                logging.info(f"Built buffer with {self.decodedFrames} frames")
+
+            process.stdout.close()
+            process.terminate()
+            self.readingDone = True
+            self.readBuffer.put(None)
 
         except Exception as e:
             if verbose:
@@ -426,7 +423,9 @@ class WriteBuffer:
             custom_encoder_list = self.custom_encoder.split()
 
             if "-pix_fmt" in custom_encoder_list:
-                raise ValueError("The '-pix_fmt' option is hardcoded in the script and should not be included in the custom encoder settings.")
+                raise ValueError(
+                    "The '-pix_fmt' option is hardcoded in the script and should not be included in the custom encoder settings."
+                )
 
             if "-vf" in custom_encoder_list:
                 vf_index = custom_encoder_list.index("-vf")
@@ -494,7 +493,7 @@ class WriteBuffer:
                     self.process.wait()
                     self.isWritingDone = True
                     break
-                
+
                 frame = np.ascontiguousarray(frame)
                 self.process.stdin.buffer.write(frame.tobytes())
                 writtenFrames += 1
@@ -533,7 +532,9 @@ class WriteBuffer:
                 "-i",
                 self.input,
             ]
-            result = subprocess.run(ffmpegCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            result = subprocess.run(
+                ffmpegCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             if "Stream #0:1" not in result.stderr.decode():
                 logging.info("No audio stream found, skipping audio merge")
                 return
@@ -577,9 +578,7 @@ class WriteBuffer:
                 mergedFile,
             ]
 
-            logging.info(
-                f"Merging audio with: {' '.join(ffmpegCommand)}"
-            )
+            logging.info(f"Merging audio with: {' '.join(ffmpegCommand)}")
 
             subprocess.run(ffmpegCommand)
             shutil.move(mergedFile, self.output)
