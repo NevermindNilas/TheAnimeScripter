@@ -72,7 +72,6 @@ In the settings panel:
 
 The available inputs have been moved to [Parameters Guide](PARAMETERS.MD).
 
-
 ## 🙏 Acknowledgements
 
 - [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code and shufflecugan model
