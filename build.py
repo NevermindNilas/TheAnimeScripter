@@ -36,20 +36,13 @@ def create_executable():
     src_path = os.path.join(base_dir, "src")
     main_path = os.path.join(base_dir, "main.py")
     icon_path = os.path.join(base_dir, "demos", "icon.ico")
-    cugan_ncnn_models_path = os.path.join(
-        distribution("realcugan_ncnn_py").locate_file("realcugan_ncnn_py"),
-        "models",
-    )
     rife_ncnn_models_path = os.path.join(
         distribution("rife_ncnn_vulkan_python").locate_file("rife_ncnn_vulkan_python"),
         "models",
     )
-    span_ncnn_models_path = os.path.join(
-        distribution("span_ncnn_py").locate_file("span_ncnn_py"),
-        "models",
-    )
-    realesrgan_ncnn_models_path = os.path.join(
-        distribution("realesrgan_ncnn_py").locate_file("realesrgan_ncnn_py"),
+
+    universal_ncnn_models_path = os.path.join(
+        distribution("upscale_ncnn_py").locate_file("upscale_ncnn_py"),
         "models",
     )
 
@@ -64,21 +57,13 @@ def create_executable():
             "--add-data",
             f"{src_path};src/",
             "--add-data",
-            f"{cugan_ncnn_models_path};realcugan_ncnn_py/models",
-            "--add-data",
             f"{rife_ncnn_models_path};rife_ncnn_vulkan_python/models",
             "--add-data",
-            f"{span_ncnn_models_path};span_ncnn_py/models",
-            "--add-data",
-            f"{realesrgan_ncnn_models_path};realesrgan_ncnn_py/models",
+            f"{universal_ncnn_models_path};upscale_ncnn_py/models",
             "--hidden-import",
-            "realcugan_ncnn_py.realcugan_ncnn_wrapper",
+            "rife_ncnn_vulkan_python.rife_ncnn_vulkan_python_wrapper",
             "--hidden-import",
-            "span_ncnn_py.span_ncnn_wrapper",
-            "--hidden-import",
-            "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
-            "--hidden-import",
-            "realesrgan_ncnn_py.realesrgan_ncnn_py_wrapper",
+            "upscale_ncnn_py.upscale_ncnn_py_wrapper",
             "--collect-all",
             "cupy",
             "--collect-all",
