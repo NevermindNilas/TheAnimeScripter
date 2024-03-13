@@ -39,10 +39,6 @@ class Rife:
                 from .rife414.RIFE_HDv3 import Model
                 self.filename = "rife414"
 
-            case "rife4.14-lite":
-                from .rife414lite.RIFE_HDv3 import Model
-                self.filename = "rife414lite"
-
             case "rife4.13-lite":
                 from .rife413lite.RIFE_HDv3 import Model
                 self.filename = "rife413lite"

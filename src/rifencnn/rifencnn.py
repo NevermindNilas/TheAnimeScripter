@@ -1,18 +1,5 @@
 from rife_ncnn_vulkan_python import Rife
-
 from PIL import Image
-
-"""
-Models:
-
-rife-v4.6
-rife-v4.13-lite
-rife-v4.14-lite
-rife-v4.14
-
-Barebones until I figure out how this exactly works
-"""
-
 
 class rifeNCNN:
     def __init__(self, UHD, interpolate_method, ensemble=False):
@@ -22,8 +9,6 @@ class rifeNCNN:
         match self.interpolate_method:
             case "rife-ncnn" | "rife4.14-ncnn":
                 self.interpolate_method = "rife-v4.14"
-            case "rife4.14-lite-ncnn":
-                self.interpolate_method = "rife-v4.14-lite"
             case "rife4.13-lite-ncnn":
                 self.interpolate_method = "rife-v4.13-lite"
             case "rife4.6-ncnn":
