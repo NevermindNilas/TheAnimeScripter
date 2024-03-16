@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "1.4.6";
+    var scriptVersion = "v1.4.7";
 
     /*
     scriptAuthor = "Nilas";
@@ -46,80 +46,45 @@ var TheAnimeScripter = (function() {
     buttonStartProcess.preferredSize.width = 104;
     buttonStartProcess.alignment = ["center", "top"];
 
-    var group0 = panelChain.add("group", undefined, {
-        name: "group0"
-    });
+    var checkboxValues = {};
 
-    group0.orientation = "row";
-    group0.alignChildren = ["left", "center"];
-    group0.spacing = 10;
-    group0.margins = 0;
+    function createCheckboxField(panel, text, name, helpTip) {
+        var group = panel.add("group", undefined, { name: "group" + name });
+        group.orientation = "row";
+        group.alignChildren = ["left", "center"];
+        group.spacing = 0;
+        group.margins = 0;
 
-    var checkboxResize = group0.add("checkbox", undefined, "Resize", {
-        name: "checkboxResize"
-    });
-    checkboxResize.alignment = ["left", "center"];
-    checkboxResize.helpTip = "Resize by a desired factor before further processing, meant as an substitute for upscaling on lower end GPUs";
+        var staticText = group.add("statictext", undefined, undefined, { name: "text" + name });
+        staticText.text = text;
+        staticText.preferredSize.width = 70; // Adjust the width here
 
-    // GROUP1
-    // ======
-    var group1 = panelChain.add("group", undefined, {
-        name: "group1"
-    });
-    group1.orientation = "row";
-    group1.alignChildren = ["left", "center"];
-    group1.spacing = 10;
-    group1.margins = 0;
+        var checkbox = group.add("checkbox", undefined, undefined, { name: "checkbox" + name });
+        checkbox.helpTip = helpTip;
+        checkbox.value = false;
+        checkbox.preferredSize.width = 30; // Adjust the width here
 
-    var checkboxDeduplicate = group1.add("checkbox", undefined, "Deduplicate", {
-        name: "checkboxDeduplicate"
-    });
-    checkboxDeduplicate.alignment = ["left", "center"];
-    checkboxDeduplicate.helpTip = "Deduplicate using FFMPEG's mpdecimate filter";
+        checkbox.onClick = function() {
+            checkboxValues[name] = checkbox.value;
+        }
 
-    // GROUP2
-    // ======
-    var group2 = panelChain.add("group", undefined, {
-        name: "group2"
-    });
-    group2.orientation = "row";
-    group2.alignChildren = ["left", "center"];
-    group2.spacing = 10;
-    group2.margins = 0;
+        checkboxValues[name] = checkbox.value;
 
-    var checkboxUpscale = group2.add("checkbox", undefined, "Upscale", {
-        name: "checkboxUpscale"
-    });
-    checkboxUpscale.alignment = ["left", "center"];
-    checkboxUpscale.helpTip = "Upscale using the model you choose";
+        return checkbox;
+    }
+    createCheckboxField(panelChain, "Resize", "checkboxResize", "Resize by a desired factor before further processing, meant as an substitute for upscaling on lower end GPUs");
+    createCheckboxField(panelChain, "Deduplicate", "checkboxDeduplicate", "Deduplicate using FFMPEG's mpdecimate filter");
+    createCheckboxField(panelChain, "Denoise", "checkboxDenoise", "Denoise using a desired model");
+    createCheckboxField(panelChain, "Upscale", "checkboxUpscale", "Upscale using a desired model and factor");
+    createCheckboxField(panelChain, "Interpolate", "checkboxInterpolate", "Interpolate using a desired model and factor");
+    createCheckboxField(panelChain, "Sharpen", "checkboxSharpen", "Sharpen the video using a desired factor");
 
-    // GROUP3
-    // ======
-    var group3 = panelChain.add("group", undefined, {
-        name: "group3"
-    });
-    group3.orientation = "row";
-    group3.alignChildren = ["left", "center"];
-    group3.spacing = 10;
-    group3.margins = 0;
-
-    var checkboxInterpolate = group3.add("checkbox", undefined, "Interpolate", {
-        name: "checkboxInterpolate"
-    });
-    checkboxInterpolate.alignment = ["left", "center"];
-    checkboxInterpolate.helpTip = "Interpolate using the selected model from the Dropdown";
-
-    var group4 = panelChain.add("group", undefined, {
-        name: "group4"
-    });
-
-    var checkboxSharpen = group4.add("checkbox", undefined, "Sharpen", {
-        name: "checkboxSharpen"
-    });
-    checkboxSharpen.alignment = ["left", "center"];
-    checkboxSharpen.helpTip = "Sharpen using Contrast Adaptive Sharpening";
-
-
+    var resizeValue = function() { return checkboxValues["checkboxResize"]; };
+    var deduplicateValue = function() { return checkboxValues["checkboxDeduplicate"]; };
+    var denoiseValue = function() { return checkboxValues["checkboxDenoise"]; };
+    var upscaleValue = function() { return checkboxValues["checkboxUpscale"]; };
+    var interpolateValue = function() { return checkboxValues["checkboxInterpolate"]; };
+    var sharpenValue = function() { return checkboxValues["checkboxSharpen"]; };
     // panelPostProcess
     // ==========
     var panelPostProcess = TheAnimeScripter.add("panel", undefined, undefined, {
@@ -415,6 +380,7 @@ var TheAnimeScripter = (function() {
     createDropdownField(panel1, "Encoder", "Encoder", ["X264", "-", "X264_Animation", "-" , "X265", "-", "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs, AMF for AMD GPUs and QSV for Intel iGPUs");
     createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear", "-", "Bilinear", "-", "Bicubic", "-", "Experimental", "-", "Neighbor", "-", "Area", "-", "Bicublin", "-", "Gauss", "-", "Sinc", "-", "Lanczos", "-", "Spline", "-",  "Spline16", "-", "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
     createDropdownField(panel1, "Dedup Method", "Dedup", ["FFMPEG", "-", "SSIM"], "Choose which deduplication method you want to utilize, FFMPEG is faster but less accurate, SSIM is slower but more accurate");
+    createDropdownField(panel1, "Denoise Method", "Denoise", ["Span", "-", "SCUNet", "-", "NAFNet"]);
 
     var upscaleModel = function() { return dropdownValues["Model"]; };
     var interpolateModel = function() { return dropdownValues["Interpolate"]; };
@@ -423,6 +389,7 @@ var TheAnimeScripter = (function() {
     var encoderMethod = function() { return dropdownValues["Encoder"]; };
     var resizeMethod = function() { return dropdownValues["Resize"]; };
     var dedupMethod = function() { return dropdownValues["Dedup"]; };
+    var denoiseMethod = function() { return dropdownValues["Denoise"]; };
 
     var panelCustomSettings = settingsWindow.add("panel", undefined, undefined, {
         name: "panelCustomSettings"
@@ -549,8 +516,7 @@ var TheAnimeScripter = (function() {
                 throw new Error("Command is undefined");
             }
         } catch (error) {
-            alert("Something went wrong trying to process the chain, please contact me on discord");
-            return error.toString();
+            return alert(error.toString());
         }
         return null;
     }
