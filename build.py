@@ -3,8 +3,9 @@ import os
 import shutil
 from importlib.metadata import distribution
 
+from main import scriptVersion
 base_dir = os.path.dirname(os.path.abspath(__file__))
-
+outputName = "TAS" + scriptVersion + ".7z"
 
 def create_venv():
     print("Creating the virtual environment...")
@@ -37,7 +38,7 @@ def create_executable():
     main_path = os.path.join(base_dir, "main.py")
     icon_path = os.path.join(base_dir, "demos", "icon.ico")
     rife_ncnn_models_path = os.path.join(
-        distribution("rife_ncnn_vulkan_python").locate_file("rife_ncnn_vulkan_python"),
+        distribution("rife_ncnn_vulkan_python_TAS").locate_file("rife_ncnn_vulkan_python"),
         "models",
     )
 
@@ -143,11 +144,32 @@ def clean_up():
                 shutil.rmtree(build_dir)
         except Exception as e:
             print("Error while removing the build directory: ", e)
+
+        try:
+            pycache_dir = os.path.join(base_dir, "__pycache__")
+            if os.path.exists(pycache_dir):
+                shutil.rmtree(pycache_dir)
+        except Exception as e:
+            print("Error while removing the pycache directory: ", e)
+            
     else:
         print("Skipping Cleanup...")
 
     print("Done!, you can find the built executable in the dist folder")
 
+def compress_dist():
+    answer = input("Do you want to compress the dist directory? (y/n): ")
+
+    if answer.lower() == "y":
+        print("Installing 7z...")
+        subprocess.run([".\\venv\\Scripts\\python", "-m", "pip", "install", "py7zr"], check=True)
+
+        print("Compressing the dist directory...")
+        subprocess.run(["py", "-m", "py7zr", "c", outputName, "dist/"], check=True)
+        print("Done!, you can find the compressed file in the root directory")
+
+    else:
+        print("Skipping Compression...")
 
 if __name__ == "__main__":
     create_venv()
@@ -157,3 +179,4 @@ if __name__ == "__main__":
     create_executable()
     move_extras()
     clean_up()
+    compress_dist()
