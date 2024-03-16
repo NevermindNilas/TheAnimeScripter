@@ -272,29 +272,32 @@ var TheAnimeScripter = (function() {
     var sceneChangeSensValue = function() { return labelValues["SceneChange"]; };
     var dedupSensValue = function() { return labelValues["DedupSens"]; };
 
-    var group4 = generalPanel.add("group", undefined, {
-        name: "group4"
-    });
+    function createCheckbox(panel, text, name, defaultValue, helpTip) {
+        var group = panel.add("group", undefined, { name: "group" + name });
+        group.orientation = "row";
+        group.alignChildren = ["left", "center"];
+        group.spacing = 45;
+        group.margins = 0;
 
-    group4.orientation = "row";
-    group4.alignChildren = ["left", "center"];
-    group4.spacing = 45;
-    group4.margins = 0;
+        var checkbox = group.add("checkbox", undefined, text, { name: name });
+        checkbox.alignment = ["left", "center"];
+        checkbox.helpTip = helpTip;
+        checkbox.value = defaultValue;
 
-    var checkboxEnsemble = group4.add("checkbox", undefined, "Rife Ensemble", {
-        name: "checkboxEnsemble"
-    });
+        checkbox.onClick = function() {
+            checkboxValues[name] = checkbox.value;
+        }
 
-    checkboxEnsemble.alignment = ["left", "center"];
-    checkboxEnsemble.helpTip = "Turn on ensemble for Rife, higher quality outputs for a slight tax in performance";
+        checkboxValues[name] = defaultValue;
 
-    var checkboxYTDLPQuality = group4.add("checkbox", undefined, "YT-DLP 4K", {
-        name: "checkboxYTDLPQuality"
-    });
+        return function() {
+            return checkboxValues[name];
+        };
+    }
 
-    checkboxYTDLPQuality.alignment = ["left", "center"];
-    checkboxYTDLPQuality.helpTip = "Turn on higher quality download for YT-DLP, will download the highest quality available from yt (4k/8k) and then re-encode the video to the desired encoder, turn off for 1920x1080p only downloads";
-    
+    var checkboxEnsembleValue = function() { return checkboxValues["Ensemble"]; };
+    var checkboxYTDLPQualityValue = function() { return checkboxValues["YTDLPQuality"]; };
+
     var fieldValues = {}
     function createMultiplierField(panel, text, name, defaultValue) {
         var group = panel.add("group", undefined, { name: "group" + name });
@@ -517,13 +520,6 @@ var TheAnimeScripter = (function() {
     }
 
     buttonStartProcess.onClick = function() {
-        if (checkboxDeduplicate.value == false && checkboxUpscale.value == false && checkboxInterpolate.value == false && checkboxSharpen.value == false) {
-            if (checkboxResize.value == false) {
-                alert("Please select at least one of the checkboxes");
-                return;
-            }
-        }
-
         startChain();
     }
 
@@ -642,11 +638,6 @@ var TheAnimeScripter = (function() {
             return;
         }
 
-        if (app.preferences.getPrefAsLong("Main Pref Section v2", "Pref_SCRIPTING_FILE_NETWORK_SECURITY") != 1) {
-            alert("Please tick the \"Allow Scripts to Write Files and Access Network\" checkbox in Scripting & Expressions");
-            return app.executeCommand(2359);
-        }
-
         var exeFile = theAnimeScripterPath + "\\main.exe";
         var exeFilePath = new File(exeFile);
         if (!exeFilePath.exists) {
@@ -756,15 +747,19 @@ var TheAnimeScripter = (function() {
                     break;
                 } else {
                     var maxAttempts = 3;
+                    var importSuccessful = false;
                     for (var attempt = 0; attempt < maxAttempts; attempt++) {
+                        if (importSuccessful) {
+                            break;
+                        }
                         $.sleep(1000); // Sleeping for a second, metadata is not always written instantly
                         try {
-                            var importOptions = new ImportOptions(File(output_name));
+                            var importOptions = new ImportOptions(File(outputName));
                             var importedFile = app.project.importFile(importOptions);
                             var inputLayer = comp.layers.add(importedFile);
                             inputLayer.startTime = layer.inPoint;
                             inputLayer.moveBefore(layer);
-                            if (checkboxUpscale.value == true || checkboxResize.value == true) {
+                            if (checkboxUpscaleValue() == true || checkboxResizeValue() == true) {
                                 var compWidth = comp.width;
                                 var compHeight = comp.height;
                                 var layerWidth = inputLayer.source.width;
@@ -779,10 +774,10 @@ var TheAnimeScripter = (function() {
                                 var scaleY = (layerHeight / inputLayer.source.height) * 100;
                                 inputLayer.property("Scale").setValue([scaleX, scaleY, 100]);
                             }
-                            break;
+                            importSuccessful = true;
                         } catch (error) {
                             if (attempt == maxAttempts - 1) {
-                                alert("Failed to import file after " + maxAttempts + " attempts: " + output_name);
+                                alert("Failed to import file after " + maxAttempts + " attempts: " + outputName);
                                 alert("Error: " + error.toString());
                             }
                         }
