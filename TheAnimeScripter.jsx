@@ -51,12 +51,12 @@ var TheAnimeScripter = (function() {
 
         var staticText = group.add("statictext", undefined, undefined, { name: "text" + name });
         staticText.text = text;
-        staticText.preferredSize.width = 70; // Adjust the width here
+        staticText.preferredSize.width = 70;
 
         var checkbox = group.add("checkbox", undefined, undefined, { name: "checkbox" + name });
         checkbox.helpTip = helpTip;
         checkbox.value = false;
-        checkbox.preferredSize.width = 30; // Adjust the width here
+        checkbox.preferredSize.width = 30;
 
         checkbox.onClick = function() {
             checkboxValues[name] = checkbox.value;
