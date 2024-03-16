@@ -4,12 +4,6 @@ var TheAnimeScripter = (function() {
     var scriptName = "TheAnimeScripter";
     var scriptVersion = "v1.4.7";
 
-    /*
-    scriptAuthor = "Nilas";
-    scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter"
-    discordServer = "https://discord.gg/CdRD9GwS8J"
-    */
-
     // Default Values for the settings
     var outputFolder = app.settings.haveSetting(scriptName, "outputFolder") ? app.settings.getSetting(scriptName, "outputFolder") : "undefined";
     var theAnimeScripterPath = app.settings.haveSetting(scriptName, "theAnimeScripterPath") ? app.settings.getSetting(scriptName, "theAnimeScripterPath") : "undefined";
@@ -162,6 +156,14 @@ var TheAnimeScripter = (function() {
     buttonSettings.text = "Settings";
     buttonSettings.preferredSize.width = 105;
     buttonSettings.alignment = ["center", "top"];
+
+    var buttonCheckForUpdate = panelMore.add("button", undefined, undefined, {
+        name: "buttonCheckForUpdate"
+    });
+
+    buttonCheckForUpdate.text = "Check for Update";
+    buttonCheckForUpdate.preferredSize.width = 105;
+    buttonCheckForUpdate.alignment = ["center", "top"];
 
     var textScriptVersion = TheAnimeScripter.add("statictext", undefined, undefined, {
         name: "textScriptVersion"
@@ -431,6 +433,45 @@ var TheAnimeScripter = (function() {
 
     buttonSettingsClose.onClick = function() {
         settingsWindow.hide();
+    }
+
+    buttonCheckForUpdate.onClick = function() {
+        var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter/releases/latest";
+        var discordServer = "https://discord.gg/CdRD9GwS8J";
+
+        var dialog1 = new Window('dialog', 'Open URL');
+        dialog1.add('statictext', undefined, 'Do you want to open the Github Link to TAS?');
+
+        dialog1.yesButton = dialog1.add('button', undefined, 'Yes', {name: 'yes'});
+        dialog1.noButton = dialog1.add('button', undefined, 'No', {name: 'no'});
+
+        dialog1.yesButton.onClick = function() {
+            system.callSystem('cmd.exe /c start "" "' + scriptURL + '"');
+            dialog1.close();
+        }
+
+        dialog1.noButton.onClick = function() {
+            dialog1.close();
+        }
+
+        dialog1.show();
+
+        var dialog2 = new Window('dialog', 'Open URL');
+        dialog2.add('statictext', undefined, 'Do you want to join the Discord server?');
+
+        dialog2.yesButton = dialog2.add('button', undefined, 'Yes', {name: 'yes'});
+        dialog2.noButton = dialog2.add('button', undefined, 'No', {name: 'no'});
+
+        dialog2.yesButton.onClick = function() {
+            system.callSystem('cmd.exe /c start "" "' + discordServer + '"');
+            dialog2.close();
+        }
+
+        dialog2.noButton.onClick = function() {
+            dialog2.close();
+        }
+
+        dialog2.show();
     }
 
     buttonOutput.onClick = function() {
