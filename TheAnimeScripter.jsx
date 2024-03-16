@@ -73,12 +73,13 @@ var TheAnimeScripter = (function() {
     createCheckboxField(panelChain, "Interpolate", "checkboxInterpolate", "Interpolate using a desired model and factor");
     createCheckboxField(panelChain, "Sharpen", "checkboxSharpen", "Sharpen the video using a desired factor");
 
-    var resizeValue = function() { return checkboxValues["checkboxResize"]; };
-    var deduplicateValue = function() { return checkboxValues["checkboxDeduplicate"]; };
-    var denoiseValue = function() { return checkboxValues["checkboxDenoise"]; };
-    var upscaleValue = function() { return checkboxValues["checkboxUpscale"]; };
-    var interpolateValue = function() { return checkboxValues["checkboxInterpolate"]; };
-    var sharpenValue = function() { return checkboxValues["checkboxSharpen"]; };
+    var checkboxResizeValue = function() { return checkboxValues["checkboxResize"]; };
+    var checkboxDeduplicateValue = function() { return checkboxValues["checkboxDeduplicate"]; };
+    var checkboxDenoiseValue = function() { return checkboxValues["checkboxDenoise"]; };
+    var checkboxUpscaleValue = function() { return checkboxValues["checkboxUpscale"]; };
+    var checkboxInterpolateValue = function() { return checkboxValues["checkboxInterpolate"]; };
+    var checkboxSharpenValue = function() { return checkboxValues["checkboxSharpen"]; };
+
     // panelPostProcess
     // ==========
     var panelPostProcess = TheAnimeScripter.add("panel", undefined, undefined, {
@@ -680,7 +681,7 @@ var TheAnimeScripter = (function() {
             }
 
             randomNumbers = Math.floor(Math.random() * 1000);
-            output_name = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "-" + randomNumbers + outputFileExtension;
+            outputName = outputFolder + "\\" + activeLayerName.replace(/\.[^\.]+$/, '') + "-" + randomNumbers + outputFileExtension;
 
             try {
                 var attempt = [
@@ -688,21 +689,21 @@ var TheAnimeScripter = (function() {
                     "&&",
                     "\"" + exeFile + "\"",
                     "--input", "\"" + activeLayerPath + "\"",
-                    "--output", "\"" + output_name + "\"",
-                    "--interpolate", checkboxInterpolate.value ? "1" : "0",
+                    "--output", "\"" + outputName + "\"",
+                    "--interpolate", checkboxInterpolateValue() ? "1" : "0",
                     "--interpolate_factor", interpolateValue(),
                     "--interpolate_method", interpolateModel().toLowerCase(),
-                    "--upscale", checkboxUpscale.value ? "1" : "0",
+                    "--upscale", checkboxUpscaleValue() ? "1" : "0",
                     "--upscale_factor", upscaleValue(),
                     "--upscale_method", upscaleModel().toLowerCase(),
                     "--cugan_kind", cuganDenoise().toLowerCase(),
-                    "--dedup", checkboxDeduplicate.value ? "1" : "0",
+                    "--dedup", checkboxDeduplicateValue() ? "1" : "0",
                     "--dedup_sens", dedupSensValue(),
                     "--dedup_method", dedupMethod().toLowerCase(),
                     "--half", "1",
                     "--inpoint", sourceInPoint,
                     "--outpoint", sourceOutPoint,
-                    "--sharpen", checkboxSharpen.value ? "1" : "0",
+                    "--sharpen", checkboxSharpenValue() ? "1" : "0",
                     "--sharpen_sens", sharpenSensValue(),
                     "--segment", segmentValue,
                     "--scenechange", sceneChangeValue,
@@ -710,14 +711,15 @@ var TheAnimeScripter = (function() {
                     "--depth_method", depthModel().toLowerCase(),
                     "--encode_method", encoderMethod().toLowerCase(),
                     "--scenechange_sens", sceneChangeSensValue(),
-                    "--ensemble", checkboxEnsemble.value ? "1" : "0",
-                    "--resize", checkboxResize.value ? "1" : "0",
+                    "--ensemble", checkboxEnsembleValue() ? "1" : "0",
+                    "--resize", checkboxResizeValue() ? "1" : "0",
                     "--resize_method", resizeMethod().toLowerCase(),
                     "--resize_factor", resizeValue(),
                     "--nt", threadsValue(),
-		            "--buffer_limit", 100,
+                    "--denoise", checkboxDenoiseValue() ? "1" : "0",
+                    "--denoise_method", denoiseMethod().toLowerCase(),
+                    "--buffer_limit", 100,
                 ];
-
                 if (customModelPath && customModelPath !== "undefined") {
                     attempt.push("--custom_model", customModelPath);
                 }
