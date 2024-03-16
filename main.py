@@ -304,7 +304,7 @@ if __name__ == "__main__":
             "rife-ncnn",
             "rife4.6-ncnn",
             "rife4.13-lite-ncnn",
-            "rife4.14-ncnn",
+            "rife4.15-ncnn",
             "gmfss",
         ],
         default="rife",
@@ -416,7 +416,7 @@ if __name__ == "__main__":
         type=int,
         choices=[0, 1],
         default=1,
-        help="Keep the audio track and later merge it back into the video, if dedup is true this will be set to False automatically",
+        help="Extract the audio track and later merge it back into the output video, if dedup is true this will be set to False automatically",
     )
     argparser.add_argument("--denoise", type=int, choices=[0, 1], default=0)
     argparser.add_argument(
