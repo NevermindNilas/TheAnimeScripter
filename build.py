@@ -62,7 +62,7 @@ def create_executable():
             "--add-data",
             f"{universal_ncnn_models_path};upscale_ncnn_py/models",
             "--hidden-import",
-            "rife_ncnn_vulkan_python_tas.rife_ncnn_vulkan_python_wrapper",
+            "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
             "--hidden-import",
             "upscale_ncnn_py.upscale_ncnn_py_wrapper",
             "--collect-all",
