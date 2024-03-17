@@ -66,6 +66,7 @@ def intitialize_models(self):
                     self.interpolate_method,
                     self.ensemble,
                     self.nt,
+                    self.trt,
                 )
             case (
                 "rife-ncnn"
