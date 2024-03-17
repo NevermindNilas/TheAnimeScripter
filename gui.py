@@ -19,7 +19,7 @@ from src.uiLogic import uiStyleSheet, runCommand, StreamToTextEdit, loadSettings
 
 import sys
 import time
-from pypresence import Presence
+#from pypresence import Presence
 from main import scriptVersion
 
 TITLE = f"The Anime Scripter - {scriptVersion} (Alpha)"
@@ -31,16 +31,18 @@ class VideoProcessingApp(QMainWindow):
         self.setWindowTitle(TITLE)
         self.setFixedSize(1280, 720)
 
+        """
         self.client_id = "1213461768785891388"
         self.RPC = Presence(self.client_id)
         try:
             self.RPC.connect()
         except ConnectionRefusedError:
             print("Could not connect to Discord. Is Discord running?")
+        """
 
         self.start_time = int(time.time())
         self.timer = QTimer()
-        self.timer.timeout.connect(self.updatePresence)
+        #self.timer.timeout.connect(self.updatePresence)
         self.timer.start(1000)
 
         self.setStyleSheet(uiStyleSheet())
@@ -83,7 +85,7 @@ class VideoProcessingApp(QMainWindow):
         self.inputEntry = self.createPathWidgets("Input Path:", self.browseInput)
         self.outputEntry = self.createPathWidgets("Output Path:", self.browseOutput)
 
-        for option in ["Resize", "Dedup", "Interpolate", "Upscale", "Segment", "Depth", "Sharpen"]:
+        for option in ["Resize", "Dedup", "Denoise", "Upscale", "Interpolate", "Segment", "Depth", "Sharpen"]:
             self.createCheckbox(option)
 
         self.outputWindow = QTextEdit()
@@ -122,17 +124,18 @@ class VideoProcessingApp(QMainWindow):
 
     def createInputField(self, label, defaultValue, maxValue):
         layout = QHBoxLayout()
+        #layout.setAlignment(Qt.AlignmentFlag.AlignLeft)  # Add this line
         layout.addStretch(1)
         label = QLabel(label)
         entry = QLineEdit()
         entry.setText(str(defaultValue))
         entry.setValidator(QIntValidator(0, maxValue))
         entry.setFixedWidth(30)
-        entry.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        #entry.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         layout.addWidget(entry)
         return layout, entry
-
+    
     def createCheckbox(self, text):
         checkbox = QCheckBox(text)
         self.checkboxLayout.addWidget(checkbox)

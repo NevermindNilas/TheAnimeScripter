@@ -2,7 +2,6 @@ import os
 import torch
 import numpy as np
 import logging
-import torch.nn.functional as F
 
 # will be on wait for the next release of spandrel
 from spandrel import ImageModelDescriptor, ModelLoader
