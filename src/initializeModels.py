@@ -77,7 +77,12 @@ def intitialize_models(self):
                 from src.rifencnn.rifencnn import rifeNCNN
 
                 interpolate_process = rifeNCNN(
-                    UHD, self.interpolate_method, self.ensemble
+                    UHD,
+                    self.interpolate_method,
+                    self.ensemble,
+                    self.nt,
+                    new_width,
+                    new_height,
                 )
             case "gmfss":
                 from src.gmfss.gmfss_fortuna_union import GMFSS
