@@ -39,7 +39,7 @@ if getattr(sys, "frozen", False):
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.4.8"
+scriptVersion = "1.5.0"
 warnings.filterwarnings("ignore")
 
 
@@ -81,6 +81,7 @@ class VideoProcessor:
         self.denoise = args.denoise
         self.denoise_method = args.denoise_method
         self.sample_size = args.sample_size
+        self.trt = args.trt
 
         self.width, self.height, self.fps = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
@@ -304,6 +305,7 @@ if __name__ == "__main__":
             "rife-ncnn",
             "rife4.6-ncnn",
             "rife4.13-lite-ncnn",
+            "rife4.14-ncnn",
             "rife4.15-ncnn",
             "gmfss",
         ],
@@ -426,6 +428,7 @@ if __name__ == "__main__":
         choices=["scunet", "nafnet", "dpir", "span"],
         help="Choose the desired denoiser, span is the best for animation purposes whilst scunet is better for general purpose.",
     )
+    argparser.add_argument("--trt", type=int, choices=[0, 1], default=0)
 
     args = argparser.parse_args()
     args.ffmpeg_path = argumentChecker(args, mainPath, scriptVersion)

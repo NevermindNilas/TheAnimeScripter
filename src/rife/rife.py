@@ -16,6 +16,7 @@ class Rife:
         interpolate_method,
         ensemble=False,
         nt=1,
+        trt=False,
     ):
         self.interpolation_factor = interpolation_factor
         self.half = half
@@ -26,61 +27,67 @@ class Rife:
         self.interpolate_method = interpolate_method
         self.ensemble = ensemble
         self.nt = nt
+        self.trt = trt
 
         self.handle_model()
 
     def handle_model(self):
-        match self.interpolate_method:
-            case "rife" | "rife4.15":
-                from .rife415.RIFE_HDv3 import Model
-                self.filename = "rife415"
+        if not self.trt:
+            match self.interpolate_method:
+                case "rife" | "rife4.15":
+                    from .rife415.RIFE_HDv3 import Model
+                    self.filename = "rife415"
 
-            case "rife4.14":
-                from .rife414.RIFE_HDv3 import Model
-                self.filename = "rife414"
+                case "rife4.14":
+                    from .rife414.RIFE_HDv3 import Model
+                    self.filename = "rife414"
 
-            case "rife4.13-lite":
-                from .rife413lite.RIFE_HDv3 import Model
-                self.filename = "rife413lite"
+                case "rife4.13-lite":
+                    from .rife413lite.RIFE_HDv3 import Model
+                    self.filename = "rife413lite"
 
-            case "rife4.6":
-                from .rife46.RIFE_HDv3 import Model
-                self.filename = "rife46"
-        
-        if not os.path.exists(os.path.join(weightsDir, self.filename, "flownet.pkl")):
-            modelDir = os.path.dirname(downloadModels(self.interpolate_method))
+                case "rife4.6":
+                    from .rife46.RIFE_HDv3 import Model
+                    self.filename = "rife46"
+            
+            if not os.path.exists(os.path.join(weightsDir, self.filename, "flownet.pkl")):
+                modelDir = os.path.dirname(downloadModels(self.interpolate_method))
+            else:
+                modelDir = os.path.dirname(os.path.join(weightsDir, self.filename, "flownet.pkl"))
+
+            # Apparently this can improve performance slightly
+            torch.set_float32_matmul_precision("medium")
+
+            if self.UHD:
+                self.scale = 0.5
+
+            ph = ((self.height - 1) // 64 + 1) * 64
+            pw = ((self.width - 1) // 64 + 1) * 64
+            self.padding = (0, pw - self.width, 0, ph - self.height)
+
+            self.cuda_available = torch.cuda.is_available()
+            self.device = torch.device("cuda" if self.cuda_available else "cpu")
+
+            torch.set_grad_enabled(False)
+            if self.cuda_available:
+                torch.backends.cudnn.enabled = True
+                torch.backends.cudnn.benchmark = True
+                if self.half:
+                    torch.set_default_dtype(torch.float16)
+
+            self.model = Model()
+            self.model.load_model(modelDir, -1)
+            self.model.eval()
+
+            if self.cuda_available and self.half:
+                self.model.half()
+
+            self.model.device()
+            self.I0 = None
+
         else:
-            modelDir = os.path.dirname(os.path.join(weightsDir, self.filename, "flownet.pkl"))
+            raise NotImplementedError("TensorRT is not supported yet")
 
-        # Apparently this can improve performance slightly
-        torch.set_float32_matmul_precision("medium")
-
-        if self.UHD:
-            self.scale = 0.5
-
-        ph = ((self.height - 1) // 64 + 1) * 64
-        pw = ((self.width - 1) // 64 + 1) * 64
-        self.padding = (0, pw - self.width, 0, ph - self.height)
-
-        self.cuda_available = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.cuda_available else "cpu")
-
-        torch.set_grad_enabled(False)
-        if self.cuda_available:
-            torch.backends.cudnn.enabled = True
-            torch.backends.cudnn.benchmark = True
-            if self.half:
-                torch.set_default_dtype(torch.float16)
-
-        self.model = Model()
-        self.model.load_model(modelDir, -1)
-        self.model.eval()
-
-        if self.cuda_available and self.half:
-            self.model.half()
-
-        self.model.device()
-        self.I0 = None
              
     @torch.inference_mode()
     def make_inference(self, n):

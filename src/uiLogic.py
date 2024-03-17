@@ -67,6 +67,7 @@ def uiStyleSheet() -> str:
 
 
 def runCommand(self, TITLE) -> None:
+    """
     self.RPC.update(
         details="Processing",
         start=self.start_time,
@@ -110,8 +111,9 @@ def runCommand(self, TITLE) -> None:
     self.process.readyReadStandardOutput.connect(self.handleStdout)
     self.process.readyReadStandardError.connect(self.handleStderr)
     self.process.start(command[0], command[1:])
-
-
+    """
+    mainExePath = os.path.join(os.path.dirname(__file__), "main.exe")
+    print(mainExePath)
 class StreamToTextEdit:
     def __init__(self, text_edit):
         self.text_edit = text_edit
