@@ -34,6 +34,7 @@ class Upscaler:
             height (int): The height of the input frame
             customModel (str): The path to a custom model file
             nt (int): The number of threads to use
+            trt (bool): Whether to use tensorRT
         """
         self.upscaleMethod = upscaleMethod
         self.upscaleFactor = upscaleFactor
