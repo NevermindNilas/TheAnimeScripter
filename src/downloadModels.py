@@ -52,16 +52,16 @@ def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
             return "gmfss-fortuna-union.zip"
         
         case "rife" | "rife4.15":
-            return "rife415"
+            return "rife415.pth"
         
         case "rife4.14":
-            return "rife414"
+            return "rife414.pth"
         
         case "rife4.13-lite":
-            return "rife413lite"
+            return "rife413_lite.pth"
         
         case "rife4.6":
-            return "rife46"
+            return "rife46.pth"
         
         case _:
             raise ValueError(f"Model {model} not found.")
@@ -129,23 +129,20 @@ def downloadModels(
             return downloadAndLog(model, filename, fullUrl, gmfssFolderPath)
 
         case "rife" | "rife4.14" | "rife4.13-lite" | "rife4.6" | "rife4.15":
-            rifeFolderPath = os.path.join(weightsDir, filename)
+            rifeFolderPath = os.path.join(weightsDir, "rife")
             os.makedirs(rifeFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}.pkl"
-            outFileName = "flownet.pkl"
-            return downloadAndLog(model, outFileName, fullUrl, rifeFolderPath)
+            fullUrl = f"{url}{filename}"
+            return downloadAndLog(model, filename, fullUrl, rifeFolderPath)
 
         case "segment":
             segmentFolderPath = os.path.join(weightsDir, "segment")
             os.makedirs(segmentFolderPath, exist_ok=True)
-            filename = "isnetis.ckpt"
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, segmentFolderPath)
 
         case "realesrgan":
             realesrganFolderPath = os.path.join(weightsDir, "realesrgan")
             os.makedirs(realesrganFolderPath, exist_ok=True)
-            filename = "2xHFA2kShallowESRGAN.pth"
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, realesrganFolderPath)
 
