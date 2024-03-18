@@ -81,7 +81,7 @@ class VideoProcessor:
         self.denoise = args.denoise
         self.denoise_method = args.denoise_method
         self.sample_size = args.sample_size
-        self.trt = args.trt
+        self.benchmark = args.benchmark
 
         self.width, self.height, self.fps = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
@@ -264,6 +264,7 @@ class VideoProcessor:
                 grayscale=False,
                 transparent=False,
                 audio=self.audio,
+                benchmark=self.benchmark,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
@@ -428,7 +429,7 @@ if __name__ == "__main__":
         choices=["scunet", "nafnet", "dpir", "span"],
         help="Choose the desired denoiser, span is the best for animation purposes whilst scunet is better for general purpose.",
     )
-    argparser.add_argument("--trt", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--benchmark", type=int, choices=[0, 1], default=0)
 
     args = argparser.parse_args()
     args.ffmpeg_path = argumentChecker(args, mainPath, scriptVersion)

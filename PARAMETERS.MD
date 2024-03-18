@@ -9,6 +9,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ### Command-Line Arguments:
 
 - `--version` (bool, action=store_true): Outputs the script version.
+- `--benchmark` (int, default=0): Enable benchmarking. This will not output any video and it will only test the performance of the script without any aditional processing.
 
 #### Input and Output:
 
