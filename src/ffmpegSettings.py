@@ -322,6 +322,7 @@ class WriteBuffer:
         grayscale: bool = False,
         transparent: bool = False,
         audio: bool = True,
+        benchmark: bool = False,
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -337,6 +338,9 @@ class WriteBuffer:
         sharpen: bool - Whether to apply a sharpening filter to the video.
         sharpen_sens: float - The sensitivity of the sharpening filter.
         queueSize: int - The size of the queue.
+        transparent: bool - Whether to encode the video with transparency.
+        audio: bool - Whether to include audio in the output video.
+        benchmark: bool - Whether to benchmark the encoding process, this will not output any video.
         """
         self.input = input
         self.output = os.path.normpath(output)
@@ -352,6 +356,7 @@ class WriteBuffer:
         self.queueSize = queueSize
         self.transparent = transparent
         self.audio = audio
+        self.benchmark = benchmark
 
     def encodeSettings(self, verbose: bool = False) -> list:
         """
@@ -379,68 +384,37 @@ class WriteBuffer:
             pix_fmt = "rgb24"
             output_pix_fmt = "yuv420p"
 
-        command = [
-            self.ffmpegPath,
-            "-y",
-            "-v",
-            "warning",
-            "-stats",
-            "-f",
-            "rawvideo",
-            "-vcodec",
-            "rawvideo",
-            "-s",
-            f"{self.width}x{self.height}",
-            "-pix_fmt",
-            f"{pix_fmt}",
-            "-r",
-            str(self.fps),
-            "-thread_queue_size",
-            "100",
-            "-max_interleave_delta",
-            "0",
-            "-i",
-            "-",
-            "-an",
-            "-fps_mode",
-            "vfr",
-        ]
+        if not self.benchmark:
+            command = [
+                self.ffmpegPath,
+                "-y",
+                "-v",
+                "warning",
+                "-stats",
+                "-f",
+                "rawvideo",
+                "-vcodec",
+                "rawvideo",
+                "-s",
+                f"{self.width}x{self.height}",
+                "-pix_fmt",
+                f"{pix_fmt}",
+                "-r",
+                str(self.fps),
+                "-thread_queue_size",
+                "100",
+                "-max_interleave_delta",
+                "0",
+                "-i",
+                "-",
+                "-an",
+                "-fps_mode",
+                "vfr",
+            ]
 
-        if self.custom_encoder == "":
-            command.extend(matchEncoder(self.encode_method))
+            if self.custom_encoder == "":
+                command.extend(matchEncoder(self.encode_method))
 
-            filters = []
-            if self.sharpen:
-                filters.append("cas={}".format(self.sharpen_sens))
-            if self.grayscale:
-                filters.append("format=gray")
-            if self.transparent:
-                filters.append("format=rgba")
-            if filters:
-                command.extend(["-vf", ",".join(filters)])
-
-        else:
-            custom_encoder_list = self.custom_encoder.split()
-
-            if "-pix_fmt" in custom_encoder_list:
-                raise ValueError(
-                    "The '-pix_fmt' option is hardcoded in the script and should not be included in the custom encoder settings."
-                )
-
-            if "-vf" in custom_encoder_list:
-                vf_index = custom_encoder_list.index("-vf")
-
-                if self.sharpen:
-                    custom_encoder_list[vf_index + 1] += ",cas={}".format(
-                        self.sharpen_sens
-                    )
-
-                if self.grayscale:
-                    custom_encoder_list[vf_index + 1] += ",format=gray"
-
-                if self.transparent:
-                    custom_encoder_list[vf_index + 1] += ",format=rgba"
-            else:
                 filters = []
                 if self.sharpen:
                     filters.append("cas={}".format(self.sharpen_sens))
@@ -449,11 +423,71 @@ class WriteBuffer:
                 if self.transparent:
                     filters.append("format=rgba")
                 if filters:
-                    custom_encoder_list.extend(["-vf", ",".join(filters)])
+                    command.extend(["-vf", ",".join(filters)])
 
-            command.extend(custom_encoder_list)
+            else:
+                custom_encoder_list = self.custom_encoder.split()
 
-        command.extend(["-pix_fmt", output_pix_fmt, self.output])
+                if "-pix_fmt" in custom_encoder_list:
+                    raise ValueError(
+                        "The '-pix_fmt' option is hardcoded in the script and should not be included in the custom encoder settings."
+                    )
+
+                if "-vf" in custom_encoder_list:
+                    vf_index = custom_encoder_list.index("-vf")
+
+                    if self.sharpen:
+                        custom_encoder_list[vf_index + 1] += ",cas={}".format(
+                            self.sharpen_sens
+                        )
+
+                    if self.grayscale:
+                        custom_encoder_list[vf_index + 1] += ",format=gray"
+
+                    if self.transparent:
+                        custom_encoder_list[vf_index + 1] += ",format=rgba"
+                else:
+                    filters = []
+                    if self.sharpen:
+                        filters.append("cas={}".format(self.sharpen_sens))
+                    if self.grayscale:
+                        filters.append("format=gray")
+                    if self.transparent:
+                        filters.append("format=rgba")
+                    if filters:
+                        custom_encoder_list.extend(["-vf", ",".join(filters)])
+
+                command.extend(custom_encoder_list)
+
+            command.extend(["-pix_fmt", output_pix_fmt, self.output])
+
+        else:
+            # This is for benchmarking purposes, 
+            # it will not output any video and should be as low overhead as possible, I think.
+            command = [
+                self.ffmpegPath,
+                "-y",
+                "-v",
+                "warning",
+                "-stats",
+                "-f",
+                "rawvideo",
+                "-vcodec",
+                "rawvideo",
+                "-s",
+                f"{self.width}x{self.height}",
+                "-pix_fmt",
+                f"{pix_fmt}",
+                "-r",
+                str(self.fps),
+                "-i",
+                "-",
+                "-benchmark",
+                "-f",
+                "null",
+                "-",
+            ]
+
         return command
 
     def start(self, verbose: bool = False, queue: Queue = None):
@@ -503,7 +537,7 @@ class WriteBuffer:
                 logging.error(f"An error occurred: {str(e)}")
 
         finally:
-            if self.audio:
+            if self.audio and not self.benchmark:
                 self.mergeAudio()
 
     def write(self, frame: np.ndarray):
