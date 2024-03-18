@@ -21,7 +21,8 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--interpolate` (int, default=0): Enable interpolation (1) or disable (0).
 - `--interpolate_factor` (int, default=2): Factor for interpolation.
 - `--interpolate_method` (str, default="rife"): Interpolation method:
-   - Options: "rife", "rife4.6", "rife4.14", "rife4.13-lite", "rife4.6-ncnn", "rife4.14-ncnn", "rife4.13-lite-ncnn".
+   - Options: "rife", "rife4.6", "rife4.13-lite", "rife4.14", "rife4.15", "rife-ncnn", "rife4.6-ncnn", "rife4.13-lite-ncnn", "rife4.14-ncnn", "rife4.15-ncnn", "gmfss".
+   - Notation: `rife`, respectively `rife-ncnn`, will default to the latest available version.
 - `--ensemble` (int, default=0): Activate Ensemble for higher quality outputs from Rife.
 
 #### Upscaling Settings:
@@ -45,11 +46,10 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 - `--denoise` (int, default=0): Enable denoising (1) or disable (0).
 - `--denoise_method` (str, default="scunet"): Choose a denoising model:
-    - Options: "scunet, nafnet, span"
+    - Options: "scunet", "nafnet", "span"
 
 #### Precision and Trimming:
 
-- `--half` (int, default=1): Use half precision (1) or full precision (0).
 - `--inpoint` (float, default=0): Inpoint for the video.
 - `--outpoint` (float, default=0): Outpoint for the video.
 
@@ -96,7 +96,9 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
    Note: Parameters specified with `--custom_encoder` will override the default encoding parameters with the exception of input stream and `-pix_fmt` color chanels. Ensure familiarity with `ffmpeg` and its parameters before using this option.
 
 #### Performance Settings:
+
+- `--half` (int, default=1): (1) for fp16 ,(0) for fp32. FP16 improves the performance, generally by about 50% but can technically result in lower quality results. Generally speaking it's worth using Fp16 for the faster inference.
 - `--nt` (int, default=1): Allocate the number of threads for the script to use. Relatively dodgy, use with caution.
-- `--buffer_limit` (int, default=50): Set the limit for how many frames can be in the decoding and encoding buffers at any given time. This can be used to reduce memory usage at the cost of potential performance loss due to overhead. A value that is too high can lead to Out of Memory errors. Don't set this too high unless you have a lot of RAM to spare.
+- `--buffer_limit` (int, default=50): Set the limit for how many frames can be in the decoding and encoding buffers at any given time. This can be used to reduce memory usage at the cost of potential performance loss due to overhead. A value that is too high can lead to Out of Memory errors ( OOM ). Don't set this too high unless you have a lot of RAM to spare.
   
 #####################################################
