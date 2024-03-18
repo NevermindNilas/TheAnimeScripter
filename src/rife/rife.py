@@ -1,9 +1,11 @@
 import os
 import torch
 
-from src.downloadModels import downloadModels, weightsDir
+from src.downloadModels import downloadModels, weightsDir, modelsMap
 from torch.nn import functional as F
 
+# Apparently this can improve performance slightly
+torch.set_float32_matmul_precision("medium")
 
 class Rife:
     def __init__(
@@ -17,6 +19,19 @@ class Rife:
         ensemble=False,
         nt=1,
     ):
+        """
+        Initialize the RIFE model
+
+        Args:
+            interpolation_factor (int): The factor to interpolate by.
+            half (bool): Whether to use half precision.
+            width (int): The width of the input frame.
+            height (int): The height of the input frame.
+            UHD (bool): Whether to use UHD mode.
+            interpolate_method (str): The method to use for interpolation.
+            ensemble (bool): Whether to use ensemble mode.
+            nt (int): The number of streams to use, not available for now.
+        """
         self.interpolation_factor = interpolation_factor
         self.half = half
         self.UHD = UHD
@@ -27,70 +42,60 @@ class Rife:
         self.ensemble = ensemble
         self.nt = nt
 
-        self.handle_model()
-
-    def handle_model(self):
-        match self.interpolate_method:
-            case "rife" | "rife4.15":
-                from .rife415.RIFE_HDv3 import Model
-
-                self.filename = "rife415"
-
-            case "rife4.14":
-                from .rife414.RIFE_HDv3 import Model
-
-                self.filename = "rife414"
-
-            case "rife4.13-lite":
-                from .rife413lite.RIFE_HDv3 import Model
-
-                self.filename = "rife413lite"
-
-            case "rife4.6":
-                from .rife46.RIFE_HDv3 import Model
-
-                self.filename = "rife46"
-
-        if not os.path.exists(os.path.join(weightsDir, self.filename, "flownet.pkl")):
-            modelDir = os.path.dirname(downloadModels(self.interpolate_method))
-        else:
-            modelDir = os.path.dirname(
-                os.path.join(weightsDir, self.filename, "flownet.pkl")
-            )
-
-        # Apparently this can improve performance slightly
-        torch.set_float32_matmul_precision("medium")
-
         if self.UHD:
             self.scale = 0.5
 
-        ph = ((self.height - 1) // 64 + 1) * 64
-        pw = ((self.width - 1) // 64 + 1) * 64
-        self.padding = (0, pw - self.width, 0, ph - self.height)
+        self.handle_model()
 
-        self.cuda_available = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.cuda_available else "cpu")
+    def handle_model(self):
+        """
+        Load the desired model
+        """
+
+        self.filename = modelsMap(self.interpolate_method)
+        if not os.path.exists(os.path.join(weightsDir, "rife", self.filename)):
+            modelPath = downloadModels(model=self.interpolate_method)
+        else:
+            modelPath = os.path.join(weightsDir, "rife", self.filename)
+
+        match self.interpolate_method:
+            case "rife" | "rife4.15":
+                from .arches.IFNet_rife415 import IFNet
+            case "rife4.14":
+                from .arches.IFNet_rife414 import IFNet
+            case "rife4.13-lite":
+                from .arches.IFNet_rife413lite import IFNet
+            case "rife4.6":
+                from .arches.IFNet_rife46 import IFNet
+            
+        self.model = IFNet()
+        self.isCudaAvailable = torch.cuda.is_available()
+        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
 
         torch.set_grad_enabled(False)
-        if self.cuda_available:
+        if self.isCudaAvailable:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
-        self.model = Model()
-        self.model.load_model(modelDir, -1)
-        self.model.eval()
-
-        if self.cuda_available and self.half:
+        if self.isCudaAvailable and self.half:
             self.model.half()
 
-        self.model.device()
+        self.model.load_state_dict(torch.load(modelPath))
+        self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()
+        self.model.to(self.device)
+
+        ph = ((self.height - 1) // 32 + 1) * 32
+        pw = ((self.width - 1) // 32 + 1) * 32
+        self.padding = (0, pw - self.width, 0, ph - self.height)
+
         self.I0 = None
+        self.scaleList = [8 / self.scale, 4 / self.scale, 2 / self.scale, 1 / self.scale]
 
     @torch.inference_mode()
-    def make_inference(self, n):
-        output = self.model.inference(self.I0, self.I1, n, self.scale, self.ensemble)
+    def make_inference(self, timestep):
+        output = self.model(self.I0, self.I1, timestep, self.scaleList, self.ensemble)
         output = output[:, :, : self.height, : self.width]
         output = (output[0] * 255.0).byte().cpu().numpy().transpose(1, 2, 0)
 
@@ -107,11 +112,10 @@ class Rife:
             .permute(2, 0, 1)
             .unsqueeze(0)
             .float()
-            / 255.0
+            .mul_(1 / 255)
+            .half() if self.isCudaAvailable and self.half
+            else frame
         )
-
-        if self.cuda_available and self.half:
-            frame = frame.half()
 
         if self.padding != (0, 0, 0, 0):
             frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
