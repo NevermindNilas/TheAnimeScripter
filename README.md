@@ -52,7 +52,7 @@ Empower your video editing journey with these robust, efficient features designe
 ### Or Manually Build
 
 - **Cutting Edge Builds:**
-  - Download and install Python 3.12 from [here](https://www.python.org/downloads/release/python-3121/) (add to System Path).
+  - Download and install Python 3.11 from [here](https://www.python.org/downloads/release/python-3110/) (add to System Path).
   - Open a terminal inside the folder.
   - Run: `python build.py`
 
