@@ -7,6 +7,7 @@ from torch.nn import functional as F
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
 
+
 class Rife:
     def __init__(
         self,
@@ -67,7 +68,7 @@ class Rife:
                 from .arches.IFNet_rife413lite import IFNet
             case "rife4.6":
                 from .arches.IFNet_rife46 import IFNet
-            
+
         self.model = IFNet()
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
@@ -91,7 +92,12 @@ class Rife:
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
         self.I0 = None
-        self.scaleList = [8 / self.scale, 4 / self.scale, 2 / self.scale, 1 / self.scale]
+        self.scaleList = [
+            8 / self.scale,
+            4 / self.scale,
+            2 / self.scale,
+            1 / self.scale,
+        ]
 
     @torch.inference_mode()
     def make_inference(self, timestep):
@@ -113,7 +119,8 @@ class Rife:
             .unsqueeze(0)
             .float()
             .mul_(1 / 255)
-            .half() if self.isCudaAvailable and self.half
+            .half()
+            if self.isCudaAvailable and self.half
             else frame
         )
 
