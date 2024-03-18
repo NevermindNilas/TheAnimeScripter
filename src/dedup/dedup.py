@@ -23,8 +23,6 @@ class DedupSSIM:
             return False
 
         score = ssim(self.prevFrame, frame)
-
-        if self.prevFrame is not None:
-            self.prevFrame = frame.copy()
+        self.prevFrame = frame.copy()
 
         return score > self.ssimThreshold
