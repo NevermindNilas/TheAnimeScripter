@@ -1,3 +1,5 @@
+# I hate making GUIs with a passion
+
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -12,10 +14,12 @@ from PyQt6.QtWidgets import (
     QLabel,
     QGroupBox,
     QStackedWidget,
+    QSpacerItem, 
+    QSizePolicy
 )
 from PyQt6.QtGui import QIntValidator
 from PyQt6.QtCore import QTimer, Qt
-from src.uiLogic import uiStyleSheet, runCommand, StreamToTextEdit, loadSettings, saveSettings, updatePresence
+from src.uiLogic import darkUiStyleSheet, lightUiStyleSheet, runCommand, StreamToTextEdit, loadSettings, saveSettings, updatePresence
 
 import sys
 import time
@@ -23,7 +27,6 @@ import time
 from main import scriptVersion
 
 TITLE = f"The Anime Scripter - {scriptVersion} (Alpha)"
-
 class VideoProcessingApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -45,7 +48,7 @@ class VideoProcessingApp(QMainWindow):
         #self.timer.timeout.connect(self.updatePresence)
         self.timer.start(1000)
 
-        self.setStyleSheet(uiStyleSheet())
+        self.setStyleSheet(darkUiStyleSheet())
 
         self.stackedWidget = QStackedWidget()
         self.centralWidget = QWidget()
@@ -74,6 +77,9 @@ class VideoProcessingApp(QMainWindow):
             ("Number of Threads:", 1, 2) # Experimental feature, needs more work but it's there
         ]
 
+        for option in ["Resize", "Dedup", "Denoise", "Upscale", "Interpolate", "Segment", "Depth", "Sharpen"]:
+            self.createCheckbox(option)
+
         for label, defaultValue, maxValue in inputFields:
             layout, entry = self.createInputField(label, defaultValue, maxValue)
             self.checkboxLayout.addLayout(layout)
@@ -84,9 +90,6 @@ class VideoProcessingApp(QMainWindow):
 
         self.inputEntry = self.createPathWidgets("Input Path:", self.browseInput)
         self.outputEntry = self.createPathWidgets("Output Path:", self.browseOutput)
-
-        for option in ["Resize", "Dedup", "Denoise", "Upscale", "Interpolate", "Segment", "Depth", "Sharpen"]:
-            self.createCheckbox(option)
 
         self.outputWindow = QTextEdit()
         self.outputWindow.setReadOnly(True)
@@ -124,16 +127,17 @@ class VideoProcessingApp(QMainWindow):
 
     def createInputField(self, label, defaultValue, maxValue):
         layout = QHBoxLayout()
-        #layout.setAlignment(Qt.AlignmentFlag.AlignLeft)  # Add this line
-        layout.addStretch(1)
+        layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         label = QLabel(label)
         entry = QLineEdit()
         entry.setText(str(defaultValue))
         entry.setValidator(QIntValidator(0, maxValue))
         entry.setFixedWidth(30)
-        #entry.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        entry.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         layout.addWidget(entry)
+        spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        layout.addItem(spacer)
         return layout, entry
     
     def createCheckbox(self, text):
@@ -151,7 +155,7 @@ class VideoProcessingApp(QMainWindow):
             layout.addSpacing(spacing)
 
     def browseInput(self):
-        filePath, _ = QFileDialog.getOpenFileName(self, "Select Input File")
+        filePath, _ = QFileDialog.getOpenFileName(self, "Select Input File", "", "Video Files (*.mp4 *.mkv *.mov *.avi);;All Files (*)")
         if filePath:
             self.inputEntry.setText(filePath)
 
@@ -167,13 +171,32 @@ class VideoProcessingApp(QMainWindow):
         saveSettings(self)
         event.accept()
 
+    def toggleTheme(self):
+        if self.styleSheet() == darkUiStyleSheet():
+            self.setStyleSheet(lightUiStyleSheet())
+        else:
+            self.setStyleSheet(darkUiStyleSheet())
+            
     def openSettings(self):
         self.settingsWidget = QWidget()
         settingsLayout = QVBoxLayout()
-        settingsLabel = QLabel("Settings go here")
-        settingsLayout.addWidget(settingsLabel)
+
+        upscaleSettingsGroup = self.createGroup("Main Settings", QVBoxLayout())
+        extraGroup = self.createGroup("Extra", QVBoxLayout())
+
+        settingsLayout.addWidget(upscaleSettingsGroup)
+        settingsLayout.addWidget(extraGroup)
+
+        buttonsLayout = QHBoxLayout()
+
+        themeButton = self.createButton("Toggle Day / Night Theme", self.toggleTheme)
         backButton = self.createButton("Back", self.goBack)
-        settingsLayout.addWidget(backButton)
+
+        buttonsLayout.addWidget(themeButton)
+        buttonsLayout.addWidget(backButton)
+
+        settingsLayout.addLayout(buttonsLayout)
+
         self.settingsWidget.setLayout(settingsLayout)
         self.stackedWidget.addWidget(self.settingsWidget)
         self.stackedWidget.setCurrentWidget(self.settingsWidget)
