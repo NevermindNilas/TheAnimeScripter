@@ -137,6 +137,7 @@ class VideoProcessor:
                 self.custom_encoder,
                 self.nt,
                 self.buffer_limit,
+                self.benchmark,
             )
 
             return
@@ -159,6 +160,7 @@ class VideoProcessor:
                 self.custom_encoder,
                 self.nt,
                 self.buffer_limit,
+                self.benchmark,
             )
 
             return
