@@ -26,6 +26,7 @@ class Segment:
         custom_encoder="",
         nt=1,
         buffer_limit = 50,
+        benchmark=False,
     ):
         self.input = input
         self.output = output
@@ -39,6 +40,7 @@ class Segment:
         self.custom_encoder = custom_encoder
         self.nt = nt
         self.buffer_limit = buffer_limit
+        self.benchmark = benchmark
 
         self.handleModel()
 
@@ -71,6 +73,7 @@ class Segment:
             grayscale=False,
             transparent=True,
             audio=False,
+            benchmark=self.benchmark,
         )
 
         with ThreadPoolExecutor(max_workers=3) as executor:
