@@ -33,6 +33,7 @@ class Depth:
         custom_encoder="",
         nt=1,
         buffer_limit=50,
+        benchmark=False,
     ):
         self.input = input
         self.output = output
@@ -48,6 +49,7 @@ class Depth:
         self.custom_encoder = custom_encoder
         self.nt = nt
         self.buffer_limit = buffer_limit
+        self.benchmark = benchmark
 
         self.handleModels()
 
@@ -80,6 +82,7 @@ class Depth:
                 sharpen_sens=None,
                 grayscale=True,
                 audio=False,
+                benchmark=self.benchmark,
             )
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
