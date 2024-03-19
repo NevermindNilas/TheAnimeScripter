@@ -1,10 +1,9 @@
 from PyQt6.QtWidgets import QCheckBox
-from PyQt6.QtCore import QProcess
 
 import os
 import json
 
-def uiStyleSheet() -> str:
+def darkUiStyleSheet() -> str:
     """
     Returns the stylesheet for the UI,
     These are Global preset styles meant to be used in the entire application
@@ -65,6 +64,66 @@ def uiStyleSheet() -> str:
         }
     """
 
+def lightUiStyleSheet() -> str:
+    """
+    Returns the stylesheet for the UI,
+    These are Global preset styles meant to be used in the entire application
+    """
+    return """
+        QMainWindow {
+            background-color: #E9ECEC;
+        }
+        
+        QWidget {
+            background-color: #E9ECEC;
+            color: #000000;
+        }
+
+        QPushButton {
+            background-color: #B0BEC5;
+            color: #000000;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+        }
+
+        QPushButton:hover {
+            background-color: #78909C;
+        }
+
+        QLineEdit {
+            background-color: #CFD8DC;
+            color: #000000;
+            border: none;
+            border-radius: 5px;
+            padding: 5px;
+        }
+
+        QCheckBox {
+            color: #000000;
+            padding: 5px;
+        }
+
+        QTextEdit {
+            background-color: #CFD8DC;
+            color: #000000;
+            border: none;
+            border-radius: 5px;
+            padding: 5px;
+        }
+
+        QGroupBox {
+            border: 1px solid #B0BEC5;
+            border-radius: 5px;
+            margin-top: 1ex;
+        }
+
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top center;
+            padding: -7px 5px 0 5px;
+        }
+    """
 
 def runCommand(self, TITLE) -> None:
     """
@@ -127,14 +186,18 @@ class StreamToTextEdit:
 
 def loadSettings(self):
     if os.path.exists(self.settingsFile):
-        with open(self.settingsFile, "r") as file:
-            settings = json.load(file)
-        self.inputEntry.setText(settings.get("input_path", ""))
-        self.outputEntry.setText(settings.get("output_path", ""))
-        for i in range(self.checkboxLayout.count()):
-            checkbox = self.checkboxLayout.itemAt(i).widget()
-            if isinstance(checkbox, QCheckBox):
-                checkbox.setChecked(settings.get(checkbox.text(), False))
+        try:
+            with open(self.settingsFile, "r") as file:
+                settings = json.load(file)
+            self.inputEntry.setText(settings.get("input_path", ""))
+            self.outputEntry.setText(settings.get("output_path", ""))
+            for i in range(self.checkboxLayout.count()):
+                checkbox = self.checkboxLayout.itemAt(i).widget()
+                if isinstance(checkbox, QCheckBox):
+                    checkbox.setChecked(settings.get(checkbox.text(), False))
+                    
+        except Exception as e:
+            print(self.outputWindow.append(f"An error occurred while loading settings, {e}"))
 
 
 def saveSettings(self):
