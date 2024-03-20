@@ -281,9 +281,8 @@ class VideoProcessor:
 
 
 if __name__ == "__main__":
-    logFilePath = os.path.join(mainPath, "log.txt")
     logging.basicConfig(
-        filename=logFilePath, filemode="w", format="%(message)s", level=logging.INFO
+        filename=os.path.join(mainPath, "log.txt"), filemode="w", format="%(message)s", level=logging.INFO
     )
     logging.info("============== Command Line Arguments ==============")
     logging.info(f"{' '.join(sys.argv)}\n")
