@@ -6,7 +6,6 @@ import tensorrt as trt
 import pycuda.driver as cuda
 import pycuda.autoinit
 
-# will be on wait for the next release of spandrel
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
 
