@@ -87,7 +87,9 @@ class VideoProcessor:
             self.input, self.inpoint, self.outpoint
         )
 
-        self.outputFPS = self.fps * self.interpolate_factor if self.interpolate else self.fps
+        self.outputFPS = (
+            self.fps * self.interpolate_factor if self.interpolate else self.fps
+        )
 
         logging.info("\n============== Processing Outputs ==============")
 
@@ -279,16 +281,12 @@ class VideoProcessor:
 
 
 if __name__ == "__main__":
-    log_file_path = os.path.join(mainPath, "log.txt")
+    logFilePath = os.path.join(mainPath, "log.txt")
     logging.basicConfig(
-        filename=log_file_path, filemode="w", format="%(message)s", level=logging.INFO
+        filename=logFilePath, filemode="w", format="%(message)s", level=logging.INFO
     )
-
-    command_line_args = sys.argv
     logging.info("============== Command Line Arguments ==============")
-    command_line_string = " ".join(command_line_args)
-
-    logging.info(f"{command_line_string}\n")
+    logging.info(f"{' '.join(sys.argv)}\n")
 
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--version", action="store_true")
