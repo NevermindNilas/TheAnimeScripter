@@ -55,6 +55,9 @@ def argumentChecker(args, mainPath, scriptVersion):
     if args.dedup_method == "ssim":
         args.dedup_sens = 1 - (args.dedup_sens / 1000) # SSIM works from -1 to 1, but results prove to be efficient only inbetween ~0.9 and 0.999, lower values are not reliable and may remove important frames
 
+    if args.dedup_method == "mse":
+        args.dedup_sens = args.dedup_sens
+
     if not args.ytdlp == "":
         logging.info(f"Downloading {args.ytdlp} video")
         from src.ytdlp import VideoDownloader

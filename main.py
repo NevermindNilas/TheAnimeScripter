@@ -345,7 +345,7 @@ if __name__ == "__main__":
     argparser.add_argument("--custom_model", type=str, default="")
     argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
     argparser.add_argument(
-        "--dedup_method", type=str, default="ffmpeg", choices=["ffmpeg", "ssim"]
+        "--dedup_method", type=str, default="ffmpeg", choices=["ffmpeg", "ssim", "mse"]
     )
     argparser.add_argument("--dedup_sens", type=float, default=35)
     argparser.add_argument("--sample_size", type=int, default=32)

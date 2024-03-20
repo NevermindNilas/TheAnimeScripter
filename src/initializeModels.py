@@ -124,6 +124,14 @@ def intitialize_models(self):
                     self.sample_size,  # Should probably remain 32, values higher result in no real benefits from subjective testing.
                 )
 
+            case "mse":
+                from src.dedup.dedup import DedupMSE
+
+                dedup_process = DedupMSE(
+                    self.dedup_sens,
+                    self.sample_size,  # Should probably remain 32, values higher result in no real benefits from subjective testing.
+                )
+
             case "ffmpeg":
                 # FFMPEG works on decode so it's not possible to use it with the current processing pipeline
                 pass
