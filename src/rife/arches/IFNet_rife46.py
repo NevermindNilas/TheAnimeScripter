@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from src.rife.warplayer import warp
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
@@ -100,8 +98,6 @@ class IFNet(nn.Module):
         self.block1 = IFBlock(8 + 4, c=128)
         self.block2 = IFBlock(8 + 4, c=96)
         self.block3 = IFBlock(8 + 4, c=64)
-        # self.contextnet = Contextnet()
-        # self.unet = Unet()
 
     def forward(
         self,
