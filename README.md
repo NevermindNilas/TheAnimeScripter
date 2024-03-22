@@ -70,11 +70,11 @@ In the settings panel:
 
 ## 📚 Available Inputs
 
-The available inputs have been moved to [Parameters Guide](PARAMETERS.MD).
+Every parameter available can now be found in the [Parameters Guide](PARAMETERS.MD).
 
 ## 🙏 Acknowledgements
 
-- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For helping me debug my code and shufflecugan model
+- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For ShuffleCugan and Rife Models.
 - [HZWER](https://github.com/hzwer/Practical-RIFE) - For Rife.
 - [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) - For Cugan.
 - [JingyunLiang](https://github.com/JingyunLiang/SwinIR) - For SwinIR.
