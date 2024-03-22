@@ -57,6 +57,7 @@ class Upscaler:
         """
         Load the desired model
         """
+        #self.trt = True
         if not self.trt:
             if not self.customModel:
                 self.filename = modelsMap(
@@ -109,58 +110,81 @@ class Upscaler:
                     torch.set_default_dtype(torch.float16)
                     self.model.half()
         else:
-            modelPath = r"G:\TheAnimeScripter\sudo_shuffle_cugan_fp16_op17_clamped_9.584.969 (1).onnx"
-            # engine_file = self.buildEngine(modelPath)
-            engine_file = r"G:\TheAnimeScripter\engine.trt"
-            with open(engine_file, "rb") as f, trt.Runtime(TRT_LOGGER) as runtime:
-                self.engine = runtime.deserialize_cuda_engine(f.read())
+            # Last time I checked only Me and God knew what was going on
+            # Now only God knows
+            modelPath = r"G:\TheAnimeScripter\sudo_shuffle_cugan_fp16_op18_clamped_9.584.969 (1).onnx"
+            args = type('', (), {})()
+            args.mode = "fp16"
+            args.onnx_file_path = modelPath
+            args.batch_size = 1
+            args.engine_file_path = r"G:\TheAnimeScripter\engine.trt"
 
+            self.engine = self.loadEngine2TensorRT(args.engine_file_path)
+            #self.engine = self.ONNX2TRT(args)
             self.context = self.engine.create_execution_context()
-            input_shape = self.context.get_tensor_shape("input")
-            output_shape = self.context.get_tensor_shape("output")
             
-            self.h_input = cuda.pagelocked_empty(
-                trt.volume(input_shape), dtype=np.float32
-            )
-            self.h_output = cuda.pagelocked_empty(
-                trt.volume(output_shape), dtype=np.float32
-            )
+            self.h_input = cuda.pagelocked_empty((1, 3, self.height, self.width), dtype=np.float32)
+            self.h_output = cuda.pagelocked_empty((1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor), dtype=np.float32)
             self.d_input = cuda.mem_alloc(self.h_input.nbytes)
             self.d_output = cuda.mem_alloc(self.h_output.nbytes)
             self.stream = cuda.Stream()
 
-    def buildEngine(self, model_path):
-        with open(model_path, "rb") as f:
-            model = f.read()
+    def ONNX2TRT(self, args, calib=None):
+        G_LOGGER = trt.Logger(trt.Logger.WARNING)
+        EXPLICIT_BATCH = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+        with trt.Builder(G_LOGGER) as builder, \
+                builder.create_network(EXPLICIT_BATCH) as network, \
+                trt.OnnxParser(network, G_LOGGER) as parser:
 
-        builder = trt.Builder(TRT_LOGGER)
-        explicit_batch = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
-        network = builder.create_network(explicit_batch)
-        config = builder.create_builder_config()
-        config.max_workspace_size = 1 << 30
-        config.set_flag(trt.BuilderFlag.FP16)
+            builder.max_batch_size = args.batch_size
 
-        parser = trt.OnnxParser(network, TRT_LOGGER)
-        if not parser.parse(model):
-            print("Failed to parse the ONNX model.")
-            for error in range(parser.num_errors):
-                print(parser.get_error(error))
+            config = builder.create_builder_config()
+            config.max_workspace_size = 1 << 30
 
-        profile = builder.create_optimization_profile()
-        profile.set_shape(
-            "input",
-            (1, 3, self.height, self.width),
-            (1, 3, self.height, self.width),
-            (1, 3, self.height, self.width),
-        )
-        config.add_optimization_profile(profile)
+            profile = builder.create_optimization_profile()
+            profile.set_shape('input', (1, 3, 8, 8), (1, 3, 1080, 1920), (1, 3, 1080, 1920))
+            config.add_optimization_profile(profile)
+            # builder.max_workspace_size = 1 << 30
+            if args.mode.lower() == 'int8':
+                assert (builder.platform_has_fast_int8), "not support int8"
+                assert (calib is not None), "need calib!"
+                config.set_flag(trt.BuilderFlag.INT8)
+                config.int8_calibrator = calib
+            elif args.mode.lower() == 'fp16':
+                assert (builder.platform_has_fast_fp16), "not support fp16"
+                config.set_flag(trt.BuilderFlag.FP16)
 
-        engine = builder.build_engine(network, config)
+            print('Loading ONNX file from path {}...'.format(args.onnx_file_path))
+            with open(args.onnx_file_path, 'rb') as model:
+                print('Beginning ONNX file parsing')
+                if not parser.parse(model.read()):
+                    for e in range(parser.num_errors):
+                        print(parser.get_error(e))
+                    raise TypeError("Parser parse failed.")
 
-        with open("engine.trt", "wb") as f:
-            f.write(engine.serialize())
+            print('Parsing ONNX file complete!')
 
-        return "engine.trt"
+            print('Building an engine from file {}; this may take a while...'.format(args.onnx_file_path))
+            engine = builder.build_engine(network, config)
+            if engine is not None:
+                print("Create engine success! ")
+            else:
+                print("ERROR: Create engine failed! ")
+                return
+
+            print('Saving TRT engine file to path {}...'.format(args.engine_file_path))
+            with open(args.engine_file_path, "wb") as f:
+                f.write(engine.serialize())
+                
+            print('Engine file has already saved to {}!'.format(args.engine_file_path))
+
+            return engine
+        
+    def loadEngine2TensorRT(self, filepath):
+        G_LOGGER = trt.Logger(trt.Logger.WARNING)
+        with open(filepath, "rb") as f, trt.Runtime(G_LOGGER) as runtime:
+            engine = runtime.deserialize_cuda_engine(f.read())
+            return engine
 
     @torch.inference_mode()
     def run(self, frame: np.ndarray) -> np.ndarray:
@@ -200,10 +224,12 @@ class Upscaler:
 
                 return frame.cpu().numpy()
         else:
-            frame = frame.transpose((2, 0, 1))
             frame = np.ascontiguousarray(frame)
+            frame = frame.transpose((2, 0, 1))
 
-            np.copyto(self.h_input, frame.ravel())
+            frame = frame.reshape(1, 3, 1080, 1920)
+            # Assuming `h_input` is your input tensor
+            np.copyto(self.h_input, frame)
 
             """
             WTF IS
@@ -212,6 +238,9 @@ class Upscaler:
             Idk where have I messed up but I'm not able to figure it out
             Piece of...
             """
+            print(f"Shape of h_input: {self.h_input.shape}")
+            print(f"Shape of frame: {frame.shape}")
+
             cuda.memcpy_htod_async(self.d_input, self.h_input, self.stream)
             self.context.execute_async_v2(bindings=[int(self.d_input), int(self.d_output)], stream_handle=self.stream.handle)
             cuda.memcpy_dtoh_async(self.h_output, self.d_output, self.stream)
