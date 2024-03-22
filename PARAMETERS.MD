@@ -84,15 +84,15 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--resize` (int, choices=[0, 1], default=0): Enable resizing (1) or disable (0).
 - `--resize_factor` (int, default=2): Factor for resizing the decoded video. Can also be a float value between 0 and 1 for downscaling.
 - `--resize_method` (str, choices=["fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos", "spline", "spline16", "spline36", "point"], default="bicubic"): Resizing method:
-     - Options: "lanczos" (recommended for upscaling), "area" (recommended for downscaling).
+    - Options: "lanczos" (recommended for upscaling), "area" (recommended for downscaling).
 
 #### Encoding Settings:
 
 - `--encode_method` (str, default="x264"): Encoding method:
-     - Options: x264, x264_animation, x265, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf, vp9, qsv_vp9, prores.
+    - Options: x264, x264_animation, x265, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf, vp9, qsv_vp9, prores.
 - `--custom_encoder` (str, default=""): Comprehensive encoding option allowing users to specify their own `ffmpeg` parameters, including filters. Input a string of `ffmpeg` parameters, separated by spaces.
 
-     Example: `--custom_encoder="-c:v libx264 -crf 14 -vf hqdn3d"`
+    Example: `--custom_encoder="-c:v libx264 -crf 14 -vf hqdn3d"`
 
     Note: Parameters specified with `--custom_encoder` will override the default encoding parameters with the exception of input stream and `-pix_fmt` color chanels. Ensure familiarity with `ffmpeg` and its parameters before using this option.
 
