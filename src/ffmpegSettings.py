@@ -70,7 +70,6 @@ def matchEncoder(encode_method: str):
             )
         case "x265":
             command.extend(["-c:v", "libx265", "-preset", "fast", "-crf", "16"])
-
         case "nvenc_h264":
             command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "16"])
         case "nvenc_h265":
@@ -462,7 +461,7 @@ class WriteBuffer:
             command.extend(["-pix_fmt", output_pix_fmt, self.output])
 
         else:
-            # This is for benchmarking purposes, 
+            # This is for benchmarking purposes,
             # it will not output any video and should be as low overhead as possible, I think.
             command = [
                 self.ffmpegPath,
