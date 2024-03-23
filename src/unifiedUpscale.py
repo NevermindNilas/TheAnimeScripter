@@ -10,7 +10,6 @@ from .downloadModels import downloadModels, weightsDir, modelsMap
 torch.set_float32_matmul_precision("medium")
 
 
-
 class Upscaler:
     def __init__(
         self,
@@ -52,58 +51,49 @@ class Upscaler:
         """
         Load the desired model
         """
-        self.trt = False
-        if not self.trt:
-            if not self.customModel:
-                self.filename = modelsMap(
-                    self.upscaleMethod, self.upscaleFactor, self.cuganKind
-                )
-                if not os.path.exists(
-                    os.path.join(weightsDir, self.upscaleMethod, self.filename)
-                ):
-                    modelPath = downloadModels(
-                        model=self.upscaleMethod,
-                        cuganKind=self.cuganKind,
-                        upscaleFactor=self.upscaleFactor,
-                    )
-
-                else:
-                    modelPath = os.path.join(
-                        weightsDir, self.upscaleMethod, self.filename
-                    )
-
-            else:
-                if os.path.isfile(self.customModel):
-                    modelPath = self.customModel
-
-                else:
-                    raise FileNotFoundError(
-                        f"Custom model file {self.customModel} not found"
-                    )
-
-            try:
-                self.model = ModelLoader().load_from_file(modelPath)
-            except Exception as e:
-                logging.error(f"Error loading model: {e}")
-
-            if self.customModel:
-                assert isinstance(self.model, ImageModelDescriptor)
-
-            self.isCudaAvailable = torch.cuda.is_available()
-            self.model = (
-                self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()
+        if not self.customModel:
+            self.filename = modelsMap(
+                self.upscaleMethod, self.upscaleFactor, self.cuganKind
             )
+            if not os.path.exists(
+                os.path.join(weightsDir, self.upscaleMethod, self.filename)
+            ):
+                modelPath = downloadModels(
+                    model=self.upscaleMethod,
+                    cuganKind=self.cuganKind,
+                    upscaleFactor=self.upscaleFactor,
+                )
+            else:
+                modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
+        else:
+            if os.path.isfile(self.customModel):
+                modelPath = self.customModel
+            else:
+                raise FileNotFoundError(
+                    f"Custom model file {self.customModel} not found"
+                )
+        try:
+            self.model = ModelLoader().load_from_file(modelPath)
+        except Exception as e:
+            logging.error(f"Error loading model: {e}")
 
-            self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
+        if self.customModel:
+            assert isinstance(self.model, ImageModelDescriptor)
 
-            if self.isCudaAvailable:
-                #self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
-                #self.currentStream = 0
-                torch.backends.cudnn.enabled = True
-                torch.backends.cudnn.benchmark = True
-                if self.half:
-                    torch.set_default_dtype(torch.float16)
-                    self.model.half()
+        self.isCudaAvailable = torch.cuda.is_available()
+        self.model = (
+            self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()
+        )
+        
+        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
+        if self.isCudaAvailable:
+            # self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
+            # self.currentStream = 0
+            torch.backends.cudnn.enabled = True
+            torch.backends.cudnn.benchmark = True
+            if self.half:
+                torch.set_default_dtype(torch.float16)
+                self.model.half()
 
     @torch.inference_mode()
     def run(self, frame: np.ndarray) -> np.ndarray:
@@ -123,7 +113,7 @@ class Upscaler:
             frame = frame.contiguous(memory_format=torch.channels_last)
 
             if self.isCudaAvailable:
-                #torch.cuda.set_stream(self.stream[self.currentStream])
+                # torch.cuda.set_stream(self.stream[self.currentStream])
                 frame = frame.cuda(non_blocking=True)
                 if self.half:
                     frame = frame.half()
