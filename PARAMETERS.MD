@@ -16,6 +16,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--input` (str): Absolute path of the input video.
 - `--output` (str): Output string or absolute path for the processed video.
 - `--audio` (int, default=1): Enable audio processing (1) or disable (0).
+- `--ytdlp_quality` (int, default=0): Allow 4k/8k videos to be downloaded then re-encoded to the selected `--encode_method` or `--custom_encoder`.
 
 #### Interpolation Settings:
 
@@ -74,10 +75,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--depth_method` (str, default="small"): Depth map generation method:
      - Options: "small", "base", "large".
 
-#### YouTube Video Download:
-
-- `--ytdlp` (str, default=""): Download a YouTube video, needs a full URL.
-- `--ytdlp_quality` (int, default=0): Allow 4k/8k videos to be downloaded then re-encoded to the selected `--encode_method` or `--custom_encoder`.
 
 #### Resizing:
 
@@ -139,7 +136,7 @@ Example 7: Enable depth map generation using the "large" method.
 
 - `python .\main.py --input .\input\test.mp4 --depth 1 --depth_method large`
 
-Example 8: Download a YouTube video.
+Example 8: Download a YouTube video and then upscale it with shufflecugan.
 
-- `python .\main.py --ytdlp "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+- `python .\main.py --input https://www.youtube.com/watch?v=dQw4w9WgXcQ --upscale 1 --upscale_method shufflecugan
 - Remember to replace the YouTube URL with the actual URL of the video you want to download.
