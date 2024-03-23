@@ -825,8 +825,8 @@ var TheAnimeScripter = (function() {
                 "&&",
                 "\"" + exeFile + "\"",
                 "--output", "\"" + outputName + "\"",
-                "--ytdlp", "\"" + textGetVideo.text + "\"",
-                "--ytdlp_quality", checkboxYTDLPQuality.value ? "1" : "0",
+                "--input", "\"" + textGetVideo.text + "\"",
+                "--ytdlp_quality", checkboxYTDLPQualityValue() ? "1" : "0",
             ];
             var command = attempt.join(" ");
             callCommand(command);
