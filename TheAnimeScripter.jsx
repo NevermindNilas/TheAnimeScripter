@@ -537,7 +537,7 @@ var TheAnimeScripter = (function() {
     }
 
     buttonCustomModel.onClick = function() {
-        var customModel = File.openDialog("Select a Custom Model", "*.pth;*.onnx", false);
+        var customModel = File.openDialog("Select a Custom Model", "*.pth", false);
         if (customModel != null) {
             customModelPath = customModel.fsName;
             customModelName = customModel.name;
