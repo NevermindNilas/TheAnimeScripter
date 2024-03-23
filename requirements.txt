@@ -13,6 +13,7 @@ yt-dlp
 einops
 scikit-image
 scenedetect[opencv]
+validators
 realcugan-ncnn-py
 pytorch-lightning
 torch 
