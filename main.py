@@ -211,11 +211,7 @@ class VideoProcessor:
             while True:
                 frame = self.readBuffer.read()
                 if frame is None:
-                    if (
-                        self.readBuffer.isReadingDone()
-                        and self.readBuffer.getSizeOfQueue() == 0
-                    ):
-                        break
+                    break
 
                 self.semaphore.acquire()
                 executor.submit(self.processFrame, frame)
@@ -380,7 +376,6 @@ if __name__ == "__main__":
         ],
         default="x264",
     )
-    argparser.add_argument("--ytdlp", type=str, default="")
     argparser.add_argument("--ytdlp_quality", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--resize", type=int, choices=[0, 1], default=0)
     argparser.add_argument(
@@ -431,7 +426,9 @@ if __name__ == "__main__":
     argparser.add_argument("--benchmark", type=int, choices=[0, 1], default=0)
 
     args = argparser.parse_args()
-    args.ffmpeg_path = argumentChecker(args, mainPath, scriptVersion)
+    args = argumentChecker(args, mainPath, scriptVersion)
+
+    print(args.input)
 
     if os.path.isfile(args.input):
         print(f"Processing {args.input}")

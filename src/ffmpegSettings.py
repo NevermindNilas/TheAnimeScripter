@@ -372,16 +372,16 @@ class WriteBuffer:
                     )
                 self.encode_method = "prores"
 
-            pix_fmt = "rgba"
-            output_pix_fmt = "yuva444p10le"
+            inputPixFormat = "rgba"
+            outputPixFormat = "yuva444p10le"
 
         elif self.grayscale:
-            pix_fmt = "gray"
-            output_pix_fmt = "yuv420p10le"
+            inputPixFormat = "gray"
+            outputPixFormat = "yuv420p10le"
 
         else:
-            pix_fmt = "rgb24"
-            output_pix_fmt = "yuv420p"
+            inputPixFormat = "rgb24"
+            outputPixFormat = "yuv420p"
 
         if not self.benchmark:
             command = [
@@ -397,7 +397,7 @@ class WriteBuffer:
                 "-s",
                 f"{self.width}x{self.height}",
                 "-pix_fmt",
-                f"{pix_fmt}",
+                f"{inputPixFormat}",
                 "-r",
                 str(self.fps),
                 "-thread_queue_size",
@@ -411,7 +411,7 @@ class WriteBuffer:
                 "vfr",
             ]
 
-            if self.custom_encoder == "":
+            if not self.custom_encoder:
                 command.extend(matchEncoder(self.encode_method))
 
                 filters = []
@@ -424,27 +424,24 @@ class WriteBuffer:
                 if filters:
                     command.extend(["-vf", ",".join(filters)])
 
+                command.extend(["-pix_fmt", outputPixFormat, self.output])
+
             else:
-                custom_encoder_list = self.custom_encoder.split()
+                customEncoderList = self.custom_encoder.split()
 
-                if "-pix_fmt" in custom_encoder_list:
-                    raise ValueError(
-                        "The '-pix_fmt' option is hardcoded in the script and should not be included in the custom encoder settings."
-                    )
-
-                if "-vf" in custom_encoder_list:
-                    vf_index = custom_encoder_list.index("-vf")
+                if "-vf" in customEncoderList:
+                    vf_index = customEncoderList.index("-vf")
 
                     if self.sharpen:
-                        custom_encoder_list[vf_index + 1] += ",cas={}".format(
+                        customEncoderList[vf_index + 1] += ",cas={}".format(
                             self.sharpen_sens
                         )
 
                     if self.grayscale:
-                        custom_encoder_list[vf_index + 1] += ",format=gray"
+                        customEncoderList[vf_index + 1] += ",format=gray"
 
                     if self.transparent:
-                        custom_encoder_list[vf_index + 1] += ",format=rgba"
+                        customEncoderList[vf_index + 1] += ",format=rgba"
                 else:
                     filters = []
                     if self.sharpen:
@@ -454,11 +451,13 @@ class WriteBuffer:
                     if self.transparent:
                         filters.append("format=rgba")
                     if filters:
-                        custom_encoder_list.extend(["-vf", ",".join(filters)])
+                        customEncoderList.extend(["-vf", ",".join(filters)])
 
-                command.extend(custom_encoder_list)
+                if "-pix_fmt" not in customEncoderList:
+                    logging.info(f"-pix_fmt was not found in the custom encoder list, adding {outputPixFormat}, for future reference, it is recommended to add it.")
+                    customEncoderList.extend(["-pix_fmt", outputPixFormat])
 
-            command.extend(["-pix_fmt", output_pix_fmt, self.output])
+                command.extend(customEncoderList)
 
         else:
             # This is for benchmarking purposes,
@@ -476,7 +475,7 @@ class WriteBuffer:
                 "-s",
                 f"{self.width}x{self.height}",
                 "-pix_fmt",
-                f"{pix_fmt}",
+                f"{inputPixFormat}",
                 "-r",
                 str(self.fps),
                 "-i",
