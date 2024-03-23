@@ -29,9 +29,7 @@ def outputNameGenerator(args):
 
     parts.append(f"-{random.randint(0, 1000)}")
 
-    if args.ytdlp:
-        extension = ".mp4"
-    elif args.segment:
+    if args.segment:
         extension = ".mov"
     elif args.input:
         extension = os.path.splitext(args.input)[1]
