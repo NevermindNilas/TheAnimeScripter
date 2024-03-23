@@ -89,9 +89,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
     - Options: x264, x264_animation, x265, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf, vp9, qsv_vp9, prores.
 - `--custom_encoder` (str, default=""): Comprehensive encoding option allowing users to specify their own `ffmpeg` parameters, including filters. Input a string of `ffmpeg` parameters, separated by spaces.
 
-    Example: `--custom_encoder="-c:v libx264 -crf 14 -vf hqdn3d"`
-
-    Note: Parameters specified with `--custom_encoder` will override the default encoding parameters with the exception of input stream and `-pix_fmt` color chanels. Ensure familiarity with `ffmpeg` and its parameters before using this option.
+    Example: `--custom_encoder="-c:v libx264 -crf 14 -vf hqdn3d -pix_fmt yuv420"`
 
 #### Performance Settings:
 
