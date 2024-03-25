@@ -54,7 +54,13 @@ def intitialize_models(self):
 
         UHD = True if new_width >= 3840 or new_height >= 2160 else False
         match self.interpolate_method:
-            case "rife" | "rife4.6" | "rife4.13-lite" | "rife4.14" | "rife4.15" | "rife4.16-lite":
+            case (
+                "rife"
+                | "rife4.6"
+                | "rife4.14"
+                | "rife4.15"
+                | "rife4.16-lite"
+            ):
                 from src.rife.rife import Rife
 
                 interpolate_process = Rife(
@@ -70,7 +76,6 @@ def intitialize_models(self):
             case (
                 "rife-ncnn"
                 | "rife4.6-ncnn"
-                | "rife4.13-lite-ncnn"
                 | "rife4.14-ncnn"
                 | "rife4.15-ncnn"
             ):
