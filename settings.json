@@ -2,7 +2,7 @@
     "input_path": "G:/TheAnimeScripter/input/test.mp4",
     "output_path": "C:/Users/nilas/OneDrive/Desktop/test",
     "Resize": false,
-    "Dedup": false,
+    "Dedup": true,
     "Denoise": false,
     "Upscale": false,
     "Interpolate": false,

@@ -1,7 +1,9 @@
-from PyQt6.QtWidgets import QCheckBox
-
+import subprocess
 import os
 import json
+
+from PyQt6.QtWidgets import QCheckBox
+
 
 def darkUiStyleSheet() -> str:
     """
@@ -64,6 +66,7 @@ def darkUiStyleSheet() -> str:
         }
     """
 
+
 def lightUiStyleSheet() -> str:
     """
     Returns the stylesheet for the UI,
@@ -125,6 +128,7 @@ def lightUiStyleSheet() -> str:
         }
     """
 
+
 def runCommand(self, TITLE) -> None:
     """
     self.RPC.update(
@@ -135,10 +139,13 @@ def runCommand(self, TITLE) -> None:
         large_text=TITLE,
         small_text="Processing",
     )
+    """
     mainExePath = os.path.join(os.path.dirname(__file__), "main.exe")
     if not os.path.isfile(mainExePath):
         try:
-            mainExePath = os.path.join(os.path.dirname(os.path.dirname(__file__)), "main.py")
+            mainExePath = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "main.py"
+            )
             command = ["python", mainExePath]
         except FileNotFoundError:
             self.outputWindow.append("main.exe nor main.py not found")
@@ -146,33 +153,41 @@ def runCommand(self, TITLE) -> None:
     else:
         command = [mainExePath]
 
-    if self.inputEntry.text():
-        command.append("--input")
-        command.append(self.inputEntry.text())
-    else:
-        self.outputWindow.append("Input file or folder was not selected")
-        return
-    
-    if self.outputEntry.text():
-        command.append("--output")
-        command.append(self.outputEntry.text())
-    else:
-        self.outputWindow.append("Output directory was not selected, using default")
-        
-    for i in range(self.checkboxLayout.count()):
-        checkbox = self.checkboxLayout.itemAt(i).widget()
-        if isinstance(checkbox, QCheckBox) and checkbox.isChecked():
-            command.append(f"--{checkbox.text().lower().replace(' ', '_')}")
-        if checkbox.text() == "Half Precision Mode":
-            command.append("--half 1")
+    loadSettingsFile = json.load(open(self.settingsFile))
 
-    self.process = QProcess()
-    self.process.readyReadStandardOutput.connect(self.handleStdout)
-    self.process.readyReadStandardError.connect(self.handleStderr)
-    self.process.start(command[0], command[1:])
-    """
-    mainExePath = os.path.join(os.path.dirname(__file__), "main.exe")
-    print(mainExePath)
+    for option in loadSettingsFile:
+        loweredOption = option.lower()
+        loweredOptionValue = str(loadSettingsFile[option]).lower()
+
+        if loweredOption == "input_path":
+            loweredOption = "input"
+
+        if loweredOption == "output_path":
+            loweredOption = "output"
+
+        if loweredOptionValue == "true":
+            loweredOptionValue = "1"
+        elif loweredOptionValue == "false":
+            loweredOptionValue = "0"
+
+        command.append(f"--{loweredOption} {loweredOptionValue}")
+
+    command = " ".join(command)
+    print(command)
+
+    subprocess.Popen(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    # self.process.readyReadStandardOutput.connect(self.handleStdout)
+    # self.process.readyReadStandardError.connect(self.handleStderr)
+    # self.process.start(command[0], command[1:])
+    # print(mainExePath)
+    # self.process = QProcess()
+    # self.process.readyReadStandardOutput.connect(self.handleStdout)
+    # self.process.readyReadStandardError.connect(self.handleStderr)
+    # self.process.start(command[0], command[1:])
+
+
 class StreamToTextEdit:
     def __init__(self, text_edit):
         self.text_edit = text_edit
@@ -195,9 +210,13 @@ def loadSettings(self):
                 checkbox = self.checkboxLayout.itemAt(i).widget()
                 if isinstance(checkbox, QCheckBox):
                     checkbox.setChecked(settings.get(checkbox.text(), False))
-                    
+
         except Exception as e:
-            print(self.outputWindow.append(f"An error occurred while loading settings, {e}"))
+            print(
+                self.outputWindow.append(
+                    f"An error occurred while loading settings, {e}"
+                )
+            )
 
 
 def saveSettings(self):
@@ -211,6 +230,7 @@ def saveSettings(self):
             settings[checkbox.text()] = checkbox.isChecked()
     with open(self.settingsFile, "w") as file:
         json.dump(settings, file, indent=4)
+
 
 def updatePresence(RPC, start_time, TITLE):
     RPC.update(
