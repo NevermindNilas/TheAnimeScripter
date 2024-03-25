@@ -72,6 +72,19 @@ In the settings panel:
 
 Every parameter available can now be found in the [Parameters Guide](PARAMETERS.MD).
 
+
+## Available Models
+
+Upscaling: 
+  - Official Support - Cugan / Cugan-NCNN, ShuffleCugan / ShuffleCugan-NCNN, Span / Span-NCNN, RealESRGan / RealESRGan-NCNN, OmniSR, SRVGGNet ( Compact, UltraCompact, SuperUltraCompact )
+  - Unofficial Support through `--custom_model` param, virtually anything that [Spandrel](https://github.com/chaiNNer-org/spandrel) supports.
+
+Interpolation: 
+  - Rife 4.6, Rife4.14, Rife 4.15, Rife 4.16-lite and NCNN versions for each of them and GMFSS.
+  
+Denoise:
+  - SCUNet, NAFNet, Span ( 1x pretrain model )
+
 ## 🙏 Acknowledgements
 
 - [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For ShuffleCugan and Rife Models.

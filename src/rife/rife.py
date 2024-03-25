@@ -64,8 +64,6 @@ class Rife:
                 from .arches.IFNet_rife415 import IFNet
             case "rife4.14":
                 from .arches.IFNet_rife414 import IFNet
-            case "rife4.13-lite":
-                from .arches.IFNet_rife413lite import IFNet
             case "rife4.6":
                 from .arches.IFNet_rife46 import IFNet
             case "rife4.16-lite":
