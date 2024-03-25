@@ -16,8 +16,6 @@ class rifeNCNN:
                 self.interpolate_method = "rife-v4.15"            
             case "rife4.14-ncnn":
                 self.interpolate_method = "rife-v4.14"
-            case "rife4.13-lite-ncnn":
-                self.interpolate_method = "rife-v4.13-lite"
             case "rife4.6-ncnn":
                 self.interpolate_method = "rife-v4.6"
 
