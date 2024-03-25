@@ -16,10 +16,11 @@ from PyQt6.QtWidgets import (
     QStackedWidget,
     QSpacerItem,
     QSizePolicy,
+    QGraphicsOpacityEffect
 )
 
 from PyQt6.QtGui import QIntValidator
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QTimer, Qt, QPropertyAnimation, QEasingCurve
 from src.uiLogic import (
     darkUiStyleSheet,
     lightUiStyleSheet,
@@ -73,6 +74,18 @@ class VideoProcessingApp(QMainWindow):
 
         self.settingsFile = os.path.join(os.getcwd(), "settings.json")
         loadSettings(self)
+        self.fadeIn(self.centralWidget, 500)
+
+    def fadeIn(self, widget, duration=500):
+        opacity_effect = QGraphicsOpacityEffect(widget)
+        widget.setGraphicsEffect(opacity_effect)
+
+        self.animation = QPropertyAnimation(opacity_effect, b"opacity")
+        self.animation.setDuration(duration)
+        self.animation.setStartValue(0)
+        self.animation.setEndValue(1)
+        self.animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.animation.start()
 
     def createLayouts(self):
         self.layout = QVBoxLayout()
@@ -240,9 +253,13 @@ class VideoProcessingApp(QMainWindow):
         self.stackedWidget.addWidget(self.settingsWidget)
         self.stackedWidget.setCurrentWidget(self.settingsWidget)
 
+        self.fadeIn(self.settingsWidget, 300)
+
     def goBack(self):
         self.stackedWidget.removeWidget(self.settingsWidget)
         self.stackedWidget.setCurrentWidget(self.centralWidget)
+
+        self.fadeIn(self.centralWidget, 300)
 
 
 if __name__ == "__main__":
