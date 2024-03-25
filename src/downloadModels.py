@@ -57,9 +57,6 @@ def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
         case "rife4.14":
             return "rife414.pth"
         
-        case "rife4.13-lite":
-            return "rife413_lite.pth"
-        
         case "rife4.6":
             return "rife46.pth"
         
