@@ -295,13 +295,11 @@ if __name__ == "__main__":
         choices=[
             "rife",
             "rife4.6",
-            "rife4.13-lite",
             "rife4.14",
             "rife4.15",
             "rife4.16-lite",
             "rife-ncnn",
             "rife4.6-ncnn",
-            "rife4.13-lite-ncnn",
             "rife4.14-ncnn",
             "rife4.15-ncnn",
             "gmfss",
