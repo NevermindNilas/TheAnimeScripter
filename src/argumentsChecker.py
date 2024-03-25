@@ -67,7 +67,8 @@ def argumentChecker(args, mainPath, scriptVersion):
     else:
         logging.info("No custom encoder specified, using default encoder")
 
-    processURL(args, mainPath)
+    if "https://" in args.input or "http://" in args.input:
+        processURL(args, mainPath)
 
     processingMethods = [getattr(args, arg) for arg in boolArgs]
     if not any(processingMethods) and not validators.url(args.input):

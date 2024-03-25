@@ -14,19 +14,32 @@ from PyQt6.QtWidgets import (
     QLabel,
     QGroupBox,
     QStackedWidget,
-    QSpacerItem, 
-    QSizePolicy
+    QSpacerItem,
+    QSizePolicy,
 )
+
 from PyQt6.QtGui import QIntValidator
 from PyQt6.QtCore import QTimer, Qt
-from src.uiLogic import darkUiStyleSheet, lightUiStyleSheet, runCommand, StreamToTextEdit, loadSettings, saveSettings, updatePresence
+from src.uiLogic import (
+    darkUiStyleSheet,
+    lightUiStyleSheet,
+    runCommand,
+    StreamToTextEdit,
+    loadSettings,
+    saveSettings,
+    updatePresence,
+)
 
+import os
 import sys
 import time
-#from pypresence import Presence
+
+# from pypresence import Presence
 from main import scriptVersion
 
 TITLE = f"The Anime Scripter - {scriptVersion} (Alpha)"
+
+
 class VideoProcessingApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -35,8 +48,8 @@ class VideoProcessingApp(QMainWindow):
         self.setFixedSize(1280, 720)
 
         """
-        self.client_id = "1213461768785891388"
-        self.RPC = Presence(self.client_id)
+        self.clientID = "1213461768785891388"
+        self.RPC = Presence(self.clientID)
         try:
             self.RPC.connect()
         except ConnectionRefusedError:
@@ -45,7 +58,7 @@ class VideoProcessingApp(QMainWindow):
 
         self.start_time = int(time.time())
         self.timer = QTimer()
-        #self.timer.timeout.connect(self.updatePresence)
+        # self.timer.timeout.connect(self.updatePresence)
         self.timer.start(1000)
 
         self.setStyleSheet(darkUiStyleSheet())
@@ -58,7 +71,7 @@ class VideoProcessingApp(QMainWindow):
         self.createLayouts()
         self.createWidgets()
 
-        self.settingsFile = "settings.json"
+        self.settingsFile = os.path.join(os.getcwd(), "settings.json")
         loadSettings(self)
 
     def createLayouts(self):
@@ -74,10 +87,23 @@ class VideoProcessingApp(QMainWindow):
             ("Interpolate Factor:", 2, 100),
             ("Upscale Factor:", 2, 4),
             ("Resize Factor:", 1, 4),
-            ("Number of Threads:", 1, 2) # Experimental feature, needs more work but it's there
+            (
+                "Number of Threads:",
+                1,
+                2,
+            ),  # Experimental feature, needs more work but it's there
         ]
 
-        for option in ["Resize", "Dedup", "Denoise", "Upscale", "Interpolate", "Segment", "Depth", "Sharpen"]:
+        for option in [
+            "Resize",
+            "Dedup",
+            "Denoise",
+            "Upscale",
+            "Interpolate",
+            "Segment",
+            "Depth",
+            "Sharpen",
+        ]:
             self.createCheckbox(option)
 
         for label, defaultValue, maxValue in inputFields:
@@ -98,20 +124,26 @@ class VideoProcessingApp(QMainWindow):
         sys.stdout = StreamToTextEdit(self.outputWindow)
         sys.stderr = StreamToTextEdit(self.outputWindow)
 
-        self.runButton = self.createButton("Run", lambda: runCommand(self, TITLE))
-        self.settingsButton = self.createButton("Settings", self.openSettings)
+        self.runButton = self.createButton("Run", self.runButtonOnClick)
+        self.settingsButton = self.createButton("Settings", self.openSettingsPanel)
 
         self.buttonLayout = QHBoxLayout()
         self.buttonLayout.addWidget(self.runButton)
         self.buttonLayout.addWidget(self.settingsButton)
 
-        self.addWidgetsToLayout(self.layout, [self.pathGroup, self.checkboxGroup, self.outputGroup], 5)
+        self.addWidgetsToLayout(
+            self.layout, [self.pathGroup, self.checkboxGroup, self.outputGroup], 5
+        )
         self.layout.addLayout(self.buttonLayout)
 
     def createGroup(self, title, layout):
         group = QGroupBox(title)
         group.setLayout(layout)
         return group
+
+    def runButtonOnClick(self):
+        saveSettings(self)
+        runCommand(self, TITLE)
 
     def createPathWidgets(self, label, slot):
         layout = QHBoxLayout()
@@ -136,10 +168,12 @@ class VideoProcessingApp(QMainWindow):
         entry.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         layout.addWidget(entry)
-        spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        spacer = QSpacerItem(
+            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
+        )
         layout.addItem(spacer)
         return layout, entry
-    
+
     def createCheckbox(self, text):
         checkbox = QCheckBox(text)
         self.checkboxLayout.addWidget(checkbox)
@@ -155,7 +189,12 @@ class VideoProcessingApp(QMainWindow):
             layout.addSpacing(spacing)
 
     def browseInput(self):
-        filePath, _ = QFileDialog.getOpenFileName(self, "Select Input File", "", "Video Files (*.mp4 *.mkv *.mov *.avi);;All Files (*)")
+        filePath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Input File",
+            "",
+            "Video Files (*.mp4 *.mkv *.mov *.avi);;All Files (*)",
+        )
         if filePath:
             self.inputEntry.setText(filePath)
 
@@ -176,8 +215,8 @@ class VideoProcessingApp(QMainWindow):
             self.setStyleSheet(lightUiStyleSheet())
         else:
             self.setStyleSheet(darkUiStyleSheet())
-            
-    def openSettings(self):
+
+    def openSettingsPanel(self):
         self.settingsWidget = QWidget()
         settingsLayout = QVBoxLayout()
 
