@@ -63,6 +63,9 @@ def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
         case "rife4.6":
             return "rife46.pth"
         
+        case "rife4.16-lite":
+            return "rife416_lite.pth"
+        
         case _:
             raise ValueError(f"Model {model} not found.")
 
@@ -128,7 +131,7 @@ def downloadModels(
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, gmfssFolderPath)
 
-        case "rife" | "rife4.14" | "rife4.13-lite" | "rife4.6" | "rife4.15":
+        case "rife" | "rife4.14" | "rife4.13-lite" | "rife4.6" | "rife4.15" | "rife4.16-lite":
             rifeFolderPath = os.path.join(weightsDir, "rife")
             os.makedirs(rifeFolderPath, exist_ok=True)
             fullUrl = f"{url}{filename}"
