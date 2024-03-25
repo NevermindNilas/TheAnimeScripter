@@ -2,8 +2,8 @@ import subprocess
 import os
 import json
 
-from PyQt6.QtWidgets import QCheckBox
-
+from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
+from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
 
 def darkUiStyleSheet() -> str:
     """
@@ -159,12 +159,6 @@ def runCommand(self, TITLE) -> None:
         loweredOption = option.lower()
         loweredOptionValue = str(loadSettingsFile[option]).lower()
 
-        if loweredOption == "input_path":
-            loweredOption = "input"
-
-        if loweredOption == "output_path":
-            loweredOption = "output"
-
         if loweredOptionValue == "true":
             loweredOptionValue = "1"
         elif loweredOptionValue == "false":
@@ -204,8 +198,8 @@ def loadSettings(self):
         try:
             with open(self.settingsFile, "r") as file:
                 settings = json.load(file)
-            self.inputEntry.setText(settings.get("input_path", ""))
-            self.outputEntry.setText(settings.get("output_path", ""))
+            self.inputEntry.setText(settings.get("input", ""))
+            self.outputEntry.setText(settings.get("output", ""))
             for i in range(self.checkboxLayout.count()):
                 checkbox = self.checkboxLayout.itemAt(i).widget()
                 if isinstance(checkbox, QCheckBox):
@@ -221,8 +215,11 @@ def loadSettings(self):
 
 def saveSettings(self):
     settings = {
-        "input_path": self.inputEntry.text(),
-        "output_path": self.outputEntry.text(),
+        "input": self.inputEntry.text(),
+        "output": self.outputEntry.text(),
+        "resize_factor": self.resizeFactorEntry.text(),
+        "upscaling_factor": self.upscalingFactorEntry.text(),
+        "interpolate_factor": self.interpolateFactorEntry.text(),
     }
     for i in range(self.checkboxLayout.count()):
         checkbox = self.checkboxLayout.itemAt(i).widget()
@@ -241,3 +238,14 @@ def updatePresence(RPC, start_time, TITLE):
         large_text=TITLE,
         small_text="Idle",
     )
+
+
+def fadeIn(self, widget, duration=500):
+    opacity_effect = QGraphicsOpacityEffect(widget)
+    widget.setGraphicsEffect(opacity_effect)
+    self.animation = QPropertyAnimation(opacity_effect, b"opacity")
+    self.animation.setDuration(duration)
+    self.animation.setStartValue(0)
+    self.animation.setEndValue(1)
+    self.animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
+    self.animation.start()
