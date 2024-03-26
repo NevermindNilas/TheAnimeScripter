@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
 )
 
 from PyQt6.QtGui import QIntValidator
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import Qt
 from src.uiLogic import (
     darkUiStyleSheet,
     lightUiStyleSheet,
@@ -26,19 +26,26 @@ from src.uiLogic import (
     StreamToTextEdit,
     loadSettings,
     saveSettings,
-    updatePresence,
     fadeIn,
     dropdownsLabels,
 )
 
 import os
 import sys
-import time
-
-# from pypresence import Presence
 from main import scriptVersion
 
 TITLE = f"The Anime Scripter - {scriptVersion} (Alpha)"
+
+"""
+from pypresence import Presence
+self.clientID = "1213461768785891388"
+self.RPC = Presence(self.clientID)
+try:
+    self.RPC.connect()
+except ConnectionRefusedError:
+    print("Could not connect to Discord. Is Discord running?")
+self.timer.timeout.connect(self.updatePresence)
+"""
 
 
 class VideoProcessingApp(QMainWindow):
@@ -48,22 +55,7 @@ class VideoProcessingApp(QMainWindow):
         self.setWindowTitle(TITLE)
         self.setFixedSize(1280, 720)
 
-        """
-        self.clientID = "1213461768785891388"
-        self.RPC = Presence(self.clientID)
-        try:
-            self.RPC.connect()
-        except ConnectionRefusedError:
-            print("Could not connect to Discord. Is Discord running?")
-        """
-
-        self.start_time = int(time.time())
-        self.timer = QTimer()
-        # self.timer.timeout.connect(self.updatePresence)
-        self.timer.start(1000)
-
         self.setStyleSheet(darkUiStyleSheet())
-
         self.stackedWidget = QStackedWidget()
         self.centralWidget = QWidget()
         self.stackedWidget.addWidget(self.centralWidget)
@@ -75,6 +67,38 @@ class VideoProcessingApp(QMainWindow):
         self.settingsFile = os.path.join(os.getcwd(), "settings.json")
         loadSettings(self)
         fadeIn(self, self.centralWidget, 500)
+
+        dropdowns = [
+            ("Interpolate Method:", "Interpolation"),
+            ("Upscale Method:", "Upscaling"),
+            ("Denoise Method:", "Denoise"),
+            ("Dedup Method:", "Dedup"),
+            ("Depth Method:", "Depth"),
+            ("Encode Method:", "Encode"),
+        ]
+
+        self.dropdowns = {}
+        for label, method in dropdowns:
+            dropdownLayout, dropdown = self.createLabeledDropdown(
+                label, dropdownsLabels(method)
+            )
+            setattr(self, f"{method.lower()}MethodDropdown", dropdown)
+            self.dropdowns[method.lower()] = dropdownLayout
+
+        checkboxes = [
+            ("Keep Audio", "Enable or disable audio in the output file."),
+            (
+                "Benchmark Mode",
+                "Benchmark mode will disable encoding and only monitor the performance of the script without the creation of an output file.",
+            ),
+        ]
+
+        self.checkboxes = {}
+        for text, help_text in checkboxes:
+            checkbox = QCheckBox(text)
+            checkbox.setToolTip(help_text)
+            setattr(self, f"{text.replace(' ', '').lower()}Checkbox", checkbox)
+            self.checkboxes[text.replace(" ", "").lower()] = checkbox
 
     def createLayouts(self):
         self.layout = QVBoxLayout()
@@ -173,7 +197,7 @@ class VideoProcessingApp(QMainWindow):
 
     def runButtonOnClick(self):
         saveSettings(self)
-        runCommand(self, TITLE)
+        runCommand(self)
 
     def createPathWidgets(self, label, slot):
         layout = QHBoxLayout()
@@ -230,9 +254,6 @@ class VideoProcessingApp(QMainWindow):
         if directory:
             self.outputEntry.setText(directory)
 
-    def updatePresence(self):
-        updatePresence(self.RPC, self.start_time, TITLE)
-
     def closeEvent(self, event):
         saveSettings(self)
         event.accept()
@@ -244,6 +265,7 @@ class VideoProcessingApp(QMainWindow):
             self.setStyleSheet(darkUiStyleSheet())
 
     def openSettingsPanel(self):
+        loadSettings(self)
         self.settingsWidget = QWidget()
         settingsLayout = QVBoxLayout()
 
@@ -263,14 +285,18 @@ class VideoProcessingApp(QMainWindow):
         ]
 
         for label, method in dropdowns:
-            dropdownLayout, dropdown = self.createLabeledDropdown(label, dropdownsLabels(method))
-            mainSettings.addLayout(dropdownLayout)
+            dropdownLayout, dropdown = self.createLabeledDropdown(
+                label, dropdownsLabels(method)
+            )
             setattr(self, f"{method.lower()}MethodDropdown", dropdown)
+            mainSettings.addLayout(dropdownLayout)
 
         self.encodeParamsLabel = QLabel()
         mainSettings.addWidget(self.encodeParamsLabel)
         self.updateEncodeParamsLabel(self.encodeMethodDropdown.currentText())
-        self.encodeMethodDropdown.currentTextChanged.connect(self.updateEncodeParamsLabel)
+        self.encodeMethodDropdown.currentTextChanged.connect(
+            self.updateEncodeParamsLabel
+        )
 
         settingsLayout.addWidget(mainSettingsGroup)
 
@@ -282,26 +308,25 @@ class VideoProcessingApp(QMainWindow):
 
         checkboxes = [
             ("Keep Audio", "Enable or disable audio in the output file."),
-            ("Benchmark Mode", "Benchmark mode will disable encoding and only monitor the performance of the script without the creation of an output file."),
+            (
+                "Benchmark Mode",
+                "Benchmark mode will disable encoding and only monitor the performance of the script without the creation of an output file.",
+            ),
         ]
 
         for text, help_text in checkboxes:
             checkbox = QCheckBox(text)
-            extraSettings.addWidget(checkbox)
-            help_label = QLabel(help_text)
-            extraSettings.addWidget(help_label)
+            checkbox.setToolTip(help_text)
             setattr(self, f"{text.replace(' ', '').lower()}Checkbox", checkbox)
+            extraSettings.addWidget(checkbox)
 
         settingsLayout.addWidget(extraSettingsGroup)
 
         buttonsLayout = QHBoxLayout()
-
         themeButton = self.createButton("Toggle Day / Night Theme", self.toggleTheme)
         backButton = self.createButton("Back", self.goBack)
-
         buttonsLayout.addWidget(themeButton)
         buttonsLayout.addWidget(backButton)
-
         settingsLayout.addLayout(buttonsLayout)
 
         self.settingsWidget.setLayout(settingsLayout)
@@ -319,6 +344,7 @@ class VideoProcessingApp(QMainWindow):
             self.encodeParamsLabel.setText("")
 
     def goBack(self):
+        saveSettings(self)
         self.stackedWidget.removeWidget(self.settingsWidget)
         self.stackedWidget.setCurrentWidget(self.centralWidget)
 

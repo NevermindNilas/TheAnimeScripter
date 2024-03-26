@@ -1,6 +1,7 @@
 import subprocess
 import os
 import json
+import threading
 
 from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
@@ -132,17 +133,7 @@ def lightUiStyleSheet() -> str:
     """
 
 
-def runCommand(self, TITLE) -> None:
-    """
-    self.RPC.update(
-        details="Processing",
-        start=self.start_time,
-        large_image="icon",
-        small_image="icon",
-        large_text=TITLE,
-        small_text="Processing",
-    )
-    """
+def runCommand(self) -> None:
     mainExePath = os.path.join(os.path.dirname(__file__), "main.exe")
     if not os.path.isfile(mainExePath):
         try:
@@ -166,7 +157,7 @@ def runCommand(self, TITLE) -> None:
             loweredOptionValue = "1"
         elif loweredOptionValue == "false":
             loweredOptionValue = "0"
-        
+
         if loweredOption == "output" and loweredOptionValue == "":
             continue
 
@@ -174,20 +165,37 @@ def runCommand(self, TITLE) -> None:
 
     command = " ".join(command)
     print(command)
-    try:
-        subprocess.Popen(
-            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-    except Exception as e:
-        self.outputWindow.append(f"An error occurred while running the command, {e}")
+
+    def runSubprocess(command):
+        try:
+            process = subprocess.Popen(
+                command,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=0,
+                universal_newlines=True,
+            )
+            while True:
+                output = process.stdout.readline()
+                if output == "" and process.poll() is not None:
+                    break
+                if output:
+                    self.outputWindow.append(output.strip())
+        except Exception as e:
+            self.outputWindow.append(
+                f"An error occurred while running the command, {e}"
+            )
+
+    threading.Thread(target=runSubprocess, args=(command,)).start()
 
 
 class StreamToTextEdit:
-    def __init__(self, text_edit):
-        self.text_edit = text_edit
+    def __init__(self, textEdit):
+        self.textEdit = textEdit
 
-    def write(self, message):
-        self.text_edit.append(message)
+    def write(self, text):
+        self.textEdit.append(text)
 
     def flush(self):
         pass
@@ -221,14 +229,14 @@ def saveSettings(self):
         "interpolate_factor": self.interpolateFactorEntry.text(),
         "nt": self.numThreadsEntry.text(),
         "upscale_factor": self.upscaleFactorEntry.text(),
-        "interpolate_method": self.interpolateMethodDropdown.currentText(),
-        "upscale_method": self.upscaleMethodDropdown.currentText(),
+        "interpolate_method": self.interpolationMethodDropdown.currentText(),
+        "upscale_method": self.upscalingMethodDropdown.currentText(),
         "denoise_method": self.denoiseMethodDropdown.currentText(),
         "dedup_method": self.dedupMethodDropdown.currentText(),
         "depth_method": self.depthMethodDropdown.currentText(),
         "encode_method": self.encodeMethodDropdown.currentText(),
-        "audio": self.keepAudioCheckbox.isChecked(),
-        "benchmark": self.benchmarkCheckbox.isChecked(),
+        "audio": self.keepaudioCheckbox.isChecked(),
+        "benchmark": self.benchmarkmodeCheckbox.isChecked(),
     }
     for i in range(self.checkboxLayout.count()):
         checkbox = self.checkboxLayout.itemAt(i).widget()
@@ -236,17 +244,6 @@ def saveSettings(self):
             settings[checkbox.text()] = checkbox.isChecked()
     with open(self.settingsFile, "w") as file:
         json.dump(settings, file, indent=4)
-
-
-def updatePresence(RPC, start_time, TITLE):
-    RPC.update(
-        details="Idle",
-        start=start_time,
-        large_image="icon",
-        small_image="icon",
-        large_text=TITLE,
-        small_text="Idle",
-    )
 
 
 def fadeIn(self, widget, duration=500):
@@ -258,6 +255,7 @@ def fadeIn(self, widget, duration=500):
     self.animation.setEndValue(1)
     self.animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
     self.animation.start()
+
 
 def dropdownsLabels(method):
     match method:
@@ -294,12 +292,21 @@ def dropdownsLabels(method):
         case "Encode":
             return {
                 "x264": ("x264", "-c:v libx264 -preset fast -crf 16"),
-                "x264_animation": ("x264_animation", "-c:v libx264 -preset fast -tune animation -crf 16"),
+                "x264_animation": (
+                    "x264_animation",
+                    "-c:v libx264 -preset fast -tune animation -crf 16",
+                ),
                 "x265": ("x265", "-c:v libx265 -preset fast -crf 16"),
                 "nvenc_h264": ("nvenc_h264", "-c:v h264_nvenc -preset p1 -cq 16"),
                 "nvenc_h265": ("nvenc_h265", "-c:v hevc_nvenc -preset p1 -cq 16"),
-                "qsv_h264": ("qsv_h264", "-c:v h264_qsv -preset veryfast -global_quality 16"),
-                "qsv_h265": ("qsv_h265", "-c:v hevc_qsv -preset veryfast -global_quality 16"),
+                "qsv_h264": (
+                    "qsv_h264",
+                    "-c:v h264_qsv -preset veryfast -global_quality 16",
+                ),
+                "qsv_h265": (
+                    "qsv_h265",
+                    "-c:v hevc_qsv -preset veryfast -global_quality 16",
+                ),
                 "nvenc_av1": ("nvenc_av1", "-c:v av1_nvenc -preset p1 -cq 16"),
                 "av1": ("av1", "-c:v libsvtav1 -preset 8 -crf 16"),
                 "h264_amf": ("h264_amf", "-c:v h264_amf -quality speed -rc cqp -qp 16"),
