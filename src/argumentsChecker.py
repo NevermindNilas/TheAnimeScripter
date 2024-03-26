@@ -1,7 +1,7 @@
 import os
 import logging
 import sys
-import validators
+from urllib.parse import urlparse
 
 from .generateOutput import outputNameGenerator
 from .checkSpecs import checkSystem
@@ -70,13 +70,25 @@ def argumentChecker(args, mainPath, scriptVersion):
     if "https://" in args.input or "http://" in args.input:
         processURL(args, mainPath)
 
-    processingMethods = [getattr(args, arg) for arg in boolArgs]
-    if not any(processingMethods) and not validators.url(args.input):
+    processingMethods = [
+        args.interpolate,
+        args.scenechange,
+        args.upscale,
+        args.segment,
+        args.denoise,
+        args.sharpen,
+        args.resize,
+        args.dedup,
+        args.depth,
+    ]
+
+    result = urlparse(args.input)
+    if not any(processingMethods) and not all([result.scheme, result.netloc]):
         print(
-            "No processing methods specified, please enable at least one processing method"
+            "No processing methods specified, exiting",
         )
         logging.error(
-            "No processing methods specified, please enable at least one processing method"
+            "No processing methods specified, exiting",
         )
         sys.exit()
 
@@ -87,7 +99,8 @@ def processURL(args, mainPath):
     """
     Check if the input is a URL, if it is, download the video and set the input to the downloaded video
     """
-    if validators.url(args.input):
+    result = urlparse(args.input)
+    if all([result.scheme, result.netloc]):
         logging.info("URL is valid and will be used for processing")
 
         if args.output is None:
