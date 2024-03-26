@@ -111,10 +111,6 @@ class VideoProcessingApp(QMainWindow):
 
         self.inputFieldsLayout = QVBoxLayout()
 
-        upscaleMethods = ["ShuffleCugan", "Cugan", "RealESRGAN", "Span", "OmniSR", "ShuffleCugan-NCNN", "Cugan-NCNN", "RealESRGAN-NCNN", "Span-NCNN"]  # Replace with actual methods
-        interpolateMethods = ["Rife4.16-Lite", "Rife4.15", "Rife4.14", "Rife4.6", "Rife4.16-Lite-NCNN", "Rife4.15-NCNN", "Rife4.14-NCNN", "Rife4.6-NCNN", "GMFSS"]  # Replace with actual methods
-        denoiseMethods = ["DPIR", "SCUNet", "NAFNet", "Span"]  # Replace with actual methods
-
         for label, defaultValue, maxValue in inputFields:
             layout, entry = self.createInputField(label, defaultValue, maxValue)
             self.inputFieldsLayout.addLayout(layout)
@@ -122,18 +118,12 @@ class VideoProcessingApp(QMainWindow):
                 self.resizeFactorEntry = entry
             elif label == "Interpolate Factor:":
                 self.interpolateFactorEntry = entry
-                dropdownLayout, dropdown = self.createLabeledDropdown("Interpolate Method:", interpolateMethods)
-                self.inputFieldsLayout.addLayout(dropdownLayout)
-                self.interpolateMethodDropdown = dropdown
+
             elif label == "Upscale Factor:":
                 self.upscaleFactorEntry = entry
-                dropdownLayout, dropdown = self.createLabeledDropdown("Upscale Method:", upscaleMethods)
-                self.inputFieldsLayout.addLayout(dropdownLayout)
-                self.upscaleMethodDropdown = dropdown
+
             elif label == "Number of Threads:":
                 self.numThreadsEntry = entry
-                self.inputFieldsLayout.addLayout(dropdownLayout)
-                self.denoiseMethodDropdown = dropdown
 
         self.checkboxInputLayout.addLayout(self.checkboxLayout)
         self.checkboxInputLayout.addLayout(self.inputFieldsLayout)
@@ -163,7 +153,7 @@ class VideoProcessingApp(QMainWindow):
             self.layout, [self.pathGroup, self.checkboxGroup, self.outputGroup], 5
         )
         self.layout.addLayout(self.buttonLayout)
-    
+
     def createLabeledDropdown(self, label, options):
         layout = QHBoxLayout()
         layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
@@ -174,7 +164,7 @@ class VideoProcessingApp(QMainWindow):
         layout.addWidget(dropdown)
         layout.addStretch(1)
         return layout, dropdown
-    
+
     def createGroup(self, title, layout):
         group = QGroupBox(title)
         group.setLayout(layout)
@@ -183,7 +173,7 @@ class VideoProcessingApp(QMainWindow):
     def runButtonOnClick(self):
         saveSettings(self)
         runCommand(self, TITLE)
-    
+
     def createPathWidgets(self, label, slot):
         layout = QHBoxLayout()
         label = QLabel(label)
@@ -207,7 +197,7 @@ class VideoProcessingApp(QMainWindow):
         entry.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         layout.addWidget(entry)
-        layout.addStretch(1)  
+        layout.addStretch(1)
         return layout, entry
 
     def createCheckbox(self, text):
@@ -251,17 +241,70 @@ class VideoProcessingApp(QMainWindow):
             self.setStyleSheet(lightUiStyleSheet())
         else:
             self.setStyleSheet(darkUiStyleSheet())
-        fadeIn(self, self.centralWidget, 300)
 
     def openSettingsPanel(self):
         self.settingsWidget = QWidget()
         settingsLayout = QVBoxLayout()
 
-        upscaleSettingsGroup = self.createGroup("Main Settings", QVBoxLayout())
-        extraGroup = self.createGroup("Extra", QVBoxLayout())
+        upscaleMethods = [
+            "ShuffleCugan",
+            "Cugan",
+            "RealESRGAN",
+            "Span",
+            "OmniSR",
+            "ShuffleCugan-NCNN",
+            "Cugan-NCNN",
+            "RealESRGAN-NCNN",
+            "Span-NCNN",
+        ]
+        interpolateMethods = [
+            "Rife4.16-Lite",
+            "Rife4.15",
+            "Rife4.14",
+            "Rife4.6",
+            "Rife4.16-Lite-NCNN",
+            "Rife4.15-NCNN",
+            "Rife4.14-NCNN",
+            "Rife4.6-NCNN",
+            "GMFSS",
+        ]
+        denoiseMethods = ["DPIR", "SCUNet", "NAFNet", "Span"]
+        dedupMethods = ["SSIM", "FFMPEG", "MSE"]
 
-        settingsLayout.addWidget(upscaleSettingsGroup)
-        settingsLayout.addWidget(extraGroup)
+        mainSettings = QVBoxLayout()
+        mainSettings.setContentsMargins(10, 10, 10, 10)  # Set margins (left, top, right, bottom)
+        mainSettings.setSpacing(10)  # Set spacing between widgets
+        mainSettings.setAlignment(Qt.AlignmentFlag.AlignTop)  # Align widgets to the top
+        mainSettingsGroup = self.createGroup("Main Settings", mainSettings)
+
+        dropdownLayout, dropdown = self.createLabeledDropdown(
+            "Interpolate Method:", interpolateMethods
+        )
+        mainSettings.addLayout(dropdownLayout)
+        self.interpolateMethodDropdown = dropdown
+
+        dropdownLayout, dropdown = self.createLabeledDropdown(
+            "Upscale Method:", upscaleMethods
+        )
+        mainSettings.addLayout(dropdownLayout)
+        self.upscaleMethodDropdown = dropdown
+
+        dropdownLayout, dropdown = self.createLabeledDropdown(
+            "Denoise Method:", denoiseMethods
+        )
+        mainSettings.addLayout(dropdownLayout)
+        self.denoiseMethodDropdown = dropdown
+
+        dropdownLayout, dropdown = self.createLabeledDropdown(
+            "Dedup Method:", dedupMethods
+        )
+        mainSettings.addLayout(dropdownLayout)
+        self.dedupMethodDropdown = dropdown
+        
+        self.keepAudioCheckbox = QCheckBox("Keep Audio")
+        mainSettings.addWidget(self.keepAudioCheckbox)
+
+        settingsLayout.addWidget(mainSettingsGroup)
 
         buttonsLayout = QHBoxLayout()
 
