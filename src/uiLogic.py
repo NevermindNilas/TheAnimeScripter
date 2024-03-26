@@ -220,6 +220,15 @@ def saveSettings(self):
         "resize_factor": self.resizeFactorEntry.text(),
         "interpolate_factor": self.interpolateFactorEntry.text(),
         "nt": self.numThreadsEntry.text(),
+        "upscale_factor": self.upscaleFactorEntry.text(),
+        "interpolate_method": self.interpolateMethodDropdown.currentText(),
+        "upscale_method": self.upscaleMethodDropdown.currentText(),
+        "denoise_method": self.denoiseMethodDropdown.currentText(),
+        "dedup_method": self.dedupMethodDropdown.currentText(),
+        "depth_method": self.depthMethodDropdown.currentText(),
+        "encode_method": self.encodeMethodDropdown.currentText(),
+        "audio": self.keepAudioCheckbox.isChecked(),
+        "benchmark": self.benchmarkCheckbox.isChecked(),
     }
     for i in range(self.checkboxLayout.count()):
         checkbox = self.checkboxLayout.itemAt(i).widget()
@@ -249,3 +258,53 @@ def fadeIn(self, widget, duration=500):
     self.animation.setEndValue(1)
     self.animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
     self.animation.start()
+
+def dropdownsLabels(method):
+    match method:
+        case "Upscaling":
+            return [
+                "ShuffleCugan",
+                "Cugan",
+                "RealESRGAN",
+                "Span",
+                "OmniSR",
+                "ShuffleCugan-NCNN",
+                "Cugan-NCNN",
+                "RealESRGAN-NCNN",
+                "Span-NCNN",
+            ]
+        case "Interpolation":
+            return [
+                "Rife4.16-Lite",
+                "Rife4.15",
+                "Rife4.14",
+                "Rife4.6",
+                "Rife4.16-Lite-NCNN",
+                "Rife4.15-NCNN",
+                "Rife4.14-NCNN",
+                "Rife4.6-NCNN",
+                "GMFSS",
+            ]
+        case "Denoise":
+            return ["DPIR", "SCUNet", "NAFNet", "Span"]
+        case "Dedup":
+            return ["SSIM", "FFMPEG", "MSE"]
+        case "Depth":
+            return ["Small", "Base", "Large"]
+        case "Encode":
+            return {
+                "x264": ("x264", "-c:v libx264 -preset fast -crf 16"),
+                "x264_animation": ("x264_animation", "-c:v libx264 -preset fast -tune animation -crf 16"),
+                "x265": ("x265", "-c:v libx265 -preset fast -crf 16"),
+                "nvenc_h264": ("nvenc_h264", "-c:v h264_nvenc -preset p1 -cq 16"),
+                "nvenc_h265": ("nvenc_h265", "-c:v hevc_nvenc -preset p1 -cq 16"),
+                "qsv_h264": ("qsv_h264", "-c:v h264_qsv -preset veryfast -global_quality 16"),
+                "qsv_h265": ("qsv_h265", "-c:v hevc_qsv -preset veryfast -global_quality 16"),
+                "nvenc_av1": ("nvenc_av1", "-c:v av1_nvenc -preset p1 -cq 16"),
+                "av1": ("av1", "-c:v libsvtav1 -preset 8 -crf 16"),
+                "h264_amf": ("h264_amf", "-c:v h264_amf -quality speed -rc cqp -qp 16"),
+                "hevc_amf": ("hevc_amf", "-c:v hevc_amf -quality speed -rc cqp -qp 16"),
+                "vp9": ("vp9", "-c:v libvpx-vp9 -crf 16"),
+                "qsv_vp9": ("qsv_vp9", "-c:v vp9_qsv -preset veryfast"),
+                "prores": ("prores", "-c:v prores_ks -profile:v 4 -qscale:v 16"),
+            }
