@@ -11,6 +11,7 @@ wmi
 spandrel
 yt-dlp
 einops
+pyqt6
 scikit-image
 scenedetect[opencv]
 realcugan-ncnn-py

@@ -25,6 +25,7 @@ def intitialize_models(self):
                 | "span"
                 | "omnisr"
                 | "realesrgan"
+                | "apisr"
             ):
                 upscale_process = Upscaler(
                     self.upscale_method,
@@ -104,10 +105,7 @@ def intitialize_models(self):
 
     if self.denoise:
         match self.denoise_method:
-            case "dpir":
-                raise NotImplementedError("DPIR is not yet implemented")
-
-            case "scunet" | "kbnet" | "nafnet" | "span":
+            case "scunet" | "dpir" | "nafnet" | "span":
                 from src.unifiedDenoise import UnifiedDenoise
 
                 denoise_process = UnifiedDenoise(
