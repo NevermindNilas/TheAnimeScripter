@@ -1,7 +1,6 @@
 import os
 
-from scenedetect import VideoManager
-from scenedetect import SceneManager
+from scenedetect import VideoManager, FrameTimecode, SceneManager
 from scenedetect.detectors import ContentDetector
 
 
@@ -19,7 +18,10 @@ class Scenechange:
         scene_manager.add_detector(ContentDetector(threshold=self.scenechange_sens))
 
         if self.outPoint != 0:
-            video_manager.set_duration(start_time=self.inPoint, end_time=self.outPoint)
+            start_time = FrameTimecode(self.inPoint, video_manager.get_framerate())
+            end_time = FrameTimecode(self.outPoint, video_manager.get_framerate())
+            video_manager.set_duration(start_time=start_time, end_time=end_time)
+
 
         video_manager.set_downscale_factor()
 
