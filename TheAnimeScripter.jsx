@@ -169,9 +169,9 @@ var TheAnimeScripter = (function() {
 
     textScriptVersion.text = "Script Version: " + scriptVersion;
 
-    panelMore.layout.layout(true);
-    panelMore.layout.resize();
-    panelMore.onResizing = panelMore.onResize = function() {
+    TheAnimeScripter.layout.layout(true);
+    TheAnimeScripter.layout.resize();
+    TheAnimeScripter.onResizing = TheAnimeScripter.onResize = function() {
         this.layout.resize();
     }
 
@@ -565,23 +565,29 @@ var TheAnimeScripter = (function() {
         var comp = app.project.activeItem;
         var selectedLayers = comp.selectedLayers;
 
+        var minStartTime = Infinity;
         var maxEndTime = 0;
         for (var i = 0; i < selectedLayers.length; i++) {
             var layer = selectedLayers[i];
-            var endTime = layer.startTime + layer.outPoint;
+            var startTime = layer.startTime;
+            var endTime = layer.outPoint;
+            if (startTime < minStartTime) {
+                minStartTime = startTime;
+            }
             if (endTime > maxEndTime) {
                 maxEndTime = endTime;
             }
         }
 
-        var newComp = app.project.items.addComp('New Composition', comp.width, comp.height, comp.pixelAspect, maxEndTime, comp.frameRate);
+        var newCompDuration = maxEndTime - minStartTime;
+        var newComp = app.project.items.addComp('New Composition', comp.width, comp.height, comp.pixelAspect, newCompDuration, comp.frameRate);
 
         for (var i = 0; i < selectedLayers.length; i++) {
             var layer = selectedLayers[i];
             var newLayer = newComp.layers.add(layer.source);
-            newLayer.startTime = layer.startTime;
-            newLayer.inPoint = layer.inPoint;
-            newLayer.outPoint = layer.outPoint;
+            newLayer.startTime = layer.startTime - minStartTime;
+            newLayer.inPoint = layer.inPoint - minStartTime;
+            newLayer.outPoint = layer.outPoint - minStartTime;
             newLayer.enabled = layer.enabled;
             newLayer.solo = layer.solo;
             newLayer.shy = layer.shy;
@@ -606,6 +612,7 @@ var TheAnimeScripter = (function() {
         var renderQueue = app.project.renderQueue;
         var render = renderQueue.items.add(newComp);
         var outputModule = render.outputModule(1);
+        outputModule.bitrate = '40';
 
         randomNumbers = Math.floor(Math.random() * 1000);
         var outputFileExtension = (parseFloat(app.version) >= 23.0) ? ".mp4" : ".mov";
