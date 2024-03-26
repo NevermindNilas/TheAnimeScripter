@@ -39,6 +39,9 @@ def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
         case "scunet":
             return "scunet_color_real_psnr.pth"
         
+        case "dpir":
+            return "drunet_deblocking_color.pth"
+        
         case "realesrgan":
             return "2xHFA2kShallowESRGAN.pth"
         
@@ -62,6 +65,12 @@ def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
         
         case "rife4.16-lite":
             return "rife416_lite.pth"
+        
+        case "apisr":
+            if upscaleFactor == 2:
+                return "2x_APISR_RRDB_GAN_generator.pth"
+            elif upscaleFactor == 4:
+                return "4x_APISR_RRDB_GAN_generator.pth"
         
         case _:
             raise ValueError(f"Model {model} not found.")
@@ -163,6 +172,18 @@ def downloadModels(
             os.makedirs(spanFolderPath, exist_ok=True)
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, spanFolderPath)
+        
+        case "dpir":
+            dpirFolderPath = os.path.join(weightsDir, "dpir")
+            os.makedirs(dpirFolderPath, exist_ok=True)
+            fullUrl = f"{url}{filename}"
+            return downloadAndLog(model, filename, fullUrl, dpirFolderPath)
+        
+        case "apisr":
+            apisrFolderPath = os.path.join(weightsDir, "apisr")
+            os.makedirs(apisrFolderPath, exist_ok=True)
+            fullUrl = f"{url}{filename}"
+            return downloadAndLog(model, filename, fullUrl, apisrFolderPath)
 
         case _:
             print(f"Model {model} not found.")
