@@ -32,9 +32,13 @@ from src.uiLogic import (
     fadeIn,
     dropdownsLabels,
 )
-from main import scriptVersion
 
-TITLE = f"The Anime Scripter - {scriptVersion} (Alpha)"
+TITLE = "The Anime Scripter - 1.5.0 (Alpha)"
+
+if getattr(sys, "frozen", False):
+    mainPath = os.path.dirname(sys.executable)
+else:
+    mainPath = os.path.dirname(os.path.abspath(__file__))
 
 """
 from pypresence import Presence
@@ -196,7 +200,7 @@ class VideoProcessingApp(QMainWindow):
 
     def runButtonOnClick(self):
         saveSettings(self)
-        runCommand(self)
+        runCommand(self, mainPath)
 
     def createPathWidgets(self, label, slot):
         layout = QHBoxLayout()

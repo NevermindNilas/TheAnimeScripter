@@ -133,13 +133,11 @@ def lightUiStyleSheet() -> str:
     """
 
 
-def runCommand(self) -> None:
-    mainExePath = os.path.join(os.path.dirname(__file__), "main.exe")
+def runCommand(self, mainPath) -> None:
+    mainExePath = os.path.join(mainPath, "main.exe")
     if not os.path.isfile(mainExePath):
         try:
-            mainExePath = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)), "main.py"
-            )
+            mainExePath = os.path.join(mainPath, "main.py")
             command = ["python", mainExePath]
         except FileNotFoundError:
             self.outputWindow.append("main.exe nor main.py not found")

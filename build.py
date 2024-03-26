@@ -47,7 +47,7 @@ def create_executable():
         distribution("upscale_ncnn_py").locate_file("upscale_ncnn_py"),
         "models",
     )
-
+    print("Creating the CLI executable...")
     subprocess.run(
         [
             ".\\venv\\Scripts\\pyinstaller",
@@ -81,20 +81,43 @@ def create_executable():
         check=True,
     )
 
+    print("Finished creating the CLI executable")
+    print("Creating the GUI executable...")
+
     subprocess.run(
         [
             ".\\venv\\Scripts\\pyinstaller",
             "--noconfirm",
             "--onedir",
-            "--console",
+            "--noconsole",
             "--noupx",
             "--clean",
             "--icon",
             f"{icon_path}",
-            gui_path,  # Use gui_path here
+            gui_path,
         ],
         check=True,
     )
+
+    print("Finished creating the GUI executable")
+    
+    guiInternalPath = os.path.join(base_dir, "dist", "gui", "_internal")
+    mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
+
+    for filename in os.listdir(guiInternalPath):
+        guiFilePath = os.path.join(guiInternalPath, filename)
+        mainFilePath = os.path.join(mainInternalPath, filename)
+
+        if os.path.isfile(guiFilePath):
+            shutil.copy2(guiFilePath, mainFilePath)
+
+        elif os.path.isdir(guiFilePath):
+            shutil.copytree(guiFilePath, mainFilePath, dirs_exist_ok=True)
+
+    guiExeFilePath = os.path.join(base_dir, "dist", "gui", "gui.exe")
+    mainExeFilePath = os.path.join(base_dir, "dist", "main")
+
+    shutil.move(guiExeFilePath, mainExeFilePath)
 
 def move_extras():
     dist_dir = os.path.join(base_dir, "dist")
