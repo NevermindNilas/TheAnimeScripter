@@ -53,10 +53,6 @@ def argumentChecker(args, mainPath, scriptVersion):
         args.audio = False
         logging.info("Dedup is enabled, audio will be disabled")
 
-    if args.denoise and args.denoise_method == "nafnet" and args.half:
-        logging.info("NAFNet does not support half precision, setting half to False")
-        args.half = False
-
     if args.dedup_method == "ssim":
         args.dedup_sens = 1 - (args.dedup_sens / 1000)
 

@@ -45,12 +45,20 @@ class UnifiedDenoise:
         """
         Load the Model
         """
-
         if not self.customModel:
             if self.model == "span":
                 # This is so that span ( for upscaling ) doesn't overlap with span-denoise,
                 # Hackintoshy solution until I think of a better way
                 self.model = "span-denoise"
+
+            if self.half:
+                match self.model:
+                    case "dpir" | "nafnet":
+                        self.precision = "bfloat16"
+                    case "span-denoise" | "scunet":
+                        self.precision = "fp16"
+            else:
+                self.precision = "fp32"
 
             self.filename = modelsMap(self.model)
 
@@ -73,7 +81,6 @@ class UnifiedDenoise:
         except Exception as e:
             logging.error(f"Error loading model: {e}")
 
-
         if self.customModel:
             assert isinstance(self.model, ImageModelDescriptor)
 
@@ -85,18 +92,20 @@ class UnifiedDenoise:
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
 
         if self.isCudaAvailable:
-            self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
-            self.currentStream = 0
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
-                torch.set_default_dtype(torch.float16)
-                self.model.half()
+                if self.precision == "fp16":
+                    torch.set_default_dtype(torch.float16)
+                    self.model.half()
+                elif self.precision == "bfloat16":
+                    torch.set_default_dtype(torch.bfloat16)
+                    self.model.bfloat16()
 
-        # Hardcoded these for the moment being. I will need to check what padding is needed for each model
         self.padWidth = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
         self.padHeight = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
 
+    @torch.inference_mode()
     def pad_frame(self, frame):
         frame = F.pad(frame, [0, self.padWidth, 0, self.padHeight])
         return frame
@@ -119,13 +128,13 @@ class UnifiedDenoise:
             frame = frame.contiguous(memory_format=torch.channels_last)
 
             if self.isCudaAvailable:
-                torch.cuda.set_stream(self.stream[self.currentStream])
                 if self.half:
-                    frame = frame.cuda().half()
+                    if self.precision == "fp16":
+                        frame = frame.cuda().half()
+                    elif self.precision == "bfloat16":
+                        frame = frame.cuda().bfloat16()
                 else:
                     frame = frame.cuda()
-            else:
-                frame = frame.cpu()
 
             if self.padWidth != 0 or self.padHeight != 0:
                 frame = self.pad_frame(frame)
@@ -133,9 +142,5 @@ class UnifiedDenoise:
             frame = self.model(frame)
             frame = frame[:, :, : self.height, : self.width]
             frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
-
-            if self.isCudaAvailable:
-                torch.cuda.synchronize(self.stream[self.currentStream])
-                self.currentStream = (self.currentStream + 1) % len(self.stream)
 
             return frame.cpu().numpy()

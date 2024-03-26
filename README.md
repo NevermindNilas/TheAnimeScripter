@@ -83,7 +83,7 @@ Interpolation:
   - Rife 4.6, Rife4.14, Rife 4.15, Rife 4.16-lite and NCNN versions for each of them and GMFSS.
   
 Denoise:
-  - SCUNet, NAFNet, Span ( 1x pretrain model )
+  - SCUNet, NAFNet, Span, DPIR ( 1x pretrain model )
 
 ## 🙏 Acknowledgements
 
@@ -108,6 +108,8 @@ Denoise:
 - [Final2X](https://github.com/Final2x/realesrgan-ncnn-py) - For RealESRGAN-NCNN-Py and RealCugan-NCNN-Py
 - [Chainner-org](https://github.com/chaiNNer-org/spandrel) - For Spandrel and easy to use arch implementations.
 - [Kim2091](https://openmodeldb.info/models/1x-span-anime-pretrain) - For Span 1x Model
+- [Kiteretsu77](https://github.com/Kiteretsu77/APISR) - For APISR
+- [cszn](https://github.com/cszn/DPIR) - For DPIR
 
 ## 📈 Benchmarks
 

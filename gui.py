@@ -1,5 +1,8 @@
 # I hate making GUIs with a passion
 
+import os
+import sys
+
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -29,9 +32,6 @@ from src.uiLogic import (
     fadeIn,
     dropdownsLabels,
 )
-
-import os
-import sys
 from main import scriptVersion
 
 TITLE = f"The Anime Scripter - {scriptVersion} (Alpha)"
@@ -46,7 +46,6 @@ except ConnectionRefusedError:
     print("Could not connect to Discord. Is Discord running?")
 self.timer.timeout.connect(self.updatePresence)
 """
-
 
 class VideoProcessingApp(QMainWindow):
     def __init__(self):

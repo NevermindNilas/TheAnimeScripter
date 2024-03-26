@@ -36,6 +36,7 @@ def create_executable():
     print("Creating executable with PyInstaller...")
     src_path = os.path.join(base_dir, "src")
     main_path = os.path.join(base_dir, "main.py")
+    gui_path = os.path.join(base_dir, "gui.py")
     icon_path = os.path.join(base_dir, "demos", "icon.ico")
     rife_ncnn_models_path = os.path.join(
         distribution("rife_ncnn_vulkan_python").locate_file("rife_ncnn_vulkan_python"),
@@ -80,6 +81,20 @@ def create_executable():
         check=True,
     )
 
+    subprocess.run(
+        [
+            ".\\venv\\Scripts\\pyinstaller",
+            "--noconfirm",
+            "--onedir",
+            "--console",
+            "--noupx",
+            "--clean",
+            "--icon",
+            f"{icon_path}",
+            gui_path,  # Use gui_path here
+        ],
+        check=True,
+    )
 
 def move_extras():
     dist_dir = os.path.join(base_dir, "dist")
