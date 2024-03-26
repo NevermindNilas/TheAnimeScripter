@@ -217,6 +217,7 @@ class VideoProcessingApp(QMainWindow):
             self.setStyleSheet(lightUiStyleSheet())
         else:
             self.setStyleSheet(darkUiStyleSheet())
+        fadeIn(self, self.centralWidget, 300)
 
     def openSettingsPanel(self):
         self.settingsWidget = QWidget()
