@@ -28,6 +28,7 @@ from src.uiLogic import (
     saveSettings,
     updatePresence,
     fadeIn,
+    dropdownsLabels,
 )
 
 import os
@@ -92,9 +93,9 @@ class VideoProcessingApp(QMainWindow):
             "Denoise",
             "Upscale",
             "Interpolate",
+            "Sharpen",
             "Segment",
             "Depth",
-            "Sharpen",
         ]:
             self.createCheckbox(option)
 
@@ -188,7 +189,7 @@ class VideoProcessingApp(QMainWindow):
 
     def createInputField(self, label, defaultValue, maxValue):
         layout = QHBoxLayout()
-        layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         label = QLabel(label)
         entry = QLineEdit()
         entry.setText(str(defaultValue))
@@ -197,7 +198,7 @@ class VideoProcessingApp(QMainWindow):
         entry.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         layout.addWidget(entry)
-        layout.addStretch(1)
+        layout.addStretch(0)
         return layout, entry
 
     def createCheckbox(self, text):
@@ -246,65 +247,52 @@ class VideoProcessingApp(QMainWindow):
         self.settingsWidget = QWidget()
         settingsLayout = QVBoxLayout()
 
-        upscaleMethods = [
-            "ShuffleCugan",
-            "Cugan",
-            "RealESRGAN",
-            "Span",
-            "OmniSR",
-            "ShuffleCugan-NCNN",
-            "Cugan-NCNN",
-            "RealESRGAN-NCNN",
-            "Span-NCNN",
-        ]
-        interpolateMethods = [
-            "Rife4.16-Lite",
-            "Rife4.15",
-            "Rife4.14",
-            "Rife4.6",
-            "Rife4.16-Lite-NCNN",
-            "Rife4.15-NCNN",
-            "Rife4.14-NCNN",
-            "Rife4.6-NCNN",
-            "GMFSS",
-        ]
-        denoiseMethods = ["DPIR", "SCUNet", "NAFNet", "Span"]
-        dedupMethods = ["SSIM", "FFMPEG", "MSE"]
-
         mainSettings = QVBoxLayout()
-        mainSettings.setContentsMargins(10, 10, 10, 10)  # Set margins (left, top, right, bottom)
-        mainSettings.setSpacing(10)  # Set spacing between widgets
-        mainSettings.setAlignment(Qt.AlignmentFlag.AlignTop)  # Align widgets to the top
+        mainSettings.setContentsMargins(10, 10, 10, 10)
+        mainSettings.setSpacing(10)
+        mainSettings.setAlignment(Qt.AlignmentFlag.AlignTop)
         mainSettingsGroup = self.createGroup("Main Settings", mainSettings)
 
-        dropdownLayout, dropdown = self.createLabeledDropdown(
-            "Interpolate Method:", interpolateMethods
-        )
-        mainSettings.addLayout(dropdownLayout)
-        self.interpolateMethodDropdown = dropdown
+        dropdowns = [
+            ("Interpolate Method:", "Interpolation"),
+            ("Upscale Method:", "Upscaling"),
+            ("Denoise Method:", "Denoise"),
+            ("Dedup Method:", "Dedup"),
+            ("Depth Method:", "Depth"),
+            ("Encode Method:", "Encode"),
+        ]
 
-        dropdownLayout, dropdown = self.createLabeledDropdown(
-            "Upscale Method:", upscaleMethods
-        )
-        mainSettings.addLayout(dropdownLayout)
-        self.upscaleMethodDropdown = dropdown
+        for label, method in dropdowns:
+            dropdownLayout, dropdown = self.createLabeledDropdown(label, dropdownsLabels(method))
+            mainSettings.addLayout(dropdownLayout)
+            setattr(self, f"{method.lower()}MethodDropdown", dropdown)
 
-        dropdownLayout, dropdown = self.createLabeledDropdown(
-            "Denoise Method:", denoiseMethods
-        )
-        mainSettings.addLayout(dropdownLayout)
-        self.denoiseMethodDropdown = dropdown
-
-        dropdownLayout, dropdown = self.createLabeledDropdown(
-            "Dedup Method:", dedupMethods
-        )
-        mainSettings.addLayout(dropdownLayout)
-        self.dedupMethodDropdown = dropdown
-        
-        self.keepAudioCheckbox = QCheckBox("Keep Audio")
-        mainSettings.addWidget(self.keepAudioCheckbox)
+        self.encodeParamsLabel = QLabel()
+        mainSettings.addWidget(self.encodeParamsLabel)
+        self.updateEncodeParamsLabel(self.encodeMethodDropdown.currentText())
+        self.encodeMethodDropdown.currentTextChanged.connect(self.updateEncodeParamsLabel)
 
         settingsLayout.addWidget(mainSettingsGroup)
+
+        extraSettings = QVBoxLayout()
+        extraSettings.setContentsMargins(10, 10, 10, 10)
+        extraSettings.setSpacing(10)
+        extraSettings.setAlignment(Qt.AlignmentFlag.AlignTop)
+        extraSettingsGroup = self.createGroup("Extra Settings", extraSettings)
+
+        checkboxes = [
+            ("Keep Audio", "Enable or disable audio in the output file."),
+            ("Benchmark Mode", "Benchmark mode will disable encoding and only monitor the performance of the script without the creation of an output file."),
+        ]
+
+        for text, help_text in checkboxes:
+            checkbox = QCheckBox(text)
+            extraSettings.addWidget(checkbox)
+            help_label = QLabel(help_text)
+            extraSettings.addWidget(help_label)
+            setattr(self, f"{text.replace(' ', '').lower()}Checkbox", checkbox)
+
+        settingsLayout.addWidget(extraSettingsGroup)
 
         buttonsLayout = QHBoxLayout()
 
@@ -321,6 +309,14 @@ class VideoProcessingApp(QMainWindow):
         self.stackedWidget.setCurrentWidget(self.settingsWidget)
 
         fadeIn(self, self.settingsWidget, 300)
+
+    def updateEncodeParamsLabel(self, text):
+        encodeDict = dropdownsLabels("Encode")
+        if text in encodeDict:
+            _, params = encodeDict[text]
+            self.encodeParamsLabel.setText(params)
+        else:
+            self.encodeParamsLabel.setText("")
 
     def goBack(self):
         self.stackedWidget.removeWidget(self.settingsWidget)
