@@ -14,8 +14,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QGroupBox,
     QStackedWidget,
-    QSpacerItem,
-    QSizePolicy,
+    QComboBox,
 )
 
 from PyQt6.QtGui import QIntValidator
@@ -85,16 +84,7 @@ class VideoProcessingApp(QMainWindow):
         self.outputLayout = QVBoxLayout()
 
     def createWidgets(self):
-        inputFields = [
-            ("Interpolate Factor:", 2, 100),
-            ("Upscale Factor:", 2, 4),
-            ("Resize Factor:", 1, 4),
-            (
-                "Number of Threads:",
-                1,
-                4,
-            ),  # Experimental feature, needs more work but it's there
-        ]
+        self.checkboxInputLayout = QHBoxLayout()
 
         for option in [
             "Resize",
@@ -108,12 +98,48 @@ class VideoProcessingApp(QMainWindow):
         ]:
             self.createCheckbox(option)
 
+        inputFields = [
+            ("Interpolate Factor:", 2, 100),
+            ("Upscale Factor:", 2, 4),
+            ("Resize Factor:", 1, 4),
+            (
+                "Number of Threads:",
+                1,
+                4,
+            ),  # Experimental feature, needs more work but it's there
+        ]
+
+        self.inputFieldsLayout = QVBoxLayout()
+
+        upscaleMethods = ["ShuffleCugan", "Cugan", "RealESRGAN", "Span", "OmniSR", "ShuffleCugan-NCNN", "Cugan-NCNN", "RealESRGAN-NCNN", "Span-NCNN"]  # Replace with actual methods
+        interpolateMethods = ["Rife4.16-Lite", "Rife4.15", "Rife4.14", "Rife4.6", "Rife4.16-Lite-NCNN", "Rife4.15-NCNN", "Rife4.14-NCNN", "Rife4.6-NCNN", "GMFSS"]  # Replace with actual methods
+        denoiseMethods = ["DPIR", "SCUNet", "NAFNet", "Span"]  # Replace with actual methods
+
         for label, defaultValue, maxValue in inputFields:
             layout, entry = self.createInputField(label, defaultValue, maxValue)
-            self.checkboxLayout.addLayout(layout)
+            self.inputFieldsLayout.addLayout(layout)
+            if label == "Resize Factor:":
+                self.resizeFactorEntry = entry
+            elif label == "Interpolate Factor:":
+                self.interpolateFactorEntry = entry
+                dropdownLayout, dropdown = self.createLabeledDropdown("Interpolate Method:", interpolateMethods)
+                self.inputFieldsLayout.addLayout(dropdownLayout)
+                self.interpolateMethodDropdown = dropdown
+            elif label == "Upscale Factor:":
+                self.upscaleFactorEntry = entry
+                dropdownLayout, dropdown = self.createLabeledDropdown("Upscale Method:", upscaleMethods)
+                self.inputFieldsLayout.addLayout(dropdownLayout)
+                self.upscaleMethodDropdown = dropdown
+            elif label == "Number of Threads:":
+                self.numThreadsEntry = entry
+                self.inputFieldsLayout.addLayout(dropdownLayout)
+                self.denoiseMethodDropdown = dropdown
+
+        self.checkboxInputLayout.addLayout(self.checkboxLayout)
+        self.checkboxInputLayout.addLayout(self.inputFieldsLayout)
 
         self.pathGroup = self.createGroup("Paths", self.pathLayout)
-        self.checkboxGroup = self.createGroup("Options", self.checkboxLayout)
+        self.checkboxGroup = self.createGroup("Options", self.checkboxInputLayout)
         self.outputGroup = self.createGroup("Terminal", self.outputLayout)
 
         self.inputEntry = self.createPathWidgets("Input Path:", self.browseInput)
@@ -137,7 +163,18 @@ class VideoProcessingApp(QMainWindow):
             self.layout, [self.pathGroup, self.checkboxGroup, self.outputGroup], 5
         )
         self.layout.addLayout(self.buttonLayout)
-
+    
+    def createLabeledDropdown(self, label, options):
+        layout = QHBoxLayout()
+        layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        label = QLabel(label)
+        dropdown = QComboBox()
+        dropdown.addItems(options)
+        layout.addWidget(label)
+        layout.addWidget(dropdown)
+        layout.addStretch(1)
+        return layout, dropdown
+    
     def createGroup(self, title, layout):
         group = QGroupBox(title)
         group.setLayout(layout)
@@ -146,7 +183,7 @@ class VideoProcessingApp(QMainWindow):
     def runButtonOnClick(self):
         saveSettings(self)
         runCommand(self, TITLE)
-
+    
     def createPathWidgets(self, label, slot):
         layout = QHBoxLayout()
         label = QLabel(label)
@@ -170,10 +207,7 @@ class VideoProcessingApp(QMainWindow):
         entry.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         layout.addWidget(entry)
-        spacer = QSpacerItem(
-            40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
-        )
-        layout.addItem(spacer)
+        layout.addStretch(1)  
         return layout, entry
 
     def createCheckbox(self, text):

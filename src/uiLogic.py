@@ -5,6 +5,7 @@ import json
 from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
 
+
 def darkUiStyleSheet() -> str:
     """
     Returns the stylesheet for the UI,
@@ -64,6 +65,8 @@ def darkUiStyleSheet() -> str:
             subcontrol-position: top center;
             padding: -7px 5px 0 5px;
         }
+
+        
     """
 
 
@@ -163,23 +166,20 @@ def runCommand(self, TITLE) -> None:
             loweredOptionValue = "1"
         elif loweredOptionValue == "false":
             loweredOptionValue = "0"
+        
+        if loweredOption == "output" and loweredOptionValue == "":
+            continue
 
         command.append(f"--{loweredOption} {loweredOptionValue}")
 
     command = " ".join(command)
     print(command)
-
-    subprocess.Popen(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
-    # self.process.readyReadStandardOutput.connect(self.handleStdout)
-    # self.process.readyReadStandardError.connect(self.handleStderr)
-    # self.process.start(command[0], command[1:])
-    # print(mainExePath)
-    # self.process = QProcess()
-    # self.process.readyReadStandardOutput.connect(self.handleStdout)
-    # self.process.readyReadStandardError.connect(self.handleStderr)
-    # self.process.start(command[0], command[1:])
+    try:
+        subprocess.Popen(
+            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+    except Exception as e:
+        self.outputWindow.append(f"An error occurred while running the command, {e}")
 
 
 class StreamToTextEdit:
@@ -218,8 +218,8 @@ def saveSettings(self):
         "input": self.inputEntry.text(),
         "output": self.outputEntry.text(),
         "resize_factor": self.resizeFactorEntry.text(),
-        "upscaling_factor": self.upscalingFactorEntry.text(),
         "interpolate_factor": self.interpolateFactorEntry.text(),
+        "nt": self.numThreadsEntry.text(),
     }
     for i in range(self.checkboxLayout.count()):
         checkbox = self.checkboxLayout.itemAt(i).widget()

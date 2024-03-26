@@ -1,6 +1,9 @@
 {
-    "input_path": "G:/TheAnimeScripter/input/test.mp4",
-    "output_path": "C:/Users/nilas/OneDrive/Desktop/test",
+    "input": "G:/TheAnimeScripter/input/test.mp4",
+    "output": "",
+    "resize_factor": "1",
+    "interpolate_factor": "2",
+    "nt": "1",
     "Resize": false,
     "Dedup": true,
     "Denoise": false,
