@@ -16,7 +16,7 @@
 Welcome to TheAnimeScripter, a comprehensive tool designed for both video processing enthusiasts and professionals all within After Effects and now it also comes bundled with a Graphical User Interface ( GUI ). Our tool offers a wide array of functionalities, including interpolation, upscaling, deduplication, segmentation, and more.
 
 <p float="left">
-  <img src="https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/e1b456a3-ed14-4fd7-a2ac-60688a0c8475" width="730" />
+  <img src="https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/e1b456a3-ed14-4fd7-a2ac-60688a0c8475" width="700" />
   <img src="https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/36671784-2512-4e9a-b7f2-a7035b741365" width="100" /> 
 </p>
 
