@@ -10,6 +10,8 @@
     <a href="https://www.buymeacoffee.com/nilas" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 </p>
 
+Do you want a Linux Alternative?:
+ - [RVE](https://github.com/TNTwise/REAL-Video-Enhancer)
 
 # TheAnimeScripter
 
@@ -44,6 +46,8 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 9. **Efficient In-Memory Processing:** Experience swift transformations without additional frame extraction cycles.
 
 10. **Custom Model Support for Creativity:** Unleash your creativity by incorporating your own trained models effortlessly.
+
+11. **Graphical User Interface:** Navigate through our user-friendly interface designed for both beginners and professionals, ensuring a smooth editing workflow from start to finish.
 
 Empower your video editing journey with these robust, efficient features designed to elevate your content to new heights.
 
