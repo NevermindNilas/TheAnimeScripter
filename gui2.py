@@ -24,12 +24,14 @@ from PyQt6.QtCore import Qt
 from BlurWindow.blurWindow import GlobalBlur
 
 from src.assets.guiPresets import (
+    makeTextWidget,
     makePrimaryWidget,
-    stylePrimaryWidget,
-    styleBackgroundColor,
-    styleButtonWidget,
     makeButtonWidget,
     iconPaths,
+    styleTextWidget,
+    styleButtonWidget,
+    styleBackgroundColor,
+    stylePrimaryWidget,
 )
 import time
 # python -m pip install BlurWindow
@@ -38,6 +40,15 @@ TITLE = "The Anime Scripter - 1.6.0 (Alpha)"
 ICONPATH = os.path.join(os.path.dirname(__file__), "src", "assets", "icon.ico")
 WIDTH, HEIGHT = 1280, 720
 
+
+
+def create_widget(widget_type, style, size, pos, parent, **kwargs):
+    if widget_type == 'button':
+        return makeButtonWidget(style=style, size=size, pos=pos, parent=parent, **kwargs)
+    elif widget_type == 'text':
+        return makeTextWidget(style=style, size=size, pos=pos, parent=parent, **kwargs)
+    elif widget_type == 'primary':
+        return makePrimaryWidget(style=style, size=size, pos=pos, parent=parent, **kwargs)
 
 class mainApp(QMainWindow):
     def __init__(self):
@@ -51,74 +62,21 @@ class mainApp(QMainWindow):
         GlobalBlur(self.winId(), Dark=True)
         self.setStyleSheet(styleBackgroundColor())
 
-        # Layouts are a bit better for organizing widgets
-        # I will use them in the future, I promise
+        self.pathWidgets = create_widget('primary', stylePrimaryWidget(), (WIDTH - 30, HEIGHT // 4 - 15), (15, 15), self)
+        self.previewWidget = create_widget('primary', stylePrimaryWidget(), (WIDTH // 2 - 205, HEIGHT // 2 + 90), (15, 195), self)
+        self.scriptsWidget = create_widget('primary', stylePrimaryWidget(), (WIDTH // 2 + 160, HEIGHT // 2 + 90), (WIDTH // 2 - 175, 195), self)
+
+        self.runButton = create_widget('button', styleButtonWidget(borderRadius=25), (50, 50), (WIDTH // 2 - 25, HEIGHT - 60), self, icon=iconPaths("play"))
+        self.settingsButton = create_widget('button', styleButtonWidget(borderRadius=25), (50, 50), (WIDTH // 2 + 40, HEIGHT - 60), self, icon=iconPaths("settings"))
+        self.aboutButton = create_widget('button', styleButtonWidget(borderRadius=25), (50, 50), (WIDTH // 2 - 90, HEIGHT - 60), self, icon=iconPaths("about"))
+
         """
-        self.sidePanel = makePrimaryWidget(
-            style=stylePrimaryWidget(borderRadius=0),
-            size=(WIDTH // 6, HEIGHT),
-            pos=(-4, 0), # eyeballing it a bit, will fix later
-            parent=self,
-        )
+        self.inputButton = create_widget('button', styleButtonWidget(chanels=(0, 0, 0, 0.2), borderRadius=10), (150, 40), (190, 50), self, addText="Input")
+        self.inputTextWidget = create_widget('text', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=10), (750, 40), (350, 50), self)
+
+        self.outputButton = create_widget('button', styleButtonWidget(chanels=(0, 0, 0, 0.2), borderRadius=10), (150, 40), (190, 120), self, addText="Output")
+        self.outputTextWidget = create_widget('text', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=10), (750, 40), (350, 120), self)
         """
-
-        self.pathWidgets = makePrimaryWidget(
-            style=stylePrimaryWidget(),
-            size=(WIDTH - 30, HEIGHT // 4),
-            pos=(15, 15),
-            parent=self,
-        )
-
-        self.scriptWidgets = makePrimaryWidget(
-            style=stylePrimaryWidget(),
-            size=(WIDTH - 30, HEIGHT - 300),
-            pos=(15, 210),
-            parent=self,
-        )
-
-        self.runButton = makeButtonWidget(
-            style=styleButtonWidget(borderRadius=25),
-            size=(50, 50),
-            pos=(WIDTH // 2 - 25, HEIGHT - 70),
-            parent=self,
-            icon=iconPaths("play"),
-        )
-
-        self.settingsButton = makeButtonWidget(
-            style=styleButtonWidget(borderRadius=25),
-            size=(50, 50),
-            pos=(WIDTH // 2 + 40, HEIGHT - 70),
-            parent=self,
-            icon=iconPaths("settings"),
-        )
-
-
-        self.aboutButton = makeButtonWidget(
-            style=styleButtonWidget(borderRadius=25),
-            size=(50, 50),
-            pos=(WIDTH // 2 - 90, HEIGHT - 70),
-            parent=self,
-            icon=iconPaths("about"),
-        )
-
-        self.inputButton = makeButtonWidget(
-            style=styleButtonWidget(borderRadius=25),
-            size=(50, 50),
-            pos=(WIDTH // 2 - 155, HEIGHT - 70),
-            parent=self,
-            #icon=iconPaths("input"),
-            opacity=0.2,
-        )
-
-        self.outputButton = makeButtonWidget(
-            style=styleButtonWidget(borderRadius=25),
-            size=(50, 50),
-            pos=(WIDTH // 2 + 105, HEIGHT - 70),
-            parent=self,
-            #icon=iconPaths("output"),
-            opacity=0.2,
-        )
-
 
     # avoiding possible lag in the window when moving the window arround
     # def moveEvent(self, event) -> None:
