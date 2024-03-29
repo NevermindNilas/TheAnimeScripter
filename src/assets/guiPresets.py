@@ -5,11 +5,13 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QGraphicsDropShadowEffect,
     QGraphicsOpacityEffect,
+    QGraphicsBlurEffect,
     QLabel,
 )
 
 from PyQt6.QtGui import QColor, QIcon
 
+DEFAULTFONT = "Helvetica Neue"
 
 def stylePrimaryWidget(
     chanels: tuple = (255.0, 255.0, 255.0, 0.15), borderRadius: int = 15
@@ -58,7 +60,7 @@ def styleButtonWidget(
             border-radius: {borderRadius}px;
             font-weight: bold;
             font-size: {textSize}px;
-            font-family: 'Helvetica Neue';
+            font-family: '{DEFAULTFONT}';
             color: rgb({textColor[0]}, {textColor[1]}, {textColor[2]});
             border: none;
             padding: 5px;
@@ -87,7 +89,7 @@ def styleTextWidget(
             border-radius: {borderRadius}px;
             font-weight: bold;
             font-size: {textSize}px;
-            font-family: 'Helvetica Neue';
+            font-family: '{DEFAULTFONT}';
             color: rgb({textColor[0]}, {textColor[1]}, {textColor[2]});
             border: 1px solid rgba({chanels[0]}, {chanels[1]}, {chanels[2]}, {chanels[3] + 0.2});
             padding: 5px;
@@ -96,7 +98,6 @@ def styleTextWidget(
                                         stop: 1 rgba({chanels[0]}, {chanels[1]}, {chanels[2]}, {chanels[3]}));
         }}
     """
-
 
 def addShadowEffect(widget, blurRadius: int = 50):
     """
@@ -109,32 +110,54 @@ def addShadowEffect(widget, blurRadius: int = 50):
     shadow.setColor(QColor(0, 0, 0, 255))
     widget.setGraphicsEffect(shadow)
 
+def addBlurEffect(widget, blurRadius: int = 10):
+    """
+    Adds a blur effect to the widget
+    """
+    blur = QGraphicsBlurEffect()
+    blur.setBlurRadius(blurRadius)
+    widget.setGraphicsEffect(blur)
 
 def makePrimaryWidget(
     size: tuple[int, int],
     pos: tuple[int, int],
     parent: QWidget,
-    style: str,
+    mainStyle: str = "",
     addShadow: bool = True,
     addShadowBlurRadius: int = 50,
+    labelText: str = "",
+    labelOffset: tuple[int, int] = (15, 15),
+    labelStyle: str = "",
 ) -> QWidget:
     widget = QWidget(parent)
     widget.setGeometry(*pos, *size)
-    widget.setStyleSheet(style)
+    widget.setStyleSheet(mainStyle)
+
+    if labelText:
+        label = QLabel(labelText, widget)
+        label.move(*labelOffset)
+        label.setAutoFillBackground(True)
+        label.setStyleSheet(f"""
+            QLabel {{
+                background-color: none;
+                color: white;
+                font-weight: bold;
+                font-size: 15px;
+                font-family: '{DEFAULTFONT}';
+                border: none;
+            }}
+        """)
 
     if addShadow:
         addShadowEffect(widget, blurRadius=addShadowBlurRadius)
 
     return widget
 
-
 def makeButtonWidget(
     size: tuple[int, int],
     pos: tuple[int, int],
     parent: QWidget,
     style: str,
-    addShadow: bool = True,
-    addShadowBlurRadius: int = 50,
     addText: str = "",
     icon: str = "",
     opacity: float = 1.0,
@@ -156,7 +179,6 @@ def makeButtonWidget(
         widget.setGraphicsEffect(opacityEffect)
 
     return widget
-
 
 def makeTextWidget(
     size: tuple[int, int],
@@ -180,6 +202,18 @@ def makeTextWidget(
 
     return widget
 
+def makeSimpleTextLabelWidget(
+    size: tuple[int, int],
+    pos: tuple[int, int],
+    parent: QWidget,
+    addText: str,
+) -> QLabel:
+    widget = QLabel(parent)
+    widget.setGeometry(*pos, *size)
+    widget.setText(addText)
+    widget.setStyleSheet(styleSimpleTextLabel())
+
+    return widget
 
 def iconPaths(iconName: str) -> str:
     """
@@ -196,3 +230,4 @@ def iconPaths(iconName: str) -> str:
             continue
 
     raise FileNotFoundError(f"Icon {iconName} not found in assets folder")
+

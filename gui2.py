@@ -42,13 +42,13 @@ WIDTH, HEIGHT = 1280, 720
 
 
 
-def create_widget(widget_type, style, size, pos, parent, **kwargs):
+def createWidget(widget_type, style, size, pos, parent, **kwargs):
     if widget_type == 'button':
         return makeButtonWidget(style=style, size=size, pos=pos, parent=parent, **kwargs)
-    elif widget_type == 'text':
+    elif widget_type == 'textArea':
         return makeTextWidget(style=style, size=size, pos=pos, parent=parent, **kwargs)
     elif widget_type == 'primary':
-        return makePrimaryWidget(style=style, size=size, pos=pos, parent=parent, **kwargs)
+        return makePrimaryWidget(mainStyle=style, size=size, pos=pos, parent=parent, **kwargs)
 
 class mainApp(QMainWindow):
     def __init__(self):
@@ -62,22 +62,54 @@ class mainApp(QMainWindow):
         GlobalBlur(self.winId(), Dark=True)
         self.setStyleSheet(styleBackgroundColor())
 
-        self.pathWidgets = create_widget('primary', stylePrimaryWidget(), (WIDTH - 30, HEIGHT // 4 - 15), (15, 15), self)
-        self.previewWidget = create_widget('primary', stylePrimaryWidget(), (WIDTH // 2 - 205, HEIGHT // 2 + 90), (15, 195), self)
-        self.scriptsWidget = create_widget('primary', stylePrimaryWidget(), (WIDTH // 2 + 160, HEIGHT // 2 + 90), (WIDTH // 2 - 175, 195), self)
+        self.handleUI() # create the widgets
+        self.buttonLogic() # connect the buttons to the functions
+    
+    def handleUI(self):
+        self.pathWidgets = createWidget('primary', stylePrimaryWidget(), (WIDTH // 2 + 160, HEIGHT // 4 - 15), (WIDTH // 2 - 175, 15), self, labelText = "Paths")
+        self.optionsWidget = createWidget('primary', stylePrimaryWidget(), (WIDTH // 2 - 205, HEIGHT // 2 + 270), (15, 15), self, labelText = "Options")
+        self.terminalWidget = createWidget('primary', stylePrimaryWidget(), (WIDTH // 2 + 160, HEIGHT // 2 + 90), (WIDTH // 2 - 175, 195), self, labelText = "Terminal")
+        self.dockWidget = createWidget('primary', stylePrimaryWidget(), (250, 50), (WIDTH // 2 - 125, HEIGHT - 62), self)
+        #self.shadowOptionWidget = createWidget('primary', stylePrimaryWidget(chanels=(0,0,0,0.2)), (WIDTH // 2 - 235, HEIGHT // 2 - 60), (30, 60), self, addShadow=False)
+        #self.shadowTerminalWidget = createWidget('primary', stylePrimaryWidget(chanels=(0,0,0,0.2)), (WIDTH // 2 - 235, HEIGHT // 2 - 60), (30, 60), self)
 
-        self.runButton = create_widget('button', styleButtonWidget(borderRadius=25), (50, 50), (WIDTH // 2 - 25, HEIGHT - 60), self, icon=iconPaths("play"))
-        self.settingsButton = create_widget('button', styleButtonWidget(borderRadius=25), (50, 50), (WIDTH // 2 + 40, HEIGHT - 60), self, icon=iconPaths("settings"))
-        self.aboutButton = create_widget('button', styleButtonWidget(borderRadius=25), (50, 50), (WIDTH // 2 - 90, HEIGHT - 60), self, icon=iconPaths("about"))
+        self.runButton = createWidget('button', styleButtonWidget(chanels=(255, 255, 255, 0), borderRadius=25), (50, 50), (WIDTH // 2 - 25, HEIGHT - 62), self, icon=iconPaths("play"))
+        self.settingsButton = createWidget('button', styleButtonWidget(chanels=(255, 255, 255, 0), borderRadius=25), (50, 50), (WIDTH // 2 + 40, HEIGHT - 62), self, icon=iconPaths("settings"))
+        self.aboutButton = createWidget('button', styleButtonWidget(chanels=(255, 255, 255, 0), borderRadius=25), (50, 50), (WIDTH // 2 - 90, HEIGHT - 62), self, icon=iconPaths("about"), opacity = 0.1)
 
-        """
-        self.inputButton = create_widget('button', styleButtonWidget(chanels=(0, 0, 0, 0.2), borderRadius=10), (150, 40), (190, 50), self, addText="Input")
-        self.inputTextWidget = create_widget('text', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=10), (750, 40), (350, 50), self)
+        self.inputButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.2), borderRadius=10), size = (100, 40), pos = (480, 70), parent= self, addText="Input")
+        self.outputButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.2), borderRadius=10), size= (100, 40), pos= (480, 120), parent = self, addText="Output")
 
-        self.outputButton = create_widget('button', styleButtonWidget(chanels=(0, 0, 0, 0.2), borderRadius=10), (150, 40), (190, 120), self, addText="Output")
-        self.outputTextWidget = create_widget('text', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=10), (750, 40), (350, 120), self)
-        """
+        self.inputTextWidget = createWidget('textArea', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=10), (650, 40), (600, 70), self)
+        self.outputTextWidget = createWidget('textArea', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=10), (650, 40), pos = (600, 120), parent= self)
 
+        self.resizeButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0), borderRadius=10), size = (100, 40), pos = (15, 170), parent= self, addText="Resize")
+        self.deduplicateButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0), borderRadius=10), size = (100, 40), pos = (15, 220), parent= self, addText="Deduplicate")
+
+    def buttonLogic(self):
+        self.runButton.clicked.connect(self.runScript)
+        self.settingsButton.clicked.connect(self.openSettings)
+        self.aboutButton.clicked.connect(self.openAbout)
+
+        self.inputButton.clicked.connect(self.openInput)
+        self.outputButton.clicked.connect(self.openOutput)
+
+    def runScript(self):
+        pass
+
+    def openSettings(self):
+        pass
+
+    def openAbout(self):
+        pass
+
+    def openInput(self):
+        pass
+
+    def openOutput(self):
+        pass
+
+        
     # avoiding possible lag in the window when moving the window arround
     # def moveEvent(self, event) -> None:
     #    time.sleep(0.02)
