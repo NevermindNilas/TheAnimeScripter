@@ -14,12 +14,11 @@ def darkUiStyleSheet() -> str:
     """
     return """
         QMainWindow {
-            background-color: #2D2D2D;
+            background-color: rgba(0, 0, 0, 0);
         }
         
         QWidget {
-            background-color: #2D2D2D;
-            color: #FFFFFF;
+            background-color: rgba(0, 0, 0, 0);
         }
 
         QPushButton {
