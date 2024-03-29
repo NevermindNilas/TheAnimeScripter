@@ -57,6 +57,7 @@ class VideoProcessingApp(QMainWindow):
 
         self.setWindowTitle(TITLE)
         self.setFixedSize(1280, 720)
+        
 
         self.setStyleSheet(darkUiStyleSheet())
         self.stackedWidget = QStackedWidget()
