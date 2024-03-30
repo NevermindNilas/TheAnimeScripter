@@ -77,8 +77,7 @@ class mainApp(QMainWindow):
         self.optionsWidget = createWidget('primary', stylePrimaryWidget(), (WIDTH // 2 - 205, HEIGHT // 2 + 270), (15, 15), self, labelText = "Options")
         self.terminalWidget = createWidget('primary', stylePrimaryWidget(), (WIDTH // 2 + 160, HEIGHT // 2 + 90), (WIDTH // 2 - 175, 195), self, labelText = "Terminal")
         self.dockWidget = createWidget('primary', stylePrimaryWidget(), (250, 55), (WIDTH // 2 - 125, HEIGHT - 65), self)
-        #self.shadowOptionWidget = createWidget('primary', stylePrimaryWidget(chanels=(0,0,0,0.2)), (WIDTH // 2 - 235, HEIGHT // 2 - 60), (30, 60), self, addShadow=False)
-        #self.shadowTerminalWidget = createWidget('primary', stylePrimaryWidget(chanels=(0,0,0,0.2)), (WIDTH // 2 - 235, HEIGHT // 2 - 60), (30, 60), self)
+        self.shadowTerminalWidget = createWidget('primary', stylePrimaryWidget(chanels=(0,0,0,0.2)), (WIDTH // 2 + 160 - 30, HEIGHT // 2 + 90 - 60), (WIDTH // 2 - 175 + 15, 195 + 15 + 30), self, addShadow=False)
 
         self.runButton = createWidget('button', styleButtonWidget(chanels=(255, 255, 255, 0), borderRadius=25), (50, 50), (WIDTH // 2 - 25, HEIGHT - 62), self, icon=iconPaths("play"))
         self.settingsButton = createWidget('button', styleButtonWidget(chanels=(255, 255, 255, 0), borderRadius=25), (50, 50), (WIDTH // 2 + 40, HEIGHT - 62), self, icon=iconPaths("settings"))
@@ -112,7 +111,6 @@ class mainApp(QMainWindow):
 
     def openAbout(self):
         pass
-
 
     def openInput(self):
         file, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Video Files (*.mp4; *.mkv; *.avi; *.mov)")
