@@ -326,6 +326,7 @@ if __name__ == "__main__":
             "realesrgan-ncnn",
             "shufflecugan-ncnn",
             "apisr",
+            "shufflecugan-direct",
         ],
         default="shufflecugan",
     )

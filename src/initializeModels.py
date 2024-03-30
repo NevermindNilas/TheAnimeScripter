@@ -47,6 +47,10 @@ def intitialize_models(self):
                     self.cugan_kind,
                     self.nt,
                 )
+            
+            case "shufflecugan-direct":
+                from .unifiedUpscale import shuffleCuganDirectML
+                upscale_process = shuffleCuganDirectML()
 
     if self.interpolate:
         logging.info(
