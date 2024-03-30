@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -32,6 +33,7 @@ from src.assets.guiPresets import (
     styleButtonWidget,
     styleBackgroundColor,
     stylePrimaryWidget,
+    replaceForwardWithBackwardSlashes,
 )
 import time
 # python -m pip install BlurWindow
@@ -50,6 +52,7 @@ def createWidget(widget_type, style, size, pos, parent, **kwargs):
     elif widget_type == 'primary':
         return makePrimaryWidget(mainStyle=style, size=size, pos=pos, parent=parent, **kwargs)
 
+
 class mainApp(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -62,14 +65,18 @@ class mainApp(QMainWindow):
         GlobalBlur(self.winId(), Dark=True)
         self.setStyleSheet(styleBackgroundColor())
 
-        self.handleUI() # create the widgets
-        self.buttonLogic() # connect the buttons to the functions
-    
+        self.handleUI()  # create the widgets
+        self.buttonLogic()  # connect the buttons to the functions
+        self.loadSettings()  # load the settings
+
     def handleUI(self):
+        """
+        Create the widgets
+        """
         self.pathWidgets = createWidget('primary', stylePrimaryWidget(), (WIDTH // 2 + 160, HEIGHT // 4 - 15), (WIDTH // 2 - 175, 15), self, labelText = "Paths")
         self.optionsWidget = createWidget('primary', stylePrimaryWidget(), (WIDTH // 2 - 205, HEIGHT // 2 + 270), (15, 15), self, labelText = "Options")
         self.terminalWidget = createWidget('primary', stylePrimaryWidget(), (WIDTH // 2 + 160, HEIGHT // 2 + 90), (WIDTH // 2 - 175, 195), self, labelText = "Terminal")
-        self.dockWidget = createWidget('primary', stylePrimaryWidget(), (250, 50), (WIDTH // 2 - 125, HEIGHT - 62), self)
+        self.dockWidget = createWidget('primary', stylePrimaryWidget(), (250, 55), (WIDTH // 2 - 125, HEIGHT - 65), self)
         #self.shadowOptionWidget = createWidget('primary', stylePrimaryWidget(chanels=(0,0,0,0.2)), (WIDTH // 2 - 235, HEIGHT // 2 - 60), (30, 60), self, addShadow=False)
         #self.shadowTerminalWidget = createWidget('primary', stylePrimaryWidget(chanels=(0,0,0,0.2)), (WIDTH // 2 - 235, HEIGHT // 2 - 60), (30, 60), self)
 
@@ -83,10 +90,13 @@ class mainApp(QMainWindow):
         self.inputTextWidget = createWidget('textArea', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=10), (650, 40), (600, 70), self)
         self.outputTextWidget = createWidget('textArea', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=10), (650, 40), pos = (600, 120), parent= self)
 
-        self.resizeButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0), borderRadius=10), size = (100, 40), pos = (15, 170), parent= self, addText="Resize")
-        self.deduplicateButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0), borderRadius=10), size = (100, 40), pos = (15, 220), parent= self, addText="Deduplicate")
+        #self.resizeButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0), borderRadius=10), size = (100, 40), pos = (15, 170), parent= self, addText="Resize")
+        #self.deduplicateButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0), borderRadius=10), size = (100, 40), pos = (15, 220), parent= self, addText="Deduplicate")
 
     def buttonLogic(self):
+        """
+        Handle the button logic on click
+        """
         self.runButton.clicked.connect(self.runScript)
         self.settingsButton.clicked.connect(self.openSettings)
         self.aboutButton.clicked.connect(self.openAbout)
@@ -103,12 +113,38 @@ class mainApp(QMainWindow):
     def openAbout(self):
         pass
 
+
     def openInput(self):
-        pass
+        file, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Video Files (*.mp4; *.mkv; *.avi; *.mov)")
+        if file:
+            replaceForwardWithBackwardSlashes(file)
+            self.inputTextWidget.setText(file)
+            self.saveSettings({'input': file})
 
     def openOutput(self):
-        pass
+        directory = QFileDialog.getExistingDirectory(self, "Select Output Folder")
+        if directory:
+            replaceForwardWithBackwardSlashes(directory)
+            self.outputTextWidget.setText(directory)
+            self.saveSettings({'output': directory})
 
+    def loadSettings(self):
+        try:
+            with open('settings.json', 'r') as f:
+                settings = json.load(f)
+                if 'input' in settings:
+                    self.inputTextWidget.setText(replaceForwardWithBackwardSlashes(settings['input']))
+                if 'output' in settings:
+                    self.outputTextWidget.setText(replaceForwardWithBackwardSlashes(settings['output']))
+        except FileNotFoundError:
+            return {}
+
+    def saveSettings(self, new_settings):
+        settings = self.loadSettings()
+        settings.update(new_settings)
+        with open('settings.json', 'w') as f:
+            json.dump(settings, f)
+            
         
     # avoiding possible lag in the window when moving the window arround
     # def moveEvent(self, event) -> None:

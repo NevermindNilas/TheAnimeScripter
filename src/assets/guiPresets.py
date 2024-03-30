@@ -127,7 +127,7 @@ def makePrimaryWidget(
     addShadowBlurRadius: int = 50,
     labelText: str = "",
     labelOffset: tuple[int, int] = (15, 15),
-    labelStyle: str = "",
+    labelSize: int = 15,
 ) -> QWidget:
     widget = QWidget(parent)
     widget.setGeometry(*pos, *size)
@@ -142,7 +142,7 @@ def makePrimaryWidget(
                 background-color: none;
                 color: white;
                 font-weight: bold;
-                font-size: 15px;
+                font-size: {labelSize}px;
                 font-family: '{DEFAULTFONT}';
                 border: none;
             }}
@@ -202,19 +202,6 @@ def makeTextWidget(
 
     return widget
 
-def makeSimpleTextLabelWidget(
-    size: tuple[int, int],
-    pos: tuple[int, int],
-    parent: QWidget,
-    addText: str,
-) -> QLabel:
-    widget = QLabel(parent)
-    widget.setGeometry(*pos, *size)
-    widget.setText(addText)
-    widget.setStyleSheet(styleSimpleTextLabel())
-
-    return widget
-
 def iconPaths(iconName: str) -> str:
     """
     Returns the path for the icon
@@ -231,3 +218,9 @@ def iconPaths(iconName: str) -> str:
 
     raise FileNotFoundError(f"Icon {iconName} not found in assets folder")
 
+def replaceForwardWithBackwardSlashes(path: str) -> str:
+    """
+    Replaces forward slashes with backward slashes
+    Just to avoid any issues with Windows paths
+    """
+    return path.replace("/", "\\")
