@@ -446,6 +446,9 @@ if __name__ == "__main__":
             if file.endswith((".mp4", ".mkv", ".mov", ".avi"))
         ]
 
+        logging.info(f"Processing {len(videoFiles)} files")
+        print(f"Processing {len(videoFiles)} files")
+
         for videoFile in videoFiles:
             args.input = os.path.abspath(videoFile)
             logging.info(f"Processing {args.input}")
