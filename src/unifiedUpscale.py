@@ -4,6 +4,7 @@ import numpy as np
 import logging
 import torch.nn.functional as F
 
+
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
 

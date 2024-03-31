@@ -141,6 +141,6 @@ class UnifiedDenoise:
 
             frame = self.model(frame)
             frame = frame[:, :, : self.height, : self.width]
-            frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).clamp_(0, 255).byte()
+            frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).byte()
 
             return frame.cpu().numpy()
