@@ -1,3 +1,5 @@
+![TheAnimeScripter](https://socialify.git.ci/NevermindNilas/TheAnimeScripter/image?description=1&font=KoHo&forks=1&issues=1&language=1&name=1&owner=1&pattern=Solid&pulls=1&stargazers=1&theme=Dark)
+
 <p align="center">
     <a href="https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F"><img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F&labelColor=%23697689&countColor=%23ff8a65&style=plastic&labelStyle=none" /></a> 
     <a href="https://github.com/NevermindNilas/TheAnimeScripter/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/NevermindNilas/TheAnimeScripter.svg?style=flat-square" /></a>
@@ -10,20 +12,6 @@
     <a href="https://www.buymeacoffee.com/nilas" target="_blank"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" style="height: 41px !important;width: 174px !important;box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;-webkit-box-shadow: 0px 3px 2px 0px rgba(190, 190, 190, 0.5) !important;" ></a>
 </p>
 
-Do you want a Linux Alternative?:
- - [RVE](https://github.com/TNTwise/REAL-Video-Enhancer)
-
-# TheAnimeScripter
-
-Welcome to TheAnimeScripter, a comprehensive tool designed for both video processing enthusiasts and professionals all within After Effects and now it also comes bundled with a Graphical User Interface ( GUI ). Our tool offers a wide array of functionalities, including interpolation, upscaling, deduplication, segmentation, and more.
-
-<p float="left">
-  <img src="https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/e1b456a3-ed14-4fd7-a2ac-60688a0c8475" width="700" />
-  <img src="https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/36671784-2512-4e9a-b7f2-a7035b741365" width="100" /> 
-</p>
-
-## Promo Video
-[![Promo Video](https://img.youtube.com/vi/V7ryKMezqeQ/0.jpg)](https://youtu.be/V7ryKMezqeQ)
 
 ## 🚀 Key Features
 
@@ -52,6 +40,12 @@ Welcome to TheAnimeScripter, a comprehensive tool designed for both video proces
 Empower your video editing journey with these robust, efficient features designed to elevate your content to new heights.
 
 
+## Graphical User Interfaces for Windows and After Effects
+<p float="left">
+  <img src="https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/e1b456a3-ed14-4fd7-a2ac-60688a0c8475" width="700" />
+  <img src="https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/36671784-2512-4e9a-b7f2-a7035b741365" width="100" /> 
+</p>
+
 ## 🛠️ Getting Started
 
 ### How to Download
@@ -77,10 +71,7 @@ In the settings panel:
 - Set the folder to the same directory as The Anime Scripter.
 - Specify the output location.
 
-## 📚 Available Inputs
-
-Every parameter available can now be found in the [Parameters Guide](PARAMETERS.MD).
-
+## 📚 [Available Inputs](PARAMETERS.MD)
 
 ## Available Models
 
@@ -122,4 +113,7 @@ Denoise:
 
 ## 📈 Benchmarks
 
-- N/A for now.
+- To be added
+
+## Promo Video
+[![Promo Video](https://img.youtube.com/vi/V7ryKMezqeQ/0.jpg)](https://youtu.be/V7ryKMezqeQ)
