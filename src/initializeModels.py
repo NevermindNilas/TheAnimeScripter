@@ -48,10 +48,6 @@ def intitialize_models(self):
                     self.nt,
                 )
             
-            case "shufflecugan-direct":
-                from .unifiedUpscale import shuffleCuganDirectML
-                upscale_process = shuffleCuganDirectML()
-
     if self.interpolate:
         logging.info(
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolate_factor, '.3f')}fps"
