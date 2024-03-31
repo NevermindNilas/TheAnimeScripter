@@ -326,7 +326,6 @@ if __name__ == "__main__":
             "realesrgan-ncnn",
             "shufflecugan-ncnn",
             "apisr",
-            "shufflecugan-direct",
         ],
         default="shufflecugan",
     )
@@ -428,8 +427,6 @@ if __name__ == "__main__":
 
     args = argparser.parse_args()
     args = argumentChecker(args, mainPath, scriptVersion)
-
-    print(args.input)
 
     if os.path.isfile(args.input):
         print(f"Processing {args.input}")

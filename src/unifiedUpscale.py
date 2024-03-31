@@ -2,9 +2,7 @@ import os
 import torch
 import numpy as np
 import logging
-import onnxruntime as ort
 import torch.nn.functional as F
-import cv2
 
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
@@ -145,6 +143,88 @@ class Upscaler:
 
             return frame.cpu().numpy()
 
+"""
+
+Another TensorRT implementation that uses CUDA for data transfer
+
+NOTE:
+    Not functional yet
+    
+class shuffleCuganDirectML:
+    def __init__(self):
+        model = r"G:\TheAnimeScripter\2x_AnimeJaNai_HD_V3_Compact_583k-fp16.onnx"
+        enginePath = r"G:\TheAnimeScripter\2x_AnimeJaNai_HD_V3_Compact_583k-fp16.engine"
+        print(f"Using model: {model}")
+
+        TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+        runtime = trt.Runtime(TRT_LOGGER)
+
+        # Create a PyCUDA context and make it current
+        self.context = cuda.Device(0).make_context()
+
+        # Load the engine if it exists, otherwise build it and save it
+        if os.path.exists(enginePath):
+            with open(enginePath, 'rb') as f:
+                engine = runtime.deserialize_cuda_engine(f.read())
+        else:
+            with trt.Builder(TRT_LOGGER) as builder, builder.create_network() as network, trt.OnnxParser(network, TRT_LOGGER) as parser:
+                builder.fp16_mode = True
+                with open(model, 'rb') as model:
+                    parser.parse(model.read())
+                engine = builder.build_cuda_engine(network)
+                with open(enginePath, 'wb') as f:
+                    f.write(engine.serialize())
+
+        self.execution_context = engine.create_execution_context()
+        input = np.empty([1,3,1080,1920], dtype=np.float16)
+        input = np.ascontiguousarray(input)
+
+        output = np.empty([1,3,2160,3840], dtype=np.float16)
+        output = np.ascontiguousarray(output)
+
+        self.d_input = cuda.mem_alloc(1 * input.size * input.dtype.itemsize)
+        self.d_output = cuda.mem_alloc(1 * output.size * output.dtype.itemsize)
+
+        self.bindings = [int(self.d_input), int(self.d_output)]
+        self.stream = cuda.Stream()
+
+    def run(self, frame: np.ndarray) -> np.ndarray:
+        self.context.push()
+        try:
+            frame = frame.transpose((2, 0, 1))
+            frame = frame.reshape(1, 3, 1080, 1920)
+            frame = frame.astype(np.float16) / 255.0
+            print(1
+            frame = np.ascontiguousarray(frame)  # Ensure that frame is contiguous
+
+            cuda.memcpy_htod(self.d_input, frame)
+
+            # Execute model
+            self.execution_context.execute(1, self.bindings)
+            
+            output = np.empty([1,3,2160,3840], dtype=np.float16)
+            cuda.memcpy_dtoh(output, self.d_output)
+
+            output = output.reshape(3, 2160, 3840)        
+            output = (output * 255).astype(np.uint8)
+
+        except Exception as e:
+            logging.error(f"Error running model: {e}")
+            
+        finally:
+            self.context.pop()
+
+        return output
+
+
+"""
+
+"""
+ONNXRUNTIME DIRECTML
+
+NOTE:
+    Output needs clamping to [0-255], not sure why but it's a quirk of the models
+    Performance is abysmal due to numpy data transfer, ~3FPS for 1080p
 
 class shuffleCuganDirectML:
     def __init__(self):
@@ -202,7 +282,8 @@ class shuffleCuganDirectML:
         output = output.astype(np.uint8)
 
         return output
-    
+"""
+
 """
 ONNXRUNTIME CUDA 
 
@@ -457,7 +538,7 @@ class Upscaler:
                     args.onnx_file_path
                 )
             )
-            engine = builder.build_engine(network, config)
+            engine = builder.buildEngine(network, config)
             if engine is not None:
                 print("Create engine success! ")
             else:
