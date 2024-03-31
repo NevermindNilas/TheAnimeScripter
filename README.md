@@ -1,4 +1,4 @@
-![TheAnimeScripter](https://socialify.git.ci/NevermindNilas/TheAnimeScripter/image?description=1&font=KoHo&forks=1&issues=1&language=1&name=1&owner=1&pattern=Solid&pulls=1&stargazers=1&theme=Dark)
+![TheAnimeScripter](https://socialify.git.ci/NevermindNilas/TheAnimeScripter/image?description=1&descriptionEditable=Welcome%20to%20TheAnimeScripter%20%E2%80%93%20the%20ultimate%20tool%20for%20video%20processing.%20Enjoy%20%20%20seamless%20video%20processing%20with%20our%20intuitive%20GUIs%20for%20Windows%20and%20After%20Effects.&font=KoHo&forks=1&issues=1&language=1&name=1&owner=1&pattern=Solid&pulls=1&stargazers=1&theme=Dark)
 
 <p align="center">
     <a href="https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F"><img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F&labelColor=%23697689&countColor=%23ff8a65&style=plastic&labelStyle=none" /></a> 
