@@ -111,9 +111,7 @@ Denoise:
 - [Kiteretsu77](https://github.com/Kiteretsu77/APISR) - For APISR
 - [cszn](https://github.com/cszn/DPIR) - For DPIR
 
-## 📈 Benchmarks
-
-- To be added
+## 📈 [Benchmarks](BENCHMARKS.MD)
 
 ## Star History
 
