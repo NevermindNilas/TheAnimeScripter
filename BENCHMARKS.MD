@@ -15,3 +15,6 @@
 
 ![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/71a326d5-6f6a-404a-93b6-bdf19a56b385)
 
+# AMD 7800x3D, RTX 4080, 32GB DDR5, TAS 1.5.0, Kovel
+
+# ![tables](https://cdn.discordapp.com/attachments/1208539289328025621/1224397781205127359/image.png?ex=661d584b&is=660ae34b&hm=fe8baf72d44b733873073729e22c50efdf63a094c3d1f1da98220e8583eb18c0&)
