@@ -43,10 +43,10 @@ def runAllBenchmarks():
         "Denoise": runDenoiseBenchmark(),
     }
 
-    #systemInfo = parseSystemInfo()
+    systemInfo = parseSystemInfo()
     
     with open("benchmarkResults.json", "w") as f:
-        json.dump({"Results": results}, f, indent=4)
+        json.dump({"System Info": systemInfo, "Results": results}, f, indent=4)
 
 def runUpscaleBenchmark():
     results = {}
