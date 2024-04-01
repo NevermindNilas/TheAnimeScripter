@@ -192,7 +192,7 @@
 
 -------------------------------------------------------------------------------------------------------------
 
-# AMD 3700x, RTX 3080, TAS 1.5.0, TNTWise.
+# AMD 3700x, RTX 3080, 24GB DDR4 3600MHz, TAS 1.5.0, Windows VM ( 7C/14Threads), TNTWise.
 
 <div style="display: flex; justify-content: space-between;">
 <div style="flex: 1;">
