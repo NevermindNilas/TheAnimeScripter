@@ -13,4 +13,5 @@
 
 # AMD 3700x, RTX 3080, 24GB DDR4 3600MHz, TAS 1.5.0, Windows VM ( 7C/14Threads ), TNTWise.
 
-![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/a61bdb37-a15e-452d-bd07-d0e0e8e4287b)
+![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/71a326d5-6f6a-404a-93b6-bdf19a56b385)
+
