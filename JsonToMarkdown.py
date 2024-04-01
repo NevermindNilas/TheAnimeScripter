@@ -1,17 +1,21 @@
 import json
 import pandas as pd
+import matplotlib.pyplot as plt
+from pandas.plotting import table
 
 try:
-    data = json.loads(open('benchmarkResults.json').read())
+    data = json.loads(open("benchmarkResults.json").read())
 except FileNotFoundError:
     print("benchmarkResults.json not found")
     exit()
 
-htmlTables = '<div style="display: flex; justify-content: space-between;">\n'
-for category, methods in data.items():
-    df = pd.DataFrame(list(methods.items()), columns=['Method', 'FPS'])
-    htmlTables += f'<div style="flex: 1;">\n\n## {category}\n\n{df.to_html(index=False)}\n\n</div>\n'
-htmlTables += '</div>\n'
+fig, axs = plt.subplots(1, len(data), figsize=(len(data) * 5, 5))
 
-with open('result.md', 'w') as f:
-    f.write(htmlTables)
+for ax, (category, methods) in zip(axs, data.items()):
+    df = pd.DataFrame(list(methods.items()), columns=["Method", "FPS"])
+    ax.axis("off")
+    tbl = table(ax, df, loc="center")
+    ax.set_title(category)
+
+plt.tight_layout()
+plt.savefig("tables.png")
