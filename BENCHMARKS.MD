@@ -2,6 +2,7 @@
 
 #### Note, since these are ran in order with no time gaps inbetween there's a possibility for GPU heat becoming a bottleneck so these results may not be fully representative of the real world performance.
 
+#### If the result is 0.0 that's typically because of Out Of VRAM Issues ( like GMFSS )
 -------------------------------------------------------------------------------------------------------------
 
 # 13700k Undervolted + Overclocked, 3090 Overclocked, 32GB DDR5 6800Mhz, TAS 1.5.0, Nilas.
