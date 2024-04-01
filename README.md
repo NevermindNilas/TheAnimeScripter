@@ -40,7 +40,8 @@
 Empower your video editing journey with these robust, efficient features designed to elevate your content to new heights.
 
 
-## Graphical User Interfaces for Windows and After Effects
+## 🖥️ Graphical User Interfaces for Windows and After Effects
+
 <p float="left">
   <img src="https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/e1b456a3-ed14-4fd7-a2ac-60688a0c8475" width="700" />
   <img src="https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/36671784-2512-4e9a-b7f2-a7035b741365" width="100" /> 
@@ -73,7 +74,7 @@ In the settings panel:
 
 ## 📚 [Available Inputs](PARAMETERS.MD)
 
-## Available Models
+## 📁 Available Models
 
 Upscaling: 
   - Official Support - Cugan / Cugan-NCNN, ShuffleCugan / ShuffleCugan-NCNN, Span / Span-NCNN, RealESRGan / RealESRGan-NCNN, OmniSR, SRVGGNet ( Compact, UltraCompact, SuperUltraCompact )
@@ -113,9 +114,10 @@ Denoise:
 
 ## 📈 [Benchmarks](BENCHMARKS.MD)
 
-## Star History
+## 🌟 Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=NevermindNilas/TheAnimeScripter&type=Date)](https://star-history.com/#NevermindNilas/TheAnimeScripter&Date)
 
-## Promo Video
+## 🎥 Promo Video
+
 [![Promo Video](https://img.youtube.com/vi/V7ryKMezqeQ/0.jpg)](https://youtu.be/V7ryKMezqeQ)
