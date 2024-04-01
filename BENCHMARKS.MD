@@ -6,16 +6,21 @@
 -------------------------------------------------------------------------------------------------------------
 
 # 13700k Undervolted + Overclocked, 3090 Overclocked, 32GB DDR5 6800Mhz, TAS 1.5.0, Nilas.
+<<<<<<< HEAD
 <div style="display: flex; justify-content: space-between;">
 <div style="flex: 1;">
 
 
+=======
+>>>>>>> e6848eeafb874361198427c35b32a3e0fd9bb8a3
 
+![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/887177e2-f356-4640-b5d7-abf2e3056071)
 
 -------------------------------------------------------------------------------------------------------------
 
 # AMD 3700x, RTX 3080, 24GB DDR4 3600MHz, TAS 1.5.0, Windows VM ( 7C/14Threads ), TNTWise.
 
+<<<<<<< HEAD
 <div style="display: flex; justify-content: space-between;">
 <div style="flex: 1;">
 
@@ -51,3 +56,6 @@
 
 </div>
 </div>
+=======
+![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/a61bdb37-a15e-452d-bd07-d0e0e8e4287b)
+>>>>>>> e6848eeafb874361198427c35b32a3e0fd9bb8a3
