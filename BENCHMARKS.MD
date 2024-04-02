@@ -17,4 +17,8 @@
 
 # AMD 7800x3D, RTX 4080, 32GB DDR5, TAS 1.5.0, Kovel
 
-# ![tables](https://cdn.discordapp.com/attachments/1208539289328025621/1224397781205127359/image.png?ex=661d584b&is=660ae34b&hm=fe8baf72d44b733873073729e22c50efdf63a094c3d1f1da98220e8583eb18c0&)
+![tables](https://cdn.discordapp.com/attachments/1208539289328025621/1224397781205127359/image.png?ex=661d584b&is=660ae34b&hm=fe8baf72d44b733873073729e22c50efdf63a094c3d1f1da98220e8583eb18c0&)
+
+# AMD 5800X, RTX 3080, 32GB DDR4, TAS 1.5.0, HUK
+
+![tables](https://media.discordapp.net/attachments/1208539289328025621/1224538281421832392/nilasedits.png?ex=661ddb25&is=660b6625&hm=64c893bea7d0c4a8b3b0a51f07b17f67ab25e7feddc45ae9edbffe791550996f&=&format=webp&quality=lossless&width=1920&height=640)
