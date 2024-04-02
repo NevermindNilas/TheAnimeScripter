@@ -130,10 +130,6 @@ class Rife:
         return frame.contiguous(memory_format=torch.channels_last)
 
     @torch.inference_mode()
-    def run(self, I1):
-        if self.I0 is None:
-            self.I0 = self.processFrame(I1)
-            return False
-
+    def run(self, I0, I1):
+        self.I0 = self.processFrame(I0)
         self.I1 = self.processFrame(I1)
-        return True

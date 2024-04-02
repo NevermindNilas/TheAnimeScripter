@@ -185,15 +185,16 @@ class VideoProcessor:
                 frame = self.upscale_process.run(frame)
 
             if self.interpolate:
-                run = self.interpolate_process.run(frame)
-                if run:
+                if self.prevFrame is None:
+                    self.prevFrame = frame
+                else:
+                    self.interpolate_process.run(self.prevFrame, frame)
                     for i in range(self.interpolate_factor - 1):
                         result = self.interpolate_process.make_inference(
                             (i + 1) * 1.0 / (self.interpolate_factor + 1)
                         )
                         self.writeBuffer.write(result)
-
-                    self.interpolate_process.cacheFrame()
+                    #self.interpolate_process.cacheFrame()
 
             self.writeBuffer.write(frame)
 
@@ -206,6 +207,7 @@ class VideoProcessor:
         frameCount = 0
         self.dedupCount = 0
         self.semaphore = Semaphore(self.nt * 4)
+        self.prevFrame = None
 
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
