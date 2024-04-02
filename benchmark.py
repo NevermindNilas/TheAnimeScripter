@@ -139,5 +139,4 @@ def parseSystemInfo():
 
 
 if __name__ == "__main__":
-    getClip()
     runAllBenchmarks()
