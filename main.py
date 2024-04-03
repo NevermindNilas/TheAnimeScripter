@@ -32,6 +32,7 @@ from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import intitialize_models
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
+from src.coloredPrints import green, red, yellow, blue
 
 
 if getattr(sys, "frozen", False):
@@ -207,7 +208,6 @@ class VideoProcessor:
         frameCount = 0
         self.dedupCount = 0
         self.semaphore = Semaphore(self.nt * 4)
-        self.prevFrame = None
 
         with ThreadPoolExecutor(max_workers=self.nt) as executor:
             while True:
@@ -431,7 +431,7 @@ if __name__ == "__main__":
     args = argumentChecker(args, mainPath, scriptVersion)
 
     if os.path.isfile(args.input):
-        print(f"Processing {args.input}")
+        print(green(f"Processing {args.input}"))
         if args.output is None:
             outputFolder = os.path.join(mainPath, "output")
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
@@ -449,12 +449,12 @@ if __name__ == "__main__":
         ]
 
         logging.info(f"Processing {len(videoFiles)} files")
-        print(f"Processing {len(videoFiles)} files")
+        print(blue(f"Processing {len(videoFiles)} files"))
 
         for videoFile in videoFiles:
             args.input = os.path.abspath(videoFile)
             logging.info(f"Processing {args.input}")
-            print(f"Processing {args.input}")
+            print(green(f"Processing {args.input}"))
 
             if args.output is None:
                 outputFolder = os.path.join(mainPath, "output")
