@@ -239,6 +239,7 @@ class BuildBuffer:
         verbose : bool - Whether to log the progress of the decoding.
         """
         self.readBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
+        
         command = self.decodeSettings()
 
         if verbose:
@@ -488,7 +489,7 @@ class WriteBuffer:
 
         return command
 
-    def start(self, verbose: bool = False, queue: Queue = None):
+    def start(self, queue: Queue = None, verbose: bool = False):
         """
         The actual underlying logic for encoding, it starts a queue and gets the necessary FFMPEG command from encodeSettings.
         This is meant to be used in a separate thread for faster processing.
