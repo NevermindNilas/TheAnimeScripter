@@ -59,7 +59,7 @@ def runAllBenchmarks():
     systemInfo = parseSystemInfo()
 
     with open("benchmarkResults.json", "w") as f:
-        json.dump({"System Info": systemInfo, "Results": results}, f, indent=4)
+        json.dump({"Testing Methodology": "V2", "System Info": systemInfo, "Results": results}, f, indent=4)
 
 
 def runUpscaleBenchmark(inputVideo):
@@ -67,7 +67,7 @@ def runUpscaleBenchmark(inputVideo):
     for method in upscaleMethods[0]:
         print(f"Running {method} benchmark...")
         output = os.popen(
-            f"main.exe --input {input} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 5"
+            f"main.exe --input {input} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 4"
         ).read()
 
         fps = parseFPS(output)
@@ -106,7 +106,7 @@ def runDenoiseBenchmark(inputVideo):
     for method in denoiseMethods:
         print(f"Running {method} benchmark...")
         output = os.popen(
-            f"main.exe --input test.mp4 --denoise 1 --denoise_method {method} --benchmark 1 --outpoint 3"
+            f"main.exe --input test.mp4 --denoise 1 --denoise_method {method} --benchmark 1 --outpoint 2"
         ).read()
 
         fps = parseFPS(output)
