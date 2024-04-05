@@ -89,8 +89,8 @@ class Upscaler:
 
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
         if self.isCudaAvailable:
-            # self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
-            # self.currentStream = 0
+            self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
+            self.currentStream = 0
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -136,11 +136,9 @@ class Upscaler:
             frame = self.model(frame)
             frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).byte()
 
-            """
             if self.isCudaAvailable:
                 torch.cuda.synchronize(self.stream[self.currentStream])
                 self.currentStream = (self.currentStream + 1) % len(self.stream)
-            """
 
             return frame.cpu().numpy()
 
