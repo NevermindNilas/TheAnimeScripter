@@ -32,8 +32,7 @@ from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import intitialize_models
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
-from src.coloredPrints import green, red, yellow, blue
-
+from src.coloredPrints import green, blue
 
 if getattr(sys, "frozen", False):
     mainPath = os.path.dirname(sys.executable)
@@ -186,16 +185,15 @@ class VideoProcessor:
                 frame = self.upscale_process.run(frame)
 
             if self.interpolate:
-                if self.prevFrame is None:
-                    self.prevFrame = frame
-                else:
-                    self.interpolate_process.run(self.prevFrame, frame)
+                run = self.interpolate_process.run(frame)
+                if run:
                     for i in range(self.interpolate_factor - 1):
                         result = self.interpolate_process.make_inference(
                             (i + 1) * 1.0 / (self.interpolate_factor + 1)
                         )
                         self.writeBuffer.write(result)
-                    #self.interpolate_process.cacheFrame()
+
+                    self.interpolate_process.cacheFrame()
 
             self.writeBuffer.write(frame)
 
@@ -270,9 +268,9 @@ class VideoProcessor:
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.readBuffer.start, verbose=True)
+                executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
-                executor.submit(self.writeBuffer.start, verbose=True)
+                executor.submit(self.writeBuffer.start)
 
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
@@ -280,7 +278,10 @@ class VideoProcessor:
 
 if __name__ == "__main__":
     logging.basicConfig(
-        filename=os.path.join(mainPath, "log.txt"), filemode="w", format="%(message)s", level=logging.INFO
+        filename=os.path.join(mainPath, "log.txt"),
+        filemode="w",
+        format="%(message)s",
+        level=logging.INFO,
     )
     logging.info("============== Command Line Arguments ==============")
     logging.info(f"{' '.join(sys.argv)}\n")

@@ -7,7 +7,6 @@ import shutil
 
 from queue import Queue
 
-
 def getDedupStrenght(
     dedupSens: float = 0.0,
     hi_min: float = 64 * 2,
@@ -230,7 +229,7 @@ class BuildBuffer:
 
         return command
 
-    def start(self, queue: Queue = None, verbose: bool = False):
+    def start(self, queue: Queue = None):
         """
         The actual underlying logic for decoding, it starts a queue and gets the necessary FFMPEG command from decodeSettings.
         This is meant to be used in a separate thread for faster processing.
@@ -239,12 +238,12 @@ class BuildBuffer:
         verbose : bool - Whether to log the progress of the decoding.
         """
         self.readBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
-        
+        verbose = True
         command = self.decodeSettings()
 
         if verbose:
             logging.info(f"Decoding options: {' '.join(map(str, command))}")
-
+            
         try:
             process = subprocess.Popen(
                 command,
@@ -269,17 +268,16 @@ class BuildBuffer:
             if verbose:
                 logging.info(f"Built buffer with {self.decodedFrames} frames")
 
+        except Exception as e:
+            if verbose:
+                logging.error(f"An error occurred: {str(e)}")
+
+        finally:
             process.stdout.close()
             process.terminate()
             self.readingDone = True
             self.readBuffer.put(None)
-
-        except Exception as e:
-            if verbose:
-                logging.error(f"An error occurred: {str(e)}")
-            self.readingDone = True
-            self.readBuffer.put(None)
-
+            
     def read(self):
         """
         Returns a numpy array in RGB format.
@@ -489,7 +487,7 @@ class WriteBuffer:
 
         return command
 
-    def start(self, queue: Queue = None, verbose: bool = False):
+    def start(self, queue: Queue = None):
         """
         The actual underlying logic for encoding, it starts a queue and gets the necessary FFMPEG command from encodeSettings.
         This is meant to be used in a separate thread for faster processing.
@@ -497,7 +495,7 @@ class WriteBuffer:
         verbose : bool - Whether to log the progress of the encoding.
         queue : queue.Queue, optional - The queue to get the frames
         """
-
+        verbose: bool = True
         command = self.encodeSettings(verbose=verbose)
 
         self.writeBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
@@ -506,36 +504,33 @@ class WriteBuffer:
             logging.info(f"Encoding options: {' '.join(map(str, command))}")
 
         try:
-            self.process = subprocess.Popen(
+            with subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
                 stdout=sys.stdout,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
-            )
+            ) as self.process:
 
-            writtenFrames = 0
-            self.isWritingDone = False
-            while True:
-                frame = self.writeBuffer.get()
-                if frame is None:
-                    if verbose:
-                        logging.info(f"Encoded {writtenFrames} frames")
+                writtenFrames = 0
+                self.isWritingDone = False
+                while True:
+                    frame = self.writeBuffer.get()
+                    if frame is None:
+                        if verbose:
+                            logging.info(f"Encoded {writtenFrames} frames")
+                        break
 
-                    self.process.stdin.close()
-                    self.process.wait()
-                    self.isWritingDone = True
-                    break
-
-                frame = np.ascontiguousarray(frame)
-                self.process.stdin.buffer.write(frame.tobytes())
-                writtenFrames += 1
+                    frame = np.ascontiguousarray(frame)
+                    self.process.stdin.buffer.write(frame.tobytes())
+                    writtenFrames += 1
 
         except Exception as e:
             if verbose:
                 logging.error(f"An error occurred: {str(e)}")
 
         finally:
+            self.isWritingDone = True
             if self.audio and not self.benchmark:
                 self.mergeAudio()
 
@@ -550,12 +545,6 @@ class WriteBuffer:
         Close the queue.
         """
         self.writeBuffer.put(None)
-
-    def isWritingDone(self):
-        """
-        Check if the writing is done, safelock for the queue environment.
-        """
-        return self.isWritingDone
 
     def mergeAudio(self):
         try:
