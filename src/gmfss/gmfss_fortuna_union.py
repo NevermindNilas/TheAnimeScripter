@@ -66,8 +66,8 @@ class GMFSS:
 
         torch.set_grad_enabled(False)
         if self.isCudaAvailable:
-            self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
-            self.current_stream = 0
+            #self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
+            #self.current_stream = 0
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -87,8 +87,10 @@ class GMFSS:
 
     @torch.inference_mode()
     def make_inference(self, n):
+        """
         if self.isCudaAvailable:
             torch.cuda.set_stream(self.stream[self.current_stream])
+        """
 
         timestep = torch.tensor(
             (n + 1) * 1.0 / (self.interpolation_factor + 1),
@@ -113,40 +115,29 @@ class GMFSS:
         self.I0 = self.I1.clone()
 
     @torch.inference_mode()
-    def run(self, I1):
-        if self.I0 is None:
-            self.I0 = (
-                torch.from_numpy(I1)
-                .to(self.device, non_blocking=True)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .float()
-                / 255.0
-            )
-            if self.isCudaAvailable and self.half:
-                self.I0 = self.I0.half()
-
-            if self.padding != (0, 0, 0, 0):
-                self.I0 = F.pad(self.I0, [0, self.padding[1], 0, self.padding[3]])
-
-            self.I0 = self.I0.contiguous(memory_format=torch.channels_last)
-            return False
-
-        self.I1 = (
-            torch.from_numpy(I1)
+    def processFrame(self, frame):
+        frame = (
+            torch.from_numpy(frame)
             .to(self.device, non_blocking=True)
             .permute(2, 0, 1)
             .unsqueeze(0)
             .float()
-            / 255.0
+            .mul_(1 / 255)
         )
-
+        
         if self.isCudaAvailable and self.half:
-            self.I1 = self.I1.half()
+            frame = frame.half()
 
         if self.padding != (0, 0, 0, 0):
-            self.I1 = F.pad(self.I1, [0, self.padding[1], 0, self.padding[3]])
+            frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
 
-        self.I1 = self.I1.contiguous(memory_format=torch.channels_last)
+        return frame.contiguous(memory_format=torch.channels_last)
 
+    @torch.inference_mode()
+    def run(self, I1):
+        if self.I0 is None:
+            self.I0 = self.processFrame(I1)
+            return False
+
+        self.I1 = self.processFrame(I1)
         return True
