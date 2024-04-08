@@ -39,42 +39,33 @@ class GMFSS:
         else:
             modelDir = os.path.join(weightsDir, "gmfss")
 
-        model_type = "union"
+        modelType = "union"
 
-        self.cuda_available = torch.cuda.is_available()
+        self.isCudaAvailable = torch.cuda.is_available()
 
-        if not self.cuda_available:
+        if not self.isCudaAvailable:
             print(
-                "CUDA is not available, using CPU. Expect significant slowdows or no functionality at all. If you have a NVIDIA GPU, please install CUDA and make sure that CUDA_Path is in the environment variables."
-            )
-            print("CUDA Installation link: https://developer.nvidia.com/cuda-downloads")
-
-            logging.info(
-                "CUDA is not available, using CPU. Expect significant slowdows or no functionality at all. If you have a NVIDIA GPU, please install CUDA and make sure that CUDA_Path is in the environment variables."
-            )
-            logging.info(
-                "CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
+                "CUDA is not available, using CPU. Expect significant slowdows or no functionality at all. If you have a NVIDIA GPU, please install CUDA and make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
             )
 
+            logging.info(
+                "CUDA is not available, using CPU. Expect significant slowdows or no functionality at all. If you have a NVIDIA GPU, please install CUDA and make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
+            )
         try:
             cupy.cuda.get_cuda_path()
         except Exception:
             logging.error(
-                "CuPy is not installed. Please install CuPy to get better performance."
+                "Couldn't find relevant CUDA installation. Please make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
             )
 
-            logging.info(
-                "CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
-            )
-            
             raise Exception(
-                "CuPy is not installed. Please install CuPy to get better performance."
+                "Couldn't find relevant CUDA installation. Please make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
             )
 
-        self.device = torch.device("cuda" if self.cuda_available else "cpu")
+        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
 
         torch.set_grad_enabled(False)
-        if self.cuda_available:
+        if self.isCudaAvailable:
             self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
             self.current_stream = 0
             torch.backends.cudnn.enabled = True
@@ -84,11 +75,11 @@ class GMFSS:
 
         from .model.GMFSS import GMFSS as Model
 
-        self.model = Model(modelDir, model_type, self.scale, ensemble=self.ensemble)
+        self.model = Model(modelDir, modelType, self.scale, ensemble=self.ensemble)
         self.model.eval().to(self.device, memory_format=torch.channels_last)
 
         self.dtype = torch.float
-        if self.cuda_available and self.half:
+        if self.isCudaAvailable and self.half:
             self.model.half()
             self.dtype = torch.half
 
@@ -96,7 +87,7 @@ class GMFSS:
 
     @torch.inference_mode()
     def make_inference(self, n):
-        if self.cuda_available:
+        if self.isCudaAvailable:
             torch.cuda.set_stream(self.stream[self.current_stream])
 
         timestep = torch.tensor(
@@ -107,7 +98,7 @@ class GMFSS:
         output = self.model(self.I0, self.I1, timestep)
         output = (output[0] * 255.0).byte().cpu().numpy().transpose(1, 2, 0)
 
-        if self.cuda_available:
+        if self.isCudaAvailable:
             torch.cuda.synchronize(self.stream[self.current_stream])
             self.current_stream = (self.current_stream + 1) % len(self.stream)
 
@@ -132,7 +123,7 @@ class GMFSS:
                 .float()
                 / 255.0
             )
-            if self.cuda_available and self.half:
+            if self.isCudaAvailable and self.half:
                 self.I0 = self.I0.half()
 
             if self.padding != (0, 0, 0, 0):
@@ -150,7 +141,7 @@ class GMFSS:
             / 255.0
         )
 
-        if self.cuda_available and self.half:
+        if self.isCudaAvailable and self.half:
             self.I1 = self.I1.half()
 
         if self.padding != (0, 0, 0, 0):
