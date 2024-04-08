@@ -22,7 +22,7 @@ def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
             return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k.pth"
 
         case "span":
-            return "2xHFA2kSPAN_27k.pth"
+            return "2x_ModernSpanimationV1.pth"
 
         case "omnisr":
             return "2xHFA2kOmniSR.pth"
