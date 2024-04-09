@@ -499,16 +499,9 @@ var TheAnimeScripter = (function() {
         name: "panelCustomSettings"
     });
 
-    panelCustomSettings.text = "Custom Settings";
+    panelCustomSettings.text = "Custom FFMPEG Encoding Parameters";
     panelCustomSettings.orientation = "column";
     panelCustomSettings.alignChildren = ["left", "top"];
-
-    var labelCustomEncoder = panelCustomSettings.add("statictext", undefined, undefined, {
-        name: "labelCustomEncoder"
-    });
-
-    labelCustomEncoder.text = "FFMPEG Encoding Parameteres";
-    labelCustomEncoder.alignment = ["center", "top"];
 
     var textCustomEncoder = panelCustomSettings.add("edittext", [0, 0, 202, 25], undefined, {
         name: "textCustomEncoder"
