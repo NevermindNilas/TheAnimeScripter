@@ -8,7 +8,34 @@ url = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
 cuganUrl = (
     "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
 )
+depthURL = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/"
 
+def modelsList() -> list[str]:
+    return [
+        "compact",
+        "ultracompact",
+        "superultracompact",
+        "span",
+        "omnisr",
+        "shufflecugan",
+        "cugan",
+        "segment",
+        "scunet",
+        "dpir",
+        "realesrgan",
+        "nafnet",
+        "span-denoise",
+        "gmfss",
+        "rife",
+        "rife4.14",
+        "rife4.6",
+        "rife4.15",
+        "rife4.16-lite",
+        "apisr",
+        "vits",
+        "vitb",
+        "vitl",
+    ]
 
 def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
     match model:
@@ -72,10 +99,25 @@ def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
             elif upscaleFactor == 4:
                 return "4x_APISR_RRDB_GAN_generator.pth"
         
+        case "vits":
+            return "depth_anything_vits14.pth"
+        
+        case "vitb":
+            return "depth_anything_vitb14.pth"
+        
+        case "vitl":
+            return "depth_anything_vitl14.pth"
+        
         case _:
             raise ValueError(f"Model {model} not found.")
 
+
 def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str):
+    if os.path.exists(os.path.join(folderPath, filename)):
+        logging.info(f"{model.upper()} model already exists at: {os.path.join(folderPath, filename)}")
+        print(f"{model.upper()} model already exists at: {os.path.join(folderPath, filename)}")
+        return os.path.join(folderPath, filename)
+    
     print(f"Downloading {model.upper()} model...\n")
     logging.info(f"Downloading {model.upper()} model...")
 
@@ -185,6 +227,24 @@ def downloadModels(
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, apisrFolderPath)
 
+        case "vits":
+            vitsFolderPath = os.path.join(weightsDir, "vits")
+            os.makedirs(vitsFolderPath, exist_ok=True)
+            fullUrl = f"{depthURL}{filename}"
+            return downloadAndLog(model, filename, fullUrl, vitsFolderPath)
+        
+        case "vitb":
+            vitbFolderPath = os.path.join(weightsDir, "vitb")
+            os.makedirs(vitbFolderPath, exist_ok=True)
+            fullUrl = f"{depthURL}{filename}"
+            return downloadAndLog(model, filename, fullUrl, vitbFolderPath)
+        
+        case "vitl":
+            vitlFolderPath = os.path.join(weightsDir, "vitl")
+            os.makedirs(vitlFolderPath, exist_ok=True)
+            fullUrl = f"{depthURL}{filename}"
+            return downloadAndLog(model, filename, fullUrl, vitlFolderPath)
+        
         case _:
             print(f"Model {model} not found.")
             return None
