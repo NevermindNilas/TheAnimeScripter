@@ -137,5 +137,5 @@ Example 7: Enable depth map generation using the "large" method.
 
 Example 8: Download a YouTube video and then upscale it with shufflecugan.
 
-- `python .\main.py --input https://www.youtube.com/watch?v=dQw4w9WgXcQ --upscale 1 --upscale_method shufflecugan
+- `python .\main.py --input https://www.youtube.com/watch?v=dQw4w9WgXcQ --upscale 1 --upscale_method shufflecugan`
 - Remember to replace the YouTube URL with the actual URL of the video you want to download.
