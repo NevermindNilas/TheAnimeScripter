@@ -118,9 +118,8 @@ def runDenoiseBenchmark(inputVideo):
 
 def parseFPS(output):
     match = re.findall(r"fps=\s*([\d.]+)", output)
-    match = match[-1]
     if match:
-        return float(match)
+        return float(match[-1])
     else:
         return None
 
