@@ -314,8 +314,8 @@ var TheAnimeScripter = (function() {
     }
 
     createSlider(generalPanel, "Sharpenening Sensitivity", "Sharpen", 50);
-    createSlider(generalPanel, "Auto Cut Sensitivity", "SceneChange", 50);
     createSlider(generalPanel, "Deduplication Sensitivity", "DedupSens", 50);
+    createSlider(generalPanel, "Auto Cut Sensitivity", "SceneChange", 50);
 
     var sharpenSensValue = function() {
         return labelValues["Sharpen"];
