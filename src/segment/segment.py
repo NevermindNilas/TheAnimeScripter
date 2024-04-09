@@ -43,43 +43,46 @@ class Segment:
         self.benchmark = benchmark
 
         self.handleModel()
+        try:
+            self.readBuffer = BuildBuffer(
+                input=self.input,
+                ffmpegPath=self.ffmpeg_path,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
+                dedup=False,
+                dedupSens=None,
+                width=self.width,
+                height=self.height,
+                resize=False,
+                resizeMethod=None,
+                queueSize=self.buffer_limit,
+            )
 
-        self.readBuffer = BuildBuffer(
-            input=self.input,
-            ffmpegPath=self.ffmpeg_path,
-            inpoint=self.inpoint,
-            outpoint=self.outpoint,
-            dedup=False,
-            dedupSens=None,
-            width=self.width,
-            height=self.height,
-            resize=False,
-            resizeMethod=None,
-            queueSize=self.buffer_limit,
-        )
+            self.writeBuffer = WriteBuffer(
+                self.input,
+                self.output,
+                self.ffmpeg_path,
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
+                self.fps,
+                self.buffer_limit,
+                sharpen=False,
+                sharpen_sens=None,
+                grayscale=False,
+                transparent=True,
+                audio=False,
+                benchmark=self.benchmark,
+            )
 
-        self.writeBuffer = WriteBuffer(
-            self.input,
-            self.output,
-            self.ffmpeg_path,
-            self.encode_method,
-            self.custom_encoder,
-            self.width,
-            self.height,
-            self.fps,
-            self.buffer_limit,
-            sharpen=False,
-            sharpen_sens=None,
-            grayscale=False,
-            transparent=True,
-            audio=False,
-            benchmark=self.benchmark,
-        )
-
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            executor.submit(self.readBuffer.start, verbose=True)
-            executor.submit(self.process)
-            executor.submit(self.writeBuffer.start, verbose=True)
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.readBuffer.start)
+                executor.submit(self.process)
+                executor.submit(self.writeBuffer.start)
+                
+        except Exception as e:
+            logging.error(f"An error occurred while processing the video: {e}")
 
     def handleModel(self):
         filename = modelsMap("segment")

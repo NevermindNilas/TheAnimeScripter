@@ -115,7 +115,7 @@ def modelsMap(model, upscaleFactor: int = 2, cuganKind: str = "") -> str:
 def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str):
     if os.path.exists(os.path.join(folderPath, filename)):
         logging.info(f"{model.upper()} model already exists at: {os.path.join(folderPath, filename)}")
-        print(f"{model.upper()} model already exists at: {os.path.join(folderPath, filename)}")
+        print(f"Found {model.upper()} at: {os.path.join(folderPath, filename)}")
         return os.path.join(folderPath, filename)
     
     print(f"Downloading {model.upper()} model...\n")
