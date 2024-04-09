@@ -11,11 +11,9 @@ from concurrent.futures import ThreadPoolExecutor
 from .dpt import DPT_DINOv2
 from .util.transform import Resize, NormalizeImage, PrepareForNet
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.downloadModels import downloadModels
+from src.downloadModels import downloadModels, weightsDir
 
 os.environ["TORCH_HOME"] = os.path.dirname(os.path.realpath(__file__))
-
-
 class Depth:
     def __init__(
         self,
@@ -84,13 +82,15 @@ class Depth:
                 audio=False,
                 benchmark=self.benchmark,
             )
+            
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.readBuffer.start)
+                executor.submit(self.process)
+                executor.submit(self.writeBuffer.start)
+
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
 
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            executor.submit(self.readBuffer.start, verbose=True)
-            executor.submit(self.process)
-            executor.submit(self.writeBuffer.start, verbose=True)
 
     def handleModels(self):
         match self.depth_method:
@@ -120,10 +120,7 @@ class Depth:
                     localhub=False,
                 )
 
-        weightsDir = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "weights"
-        )
-        modelPath = os.path.join(weightsDir, f"depth_anything_{model}14.pth")
+        modelPath = os.path.join(weightsDir, model, f"depth_anything_{model}14.pth")
 
         if not os.path.exists(modelPath):
             print("Couldn't find the depth model, downloading it now...")
