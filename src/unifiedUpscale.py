@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import logging
 import torch.nn.functional as F
-
+#import torch_tensorrt as trt
 
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
@@ -100,6 +100,11 @@ class Upscaler:
     
         self.padWidth = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
         self.padHeight = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
+
+        """
+        dummyInput = torch.zeros((1, 3, self.height, self.width), device='cuda', dtype=torch.float16)
+        self.model = trt.compile(self.model, dummyInput, enabled_precisions={torch.half})
+        """
 
     @torch.inference_mode()
     def pad_frame(self, frame):
