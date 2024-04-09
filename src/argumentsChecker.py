@@ -7,7 +7,8 @@ from .generateOutput import outputNameGenerator
 from .checkSpecs import checkSystem
 from .getFFMPEG import getFFMPEG
 from src.ytdlp import VideoDownloader
-
+from .downloadModels import downloadModels, modelsList
+from .coloredPrints import green
 
 def argumentChecker(args, mainPath, scriptVersion):
     if args.version:
@@ -31,10 +32,11 @@ def argumentChecker(args, mainPath, scriptVersion):
         "depth",
         "audio",
         "half",
+        "offline",
     ]
     for arg in boolArgs:
         setattr(args, arg, getattr(args, arg) == 1)
-
+    
     args.sharpen_sens /= 100
     args.scenechange_sens = 100 - args.scenechange_sens
 
@@ -48,6 +50,23 @@ def argumentChecker(args, mainPath, scriptVersion):
 
     logging.info("\n============== Arguments Checker ==============")
     args.ffmpeg_path = getFFMPEG()
+
+    if args.offline:
+        logging.info("Offline mode enabled, downloading all available models")
+        print(green("Offline mode enabled, downloading all available models"))
+        options = modelsList()
+        for option in options:
+            if option == "cugan":
+                for upscaleFactor in [2, 3, 4]:
+                    downloadModels(option, args.cugan_kind, upscaleFactor)
+            elif options == "apisr":
+                for upscaleFactor in [2, 4]:
+                    downloadModels(option, upscaleFactor=upscaleFactor)
+            else:
+                downloadModels(option)
+        logging.info("All models downloaded, exiting")
+        print(green("All models downloaded, exiting"))
+        sys.exit()
 
     if args.dedup:
         args.audio = False
