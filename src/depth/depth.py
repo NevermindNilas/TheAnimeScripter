@@ -3,7 +3,6 @@ import torch
 import logging
 import numpy as np
 import cv2
-import wget
 import torch.nn.functional as F
 
 from threading import Semaphore
@@ -12,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from .dpt import DPT_DINOv2
 from .util.transform import Resize, NormalizeImage, PrepareForNet
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.downloadModels import downloadModels
 
 os.environ["TORCH_HOME"] = os.path.dirname(os.path.realpath(__file__))
 
@@ -102,7 +102,6 @@ class Depth:
                     out_channels=[48, 96, 192, 384],
                     localhub=False,
                 )
-                url = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vits14.pth?download=true"
             case "base":
                 model = "vitb"
                 self.model = DPT_DINOv2(
@@ -111,11 +110,9 @@ class Depth:
                     out_channels=[96, 192, 384, 768],
                     localhub=False,
                 )
-                url = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vitb14.pth?download=true"
 
             case "large":
                 model = "vitl"
-                url = "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/depth_anything_vitl14.pth?download=true"
                 self.model = DPT_DINOv2(
                     encoder="vitl",
                     features=256,
@@ -126,16 +123,15 @@ class Depth:
         weightsDir = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "weights"
         )
+        modelPath = os.path.join(weightsDir, f"depth_anything_{model}14.pth")
 
-        model_path = os.path.join(weightsDir, f"depth_anything_{model}14.pth")
-
-        if not os.path.exists(model_path):
+        if not os.path.exists(modelPath):
             print("Couldn't find the depth model, downloading it now...")
 
             logging.info("Couldn't find the depth model, downloading it now...")
 
             os.makedirs(weightsDir, exist_ok=True)
-            wget.download(url, model_path)
+            modelPath = downloadModels(model=model)
 
         self.cudaIsAvailable = torch.cuda.is_available()
 
@@ -145,13 +141,8 @@ class Depth:
         else:
             self.device = torch.device("cpu")
 
-        if not os.path.exists(model_path):
-            raise Exception(
-                f"Model {model_path} does not exist. Please download it from https://huggingface.co/spaces/LiheYoung/Depth-Anything"
-            )
-
         self.model.load_state_dict(
-            torch.load(model_path, map_location="cpu"), strict=True
+            torch.load(modelPath, map_location="cpu"), strict=True
         )
 
         if self.half and self.cudaIsAvailable:

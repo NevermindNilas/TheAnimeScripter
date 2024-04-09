@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function() {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "v1.5.0";
+    var scriptVersion = "v1.6.0";
 
     // Default Values for the settings
     var outputFolder = app.settings.haveSetting(scriptName, "outputFolder") ? app.settings.getSetting(scriptName, "outputFolder") : "undefined";
@@ -41,18 +41,25 @@ var TheAnimeScripter = (function() {
     buttonStartProcess.alignment = ["center", "top"];
 
     var checkboxValues = {};
+
     function createCheckboxField(panel, text, name, helpTip) {
-        var group = panel.add("group", undefined, { name: "group" + name });
+        var group = panel.add("group", undefined, {
+            name: "group" + name
+        });
         group.orientation = "row";
         group.alignChildren = ["left", "top"];
         group.spacing = 0;
         group.margins = 0;
 
-        var checkbox = group.add("checkbox", undefined, undefined, { name: "checkbox" + name });
+        var checkbox = group.add("checkbox", undefined, undefined, {
+            name: "checkbox" + name
+        });
         checkbox.helpTip = helpTip;
         checkbox.value = false;
-        
-        var staticText = group.add("statictext", undefined, undefined, { name: "text" + name });
+
+        var staticText = group.add("statictext", undefined, undefined, {
+            name: "text" + name
+        });
         staticText.text = text;
 
         checkbox.onClick = function() {
@@ -70,12 +77,24 @@ var TheAnimeScripter = (function() {
     createCheckboxField(panelChain, "Interpolate", "checkboxInterpolate", "Interpolate using a desired model and factor");
     createCheckboxField(panelChain, "Sharpen", "checkboxSharpen", "Sharpen the video using a desired factor");
 
-    var checkboxResizeValue = function() { return checkboxValues["checkboxResize"]; };
-    var checkboxDeduplicateValue = function() { return checkboxValues["checkboxDeduplicate"]; };
-    var checkboxDenoiseValue = function() { return checkboxValues["checkboxDenoise"]; };
-    var checkboxUpscaleValue = function() { return checkboxValues["checkboxUpscale"]; };
-    var checkboxInterpolateValue = function() { return checkboxValues["checkboxInterpolate"]; };
-    var checkboxSharpenValue = function() { return checkboxValues["checkboxSharpen"]; };
+    var checkboxResizeValue = function() {
+        return checkboxValues["checkboxResize"];
+    };
+    var checkboxDeduplicateValue = function() {
+        return checkboxValues["checkboxDeduplicate"];
+    };
+    var checkboxDenoiseValue = function() {
+        return checkboxValues["checkboxDenoise"];
+    };
+    var checkboxUpscaleValue = function() {
+        return checkboxValues["checkboxUpscale"];
+    };
+    var checkboxInterpolateValue = function() {
+        return checkboxValues["checkboxInterpolate"];
+    };
+    var checkboxSharpenValue = function() {
+        return checkboxValues["checkboxSharpen"];
+    };
 
     // panelPostProcess
     // ==========
@@ -218,8 +237,30 @@ var TheAnimeScripter = (function() {
         name: "buttonOutput"
     });
     buttonOutput.text = "Set Output";
-    buttonOutput.preferredSize.width = 101;
+    buttonOutput.preferredSize.width = 100;
     buttonOutput.helpTip = "Set it to wherever you want the output to be saved.";
+
+    var group2 = panelOnFirstRun.add("group", undefined, {
+        name: "group2"
+    });
+
+    var buttonCustomModel = group2.add("button", undefined, undefined, {
+        name: "buttonCustomModel"
+    });
+
+    buttonCustomModel.text = "Custom Upscaler";
+    buttonCustomModel.preferredSize.width = 100;
+    buttonCustomModel.alignment = ["center", "top"];
+    buttonCustomModel.helpTip = "Add a custom model to utilize, can be either .pth or .onnx, this will override the custom model of your choice in the dropdown, it has to be one of the supported architectures ( Shufflecugan, Cugan ... ) and it also relies on the upscale multiplier to match the model";
+
+    var buttonOfflineMode = group2.add("button", undefined, undefined, {
+        name: "buttonOfflineMode"
+    });
+
+    buttonOfflineMode.text = "Offline Mode";
+    buttonOfflineMode.preferredSize.width = 100;
+    buttonOfflineMode.alignment = ["center", "top"];
+    buttonOfflineMode.helpTip = "This will download all available models and place them in the correct directory, this will take a while and is not recommended for users with slow internet connections, but it will make the script work 100% offline";
 
     // GENERALPANEL
     // ============
@@ -231,24 +272,35 @@ var TheAnimeScripter = (function() {
     generalPanel.alignChildren = ["left", "top"];
     generalPanel.spacing = 10;
     generalPanel.margins = 10;
-    
+
     var labelValues = {};
+
     function createSlider(panel, text, name, defaultValue) {
-        var group = panel.add("group", undefined, { name: "group" + name });
+        var group = panel.add("group", undefined, {
+            name: "group" + name
+        });
         group.orientation = "row";
         group.alignChildren = ["fill", "center"];
 
-        var staticText = group.add("statictext", undefined, text, { name: "text" + name });
+        var staticText = group.add("statictext", undefined, text, {
+            name: "text" + name
+        });
         staticText.justify = "center";
         staticText.alignment = ["left", "center"];
 
-        var filler = group.add("statictext", undefined, "", { name: "filler" + name });
+        var filler = group.add("statictext", undefined, "", {
+            name: "filler" + name
+        });
         filler.alignment = ["fill", "center"];
 
-        var label = group.add("statictext", undefined, defaultValue + "%", { name: "label" + name });
+        var label = group.add("statictext", undefined, defaultValue + "%", {
+            name: "label" + name
+        });
         label.alignment = ["right", "center"];
 
-        var slider = panel.add("slider", undefined, defaultValue, 0, 100, { name: "slider" + name });
+        var slider = panel.add("slider", undefined, defaultValue, 0, 100, {
+            name: "slider" + name
+        });
         slider.preferredSize.width = 212;
         slider.alignment = ["center", "top"];
 
@@ -265,18 +317,28 @@ var TheAnimeScripter = (function() {
     createSlider(generalPanel, "Auto Cut Sensitivity", "SceneChange", 50);
     createSlider(generalPanel, "Deduplication Sensitivity", "DedupSens", 50);
 
-    var sharpenSensValue = function() { return labelValues["Sharpen"]; };
-    var sceneChangeSensValue = function() { return labelValues["SceneChange"]; };
-    var dedupSensValue = function() { return labelValues["DedupSens"]; };
+    var sharpenSensValue = function() {
+        return labelValues["Sharpen"];
+    };
+    var sceneChangeSensValue = function() {
+        return labelValues["SceneChange"];
+    };
+    var dedupSensValue = function() {
+        return labelValues["DedupSens"];
+    };
 
     function createCheckbox(panel, text, name, defaultValue, helpTip) {
-        var group = panel.add("group", undefined, { name: "group" + name });
+        var group = panel.add("group", undefined, {
+            name: "group" + name
+        });
         group.orientation = "row";
         group.alignChildren = ["left", "center"];
         group.spacing = 45;
         group.margins = 0;
 
-        var checkbox = group.add("checkbox", undefined, text, { name: name });
+        var checkbox = group.add("checkbox", undefined, text, {
+            name: name
+        });
         checkbox.alignment = ["left", "center"];
         checkbox.helpTip = helpTip;
         checkbox.value = defaultValue;
@@ -292,23 +354,34 @@ var TheAnimeScripter = (function() {
         };
     }
 
-    var checkboxEnsembleValue = function() { return checkboxValues["Ensemble"]; };
-    var checkboxYTDLPQualityValue = function() { return checkboxValues["YTDLPQuality"]; };
+    var checkboxEnsembleValue = function() {
+        return checkboxValues["Ensemble"];
+    };
+    var checkboxYTDLPQualityValue = function() {
+        return checkboxValues["YTDLPQuality"];
+    };
 
     var fieldValues = {}
+
     function createMultiplierField(panel, text, name, defaultValue) {
-        var group = panel.add("group", undefined, { name: "group" + name });
+        var group = panel.add("group", undefined, {
+            name: "group" + name
+        });
         group.orientation = "row";
         group.alignChildren = ["fill", "center"];
         group.spacing = 0;
         group.margins = 0;
 
-        var staticText = group.add("statictext", undefined, undefined, { name: "text" + name });
+        var staticText = group.add("statictext", undefined, undefined, {
+            name: "text" + name
+        });
         staticText.text = text;
         staticText.preferredSize.width = 172;
         staticText.alignment = ["left", "center"];
 
-        var filler = group.add("statictext", undefined, "", { name: "filler" + name });
+        var filler = group.add("statictext", undefined, "", {
+            name: "filler" + name
+        });
         filler.alignment = ["fill", "center"];
 
         var editText = group.add('edittext {justify: "center", properties: {name: "' + name + '"}}');
@@ -330,11 +403,19 @@ var TheAnimeScripter = (function() {
     createMultiplierField(generalPanel, "Upscale Multiplier", "Upscale", "2");
     createMultiplierField(generalPanel, "Number of Threads", "Threads", "1")
 
-    var resizeValue = function() { return fieldValues["Resize"]; };
-    var interpolateValue = function() { return fieldValues["Interpolate"]; };
-    var upscaleValue = function() { return fieldValues["Upscale"]; };
-    var threadsValue = function() { return fieldValues["Threads"]; };
-    
+    var resizeValue = function() {
+        return fieldValues["Resize"];
+    };
+    var interpolateValue = function() {
+        return fieldValues["Interpolate"];
+    };
+    var upscaleValue = function() {
+        return fieldValues["Upscale"];
+    };
+    var threadsValue = function() {
+        return fieldValues["Threads"];
+    };
+
     // PANEL1
     // ======
     var panel1 = settingsWindow.add("panel", undefined, undefined, {
@@ -349,13 +430,17 @@ var TheAnimeScripter = (function() {
     var dropdownValues = {}
 
     function createDropdownField(panel, text, name, dropdownArray, helpTip) {
-        var group = panel.add("group", undefined, { name: "group" + name });
+        var group = panel.add("group", undefined, {
+            name: "group" + name
+        });
         group.orientation = "row";
         group.alignChildren = ["left", "center"];
         group.spacing = 0;
         group.margins = 0;
 
-        var staticText = group.add("statictext", undefined, undefined, { name: "text" + name });
+        var staticText = group.add("statictext", undefined, undefined, {
+            name: "text" + name
+        });
         staticText.text = text;
         staticText.preferredSize.width = 103;
 
@@ -380,19 +465,35 @@ var TheAnimeScripter = (function() {
     createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.16-Lite", "-", "Rife4.15", "-", "Rife4.14", "-", "Rife4.6", "-", "Rife4.15-NCNN", "-", "Rife4.14-NCNN", "-", "Rife4.6-NCNN", "-", "GMFSS"], "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO");
     createDropdownField(panel1, "Cugan Denoise", "Cugan", ["No-Denoise", "-", "Conservative", "-", "Denoise1x", "-", "Denoise2x"]);
     createDropdownField(panel1, "Depth Model", "Depth", ["Small", "-", "Base", "-", "Large"], "Choose which depth map model you want to utilize, ordered by speed, read more in INFO");
-    createDropdownField(panel1, "Encoder", "Encoder", ["X264", "-", "X264_Animation", "-" , "X265", "-", "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs, AMF for AMD GPUs and QSV for Intel iGPUs");
-    createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear", "-", "Bilinear", "-", "Bicubic", "-", "Experimental", "-", "Neighbor", "-", "Area", "-", "Bicublin", "-", "Gauss", "-", "Sinc", "-", "Lanczos", "-", "Spline", "-",  "Spline16", "-", "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
+    createDropdownField(panel1, "Encoder", "Encoder", ["X264", "-", "X264_Animation", "-", "X265", "-", "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs, AMF for AMD GPUs and QSV for Intel iGPUs");
+    createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear", "-", "Bilinear", "-", "Bicubic", "-", "Experimental", "-", "Neighbor", "-", "Area", "-", "Bicublin", "-", "Gauss", "-", "Sinc", "-", "Lanczos", "-", "Spline", "-", "Spline16", "-", "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
     createDropdownField(panel1, "Dedup Method", "Dedup", ["FFMPEG", "-", "SSIM", "-", "MSE"], "Choose which deduplication method you want to utilize, FFMPEG is faster but less accurate, SSIM is slower but more accurate");
     createDropdownField(panel1, "Denoise Method", "Denoise", ["Span", "-", "SCUNet", "-", "NAFNet", "-", "DPIR"]);
 
-    var upscaleModel = function() { return dropdownValues["Model"]; };
-    var interpolateModel = function() { return dropdownValues["Interpolate"]; };
-    var cuganDenoise = function() { return dropdownValues["Cugan"]; };
-    var depthModel = function() { return dropdownValues["Depth"]; };
-    var encoderMethod = function() { return dropdownValues["Encoder"]; };
-    var resizeMethod = function() { return dropdownValues["Resize"]; };
-    var dedupMethod = function() { return dropdownValues["Dedup"]; };
-    var denoiseMethod = function() { return dropdownValues["Denoise"]; };
+    var upscaleModel = function() {
+        return dropdownValues["Model"];
+    };
+    var interpolateModel = function() {
+        return dropdownValues["Interpolate"];
+    };
+    var cuganDenoise = function() {
+        return dropdownValues["Cugan"];
+    };
+    var depthModel = function() {
+        return dropdownValues["Depth"];
+    };
+    var encoderMethod = function() {
+        return dropdownValues["Encoder"];
+    };
+    var resizeMethod = function() {
+        return dropdownValues["Resize"];
+    };
+    var dedupMethod = function() {
+        return dropdownValues["Dedup"];
+    };
+    var denoiseMethod = function() {
+        return dropdownValues["Denoise"];
+    };
 
     var panelCustomSettings = settingsWindow.add("panel", undefined, undefined, {
         name: "panelCustomSettings"
@@ -402,23 +503,14 @@ var TheAnimeScripter = (function() {
     panelCustomSettings.orientation = "column";
     panelCustomSettings.alignChildren = ["left", "top"];
 
-    var buttonCustomModel = panelCustomSettings.add("button", [0,0,202,30], undefined, {
-        name: "buttonCustomModel"
-    });
-
-    buttonCustomModel.text = "Custom Upscaling Model";
-    buttonCustomModel.preferredSize.width = 105;
-    buttonCustomModel.alignment = ["center", "top"];
-    buttonCustomModel.helpTip = "Add a custom model to utilize, can be either .pth or .onnx, this will override the custom model of your choice in the dropdown, it has to be one of the supported architectures ( Shufflecugan, Cugan ... ) and it also relies on the upscale multiplier to match the model";
-
     var labelCustomEncoder = panelCustomSettings.add("statictext", undefined, undefined, {
         name: "labelCustomEncoder"
     });
-    
-    labelCustomEncoder.text = "Custom FFMPEG Encoding Parameteres";
+
+    labelCustomEncoder.text = "FFMPEG Encoding Parameteres";
     labelCustomEncoder.alignment = ["center", "top"];
 
-    var textCustomEncoder = panelCustomSettings.add("edittext", [0,0,202,25], undefined, {
+    var textCustomEncoder = panelCustomSettings.add("edittext", [0, 0, 202, 25], undefined, {
         name: "textCustomEncoder"
     });
 
@@ -426,7 +518,8 @@ var TheAnimeScripter = (function() {
     textCustomEncoder.preferredSize.width = 105;
     textCustomEncoder.alignment = ["center", "top"];
     textCustomEncoder.helpTip = "Add custom FFMPEG encoding parameters, this will override the encoding method of your choice in the dropdown, you need to declare every new option including codec, video and filters that you might like to use, for example: -c:v libx264 -crf 23 -preset veryfast -tune animation -vf \"scale=1920:1080\"";
-    
+
+
     var buttonSettingsClose = settingsWindow.add("button", undefined, undefined, {
         name: "buttonSettingsClose"
     });
@@ -436,6 +529,29 @@ var TheAnimeScripter = (function() {
         settingsWindow.hide();
     }
 
+    buttonOfflineMode.onClick = function() {
+        if (theAnimeScripterPath == "undefined" || theAnimeScripterPath == null) {
+            alert("The Anime Scripter directory has not been selected, please go to settings");
+            return;
+        }
+        var exeFile = theAnimeScripterPath + "\\main.exe";
+        var exeFilePath = new File(exeFile);
+        if (!exeFilePath.exists) {
+            alert("Cannot find main.exe, please make sure you have selected the correct folder in settings!");
+            return;
+        }
+        var attempt = [
+            "cd", "\"" + theAnimeScripterPath + "\"",
+            "&&",
+            "\"" + exeFile + "\"",
+            "--offline", "1",
+        ];
+        var command = attempt.join(" ");
+        callCommand(command);
+    }
+
+
+
     buttonCheckForUpdate.onClick = function() {
         var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter/releases/latest";
         var discordServer = "https://discord.gg/CdRD9GwS8J";
@@ -443,8 +559,12 @@ var TheAnimeScripter = (function() {
         var dialog1 = new Window('dialog', 'Open URL');
         dialog1.add('statictext', undefined, 'Do you want to open the Github Link to TAS?');
 
-        dialog1.yesButton = dialog1.add('button', undefined, 'Yes', {name: 'yes'});
-        dialog1.noButton = dialog1.add('button', undefined, 'No', {name: 'no'});
+        dialog1.yesButton = dialog1.add('button', undefined, 'Yes', {
+            name: 'yes'
+        });
+        dialog1.noButton = dialog1.add('button', undefined, 'No', {
+            name: 'no'
+        });
 
         dialog1.yesButton.onClick = function() {
             system.callSystem('cmd.exe /c start "" "' + scriptURL + '"');
@@ -460,8 +580,12 @@ var TheAnimeScripter = (function() {
         var dialog2 = new Window('dialog', 'Open URL');
         dialog2.add('statictext', undefined, 'Do you want to join the Discord server?');
 
-        dialog2.yesButton = dialog2.add('button', undefined, 'Yes', {name: 'yes'});
-        dialog2.noButton = dialog2.add('button', undefined, 'No', {name: 'no'});
+        dialog2.yesButton = dialog2.add('button', undefined, 'Yes', {
+            name: 'yes'
+        });
+        dialog2.noButton = dialog2.add('button', undefined, 'No', {
+            name: 'no'
+        });
 
         dialog2.yesButton.onClick = function() {
             system.callSystem('cmd.exe /c start "" "' + discordServer + '"');
@@ -520,7 +644,7 @@ var TheAnimeScripter = (function() {
         startChain();
     }
 
-    buttonGetVideo.onClick = function(){
+    buttonGetVideo.onClick = function() {
         if (textGetVideo.text == "Add Youtube URL") {
             alert("Please add a Youtube URL");
             return;
@@ -837,17 +961,17 @@ var TheAnimeScripter = (function() {
         } catch (error) {
             alert(error);
         }
-        
-        try{
+
+        try {
             var newImportOptions = new ImportOptions(File(outputName));
             newImportOptions.importAs = ImportAsType.FOOTAGE;
-            
+
             var comp = app.project.activeItem;
             if (!(comp instanceof CompItem)) {
                 alert("No composition is active. Please select a composition and try again.");
                 return;
             }
-            
+
             var footageItem = app.project.importFile(newImportOptions);
             var inputLayer = comp.layers.add(footageItem);
         } catch (error) {

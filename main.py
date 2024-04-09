@@ -427,6 +427,7 @@ if __name__ == "__main__":
         help="Choose the desired denoiser, span is the best for animation purposes whilst scunet is better for general purpose.",
     )
     argparser.add_argument("--benchmark", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--offline", type=int, choices=[0, 1], default=0)
 
     args = argparser.parse_args()
     args = argumentChecker(args, mainPath, scriptVersion)
