@@ -40,8 +40,7 @@ def encodeYTDLP(input, output, ffmpegPath, encode_method, custom_encoder):
         command.extend(custom_encoder.split())
 
     command.append(output)
-
-    logging.info(f"Encoding options: {' '.join(command)}")
+    logging.info(f"Re-encoding video with command: {' '.join(command)}")
 
     return command
 
