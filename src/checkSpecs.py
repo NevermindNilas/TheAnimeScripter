@@ -17,8 +17,8 @@ def checkSystem():
         logging.info(f"CPU: {proc_info.Name}")
         logging.info(f"RAM: {system_ram} GB")
         logging.info(f"Available RAM: {available_ram} GB")
-        for gpu in gpu_info:
-            logging.info(f"Graphics Card: {gpu.Name}")
+        for i in range(len(gpu_info)):
+            logging.info(f"Graphics Card {i}: {gpu_info[i].Name}")
 
     except Exception as e:
         logging.error(f"An error occurred while checking the system: {e}")

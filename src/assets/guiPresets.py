@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 
 from PyQt6.QtGui import QColor, QIcon
 
-DEFAULTFONT = "Helvetica Neue"
+DEFAULTFONT = "Segoe UI"
 
 def stylePrimaryWidget(
     chanels: tuple = (255.0, 255.0, 255.0, 0.15), borderRadius: int = 15
