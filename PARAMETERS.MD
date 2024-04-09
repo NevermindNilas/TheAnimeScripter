@@ -10,6 +10,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 - `--version` (bool, action=store_true): Outputs the script version.
 - `--benchmark` (int, default=0): Enable benchmarking. This will not output any video and it will only test the performance of the script without any aditional processing.
+- `--ofline` (int, defualt=0): Enable offline mode, this will download all available models and store them locally in the weights folder, due to Github rate limiting and variables like internet connection this can take up to 5 minutes but it will make the script work 100% offline. ( except for YTDLP )
 
 #### Input and Output:
 
