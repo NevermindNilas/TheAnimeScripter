@@ -7,25 +7,25 @@ from .ffmpegSettings import encodeYTDLP
 
 
 class VideoDownloader:
-    def __init__(self, video_link, output, quality, encode_method, custom_encoder, ffmpeg_path:str = None):
+    def __init__(self, video_link, output, quality, encodeMethod, customEncoder, ffmpeg_path:str = None):
         self.link = video_link
         self.output = output
         self.quality = quality
-        self.encode_method = encode_method
-        self.custom_encoder = custom_encoder
+        self.encodeMethod = encodeMethod
+        self.customEncoder = customEncoder
         self.ffmpeg_path = ffmpeg_path
 
-        self.download_video()
+        self.downloadVideo()
         if self.quality:
-            self.encode_video()
+            self.encodeVideo()
             self.cleanup()
 
-    def download_video(self):
-        ydl_opts = self.get_ydl_opts()
+    def downloadVideo(self):
+        ydl_opts = self.getOptions()
         with YoutubeDL(ydl_opts) as ydl:
             ydl.download([self.link])
 
-    def get_ydl_opts(self):
+    def getOptions(self):
         if not self.quality:
             return {
                 "format": "bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]",
@@ -41,20 +41,17 @@ class VideoDownloader:
                 "ffmpeg_location": os.path.dirname(self.ffmpeg_path),
             }
 
-    def encode_video(self):
+    def encodeVideo(self):
         command = encodeYTDLP(
             self.temp_name,
             self.output,
             self.ffmpeg_path,
-            self.encode_method,
-            self.custom_encoder,
+            self.encodeMethod,
+            self.customEncoder,
         )
+        
         subprocess.run(command)
 
     def cleanup(self):
         os.remove(self.temp_name)
         logging.info(f"Removing residual webm file: {self.temp_name}")
-
-    def log_success(self):
-        logging.info("Downloaded video from: " + self.link)
-        logging.info(f"Saved video to: {self.output}")
