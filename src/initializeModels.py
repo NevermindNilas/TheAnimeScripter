@@ -10,7 +10,7 @@ def intitialize_models(self):
     dedup_process = None
 
     if self.upscale:
-        from src.unifiedUpscale import Upscaler
+        from src.unifiedUpscale import UniversalPytorch
 
         new_width *= self.upscale_factor
         new_height *= self.upscale_factor
@@ -27,7 +27,7 @@ def intitialize_models(self):
                 | "realesrgan"
                 | "apisr"
             ):
-                upscale_process = Upscaler(
+                upscale_process = UniversalPytorch(
                     self.upscale_method,
                     self.upscale_factor,
                     self.cugan_kind,
@@ -45,6 +45,18 @@ def intitialize_models(self):
                     self.upscale_method,
                     self.upscale_factor,
                     self.cugan_kind,
+                    self.nt,
+                )
+            
+            case "compact-directml" | "ultracompact-directml" | "superultracompact-directml":
+                from .unifiedUpscale import UniversalDirectML
+                upscale_process = UniversalDirectML(
+                    self.upscale_method,
+                    self.upscale_factor,
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.custom_model,
                     self.nt,
                 )
             
