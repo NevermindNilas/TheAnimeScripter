@@ -87,9 +87,14 @@ def modelsMap(
                 else:
                     return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k-fp32.onnx"
 
-        case "span":
-            return "2x_ModernSpanimationV1.pth"
-
+        case "span" | "span-directml":
+            if modelType == "pth":
+                return "2x_ModernSpanimationV1.pth"
+            else:
+                if half:
+                    return "2x_ModernSpanimationV1_fp16_op17.onnx"
+                else:
+                    return "2x_ModernSpanimationV1_fp32_op17.onnx"
         case "omnisr":
             return "2xHFA2kOmniSR.pth"
 
@@ -223,8 +228,8 @@ def downloadModels(
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, compactFolderPath)
 
-        case "span":
-            spanFolderPath = os.path.join(weightsDir, "span")
+        case "span" | "span-directml":
+            spanFolderPath = os.path.join(weightsDir, model)
             os.makedirs(spanFolderPath, exist_ok=True)
             fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, spanFolderPath)
