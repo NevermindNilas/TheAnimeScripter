@@ -38,17 +38,7 @@ def intitialize_models(self):
                     self.nt,
                 )
 
-            case "cugan-ncnn" | "span-ncnn" | "realesrgan-ncnn" | "shufflecugan-ncnn":
-                from .unifiedUpscaleNCNN import UniversalNCNN
-
-                upscale_process = UniversalNCNN(
-                    self.upscale_method,
-                    self.upscale_factor,
-                    self.cugan_kind,
-                    self.nt,
-                )
-            
-            case "compact-directml" | "ultracompact-directml" | "superultracompact-directml":
+            case "compact-directml" | "ultracompact-directml" | "superultracompact-directml" | "span-directml":
                 from .unifiedUpscale import UniversalDirectML
                 upscale_process = UniversalDirectML(
                     self.upscale_method,

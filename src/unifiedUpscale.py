@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import logging
 import torch.nn.functional as F
+
 # import torch_tensorrt as trt
 import cv2
 
@@ -161,7 +162,6 @@ class UniversalDirectML:
         customModel: str,
         nt: int,
     ):
-        raise NotImplementedError("DirectML is not implemented yet")
         """
         Initialize the upscaler with the desired model
 
@@ -209,56 +209,59 @@ class UniversalDirectML:
         providers = ort.get_available_providers()
 
         if "DmlExecutionProvider" in providers:
-            logging.info("DirectML provider available, using DirectML")
+            logging.info("DirectML provider available. Defaulting to DirectML")
             self.model = ort.InferenceSession(
                 modelPath, providers=["DmlExecutionProvider"]
             )
         else:
             logging.info(
-                "DirectML provider not available, falling back to CPU, expect significantly worse performance"
+                "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = ort.InferenceSession(
                 modelPath, providers=["CPUExecutionProvider"]
             )
 
         self.deviceType = "cpu"
+        self.device = torch.device(self.deviceType)
+
+        if self.half:
+            self.numpyType = np.float16
+            self.torchType = torch.float16
+        else:
+            self.numpyType = np.float32
+            self.torchType = torch.float32
+
         self.IoBinding = self.model.io_binding()
         self.dummyInput = torch.zeros(
-            (1, 3, self.height, self.width), device=self.deviceType, dtype=torch.float16
+            (1, 3, self.height, self.width),
+            device=self.deviceType,
+            dtype=self.torchType,
         )
+        self.dummyInput = self.dummyInput.contiguous()
+
         self.dummyOutput = torch.zeros(
             (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
             device=self.deviceType,
-            dtype=torch.float16,
+            dtype=self.torchType
         )
-        self.device = torch.device(self.deviceType)
-        # input is a placeholder tensor
-        # Pytorch overwrites the input tensor with the frame tensor
-        # The input tensor is then bound to the input of the model
-        # The output tensor is bound to the output of the model
 
+        """
         self.IoBinding.bind_input(
             name="input",
             device_type=self.deviceType,
             device_id=0,
-            element_type=np.float16,
+            element_type=np.float16 if self.half else np.float32,
             shape=tuple([1, 3, self.height, self.width]),  # Input shape
             buffer_ptr=self.dummyInput.data_ptr(),
         )
+        """
 
         self.IoBinding.bind_output(
             name="output",
             device_type=self.deviceType,
             device_id=0,
-            element_type=np.float16,
-            shape=tuple(
-                [
-                    1,
-                    3,
-                    self.height * self.upscaleFactor,
-                    self.width * self.upscaleFactor,
-                ]
-            ),  # Output shape
+            element_type=self.numpyType,
+            shape=self.dummyOutput.shape,
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
@@ -266,14 +269,26 @@ class UniversalDirectML:
         frame = (
             torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float().mul_(1 / 255)
         )
-        frame = frame.contiguous().to(dtype=self.dummyInput.dtype)
-        #print(frame.shape)
-        #print(f"dummyInput: {self.dummyInput.shape}")
-        self.dummyInput.copy_(frame)
+
+        if self.half:
+            frame = frame.half()
+
+        frame = frame.contiguous()
+        self.dummyInput.copy_(frame, non_blocking=True)
+
+        self.IoBinding.bind_input(
+            name="input",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyType,
+            shape=self.dummyInput.shape,
+            buffer_ptr=self.dummyInput.data_ptr(),
+        )
         
         self.model.run_with_iobinding(self.IoBinding)
+
         frame = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()
-        
+
         return frame
 
 
@@ -350,15 +365,6 @@ class shuffleCuganDirectML:
 
         return output
 
-
-"""
-
-"""
-ONNXRUNTIME DIRECTML
-
-NOTE:
-    Output needs clamping to [0-255], not sure why but it's a quirk of the models
-    Performance is abysmal due to numpy data transfer, ~3FPS for 1080p
 
 """
 

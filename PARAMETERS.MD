@@ -33,7 +33,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--upscale` (int, default=0): Enable upscaling (1) or disable (0).
 - `--upscale_factor` (int, default=2): Factor for upscaling.
 - `--upscale_method` (str, default="ShuffleCugan"): Upscaling method:
-     - Options: "cugan / cugan-ncnn / shufflecugan / shufflecugan-ncnn", "compact / ultracompact / superultracompact", "span / span-ncnn", "omnisr", "realesrgan / realesrgan-ncnn".
+     - Options: "cugan / shufflecugan", "compact / ultracompact / superultracompact / compact-directml / ultracompact-directml / superultracompact-directml", "span / span-directml", "omnisr", "realesrgan".
 - `--cugan_kind` (str, default="no-denoise"): Cugan denoising kind:
      - Options: "no-denoise", "conservative", "denoise1x", "denoise2x".
 - `--custom_model` (str, default=""): Choose a different model for supported upscaling architectures. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
@@ -49,11 +49,11 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 - `--denoise` (int, default=0): Enable denoising (1) or disable (0).
 - `--denoise_method` (str, default="scunet"): Choose a denoising model:
-     - Options: "scunet", "nafnet", "span"
+     - Options: "scunet", "nafnet", "span", "dpir"
 
 #### Precision and Trimming:
 
-- `--inpoint` (float, default=0): Inpoint for the video.
+- `--inpoint` (float, default=0): Inpoint for the video, used for accurate seeking based on Timecode variables, mainly used within the AE interface.
 - `--outpoint` (float, default=0): Outpoint for the video.
 
 #### Sharpening Settings:
@@ -106,7 +106,7 @@ Sidenotes:
 - Replace `.\input\test.mp4` with a full or relative path to a video file or folder.
 - `--output` is not necessary since the script can automatically create a file name for you based on the input's name.
 
-Example 1: Enable upscaling with half precision mode on.
+Example 1: Enable upscaling with half precision mode on. ( this will default to shufflecugan, also half precision mode is on by default so it's not necessary to type out )
 
 - `python .\main.py --input .\input\test.mp4 --upscale 1 --half 1`
 
