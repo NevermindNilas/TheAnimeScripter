@@ -83,20 +83,25 @@ class mainApp(QMainWindow):
         self.settingsButton = createWidget('button', styleButtonWidget(chanels=(255, 255, 255, 0), borderRadius=25), (50, 50), (WIDTH // 2 + 40, HEIGHT - 62), self, icon=iconPaths("settings"))
         self.aboutButton = createWidget('button', styleButtonWidget(chanels=(255, 255, 255, 0), borderRadius=25), (50, 50), (WIDTH // 2 - 90, HEIGHT - 62), self, icon=iconPaths("about"), opacity = 0.1)
 
-        self.inputButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.2), borderRadius=5), size = (100, 40), pos = (480, 70), parent= self, addText="Input")
-        self.outputButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.2), borderRadius=5), size= (100, 40), pos= (480, 120), parent = self, addText="Output")
+        self.inputButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.2), borderRadius=5), size = (110, 40), pos = (480, 70), parent= self, addText="Input")
+        self.outputButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.2), borderRadius=5), size= (110, 40), pos= (480, 120), parent = self, addText="Output")
 
         self.inputTextWidget = createWidget('textArea', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=5), (650, 40), (600, 70), self)
         self.outputTextWidget = createWidget('textArea', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=5), (650, 40), pos = (600, 120), parent= self)
 
-        self.resizeButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (100, 40), pos = (30, 70), parent= self, addText="Resize")
-        self.deduplicateButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (100, 40), pos = (30, 120), parent= self, addText="Deduplicate")
-        self.denoiseButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (100, 40), pos = (30, 170), parent= self, addText="Denoise")
-        self.upscaleButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (100, 40), pos = (30, 220), parent= self, addText="Upscale")
-        self.interpolateButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (100, 40), pos = (30, 270), parent= self, addText="Interpolate")
-        self.sharpenButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (100, 40), pos = (30, 320), parent= self, addText="Sharpen")
-        self.segmentButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (100, 40), pos = (30, 370), parent= self, addText="Segment")
-        self.depthMapButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (100, 40), pos = (30, 420), parent= self, addText="Depth Map")
+        self.resizeButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (200, 40), pos = (30, 70), parent= self, addText="Resize")
+        self.deduplicateButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (200, 40), pos = (30, 120), parent= self, addText="Deduplicate")
+        self.denoiseButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (200, 40), pos = (30, 170), parent= self, addText="Denoise")
+        self.upscaleButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (200, 40), pos = (30, 220), parent= self, addText="Upscale")
+        self.interpolateButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (200, 40), pos = (30, 270), parent= self, addText="Interpolate")
+        self.sharpenButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (200, 40), pos = (30, 320), parent= self, addText="Sharpen")
+        self.segmentButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (200, 40), pos = (30, 370), parent= self, addText="Segment")
+        self.depthMapButton = createWidget('button', styleButtonWidget(chanels=(0, 0, 0, 0.1), borderRadius=5), size = (200, 40), pos = (30, 420), parent= self, addText="Depth Map")
+
+        self.resizeTextWidget = createWidget('textArea', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=5), (200, 40), pos = (240, 70), parent= self)
+        self.upscaleTextWidget = createWidget('textArea', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=5), (200, 40), pos = (240, 220), parent= self)
+        self.interpolateTextWidget = createWidget('textArea', styleTextWidget(chanels=(20, 20, 20, 0.5), borderRadius=5), (200, 40), pos = (240, 270), parent= self)
+        
 
 
     def buttonLogic(self):
