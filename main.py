@@ -329,6 +329,9 @@ if __name__ == "__main__":
             "realesrgan-ncnn",
             "shufflecugan-ncnn",
             "apisr",
+            "compact-directml",
+            "ultracompact-directml",
+            "superultracompact-directml",
         ],
         default="shufflecugan",
     )

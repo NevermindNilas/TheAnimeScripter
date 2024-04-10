@@ -3,8 +3,10 @@ import torch
 import numpy as np
 import logging
 import torch.nn.functional as F
-#import torch_tensorrt as trt
+# import torch_tensorrt as trt
+import cv2
 
+import onnxruntime as ort
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
 
@@ -12,7 +14,7 @@ from .downloadModels import downloadModels, weightsDir, modelsMap
 torch.set_float32_matmul_precision("medium")
 
 
-class Upscaler:
+class UniversalPytorch:
     def __init__(
         self,
         upscaleMethod: str = "shufflecugan",
@@ -55,7 +57,7 @@ class Upscaler:
         """
         if not self.customModel:
             self.filename = modelsMap(
-                self.upscaleMethod, self.upscaleFactor, self.cuganKind
+                self.upscaleMethod, self.upscaleFactor, self.cuganKind, modelType="pth"
             )
             if not os.path.exists(
                 os.path.join(weightsDir, self.upscaleMethod, self.filename)
@@ -89,15 +91,14 @@ class Upscaler:
 
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
         if self.isCudaAvailable:
-            #self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
-            #self.currentStream = 0
+            # self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
+            # self.currentStream = 0
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
                 torch.set_default_dtype(torch.float16)
                 self.model.half()
 
-    
         self.padWidth = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
         self.padHeight = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
 
@@ -110,7 +111,6 @@ class Upscaler:
     def pad_frame(self, frame):
         frame = F.pad(frame, [0, self.padWidth, 0, self.padHeight])
         return frame
-
 
     @torch.inference_mode()
     def run(self, frame: np.ndarray) -> np.ndarray:
@@ -134,13 +134,13 @@ class Upscaler:
                 frame = frame.cuda(non_blocking=True)
                 if self.half:
                     frame = frame.half()
-            
+
             if self.padWidth != 0 or self.padHeight != 0:
                 frame = self.pad_frame(frame)
-                
+
             frame = self.model(frame)
             frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).byte()
-            
+
             """
             if self.isCudaAvailable:
                 torch.cuda.synchronize(self.stream[self.currentStream])
@@ -148,6 +148,134 @@ class Upscaler:
             """
 
             return frame.cpu().numpy()
+
+
+class UniversalDirectML:
+    def __init__(
+        self,
+        upscaleMethod: str,
+        upscaleFactor: int,
+        half: bool,
+        width: int,
+        height: int,
+        customModel: str,
+        nt: int,
+    ):
+        raise NotImplementedError("DirectML is not implemented yet")
+        """
+        Initialize the upscaler with the desired model
+
+        Args:
+            upscaleMethod (str): The method to use for upscaling
+            upscaleFactor (int): The factor to upscale by
+            half (bool): Whether to use half precision
+            width (int): The width of the input frame
+            height (int): The height of the input frame
+            customModel (str): The path to a custom model file
+            nt (int): The number of threads to use
+        """
+
+        self.upscaleMethod = upscaleMethod
+        self.upscaleFactor = upscaleFactor
+        self.half = half
+        self.width = width
+        self.height = height
+        self.customModel = customModel
+        self.nt = nt
+
+        self.handleModel()
+
+    def handleModel(self):
+        """
+        Load the desired model
+        """
+
+        if not self.customModel:
+            self.filename = modelsMap(
+                self.upscaleMethod, self.upscaleFactor, modelType="onnx"
+            )
+            if not os.path.exists(
+                os.path.join(weightsDir, self.upscaleMethod, self.filename)
+            ):
+                modelPath = downloadModels(
+                    model=self.upscaleMethod,
+                    upscaleFactor=self.upscaleFactor,
+                    modelType="onnx",
+                    half=self.half,
+                )
+            else:
+                modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
+
+        providers = ort.get_available_providers()
+
+        if "DmlExecutionProvider" in providers:
+            logging.info("DirectML provider available, using DirectML")
+            self.model = ort.InferenceSession(
+                modelPath, providers=["DmlExecutionProvider"]
+            )
+        else:
+            logging.info(
+                "DirectML provider not available, falling back to CPU, expect significantly worse performance"
+            )
+            self.model = ort.InferenceSession(
+                modelPath, providers=["CPUExecutionProvider"]
+            )
+
+        self.deviceType = "cpu"
+        self.IoBinding = self.model.io_binding()
+        self.dummyInput = torch.zeros(
+            (1, 3, self.height, self.width), device=self.deviceType, dtype=torch.float16
+        )
+        self.dummyOutput = torch.zeros(
+            (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
+            device=self.deviceType,
+            dtype=torch.float16,
+        )
+        self.device = torch.device(self.deviceType)
+        # input is a placeholder tensor
+        # Pytorch overwrites the input tensor with the frame tensor
+        # The input tensor is then bound to the input of the model
+        # The output tensor is bound to the output of the model
+
+        self.IoBinding.bind_input(
+            name="input",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=np.float16,
+            shape=tuple([1, 3, self.height, self.width]),  # Input shape
+            buffer_ptr=self.dummyInput.data_ptr(),
+        )
+
+        self.IoBinding.bind_output(
+            name="output",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=np.float16,
+            shape=tuple(
+                [
+                    1,
+                    3,
+                    self.height * self.upscaleFactor,
+                    self.width * self.upscaleFactor,
+                ]
+            ),  # Output shape
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+    def run(self, frame: np.ndarray) -> np.ndarray:
+        frame = (
+            torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float().mul_(1 / 255)
+        )
+        frame = frame.contiguous().to(dtype=self.dummyInput.dtype)
+        #print(frame.shape)
+        #print(f"dummyInput: {self.dummyInput.shape}")
+        self.dummyInput.copy_(frame)
+        
+        self.model.run_with_iobinding(self.IoBinding)
+        frame = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()
+        
+        return frame
+
 
 """
 
@@ -232,62 +360,6 @@ NOTE:
     Output needs clamping to [0-255], not sure why but it's a quirk of the models
     Performance is abysmal due to numpy data transfer, ~3FPS for 1080p
 
-class shuffleCuganDirectML:
-    def __init__(self):
-        model = (
-            r"G:\TheAnimeScripter\2x_AnimeJaNai_HD_V3_Compact_583k-fp16.onnx"
-        )
-
-        print(f"Using model: {model}")
-
-        providers = ort.get_available_providers()
-
-        if "DmlExecutionProvider" in providers:
-            self.model = ort.InferenceSession(
-                model, providers=["DmlExecutionProvider"]
-            )
-        else:
-            self.model = ort.InferenceSession(model, providers=["CPUExecutionProvider"])
-
-        self.IoBinding = self.model.io_binding()
-        self.frame = np.zeros((1, 3, 1080, 1920), dtype=np.float16)
-        self.output = np.zeros((1, 3, 2160, 3840), dtype=np.float16)
-
-        self.IoBinding.bind_output(
-            name='output',
-            device_type='cpu',
-            device_id=0,
-            element_type=np.float16,
-            shape=self.output.shape,  # Output shape
-            buffer_ptr=self.output.ctypes.data,
-        )
-
-    def run(self, frame: np.ndarray) -> np.ndarray:
-        frame = frame.transpose((2, 0, 1))
-        frame = frame.reshape(1, 3, 1080, 1920)
-        frame = frame / 255
-        frame = frame.astype(np.float16)
-
-        np.copyto(self.frame, frame)
-
-        self.IoBinding.bind_input(
-            name='input',
-            device_type='cpu',
-            device_id=0,
-            element_type=np.float16,
-            shape=self.frame.shape,
-            buffer_ptr=self.frame.ctypes.data,
-        )
-
-        self.model.run_with_iobinding(self.IoBinding)
-
-        output = self.output.reshape(3, 2160, 3840)
-        output = output.transpose((1, 2, 0))
-        output *= 255
-        output = np.clip(output, 0, 255)
-        output = output.astype(np.uint8)
-
-        return output
 """
 
 """
