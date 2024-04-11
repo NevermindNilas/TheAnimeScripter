@@ -462,22 +462,36 @@ var TheAnimeScripter = (function() {
         return dropdown;
     }
 
-    createDropdownField(panel1, "Upscale Model", "Model", ["ShuffleCugan", "-", "Compact", "-", "UltraCompact", "-", "SuperUltraCompact", "-", "Compact-DirectML", "-", "UltraCompact-DirectML", "-", "SuperUltraCompact-DirectML", "-", "Cugan", "-", "Span", "-", "Span-DirectML", "-", "OmniSR", "-", "RealEsrgan", "-", "RealEsrgan-DirectML", "-", "APISR"], "Choose which model you want to utilize, read more in INFO, for AMD users choose NCNN models");
-    createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.16-Lite", "-", "Rife4.15", "-", "Rife4.14", "-", "Rife4.6", "-", "Rife4.15-NCNN", "-", "Rife4.14-NCNN", "-", "Rife4.6-NCNN", "-", "GMFSS"], "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO");
-    createDropdownField(panel1, "Depth Model", "Depth", ["Small", "-", "Base", "-", "Large"], "Choose which depth map model you want to utilize, ordered by speed, read more in INFO");
-    createDropdownField(panel1, "Encoder", "Encoder", ["X264", "-", "X264_Animation", "-", "X265", "-", "AV1", "-", "NVENC_H264", "-", "NVENC_H265", "-", "NVENC_AV1", "-", "QSV_H264", "-", "QSV_H265", "-", "H264_AMF", "-", "HEVC_AMF"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs, AMF for AMD GPUs and QSV for Intel iGPUs");
-    createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear", "-", "Bilinear", "-", "Bicubic", "-", "Experimental", "-", "Neighbor", "-", "Area", "-", "Bicublin", "-", "Gauss", "-", "Sinc", "-", "Lanczos", "-", "Spline", "-", "Spline16", "-", "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
-    createDropdownField(panel1, "Dedup Method", "Dedup", ["FFMPEG", "-", "SSIM", "-", "MSE"], "Choose which deduplication method you want to utilize, FFMPEG is faster but less accurate, SSIM is slower but more accurate");
-    createDropdownField(panel1, "Denoise Method", "Denoise", ["Span", "-", "SCUNet", "-", "NAFNet", "-", "DPIR"]);
+    createDropdownField(panel1, "Upscale Model", "Model", [
+        "ShuffleCugan",
+        "ShuffleCugan-DirectML",
+        "Cugan",
+        "Cugan-DirectML",
+        "Compact",
+        "Compact-DirectML",
+        "UltraCompact",
+        "UltraCompact-DirectML",
+        "SuperUltraCompact",
+        "SuperUltraCompact-DirectML",
+        "Span",
+        "Span-DirectML",
+        "OmniSR",
+        "RealEsrgan",
+        "RealEsrgan-DirectML",
+        "APISR"
+    ], "Choose which model you want to utilize, read more in INFO, for AMD users choose NCNN models");
+    createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.16-Lite",  "Rife4.15",  "Rife4.14",  "Rife4.6",  "Rife4.15-NCNN",  "Rife4.14-NCNN",  "Rife4.6-NCNN",  "GMFSS"], "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO");
+    createDropdownField(panel1, "Depth Model", "Depth", ["Small",  "Base",  "Large"], "Choose which depth map model you want to utilize, ordered by speed, read more in INFO");
+    createDropdownField(panel1, "Encoder", "Encoder", ["X264",  "X264_Animation",  "X265",  "AV1",  "NVENC_H264",  "NVENC_H265",  "NVENC_AV1",  "QSV_H264",  "QSV_H265",  "H264_AMF",  "HEVC_AMF"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs, AMF for AMD GPUs and QSV for Intel iGPUs");
+    createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear",  "Bilinear",  "Bicubic",  "Experimental",  "Neighbor",  "Area",  "Bicublin",  "Gauss",  "Sinc",  "Lanczos",  "Spline",  "Spline16",  "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
+    createDropdownField(panel1, "Dedup Method", "Dedup", ["FFMPEG",  "SSIM",  "MSE"], "Choose which deduplication method you want to utilize, FFMPEG is faster but less accurate, SSIM is slower but more accurate");
+    createDropdownField(panel1, "Denoise Method", "Denoise", ["Span",  "SCUNet",  "NAFNet",  "DPIR"]);
 
     var upscaleModel = function() {
         return dropdownValues["Model"];
     };
     var interpolateModel = function() {
         return dropdownValues["Interpolate"];
-    };
-    var cuganDenoise = function() {
-        return dropdownValues["Cugan"];
     };
     var depthModel = function() {
         return dropdownValues["Depth"];
