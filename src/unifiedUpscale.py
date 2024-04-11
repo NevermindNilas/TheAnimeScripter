@@ -201,6 +201,19 @@ class UniversalDirectML:
                 )
             else:
                 modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
+        else:
+            logging.info(f"Using custom model: {self.customModel}, this is an experimental feature, expect potential issues")
+            if os.path.isfile(self.customModel) and self.customModel.endswith(".onnx"):
+                modelPath = self.customModel
+            else:
+                if not self.customModel.endswith(".onnx"):
+                    raise FileNotFoundError(
+                        f"Custom model file {self.customModel} is not an ONNX file"
+                    )
+                else:
+                    raise FileNotFoundError(
+                        f"Custom model file {self.customModel} not found"
+                    )
 
         providers = ort.get_available_providers()
 
@@ -241,6 +254,8 @@ class UniversalDirectML:
             dtype=self.torchDType,
         )
 
+
+
         self.IoBinding.bind_output(
             name="output",
             device_type=self.deviceType,
@@ -268,7 +283,6 @@ class UniversalDirectML:
             shape=self.dummyInput.shape,
             buffer_ptr=self.dummyInput.data_ptr(),
         )
-
         self.model.run_with_iobinding(self.IoBinding)
         frame = (
             self.dummyOutput.squeeze(0)
