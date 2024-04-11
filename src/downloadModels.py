@@ -65,27 +65,31 @@ def modelsMap(
                 return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k.pth"
             else:
                 if half:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k-fp16.onnx"
+                    return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k-fp16-sim.onnx"
                 else:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k-fp32.onnx"
+                    return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k-fp32-sim.onnx"
 
         case "ultracompact" | "ultracompact-directml":
             if modelType == "pth":
                 return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k.pth"
             else:
                 if half:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k-fp16.onnx"
+                    return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k-fp16-sim.onnx"
                 else:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k-fp32.onnx"
+                    return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k-fp32-sim.onnx"
 
         case "superultracompact" | "superultracompact-directml":
             if modelType == "pth":
                 return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k.pth"
             else:
                 if half:
-                    return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k-fp16.onnx"
+                    return (
+                        "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k-fp16-sim.onnx"
+                    )
                 else:
-                    return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k-fp32.onnx"
+                    return (
+                        "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k-fp32-sim.onnx"
+                    )
 
         case "span" | "span-directml":
             if modelType == "pth":
