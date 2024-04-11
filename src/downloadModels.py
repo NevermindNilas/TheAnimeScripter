@@ -5,9 +5,6 @@ import logging
 dirPath = os.path.dirname(__file__)
 weightsDir = os.path.join(dirPath, "weights")
 url = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
-cuganUrl = (
-    "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
-)
 depthURL = (
     "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/"
 )
@@ -38,13 +35,18 @@ def modelsList() -> list[str]:
         "vits",
         "vitb",
         "vitl",
+        "cugan-directml",
+        "shufflecugan-directml",
+        "compact-directml",
+        "ultracompact-directml",
+        "superultracompact-directml",
+        "span-directml",
     ]
 
 
 def modelsMap(
     model,
     upscaleFactor: int = 2,
-    cuganKind: str = "",
     modelType="pth",
     half: bool = True,
 ) -> str:
@@ -54,7 +56,6 @@ def modelsMap(
     Args:
         model: The model to map.
         upscaleFactor: The upscale factor.
-        cuganKind: The cugan kind.
         modelType: The model type.
         half: Whether to use half precision or not.
     """
@@ -99,15 +100,29 @@ def modelsMap(
                     return "2x_ModernSpanimationV1_fp16_op17.onnx"
                 else:
                     return "2x_ModernSpanimationV1_fp32_op17.onnx"
+                
         case "omnisr":
             return "2xHFA2kOmniSR.pth"
 
-        case "shufflecugan":
-            return "sudo_shuffle_cugan_9.584.969.pth"
+        case "shufflecugan" | "shufflecugan-directml":
+            if modelType == "pth":
+                return "sudo_shuffle_cugan_9.584.969.pth"
+            else:
+                if half:
+                    return "sudo_shuffle_cugan_9.584.969-fp16.onnx"
+                else:
+                    return "sudo_shuffle_cugan_9.584.969-fp32.onnx"
+            
 
-        case "cugan":
-            return f"cugan_up{upscaleFactor}x-latest-{cuganKind}.pth"
-
+        case "cugan" | "cugan-directml":
+            if modelType == "pth":
+                return "2xHFA2kReal-CUGAN.pth"
+            else:
+                if half:
+                    return "2xHFA2kReal-CUGAN-fp16.onnx"
+                else:
+                    return "2xHFA2kReal-CUGAN-fp32.onnx"
+                
         case "segment":
             return "isnetis.ckpt"
 
@@ -193,7 +208,6 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
 
 def downloadModels(
     model: str = None,
-    cuganKind: str = None,
     upscaleFactor: int = 2,
     modelType: str = "pth",
     half: bool = True,
@@ -203,20 +217,19 @@ def downloadModels(
 
     Args:
         model: The model to download.
-        cuganKind: The cugan kind.
         upscaleFactor: The upscale factor.
         modelType: The model type.
         half: Whether to use half precision or not.
     """
     os.makedirs(weightsDir, exist_ok=True)
 
-    filename = modelsMap(model, upscaleFactor, cuganKind, modelType, half)
+    filename = modelsMap(model, upscaleFactor, modelType, half)
 
     match model:
-        case "cugan" | "shufflecugan":
+        case "cugan" | "shufflecugan" | "cugan-directml" | "shufflecugan-directml":
             cuganFolderPath = os.path.join(weightsDir, model)
             os.makedirs(cuganFolderPath, exist_ok=True)
-            fullUrl = f"{url if model == 'shufflecugan' else cuganUrl}{filename}"
+            fullUrl = f"{url}{filename}"
             return downloadAndLog(model, filename, fullUrl, cuganFolderPath)
 
         case (
@@ -317,5 +330,4 @@ def downloadModels(
             return downloadAndLog(model, filename, fullUrl, vitlFolderPath)
 
         case _:
-            print(f"Model {model} not found.")
-            return None
+            raise ValueError(f"Model {model} not found.")

@@ -53,7 +53,6 @@ class VideoProcessor:
         self.upscale = args.upscale
         self.upscale_factor = args.upscale_factor
         self.upscale_method = args.upscale_method
-        self.cugan_kind = args.cugan_kind
         self.dedup = args.dedup
         self.dedup_method = args.dedup_method
         self.dedup_sens = args.dedup_sens
@@ -329,14 +328,11 @@ if __name__ == "__main__":
             "ultracompact-directml",
             "superultracompact-directml",
             "span-directml",
+            "cugan-directml",
+            "shufflecugan-directml",
+            "realesrgan-directml",
         ],
         default="shufflecugan",
-    )
-    argparser.add_argument(
-        "--cugan_kind",
-        type=str,
-        choices=["no-denoise", "conservative", "denoise1x", "denoise2x"],
-        default="no-denoise",
     )
     argparser.add_argument("--custom_model", type=str, default="")
     argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
