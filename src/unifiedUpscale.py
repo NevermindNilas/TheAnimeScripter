@@ -225,42 +225,40 @@ class UniversalDirectML:
         self.device = torch.device(self.deviceType)
 
         if self.half:
-            self.numpyType = np.float16
-            self.torchType = torch.float16
+            self.numpyDType = np.float16
+            self.torchDType = torch.float16
         else:
-            self.numpyType = np.float32
-            self.torchType = torch.float32
+            self.numpyDType = np.float32
+            self.torchDType = torch.float32
 
         self.IoBinding = self.model.io_binding()
         self.dummyInput = torch.zeros(
             (1, 3, self.height, self.width),
             device=self.deviceType,
-            dtype=self.torchType,
+            dtype=self.torchDType,
         )
         self.dummyInput = self.dummyInput.contiguous()
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
             device=self.deviceType,
-            dtype=self.torchType
+            dtype=self.torchDType,
         )
 
-        """
         self.IoBinding.bind_input(
             name="input",
             device_type=self.deviceType,
             device_id=0,
-            element_type=np.float16 if self.half else np.float32,
-            shape=tuple([1, 3, self.height, self.width]),  # Input shape
+            element_type=self.numpyDType,
+            shape=self.dummyInput.shape,
             buffer_ptr=self.dummyInput.data_ptr(),
         )
-        """
 
         self.IoBinding.bind_output(
             name="output",
             device_type=self.deviceType,
             device_id=0,
-            element_type=self.numpyType,
+            element_type=self.numpyDType,
             shape=self.dummyOutput.shape,
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
@@ -272,22 +270,18 @@ class UniversalDirectML:
 
         if self.half:
             frame = frame.half()
-
         frame = frame.contiguous()
-        self.dummyInput.copy_(frame, non_blocking=True)
 
-        self.IoBinding.bind_input(
-            name="input",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyType,
-            shape=self.dummyInput.shape,
-            buffer_ptr=self.dummyInput.data_ptr(),
-        )
-        
         self.model.run_with_iobinding(self.IoBinding)
-
-        frame = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()
+        frame = (
+            self.dummyOutput.squeeze(0)
+            .permute(1, 2, 0)
+            .mul_(255)
+            .clamp_(1, 255)
+            .byte()
+            .cpu()
+            .numpy()
+        )
 
         return frame
 
