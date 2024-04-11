@@ -22,4 +22,4 @@
 
 # AMD 5800X, RTX 3080, 32GB DDR4, TAS 1.5.0, HUK
 
-![tables](https://media.discordapp.net/attachments/1208539289328025621/1224538281421832392/nilasedits.png?ex=661ddb25&is=660b6625&hm=64c893bea7d0c4a8b3b0a51f07b17f67ab25e7feddc45ae9edbffe791550996f&=&format=webp&quality=lossless&width=1920&height=640)
+![nilasedits](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/7a0cfd32-3083-4f15-a88d-3876962106a4)
