@@ -100,17 +100,17 @@ Denoise:
 - [FFmpeg Group](https://github.com/FFmpeg/FFmpeg) - For FFmpeg
 - [Nihui](https://github.com/nihui/rife-ncnn-vulkan) - For Rife NCNN
 - [Media2x](https://github.com/media2x/rife-ncnn-vulkan-python) - For Rife NCNN Wrapper
-- [TNTWise](https://github.com/TNTwise/rife-ncnn-vulkan) - For newest implementations of Rife NCNN, Universal NCNN and Span model.
+- [TNTWise](https://github.com/TNTwise/rife-ncnn-vulkan) - For newest Rife NCNN Models and Span Model.
 - [YT-DLP](https://github.com/yt-dlp/yt-dlp) - For YT-DLP
 - [Hongyuanyu](https://github.com/hongyuanyu/span) - For SPAN
-- [Phhofm](https://github.com/phhofm) - For RealESRGAN and OmniSR Models
+- [Phhofm](https://github.com/phhofm) - For Cugan and OmniSR Models
 - [Francis0625](https://github.com/Francis0625/Omni-SR) - For OmniSR
 - [Breakthrough](https://github.com/Breakthrough/PySceneDetect) - For Automated Scene Detection
-- [Final2X](https://github.com/Final2x/realesrgan-ncnn-py) - For RealESRGAN-NCNN-Py and RealCugan-NCNN-Py
 - [Chainner-org](https://github.com/chaiNNer-org/spandrel) - For Spandrel and easy to use arch implementations.
 - [Kim2091](https://openmodeldb.info/models/1x-span-anime-pretrain) - For Span 1x Model
 - [Kiteretsu77](https://github.com/Kiteretsu77/APISR) - For APISR
 - [cszn](https://github.com/cszn/DPIR) - For DPIR
+- [Sirosky](https://openmodeldb.info/models/2x-AniScale-2-ESRGAN-Lite) - For RealESRGAN Model
 
 ## 📈 [Benchmarks](BENCHMARKS.MD)
 

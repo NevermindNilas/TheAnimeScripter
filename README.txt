@@ -9,16 +9,18 @@ Github: https://github.com/NevermindNilas/TheAnimeScripter
 !The Anime Scripter is provided as is, without any warranty. Feel free to join the Discord server and report any issues to Nilas. Learn more about the license in License.md.!
 
 # Minimum System Requirements:
+    - OS: Windows 10
     - CPU: Quad Core CPU
     - RAM: 16 GB
-    - GPU: Vulkan Capable GPU with 4GB VRAM
-    - Disk Space: Approximately 6 GB
+    - GPU: Any GPU with DirectX 12 and Vulkan support
+    - Disk Space: ~ 6 GB
 
 # Recommended System Requirements:
+    - OS: Windows 11
     - CPU: Octa Core CPU
     - RAM: 32 GB
-    - GPU: NVidia 1000 series / RX 6000 series
-    - Disk Space: Approximately 6 GB
+    - GPU: NVidia 2000 Series or higher / AMD 6000 Series or higher
+    - Disk Space: ~ 6 GB
 
 # Installation:
     Refer to the installation tutorial or self-build the .exe file using the guide available at: 
@@ -26,6 +28,7 @@ Github: https://github.com/NevermindNilas/TheAnimeScripter
 
 # Things to consider:
     - The Script will Utilize CUDA acceleration automatically if you have an NVIDIA GPU of series 1000 or higher for optimal performance.
+    - DirectML is available for all GPUs with DIRECTX 12 support that are running Windows 10 or higher.
     - AMD / Intel GPU users should use the NCNN Versions of upscalers / interpolators to avoid falling back to CPU and ensure optimal performance.
     - GMFSS may experience VRAM limitations for high-resolution clips; ensure your GPU has 8 GB or more VRAM for 1080p footage.
     - Enabling the Rife Ensemble triggers internal calls to the warp algorithm, providing better results with some loss in performance. Enable it if the performance loss is acceptable.
