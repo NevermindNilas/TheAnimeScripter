@@ -5,7 +5,6 @@ import logging
 import torch.nn.functional as F
 
 # import torch_tensorrt as trt
-import cv2
 
 import onnxruntime as ort
 from spandrel import ImageModelDescriptor, ModelLoader
@@ -13,6 +12,7 @@ from .downloadModels import downloadModels, weightsDir, modelsMap
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
+ort.set_default_logger_severity(3)
 
 
 class UniversalPytorch:
@@ -20,7 +20,6 @@ class UniversalPytorch:
         self,
         upscaleMethod: str = "shufflecugan",
         upscaleFactor: int = 2,
-        cuganKind: str = "conservative",
         half: bool = False,
         width: int = 1920,
         height: int = 1080,
@@ -33,7 +32,6 @@ class UniversalPytorch:
         Args:
             upscaleMethod (str): The method to use for upscaling
             upscaleFactor (int): The factor to upscale by
-            cuganKind (str): The kind of cugan to use
             half (bool): Whether to use half precision
             width (int): The width of the input frame
             height (int): The height of the input frame
@@ -43,7 +41,6 @@ class UniversalPytorch:
         """
         self.upscaleMethod = upscaleMethod
         self.upscaleFactor = upscaleFactor
-        self.cuganKind = cuganKind
         self.half = half
         self.width = width
         self.height = height
@@ -58,14 +55,13 @@ class UniversalPytorch:
         """
         if not self.customModel:
             self.filename = modelsMap(
-                self.upscaleMethod, self.upscaleFactor, self.cuganKind, modelType="pth"
+                self.upscaleMethod, self.upscaleFactor, modelType="pth"
             )
             if not os.path.exists(
                 os.path.join(weightsDir, self.upscaleMethod, self.filename)
             ):
                 modelPath = downloadModels(
                     model=self.upscaleMethod,
-                    cuganKind=self.cuganKind,
                     upscaleFactor=self.upscaleFactor,
                 )
             else:
@@ -245,15 +241,6 @@ class UniversalDirectML:
             dtype=self.torchDType,
         )
 
-        self.IoBinding.bind_input(
-            name="input",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.dummyInput.shape,
-            buffer_ptr=self.dummyInput.data_ptr(),
-        )
-
         self.IoBinding.bind_output(
             name="output",
             device_type=self.deviceType,
@@ -271,6 +258,16 @@ class UniversalDirectML:
         if self.half:
             frame = frame.half()
         frame = frame.contiguous()
+
+        self.dummyInput.copy_(frame)
+        self.IoBinding.bind_input(
+            name="input",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyInput.shape,
+            buffer_ptr=self.dummyInput.data_ptr(),
+        )
 
         self.model.run_with_iobinding(self.IoBinding)
         frame = (
@@ -474,7 +471,6 @@ class Upscaler:
         self,
         upscaleMethod: str = "shufflecugan",
         upscaleFactor: int = 2,
-        cuganKind: str = "conservative",
         half: bool = False,
         width: int = 1920,
         height: int = 1080,
@@ -483,7 +479,6 @@ class Upscaler:
     ):
         self.upscaleMethod = upscaleMethod
         self.upscaleFactor = upscaleFactor
-        self.cuganKind = cuganKind
         self.half = half
         self.width = width
         self.height = height
@@ -497,7 +492,7 @@ class Upscaler:
         if not self.trt:
             if not self.customModel:
                 self.filename = modelsMap(
-                    self.upscaleMethod, self.upscaleFactor, self.cuganKind
+                    self.upscaleMethod, self.upscaleFactor
                 )
                 if not os.path.exists(
                     os.path.join(weightsDir, self.upscaleMethod, self.filename)

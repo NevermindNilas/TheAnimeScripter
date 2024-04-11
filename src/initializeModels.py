@@ -30,7 +30,6 @@ def intitialize_models(self):
                 upscale_process = UniversalPytorch(
                     self.upscale_method,
                     self.upscale_factor,
-                    self.cugan_kind,
                     self.half,
                     self.width,
                     self.height,
@@ -38,7 +37,7 @@ def intitialize_models(self):
                     self.nt,
                 )
 
-            case "compact-directml" | "ultracompact-directml" | "superultracompact-directml" | "span-directml":
+            case "compact-directml" | "ultracompact-directml" | "superultracompact-directml" | "span-directml" | "cugan-directml" | "shufflecugan-directml" | "realesrgan-directml":
                 from .unifiedUpscale import UniversalDirectML
                 upscale_process = UniversalDirectML(
                     self.upscale_method,

@@ -56,10 +56,7 @@ def argumentChecker(args, mainPath, scriptVersion):
         print(green("Offline mode enabled, downloading all available models"))
         options = modelsList()
         for option in options:
-            if option == "cugan":
-                for upscaleFactor in [2, 3, 4]:
-                    downloadModels(option, args.cugan_kind, upscaleFactor)
-            elif options == "apisr":
+            if options == "apisr":
                 for upscaleFactor in [2, 4]:
                     downloadModels(option, upscaleFactor=upscaleFactor)
             else:
