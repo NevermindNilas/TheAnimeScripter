@@ -41,6 +41,10 @@ def modelsList() -> list[str]:
         "ultracompact-directml",
         "superultracompact-directml",
         "span-directml",
+        "rife-directml",
+        "rife4.6-directml",
+        "rife4.14-directml",
+        "rife4.15-directml",
     ]
 
 
@@ -100,7 +104,7 @@ def modelsMap(
                     return "2x_ModernSpanimationV1_fp16_op17.onnx"
                 else:
                     return "2x_ModernSpanimationV1_fp32_op17.onnx"
-                
+
         case "omnisr":
             return "2xHFA2kOmniSR.pth"
 
@@ -112,7 +116,6 @@ def modelsMap(
                     return "sudo_shuffle_cugan_9.584.969-fp16.onnx"
                 else:
                     return "sudo_shuffle_cugan_9.584.969-fp32.onnx"
-            
 
         case "cugan" | "cugan-directml":
             if modelType == "pth":
@@ -122,7 +125,7 @@ def modelsMap(
                     return "2xHFA2kReal-CUGAN-fp16.onnx"
                 else:
                     return "2xHFA2kReal-CUGAN-fp32.onnx"
-                
+
         case "segment":
             return "isnetis.ckpt"
 
@@ -207,127 +210,20 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
 
 
 def downloadModels(
-    model: str = None,
-    upscaleFactor: int = 2,
-    modelType: str = "pth",
-    half: bool = True,
+    model: str = None, upscaleFactor: int = 2, modelType: str = "pth", half: bool = True
 ) -> str:
     """
     Downloads the model.
-
-    Args:
-        model: The model to download.
-        upscaleFactor: The upscale factor.
-        modelType: The model type.
-        half: Whether to use half precision or not.
     """
     os.makedirs(weightsDir, exist_ok=True)
 
     filename = modelsMap(model, upscaleFactor, modelType, half)
+    folderPath = os.path.join(weightsDir, model)
+    os.makedirs(folderPath, exist_ok=True)
 
-    match model:
-        case "cugan" | "shufflecugan" | "cugan-directml" | "shufflecugan-directml":
-            cuganFolderPath = os.path.join(weightsDir, model)
-            os.makedirs(cuganFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, cuganFolderPath)
+    if model in ["vits", "vitb", "vitl"]:
+        fullUrl = f"{depthURL}{filename}"
+    else:
+        fullUrl = f"{url}{filename}"
 
-        case (
-            "compact"
-            | "ultracompact"
-            | "superultracompact"
-            | "compact-directml"
-            | "ultracompact-directml"
-            | "superultracompact-directml"
-        ):
-            compactFolderPath = os.path.join(weightsDir, model)
-            os.makedirs(compactFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, compactFolderPath)
-
-        case "span" | "span-directml":
-            spanFolderPath = os.path.join(weightsDir, model)
-            os.makedirs(spanFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, spanFolderPath)
-
-        case "omnisr":
-            omnisrFolderPath = os.path.join(weightsDir, "omnisr")
-            os.makedirs(omnisrFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, omnisrFolderPath)
-
-        case "gmfss":
-            gmfssFolderPath = os.path.join(weightsDir, "gmfss")
-            os.makedirs(gmfssFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, gmfssFolderPath)
-
-        case "rife" | "rife4.14" | "rife4.6" | "rife4.15" | "rife4.16-lite":
-            rifeFolderPath = os.path.join(weightsDir, "rife")
-            os.makedirs(rifeFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, rifeFolderPath)
-
-        case "segment":
-            segmentFolderPath = os.path.join(weightsDir, "segment")
-            os.makedirs(segmentFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, segmentFolderPath)
-
-        case "realesrgan":
-            realesrganFolderPath = os.path.join(weightsDir, "realesrgan")
-            os.makedirs(realesrganFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, realesrganFolderPath)
-
-        case "scunet":
-            scunetFolderPath = os.path.join(weightsDir, "scunet")
-            os.makedirs(scunetFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, scunetFolderPath)
-
-        case "nafnet":
-            nafnetFolderPath = os.path.join(weightsDir, "nafnet")
-            os.makedirs(nafnetFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, nafnetFolderPath)
-
-        case "span-denoise":
-            spanFolderPath = os.path.join(weightsDir, "span-denoise")
-            os.makedirs(spanFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, spanFolderPath)
-
-        case "dpir":
-            dpirFolderPath = os.path.join(weightsDir, "dpir")
-            os.makedirs(dpirFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, dpirFolderPath)
-
-        case "apisr":
-            apisrFolderPath = os.path.join(weightsDir, "apisr")
-            os.makedirs(apisrFolderPath, exist_ok=True)
-            fullUrl = f"{url}{filename}"
-            return downloadAndLog(model, filename, fullUrl, apisrFolderPath)
-
-        case "vits":
-            vitsFolderPath = os.path.join(weightsDir, "vits")
-            os.makedirs(vitsFolderPath, exist_ok=True)
-            fullUrl = f"{depthURL}{filename}"
-            return downloadAndLog(model, filename, fullUrl, vitsFolderPath)
-
-        case "vitb":
-            vitbFolderPath = os.path.join(weightsDir, "vitb")
-            os.makedirs(vitbFolderPath, exist_ok=True)
-            fullUrl = f"{depthURL}{filename}"
-            return downloadAndLog(model, filename, fullUrl, vitbFolderPath)
-
-        case "vitl":
-            vitlFolderPath = os.path.join(weightsDir, "vitl")
-            os.makedirs(vitlFolderPath, exist_ok=True)
-            fullUrl = f"{depthURL}{filename}"
-            return downloadAndLog(model, filename, fullUrl, vitlFolderPath)
-
-        case _:
-            raise ValueError(f"Model {model} not found.")
+    return downloadAndLog(model, filename, fullUrl, folderPath)
