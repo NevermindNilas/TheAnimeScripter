@@ -2,8 +2,8 @@ import logging
 
 
 def intitialize_models(self):
-    new_width = self.width
-    new_height = self.height
+    outputWidth = self.width
+    outputHeight = self.height
     upscale_process = None
     interpolate_process = None
     denoise_process = None
@@ -12,9 +12,9 @@ def intitialize_models(self):
     if self.upscale:
         from src.unifiedUpscale import UniversalPytorch
 
-        new_width *= self.upscale_factor
-        new_height *= self.upscale_factor
-        logging.info(f"Upscaling to {new_width}x{new_height}")
+        outputWidth *= self.upscale_factor
+        outputHeight *= self.upscale_factor
+        logging.info(f"Upscaling to {outputWidth}x{outputHeight}")
         match self.upscale_method:
             case (
                 "shufflecugan"
@@ -37,8 +37,17 @@ def intitialize_models(self):
                     self.nt,
                 )
 
-            case "compact-directml" | "ultracompact-directml" | "superultracompact-directml" | "span-directml" | "cugan-directml" | "shufflecugan-directml" | "realesrgan-directml":
+            case (
+                "compact-directml"
+                | "ultracompact-directml"
+                | "superultracompact-directml"
+                | "span-directml"
+                | "cugan-directml"
+                | "shufflecugan-directml"
+                | "realesrgan-directml"
+            ):
                 from .unifiedUpscale import UniversalDirectML
+
                 upscale_process = UniversalDirectML(
                     self.upscale_method,
                     self.upscale_factor,
@@ -48,39 +57,28 @@ def intitialize_models(self):
                     self.custom_model,
                     self.nt,
                 )
-            
+
     if self.interpolate:
         logging.info(
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolate_factor, '.3f')}fps"
         )
 
-        UHD = True if new_width >= 3840 or new_height >= 2160 else False
+        UHD = True if outputWidth >= 3840 or outputHeight >= 2160 else False
         match self.interpolate_method:
-            case (
-                "rife"
-                | "rife4.6"
-                | "rife4.14"
-                | "rife4.15"
-                | "rife4.16-lite"
-            ):
-                from src.rife.rife import Rife
+            case "rife" | "rife4.6" | "rife4.14" | "rife4.15" | "rife4.16-lite":
+                from src.unifiedInterpolate import RifeCuda
 
-                interpolate_process = Rife(
+                interpolate_process = RifeCuda(
                     int(self.interpolate_factor),
                     self.half,
-                    new_width,
-                    new_height,
+                    outputWidth,
+                    outputHeight,
                     UHD,
                     self.interpolate_method,
                     self.ensemble,
                     self.nt,
                 )
-            case (
-                "rife-ncnn"
-                | "rife4.6-ncnn"
-                | "rife4.14-ncnn"
-                | "rife4.15-ncnn"
-            ):
+            case "rife-ncnn" | "rife4.6-ncnn" | "rife4.14-ncnn" | "rife4.15-ncnn":
                 from src.rifencnn.rifencnn import rifeNCNN
 
                 interpolate_process = rifeNCNN(
@@ -88,8 +86,8 @@ def intitialize_models(self):
                     self.interpolate_method,
                     self.ensemble,
                     self.nt,
-                    new_width,
-                    new_height,
+                    outputWidth,
+                    outputHeight,
                 )
             case "gmfss":
                 from src.gmfss.gmfss_fortuna_union import GMFSS
@@ -97,9 +95,24 @@ def intitialize_models(self):
                 interpolate_process = GMFSS(
                     int(self.interpolate_factor),
                     self.half,
-                    new_width,
-                    new_height,
+                    outputWidth,
+                    outputHeight,
                     UHD,
+                    self.ensemble,
+                    self.nt,
+                )
+            case (
+                "rife-directml"
+                | "rife4.6-directml"
+                | "rife4.14-directml"
+                | "rife4.15-directml"
+                | "rife4.15-lite-directml"
+            ):
+                from src.unifiedInterpolate import RifeDirectML
+
+                interpolate_process = RifeDirectML(
+                    self.interpolate_method,
+                    self.half,
                     self.ensemble,
                     self.nt,
                 )
@@ -141,8 +154,8 @@ def intitialize_models(self):
                 pass
 
     return (
-        new_width,
-        new_height,
+        outputWidth,
+        outputHeight,
         upscale_process,
         interpolate_process,
         denoise_process,
