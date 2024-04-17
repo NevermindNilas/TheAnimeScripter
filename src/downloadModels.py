@@ -180,14 +180,14 @@ def modelsMap(
 
 def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str):
     if os.path.exists(os.path.join(folderPath, filename)):
-        logging.info(
-            f"{model.upper()} model already exists at: {os.path.join(folderPath, filename)}"
-        )
-        print(f"Found {model.upper()} at: {os.path.join(folderPath, filename)}")
+        toLog = f"{model.upper()} model already exists at: {os.path.join(folderPath, filename)}"
+        logging.info(toLog)
+        print(toLog)
         return os.path.join(folderPath, filename)
 
-    print(f"Downloading {model.upper()} model...\n")
-    logging.info(f"Downloading {model.upper()} model...")
+    toLog = f"Downloading {model.upper()} model..."
+    logging.info(toLog)
+    print(toLog)
 
     wget.download(download_url, out=os.path.join(folderPath, filename))
 
@@ -199,12 +199,10 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
         os.remove(os.path.join(folderPath, filename))
         filename = filename[:-4]
 
-    logging.info(
-        f"Downloaded {model.upper()} model to: {os.path.join(folderPath, filename)}"
-    )
-    print(
-        f"\nDownloaded {model.upper()} model to: {os.path.join(folderPath, filename)}"
-    )
+    toLog = f"Downloaded {model.upper()} model to: {os.path.join(folderPath, filename)}"
+
+    logging.info(toLog)
+    print(toLog)
 
     return os.path.join(folderPath, filename)
 
