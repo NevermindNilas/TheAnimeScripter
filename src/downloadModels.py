@@ -1,7 +1,7 @@
 import os
 import logging
 import requests
-import tqdm
+from tqdm import tqdm
 
 dirPath = os.path.dirname(__file__)
 weightsDir = os.path.join(dirPath, "weights")
