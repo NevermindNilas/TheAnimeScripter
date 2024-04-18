@@ -1,6 +1,7 @@
 import os
 import shutil
-import wget
+import requests
+from tqdm import tqdm
 import glob
 import zipfile
 import logging
@@ -24,7 +25,19 @@ def downloadAndExtractFFMPEG(ffmpegPath):
     os.makedirs(ffmpegDir, exist_ok=True)
     ffmpegZipPath = os.path.join(ffmpegDir, "ffmpeg.zip")
 
-    wget.download(FFMPEG_URL, out=ffmpegZipPath)
+    response = requests.get(FFMPEG_URL, stream=True)
+    total_size_in_bytes = int(response.headers.get('content-length', 0))
+    progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
+
+    with open(ffmpegZipPath, 'wb') as file:
+        for data in response.iter_content(chunk_size=1024):
+            progress_bar.update(len(data))
+            file.write(data)
+    progress_bar.close()
+
+    if progress_bar.n != total_size_in_bytes:
+        print("ERROR, something went wrong")
+
     extractFFMPEG(ffmpegZipPath, ffmpegDir)
 
     print("\n")
