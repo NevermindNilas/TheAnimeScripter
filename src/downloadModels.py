@@ -1,6 +1,7 @@
-import wget
 import os
 import logging
+import requests
+import tqdm
 
 dirPath = os.path.dirname(__file__)
 weightsDir = os.path.join(dirPath, "weights")
@@ -177,7 +178,6 @@ def modelsMap(
         case _:
             raise ValueError(f"Model {model} not found.")
 
-
 def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str):
     if os.path.exists(os.path.join(folderPath, filename)):
         toLog = f"{model.upper()} model already exists at: {os.path.join(folderPath, filename)}"
@@ -189,7 +189,18 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
     logging.info(toLog)
     print(toLog)
 
-    wget.download(download_url, out=os.path.join(folderPath, filename))
+    response = requests.get(download_url, stream=True)
+    total_size_in_bytes = int(response.headers.get('content-length', 0))
+    progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
+
+    with open(os.path.join(folderPath, filename), 'wb') as file:
+        for data in response.iter_content(chunk_size=1024):
+            progress_bar.update(len(data))
+            file.write(data)
+    progress_bar.close()
+
+    if progress_bar.n != total_size_in_bytes:
+        print("ERROR, something went wrong")
 
     if filename.endswith(".zip"):
         import zipfile

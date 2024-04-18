@@ -11,6 +11,8 @@ scipy
 wmi
 spandrel
 yt-dlp
+requests
+tqdm
 colorama
 einops
 scikit-image
