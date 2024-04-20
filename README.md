@@ -77,11 +77,12 @@ In the settings panel:
 ## 📁 Available Models
 
 Upscaling: 
-  - Official Support - Cugan / Cugan-NCNN, ShuffleCugan / ShuffleCugan-NCNN, Span / Span-NCNN, RealESRGan / RealESRGan-NCNN, OmniSR, SRVGGNet ( Compact, UltraCompact, SuperUltraCompact )
+  - Official Support - Cugan / Cugan-DirectML, ShuffleCugan / ShuffleCugan-DirectML, Span / Span-DirectML, RealESRGan / RealESRGan-DirectML, OmniSR, SRVGGNet ( Compact, UltraCompact, SuperUltraCompact + DirectML )
   - Unofficial Support through `--custom_model` param, virtually anything that [Spandrel](https://github.com/chaiNNer-org/spandrel) supports.
 
 Interpolation: 
-  - Rife 4.6, Rife4.14, Rife 4.15, Rife 4.16-lite and NCNN versions for each of them and GMFSS.
+  - Rife 4.6, Rife4.14, Rife 4.15, Rife 4.15-lite, Rife 4.16-lite and NCNN versions for each of them and GMFSS.
+  - To beadded Rife-DirectML.
   
 Denoise:
   - SCUNet, NAFNet, Span, DPIR ( 1x pretrain model )

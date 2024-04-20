@@ -299,6 +299,7 @@ if __name__ == "__main__":
             "rife4.6",
             "rife4.14",
             "rife4.15",
+            "rife4.15-lite",
             "rife4.16-lite",
             "rife-ncnn",
             "rife4.6-ncnn",
