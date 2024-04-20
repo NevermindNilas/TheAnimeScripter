@@ -65,6 +65,8 @@ class RifeCuda:
         match self.interpolate_method:
             case "rife" | "rife4.15":
                 from .rifearches.IFNet_rife415 import IFNet
+            case "rife4.15-lite":
+                from .rifearches.IFNet_rife415lite import IFNet
             case "rife4.14":
                 from .rifearches.IFNet_rife414 import IFNet
             case "rife4.6":
