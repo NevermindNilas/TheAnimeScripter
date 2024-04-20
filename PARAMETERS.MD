@@ -19,15 +19,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--audio` (int, default=1): Enable audio processing (1) or disable (0).
 - `--ytdlp_quality` (int, default=0): Allow 4k/8k videos to be downloaded then re-encoded to the selected `--encode_method` or `--custom_encoder`.
 
-#### Interpolation Settings:
-
-- `--interpolate` (int, default=0): Enable interpolation (1) or disable (0).
-- `--interpolate_factor` (int, default=2): Factor for interpolation.
-- `--interpolate_method` (str, default="rife"): Interpolation method:
-    - Options: "rife", "rife4.6", "rife4.14", "rife4.15", "rife-ncnn", "rife4.6-ncnn", "rife4.14-ncnn", "rife4.15-ncnn", "gmfss".
-    - Notation: `rife`, respectively `rife-ncnn`, will default to the latest available version.
-- `--ensemble` (int, default=0): Activate Ensemble for higher quality outputs from Rife.
-
 #### Upscaling Settings:
 
 - `--upscale` (int, default=0): Enable upscaling (1) or disable (0).
@@ -35,6 +26,15 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--upscale_method` (str, default="ShuffleCugan"): Upscaling method:
      - Options: "cugan / shufflecugan", "compact / ultracompact / superultracompact / compact-directml / ultracompact-directml / superultracompact-directml", "span / span-directml", "omnisr", "realesrgan".
 - `--custom_model` (str, default=""): Choose a different model for supported upscaling architectures. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
+#### Interpolation Settings:
+
+
+- `--interpolate` (int, default=0): Enable interpolation (1) or disable (0).
+- `--interpolate_factor` (int, default=2): Factor for interpolation.
+- `--interpolate_method` (str, default="rife"): Interpolation method:
+    - Options: "rife", "rife4.6", "rife4.14", "rife4.15", "rife4.15-lite", "rife-ncnn", "rife4.6-ncnn", "rife4.14-ncnn", "rife4.15-ncnn", "gmfss".
+    - Notation: `rife`, respectively `rife-ncnn`, will default to the latest available version.
+- `--ensemble` (int, default=0): Activate Ensemble for higher quality outputs from Rife.
 
 #### Deduplication settings:
 
