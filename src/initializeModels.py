@@ -65,7 +65,7 @@ def intitialize_models(self):
 
         UHD = True if outputWidth >= 3840 or outputHeight >= 2160 else False
         match self.interpolate_method:
-            case "rife" | "rife4.6" | "rife4.14" | "rife4.15" | "rife4.16-lite":
+            case "rife" | "rife4.6" | "rife4.14" | "rife4.15" | "rife4.15-lite" | "rife4.16-lite":
                 from src.unifiedInterpolate import RifeCuda
 
                 interpolate_process = RifeCuda(
