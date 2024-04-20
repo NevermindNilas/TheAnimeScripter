@@ -140,7 +140,6 @@ class IFNet(nn.Module):
         warped_image0 = image0
         warped_image1 = image1
         flow = None
-        mask = None
         block = [self.block0, self.block1, self.block2, self.block3]
         for i in range(4):
             if flow is None:
