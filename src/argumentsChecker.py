@@ -33,6 +33,7 @@ def argumentChecker(args, mainPath, scriptVersion):
         "audio",
         "half",
         "offline",
+        "consent",
     ]
     for arg in boolArgs:
         setattr(args, arg, getattr(args, arg) == 1)
@@ -78,6 +79,9 @@ def argumentChecker(args, mainPath, scriptVersion):
         )
     else:
         logging.info("No custom encoder specified, using default encoder")
+    
+    if args.consent:
+        logging.info("Consent flag detected, thank you for helping me improve the script")
 
     if "https://" in args.input or "http://" in args.input:
         processURL(args, mainPath)

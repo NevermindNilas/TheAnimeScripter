@@ -81,6 +81,7 @@ class VideoProcessor:
         self.denoise_method = args.denoise_method
         self.sample_size = args.sample_size
         self.benchmark = args.benchmark
+        self.consent = args.consent
 
         self.width, self.height, self.fps = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
@@ -167,6 +168,11 @@ class VideoProcessor:
             return
 
         self.start()
+
+        if self.consent:
+            from src.consent import Consent
+            logPath = os.path.join(mainPath, "log.txt")
+            Consent(logPath)
 
     def processFrame(self, frame):
         try:
@@ -425,6 +431,7 @@ if __name__ == "__main__":
     )
     argparser.add_argument("--benchmark", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--offline", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--consent", type=int, choices=[0, 1], default=0)
 
     args = argparser.parse_args()
     args = argumentChecker(args, mainPath, scriptVersion)
