@@ -1,11 +1,13 @@
 import subprocess
 import os
 import shutil
-from importlib.metadata import distribution
 
 from main import scriptVersion
+
 base_dir = os.path.dirname(os.path.abspath(__file__))
 outputName = "TAS" + scriptVersion + ".7z"
+distPath = os.path.join(base_dir, "dist")
+
 
 def create_venv():
     print("Creating the virtual environment...")
@@ -38,15 +40,6 @@ def create_executable():
     main_path = os.path.join(base_dir, "main.py")
     gui_path = os.path.join(base_dir, "gui.py")
     icon_path = os.path.join(base_dir, "demos", "icon.ico")
-    rife_ncnn_models_path = os.path.join(
-        distribution("rife_ncnn_vulkan_python").locate_file("rife_ncnn_vulkan_python"),
-        "models",
-    )
-
-    universal_ncnn_models_path = os.path.join(
-        distribution("upscale_ncnn_py").locate_file("upscale_ncnn_py"),
-        "models",
-    )
     print("Creating the CLI executable...")
     subprocess.run(
         [
@@ -58,14 +51,6 @@ def create_executable():
             "--clean",
             "--add-data",
             f"{src_path};src/",
-            "--add-data",
-            f"{rife_ncnn_models_path};rife_ncnn_vulkan_python/models",
-            "--add-data",
-            f"{universal_ncnn_models_path};upscale_ncnn_py/models",
-            "--hidden-import",
-            "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
-            "--hidden-import",
-            "upscale_ncnn_py.upscale_ncnn_py_wrapper",
             "--collect-all",
             "cupy",
             "--collect-all",
@@ -100,7 +85,7 @@ def create_executable():
     )
 
     print("Finished creating the GUI executable")
-    
+
     guiInternalPath = os.path.join(base_dir, "dist", "gui", "_internal")
     mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
 
@@ -118,6 +103,7 @@ def create_executable():
     mainExeFilePath = os.path.join(base_dir, "dist", "main")
 
     shutil.move(guiExeFilePath, mainExeFilePath)
+
 
 def move_extras():
     dist_dir = os.path.join(base_dir, "dist")
@@ -147,7 +133,7 @@ def clean_up():
         "cublas64_12.dll",
         "curand64_10.dll",
         "nvrtc64_120_0.dll",
-        "nvJitLink_120_0.dll"
+        "nvJitLink_120_0.dll",
     ]
     dllPath = os.path.join(base_dir, "dist", "main", "_internal")
 
@@ -189,25 +175,32 @@ def clean_up():
                 shutil.rmtree(pycache_dir)
         except Exception as e:
             print("Error while removing the pycache directory: ", e)
-            
+
     else:
         print("Skipping Cleanup...")
 
     print("Done!, you can find the built executable in the dist folder")
+
 
 def compress_dist():
     answer = input("Do you want to compress the dist directory? (y/n): ")
 
     if answer.lower() == "y":
         print("Installing 7z...")
-        subprocess.run([".\\venv\\Scripts\\python", "-m", "pip", "install", "py7zr"], check=True)
+        subprocess.run(
+            [".\\venv\\Scripts\\python", "-m", "pip", "install", "py7zr"], check=True
+        )
 
-        print("Compressing the dist directory...")
-        subprocess.run(["py", "-m", "py7zr", "c", outputName, "dist/"], check=True)
+        print("Compressing the dist directory, this will take a while...")
+        subprocess.run(
+            [".\\venv\\Scripts\\python", "-m", "py7zr", "c", outputName, distPath],
+            check=True,
+        )
         print("Done!, you can find the compressed file in the root directory")
 
     else:
         print("Skipping Compression...")
+
 
 if __name__ == "__main__":
     create_venv()
