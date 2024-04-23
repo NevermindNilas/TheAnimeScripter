@@ -1,5 +1,4 @@
 --extra-index-url https://download.pytorch.org/whl/cu121
-wget
 opencv-python
 timm
 numpy
@@ -21,4 +20,4 @@ onnxruntime-directml
 pytorch-lightning
 torch 
 torchvision 
-https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp311-cp311-win_amd64.whl
+#https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp311-cp311-win_amd64.whl
