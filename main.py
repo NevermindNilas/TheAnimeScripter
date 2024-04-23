@@ -107,7 +107,7 @@ class VideoProcessor:
 
             logging.info("Detecting scene changes")
 
-            scenechange = Scenechange(
+            Scenechange(
                 self.input,
                 self.scenechange_sens,
                 mainPath,
@@ -115,11 +115,7 @@ class VideoProcessor:
                 self.outpoint,
             )
 
-            scenechange.run()
-
-            return
-
-        if self.depth:
+        elif self.depth:
             from src.depth.depth import Depth
 
             logging.info("Detecting depth")
@@ -142,9 +138,7 @@ class VideoProcessor:
                 self.benchmark,
             )
 
-            return
-
-        if self.segment:
+        elif self.segment:
             from src.segment.segment import Segment
 
             logging.info("Segmenting video")
@@ -164,10 +158,9 @@ class VideoProcessor:
                 self.buffer_limit,
                 self.benchmark,
             )
-
-            return
-
-        self.start()
+        
+        else:
+            self.start()
 
         if self.consent:
             from src.consent import Consent
