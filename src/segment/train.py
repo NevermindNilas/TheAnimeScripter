@@ -1,9 +1,7 @@
 
 import pytorch_lightning as pl
 import torch
-import torch.nn.functional as F
 import torch.optim as optim
-from pytorch_lightning import Trainer
 
 from .model import ISNetDIS, ISNetGTEncoder, U2NET, U2NET_full2, U2NET_lite2, MODNet \
     , InSPyReNet, InSPyReNet_Res2Net50, InSPyReNet_SwinB
@@ -74,7 +72,7 @@ class AnimeSegmentation(pl.LightningModule):
             return self.net(x, True)[2]
         elif isinstance(self.net, InSPyReNet):
             return self.net.forward_inference(x)["pred"]
-        raise NotImplemented
+        raise NotImplementedError
 
     def training_step(self, batch, batch_idx):
         images, labels = batch["image"], batch["label"]
@@ -98,36 +96,17 @@ class AnimeSegmentation(pl.LightningModule):
             out = self.net.forward_train(images, labels)
             loss_args = out
         else:
-            raise NotImplemented
+            raise NotImplementedError
+
 
         loss0, loss = self.net.compute_loss(loss_args)
         self.log_dict({"train/loss": loss, "train/loss_tar": loss0})
         return loss
 
-    def validation_step(self, batch, batch_idx):
-        images, labels = batch["image"], batch["label"]
-        if isinstance(self.net, ISNetGTEncoder):
-            preds = self.forward(labels)
-        else:
-            preds = self.forward(images)
-        pre, rec, f1, = f1_torch(preds.nan_to_num(nan=0, posinf=1, neginf=0), labels)
-        mae_m = F.l1_loss(preds, labels, reduction="mean")
-        pre_m = pre.mean()
-        rec_m = rec.mean()
-        f1_m = f1.mean()
-        self.log_dict({"val/precision": pre_m, "val/recall": rec_m, "val/f1": f1_m, "val/mae": mae_m}, sync_dist=True)
-
 
 def get_gt_encoder(train_dataloader, val_dataloader, opt):
     print("---start train ground truth encoder---")
     gt_encoder = AnimeSegmentation("isnet_gt")
-    trainer = Trainer(precision=32 if opt.fp32 else 16, accelerator=opt.accelerator,
-                      devices=opt.devices, max_epochs=opt.gt_epoch,
-                      benchmark=opt.benchmark, accumulate_grad_batches=opt.acc_step,
-                      check_val_every_n_epoch=opt.val_epoch, log_every_n_steps=opt.log_step,
-                      strategy="ddp_find_unused_parameters_false" if opt.devices > 1 else None,
-                      )
-    trainer.fit(gt_encoder, train_dataloader, val_dataloader)
     return gt_encoder.net
 
 
