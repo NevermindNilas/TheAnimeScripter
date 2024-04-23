@@ -194,7 +194,7 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
 
     response = requests.get(download_url, stream=True)
     total_size_in_bytes = int(response.headers.get('content-length', 0))
-    progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
+    progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True, colour='green')
 
     with open(os.path.join(folderPath, filename), 'wb') as file:
         for data in response.iter_content(chunk_size=1024):
