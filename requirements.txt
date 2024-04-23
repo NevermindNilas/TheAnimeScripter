@@ -1,12 +1,10 @@
---extra-index-url https://download.pytorch.org/whl/cu121
+#--extra-index-url https://download.pytorch.org/whl/cu121
 opencv-python
 timm
 numpy
 cupy-cuda12x
 kornia
 scipy
-#pypresence
-#pyqt6
 wmi
 spandrel
 yt-dlp
@@ -18,6 +16,8 @@ scikit-image
 scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning
+#pypresence
+#pyqt6
 #https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp311-cp311-win_amd64.whl
 https://download.pytorch.org/whl/cu121/torch-2.2.2%2Bcu121-cp311-cp311-win_amd64.whl
-https://download.pytorch.org/whl/cu121/torchvision-0.18.0%2Bcu121-cp311-cp311-win_amd64.whl
+https://download.pytorch.org/whl/cu121/torchvision-0.17.2%2Bcu121-cp311-cp311-win_amd64.whl
