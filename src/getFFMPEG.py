@@ -1,10 +1,11 @@
 import os
 import shutil
 import requests
-from tqdm import tqdm
 import glob
 import zipfile
 import logging
+
+from tqdm import tqdm
 
 def getFFMPEG():
     ffmpegPath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "ffmpeg", "ffmpeg.exe")
