@@ -34,6 +34,12 @@ src/FFMPEG
 # Models
 src/weights
 
+# Extra files
+extra-wheels/
+
+# test input
+input/
+
 # Output Folder
 output/
 
