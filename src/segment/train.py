@@ -1,7 +1,6 @@
 
 import pytorch_lightning as pl
 import torch
-import torch.optim as optim
 
 from .model import ISNetDIS, ISNetGTEncoder, U2NET, U2NET_full2, U2NET_lite2, MODNet \
     , InSPyReNet, InSPyReNet_Res2Net50, InSPyReNet_SwinB
@@ -57,10 +56,6 @@ class AnimeSegmentation(pl.LightningModule):
                 model.net.load_state_dict(state_dict)
             return model
 
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.net.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08, weight_decay=0)
-        return optimizer
-
     def forward(self, x):
         if isinstance(self.net, ISNetDIS):
             return self.net(x)[0][0].sigmoid()
@@ -73,40 +68,3 @@ class AnimeSegmentation(pl.LightningModule):
         elif isinstance(self.net, InSPyReNet):
             return self.net.forward_inference(x)["pred"]
         raise NotImplementedError
-
-    def training_step(self, batch, batch_idx):
-        images, labels = batch["image"], batch["label"]
-        if isinstance(self.net, ISNetDIS):
-            ds, dfs = self.net(images)
-            loss_args = [ds, dfs, labels]
-            if self.gt_encoder is not None:
-                fs = self.gt_encoder(labels)[1]
-                loss_args.append(fs)
-        elif isinstance(self.net, ISNetGTEncoder):
-            ds = self.net(labels)[0]
-            loss_args = [ds, labels]
-        elif isinstance(self.net, U2NET):
-            ds = self.net(images)
-            loss_args = [ds, labels]
-        elif isinstance(self.net, MODNet):
-            trimaps = batch["trimap"]
-            pred_semantic, pred_detail, pred_matte = self.net(images, False)
-            loss_args = [pred_semantic, pred_detail, pred_matte, images, trimaps, labels]
-        elif isinstance(self.net, InSPyReNet):
-            out = self.net.forward_train(images, labels)
-            loss_args = out
-        else:
-            raise NotImplementedError
-
-
-        loss0, loss = self.net.compute_loss(loss_args)
-        self.log_dict({"train/loss": loss, "train/loss_tar": loss0})
-        return loss
-
-
-def get_gt_encoder(train_dataloader, val_dataloader, opt):
-    print("---start train ground truth encoder---")
-    gt_encoder = AnimeSegmentation("isnet_gt")
-    return gt_encoder.net
-
-
