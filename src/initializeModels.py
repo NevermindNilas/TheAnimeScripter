@@ -78,17 +78,6 @@ def intitialize_models(self):
                     self.ensemble,
                     self.nt,
                 )
-            case "rife-ncnn" | "rife4.6-ncnn" | "rife4.14-ncnn" | "rife4.15-ncnn":
-                from src.rifencnn.rifencnn import rifeNCNN
-
-                interpolate_process = rifeNCNN(
-                    UHD,
-                    self.interpolate_method,
-                    self.ensemble,
-                    self.nt,
-                    outputWidth,
-                    outputHeight,
-                )
             case "gmfss":
                 from src.gmfss.gmfss_fortuna_union import GMFSS
 
@@ -149,10 +138,8 @@ def intitialize_models(self):
                     self.sample_size,  # Should probably remain 32, values higher result in no real benefits from subjective testing.
                 )
 
-            case "ffmpeg":
-                # FFMPEG works on decode so it's not possible to use it with the current processing pipeline
-                pass
-
+            # case ffmpeg, ffmpeg works on decode, refer to ffmpegSettings.py ReadBuffer class.
+            
     return (
         outputWidth,
         outputHeight,

@@ -44,23 +44,15 @@ class GMFSS:
         self.isCudaAvailable = torch.cuda.is_available()
 
         if not self.isCudaAvailable:
-            print(
-                "CUDA is not available, using CPU. Expect significant slowdows or no functionality at all. If you have a NVIDIA GPU, please install CUDA and make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
-            )
-
-            logging.info(
-                "CUDA is not available, using CPU. Expect significant slowdows or no functionality at all. If you have a NVIDIA GPU, please install CUDA and make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
-            )
+            toPrint = "CUDA is not available, using CPU. Expect significant slowdows or no functionality at all. If you have a NVIDIA GPU, please install CUDA and make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
+            print(toPrint)
+            logging.warning(toPrint)
         try:
             cupy.cuda.get_cuda_path()
         except Exception:
-            logging.error(
-                "Couldn't find relevant CUDA installation. Please make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
-            )
-
-            raise Exception(
-                "Couldn't find relevant CUDA installation. Please make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
-            )
+            toPrint = "Couldn't find relevant CUDA installation. Please make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
+            print(toPrint)
+            logging.error(toPrint)
 
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
 
