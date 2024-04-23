@@ -12,7 +12,6 @@ class Scenechange:
         self.inPoint = inPoint
         self.outPoint = outPoint
 
-    def run(self):
         video_manager = VideoManager([self.input])
         scene_manager = SceneManager()
         scene_manager.add_detector(ContentDetector(threshold=self.scenechange_sens))
