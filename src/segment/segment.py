@@ -25,7 +25,7 @@ class Segment:
         encode_method="x264",
         custom_encoder="",
         nt=1,
-        buffer_limit = 50,
+        buffer_limit=50,
         benchmark=False,
     ):
         self.input = input
@@ -80,7 +80,7 @@ class Segment:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
                 executor.submit(self.writeBuffer.start)
-                
+
         except Exception as e:
             logging.error(f"An error occurred while processing the video: {e}")
 
@@ -109,7 +109,9 @@ class Segment:
         h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
         ph, pw = s - h, s - w
         img_input = cv2.resize(input_img, (w, h))
-        img_input = np.pad(img_input, ((ph // 2, ph - ph // 2), (pw // 2, pw - pw // 2), (0, 0)))
+        img_input = np.pad(
+            img_input, ((ph // 2, ph - ph // 2), (pw // 2, pw - pw // 2), (0, 0))
+        )
         img_input = np.transpose(img_input, (2, 0, 1))
         img_input = img_input[np.newaxis, :]
         tmpImg = torch.from_numpy(img_input).type(torch.FloatTensor).to(self.device)
@@ -134,7 +136,7 @@ class Segment:
 
         finally:
             self.semaphore.release()
-            
+
     def process(self):
         frameCount = 0
         self.semaphore = Semaphore(self.nt * 4)
@@ -142,11 +144,7 @@ class Segment:
             while True:
                 frame = self.readBuffer.read()
                 if frame is None:
-                    if (
-                        self.readBuffer.isReadingDone()
-                        and self.readBuffer.getSizeOfQueue() == 0
-                    ):
-                        break
+                    break
 
                 self.semaphore.acquire()
                 executor.submit(self.processFrame, frame)
