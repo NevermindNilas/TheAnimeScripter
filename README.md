@@ -89,29 +89,28 @@ Denoise:
 
 ## 🙏 Acknowledgements
 
-- [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) - For ShuffleCugan and Rife Models.
-- [HZWER](https://github.com/hzwer/Practical-RIFE) - For Rife.
-- [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN) - For Cugan.
-- [JingyunLiang](https://github.com/JingyunLiang/SwinIR) - For SwinIR.
-- [Xintao](https://github.com/xinntao/Real-ESRGAN) - for Realesrgan and Compact architectures.
-- [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai) - For Compact, UltraCompact, SuperUltraCompact models
-- [SkyTNT](https://github.com/SkyTNT/anime-segmentation) - For Anime Segmentation.
-- [LiheYoung](https://github.com/LiheYoung/Depth-Anything) - For Depth Anything.
-- [98mxr](https://github.com/98mxr/GMFSS_Fortuna) - For GMFSS Fortuna Union.
-- [FFmpeg Group](https://github.com/FFmpeg/FFmpeg) - For FFmpeg
-- [Nihui](https://github.com/nihui/rife-ncnn-vulkan) - For Rife NCNN
-- [Media2x](https://github.com/media2x/rife-ncnn-vulkan-python) - For Rife NCNN Wrapper
-- [TNTWise](https://github.com/TNTwise/rife-ncnn-vulkan) - For newest Rife NCNN Models and Span Model.
-- [YT-DLP](https://github.com/yt-dlp/yt-dlp) - For YT-DLP
-- [Hongyuanyu](https://github.com/hongyuanyu/span) - For SPAN
-- [Phhofm](https://github.com/phhofm) - For Cugan and OmniSR Models
-- [Francis0625](https://github.com/Francis0625/Omni-SR) - For OmniSR
-- [Breakthrough](https://github.com/Breakthrough/PySceneDetect) - For Automated Scene Detection
-- [Chainner-org](https://github.com/chaiNNer-org/spandrel) - For Spandrel and easy to use arch implementations.
-- [Kim2091](https://openmodeldb.info/models/1x-span-anime-pretrain) - For Span 1x Model
-- [Kiteretsu77](https://github.com/Kiteretsu77/APISR) - For APISR
-- [cszn](https://github.com/cszn/DPIR) - For DPIR
-- [Sirosky](https://openmodeldb.info/models/2x-AniScale-2-ESRGAN-Lite) - For RealESRGAN Model
+| **Name and Link**                                                                                     | **For**              |
+|-------------------------------------------------------------------------------------------------------|----------------------|
+| [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)                                       | ShuffleCugan, Rife Models |
+| [HZWER](https://github.com/hzwer/Practical-RIFE)                                                      | Rife                 |
+| [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN)                                        | Cugan                |
+| [JingyunLiang](https://github.com/JingyunLiang/SwinIR)                                                | SwinIR               |
+| [Xintao](https://github.com/xinntao/Real-ESRGAN)                                                      | Realesrgan, Compact architectures |
+| [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai)                              | Compact, UltraCompact, SuperUltraCompact models |
+| [SkyTNT](https://github.com/SkyTNT/anime-segmentation)                                                | Anime Segmentation   |
+| [LiheYoung](https://github.com/LiheYoung/Depth-Anything)                                              | Depth Anything       |
+| [98mxr](https://github.com/98mxr/GMFSS_Fortuna)                                                       | GMFSS Fortuna Union  |
+| [FFmpeg Group](https://github.com/FFmpeg/FFmpeg)                                                      | FFmpeg               |
+| [YT-DLP](https://github.com/yt-dlp/yt-dlp)                                                            | YT-DLP               |
+| [Hongyuanyu](https://github.com/hongyuanyu/span)                                                      | SPAN                 |
+| [Phhofm](https://github.com/phhofm)                                                                   | Cugan, OmniSR Models |
+| [Francis0625](https://github.com/Francis0625/Omni-SR)                                                 | OmniSR               |
+| [Breakthrough](https://github.com/Breakthrough/PySceneDetect)                                         | Automated Scene Detection |
+| [Chainner-org](https://github.com/chaiNNer-org/spandrel)                                              | Spandrel, easy to use arch implementations |
+| [Kim2091](https://openmodeldb.info/models/1x-span-anime-pretrain)                                      | Span 1x Model        |
+| [Kiteretsu77](https://github.com/Kiteretsu77/APISR)                                                   | APISR                |
+| [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                 |
+| [Sirosky](https://openmodeldb.info/models/2x-AniScale-2-ESRGAN-Lite)                                   | RealESRGAN Model     |
 
 ## 📈 [Benchmarks](BENCHMARKS.MD)
 
