@@ -45,6 +45,8 @@ def argumentChecker(args, mainPath, scriptVersion):
 
     argsDict = vars(args)
     for arg in argsDict:
+        if argsDict[arg] is None or argsDict[arg] == '':
+            continue
         logging.info(f"{arg.upper()}: {argsDict[arg]}")
 
     checkSystem()

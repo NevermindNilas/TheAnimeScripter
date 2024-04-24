@@ -169,7 +169,7 @@ class VideoProcessor:
 
     def processFrame(self, frame):
         try:
-            if self.dedup and self.dedup_process is not None:
+            if self.dedup and self.dedup_method != "ffmpeg":
                 result = self.dedup_process.run(frame)
                 if result:
                     self.dedupCount += 1
