@@ -32,7 +32,7 @@ from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import intitialize_models
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
-from src.coloredPrints import green, blue
+from src.coloredPrints import green, blue, red
 
 if getattr(sys, "frozen", False):
     mainPath = os.path.dirname(sys.executable)
@@ -158,12 +158,13 @@ class VideoProcessor:
                 self.buffer_limit,
                 self.benchmark,
             )
-        
+
         else:
             self.start()
 
         if self.consent:
             from src.consent import Consent
+
             logPath = os.path.join(mainPath, "log.txt")
             Consent(logPath)
 
@@ -271,7 +272,7 @@ class VideoProcessor:
                 executor.submit(self.writeBuffer.start)
 
         except Exception as e:
-            logging.exception(f"Something went wrong, {e}")
+            logging.exception(f"Something went wrong: {e}")
 
 
 if __name__ == "__main__":
@@ -448,14 +449,15 @@ if __name__ == "__main__":
             for file in os.listdir(args.input)
             if file.endswith((".mp4", ".mkv", ".mov", ".avi"))
         ]
-
-        logging.info(f"Processing {len(videoFiles)} files")
-        print(blue(f"Processing {len(videoFiles)} files"))
+        toPrint = f"Processing {len(videoFiles)} files"
+        logging.info(toPrint)
+        print(blue(toPrint))
 
         for videoFile in videoFiles:
             args.input = os.path.abspath(videoFile)
-            logging.info(f"Processing {args.input}")
-            print(green(f"Processing {args.input}"))
+            toPrint = f"Processing {args.input}"
+            logging.info(toPrint)
+            print(green(toPrint))
 
             if args.output is None:
                 outputFolder = os.path.join(mainPath, "output")
@@ -466,5 +468,6 @@ if __name__ == "__main__":
             args.output = None
 
     else:
-        print("No input was specified, exiting")
-        logging.info("No input was specified, exiting")
+        toPrint = f"File or directory {args.input} does not exist, exiting"
+        print(red(toPrint))
+        logging.info(toPrint)

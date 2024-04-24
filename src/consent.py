@@ -3,18 +3,23 @@ import os
 import logging
 import requests
 
-def clean_line(line):
+
+def cleanLine(line):
     return line.strip()
 
-def is_section_header(line):
+
+def isSectionHeader(line):
     return line.startswith("==============")
 
-def is_key_value_pair(line):
+
+def isKeyValuePair(line):
     return ": " in line
 
-def extract_key_value(line):
+
+def extractKeyValue(line):
     key, value = line.split(": ", 1)
     return key, value
+
 
 def Consent(logPath):
     if not os.path.exists(logPath):
@@ -24,32 +29,40 @@ def Consent(logPath):
     with open(logPath, "r") as f:
         lines = f.readlines()
 
-    cleaned_lines = [clean_line(line) for line in lines if line.strip() != ""]
+    cleaned_lines = [cleanLine(line) for line in lines if line.strip() != ""]
     data = {}
     section = None
     ignore_section = False
 
     for line in cleaned_lines:
-        if is_section_header(line):
+        if isSectionHeader(line):
             section_name = line.strip("=").strip()
-            if section_name in ["Arguments Checker", "Command Line Arguments", "Video Metadata"]:
+            if section_name in [
+                "Arguments Checker",
+                "Command Line Arguments",
+                "Video Metadata",
+            ]:
                 ignore_section = True
             else:
                 ignore_section = False
                 section = section_name
                 data[section] = {}
         elif not ignore_section:
-            if section and is_key_value_pair(line):
-                key, value = extract_key_value(line)
+            if section and isKeyValuePair(line):
+                key, value = extractKeyValue(line)
                 if section == "Arguments" and key in ["INPUT", "OUTPUT"]:
                     continue
                 elif value.strip() == "":
                     continue
-                
-                # Ignore "Decoding options" and "Encoding options" in "Processing Outputs"
-                if section == "Processing Outputs" and key in ["Decoding options", "Encoding options", "Merging audio with"]:
+
+                # Ignore "Decoding options", "Encoding options", "Mering audio with" in "Processing Outputs"
+                if section == "Processing Outputs" and key in [
+                    "Decoding options",
+                    "Encoding options",
+                    "Merging audio with",
+                ]:
                     continue
-                
+
                 data[section][key] = value
             elif section == "Processing Outputs":
                 # If the line is not a key-value pair and the current section is "Processing Outputs",

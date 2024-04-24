@@ -8,7 +8,8 @@ from .checkSpecs import checkSystem
 from .getFFMPEG import getFFMPEG
 from src.ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
-from .coloredPrints import green
+from .coloredPrints import green, red
+
 
 def argumentChecker(args, mainPath, scriptVersion):
     if args.version:
@@ -37,7 +38,7 @@ def argumentChecker(args, mainPath, scriptVersion):
     ]
     for arg in boolArgs:
         setattr(args, arg, getattr(args, arg) == 1)
-    
+
     args.sharpen_sens /= 100
     args.scenechange_sens = 100 - args.scenechange_sens
 
@@ -45,7 +46,7 @@ def argumentChecker(args, mainPath, scriptVersion):
 
     argsDict = vars(args)
     for arg in argsDict:
-        if argsDict[arg] is None or argsDict[arg] == '':
+        if argsDict[arg] is None or argsDict[arg] == "":
             continue
         logging.info(f"{arg.upper()}: {argsDict[arg]}")
 
@@ -55,8 +56,9 @@ def argumentChecker(args, mainPath, scriptVersion):
     args.ffmpeg_path = getFFMPEG()
 
     if args.offline:
-        logging.info("Offline mode enabled, downloading all available models")
-        print(green("Offline mode enabled, downloading all available models"))
+        toPrint = "Offline mode enabled, downloading all available models"
+        logging.info(toPrint)
+        print(green(toPrint))
         options = modelsList()
         for option in options:
             if options == "apisr":
@@ -64,8 +66,9 @@ def argumentChecker(args, mainPath, scriptVersion):
                     downloadModels(option, upscaleFactor=upscaleFactor)
             else:
                 downloadModels(option)
-        logging.info("All models downloaded, exiting")
-        print(green("All models downloaded, exiting"))
+        toPrint = "All models downloaded, exiting"
+        logging.info(toPrint)
+        print(green(toPrint))
         sys.exit()
 
     if args.dedup:
@@ -81,9 +84,11 @@ def argumentChecker(args, mainPath, scriptVersion):
         )
     else:
         logging.info("No custom encoder specified, using default encoder")
-    
+
     if args.consent:
-        logging.info("Consent flag detected, thank you for helping me improve the script")
+        logging.info(
+            "Consent flag detected, thank you for helping me improve the script"
+        )
 
     if "https://" in args.input or "http://" in args.input:
         processURL(args, mainPath)
@@ -102,12 +107,9 @@ def argumentChecker(args, mainPath, scriptVersion):
 
     result = urlparse(args.input)
     if not any(processingMethods) and not all([result.scheme, result.netloc]):
-        print(
-            "No processing methods specified, exiting",
-        )
-        logging.error(
-            "No processing methods specified, exiting",
-        )
+        toPrint = "No processing methods specified, exiting"
+        logging.error(toPrint)
+        print(red(toPrint))
         sys.exit()
 
     return args

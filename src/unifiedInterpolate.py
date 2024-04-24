@@ -192,7 +192,7 @@ class RifeDirectML:
         else:
             modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)
         """
-        modelPath = r"G:\TheAnimeScripter\rife_4.15_fp32 (3).onnx"
+        modelPath = r"G:\TheAnimeScripter\Rife416_lite.onnx"
         providers = ort.get_available_providers()
 
         if "DmlExecutionProvider" in providers:
@@ -231,7 +231,7 @@ class RifeDirectML:
         self.dummyOutput = self.dummyOutput.contiguous()
 
         self.IoBinding.bind_output(
-            name="out0",
+            name="output",
             device_type=self.deviceType,
             device_id=0,
             element_type=self.numpyDType,
@@ -247,7 +247,7 @@ class RifeDirectML:
         self.dummyTimeStep.copy_(timestep)
 
         self.IoBinding.bind_input(
-            name="in0",
+            name="frame1",
             device_type=self.deviceType,
             device_id=0,
             element_type=self.numpyDType,
@@ -256,7 +256,7 @@ class RifeDirectML:
         )
 
         self.IoBinding.bind_input(
-            name="in1",
+            name="frame2",
             device_type=self.deviceType,
             device_id=0,
             element_type=self.numpyDType,
@@ -265,7 +265,7 @@ class RifeDirectML:
         )
 
         self.IoBinding.bind_input(
-            name="in2",
+            name="timestep",
             device_type=self.deviceType,
             device_id=0,
             element_type=self.numpyDType,
