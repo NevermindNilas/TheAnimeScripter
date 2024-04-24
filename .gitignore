@@ -34,6 +34,9 @@ src/FFMPEG
 # Models
 src/weights
 
+# Extra json
+*.json
+
 # Extra files
 extra-wheels/
 
