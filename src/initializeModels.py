@@ -104,6 +104,8 @@ def intitialize_models(self):
                     self.half,
                     self.ensemble,
                     self.nt,
+                    outputWidth,
+                    outputHeight,
                 )
 
     if self.denoise:

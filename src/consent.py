@@ -47,7 +47,7 @@ def Consent(logPath):
                     continue
                 
                 # Ignore "Decoding options" and "Encoding options" in "Processing Outputs"
-                if section == "Processing Outputs" and key in ["Decoding options", "Encoding options"]:
+                if section == "Processing Outputs" and key in ["Decoding options", "Encoding options", "Merging audio with"]:
                     continue
                 
                 data[section][key] = value
