@@ -3,21 +3,25 @@ import time
 import json
 import re
 
-clipURL = "https://www.youtube.com/watch?v=79XMhXPBqsE"
+clipURL = "https://www.youtube.com/watch?v=9vVjAOi1LCg"
+dedupMethods = ["ffmpeg", "ssim", "mse"]
+
 upscaleMethods = (
     [
         "shufflecugan",
+        "shufflecugan-directml",
         "cugan",
+        "cugan-directml",
         "compact",
+        "compact-directml",
         "ultracompact",
+        "ultracompact-directml",
         "superultracompact",
+        "superultracompact-directml",
         "span",
-        "span-ncnn",
-        "cugan-ncnn",
+        "span-directml",
         "omnisr",
         "realesrgan",
-        "realesrgan-ncnn",
-        "shufflecugan-ncnn",
         "apisr",
     ],
 )
@@ -27,10 +31,8 @@ interpolateMethods = (
         "rife4.6",
         "rife4.14",
         "rife4.15",
+        "rife4.15-lite",
         "rife4.16-lite",
-        "rife4.6-ncnn",
-        "rife4.14-ncnn",
-        "rife4.15-ncnn",
         "gmfss",
     ],
 )
@@ -38,19 +40,11 @@ interpolateMethods = (
 denoiseMethods = ["scunet", "nafnet", "dpir", "span"]
 
 
-def getClip():
-    os.popen(f"main.exe --input {clipURL} --output test.mp4").read()
-    return os.path.join("output", "test.mp4")
-
-
 def runAllBenchmarks():
-    if not os.path.exists("test.mp4"):
-        print("No test.mp4 file found. Downloading test clip...")
-        inputVideo = getClip()
-    else:
-        inputVideo = "test.mp4"
+    inputVideo = getClip()
 
     results = {
+        "Dedup": runDedupBenchmark(inputVideo),
         "Upscale": runUpscaleBenchmark(inputVideo),
         "Interpolate": runInterpolateBenchmark(inputVideo),
         "Denoise": runDenoiseBenchmark(inputVideo),
@@ -59,7 +53,42 @@ def runAllBenchmarks():
     systemInfo = parseSystemInfo()
 
     with open("benchmarkResults.json", "w") as f:
-        json.dump({"Testing Methodology": "V2", "System Info": systemInfo, "Results": results}, f, indent=4)
+        json.dump(
+            {
+                "Testing Methodology": "V2",
+                "System Info": systemInfo,
+                "Results": results,
+            },
+            f,
+            indent=4,
+        )
+
+
+def getExe():
+    if os.path.exists("main.exe"):
+        return "main.exe"
+    else:
+        return "python main.py"
+
+
+def getClip():
+    os.popen(f"{getExe()} --input {clipURL} --output test.mp4").read()
+    return os.path.join("output", "test.mp4")
+
+
+def runDedupBenchmark(inputVideo):
+    results = {}
+    for method in dedupMethods:
+        print(f"Running {method} benchmark...")
+        output = os.popen(
+            f"{getExe()} --input {inputVideo} --dedup 1 --dedup_method {method} --benchmark 1"
+        ).read()
+
+        fps = parseFPS(output)
+        results[method] = fps
+        time.sleep(1)
+    
+    return results
 
 
 def runUpscaleBenchmark(inputVideo):
@@ -67,7 +96,7 @@ def runUpscaleBenchmark(inputVideo):
     for method in upscaleMethods[0]:
         print(f"Running {method} benchmark...")
         output = os.popen(
-            f"main.exe --input {input} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 4"
+            f"{getExe()} --input {inputVideo} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 4"
         ).read()
 
         fps = parseFPS(output)
@@ -82,7 +111,7 @@ def runInterpolateBenchmark(inputVideo):
     for method in interpolateMethods[0]:
         print(f"Running {method} benchmark...")
         output = os.popen(
-            f"main.exe --input {input} --interpolate 1 --interpolate_method {method} --benchmark 1"
+            f"{getExe()} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1"
         ).read()
 
         fps = parseFPS(output)
@@ -91,7 +120,7 @@ def runInterpolateBenchmark(inputVideo):
 
         print(f"Running {method} with ensemble benchmark...")
         output = os.popen(
-            f"main.exe --input test.mp4 --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1"
+            f"{getExe()} --input test.mp4 --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1"
         ).read()
 
         fps = parseFPS(output)
@@ -106,7 +135,7 @@ def runDenoiseBenchmark(inputVideo):
     for method in denoiseMethods:
         print(f"Running {method} benchmark...")
         output = os.popen(
-            f"main.exe --input test.mp4 --denoise 1 --denoise_method {method} --benchmark 1 --outpoint 2"
+            f"{getExe()} --input {inputVideo} --denoise 1 --denoise_method {method} --benchmark 1 --outpoint 2"
         ).read()
 
         fps = parseFPS(output)
