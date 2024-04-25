@@ -163,7 +163,7 @@ def modelsMap(
                 return "rife415_lite.pth"
             else:
                 if half:
-                    return "rife415_lite-fp16-sim.onnx"
+                    return "rife415_lite-sim_fp16.onnx"
                 else:
                     raise NotImplementedError #"rife415_lite-fp32-sim.onnx"
         
@@ -172,7 +172,7 @@ def modelsMap(
                 return "rife414.pth"
             else:
                 if half:
-                    return "rife414-fp16-sim.onnx"
+                    return "rife414-sim_fp16.onnx"
                 else:
                     raise NotImplementedError #"rife414-fp32-sim.onnx"
 
@@ -181,7 +181,7 @@ def modelsMap(
                 return "rife46.pth"
             else:
                 if half:
-                    return "rife46-fp16-sim.onnx"
+                    return "rife46-sim_fp16.onnx"
                 else:
                     raise NotImplementedError #"rife46-fp32-sim.onnx"
 
