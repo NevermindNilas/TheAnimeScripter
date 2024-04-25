@@ -89,10 +89,6 @@ class IFBlock(nn.Module):
         )
 
     def forward(self, x, flow=None, scale=1):
-        try:
-            scale = scale.item()
-        except:
-            pass
         x = F.interpolate(
             x, scale_factor=1.0 / scale, mode="bilinear", align_corners=False
         )
