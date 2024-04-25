@@ -89,6 +89,10 @@ class IFBlock(nn.Module):
         )
 
     def forward(self, x, flow=None, scale=1):
+        try:
+            scale = scale.item()
+        except:
+            pass
         x = F.interpolate(
             x, scale_factor=1.0 / scale, mode="bilinear", align_corners=False
         )
@@ -123,7 +127,8 @@ class IFNet(nn.Module):
 
     def forward(
         self, frame1, frame2, timestep=0.5, scale_list=[8, 4, 2, 1], ensemble=False
-    ):
+    ):  
+
         if not torch.is_tensor(timestep):
             timestep = (frame1[:, :1].clone() * 0 + 1) * timestep
         else:
@@ -196,4 +201,5 @@ class IFNet(nn.Module):
             merged.append((warped_frame1, warped_frame2))
         mask = torch.sigmoid(mask)
         merged[3] = warped_frame1 * mask + warped_frame2 * (1 - mask)
+
         return merged[3]

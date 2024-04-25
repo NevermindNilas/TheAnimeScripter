@@ -46,6 +46,7 @@ def modelsList() -> list[str]:
         "rife4.6-directml",
         "rife4.14-directml",
         "rife4.15-directml",
+        "rife4.15-lite-directml",
     ]
 
 
@@ -148,17 +149,41 @@ def modelsMap(
         case "gmfss":
             return "gmfss-fortuna-union.zip"
 
-        case "rife" | "rife4.15":
-            return "rife415.pth"
-
-        case "rife4.15-lite":
-            return "rife415_lite.pth"
+        case "rife" | "rife4.15" | "rife-directml" | "rife4.15-directml":
+            if modelType == "pth":
+                return "rife415.pth"
+            else:
+                if half:
+                    return "rife415-sim_fp16.onnx"
+                else:
+                    raise NotImplementedError #"rife415-sim_fp32.onnx"
+                
+        case "rife4.15-lite" | "rife4.15-lite-directml":
+            if modelType == "pth":
+                return "rife415_lite.pth"
+            else:
+                if half:
+                    return "rife415_lite-fp16-sim.onnx"
+                else:
+                    raise NotImplementedError #"rife415_lite-fp32-sim.onnx"
         
-        case "rife4.14":
-            return "rife414.pth"
+        case "rife4.14" | "rife4.14-directml":
+            if modelType == "pth":
+                return "rife414.pth"
+            else:
+                if half:
+                    return "rife414-fp16-sim.onnx"
+                else:
+                    raise NotImplementedError #"rife414-fp32-sim.onnx"
 
-        case "rife4.6":
-            return "rife46.pth"
+        case "rife4.6" | "rife4.6-directml":
+            if modelType == "pth":
+                return "rife46.pth"
+            else:
+                if half:
+                    return "rife46-fp16-sim.onnx"
+                else:
+                    raise NotImplementedError #"rife46-fp32-sim.onnx"
 
         case "rife4.16-lite":
             return "rife416_lite.pth"

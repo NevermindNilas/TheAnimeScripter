@@ -306,7 +306,6 @@ if __name__ == "__main__":
             "rife4.14-directml",
             "rife4.15-directml",
             "rife4.15-lite-directml",
-            "rife4.16-lite-directml",
             "gmfss",
         ],
         default="rife",
