@@ -11,6 +11,7 @@ from .downloadModels import downloadModels, weightsDir, modelsMap
 torch.set_float32_matmul_precision("medium")
 ort.set_default_logger_severity(3)
 
+
 class RifeCuda:
     def __init__(
         self,
@@ -96,13 +97,31 @@ class RifeCuda:
         pw = ((self.width - 1) // 32 + 1) * 32
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
-        self.I0 = None
         self.scaleList = [
             8 / self.scale,
             4 / self.scale,
             2 / self.scale,
             1 / self.scale,
         ]
+
+        self.I0 = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=torch.float16
+            if self.half and self.isCudaAvailable
+            else torch.float32,
+        ).to(self.device)
+        self.I1 = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=torch.float16
+            if self.half and self.isCudaAvailable
+            else torch.float32,
+        ).to(self.device)
 
     @torch.inference_mode()
     def make_inference(self, timestep):
@@ -113,7 +132,7 @@ class RifeCuda:
         return output
 
     def cacheFrame(self):
-        self.I0 = self.I1.clone()
+        self.I0.copy_(self.I1)
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -136,10 +155,10 @@ class RifeCuda:
     @torch.inference_mode()
     def run(self, I1):
         if self.I0 is None:
-            self.I0 = self.processFrame(I1)
+            self.I0.copy_(self.processFrame(I1))
             return False
 
-        self.I1 = self.processFrame(I1)
+        self.I1.copy_(self.processFrame(I1))
         return True
 
 
@@ -170,7 +189,7 @@ class RifeDirectML:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.width = width
         self.height = height
-        #self.modelPath = os.path.join(weightsDir, modelsMap[self.interpolateMethod])
+        self.modelPath = os.path.join(weightsDir, modelsMap(self.interpolateMethod))
 
         self.handleModel()
 
@@ -179,7 +198,6 @@ class RifeDirectML:
         Load the model
         """
 
-        """
         self.filename = modelsMap(model=self.interpolateMethod, modelType="onnx")
         if not os.path.exists(self.modelPath):
             os.path.join(weightsDir, self.interpolateMethod, self.filename)
@@ -191,8 +209,7 @@ class RifeDirectML:
             )
         else:
             modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)
-        """
-        modelPath = r"G:\TheAnimeScripter\Rife416_lite.onnx"
+
         providers = ort.get_available_providers()
 
         if "DmlExecutionProvider" in providers:
@@ -218,16 +235,38 @@ class RifeDirectML:
             self.numpyDType = np.float32
             self.torchDType = torch.float32
 
-        self.IoBinding = self.model.io_binding()
-        self.dummyInput1 = torch.zeros(1, 3, self.height, self.width, dtype=self.torchDType).to(self.device)
-        self.dummyInput2 = torch.zeros(1, 3, self.height, self.width, dtype=self.torchDType).to(self.device)
-        self.dummyTimeStep = torch.tensor([0.5], dtype=self.torchDType).to(self.device)
-        self.dummyOutput = torch.zeros(1, 3, self.height, self.width, dtype=self.torchDType).to(self.device)
+        ph = ((self.height - 1) // 32 + 1) * 32
+        pw = ((self.width - 1) // 32 + 1) * 32
+        self.padding = (0, pw - self.width, 0, ph - self.height)
 
-        print(self.dummyInput1.shape, self.dummyInput2.shape, self.dummyTimeStep.shape, self.dummyOutput.shape)
+        self.IoBinding = self.model.io_binding()
+
+        self.dummyInput1 = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=self.torchDType,
+        ).to(self.device)
+        self.dummyInput2 = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=self.torchDType,
+        ).to(self.device)
+        self.dummyTimestep = torch.tensor([0.5], dtype=self.torchDType).to(self.device)
+        self.dummyOutput = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=self.torchDType,
+        ).to(self.device)
+
         self.dummyInput1 = self.dummyInput1.contiguous()
         self.dummyInput2 = self.dummyInput2.contiguous()
-        self.dummyTimeStep = self.dummyTimeStep.contiguous()
+        self.dummyTimestep = self.dummyTimestep.contiguous()
         self.dummyOutput = self.dummyOutput.contiguous()
 
         self.IoBinding.bind_output(
@@ -239,12 +278,13 @@ class RifeDirectML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
-        self.I0 = None
+        self.firstRun = True
 
     @torch.inference_mode()
     def make_inference(self, timestep):
-        timestep = torch.tensor([timestep], dtype=self.torchDType).to(self.device)
-        self.dummyTimeStep.copy_(timestep)
+        self.dummyTimestep.copy_(
+            torch.tensor([timestep], dtype=self.torchDType).to(self.device)
+        )
 
         self.IoBinding.bind_input(
             name="frame1",
@@ -269,28 +309,24 @@ class RifeDirectML:
             device_type=self.deviceType,
             device_id=0,
             element_type=self.numpyDType,
-            shape=self.dummyTimeStep.shape,
-            buffer_ptr=self.dummyTimeStep.data_ptr(),
+            shape=self.dummyTimestep.shape,
+            buffer_ptr=self.dummyTimestep.data_ptr(),
         )
 
         self.model.run_with_iobinding(self.IoBinding)
 
         frame = (
-            self.dummyOutput.squeeze(0)
-            .permute(1, 2, 0)
-            .mul_(255)
-            .clamp_(1, 255)
-            .byte()
-            .cpu()
-            .numpy()
+            self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()
         )
 
+        if self.padding != (0, 0, 0, 0):
+            frame = frame[: self.height, : self.width]
+
         return frame
-    
+
     def cacheFrame(self):
-        self.I0 = self.I1.clone()
-        self.dummyInput1.copy_(self.I0)
-    
+        self.dummyInput1.copy_(self.dummyInput2)
+
     @torch.inference_mode()
     def processFrame(self, frame):
         frame = (
@@ -304,19 +340,17 @@ class RifeDirectML:
 
         frame = frame.half() if self.half else frame
 
+        if self.padding != (0, 0, 0, 0):
+            frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
+
         return frame.contiguous()
 
     @torch.inference_mode()
     def run(self, I1):
-        if self.I0 is None:
-            self.I0 = self.processFrame(I1)
-            self.dummyInput1.copy_(self.I0)
+        if self.firstRun is True:
+            self.dummyInput1.copy_(self.processFrame(I1))
+            self.firstRun = False
             return False
 
-        self.I1 = self.processFrame(I1)
-        self.dummyInput2.copy_(self.I1)
+        self.dummyInput2.copy_(self.processFrame(I1))
         return True
-
-
-
-        

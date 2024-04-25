@@ -254,8 +254,6 @@ class UniversalDirectML:
             dtype=self.torchDType,
         )
 
-
-
         self.IoBinding.bind_output(
             name="output",
             device_type=self.deviceType,
