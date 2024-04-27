@@ -3,14 +3,13 @@ import torch
 import numpy as np
 import logging
 import onnxruntime as ort
-from torch.nn import functional as F
 
+from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
-ort.set_default_logger_severity(3)
-
+ort.set_default_logger_severity(4)
 
 class RifeCuda:
     def __init__(
@@ -123,6 +122,8 @@ class RifeCuda:
             else torch.float32,
         ).to(self.device)
 
+        self.firstRun = True
+
     @torch.inference_mode()
     def make_inference(self, timestep):
         output = self.model(self.I0, self.I1, timestep, self.scaleList, self.ensemble)
@@ -147,6 +148,7 @@ class RifeCuda:
 
         frame = frame.half() if self.half and self.isCudaAvailable else frame
 
+
         if self.padding != (0, 0, 0, 0):
             frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
 
@@ -154,8 +156,9 @@ class RifeCuda:
 
     @torch.inference_mode()
     def run(self, I1):
-        if self.I0 is None:
+        if self.firstRun is True:
             self.I0.copy_(self.processFrame(I1))
+            self.firstRun = False
             return False
 
         self.I1.copy_(self.processFrame(I1))
