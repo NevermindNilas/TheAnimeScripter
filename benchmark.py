@@ -44,10 +44,10 @@ def runAllBenchmarks(executor):
     inputVideo = getClip(executor)
 
     results = {
-        "Dedup": runDedupBenchmark(inputVideo, executor),
-        "Upscale": runUpscaleBenchmark(inputVideo, executor),
+        #"Dedup": runDedupBenchmark(inputVideo, executor),
+        #"Upscale": runUpscaleBenchmark(inputVideo, executor),
         "Interpolate": runInterpolateBenchmark(inputVideo, executor),
-        "Denoise": runDenoiseBenchmark(inputVideo, executor),
+        #"Denoise": runDenoiseBenchmark(inputVideo, executor),
     }
 
     systemInfo = parseSystemInfo()
@@ -86,7 +86,7 @@ def runDedupBenchmark(inputVideo, executor):
 
         fps = parseFPS(output)
         results[method] = fps
-        time.sleep(1)
+        time.sleep(2)
     
     return results
 
@@ -101,7 +101,7 @@ def runUpscaleBenchmark(inputVideo, executor):
 
         fps = parseFPS(output)
         results[method] = fps
-        time.sleep(1)
+        time.sleep(2)
 
     return results
 
@@ -122,22 +122,22 @@ def runInterpolateBenchmark(inputVideo, executor):
 
         fps = parseFPS(output)
         results[method] = fps
-        time.sleep(1)
+        time.sleep(2)
 
         print(f"Running {method} with ensemble benchmark...")
 
         if method != "gmfss": # Ensemble is irrelevant for GMFSS
             output = os.popen(
-                f"{executor} --input test.mp4 --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1"
+                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1 --outpoint 20"
             ).read()
         else:
             output = os.popen(
-                f"{executor} --input test.mp4 --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1 --outpoint 5" # GMFSS is so slow that even this is too much
+                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1 --outpoint 5" # GMFSS is so slow that even this is too much
             ).read()
 
         fps = parseFPS(output)
         results[f"{method}-ensemble"] = fps
-        time.sleep(1)
+        time.sleep(2)
 
     return results
 
@@ -152,7 +152,7 @@ def runDenoiseBenchmark(inputVideo, executor):
 
         fps = parseFPS(output)
         results[method] = fps
-        time.sleep(1)
+        time.sleep(2)
 
     return results
 
