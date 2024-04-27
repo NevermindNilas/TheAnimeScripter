@@ -1,6 +1,6 @@
 #--extra-index-url https://download.pytorch.org/whl/cu121
 #pypresence
-#pyqt6
+pyqt6
 opencv-python
 timm
 numpy
