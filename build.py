@@ -40,6 +40,7 @@ def create_executable():
     main_path = os.path.join(base_dir, "main.py")
     gui_path = os.path.join(base_dir, "gui.py")
     icon_path = os.path.join(base_dir, "src", "assets", "icon.ico")
+
     print("Creating the CLI executable...")
     subprocess.run(
         [
@@ -103,6 +104,7 @@ def create_executable():
     mainExeFilePath = os.path.join(base_dir, "dist", "main")
 
     shutil.move(guiExeFilePath, mainExeFilePath)
+    mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
 
 
 def move_extras():
@@ -113,6 +115,7 @@ def move_extras():
     readme_path = os.path.join(base_dir, "README.md")
     readme_txt_path = os.path.join(base_dir, "README.txt")
     target_path = os.path.join(main_dir, os.path.basename(jsx_path))
+    
     try:
         shutil.copy(jsx_path, target_path)
         shutil.copy(license_path, main_dir)
@@ -142,6 +145,13 @@ def clean_up():
             os.remove(os.path.join(dllPath, file))
         except Exception as e:
             print("Error while removing dll file: ", e)
+
+    guiFolder = os.path.join(base_dir, "dist", "gui")
+
+    try:
+        shutil.rmtree(guiFolder)
+    except Exception as e:
+        print("Error while removing gui folder: ", e)
 
     print("\n")
     answer = input("Do you want to clean up the residual files? (y/n): ")
