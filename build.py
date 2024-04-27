@@ -182,26 +182,6 @@ def clean_up():
     print("Done!, you can find the built executable in the dist folder")
 
 
-def compress_dist():
-    answer = input("Do you want to compress the dist directory? (y/n): ")
-
-    if answer.lower() == "y":
-        print("Installing 7z...")
-        subprocess.run(
-            [".\\venv\\Scripts\\python", "-m", "pip", "install", "py7zr"], check=True
-        )
-
-        print("Compressing the dist directory, this will take a while...")
-        subprocess.run(
-            [".\\venv\\Scripts\\python", "-m", "py7zr", "c", outputName, distPath],
-            check=True,
-        )
-        print("Done!, you can find the compressed file in the root directory")
-
-    else:
-        print("Skipping Compression...")
-
-
 if __name__ == "__main__":
     create_venv()
     activate_venv()
@@ -210,4 +190,3 @@ if __name__ == "__main__":
     create_executable()
     move_extras()
     clean_up()
-    compress_dist()
