@@ -181,6 +181,19 @@ def clean_up():
 
     print("Done!, you can find the built executable in the dist folder")
 
+def compress_dist():
+    
+    print("Compressing the dist folder...")
+    answer = input("Do you want to compress the file with 7z? NOTE: It requires 7z to be installed and on path. (y/n): ")
+
+    if answer.lower() == "y":
+        print("Compressing the dist folder, this can take a while...")
+        tempDistPath = os.path.join(distPath, "main")
+        subprocess.run(["7z", "a", "-mx9", os.path.join(distPath, outputName), tempDistPath], shell=True, check=True)
+    else:
+        print("Skipping Compression...")
+
+    print("Done!, you can find the compressed file in the root folder")
 
 if __name__ == "__main__":
     create_venv()
@@ -190,3 +203,4 @@ if __name__ == "__main__":
     create_executable()
     move_extras()
     clean_up()
+    compress_dist()
