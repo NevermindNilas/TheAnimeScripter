@@ -76,16 +76,29 @@ In the settings panel:
 
 ## 📁 Available Models
 
-Upscaling: 
-  - Official Support - Cugan / Cugan-DirectML, ShuffleCugan / ShuffleCugan-DirectML, Span / Span-DirectML, RealESRGan / RealESRGan-DirectML, OmniSR, SRVGGNet ( Compact, UltraCompact, SuperUltraCompact + DirectML )
-  - Unofficial Support through `--custom_model` param, virtually anything that [Spandrel](https://github.com/chaiNNer-org/spandrel) supports.
+### Upscaling Models
 
-Interpolation: 
-  - Rife 4.6, Rife4.14, Rife 4.15, Rife 4.15-lite, Rife 4.16-lite and NCNN versions for each of them and GMFSS.
-  - To beadded Rife-DirectML.
-  
-Denoise:
-  - SCUNet, NAFNet, Span, DPIR ( 1x pretrain model )
+**Officially Supported:**
+- Cugan ( CUDA and DirectML versions)
+- ShuffleCugan ( CUDA and DirectML versions)
+- Span ( CUDA and DirectML versions)
+- RealESRGan ( CUDA and DirectML versions)
+- OmniSR
+- SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective DirectML versions)
+
+**Unofficially Supported:**
+- Custom models compatible with [Spandrel](https://github.com/chaiNNer-org/spandrel) can be used via the `--custom_model` parameter.
+
+### Interpolation Models
+
+- Rife (Versions: 4.6, 4.14, 4.15, 4.15-lite, 4.16-lite ) including DirectML
+- GMFSS (Available for CUDA )
+
+### Denoise Models
+- SCUNet
+- NAFNet
+- DPIR
+- SPAN (1x pretrain model)
 
 ## 🙏 Acknowledgements
 
@@ -111,6 +124,7 @@ Denoise:
 | [Kiteretsu77](https://github.com/Kiteretsu77/APISR)                                                   | APISR                |
 | [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                 |
 | [Sirosky](https://openmodeldb.info/models/2x-AniScale-2-ESRGAN-Lite)                                   | RealESRGAN Model     |
+| [TNTWise](https://github.com/TNTwise) | For Rife ONNX models
 
 ## 📈 [Benchmarks](BENCHMARKS.MD)
 
