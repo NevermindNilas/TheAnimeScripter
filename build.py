@@ -39,7 +39,7 @@ def create_executable():
     src_path = os.path.join(base_dir, "src")
     main_path = os.path.join(base_dir, "main.py")
     gui_path = os.path.join(base_dir, "gui.py")
-    icon_path = os.path.join(base_dir, "demos", "icon.ico")
+    icon_path = os.path.join(base_dir, "src", "assets", "icon.ico")
     print("Creating the CLI executable...")
     subprocess.run(
         [
