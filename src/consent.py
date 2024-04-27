@@ -1,7 +1,9 @@
 import json
 import os
 import logging
-import requests
+from requests import Session
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
 def cleanLine(line):
@@ -75,12 +77,17 @@ def Consent(logPath):
     with open(jsonPath, "w") as f:
         json.dump(data, f, indent=4)
 
-    apiUrl = "https://116.203.28.198:8080/api"  # Have fun abusing this, it's a honeypot
+    apiUrl = "https://116.203.28.198:8080/api"  # Have fun abusing this
     with open(jsonPath, "r") as f:
         data = json.load(f)
 
+    session = Session()
+    retries = Retry(total=1, backoff_factor=0, status_forcelist=[ 500, 502, 503, 504 ])
+    session.mount('https://', HTTPAdapter(max_retries=retries))
+
     try:
-        response = requests.post(apiUrl, json=data, verify=False)
+        response = session.post(apiUrl, json=data, verify=False)
         return response.status_code == 200
     except Exception as e:
-        logging.error(f"Failed to send data to API: {e}")
+        error = str(e).replace(apiUrl, "API_URL")
+        logging.error(f"Failed to send data to API: {error}")
