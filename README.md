@@ -83,7 +83,7 @@ In the settings panel:
 - ShuffleCugan ( CUDA and DirectML versions)
 - Span ( CUDA and DirectML versions)
 - RealESRGan ( CUDA and DirectML versions)
-- OmniSR
+- OmniSR ( CUDA only )
 - SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective DirectML versions)
 
 **Unofficially Supported:**
