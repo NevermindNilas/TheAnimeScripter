@@ -9,7 +9,7 @@ from .downloadModels import downloadModels, weightsDir, modelsMap
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
-ort.set_default_logger_severity(4)
+ort.set_default_logger_severity(3)
 
 class RifeCuda:
     def __init__(

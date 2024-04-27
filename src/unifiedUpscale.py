@@ -3,7 +3,6 @@ import torch
 import numpy as np
 import logging
 import torch.nn.functional as F
-
 # import torch_tensorrt as trt
 
 import onnxruntime as ort
@@ -13,6 +12,7 @@ from .downloadModels import downloadModels, weightsDir, modelsMap
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
 ort.set_default_logger_severity(3)
+
 
 
 class UniversalPytorch:
