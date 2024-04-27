@@ -57,7 +57,7 @@ var TheAnimeScripter = (function() {
             name: "checkbox" + name
         });
         checkbox.helpTip = helpTip;
-        var savedValue = app.settings.haveSetting(scriptName, name) ? app.settings.getSetting(scriptName, name) : false;
+        var savedValue = app.settings.haveSetting(scriptName, name) ? (app.settings.getSetting(scriptName, name) === "true") : false;
         checkbox.value = savedValue;
 
         var staticText = group.add("statictext", undefined, undefined, {
@@ -67,7 +67,7 @@ var TheAnimeScripter = (function() {
 
         checkbox.onClick = function() {
             checkboxValues[name] = checkbox.value;
-            app.settings.saveSetting(scriptName, name, checkbox.value);
+            app.settings.saveSetting(scriptName, name, checkbox.value.toString());
         }
 
         checkboxValues[name] = savedValue;
