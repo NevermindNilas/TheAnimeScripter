@@ -1,4 +1,4 @@
-#--extra-index-url https://download.pytorch.org/whl/cu121
+--extra-index-url https://download.pytorch.org/whl/cu121
 #pypresence
 pyqt6
 opencv-python
@@ -18,5 +18,5 @@ scikit-image
 scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning
-https://download.pytorch.org/whl/cu121/torch-2.2.2%2Bcu121-cp311-cp311-win_amd64.whl
-https://download.pytorch.org/whl/cu121/torchvision-0.17.2%2Bcu121-cp311-cp311-win_amd64.whl
+torch==2.2.2 
+torchvision==0.17.2
