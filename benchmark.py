@@ -3,51 +3,51 @@ import time
 import json
 import re
 
-clipURL = "https://www.youtube.com/watch?v=9vVjAOi1LCg"
+clipURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
 dedupMethods = ["ffmpeg", "ssim", "mse"]
 
-upscaleMethods = (
-    [
-        "shufflecugan",
-        "shufflecugan-directml",
-        "cugan",
-        "cugan-directml",
-        "compact",
-        "compact-directml",
-        "ultracompact",
-        "ultracompact-directml",
-        "superultracompact",
-        "superultracompact-directml",
-        "span",
-        "span-directml",
-        "omnisr",
-        "realesrgan",
-        "apisr",
-    ],
-)
+upscaleMethods = [
+    "shufflecugan",
+    "cugan",
+    "compact",
+    "ultracompact",
+    "superultracompact",
+    "span",
+    "omnisr",
+    "realesrgan",
+    "apisr",
+    "shufflecugan-directml",
+    "cugan-directml",
+    "compact-directml",
+    "ultracompact-directml",
+    "superultracompact-directml",
+    "span-directml",
+]
 
-interpolateMethods = (
-    [
-        "rife4.6",
-        "rife4.14",
-        "rife4.15",
-        "rife4.15-lite",
-        "rife4.16-lite",
-        "gmfss",
-    ],
-)
+interpolateMethods = [
+    "rife4.6",
+    "rife4.14",
+    "rife4.15",
+    "rife4.15-lite",
+    "rife4.16-lite",
+    "rife4.6-directml",
+    "rife4.14-directml",
+    "rife4.15-directml",
+    "rife4.15-lite-directml",
+    "gmfss",
+]
 
 denoiseMethods = ["scunet", "nafnet", "dpir", "span"]
 
 
-def runAllBenchmarks():
-    inputVideo = getClip()
+def runAllBenchmarks(executor):
+    inputVideo = getClip(executor)
 
     results = {
-        "Dedup": runDedupBenchmark(inputVideo),
-        "Upscale": runUpscaleBenchmark(inputVideo),
-        "Interpolate": runInterpolateBenchmark(inputVideo),
-        "Denoise": runDenoiseBenchmark(inputVideo),
+        #"Dedup": runDedupBenchmark(inputVideo, executor),
+        #"Upscale": runUpscaleBenchmark(inputVideo, executor),
+        "Interpolate": runInterpolateBenchmark(inputVideo, executor),
+        #"Denoise": runDenoiseBenchmark(inputVideo, executor),
     }
 
     systemInfo = parseSystemInfo()
@@ -71,17 +71,17 @@ def getExe():
         return "python main.py"
 
 
-def getClip():
-    os.popen(f"{getExe()} --input {clipURL} --output test.mp4").read()
-    return os.path.join("output", "test.mp4")
+def getClip(executor):
+    outputPath = "output/test.mp4"
+    os.popen(f"{executor} --input {clipURL} --output {outputPath}").read()
+    return os.path.abspath(outputPath)
 
-
-def runDedupBenchmark(inputVideo):
+def runDedupBenchmark(inputVideo, executor):
     results = {}
     for method in dedupMethods:
         print(f"Running {method} benchmark...")
         output = os.popen(
-            f"{getExe()} --input {inputVideo} --dedup 1 --dedup_method {method} --benchmark 1"
+            f"{executor} --input {inputVideo} --dedup 1 --dedup_method {method} --benchmark 1"
         ).read()
 
         fps = parseFPS(output)
@@ -91,12 +91,12 @@ def runDedupBenchmark(inputVideo):
     return results
 
 
-def runUpscaleBenchmark(inputVideo):
+def runUpscaleBenchmark(inputVideo, executor):
     results = {}
-    for method in upscaleMethods[0]:
+    for method in upscaleMethods:
         print(f"Running {method} benchmark...")
         output = os.popen(
-            f"{getExe()} --input {inputVideo} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 4"
+            f"{executor} --input {inputVideo} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 3"
         ).read()
 
         fps = parseFPS(output)
@@ -106,22 +106,34 @@ def runUpscaleBenchmark(inputVideo):
     return results
 
 
-def runInterpolateBenchmark(inputVideo):
+def runInterpolateBenchmark(inputVideo, executor):
     results = {}
-    for method in interpolateMethods[0]:
+    for method in interpolateMethods:
         print(f"Running {method} benchmark...")
-        output = os.popen(
-            f"{getExe()} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1"
-        ).read()
+
+        if method != "gmfss":
+            output = os.popen(
+                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1"
+            ).read()
+        else:
+            output = os.popen(
+                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --outpoint 5" # GMFSS is so slow that even this is too much
+            ).read()
 
         fps = parseFPS(output)
         results[method] = fps
         time.sleep(1)
 
         print(f"Running {method} with ensemble benchmark...")
-        output = os.popen(
-            f"{getExe()} --input test.mp4 --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1"
-        ).read()
+
+        if method != "gmfss": # Ensemble is irrelevant for GMFSS
+            output = os.popen(
+                f"{executor} --input test.mp4 --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1"
+            ).read()
+        else:
+            output = os.popen(
+                f"{executor} --input test.mp4 --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1 --outpoint 5" # GMFSS is so slow that even this is too much
+            ).read()
 
         fps = parseFPS(output)
         results[f"{method}-ensemble"] = fps
@@ -130,12 +142,12 @@ def runInterpolateBenchmark(inputVideo):
     return results
 
 
-def runDenoiseBenchmark(inputVideo):
+def runDenoiseBenchmark(inputVideo, executor):
     results = {}
     for method in denoiseMethods:
         print(f"Running {method} benchmark...")
         output = os.popen(
-            f"{getExe()} --input {inputVideo} --denoise 1 --denoise_method {method} --benchmark 1 --outpoint 2"
+            f"{executor} --input {inputVideo} --denoise 1 --denoise_method {method} --benchmark 1 --outpoint 2"
         ).read()
 
         fps = parseFPS(output)
@@ -148,8 +160,10 @@ def runDenoiseBenchmark(inputVideo):
 def parseFPS(output):
     match = re.findall(r"fps=\s*([\d.]+)", output)
     if match:
+        print(float(match[-1]))
         return float(match[-1])
     else:
+        print("None")
         return None
 
 
@@ -167,4 +181,5 @@ def parseSystemInfo():
 
 
 if __name__ == "__main__":
-    runAllBenchmarks()
+    executor = getExe()
+    runAllBenchmarks(executor)
