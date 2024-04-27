@@ -44,10 +44,10 @@ def runAllBenchmarks(executor):
     inputVideo = getClip(executor)
 
     results = {
-        #"Dedup": runDedupBenchmark(inputVideo, executor),
-        #"Upscale": runUpscaleBenchmark(inputVideo, executor),
+        "Dedup": runDedupBenchmark(inputVideo, executor),
+        "Upscale": runUpscaleBenchmark(inputVideo, executor),
         "Interpolate": runInterpolateBenchmark(inputVideo, executor),
-        #"Denoise": runDenoiseBenchmark(inputVideo, executor),
+        "Denoise": runDenoiseBenchmark(inputVideo, executor),
     }
 
     systemInfo = parseSystemInfo()
