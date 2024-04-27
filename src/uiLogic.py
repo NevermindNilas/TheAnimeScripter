@@ -132,7 +132,7 @@ def lightUiStyleSheet() -> str:
     """
 
 
-def runCommand(self, mainPath) -> None:
+def runCommand(self, mainPath, settingsFile) -> None:
     mainExePath = os.path.join(mainPath, "main.exe")
     if not os.path.isfile(mainExePath):
         try:
@@ -144,7 +144,7 @@ def runCommand(self, mainPath) -> None:
     else:
         command = [mainExePath]
 
-    loadSettingsFile = json.load(open(self.settingsFile))
+    loadSettingsFile = json.load(open(settingsFile))
 
     for option in loadSettingsFile:
         loweredOption = option.lower()
@@ -198,10 +198,10 @@ class StreamToTextEdit:
         pass
 
 
-def loadSettings(self):
-    if os.path.exists(self.settingsFile):
+def loadSettings(self, settingsFile):
+    if os.path.exists(settingsFile):
         try:
-            with open(self.settingsFile, "r") as file:
+            with open(settingsFile, "r") as file:
                 settings = json.load(file)
             self.inputEntry.setText(settings.get("input", ""))
             self.outputEntry.setText(settings.get("output", ""))
@@ -218,29 +218,33 @@ def loadSettings(self):
             )
 
 
-def saveSettings(self):
-    settings = {
-        "input": self.inputEntry.text(),
-        "output": self.outputEntry.text(),
-        "resize_factor": self.resizeFactorEntry.text(),
-        "interpolate_factor": self.interpolateFactorEntry.text(),
-        "nt": self.numThreadsEntry.text(),
-        "upscale_factor": self.upscaleFactorEntry.text(),
-        "interpolate_method": self.interpolationMethodDropdown.currentText(),
-        "upscale_method": self.upscalingMethodDropdown.currentText(),
-        "denoise_method": self.denoiseMethodDropdown.currentText(),
-        "dedup_method": self.dedupMethodDropdown.currentText(),
-        "depth_method": self.depthMethodDropdown.currentText(),
-        "encode_method": self.encodeMethodDropdown.currentText(),
-        "audio": self.keepaudioCheckbox.isChecked(),
-        "benchmark": self.benchmarkmodeCheckbox.isChecked(),
-    }
-    for i in range(self.checkboxLayout.count()):
-        checkbox = self.checkboxLayout.itemAt(i).widget()
-        if isinstance(checkbox, QCheckBox):
-            settings[checkbox.text()] = checkbox.isChecked()
-    with open(self.settingsFile, "w") as file:
-        json.dump(settings, file, indent=4)
+def saveSettings(self, settingsFile):
+    try:
+        settings = {
+            "input": self.inputEntry.text(),
+            "output": self.outputEntry.text(),
+            "resize_factor": self.resizeFactorEntry.text(),
+            "interpolate_factor": self.interpolateFactorEntry.text(),
+            "nt": self.numThreadsEntry.text(),
+            "upscale_factor": self.upscaleFactorEntry.text(),
+            "interpolate_method": self.interpolationMethodDropdown.currentText(),
+            "upscale_method": self.upscalingMethodDropdown.currentText(),
+            "denoise_method": self.denoiseMethodDropdown.currentText(),
+            "dedup_method": self.dedupMethodDropdown.currentText(),
+            "depth_method": self.depthMethodDropdown.currentText(),
+            "encode_method": self.encodeMethodDropdown.currentText(),
+            "audio": self.keepaudioCheckbox.isChecked(),
+            "benchmark": self.benchmarkmodeCheckbox.isChecked(),
+        }
+        for i in range(self.checkboxLayout.count()):
+            checkbox = self.checkboxLayout.itemAt(i).widget()
+            if isinstance(checkbox, QCheckBox):
+                settings[checkbox.text()] = checkbox.isChecked()
+        with open(settingsFile, "w") as file:
+            json.dump(settings, file, indent=4)
+        self.outputWindow.append("Settings saved successfully")
+    except Exception as e:
+        self.outputWindow.append(f"An error occurred while saving settings, {e}")
 
 
 def fadeIn(self, widget, duration=500):
@@ -263,21 +267,22 @@ def dropdownsLabels(method):
                 "RealESRGAN",
                 "Span",
                 "OmniSR",
-                "ShuffleCugan-NCNN",
-                "Cugan-NCNN",
-                "RealESRGAN-NCNN",
-                "Span-NCNN",
+                "ShuffleCugan-DirectML",
+                "Cugan-DirectML",
+                "RealESRGAN-DirectML",
+                "Span-DirectML",
             ]
         case "Interpolation":
             return [
                 "Rife4.16-Lite",
+                "Rife4.15-Lite",
                 "Rife4.15",
                 "Rife4.14",
                 "Rife4.6",
-                "Rife4.16-Lite-NCNN",
-                "Rife4.15-NCNN",
-                "Rife4.14-NCNN",
-                "Rife4.6-NCNN",
+                "Rife4.15-DirectML",
+                "Rife4.15-lite-DirectML",
+                "Rife4.14-DirectML",
+                "Rife4.6-DirectML",
                 "GMFSS",
             ]
         case "Denoise":

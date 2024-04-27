@@ -33,7 +33,7 @@ from src.uiLogic import (
     dropdownsLabels,
 )
 
-TITLE = "The Anime Scripter - 1.5.0 (Alpha)"
+TITLE = "The Anime Scripter - 1.6.0 (Alpha)"
 
 if getattr(sys, "frozen", False):
     mainPath = os.path.dirname(sys.executable)
@@ -69,7 +69,7 @@ class VideoProcessingApp(QMainWindow):
         self.createWidgets()
 
         self.settingsFile = os.path.join(os.getcwd(), "settings.json")
-        loadSettings(self)
+        loadSettings(self, self.settingsFile)
         fadeIn(self, self.centralWidget, 500)
 
         dropdowns = [
@@ -159,7 +159,7 @@ class VideoProcessingApp(QMainWindow):
 
         self.pathGroup = self.createGroup("Paths", self.pathLayout)
         self.checkboxGroup = self.createGroup("Options", self.checkboxInputLayout)
-        self.outputGroup = self.createGroup("Terminal", self.outputLayout)
+        self.outputGroup = self.createGroup("Log", self.outputLayout)
 
         self.inputEntry = self.createPathWidgets("Input Path:", self.browseInput)
         self.outputEntry = self.createPathWidgets("Output Path:", self.browseOutput)
@@ -200,7 +200,7 @@ class VideoProcessingApp(QMainWindow):
         return group
 
     def runButtonOnClick(self):
-        saveSettings(self)
+        saveSettings(self, self.settingsFile)
         runCommand(self, mainPath)
 
     def createPathWidgets(self, label, slot):
@@ -259,7 +259,7 @@ class VideoProcessingApp(QMainWindow):
             self.outputEntry.setText(directory)
 
     def closeEvent(self, event):
-        saveSettings(self)
+        saveSettings(self, self.settingsFile)
         event.accept()
 
     def toggleTheme(self):
@@ -269,7 +269,7 @@ class VideoProcessingApp(QMainWindow):
             self.setStyleSheet(darkUiStyleSheet())
 
     def openSettingsPanel(self):
-        loadSettings(self)
+        loadSettings(self, self.settingsFile)
         self.settingsWidget = QWidget()
         settingsLayout = QVBoxLayout()
 
@@ -302,6 +302,10 @@ class VideoProcessingApp(QMainWindow):
             self.updateEncodeParamsLabel
         )
 
+        noteLabel = QLabel("NOTE: If this page hasn't updated but you see a \"Settings saved successfully\" in the log panel then it's fine. The settings have been saved.")
+        
+        # Add the note label to the settings layout
+        mainSettings.addWidget(noteLabel)
         settingsLayout.addWidget(mainSettingsGroup)
 
         extraSettings = QVBoxLayout()
@@ -348,7 +352,7 @@ class VideoProcessingApp(QMainWindow):
             self.encodeParamsLabel.setText("")
 
     def goBack(self):
-        saveSettings(self)
+        saveSettings(self, self.settingsFile)
         self.stackedWidget.removeWidget(self.settingsWidget)
         self.stackedWidget.setCurrentWidget(self.centralWidget)
 
