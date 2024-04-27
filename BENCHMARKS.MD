@@ -2,7 +2,15 @@
 
 #### Note, since these are ran in order with no time gaps inbetween there's a possibility for GPU heat becoming a bottleneck so these results may not be fully representative of the real world performance.
 
-#### If the result is 0.0 that's typically because of Out Of VRAM Issues ( like GMFSS )
+#### If the result is 0.0 / Null that's typically because of Out Of VRAM Issues ( like GMFSS ) or the GPU is not supported
+
+Difference from V1 -> V2, Longer video for more accurate results, More time in between runs to cool of the gpu, more options ( dedup )
+-------------------------------------------------------------------------------------------------------------
+#### Testing Methodology V2
+# 13700k Undervolted + Overclocked, 3090 Overclocked, 32GB DDR5 6800Mhz, TAS 1.6.0, Nilas.
+
+![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/a00d7d09-e6d1-4f94-8824-068a9f2f2213)
+
 -------------------------------------------------------------------------------------------------------------
 
 #### Testing Methodology V1
@@ -16,9 +24,13 @@
 
 ![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/71a326d5-6f6a-404a-93b6-bdf19a56b385)
 
+-------------------------------------------------------------------------------------------------------------
+
 # AMD 7800x3D, RTX 4080, 32GB DDR5, TAS 1.5.0, Kovel
 
 ![tables](https://cdn.discordapp.com/attachments/1208539289328025621/1224397781205127359/image.png?ex=661d584b&is=660ae34b&hm=fe8baf72d44b733873073729e22c50efdf63a094c3d1f1da98220e8583eb18c0&)
+
+-------------------------------------------------------------------------------------------------------------
 
 # AMD 5800X, RTX 3080, 32GB DDR4, TAS 1.5.0, HUK
 
