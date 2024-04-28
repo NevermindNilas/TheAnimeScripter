@@ -1,6 +1,7 @@
 import subprocess
 import os
 import shutil
+from importlib.metadata import distribution
 
 from main import scriptVersion
 
@@ -41,6 +42,16 @@ def create_executable():
     gui_path = os.path.join(base_dir, "gui.py")
     icon_path = os.path.join(base_dir, "src", "assets", "icon.ico")
 
+    rife_ncnn_models_path = os.path.join(
+        distribution("rife_ncnn_vulkan_python").locate_file("rife_ncnn_vulkan_python"),
+        "models",
+    )
+
+    universal_ncnn_models_path = os.path.join(
+        distribution("upscale_ncnn_py").locate_file("upscale_ncnn_py"),
+        "models",
+    )
+
     print("Creating the CLI executable...")
     subprocess.run(
         [
@@ -52,6 +63,14 @@ def create_executable():
             "--clean",
             "--add-data",
             f"{src_path};src/",
+            "--add-data",
+            f"{rife_ncnn_models_path};rife_ncnn_vulkan_python/models",
+            "--add-data",
+            f"{universal_ncnn_models_path};upscale_ncnn_py/models",
+            "--hidden-import",
+            "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
+            "--hidden-import",
+            "upscale_ncnn_py.upscale_ncnn_py_wrapper",
             "--collect-all",
             "cupy",
             "--collect-all",
@@ -115,7 +134,7 @@ def move_extras():
     readme_path = os.path.join(base_dir, "README.md")
     readme_txt_path = os.path.join(base_dir, "README.txt")
     target_path = os.path.join(main_dir, os.path.basename(jsx_path))
-    
+
     try:
         shutil.copy(jsx_path, target_path)
         shutil.copy(license_path, main_dir)
@@ -191,19 +210,26 @@ def clean_up():
 
     print("Done!, you can find the built executable in the dist folder")
 
+
 def compress_dist():
-    
     print("Compressing the dist folder...")
-    answer = input("Do you want to compress the file with 7z? NOTE: It requires 7z to be installed and on path. (y/n): ")
+    answer = input(
+        "Do you want to compress the file with 7z? NOTE: It requires 7z to be installed and on path. (y/n): "
+    )
 
     if answer.lower() == "y":
         print("Compressing the dist folder, this can take a while...")
         tempDistPath = os.path.join(distPath, "main")
-        subprocess.run(["7z", "a", "-mx9", os.path.join(distPath, outputName), tempDistPath], shell=True, check=True)
+        subprocess.run(
+            ["7z", "a", "-mx9", os.path.join(distPath, outputName), tempDistPath],
+            shell=True,
+            check=True,
+        )
     else:
         print("Skipping Compression...")
 
     print("Done!, you can find the compressed file in the root folder")
+
 
 if __name__ == "__main__":
     create_venv()
