@@ -99,13 +99,19 @@ class UniversalPytorch:
         self.padWidth = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
         self.padHeight = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
 
+        self.frame = torch.zeros(
+            (1, 3, self.height + self.padHeight, self.width + self.padWidth), device=self.device, dtype=torch.float16 if self.half and self.isCudaAvailable else torch.float32
+        )
+
+        self.frame = self.frame.contiguous()
+
         """
         dummyInput = torch.zeros((1, 3, self.height, self.width), device='cuda', dtype=torch.float16)
         self.model = trt.compile(self.model, dummyInput, enabled_precisions={torch.half})
         """
 
     @torch.inference_mode()
-    def pad_frame(self, frame):
+    def padFrame(self, frame):
         frame = F.pad(frame, [0, self.padWidth, 0, self.padHeight])
         return frame
 
@@ -123,15 +129,16 @@ class UniversalPytorch:
                 .float()
                 .mul_(1 / 255)
             )
-
-            frame = frame.contiguous(memory_format=torch.channels_last)
-
             frame = frame.half() if self.half and self.isCudaAvailable else frame
 
             if self.padWidth != 0 or self.padHeight != 0:
-                frame = self.pad_frame(frame)
+                frame = self.padFrame(frame)
 
-            frame = self.model(frame)
+            self.frame.copy_(frame)
+            frame = self.model(self.frame)
+
+            if self.padWidth != 0 or self.padHeight != 0:
+                frame = frame[..., : self.height, : self.width]
 
             """
             if self.isCudaAvailable:
