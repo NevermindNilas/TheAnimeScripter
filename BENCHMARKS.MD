@@ -11,6 +11,11 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 
 ![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/a00d7d09-e6d1-4f94-8824-068a9f2f2213)
 
+# AMD 3700x, RTX 3080, 24GB DDR4 3600MHz, TAS 1.5.0, Windows VM ( 7C/14Threads ), TNTWise.
+
+![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/b7ca8ced-b034-4ef1-8218-2ed5cd0842c1)
+
+
 -------------------------------------------------------------------------------------------------------------
 
 #### Testing Methodology V1
