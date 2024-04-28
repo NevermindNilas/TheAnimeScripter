@@ -58,6 +58,21 @@ def intitialize_models(self):
                     self.nt,
                 )
 
+            case (
+                "shufflecugan-ncnn"
+                | "cugan-ncnn"
+                | "span-ncnn"
+                | "realesrgan-ncnn"
+            ):
+                from .unifiedUpscaleNCNN import UniversalNCNN
+
+                upscale_process = UniversalNCNN(
+                    self.upscale_method,
+                    self.upscale_factor,
+                    self.nt,
+                )
+                
+
     if self.interpolate:
         logging.info(
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolate_factor, '.3f')}fps"
@@ -106,6 +121,15 @@ def intitialize_models(self):
                     self.nt,
                     outputWidth,
                     outputHeight,
+                )
+            
+            case ( "rife-ncnn", "rife4.6-ncnn", "rife4.14-ncnn", "rife4.15-ncnn"):
+                from src.rifencnn import rifeNCNN
+
+                interpolate_process = rifeNCNN(
+                    self.interpolate_method,
+                    self.ensemble,
+                    self.nt,
                 )
 
     if self.denoise:

@@ -31,6 +31,7 @@ def modelsList() -> list[str]:
         "rife4.14",
         "rife4.6",
         "rife4.15",
+        "rife4.15-lite",
         "rife4.16-lite",
         "apisr",
         "vits",
