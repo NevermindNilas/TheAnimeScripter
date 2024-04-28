@@ -1,5 +1,3 @@
-# I hate making GUIs with a passion
-
 import os
 import sys
 
@@ -32,6 +30,12 @@ from src.uiLogic import (
     fadeIn,
     dropdownsLabels,
 )
+
+import logging
+
+logging.basicConfig(filename='gui.log', level=logging.ERROR, 
+                    format='%(asctime)s %(levelname)s %(name)s %(message)s')
+logger=logging.getLogger(__name__)
 
 TITLE = "The Anime Scripter - 1.6.0 (Alpha)"
 

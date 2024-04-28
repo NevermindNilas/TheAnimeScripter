@@ -82,8 +82,8 @@ def Consent(logPath):
         data = json.load(f)
 
     session = Session()
-    retries = Retry(total=1, backoff_factor=0, status_forcelist=[ 500, 502, 503, 504 ])
-    session.mount('https://', HTTPAdapter(max_retries=retries))
+    retries = Retry(total=1, backoff_factor=0, status_forcelist=[500, 502, 503, 504])
+    session.mount("https://", HTTPAdapter(max_retries=retries))
 
     try:
         response = session.post(apiUrl, json=data, verify=False)

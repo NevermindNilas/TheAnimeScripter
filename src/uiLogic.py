@@ -2,9 +2,11 @@ import subprocess
 import os
 import json
 import threading
+import logging
 
 from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
+
 
 
 def darkUiStyleSheet() -> str:
@@ -183,6 +185,8 @@ def runCommand(self, mainPath, settingsFile) -> None:
             self.outputWindow.append(
                 f"An error occurred while running the command, {e}"
             )
+            logging.error(f"An error occurred while running, {e}")
+
 
     threading.Thread(target=runSubprocess, args=(command,)).start()
 
@@ -216,6 +220,7 @@ def loadSettings(self, settingsFile):
                     f"An error occurred while loading settings, {e}"
                 )
             )
+            logging.error(f"An error occurred while loading settings, {e}")
 
 
 def saveSettings(self, settingsFile):
