@@ -368,9 +368,6 @@ var TheAnimeScripter = (function() {
     var checkboxEnsembleValue = function() {
         return checkboxValues["Ensemble"];
     };
-    var checkboxYTDLPQualityValue = function() {
-        return checkboxValues["YTDLPQuality"];
-    };
     var fieldValues = {}
 
     function createMultiplierField(panel, text, name, defaultValue) {
@@ -1007,7 +1004,6 @@ var TheAnimeScripter = (function() {
                 "\"" + exeFile + "\"",
                 "--output", "\"" + outputName + "\"",
                 "--input", "\"" + textGetVideo.text + "\"",
-                "--ytdlp_quality", checkboxYTDLPQualityValue() ? "1" : "0",
             ];
             var command = attempt.join(" ");
             callCommand(command);

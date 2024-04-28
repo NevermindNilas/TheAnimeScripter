@@ -385,7 +385,6 @@ if __name__ == "__main__":
         ],
         default="x264",
     )
-    argparser.add_argument("--ytdlp_quality", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--resize", type=int, choices=[0, 1], default=0)
     argparser.add_argument(
         "--resize_factor",

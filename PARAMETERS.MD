@@ -18,7 +18,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--input` (str): Absolute path of the input video.
 - `--output` (str): Output string or absolute path for the processed video.
 - `--audio` (int, default=1): Enable audio processing (1) or disable (0).
-- `--ytdlp_quality` (int, default=0): Allow 4k/8k videos to be downloaded then re-encoded to the selected `--encode_method` or `--custom_encoder`.
 
 #### Upscaling Settings:
 
