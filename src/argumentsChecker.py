@@ -1,8 +1,9 @@
 import os
 import logging
 import sys
-from urllib.parse import urlparse
+import time
 
+from urllib.parse import urlparse
 from .generateOutput import outputNameGenerator
 from .checkSpecs import checkSystem
 from .getFFMPEG import getFFMPEG
@@ -53,6 +54,15 @@ def argumentChecker(args, mainPath, scriptVersion):
 
     logging.info("\n============== Arguments Checker ==============")
     args.ffmpeg_path = getFFMPEG()
+
+    try:
+        args.input = args.input.encode('utf-8').decode('utf-8')
+    except UnicodeDecodeError:
+        toPrint = "Input video contains invalid characters. Please check the input and try again."
+        logging.error(toPrint)
+        print(red(toPrint))
+        time.sleep(3)
+        sys.exit()
 
     if args.offline:
         toPrint = "Offline mode enabled, downloading all available models"
