@@ -19,7 +19,7 @@ Github: https://github.com/NevermindNilas/TheAnimeScripter
     - OS: Windows 11
     - CPU: Octa Core CPU
     - RAM: 32 GB
-    - GPU: NVidia 2000 Series or higher / AMD 6000 Series or higher
+    - GPU: NVidia 3000 Series or higher / AMD 6000 Series or higher
     - Disk Space: ~ 6 GB
 
 # Installation:
@@ -27,7 +27,6 @@ Github: https://github.com/NevermindNilas/TheAnimeScripter
     https://github.com/NevermindNilas/TheAnimeScripter?tab=readme-ov-file#%EF%B8%8F-getting-started
 
 # Things to consider:
-    - The Script will Utilize CUDA acceleration automatically if you have an NVIDIA GPU of series 1000 or higher for optimal performance.
     - DirectML is available for all GPUs with DIRECTX 12 support that are running Windows 10 or higher.
     - AMD / Intel GPU users should use the NCNN Versions of upscalers / interpolators to avoid falling back to CPU and ensure optimal performance.
     - GMFSS may experience VRAM limitations for high-resolution clips; ensure your GPU has 8 GB or more VRAM for 1080p footage.

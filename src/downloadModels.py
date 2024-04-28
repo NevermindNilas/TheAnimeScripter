@@ -211,7 +211,6 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
     if os.path.exists(os.path.join(folderPath, filename)):
         toLog = f"{model.upper()} model already exists at: {os.path.join(folderPath, filename)}"
         logging.info(toLog)
-        print(toLog)
         return os.path.join(folderPath, filename)
 
     toLog = f"Downloading {model.upper()} model..."
