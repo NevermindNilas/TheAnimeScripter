@@ -38,7 +38,7 @@ from src.assets.guiPresets import (
 import time
 # python -m pip install BlurWindow
 
-TITLE = "The Anime Scripter - 1.6.0 (Alpha)"
+TITLE = "The Anime Scripter - 1.6.1 (Alpha)"
 ICONPATH = os.path.join(os.path.dirname(__file__), "src", "assets", "icon.ico")
 WIDTH, HEIGHT = 1280, 720
 
