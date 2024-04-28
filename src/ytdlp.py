@@ -1,19 +1,18 @@
 import os
 import logging
-import subprocess
 import inquirer
 
 from yt_dlp import YoutubeDL
-from .ffmpegSettings import encodeYTDLP
+from .ffmpegSettings import matchEncoder
 
 
 class VideoDownloader:
-    def __init__(self, video_link, output, encodeMethod, customEncoder, ffmpeg_path:str = None):
+    def __init__(self, video_link, output, encodeMethod, customEncoder, ffmpegPath:str = None):
         self.link = video_link
         self.output = output
         self.encodeMethod = encodeMethod
         self.customEncoder = customEncoder
-        self.ffmpeg_path = ffmpeg_path
+        self.ffmpegPath = ffmpegPath
 
         resolutions = self.listResolutions()
 
@@ -25,20 +24,32 @@ class VideoDownloader:
         ]
 
         answers = inquirer.prompt(questions)
-        print('Selected resolution:', answers['resolution'])
+        if not answers:
+            logging.error('No resolution selected, exiting')
+            exit(1)
+        
 
-        self.quality = answers['resolution']
+        self.resolution = answers['resolution']
+
+        if self.resolution > 1080:
+            toPrint = f"The selected resolution {self.resolution} is higher than 1080p, this will require an aditional step of encoding the video for compatibility with After Effects, [WIP]"
+            logging.warning(toPrint)
+            print(toPrint)
+        else:
+            toPrint = f"Selected resolution: {self.resolution}"
+            logging.info(toPrint)
+            print(toPrint)
 
         self.downloadVideo()
 
 
     def listResolutions(self):
-        ydl_opts = {
+        options = {
             'listformats': False,
             'quiet': True,
             'no_warnings': True,
         }
-        with YoutubeDL(ydl_opts) as ydl:
+        with YoutubeDL(options) as ydl:
             info_dict = ydl.extract_info(self.link, download=False)
             formats = info_dict.get('formats', [])
             resolutions = [f.get('height') for f in formats if f.get('height') and f.get('height') >= 360]
@@ -46,32 +57,31 @@ class VideoDownloader:
     
 
     def downloadVideo(self):
-        ydl_opts = self.getOptions()
-        with YoutubeDL(ydl_opts) as ydl:
+        options = self.getOptions()
+        with YoutubeDL(options) as ydl:
             ydl.download([self.link])
 
     def getOptions(self):
-        return {
-            "format": f"bestvideo[height<={self.quality}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]",
-            "outtmpl": self.output,
-            "ffmpeg_location": os.path.dirname(self.ffmpeg_path),
-            "quiet": True,
-            "noplaylist": True,
-            "no_warnings": True,
-        }
-
-
-    def encodeVideo(self):
-        command = encodeYTDLP(
-            self.temp_name,
-            self.output,
-            self.ffmpeg_path,
-            self.encodeMethod,
-            self.customEncoder,
-        )
-        
-        subprocess.run(command)
-
-    def cleanup(self):
-        os.remove(self.temp_name)
-        logging.info(f"Removing residual webm file: {self.temp_name}")
+        if self.resolution > 1080:
+            return {
+                "format": f"bestvideo[height<={self.resolution}]+bestaudio[ext=m4a]/best[ext=mp4]",
+                "outtmpl": os.path.splitext(self.output)[0],
+                "ffmpeg_location": os.path.dirname(self.ffmpegPath),
+                "quiet": True,
+                "noplaylist": True,
+                "no_warnings": True,
+                "postprocessors": [{
+                    "key": "FFmpegVideoConvertor",
+                    "preferedformat": "mp4",
+                    #self.customEncoder if self.customEncoder else matchEncoder(self.encodeMethod),
+                }],
+            }
+        else:
+            return {
+                "format": "bestvideo[height][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]",
+                "outtmpl": self.output,
+                "ffmpeg_location": os.path.dirname(self.ffmpegPath),
+                "quiet": True,
+                "noplaylist": True,
+                "no_warnings": True,
+            }
