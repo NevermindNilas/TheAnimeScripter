@@ -59,16 +59,16 @@ class UniversalNCNN:
         self.upscaleFactor = upscaleFactor
         self.nt = nt
 
-        match (self.upscaleMethod, self.upscaleFactor, self.cuganKind):
-            case ("span-ncnn", 2, _):
+        match (self.upscaleMethod, self.upscaleFactor):
+            case ("span-ncnn", 2):
                 self.modelId = 4
-            case ("span-ncnn", 4, _):
+            case ("span-ncnn", 4):
                 self.modelId = 5
-            case ("realesrgan-ncnn", 2, _):
+            case ("realesrgan-ncnn", 2):
                 self.modelId = 7
-            case ("realesrgan-ncnn", 3, _):
+            case ("realesrgan-ncnn", 3):
                 self.modelId = 8
-            case ("realesrgan-ncnn", 4, _):
+            case ("realesrgan-ncnn", 4):
                 self.modelId = 9
             case ("cugan-ncnn", 2, "conservative"):
                 self.modelId = 23
@@ -76,11 +76,11 @@ class UniversalNCNN:
                 self.modelId = 27
             case ("cugan-ncnn", 4, "conservative"):
                 self.modelId = 20
-            case ("shufflecugan-ncnn", _, _):
+            case ("shufflecugan-ncnn", 2):
                 self.modelId = 29
             case _:
                 raise ValueError(
-                    f"Invalid upscale method {self.upscaleMethod} with factor {self.upscaleFactor} and kind {self.cuganKind}"
+                    f"Invalid upscale method {self.upscaleMethod} with factor {self.upscaleFactor}"
                 )
 
         if self.nt == 1:
