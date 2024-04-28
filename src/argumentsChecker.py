@@ -106,7 +106,7 @@ def argumentChecker(args, mainPath, scriptVersion):
 
     result = urlparse(args.input)
     if not any(processingMethods) and not all([result.scheme, result.netloc]):
-        toPrint = "No processing methods specified, exiting"
+        toPrint = "No other processing methods specified, exiting"
         logging.error(toPrint)
         print(red(toPrint))
         sys.exit()
