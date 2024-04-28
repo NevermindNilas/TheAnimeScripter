@@ -20,7 +20,6 @@ def argumentChecker(args, mainPath, scriptVersion):
 
     # Simplify boolean conversion
     boolArgs = [
-        "ytdlp_quality",
         "interpolate",
         "scenechange",
         "ensemble",
@@ -131,7 +130,6 @@ def processURL(args, mainPath):
         VideoDownloader(
             args.input,
             args.output,
-            args.ytdlp_quality,
             args.encode_method,
             args.custom_encoder,
             args.ffmpeg_path,

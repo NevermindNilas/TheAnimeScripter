@@ -1,24 +1,49 @@
 import os
 import logging
 import subprocess
+import inquirer
 
 from yt_dlp import YoutubeDL
 from .ffmpegSettings import encodeYTDLP
 
 
 class VideoDownloader:
-    def __init__(self, video_link, output, quality, encodeMethod, customEncoder, ffmpeg_path:str = None):
+    def __init__(self, video_link, output, encodeMethod, customEncoder, ffmpeg_path:str = None):
         self.link = video_link
         self.output = output
-        self.quality = quality
         self.encodeMethod = encodeMethod
         self.customEncoder = customEncoder
         self.ffmpeg_path = ffmpeg_path
 
+        resolutions = self.listResolutions()
+
+        questions = [
+            inquirer.List('resolution',
+                          message="Select the resolution you want to download, use up and down arrow keys to navigate and press enter to select:",
+                          choices=resolutions,
+                          ),
+        ]
+
+        answers = inquirer.prompt(questions)
+        print('Selected resolution:', answers['resolution'])
+
+        self.quality = answers['resolution']
+
         self.downloadVideo()
-        if self.quality:
-            self.encodeVideo()
-            self.cleanup()
+
+
+    def listResolutions(self):
+        ydl_opts = {
+            'listformats': False,
+            'quiet': True,
+            'no_warnings': True,
+        }
+        with YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(self.link, download=False)
+            formats = info_dict.get('formats', [])
+            resolutions = [f.get('height') for f in formats if f.get('height') and f.get('height') >= 360]
+            return sorted(set(resolutions))
+    
 
     def downloadVideo(self):
         ydl_opts = self.getOptions()
@@ -26,20 +51,15 @@ class VideoDownloader:
             ydl.download([self.link])
 
     def getOptions(self):
-        if not self.quality:
-            return {
-                "format": "bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]",
-                "outtmpl": self.output,
-                "ffmpeg_location": os.path.dirname(self.ffmpeg_path),
-            }
-        else:
-            self.temp_name = os.path.splitext(self.output)[0] + ".webm"
-            logging.info(f"Downloading video in webm format to: {self.temp_name}")
-            return {
-                "format": "bestvideo+bestaudio",
-                "outtmpl": self.temp_name,
-                "ffmpeg_location": os.path.dirname(self.ffmpeg_path),
-            }
+        return {
+            "format": f"bestvideo[height<={self.quality}][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]",
+            "outtmpl": self.output,
+            "ffmpeg_location": os.path.dirname(self.ffmpeg_path),
+            "quiet": True,
+            "noplaylist": True,
+            "no_warnings": True,
+        }
+
 
     def encodeVideo(self):
         command = encodeYTDLP(
