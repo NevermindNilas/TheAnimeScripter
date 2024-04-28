@@ -92,6 +92,7 @@ In the settings panel:
 ### Interpolation Models
 
 - Rife (Versions: 4.6, 4.14, 4.15, 4.15-lite, 4.16-lite ) including DirectML
+- Rife NCNN ( Versions: 4.6, 4.14, 4.15 ) 
 - GMFSS (Available for CUDA )
 
 ### Denoise Models
