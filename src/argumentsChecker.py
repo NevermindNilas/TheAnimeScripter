@@ -57,8 +57,9 @@ def argumentChecker(args, mainPath, scriptVersion):
 
     try:
         args.input = args.input.encode('utf-8').decode('utf-8')
+        args.input = args.input.replace("\\", "/")
     except UnicodeDecodeError:
-        toPrint = "Input video contains invalid characters. Please check the input and try again."
+        toPrint = "Input video contains invalid characters in it's name. Please check the input and try again. One suggestion would be renaming it to something simpler like test.mp4"
         logging.error(toPrint)
         print(red(toPrint))
         time.sleep(3)
