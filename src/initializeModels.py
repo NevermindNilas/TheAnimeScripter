@@ -58,12 +58,7 @@ def intitialize_models(self):
                     self.nt,
                 )
 
-            case (
-                "shufflecugan-ncnn"
-                | "cugan-ncnn"
-                | "span-ncnn"
-                | "realesrgan-ncnn"
-            ):
+            case "shufflecugan-ncnn" | "cugan-ncnn" | "span-ncnn" | "realesrgan-ncnn":
                 from .unifiedUpscaleNCNN import UniversalNCNN
 
                 upscale_process = UniversalNCNN(
@@ -71,7 +66,6 @@ def intitialize_models(self):
                     self.upscale_factor,
                     self.nt,
                 )
-                
 
     if self.interpolate:
         logging.info(
@@ -80,7 +74,14 @@ def intitialize_models(self):
 
         UHD = True if outputWidth >= 3840 or outputHeight >= 2160 else False
         match self.interpolate_method:
-            case "rife" | "rife4.6" | "rife4.14" | "rife4.15" | "rife4.15-lite" | "rife4.16-lite":
+            case (
+                "rife"
+                | "rife4.6"
+                | "rife4.14"
+                | "rife4.15"
+                | "rife4.15-lite"
+                | "rife4.16-lite"
+            ):
                 from src.unifiedInterpolate import RifeCuda
 
                 interpolate_process = RifeCuda(
@@ -112,7 +113,7 @@ def intitialize_models(self):
                 | "rife4.15-directml"
                 | "rife4.15-lite-directml"
             ):
-                from src.unifiedInterpolate import RifeDirectML
+                from .unifiedInterpolate import RifeDirectML
 
                 interpolate_process = RifeDirectML(
                     self.interpolate_method,
@@ -122,14 +123,21 @@ def intitialize_models(self):
                     outputWidth,
                     outputHeight,
                 )
-            
-            case ( "rife-ncnn", "rife4.6-ncnn", "rife4.14-ncnn", "rife4.15-ncnn"):
-                from src.rifencnn import rifeNCNN
+
+            case (
+                "rife-ncnn"
+                | "rife4.6-ncnn"
+                | "rife4.14-ncnn"
+                | "rife4.15-ncnn"
+            ):
+                from src.rifencnn.rifencnn import rifeNCNN
 
                 interpolate_process = rifeNCNN(
                     self.interpolate_method,
                     self.ensemble,
                     self.nt,
+                    outputWidth,
+                    outputHeight,
                 )
 
     if self.denoise:
@@ -165,7 +173,7 @@ def intitialize_models(self):
                 )
 
             # case ffmpeg, ffmpeg works on decode, refer to ffmpegSettings.py ReadBuffer class.
-            
+
     return (
         outputWidth,
         outputHeight,
