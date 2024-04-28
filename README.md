@@ -79,10 +79,10 @@ In the settings panel:
 ### Upscaling Models
 
 **Officially Supported:**
-- Cugan ( CUDA and DirectML versions)
-- ShuffleCugan ( CUDA and DirectML versions)
-- Span ( CUDA and DirectML versions)
-- RealESRGan ( CUDA and DirectML versions)
+- Cugan ( CUDA, DirectML and NCNN versions )
+- ShuffleCugan ( CUDA and NCNN versions)
+- Span ( CUDA, DirectML and NCNN versions)
+- RealESRGan ( CUDA and NCNN versions)
 - OmniSR ( CUDA only )
 - SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective DirectML versions)
 
