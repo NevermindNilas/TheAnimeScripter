@@ -3,7 +3,8 @@ import time
 import json
 import re
 
-clipURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
+TIMESLEEP = 2
+CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
 dedupMethods = ["ffmpeg", "ssim", "mse"]
 
 upscaleMethods = [
@@ -22,6 +23,10 @@ upscaleMethods = [
     "ultracompact-directml",
     "superultracompact-directml",
     "span-directml",
+    "span-ncnn",
+    "shufflecugan-ncnn",
+    "realesrgan-ncnn",
+    "cugan-ncnn",
 ]
 
 interpolateMethods = [
@@ -34,6 +39,9 @@ interpolateMethods = [
     "rife4.14-directml",
     "rife4.15-directml",
     "rife4.15-lite-directml",
+    "rife4.15-ncnn",
+    "rife4.14-ncnn",
+    "rife4.6-ncnn",
     "gmfss",
 ]
 
@@ -73,8 +81,9 @@ def getExe():
 
 def getClip(executor):
     outputPath = "output/test.mp4"
-    os.popen(f"{executor} --input {clipURL} --output {outputPath}").read()
+    os.popen(f"{executor} --input {CLIPURL} --output {outputPath}").read()
     return os.path.abspath(outputPath)
+
 
 def runDedupBenchmark(inputVideo, executor):
     results = {}
@@ -86,8 +95,8 @@ def runDedupBenchmark(inputVideo, executor):
 
         fps = parseFPS(output)
         results[method] = fps
-        time.sleep(2)
-    
+        time.sleep(TIMESLEEP)
+
     return results
 
 
@@ -96,12 +105,12 @@ def runUpscaleBenchmark(inputVideo, executor):
     for method in upscaleMethods:
         print(f"Running {method} benchmark...")
         output = os.popen(
-            f"{executor} --input {inputVideo} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 3"
+            f"{executor} --input {inputVideo} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 5"
         ).read()
 
         fps = parseFPS(output)
         results[method] = fps
-        time.sleep(2)
+        time.sleep(TIMESLEEP)
 
     return results
 
@@ -117,27 +126,27 @@ def runInterpolateBenchmark(inputVideo, executor):
             ).read()
         else:
             output = os.popen(
-                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --outpoint 5" # GMFSS is so slow that even this is too much
+                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --outpoint 3"  # GMFSS is so slow that even this is too much
             ).read()
 
         fps = parseFPS(output)
         results[method] = fps
-        time.sleep(2)
+        time.sleep(TIMESLEEP)
 
         print(f"Running {method} with ensemble benchmark...")
 
-        if method != "gmfss": # Ensemble is irrelevant for GMFSS
+        if method != "gmfss":  # Ensemble is irrelevant for GMFSS
             output = os.popen(
-                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1 --outpoint 20"
+                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1 --outpoint 15"
             ).read()
         else:
             output = os.popen(
-                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1 --outpoint 5" # GMFSS is so slow that even this is too much
+                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1 --outpoint 3"  # GMFSS is so slow that even this is too much
             ).read()
 
         fps = parseFPS(output)
         results[f"{method}-ensemble"] = fps
-        time.sleep(2)
+        time.sleep(TIMESLEEP)
 
     return results
 
@@ -152,7 +161,7 @@ def runDenoiseBenchmark(inputVideo, executor):
 
         fps = parseFPS(output)
         results[method] = fps
-        time.sleep(2)
+        time.sleep(TIMESLEEP)
 
     return results
 
