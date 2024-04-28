@@ -127,6 +127,10 @@ def processURL(args, mainPath):
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
             args.output = os.path.join(outputFolder, outputNameGenerator(args))
 
+        # TO:DO: Fix this, it's not working as intended
+        #else:
+        #    args.output = args.output.split(".")[0] + "_temp.mp4"
+            
         VideoDownloader(
             args.input,
             args.output,

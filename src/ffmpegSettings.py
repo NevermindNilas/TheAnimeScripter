@@ -38,53 +38,53 @@ def matchEncoder(encode_method: str):
     command = []
     match encode_method:
         case "x264":
-            command.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "16"])
+            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "20"])
         case "x264_animation":
             command.extend(
                 [
                     "-c:v",
                     "libx264",
                     "-preset",
-                    "fast",
+                    "veryfast",
                     "-tune",
                     "animation",
                     "-crf",
-                    "16",
+                    "20",
                 ]
             )
         case "x265":
-            command.extend(["-c:v", "libx265", "-preset", "fast", "-crf", "16"])
+            command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "20"])
         case "nvenc_h264":
-            command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "16"])
+            command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "20"])
         case "nvenc_h265":
-            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "16"])
+            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "20"])
         case "qsv_h264":
             command.extend(
-                ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "16"]
+                ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "20"]
             )
         case "qsv_h265":
             command.extend(
-                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "16"]
+                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "20"]
             )
         case "nvenc_av1":
-            command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "16"])
+            command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "20"])
         case "av1":
-            command.extend(["-c:v", "libsvtav1", "-preset", "8", "-crf", "16"])
+            command.extend(["-c:v", "libsvtav1", "-preset", "8", "-crf", "20"])
         case "h264_amf":
             command.extend(
-                ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp", "16"]
+                ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp", "20"]
             )
         case "hevc_amf":
             command.extend(
-                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "16"]
+                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "20"]
             )
         case "vp9":
-            command.extend(["-c:v", "libvpx-vp9", "-crf", "16"])
+            command.extend(["-c:v", "libvpx-vp9", "-crf", "20"])
         case "qsv_vp9":
             command.extend(["-c:v", "vp9_qsv", "-preset", "veryfast"])
         # Needs further testing, -qscale:v 15 seems to be extremely lossy
         case "prores":
-            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "16"])
+            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "20"])
 
     return command
 
