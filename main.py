@@ -333,6 +333,10 @@ if __name__ == "__main__":
             "cugan-directml",
             "shufflecugan-directml",
             "realesrgan-directml",
+            "realesrgan-ncnn",
+            "cugan-ncnn",
+            "shufflecugan-ncnn",
+            "span-ncnn",
         ],
         default="shufflecugan",
     )
