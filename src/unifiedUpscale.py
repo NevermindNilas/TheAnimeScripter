@@ -126,17 +126,12 @@ class UniversalPytorch:
 
             frame = frame.contiguous(memory_format=torch.channels_last)
 
-            if self.isCudaAvailable:
-                # torch.cuda.set_stream(self.stream[self.currentStream])
-                frame = frame.cuda(non_blocking=True)
-                if self.half:
-                    frame = frame.half()
+            frame = frame.half() if self.half and self.isCudaAvailable else frame
 
             if self.padWidth != 0 or self.padHeight != 0:
                 frame = self.pad_frame(frame)
 
             frame = self.model(frame)
-            frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).byte()
 
             """
             if self.isCudaAvailable:
@@ -144,7 +139,7 @@ class UniversalPytorch:
                 self.currentStream = (self.currentStream + 1) % len(self.stream)
             """
 
-            return frame.cpu().numpy()
+            return frame.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()
 
 
 class UniversalDirectML:
