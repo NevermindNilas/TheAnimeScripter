@@ -2,6 +2,7 @@ import os
 import time
 import json
 import re
+import subprocess
 
 TIMESLEEP = 2
 CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
@@ -49,6 +50,8 @@ denoiseMethods = ["scunet", "nafnet", "dpir", "span"]
 
 
 def runAllBenchmarks(executor):
+    print("Running all benchmarks. Depending on your system, this may take a while. Please be patient and keep the terminal at all times in the focus.")
+    print("The results will be saved in benchmarkResults.json. Feel free to share this file with the Discord Community at https://discord.gg/2jqfkx3J")
     inputVideo = getClip(executor)
 
     results = {
@@ -80,8 +83,11 @@ def getExe():
 
 
 def getClip(executor):
+    print("Please select 1080p as the desired quality.")
     outputPath = "output/test.mp4"
-    os.popen(f"{executor} --input {CLIPURL} --output {outputPath}").read()
+    # Utilize subprocess Popen with the stdout directed to the terminal
+    subprocess.Popen(f"{executor} --input {CLIPURL} --output {outputPath}", shell=True).wait()
+    #os.popen(f"{executor} --input {CLIPURL} --output {outputPath}").read()
     return os.path.abspath(outputPath)
 
 
@@ -169,7 +175,7 @@ def runDenoiseBenchmark(inputVideo, executor):
 def parseFPS(output):
     match = re.findall(r"fps=\s*([\d.]+)", output)
     if match:
-        print(float(match[-1]))
+        print("FPS:", float(match[-1]))
         return float(match[-1])
     else:
         print("None")
