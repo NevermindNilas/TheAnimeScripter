@@ -65,7 +65,7 @@ jobs:
         draft: true
 
     - name: Compress main directory
-      run: 7z a TAS_${{ steps.get_version.outputs.VERSION }}.7z ~dist/main/
+      run: 7z a TAS_${{ steps.get_version.outputs.VERSION }}.7z ${{ github.workspace }}/dist/main/
 
     - name: Upload Release Asset
       id: upload-release-asset
