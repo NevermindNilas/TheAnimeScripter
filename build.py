@@ -105,24 +105,45 @@ def create_executable():
     )
 
     print("Finished creating the GUI executable")
+    print("Creating the benchmark executable...")
+
+    benchmarkPath = os.path.join(base_dir, "benchmark.py")
+    subprocess.run(
+        [
+            ".\\venv\\Scripts\\pyinstaller",
+            "--noconfirm",
+            "--onedir",
+            "--console",
+            "--noupx",
+            "--clean",
+            "--icon",
+            f"{icon_path}",
+            benchmarkPath,
+        ],
+        check=True,
+    )
 
     guiInternalPath = os.path.join(base_dir, "dist", "gui", "_internal")
     mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
+    benchmarkInternalPath = os.path.join(base_dir, "dist", "benchmark", "_internal")
 
-    for filename in os.listdir(guiInternalPath):
-        guiFilePath = os.path.join(guiInternalPath, filename)
-        mainFilePath = os.path.join(mainInternalPath, filename)
+    for directory in [guiInternalPath, benchmarkInternalPath]:
+        for filename in os.listdir(directory):
+            sourceFilePath = os.path.join(directory, filename)
+            mainFilePath = os.path.join(mainInternalPath, filename)
 
-        if os.path.isfile(guiFilePath):
-            shutil.copy2(guiFilePath, mainFilePath)
+            if os.path.isfile(sourceFilePath):
+                shutil.copy2(sourceFilePath, mainFilePath)
 
-        elif os.path.isdir(guiFilePath):
-            shutil.copytree(guiFilePath, mainFilePath, dirs_exist_ok=True)
+            elif os.path.isdir(sourceFilePath):
+                shutil.copytree(sourceFilePath, mainFilePath, dirs_exist_ok=True)
 
     guiExeFilePath = os.path.join(base_dir, "dist", "gui", "gui.exe")
+    benchmarkExeFilePath = os.path.join(base_dir, "dist", "benchmark", "benchmark.exe")
     mainExeFilePath = os.path.join(base_dir, "dist", "main")
 
     shutil.move(guiExeFilePath, mainExeFilePath)
+    shutil.move(benchmarkExeFilePath, mainExeFilePath)
     mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
 
 
@@ -172,62 +193,22 @@ def clean_up():
     except Exception as e:
         print("Error while removing gui folder: ", e)
 
-    print("\n")
-    #answer = input("Do you want to clean up the residual files? (y/n): ")
-    answer = "n"
-    if answer.lower() == "y":
-        print("Cleaning up...")
-        try:
-            spec_file = os.path.join(base_dir, "main.spec")
-            if os.path.exists(spec_file):
-                os.remove(spec_file)
-        except Exception as e:
-            print("Error while removing spec file: ", e)
-
-        try:
-            venv_file = os.path.join(base_dir, "venv")
-            if os.path.exists(venv_file):
-                shutil.rmtree(venv_file)
-        except Exception as e:
-            print("Error while removing the venv: ", e)
-
-        try:
-            build_dir = os.path.join(base_dir, "build")
-            if os.path.exists(build_dir):
-                shutil.rmtree(build_dir)
-        except Exception as e:
-            print("Error while removing the build directory: ", e)
-
-        try:
-            pycache_dir = os.path.join(base_dir, "__pycache__")
-            if os.path.exists(pycache_dir):
-                shutil.rmtree(pycache_dir)
-        except Exception as e:
-            print("Error while removing the pycache directory: ", e)
-
-    else:
-        print("Skipping Cleanup...")
-
     print("Done!, you can find the built executable in the dist folder")
 
+def rename_dist():
+    main_dir = os.path.join(base_dir, "dist", "main")
+    os.rename(main_dir, os.path.join(base_dir, "dist", f"TAS-{scriptVersion}"))
 
 def compress_dist():
     print("Compressing the dist folder...")
-    #answer = input(
-    #    "Do you want to compress the file with 7z? NOTE: It requires 7z to be installed and on path. (y/n): "
-    #)
-    answer = "n"
 
-    if answer.lower() == "y":
-        print("Compressing the dist folder, this can take a while...")
-        tempDistPath = os.path.join(distPath, "main")
-        subprocess.run(
-            ["7z", "a", "-mx9", os.path.join(distPath, outputName), tempDistPath],
-            shell=True,
-            check=True,
-        )
-    else:
-        print("Skipping Compression...")
+    print("Compressing the dist folder, this can take a while...")
+    tempDistPath = os.path.join(distPath, "main")
+    subprocess.run(
+        ["7z", "a", "-mx9", os.path.join(distPath, outputName), tempDistPath],
+        shell=True,
+        check=True,
+    )
 
     print("Done!, you can find the compressed file in the root folder")
 
@@ -240,4 +221,6 @@ if __name__ == "__main__":
     create_executable()
     move_extras()
     clean_up()
+    rename_dist()
     compress_dist()
+    
