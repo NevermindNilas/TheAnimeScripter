@@ -1,0 +1,71 @@
+name: Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with: 
+        submodules: recursive
+
+    - uses: Jimver/cuda-toolkit@v0.2.15
+      id: cuda-toolkit
+      with:
+        cuda: '12.4.1'
+    - run: |
+      echo "Installed cuda version is: ${{steps.cuda-toolkit.outputs.cuda}}"
+    
+    - run: |
+      echo "Cuda install location: ${{steps.cuda-toolkit.outputs.CUDA_PATH}}"
+
+    - run: nvcc -V
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3'
+
+    - name: Install setuptools
+      run: python -m pip install --upgrade pip setuptools
+
+    - name: Run build script
+      run: python build.py --venv
+
+    - name: Extract version
+      id: get_version
+      run: |
+        echo ::set-output name=VERSION::$(python -c "from main import scriptVersion; print(scriptVersion)")
+    - name: Print version
+      id: print_version
+      run: |
+        python -c "from main import scriptVersion; print(scriptVersion)"
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.TAS }}
+      with:
+        tag_name: TAS_${{ steps.get_version.outputs.VERSION }}
+        release_name: TAS_${{ steps.get_version.outputs.VERSION }}
+        draft: true
+
+    - name: Compress main directory
+      uses: edgarrc/action-7z@v1.0.5
+      with:
+        args: a main.7z main/
+
+    - name: Upload Release Asset
+      id: upload_release_asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.TAS }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./main.7z
+        asset_name: main.7z
+        asset_content_type: application/x-7z-compressed
