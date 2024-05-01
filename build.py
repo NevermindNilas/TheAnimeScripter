@@ -173,8 +173,8 @@ def clean_up():
         print("Error while removing gui folder: ", e)
 
     print("\n")
-    answer = input("Do you want to clean up the residual files? (y/n): ")
-
+    #answer = input("Do you want to clean up the residual files? (y/n): ")
+    answer = "n"
     if answer.lower() == "y":
         print("Cleaning up...")
         try:
@@ -213,9 +213,10 @@ def clean_up():
 
 def compress_dist():
     print("Compressing the dist folder...")
-    answer = input(
-        "Do you want to compress the file with 7z? NOTE: It requires 7z to be installed and on path. (y/n): "
-    )
+    #answer = input(
+    #    "Do you want to compress the file with 7z? NOTE: It requires 7z to be installed and on path. (y/n): "
+    #)
+    answer = "n"
 
     if answer.lower() == "y":
         print("Compressing the dist folder, this can take a while...")
