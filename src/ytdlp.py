@@ -52,7 +52,7 @@ class VideoDownloader:
         with YoutubeDL(options) as ydl:
             info_dict = ydl.extract_info(self.link, download=False)
             formats = info_dict.get('formats', [])
-            resolutions = [f.get('height') for f in formats if f.get('height') and f.get('height') >= 360]
+            resolutions = [f.get('height') for f in formats if f.get('height') and f.get('height') >= 240]
             return sorted(set(resolutions), reverse=True)
     
 
