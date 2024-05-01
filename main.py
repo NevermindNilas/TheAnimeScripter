@@ -29,7 +29,7 @@ from threading import Semaphore
 from concurrent.futures import ThreadPoolExecutor
 from src.argumentsChecker import argumentChecker
 from src.getVideoMetadata import getVideoMetadata
-from src.initializeModels import intitialize_models
+from src.initializeModels import initializeModels, Segment
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
@@ -82,6 +82,7 @@ class VideoProcessor:
         self.sample_size = args.sample_size
         self.benchmark = args.benchmark
         self.consent = args.consent
+        self.segment_method = args.segment_method
 
         self.width, self.height, self.fps = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
@@ -139,34 +140,15 @@ class VideoProcessor:
             )
 
         elif self.segment:
-            from src.segment.segment import Segment
-
             logging.info("Segmenting video")
-
-            Segment(
-                self.input,
-                self.output,
-                self.ffmpeg_path,
-                self.width,
-                self.height,
-                self.outputFPS,
-                self.inpoint,
-                self.outpoint,
-                self.encode_method,
-                self.custom_encoder,
-                self.nt,
-                self.buffer_limit,
-                self.benchmark,
-            )
-
+            Segment(self)
+            
         else:
             self.start()
 
         if self.consent:
             from src.consent import Consent
-
-            logPath = os.path.join(mainPath, "log.txt")
-            Consent(logPath)
+            Consent(logPath=os.path.join(mainPath, "log.txt"))
 
     def processFrame(self, frame):
         try:
@@ -231,7 +213,7 @@ class VideoProcessor:
                 self.interpolate_process,
                 self.denoise_process,
                 self.dedup_process,
-            ) = intitialize_models(self)
+            ) = initializeModels(self)
 
             self.readBuffer = BuildBuffer(
                 self.input,
@@ -434,6 +416,7 @@ if __name__ == "__main__":
     argparser.add_argument("--benchmark", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--offline", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--consent", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--segment_method", type=str, default="anime", choices=["anime", "sam-vitb", "sam-vitl", "sam-vith"])
 
     args = argparser.parse_args()
     args = argumentChecker(args, mainPath, scriptVersion)
