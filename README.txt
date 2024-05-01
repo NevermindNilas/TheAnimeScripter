@@ -9,14 +9,14 @@ Github: https://github.com/NevermindNilas/TheAnimeScripter
 !The Anime Scripter is provided as is, without any warranty. Feel free to join the Discord server and report any issues to Nilas. Learn more about the license in License.md.!
 
 # Minimum System Requirements:
-    - OS: Windows 10
+    - OS: Windows 10/11
     - CPU: Quad Core CPU
     - RAM: 16 GB
     - GPU: Any GPU with DirectX 12 and Vulkan support
     - Disk Space: ~ 6 GB
 
 # Recommended System Requirements:
-    - OS: Windows 11
+    - OS: Windows 10/11
     - CPU: Octa Core CPU
     - RAM: 32 GB
     - GPU: NVidia 3000 Series or higher / AMD 6000 Series or higher
