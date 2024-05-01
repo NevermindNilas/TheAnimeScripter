@@ -7,11 +7,10 @@ import torch
 from threading import Semaphore
 from src.downloadModels import downloadModels, weightsDir, modelsMap
 from concurrent.futures import ThreadPoolExecutor
-from .train import AnimeSegmentation
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
+from .train import AnimeSegmentation
 
-
-class Segment:
+class AnimeSegment: # A bit ambiguous because of .train import AnimeSegmentation but it's fine
     def __init__(
         self,
         input,
@@ -87,9 +86,9 @@ class Segment:
     def handleModel(self):
         filename = modelsMap("segment")
         if not os.path.exists(os.path.join(weightsDir, "segment", filename)):
-            model_path = downloadModels(model="segment")
+            modelPath = downloadModels(model="segment")
         else:
-            model_path = os.path.join(weightsDir, "segment", filename)
+            modelPath = os.path.join(weightsDir, "segment", filename)
 
         if torch.cuda.is_available():
             self.device = "cuda:0"
@@ -97,7 +96,7 @@ class Segment:
             self.device = "cpu"
 
         self.model = AnimeSegmentation.try_load(
-            "isnet_is", model_path, self.device, img_size=1024
+            "isnet_is", modelPath, self.device, img_size=1024
         )
         self.model.eval()
         self.model.to(self.device)

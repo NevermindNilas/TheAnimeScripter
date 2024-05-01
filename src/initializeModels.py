@@ -1,7 +1,46 @@
 import logging
 
 
-def intitialize_models(self):
+def Segment(self):
+    # Lazy loading for startup time reasons
+    from src.segment.animeSegment import AnimeSegment
+    from src.segment.segmentAnything import SegmentAnything
+
+    if self.segment_method == "anime":
+        AnimeSegment(
+            self.input,
+            self.output,
+            self.ffmpeg_path,
+            self.width,
+            self.height,
+            self.outputFPS,
+            self.inpoint,
+            self.outpoint,
+            self.encode_method,
+            self.custom_encoder,
+            self.nt,
+            self.buffer_limit,
+            self.benchmark,
+        )
+    else:
+        SegmentAnything(
+            self.input,
+            self.output,
+            self.ffmpeg_path,
+            self.width,
+            self.height,
+            self.outputFPS,
+            self.inpoint,
+            self.outpoint,
+            self.encode_method,
+            self.custom_encoder,
+            self.nt,
+            self.buffer_limit,
+            self.benchmark,
+            self.segment_method,
+        )
+
+def initializeModels(self):
     outputWidth = self.width
     outputHeight = self.height
     upscale_process = None

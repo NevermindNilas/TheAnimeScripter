@@ -6,10 +6,10 @@ from tqdm import tqdm
 dirPath = os.path.dirname(__file__)
 weightsDir = os.path.join(dirPath, "weights")
 url = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
-depthURL = (
+DEPTHURL = (
     "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/"
 )
-
+SEGMENTURL = "https://dl.fbaipublicfiles.com/segment_anything/" # VITH is well over 2GB and instead of hosting on Github I will just use the official repo
 
 def modelsList() -> list[str]:
     return [
@@ -37,6 +37,9 @@ def modelsList() -> list[str]:
         "vits",
         "vitb",
         "vitl",
+        "sam-vitb",
+        "sam-vitl",
+        "sam-vith",
         "cugan-directml",
         "shufflecugan-directml",
         "compact-directml",
@@ -203,6 +206,15 @@ def modelsMap(
 
         case "vitl":
             return "depth_anything_vitl14.pth"
+        
+        case "sam-vitb":
+            return "sam_vit_b_01ec64.pth"
+
+        case "sam-vitl":
+            return "sam_vit_l_0b3195.pth"
+
+        case "sam-vith":
+            return "sam_vit_h_4b8939.pth"
 
         case _:
             raise ValueError(f"Model {model} not found.")
@@ -259,7 +271,9 @@ def downloadModels(
     os.makedirs(folderPath, exist_ok=True)
 
     if model in ["vits", "vitb", "vitl"]:
-        fullUrl = f"{depthURL}{filename}"
+        fullUrl = f"{DEPTHURL}{filename}"
+    elif model in ["vit_h", "vit_l", "vit_b"]:
+        fullUrl = f"{SEGMENTURL}{filename}"
     else:
         fullUrl = f"{url}{filename}"
 
