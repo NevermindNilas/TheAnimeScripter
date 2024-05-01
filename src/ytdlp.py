@@ -53,7 +53,7 @@ class VideoDownloader:
             info_dict = ydl.extract_info(self.link, download=False)
             formats = info_dict.get('formats', [])
             resolutions = [f.get('height') for f in formats if f.get('height') and f.get('height') >= 360]
-            return sorted(set(resolutions))
+            return sorted(set(resolutions), reverse=True)
     
 
     def downloadVideo(self):
