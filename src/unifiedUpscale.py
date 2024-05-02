@@ -97,11 +97,6 @@ class UniversalPytorch:
                 self.model.half()
 
     @torch.inference_mode()
-    def padFrame(self, frame):
-        frame = F.pad(frame, [0, self.padWidth, 0, self.padHeight])
-        return frame
-
-    @torch.inference_mode()
     def run(self, frame: np.ndarray) -> np.ndarray:
         """
         Upscale a frame using a desired model, and return the upscaled frame
@@ -116,6 +111,7 @@ class UniversalPytorch:
                 .mul_(1 / 255)
                 .to(self.device)
             )
+            
             frame = frame.half() if self.half and self.isCudaAvailable else frame
             frame = self.model(frame)
 

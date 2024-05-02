@@ -102,14 +102,6 @@ class UnifiedDenoise:
                     torch.set_default_dtype(torch.bfloat16)
                     self.model.bfloat16()
 
-        self.padWidth = 0 if self.width % 8 == 0 else 8 - (self.width % 8)
-        self.padHeight = 0 if self.height % 8 == 0 else 8 - (self.height % 8)
-
-    @torch.inference_mode()
-    def pad_frame(self, frame):
-        frame = F.pad(frame, [0, self.padWidth, 0, self.padHeight])
-        return frame
-
     @torch.inference_mode()
     def run(self, frame: np.ndarray) -> np.ndarray:
         """
@@ -123,24 +115,17 @@ class UnifiedDenoise:
                 .unsqueeze(0)
                 .float()
                 .mul_(1 / 255)
+                .to(self.device)
             )
-
-            frame = frame.contiguous(memory_format=torch.channels_last)
 
             if self.isCudaAvailable:
                 if self.half:
                     if self.precision == "fp16":
-                        frame = frame.cuda().half()
+                        frame = frame.half()
                     elif self.precision == "bfloat16":
-                        frame = frame.cuda().bfloat16()
-                else:
-                    frame = frame.cuda()
-
-            if self.padWidth != 0 or self.padHeight != 0:
-                frame = self.pad_frame(frame)
+                        frame = frame.bfloat16()
 
             frame = self.model(frame)
-            frame = frame[:, :, : self.height, : self.width]
             frame = frame.squeeze(0).permute(1, 2, 0).mul_(255).byte()
 
             return frame.cpu().numpy()
