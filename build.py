@@ -195,24 +195,6 @@ def clean_up():
 
     print("Done!, you can find the built executable in the dist folder")
 
-def rename_dist():
-    main_dir = os.path.join(base_dir, "dist", "main")
-    os.rename(main_dir, os.path.join(base_dir, "dist", f"TAS-{scriptVersion}"))
-
-def compress_dist():
-    print("Compressing the dist folder...")
-
-    print("Compressing the dist folder, this can take a while...")
-    tempDistPath = os.path.join(distPath, "main")
-    subprocess.run(
-        ["7z", "a", "-mx9", os.path.join(distPath, outputName), tempDistPath],
-        shell=True,
-        check=True,
-    )
-
-    print("Done!, you can find the compressed file in the root folder")
-
-
 if __name__ == "__main__":
     create_venv()
     activate_venv()
@@ -221,6 +203,4 @@ if __name__ == "__main__":
     create_executable()
     move_extras()
     clean_up()
-    rename_dist()
-    compress_dist()
     
