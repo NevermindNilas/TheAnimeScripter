@@ -78,7 +78,7 @@ class VideoDownloader:
             }
         else:
             return {
-                "format": "bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]",
+                "format": f"bestvideo[height<={self.resolution}][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]",
                 "outtmpl": self.output,
                 "ffmpeg_location": os.path.dirname(self.ffmpegPath),
                 "quiet": True,
