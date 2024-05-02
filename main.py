@@ -317,7 +317,6 @@ if __name__ == "__main__":
             "superultracompact-directml",
             "span-directml",
             "cugan-directml",
-            "shufflecugan-directml",
             "realesrgan-directml",
             "realesrgan-ncnn",
             "cugan-ncnn",

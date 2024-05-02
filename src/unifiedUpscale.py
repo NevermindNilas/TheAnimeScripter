@@ -296,7 +296,55 @@ class UniversalDirectML:
 
         return frame
 
+"""
+        self.frame = torch.zeros(
+            (1, 3, self.height + self.padHeight, self.width + self.padWidth), device=self.device, dtype=torch.float16 if self.half and self.isCudaAvailable else torch.float32
+        )
 
+        self.frame = self.frame.contiguous()
+
+        #calibrator = Calibrator(data_loader=self.frame)
+        profiles = [
+            # The low-latency case. For best performance, min == opt == max.
+            Profile().add("input", min=(1, 3, self.height + self.padHeight, self.width + self.padWidth), opt=(1, 3, self.height + self.padHeight, self.width + self.padWidth), max=(1, 3, self.height + self.padHeight, self.width + self.padWidth)),
+        ]
+        self.engine = engine_from_network(
+            network_from_onnx_path(self.modelPath),
+            config=CreateConfig(fp16=True, profiles=profiles),
+        )
+
+        self.runner = TrtRunner(self.engine)
+        self.runner.activate()
+
+    @torch.inference_mode()
+    def padFrame(self, frame):
+        frame = F.pad(frame, [0, self.padWidth, 0, self.padHeight])
+        return frame
+
+    @torch.inference_mode()
+    def run(self, frame: np.ndarray) -> np.ndarray:
+        with torch.no_grad():
+            frame = (
+                torch.from_numpy(frame)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .float()
+                .mul_(1 / 255)
+            )
+            frame = frame.half() if self.half and self.isCudaAvailable else frame
+
+            if self.padWidth != 0 or self.padHeight != 0:
+                frame = self.padFrame(frame)
+
+            self.frame.copy_(frame)
+        
+            frame = self.runner.infer({"input": self.frame}, ["output"])
+            frame = copy.deepcopy(frame["output"])
+
+            #if self.padWidth != 0 or self.padHeight != 0:
+            #    frame = frame[..., : self.height, : self.width]
+
+            return frame.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()"""
 """
 
 Another TensorRT implementation that uses CUDA for data transfer
