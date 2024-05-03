@@ -2,7 +2,6 @@ import os
 import torch
 import numpy as np
 import logging
-import torch.nn.functional as F
 # import torch_tensorrt as trt
 
 import onnxruntime as ort
