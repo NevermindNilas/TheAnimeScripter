@@ -80,6 +80,7 @@ class UniversalPytorch:
         if self.customModel:
             assert isinstance(self.model, ImageModelDescriptor)
 
+        
         self.isCudaAvailable = torch.cuda.is_available()
         self.model = (
             self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()
@@ -271,54 +272,89 @@ class UniversalDirectML:
         return frame
 
 """
-        self.frame = torch.zeros(
-            (1, 3, self.height + self.padHeight, self.width + self.padWidth), device=self.device, dtype=torch.float16 if self.half and self.isCudaAvailable else torch.float32
-        )
+    def handleModel(self):
+        #Load the desired model
+        if not self.customModel:
+            self.filename = modelsMap(
+                self.upscaleMethod, self.upscaleFactor, modelType="pth"
+            )
+            if not os.path.exists(
+                os.path.join(weightsDir, self.upscaleMethod, self.filename)
+            ):
+                modelPath = downloadModels(
+                    model=self.upscaleMethod,
+                    upscaleFactor=self.upscaleFactor,
+                )
+            else:
+                modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
+        else:
+            if os.path.isfile(self.customModel):
+                modelPath = self.customModel
+            else:
+                raise FileNotFoundError(
+                    f"Custom model file {self.customModel} not found"
+                )
+        try:
+            self.model = ModelLoader().load_from_file(modelPath)
+        except Exception as e:
+            logging.error(f"Error loading model: {e}")
 
-        self.frame = self.frame.contiguous()
+        if self.customModel:
+            assert isinstance(self.model, ImageModelDescriptor)
+        # Just an __init__ function for the model and engine
+        self.isCudaAvailable = torch.cuda.is_available() # Check if CUDA is available
 
-        #calibrator = Calibrator(data_loader=self.frame)
+        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu") # Set the device to CUDA if available, else CPU
+        if self.isCudaAvailable:
+            # self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
+            # self.currentStream = 0
+            torch.backends.cudnn.enabled = True
+            torch.backends.cudnn.benchmark = True
+            if self.half:
+                torch.set_default_dtype(torch.float16)
+
         profiles = [
             # The low-latency case. For best performance, min == opt == max.
-            Profile().add("input", min=(1, 3, self.height + self.padHeight, self.width + self.padWidth), opt=(1, 3, self.height + self.padHeight, self.width + self.padWidth), max=(1, 3, self.height + self.padHeight, self.width + self.padWidth)),
+            Profile().add(
+                "input",
+                min=(1, 3, self.height, self.width),
+                opt=(1, 3, self.height, self.width),
+                max=(1, 3, self.height, self.width),
+            ),
         ]
         self.engine = engine_from_network(
             network_from_onnx_path(self.modelPath),
             config=CreateConfig(fp16=True, profiles=profiles),
         )
 
-        self.runner = TrtRunner(self.engine)
-        self.runner.activate()
 
-    @torch.inference_mode()
-    def padFrame(self, frame):
-        frame = F.pad(frame, [0, self.padWidth, 0, self.padHeight])
-        return frame
-
+    
     @torch.inference_mode()
     def run(self, frame: np.ndarray) -> np.ndarray:
-        with torch.no_grad():
-            frame = (
-                torch.from_numpy(frame)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .float()
-                .mul_(1 / 255)
-            )
-            frame = frame.half() if self.half and self.isCudaAvailable else frame
+        frame = (
+            torch.from_numpy(frame)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            .float()
+            .mul_(1 / 255)
+        ) # norm ops from np.uint8 to torch.float32
 
-            if self.padWidth != 0 or self.padHeight != 0:
-                frame = self.padFrame(frame)
+        frame = frame.half() if self.half and self.isCudaAvailable else frame # Convert to half precision if half is enabled and CUDA is available
 
-            self.frame.copy_(frame)
-        
-            frame = self.runner.infer({"input": self.frame}, ["output"])
-            frame = copy.deepcopy(frame["output"])
+        with TrtRunner(self.engine) as runner:
+            frame = runner.infer({"input": frame}, ["output"])["output"] # Run the model with TensorRT, outputs only the necessary output tensor
 
-            #if self.padWidth != 0 or self.padHeight != 0:
-            #    frame = frame[..., : self.height, : self.width]
+        return (
+            frame.squeeze(0)
+            .permute(1, 2, 0)
+            .mul_(255)
+            .clamp(1, 255)
+            .byte()
+            .cpu()
+            .numpy()
+        )
+"""
 
-            return frame.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()"""
 """
 
 Another TensorRT implementation that uses CUDA for data transfer

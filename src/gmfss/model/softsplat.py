@@ -39,16 +39,16 @@ def cuda_kernel(strFunction:str, strKernel:str, objVariables:typing.Dict):
         if objValue is None:
             continue
 
-        elif type(objValue) == int:
+        elif isinstance(objValue, int):
             strKey += str(objValue)
 
-        elif type(objValue) == float:
+        elif isinstance(objValue, float):
             strKey += str(objValue)
 
-        elif type(objValue) == bool:
+        elif isinstance(objValue, bool):
             strKey += str(objValue)
 
-        elif type(objValue) == str:
+        elif isinstance(objValue, str):
             strKey += objValue
 
         elif type(objValue) == torch.Tensor:
@@ -72,16 +72,16 @@ def cuda_kernel(strFunction:str, strKernel:str, objVariables:typing.Dict):
             if objValue is None:
                 continue
 
-            elif type(objValue) == int:
+            elif isinstance(objValue, int):
                 strKernel = strKernel.replace('{{' + strVariable + '}}', str(objValue))
-
-            elif type(objValue) == float:
+            
+            elif isinstance(objValue, float):
                 strKernel = strKernel.replace('{{' + strVariable + '}}', str(objValue))
-
-            elif type(objValue) == bool:
+            
+            elif isinstance(objValue, bool):
                 strKernel = strKernel.replace('{{' + strVariable + '}}', str(objValue))
-
-            elif type(objValue) == str:
+            
+            elif isinstance(objValue, str):
                 strKernel = strKernel.replace('{{' + strVariable + '}}', objValue)
 
             elif type(objValue) == torch.Tensor and objValue.dtype == torch.uint8:
@@ -239,54 +239,47 @@ def cuda_launch(strKey:str):
 
 
 def softsplat(tenIn:torch.Tensor, tenFlow:torch.Tensor, tenMetric:torch.Tensor, strMode:str):
-    assert(strMode.split('-')[0] in ['sum', 'avg', 'linear', 'soft'])
+    mode_parts = strMode.split('-')
+    mode_main = mode_parts[0]
+    mode_sub = mode_parts[1] if len(mode_parts) > 1 else None
 
-    if strMode == 'sum': assert(tenMetric is None)
-    if strMode == 'avg': assert(tenMetric is None)
-    if strMode.split('-')[0] == 'linear': assert(tenMetric is not None)
-    if strMode.split('-')[0] == 'soft': assert(tenMetric is not None)
+    assert(mode_main in ['sum', 'avg', 'linear', 'soft'])
+    if mode_main in ['sum', 'avg']: assert(tenMetric is None)
+    if mode_main in ['linear', 'soft']: assert(tenMetric is not None)
 
     orig_dtype = tenIn.dtype
     tenIn = tenIn.float()
     tenFlow = tenFlow.float()
-    tenMetric = tenMetric.float()
+    if tenMetric is not None:
+        tenMetric = tenMetric.float()
 
-    if strMode == 'avg':
-        tenIn = torch.cat([tenIn, tenIn.new_ones([tenIn.shape[0], 1, tenIn.shape[2], tenIn.shape[3]])], 1)
+    mode_to_operation = {
+        'avg': lambda: torch.cat([tenIn, tenIn.new_ones([tenIn.shape[0], 1, tenIn.shape[2], tenIn.shape[3]])], 1),
+        'linear': lambda: torch.cat([tenIn * tenMetric, tenMetric], 1),
+        'soft': lambda: torch.cat([tenIn * tenMetric.exp(), tenMetric.exp()], 1)
+    }
 
-    elif strMode.split('-')[0] == 'linear':
-        tenIn = torch.cat([tenIn * tenMetric, tenMetric], 1)
-
-    elif strMode.split('-')[0] == 'soft':
-        tenIn = torch.cat([tenIn * tenMetric.exp(), tenMetric.exp()], 1)
-
-    # end
+    if mode_main in mode_to_operation:
+        tenIn = mode_to_operation[mode_main]()
 
     tenOut = softsplat_func.apply(tenIn, tenFlow)
 
-    if strMode.split('-')[0] in ['avg', 'linear', 'soft']:
+    if mode_main in ['avg', 'linear', 'soft']:
         tenNormalize = tenOut[:, -1:, :, :]
 
-        if len(strMode.split('-')) == 1:
-            tenNormalize = tenNormalize + 0.0000001
+        normalize_modes = {
+            None: lambda x: x + 0.0000001,
+            'addeps': lambda x: x + 0.0000001,
+            'zeroeps': lambda x: torch.where(x == 0.0, torch.tensor(1.0, device=x.device), x),
+            'clipeps': lambda x: x.clip(0.0000001, None)
+        }
 
-        elif strMode.split('-')[1] == 'addeps':
-            tenNormalize = tenNormalize + 0.0000001
-
-        elif strMode.split('-')[1] == 'zeroeps':
-            tenNormalize[tenNormalize == 0.0] = 1.0
-
-        elif strMode.split('-')[1] == 'clipeps':
-            tenNormalize = tenNormalize.clip(0.0000001, None)
-
-        # end
+        if mode_sub in normalize_modes:
+            tenNormalize = normalize_modes[mode_sub](tenNormalize)
 
         tenOut = tenOut[:, :-1, :, :] / tenNormalize
-    # end
 
     return tenOut.to(orig_dtype)
-# end
-
 
 class softsplat_func(torch.autograd.Function):
     @staticmethod

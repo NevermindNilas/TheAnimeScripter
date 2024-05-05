@@ -9,7 +9,8 @@ url = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
 DEPTHURL = (
     "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/"
 )
-SEGMENTURL = "https://dl.fbaipublicfiles.com/segment_anything/" # VITH is well over 2GB and instead of hosting on Github I will just use the official repo
+SEGMENTURL = "https://dl.fbaipublicfiles.com/segment_anything/"  # VITH is well over 2GB and instead of hosting on Github I will just use the official repo
+
 
 def modelsList() -> list[str]:
     return [
@@ -55,7 +56,7 @@ def modelsList() -> list[str]:
 
 
 def modelsMap(
-    model,
+    model: str = "compact",
     upscaleFactor: int = 2,
     modelType="pth",
     half: bool = True,
@@ -160,8 +161,8 @@ def modelsMap(
                 if half:
                     return "rife415-sim_fp16.onnx"
                 else:
-                    raise NotImplementedError #"rife415-sim_fp32.onnx"
-                
+                    raise NotImplementedError  # "rife415-sim_fp32.onnx"
+
         case "rife4.15-lite" | "rife4.15-lite-directml":
             if modelType == "pth":
                 return "rife415_lite.pth"
@@ -169,8 +170,8 @@ def modelsMap(
                 if half:
                     return "rife415_lite-sim_fp16.onnx"
                 else:
-                    raise NotImplementedError #"rife415_lite-fp32-sim.onnx"
-        
+                    raise NotImplementedError  # "rife415_lite-fp32-sim.onnx"
+
         case "rife4.14" | "rife4.14-directml":
             if modelType == "pth":
                 return "rife414.pth"
@@ -178,7 +179,7 @@ def modelsMap(
                 if half:
                     return "rife414-sim_fp16.onnx"
                 else:
-                    raise NotImplementedError #"rife414-fp32-sim.onnx"
+                    raise NotImplementedError  # "rife414-fp32-sim.onnx"
 
         case "rife4.6" | "rife4.6-directml":
             if modelType == "pth":
@@ -187,7 +188,7 @@ def modelsMap(
                 if half:
                     return "rife46-sim_fp16.onnx"
                 else:
-                    raise NotImplementedError #"rife46-fp32-sim.onnx"
+                    raise NotImplementedError  # "rife46-fp32-sim.onnx"
 
         case "rife4.16-lite":
             return "rife416_lite.pth"
@@ -206,7 +207,7 @@ def modelsMap(
 
         case "vitl":
             return "depth_anything_vitl14.pth"
-        
+
         case "sam-vitb":
             return "sam_vit_b_01ec64.pth"
 
@@ -219,6 +220,7 @@ def modelsMap(
         case _:
             raise ValueError(f"Model {model} not found.")
 
+
 def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str):
     if os.path.exists(os.path.join(folderPath, filename)):
         toLog = f"{model.upper()} model already exists at: {os.path.join(folderPath, filename)}"
@@ -230,10 +232,12 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
     print(toLog)
 
     response = requests.get(download_url, stream=True)
-    total_size_in_bytes = int(response.headers.get('content-length', 0))
-    progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True, colour='green')
+    total_size_in_bytes = int(response.headers.get("content-length", 0))
+    progress_bar = tqdm(
+        total=total_size_in_bytes, unit="iB", unit_scale=True, colour="green"
+    )
 
-    with open(os.path.join(folderPath, filename), 'wb') as file:
+    with open(os.path.join(folderPath, filename), "wb") as file:
         for data in response.iter_content(chunk_size=1024):
             progress_bar.update(len(data))
             file.write(data)
