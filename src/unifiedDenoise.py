@@ -2,7 +2,6 @@ import os
 import torch
 import logging
 import numpy as np
-import torch.nn.functional as F
 
 from spandrel import ModelLoader, ImageModelDescriptor
 from .downloadModels import downloadModels, weightsDir, modelsMap
@@ -69,11 +68,10 @@ class UnifiedDenoise:
                 modelPath = os.path.join(weightsDir, self.model, self.filename)
 
         else:
-            if os.path.isfile(self.customModel):
+            if os.path.isfile(self.customModel) and self.customModel.endswith(".pth"):
                 modelPath = self.customModel
-
             else:
-                raise FileNotFoundError(f"Model file {self.customModel} not found")
+                raise FileNotFoundError(f"Model file {self.customModel} not found or not a .pth file")
 
         try:
             self.model = ModelLoader().load_from_file(path=modelPath)
@@ -126,6 +124,5 @@ class UnifiedDenoise:
                         frame = frame.bfloat16()
 
             frame = self.model(frame)
-            
             return frame.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()
 
