@@ -5,8 +5,11 @@ backwarp_tenGrid = {}
 
 def warp(tenInput, tenFlow):
     orig_dtype = tenInput.dtype
-    tenInput = tenInput.float()
-    tenFlow = tenFlow.float()
+    if tenInput.dtype != torch.float32:
+        tenInput = tenInput.float()
+
+    if tenFlow.dtype != torch.float32:
+        tenFlow = tenFlow.float()
 
     k = (str(tenFlow.device), str(tenFlow.size()))
     if k not in backwarp_tenGrid:
