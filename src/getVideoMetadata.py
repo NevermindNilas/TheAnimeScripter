@@ -18,14 +18,14 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         cap = cv2.VideoCapture(inputPath)
     except Exception as e:
         logging.error(f"Error opening video file: {e}")
-        return
+        exit(1)
 
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     if width == 0 or height == 0:
         logging.error("Width or height cannot be zero. Please check the input video file and make sure that it was put in quotation marks.")
-        return
+        exit(1)
 
     fps = cap.get(cv2.CAP_PROP_FPS)
     nframes = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -33,15 +33,15 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
 
     codec = "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
 
-    duration = nframes / fps if fps else 0
-    inOutDuration = (outPoint - inPoint) / fps if fps else 0
+    duration = round(nframes / fps, 2) if fps else 0
+    inOutDuration = round((outPoint - inPoint) / fps, 2) if fps else 0
 
     logging.info(textwrap.dedent(f"""
     ============== Video Metadata ==============
     Width: {width}
     Height: {height}
-    AspectRatio: {width/height}
-    FPS: {fps}
+    AspectRatio: {round(width/height, 2)}
+    FPS: {round(fps, 2)}
     Number of frames: {nframes}
     Codec: {codec}
     Duration: {duration} seconds

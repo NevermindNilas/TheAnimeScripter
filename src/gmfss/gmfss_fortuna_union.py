@@ -2,9 +2,11 @@ import os
 import torch
 import logging
 import cupy
+
 from src.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
 
+torch.set_float32_matmul_precision("medium")
 # from: https://github.com/HolyWu/vs-gmfss_fortuna/blob/master/vsgmfss_fortuna/__init__.py
 
 
@@ -32,8 +34,6 @@ class GMFSS:
         self.handle_model()
 
     def handle_model(self):
-        torch.set_float32_matmul_precision("medium")
-
         if not os.path.exists(os.path.join(weightsDir, "gmfss")):
             modelDir = os.path.dirname(downloadModels("gmfss"))
         else:
@@ -77,7 +77,7 @@ class GMFSS:
 
         self.I0 = None
 
-    @torch.inference_mode()
+    @torch.inference_mode() 
     def make_inference(self, n):
         """
         if self.isCudaAvailable:
@@ -92,9 +92,9 @@ class GMFSS:
         output = self.model(self.I0, self.I1, timestep)
         output = (output[0] * 255.0).byte().cpu().numpy().transpose(1, 2, 0)
 
-        if self.isCudaAvailable:
-            torch.cuda.synchronize(self.stream[self.current_stream])
-            self.current_stream = (self.current_stream + 1) % len(self.stream)
+        #if self.isCudaAvailable:
+            #torch.cuda.synchronize(self.stream[self.current_stream])
+            #self.current_stream = (self.current_stream + 1) % len(self.stream)
 
         return output[: self.height, : self.width, :]
 
