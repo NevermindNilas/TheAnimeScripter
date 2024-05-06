@@ -27,6 +27,13 @@ def install_requirements():
         check=True,
     )
 
+def install_polygraphy():
+    print("Installing Polygraphy...")
+    cwd = os.getcwd()
+    os.chdir("TensorRT/Tools/Polygraphy")
+    subprocess.run(["powershell", "-File", "install.ps1"], check=True)
+    os.chdir(cwd)
+
 
 def install_pyinstaller():
     print("Installing PyInstaller...")
