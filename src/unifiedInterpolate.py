@@ -26,12 +26,11 @@ ort.set_default_logger_severity(3)
 class RifeCuda:
     def __init__(
         self,
-        interpolation_factor,
         half,
         width,
         height,
         UHD,
-        interpolate_method,
+        interpolateMethod,
         ensemble=False,
         nt=1,
     ):
@@ -39,22 +38,20 @@ class RifeCuda:
         Initialize the RIFE model
 
         Args:
-            interpolation_factor (int): The factor to interpolate by.
             half (bool): Whether to use half precision.
             width (int): The width of the input frame.
             height (int): The height of the input frame.
             UHD (bool): Whether to use UHD mode.
-            interpolate_method (str): The method to use for interpolation.
+            interpolateMethod (str): The method to use for interpolation.
             ensemble (bool): Whether to use ensemble mode.
             nt (int): The number of streams to use, not available for now.
         """
-        self.interpolation_factor = interpolation_factor
         self.half = half
         self.UHD = UHD
         self.scale = 1.0
         self.width = width
         self.height = height
-        self.interpolate_method = interpolate_method
+        self.interpolateMethod = interpolateMethod
         self.ensemble = ensemble
         self.nt = nt
 
@@ -68,13 +65,13 @@ class RifeCuda:
         Load the desired model
         """
 
-        self.filename = modelsMap(self.interpolate_method)
+        self.filename = modelsMap(self.interpolateMethod)
         if not os.path.exists(os.path.join(weightsDir, "rife", self.filename)):
-            modelPath = downloadModels(model=self.interpolate_method)
+            modelPath = downloadModels(model=self.interpolateMethod)
         else:
             modelPath = os.path.join(weightsDir, "rife", self.filename)
 
-        match self.interpolate_method:
+        match self.interpolateMethod:
             case "rife" | "rife4.15":
                 from .rifearches.IFNet_rife415 import IFNet
             case "rife4.15-lite":
@@ -407,17 +404,8 @@ class RifeTensorRT:
         self.handleModel()
 
     def handleModel(self):
-        # Reusing the directML models for TensorRT since both require ONNX models
-        if "tensorrt" in self.interpolateMethod:
-            self.interpolateMethod = self.interpolateMethod.replace(
-                "-tensorrt", "-directml"
-            )
-
-        if not self.half:
-            raise NotImplementedError("FP32 is not supported with TensorRT")
-
         self.filename = modelsMap(
-            self.interpolateMethod, modelType="onnx", half=self.half
+            self.interpolateMethod, modelType="onnx", half=self.half, ensemble=self.ensemble
         )
 
         if not os.path.exists(
@@ -438,16 +426,9 @@ class RifeTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
-        ph = ((self.height - 1) // 32 + 1) * 32
-        pw = ((self.width - 1) // 32 + 1) * 32
-        self.padding = (0, pw - self.width, 0, ph - self.height)
-
-        modelPath = (
-            r"C:\Users\nilas\Downloads\rife46_ensembleFalse_op18_fp16_clamp_sim.onnx"
-        )
         # TO:DO account for FP16/FP32
         if not os.path.exists(modelPath.replace(".onnx", ".engine")):
-            toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
+            toPrint = f"Engine not found, creating dynamic engine for model: {modelPath}, this may take a while, but it is worth the wait..."
             print(blue(toPrint))
             logging.info(toPrint)
             profiles = [
@@ -455,7 +436,7 @@ class RifeTensorRT:
                     "input",
                     min=(1, 8, 32, 32),
                     opt=(1, 8, self.height, self.width),
-                    max=(1, 8, 2160, 3840),
+                    max=(1, 8, 2176, 3840),
                 )
             ]
             self.engine = engine_from_network(
