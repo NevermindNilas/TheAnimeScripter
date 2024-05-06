@@ -30,7 +30,9 @@ def install_requirements():
 def install_polygraphy():
     print("Installing Polygraphy...")
     cwd = os.getcwd()
-    os.chdir("TensorRT/Tools/Polygraphy")
+    # Assuming the tensorrt folder is outside the venv directory
+    tensorrt_dir = os.path.join(base_dir, "tensorrt", "Tools", "Polygraphy")
+    os.chdir(tensorrt_dir)
     subprocess.run(["powershell", "-File", "install.ps1"], check=True)
     os.chdir(cwd)
 
@@ -207,7 +209,7 @@ if __name__ == "__main__":
     activate_venv()
     install_requirements()
     install_polygraphy()
-    #install_pyinstaller()
+    install_pyinstaller()
     create_executable()
     move_extras()
     clean_up()
