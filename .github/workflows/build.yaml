@@ -13,13 +13,6 @@ jobs:
         with:
           submodules: recursive
 
-      #- uses: Jimver/cuda-toolkit@v0.2.15
-      #  id: cuda-toolkit
-      #  with:
-      #    cuda: '12.4.1'
-
-      #- run: nvcc -V
-
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -37,14 +30,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      - name: Git Clone TensorRT
-        run: git clone https://github.com/NVIDIA/TensorRT
+      #- name: Git Clone TensorRT
+      #  run: git clone https://github.com/NVIDIA/TensorRT
+#
+      #- name: CD To Polygraphy and Install Latest Polygraphy
+      #  run: |
+      #    cd TensorRT/tools/Polygraphy
+      #    ./install.ps1
 
-      - name: CD To Polygraphy and Install Latest Polygraphy
-        run: |
-          cd TensorRT/tools/Polygraphy
-          ./install.ps1
-          
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
