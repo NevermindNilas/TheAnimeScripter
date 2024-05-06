@@ -6,10 +6,22 @@ import onnxruntime as ort
 
 from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
+from polygraphy.backend.trt import (
+    TrtRunner,
+    engine_from_network,
+    network_from_onnx_path,
+    CreateConfig,
+    Profile,
+    EngineFromBytes,
+    SaveEngine,
+)
+from polygraphy.backend.common import BytesFromPath
+from .coloredPrints import blue
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
 ort.set_default_logger_severity(3)
+
 
 class RifeCuda:
     def __init__(
@@ -112,6 +124,7 @@ class RifeCuda:
             if self.half and self.isCudaAvailable
             else torch.float32,
         ).to(self.device)
+
         self.I1 = torch.zeros(
             1,
             3,
@@ -133,7 +146,7 @@ class RifeCuda:
         return output
 
     def cacheFrame(self):
-        self.I0.copy_(self.I1)
+        self.I0.copy_(self.I1, non_blocking=True)
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -148,20 +161,19 @@ class RifeCuda:
 
         frame = frame.half() if self.half and self.isCudaAvailable else frame
 
-
         if self.padding != (0, 0, 0, 0):
             frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
 
-        return frame.contiguous(memory_format=torch.channels_last)
+        return frame
 
     @torch.inference_mode()
     def run(self, I1):
         if self.firstRun is True:
-            self.I0.copy_(self.processFrame(I1))
+            self.I0.copy_(self.processFrame(I1), non_blocking=True)
             self.firstRun = False
             return False
 
-        self.I1.copy_(self.processFrame(I1))
+        self.I1.copy_(self.processFrame(I1), non_blocking=True)
         return True
 
 
@@ -356,4 +368,162 @@ class RifeDirectML:
             return False
 
         self.dummyInput2.copy_(self.processFrame(I1))
+        return True
+
+
+class RifeTensorRT:
+    def __init__(
+        self,
+        interpolateMethod: str = "rife4.15",
+        interpolateFactor: int = 2,
+        width: int = 0,
+        height: int = 0,
+        half: bool = True,
+        ensemble: bool = False,
+        nt: int = 1,
+    ):
+        """
+        Interpolates frames using TensorRT
+
+        Args:
+            interpolateMethod (str, optional): Interpolation method. Defaults to "rife415".
+            interpolateFactor (int, optional): Interpolation factor. Defaults to 2.
+            width (int, optional): Width of the frame. Defaults to 0.
+            height (int, optional): Height of the frame. Defaults to 0.
+            half (bool, optional): Half resolution. Defaults to True.
+            ensemble (bool, optional): Ensemble. Defaults to False.
+            nt (int, optional): Number of threads. Defaults to 1.
+        """
+
+        self.interpolateMethod = interpolateMethod
+        self.interpolateFactor = interpolateFactor
+        self.width = width
+        self.height = height
+        self.half = half
+        self.ensemble = ensemble
+        self.nt = nt
+        self.model = None
+
+        self.handleModel()
+
+    def handleModel(self):
+        # Reusing the directML models for TensorRT since both require ONNX models
+        if "tensorrt" in self.interpolateMethod:
+            self.interpolateMethod = self.interpolateMethod.replace(
+                "-tensorrt", "-directml"
+            )
+
+        if not self.half:
+            raise NotImplementedError("FP32 is not supported with TensorRT")
+
+        self.filename = modelsMap(
+            self.interpolateMethod, modelType="onnx", half=self.half
+        )
+
+        if not os.path.exists(
+            os.path.join(weightsDir, self.interpolateMethod, self.filename)
+        ):
+            modelPath = downloadModels(
+                model=self.interpolateMethod,
+                modelType="onnx",
+            )
+        else:
+            modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)
+
+        self.isCudaAvailable = torch.cuda.is_available()
+        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
+        if self.isCudaAvailable:
+            torch.backends.cudnn.enabled = True
+            torch.backends.cudnn.benchmark = True
+            if self.half:
+                torch.set_default_dtype(torch.float16)
+
+        ph = ((self.height - 1) // 32 + 1) * 32
+        pw = ((self.width - 1) // 32 + 1) * 32
+        self.padding = (0, pw - self.width, 0, ph - self.height)
+
+        modelPath = (
+            r"C:\Users\nilas\Downloads\rife46_ensembleFalse_op18_fp16_clamp_sim.onnx"
+        )
+        # TO:DO account for FP16/FP32
+        if not os.path.exists(modelPath.replace(".onnx", ".engine")):
+            toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
+            print(blue(toPrint))
+            logging.info(toPrint)
+            profiles = [
+                Profile().add(
+                    "input",
+                    min=(1, 8, 32, 32),
+                    opt=(1, 8, self.height, self.width),
+                    max=(1, 8, 2160, 3840),
+                )
+            ]
+            self.engine = engine_from_network(
+                network_from_onnx_path(modelPath),
+                config=CreateConfig(fp16=self.half, profiles=profiles),
+            )
+            self.engine = SaveEngine(self.engine, modelPath.replace(".onnx", ".engine"))
+
+        else:
+            self.engine = EngineFromBytes(
+                BytesFromPath(modelPath.replace(".onnx", ".engine"))
+            )
+
+        self.runner = TrtRunner(self.engine)
+        self.runner.activate()
+
+        self.I0 = None
+        self.dType = torch.float16 if self.half else torch.float32
+
+    @torch.inference_mode()
+    def make_inference(self, n):
+        timestep = torch.tensor(
+            (n + 1) * 1.0 / (self.interpolateFactor + 1),
+            dtype=self.dType,
+            device=self.device,
+        ).repeat(self.I0.shape[0], 1, self.I0.shape[2], self.I0.shape[3])
+
+        return (
+            self.runner.infer(
+                {"input": torch.cat([self.I0, self.I1, timestep, torch.zeros_like(timestep)], dim=1)},
+                check_inputs=False,
+            )["output"]
+            .squeeze(0)
+            .permute(1, 2, 0)
+            .mul_(255)
+            .byte()
+            .cpu()
+            .numpy()
+        )
+
+    @torch.inference_mode()
+    def cacheFrame(self):
+        self.I0 = self.I1.clone()
+
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        frame = (
+            torch.from_numpy(frame)
+            .to(self.device, non_blocking=True)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            .float()
+            .mul_(1 / 255)
+        )
+
+        if self.isCudaAvailable and self.half:
+            frame = frame.half()
+
+        # if self.padding != (0, 0, 0, 0):
+        #    frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
+
+        return frame.contiguous(memory_format=torch.channels_last)
+
+    @torch.inference_mode()
+    def run(self, I1):
+        if self.I0 is None:
+            self.I0 = self.processFrame(I1)
+            return False
+
+        self.I1 = self.processFrame(I1)
         return True

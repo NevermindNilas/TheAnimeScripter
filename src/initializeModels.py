@@ -106,6 +106,18 @@ def initializeModels(self):
                     self.nt,
                 )
 
+            case "shufflecugan-tensorrt" | "cugan-tensorrt" | "compact-tensorrt" | "ultracompat-tensorrt" | "superultracompact-tensorrt" | "span-tensorrt" | "realesrgan-tensorrt":
+                from .unifiedUpscale import UniversalTensorRT
+
+                upscale_process = UniversalTensorRT(
+                    self.upscale_method,
+                    self.upscale_factor,
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.custom_model,
+                    self.nt,
+                )
     if self.interpolate:
         logging.info(
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolate_factor, '.3f')}fps"
@@ -178,6 +190,27 @@ def initializeModels(self):
                     outputWidth,
                     outputHeight,
                 )
+
+            case (
+                "rife-tensorrt"
+                | "rife4.6-tensorrt"
+                | "rife4.14-tensorrt"
+                | "rife4.15-tensorrt"
+                | "rife4.15-lite-tensorrt"
+            ):
+                
+                from src.unifiedInterpolate import RifeTensorRT
+
+                interpolate_process = RifeTensorRT(
+                    self.interpolate_method,
+                    self.interpolate_factor,
+                    outputWidth,
+                    outputHeight,
+                    self.half,
+                    self.ensemble,
+                    self.nt,
+                )
+            
 
     if self.denoise:
         match self.denoise_method:

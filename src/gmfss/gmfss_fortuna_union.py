@@ -103,6 +103,7 @@ class GMFSS:
         img = F.pad(img, self.padding)
         return img
 
+    @torch.inference_mode()
     def cacheFrame(self):
         self.I0 = self.I1.clone()
 
