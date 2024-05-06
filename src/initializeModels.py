@@ -106,7 +106,7 @@ def initializeModels(self):
                     self.nt,
                 )
 
-            case "shufflecugan-tensorrt" | "cugan-tensorrt" | "compact-tensorrt" | "ultracompat-tensorrt" | "superultracompact-tensorrt" | "span-tensorrt" | "realesrgan-tensorrt":
+            case "shufflecugan-tensorrt" | "cugan-tensorrt" | "compact-tensorrt" | "ultracompact-tensorrt" | "superultracompact-tensorrt" | "span-tensorrt" | "realesrgan-tensorrt":
                 from .unifiedUpscale import UniversalTensorRT
 
                 upscale_process = UniversalTensorRT(
@@ -136,7 +136,6 @@ def initializeModels(self):
                 from src.unifiedInterpolate import RifeCuda
 
                 interpolate_process = RifeCuda(
-                    int(self.interpolate_factor),
                     self.half,
                     outputWidth,
                     outputHeight,
