@@ -20,7 +20,6 @@ scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning
 inquirer
-polygraphy
 torch==2.2.2 
 torchvision==0.17.2
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp311-cp311-win_amd64.whl
