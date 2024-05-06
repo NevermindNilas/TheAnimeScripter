@@ -60,6 +60,7 @@ def modelsMap(
     upscaleFactor: int = 2,
     modelType="pth",
     half: bool = True,
+    ensemble: bool = False,
 ) -> str:
     """
     Maps the model to the corresponding filename.
@@ -189,6 +190,45 @@ def modelsMap(
                     return "rife46-sim_fp16.onnx"
                 else:
                     raise NotImplementedError  # "rife46-fp32-sim.onnx"
+                
+        case "rife4.6-tensorrt":
+            if half:
+                if ensemble:
+                    return "rife46_ensembleTrue_op18_fp16_clamp_sim.onnx"
+                else:
+                    return "rife46_ensembleFalse_op18_fp16_clamp_sim.onnx"
+            else:
+                if ensemble:
+                    return "rife46_ensembleTrue_op18_clamp_sim.onnx"
+                else:
+                    return "rife46_ensembleFalse_op18_clamp_sim.onnx"
+        
+        case "rife4.14-tensorrt":
+            if half:
+                if ensemble:
+                    return "rife414_ensembleTrue_op18_fp16_clamp_sim.onnx"
+                else:
+                    return "rife414_ensembleFalse_op18_fp16_clamp_sim.onnx"
+            else:
+                if ensemble:
+                    return "rife414_ensembleTrue_op18_clamp_sim.onnx"
+                else:
+                    return "rife414_ensembleFalse_op18_clamp_sim.onnx"
+                
+        case "rife4.15-tensorrt":
+            if half:
+                if ensemble:
+                    return "rife415_ensembleTrue_op19_fp16_clamp_sim.onnx"
+                else:
+                    return "rife415_ensembleFalse_op19_fp16_clamp_sim.onnx"
+            else:
+                if ensemble:
+                    return "rife415_ensembleTrue_op19_clamp_sim.onnx"
+                else:
+                    return "rife415_ensembleFalse_op19_clamp_sim.onnx"
+                
+        case "rife4.15-lite-tensorrt":
+            raise NotImplementedError
 
         case "rife4.16-lite":
             return "rife416_lite.pth"
