@@ -1,0 +1,78 @@
+name: Build
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.11.9"
+
+      - name: Install setuptools
+        run: python -m pip install --upgrade pip setuptools
+
+      # This should hopefully work
+      - name: Cache pip modules
+        uses: actions/cache@v3
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Git Clone TensorRT
+        run: git clone https://github.com/NVIDIA/TensorRT
+
+      - name: CD To Polygraphy and Install Latest Polygraphy
+        run: |
+          cd TensorRT/tools/Polygraphy
+          ./install.ps1
+          
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Sanity Check - List pip modules
+        run: python -m pip list
+
+      - name: PyInstaller Windows
+        uses: JackMcKew/pyinstaller-action-windows@main
+        with:
+          path: src
+      
+      - name: Pyinstaller - Benhmark
+        uses: JackMcKew/pyinstaller-action-windows@main
+        with:
+          path: src/benchmark.spec
+
+      - name: Move Extras
+        run: |
+          # Add commands to move any extra files or directories here
+
+      - name: Clean Up
+        run: |
+          # Add commands to clean up unnecessary files here
+
+      - name: Extract version
+        id: get_version
+        shell: bash
+        run: |
+          echo "VERSION=$(python -c "from main import scriptVersion; print(scriptVersion)")" >> $GITHUB_ENV
+
+      - name: Print version
+        run: |
+          echo "Version: $VERSION"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TAS }}
+        with:
+          tag_name: TAS_${{ steps.get_version.outputs.VERSION }}
