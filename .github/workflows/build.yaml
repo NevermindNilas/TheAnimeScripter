@@ -37,6 +37,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
+      - name: Git Clone TensorRT
+        run: git clone https://github.com/NVIDIA/TensorRT
+
+      - name: CD To Polygraphy and Install Latest Polygraphy
+        run: |
+          cd TensorRT/tools/Polygraphy
+          ./install.ps1
+          
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
 
@@ -56,13 +64,6 @@ jobs:
         run: |
           echo "Version: $VERSION"
 
-      - name: Git Clone TensorRT
-        run: git clone https://github.com/NVIDIA/TensorRT
-
-      - name: CD To Polygraphy and Install Latest Polygraphy
-        run: |
-          cd TensorRT/tools/Polygraphy
-          ./install.ps1
 
       - name: Create Release
         id: create_release
