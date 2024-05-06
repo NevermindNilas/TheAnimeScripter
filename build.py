@@ -34,6 +34,13 @@ def install_pyinstaller():
         [".\\venv\\Scripts\\python", "-m", "pip", "install", "pyinstaller"], check=True
     )
 
+def install_polygraphy():
+    print("Installing Polygraphy...")
+    tensorrt_dir = os.path.join(base_dir, "TensorRT")
+    polygraphy_dir = os.path.join(tensorrt_dir, "Tools", "Polygraphy")
+    install_script = os.path.join(polygraphy_dir, "install.ps1")
+    subprocess.run(["powershell", "-File", install_script], check=True)
+
 
 def create_executable():
     print("Creating executable with PyInstaller...")
@@ -198,6 +205,7 @@ def clean_up():
 if __name__ == "__main__":
     create_venv()
     activate_venv()
+    install_polygraphy()
     install_requirements()
     install_pyinstaller()
     create_executable()
