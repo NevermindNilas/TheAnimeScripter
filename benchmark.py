@@ -32,6 +32,7 @@ upscaleMethods = [
     "ultracompact-tensorrt",
     "superultracompact-tensorrt",
     "shufflecugan-tensorrt",
+    "span-tensorrt",
 ]
 
 interpolateMethods = [
