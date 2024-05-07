@@ -20,6 +20,9 @@ jobs:
 
       - name: Install setuptools
         run: python -m pip install --upgrade pip setuptools
+      
+      - name: Install wmi
+        run: python -m pip install wmi
 
       ## This should hopefully work
       #- name: Cache pip modules
