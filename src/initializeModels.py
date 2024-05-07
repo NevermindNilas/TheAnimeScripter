@@ -136,7 +136,6 @@ def initializeModels(self):
                 from src.unifiedInterpolate import RifeCuda
 
                 interpolate_process = RifeCuda(
-                    int(self.interpolate_factor),
                     self.half,
                     outputWidth,
                     outputHeight,
