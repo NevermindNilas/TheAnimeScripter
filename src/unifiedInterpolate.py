@@ -2,25 +2,15 @@ import os
 import torch
 import numpy as np
 import logging
-import onnxruntime as ort
 
 from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
-from polygraphy.backend.trt import (
-    TrtRunner,
-    engine_from_network,
-    network_from_onnx_path,
-    CreateConfig,
-    Profile,
-    EngineFromBytes,
-    SaveEngine,
-)
-from polygraphy.backend.common import BytesFromPath
+
 from .coloredPrints import yellow
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
-ort.set_default_logger_severity(3)
+
 
 
 class RifeCuda:
@@ -193,6 +183,11 @@ class RifeDirectML:
             ensemble (bool, optional): Ensemble. Defaults to False.
             nt (int, optional): Number of threads. Defaults to 1.
         """
+
+        import onnxruntime as ort
+        ort.set_default_logger_severity(3)
+
+        self.ort = ort
         self.interpolateMethod = interpolateMethod
         self.half = half
         self.ensemble = ensemble
@@ -222,18 +217,18 @@ class RifeDirectML:
         else:
             modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)
 
-        providers = ort.get_available_providers()
+        providers = self.ort.get_available_providers()
 
         if "DmlExecutionProvider" in providers:
             logging.info("DirectML provider available. Defaulting to DirectML")
-            self.model = ort.InferenceSession(
+            self.model = self.ort.InferenceSession(
                 modelPath, providers=["DmlExecutionProvider"]
             )
         else:
             logging.info(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
-            self.model = ort.InferenceSession(
+            self.model = self.ort.InferenceSession(
                 modelPath, providers=["CPUExecutionProvider"]
             )
 
@@ -391,6 +386,24 @@ class RifeTensorRT:
             ensemble (bool, optional): Ensemble. Defaults to False.
             nt (int, optional): Number of threads. Defaults to 1.
         """
+        from polygraphy.backend.trt import (
+            TrtRunner,
+            engine_from_network,
+            network_from_onnx_path,
+            CreateConfig,
+            Profile,
+            EngineFromBytes,
+            SaveEngine,
+        )
+        from polygraphy.backend.common import BytesFromPath
+        self.TrtRunner = TrtRunner
+        self.engine_from_network = engine_from_network
+        self.network_from_onnx_path = network_from_onnx_path
+        self.CreateConfig = CreateConfig
+        self.Profile = Profile
+        self.EngineFromBytes = EngineFromBytes
+        self.SaveEngine = SaveEngine
+        self.BytesFromPath = BytesFromPath
 
         self.interpolateMethod = interpolateMethod
         self.interpolateFactor = interpolateFactor
@@ -432,25 +445,25 @@ class RifeTensorRT:
             print(yellow(toPrint))
             logging.info(toPrint)
             profiles = [
-                Profile().add(
+                self.Profile().add(
                     "input",
                     min=(1, 8, 32, 32),
                     opt=(1, 8, self.height, self.width),
                     max=(1, 8, 2160, 3840),
                 )
             ]
-            self.engine = engine_from_network(
-                network_from_onnx_path(modelPath),
-                config=CreateConfig(fp16=self.half, profiles=profiles),
+            self.engine = self.engine_from_network(
+                self.network_from_onnx_path(modelPath),
+                config=self.CreateConfig(fp16=self.half, profiles=profiles),
             )
-            self.engine = SaveEngine(self.engine, modelPath.replace(".onnx", ".engine"))
+            self.engine = self.SaveEngine(self.engine, modelPath.replace(".onnx", ".engine"))
 
         else:
-            self.engine = EngineFromBytes(
-                BytesFromPath(modelPath.replace(".onnx", ".engine"))
+            self.engine = self.EngineFromBytes(
+                self.BytesFromPath(modelPath.replace(".onnx", ".engine"))
             )
 
-        self.runner = TrtRunner(self.engine)
+        self.runner = self.TrtRunner(self.engine)
         self.runner.activate()
 
         self.dType = torch.float16 if self.half else torch.float32

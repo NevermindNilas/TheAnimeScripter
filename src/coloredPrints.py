@@ -1,17 +1,13 @@
-from colorama import Fore
-
+from colored import fg, attr
 
 def green(text):
-    return Fore.GREEN + text + Fore.RESET
-
+    return '%s%s%s' % (fg('green'), text, attr('reset'))
 
 def red(text):
-    return Fore.RED + text + Fore.RESET
-
+    return '%s%s%s' % (fg('red'), text, attr('reset'))
 
 def yellow(text):
-    return Fore.YELLOW + text + Fore.RESET
-
+    return '%s%s%s' % (fg('yellow'), text, attr('reset'))
 
 def blue(text):
-    return Fore.BLUE + text + Fore.RESET
+    return '%s%s%s' % (fg('blue'), text, attr('reset'))

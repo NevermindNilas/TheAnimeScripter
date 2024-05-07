@@ -13,13 +13,16 @@ yt-dlp
 requests
 tqdm
 tensorrt
-colorama
+tensorrt_cu12
 einops
 scikit-image
 scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning
 inquirer
+colored
+tensorrt-cu12-bindings
+tensorrt-cu12_libs==10.0.1
 torch==2.2.2 
 torchvision==0.17.2
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp311-cp311-win_amd64.whl

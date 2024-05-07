@@ -1,4 +1,3 @@
-from upscale_ncnn_py import UPSCALE
 
 """
 # model can be 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19; 0 for default
@@ -47,6 +46,7 @@ from upscale_ncnn_py import UPSCALE
 29: {"param": "sudo_shuffle_cugan-x2.param", "bin": "sudo_shuffle_cugan-x2.bin", "scale": 2, "folder": "models/SHUFFLECUGAN"},
 """
 
+from upscale_ncnn_py import UPSCALE
 
 class UniversalNCNN:
     def __init__(
