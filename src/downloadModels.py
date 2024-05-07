@@ -81,6 +81,7 @@ def modelsMap(
                     return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k-fp16-sim.onnx"
                 else:
                     return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k-fp32-sim.onnx"
+        
 
         case "ultracompact" | "ultracompact-directml":
             if modelType == "pth":
@@ -104,6 +105,24 @@ def modelsMap(
                         "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k-fp32-sim.onnx"
                     )
 
+        case "compact-tensorrt":
+            if half:
+                return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k_clamp_fp16_op18_onnxslim.onnx"
+            else:
+                return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k_clamp_op18_onnxslim.onnx"
+            
+        case "ultracompact-tensorrt":
+            if half:
+                return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k_clamp_fp16_op18_onnxslim.onnx"
+            else:
+                return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k_clamp_op18_onnxslim.onnx"
+            
+        case "superultracompact-tensorrt":
+            if half:
+                return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k_clamp_fp16_op18_onnxslim.1.onnx"
+            else:
+                return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k_clamp_op18_onnxslim.onnx"
+            
         case "span" | "span-directml":
             if modelType == "pth":
                 return "2x_ModernSpanimationV1.pth"
@@ -112,6 +131,12 @@ def modelsMap(
                     return "2x_ModernSpanimationV1_fp16_op17.onnx"
                 else:
                     return "2x_ModernSpanimationV1_fp32_op17.onnx"
+                
+        case "span-tensorrt":
+            if half:
+                return "2x_ModernSpanimationV1_clamp_fp16_op19_onnxslim.onnx"
+            else:
+                return "2x_ModernSpanimationV1_clamp_op19_onnxslim.onnx"
 
         case "omnisr":
             return "2xHFA2kOmniSR.pth"
@@ -124,6 +149,12 @@ def modelsMap(
                     return "sudo_shuffle_cugan_9.584.969-fp16.onnx"
                 else:
                     return "sudo_shuffle_cugan_9.584.969-fp32.onnx"
+                
+        case "shufflecugan-tensorrt":
+            if half:
+                return "sudo_shuffle_cugan_fp16_op18_clamped_9.584.969.onnx"
+            else:
+                return "sudo_shuffle_cugan_op18_clamped_9.584.969.onnx"
 
         case "cugan" | "cugan-directml":
             if modelType == "pth":
