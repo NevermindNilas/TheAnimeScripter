@@ -16,7 +16,7 @@ from polygraphy.backend.trt import (
     SaveEngine,
 )
 from polygraphy.backend.common import BytesFromPath
-from .coloredPrints import blue
+from .coloredPrints import yellow
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
@@ -429,14 +429,14 @@ class RifeTensorRT:
         # TO:DO account for FP16/FP32
         if not os.path.exists(modelPath.replace(".onnx", ".engine")):
             toPrint = f"Engine not found, creating dynamic engine for model: {modelPath}, this may take a while, but it is worth the wait..."
-            print(blue(toPrint))
+            print(yellow(toPrint))
             logging.info(toPrint)
             profiles = [
                 Profile().add(
                     "input",
                     min=(1, 8, 32, 32),
                     opt=(1, 8, self.height, self.width),
-                    max=(1, 8, 2176, 3840),
+                    max=(1, 8, 2160, 3840),
                 )
             ]
             self.engine = engine_from_network(
@@ -511,9 +511,6 @@ class RifeTensorRT:
 
         if self.isCudaAvailable and self.half:
             frame = frame.half()
-
-        # if self.padding != (0, 0, 0, 0):
-        #    frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
 
         return frame.contiguous(memory_format=torch.channels_last)
 
