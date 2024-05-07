@@ -2,25 +2,13 @@ import os
 import torch
 import numpy as np
 import logging
-import onnxruntime as ort
 
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
-from polygraphy.backend.trt import (
-    TrtRunner,
-    engine_from_network,
-    network_from_onnx_path,
-    CreateConfig,
-    Profile,
-    EngineFromBytes,
-    SaveEngine,
-)
-from polygraphy.backend.common import BytesFromPath
 from .coloredPrints import blue
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
-# ort.set_default_logger_severity(3)
 
 
 class UniversalPytorch:
@@ -162,6 +150,28 @@ class UniversalTensorRT:
             customModel (str): The path to a custom model file
             nt (int): The number of threads to use
         """
+
+        # Attempt to lazy load for faster startup
+        from polygraphy.backend.trt import (
+            TrtRunner,
+            engine_from_network,
+            network_from_onnx_path,
+            CreateConfig,
+            Profile,
+            EngineFromBytes,
+            SaveEngine,
+        )
+        from polygraphy.backend.common import BytesFromPath
+
+        self.TrtRunner = TrtRunner
+        self.engine_from_network = engine_from_network
+        self.network_from_onnx_path = network_from_onnx_path
+        self.CreateConfig = CreateConfig
+        self.Profile = Profile
+        self.EngineFromBytes = EngineFromBytes
+        self.SaveEngine = SaveEngine
+        self.BytesFromPath = BytesFromPath
+
         self.upscaleMethod = upscaleMethod
         self.upscaleFactor = upscaleFactor
         self.half = half
@@ -210,25 +220,25 @@ class UniversalTensorRT:
             logging.info(toPrint)
             profiles = [
                 # The low-latency case. For best performance, min == opt == max.
-                Profile().add(
+                self.Profile().add(
                     "input",
                     min=(1, 3, 8, 8),
                     opt=(1, 3, self.height, self.width),
                     max=(1, 3, 1080, 1920),
                 ),
             ]
-            self.engine = engine_from_network(
-                network_from_onnx_path(modelPath),
-                config=CreateConfig(fp16=self.half, profiles=profiles),
+            self.engine = self.engine_from_network(
+                self.network_from_onnx_path(modelPath),
+                config=self.CreateConfig(fp16=self.half, profiles=profiles),
             )
-            self.engine = SaveEngine(self.engine, modelPath.replace(".onnx", ".engine"))
+            self.engine = self.SaveEngine(self.engine, modelPath.replace(".onnx", ".engine"))
 
         else:
-            self.engine = EngineFromBytes(
-                BytesFromPath(modelPath.replace(".onnx", ".engine"))
+            self.engine = self.EngineFromBytes(
+                self.BytesFromPath(modelPath.replace(".onnx", ".engine"))
             )
 
-        self.runner = TrtRunner(self.engine)
+        self.runner = self.TrtRunner(self.engine)
         self.runner.activate()
 
     @torch.inference_mode()
@@ -280,6 +290,11 @@ class UniversalDirectML:
             nt (int): The number of threads to use
         """
 
+        import onnxruntime as ort
+        ort.set_default_logger_severity(3)
+
+        self.ort = ort
+
         self.upscaleMethod = upscaleMethod
         self.upscaleFactor = upscaleFactor
         self.half = half
@@ -326,18 +341,18 @@ class UniversalDirectML:
                         f"Custom model file {self.customModel} not found"
                     )
 
-        providers = ort.get_available_providers()
+        providers = self.ort.get_available_providers()
 
         if "DmlExecutionProvider" in providers:
             logging.info("DirectML provider available. Defaulting to DirectML")
-            self.model = ort.InferenceSession(
+            self.model = self.ort.InferenceSession(
                 modelPath, providers=["DmlExecutionProvider"]
             )
         else:
             logging.info(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
-            self.model = ort.InferenceSession(
+            self.model = self.ort.InferenceSession(
                 modelPath, providers=["CPUExecutionProvider"]
             )
 
