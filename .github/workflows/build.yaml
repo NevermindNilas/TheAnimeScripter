@@ -18,28 +18,23 @@ jobs:
         with:
           python-version: "3.11.9"
 
-      ## This should hopefully work
-      #- name: Cache pip modules
-      #  uses: actions/cache@v3
-      #  with:
-      #    path: ~\AppData\Local\pip\Cache
-      #    key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-      #    restore-keys: |
-      #      ${{ runner.os }}-pip-
-#
-      ##- name: Git Clone TensorRT
-      #  run: git clone https://github.com/NVIDIA/TensorRT
-#
-      #- name: CD To Polygraphy and Install Latest Polygraphy
-      #  run: |
-      #    cd TensorRT/tools/Polygraphy
-      #    ./install.ps1
+      - name: Install setuptools
+        run: python -m pip install --upgrade pip setuptools
 
-      #- name: Install dependencies
-      #  run: python -m pip install -r requirements.txt
+      # This should hopefully work
+      - name: Cache pip modules
+        uses: actions/cache@v3
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-      #- name: Sanity Check - List pip modules
-      #  run: python -m pip list
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Sanity Check - List pip modules
+        run: python -m pip list
 
       - name: Run build script
         run: python build.py --venv
