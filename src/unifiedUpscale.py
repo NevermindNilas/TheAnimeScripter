@@ -2,8 +2,6 @@ import os
 import torch
 import numpy as np
 import logging
-# import torch_tensorrt as trt
-
 import onnxruntime as ort
 
 from spandrel import ImageModelDescriptor, ModelLoader
