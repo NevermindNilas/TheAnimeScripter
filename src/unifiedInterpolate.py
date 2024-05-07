@@ -453,20 +453,37 @@ class RifeTensorRT:
         self.runner = TrtRunner(self.engine)
         self.runner.activate()
 
-        self.I0 = None
         self.dType = torch.float16 if self.half else torch.float32
+
+        if self.interpolateFactor == 2:
+            self.I0 = torch.zeros(
+                1,
+                3,
+                self.height,
+                self.width,
+                dtype=self.dType,
+                device=self.device,
+            )
+            self.timestep = torch.tensor(
+                (1 + 1) * 1.0 / (self.interpolateFactor + 1),
+                dtype=self.dType,
+                device=self.device,
+            ).repeat(self.I0.shape[0], 1, self.I0.shape[2], self.I0.shape[3])
+        else:
+            self.I0 = None
 
     @torch.inference_mode()
     def make_inference(self, n):
-        timestep = torch.tensor(
-            (n + 1) * 1.0 / (self.interpolateFactor + 1),
-            dtype=self.dType,
-            device=self.device,
-        ).repeat(self.I0.shape[0], 1, self.I0.shape[2], self.I0.shape[3])
+        if self.interpolateFactor != 2:
+            self.timestep = torch.tensor(
+                (n + 1) * 1.0 / (self.interpolateFactor + 1),
+                dtype=self.dType,
+                device=self.device,
+            ).repeat(self.I0.shape[0], 1, self.I0.shape[2], self.I0.shape[3])
 
         return (
             self.runner.infer(
-                {"input": torch.cat([self.I0, self.I1, timestep, torch.zeros_like(timestep)], dim=1)},
+                {"input": torch.cat([self.I0, self.I1, self.timestep, torch.zeros_like(self.timestep)], dim=1)},
                 check_inputs=False,
             )["output"]
             .squeeze(0)
