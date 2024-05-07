@@ -152,9 +152,9 @@ def modelsMap(
                 
         case "shufflecugan-tensorrt":
             if half:
-                return "sudo_shuffle_cugan_fp16_op18_clamped_9.584.969.onnx"
+                return "sudo_shuffle_cugan_9.584.969-fp16.onnx"
             else:
-                return "sudo_shuffle_cugan_op18_clamped_9.584.969.onnx"
+                return "sudo_shuffle_cugan_9.584.969-fp32.onnx"
 
         case "cugan" | "cugan-directml":
             if modelType == "pth":
@@ -164,7 +164,10 @@ def modelsMap(
                     return "2xHFA2kReal-CUGAN-fp16.onnx"
                 else:
                     return "2xHFA2kReal-CUGAN-fp32.onnx"
-
+                
+        case "cugan-tensorrt":
+            raise NotImplementedError
+        
         case "segment":
             return "isnetis.ckpt"
 
