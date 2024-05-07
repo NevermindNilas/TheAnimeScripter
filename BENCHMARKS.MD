@@ -6,7 +6,7 @@
 
 Difference from V1 -> V2, Longer video for more accurate results, More time in between runs to cool of the gpu, more options ( dedup )
 -------------------------------------------------------------------------------------------------------------
-# 13700k Undervolted + Overclocked, 3090 Overclocked, 32GB DDR5 7200Mhz CL 38, TAS 1.6.3, Nilas
+# 13700k Undervolted + Overclocked, 3090 Overclocked, 32GB DDR5 7200Mhz CL 38, *PRERELEASE* TAS 1.6.3, Nilas
 ![nilasedits](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/67ae29a1-deac-4ced-964c-47a50400cd8e)
 
 
