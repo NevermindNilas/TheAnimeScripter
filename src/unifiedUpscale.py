@@ -175,10 +175,6 @@ class UniversalTensorRT:
         self.handleModel()
 
     def handleModel(self):
-        # Reusing the directML models for TensorRT since both require ONNX models
-        if "tensorrt" in self.upscaleMethod:
-            self.upscaleMethod = self.upscaleMethod.replace("-tensorrt", "-directml")
-
         if not self.customModel:
             self.filename = modelsMap(
                 self.upscaleMethod, self.upscaleFactor, modelType="onnx", half=self.half
@@ -255,6 +251,7 @@ class UniversalTensorRT:
             .squeeze(0)
             .permute(1, 2, 0)
             .mul_(255)
+            .clamp(1, 255)
             .byte()
             .cpu()
             .numpy()
