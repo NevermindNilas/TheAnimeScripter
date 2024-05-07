@@ -335,41 +335,8 @@ var TheAnimeScripter = (function() {
         return labelValues["DedupSens"];
     };
 
-    function createCheckbox(panel, text, name, defaultValue, helpTip) {
-        var group = panel.add("group", undefined, {
-            name: "group" + name
-        });
-        group.orientation = "row";
-        group.alignChildren = ["left", "center"];
-        group.spacing = 45;
-        group.margins = 0;
 
-        var checkbox = group.add("checkbox", undefined, text, {
-            name: name
-        });
-        checkbox.alignment = ["left", "center"];
-        checkbox.helpTip = helpTip;
-        var savedValue = app.settings.haveSetting(scriptName, name) ? app.settings.getSetting(scriptName, name) : defaultValue;
-        checkbox.value = savedValue;
-
-        checkbox.onClick = function() {
-            checkboxValues[name] = checkbox.value;
-            "--buffer_limit", 100,
-            app.settings.saveSetting(scriptName, name, checkbox.value);
-        }
-
-        checkboxValues[name] = savedValue;
-
-        return function() {
-            return checkboxValues[name];
-        };
-    }
-
-    var checkboxEnsembleValue = function() {
-        return checkboxValues["Ensemble"];
-    };
     var fieldValues = {}
-
     function createMultiplierField(panel, text, name, defaultValue) {
         var group = panel.add("group", undefined, {
             name: "group" + name
@@ -434,19 +401,26 @@ var TheAnimeScripter = (function() {
     consentGroup.spacing = 0;
     consentGroup.margins = 0;
 
+    
     var checkboxConsent = consentGroup.add("checkbox", undefined, "Help Improve the Script", {
         name: "checkboxConsent"
     });
     checkboxConsent.alignment = ["left", "center"];
     checkboxConsent.helpTip = "By enabling this option, you allow the script to send anonymous data for improvement purposes. The data includes the output found in the generated log.txt and is used solely to enhance the script's functionality. This data is not shared with any third parties. You can review the data being sent in the consent.json file located in the script directory. You can disable this option at any time.";
     checkboxConsent.value = consentData;
-
+    
     checkboxConsent.onClick = function() {
         if (checkboxConsent.value) {
             alert("Thank you for helping me improve the script, you can disable this at any time. Please hover over the checkbox for more information.");
         }
         app.settings.saveSetting(scriptName, "consentData", checkboxConsent.value);
     }
+    
+    createCheckboxField(generalPanel, "Rife Ensemble", "checkboxEnsemble", "Use Rife Ensemble to interpolate frames, this will increase the quality of the video but also the processing time");
+    var checkboxEnsembleValue = function() {
+        return checkboxValues["checkboxEnsemble"];
+    }
+
 
     // PANEL1
     // ======
