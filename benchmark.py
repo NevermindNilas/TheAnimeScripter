@@ -28,7 +28,7 @@ upscaleMethods = [
     "shufflecugan-ncnn",
     "realesrgan-ncnn",
     "cugan-ncnn",
-    "compact-tesorrt",
+    "compact-tensorrt",
     "ultracompact-tensorrt",
     "superultracompact-tensorrt",
     "shufflecugan-tensorrt",
