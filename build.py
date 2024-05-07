@@ -3,10 +3,10 @@ import os
 import shutil
 from importlib.metadata import distribution
 
-from main import scriptVersion
+SCRIPTVERSION = "1.6.3"
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-outputName = "TAS" + scriptVersion + ".7z"
+outputName = "TAS" + SCRIPTVERSION + ".7z"
 distPath = os.path.join(base_dir, "dist")
 
 
