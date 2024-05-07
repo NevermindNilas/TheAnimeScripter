@@ -6,6 +6,8 @@ import subprocess
 
 TIMESLEEP = 2
 CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
+TESTINGVERSION = "V3"
+
 dedupMethods = ["ffmpeg", "ssim", "mse"]
 
 upscaleMethods = [
@@ -74,7 +76,7 @@ def runAllBenchmarks(executor):
     with open("benchmarkResults.json", "w") as f:
         json.dump(
             {
-                "Testing Methodology": "V2",
+                "Testing Methodology": TESTINGVERSION,
                 "System Info": systemInfo,
                 "Results": results,
             },
@@ -118,9 +120,14 @@ def runUpscaleBenchmark(inputVideo, executor):
     results = {}
     for method in upscaleMethods:
         print(f"Running {method} benchmark...")
-        output = os.popen(
-            f"{executor} --input {inputVideo} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 5"
-        ).read()
+        if method == "omnisr":
+            output = os.popen(
+                f"{executor} --input {inputVideo} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 2"
+            ).read()
+        else:
+            output = os.popen(
+                f"{executor} --input {inputVideo} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 4"
+            ).read()
 
         fps = parseFPS(output)
         results[method] = fps
