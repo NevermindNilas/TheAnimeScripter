@@ -51,7 +51,7 @@ def create_executable():
         "models",
     )
 
-
+    print("Creating the CLI executable...")
     subprocess.run(
         [
             ".\\venv\\Scripts\\pyinstaller",
@@ -75,7 +75,7 @@ def create_executable():
             "--collect-all",
             "tensorrt-cu12-bindings",
             "--collect-all",
-            "tensorrt-cu12_libs",
+            "tensorrt_libs",
             "--collect-all",
             "cupy",
             "--collect-all",
@@ -90,7 +90,7 @@ def create_executable():
         ],
         check=True,
     )
-#
+
     print("Finished creating the CLI executable")
     print("Creating the GUI executable...")
 
@@ -127,7 +127,7 @@ def create_executable():
         ],
         check=True,
     )
-    
+
     guiInternalPath = os.path.join(base_dir, "dist", "gui", "_internal")
     mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
     benchmarkInternalPath = os.path.join(base_dir, "dist", "benchmark", "_internal")
