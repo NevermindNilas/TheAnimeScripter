@@ -52,6 +52,14 @@ def modelsList() -> list[str]:
         "rife4.14-directml",
         "rife4.15-directml",
         "rife4.15-lite-directml",
+        "shufflecugan-tensorrt",
+        "compact-tensorrt",
+        "ultracompact-tensorrt",
+        "superultracompact-tensorrt",
+        "span-tensorrt",
+        "rife4.6-tensorrt",
+        "rife4.14-tensorrt",
+        "rife4.15-tensorrt",
     ]
 
 
@@ -152,9 +160,9 @@ def modelsMap(
                 
         case "shufflecugan-tensorrt":
             if half:
-                return "sudo_shuffle_cugan_9.584.969-fp16.onnx"
+                return "sudo_shuffle_cugan_fp16_op18_clamped_9.584.969.onnx"
             else:
-                return "sudo_shuffle_cugan_9.584.969-fp32.onnx"
+                return "sudo_shuffle_cugan_op18_clamped_9.584.969.onnx"
 
         case "cugan" | "cugan-directml":
             if modelType == "pth":
