@@ -28,6 +28,10 @@ upscaleMethods = [
     "shufflecugan-ncnn",
     "realesrgan-ncnn",
     "cugan-ncnn",
+    "compact-tesorrt",
+    "ultracompact-tesorrt",
+    "superultracompact-tesorrt",
+    "shufflecugan-tesorrt",
 ]
 
 interpolateMethods = [
@@ -43,6 +47,9 @@ interpolateMethods = [
     "rife4.15-ncnn",
     "rife4.14-ncnn",
     "rife4.6-ncnn",
+    "rife4.6-tesorrt",
+    "rife4.14-tesorrt",
+    "rife4.15-tesorrt",
     "gmfss",
 ]
 
