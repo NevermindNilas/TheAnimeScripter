@@ -80,11 +80,11 @@ In the settings panel:
 
 **Officially Supported:**
 - Cugan ( CUDA, DirectML and NCNN versions )
-- ShuffleCugan ( CUDA and NCNN versions)
-- Span ( CUDA, DirectML and NCNN versions)
+- ShuffleCugan ( CUDA, TensorRT, and NCNN )
+- Span ( CUDA, TensorRT, DirectML and NCNN versions)
 - RealESRGan ( CUDA and NCNN versions)
 - OmniSR ( CUDA only )
-- SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective DirectML versions)
+- SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective TensorRT and DirectML versions)
 
 **Unofficially Supported:**
 - Custom models compatible with [Spandrel](https://github.com/chaiNNer-org/spandrel) can be used via the `--custom_model` parameter.
@@ -92,6 +92,7 @@ In the settings panel:
 ### Interpolation Models
 
 - Rife (Versions: 4.6, 4.14, 4.15, 4.15-lite, 4.16-lite ) including DirectML
+- Rife TensorRT (Versions: 4.6, 4.14, 4.15 )
 - Rife NCNN ( Versions: 4.6, 4.14, 4.15 ) 
 - GMFSS (Available for CUDA )
 
@@ -105,7 +106,7 @@ In the settings panel:
 
 | **Name and Link**                                                                                     | **For**              |
 |-------------------------------------------------------------------------------------------------------|----------------------|
-| [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)                                       | ShuffleCugan, Rife Models |
+| [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)                                       | Shufflecugan and many more ONNX models |
 | [HZWER](https://github.com/hzwer/Practical-RIFE)                                                      | Rife                 |
 | [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN)                                        | Cugan                |
 | [JingyunLiang](https://github.com/JingyunLiang/SwinIR)                                                | SwinIR               |
