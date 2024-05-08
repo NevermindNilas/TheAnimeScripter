@@ -3,6 +3,8 @@ import logging
 import sys
 import time
 
+import torch
+
 from urllib.parse import urlparse
 from .generateOutput import outputNameGenerator
 from .checkSpecs import checkSystem
@@ -10,6 +12,7 @@ from .getFFMPEG import getFFMPEG
 from src.ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red
+
 
 
 def argumentChecker(args, mainPath, scriptVersion):
@@ -99,6 +102,13 @@ def argumentChecker(args, mainPath, scriptVersion):
         logging.info(
             "Consent flag detected, thank you for helping me improve the script"
         )
+
+    if args.half:
+        if torch.cuda.has_half:
+            logging.info("Half precision enabled")
+        else:
+            logging.info("Half precision is not supported on your system, disabling it")
+            args.half = False
 
     if "https://" in args.input or "http://" in args.input:
         processURL(args, mainPath)
