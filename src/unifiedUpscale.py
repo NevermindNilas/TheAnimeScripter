@@ -98,33 +98,33 @@ class UniversalPytorch:
         Upscale a frame using a desired model, and return the upscaled frame
         Expects a numpy array of shape (height, width, 3) and dtype uint8
         """
-        with torch.no_grad():
-            frame = (
-                torch.from_numpy(frame)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .float()
-                .mul_(1 / 255)
-                .to(self.device)
-            )
+        frame = (
+            torch.from_numpy(frame)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            .float()
+            if not self.half
+            else torch.from_numpy(frame)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            .half()
+        ).to(self.device).mul_(1 / 255)
 
-            frame = frame.half() if self.half and self.isCudaAvailable else frame
+        """
+        if self.isCudaAvailable:
+            torch.cuda.synchronize(self.stream[self.currentStream])
+            self.currentStream = (self.currentStream + 1) % len(self.stream)
+        """
 
-            """
-            if self.isCudaAvailable:
-                torch.cuda.synchronize(self.stream[self.currentStream])
-                self.currentStream = (self.currentStream + 1) % len(self.stream)
-            """
-
-            return (
-                self.model(frame)
-                .squeeze(0)
-                .permute(1, 2, 0)
-                .mul_(255)
-                .byte()
-                .cpu()
-                .numpy()
-            )
+        return (
+            self.model(frame)
+            .squeeze(0)
+            .permute(1, 2, 0)
+            .mul_(255)
+            .byte()
+            .cpu()
+            .numpy()
+        )
 
 
 class UniversalTensorRT:
