@@ -9,7 +9,7 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 
 #### Testing Methodoly V3
 -------------------------------------------------------------------------------------------------------------
-Ryzen 9 7950X3D, RTX 4090, 64GB DDR5 TAS 1.6.3, Toji.
+# Ryzen 9 7950X3D, RTX 4090, 64GB DDR5 TAS 1.6.3, Toji.
 ![nilasedits (1)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/3ca1f9c2-bea5-4fe7-bc6b-275f19480b79)
 
 
