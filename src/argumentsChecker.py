@@ -3,7 +3,11 @@ import logging
 import sys
 import time
 
-import torch
+try:
+    import torch
+except ImportError:
+    logging.info("Torch is not installed, please install it to use the script")
+
 
 from urllib.parse import urlparse
 from .generateOutput import outputNameGenerator
@@ -12,7 +16,6 @@ from .getFFMPEG import getFFMPEG
 from src.ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red
-
 
 
 def argumentChecker(args, mainPath, scriptVersion):
@@ -59,7 +62,7 @@ def argumentChecker(args, mainPath, scriptVersion):
     args.ffmpeg_path = getFFMPEG()
 
     try:
-        args.input = args.input.encode('utf-8').decode('utf-8')
+        args.input = args.input.encode("utf-8").decode("utf-8")
         args.input = args.input.replace("\\", "/")
     except UnicodeDecodeError:
         toPrint = "Input video contains invalid characters in it's name. Please check the input and try again. One suggestion would be renaming it to something simpler like test.mp4"
@@ -104,7 +107,7 @@ def argumentChecker(args, mainPath, scriptVersion):
         )
 
     if args.half:
-        if torch.cuda.has_half:
+        if torch.cuda.is_bf16_supported():
             logging.info("Half precision enabled")
         else:
             logging.info("Half precision is not supported on your system, disabling it")
@@ -149,9 +152,9 @@ def processURL(args, mainPath):
             args.output = os.path.join(outputFolder, outputNameGenerator(args))
 
         # TO:DO: Fix this, it's not working as intended
-        #else:
+        # else:
         #    args.output = args.output.split(".")[0] + "_temp.mp4"
-            
+
         VideoDownloader(
             args.input,
             args.output,

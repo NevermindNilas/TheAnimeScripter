@@ -12,7 +12,6 @@ from .coloredPrints import yellow
 torch.set_float32_matmul_precision("medium")
 
 
-
 class RifeCuda:
     def __init__(
         self,
@@ -185,6 +184,7 @@ class RifeDirectML:
         """
 
         import onnxruntime as ort
+
         ort.set_default_logger_severity(3)
 
         self.ort = ort
@@ -331,26 +331,30 @@ class RifeDirectML:
 
         return frame
 
+    @torch.inference_mode()
     def cacheFrame(self):
         self.dummyInput1.copy_(self.dummyInput2)
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        frame = (
-            torch.from_numpy(frame)
-            .to(self.device, non_blocking=True)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-            .float()
+        # Apparently this shit works and it even improves the performance xD?
+        return (
+            (
+                torch.from_numpy(frame)
+                .to(self.device, non_blocking=True)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .float()
+                if not self.half
+                else torch.from_numpy(frame)
+                .to(self.device, non_blocking=True)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .half()
+            )
             .mul_(1 / 255)
+            .contiguous(memory_format=torch.channels_last)
         )
-
-        frame = frame.half() if self.half else frame
-
-        if self.padding != (0, 0, 0, 0):
-            frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
-
-        return frame.contiguous()
 
     @torch.inference_mode()
     def run(self, I1):
@@ -396,6 +400,7 @@ class RifeTensorRT:
             SaveEngine,
         )
         from polygraphy.backend.common import BytesFromPath
+
         self.TrtRunner = TrtRunner
         self.engine_from_network = engine_from_network
         self.network_from_onnx_path = network_from_onnx_path
@@ -418,7 +423,10 @@ class RifeTensorRT:
 
     def handleModel(self):
         self.filename = modelsMap(
-            self.interpolateMethod, modelType="onnx", half=self.half, ensemble=self.ensemble
+            self.interpolateMethod,
+            modelType="onnx",
+            half=self.half,
+            ensemble=self.ensemble,
         )
 
         if not os.path.exists(
@@ -456,7 +464,9 @@ class RifeTensorRT:
                 self.network_from_onnx_path(modelPath),
                 config=self.CreateConfig(fp16=self.half, profiles=profiles),
             )
-            self.engine = self.SaveEngine(self.engine, modelPath.replace(".onnx", ".engine"))
+            self.engine = self.SaveEngine(
+                self.engine, modelPath.replace(".onnx", ".engine")
+            )
 
         else:
             self.engine = self.EngineFromBytes(
@@ -496,7 +506,17 @@ class RifeTensorRT:
 
         return (
             self.runner.infer(
-                {"input": torch.cat([self.I0, self.I1, self.timestep, torch.zeros_like(self.timestep)], dim=1)},
+                {
+                    "input": torch.cat(
+                        [
+                            self.I0,
+                            self.I1,
+                            self.timestep,
+                            torch.zeros_like(self.timestep),
+                        ],
+                        dim=1,
+                    )
+                },
                 check_inputs=False,
             )["output"]
             .squeeze(0)
@@ -513,19 +533,24 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        frame = (
-            torch.from_numpy(frame)
-            .to(self.device, non_blocking=True)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-            .float()
+        # Is this what they mean with Pythonic Code?
+        return (
+            (
+                torch.from_numpy(frame)
+                .to(self.device, non_blocking=True)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .float()
+                if not self.half
+                else torch.from_numpy(frame)
+                .to(self.device, non_blocking=True)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .half()
+            )
             .mul_(1 / 255)
+            .contiguous()
         )
-
-        if self.isCudaAvailable and self.half:
-            frame = frame.half()
-
-        return frame.contiguous(memory_format=torch.channels_last)
 
     @torch.inference_mode()
     def run(self, I1):
