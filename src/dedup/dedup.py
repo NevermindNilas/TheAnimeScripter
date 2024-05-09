@@ -20,8 +20,6 @@ class DedupSSIMCuda:
         self.prevFrame = None
         self.half = half
 
-        self.sampleSize = 224 #forcing 224 for now since performance seems to be degraded the lower I go with this. Somewhere in there is a sweet spot I'm sure.
-
         import torch
         import torch.nn.functional as F
         from torchmetrics.image import StructuralSimilarityIndexMeasure
