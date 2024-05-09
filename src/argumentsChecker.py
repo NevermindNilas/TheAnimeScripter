@@ -3,11 +3,6 @@ import logging
 import sys
 import time
 
-try:
-    import torch
-except ImportError:
-    logging.info("Torch is not installed, please install it to use the script")
-
 
 from urllib.parse import urlparse
 from .generateOutput import outputNameGenerator
@@ -91,9 +86,10 @@ def argumentChecker(args, mainPath, scriptVersion):
         args.audio = False
         logging.info("Dedup is enabled, audio will be disabled")
 
-    if args.dedup_method == "ssim":
-        args.dedup_sens = 1 - (args.dedup_sens / 1000)
-
+    if args.dedup_method == "ssim" or args.dedup_method == "ssim-cuda":
+        args.dedup_sens = 1.0 - (args.dedup_sens / 1000) * 0.1
+        print(args.dedup_sens)
+        
     if args.custom_encoder:
         logging.info(
             "Custom encoder specified, use with caution since some functions can make or break the encoding process"
@@ -107,6 +103,11 @@ def argumentChecker(args, mainPath, scriptVersion):
         )
 
     if args.half:
+        try:
+            import torch
+        except ImportError:
+            logging.info("Torch is not installed, please install it to use the script")
+
         if torch.cuda.is_bf16_supported():
             logging.info("Half precision enabled")
         else:
