@@ -339,10 +339,10 @@ if __name__ == "__main__":
     argparser.add_argument("--custom_model", type=str, default="")
     argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
     argparser.add_argument(
-        "--dedup_method", type=str, default="ffmpeg", choices=["ffmpeg", "ssim", "mse"]
+        "--dedup_method", type=str, default="ffmpeg", choices=["ffmpeg", "ssim", "mse", "ssim-cuda", "mse-cuda"]
     )
     argparser.add_argument("--dedup_sens", type=float, default=35)
-    argparser.add_argument("--sample_size", type=int, default=32)
+    argparser.add_argument("--sample_size", type=int, default=224)
     argparser.add_argument("--nt", type=int, default=1)
     argparser.add_argument("--half", type=int, choices=[0, 1], default=1)
     argparser.add_argument("--inpoint", type=float, default=0)

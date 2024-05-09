@@ -232,7 +232,7 @@ def initializeModels(self):
 
                 dedup_process = DedupSSIM(
                     self.dedup_sens,
-                    self.sample_size,  # Should probably remain 32, values higher result in no real benefits from subjective testing.
+                    self.sample_size, 
                 )
 
             case "mse":
@@ -240,7 +240,25 @@ def initializeModels(self):
 
                 dedup_process = DedupMSE(
                     self.dedup_sens,
-                    self.sample_size,  # Should probably remain 32, values higher result in no real benefits from subjective testing.
+                    self.sample_size, 
+                )
+
+            case "ssim-cuda":
+                from src.dedup.dedup import DedupSSIMCuda
+
+                dedup_process = DedupSSIMCuda(
+                    self.dedup_sens,
+                    self.sample_size,
+                    self.half, 
+                )
+            
+            case "mse-cuda":
+                from src.dedup.dedup import DedupMSECuda
+
+                dedup_process = DedupMSECuda(
+                    self.dedup_sens,
+                    self.sample_size,
+                    self.half, 
                 )
 
             # case ffmpeg, ffmpeg works on decode, refer to ffmpegSettings.py ReadBuffer class.
