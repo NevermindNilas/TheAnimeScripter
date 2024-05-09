@@ -9,6 +9,10 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 
 #### Testing Methodoly V3
 -------------------------------------------------------------------------------------------------------------
+
+# 13900k, 4090, 32GB DDR5, TAS 1.6.3, Sergio.
+![nilasedits (2)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/2b3901f8-662f-4e83-8704-f49e1ab42549)
+
 # Ryzen 9 7950X3D, RTX 4090, 64GB DDR5 TAS 1.6.3, Toji.
 ![nilasedits (1)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/3ca1f9c2-bea5-4fe7-bc6b-275f19480b79)
 
@@ -18,6 +22,8 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 
 -------------------------------------------------------------------------------------------------------------
 #### Testing Methodology V2
+-------------------------------------------------------------------------------------------------------------
+
 # 13700k Undervolted + Overclocked, 3090 Overclocked, 32GB DDR5 6800Mhz, TAS 1.6.0, Nilas.
 
 ![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/a00d7d09-e6d1-4f94-8824-068a9f2f2213)
@@ -28,25 +34,22 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 
 
 -------------------------------------------------------------------------------------------------------------
-
 #### Testing Methodology V1
+-------------------------------------------------------------------------------------------------------------
+
 # 13700k Undervolted + Overclocked, 3090 Overclocked, 32GB DDR5 6800Mhz, TAS 1.5.0, Nilas.
 
 ![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/887177e2-f356-4640-b5d7-abf2e3056071)
-
--------------------------------------------------------------------------------------------------------------
 
 # AMD 3700x, RTX 3080, 24GB DDR4 3600MHz, TAS 1.5.0, Windows VM ( 7C/14Threads ), TNTWise.
 
 ![tables](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/71a326d5-6f6a-404a-93b6-bdf19a56b385)
 
--------------------------------------------------------------------------------------------------------------
 
 # AMD 7800x3D, RTX 4080, 32GB DDR5, TAS 1.5.0, Kovel
 
 ![tables](https://cdn.discordapp.com/attachments/1208539289328025621/1224397781205127359/image.png?ex=661d584b&is=660ae34b&hm=fe8baf72d44b733873073729e22c50efdf63a094c3d1f1da98220e8583eb18c0&)
 
--------------------------------------------------------------------------------------------------------------
 
 # AMD 5800X, RTX 3080, 32GB DDR4, TAS 1.5.0, HUK
 
