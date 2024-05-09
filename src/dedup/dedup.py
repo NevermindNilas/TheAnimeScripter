@@ -1,12 +1,13 @@
 import cv2
 
+
 class DedupSSIMCuda:
     def __init__(
         self,
         ssimThreshold=0.9,
         sampleSize=224,
         half=True,
-    ):  
+    ):
         """
         A Cuda accelerated version of the SSIM deduplication method
 
@@ -45,13 +46,26 @@ class DedupSSIMCuda:
         return similarity > self.ssimThreshold
 
     def processFrame(self, frame):
-        frame = self.torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).to(self.DEVICE)
-        frame = frame.half() if self.half else frame.float()
-        frame = self.F.interpolate(frame, (self.sampleSize, self.sampleSize), mode="nearest")
-        frame = frame.div(255.0)
+        frame = (
+            self.torch.from_numpy(frame)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            .to(self.DEVICE)
+            .float()
+            if not self.half
+            else self.torch.from_numpy(frame)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            .to(self.DEVICE)
+            .half()
+        ).mul(1 / 255.0)
+        frame = self.F.interpolate(
+            frame, (self.sampleSize, self.sampleSize), mode="nearest"
+        )
         return frame
 
-#class DedupMSECuda:
+
+# class DedupMSECuda:
 #    def __init__(
 #        self,
 #        mseThreshold=1000,
@@ -93,20 +107,20 @@ class DedupSSIMCuda:
 #        self.prevFrame = frame.clone()
 #
 #        return self.F.mse_loss(self.prevFrame, frame) < self.mseThreshold
-#    
+#
 #    def processFrame(self, frame):
 #        frame = self.torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).to(self.DEVICE)
 #        frame = frame.half() if self.half else frame.float()
 #        frame = self.F.interpolate(frame, (self.sampleSize, self.sampleSize), mode="nearest")
 #        return frame
-#                                   
-            
+#
+
 
 class DedupSSIM:
     def __init__(
         self,
         ssimThreshold=0.9,
-        sampleSize=32,
+        sampleSize=224,
     ):
         self.ssimThreshold = ssimThreshold
         self.sampleSize = sampleSize
@@ -115,6 +129,7 @@ class DedupSSIM:
         from skimage.metrics import structural_similarity as ssim
 
         self.ssim = ssim
+
     def run(self, frame):
         """
         Returns True if the frames are duplicates
@@ -141,7 +156,7 @@ class DedupMSE:
     def __init__(
         self,
         mseThreshold=1000,
-        sampleSize=32,
+        sampleSize=224,
     ):
         self.mseThreshold = mseThreshold
         self.sampleSize = sampleSize
@@ -150,6 +165,7 @@ class DedupMSE:
         from skimage.metrics import mean_squared_error as mse
 
         self.mse = mse
+
     def run(self, frame):
         """
         Returns True if the frames are duplicates
