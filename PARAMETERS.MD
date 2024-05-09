@@ -24,7 +24,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--upscale` (int, default=0): Enable upscaling (1) or disable (0).
 - `--upscale_factor` (int, default=2): Factor for upscaling.
 - `--upscale_method` (str, default="ShuffleCugan"): Upscaling method:
-     - Options: "cugan / shufflecugan", "compact / ultracompact / superultracompact / compact-directml / ultracompact-directml / superultracompact-directml", "span / span-directml", "omnisr", "realesrgan".
+     - Options: "cugan / shufflecugan / shufflecugan-tensorrt", "compact / ultracompact / superultracompact / compact-directml / ultracompact-directml / superultracompact-directml / compact-tensorrt / ultracompact-tensorrt / superultracompact-tensorrt", "span / span-directml / span-tensorrt", "omnisr", "realesrgan". 
 - `--custom_model` (str, default=""): Choose a different model for supported upscaling architectures. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
 #### Interpolation Settings:
 
@@ -32,8 +32,8 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--interpolate` (int, default=0): Enable interpolation (1) or disable (0).
 - `--interpolate_factor` (int, default=2): Factor for interpolation.
 - `--interpolate_method` (str, default="rife"): Interpolation method:
-    - Options: "rife", "rife4.6", "rife4.14", "rife4.15", "rife4.15-lite", "rife-ncnn", "rife4.6-ncnn", "rife4.14-ncnn", "rife4.15-ncnn", "gmfss".
-    - Notation: `rife`, respectively `rife-ncnn`, will default to the latest available version.
+    - Options: "rife", "rife4.6", "rife4.14", "rife4.15", "rife4.15-lite", "rife-ncnn", "rife4.6-ncnn", "rife4.14-ncnn", "rife4.15-ncnn", "rife4.6-tensorrt", "rife4.14-tensorrt", "rife4.15-tensorrt", "gmfss".
+    - Notation: `rife`, `rife-ncnn`, "rife-directml" will default to the latest available version.
 - `--ensemble` (int, default=0): Activate Ensemble for higher quality outputs from Rife.
 
 #### Deduplication settings:
@@ -103,6 +103,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 Sidenotes:
 - Replace `.\input\test.mp4` with a full or relative path to a video file or folder.
 - `--output` is not necessary since the script can automatically create a file name for you based on the input's name.
+- In case if you want to utilize the script using the packaged main.exe file, replace `python .\main.py` with `main.exe`
 
 Example 1: Enable upscaling with half precision mode on. ( this will default to shufflecugan, also half precision mode is on by default so it's not necessary to type out )
 
@@ -115,7 +116,6 @@ Example 2: Enable Interpolating with custom interpolate method rife 4.6.
 Example 3: Enable upscaling and interpolating with custom models.
 
 - `python .\main.py --input .\input\test.mp4 --upscale 1 --upscale_method superultracompact --interpolate 1 --interpolate_method rife4.15`
-
 
 Example 4: Enable deduplication with a sensitivity of 60 and custom deduplication method.
 
