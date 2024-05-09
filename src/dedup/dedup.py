@@ -28,7 +28,7 @@ class DedupSSIMCuda:
         self.F = F
         self.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.ssim = StructuralSimilarityIndexMeasure(data_range=255).to(self.DEVICE)
+        self.ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(self.DEVICE)
 
     def run(self, frame):
         """
@@ -39,16 +39,16 @@ class DedupSSIMCuda:
             return False
 
         frame = self.processFrame(frame)
-
-        self.ssim.update(self.prevFrame, frame)
+        similarity = self.ssim(self.prevFrame, frame).item()
         self.prevFrame = frame.clone()
 
-        return self.ssim.compute() > self.ssimThreshold
+        return similarity > self.ssimThreshold
 
     def processFrame(self, frame):
         frame = self.torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).to(self.DEVICE)
         frame = frame.half() if self.half else frame.float()
         frame = self.F.interpolate(frame, (self.sampleSize, self.sampleSize), mode="nearest")
+        frame = frame.div(255.0)
         return frame
 
 #class DedupMSECuda:
