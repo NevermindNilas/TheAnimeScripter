@@ -10,7 +10,7 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 #### Testing Methodoly V3
 -------------------------------------------------------------------------------------------------------------
 
-# 13900k, 4090, 32GB DDR5, TAS 1.6.3, Sergio.
+# 13900k, 4090, 32GB DDR5 4800MHz, TAS 1.6.3, Sergio.
 ![nilasedits (2)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/2b3901f8-662f-4e83-8704-f49e1ab42549)
 
 # Ryzen 9 7950X3D, RTX 4090, 64GB DDR5 TAS 1.6.3, Toji.
