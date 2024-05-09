@@ -14,7 +14,7 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 ![nilasedits (2)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/2b3901f8-662f-4e83-8704-f49e1ab42549)
 
 # Ryzen 9 7950X3D, RTX 4090, 64GB DDR5 TAS 1.6.3, Toji.
-![nilasedits (1)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/3ca1f9c2-bea5-4fe7-bc6b-275f19480b79)
+![nilasedits (3)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/302976cd-7b2b-4cfa-a7d4-41aa3384014b)
 
 
 # 13700k Undervolted + Overclocked, 3090 Overclocked, 32GB DDR5 7200Mhz CL 38, *PRERELEASE* TAS 1.6.3, Nilas
