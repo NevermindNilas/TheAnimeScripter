@@ -36,8 +36,13 @@ class rifeNCNN:
             ensemble=self.ensemble,
         )
 
+        if self.filename.endswith("-ncnn.zip"):
+            self.filename = self.filename[:-9]
+        elif self.filename.endswith("-ncnn"):
+            self.filename = self.filename[:-5]
+            
         if not os.path.exists(
-            os.path.join(weightsDir, self.interpolateMethod)
+            os.path.join(weightsDir, self.interpolateMethod, self.filename)
         ):
             modelPath = downloadModels(
                 model=self.interpolateMethod,
