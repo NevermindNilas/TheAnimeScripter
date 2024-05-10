@@ -196,7 +196,6 @@ class RifeDirectML:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.width = width
         self.height = height
-        self.modelPath = os.path.join(weightsDir, modelsMap(self.interpolateMethod))
 
         self.handleModel()
 
@@ -204,8 +203,9 @@ class RifeDirectML:
         """
         Load the model
         """
-
-        self.filename = modelsMap(model=self.interpolateMethod, modelType="onnx")
+        self.modelPath = os.path.join(weightsDir, modelsMap(self.interpolateMethod))
+        self.filename = modelsMap(model=self.interpolateMethod, modelType="onnx", ensemble=self.ensemble, half=self.half)
+        
         if not os.path.exists(self.modelPath):
             os.path.join(weightsDir, self.interpolateMethod, self.filename)
 
@@ -435,6 +435,7 @@ class RifeTensorRT:
             modelPath = downloadModels(
                 model=self.interpolateMethod,
                 modelType="onnx",
+                ensemble=self.ensemble,
             )
         else:
             modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)

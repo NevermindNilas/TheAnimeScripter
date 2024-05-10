@@ -298,6 +298,30 @@ def modelsMap(
 
         case "sam-vith":
             return "sam_vit_h_4b8939.pth"
+        
+        case "rife-v4.16-lite-ncnn":
+            if ensemble:
+                return "rife-v4.16-lite-ensemble-ncnn.zip"
+            else:
+                return "rife-v4.16-lite-ncnn.zip"
+        
+        case "rife-v4.15-ncnn":
+            if ensemble:
+                return "rife-v4.15-ensemble-ncnn.zip"
+            else:
+                return "rife-v4.15-ncnn.zip"
+            
+        case "rife-v4.6-ncnn":
+            if ensemble:
+                return "rife-v4.6-ensemble-ncnn.zip"
+            else:
+                return "rife-v4.6-ncnn.zip"
+
+        case "rife-v4.15-lite-ncnn":
+            if ensemble:
+                return "rife-v4.15-lite-ensenmble-ncnn.zip"
+            else:
+                return "rife-v4.15-lite-ncnn.zip"
 
         case _:
             raise ValueError(f"Model {model} not found.")
@@ -345,14 +369,14 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
 
 
 def downloadModels(
-    model: str = None, upscaleFactor: int = 2, modelType: str = "pth", half: bool = True
+    model: str = None, upscaleFactor: int = 2, modelType: str = "pth", half: bool = True, ensemble: bool = False
 ) -> str:
     """
     Downloads the model.
     """
     os.makedirs(weightsDir, exist_ok=True)
 
-    filename = modelsMap(model, upscaleFactor, modelType, half)
+    filename = modelsMap(model, upscaleFactor, modelType, half, ensemble)
     folderPath = os.path.join(weightsDir, model)
     os.makedirs(folderPath, exist_ok=True)
 
