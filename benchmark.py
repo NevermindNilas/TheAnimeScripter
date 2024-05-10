@@ -48,7 +48,6 @@ interpolateMethods = [
     "rife4.15-directml",
     "rife4.15-lite-directml",
     "rife4.15-ncnn",
-    "rife4.14-ncnn",
     "rife4.6-ncnn",
     "rife4.6-tensorrt",
     "rife4.14-tensorrt",
