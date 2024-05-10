@@ -22,6 +22,7 @@ def updateScript(scriptVersion, mainPath):
         data = json.loads(response.text)
         latestVersion = data["tag_name"]
 
+        scriptVersion = "v" + scriptVersion
         if latestVersion != scriptVersion:
             answer = input(
                 f"New version {latestVersion} has been found, current version: {scriptVersion}. Do you want to update? (y/n): "
@@ -113,6 +114,6 @@ def updateScript(scriptVersion, mainPath):
             )
 
         else:
-            logging.error("No .7z file found in the latest release.")
+            print(green("No updates found, script is up to date"))
     except Exception as e:
         logging.error(f"An error occurred: {e}")
