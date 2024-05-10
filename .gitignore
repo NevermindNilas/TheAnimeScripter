@@ -40,6 +40,9 @@ src/cleanup.py
 # Extra json
 *.json
 
+# 7zr
+7zr.exe
+
 # Extra files
 extra-wheels/
 

@@ -36,6 +36,7 @@ def argumentChecker(args, mainPath, scriptVersion):
         "half",
         "offline",
         "consent",
+        "offline",
     ]
     for arg in boolArgs:
         setattr(args, arg, getattr(args, arg) == 1)
@@ -67,7 +68,7 @@ def argumentChecker(args, mainPath, scriptVersion):
         sys.exit()
 
     if args.offline:
-        toPrint = "Offline mode enabled, downloading all available models"
+        toPrint = "Offline mode enabled, downloading all available models, this can take a minute but it will allow for the script to be used offline"
         logging.info(toPrint)
         print(green(toPrint))
         options = modelsList()
@@ -80,7 +81,6 @@ def argumentChecker(args, mainPath, scriptVersion):
         toPrint = "All models downloaded, exiting"
         logging.info(toPrint)
         print(green(toPrint))
-        sys.exit()
 
     if args.dedup:
         args.audio = False
@@ -88,7 +88,7 @@ def argumentChecker(args, mainPath, scriptVersion):
 
     if args.dedup_method == "ssim" or args.dedup_method == "ssim-cuda":
         args.dedup_sens = 1.0 - (args.dedup_sens / 1000) * 0.1
-        
+
     if args.custom_encoder:
         logging.info(
             "Custom encoder specified, use with caution since some functions can make or break the encoding process"
@@ -112,6 +112,13 @@ def argumentChecker(args, mainPath, scriptVersion):
         else:
             logging.info("Half precision is not supported on your system, disabling it")
             args.half = False
+
+    if args.update:
+        logging.info("Update flag detected, checking for updates")
+        from .updateScript import updateScript
+
+        updateScript(scriptVersion, mainPath)
+        sys.exit()
 
     if "https://" in args.input or "http://" in args.input:
         processURL(args, mainPath)
