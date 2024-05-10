@@ -112,15 +112,21 @@ def argumentChecker(args, mainPath, scriptVersion):
         updateScript(scriptVersion, mainPath)
         sys.exit()
     
-    try:
-        args.input = args.input.encode("utf-8").decode("utf-8")
-        args.input = args.input.replace("\\", "/")
-    except UnicodeDecodeError:
-        toPrint = "Input video contains invalid characters in it's name. Please check the input and try again. One suggestion would be renaming it to something simpler like test.mp4"
+    if args.input is None:
+        toPrint = "No input specified, please specify an input file or URL to continue"
         logging.error(toPrint)
         print(red(toPrint))
-        time.sleep(3)
         sys.exit()
+    else:
+        try:
+            args.input = args.input.encode("utf-8").decode("utf-8")
+            args.input = args.input.replace("\\", "/")
+        except UnicodeDecodeError:
+            toPrint = "Input video contains invalid characters in it's name. Please check the input and try again. One suggestion would be renaming it to something simpler like test.mp4"
+            logging.error(toPrint)
+            print(red(toPrint))
+            time.sleep(3)
+            sys.exit()
     
     if "https://" in args.input or "http://" in args.input:
         processURL(args, mainPath)
