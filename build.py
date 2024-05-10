@@ -41,11 +41,6 @@ def create_executable():
     gui_path = os.path.join(base_dir, "gui.py")
     icon_path = os.path.join(base_dir, "src", "assets", "icon.ico")
 
-    rife_ncnn_models_path = os.path.join(
-        distribution("rife_ncnn_vulkan_python").locate_file("rife_ncnn_vulkan_python"),
-        "models",
-    )
-
     universal_ncnn_models_path = os.path.join(
         distribution("upscale_ncnn_py").locate_file("upscale_ncnn_py"),
         "models",
@@ -62,8 +57,6 @@ def create_executable():
             "--clean",
             "--add-data",
             f"{src_path};src/",
-            "--add-data",
-            f"{rife_ncnn_models_path};rife_ncnn_vulkan_python/models",
             "--add-data",
             f"{universal_ncnn_models_path};upscale_ncnn_py/models",
             "--hidden-import",
