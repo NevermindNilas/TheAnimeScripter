@@ -57,15 +57,7 @@ def argumentChecker(args, mainPath, scriptVersion):
     logging.info("\n============== Arguments Checker ==============")
     args.ffmpeg_path = getFFMPEG()
 
-    try:
-        args.input = args.input.encode("utf-8").decode("utf-8")
-        args.input = args.input.replace("\\", "/")
-    except UnicodeDecodeError:
-        toPrint = "Input video contains invalid characters in it's name. Please check the input and try again. One suggestion would be renaming it to something simpler like test.mp4"
-        logging.error(toPrint)
-        print(red(toPrint))
-        time.sleep(3)
-        sys.exit()
+
 
     if args.offline:
         toPrint = "Offline mode enabled, downloading all available models, this can take a minute but it will allow for the script to be used offline"
@@ -119,7 +111,17 @@ def argumentChecker(args, mainPath, scriptVersion):
 
         updateScript(scriptVersion, mainPath)
         sys.exit()
-
+    
+    try:
+        args.input = args.input.encode("utf-8").decode("utf-8")
+        args.input = args.input.replace("\\", "/")
+    except UnicodeDecodeError:
+        toPrint = "Input video contains invalid characters in it's name. Please check the input and try again. One suggestion would be renaming it to something simpler like test.mp4"
+        logging.error(toPrint)
+        print(red(toPrint))
+        time.sleep(3)
+        sys.exit()
+    
     if "https://" in args.input or "http://" in args.input:
         processURL(args, mainPath)
 
