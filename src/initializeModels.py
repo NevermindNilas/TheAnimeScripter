@@ -177,8 +177,9 @@ def initializeModels(self):
             case (
                 "rife-ncnn"
                 | "rife4.6-ncnn"
-                | "rife4.14-ncnn"
                 | "rife4.15-ncnn"
+                | "rife4.15-lite-ncnn"
+                | "rife4.16-lite-ncnn"
             ):
                 from src.rifencnn.rifencnn import rifeNCNN
 
