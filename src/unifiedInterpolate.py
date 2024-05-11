@@ -328,6 +328,7 @@ class RifeDirectML:
             frame = frame[: self.height, : self.width]
 
         return frame
+    
 
     @torch.inference_mode()
     def cacheFrame(self):
@@ -336,7 +337,7 @@ class RifeDirectML:
     @torch.inference_mode()
     def processFrame(self, frame):
         # Apparently this shit works and it even improves the performance xD?
-        return (
+        frame = (
             (
                 torch.from_numpy(frame)
                 .to(self.device, non_blocking=True)
@@ -353,6 +354,11 @@ class RifeDirectML:
             .mul_(1 / 255)
             .contiguous(memory_format=torch.channels_last)
         )
+
+        if self.padding != (0, 0, 0, 0):
+            frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
+
+        return frame
 
     @torch.inference_mode()
     def run(self, I1):
