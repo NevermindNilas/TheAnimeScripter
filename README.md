@@ -93,8 +93,8 @@ In the settings panel:
 
 - Rife (Versions: 4.6, 4.14, 4.15, 4.15-lite, 4.16-lite ) including DirectML
 - Rife TensorRT (Versions: 4.6, 4.14, 4.15 )
-- Rife NCNN ( Versions: 4.6, 4.14, 4.15 ) 
-- GMFSS (Available for CUDA )
+- Rife NCNN ( Versions: 4.6, 4.15, 4.15-lite, 4.16-lite ) 
+- GMFSS ( Available for CUDA )
 
 ### Denoise Models
 - SCUNet
@@ -126,7 +126,7 @@ In the settings panel:
 | [Kiteretsu77](https://github.com/Kiteretsu77/APISR)                                                   | APISR                |
 | [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                 |
 | [Sirosky](https://openmodeldb.info/models/2x-AniScale-2-ESRGAN-Lite)                                   | RealESRGAN Model     |
-| [TNTWise](https://github.com/TNTwise) | For Rife ONNX models
+| [TNTWise](https://github.com/TNTwise) | For Rife ONNX and NCNN models | 
 
 ## 📈 [Benchmarks](BENCHMARKS.MD)
 
