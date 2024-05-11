@@ -10,7 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from .train import AnimeSegmentation
 
-class AnimeSegment: # A bit ambiguous because of .train import AnimeSegmentation but it's fine
+
+class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentation but it's fine
     def __init__(
         self,
         input,
