@@ -1,5 +1,5 @@
 var panelGlobal = this;
-var TheAnimeScripter = (function() {
+var TheAnimeScripter = (function () {
 
     var scriptName = "TheAnimeScripter";
     var scriptVersion = "v1.6.3";
@@ -65,7 +65,7 @@ var TheAnimeScripter = (function() {
         });
         staticText.text = text;
 
-        checkbox.onClick = function() {
+        checkbox.onClick = function () {
             checkboxValues[name] = checkbox.value;
             app.settings.saveSetting(scriptName, name, checkbox.value.toString());
         }
@@ -82,22 +82,22 @@ var TheAnimeScripter = (function() {
     createCheckboxField(panelChain, "Interpolate", "checkboxInterpolate", "Interpolate using a desired model and factor");
     createCheckboxField(panelChain, "Sharpen", "checkboxSharpen", "Sharpen the video using a desired factor");
 
-    var checkboxResizeValue = function() {
+    var checkboxResizeValue = function () {
         return checkboxValues["checkboxResize"];
     };
-    var checkboxDeduplicateValue = function() {
+    var checkboxDeduplicateValue = function () {
         return checkboxValues["checkboxDeduplicate"];
     };
-    var checkboxDenoiseValue = function() {
+    var checkboxDenoiseValue = function () {
         return checkboxValues["checkboxDenoise"];
     };
-    var checkboxUpscaleValue = function() {
+    var checkboxUpscaleValue = function () {
         return checkboxValues["checkboxUpscale"];
     };
-    var checkboxInterpolateValue = function() {
+    var checkboxInterpolateValue = function () {
         return checkboxValues["checkboxInterpolate"];
     };
-    var checkboxSharpenValue = function() {
+    var checkboxSharpenValue = function () {
         return checkboxValues["checkboxSharpen"];
     };
 
@@ -195,7 +195,7 @@ var TheAnimeScripter = (function() {
 
     TheAnimeScripter.layout.layout(true);
     TheAnimeScripter.layout.resize();
-    TheAnimeScripter.onResizing = TheAnimeScripter.onResize = function() {
+    TheAnimeScripter.onResizing = TheAnimeScripter.onResize = function () {
         this.layout.resize();
     }
 
@@ -313,7 +313,7 @@ var TheAnimeScripter = (function() {
 
         labelValues[name] = savedValue;
 
-        slider.onChange = function() {
+        slider.onChange = function () {
             var value = Math.round(slider.value);
             label.text = value + "%"; // Append "%" to the value set by the slider
             labelValues[name] = value;
@@ -325,13 +325,13 @@ var TheAnimeScripter = (function() {
     createSlider(generalPanel, "Deduplication Sensitivity", "DedupSens", 50);
     createSlider(generalPanel, "Auto Cut Sensitivity", "SceneChange", 50);
 
-    var sharpenSensValue = function() {
+    var sharpenSensValue = function () {
         return labelValues["Sharpen"];
     };
-    var sceneChangeSensValue = function() {
+    var sceneChangeSensValue = function () {
         return labelValues["SceneChange"];
     };
-    var dedupSensValue = function() {
+    var dedupSensValue = function () {
         return labelValues["DedupSens"];
     };
 
@@ -364,7 +364,7 @@ var TheAnimeScripter = (function() {
         editText.preferredSize.width = 40;
         editText.alignment = ["right", "center"];
 
-        editText.onChange = function() {
+        editText.onChange = function () {
             fieldValues[name] = editText.text;
             app.settings.saveSetting(scriptName, name, editText.text);
         }
@@ -383,16 +383,16 @@ var TheAnimeScripter = (function() {
         name: "groupConsent"
     });
 
-    var resizeValue = function() {
+    var resizeValue = function () {
         return fieldValues["ResizeMultiplier"];
     };
-    var interpolateValue = function() {
+    var interpolateValue = function () {
         return fieldValues["InterpolateMultiplier"];
     };
-    var upscaleValue = function() {
+    var upscaleValue = function () {
         return fieldValues["UpscaleMultiplier"];
     };
-    var threadsValue = function() {
+    var threadsValue = function () {
         return fieldValues["ThreadsMultiplier"];
     };
 
@@ -401,23 +401,29 @@ var TheAnimeScripter = (function() {
     consentGroup.spacing = 0;
     consentGroup.margins = 0;
 
-    
+
     var checkboxConsent = consentGroup.add("checkbox", undefined, "Help Improve the Script", {
         name: "checkboxConsent"
     });
     checkboxConsent.alignment = ["left", "center"];
     checkboxConsent.helpTip = "By enabling this option, you allow the script to send anonymous data for improvement purposes. The data includes the output found in the generated log.txt and is used solely to enhance the script's functionality. This data is not shared with any third parties. You can review the data being sent in the consent.json file located in the script directory. You can disable this option at any time.";
     checkboxConsent.value = consentData;
-    
-    checkboxConsent.onClick = function() {
+
+    checkboxConsent.onClick = function () {
         if (checkboxConsent.value) {
             alert("Thank you for helping me improve the script, you can disable this at any time. Please hover over the checkbox for more information.");
         }
         app.settings.saveSetting(scriptName, "consentData", checkboxConsent.value);
     }
-    
+
+    createCheckboxField(generalPanel, "Help Improve the Script", "checkboxConsent", "By enabling this option, you allow the script to send anonymous data for improvement purposes. The data includes the output found in the generated log.txt and is used solely to enhance the script's functionality. This data is not shared with any third parties. You can review the data being sent in the consent.json file located in the script directory. You can disable this option at any time.");
     createCheckboxField(generalPanel, "Rife Ensemble", "checkboxEnsemble", "Use Rife Ensemble to interpolate frames, this will increase the quality of the video but also the processing time");
-    var checkboxEnsembleValue = function() {
+
+    var checkboxConsentValue = function () {
+        return checkboxValues["checkboxConsent"];
+    }
+
+    var checkboxEnsembleValue = function () {
         return checkboxValues["checkboxEnsemble"];
     }
 
@@ -461,7 +467,7 @@ var TheAnimeScripter = (function() {
         dropdown.preferredSize.width = 109;
         dropdown.preferredSize.height = 5;
 
-        dropdown.onChange = function() {
+        dropdown.onChange = function () {
             dropdownValues[name] = dropdown.selection.text;
             app.settings.saveSetting(scriptName, name, dropdown.selection.text); // Save the setting when it changes
         }
@@ -501,36 +507,35 @@ var TheAnimeScripter = (function() {
         "SuperUltraCompact-DirectML",
         "Span-DirectML",
         "ShuffleCugan-NCNN",
-        "Cugan-NCNN",
         "RealEsrgan-NCNN",
         "Span-NCNN",
     ], "Choose which model you want to utilize, read more in INFO, for AMD users choose DirectML or NCNN models");
-    createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.16-Lite", "Rife4.15", "Rife4.15-Lite", "Rife4.6", "Rife4.15-TensorRT", "Rife4.6-TensorRT", "Rife4.15-DirectML", "Rife4.15-Lite-DirectML", "Rife4.6-DirectML", "Rife4.15-NCNN", "Rife4.15-Lite-NCNN", "Rife4.16-Lite-NCNN", "Rife4.6-NCNN", "GMFSS"], "Choose which interpolation model you want to utilize, ordered by speed, GFMSS should only really be used on systems with 3080 / 4070 or higher, read more in INFO");
+    createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.16-Lite", "Rife4.15", "Rife4.15-Lite", "Rife4.6", "Rife4.15-TensorRT", "Rife4.6-TensorRT", "Rife4.15-DirectML", "Rife4.15-Lite-DirectML", "Rife4.6-DirectML", "Rife4.15-NCNN", "Rife4.15-Lite-NCNN", "Rife4.16-Lite-NCNN", "Rife4.6-NCNN", "GMFSS"], "Choose which interpolation model you want to utilize, read more in readme.txt, for AMD users choose DirectML or NCNN models, TensorRT is for NVIDIA RTX 2000 and above GPUs");
     createDropdownField(panel1, "Depth Model", "Depth", ["Small", "Base", "Large"], "Choose which depth map model you want to utilize, ordered by speed, read more in INFO");
     createDropdownField(panel1, "Encoder", "Encoder", ["X264", "X264_Animation", "X265", "AV1", "NVENC_H264", "NVENC_H265", "NVENC_AV1", "QSV_H264", "QSV_H265", "H264_AMF", "HEVC_AMF"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs, AMF for AMD GPUs and QSV for Intel iGPUs");
     createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear", "Bilinear", "Bicubic", "Experimental", "Neighbor", "Area", "Bicublin", "Gauss", "Sinc", "Lanczos", "Spline", "Spline16", "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
-    createDropdownField(panel1, "Dedup Method", "Dedup", ["FFMPEG", "SSIM", "MSE"], "Choose which deduplication method you want to utilize, FFMPEG is faster but less accurate, SSIM is slower but more accurate");
+    createDropdownField(panel1, "Dedup Method", "Dedup", ["FFMPEG", "SSIM", "MSE", "SSIM-CUDA"], "Choose which deduplication method you want to utilize, SSIM-CUDA is for NVIDIA Only whilst the rest will work on any system.");
     createDropdownField(panel1, "Denoise Method", "Denoise", ["Span", "SCUNet", "NAFNet", "DPIR"]);
 
-    var upscaleModel = function() {
+    var upscaleModel = function () {
         return dropdownValues["Model"];
     };
-    var interpolateModel = function() {
+    var interpolateModel = function () {
         return dropdownValues["Interpolate"];
     };
-    var depthModel = function() {
+    var depthModel = function () {
         return dropdownValues["Depth"];
     };
-    var encoderMethod = function() {
+    var encoderMethod = function () {
         return dropdownValues["Encoder"];
     };
-    var resizeMethod = function() {
+    var resizeMethod = function () {
         return dropdownValues["Resize"];
     };
-    var dedupMethod = function() {
+    var dedupMethod = function () {
         return dropdownValues["Dedup"];
     };
-    var denoiseMethod = function() {
+    var denoiseMethod = function () {
         return dropdownValues["Denoise"];
     };
 
@@ -557,18 +562,18 @@ var TheAnimeScripter = (function() {
     });
     buttonSettingsClose.text = "Close";
 
-    buttonSettingsClose.onClick = function() {
+    buttonSettingsClose.onClick = function () {
         settingsWindow.hide();
     }
 
-    checkIfPathSaved = function() {
+    checkIfPathSaved = function () {
         if (theAnimeScripterPath == "undefined" || theAnimeScripterPath == null) {
             alert("The Anime Scripter directory has not been selected, please go to settings");
             return;
         }
     }
 
-    buttonOfflineMode.onClick = function() {
+    buttonOfflineMode.onClick = function () {
         checkIfPathSaved();
         var exeFile = theAnimeScripterPath + "\\main.exe";
         var exeFilePath = new File(exeFile);
@@ -587,55 +592,53 @@ var TheAnimeScripter = (function() {
     }
 
 
-
-    buttonCheckForUpdate.onClick = function() {
-        var scriptURL = "https://github.com/NevermindNilas/TheAnimeScripter/releases/latest";
+    buttonCheckForUpdate.onClick = function () {
+        checkIfPathSaved();
+    
+        var exeFile = theAnimeScripterPath + "\\main.exe";
+        var exeFilePath = new File(exeFile);
+        if (!exeFilePath.exists) {
+            alert("Cannot find main.exe, please make sure you have selected the correct folder in settings!");
+            return;
+        };
+    
+        try {
+            var command = [
+                "cd", "\"" + theAnimeScripterPath + "\"",
+                "&&",
+                "\"" + exeFile + "\"",
+                "--update", "1",
+            ].join(" ");
+            callCommand(command);
+        } catch (error) {
+            alert(error.toString());
+        }
+    
         var discordServer = "https://discord.gg/CdRD9GwS8J";
-
-        var dialog1 = new Window('dialog', 'Open URL');
-        dialog1.add('statictext', undefined, 'Do you want to open the Github Link to TAS?');
-
-        dialog1.yesButton = dialog1.add('button', undefined, 'Yes', {
-            name: 'yes'
-        });
-        dialog1.noButton = dialog1.add('button', undefined, 'No', {
-            name: 'no'
-        });
-
-        dialog1.yesButton.onClick = function() {
-            system.callSystem('cmd.exe /c start "" "' + scriptURL + '"');
-            dialog1.close();
-        }
-
-        dialog1.noButton.onClick = function() {
-            dialog1.close();
-        }
-
-        dialog1.show();
-
+    
         var dialog2 = new Window('dialog', 'Open URL');
         dialog2.add('statictext', undefined, 'Do you want to join the Discord server?');
-
+    
         dialog2.yesButton = dialog2.add('button', undefined, 'Yes', {
             name: 'yes'
         });
         dialog2.noButton = dialog2.add('button', undefined, 'No', {
             name: 'no'
         });
-
+    
         dialog2.yesButton.onClick = function() {
             system.callSystem('cmd.exe /c start "" "' + discordServer + '"');
             dialog2.close();
         }
-
+    
         dialog2.noButton.onClick = function() {
             dialog2.close();
         }
-
+    
         dialog2.show();
-    }
-
-    buttonOutput.onClick = function() {
+    };
+    
+    buttonOutput.onClick = function () {
         var folder = Folder.selectDialog("Select Output folder");
         if (folder != null) {
             outputFolder = folder.fsName;
@@ -646,7 +649,7 @@ var TheAnimeScripter = (function() {
         alert("Output folder set to: " + outputFolder);
     };
 
-    buttonFolder.onClick = function() {
+    buttonFolder.onClick = function () {
         var folder = Folder.selectDialog("Select The Anime Scripter folder");
         if (folder != null) {
             theAnimeScripterPath = folder.fsName;
@@ -657,30 +660,30 @@ var TheAnimeScripter = (function() {
         alert("The Anime Scripter folder set to: " + theAnimeScripterPath);
     };
 
-    buttonSettings.onClick = function() {
+    buttonSettings.onClick = function () {
         settingsWindow.show();
     };
 
-    buttonSceneChange.onClick = function() {
+    buttonSceneChange.onClick = function () {
         sceneChangeValue = 1;
         startChain();
     }
 
-    buttonDepthMap.onClick = function() {
+    buttonDepthMap.onClick = function () {
         depthValue = 1;
         startChain();
     }
 
-    buttonSegment.onClick = function() {
+    buttonSegment.onClick = function () {
         segmentValue = 1;
         startChain();
     }
 
-    buttonStartProcess.onClick = function() {
+    buttonStartProcess.onClick = function () {
         startChain();
     }
 
-    buttonGetVideo.onClick = function() {
+    buttonGetVideo.onClick = function () {
         if (textGetVideo.text == "Add Youtube URL") {
             alert("Please add a Youtube URL");
             return;
@@ -689,11 +692,11 @@ var TheAnimeScripter = (function() {
         startDownload();
     }
 
-    buttonPreRender.onClick = function() {
+    buttonPreRender.onClick = function () {
         preRender();
     }
 
-    buttonCustomModel.onClick = function() {
+    buttonCustomModel.onClick = function () {
         var customModel = File.openDialog("Select a Custom Model", "*.pth", false);
         if (customModel != null) {
             customModelPath = customModel.fsName;
@@ -869,7 +872,7 @@ var TheAnimeScripter = (function() {
                     "--nt", threadsValue(),
                     "--denoise", checkboxDenoiseValue() ? "1" : "0",
                     "--denoise_method", denoiseMethod().toLowerCase(),
-                    "--consent", checkboxConsent.value ? "1" : "0",
+                    "--consent", checkboxConsentValue() ? "1" : "0",
                 ];
                 if (customModelPath && customModelPath !== "undefined") {
                     attempt.push("--custom_model", customModelPath);
