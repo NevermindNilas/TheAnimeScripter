@@ -29,7 +29,6 @@ def modelsList() -> list[str]:
         "span-denoise",
         "gmfss",
         "rife",
-        "rife4.14",
         "rife4.6",
         "rife4.15",
         "rife4.15-lite",
@@ -49,7 +48,6 @@ def modelsList() -> list[str]:
         "span-directml",
         "rife-directml",
         "rife4.6-directml",
-        "rife4.14-directml",
         "rife4.15-directml",
         "rife4.15-lite-directml",
         "shufflecugan-tensorrt",
@@ -58,7 +56,6 @@ def modelsList() -> list[str]:
         "superultracompact-tensorrt",
         "span-tensorrt",
         "rife4.6-tensorrt",
-        "rife4.14-tensorrt",
         "rife4.15-tensorrt",
         "rife4.6-ncnn",
         "rife4.15-ncnn",
@@ -219,15 +216,6 @@ def modelsMap(
                 else:
                     raise NotImplementedError  # "rife415_lite-fp32-sim.onnx"
 
-        case "rife4.14" | "rife4.14-directml":
-            if modelType == "pth":
-                return "rife414.pth"
-            else:
-                if half:
-                    return "rife414-sim_fp16.onnx"
-                else:
-                    raise NotImplementedError  # "rife414-fp32-sim.onnx"
-
         case "rife4.6" | "rife4.6-directml":
             if modelType == "pth":
                 return "rife46.pth"
@@ -248,18 +236,6 @@ def modelsMap(
                     return "rife46_ensembleTrue_op18_clamp_sim.onnx"
                 else:
                     return "rife46_ensembleFalse_op18_clamp_sim.onnx"
-        
-        case "rife4.14-tensorrt":
-            if half:
-                if ensemble:
-                    return "rife414_ensembleTrue_op18_fp16_clamp_sim.onnx"
-                else:
-                    return "rife414_ensembleFalse_op18_fp16_clamp_sim.onnx"
-            else:
-                if ensemble:
-                    return "rife414_ensembleTrue_op18_clamp_sim.onnx"
-                else:
-                    return "rife414_ensembleFalse_op18_clamp_sim.onnx"
                 
         case "rife4.15-tensorrt":
             if half:

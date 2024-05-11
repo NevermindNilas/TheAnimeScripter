@@ -67,8 +67,6 @@ class RifeCuda:
                 from .rifearches.IFNet_rife415lite import IFNet
             case "rife4.16-lite":
                 from .rifearches.IFNet_rife416lite import IFNet
-            case "rife4.14":
-                from .rifearches.IFNet_rife414 import IFNet
             case "rife4.6":
                 from .rifearches.IFNet_rife46 import IFNet
 

@@ -8,7 +8,7 @@ TIMESLEEP = 2
 CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
 TESTINGVERSION = "V3"
 
-dedupMethods = ["ffmpeg", "ssim", "mse"]
+dedupMethods = ["ffmpeg", "ssim", "mse", "ssim-cuda"]
 
 upscaleMethods = [
     "shufflecugan",
@@ -39,18 +39,15 @@ upscaleMethods = [
 
 interpolateMethods = [
     "rife4.6",
-    "rife4.14",
     "rife4.15",
     "rife4.15-lite",
     "rife4.16-lite",
     "rife4.6-directml",
-    "rife4.14-directml",
     "rife4.15-directml",
     "rife4.15-lite-directml",
     "rife4.15-ncnn",
     "rife4.6-ncnn",
     "rife4.6-tensorrt",
-    "rife4.14-tensorrt",
     "rife4.15-tensorrt",
     "gmfss",
 ]
