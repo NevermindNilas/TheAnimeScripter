@@ -54,8 +54,11 @@ interpolateMethods = [
 
 denoiseMethods = ["scunet", "nafnet", "dpir", "span"]
 
+totalTests = len(dedupMethods) + len(upscaleMethods) + len(interpolateMethods) + len(denoiseMethods)
+currentTest = 0
 
-def runAllBenchmarks(executor):
+
+def runAllBenchmarks(executor, version):
     print("Running all benchmarks. Depending on your system, this may take a while. Please be patient and keep the terminal at all times in the focus.")
     print("The results will be saved in benchmarkResults.json. Feel free to share this file with the Discord Community at https://discord.gg/2jqfkx3J")
     inputVideo = getClip(executor)
@@ -72,6 +75,7 @@ def runAllBenchmarks(executor):
     with open("benchmarkResults.json", "w") as f:
         json.dump(
             {
+                "Version": version,
                 "Testing Methodology": TESTINGVERSION,
                 "System Info": systemInfo,
                 "Results": results,
@@ -83,9 +87,11 @@ def runAllBenchmarks(executor):
 
 def getExe():
     if os.path.exists("main.exe"):
-        return "main.exe"
+        version = subprocess.check_output(["main.exe", "--version"]).decode().strip()
+        return "main.exe", version
     else:
-        return "python main.py"
+        version = subprocess.check_output(["python", "main.py", "--version"]).decode().strip()
+        return "python main.py", version
 
 
 def getClip(executor):
@@ -98,9 +104,11 @@ def getClip(executor):
 
 
 def runDedupBenchmark(inputVideo, executor):
+    global currentTest
     results = {}
     for method in dedupMethods:
-        print(f"Running {method} benchmark...")
+        print(f"[{currentTest}/{totalTests}] {method} benchmark...")
+        currentTest += 1
         output = os.popen(
             f"{executor} --input {inputVideo} --dedup 1 --dedup_method {method} --benchmark 1"
         ).read()
@@ -113,9 +121,10 @@ def runDedupBenchmark(inputVideo, executor):
 
 
 def runUpscaleBenchmark(inputVideo, executor):
+    global currentTest
     results = {}
     for method in upscaleMethods:
-        print(f"Running {method} benchmark...")
+        print(f"[{currentTest}/{totalTests}] {method} benchmark...")
         if method == "omnisr":
             output = os.popen(
                 f"{executor} --input {inputVideo} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 2"
@@ -128,14 +137,16 @@ def runUpscaleBenchmark(inputVideo, executor):
         fps = parseFPS(output)
         results[method] = fps
         time.sleep(TIMESLEEP)
+        currentTest += 1
 
     return results
 
-
 def runInterpolateBenchmark(inputVideo, executor):
+    global currentTest
     results = {}
     for method in interpolateMethods:
-        print(f"Running {method} benchmark...")
+        print(f"[{currentTest}/{totalTests}] {method} benchmark...")
+        currentTest += 1
 
         if method != "gmfss":
             output = os.popen(
@@ -150,7 +161,8 @@ def runInterpolateBenchmark(inputVideo, executor):
         results[method] = fps
         time.sleep(TIMESLEEP)
 
-        print(f"Running {method} with ensemble benchmark...")
+        print(f"[{currentTest}/{totalTests}] Running {method} with ensemble benchmark...")
+        currentTest += 1
 
         if method != "gmfss":  # Ensemble is irrelevant for GMFSS
             output = os.popen(
@@ -169,9 +181,11 @@ def runInterpolateBenchmark(inputVideo, executor):
 
 
 def runDenoiseBenchmark(inputVideo, executor):
+    global currentTest
     results = {}
     for method in denoiseMethods:
-        print(f"Running {method} benchmark...")
+        print(f"[{currentTest}/{totalTests}] {method} benchmark...")
+        currentTest += 1
         output = os.popen(
             f"{executor} --input {inputVideo} --denoise 1 --denoise_method {method} --benchmark 1 --outpoint 2"
         ).read()
@@ -207,4 +221,6 @@ def parseSystemInfo():
 
 
 if __name__ == "__main__":
-    runAllBenchmarks(executor=getExe())
+    executor, version = getExe()
+    print(f"Using {executor} version {version}")
+    runAllBenchmarks(executor, version)
