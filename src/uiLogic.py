@@ -282,11 +282,9 @@ def dropdownsLabels(method):
                 "Rife4.16-Lite",
                 "Rife4.15-Lite",
                 "Rife4.15",
-                "Rife4.14",
                 "Rife4.6",
                 "Rife4.15-DirectML",
                 "Rife4.15-lite-DirectML",
-                "Rife4.14-DirectML",
                 "Rife4.6-DirectML",
                 "GMFSS",
             ]

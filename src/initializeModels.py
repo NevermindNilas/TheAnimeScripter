@@ -128,7 +128,6 @@ def initializeModels(self):
             case (
                 "rife"
                 | "rife4.6"
-                | "rife4.14"
                 | "rife4.15"
                 | "rife4.15-lite"
                 | "rife4.16-lite"
@@ -159,7 +158,6 @@ def initializeModels(self):
             case (
                 "rife-directml"
                 | "rife4.6-directml"
-                | "rife4.14-directml"
                 | "rife4.15-directml"
                 | "rife4.15-lite-directml"
             ):
@@ -194,7 +192,6 @@ def initializeModels(self):
             case (
                 "rife-tensorrt"
                 | "rife4.6-tensorrt"
-                | "rife4.14-tensorrt"
                 | "rife4.15-tensorrt"
                 | "rife4.15-lite-tensorrt"
             ):
