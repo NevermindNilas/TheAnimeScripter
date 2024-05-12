@@ -107,10 +107,7 @@ class IFNet(nn.Module):
         scale_list=[8, 4, 2, 1],
         ensemble=False,
     ):
-        if not torch.is_tensor(timestep):
-            timestep = (image1[:, :1].clone() * 0 + 1) * timestep
-        else:
-            timestep = timestep.repeat(1, 1, image1.shape[2], image1.shape[3])
+
         merged = []
         mask_list = []
         warped_img0 = image1

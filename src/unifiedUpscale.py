@@ -5,7 +5,7 @@ import logging
 
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
-from .coloredPrints import blue
+from .coloredPrints import yellow
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
@@ -214,9 +214,10 @@ class UniversalTensorRT:
                 torch.set_default_dtype(torch.float16)
 
         # TO:DO account for FP16/FP32
+        modelPath = r"G:\TheAnimeScripter\src\weights\shufflecugan-tensorrt\shufflecugan-optimized.onnx"
         if not os.path.exists(modelPath.replace(".onnx", ".engine")):
             toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
-            print(blue(toPrint))
+            print(yellow(toPrint))
             logging.info(toPrint)
             profiles = [
                 # The low-latency case. For best performance, min == opt == max.
@@ -259,7 +260,7 @@ class UniversalTensorRT:
             .squeeze(0)
             .permute(1, 2, 0)
             .mul_(255)
-            .clamp(0, 255) # Clamped ONNX models seem to be ignored by the runner, it still outputs values outside of [0-255], weird
+            #.clamp(0, 255) # Clamped ONNX models seem to be ignored by the runner, it still outputs values outside of [0-255], weird
             .byte()
             .cpu()
             .numpy()

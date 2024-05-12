@@ -142,6 +142,7 @@ def initializeModels(self):
                     self.interpolate_method,
                     self.ensemble,
                     self.nt,
+                    self.interpolate_factor,
                 )
             case "gmfss":
                 from src.gmfss.gmfss_fortuna_union import GMFSS
@@ -187,6 +188,7 @@ def initializeModels(self):
                     self.nt,
                     outputWidth,
                     outputHeight,
+                    self.interpolate_factor,
                 )
 
             case (
