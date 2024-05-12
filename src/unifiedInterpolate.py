@@ -490,39 +490,51 @@ class RifeTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
-        # TO:DO account for FP16/FP32
-        if not os.path.exists(modelPath.replace(".onnx", ".engine")):
+        if self.half:
+            if self.width < 3840 and self.height < 2160:
+                enginePrecision = "fp16"
+            else:
+                enginePrecision = "bf16"
+        else:
+            enginePrecision = "fp32"
+
+        if os.path.exists(modelPath.replace(".onnx", f"_{enginePrecision}.engine")):
+            self.engine = self.EngineFromBytes(self.BytesFromPath(modelPath.replace(".onnx", f"_{enginePrecision}.engine")))
+        else:
             toPrint = f"Engine not found, creating dynamic engine for model: {modelPath}, this may take a while, but it is worth the wait..."
             print(yellow(toPrint))
             logging.info(toPrint)
-            profiles = [
-                self.Profile().add(
-                    "input",
-                    min=(1, 8, 32, 32),
-                    opt=(1, 8, self.height, self.width),
-                    max=(1, 8, 2160, 3840),
+
+            if enginePrecision == "fp32" or enginePrecision == "fp16":
+                profile = [
+                    self.Profile().add(
+                        "input",
+                        min=(1, 8, 32, 32),
+                        opt=(1, 8, self.height, self.width),
+                        max=(1, 8, 2160, 3840),
+                    )
+                ]
+                self.config = self.CreateConfig(
+                    fp16=self.half, profiles=profile, preview_features=[],
                 )
-            ]
-            if self.half:
-                if self.width < 3840 and self.height < 2160:
-                    self.config = self.CreateConfig(
-                        fp16=self.half, profiles=profiles, preview_features=[]
+            else:
+                profile = [
+                    self.Profile().add(
+                        "input",
+                        min=(1, 8, 2160, 3840),
+                        opt=(1, 8, 2160, 3840),
+                        max=(1, 8, 2160, 3840),
                     )
-                else:
-                    self.config = self.CreateConfig(
-                        bf16=self.half, profiles=profiles, preview_features=[]
-                    )
+                ]
+                self.config = self.CreateConfig(
+                    bf16=True, profiles=profile, preview_features=[]
+                )
             self.engine = self.engine_from_network(
                 self.network_from_onnx_path(modelPath),
                 config=self.config,
             )
             self.engine = self.SaveEngine(
-                self.engine, modelPath.replace(".onnx", ".engine")
-            )
-
-        else:
-            self.engine = self.EngineFromBytes(
-                self.BytesFromPath(modelPath.replace(".onnx", ".engine"))
+                self.engine, modelPath.replace(".onnx", f"_{enginePrecision}.engine")
             )
 
         self.runner = self.TrtRunner(self.engine)
