@@ -2,7 +2,6 @@ import os
 import torch
 import numpy as np
 import logging
-
 from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
 
@@ -22,6 +21,7 @@ class RifeCuda:
         interpolateMethod,
         ensemble=False,
         nt=1,
+        interpolateFactor=2,
     ):
         """
         Initialize the RIFE model
@@ -43,6 +43,7 @@ class RifeCuda:
         self.interpolateMethod = interpolateMethod
         self.ensemble = ensemble
         self.nt = nt
+        self.interpolateFactor = interpolateFactor
 
         if self.UHD:
             self.scale = 0.5
@@ -121,9 +122,35 @@ class RifeCuda:
 
         self.firstRun = True
 
+        if self.interpolateFactor == 2:
+            self.timestep = (
+                torch.zeros(
+                    1,
+                    1,
+                    self.I0.shape[2],
+                    self.I0.shape[3],
+                    dtype=torch.float16 if self.half else torch.float32,
+                ).to(self.device)
+                * 0.5
+            )
+
     @torch.inference_mode()
     def make_inference(self, timestep):
-        output = self.model(self.I0, self.I1, timestep, self.scaleList, self.ensemble)
+        if self.interpolateFactor != 2:
+            self.timestep = (
+                torch.zeros(
+                    1,
+                    1,
+                    self.I0.shape[2],
+                    self.I0.shape[3],
+                    dtype=torch.float16 if self.half else torch.float32,
+                ).to(self.device)
+                * timestep
+            )
+
+        output = self.model(
+            self.I0, self.I1, self.timestep, self.scaleList, self.ensemble
+        )
         output = output[:, :, : self.height, : self.width]
         output = (output[0] * 255.0).byte().cpu().numpy().transpose(1, 2, 0)
 
@@ -201,9 +228,15 @@ class RifeDirectML:
         """
         Load the model
         """
+        """
         self.modelPath = os.path.join(weightsDir, modelsMap(self.interpolateMethod))
-        self.filename = modelsMap(model=self.interpolateMethod, modelType="onnx", ensemble=self.ensemble, half=self.half)
-        
+        self.filename = modelsMap(
+            model=self.interpolateMethod,
+            modelType="onnx",
+            ensemble=self.ensemble,
+            half=self.half,
+        )
+
         if not os.path.exists(self.modelPath):
             os.path.join(weightsDir, self.interpolateMethod, self.filename)
 
@@ -214,6 +247,9 @@ class RifeDirectML:
             )
         else:
             modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)
+        """
+
+        modelPath = r"C:\Users\nilas\Downloads\Rife415-lite-fp32.onnx"
 
         providers = self.ort.get_available_providers()
 
@@ -253,6 +289,7 @@ class RifeDirectML:
             self.width + self.padding[1],
             dtype=self.torchDType,
         ).to(self.device)
+
         self.dummyInput2 = torch.zeros(
             1,
             3,
@@ -260,7 +297,9 @@ class RifeDirectML:
             self.width + self.padding[1],
             dtype=self.torchDType,
         ).to(self.device)
+
         self.dummyTimestep = torch.tensor([0.5], dtype=self.torchDType).to(self.device)
+
         self.dummyOutput = torch.zeros(
             1,
             3,
@@ -328,7 +367,6 @@ class RifeDirectML:
             frame = frame[: self.height, : self.width]
 
         return frame
-    
 
     @torch.inference_mode()
     def cacheFrame(self):
@@ -336,7 +374,6 @@ class RifeDirectML:
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        # Apparently this shit works and it even improves the performance xD?
         frame = (
             (
                 torch.from_numpy(frame)
@@ -467,7 +504,9 @@ class RifeTensorRT:
             ]
             self.engine = self.engine_from_network(
                 self.network_from_onnx_path(modelPath),
-                config=self.CreateConfig(fp16=self.half, profiles=profiles),
+                config=self.CreateConfig(
+                    fp16=self.half, profiles=profiles, preview_features=[]
+                ),
             )
             self.engine = self.SaveEngine(
                 self.engine, modelPath.replace(".onnx", ".engine")
@@ -492,22 +531,34 @@ class RifeTensorRT:
                 dtype=self.dType,
                 device=self.device,
             )
-            self.timestep = torch.tensor(
-                (1 + 1) * 1.0 / (self.interpolateFactor + 1),
-                dtype=self.dType,
-                device=self.device,
-            ).repeat(self.I0.shape[0], 1, self.I0.shape[2], self.I0.shape[3])
+            self.timestep = (
+                torch.zeros(
+                    1,
+                    1,
+                    self.height,
+                    self.width,
+                    dtype=self.dType,
+                    device=self.device,
+                )
+                * 0.5
+            )
         else:
             self.I0 = None
 
     @torch.inference_mode()
     def make_inference(self, n):
         if self.interpolateFactor != 2:
-            self.timestep = torch.tensor(
-                (n + 1) * 1.0 / (self.interpolateFactor + 1),
-                dtype=self.dType,
-                device=self.device,
-            ).repeat(self.I0.shape[0], 1, self.I0.shape[2], self.I0.shape[3])
+            self.timestep = (
+                torch.zeros(
+                    1,
+                    1,
+                    self.height,
+                    self.width,
+                    dtype=self.dType,
+                    device=self.device,
+                )
+                * n
+            )
 
         return (
             self.runner.infer(

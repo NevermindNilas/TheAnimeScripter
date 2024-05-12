@@ -125,10 +125,6 @@ class IFNet(nn.Module):
     def forward(
         self, image0, image1, timestep=0.5, scale_list=[8, 4, 2, 1], ensemble=False
     ):
-        if not torch.is_tensor(timestep):
-            timestep = (image0[:, :1].clone() * 0 + 1) * timestep
-        else:
-            timestep = timestep.repeat(1, 1, image0.shape[2], image0.shape[3])
         f0 = self.encode(image0[:, :3])
         f1 = self.encode(image1[:, :3])
         warped_image0 = image0
