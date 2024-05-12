@@ -124,11 +124,6 @@ class IFNet(nn.Module):
     def forward(
         self, frame1, frame2, timestep=0.5, scale_list=[8, 4, 2, 1], ensemble=False
     ):  
-
-        if not torch.is_tensor(timestep):
-            timestep = (frame1[:, :1].clone() * 0 + 1) * timestep
-        else:
-            timestep = timestep.repeat(1, 1, frame1.shape[2], frame1.shape[3])
         f0 = self.encode(frame1[:, :3])
         f1 = self.encode(frame2[:, :3])
         merged = []
