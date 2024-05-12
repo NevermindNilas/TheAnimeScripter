@@ -476,6 +476,7 @@ class RifeTensorRT:
             modelPath = downloadModels(
                 model=self.interpolateMethod,
                 modelType="onnx",
+                half=self.half,
                 ensemble=self.ensemble,
             )
         else:
@@ -502,11 +503,18 @@ class RifeTensorRT:
                     max=(1, 8, 2160, 3840),
                 )
             ]
+            if self.half:
+                if self.width < 3840 and self.height < 2160:
+                    self.config = self.CreateConfig(
+                        fp16=self.half, profiles=profiles, preview_features=[]
+                    )
+                else:
+                    self.config = self.CreateConfig(
+                        bf16=self.half, profiles=profiles, preview_features=[]
+                    )
             self.engine = self.engine_from_network(
                 self.network_from_onnx_path(modelPath),
-                config=self.CreateConfig(
-                    fp16=self.half, profiles=profiles, preview_features=[]
-                ),
+                config=self.config,
             )
             self.engine = self.SaveEngine(
                 self.engine, modelPath.replace(".onnx", ".engine")
@@ -545,6 +553,17 @@ class RifeTensorRT:
         else:
             self.I0 = None
 
+        scaleInt = 1 if self.width < 3840 and self.height < 2160 else 0.5
+        self.scale = torch.zeros(
+            1,
+            1,
+            self.height,
+            self.width,
+            dtype=self.dType,
+            device=self.device,
+        ) * scaleInt
+        
+
     @torch.inference_mode()
     def make_inference(self, n):
         if self.interpolateFactor != 2:
@@ -568,7 +587,7 @@ class RifeTensorRT:
                             self.I0,
                             self.I1,
                             self.timestep,
-                            torch.zeros_like(self.timestep),
+                            self.scale,
                         ],
                         dim=1,
                     )
