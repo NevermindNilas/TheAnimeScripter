@@ -93,6 +93,8 @@ def argumentChecker(args, mainPath, scriptVersion):
             "Consent flag detected, thank you for helping me improve the script"
         )
 
+    """
+    # Doesn't work with AMD GPUs
     if args.half:
         try:
             import torch
@@ -104,6 +106,7 @@ def argumentChecker(args, mainPath, scriptVersion):
         else:
             logging.info("Half precision is not supported on your system, disabling it")
             args.half = False
+    """
 
     if args.update:
         logging.info("Update flag detected, checking for updates")

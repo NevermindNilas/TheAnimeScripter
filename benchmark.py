@@ -54,7 +54,7 @@ interpolateMethods = [
 
 denoiseMethods = ["scunet", "nafnet", "dpir", "span"]
 
-totalTests = len(dedupMethods) + len(upscaleMethods) + len(interpolateMethods) + len(denoiseMethods)
+totalTests = len(dedupMethods) + len(upscaleMethods) + len(interpolateMethods) * 2 + len(denoiseMethods)
 currentTest = 0
 
 
