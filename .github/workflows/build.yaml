@@ -18,46 +18,39 @@ jobs:
         with:
           python-version: "3.11.9"
 
-      - name: Install setuptools
-        run: python -m pip install --upgrade pip setuptools
-
-      # This should hopefully work
-      - name: Cache pip modules
-        uses: actions/cache@v3
-        with:
-          path: ~\AppData\Local\pip\Cache
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install dependencies
-        run: python -m pip install -r requirements.txt
-
-      - name: Sanity Check - List pip modules
-        run: python -m pip list
+      #- name: Install setuptools
+      #  run: python -m pip install --upgrade pip setuptools
+#
+      ## This should hopefully work
+      #- name: Cache pip modules
+      #  uses: actions/cache@v3
+      #  with:
+      #    path: ~\AppData\Local\pip\Cache
+      #    key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+      #    restore-keys: |
+      #      ${{ runner.os }}-pip-
+#
+      #- name: Install dependencies
+      #  run: python -m pip install -r requirements.txt
+#
+      #- name: Sanity Check - List pip modules
+      #  run: python -m pip list
 
       - name: Run build script
         run: python build.py --venv
 
-      - name: Extract version
-        id: get_version
-        shell: bash
-        run: |
-          echo "VERSION=$(python -c "from main import scriptVersion; print(scriptVersion)")" >> $GITHUB_ENV
-
-      - name: Print version
-        run: |
-          echo "Version: $VERSION"
-
-
+      - name: Get the date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y%m%d%H%M%S')"
+      
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
-          tag_name: TAS_${{ steps.get_version.outputs.VERSION }}
-          release_name: TAS_${{ steps.get_version.outputs.VERSION }}
+          tag_name: TAS_${{ steps.date.outputs.date }}
+          release_name: TAS_${{ steps.date.outputs.date }}
           draft: true
 
       - name: Compress main directory
