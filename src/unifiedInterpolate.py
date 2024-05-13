@@ -218,7 +218,7 @@ class RifeDirectML:
         """
         Load the model
         """
-        """
+        
         self.modelPath = os.path.join(weightsDir, modelsMap(self.interpolateMethod))
         self.filename = modelsMap(
             model=self.interpolateMethod,
@@ -237,9 +237,7 @@ class RifeDirectML:
             )
         else:
             modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)
-        """
-
-        modelPath = r"C:\Users\nilas\Downloads\Rife415-lite-fp32.onnx"
+        
 
         providers = self.ort.get_available_providers()
 
@@ -349,12 +347,10 @@ class RifeDirectML:
 
         self.model.run_with_iobinding(self.IoBinding)
 
-        frame = (
-            self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()
-        )
+        frame = self.dummyOutput
 
         if self.padding != (0, 0, 0, 0):
-            frame = frame[: self.height, : self.width]
+            frame = frame[:, :, : self.height, : self.width]
 
         return frame
 
@@ -363,25 +359,7 @@ class RifeDirectML:
         self.dummyInput1.copy_(self.dummyInput2)
 
     @torch.inference_mode()
-    def processFrame(self, frame):
-        frame = (
-            (
-                torch.from_numpy(frame)
-                .to(self.device, non_blocking=True)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .float()
-                if not self.half
-                else torch.from_numpy(frame)
-                .to(self.device, non_blocking=True)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .half()
-            )
-            .mul_(1 / 255)
-            .contiguous(memory_format=torch.channels_last)
-        )
-
+    def padFrame(self, frame):
         if self.padding != (0, 0, 0, 0):
             frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
 
@@ -390,11 +368,11 @@ class RifeDirectML:
     @torch.inference_mode()
     def run(self, I1):
         if self.firstRun is True:
-            self.dummyInput1.copy_(self.processFrame(I1))
+            self.dummyInput1.copy_(self.padFrame(I1))
             self.firstRun = False
             return False
 
-        self.dummyInput2.copy_(self.processFrame(I1))
+        self.dummyInput2.copy_(self.padFrame(I1))
         return True
 
 
