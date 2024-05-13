@@ -93,38 +93,18 @@ class UniversalPytorch:
                 self.model.half()
 
     @torch.inference_mode()
-    def run(self, frame: np.ndarray) -> np.ndarray:
+    def run(self, frame: torch.Tensor) ->torch.Tensor:
         """
         Upscale a frame using a desired model, and return the upscaled frame
         Expects a numpy array of shape (height, width, 3) and dtype uint8
         """
-        frame = (
-            torch.from_numpy(frame)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-            .float()
-            if not self.half
-            else torch.from_numpy(frame)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-            .half()
-        ).to(self.device).mul_(1 / 255)
-
+        
+        return self.model(frame)
         """
         if self.isCudaAvailable:
             torch.cuda.synchronize(self.stream[self.currentStream])
             self.currentStream = (self.currentStream + 1) % len(self.stream)
         """
-
-        return (
-            self.model(frame)
-            .squeeze(0)
-            .permute(1, 2, 0)
-            .mul_(255)
-            .byte()
-            .cpu()
-            .numpy()
-        )
 
 
 class UniversalTensorRT:
@@ -243,28 +223,15 @@ class UniversalTensorRT:
         self.runner.activate()
 
     @torch.inference_mode()
-    def run(self, frame: np.ndarray) -> np.ndarray:
-        frame = (
-            torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float().mul_(1 / 255)
-        )
-
+    def run(self, frame: torch.Tensor) -> torch.Tensor:
         return (
             self.runner.infer(
                 {
-                    "input": frame.half()
-                    if self.half and self.isCudaAvailable
-                    else frame
+                "input": frame.contiguous()
                 },
                 check_inputs=False,
-            )["output"]
-            .squeeze(0)
-            .permute(1, 2, 0)
-            .mul_(255)
-            .clamp(0, 255) # Clamped ONNX models seem to be ignored by the runner, it still outputs values outside of [0-255], weird
-            .byte()
-            .cpu()
-            .numpy()
-        )
+        ))["output"]
+        
 
 
 class UniversalDirectML:

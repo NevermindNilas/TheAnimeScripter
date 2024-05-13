@@ -106,23 +106,9 @@ class UnifiedDenoise:
         Upscale a frame using a desired model, and return the upscaled frame
         Expects a numpy array of shape (height, width, 3) and dtype uint8
         """
-        with torch.no_grad():
-            frame = (
-                torch.from_numpy(frame)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .float()
-                .mul_(1 / 255)
-                .to(self.device)
-            )
+        if self.isCudaAvailable:
+            if self.precision == "bfloat16":
+                frame = frame.bfloat16()
 
-            if self.isCudaAvailable:
-                if self.half:
-                    if self.precision == "fp16":
-                        frame = frame.half()
-                    elif self.precision == "bfloat16":
-                        frame = frame.bfloat16()
-
-            frame = self.model(frame)
-            return frame.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()
+        return self.model(frame)
 

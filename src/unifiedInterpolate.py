@@ -151,27 +151,17 @@ class RifeCuda:
         output = self.model(
             self.I0, self.I1, self.timestep, self.scaleList, self.ensemble
         )
-        output = output[:, :, : self.height, : self.width]
-        output = (output[0] * 255.0).byte().cpu().numpy().transpose(1, 2, 0)
 
+        if self.padding != (0, 0, 0, 0):
+            output = output[:, :, : self.height, : self.width]
+        
         return output
 
     def cacheFrame(self):
         self.I0.copy_(self.I1, non_blocking=True)
 
     @torch.inference_mode()
-    def processFrame(self, frame):
-        frame = (
-            torch.from_numpy(frame)
-            .to(self.device, non_blocking=True)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-            .float()
-            .mul_(1 / 255)
-        )
-
-        frame = frame.half() if self.half and self.isCudaAvailable else frame
-
+    def padFrame(self, frame):
         if self.padding != (0, 0, 0, 0):
             frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
 
@@ -180,11 +170,11 @@ class RifeCuda:
     @torch.inference_mode()
     def run(self, I1):
         if self.firstRun is True:
-            self.I0.copy_(self.processFrame(I1), non_blocking=True)
+            self.I0.copy_(self.padFrame(I1), non_blocking=True)
             self.firstRun = False
             return False
 
-        self.I1.copy_(self.processFrame(I1), non_blocking=True)
+        self.I1.copy_(self.padFrame(I1), non_blocking=True)
         return True
 
 
@@ -499,7 +489,11 @@ class RifeTensorRT:
             enginePrecision = "fp32"
 
         if os.path.exists(modelPath.replace(".onnx", f"_{enginePrecision}.engine")):
-            self.engine = self.EngineFromBytes(self.BytesFromPath(modelPath.replace(".onnx", f"_{enginePrecision}.engine")))
+            self.engine = self.EngineFromBytes(
+                self.BytesFromPath(
+                    modelPath.replace(".onnx", f"_{enginePrecision}.engine")
+                )
+            )
         else:
             toPrint = f"Engine not found, creating dynamic engine for model: {modelPath}, this may take a while, but it is worth the wait..."
             print(yellow(toPrint))
@@ -515,7 +509,9 @@ class RifeTensorRT:
                     )
                 ]
                 self.config = self.CreateConfig(
-                    fp16=self.half, profiles=profile, preview_features=[],
+                    fp16=self.half,
+                    profiles=profile,
+                    preview_features=[],
                 )
             else:
                 profile = [
@@ -541,16 +537,27 @@ class RifeTensorRT:
         self.runner.activate()
 
         self.dType = torch.float16 if self.half else torch.float32
+        self.I0 = torch.zeros(
+            1,
+            3,
+            self.height,
+            self.width,
+            dtype=self.dType,
+            device=self.device,
+        )
+
+        self.I1 = torch.zeros(
+            1,
+            3,
+            self.height,
+            self.width,
+            dtype=self.dType,
+            device=self.device,
+        )
+
+        self.firstRun = True
 
         if self.interpolateFactor == 2:
-            self.I0 = torch.zeros(
-                1,
-                3,
-                self.height,
-                self.width,
-                dtype=self.dType,
-                device=self.device,
-            )
             self.timestep = (
                 torch.zeros(
                     1,
@@ -566,15 +573,17 @@ class RifeTensorRT:
             self.I0 = None
 
         scaleInt = 1 if self.width < 3840 and self.height < 2160 else 0.5
-        self.scale = torch.zeros(
-            1,
-            1,
-            self.height,
-            self.width,
-            dtype=self.dType,
-            device=self.device,
-        ) * scaleInt
-        
+        self.scale = (
+            torch.zeros(
+                1,
+                1,
+                self.height,
+                self.width,
+                dtype=self.dType,
+                device=self.device,
+            )
+            * scaleInt
+        )
 
     @torch.inference_mode()
     def make_inference(self, n):
@@ -591,59 +600,31 @@ class RifeTensorRT:
                 * n
             )
 
-        return (
-            self.runner.infer(
-                {
-                    "input": torch.cat(
-                        [
-                            self.I0,
-                            self.I1,
-                            self.timestep,
-                            self.scale,
-                        ],
-                        dim=1,
-                    )
-                },
-                check_inputs=False,
-            )["output"]
-            .squeeze(0)
-            .permute(1, 2, 0)
-            .mul_(255)
-            .byte()
-            .cpu()
-            .numpy()
-        )
+        return self.runner.infer(
+            {
+                "input": torch.cat(
+                    [
+                        self.I0,
+                        self.I1,
+                        self.timestep,
+                        self.scale,
+                    ],
+                    dim=1,
+                )
+            },
+            check_inputs=False,
+        )["output"]
 
     @torch.inference_mode()
     def cacheFrame(self):
-        self.I0 = self.I1.clone()
-
-    @torch.inference_mode()
-    def processFrame(self, frame):
-        # Is this what they mean with Pythonic Code?
-        return (
-            (
-                torch.from_numpy(frame)
-                .to(self.device, non_blocking=True)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .float()
-                if not self.half
-                else torch.from_numpy(frame)
-                .to(self.device, non_blocking=True)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .half()
-            )
-            .mul_(1 / 255)
-            .contiguous()
-        )
+        self.I0.copy_(self.I1, non_blocking=True)
 
     @torch.inference_mode()
     def run(self, I1):
-        if self.I0 is None:
-            self.I0 = self.processFrame(I1)
+        if self.firstRun is True:
+            self.I0.copy_(I1, non_blocking=True)
+            self.firstRun = False
             return False
 
-        self.I1 = self.processFrame(I1)
+        self.I1.copy_(I1, non_blocking=True)
         return True
