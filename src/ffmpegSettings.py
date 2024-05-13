@@ -4,6 +4,7 @@ import numpy as np
 import os
 import sys
 import shutil
+import torch
 
 from queue import Queue
 
@@ -105,6 +106,7 @@ class BuildBuffer:
         resizeMethod: str = "bilinear",
         buffSize: int = 10**8,
         queueSize: int = 50,
+        half: bool = True,
     ):
         """
         A class meant to Pipe the Output of FFMPEG into a Queue for further processing.
@@ -122,6 +124,7 @@ class BuildBuffer:
         "spline",
         buffSize: int - The size of the subprocess buffer in bytes, don't touch unless you are working with some ginormous 8K content.
         queueSize: int - The size of the queue.
+        half: bool - Whether to use half precision for the frames.
         """
         self.input = os.path.normpath(input)
         self.ffmpegPath = os.path.normpath(ffmpegPath)
@@ -136,6 +139,7 @@ class BuildBuffer:
         self.resizeMethod = resizeMethod
         self.buffSize = buffSize
         self.queueSize = queueSize
+        self.half = half
 
     def parameters(self):
         """
@@ -241,10 +245,24 @@ class BuildBuffer:
             frame_size = self.width * self.height * 3
             self.decodedFrames = 0
 
+            device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
             while True:
+                """
                 frame = np.frombuffer(
                     process.stdout.read(frame_size), dtype=np.uint8
                 ).reshape((self.height, self.width, 3))
+                """
+                if self.half:
+                    frame = torch.frombuffer(
+                        process.stdout.read(frame_size), dtype=torch.uint8
+                    ).reshape((self.height, self.width, 3)).to(device).half().permute(2, 0, 1).unsqueeze(0).mul(1.0 / 255.0)
+                else: 
+                    frame = torch.frombuffer(
+                        process.stdout.read(frame_size), dtype=torch.uint8
+                    ).reshape((self.height, self.width, 3)).to(device).float().permute(2, 0, 1).unsqueeze(0).mul(1.0 / 255.0)
+
+                #print (frame.shape)
 
                 self.readBuffer.put(frame)
                 self.decodedFrames += 1
@@ -505,9 +523,9 @@ class WriteBuffer:
                         if verbose:
                             logging.info(f"Encoded {writtenFrames} frames")
                         break
-
-                    frame = np.ascontiguousarray(frame)
-                    self.process.stdin.buffer.write(frame.tobytes())
+                    
+                    #frame = frame.squeeze(0).permute(1, 2, 0).mul(255.0).byte().contiguous().cpu().numpy()
+                    self.process.stdin.buffer.write(frame.squeeze(0).permute(1, 2, 0).mul(255.0).clamp(0, 255).byte().contiguous().cpu().numpy())
                     writtenFrames += 1
 
         except Exception as e:
