@@ -357,15 +357,7 @@ class UniversalDirectML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
-    def run(self, frame: np.ndarray) -> np.ndarray:
-        frame = (
-            torch.from_numpy(frame).permute(2, 0, 1).unsqueeze(0).float().mul_(1 / 255)
-        )
-
-        if self.half:
-            frame = frame.half()
-        frame = frame.contiguous()
-
+    def run(self, frame: torch.tensor) -> torch.tensor:
         self.dummyInput.copy_(frame)
         self.IoBinding.bind_input(
             name="input",
@@ -376,17 +368,7 @@ class UniversalDirectML:
             buffer_ptr=self.dummyInput.data_ptr(),
         )
         self.model.run_with_iobinding(self.IoBinding)
-        frame = (
-            self.dummyOutput.squeeze(0)
-            .permute(1, 2, 0)
-            .mul_(255)
-            .clamp_(1, 255)
-            .byte()
-            .cpu()
-            .numpy()
-        )
-
-        return frame
+        return self.dummyOutput
 
 
 """

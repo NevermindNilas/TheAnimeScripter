@@ -1,4 +1,4 @@
-### Benchmarks ran with the latest .exe file at the time, benchmark.py script, no encoding and on a 1920x1080p video with FP16 or BF16 on for all runs.
+### Benchmarks ran with the latest .exe file at the time, benchmark.exe or benchmark.py tool, no encoding and on a 1920x1080p video with FP16 or BF16 on for all runs.
 
 #### Note, since these are ran in order with no time gaps inbetween there's a possibility for GPU heat becoming a bottleneck so these results may not be fully representative of the real world performance.
 
