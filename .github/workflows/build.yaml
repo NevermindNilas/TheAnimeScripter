@@ -47,14 +47,8 @@ jobs:
 
       - name: Get the date
         id: date
-        run: echo "::set-output name=date::$(Get-Date -Format 'yyyyMMddHHmmss')"
-        shell: pwsh
+        run: echo "::set-output name=date::$(date +'%Y%m%d%H%M%S')"
       
-      - name: Compress main directory
-        run: |
-          cd ${{ github.workspace }}/dist/main/
-          7z a -t7z -m0=lzma -mx=9 -mfb=64 -md=32m ../../TAS_${{ steps.date.outputs.date }}.7z *
-          
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -64,7 +58,12 @@ jobs:
           tag_name: TAS_${{ steps.date.outputs.date }}
           release_name: TAS_${{ steps.date.outputs.date }}
           draft: true
-      
+
+      - name: Compress main directory
+        run: |
+          cd ${{ github.workspace }}/dist/main/
+          7z a -t7z -m0=lzma -mx=9 -mfb=64 -md=32m ../../TAS_${{ steps.get_version.outputs.VERSION }}.7z *
+          
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -72,6 +71,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/dist/TAS_${{ steps.date.outputs.date }}.7z
-          asset_name: TAS_${{ steps.date.outputs.date }}.7z
+          asset_path: TAS_${{ steps.get_version.outputs.VERSION }}.7z
+          asset_name: TAS_${{ steps.get_version.outputs.VERSION }}.7z
           asset_content_type: application/x-7z-compressed
