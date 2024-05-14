@@ -1,5 +1,4 @@
 import os
-import torch
 
 from rife_ncnn_vulkan_python import Rife
 from src.downloadModels import downloadModels, modelsMap, weightsDir
