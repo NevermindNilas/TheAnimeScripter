@@ -57,10 +57,10 @@ def modelsList() -> list[str]:
         "span-tensorrt",
         "rife4.6-tensorrt",
         "rife4.15-tensorrt",
-        "rife4.6-ncnn",
-        "rife4.15-ncnn",
-        "rife4.15-lite-ncnn",
-        "rife4.16-lite-ncnn",
+        "rife-v4.6-ncnn",
+        "rife-v4.15-ncnn",
+        "rife-v4.15-lite-ncnn",
+        "rife-v4.16-lite-ncnn",
     ]
 
 
