@@ -1,4 +1,4 @@
-### Benchmarks ran with the latest .exe file at the time, benchmark.py script, no encoding and on a 1920x1080p video with FP16 or BF16 on for all runs.
+### Benchmarks ran with the latest .exe file at the time, benchmark.py or benchmark.exe script, no encoding and on a 1920x1080p video with FP16 or BF16 on for all runs.
 
 #### Note, since these are ran in order with no time gaps inbetween there's a possibility for GPU heat becoming a bottleneck so these results may not be fully representative of the real world performance.
 
@@ -9,7 +9,7 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 
 #### Testing Methodoly V3
 -------------------------------------------------------------------------------------------------------------
-# Ryzen 9 7950X, RTX 4090, 64GB DDR5, Pre-Release TAS 1.6.4, Sudo
+# Ryzen 9 7950X, RTX 4090, 64GB DDR5, *Pre-Release* TAS 1.6.4, Sudo
 ![nilasedits (4)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/0be8254e-94b8-4106-a1ac-5a44d68bf4fa)
 
 # 13900k, 4090, 32GB DDR5 4800MHz, TAS 1.6.3, Sergio.
