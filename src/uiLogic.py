@@ -283,9 +283,6 @@ def dropdownsLabels(method):
                 "Rife4.15-Lite",
                 "Rife4.15",
                 "Rife4.6",
-                "Rife4.15-DirectML",
-                "Rife4.15-lite-DirectML",
-                "Rife4.6-DirectML",
                 "GMFSS",
             ]
         case "Denoise":

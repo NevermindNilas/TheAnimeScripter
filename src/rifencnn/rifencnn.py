@@ -71,10 +71,7 @@ class rifeNCNN:
         self.shape = (self.height, self.width)
 
     def make_inference(self, timestep):
-        output = self.rife.process_fast(self.frame1, self.frame2, timestep=timestep)
-
-        output = torch.from_numpy(output).permute(1, 2, 0)
-        return output
+        return self.rife.process_fast_torch(self.frame1, self.frame2, timestep=timestep)
 
     def cacheFrame(self):
         self.frame1 = self.frame2.copy()
