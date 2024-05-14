@@ -152,10 +152,12 @@ class RifeCuda:
             self.I0, self.I1, self.timestep, self.scaleList, self.ensemble
         )
         output = output[:, :, : self.height, : self.width]
-        output = (output[0] * 255.0).byte().cpu().numpy().transpose(1, 2, 0)
 
-        return output
+        #output = output[0].mul_(255.0).transpose(1,2,0).byte().cpu().numpy()
 
+        #print(output.shape)
+        return output.mul_(255.0).squeeze(0).permute(1,2,0).byte().cpu().numpy()
+    
     def cacheFrame(self):
         self.I0.copy_(self.I1, non_blocking=True)
 

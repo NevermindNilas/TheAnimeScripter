@@ -506,8 +506,7 @@ class WriteBuffer:
                             logging.info(f"Encoded {writtenFrames} frames")
                         break
 
-                    frame = np.ascontiguousarray(frame)
-                    self.process.stdin.buffer.write(frame.tobytes())
+                    self.process.stdin.buffer.write(np.ascontiguousarray(frame))
                     writtenFrames += 1
 
         except Exception as e:
