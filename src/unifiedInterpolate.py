@@ -547,8 +547,6 @@ class RifeTensorRT:
                 )
                 * 0.5
             )
-        else:
-            self.I0 = None
 
         scaleInt = 1 if self.width < 3840 and self.height < 2160 else 0.5
         self.scale = (
@@ -582,10 +580,10 @@ class RifeTensorRT:
             {
                 "input": torch.cat(
                     [
-                        self.I0,
-                        self.I1,
-                        self.timestep,
-                        self.scale,
+                        self.I0.contiguous(),
+                        self.I1.contiguous(),
+                        self.timestep.contiguous(),
+                        self.scale.contiguous(),
                     ],
                     dim=1,
                 )
