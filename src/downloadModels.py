@@ -46,10 +46,6 @@ def modelsList() -> list[str]:
         "ultracompact-directml",
         "superultracompact-directml",
         "span-directml",
-        "rife-directml",
-        "rife4.6-directml",
-        "rife4.15-directml",
-        "rife4.15-lite-directml",
         "shufflecugan-tensorrt",
         "compact-tensorrt",
         "ultracompact-tensorrt",
@@ -198,7 +194,7 @@ def modelsMap(
         case "gmfss":
             return "gmfss-fortuna-union.zip"
 
-        case "rife" | "rife4.15" | "rife-directml" | "rife4.15-directml":
+        case "rife" | "rife4.15":
             if modelType == "pth":
                 return "rife415.pth"
             else:
@@ -207,7 +203,7 @@ def modelsMap(
                 else:
                     raise NotImplementedError  # "rife415-sim_fp32.onnx"
 
-        case "rife4.15-lite" | "rife4.15-lite-directml":
+        case "rife4.15-lite":
             if modelType == "pth":
                 return "rife415_lite.pth"
             else:
@@ -216,7 +212,7 @@ def modelsMap(
                 else:
                     raise NotImplementedError  # "rife415_lite-fp32-sim.onnx"
 
-        case "rife4.6" | "rife4.6-directml":
+        case "rife4.6":
             if modelType == "pth":
                 return "rife46.pth"
             else:
