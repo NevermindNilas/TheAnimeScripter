@@ -152,12 +152,12 @@ class VideoProcessor:
 
     def processFrame(self, frame):
         try:
-            if self.dedup and self.dedup_method != "ffmpeg":
-                result = self.dedup_process.run(frame)
-                if result:
-                    self.dedupCount += 1
-                    self.semaphore.release()
-                    return
+            #if self.dedup and self.dedup_method != "ffmpeg":
+            #    result = self.dedup_process.run(frame)
+            #    if result:
+            #        self.dedupCount += 1
+            #        self.semaphore.release()
+            #        return
 
             if self.denoise:
                 frame = self.denoise_process.run(frame)
