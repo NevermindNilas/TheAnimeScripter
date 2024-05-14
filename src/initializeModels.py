@@ -156,22 +156,6 @@ def initializeModels(self):
                     self.ensemble,
                     self.nt,
                 )
-            case (
-                "rife-directml"
-                | "rife4.6-directml"
-                | "rife4.15-directml"
-                | "rife4.15-lite-directml"
-            ):
-                from .unifiedInterpolate import RifeDirectML
-
-                interpolate_process = RifeDirectML(
-                    self.interpolate_method,
-                    self.half,
-                    self.ensemble,
-                    self.nt,
-                    outputWidth,
-                    outputHeight,
-                )
 
             case (
                 "rife-ncnn"

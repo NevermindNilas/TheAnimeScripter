@@ -41,8 +41,6 @@ interpolateMethods = [
     "rife4.15",
     "rife4.15-lite",
     "rife4.16-lite",
-    "rife4.6-directml",
-    "rife4.15-directml",
     "rife4.6-ncnn",
     "rife4.15-ncnn",
     "rife4.15-lite-ncnn",
