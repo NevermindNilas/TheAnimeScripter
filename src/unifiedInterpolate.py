@@ -153,10 +153,7 @@ class RifeCuda:
         )
         output = output[:, :, : self.height, : self.width]
 
-        #output = output[0].mul_(255.0).transpose(1,2,0).byte().cpu().numpy()
-
-        #print(output.shape)
-        return output.mul_(255.0).squeeze(0).permute(1,2,0).byte().cpu().numpy()
+        return output.mul_(255.0).squeeze(0).permute(1,2,0)
     
     def cacheFrame(self):
         self.I0.copy_(self.I1, non_blocking=True)
@@ -164,7 +161,7 @@ class RifeCuda:
     @torch.inference_mode()
     def processFrame(self, frame):
         frame = (
-            torch.from_numpy(frame)
+            frame
             .to(self.device, non_blocking=True)
             .permute(2, 0, 1)
             .unsqueeze(0)
@@ -290,7 +287,7 @@ class RifeDirectML:
             self.height + self.padding[3],
             self.width + self.padding[1],
             dtype=self.torchDType,
-        ).to(self.device)
+        )
 
         self.dummyInput2 = torch.zeros(
             1,
@@ -298,9 +295,9 @@ class RifeDirectML:
             self.height + self.padding[3],
             self.width + self.padding[1],
             dtype=self.torchDType,
-        ).to(self.device)
+        )
 
-        self.dummyTimestep = torch.tensor([0.5], dtype=self.torchDType).to(self.device)
+        self.dummyTimestep = torch.tensor([0.5], dtype=self.torchDType)
 
         self.dummyOutput = torch.zeros(
             1,
@@ -308,7 +305,7 @@ class RifeDirectML:
             self.height + self.padding[3],
             self.width + self.padding[1],
             dtype=self.torchDType,
-        ).to(self.device)
+        )
 
         self.dummyInput1 = self.dummyInput1.contiguous()
         self.dummyInput2 = self.dummyInput2.contiguous()
@@ -362,11 +359,11 @@ class RifeDirectML:
         self.model.run_with_iobinding(self.IoBinding)
 
         frame = (
-            self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()
+            self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255)
         )
-
         if self.padding != (0, 0, 0, 0):
-            frame = frame[: self.height, : self.width]
+            frame = frame[:, :, self.height, :self.width]
+
 
         return frame
 
@@ -378,20 +375,20 @@ class RifeDirectML:
     def processFrame(self, frame):
         frame = (
             (
-                torch.from_numpy(frame)
+                frame
                 .to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
                 .float()
                 if not self.half
-                else torch.from_numpy(frame)
+                else frame
                 .to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
                 .half()
             )
             .mul_(1 / 255)
-            .contiguous(memory_format=torch.channels_last)
+            .contiguous()
         )
 
         if self.padding != (0, 0, 0, 0):
@@ -592,7 +589,7 @@ class RifeTensorRT:
                 )
                 * n
             )
-
+        
         return (
             self.runner.infer(
                 {
@@ -611,9 +608,6 @@ class RifeTensorRT:
             .squeeze(0)
             .permute(1, 2, 0)
             .mul_(255)
-            .byte()
-            .cpu()
-            .numpy()
         )
 
     @torch.inference_mode()
@@ -625,13 +619,13 @@ class RifeTensorRT:
         # Is this what they mean with Pythonic Code?
         return (
             (
-                torch.from_numpy(frame)
+                frame
                 .to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
                 .float()
                 if not self.half
-                else torch.from_numpy(frame)
+                else frame
                 .to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
                 .unsqueeze(0)

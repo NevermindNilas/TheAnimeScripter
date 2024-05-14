@@ -4,6 +4,7 @@ import numpy as np
 import os
 import sys
 import shutil
+import torch
 
 from queue import Queue
 
@@ -242,8 +243,12 @@ class BuildBuffer:
             self.decodedFrames = 0
 
             while True:
-                frame = np.frombuffer(
-                    process.stdout.read(frame_size), dtype=np.uint8
+                #frame = np.frombuffer(
+                #    process.stdout.read(frame_size), dtype=np.uint8
+                #).reshape((self.height, self.width, 3))
+                
+                frame = torch.frombuffer(
+                    process.stdout.read(frame_size), dtype=torch.uint8
                 ).reshape((self.height, self.width, 3))
 
                 self.readBuffer.put(frame)
@@ -505,8 +510,8 @@ class WriteBuffer:
                         if verbose:
                             logging.info(f"Encoded {writtenFrames} frames")
                         break
-
-                    self.process.stdin.buffer.write(np.ascontiguousarray(frame))
+                    
+                    self.process.stdin.buffer.write(np.ascontiguousarray(frame.byte().cpu().numpy()))
                     writtenFrames += 1
 
         except Exception as e:
