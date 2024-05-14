@@ -188,7 +188,6 @@ def initializeModels(self):
                     self.nt,
                     outputWidth,
                     outputHeight,
-                    self.interpolate_factor,
                 )
 
             case (

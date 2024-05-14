@@ -108,12 +108,12 @@ class UnifiedDenoise:
         """
         with torch.no_grad():
             frame = (
-                torch.from_numpy(frame)
+                frame
+                .to(self.device)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
                 .float()
                 .mul_(1 / 255)
-                .to(self.device)
             )
 
             if self.isCudaAvailable:
@@ -124,5 +124,5 @@ class UnifiedDenoise:
                         frame = frame.bfloat16()
 
             frame = self.model(frame)
-            return frame.squeeze(0).permute(1, 2, 0).mul_(255).byte().cpu().numpy()
+            return frame.squeeze(0).permute(1, 2, 0).mul_(255)
 

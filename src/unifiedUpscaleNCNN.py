@@ -45,7 +45,7 @@
 #shufflecugan
 29: {"param": "sudo_shuffle_cugan-x2.param", "bin": "sudo_shuffle_cugan-x2.bin", "scale": 2, "folder": "models/SHUFFLECUGAN"},
 """
-
+import torch
 from upscale_ncnn_py import UPSCALE
 
 class UniversalNCNN:
@@ -95,4 +95,5 @@ class UniversalNCNN:
         )
 
     def run(self, frame):
-        return self.model.process_cv2(frame)
+        frame = self.model.process_cv2(frame.numpy())
+        return torch.from_numpy(frame).permute(2, 0, 1)
