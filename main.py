@@ -228,7 +228,6 @@ class VideoProcessor:
                 self.resize,
                 self.resize_method,
                 self.buffer_limit,
-                half=self.half,
             )
 
             self.writeBuffer = WriteBuffer(
