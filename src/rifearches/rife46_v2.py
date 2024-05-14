@@ -84,7 +84,6 @@ class IFNet(nn.Module):
         # self.unet = Unet() # fastmode
 
     def forward(self, x):
-        # img0, img1, timestep, base_grid, multiplier
         h, w = 128, 128
         img0, img1, timestep, base_grid, multiplier = torch.split(x, split_size_or_sections=[3, 3, 1, 2, 2], dim=1)
         img = torch.cat((img0, img1), dim=0)
