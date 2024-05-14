@@ -1,4 +1,5 @@
 import os
+import torch
 
 from rife_ncnn_vulkan_python import Rife
 from src.downloadModels import downloadModels, modelsMap, weightsDir
@@ -72,6 +73,7 @@ class rifeNCNN:
     def make_inference(self, timestep):
         output = self.rife.process_fast(self.frame1, self.frame2, timestep=timestep)
 
+        output = torch.from_numpy(output).permute(1, 2, 0)
         return output
 
     def cacheFrame(self):
@@ -79,8 +81,8 @@ class rifeNCNN:
 
     def run(self, frame):
         if self.frame1 is None:
-            self.frame1 = frame
+            self.frame1 = frame.numpy()
             return False
 
-        self.frame2 = frame
+        self.frame2 = frame.numpy()
         return True

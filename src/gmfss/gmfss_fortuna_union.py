@@ -90,13 +90,15 @@ class GMFSS:
             device=self.device,
         )
         output = self.model(self.I0, self.I1, timestep)
-        output = (output[0] * 255.0).byte().cpu().numpy().transpose(1, 2, 0)
 
         #if self.isCudaAvailable:
             #torch.cuda.synchronize(self.stream[self.current_stream])
             #self.current_stream = (self.current_stream + 1) % len(self.stream)
 
-        return output[: self.height, : self.width, :]
+        if self.padding != (0, 0, 0, 0):
+            output = output[..., : self.height, : self.width]
+        
+        return output.squeeze(0).permute(1, 2, 0).mul_(255)
 
     @torch.inference_mode()
     def pad_image(self, img):
@@ -110,16 +112,22 @@ class GMFSS:
     @torch.inference_mode()
     def processFrame(self, frame):
         frame = (
-            torch.from_numpy(frame)
-            .to(self.device, non_blocking=True)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-            .float()
+            (
+                frame
+                .to(self.device, non_blocking=True)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .float()
+                if not self.half
+                else frame
+                .to(self.device, non_blocking=True)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .half()
+            )
             .mul_(1 / 255)
+            .contiguous()
         )
-        
-        if self.isCudaAvailable and self.half:
-            frame = frame.half()
 
         if self.padding != (0, 0, 0, 0):
             frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
