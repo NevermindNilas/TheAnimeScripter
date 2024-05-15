@@ -3,10 +3,9 @@ import logging
 
 def Segment(self):
     # Lazy loading for startup time reasons
-    from src.segment.animeSegment import AnimeSegment
-    from src.segment.segmentAnything import SegmentAnything
 
     if self.segment_method == "anime":
+        from src.segment.animeSegment import AnimeSegment
         AnimeSegment(
             self.input,
             self.output,
@@ -23,6 +22,7 @@ def Segment(self):
             self.benchmark,
         )
     else:
+        from src.segment.segmentAnything import SegmentAnything
         SegmentAnything(
             self.input,
             self.output,
