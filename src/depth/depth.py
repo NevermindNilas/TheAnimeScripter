@@ -165,7 +165,8 @@ class Depth:
 
     def processFrame(self, frame):
         try:
-            frame = frame / 255
+            frame = frame / 255.0
+            frame = frame.numpy()
             frame = self.transform({"image": frame})["image"]
 
             frame = torch.from_numpy(frame).unsqueeze(0).to(self.device)
@@ -189,7 +190,6 @@ class Depth:
             )[0, 0]
             depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
 
-            depth = depth.cpu().numpy().astype(np.uint8)
             self.writeBuffer.write(depth)
 
         except Exception as e:

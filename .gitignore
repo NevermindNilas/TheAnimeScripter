@@ -28,6 +28,9 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# DEPTH TORCH HUB
+src/depth/hub
+
 # FFMPEG
 src/FFMPEG
 

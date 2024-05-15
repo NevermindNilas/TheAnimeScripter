@@ -115,21 +115,24 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         img_input = np.transpose(img_input, (2, 0, 1))
         img_input = img_input[np.newaxis, :]
         tmpImg = torch.from_numpy(img_input).type(torch.FloatTensor).to(self.device)
+
         with torch.no_grad():
             pred = self.model(tmpImg)
-            pred = pred.cpu().numpy()[0]
-            pred = np.transpose(pred, (1, 2, 0))
-            pred = pred[ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w]
-            pred = cv2.resize(pred, (w0, h0))[:, :, np.newaxis]
-            return pred
+            pred = pred[0]
+            pred = pred[:, ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w]
+            pred = torch.nn.functional.interpolate(
+                pred.unsqueeze(0), size=(h0, w0), mode="bilinear", align_corners=False
+            ).squeeze(0)
+            pred = pred.permute(1, 2, 0)
+            return pred.mul(255).byte()
 
     def processFrame(self, frame):
         try:
-            mask = self.get_mask(frame)
-            mask = (mask * 255).astype(np.uint8)
-            mask = np.squeeze(mask, axis=2)
-            frame_with_mask = np.concatenate((frame, mask[..., np.newaxis]), axis=2)
-
+            mask = self.get_mask(frame.numpy())
+            mask = torch.squeeze(mask, dim=2)
+            frame_with_mask = torch.cat(
+                (frame.to(self.device), mask.unsqueeze(2)), dim=2
+            )
             self.writeBuffer.write(frame_with_mask)
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
