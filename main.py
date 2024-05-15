@@ -39,7 +39,7 @@ if getattr(sys, "frozen", False):
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.6.4"
+scriptVersion = "1.6.5"
 warnings.filterwarnings("ignore")
 
 
@@ -152,12 +152,12 @@ class VideoProcessor:
 
     def processFrame(self, frame):
         try:
-            #if self.dedup and self.dedup_method != "ffmpeg":
-            #    result = self.dedup_process.run(frame)
-            #    if result:
-            #        self.dedupCount += 1
-            #        self.semaphore.release()
-            #        return
+            if self.dedup and self.dedup_method != "ffmpeg":
+                result = self.dedup_process.run(frame)
+                if result:
+                    self.dedupCount += 1
+                    self.semaphore.release()
+                    return
 
             if self.denoise:
                 frame = self.denoise_process.run(frame)

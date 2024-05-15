@@ -47,13 +47,13 @@ class DedupSSIMCuda:
 
     def processFrame(self, frame):
         frame = (
-            self.torch.from_numpy(frame)
+            frame
             .permute(2, 0, 1)
             .unsqueeze(0)
             .to(self.DEVICE)
             .float()
             if not self.half
-            else self.torch.from_numpy(frame)
+            else frame
             .permute(2, 0, 1)
             .unsqueeze(0)
             .to(self.DEVICE)
@@ -146,6 +146,7 @@ class DedupSSIM:
         return score > self.ssimThreshold
 
     def processFrame(self, frame):
+        frame = frame.numpy()
         frame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -182,6 +183,7 @@ class DedupMSE:
         return score < self.mseThreshold
 
     def processFrame(self, frame):
+        frame = frame.numpy()
         frame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
