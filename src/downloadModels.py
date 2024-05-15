@@ -86,7 +86,6 @@ def modelsMap(
                     return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k-fp16-sim.onnx"
                 else:
                     return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k-fp32-sim.onnx"
-        
 
         case "ultracompact" | "ultracompact-directml":
             if modelType == "pth":
@@ -114,20 +113,22 @@ def modelsMap(
             if half:
                 return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k_clamp_fp16_op18_onnxslim.onnx"
             else:
-                return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k_clamp_op18_onnxslim.onnx"
-            
+                return (
+                    "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k_clamp_op18_onnxslim.onnx"
+                )
+
         case "ultracompact-tensorrt":
             if half:
                 return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k_clamp_fp16_op18_onnxslim.onnx"
             else:
                 return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k_clamp_op18_onnxslim.onnx"
-            
+
         case "superultracompact-tensorrt":
             if half:
                 return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k_clamp_fp16_op18_onnxslim.1.onnx"
             else:
                 return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k_clamp_op18_onnxslim.onnx"
-            
+
         case "span" | "span-directml":
             if modelType == "pth":
                 return "2x_ModernSpanimationV1.pth"
@@ -136,7 +137,7 @@ def modelsMap(
                     return "2x_ModernSpanimationV1_fp16_op17.onnx"
                 else:
                     return "2x_ModernSpanimationV1_fp32_op17.onnx"
-                
+
         case "span-tensorrt":
             if half:
                 return "2x_ModernSpanimationV1_clamp_fp16_op19_onnxslim.onnx"
@@ -154,7 +155,7 @@ def modelsMap(
                     return "sudo_shuffle_cugan_9.584.969-fp16.onnx"
                 else:
                     return "sudo_shuffle_cugan_9.584.969-fp32.onnx"
-                
+
         case "shufflecugan-tensorrt":
             if half:
                 return "sudo_shuffle_cugan_fp16_op18_clamped_9.584.969.onnx"
@@ -169,10 +170,7 @@ def modelsMap(
                     return "2xHFA2kReal-CUGAN-fp16.onnx"
                 else:
                     return "2xHFA2kReal-CUGAN-fp32.onnx"
-                
-        case "cugan-tensorrt":
-            raise NotImplementedError
-        
+
         case "segment":
             return "isnetis.ckpt"
 
@@ -195,32 +193,14 @@ def modelsMap(
             return "gmfss-fortuna-union.zip"
 
         case "rife" | "rife4.15":
-            if modelType == "pth":
-                return "rife415.pth"
-            else:
-                if half:
-                    return "rife415-sim_fp16.onnx"
-                else:
-                    raise NotImplementedError  # "rife415-sim_fp32.onnx"
+            return "rife415.pth"
 
         case "rife4.15-lite":
-            if modelType == "pth":
-                return "rife415_lite.pth"
-            else:
-                if half:
-                    return "rife415_lite-sim_fp16.onnx"
-                else:
-                    raise NotImplementedError  # "rife415_lite-fp32-sim.onnx"
+            return "rife415_lite.pth"
 
         case "rife4.6":
-            if modelType == "pth":
-                return "rife46.pth"
-            else:
-                if half:
-                    return "rife46-sim_fp16.onnx"
-                else:
-                    raise NotImplementedError  # "rife46-fp32-sim.onnx"
-                
+            return "rife46.pth"
+
         case "rife4.6-tensorrt":
             if half:
                 if ensemble:
@@ -232,7 +212,7 @@ def modelsMap(
                     return "rife46_ensembleTrue_op18_clamp_sim.onnx"
                 else:
                     return "rife46_ensembleFalse_op18_clamp_sim.onnx"
-                
+
         case "rife4.15-tensorrt":
             if half:
                 if ensemble:
@@ -244,7 +224,7 @@ def modelsMap(
                     return "rife415_ensembleTrue_op19_clamp_sim.onnx"
                 else:
                     return "rife415_ensembleFalse_op19_clamp_sim.onnx"
-                
+
         case "rife4.15-lite-tensorrt":
             raise NotImplementedError
 
@@ -274,19 +254,19 @@ def modelsMap(
 
         case "sam-vith":
             return "sam_vit_h_4b8939.pth"
-        
+
         case "rife-v4.16-lite-ncnn":
             if ensemble:
                 return "rife-v4.16-lite-ensemble-ncnn.zip"
             else:
                 return "rife-v4.16-lite-ncnn.zip"
-        
+
         case "rife-v4.15-ncnn":
             if ensemble:
                 return "rife-v4.15-ensemble-ncnn.zip"
             else:
                 return "rife-v4.15-ncnn.zip"
-            
+
         case "rife-v4.6-ncnn":
             if ensemble:
                 return "rife-v4.6-ensemble-ncnn.zip"
@@ -345,7 +325,11 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
 
 
 def downloadModels(
-    model: str = None, upscaleFactor: int = 2, modelType: str = "pth", half: bool = True, ensemble: bool = False
+    model: str = None,
+    upscaleFactor: int = 2,
+    modelType: str = "pth",
+    half: bool = True,
+    ensemble: bool = False,
 ) -> str:
     """
     Downloads the model.
