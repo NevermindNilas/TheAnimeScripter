@@ -8,6 +8,10 @@ Differnece from V2 -> V3, Added new options and a different video with more dupl
 Difference from V1 -> V2, Longer video for more accurate results, More time in between runs to cool of the gpu, more options ( dedup )
 
 #### Testing Methodoly V3
+
+# 13700K Undervolted + OC, 3090 OC, 32GB DDR5 6400mhz CL 30, TAS 1.7.0, Nilas
+![nilasedits (5)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/053915c5-9530-4629-a925-4e685311b11c)
+
 -------------------------------------------------------------------------------------------------------------
 # Ryzen 9 7950X, RTX 4090, 64GB DDR5, *Pre-Release* TAS 1.6.4, Sudo
 ![nilasedits (4)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/0be8254e-94b8-4106-a1ac-5a44d68bf4fa)
