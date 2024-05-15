@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function () {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "v1.6.5";
+    var scriptVersion = "v1.7.0";
 
     // Default Values for the settings
     var outputFolder = app.settings.haveSetting(scriptName, "outputFolder") ? app.settings.getSetting(scriptName, "outputFolder") : "undefined";
