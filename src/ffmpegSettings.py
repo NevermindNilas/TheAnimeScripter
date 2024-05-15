@@ -241,7 +241,7 @@ class BuildBuffer:
             self.readingDone = False
             frame_size = self.width * self.height * 3
             self.decodedFrames = 0
-
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             while True:
                 #frame = np.frombuffer(
                 #    process.stdout.read(frame_size), dtype=np.uint8
@@ -249,7 +249,7 @@ class BuildBuffer:
                 
                 frame = torch.frombuffer(
                     process.stdout.read(frame_size), dtype=torch.uint8
-                ).reshape((self.height, self.width, 3))
+                ).reshape((self.height, self.width, 3)).to(device)
 
                 self.readBuffer.put(frame)
                 self.decodedFrames += 1

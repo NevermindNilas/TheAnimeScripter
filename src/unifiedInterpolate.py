@@ -269,9 +269,10 @@ class RifeTensorRT:
 
         if self.half:
             if self.width < 3840 and self.height < 2160:
-                enginePrecision = "fp16"
-            else:
-                enginePrecision = "bf16"
+                if self.interpolateMethod != "rife4.6":
+                    enginePrecision = "bf16"
+                else:
+                    enginePrecision = "fp16"
         else:
             enginePrecision = "fp32"
 
@@ -298,13 +299,13 @@ class RifeTensorRT:
                 profile = [
                     self.Profile().add(
                         "input",
-                        min=(1, 8, 2160, 3840),
-                        opt=(1, 8, 2160, 3840),
+                        min=(1, 8, 32, 32),
+                        opt=(1, 8, self.height, self.width),
                         max=(1, 8, 2160, 3840),
                     )
                 ]
                 self.config = self.CreateConfig(
-                    bf16=True, profiles=profile, preview_features=[]
+                    fp16=True, profiles=profile, preview_features=[]
                 )
             self.engine = self.engine_from_network(
                 self.network_from_onnx_path(modelPath),
