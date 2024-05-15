@@ -37,7 +37,7 @@ logging.basicConfig(filename='gui.log', level=logging.ERROR,
                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
 logger=logging.getLogger(__name__)
 
-TITLE = "The Anime Scripter - 1.6.5 (Alpha)"
+TITLE = "The Anime Scripter - 1.7.0 (Alpha)"
 
 if getattr(sys, "frozen", False):
     mainPath = os.path.dirname(sys.executable)
