@@ -22,7 +22,6 @@ from PyQt6.QtGui import QIntValidator
 from PyQt6.QtCore import Qt
 from src.uiLogic import (
     darkUiStyleSheet,
-    lightUiStyleSheet,
     runCommand,
     StreamToTextEdit,
     loadSettings,
@@ -30,6 +29,7 @@ from src.uiLogic import (
     fadeIn,
     dropdownsLabels,
 )
+from BlurWindow.blurWindow import GlobalBlur
 
 import logging
 
@@ -37,7 +37,7 @@ logging.basicConfig(filename='gui.log', level=logging.ERROR,
                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
 logger=logging.getLogger(__name__)
 
-TITLE = "The Anime Scripter - 1.6.1 (Alpha)"
+TITLE = "The Anime Scripter - 1.6.5 (Alpha)"
 
 if getattr(sys, "frozen", False):
     mainPath = os.path.dirname(sys.executable)
@@ -65,6 +65,7 @@ class VideoProcessingApp(QMainWindow):
 
         self.setStyleSheet(darkUiStyleSheet())
         self.stackedWidget = QStackedWidget()
+        GlobalBlur(self.winId(), Dark=True)
         self.centralWidget = QWidget()
         self.stackedWidget.addWidget(self.centralWidget)
         self.setCentralWidget(self.stackedWidget)
@@ -77,6 +78,7 @@ class VideoProcessingApp(QMainWindow):
         fadeIn(self, self.centralWidget, 500)
 
         dropdowns = [
+            ("Resize Method:", "Resize"),
             ("Interpolate Method:", "Interpolation"),
             ("Upscale Method:", "Upscaling"),
             ("Denoise Method:", "Denoise"),
@@ -205,7 +207,7 @@ class VideoProcessingApp(QMainWindow):
 
     def runButtonOnClick(self):
         saveSettings(self, self.settingsFile)
-        runCommand(self, mainPath)
+        runCommand(self, mainPath, self.settingsFile)
 
     def createPathWidgets(self, label, slot):
         layout = QHBoxLayout()
@@ -266,12 +268,6 @@ class VideoProcessingApp(QMainWindow):
         saveSettings(self, self.settingsFile)
         event.accept()
 
-    def toggleTheme(self):
-        if self.styleSheet() == darkUiStyleSheet():
-            self.setStyleSheet(lightUiStyleSheet())
-        else:
-            self.setStyleSheet(darkUiStyleSheet())
-
     def openSettingsPanel(self):
         loadSettings(self, self.settingsFile)
         self.settingsWidget = QWidget()
@@ -284,6 +280,7 @@ class VideoProcessingApp(QMainWindow):
         mainSettingsGroup = self.createGroup("Main Settings", mainSettings)
 
         dropdowns = [
+            ("Resize Method:", "Resize"),
             ("Interpolate Method:", "Interpolation"),
             ("Upscale Method:", "Upscaling"),
             ("Denoise Method:", "Denoise"),
@@ -335,9 +332,7 @@ class VideoProcessingApp(QMainWindow):
         settingsLayout.addWidget(extraSettingsGroup)
 
         buttonsLayout = QHBoxLayout()
-        themeButton = self.createButton("Toggle Day / Night Theme", self.toggleTheme)
         backButton = self.createButton("Back", self.goBack)
-        buttonsLayout.addWidget(themeButton)
         buttonsLayout.addWidget(backButton)
         settingsLayout.addLayout(buttonsLayout)
 
