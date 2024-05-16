@@ -6,6 +6,7 @@ def Segment(self):
 
     if self.segment_method == "anime":
         from src.segment.animeSegment import AnimeSegment
+
         AnimeSegment(
             self.input,
             self.output,
@@ -23,6 +24,7 @@ def Segment(self):
         )
     else:
         from src.segment.segmentAnything import SegmentAnything
+
         SegmentAnything(
             self.input,
             self.output,
@@ -39,6 +41,7 @@ def Segment(self):
             self.benchmark,
             self.segment_method,
         )
+
 
 def initializeModels(self):
     outputWidth = self.width
@@ -106,7 +109,16 @@ def initializeModels(self):
                     self.nt,
                 )
 
-            case "shufflecugan-tensorrt" | "cugan-tensorrt" | "compact-tensorrt" | "ultracompact-tensorrt" | "superultracompact-tensorrt" | "span-tensorrt" | "realesrgan-tensorrt":
+            case (
+                "shufflecugan-tensorrt"
+                | "cugan-tensorrt"
+                | "compact-tensorrt"
+                | "ultracompact-tensorrt"
+                | "superultracompact-tensorrt"
+                | "span-tensorrt"
+                | "realesrgan-tensorrt"
+                | "apisr-tensorrt"
+            ):
                 from .unifiedUpscale import UniversalTensorRT
 
                 upscale_process = UniversalTensorRT(
@@ -125,13 +137,7 @@ def initializeModels(self):
 
         UHD = True if outputWidth >= 3840 or outputHeight >= 2160 else False
         match self.interpolate_method:
-            case (
-                "rife"
-                | "rife4.6"
-                | "rife4.15"
-                | "rife4.15-lite"
-                | "rife4.16-lite"
-            ):
+            case "rife" | "rife4.6" | "rife4.15" | "rife4.15-lite" | "rife4.16-lite":
                 from src.unifiedInterpolate import RifeCuda
 
                 interpolate_process = RifeCuda(
@@ -180,7 +186,6 @@ def initializeModels(self):
                 | "rife4.15-tensorrt"
                 | "rife4.15-lite-tensorrt"
             ):
-                
                 from src.unifiedInterpolate import RifeTensorRT
 
                 interpolate_process = RifeTensorRT(
@@ -192,7 +197,6 @@ def initializeModels(self):
                     self.ensemble,
                     self.nt,
                 )
-            
 
     if self.denoise:
         match self.denoise_method:
@@ -215,7 +219,7 @@ def initializeModels(self):
 
                 dedup_process = DedupSSIM(
                     self.dedup_sens,
-                    self.sample_size, 
+                    self.sample_size,
                 )
 
             case "mse":
@@ -223,7 +227,7 @@ def initializeModels(self):
 
                 dedup_process = DedupMSE(
                     self.dedup_sens,
-                    self.sample_size, 
+                    self.sample_size,
                 )
 
             case "ssim-cuda":
@@ -232,16 +236,16 @@ def initializeModels(self):
                 dedup_process = DedupSSIMCuda(
                     self.dedup_sens,
                     self.sample_size,
-                    self.half, 
+                    self.half,
                 )
-            
+
             case "mse-cuda":
                 from src.dedup.dedup import DedupMSECuda
 
                 dedup_process = DedupMSECuda(
                     self.dedup_sens,
                     self.sample_size,
-                    self.half, 
+                    self.half,
                 )
 
             # case ffmpeg, ffmpeg works on decode, refer to ffmpegSettings.py ReadBuffer class.

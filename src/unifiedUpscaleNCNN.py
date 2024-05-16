@@ -95,5 +95,5 @@ class UniversalNCNN:
         )
 
     def run(self, frame):
-        frame = self.model.process_cv2(frame.numpy())
+        frame = self.model.process_cv2(frame.cpu().numpy())
         return torch.from_numpy(frame).permute(2, 0, 1)
