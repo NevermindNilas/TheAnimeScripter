@@ -159,16 +159,24 @@ class RifeCuda:
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        frame = (
-            frame
-            .to(self.device, non_blocking=True)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-            .float()
-            .mul_(1 / 255)
-        )
-
-        frame = frame.half() if self.half and self.isCudaAvailable else frame
+        if self.half:
+            frame = (
+                frame
+                .to(self.device, non_blocking=True)
+                .permute(2, 0, 1)
+                .unsqueeze_(0)
+                .half()
+                .mul_(1 / 255)
+            )
+        else:
+            frame = (
+                frame
+                .to(self.device, non_blocking=True)
+                .permute(2, 0, 1)
+                .unsqueeze_(0)
+                .float()
+                .mul_(1 / 255)
+            )
 
         if self.padding != (0, 0, 0, 0):
             frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
@@ -401,13 +409,13 @@ class RifeTensorRT:
                 frame
                 .to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
-                .unsqueeze(0)
+                .unsqueeze_(0)
                 .float()
                 if not self.half
                 else frame
                 .to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
-                .unsqueeze(0)
+                .unsqueeze_(0)
                 .half()
             )
             .mul_(1 / 255)

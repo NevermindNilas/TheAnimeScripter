@@ -77,8 +77,8 @@ class rifeNCNN:
 
     def run(self, frame):
         if self.frame1 is None:
-            self.frame1 = frame.numpy()
+            self.frame1 = frame.cpu().numpy()
             return False
 
-        self.frame2 = frame.numpy()
+        self.frame2 = frame.cpu().numpy()
         return True

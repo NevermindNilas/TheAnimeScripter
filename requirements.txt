@@ -20,6 +20,7 @@ scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning
 inquirer
+onnx
 colored
 tensorrt-cu12-bindings
 tensorrt-cu12_libs==10.0.1
