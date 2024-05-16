@@ -169,8 +169,13 @@ class UniversalTensorRT:
 
     def handleModel(self):
         if not self.customModel:
+            # For some reason this runs out of VRAM on my f 3090, so we'll just use the alr existing one
+            if self.upscaleMethod != "shufflecugan-tensorrt":
+                self.upscaleMethod = self.upscaleMethod.replace("-tensorrt", "")
+            
+
             self.filename = modelsMap(
-                self.upscaleMethod, self.upscaleFactor, modelType="onnx", half=self.half
+                self.upscaleMethod, self.upscaleFactor, modelType="pth", half=self.half
             )
             if not os.path.exists(
                 os.path.join(weightsDir, self.upscaleMethod, self.filename)
@@ -179,7 +184,7 @@ class UniversalTensorRT:
                     model=self.upscaleMethod,
                     upscaleFactor=self.upscaleFactor,
                     half=self.half,
-                    modelType="onnx",
+                    modelType="pth",
                 )
             else:
                 modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
@@ -190,6 +195,14 @@ class UniversalTensorRT:
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
                 )
+        
+        try:
+            self.model = ModelLoader().load_from_file(modelPath)
+        except Exception as e:
+            logging.error(f"Error loading model: {e}")
+
+        if self.customModel:
+            assert isinstance(self.model, ImageModelDescriptor)
 
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
@@ -199,8 +212,27 @@ class UniversalTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
+        
+        self.model = self.model.half() if self.half and self.isCudaAvailable else self.model
+        self.model = self.model.eval().to(self.device).model
+
+        enginePrecision = "fp16" if self.half else "fp32"
+        if not os.path.exists(modelPath.replace(".pth", f"_{enginePrecision}.onnx")):
+            torch.onnx.export(
+                self.model,
+                torch.zeros(1, 3, 256, 256, device=self.device, dtype=torch.float16 if self.half else torch.float32),
+                modelPath.replace(".pth", f"_{enginePrecision}.onnx"),
+                opset_version=19,
+                input_names=["input"],
+                output_names=["output"],
+                dynamic_axes={"input": {0: "batch", 2: "height", 3: "width"}, "output": {0: "batch", 2: "height", 3: "width"}},
+            )
+
+
+        modelPath = modelPath.replace(".pth", f"_{enginePrecision}.onnx")
+
         # TO:DO account for FP16/FP32
-        if not os.path.exists(modelPath.replace(".onnx", ".engine")):
+        if not os.path.exists(modelPath.replace(f"_{enginePrecision}.onnx", f"_{enginePrecision}.engine")):
             toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
             print(yellow(toPrint))
             logging.info(toPrint)
@@ -223,7 +255,7 @@ class UniversalTensorRT:
 
         else:
             self.engine = self.EngineFromBytes(
-                self.BytesFromPath(modelPath.replace(".onnx", ".engine"))
+                self.BytesFromPath(modelPath.replace(f"_{enginePrecision}.onnx", f"_{enginePrecision}.engine"))
             )
 
         self.runner = self.TrtRunner(self.engine)
@@ -246,7 +278,7 @@ class UniversalTensorRT:
             .squeeze(0)
             .permute(1, 2, 0)
             .mul_(255)
-            .clamp_(0, 255)  # Clamped ONNX models seem to be ignored by the runner, it still outputs values outside of [0-255], weird
+            .clamp(0, 255)  # Sadge but it had to be done, I love TRT 10 <3 
         )
 
 
