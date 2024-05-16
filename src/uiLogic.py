@@ -7,14 +7,21 @@ import logging
 from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
 
-def darkUiStyleSheet() -> str:
+def Style() -> str:
     """
     Returns the stylesheet for the UI,
     These are Global preset styles meant to be used in the entire application
     """
     return """
+        * {
+            font-family: Tahoma;
+            font-size: 12px;
+            color: #FFFFFF;
+        
+        }
         QMainWindow {
             background-color: rgba(0, 0, 0, 0);
+            border-radius: 10px;
         }
         
         QWidget {
@@ -22,7 +29,7 @@ def darkUiStyleSheet() -> str:
         }
 
         QPushButton {
-            background-color: #3F3F3F;
+            background-color: rgba(60, 60, 60, 0.5);
             color: #FFFFFF;
             border: none;
             border-radius: 5px;
@@ -30,11 +37,11 @@ def darkUiStyleSheet() -> str:
         }
 
         QPushButton:hover {
-            background-color: #A0A0A0;
+            background-color: rgba(60, 60, 60, 0.7);
         }
 
         QLineEdit {
-            background-color: #3F3F3F;
+            background-color: rgba(60, 60, 60, 0.5);
             color: #FFFFFF;
             border: none;
             border-radius: 5px;
@@ -47,7 +54,7 @@ def darkUiStyleSheet() -> str:
         }
 
         QTextEdit {
-            background-color: #3F3F3F;
+            background-color: rgba(60, 60, 60, 0.5);
             color: #FFFFFF;
             border: none;
             border-radius: 5px;
