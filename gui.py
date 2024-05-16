@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QIntValidator
 from PyQt6.QtCore import Qt
 from src.uiLogic import (
-    darkUiStyleSheet,
+    Style,
     runCommand,
     StreamToTextEdit,
     loadSettings,
@@ -38,45 +38,45 @@ logging.basicConfig(filename='gui.log', level=logging.ERROR,
 logger=logging.getLogger(__name__)
 
 TITLE = "The Anime Scripter - 1.7.0 (Alpha)"
+W, H = 1280, 720
 
 if getattr(sys, "frozen", False):
     mainPath = os.path.dirname(sys.executable)
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
 
-"""
-from pypresence import Presence
-self.clientID = "1213461768785891388"
-self.RPC = Presence(self.clientID)
-try:
-    self.RPC.connect()
-except ConnectionRefusedError:
-    print("Could not connect to Discord. Is Discord running?")
-self.timer.timeout.connect(self.updatePresence)
-"""
-
 class VideoProcessingApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle(TITLE)
-        self.setFixedSize(1280, 720)
-        
+        self.setFixedSize(W, H)
 
-        self.setStyleSheet(darkUiStyleSheet())
-        self.stackedWidget = QStackedWidget()
-        GlobalBlur(self.winId(), Dark=True)
+        GlobalBlur(self.winId(), Acrylic=True)
+
+        self.setStyleSheet(Style())
         self.centralWidget = QWidget()
+        self.stackedWidget = QStackedWidget()
         self.stackedWidget.addWidget(self.centralWidget)
         self.setCentralWidget(self.stackedWidget)
 
         self.createLayouts()
         self.createWidgets()
+        self.createDropdowns()
 
         self.settingsFile = os.path.join(os.getcwd(), "settings.json")
         loadSettings(self, self.settingsFile)
         fadeIn(self, self.centralWidget, 500)
+    
+    def createLayouts(self):
+        self.layout = QVBoxLayout()
+        self.centralWidget.setLayout(self.layout)
 
+        self.pathLayout = QVBoxLayout()
+        self.checkboxLayout = QVBoxLayout()
+        self.outputLayout = QVBoxLayout()
+
+    def createDropdowns(self):
         dropdowns = [
             ("Resize Method:", "Resize"),
             ("Interpolate Method:", "Interpolation"),
@@ -110,13 +110,6 @@ class VideoProcessingApp(QMainWindow):
             setattr(self, f"{text.replace(' ', '').lower()}Checkbox", checkbox)
             self.checkboxes[text.replace(" ", "").lower()] = checkbox
 
-    def createLayouts(self):
-        self.layout = QVBoxLayout()
-        self.centralWidget.setLayout(self.layout)
-
-        self.pathLayout = QVBoxLayout()
-        self.checkboxLayout = QVBoxLayout()
-        self.outputLayout = QVBoxLayout()
 
     def createWidgets(self):
         self.checkboxInputLayout = QHBoxLayout()
@@ -137,11 +130,6 @@ class VideoProcessingApp(QMainWindow):
             ("Interpolate Factor:", 2, 100),
             ("Upscale Factor:", 2, 4),
             ("Resize Factor:", 1, 4),
-            (
-                "Number of Threads:",
-                1,
-                4,
-            ),  # Experimental feature, needs more work but it's there
         ]
 
         self.inputFieldsLayout = QVBoxLayout()
@@ -156,9 +144,6 @@ class VideoProcessingApp(QMainWindow):
 
             elif label == "Upscale Factor:":
                 self.upscaleFactorEntry = entry
-
-            elif label == "Number of Threads:":
-                self.numThreadsEntry = entry
 
         self.checkboxInputLayout.addLayout(self.checkboxLayout)
         self.checkboxInputLayout.addLayout(self.inputFieldsLayout)
