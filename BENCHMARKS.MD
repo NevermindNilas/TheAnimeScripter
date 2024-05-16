@@ -9,6 +9,10 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 
 #### Testing Methodoly V3
 
+# 13900k, 4090, 32GB DDR5 4800MHz, TAS 1.7.0, KernelOS ( Modified W11 ), Sergio.
+![nilasedits (6)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/b91efa6f-e9a8-4a80-b523-76886fcb7f25)
+
+
 # 13700K Undervolted + OC, 3090 OC, 32GB DDR5 6400mhz CL 30, TAS 1.7.0, Nilas
 ![nilasedits (5)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/053915c5-9530-4629-a925-4e685311b11c)
 
