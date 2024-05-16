@@ -246,7 +246,7 @@ class UniversalTensorRT:
             .squeeze(0)
             .permute(1, 2, 0)
             .mul_(255)
-            .clamp(0, 255)  # Clamped ONNX models seem to be ignored by the runner, it still outputs values outside of [0-255], weird
+            .clamp_(0, 255)  # Clamped ONNX models seem to be ignored by the runner, it still outputs values outside of [0-255], weird
         )
 
 
