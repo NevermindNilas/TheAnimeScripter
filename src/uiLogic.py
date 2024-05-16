@@ -176,7 +176,6 @@ def saveSettings(self, settingsFile):
             "output": self.outputEntry.text(),
             "resize_factor": self.resizeFactorEntry.text(),
             "interpolate_factor": self.interpolateFactorEntry.text(),
-            "nt": self.numThreadsEntry.text(),
             "upscale_factor": self.upscaleFactorEntry.text(),
             "interpolate_method": self.interpolationMethodDropdown.currentText(),
             "upscale_method": self.upscalingMethodDropdown.currentText(),
