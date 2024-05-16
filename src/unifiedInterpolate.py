@@ -305,7 +305,7 @@ class RifeTensorRT:
                     )
                 ]
                 self.config = self.CreateConfig(
-                    fp16=True, profiles=profile, preview_features=[]
+                    bf16=self.half, profiles=profile, preview_features=[]
                 )
             self.engine = self.engine_from_network(
                 self.network_from_onnx_path(modelPath),
