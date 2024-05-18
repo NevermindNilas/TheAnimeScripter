@@ -277,7 +277,7 @@ class RifeTensorRT:
 
         if self.half:
             if self.width < 3840 and self.height < 2160:
-                if self.interpolateMethod != "rife4.6":
+                if self.interpolateMethod != "rife4.6-tensorrt":
                     enginePrecision = "bf16"
                 else:
                     enginePrecision = "fp16"
