@@ -510,7 +510,7 @@ class WriteBuffer:
                             logging.info(f"Encoded {writtenFrames} frames")
                         break
                     
-                    self.process.stdin.buffer.write(np.ascontiguousarray(frame.byte().cpu().numpy()))
+                    self.process.stdin.buffer.write(frame.contiguous().byte().cpu().numpy())
                     writtenFrames += 1
 
         except Exception as e:
