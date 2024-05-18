@@ -9,8 +9,11 @@ from pathlib import Path
 def getFFMPEG():
     ffmpegPath = shutil.which("ffmpeg")
 
+    # Just making sure here.
     if ffmpegPath is None:
         ffmpegPath = shutil.which("FFMPEG")
+    else:
+        logging.info(f"FFMPEG was found in System Path: {ffmpegPath}")
 
     if ffmpegPath is None:
         ffmpegPath = Path(__file__).resolve().parent / "ffmpeg" / "ffmpeg.exe"
