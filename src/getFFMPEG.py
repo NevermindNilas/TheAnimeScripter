@@ -7,14 +7,21 @@ from tqdm import tqdm
 from pathlib import Path
 
 def getFFMPEG():
-    ffmpegPath = Path(__file__).resolve().parent / "ffmpeg" / "ffmpeg.exe"
-    logging.info(f"FFMPEG Path: {ffmpegPath}")
+    ffmpegPath = shutil.which("ffmpeg")
 
-    if not ffmpegPath.is_file():
-        downloadAndExtractFFMPEG(ffmpegPath)
+    if ffmpegPath is None:
+        ffmpegPath = shutil.which("FFMPEG")
+
+    if ffmpegPath is None:
+        ffmpegPath = Path(__file__).resolve().parent / "ffmpeg" / "ffmpeg.exe"
+        logging.info(f"FFMPEG Path: {ffmpegPath}")
+
+        if not ffmpegPath.is_file():
+            ffmpegPath = downloadAndExtractFFMPEG(ffmpegPath)
+    else:
+        logging.info(f"FFMPEG was found in System Path: {ffmpegPath}")
 
     return str(ffmpegPath)
-
 
 def downloadAndExtractFFMPEG(ffmpegPath):
     logging.info("Getting FFMPEG")
