@@ -3,7 +3,6 @@ import torch
 import logging
 from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
-
 from .coloredPrints import yellow
 
 # Apparently this can improve performance slightly
@@ -275,52 +274,38 @@ class RifeTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
-        if self.half:
-            if self.width < 3840 and self.height < 2160:
-                if self.interpolateMethod != "rife4.6-tensorrt":
-                    enginePrecision = "bf16"
-                else:
-                    enginePrecision = "fp16"
+        if "fp16" in modelPath:
+            trtEngineModelPath = modelPath.replace(".onnx", "_fp16.engine")
+        elif "fp32" in modelPath:
+            trtEngineModelPath = modelPath.replace(".onnx", "_fp32.engine")
         else:
-            enginePrecision = "fp32"
+            trtEngineModelPath = modelPath.replace(".onnx", ".engine")
 
-        if os.path.exists(modelPath.replace(".onnx", f"_{enginePrecision}.engine")):
-            self.engine = self.EngineFromBytes(self.BytesFromPath(modelPath.replace(".onnx", f"_{enginePrecision}.engine")))
+        if os.path.exists(trtEngineModelPath):
+            self.engine = self.EngineFromBytes(self.BytesFromPath(trtEngineModelPath))
         else:
             toPrint = f"Engine not found, creating dynamic engine for model: {modelPath}, this may take a while, but it is worth the wait..."
             print(yellow(toPrint))
             logging.info(toPrint)
 
-            if enginePrecision == "fp32" or enginePrecision == "fp16":
-                profile = [
-                    self.Profile().add(
-                        "input",
-                        min=(1, 8, 32, 32),
-                        opt=(1, 8, self.height, self.width),
-                        max=(1, 8, 2160, 3840),
-                    )
-                ]
-                self.config = self.CreateConfig(
-                    fp16=self.half, profiles=profile, preview_features=[],
+            profile = [
+                self.Profile().add(
+                    "input",
+                    min=(1, 7, 32, 32),
+                    opt=(1, 7, self.height, self.width),
+                    max=(1, 7, 2160, 3840),
                 )
-            else:
-                profile = [
-                    self.Profile().add(
-                        "input",
-                        min=(1, 8, 32, 32),
-                        opt=(1, 8, self.height, self.width),
-                        max=(1, 8, 2160, 3840),
-                    )
-                ]
-                self.config = self.CreateConfig(
-                    bf16=self.half, profiles=profile, preview_features=[]
-                )
+            ]
+            self.config = self.CreateConfig(
+                fp16=self.half, bf16=self.half, profiles=profile, preview_features=[],
+            )
+
             self.engine = self.engine_from_network(
                 self.network_from_onnx_path(modelPath),
                 config=self.config,
             )
             self.engine = self.SaveEngine(
-                self.engine, modelPath.replace(".onnx", f"_{enginePrecision}.engine")
+                self.engine, modelPath.replace(".onnx", ".engine")
             )
 
         self.runner = self.TrtRunner(self.engine)
@@ -328,28 +313,25 @@ class RifeTensorRT:
 
         self.dType = torch.float16 if self.half else torch.float32
 
-        if self.interpolateFactor == 2:
-            self.I0 = torch.zeros(
+        self.I0 = torch.zeros(
+            1,
+            3,
+            self.height,
+            self.width,
+            dtype=self.dType,
+            device=self.device,
+        )
+        self.timestep = (
+            torch.zeros(
                 1,
-                3,
+                1,
                 self.height,
                 self.width,
                 dtype=self.dType,
                 device=self.device,
             )
-            self.timestep = (
-                torch.zeros(
-                    1,
-                    1,
-                    self.height,
-                    self.width,
-                    dtype=self.dType,
-                    device=self.device,
-                )
-                * 0.5
-            )
-        else:
-            self.I0 = None
+            * 0.5
+        )
 
         scaleInt = 1 if self.width < 3840 and self.height < 2160 else 0.5
         self.scale = torch.zeros(
@@ -361,6 +343,7 @@ class RifeTensorRT:
             device=self.device,
         ) * scaleInt
         
+        self.I0 = None
 
     @torch.inference_mode()
     def make_inference(self, n):
@@ -385,7 +368,6 @@ class RifeTensorRT:
                             self.I0,
                             self.I1,
                             self.timestep,
-                            self.scale,
                         ],
                         dim=1,
                     )
