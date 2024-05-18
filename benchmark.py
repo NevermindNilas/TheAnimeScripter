@@ -92,8 +92,8 @@ def getExe():
         version = subprocess.check_output(["main.exe", "--version"]).decode().strip()
         return "main.exe", version
     else:
-        version = subprocess.check_output(["python", "main.py", "--version"]).decode().strip()
-        return "python main.py", version
+        version = subprocess.check_output(["python3.11", "main.py", "--version"]).decode().strip()
+        return "python3.11 main.py", version
 
 
 def getClip(executor):
