@@ -5,11 +5,12 @@ from tqdm import tqdm
 
 dirPath = os.path.dirname(__file__)
 weightsDir = os.path.join(dirPath, "weights")
-url = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
+TASURL = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
 DEPTHURL = (
     "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/"
 )
 SEGMENTURL = "https://dl.fbaipublicfiles.com/segment_anything/"  # VITH is well over 2GB and instead of hosting on Github I will just use the official repo
+SUDOURL = "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/tag/models/"
 
 
 def modelsList() -> list[str]:
@@ -51,7 +52,6 @@ def modelsList() -> list[str]:
         "ultracompact-tensorrt",
         "superultracompact-tensorrt",
         "span-tensorrt",
-        "rife4.6-tensorrt",
         "rife4.15-tensorrt",
         "rife-v4.15-ncnn",
         "rife-v4.6-ncnn",
@@ -201,29 +201,17 @@ def modelsMap(
         case "rife4.6":
             return "rife46.pth"
 
-        case "rife4.6-tensorrt":
-            if half:
-                if ensemble:
-                    return "rife46_ensembleTrue_op18_fp16_clamp_sim.onnx"
-                else:
-                    return "rife46_ensembleFalse_op18_fp16_clamp_sim.onnx"
-            else:
-                if ensemble:
-                    return "rife46_ensembleTrue_op18_clamp_sim.onnx"
-                else:
-                    return "rife46_ensembleFalse_op18_clamp_sim.onnx"
-
         case "rife4.15-tensorrt":
             if half:
                 if ensemble:
-                    return "rife415_ensembleTrue_op19_fp16_clamp_sim.onnx"
+                    return "rife415_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                 else:
-                    return "rife415_ensembleFalse_op19_fp16_clamp_sim.onnx"
+                    return "rife415_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
             else:
                 if ensemble:
-                    return "rife415_ensembleTrue_op19_clamp_sim.onnx"
+                    return "rife415_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
                 else:
-                    return "rife415_ensembleFalse_op19_clamp_sim.onnx"
+                    return "rife415_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
 
         case "rife4.15-lite-tensorrt":
             raise NotImplementedError
@@ -344,7 +332,9 @@ def downloadModels(
         fullUrl = f"{DEPTHURL}{filename}"
     elif model in ["vit_h", "vit_l", "vit_b"]:
         fullUrl = f"{SEGMENTURL}{filename}"
+    elif "rife" and "tensorrt" in model:
+        fullUrl = f"{SUDOURL}{filename}"
     else:
-        fullUrl = f"{url}{filename}"
+        fullUrl = f"{TASURL}{filename}"
 
     return downloadAndLog(model, filename, fullUrl, folderPath)

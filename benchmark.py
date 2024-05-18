@@ -46,7 +46,6 @@ interpolateMethods = [
     "rife4.15-ncnn",
     "rife4.15-lite-ncnn",
     "rife4.16-lite-ncnn",
-    "rife4.6-tensorrt",
     "rife4.15-tensorrt",
     "gmfss",
 ]
