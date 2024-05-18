@@ -158,9 +158,9 @@ def modelsMap(
 
         case "shufflecugan-tensorrt":
             if half:
-                return "sudo_shuffle_cugan_fp16_op18_clamped_9.584.969.onnx"
+                return "sudo_shuffle_cugan_fp16_op18_clamped.onnx"
             else:
-                return "sudo_shuffle_cugan_op18_clamped_9.584.969.onnx"
+                return "sudo_shuffle_cugan_op18_clamped.onnx"
 
         case "cugan" | "cugan-directml":
             if modelType == "pth":
@@ -282,7 +282,15 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
     print(toLog)
 
     response = requests.get(download_url, stream=True)
-    total_size_in_bytes = int(response.headers.get("content-length", 0))
+    
+    try:
+        total_size_in_bytes = int(response.headers.get("content-length", 0))
+        if total_size_in_bytes == 0:
+            total_size_in_bytes = None
+    except Exception as e:
+        total_size_in_bytes = None
+        logging.error(e)
+
     progress_bar = tqdm(
         total=total_size_in_bytes, unit="iB", unit_scale=True, colour="green"
     )
@@ -292,9 +300,6 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
             progress_bar.update(len(data))
             file.write(data)
     progress_bar.close()
-
-    if progress_bar.n != total_size_in_bytes:
-        print("ERROR, something went wrong")
 
     if filename.endswith(".zip"):
         import zipfile
