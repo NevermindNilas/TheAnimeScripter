@@ -58,7 +58,6 @@ def argumentChecker(args, mainPath, scriptVersion):
     args.ffmpeg_path = getFFMPEG()
 
 
-
     if args.offline:
         toPrint = "Offline mode enabled, downloading all available models, this can take a minute but it will allow for the script to be used offline"
         logging.info(toPrint)
