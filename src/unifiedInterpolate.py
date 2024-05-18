@@ -106,7 +106,8 @@ class RifeCuda:
             dtype=torch.float16
             if self.half and self.isCudaAvailable
             else torch.float32,
-        ).to(self.device)
+            device=self.device,
+        )
 
         self.I1 = torch.zeros(
             1,
@@ -116,7 +117,8 @@ class RifeCuda:
             dtype=torch.float16
             if self.half and self.isCudaAvailable
             else torch.float32,
-        ).to(self.device)
+            device=self.device,
+        )
 
         self.firstRun = True
 
@@ -128,7 +130,8 @@ class RifeCuda:
                     self.I0.shape[2],
                     self.I0.shape[3],
                     dtype=torch.float16 if self.half else torch.float32,
-                ).to(self.device)
+                    device=self.device,
+                )
                 * 0.5
             )
 
@@ -142,7 +145,8 @@ class RifeCuda:
                     self.I0.shape[2],
                     self.I0.shape[3],
                     dtype=torch.float16 if self.half else torch.float32,
-                ).to(self.device)
+                    device=self.device,
+                )
                 * timestep
             )
 
@@ -344,6 +348,25 @@ class RifeTensorRT:
         ) * scaleInt
         
         self.I0 = None
+
+        # warmup
+
+        dummyCat = torch.cat(
+            [
+                self.I0,
+                self.I1,
+                self.timestep,
+            ],
+            dim=1,
+        )
+
+        for _ in range(10):
+            self.runner.infer(
+                {
+                    "input": dummyCat,
+                },
+                check_inputs=False,
+            )
 
     @torch.inference_mode()
     def make_inference(self, n):
