@@ -83,7 +83,9 @@ def extractFFMPEGTar(ffmpegTarPath, ffmpegDir):
     with tarfile.open(ffmpegTarPath, "r:xz") as tarRef:
         tarRef.extractall(ffmpegDir)
 
-    (ffmpegDir / "ffmpeg-*-static" / "ffmpeg").rename(ffmpegDir / "ffmpeg")
+    for directory in ffmpegDir.glob('ffmpeg-*-static'):
+        (directory / "ffmpeg").rename(ffmpegDir / "ffmpeg")
+        break
 
     ffmpegTarPath.unlink()
     for directory in glob.glob(str(ffmpegDir / "ffmpeg-*-static")):
