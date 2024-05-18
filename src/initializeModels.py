@@ -182,7 +182,6 @@ def initializeModels(self):
 
             case (
                 "rife-tensorrt"
-                | "rife4.6-tensorrt"
                 | "rife4.15-tensorrt"
                 | "rife4.15-lite-tensorrt"
             ):
