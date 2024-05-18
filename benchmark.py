@@ -3,6 +3,7 @@ import time
 import json
 import re
 import subprocess
+import platform
 
 TIMESLEEP = 2
 CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
@@ -51,6 +52,9 @@ interpolateMethods = [
 ]
 
 denoiseMethods = ["scunet", "nafnet", "dpir", "span"]
+
+if platform.system() == 'Linux':
+    upscaleMethods = [method for method in upscaleMethods if 'directml' not in method]
 
 totalTests = len(dedupMethods) + len(upscaleMethods) + len(interpolateMethods) * 2 + len(denoiseMethods)
 currentTest = 0
