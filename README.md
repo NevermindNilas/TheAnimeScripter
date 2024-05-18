@@ -127,6 +127,7 @@ In the settings panel:
 | [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                 |
 | [Sirosky](https://openmodeldb.info/models/2x-AniScale-2-ESRGAN-Lite)                                   | RealESRGAN Model     |
 | [TNTWise](https://github.com/TNTwise) | For Rife ONNX and NCNN models | 
+| [WolframRhodium](https://github.com/WolframRhodium) | For Rife V2 models |
 
 ## 📈 [Benchmarks](BENCHMARKS.MD)
 
