@@ -1,7 +1,6 @@
 import os
 import torch
 import logging
-import numpy as np
 import cv2
 import torch.nn.functional as F
 
@@ -9,9 +8,8 @@ from threading import Semaphore
 from torchvision.transforms import Compose
 from concurrent.futures import ThreadPoolExecutor
 from .dpt import DPT_DINOv2
-from .util.transform import Resize, NormalizeImage, PrepareForNet
+from .transform import Resize, NormalizeImage, PrepareForNet
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.downloadModels import downloadModels, weightsDir
 
 os.environ["TORCH_HOME"] = os.path.dirname(os.path.realpath(__file__))
 class Depth:
@@ -95,7 +93,6 @@ class Depth:
     def handleModels(self):
         match self.depth_method:
             case "small":
-                model = "vits"
                 self.model = DPT_DINOv2(
                     encoder="vits",
                     features=64,
@@ -103,7 +100,6 @@ class Depth:
                     localhub=False,
                 )
             case "base":
-                model = "vitb"
                 self.model = DPT_DINOv2(
                     encoder="vitb",
                     features=128,
@@ -112,7 +108,6 @@ class Depth:
                 )
 
             case "large":
-                model = "vitl"
                 self.model = DPT_DINOv2(
                     encoder="vitl",
                     features=256,
@@ -120,29 +115,15 @@ class Depth:
                     localhub=False,
                 )
 
-        modelPath = os.path.join(weightsDir, model, f"depth_anything_{model}14.pth")
+        self.isCudaAvailable = torch.cuda.is_available()
 
-        if not os.path.exists(modelPath):
-            print("Couldn't find the depth model, downloading it now...")
-
-            logging.info("Couldn't find the depth model, downloading it now...")
-
-            os.makedirs(weightsDir, exist_ok=True)
-            modelPath = downloadModels(model=model)
-
-        self.cudaIsAvailable = torch.cuda.is_available()
-
-        if self.cudaIsAvailable:
+        if self.isCudaAvailable:
             self.device = torch.device("cuda")
             self.model = self.model.cuda()
         else:
             self.device = torch.device("cpu")
 
-        self.model.load_state_dict(
-            torch.load(modelPath, map_location="cpu"), strict=True
-        )
-
-        if self.half and self.cudaIsAvailable:
+        if self.half and self.isCudaAvailable:
             self.model = self.model.half()
         else:
             self.half = False
@@ -163,24 +144,21 @@ class Depth:
             ]
         )
 
+    @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            frame = frame / 255.0
-            frame = frame.numpy()
+            # input is a torch.uint8 tensor
+            frame = (frame / 255.0).numpy()
             frame = self.transform({"image": frame})["image"]
 
             frame = torch.from_numpy(frame).unsqueeze(0).to(self.device)
 
-            if self.cudaIsAvailable:
-                if self.half:
-                    frame = frame.cuda().half()
-                else:
-                    frame = frame.cuda()
+            if self.half and self.isCudaAvailable:
+                frame = frame.half()
             else:
-                frame = frame.cpu()
+                frame = frame.float()
 
-            with torch.no_grad():
-                depth = self.model(frame)
+            depth = self.model(frame)
 
             depth = F.interpolate(
                 depth[None],
@@ -188,8 +166,7 @@ class Depth:
                 mode="bilinear",
                 align_corners=False,
             )[0, 0]
-            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-
+            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255
             self.writeBuffer.write(depth)
 
         except Exception as e:

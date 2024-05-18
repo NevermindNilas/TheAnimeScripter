@@ -2,6 +2,7 @@ import os
 import torch
 import numpy as np
 import logging
+import cupy as cp
 
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
@@ -171,11 +172,13 @@ class UniversalTensorRT:
         if not self.customModel:
             # For some reason this runs out of VRAM on my f 3090, so we'll just use the alr existing one
             if self.upscaleMethod != "shufflecugan-tensorrt":
+                modelType = "pth"
                 self.upscaleMethod = self.upscaleMethod.replace("-tensorrt", "")
-            
+            else:
+                modelType = "onnx"
 
             self.filename = modelsMap(
-                self.upscaleMethod, self.upscaleFactor, modelType="pth", half=self.half
+                self.upscaleMethod, self.upscaleFactor, modelType=modelType, half=self.half
             )
             if not os.path.exists(
                 os.path.join(weightsDir, self.upscaleMethod, self.filename)
@@ -184,7 +187,7 @@ class UniversalTensorRT:
                     model=self.upscaleMethod,
                     upscaleFactor=self.upscaleFactor,
                     half=self.half,
-                    modelType="pth",
+                    modelType=modelType,
                 )
             else:
                 modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
@@ -196,13 +199,14 @@ class UniversalTensorRT:
                     f"Custom model file {self.customModel} not found"
                 )
         
-        try:
-            self.model = ModelLoader().load_from_file(modelPath)
-        except Exception as e:
-            logging.error(f"Error loading model: {e}")
+        if modelType == "pth":
+            try:
+                self.model = ModelLoader().load_from_file(modelPath)
+            except Exception as e:
+                logging.error(f"Error loading model: {e}")
 
-        if self.customModel:
-            assert isinstance(self.model, ImageModelDescriptor)
+            if self.customModel:
+                assert isinstance(self.model, ImageModelDescriptor)
 
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
@@ -212,32 +216,29 @@ class UniversalTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
-        
-        self.model = self.model.half() if self.half and self.isCudaAvailable else self.model
-        self.model = self.model.eval().to(self.device).model
-
         enginePrecision = "fp16" if self.half else "fp32"
-        if not os.path.exists(modelPath.replace(".pth", f"_{enginePrecision}.onnx")):
-            torch.onnx.export(
-                self.model,
-                torch.zeros(1, 3, 256, 256, device=self.device, dtype=torch.float16 if self.half else torch.float32),
-                modelPath.replace(".pth", f"_{enginePrecision}.onnx"),
-                opset_version=19,
-                input_names=["input"],
-                output_names=["output"],
-                dynamic_axes={"input": {0: "batch", 2: "height", 3: "width"}, "output": {0: "batch", 2: "height", 3: "width"}},
-            )
+        if modelType == "pth":
+            self.model = self.model.half() if self.half and self.isCudaAvailable else self.model
+            self.model = self.model.eval().to(self.device).model
 
+            if not os.path.exists(modelPath.replace(f".{modelType}", f"_{enginePrecision}.onnx")):
+                torch.onnx.export(
+                    self.model,
+                    torch.zeros(1, 3, 256, 256, device=self.device, dtype=torch.float16 if self.half else torch.float32),
+                    modelPath.replace(f".{modelType}", f"_{enginePrecision}.onnx"),
+                    opset_version=19,
+                    input_names=["input"],
+                    output_names=["output"],
+                    dynamic_axes={"input": {0: "batch", 2: "height", 3: "width"}, "output": {0: "batch", 2: "height", 3: "width"}},
+                )
 
-        modelPath = modelPath.replace(".pth", f"_{enginePrecision}.onnx")
+            modelPath = modelPath.replace(f".{modelType}", f"_{enginePrecision}.onnx")
 
-        # TO:DO account for FP16/FP32
         if not os.path.exists(modelPath.replace(f"_{enginePrecision}.onnx", f"_{enginePrecision}.engine")):
             toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
             print(yellow(toPrint))
             logging.info(toPrint)
             profiles = [
-                # The low-latency case. For best performance, min == opt == max.
                 self.Profile().add(
                     "input",
                     min=(1, 3, 8, 8),
@@ -261,8 +262,24 @@ class UniversalTensorRT:
         self.runner = self.TrtRunner(self.engine)
         self.runner.activate()
 
+        # Warmup
+        dummyInput = torch.zeros(
+            (1, 3, self.height, self.width),
+            device=self.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        for i in range(10):
+            self.runner.infer(
+                {
+                    "input": dummyInput,
+                },
+                check_inputs=False,
+            )
+
     @torch.inference_mode()
     def run(self, frame):
+        
         if self.half:
             frame = frame.permute(2, 0, 1).unsqueeze(0).half().mul_(1 / 255)
         else:
