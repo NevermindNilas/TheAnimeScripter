@@ -9,6 +9,10 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 
 #### Testing Methodoly V3
 
+# 7950x, 4090, 64GB DDR5, Pre-Release 1.8.0, Linux, Sudo
+![nilasedits (7)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/8adf6915-9d38-4ab8-8492-c8d74107b118)
+
+
 # 13900k, 4090, 32GB DDR5 4800MHz, TAS 1.7.0, KernelOS ( Modified W11 ), Sergio.
 ![nilasedits (6)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/b91efa6f-e9a8-4a80-b523-76886fcb7f25)
 
