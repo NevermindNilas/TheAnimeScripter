@@ -357,8 +357,6 @@ class RifeTensorRT:
             device=self.device,
         ) * scaleInt
         
-        self.I0 = None
-
         self.dummyOutput = torch.zeros(
             1,
             3,
@@ -367,6 +365,7 @@ class RifeTensorRT:
             dtype=self.dType,
             device=self.device,
         )
+        self.firstRun = True
 
     @torch.inference_mode()
     def make_inference(self, n):
@@ -427,9 +426,10 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def run(self, I1):
-        if self.I0 is None:
-            self.I0 = self.processFrame(I1)
+        if self.firstRun is True:
+            self.I0.copy_(self.processFrame(I1), non_blocking=True)
+            self.firstRun = False
             return False
 
-        self.I1 = self.processFrame(I1)
+        self.I1.copy_(self.processFrame(I1), non_blocking=True)
         return True
