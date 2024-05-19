@@ -2,6 +2,7 @@ import os
 import torch
 import numpy as np
 import logging
+import tensorrt as trt
 
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
@@ -253,14 +254,28 @@ class UniversalTensorRT:
                 self.engine, modelPath.replace(".onnx", ".engine")
             )
 
+            with self.TrtRunner(self.engine) as runner:
+                self.runner = runner
+
+            """
         else:
             self.engine = self.EngineFromBytes(
                 self.BytesFromPath(modelPath.replace(f"_{enginePrecision}.onnx", f"_{enginePrecision}.engine"))
             )
+            """
+            """
+            with open(args.engine, 'rb') as f, trt.Runtime(TRT_LOGGER) as runtime,
+                runtime.deserialize_cuda_engine(f.read()) as engine, engine.create_execution_context() as context:
+            """
 
-        self.runner = self.TrtRunner(self.engine)
-        self.runner.activate()
+        with open(modelPath.replace(f"_{enginePrecision}.onnx", f"_{enginePrecision}.engine"), "rb") as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
+            self.engine = runtime.deserialize_cuda_engine(f.read()) 
+            self.context = self.engine.create_execution_context()
+        
+        #self.runner = self.TrtRunner(self.engine)
+        #self.runner.activate()
 
+        """
         # Warmup
         dummyInput = torch.zeros(
             (1, 3, self.height, self.width),
@@ -275,15 +290,42 @@ class UniversalTensorRT:
                 },
                 check_inputs=False,
             )
+        """
+        
+        self.stream = torch.cuda.Stream()
+        self.dummyInput = torch.zeros(
+            (1, 3, self.height, self.width),
+            device=self.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
 
+        self.dummyOutput = torch.zeros(
+            (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
+            device=self.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
+
+        for i in range(self.engine.num_io_tensors):
+            self.context.set_tensor_address(self.engine.get_tensor_name(i), self.bindings[i])
+            tensor_name = self.engine.get_tensor_name(i)
+            if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+        
     @torch.inference_mode()
     def run(self, frame):
+        with torch.cuda.stream(self.stream):
+            if self.half:
+                self.dummyInput.copy_(frame.permute(2, 0, 1).unsqueeze(0).half().mul_(1 / 255))
+            else:
+                self.dummyInput.copy_(frame.permute(2, 0, 1).unsqueeze(0).float().mul_(1 / 255))
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            self.stream.synchronize()
         
-        if self.half:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).half().mul_(1 / 255)
-        else:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).float().mul_(1 / 255)
+            return self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255).clamp(0, 255)
 
+        """
         return (
             self.runner.infer(
                 {
@@ -296,6 +338,7 @@ class UniversalTensorRT:
             .mul_(255)
             .clamp(0, 255)  # Sadge but it had to be done, I love TRT 10 <3 
         )
+        """
 
 
 class UniversalDirectML:
@@ -422,7 +465,7 @@ class UniversalDirectML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
-    def run(self, frame: np.ndarray) -> np.ndarray:
+    def run(self, frame: torch.tensor) -> torch.tensor:
         if self.half:
             frame = (
                 frame
