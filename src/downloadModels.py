@@ -204,7 +204,7 @@ def modelsMap(
         case "rife4.15-tensorrt":
             if half:
                 if ensemble:
-                    return "rife415_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                    return "rife415_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
                 else:
                     return "rife415_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
             else:
