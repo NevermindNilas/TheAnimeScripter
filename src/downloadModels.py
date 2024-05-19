@@ -10,7 +10,7 @@ DEPTHURL = (
     "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/"
 )
 SEGMENTURL = "https://dl.fbaipublicfiles.com/segment_anything/"  # VITH is well over 2GB and instead of hosting on Github I will just use the official repo
-SUDOURL = "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/tag/models/"
+SUDOURL = "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
 
 
 def modelsList() -> list[str]:

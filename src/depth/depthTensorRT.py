@@ -190,6 +190,12 @@ class DepthTensorRT:
             )
         """
 
+        self.dummyOutput = torch.zeros(
+            (1, 1, 518, 924),
+            device=self.device,
+            dtype=torch.float32,
+        )
+
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
@@ -204,15 +210,16 @@ class DepthTensorRT:
             else:
                 frame = frame.float()
 
-            depth = self.runner.infer(
+            self.dummyOutput.copy_(self.runner.infer(
                 {
                     "image": frame,
                 },
                 check_inputs=False,
-            )["depth"].float()
+            )["depth"].float(), non_blocking=True
+            )
 
             depth = F.interpolate(
-                depth,
+                self.dummyOutput,
                 size=[self.height, self.width],
                 mode="bilinear",
                 align_corners=False,
