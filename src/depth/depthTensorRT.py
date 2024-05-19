@@ -4,16 +4,28 @@ import logging
 import cv2
 import torch.nn.functional as F
 
-from threading import Semaphore
-from torchvision.transforms import Compose
-from concurrent.futures import ThreadPoolExecutor
-from .dpt import DPT_DINOv2
-from .transform import Resize, NormalizeImage, PrepareForNet
-from src.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.downloadModels import downloadModels, weightsDir
+# Attempt to lazy load for faster startup
+from polygraphy.backend.trt import (
+    TrtRunner,
+    engine_from_network,
+    network_from_onnx_path,
+    CreateConfig,
+    Profile,
+    EngineFromBytes,
+    SaveEngine,
+)
+from polygraphy.backend.common import BytesFromPath
 
-os.environ["TORCH_HOME"] = os.path.dirname(os.path.realpath(__file__))
-class Depth:
+from threading import Semaphore
+from concurrent.futures import ThreadPoolExecutor
+from torchvision.transforms import Compose
+
+from src.coloredPrints import yellow
+from src.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.downloadModels import downloadModels, weightsDir, modelsMap
+from .transform import NormalizeImage, PrepareForNet, Resize
+
+class DepthTensorRT:
     def __init__(
         self,
         input,
@@ -81,7 +93,7 @@ class Depth:
                 audio=False,
                 benchmark=self.benchmark,
             )
-            
+
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
@@ -90,61 +102,60 @@ class Depth:
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
 
-
     def handleModels(self):
-        match self.depth_method:
-            case "small":
-                model = "vits"
-                self.model = DPT_DINOv2(
-                    encoder="vits",
-                    features=64,
-                    out_channels=[48, 96, 192, 384],
-                    localhub=False,
-                )
-            case "base":
-                model = "vitb"
-                self.model = DPT_DINOv2(
-                    encoder="vitb",
-                    features=128,
-                    out_channels=[96, 192, 384, 768],
-                    localhub=False,
-                )
-
-            case "large":
-                model = "vitl"
-                self.model = DPT_DINOv2(
-                    encoder="vitl",
-                    features=256,
-                    out_channels=[256, 512, 1024, 1024],
-                    localhub=False,
-                )
-
-        modelPath = os.path.join(weightsDir, model, f"depth_anything_{model}14.pth")
-
-        if not os.path.exists(modelPath):
-            print("Couldn't find the depth model, downloading it now...")
-
-            logging.info("Couldn't find the depth model, downloading it now...")
-
-            os.makedirs(weightsDir, exist_ok=True)
-            modelPath = downloadModels(model=model)
-
         self.isCudaAvailable = torch.cuda.is_available()
-
-        if self.isCudaAvailable:
-            self.device = torch.device("cuda")
-            self.model = self.model.cuda()
-        else:
-            self.device = torch.device("cpu")
-
-        self.model.load_state_dict(
-            torch.load(modelPath, map_location="cpu"), strict=True
+        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
+        self.filename = modelsMap(
+            model=self.depth_method, modelType="onnx", half=self.half
         )
 
-        if self.half and self.isCudaAvailable:
-            self.model = self.model.half()
+        if not os.path.exists(os.path.join(weightsDir, self.filename, self.filename)):
+            modelPath = downloadModels(
+                model=self.depth_method,
+                half=self.half,
+                modelType="onnx",
+            )
         else:
-            self.half = False
+            modelPath = os.path.join(weightsDir, self.filename, self.filename)
+
+        enginePrecision = "fp16" if "float16" in self.filename else "fp32"
+        
+        if not os.path.exists(modelPath.replace(".onnx", f"_{enginePrecision}.engine")):
+            toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
+            print(yellow(toPrint))
+            logging.info(toPrint)
+            aspect_ratio = self.width / self.height
+
+            # Fix height at 518 and adjust width
+            new_height = 518
+            new_width = round(new_height * aspect_ratio / 14) * 14
+
+            # Ensure new_width is a multiple of 14
+            new_width = (new_width // 14) * 14
+
+            profiles = [
+                Profile().add(
+                    "image",
+                    min=(1, 3, new_height, new_width),
+                    opt=(1, 3, new_height, new_width),
+                    max=(1, 3, new_height, new_width),
+                ),
+            ]
+            self.engine = engine_from_network(
+                network_from_onnx_path(modelPath),
+                config=CreateConfig(fp16=self.half, profiles=profiles),
+            )
+            self.engine = SaveEngine(
+                self.engine, modelPath.replace(".onnx", f"_{enginePrecision}.engine")
+            )
+
+        else:
+            self.engine = EngineFromBytes(
+                BytesFromPath(modelPath.replace(".onnx", f"_{enginePrecision}.engine"))
+            )
+
+        self.runner = TrtRunner(self.engine)
+        self.runner.activate()
 
         self.transform = Compose(
             [
@@ -161,12 +172,29 @@ class Depth:
                 PrepareForNet(),
             ]
         )
+        
+        """
+        # Warmup
+        dummyInput = torch.zeros(
+            (1, 3, new_height, new_width),
+            device=self.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        for _ in range(5):
+            self.runner.infer(
+                {
+                    "image": dummyInput,
+                },
+                check_inputs=False,
+            )
+        """
 
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            frame = frame / 255.0
-            frame = frame.numpy()
+            # input is a torch.uint8 tensor
+            frame = (frame / 255.0).numpy()
             frame = self.transform({"image": frame})["image"]
 
             frame = torch.from_numpy(frame).unsqueeze(0).to(self.device)
@@ -176,16 +204,21 @@ class Depth:
             else:
                 frame = frame.float()
 
-            depth = self.model(frame)
+            depth = self.runner.infer(
+                {
+                    "image": frame,
+                },
+                check_inputs=False,
+            )["depth"].float()
 
             depth = F.interpolate(
-                depth[None],
-                (self.height, self.width),
+                depth,
+                size=[self.height, self.width],
                 mode="bilinear",
                 align_corners=False,
-            )[0, 0]
-            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
+            )
 
+            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255
             self.writeBuffer.write(depth)
 
         except Exception as e:
