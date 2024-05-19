@@ -29,7 +29,7 @@ from threading import Semaphore
 from concurrent.futures import ThreadPoolExecutor
 from src.argumentsChecker import argumentChecker
 from src.getVideoMetadata import getVideoMetadata
-from src.initializeModels import initializeModels, Segment
+from src.initializeModels import initializeModels, Segment, Depth
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
@@ -117,27 +117,8 @@ class VideoProcessor:
             )
 
         elif self.depth:
-            from src.depth.depth import Depth
-
-            logging.info("Detecting depth")
-
-            Depth(
-                self.input,
-                self.output,
-                self.ffmpeg_path,
-                self.width,
-                self.height,
-                self.outputFPS,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encode_method,
-                self.depth_method,
-                self.custom_encoder,
-                self.nt,
-                self.buffer_limit,
-                self.benchmark,
-            )
+            logging.info("Depth Estimation")
+            Depth(self)
 
         elif self.segment:
             logging.info("Segmenting video")
@@ -347,7 +328,7 @@ if __name__ == "__main__":
     argparser.add_argument("--scenechange_sens", type=float, default=50)
     argparser.add_argument("--depth", type=int, choices=[0, 1], default=0)
     argparser.add_argument(
-        "--depth_method", type=str, choices=["small", "base", "large"], default="small"
+        "--depth_method", type=str, choices=["small", "base", "large", "small-tensorrt", "base-tensorrt", "large-tensorrt"], default="small"
     )
     argparser.add_argument(
         "--encode_method",

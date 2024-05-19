@@ -2,7 +2,6 @@ import os
 import torch
 import numpy as np
 import logging
-import cupy as cp
 
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
@@ -269,7 +268,7 @@ class UniversalTensorRT:
             dtype=torch.float16 if self.half else torch.float32,
         )
 
-        for i in range(10):
+        for _ in range(10):
             self.runner.infer(
                 {
                     "input": dummyInput,
