@@ -300,7 +300,7 @@ class RifeTensorRT:
                 )
             ]
             self.config = self.CreateConfig(
-                fp16=self.half, bf16=self.half, profiles=profile, preview_features=[],
+                fp16=self.half, profiles=profile, preview_features=[],
             )
 
             self.engine = self.engine_from_network(
