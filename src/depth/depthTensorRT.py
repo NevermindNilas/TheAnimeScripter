@@ -148,11 +148,6 @@ class DepthTensorRT:
                 self.engine, modelPath.replace(".onnx", f"_{enginePrecision}.engine")
             )
 
-        else:
-            self.engine = EngineFromBytes(
-                BytesFromPath(modelPath.replace(".onnx", f"_{enginePrecision}.engine"))
-            )
-
             with TrtRunner(self.engine) as runner:
                 self.runner = runner
 
@@ -184,7 +179,7 @@ class DepthTensorRT:
         )
 
         self.dummyOutput = torch.zeros(
-            (1, 3, newHeight, newWidth),
+            (1, 1, newHeight, newWidth),
             device=self.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
@@ -196,14 +191,7 @@ class DepthTensorRT:
             tensor_name = self.engine.get_tensor_name(i)
             if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
-        
-        # Warmup
-        self.dummyInput = torch.zeros(
-            (1, 3, self.height, self.width),
-            device=self.device,
-            dtype=torch.float16 if self.half else torch.float32,
-        )
-
+    
         with torch.cuda.stream(self.stream):
             for _ in range(10):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
@@ -212,7 +200,6 @@ class DepthTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        with torch.cuda.stream(self.stream):
             try:
                 # input is a torch.uint8 tensor
                 frame = (frame / 255.0).numpy()
@@ -225,7 +212,10 @@ class DepthTensorRT:
                 else:
                     frame = frame.float()
 
-                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+                with torch.cuda.stream(self.stream):
+                    self.stream.synchronize()
+                    self.dummyInput.copy_(frame)
+                    self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
 
                 depth = F.interpolate(
                     self.dummyOutput,
@@ -233,15 +223,15 @@ class DepthTensorRT:
                     mode="bilinear",
                     align_corners=False,
                 )
-
+                
                 depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255
+                
                 self.writeBuffer.write(depth)
 
             except Exception as e:
                 logging.exception(f"Something went wrong while processing the frame, {e}")
 
             finally:
-                self.stream.synchronize()
                 self.semaphore.release()
 
     def process(self):
