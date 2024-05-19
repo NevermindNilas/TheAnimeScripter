@@ -266,6 +266,24 @@ def modelsMap(
                 return "rife-v4.15-lite-ensenmble-ncnn.zip"
             else:
                 return "rife-v4.15-lite-ncnn.zip"
+        
+        case "small-tensorrt":
+            if half:
+                return "depth_anything_vits14_float16_slim.onnx"
+            else:
+                return "depth_anything_vits14_float32_slim.onnx"
+        
+        case "base-tensorrt":
+            if half:
+                return "depth_anything_vitb14_float16_slim.onnx"
+            else:
+                return "depth_anything_vitb14_float32_slim.onnx"
+            
+        case "large-tensorrt":
+            if half:
+                return "depth_anything_vitl14_float16_slim.onnx"
+            else:
+                return "depth_anything_vitl14_float32_slim.onnx"
 
         case _:
             raise ValueError(f"Model {model} not found.")
@@ -337,7 +355,7 @@ def downloadModels(
         fullUrl = f"{DEPTHURL}{filename}"
     elif model in ["vit_h", "vit_l", "vit_b"]:
         fullUrl = f"{SEGMENTURL}{filename}"
-    elif "rife" and "tensorrt" in model:
+    elif model in ["rife4.15-tensorrt", "rife4.15-lite-tensorrt"]:
         fullUrl = f"{SUDOURL}{filename}"
     else:
         fullUrl = f"{TASURL}{filename}"

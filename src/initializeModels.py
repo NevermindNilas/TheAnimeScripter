@@ -42,6 +42,48 @@ def Segment(self):
             self.segment_method,
         )
 
+def Depth(self):
+    match self.depth_method:
+        case "small" | "base" | "large":
+            from src.depth.depth import Depth
+
+            Depth(
+                self.input,
+                self.output,
+                self.ffmpeg_path,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encode_method,
+                self.depth_method,
+                self.custom_encoder,
+                self.nt,
+                self.buffer_limit,
+                self.benchmark,
+            )
+        case "small-tensorrt" | "base-tensorrt" | "large-tensorrt":
+            from src.depth.depthTensorRT import DepthTensorRT
+
+            DepthTensorRT(
+                self.input,
+                self.output,
+                self.ffmpeg_path,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encode_method,
+                self.depth_method,
+                self.custom_encoder,
+                self.nt,
+                self.buffer_limit,
+                self.benchmark,
+            )    
 
 def initializeModels(self):
     outputWidth = self.width
