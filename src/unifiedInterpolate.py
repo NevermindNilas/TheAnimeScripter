@@ -309,8 +309,8 @@ class RifeTensorRT:
                 config=self.config,
             )
             self.engine = self.SaveEngine(
-                self.engine, modelPath.replace(".onnx", ".engine")
-            )
+                self.engine, trtEngineModelPath)
+            
 
         self.runner = self.TrtRunner(self.engine)
         self.runner.activate()
@@ -325,6 +325,16 @@ class RifeTensorRT:
             dtype=self.dType,
             device=self.device,
         )
+
+        self.I1 = torch.zeros(
+            1,
+            3,
+            self.height,
+            self.width,
+            dtype=self.dType,
+            device=self.device,
+        )
+        
         self.timestep = (
             torch.zeros(
                 1,
@@ -349,24 +359,14 @@ class RifeTensorRT:
         
         self.I0 = None
 
-        # warmup
-
-        dummyCat = torch.cat(
-            [
-                self.I0,
-                self.I1,
-                self.timestep,
-            ],
-            dim=1,
+        self.dummyOutput = torch.zeros(
+            1,
+            3,
+            self.height,
+            self.width,
+            dtype=self.dType,
+            device=self.device,
         )
-
-        for _ in range(10):
-            self.runner.infer(
-                {
-                    "input": dummyCat,
-                },
-                check_inputs=False,
-            )
 
     @torch.inference_mode()
     def make_inference(self, n):
@@ -383,7 +383,7 @@ class RifeTensorRT:
                 * n
             )
         
-        return (
+        return(
             self.runner.infer(
                 {
                     "input": torch.cat(
@@ -397,10 +397,8 @@ class RifeTensorRT:
                 },
                 check_inputs=False,
             )["output"]
-            .squeeze(0)
-            .permute(1, 2, 0)
-            .mul_(255)
-        )
+        ).squeeze(0).permute(1, 2, 0).mul_(255)
+        
 
     @torch.inference_mode()
     def cacheFrame(self):
