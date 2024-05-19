@@ -39,7 +39,7 @@ if getattr(sys, "frozen", False):
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.7.0"
+scriptVersion = "1.7.1"
 warnings.filterwarnings("ignore")
 
 
@@ -139,6 +139,7 @@ class VideoProcessor:
                     self.dedupCount += 1
                     self.semaphore.release()
                     return
+                
 
             if self.denoise:
                 frame = self.denoise_process.run(frame)
