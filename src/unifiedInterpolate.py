@@ -319,6 +319,7 @@ class RifeTensorRT:
 
         self.dType = torch.float16 if self.half else torch.float32
 
+        self.stream = torch.cuda.Stream()
         self.I0 = torch.zeros(
             1,
             3,
@@ -359,7 +360,6 @@ class RifeTensorRT:
             device=self.device,
         )
 
-        self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
             (1, 7, self.height, self.width),
             device=self.device,
@@ -428,27 +428,35 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        with torch.cuda.stream(self.stream):
-            return (
-                (
-                    frame
-                    .to(self.device, non_blocking=True)
-                    .permute(2, 0, 1)
-                    .unsqueeze_(0)
-                    .float()
-                    if not self.half
-                    else frame
-                    .to(self.device, non_blocking=True)
-                    .permute(2, 0, 1)
-                    .unsqueeze_(0)
-                    .half()
-                )
-                .mul_(1 / 255)
-                .contiguous()
+        return (
+            (
+                frame
+                .to(self.device, non_blocking=True)
+                .permute(2, 0, 1)
+                .unsqueeze_(0)
+                .float()
+                if not self.half
+                else frame
+                .to(self.device, non_blocking=True)
+                .permute(2, 0, 1)
+                .unsqueeze_(0)
+                .half()
             )
+            .mul_(1 / 255)
+            .contiguous()
+        )
 
     @torch.inference_mode()
     def run(self, I1):
+        with torch.cuda.stream(self.stream):
+            if self.firstRun is True:
+                self.I0.copy_(self.processFrame(I1), non_blocking=True)
+                self.firstRun = False
+                return False
+
+            self.I1.copy_(self.processFrame(I1), non_blocking=True)
+            return True
+        """
         if self.firstRun is True:
             self.I0.copy_(self.processFrame(I1), non_blocking=True)
             self.firstRun = False
@@ -456,3 +464,4 @@ class RifeTensorRT:
 
         self.I1.copy_(self.processFrame(I1), non_blocking=True)
         return True
+        """

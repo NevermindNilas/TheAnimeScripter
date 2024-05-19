@@ -275,22 +275,6 @@ class UniversalTensorRT:
         #self.runner = self.TrtRunner(self.engine)
         #self.runner.activate()
 
-        """
-        # Warmup
-        dummyInput = torch.zeros(
-            (1, 3, self.height, self.width),
-            device=self.device,
-            dtype=torch.float16 if self.half else torch.float32,
-        )
-
-        for _ in range(10):
-            self.runner.infer(
-                {
-                    "input": dummyInput,
-                },
-                check_inputs=False,
-            )
-        """
         
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
@@ -312,6 +296,19 @@ class UniversalTensorRT:
             tensor_name = self.engine.get_tensor_name(i)
             if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+        
+        # Warmup
+        self.dummyInput = torch.zeros(
+            (1, 3, self.height, self.width),
+            device=self.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        with torch.cuda.stream(self.stream):
+            for _ in range(10):
+                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+                self.stream.synchronize()
+        
         
     @torch.inference_mode()
     def run(self, frame):
