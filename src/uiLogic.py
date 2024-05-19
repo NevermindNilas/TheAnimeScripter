@@ -249,7 +249,7 @@ def dropdownsLabels(method):
         case "Dedup":
             return ["SSIM", "FFMPEG", "MSE", "SSIM-CUDA"]
         case "Depth":
-            return ["Small", "Base", "Large"]
+            return ["Small", "Base", "Large", "Small-TensorRT", "Base-TensorRT", "Large-TensorRT"]
         case "Encode":
             return {
                 "x264": ("x264", "-c:v libx264 -preset fast -crf 17"),
