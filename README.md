@@ -51,14 +51,23 @@ Empower your video editing journey with these robust, efficient features designe
 
 ### How to Download
 
-- Download one of the latest releases from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
+Windows:
+  - Download one of the latest releases from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
+
+Linux:
+  - GUI / CLI is N/A yet. Refer to manual usage and the [Parameters](PARAMETERS.MD) guide
 
 ### Or Manually Build
 
-- **Cutting Edge Builds:**
+For Windows:
+  - Git clone the repository or use the source code from one of the releases.
   - Download and install Python 3.11 from [here](https://www.python.org/downloads/release/python-3110/) (add to System Path).
   - Open a terminal inside the folder.
+  - Run `pip install -r requirements-dev.txt`
   - Run: `python build.py`
+
+For Linux:
+  - N/A
 
 ### How to Use Inside of After Effects
 
@@ -72,7 +81,10 @@ In the settings panel:
 - Set the folder to the same directory as The Anime Scripter.
 - Specify the output location.
 
-## 📚 [Available Inputs](PARAMETERS.MD)
+## 📚 Available Inputs
+
+All of the available parameters for interacting with the CLI or directly with main.py can be found in the [Parameters](PARAMETERS.MD) guide.
+
 
 ## 📁 Available Models
 
@@ -90,9 +102,8 @@ In the settings panel:
 - Custom models compatible with [Spandrel](https://github.com/chaiNNer-org/spandrel) can be used via the `--custom_model` parameter.
 
 ### Interpolation Models
-
 - Rife CUDA (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite )
-- Rife TensorRT (Versions: 4.6, 4.15 )
+- Rife TensorRT (Versions: 4.15 )
 - Rife NCNN ( Versions: 4.6, 4.15, 4.15-lite, 4.16-lite ) 
 - GMFSS ( Available for CUDA )
 
@@ -101,6 +112,9 @@ In the settings panel:
 - NAFNet
 - DPIR
 - SPAN (1x pretrain model)
+
+## 📈 Benchmarks
+Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 
 ## 🙏 Acknowledgements
 
@@ -128,8 +142,6 @@ In the settings panel:
 | [Sirosky](https://openmodeldb.info/models/2x-AniScale-2-ESRGAN-Lite)                                   | RealESRGAN Model     |
 | [TNTWise](https://github.com/TNTwise) | For Rife ONNX and NCNN models | 
 | [WolframRhodium](https://github.com/WolframRhodium) | For Rife V2 models |
-
-## 📈 [Benchmarks](BENCHMARKS.MD)
 
 ## 🌟 Star History
 
