@@ -1,10 +1,11 @@
 import os
 import torch
 import logging
+import tensorrt as trt
+
 from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
 from .coloredPrints import yellow
-
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
 
@@ -285,9 +286,7 @@ class RifeTensorRT:
         else:
             trtEngineModelPath = modelPath.replace(".onnx", ".engine")
 
-        if os.path.exists(trtEngineModelPath):
-            self.engine = self.EngineFromBytes(self.BytesFromPath(trtEngineModelPath))
-        else:
+        if not os.path.exists(trtEngineModelPath):
             toPrint = f"Engine not found, creating dynamic engine for model: {modelPath}, this may take a while, but it is worth the wait..."
             print(yellow(toPrint))
             logging.info(toPrint)
@@ -308,12 +307,15 @@ class RifeTensorRT:
                 self.network_from_onnx_path(modelPath),
                 config=self.config,
             )
-            self.engine = self.SaveEngine(
-                self.engine, trtEngineModelPath)
+            self.engine = self.SaveEngine(self.engine, trtEngineModelPath)
+            
+            with self.TrtRunner(self.engine) as runner:
+                self.runner = runner
             
 
-        self.runner = self.TrtRunner(self.engine)
-        self.runner.activate()
+        with open(trtEngineModelPath, "rb") as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
+            self.engine = runtime.deserialize_cuda_engine(f.read()) 
+            self.context = self.engine.create_execution_context()
 
         self.dType = torch.float16 if self.half else torch.float32
 
@@ -346,42 +348,62 @@ class RifeTensorRT:
             )
             * 0.5
         )
-
-        scaleInt = 1 if self.width < 3840 and self.height < 2160 else 0.5
-        self.scale = torch.zeros(
-            1,
-            1,
-            self.height,
-            self.width,
-            dtype=self.dType,
-            device=self.device,
-        ) * scaleInt
         
-        self.dummyOutput = torch.zeros(
+        self.firstRun = True
+        self.dummyIinput = torch.zeros(
             1,
-            3,
+            7,
             self.height,
             self.width,
             dtype=self.dType,
             device=self.device,
         )
-        self.firstRun = True
+
+        self.stream = torch.cuda.Stream()
+        self.dummyInput = torch.zeros(
+            (1, 7, self.height, self.width),
+            device=self.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        self.dummyOutput = torch.zeros(
+            (1, 3, self.height, self.width),
+            device=self.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
+
+        for i in range(self.engine.num_io_tensors):
+            self.context.set_tensor_address(self.engine.get_tensor_name(i), self.bindings[i])
+            tensor_name = self.engine.get_tensor_name(i)
+            if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
     @torch.inference_mode()
     def make_inference(self, n):
-        if self.interpolateFactor != 2:
-            self.timestep = (
-                torch.zeros(
-                    1,
-                    1,
-                    self.height,
-                    self.width,
-                    dtype=self.dType,
-                    device=self.device,
+        with torch.cuda.stream(self.stream):
+            if self.interpolateFactor != 2:
+                self.timestep = (
+                    torch.zeros(
+                        1,
+                        1,
+                        self.height,
+                        self.width,
+                        dtype=self.dType,
+                        device=self.device,
+                    )
+                    * n
                 )
-                * n
-            )
+
+            self.dummyInput.copy_(torch.cat([self.I0, self.I1, self.timestep], dim=1))
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            self.stream.synchronize()
         
+            return self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255)
+
+        
+        """
         return(
             self.runner.infer(
                 {
@@ -397,32 +419,33 @@ class RifeTensorRT:
                 check_inputs=False,
             )["output"]
         ).squeeze(0).permute(1, 2, 0).mul_(255)
+        """
         
 
     @torch.inference_mode()
     def cacheFrame(self):
-        self.I0 = self.I1.clone()
+        self.I0.copy_(self.I1, non_blocking=True)
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        # Is this what they mean with Pythonic Code?
-        return (
-            (
-                frame
-                .to(self.device, non_blocking=True)
-                .permute(2, 0, 1)
-                .unsqueeze_(0)
-                .float()
-                if not self.half
-                else frame
-                .to(self.device, non_blocking=True)
-                .permute(2, 0, 1)
-                .unsqueeze_(0)
-                .half()
+        with torch.cuda.stream(self.stream):
+            return (
+                (
+                    frame
+                    .to(self.device, non_blocking=True)
+                    .permute(2, 0, 1)
+                    .unsqueeze_(0)
+                    .float()
+                    if not self.half
+                    else frame
+                    .to(self.device, non_blocking=True)
+                    .permute(2, 0, 1)
+                    .unsqueeze_(0)
+                    .half()
+                )
+                .mul_(1 / 255)
+                .contiguous()
             )
-            .mul_(1 / 255)
-            .contiguous()
-        )
 
     @torch.inference_mode()
     def run(self, I1):
