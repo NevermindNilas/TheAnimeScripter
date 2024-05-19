@@ -103,7 +103,10 @@ def runCommand(self, mainPath, settingsFile) -> None:
             if loweredOption == "output" and loweredOptionValue == "":
                 continue
 
-            command.append(f"--{loweredOption} {loweredOptionValue}")
+            if loweredOption in ["input", "output"]:
+                command.append(f"--{loweredOption} \"{loweredOptionValue}\"")
+            else:
+                command.append(f"--{loweredOption} {loweredOptionValue}")
 
         command = " ".join(command)
         print(command)
