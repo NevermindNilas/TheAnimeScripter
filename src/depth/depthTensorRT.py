@@ -3,6 +3,7 @@ import torch
 import logging
 import cv2
 import torch.nn.functional as F
+import tensorrt as trt
 
 # Attempt to lazy load for faster startup
 from polygraphy.backend.trt import (
@@ -120,25 +121,23 @@ class DepthTensorRT:
 
         enginePrecision = "fp16" if "float16" in self.filename else "fp32"
         
+        aspectRatio = self.width / self.height
+        # Fix height at 518 and adjust width
+        newHeight = 518
+        newWidth = round(newHeight * aspectRatio / 14) * 14
+        # Ensure newWidth is a multiple of 14
+        newWidth = (newWidth // 14) * 14
+
         if not os.path.exists(modelPath.replace(".onnx", f"_{enginePrecision}.engine")):
             toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
             print(yellow(toPrint))
             logging.info(toPrint)
-            aspect_ratio = self.width / self.height
-
-            # Fix height at 518 and adjust width
-            new_height = 518
-            new_width = round(new_height * aspect_ratio / 14) * 14
-
-            # Ensure new_width is a multiple of 14
-            new_width = (new_width // 14) * 14
-
             profiles = [
                 Profile().add(
                     "image",
-                    min=(1, 3, new_height, new_width),
-                    opt=(1, 3, new_height, new_width),
-                    max=(1, 3, new_height, new_width),
+                    min=(1, 3, newHeight, newWidth),
+                    opt=(1, 3, newHeight, newWidth),
+                    max=(1, 3, newHeight, newWidth),
                 ),
             ]
             self.engine = engine_from_network(
@@ -154,8 +153,8 @@ class DepthTensorRT:
                 BytesFromPath(modelPath.replace(".onnx", f"_{enginePrecision}.engine"))
             )
 
-        self.runner = TrtRunner(self.engine)
-        self.runner.activate()
+            with TrtRunner(self.engine) as runner:
+                self.runner = runner
 
         self.transform = Compose(
             [
@@ -173,66 +172,77 @@ class DepthTensorRT:
             ]
         )
         
-        """
-        # Warmup
-        dummyInput = torch.zeros(
-            (1, 3, new_height, new_width),
+        with open(modelPath.replace(".onnx", f"_{enginePrecision}.engine"), "rb") as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
+            self.engine = runtime.deserialize_cuda_engine(f.read()) 
+            self.context = self.engine.create_execution_context()
+
+        self.stream = torch.cuda.Stream()
+        self.dummyInput = torch.zeros(
+            (1, 3, newHeight, newWidth),
             device=self.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
 
-        for _ in range(5):
-            self.runner.infer(
-                {
-                    "image": dummyInput,
-                },
-                check_inputs=False,
-            )
-        """
-
         self.dummyOutput = torch.zeros(
-            (1, 1, 518, 924),
+            (1, 3, newHeight, newWidth),
             device=self.device,
-            dtype=torch.float32,
+            dtype=torch.float16 if self.half else torch.float32,
         )
+
+        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
+
+        for i in range(self.engine.num_io_tensors):
+            self.context.set_tensor_address(self.engine.get_tensor_name(i), self.bindings[i])
+            tensor_name = self.engine.get_tensor_name(i)
+            if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+        
+        # Warmup
+        self.dummyInput = torch.zeros(
+            (1, 3, self.height, self.width),
+            device=self.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        with torch.cuda.stream(self.stream):
+            for _ in range(10):
+                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+                self.stream.synchronize()
+        
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        try:
-            # input is a torch.uint8 tensor
-            frame = (frame / 255.0).numpy()
-            frame = self.transform({"image": frame})["image"]
+        with torch.cuda.stream(self.stream):
+            try:
+                # input is a torch.uint8 tensor
+                frame = (frame / 255.0).numpy()
+                frame = self.transform({"image": frame})["image"]
 
-            frame = torch.from_numpy(frame).unsqueeze(0).to(self.device)
+                frame = torch.from_numpy(frame).unsqueeze(0).to(self.device)
 
-            if self.half and self.isCudaAvailable:
-                frame = frame.half()
-            else:
-                frame = frame.float()
+                if self.half and self.isCudaAvailable:
+                    frame = frame.half()
+                else:
+                    frame = frame.float()
 
-            self.dummyOutput.copy_(self.runner.infer(
-                {
-                    "image": frame,
-                },
-                check_inputs=False,
-            )["depth"].float(), non_blocking=True
-            )
+                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
 
-            depth = F.interpolate(
-                self.dummyOutput,
-                size=[self.height, self.width],
-                mode="bilinear",
-                align_corners=False,
-            )
+                depth = F.interpolate(
+                    self.dummyOutput,
+                    size=[self.height, self.width],
+                    mode="bilinear",
+                    align_corners=False,
+                )
 
-            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255
-            self.writeBuffer.write(depth)
+                depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255
+                self.writeBuffer.write(depth)
 
-        except Exception as e:
-            logging.exception(f"Something went wrong while processing the frame, {e}")
+            except Exception as e:
+                logging.exception(f"Something went wrong while processing the frame, {e}")
 
-        finally:
-            self.semaphore.release()
+            finally:
+                self.stream.synchronize()
+                self.semaphore.release()
 
     def process(self):
         frameCount = 0
