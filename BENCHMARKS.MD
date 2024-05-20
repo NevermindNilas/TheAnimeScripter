@@ -9,7 +9,7 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 
 #### Testing Methodoly V3
 
-# 7950x, 4090, 64GB DDR5, Pre-Release 1.8.0, Linux, Sudo
+# 7950x, 4090, 64GB DDR5, Pre-Release 1.7.1, Linux, Sudo
 ![nilasedits (7)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/8adf6915-9d38-4ab8-8492-c8d74107b118)
 
 
