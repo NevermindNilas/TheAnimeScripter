@@ -22,10 +22,10 @@ def Segment(self):
             self.buffer_limit,
             self.benchmark,
         )
-    else:
-        from src.segment.segmentAnything import SegmentAnything
+    elif self.segment_method == "anime-tensorrt":
+        from src.segment.animeSegment import AnimeSegmentTensorRT
 
-        SegmentAnything(
+        AnimeSegmentTensorRT(
             self.input,
             self.output,
             self.ffmpeg_path,
@@ -39,7 +39,6 @@ def Segment(self):
             self.nt,
             self.buffer_limit,
             self.benchmark,
-            self.segment_method,
         )
 
 def Depth(self):
@@ -65,7 +64,7 @@ def Depth(self):
                 self.benchmark,
             )
         case "small-tensorrt" | "base-tensorrt" | "large-tensorrt":
-            from src.depth.depthTensorRT import DepthTensorRT
+            from src.depth.depth import DepthTensorRT
 
             DepthTensorRT(
                 self.input,
