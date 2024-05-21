@@ -213,7 +213,16 @@ def modelsMap(
                     return "rife415_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
 
         case "rife4.15-lite-tensorrt":
-            raise NotImplementedError
+            if half:
+                if ensemble:
+                    return "rife_v4.15_lite_ensemble_fp16_op20_sim.onnx"
+                else:
+                    return "rife_v4.15_lite_fp16_op20_sim.onnx"
+            else:
+                if ensemble:
+                    return "rife_v4.15_lite_ensemble_fp32_op20_sim.onnx"
+                else:
+                    return "rife_v4.15_lite_fp32_op20_sim.onnx"
 
         case "rife4.16-lite":
             return "rife416_lite.pth"
@@ -367,7 +376,7 @@ def downloadModels(
 
     if model in ["vits", "vitb", "vitl"]:
         fullUrl = f"{DEPTHURL}{filename}"
-    elif model in ["rife4.15-tensorrt", "rife4.15-lite-tensorrt"]:
+    elif model in ["rife4.15-tensorrt"]:
         fullUrl = f"{SUDOURL}{filename}"
     else:
         fullUrl = f"{TASURL}{filename}"
