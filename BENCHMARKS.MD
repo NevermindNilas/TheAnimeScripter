@@ -8,6 +8,11 @@ Differnece from V2 -> V3, Added new options and a different video with more dupl
 Difference from V1 -> V2, Longer video for more accurate results, More time in between runs to cool of the gpu, more options ( dedup )
 
 #### Testing Methodoly V3
+# 13900k, 4090, 32GB DDR5 4800MHz, TAS 1.7.2, Atlas OS ( Modified W11 ), Sergio.
+![nilasedits (9)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/162aded8-e040-42ee-9c40-79d3a7388757)
+
+# 7950x, 4090, 64GB DDR5, 1.7.2, Linux, Sudo
+![nilasedits (8)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/36cf3510-02f2-45fb-8821-bf4219e9a133)
 
 # 7950x, 4090, 64GB DDR5, Pre-Release 1.7.1, Linux, Sudo
 ![nilasedits (7)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/8adf6915-9d38-4ab8-8492-c8d74107b118)
