@@ -239,6 +239,7 @@ def dropdownsLabels(method):
                 "Rife4.15-Lite",
                 "Rife4.15",
                 "Rife4.6",
+                "Rife4.6-TensorRT",
                 "Rife4.15-TensorRT",
                 "Rife4.15-lite-TensorRT",
                 "Rife4.16-Lite-NCNN",

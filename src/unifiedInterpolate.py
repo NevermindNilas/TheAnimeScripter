@@ -278,7 +278,7 @@ class RifeTensorRT:
             torch.backends.cudnn.benchmark = True
             if self.half:
                 torch.set_default_dtype(torch.float16)
-
+        
         if "fp16" in modelPath:
             trtEngineModelPath = modelPath.replace(".onnx", "_fp16.engine")
         elif "fp32" in modelPath:

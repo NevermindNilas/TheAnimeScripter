@@ -287,6 +287,18 @@ def modelsMap(
         case "segment-tensorrt":
             return "isnet_is.onnx"
 
+        case "rife4.6-tensorrt":
+            if half:
+                if ensemble:
+                    return "rife_v4.6_ensemble_fp16_op20_sim.onnx"
+                else:
+                    return "rife_v4.6_fp16_op20_sim.onnx"
+            else:
+                if ensemble:
+                    return "rife_v4.6_ensemble_op20_sim.onnx"
+                else:
+                    return "rife_v4.6_op20_sim.onnx"
+                
         case _:
             raise ValueError(f"Model {model} not found.")
 
