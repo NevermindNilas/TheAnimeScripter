@@ -401,7 +401,7 @@ if __name__ == "__main__":
     argparser.add_argument("--benchmark", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--offline", type=int, choices=[0, 1], default=0)
     argparser.add_argument("--consent", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--segment_method", type=str, default="anime", choices=["anime", "sam-vitb", "sam-vitl", "sam-vith"])
+    argparser.add_argument("--segment_method", type=str, default="anime", choices=["anime", "anime-tensorrt"])
     argparser.add_argument("--update", type=int, choices=[0, 1], default=0, help="Check and Update the script to the latest version")
 
     args = argparser.parse_args()
