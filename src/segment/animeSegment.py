@@ -144,10 +144,10 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         try:
             mask = self.get_mask(frame.numpy())
             mask = torch.squeeze(mask, dim=2)
-            frame_with_mask = torch.cat(
+            frameWithmask = torch.cat(
                 (frame.to(self.device), mask.unsqueeze(2)), dim=2
             )
-            self.writeBuffer.write(frame_with_mask)
+            self.writeBuffer.write(frameWithmask)
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
@@ -260,7 +260,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
 
         enginePrecision = "fp32"
-        
+
         if not os.path.exists(modelPath.replace(".onnx", f"_{enginePrecision}.engine")):
             toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
             print(yellow(toPrint))
@@ -334,27 +334,21 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
                     .mul(1 / 255)
                 )
                 frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
-
+    
                 self.dummyInput.copy_(frame)
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
-
-                frame = frame[
+    
+                frameWithmask = torch.cat((frame, self.dummyOutput), dim=1)
+                frameWithmask = frameWithmask[
                     :,
                     :,
-                    : frame.shape[2] - self.padHeight,
-                    : frame.shape[3] - self.padWidth,
+                    : frameWithmask.shape[2] - self.padHeight,
+                    : frameWithmask.shape[3] - self.padWidth,
                 ]
-                mask = self.dummyOutput[
-                    :,
-                    :,
-                    : self.dummyOutput.shape[2] - self.padHeight,
-                    : self.dummyOutput.shape[3] - self.padWidth,
-                ]
-
-                frame_with_mask = torch.cat((frame, mask), dim=1)
+    
                 self.writeBuffer.write(
-                    frame_with_mask.squeeze(0).permute(1, 2, 0).mul(255).byte()
+                    frameWithmask.squeeze(0).permute(1, 2, 0).mul_(255).byte()
                 )
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
