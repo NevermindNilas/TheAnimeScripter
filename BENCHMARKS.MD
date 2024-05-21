@@ -9,7 +9,7 @@ Difference from V1 -> V2, Longer video for more accurate results, More time in b
 
 #### Testing Methodoly V3
 # 13900k, 4090, 32GB DDR5 4800MHz, TAS 1.7.2, Atlas OS ( Modified W11 ), Sergio.
-![nilasedits (9)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/162aded8-e040-42ee-9c40-79d3a7388757)
+![nilasedits (10)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/83681671-06ec-41b6-bb90-52d33c315890)
 
 # 7950x, 4090, 64GB DDR5, 1.7.2, Linux, Sudo
 ![nilasedits (8)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/36cf3510-02f2-45fb-8821-bf4219e9a133)
