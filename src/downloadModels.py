@@ -9,7 +9,6 @@ TASURL = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/mai
 DEPTHURL = (
     "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/"
 )
-SEGMENTURL = "https://dl.fbaipublicfiles.com/segment_anything/"  # VITH is well over 2GB and instead of hosting on Github I will just use the official repo
 SUDOURL = "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
 
 
@@ -284,6 +283,9 @@ def modelsMap(
                 return "depth_anything_vitl14_float16_slim.onnx"
             else:
                 return "depth_anything_vitl14_float32_slim.onnx"
+        
+        case "segment-tensorrt":
+            return "isnet_is.onnx"
 
         case _:
             raise ValueError(f"Model {model} not found.")
@@ -353,8 +355,6 @@ def downloadModels(
 
     if model in ["vits", "vitb", "vitl"]:
         fullUrl = f"{DEPTHURL}{filename}"
-    elif model in ["vit_h", "vit_l", "vit_b"]:
-        fullUrl = f"{SEGMENTURL}{filename}"
     elif model in ["rife4.15-tensorrt", "rife4.15-lite-tensorrt"]:
         fullUrl = f"{SUDOURL}{filename}"
     else:

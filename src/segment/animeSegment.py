@@ -4,11 +4,25 @@ import os
 import cv2
 import torch
 
+import tensorrt as trt
+import torch.nn.functional as F
+
+from polygraphy.backend.trt import (
+    TrtRunner,
+    engine_from_network,
+    network_from_onnx_path,
+    CreateConfig,
+    Profile,
+    SaveEngine,
+)
+
+
 from threading import Semaphore
 from src.downloadModels import downloadModels, weightsDir, modelsMap
 from concurrent.futures import ThreadPoolExecutor
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from .train import AnimeSegmentation
+from src.coloredPrints import yellow
 
 
 class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentation but it's fine
@@ -134,6 +148,214 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 (frame.to(self.device), mask.unsqueeze(2)), dim=2
             )
             self.writeBuffer.write(frame_with_mask)
+        except Exception as e:
+            logging.exception(f"An error occurred while processing the frame, {e}")
+
+        finally:
+            self.semaphore.release()
+
+    def process(self):
+        frameCount = 0
+        self.semaphore = Semaphore(self.nt * 4)
+        with ThreadPoolExecutor(max_workers=self.nt) as executor:
+            while True:
+                frame = self.readBuffer.read()
+                if frame is None:
+                    break
+
+                self.semaphore.acquire()
+                executor.submit(self.processFrame, frame)
+                frameCount += 1
+
+        logging.info(f"Processed {frameCount} frames")
+        self.writeBuffer.close()
+
+
+class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSegmentation but it's fine
+    def __init__(
+        self,
+        input,
+        output,
+        ffmpeg_path,
+        width,
+        height,
+        fps,
+        inpoint=0,
+        outpoint=0,
+        encode_method="x264",
+        custom_encoder="",
+        nt=1,
+        buffer_limit=50,
+        benchmark=False,
+    ):
+        self.input = input
+        self.output = output
+        self.ffmpeg_path = ffmpeg_path
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.encode_method = encode_method
+        self.custom_encoder = custom_encoder
+        self.nt = nt
+        self.buffer_limit = buffer_limit
+        self.benchmark = benchmark
+
+        self.handleModel()
+        try:
+            self.readBuffer = BuildBuffer(
+                input=self.input,
+                ffmpegPath=self.ffmpeg_path,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
+                dedup=False,
+                dedupSens=None,
+                width=self.width,
+                height=self.height,
+                resize=False,
+                resizeMethod=None,
+                queueSize=self.buffer_limit,
+            )
+
+            self.writeBuffer = WriteBuffer(
+                self.input,
+                self.output,
+                self.ffmpeg_path,
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
+                self.fps,
+                self.buffer_limit,
+                sharpen=False,
+                sharpen_sens=None,
+                grayscale=False,
+                transparent=True,
+                audio=False,
+                benchmark=self.benchmark,
+            )
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.readBuffer.start)
+                executor.submit(self.process)
+                executor.submit(self.writeBuffer.start)
+
+        except Exception as e:
+            logging.error(f"An error occurred while processing the video: {e}")
+
+    def handleModel(self):
+        filename = modelsMap("segment-tensorrt")
+        if not os.path.exists(os.path.join(weightsDir, "segment-tensorrt", filename)):
+            modelPath = downloadModels(model="segment-tensorrt")
+        else:
+            modelPath = os.path.join(weightsDir, "segment-tensorrt", filename)
+
+        if torch.cuda.is_available():
+            self.device = "cuda:0"
+        else:
+            self.device = "cpu"
+
+        self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
+        self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
+
+        enginePrecision = "fp32"
+        
+        if not os.path.exists(modelPath.replace(".onnx", f"_{enginePrecision}.engine")):
+            toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
+            print(yellow(toPrint))
+            logging.info(toPrint)
+            profiles = [
+                Profile().add(
+                    "input",
+                    min=(1, 3, 64, 64),
+                    opt=(
+                        1,
+                        3,
+                        self.height + self.padHeight,
+                        self.width + self.padWidth,
+                    ),
+                    max=(1, 3, 2160, 3840),
+                ),
+            ]
+            self.engine = engine_from_network(
+                network_from_onnx_path(modelPath),
+                config=CreateConfig(profiles=profiles),
+            )
+            self.engine = SaveEngine(
+                self.engine, modelPath.replace(".onnx", f"_{enginePrecision}.engine")
+            )
+
+            with TrtRunner(self.engine) as runner:
+                self.runner = runner
+
+        with open(
+            modelPath.replace(".onnx", f"_{enginePrecision}.engine"), "rb"
+        ) as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
+            self.engine = runtime.deserialize_cuda_engine(f.read())
+            self.context = self.engine.create_execution_context()
+
+        self.stream = torch.cuda.Stream()
+        self.dummyInput = torch.zeros(
+            (1, 3, self.height + self.padHeight, self.width + self.padWidth),
+            device=self.device,
+            dtype=torch.float32,
+        )
+
+        self.dummyOutput = torch.zeros(
+            (1, 1, self.height + self.padHeight, self.width + self.padWidth),
+            device=self.device,
+            dtype=torch.float32,
+        )
+
+        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
+
+        for i in range(self.engine.num_io_tensors):
+            self.context.set_tensor_address(
+                self.engine.get_tensor_name(i), self.bindings[i]
+            )
+            tensor_name = self.engine.get_tensor_name(i)
+            if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+
+        with torch.cuda.stream(self.stream):
+            for _ in range(5):
+                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+                self.stream.synchronize()
+
+    def processFrame(self, frame):
+        try:
+            with torch.cuda.stream(self.stream):
+                frame = (
+                    frame.to(self.device)
+                    .float()
+                    .permute(2, 0, 1)
+                    .unsqueeze(0)
+                    .mul(1 / 255)
+                )
+                frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
+
+                self.dummyInput.copy_(frame)
+                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+                self.stream.synchronize()
+
+                frame = frame[
+                    :,
+                    :,
+                    : frame.shape[2] - self.padHeight,
+                    : frame.shape[3] - self.padWidth,
+                ]
+                mask = self.dummyOutput[
+                    :,
+                    :,
+                    : self.dummyOutput.shape[2] - self.padHeight,
+                    : self.dummyOutput.shape[3] - self.padWidth,
+                ]
+
+                frame_with_mask = torch.cat((frame, mask), dim=1)
+                self.writeBuffer.write(
+                    frame_with_mask.squeeze(0).permute(1, 2, 0).mul(255).byte()
+                )
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
