@@ -20,27 +20,6 @@ def argumentChecker(args, mainPath, scriptVersion):
     else:
         args.version = scriptVersion
 
-    # Simplify boolean conversion
-    boolArgs = [
-        "interpolate",
-        "scenechange",
-        "ensemble",
-        "denoise",
-        "sharpen",
-        "upscale",
-        "segment",
-        "resize",
-        "dedup",
-        "depth",
-        "audio",
-        "half",
-        "offline",
-        "consent",
-        "offline",
-    ]
-    for arg in boolArgs:
-        setattr(args, arg, getattr(args, arg) == 1)
-
     args.sharpen_sens /= 100
     args.scenechange_sens = 100 - args.scenechange_sens
 
