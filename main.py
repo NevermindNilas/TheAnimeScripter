@@ -253,7 +253,7 @@ if __name__ == "__main__":
     argparser.add_argument("--version", action="store_true")
     argparser.add_argument("--input", type=str)
     argparser.add_argument("--output", type=str)
-    argparser.add_argument("--interpolate", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--interpolate", action="store_true", help="Interpolate the video", required=False)
     argparser.add_argument("--interpolate_factor", type=int, default=2)
     argparser.add_argument(
         "--interpolate_method",
@@ -277,8 +277,8 @@ if __name__ == "__main__":
         ],
         default="rife",
     )
-    argparser.add_argument("--ensemble", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--upscale", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--ensemble", action="store_true", help="Use the ensemble model for interpolation", required=False)
+    argparser.add_argument("--upscale", action="store_true", help="Upscale the video", required=False)
     argparser.add_argument("--upscale_factor", type=int, choices=[2, 3, 4], default=2)
     argparser.add_argument(
         "--upscale_method",
@@ -313,22 +313,22 @@ if __name__ == "__main__":
         default="shufflecugan",
     )
     argparser.add_argument("--custom_model", type=str, default="")
-    argparser.add_argument("--dedup", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--dedup", action="store_true", help="Deduplicate the video", required=False)
     argparser.add_argument(
         "--dedup_method", type=str, default="ffmpeg", choices=["ffmpeg", "ssim", "mse", "ssim-cuda", "mse-cuda"]
     )
     argparser.add_argument("--dedup_sens", type=float, default=35)
     argparser.add_argument("--sample_size", type=int, default=224)
     argparser.add_argument("--nt", type=int, default=1)
-    argparser.add_argument("--half", type=int, choices=[0, 1], default=1)
+    argparser.add_argument("--half", action="store_true", help="Use half precision for inference", required=False, default=True)
     argparser.add_argument("--inpoint", type=float, default=0)
     argparser.add_argument("--outpoint", type=float, default=0)
-    argparser.add_argument("--sharpen", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--sharpen", action="store_true", help="Sharpen the video", required=False)
     argparser.add_argument("--sharpen_sens", type=float, default=50)
-    argparser.add_argument("--segment", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--scenechange", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--segment", action="store_true", help="Segment the video", required=False)
+    argparser.add_argument("--scenechange", action="store_true", help="Detect scene changes", required=False)
     argparser.add_argument("--scenechange_sens", type=float, default=50)
-    argparser.add_argument("--depth", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--depth", action="store_true", help="Estimate the depth of the video", required=False)
     argparser.add_argument(
         "--depth_method", type=str, choices=["small", "base", "large", "small-tensorrt", "base-tensorrt", "large-tensorrt"], default="small"
     )
@@ -353,7 +353,7 @@ if __name__ == "__main__":
         ],
         default="x264",
     )
-    argparser.add_argument("--resize", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--resize", action="store_true", help="Resize the video", required=False)
     argparser.add_argument(
         "--resize_factor",
         type=float,
@@ -386,12 +386,10 @@ if __name__ == "__main__":
     argparser.add_argument("--buffer_limit", type=int, default=50)
     argparser.add_argument(
         "--audio",
-        type=int,
-        choices=[0, 1],
-        default=1,
+        action="store_true",
         help="Extract the audio track and later merge it back into the output video, if dedup is true this will be set to False automatically",
     )
-    argparser.add_argument("--denoise", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--denoise", action="store_true", help="Denoise the video", required=False)
     argparser.add_argument(
         "--denoise_method",
         type=str,
@@ -399,11 +397,11 @@ if __name__ == "__main__":
         choices=["scunet", "nafnet", "dpir", "span"],
         help="Choose the desired denoiser, span is the best for animation purposes whilst scunet is better for general purpose.",
     )
-    argparser.add_argument("--benchmark", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--offline", type=int, choices=[0, 1], default=0)
-    argparser.add_argument("--consent", type=int, choices=[0, 1], default=0)
+    argparser.add_argument("--benchmark", action="store_true", help = "Benchmark the script", required=False)
+    argparser.add_argument("--offline", action="store_true", help = "Download all available models for a near full offline experience", required=False)
+    argparser.add_argument("--consent", action="store_true", help = "Allow the script to store data from the log.txt file in order to improve the script and try to preemptively fix the script", required=False)
     argparser.add_argument("--segment_method", type=str, default="anime", choices=["anime", "anime-tensorrt"])
-    argparser.add_argument("--update", type=int, choices=[0, 1], default=0, help="Check and Update the script to the latest version")
+    argparser.add_argument("--update", action="store_true", help="Check and Update the script to the latest version", required=False)
 
     args = argparser.parse_args()
     args = argumentChecker(args, mainPath, scriptVersion)
