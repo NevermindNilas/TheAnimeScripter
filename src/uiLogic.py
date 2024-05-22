@@ -95,10 +95,8 @@ def runCommand(self, mainPath, settingsFile) -> None:
             loweredOption = option.lower()
             loweredOptionValue = str(loadSettingsFile[option]).lower()
 
-            if loweredOptionValue == "true":
-                loweredOptionValue = "1"
-            elif loweredOptionValue == "false":
-                loweredOptionValue = "0"
+            if loweredOptionValue == "false":
+                continue
 
             if loweredOption == "output" and loweredOptionValue == "":
                 continue

@@ -62,6 +62,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 #### Segmentation Settings:
 
 - `--segment` (action=store_true): Enable segmentation.
+- `--segment_method` (str, default="anime", choices=["anime", "anime-tensorrt"])L Choose the desired segmentation method.
 
 #### Scene Change Detection:
 
