@@ -14,7 +14,6 @@ from polygraphy.backend.trt import (
     SaveEngine,
 )
 
-from threading import Semaphore
 from torchvision.transforms import Compose
 from concurrent.futures import ThreadPoolExecutor
 from .dpt import DPT_DINOv2
@@ -203,25 +202,14 @@ class Depth:
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
-        finally:
-            self.semaphore.release()
-
     def process(self):
         frameCount = 0
-        self.semaphore = Semaphore(self.nt * 4)
-        with ThreadPoolExecutor(max_workers=self.nt) as executor:
-            while True:
-                frame = self.readBuffer.read()
-                if frame is None:
-                    if (
-                        self.readBuffer.isReadingDone()
-                        and self.readBuffer.getSizeOfQueue() == 0
-                    ):
-                        break
-
-                self.semaphore.acquire()
-                executor.submit(self.processFrame, frame)
-                frameCount += 1
+        while True:
+            frame = self.readBuffer.read()
+            if frame is None:
+                break
+            self.processFrame(frame)
+            frameCount += 1
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -402,7 +390,6 @@ class DepthTensorRT:
     @torch.inference_mode()
     def processFrame(self, frame):
             try:
-                # input is a torch.uint8 tensor
                 frame = (frame / 255.0).numpy()
                 frame = self.transform({"image": frame})["image"]
 
@@ -432,25 +419,14 @@ class DepthTensorRT:
             except Exception as e:
                 logging.exception(f"Something went wrong while processing the frame, {e}")
 
-            finally:
-                self.semaphore.release()
-
     def process(self):
         frameCount = 0
-        self.semaphore = Semaphore(self.nt * 4)
-        with ThreadPoolExecutor(max_workers=self.nt) as executor:
-            while True:
-                frame = self.readBuffer.read()
-                if frame is None:
-                    if (
-                        self.readBuffer.isReadingDone()
-                        and self.readBuffer.getSizeOfQueue() == 0
-                    ):
-                        break
-
-                self.semaphore.acquire()
-                executor.submit(self.processFrame, frame)
-                frameCount += 1
+        while True:
+            frame = self.readBuffer.read()
+            if frame is None:
+                break
+            self.processFrame(frame)
+            frameCount += 1
 
         logging.info(f"Processed {frameCount} frames")
 

@@ -17,7 +17,6 @@ from polygraphy.backend.trt import (
 )
 
 
-from threading import Semaphore
 from src.downloadModels import downloadModels, weightsDir, modelsMap
 from concurrent.futures import ThreadPoolExecutor
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
@@ -144,28 +143,19 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         try:
             mask = self.get_mask(frame.numpy())
             mask = torch.squeeze(mask, dim=2)
-            frameWithmask = torch.cat(
-                (frame.to(self.device), mask.unsqueeze(2)), dim=2
-            )
+            frameWithmask = torch.cat((frame.to(self.device), mask.unsqueeze(2)), dim=2)
             self.writeBuffer.write(frameWithmask)
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
-        finally:
-            self.semaphore.release()
-
     def process(self):
         frameCount = 0
-        self.semaphore = Semaphore(self.nt * 4)
-        with ThreadPoolExecutor(max_workers=self.nt) as executor:
-            while True:
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-
-                self.semaphore.acquire()
-                executor.submit(self.processFrame, frame)
-                frameCount += 1
+        while True:
+            frame = self.readBuffer.read()
+            if frame is None:
+                break
+            self.processFrame(frame)
+            frameCount += 1
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
@@ -334,11 +324,11 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
                     .mul(1 / 255)
                 )
                 frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
-    
+
                 self.dummyInput.copy_(frame)
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
-    
+
                 frameWithmask = torch.cat((frame, self.dummyOutput), dim=1)
                 frameWithmask = frameWithmask[
                     :,
@@ -346,28 +336,21 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
                     : frameWithmask.shape[2] - self.padHeight,
                     : frameWithmask.shape[3] - self.padWidth,
                 ]
-    
+
                 self.writeBuffer.write(
                     frameWithmask.squeeze(0).permute(1, 2, 0).mul_(255).byte()
                 )
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
-        finally:
-            self.semaphore.release()
-
     def process(self):
         frameCount = 0
-        self.semaphore = Semaphore(self.nt * 4)
-        with ThreadPoolExecutor(max_workers=self.nt) as executor:
-            while True:
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-
-                self.semaphore.acquire()
-                executor.submit(self.processFrame, frame)
-                frameCount += 1
+        while True:
+            frame = self.readBuffer.read()
+            if frame is None:
+                break
+            self.processFrame(frame)
+            frameCount += 1
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
