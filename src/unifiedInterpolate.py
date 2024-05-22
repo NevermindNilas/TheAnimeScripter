@@ -299,8 +299,15 @@ class RifeTensorRT:
                     max=(1, 7, 2160, 3840),
                 )
             ]
+
+            #print(dir(trt.MemoryPoolType))
+            #print(dir(trt.TacticSource))
+            #print(dir(trt.PreviewFeature))
+
             self.config = self.CreateConfig(
-                fp16=self.half, profiles=profile, preview_features=[],
+                fp16=self.half, 
+                profiles=profile, 
+                preview_features=[],
             )
 
             self.engine = self.engine_from_network(
@@ -308,9 +315,8 @@ class RifeTensorRT:
                 config=self.config,
             )
             self.engine = self.SaveEngine(self.engine, trtEngineModelPath)
-            
-            with self.TrtRunner(self.engine) as runner:
-                self.runner = runner
+            self.engine.__call__()
+
             
 
         with open(trtEngineModelPath, "rb") as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:

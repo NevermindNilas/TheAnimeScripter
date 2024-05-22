@@ -276,8 +276,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
                 self.engine, modelPath.replace(".onnx", f"_{enginePrecision}.engine")
             )
 
-            with TrtRunner(self.engine) as runner:
-                self.runner = runner
+            self.engine.__call__()
 
         with open(
             modelPath.replace(".onnx", f"_{enginePrecision}.engine"), "rb"

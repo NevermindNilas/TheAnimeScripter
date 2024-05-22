@@ -253,28 +253,11 @@ class UniversalTensorRT:
             self.engine = self.SaveEngine(
                 self.engine, modelPath.replace(".onnx", ".engine")
             )
-
-            with self.TrtRunner(self.engine) as runner:
-                self.runner = runner
-
-            """
-        else:
-            self.engine = self.EngineFromBytes(
-                self.BytesFromPath(modelPath.replace(f"_{enginePrecision}.onnx", f"_{enginePrecision}.engine"))
-            )
-            """
-            """
-            with open(args.engine, 'rb') as f, trt.Runtime(TRT_LOGGER) as runtime,
-                runtime.deserialize_cuda_engine(f.read()) as engine, engine.create_execution_context() as context:
-            """
+            self.engine.__call__()
 
         with open(modelPath.replace(f"_{enginePrecision}.onnx", f"_{enginePrecision}.engine"), "rb") as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
             self.engine = runtime.deserialize_cuda_engine(f.read()) 
             self.context = self.engine.create_execution_context()
-        
-        #self.runner = self.TrtRunner(self.engine)
-        #self.runner.activate()
-
         
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
