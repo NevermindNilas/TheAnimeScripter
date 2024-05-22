@@ -25,7 +25,6 @@ import warnings
 import sys
 import logging
 
-from threading import Semaphore
 from concurrent.futures import ThreadPoolExecutor
 from src.argumentsChecker import argumentChecker
 from src.getVideoMetadata import getVideoMetadata
@@ -157,28 +156,20 @@ class VideoProcessor:
                         self.writeBuffer.write(result)
 
                     self.interpolate_process.cacheFrame()
-
             self.writeBuffer.write(frame)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
-        finally:
-            self.semaphore.release()
 
     def process(self):
         frameCount = 0
         self.dedupCount = 0
-        self.semaphore = Semaphore(self.nt * 4)
-
-        with ThreadPoolExecutor(max_workers=self.nt) as executor:
-            while True:
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-
-                self.semaphore.acquire()
-                executor.submit(self.processFrame, frame)
-                frameCount += 1
+        while True:
+            frame = self.readBuffer.read()
+            if frame is None:
+                break
+            self.processFrame(frame)
+            frameCount += 1
 
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
