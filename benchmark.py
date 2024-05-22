@@ -113,7 +113,7 @@ def runDedupBenchmark(inputVideo, executor):
         print(f"[{currentTest}/{totalTests}] {method} benchmark...")
         currentTest += 1
         output = os.popen(
-            f"{executor} --input {inputVideo} --dedup 1 --dedup_method {method} --benchmark 1"
+            f"{executor} --input {inputVideo} --dedup --dedup_method {method} --benchmark"
         ).read()
 
         fps = parseFPS(output)
@@ -130,11 +130,11 @@ def runUpscaleBenchmark(inputVideo, executor):
         print(f"[{currentTest}/{totalTests}] {method} benchmark...")
         if method == "omnisr":
             output = os.popen(
-                f"{executor} --input {inputVideo} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 2"
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 2"
             ).read()
         else:
             output = os.popen(
-                f"{executor} --input {inputVideo} --upscale 1 --upscale_method {method} --benchmark 1 --outpoint 4"
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 4"
             ).read()
 
         fps = parseFPS(output)
@@ -153,11 +153,11 @@ def runInterpolateBenchmark(inputVideo, executor):
 
         if method != "gmfss":
             output = os.popen(
-                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1"
+                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark "
             ).read()
         else:
             output = os.popen(
-                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --outpoint 3"  # GMFSS is so slow that even this is too much
+                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --outpoint 3"  # GMFSS is so slow that even this is too much
             ).read()
 
         fps = parseFPS(output)
@@ -169,11 +169,11 @@ def runInterpolateBenchmark(inputVideo, executor):
 
         if method != "gmfss":  # Ensemble is irrelevant for GMFSS
             output = os.popen(
-                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1 --outpoint 15"
+                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 15"
             ).read()
         else:
             output = os.popen(
-                f"{executor} --input {inputVideo} --interpolate 1 --interpolate_method {method} --benchmark 1 --ensemble 1 --outpoint 3"  # GMFSS is so slow that even this is too much
+                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 3"  # GMFSS is so slow that even this is too much
             ).read()
 
         fps = parseFPS(output)
@@ -190,7 +190,7 @@ def runDenoiseBenchmark(inputVideo, executor):
         print(f"[{currentTest}/{totalTests}] {method} benchmark...")
         currentTest += 1
         output = os.popen(
-            f"{executor} --input {inputVideo} --denoise 1 --denoise_method {method} --benchmark 1 --outpoint 2"
+            f"{executor} --input {inputVideo} --denoise --denoise_method {method} --benchmark --outpoint 2"
         ).read()
 
         fps = parseFPS(output)
