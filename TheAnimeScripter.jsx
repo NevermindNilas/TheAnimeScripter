@@ -570,7 +570,7 @@ var TheAnimeScripter = (function () {
             "cd", "\"" + theAnimeScripterPath + "\"",
             "&&",
             "\"" + exeFile + "\"",
-            "--offline", "1",
+            "--offline",
         ];
         var command = attempt.join(" ");
         callCommand(command);
@@ -592,7 +592,7 @@ var TheAnimeScripter = (function () {
                 "cd", "\"" + theAnimeScripterPath + "\"",
                 "&&",
                 "\"" + exeFile + "\"",
-                "--update", "1",
+                "--update",
             ].join(" ");
             callCommand(command);
         } catch (error) {
@@ -760,7 +760,7 @@ var TheAnimeScripter = (function () {
         var renderQueue = app.project.renderQueue;
         var render = renderQueue.items.add(newComp);
         var outputModule = render.outputModule(1);
-        outputModule.bitrate = '40';
+        outputModule.bitrate = '50';
 
         randomNumbers = Math.floor(Math.random() * 1000);
         var outputFileExtension = (parseFloat(app.version) >= 23.0) ? ".mp4" : ".mov";
@@ -830,19 +830,19 @@ var TheAnimeScripter = (function () {
                     "\"" + exeFile + "\"",
                     "--input", "\"" + activeLayerPath + "\"",
                     "--output", "\"" + outputName + "\"",
-                    "--interpolate", checkboxInterpolateValue() ? "1" : "0",
+                    ...(checkboxInterpolateValue() ? ["--interpolate"] : []),
                     "--interpolate_factor", interpolateValue(),
                     "--interpolate_method", interpolateModel().toLowerCase(),
-                    "--upscale", checkboxUpscaleValue() ? "1" : "0",
+                    ...(checkboxUpscaleValue() ? ["--upscale"] : []),
                     "--upscale_factor", upscaleValue(),
                     "--upscale_method", upscaleModel().toLowerCase(),
-                    "--dedup", checkboxDeduplicateValue() ? "1" : "0",
+                    ...(checkboxDeduplicateValue() ? ["--dedup"] : []),
                     "--dedup_sens", dedupSensValue(),
                     "--dedup_method", dedupMethod().toLowerCase(),
-                    "--half", "1",
+                    "--half",
                     "--inpoint", sourceInPoint,
                     "--outpoint", sourceOutPoint,
-                    "--sharpen", checkboxSharpenValue() ? "1" : "0",
+                    ...(checkboxSharpenValue() ? ["--sharpen"] : []),
                     "--sharpen_sens", sharpenSensValue(),
                     "--segment", segmentValue,
                     "--scenechange", sceneChangeValue,
@@ -850,14 +850,14 @@ var TheAnimeScripter = (function () {
                     "--depth_method", depthModel().toLowerCase(),
                     "--encode_method", encoderMethod().toLowerCase(),
                     "--scenechange_sens", sceneChangeSensValue(),
-                    "--ensemble", checkboxEnsembleValue() ? "1" : "0",
-                    "--resize", checkboxResizeValue() ? "1" : "0",
+                    ...(checkboxEnsembleValue() ? ["--ensemble"] : []),
+                    ...(checkboxResizeValue() ? ["--resize"] : []),
                     "--resize_method", resizeMethod().toLowerCase(),
                     "--resize_factor", resizeValue(),
                     "--nt", threadsValue(),
-                    "--denoise", checkboxDenoiseValue() ? "1" : "0",
+                    ...(checkboxDenoiseValue() ? ["--denoise"] : []),
                     "--denoise_method", denoiseMethod().toLowerCase(),
-                    "--consent", checkboxConsentValue() ? "1" : "0",
+                    ...(checkboxConsentValue() ? ["--consent"] : []),
                 ];
                 if (customModelPath && customModelPath !== "undefined") {
                     attempt.push("--custom_model", customModelPath);
