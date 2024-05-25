@@ -41,6 +41,7 @@ def Segment(self):
             self.benchmark,
         )
 
+
 def Depth(self):
     match self.depth_method:
         case "small" | "base" | "large":
@@ -82,7 +83,8 @@ def Depth(self):
                 self.nt,
                 self.buffer_limit,
                 self.benchmark,
-            )    
+            )
+
 
 def opticalFlow(self):
     from src.flow.flow import OpticalFlowPytorch
@@ -102,7 +104,8 @@ def opticalFlow(self):
         self.buffer_limit,
         self.benchmark,
     )
-    
+
+
 def initializeModels(self):
     outputWidth = self.width
     outputHeight = self.height
@@ -197,7 +200,14 @@ def initializeModels(self):
 
         UHD = True if outputWidth >= 3840 or outputHeight >= 2160 else False
         match self.interpolate_method:
-            case "rife" | "rife4.6" | "rife4.15" | "rife4.15-lite" | "rife4.16-lite":
+            case (
+                "rife"
+                | "rife4.6"
+                | "rife4.15"
+                | "rife4.15-lite"
+                | "rife4.16-lite"
+                | "rife4.17"
+            ):
                 from src.unifiedInterpolate import RifeCuda
 
                 interpolate_process = RifeCuda(
@@ -245,6 +255,7 @@ def initializeModels(self):
                 | "rife4.6-tensorrt"
                 | "rife4.15-tensorrt"
                 | "rife4.15-lite-tensorrt"
+                | "rife4.17-tensorrt"
             ):
                 from src.unifiedInterpolate import RifeTensorRT
 
