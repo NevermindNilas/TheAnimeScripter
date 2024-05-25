@@ -71,7 +71,9 @@ class UnifiedDenoise:
             if os.path.isfile(self.customModel) and self.customModel.endswith(".pth"):
                 modelPath = self.customModel
             else:
-                raise FileNotFoundError(f"Model file {self.customModel} not found or not a .pth file")
+                raise FileNotFoundError(
+                    f"Model file {self.customModel} not found or not a .pth file"
+                )
 
         try:
             self.model = ModelLoader().load_from_file(path=modelPath)
@@ -102,27 +104,31 @@ class UnifiedDenoise:
 
     @torch.inference_mode()
     def run(self, frame: np.ndarray) -> np.ndarray:
-        """
-        Upscale a frame using a desired model, and return the upscaled frame
-        Expects a numpy array of shape (height, width, 3) and dtype uint8
-        """
-        with torch.no_grad():
+        if self.isCudaAvailable and self.half:
+            if self.precision == "fp16":
+                frame = (
+                    frame.to(self.device)
+                    .permute(2, 0, 1)
+                    .unsqueeze(0)
+                    .half()
+                    .mul_(1 / 255)
+                )
+            elif self.precision == "bfloat16":
+                frame = (
+                    frame.to(self.device)
+                    .permute(2, 0, 1)
+                    .unsqueeze(0)
+                    .bfloat16()
+                    .mul_(1 / 255)
+                )
+        else:
             frame = (
-                frame
-                .to(self.device)
+                frame.to(self.device)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
                 .float()
                 .mul_(1 / 255)
             )
 
-            if self.isCudaAvailable:
-                if self.half:
-                    if self.precision == "fp16":
-                        frame = frame.half()
-                    elif self.precision == "bfloat16":
-                        frame = frame.bfloat16()
-
-            frame = self.model(frame)
-            return frame.squeeze(0).permute(1, 2, 0).mul_(255)
-
+        frame = self.model(frame)
+        return frame.squeeze(0).permute(1, 2, 0).mul_(255)
