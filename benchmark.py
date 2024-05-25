@@ -9,8 +9,6 @@ TIMESLEEP = 2
 CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
 TESTINGVERSION = "V3"
 
-dedupMethods = ["ffmpeg", "ssim", "mse", "ssim-cuda"]
-
 upscaleMethods = [
     "shufflecugan",
     "cugan",
@@ -57,7 +55,7 @@ denoiseMethods = ["scunet", "nafnet", "dpir", "span"]
 if platform.system() == 'Linux':
     upscaleMethods = [method for method in upscaleMethods if 'directml' not in method]
 
-totalTests = len(dedupMethods) + len(upscaleMethods) + len(interpolateMethods) * 2 + len(denoiseMethods)
+totalTests = len(upscaleMethods) + len(interpolateMethods) * 2 + len(denoiseMethods)
 currentTest = 0
 
 
@@ -67,7 +65,6 @@ def runAllBenchmarks(executor, version):
     inputVideo = getClip(executor)
 
     results = {
-        "Dedup": runDedupBenchmark(inputVideo, executor),
         "Upscale": runUpscaleBenchmark(inputVideo, executor),
         "Interpolate": runInterpolateBenchmark(inputVideo, executor),
         "Denoise": runDenoiseBenchmark(inputVideo, executor),
@@ -104,24 +101,6 @@ def getClip(executor):
     subprocess.Popen(f"{executor} --input {CLIPURL} --output {outputPath}", shell=True).wait()
     #os.popen(f"{executor} --input {CLIPURL} --output {outputPath}").read()
     return os.path.abspath(outputPath)
-
-
-def runDedupBenchmark(inputVideo, executor):
-    global currentTest
-    results = {}
-    for method in dedupMethods:
-        print(f"[{currentTest}/{totalTests}] {method} benchmark...")
-        currentTest += 1
-        output = os.popen(
-            f"{executor} --input {inputVideo} --dedup --dedup_method {method} --benchmark"
-        ).read()
-
-        fps = parseFPS(output)
-        results[method] = fps
-        time.sleep(TIMESLEEP)
-
-    return results
-
 
 def runUpscaleBenchmark(inputVideo, executor):
     global currentTest
