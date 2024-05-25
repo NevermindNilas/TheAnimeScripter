@@ -32,7 +32,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--interpolate` (action=store_true): Enable interpolation.
 - `--interpolate_factor` (int, default=2): Factor for interpolation.
 - `--interpolate_method` (str, default="rife"): Interpolation method:
-    - Options: "rife", "rife4.6", "rife4.15", "rife4.15-lite", "rife-ncnn", "rife4.6-ncnn", "rife4.15-ncnn", "rife4.15-lite-ncnn", "rife4.16-lite-ncnn", "rife4.15-tensorrt", "gmfss".
+    - Options: "rife", "rife4.6", "rife4.15", "rife4.15-lite", "rife4.17", "rife-ncnn", "rife4.6-ncnn", "rife4.15-ncnn", "rife4.15-lite-ncnn", "rife4.16-lite-ncnn", "rife4.6-tensorrt", "rife4.15-tensorrt", "rife4.15-lite-tensorrt", "rife4.17-tensorrt", "gmfss".
     - Notation: `rife`, `rife-ncnn`, will default to the latest available version.
 - `--ensemble` (action=store_true): Activate Ensemble for higher quality outputs from Rife.
 

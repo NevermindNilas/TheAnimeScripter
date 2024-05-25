@@ -191,7 +191,10 @@ def modelsMap(
         case "gmfss":
             return "gmfss-fortuna-union.zip"
 
-        case "rife" | "rife4.15":
+        case "rife" | "rife4.17":
+            return "rife417.pth"
+        
+        case "rife4.15":
             return "rife415.pth"
 
         case "rife4.15-lite":
@@ -308,6 +311,17 @@ def modelsMap(
                 else:
                     return "rife_v4.6_op20_sim.onnx"
                 
+        case "rife4.17-tensorrt":
+            if half:
+                if ensemble:
+                    return "rife417_v2_ensembleTrue_op20_clamp_fp16_onnxslim.onnx"
+                else:
+                    return "rife417_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+            else:
+                if ensemble:
+                    return "rife417_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
+                else:
+                    return "rife417_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
         case _:
             raise ValueError(f"Model {model} not found.")
 
@@ -376,7 +390,7 @@ def downloadModels(
 
     if model in ["vits", "vitb", "vitl"]:
         fullUrl = f"{DEPTHURL}{filename}"
-    elif model in ["rife4.15-tensorrt"]:
+    elif model in ["rife4.15-tensorrt", "rife4.17-tensorrt"]:
         fullUrl = f"{SUDOURL}{filename}"
     else:
         fullUrl = f"{TASURL}{filename}"
