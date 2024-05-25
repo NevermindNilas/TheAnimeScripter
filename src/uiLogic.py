@@ -233,10 +233,12 @@ def dropdownsLabels(method):
             ]
         case "Interpolation":
             return [
+                "Rife4.17",
                 "Rife4.16-Lite",
                 "Rife4.15-Lite",
                 "Rife4.15",
                 "Rife4.6",
+                "Rife4.17-TensorRT",
                 "Rife4.15-TensorRT",
                 "Rife4.15-Lite-TensorRT",
                 "Rife4.6-TensorRT",
