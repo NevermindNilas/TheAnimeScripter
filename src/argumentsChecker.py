@@ -36,7 +36,6 @@ def argumentChecker(args, mainPath, scriptVersion):
     logging.info("\n============== Arguments Checker ==============")
     args.ffmpeg_path = getFFMPEG()
 
-
     if args.offline:
         toPrint = "Offline mode enabled, downloading all available models, this can take a minute but it will allow for the script to be used offline"
         logging.info(toPrint)
@@ -92,25 +91,24 @@ def argumentChecker(args, mainPath, scriptVersion):
 
         updateScript(scriptVersion, mainPath)
         sys.exit()
-    
+
     if args.input is None:
         toPrint = "No input specified, please specify an input file or URL to continue"
         logging.error(toPrint)
         print(red(toPrint))
         sys.exit()
     else:
-        try:
-            args.input = args.input.encode("utf-8").decode("utf-8")
-            args.input = args.input.replace("\\", "/")
-        except UnicodeDecodeError:
-            toPrint = "Input video contains invalid characters in it's name. Please check the input and try again. One suggestion would be renaming it to something simpler like test.mp4"
-            logging.error(toPrint)
-            print(red(toPrint))
-            time.sleep(3)
-            sys.exit()
-    
-    if "https://" in args.input or "http://" in args.input:
-        processURL(args, mainPath)
+        if args.input.startswith("http") or args.input.startswith("www"):
+            processURL(args, mainPath)
+        else:
+            try:
+                args.input = os.path.abspath(args.input)
+                args.input = str(args.input)
+            except Exception:
+                logging.error(
+                    "Error processing the input, this is usually because of weird input names with spaces or characters that are not allowed"
+                )
+                sys.exit()
 
     processingMethods = [
         args.interpolate,
@@ -124,8 +122,7 @@ def argumentChecker(args, mainPath, scriptVersion):
         args.depth,
     ]
 
-    result = urlparse(args.input)
-    if not any(processingMethods) and not all([result.scheme, result.netloc]):
+    if not any(processingMethods):
         toPrint = "No other processing methods specified, exiting"
         logging.error(toPrint)
         print(red(toPrint))
@@ -139,17 +136,13 @@ def processURL(args, mainPath):
     Check if the input is a URL, if it is, download the video and set the input to the downloaded video
     """
     result = urlparse(args.input)
-    if all([result.scheme, result.netloc]):
+    if result.netloc.lower() in ['www.youtube.com', 'youtube.com', 'youtu.be']:
         logging.info("URL is valid and will be used for processing")
 
         if args.output is None:
             outputFolder = os.path.join(mainPath, "output")
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
             args.output = os.path.join(outputFolder, outputNameGenerator(args))
-
-        # TO:DO: Fix this, it's not working as intended
-        # else:
-        #    args.output = args.output.split(".")[0] + "_temp.mp4"
 
         VideoDownloader(
             args.input,
@@ -163,5 +156,5 @@ def processURL(args, mainPath):
         args.output = None
         logging.info(f"New input path: {args.input}")
     else:
-        logging.error("URL is invalid, please check the URL and try again")
+        logging.error("URL is invalid or not a YouTube URL, please check the URL and try again")
         sys.exit()

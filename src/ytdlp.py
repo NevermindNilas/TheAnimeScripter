@@ -3,11 +3,12 @@ import logging
 import inquirer
 
 from yt_dlp import YoutubeDL
-from .ffmpegSettings import matchEncoder
 
 
 class VideoDownloader:
-    def __init__(self, video_link, output, encodeMethod, customEncoder, ffmpegPath:str = None):
+    def __init__(
+        self, video_link, output, encodeMethod, customEncoder, ffmpegPath: str = None
+    ):
         self.link = video_link
         self.output = output
         self.encodeMethod = encodeMethod
@@ -17,19 +18,19 @@ class VideoDownloader:
         resolutions = self.listResolutions()
 
         questions = [
-            inquirer.List('resolution',
-                          message="Select the resolution you want to download, use up and down arrow keys to navigate and press enter to select:",
-                          choices=resolutions,
-                          ),
+            inquirer.List(
+                "resolution",
+                message="Select the resolution you want to download, use up and down arrow keys to navigate and press enter to select:",
+                choices=resolutions,
+            ),
         ]
 
         answers = inquirer.prompt(questions)
         if not answers:
-            logging.error('No resolution selected, exiting')
+            logging.error("No resolution selected, exiting")
             exit(1)
-        
 
-        self.resolution = answers['resolution']
+        self.resolution = answers["resolution"]
 
         if self.resolution > 1080:
             toPrint = f"The selected resolution {self.resolution} is higher than 1080p, this will require an aditional step of encoding the video for compatibility with After Effects, [WIP]"
@@ -42,19 +43,21 @@ class VideoDownloader:
 
         self.downloadVideo()
 
-
     def listResolutions(self):
         options = {
-            'listformats': False,
-            'quiet': True,
-            'no_warnings': True,
+            "listformats": False,
+            "quiet": True,
+            "no_warnings": True,
         }
         with YoutubeDL(options) as ydl:
             info_dict = ydl.extract_info(self.link, download=False)
-            formats = info_dict.get('formats', [])
-            resolutions = [f.get('height') for f in formats if f.get('height') and f.get('height') >= 240]
+            formats = info_dict.get("formats", [])
+            resolutions = [
+                f.get("height")
+                for f in formats
+                if f.get("height") and f.get("height") >= 240
+            ]
             return sorted(set(resolutions), reverse=True)
-    
 
     def downloadVideo(self):
         options = self.getOptions()
@@ -70,11 +73,13 @@ class VideoDownloader:
                 "quiet": True,
                 "noplaylist": True,
                 "no_warnings": True,
-                "postprocessors": [{
-                    "key": "FFmpegVideoConvertor",
-                    "preferedformat": "mp4",
-                    #self.customEncoder if self.customEncoder else matchEncoder(self.encodeMethod),
-                }],
+                "postprocessors": [
+                    {
+                        "key": "FFmpegVideoConvertor",
+                        "preferedformat": "mp4",
+                        # self.customEncoder if self.customEncoder else matchEncoder(self.encodeMethod),
+                    }
+                ],
             }
         else:
             return {
