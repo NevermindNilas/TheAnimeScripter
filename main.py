@@ -28,7 +28,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from src.argumentsChecker import argumentChecker
 from src.getVideoMetadata import getVideoMetadata
-from src.initializeModels import initializeModels, Segment, Depth
+from src.initializeModels import initializeModels, Segment, Depth, opticalFlow
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
@@ -122,6 +122,10 @@ class VideoProcessor:
         elif self.segment:
             logging.info("Segmenting video")
             Segment(self)
+
+        elif self.flow:
+            logging.info("Extracting Optical Flow")
+            opticalFlow(self)
             
         else:
             self.start()
@@ -393,6 +397,7 @@ if __name__ == "__main__":
     argparser.add_argument("--consent", action="store_true", help = "Allow the script to store data from the log.txt file in order to improve the script and try to preemptively fix the script", required=False)
     argparser.add_argument("--segment_method", type=str, default="anime", choices=["anime", "anime-tensorrt"])
     argparser.add_argument("--update", action="store_true", help="Check and Update the script to the latest version", required=False)
+    argparser.add_argument("--flow", action="store_true", help="Extract the Optical Flow", required=False)
 
     args = argparser.parse_args()
     args = argumentChecker(args, mainPath, scriptVersion)
