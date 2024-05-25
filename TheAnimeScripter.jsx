@@ -495,7 +495,7 @@ var TheAnimeScripter = (function () {
         "RealEsrgan-NCNN",
         "Span-NCNN",
     ], "Choose which model you want to utilize, read more in INFO, for AMD users choose DirectML or NCNN models");
-    createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.16-Lite", "Rife4.15", "Rife4.15-Lite", "Rife4.6", "Rife4.6-TensorRT", "Rife4.15-Lite-TensorRT", "Rife4.15-TensorRT", "Rife4.15-NCNN", "Rife4.15-Lite-NCNN", "Rife4.16-Lite-NCNN", "Rife4.6-NCNN", "GMFSS"], "Choose which interpolation model you want to utilize, read more in readme.txt, for AMD users choose DirectML or NCNN models, TensorRT is for NVIDIA RTX 2000 and above GPUs");
+    createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.17", "Rife4.16-lite", "Rife4.15", "Rife4.15-lite", "Rife4.6", "Rife4.17-TensorRT", "Rife4.15-TensorRT", "Rife4.15-Lite-TensorRT", "Rife4.6-TensorRT", "Rife4.15-NCNN", "Rife4.15-Lite-NCNN", "Rife4.16-Lite-NCNN", "Rife4.6-NCNN", "GMFSS"], "Choose which interpolation model you want to utilize, read more in readme.txt, for AMD users choose DirectML or NCNN models, TensorRT is for NVIDIA RTX 2000 and above GPUs");
     createDropdownField(panel1, "Depth Model", "Depth", ["Small", "Base", "Large", "Small-TensorRT", "Base-TensorRT", "Large-TensorRT"], "Choose which depth map model you want to utilize, ordered by speed, read more in INFO");
     createDropdownField(panel1, "Encoder", "Encoder", ["X264", "X264_Animation", "X265", "AV1", "NVENC_H264", "NVENC_H265", "NVENC_AV1", "QSV_H264", "QSV_H265", "H264_AMF", "HEVC_AMF"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs, AMF for AMD GPUs and QSV for Intel iGPUs");
     createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear", "Bilinear", "Bicubic", "Experimental", "Neighbor", "Area", "Bicublin", "Gauss", "Sinc", "Lanczos", "Spline", "Spline16", "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
@@ -579,14 +579,14 @@ var TheAnimeScripter = (function () {
 
     buttonCheckForUpdate.onClick = function () {
         checkIfPathSaved();
-    
+
         var exeFile = theAnimeScripterPath + "\\main.exe";
         var exeFilePath = new File(exeFile);
         if (!exeFilePath.exists) {
             alert("Cannot find main.exe, please make sure you have selected the correct folder in settings!");
             return;
         };
-    
+
         try {
             var command = [
                 "cd", "\"" + theAnimeScripterPath + "\"",
@@ -598,31 +598,31 @@ var TheAnimeScripter = (function () {
         } catch (error) {
             alert(error.toString());
         }
-    
+
         var discordServer = "https://discord.gg/CdRD9GwS8J";
-    
+
         var dialog2 = new Window('dialog', 'Open URL');
         dialog2.add('statictext', undefined, 'Do you want to join the Discord server?');
-    
+
         dialog2.yesButton = dialog2.add('button', undefined, 'Yes', {
             name: 'yes'
         });
         dialog2.noButton = dialog2.add('button', undefined, 'No', {
             name: 'no'
         });
-    
-        dialog2.yesButton.onClick = function() {
+
+        dialog2.yesButton.onClick = function () {
             system.callSystem('cmd.exe /c start "" "' + discordServer + '"');
             dialog2.close();
         }
-    
-        dialog2.noButton.onClick = function() {
+
+        dialog2.noButton.onClick = function () {
             dialog2.close();
         }
-    
+
         dialog2.show();
     };
-    
+
     buttonOutput.onClick = function () {
         var folder = Folder.selectDialog("Select Output folder");
         if (folder != null) {
