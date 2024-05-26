@@ -100,8 +100,6 @@ class IFNet(nn.Module):
         self.block3 = IFBlock(8 + 4, c=64)
         self.warped_image0 = None
         self.warped_image1 = None
-        self.warp_1 = None
-        self.warp_2 = None
 
     def forward(
         self,
@@ -163,13 +161,9 @@ class IFNet(nn.Module):
                 flow = flow + f0
                 mask = mask + m0
             mask_list.append(mask)
-            if self.warp_1 is None:
-                self.warp_1 = warp(image1, flow[:, :2])
-            else:
-                self.warp_1.copy_(self.warp_2, non_blocking=True)            
-            self.warp_2 = warp(image2, flow[:, 2:4])
-            
-            merged.append((self.warp_1, self.warp_2))
+            warped_image0 = warp(image1, flow[:, :2])
+            warped_image1 = warp(image2, flow[:, 2:4])
+            merged.append((warped_image0, warped_image1))
         mask_list[3] = torch.sigmoid(mask_list[3])
         merged[3] = merged[3][0] * mask_list[3] + merged[3][1] * (1 - mask_list[3])
         return merged[3]
