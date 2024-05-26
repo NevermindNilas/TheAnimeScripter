@@ -61,7 +61,7 @@ currentTest = 0
 
 def runAllBenchmarks(executor, version):
     print("Running all benchmarks. Depending on your system, this may take a while. Please be patient and keep the terminal at all times in the focus.")
-    print("The results will be saved in benchmarkResults.json. Feel free to share this file with the Discord Community at https://discord.gg/2jqfkx3J")
+    print("The results will be saved in benchmarkResults.json. Feel free to share this file with the Discord Community at https://discord.gg/WJfyDAVYGZ")
     inputVideo = getClip(executor)
 
     results = {
