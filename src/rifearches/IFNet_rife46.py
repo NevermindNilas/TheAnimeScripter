@@ -105,7 +105,7 @@ class IFNet(nn.Module):
         self,
         image1,
         image2,
-        timestep=0.5,
+        timestep,
         scale_list=[8, 4, 2, 1],
         ensemble=False,
     ):
