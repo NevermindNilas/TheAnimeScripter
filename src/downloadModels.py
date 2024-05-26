@@ -35,7 +35,6 @@ def modelsList() -> list[str]:
         "rife4.15-lite",
         "rife4.16-lite",
         "rife4.17",
-        "apisr",
         "vits",
         "vitb",
         "vitl",
@@ -234,12 +233,6 @@ def modelsMap(
 
         case "rife4.16-lite":
             return "rife416_lite.pth"
-
-        case "apisr":
-            if upscaleFactor == 2:
-                return "2x_APISR_RRDB_GAN_generator.pth"
-            elif upscaleFactor == 4:
-                return "4x_APISR_RRDB_GAN_generator.pth"
 
         case "vits":
             return "depth_anything_vits14.pth"

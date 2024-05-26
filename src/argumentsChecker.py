@@ -42,11 +42,7 @@ def argumentChecker(args, mainPath, scriptVersion):
         print(green(toPrint))
         options = modelsList()
         for option in options:
-            if options == "apisr":
-                for upscaleFactor in [2, 4]:
-                    downloadModels(option, upscaleFactor=upscaleFactor)
-            else:
-                downloadModels(option)
+            downloadModels(option)
         toPrint = "All models downloaded, exiting"
         logging.info(toPrint)
         print(green(toPrint))
