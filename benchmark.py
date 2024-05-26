@@ -185,7 +185,6 @@ if __name__ == "__main__":
         "span-ncnn",
         "shufflecugan-ncnn",
         "realesrgan-ncnn",
-        "cugan-ncnn",
         "compact-tensorrt",
         "ultracompact-tensorrt",
         "superultracompact-tensorrt",
