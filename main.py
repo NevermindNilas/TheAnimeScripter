@@ -386,6 +386,7 @@ if __name__ == "__main__":
         "--audio",
         action="store_true",
         help="Extract the audio track and later merge it back into the output video, if dedup is true this will be set to False automatically",
+        default=True,
     )
     argparser.add_argument("--denoise", action="store_true", help="Denoise the video", required=False)
     argparser.add_argument(
