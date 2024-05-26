@@ -21,7 +21,7 @@ def figureOutGPUVendor():
 
 def runAllBenchmarks(executor, version, inputVideo=None):
     print(
-        "Running all benchmarks. Depending on your system, this may take a while. Please be patient and keep the terminal at all times in the focus."
+        "Running all benchmarks. Depending on your system, this may take a while. Please be patient and keep the terminal in focus at all time."
     )
     print(
         "The results will be saved in benchmarkResults.json. Feel free to share this file with the Discord Community at https://discord.gg/WJfyDAVYGZ"
@@ -83,13 +83,17 @@ def runUpscaleBenchmark(inputVideo, executor):
     results = {}
     for method in upscaleMethods:
         print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
-        if method == "omnisr" | "realresrgan" | "cugan":
+        if method in ["omnisr", "realresrgan", "cugan"]:
             output = os.popen(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 2"
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 1"
+            ).read()
+        elif "-tensorrt" in method:
+            output = os.popen(
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 6"
             ).read()
         else:
             output = os.popen(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 6"
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 4"
             ).read()
 
         fps = parseFPS(output)
@@ -113,7 +117,7 @@ def runInterpolateBenchmark(inputVideo, executor):
             ).read()
         else:
             output = os.popen(
-                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --outpoint 3"  # GMFSS is so slow that even this is too much
+                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --outpoint 3"
             ).read()
 
         fps = parseFPS(output)
@@ -139,6 +143,7 @@ def runInterpolateBenchmark(inputVideo, executor):
         time.sleep(TIMESLEEP)
 
     return results
+
 
 def parseFPS(output):
     match = re.findall(r"fps=\s*([\d.]+)", output)
