@@ -297,7 +297,6 @@ if __name__ == "__main__":
             "cugan-directml",
             "realesrgan-directml",
             "realesrgan-ncnn",
-            "cugan-ncnn",
             "shufflecugan-ncnn",
             "span-ncnn",
             "compact-tensorrt",
