@@ -216,16 +216,15 @@ class UniversalTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
-        enginePrecision = "fp16" if self.half else "fp32"
         if modelType == "pth":
             self.model = self.model.half() if self.half and self.isCudaAvailable else self.model
             self.model = self.model.eval().to(self.device).model
 
-            if not os.path.exists(modelPath.replace(f".{modelType}", f"_{enginePrecision}.onnx")):
+            if not os.path.exists(modelPath.replace(f".{modelType}", ".onnx")):
                 torch.onnx.export(
                     self.model,
                     torch.zeros(1, 3, 256, 256, device=self.device, dtype=torch.float16 if self.half else torch.float32),
-                    modelPath.replace(f".{modelType}", f"_{enginePrecision}.onnx"),
+                    modelPath.replace(f".{modelType}", ".onnx"),
                     opset_version=19,
                     input_names=["input"],
                     output_names=["output"],
