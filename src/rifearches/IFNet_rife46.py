@@ -98,6 +98,10 @@ class IFNet(nn.Module):
         self.block1 = IFBlock(8 + 4, c=128)
         self.block2 = IFBlock(8 + 4, c=96)
         self.block3 = IFBlock(8 + 4, c=64)
+        self.warped_image0 = None
+        self.warped_image1 = None
+        self.warp_1 = None
+        self.warp_2 = None
 
     def forward(
         self,
@@ -109,8 +113,12 @@ class IFNet(nn.Module):
     ):
         merged = []
         mask_list = []
-        warped_img0 = image1
-        warped_img1 = image2
+        if self.warped_image0 is None:
+            self.warped_image0 = image1
+        else:
+            self.warped_image0.copy_(self.warped_image1, non_blocking=True)        
+        self.warped_image1 = image2
+        
         flow = None
         block = [self.block0, self.block1, self.block2, self.block3]
         for i in range(4):
@@ -131,7 +139,7 @@ class IFNet(nn.Module):
             else:
                 f0, m0 = block[i](
                     torch.cat(
-                        (warped_img0[:, :3], warped_img1[:, :3], timestep, mask), 1
+                        (self.warped_image0[:, :3], self.warped_image1[:, :3], timestep, mask), 1
                     ),
                     flow,
                     scale=scale_list[i],
@@ -140,8 +148,8 @@ class IFNet(nn.Module):
                     f1, m1 = block[i](
                         torch.cat(
                             (
-                                warped_img1[:, :3],
-                                warped_img0[:, :3],
+                                self.warped_image1[:, :3],
+                                self.warped_image0[:, :3],
                                 1 - timestep,
                                 -mask,
                             ),
@@ -155,9 +163,13 @@ class IFNet(nn.Module):
                 flow = flow + f0
                 mask = mask + m0
             mask_list.append(mask)
-            warped_img0 = warp(image1, flow[:, :2])
-            warped_img1 = warp(image2, flow[:, 2:4])
-            merged.append((warped_img0, warped_img1))
+            if self.warp_1 is None:
+                self.warp_1 = warp(image1, flow[:, :2])
+            else:
+                self.warp_1.copy_(self.warp_2, non_blocking=True)            
+            self.warp_2 = warp(image2, flow[:, 2:4])
+            
+            merged.append((self.warp_1, self.warp_2))
         mask_list[3] = torch.sigmoid(mask_list[3])
         merged[3] = merged[3][0] * mask_list[3] + merged[3][1] * (1 - mask_list[3])
         return merged[3]
