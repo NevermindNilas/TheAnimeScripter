@@ -107,7 +107,6 @@ class IFNet(nn.Module):
         scale_list=[8, 4, 2, 1],
         ensemble=False,
     ):
-
         merged = []
         mask_list = []
         warped_img0 = image1

@@ -61,7 +61,7 @@ currentTest = 0
 
 def runAllBenchmarks(executor, version):
     print("Running all benchmarks. Depending on your system, this may take a while. Please be patient and keep the terminal at all times in the focus.")
-    print("The results will be saved in benchmarkResults.json. Feel free to share this file with the Discord Community at https://discord.gg/WJfyDAVYGZ")
+    print("The results will be saved in benchmarkResults.json. Feel free to share this file with the Discord Community at https://discord.gg/2jqfkx3J")
     inputVideo = getClip(executor)
 
     results = {
@@ -90,8 +90,12 @@ def getExe():
         version = subprocess.check_output(["main.exe", "--version"]).decode().strip()
         return "main.exe", version
     else:
-        version = subprocess.check_output(["python3.11", "main.py", "--version"]).decode().strip()
-        return "python3.11 main.py", version
+        if platform.system() == 'Linux':
+            version = subprocess.check_output(["python3.11", "main.py", "--version"]).decode().strip()
+            return "python3.11 main.py", version
+        else:
+            version = subprocess.check_output(["python", "main.py", "--version"]).decode().strip()
+            return "python main.py", version
 
 
 def getClip(executor):
