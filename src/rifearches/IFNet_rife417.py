@@ -123,8 +123,9 @@ class IFNet(nn.Module):
         self.encode = Head()
         self.f0 = None
         self.f1 = None
-        # self.contextnet = Contextnet()
-        # self.unet = Unet()
+        self.wf0 = None
+        self.wf1 = None
+
 
     def forward(
         self, img0, img1, timestep=0.5, scale_list=[8, 4, 2, 1], ensemble=False
@@ -132,7 +133,8 @@ class IFNet(nn.Module):
         if self.f0 is None:
             self.f0 = self.encode(img0[:, :3])
         else:
-            self.f0 = self.f1
+            self.f0.copy_(self.f1, non_blocking=True)
+            
         self.f1 = self.encode(img1[:, :3])
         merged = []
         warped_img0 = img0
@@ -155,15 +157,19 @@ class IFNet(nn.Module):
                     flow = (flow + torch.cat((f_[:, 2:4], f_[:, :2]), 1)) / 2
                     mask = (mask + (-m_)) / 2
             else:
-                wf0 = warp(self.f0, flow[:, :2])
-                wf1 = warp(self.f1, flow[:, 2:4])
+                if self.wf0 is None:
+                    self.wf0 = warp(self.f0, flow[:, :2])
+                else:
+                    self.wf0.copy_(self.wf1, non_blocking=True)
+                    
+                self.wf1 = warp(self.f1, flow[:, 2:4])
                 fd, m0 = block[i](
                     torch.cat(
                         (
                             warped_img0[:, :3],
                             warped_img1[:, :3],
-                            wf0,
-                            wf1,
+                            self.wf0,
+                            self.wf1,
                             timestep,
                             mask,
                         ),
@@ -178,8 +184,8 @@ class IFNet(nn.Module):
                             (
                                 warped_img1[:, :3],
                                 warped_img0[:, :3],
-                                wf1,
-                                wf0,
+                                self.wf1,
+                                self.wf0,
                                 1 - timestep,
                                 -mask,
                             ),
