@@ -232,9 +232,9 @@ class UniversalTensorRT:
                     dynamic_axes={"input": {0: "batch", 2: "height", 3: "width"}, "output": {0: "batch", 2: "height", 3: "width"}},
                 )
 
-            modelPath = modelPath.replace(f".{modelType}", f"_{enginePrecision}.onnx")
+            modelPath = modelPath.replace(f".{modelType}", ".onnx")
 
-        if not os.path.exists(modelPath.replace(f"_{enginePrecision}.onnx", f"_{enginePrecision}.engine")):
+        if not os.path.exists(modelPath.replace(".onnx", ".engine")):
             toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
             print(yellow(toPrint))
             logging.info(toPrint)
@@ -255,7 +255,7 @@ class UniversalTensorRT:
             )
             self.engine.__call__()
 
-        with open(modelPath.replace(f"_{enginePrecision}.onnx", f"_{enginePrecision}.engine"), "rb") as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
+        with open(modelPath.replace(".onnx", ".engine"), "rb") as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
             self.engine = runtime.deserialize_cuda_engine(f.read()) 
             self.context = self.engine.create_execution_context()
         
@@ -282,12 +282,9 @@ class UniversalTensorRT:
 
         
         with torch.cuda.stream(self.stream):
-            for _ in range(10):
+            for _ in range(5):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
-
-                
-        
         
     @torch.inference_mode()
     def run(self, frame):
@@ -300,22 +297,6 @@ class UniversalTensorRT:
             self.stream.synchronize()
         
             return self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255).clamp(0, 255)
-
-        """
-        return (
-            self.runner.infer(
-                {
-                    "input": frame.contiguous(),
-                },
-                check_inputs=False,
-            )["output"]
-            .squeeze(0)
-            .permute(1, 2, 0)
-            .mul_(255)
-            .clamp(0, 255)  # Sadge but it had to be done, I love TRT 10 <3 
-        )
-        """
-
 
 class UniversalDirectML:
     def __init__(
