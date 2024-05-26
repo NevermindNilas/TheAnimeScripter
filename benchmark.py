@@ -89,11 +89,11 @@ def runUpscaleBenchmark(inputVideo, executor):
             ).read()
         elif "-tensorrt" in method:
             output = os.popen(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 6"
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 8"
             ).read()
         else:
             output = os.popen(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 4"
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 5"
             ).read()
 
         fps = parseFPS(output)
