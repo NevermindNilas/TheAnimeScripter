@@ -4,10 +4,15 @@
 
 #### If the result is 0.0 / Null that's typically because of Out Of VRAM Issues ( like GMFSS ) or the GPU is not supported
 
-Differnece from V2 -> V3, Added new options and a different video with more duplicated frames for a more accurate Dedup result, modified certain benchmarks options like GMFSS and OmniSR To be shorter due to the innate slow inference speed.
-Difference from V1 -> V2, Longer video for more accurate results, More time in between runs to cool of the gpu, more options ( dedup )
+V3 -> V4, Removed Dedup and Denoise, made the benchmark more dynamic based on OS and GPU available, NVIDIA will only test CUDA and TensorRT whilst AMD will only test NCNN and DirectML
+V2 -> V3, Added new options and a different video with more duplicated frames for a more accurate Dedup result, modified certain benchmarks options like GMFSS and OmniSR To be shorter due to the innate slow inference speed.
+V1 -> V2, Longer video for more accurate results, More time in between runs to cool of the gpu, more options ( dedup )
 
-#### Testing Methodoly V3
+#### Testing Methodology V4
+# 13700K OC + UV, 3090 OC, 32GB DDR5 6400MHz CL 30, Windows 11, Nilas
+![Untitled](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/4b99b774-e3f1-482a-a4cc-4b07da80521d)
+
+#### Testing Methodology V3
 # 13900k, 4090, 32GB DDR5 4800MHz, TAS 1.7.2, Atlas OS ( Modified W11 ), Sergio.
 ![nilasedits (10)](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/83681671-06ec-41b6-bb90-52d33c315890)
 
