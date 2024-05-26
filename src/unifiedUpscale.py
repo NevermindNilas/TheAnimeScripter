@@ -170,13 +170,7 @@ class UniversalTensorRT:
 
     def handleModel(self):
         if not self.customModel:
-            # For some reason this runs out of VRAM on my f 3090, so we'll just use the alr existing one
-            if self.upscaleMethod != "shufflecugan-tensorrt":
-                modelType = "pth"
-                self.upscaleMethod = self.upscaleMethod.replace("-tensorrt", "")
-            else:
-                modelType = "onnx"
-
+            modelType = "onnx"
             self.filename = modelsMap(
                 self.upscaleMethod, self.upscaleFactor, modelType=modelType, half=self.half
             )
@@ -198,15 +192,6 @@ class UniversalTensorRT:
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
                 )
-        
-        if modelType == "pth":
-            try:
-                self.model = ModelLoader().load_from_file(modelPath)
-            except Exception as e:
-                logging.error(f"Error loading model: {e}")
-
-            if self.customModel:
-                assert isinstance(self.model, ImageModelDescriptor)
 
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
@@ -216,24 +201,8 @@ class UniversalTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
-        if modelType == "pth":
-            self.model = self.model.half() if self.half and self.isCudaAvailable else self.model
-            self.model = self.model.eval().to(self.device).model
-
-            if not os.path.exists(modelPath.replace(f".{modelType}", ".onnx")):
-                torch.onnx.export(
-                    self.model,
-                    torch.zeros(1, 3, 256, 256, device=self.device, dtype=torch.float16 if self.half else torch.float32),
-                    modelPath.replace(f".{modelType}", ".onnx"),
-                    opset_version=19,
-                    input_names=["input"],
-                    output_names=["output"],
-                    dynamic_axes={"input": {0: "batch", 2: "height", 3: "width"}, "output": {0: "batch", 2: "height", 3: "width"}},
-                )
-
-            modelPath = modelPath.replace(f".{modelType}", ".onnx")
-
-        if not os.path.exists(modelPath.replace(".onnx", ".engine")):
+        enginePrecision = "fp16" if "fp16" in modelPath else "fp32"
+        if not os.path.exists(modelPath.replace(".onnx", f"_{enginePrecision}.engine")):
             toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
             print(yellow(toPrint))
             logging.info(toPrint)
@@ -250,11 +219,11 @@ class UniversalTensorRT:
                 config=self.CreateConfig(fp16=self.half, profiles=profiles),
             )
             self.engine = self.SaveEngine(
-                self.engine, modelPath.replace(".onnx", ".engine")
+                self.engine, modelPath.replace(".onnx", f"_{enginePrecision}.engine")
             )
             self.engine.__call__()
 
-        with open(modelPath.replace(".onnx", ".engine"), "rb") as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
+        with open(modelPath.replace(".onnx", f"_{enginePrecision}.engine"), "rb") as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
             self.engine = runtime.deserialize_cuda_engine(f.read()) 
             self.context = self.engine.create_execution_context()
         
