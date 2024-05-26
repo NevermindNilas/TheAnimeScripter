@@ -5,65 +5,27 @@ import re
 import subprocess
 import platform
 
-TIMESLEEP = 2
-CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
-TESTINGVERSION = "V3"
 
-upscaleMethods = [
-    "shufflecugan",
-    "cugan",
-    "compact",
-    "ultracompact",
-    "superultracompact",
-    "span",
-    "omnisr",
-    "realesrgan",
-    "apisr",
-    "cugan-directml",
-    "compact-directml",
-    "ultracompact-directml",
-    "superultracompact-directml",
-    "span-directml",
-    "span-ncnn",
-    "shufflecugan-ncnn",
-    "realesrgan-ncnn",
-    "cugan-ncnn",
-    "compact-tensorrt",
-    "ultracompact-tensorrt",
-    "superultracompact-tensorrt",
-    "shufflecugan-tensorrt",
-    "span-tensorrt",
-]
-
-interpolateMethods = [
-    "rife4.6",
-    "rife4.15",
-    "rife4.15-lite",
-    "rife4.16-lite",
-    "rife4.6-ncnn",
-    "rife4.15-ncnn",
-    "rife4.15-lite-ncnn",
-    "rife4.16-lite-ncnn",
-    "rife4.6-tensorrt",
-    "rife4.15-lite-tensorrt",
-    "rife4.15-tensorrt",
-    "gmfss",
-]
-
-denoiseMethods = ["scunet", "nafnet", "dpir", "span"]
-
-if platform.system() == 'Linux':
-    upscaleMethods = [method for method in upscaleMethods if 'directml' not in method]
-
-totalTests = len(upscaleMethods) + len(interpolateMethods) * 2 + len(denoiseMethods)
-currentTest = 0
+def figureOutGPUVendor():
+    try:
+        with open("log.txt", "r") as file:
+            lines = file.readlines()
+            for line in lines:
+                if "NVIDIA" in line or "nvidia" in line:
+                    return "NVIDIA"
+                if "AMD" in line or "amd" in line:
+                    return "AMD"
+    except Exception as e:
+        print("Error figuring out GPU vendor:", e)
 
 
-def runAllBenchmarks(executor, version):
-    print("Running all benchmarks. Depending on your system, this may take a while. Please be patient and keep the terminal at all times in the focus.")
-    print("The results will be saved in benchmarkResults.json. Feel free to share this file with the Discord Community at https://discord.gg/WJfyDAVYGZ")
-    inputVideo = getClip(executor)
-
+def runAllBenchmarks(executor, version, inputVideo=None):
+    print(
+        "Running all benchmarks. Depending on your system, this may take a while. Please be patient and keep the terminal at all times in the focus."
+    )
+    print(
+        "The results will be saved in benchmarkResults.json. Feel free to share this file with the Discord Community at https://discord.gg/WJfyDAVYGZ"
+    )
     results = {
         "Upscale": runUpscaleBenchmark(inputVideo, executor),
         "Interpolate": runInterpolateBenchmark(inputVideo, executor),
@@ -90,28 +52,38 @@ def getExe():
         version = subprocess.check_output(["main.exe", "--version"]).decode().strip()
         return "main.exe", version
     else:
-        if platform.system() == 'Linux':
-            version = subprocess.check_output(["python3.11", "main.py", "--version"]).decode().strip()
+        if platform.system() == "Linux":
+            version = (
+                subprocess.check_output(["python3.11", "main.py", "--version"])
+                .decode()
+                .strip()
+            )
             return "python3.11 main.py", version
         else:
-            version = subprocess.check_output(["python", "main.py", "--version"]).decode().strip()
+            version = (
+                subprocess.check_output(["python", "main.py", "--version"])
+                .decode()
+                .strip()
+            )
             return "python main.py", version
-
 
 
 def getClip(executor):
     print("Please select 1080p as the desired quality.")
     outputPath = "output/test.mp4"
     # Utilize subprocess Popen with the stdout directed to the terminal
-    subprocess.Popen(f"{executor} --input {CLIPURL} --output {outputPath}", shell=True).wait()
-    #os.popen(f"{executor} --input {CLIPURL} --output {outputPath}").read()
+    subprocess.Popen(
+        f"{executor} --input {CLIPURL} --output {outputPath}", shell=True
+    ).wait()
+    # os.popen(f"{executor} --input {CLIPURL} --output {outputPath}").read()
     return os.path.abspath(outputPath)
+
 
 def runUpscaleBenchmark(inputVideo, executor):
     global currentTest
     results = {}
     for method in upscaleMethods:
-        print(f"[{currentTest}/{totalTests}] {method} benchmark...")
+        print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
         if method == "omnisr":
             output = os.popen(
                 f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 2"
@@ -128,11 +100,12 @@ def runUpscaleBenchmark(inputVideo, executor):
 
     return results
 
+
 def runInterpolateBenchmark(inputVideo, executor):
     global currentTest
     results = {}
     for method in interpolateMethods:
-        print(f"[{currentTest}/{totalTests}] {method} benchmark...")
+        print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
         currentTest += 1
 
         if method != "gmfss":
@@ -148,7 +121,9 @@ def runInterpolateBenchmark(inputVideo, executor):
         results[method] = fps
         time.sleep(TIMESLEEP)
 
-        print(f"[{currentTest}/{totalTests}] Running {method} with ensemble benchmark...")
+        print(
+            f"[{currentTest}/{TOTALTESTS}] Running {method} with ensemble benchmark..."
+        )
         currentTest += 1
 
         if method != "gmfss":  # Ensemble is irrelevant for GMFSS
@@ -171,7 +146,7 @@ def runDenoiseBenchmark(inputVideo, executor):
     global currentTest
     results = {}
     for method in denoiseMethods:
-        print(f"[{currentTest}/{totalTests}] {method} benchmark...")
+        print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
         currentTest += 1
         output = os.popen(
             f"{executor} --input {inputVideo} --denoise --denoise_method {method} --benchmark --outpoint 2"
@@ -208,6 +183,86 @@ def parseSystemInfo():
 
 
 if __name__ == "__main__":
+    TIMESLEEP = 2
+    CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
+    TESTINGVERSION = "V3"
+
+    upscaleMethods = [
+        "shufflecugan",
+        "cugan",
+        "compact",
+        "ultracompact",
+        "superultracompact",
+        "span",
+        "omnisr",
+        "realesrgan",
+        "cugan-directml",
+        "compact-directml",
+        "ultracompact-directml",
+        "superultracompact-directml",
+        "span-directml",
+        "span-ncnn",
+        "shufflecugan-ncnn",
+        "realesrgan-ncnn",
+        "cugan-ncnn",
+        "compact-tensorrt",
+        "ultracompact-tensorrt",
+        "superultracompact-tensorrt",
+        "shufflecugan-tensorrt",
+        "span-tensorrt",
+    ]
+
+    interpolateMethods = [
+        "rife4.6",
+        "rife4.15",
+        "rife4.15-lite",
+        "rife4.16-lite",
+        "rife4.6-ncnn",
+        "rife4.15-ncnn",
+        "rife4.15-lite-ncnn",
+        "rife4.16-lite-ncnn",
+        "rife4.6-tensorrt",
+        "rife4.15-lite-tensorrt",
+        "rife4.15-tensorrt",
+        "gmfss",
+    ]
+
+    denoiseMethods = ["scunet", "nafnet", "dpir", "span"]
+    currentTest = 0
     executor, version = getExe()
+    inputVideo = getClip(executor)
+    GPUVENDOR = figureOutGPUVendor()
+    if GPUVENDOR == "NVIDIA":
+        upscaleMethods = [
+            method
+            for method in upscaleMethods
+            if "ncnn" not in method and "directml" not in method
+        ]
+        interpolateMethods = [
+            method
+            for method in interpolateMethods
+            if "ncnn" not in method and "directml" not in method
+        ]
+    elif GPUVENDOR == "AMD":
+        upscaleMethods = [
+            method
+            for method in upscaleMethods
+            if "ncnn" in method or "directml" in method
+        ]
+        interpolateMethods = [
+            method
+            for method in interpolateMethods
+            if "ncnn" in method or "directml" in method
+        ]
+
+    if platform.system() == "Linux":
+        upscaleMethods = [
+            method for method in upscaleMethods if "directml" not in method
+        ]
+
+    TOTALTESTS = len(upscaleMethods) + len(interpolateMethods) * 2 + len(denoiseMethods)
+
+    print(f"GPU Vendor: {GPUVENDOR}")
+    print(f"Total models to benchmark: {TOTALTESTS}")
     print(f"Using {executor} version {version}")
-    runAllBenchmarks(executor, version)
+    runAllBenchmarks(executor, version, inputVideo)
