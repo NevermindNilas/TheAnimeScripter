@@ -29,7 +29,6 @@ def runAllBenchmarks(executor, version, inputVideo=None):
     results = {
         "Upscale": runUpscaleBenchmark(inputVideo, executor),
         "Interpolate": runInterpolateBenchmark(inputVideo, executor),
-        "Denoise": runDenoiseBenchmark(inputVideo, executor),
     }
 
     systemInfo = parseSystemInfo()
@@ -84,13 +83,13 @@ def runUpscaleBenchmark(inputVideo, executor):
     results = {}
     for method in upscaleMethods:
         print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
-        if method == "omnisr":
+        if method == "omnisr" | "realresrgan" | "cugan":
             output = os.popen(
                 f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 2"
             ).read()
         else:
             output = os.popen(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 4"
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 6"
             ).read()
 
         fps = parseFPS(output)
@@ -141,24 +140,6 @@ def runInterpolateBenchmark(inputVideo, executor):
 
     return results
 
-
-def runDenoiseBenchmark(inputVideo, executor):
-    global currentTest
-    results = {}
-    for method in denoiseMethods:
-        print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
-        currentTest += 1
-        output = os.popen(
-            f"{executor} --input {inputVideo} --denoise --denoise_method {method} --benchmark --outpoint 2"
-        ).read()
-
-        fps = parseFPS(output)
-        results[method] = fps
-        time.sleep(TIMESLEEP)
-
-    return results
-
-
 def parseFPS(output):
     match = re.findall(r"fps=\s*([\d.]+)", output)
     if match:
@@ -185,7 +166,7 @@ def parseSystemInfo():
 if __name__ == "__main__":
     TIMESLEEP = 2
     CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
-    TESTINGVERSION = "V3"
+    TESTINGVERSION = "V4"
 
     upscaleMethods = [
         "shufflecugan",
@@ -227,7 +208,6 @@ if __name__ == "__main__":
         "gmfss",
     ]
 
-    denoiseMethods = ["scunet", "nafnet", "dpir", "span"]
     currentTest = 0
     executor, version = getExe()
     inputVideo = getClip(executor)
@@ -260,7 +240,7 @@ if __name__ == "__main__":
             method for method in upscaleMethods if "directml" not in method
         ]
 
-    TOTALTESTS = len(upscaleMethods) + len(interpolateMethods) * 2 + len(denoiseMethods)
+    TOTALTESTS = len(upscaleMethods) + len(interpolateMethods) * 2
 
     print(f"GPU Vendor: {GPUVENDOR}")
     print(f"Total models to benchmark: {TOTALTESTS}")
