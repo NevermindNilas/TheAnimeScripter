@@ -6,6 +6,7 @@ import tensorrt as trt
 from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
 from .coloredPrints import yellow
+
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
 
@@ -158,8 +159,8 @@ class RifeCuda:
         )
         output = output[:, :, : self.height, : self.width]
 
-        return output.mul_(255.0).squeeze(0).permute(1,2,0)
-    
+        return output.mul_(255.0).squeeze(0).permute(1, 2, 0)
+
     def cacheFrame(self):
         self.I0.copy_(self.I1, non_blocking=True)
 
@@ -167,8 +168,7 @@ class RifeCuda:
     def processFrame(self, frame):
         if self.half:
             frame = (
-                frame
-                .to(self.device, non_blocking=True)
+                frame.to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
                 .unsqueeze_(0)
                 .half()
@@ -176,8 +176,7 @@ class RifeCuda:
             )
         else:
             frame = (
-                frame
-                .to(self.device, non_blocking=True)
+                frame.to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
                 .unsqueeze_(0)
                 .float()
@@ -199,10 +198,11 @@ class RifeCuda:
         self.I1.copy_(self.processFrame(I1), non_blocking=True)
         return True
 
+
 class RifeTensorRT:
     def __init__(
         self,
-        interpolateMethod: str = "rife4.15",
+        interpolateMethod: str = "rife4.17",
         interpolateFactor: int = 2,
         width: int = 0,
         height: int = 0,
@@ -280,7 +280,7 @@ class RifeTensorRT:
             torch.backends.cudnn.benchmark = True
             if self.half:
                 torch.set_default_dtype(torch.float16)
-        
+
         if "fp16" in modelPath:
             trtEngineModelPath = modelPath.replace(".onnx", "_fp16.engine")
         elif "fp32" in modelPath:
@@ -302,13 +302,9 @@ class RifeTensorRT:
                 )
             ]
 
-            #print(dir(trt.MemoryPoolType))
-            #print(dir(trt.TacticSource))
-            #print(dir(trt.PreviewFeature))
-
             self.config = self.CreateConfig(
-                fp16=self.half, 
-                profiles=profile, 
+                fp16=self.half,
+                profiles=profile,
                 preview_features=[],
             )
 
@@ -319,10 +315,10 @@ class RifeTensorRT:
             self.engine = self.SaveEngine(self.engine, trtEngineModelPath)
             self.engine.__call__()
 
-            
-
-        with open(trtEngineModelPath, "rb") as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
-            self.engine = runtime.deserialize_cuda_engine(f.read()) 
+        with open(trtEngineModelPath, "rb") as f, trt.Runtime(
+            trt.Logger(trt.Logger.INFO)
+        ) as runtime:
+            self.engine = runtime.deserialize_cuda_engine(f.read())
             self.context = self.engine.create_execution_context()
 
         self.dType = torch.float16 if self.half else torch.float32
@@ -345,7 +341,7 @@ class RifeTensorRT:
             dtype=self.dType,
             device=self.device,
         )
-        
+
         self.timestep = (
             torch.zeros(
                 1,
@@ -357,8 +353,7 @@ class RifeTensorRT:
             )
             * 0.5
         )
-        
-        self.firstRun = True
+
         self.dummyIinput = torch.zeros(
             1,
             7,
@@ -383,10 +378,14 @@ class RifeTensorRT:
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
 
         for i in range(self.engine.num_io_tensors):
-            self.context.set_tensor_address(self.engine.get_tensor_name(i), self.bindings[i])
+            self.context.set_tensor_address(
+                self.engine.get_tensor_name(i), self.bindings[i]
+            )
             tensor_name = self.engine.get_tensor_name(i)
             if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+
+        self.firstRun = True
 
     @torch.inference_mode()
     def make_inference(self, n):
@@ -407,10 +406,9 @@ class RifeTensorRT:
             self.dummyInput.copy_(torch.cat([self.I0, self.I1, self.timestep], dim=1))
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()
-        
+
             return self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255)
 
-        
         """
         return(
             self.runner.infer(
@@ -428,7 +426,6 @@ class RifeTensorRT:
             )["output"]
         ).squeeze(0).permute(1, 2, 0).mul_(255)
         """
-        
 
     @torch.inference_mode()
     def cacheFrame(self):
@@ -438,14 +435,12 @@ class RifeTensorRT:
     def processFrame(self, frame):
         return (
             (
-                frame
-                .to(self.device, non_blocking=True)
+                frame.to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
                 .unsqueeze_(0)
                 .float()
                 if not self.half
-                else frame
-                .to(self.device, non_blocking=True)
+                else frame.to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
                 .unsqueeze_(0)
                 .half()
@@ -464,12 +459,3 @@ class RifeTensorRT:
 
             self.I1.copy_(self.processFrame(I1), non_blocking=True)
             return True
-        """
-        if self.firstRun is True:
-            self.I0.copy_(self.processFrame(I1), non_blocking=True)
-            self.firstRun = False
-            return False
-
-        self.I1.copy_(self.processFrame(I1), non_blocking=True)
-        return True
-        """

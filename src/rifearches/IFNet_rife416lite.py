@@ -120,28 +120,34 @@ class IFNet(nn.Module):
         self.block2 = IFBlock(8 + 4 + 8, c=64)
         self.block3 = IFBlock(8 + 4 + 8, c=48)
         self.encode = Head()
+        self.f0 = None
+        self.f1 = None
 
     def forward(
-        self, frame1, frame2, timestep=0.5, scale_list=[8, 4, 2, 1], ensemble=False
+        self, image0, image1, timestep=0.5, scale_list=[8, 4, 2, 1], ensemble=False
     ):  
-        f0 = self.encode(frame1[:, :3])
-        f1 = self.encode(frame2[:, :3])
+        if self.f0 is None:
+            self.f0 = self.encode(image0)
+        else:
+            self.f0 = self.f1
+
+        self.f1 = self.encode(image1)
         merged = []
-        warped_frame1 = frame1
-        warped_frame2 = frame2
+        warped_image0 = image0
+        warped_image1 = image1
         flow = None
         block = [self.block0, self.block1, self.block2, self.block3]
         for i in range(4):
             if flow is None:
                 flow, mask = block[i](
-                    torch.cat((frame1[:, :3], frame2[:, :3], f0, f1, timestep), 1),
+                    torch.cat((image0[:, :3], image1[:, :3], self.f0, self.f1, timestep), 1),
                     None,
                     scale=scale_list[i],
                 )
                 if ensemble:
                     f_, m_ = block[i](
                         torch.cat(
-                            (frame2[:, :3], frame1[:, :3], f1, f0, 1 - timestep), 1
+                            (image1[:, :3], image0[:, :3], self.f1, self.f0, 1 - timestep), 1
                         ),
                         None,
                         scale=scale_list[i],
@@ -149,13 +155,13 @@ class IFNet(nn.Module):
                     flow = (flow + torch.cat((f_[:, 2:4], f_[:, :2]), 1)) / 2
                     mask = (mask + (-m_)) / 2
             else:
-                wf0 = warp(f0, flow[:, :2])
-                wf1 = warp(f1, flow[:, 2:4])
+                wf0 = warp(self.f0, flow[:, :2])
+                wf1 = warp(self.f1, flow[:, 2:4])
                 fd, m0 = block[i](
                     torch.cat(
                         (
-                            warped_frame1[:, :3],
-                            warped_frame2[:, :3],
+                            warped_image0[:, :3],
+                            warped_image1[:, :3],
                             wf0,
                             wf1,
                             timestep,
@@ -170,8 +176,8 @@ class IFNet(nn.Module):
                     f_, m_ = block[i](
                         torch.cat(
                             (
-                                warped_frame2[:, :3],
-                                warped_frame1[:, :3],
+                                warped_image1[:, :3],
+                                warped_image0[:, :3],
                                 wf1,
                                 wf0,
                                 1 - timestep,
@@ -187,10 +193,10 @@ class IFNet(nn.Module):
                 else:
                     mask = m0
                 flow = flow + fd
-            warped_frame1 = warp(frame1, flow[:, :2])
-            warped_frame2 = warp(frame2, flow[:, 2:4])
-            merged.append((warped_frame1, warped_frame2))
+            warped_image0 = warp(image0, flow[:, :2])
+            warped_image1 = warp(image1, flow[:, 2:4])
+            merged.append((warped_image0, warped_image1))
         mask = torch.sigmoid(mask)
-        merged[3] = warped_frame1 * mask + warped_frame2 * (1 - mask)
+        merged[3] = warped_image0 * mask + warped_image1 * (1 - mask)
 
         return merged[3]
