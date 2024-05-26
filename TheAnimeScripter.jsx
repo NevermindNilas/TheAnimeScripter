@@ -480,7 +480,6 @@ var TheAnimeScripter = (function () {
         "Span",
         "RealEsrgan",
         "OmniSR",
-        "APISR",
         "ShuffleCugan-TensorRT",
         "Span-TensorRT",
         "Compact-TensorRT",

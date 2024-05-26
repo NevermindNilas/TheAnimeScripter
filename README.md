@@ -137,7 +137,6 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 | [Breakthrough](https://github.com/Breakthrough/PySceneDetect)                                         | Automated Scene Detection |
 | [Chainner-org](https://github.com/chaiNNer-org/spandrel)                                              | Spandrel, easy to use arch implementations |
 | [Kim2091](https://openmodeldb.info/models/1x-span-anime-pretrain)                                      | Span 1x Model        |
-| [Kiteretsu77](https://github.com/Kiteretsu77/APISR)                                                   | APISR                |
 | [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                 |
 | [Sirosky](https://openmodeldb.info/models/2x-AniScale-2-ESRGAN-Lite)                                   | RealESRGAN Model     |
 | [TNTWise](https://github.com/TNTwise) | For Rife ONNX and NCNN models | 

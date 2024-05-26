@@ -290,7 +290,6 @@ if __name__ == "__main__":
             "span",
             "omnisr",
             "realesrgan",
-            "apisr",
             "compact-directml",
             "ultracompact-directml",
             "superultracompact-directml",

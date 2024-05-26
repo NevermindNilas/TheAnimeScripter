@@ -130,7 +130,6 @@ def initializeModels(self):
                 | "span"
                 | "omnisr"
                 | "realesrgan"
-                | "apisr"
             ):
                 upscale_process = UniversalPytorch(
                     self.upscale_method,
@@ -180,7 +179,6 @@ def initializeModels(self):
                 | "superultracompact-tensorrt"
                 | "span-tensorrt"
                 | "realesrgan-tensorrt"
-                | "apisr-tensorrt"
             ):
                 from .unifiedUpscale import UniversalTensorRT
 
