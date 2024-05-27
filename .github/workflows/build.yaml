@@ -61,7 +61,7 @@ jobs:
       - name: Compress main directory
         shell: bash
         run: |
-          cd ${{ github.workspace }}/dist/main/
+          cd "/d/a/TheAnimeScripter/TheAnimeScripter/dist/main/"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             7z a -t7z -m0=lzma -mx=9 -mfb=64 -md=32m ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-extension }} *
           else
