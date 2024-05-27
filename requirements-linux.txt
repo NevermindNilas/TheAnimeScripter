@@ -14,7 +14,6 @@ yt-dlp
 requests
 tqdm
 tensorrt
-tensorrt_cu12
 einops
 scikit-image
 scenedetect[opencv]
@@ -22,8 +21,6 @@ pytorch-lightning
 inquirer
 onnx
 colored
-tensorrt-cu12-bindings
-tensorrt-cu12_libs==10.0.1
 torch==2.2.2 
 torchvision==0.17.2
 BlurWindow
