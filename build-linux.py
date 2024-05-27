@@ -40,7 +40,7 @@ def create_executable():
     print("Creating the CLI executable...")
     subprocess.run(
         [
-            ".\\venv\\Scripts\\pyinstaller",
+            ".venv/bin/pyinstaller",
             "--noconfirm",
             "--onedir",
             "--console",
@@ -84,7 +84,7 @@ def create_executable():
 
     subprocess.run(
         [
-            ".\\venv\\Scripts\\pyinstaller",
+            ".venv/bin/pyinstaller",
             "--noconfirm",
             "--onedir",
             "--noconsole",
@@ -103,7 +103,7 @@ def create_executable():
     benchmarkPath = os.path.join(base_dir, "benchmark.py")
     subprocess.run(
         [
-            ".\\venv\\Scripts\\pyinstaller",
+            ".venv/bin/pyinstaller",
             "--noconfirm",
             "--onedir",
             "--console",
