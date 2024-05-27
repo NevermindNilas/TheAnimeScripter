@@ -38,9 +38,15 @@ def create_executable():
     )
 
     print("Creating the CLI executable...")
+
+    pyinstallerPath = shutil.which("pyinstaller", path="./venv/bin")
+    if not pyinstallerPath:
+        print("PyInstaller not found in the virtual environment")
+        return
+    
     subprocess.run(
         [
-            ".venv/bin/pyinstaller",
+            pyinstallerPath,
             "--noconfirm",
             "--onedir",
             "--console",
@@ -84,7 +90,7 @@ def create_executable():
 
     subprocess.run(
         [
-            ".venv/bin/pyinstaller",
+            pyinstallerPath,
             "--noconfirm",
             "--onedir",
             "--noconsole",
@@ -103,7 +109,7 @@ def create_executable():
     benchmarkPath = os.path.join(base_dir, "benchmark.py")
     subprocess.run(
         [
-            ".venv/bin/pyinstaller",
+            pyinstallerPath,
             "--noconfirm",
             "--onedir",
             "--console",
