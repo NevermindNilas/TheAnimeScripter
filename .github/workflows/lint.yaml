@@ -8,4 +8,4 @@ jobs:
       - name: Run Ruff with --fix option
         uses: chartboost/ruff-action@v1
         with:
-          args: --fix --unsafe-fixes
+          args: --fix-only
