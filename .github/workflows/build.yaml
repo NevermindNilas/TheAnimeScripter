@@ -11,7 +11,7 @@ jobs:
         include:
           - os: windows-latest
             python-version: "3.11.9"
-            requirements-file: requirements-dev.txt
+            requirements-file: requirements-dev-windows.txt
             build-script: build.py
             asset-content-type: application/x-7z-compressed
             asset-extension: .7z
