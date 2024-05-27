@@ -63,7 +63,7 @@ For Windows:
   - Git clone the repository or use the source code from one of the releases.
   - Download and install Python 3.11 from [here](https://www.python.org/downloads/release/python-3110/) (add to System Path).
   - Open a terminal inside the folder.
-  - Run `pip install -r requirements-dev.txt`
+  - Run `pip install -r requirements-dev-windows.txt`
   - Run: `python build.py`
 
 For Linux:
