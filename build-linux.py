@@ -11,19 +11,12 @@ def create_venv():
     print("Creating the virtual environment...")
     subprocess.run(["python3", "-m", "venv", "venv"], check=True)
 
-
-def activate_venv():
-    print("Activating the virtual environment...")
-    subprocess.run("source ./venv/bin/activate", shell=True, check=True)
-
-
 def install_requirements():
     print("Installing the requirements...")
     subprocess.run(
-        ["./venv/bin/pip3", "install", "-r", "requirements-linux.txt"],
+        ["./venv/bin/python3", "-m", "pip", "install", "-r", "requirements-linux.txt"],
         check=True,
     )
-
 
 def install_pyinstaller():
     print("Installing PyInstaller...")
@@ -198,7 +191,6 @@ def clean_up():
 
 if __name__ == "__main__":
     create_venv()
-    activate_venv()
     install_requirements()
     install_pyinstaller()
     create_executable()
