@@ -72,7 +72,7 @@ jobs:
           python-version: "3.11.9"
   
       - name: Pip Install Requirements-Dev
-        run: python -m pip install -r requirements-dev.txt
+        run: python -m pip install -r requirements-dev-linux.txt
   
       - name: Sanity Check - List pip modules
         run: python -m pip list
