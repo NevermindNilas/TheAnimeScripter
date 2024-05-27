@@ -78,7 +78,7 @@ jobs:
         run: python -m pip list
   
       - name: Run build script
-        run: python build.py --venv
+        run: python build-linux.py
   
       - name: Get the date
         id: date
