@@ -101,34 +101,38 @@ class UnifiedDenoise:
                 elif self.precision == "bfloat16":
                     torch.set_default_dtype(torch.bfloat16)
                     self.model.bfloat16()
+        
+        self.stream = torch.cuda.Stream()
 
     @torch.inference_mode()
-    def run(self, frame: np.ndarray) -> np.ndarray:
-        if self.isCudaAvailable and self.half:
-            if self.precision == "fp16":
+    def run(self, frame: torch.tensor) -> torch.tensor:
+        with torch.cuda.stream(self.stream):
+            if self.isCudaAvailable and self.half:
+                if self.precision == "fp16":
+                    frame = (
+                        frame.to(self.device)
+                        .permute(2, 0, 1)
+                        .unsqueeze(0)
+                        .half()
+                        .mul_(1 / 255)
+                    )
+                elif self.precision == "bfloat16":
+                    frame = (
+                        frame.to(self.device)
+                        .permute(2, 0, 1)
+                        .unsqueeze(0)
+                        .bfloat16()
+                        .mul_(1 / 255)
+                    )
+            else:
                 frame = (
                     frame.to(self.device)
                     .permute(2, 0, 1)
                     .unsqueeze(0)
-                    .half()
+                    .float()
                     .mul_(1 / 255)
                 )
-            elif self.precision == "bfloat16":
-                frame = (
-                    frame.to(self.device)
-                    .permute(2, 0, 1)
-                    .unsqueeze(0)
-                    .bfloat16()
-                    .mul_(1 / 255)
-                )
-        else:
-            frame = (
-                frame.to(self.device)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .float()
-                .mul_(1 / 255)
-            )
 
-        frame = self.model(frame)
-        return frame.squeeze(0).permute(1, 2, 0).mul_(255)
+            frame = self.model(frame).squeeze(0).permute(1, 2, 0).mul_(255)
+            self.stream.synchronize()
+            return frame
