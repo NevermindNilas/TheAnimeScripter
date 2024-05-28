@@ -94,23 +94,13 @@ class UniversalPytorch:
                 self.model.half()
 
     @torch.inference_mode()
-    def run(self, frame: np.ndarray) -> np.ndarray:
-        """
-        Upscale a frame using a desired model, and return the upscaled frame
-        Expects a numpy array of shape (height, width, 3) and dtype uint8
-        """
+    def run(self, frame: torch.tensor) -> torch.tensor:
         if self.half:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).to(self.device).half().mul_(1 / 255)
+            frame = frame.permute(2, 0, 1).unsqueeze(0).to(self.device).half().mul(1 / 255)
         else:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).to(self.device).float().mul_(1 / 255)
+            frame = frame.permute(2, 0, 1).unsqueeze(0).to(self.device).float().mul(1 / 255)
 
-        """
-        if self.isCudaAvailable:
-            torch.cuda.synchronize(self.stream[self.currentStream])
-            self.currentStream = (self.currentStream + 1) % len(self.stream)
-        """
-
-        return self.model(frame).squeeze(0).permute(1, 2, 0).mul_(255)
+        return self.model(frame).squeeze(0).permute(1, 2, 0).mul(255)
 
 
 class UniversalTensorRT:
@@ -258,13 +248,13 @@ class UniversalTensorRT:
     def run(self, frame):
         with torch.cuda.stream(self.stream):
             if self.half:
-                self.dummyInput.copy_(frame.permute(2, 0, 1).unsqueeze(0).half().mul_(1 / 255))
+                self.dummyInput.copy_(frame.permute(2, 0, 1).unsqueeze(0).half().mul(1 / 255))
             else:
-                self.dummyInput.copy_(frame.permute(2, 0, 1).unsqueeze(0).float().mul_(1 / 255))
+                self.dummyInput.copy_(frame.permute(2, 0, 1).unsqueeze(0).float().mul(1 / 255))
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()
         
-            return self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255).clamp(0, 255)
+            return self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).clamp(0, 255)
 
 class UniversalDirectML:
     def __init__(

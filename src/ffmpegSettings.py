@@ -396,7 +396,7 @@ class WriteBuffer:
                 "-",
                 "-an",
                 "-fps_mode",
-                "vfr",
+                "cfr",
             ]
 
             if not self.custom_encoder:

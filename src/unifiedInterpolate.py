@@ -108,7 +108,7 @@ class RifeCuda:
             self.height + self.padding[3],
             self.width + self.padding[1],
             dtype=torch.float16
-            if self.half and self.isCudaAvailable
+            if self.half
             else torch.float32,
             device=self.device,
         )
@@ -119,50 +119,12 @@ class RifeCuda:
             self.height + self.padding[3],
             self.width + self.padding[1],
             dtype=torch.float16
-            if self.half and self.isCudaAvailable
+            if self.half
             else torch.float32,
             device=self.device,
         )
 
         self.firstRun = True
-
-        if self.interpolateFactor == 2:
-            self.timestep = (
-                torch.zeros(
-                    1,
-                    1,
-                    self.I0.shape[2],
-                    self.I0.shape[3],
-                    dtype=torch.float16 if self.half else torch.float32,
-                    device=self.device,
-                )
-                * 0.5
-            )
-
-    @torch.inference_mode()
-    def make_inference(self, timestep):
-        if self.interpolateFactor != 2:
-            self.timestep = (
-                torch.zeros(
-                    1,
-                    1,
-                    self.I0.shape[2],
-                    self.I0.shape[3],
-                    dtype=torch.float16 if self.half else torch.float32,
-                    device=self.device,
-                )
-                * timestep
-            )
-
-        output = self.model(
-            self.I0, self.I1, self.timestep, self.scaleList, self.ensemble
-        )
-        output = output[:, :, : self.height, : self.width]
-
-        return output.mul_(255.0).squeeze(0).permute(1, 2, 0)
-
-    def cacheFrame(self):
-        self.I0.copy_(self.I1, non_blocking=True)
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -170,17 +132,17 @@ class RifeCuda:
             frame = (
                 frame.to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
-                .unsqueeze_(0)
+                .unsqueeze(0)
                 .half()
-                .mul_(1 / 255)
+                .mul(1 / 255)
             )
         else:
             frame = (
                 frame.to(self.device, non_blocking=True)
                 .permute(2, 0, 1)
-                .unsqueeze_(0)
+                .unsqueeze(0)
                 .float()
-                .mul_(1 / 255)
+                .mul(1 / 255)
             )
 
         if self.padding != (0, 0, 0, 0):
@@ -189,14 +151,26 @@ class RifeCuda:
         return frame
 
     @torch.inference_mode()
-    def run(self, I1):
+    def run(self, frame, interpolateFactor, writeBuffer):
         if self.firstRun is True:
-            self.I0.copy_(self.processFrame(I1), non_blocking=True)
+            self.I0 = self.processFrame(frame)
             self.firstRun = False
-            return False
+            return
+        self.I1 = self.processFrame(frame)
+        for i in range(interpolateFactor - 1):
+            timestep = torch.full(
+                (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
+                (i + 1) * 1 / interpolateFactor,
+                dtype=torch.float16 if self.half else torch.float32,
+                device=self.device,
+            )
+            output = self.model(
+                    self.I0, self.I1, timestep, self.scaleList, self.ensemble
+            )
+            output = output[:, :, : self.height, : self.width]
+            writeBuffer.write(output.mul(255.0).squeeze(0).permute(1, 2, 0))
 
-        self.I1.copy_(self.processFrame(I1), non_blocking=True)
-        return True
+        self.I0.copy_(self.I1, non_blocking=True)
 
 
 class RifeTensorRT:
@@ -390,72 +364,58 @@ class RifeTensorRT:
     @torch.inference_mode()
     def make_inference(self, n):
         with torch.cuda.stream(self.stream):
-            if self.interpolateFactor != 2:
-                self.timestep = (
-                    torch.zeros(
-                        1,
-                        1,
-                        self.height,
-                        self.width,
-                        dtype=self.dType,
-                        device=self.device,
-                    )
-                    * n
-                )
+            timestep = torch.full(
+                (1, 1, self.height, self.width),
+                n,
+                dtype=self.dType,
+                device=self.device,
+            )
 
-            self.dummyInput.copy_(torch.cat([self.I0, self.I1, self.timestep], dim=1))
+            self.dummyInput.copy_(torch.cat([self.I0, self.I1, timestep], dim=1))
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()
 
-            return self.dummyOutput.squeeze(0).permute(1, 2, 0).mul_(255)
-
-        """
-        return(
-            self.runner.infer(
-                {
-                    "input": torch.cat(
-                        [
-                            self.I0,
-                            self.I1,
-                            self.timestep,
-                        ],
-                        dim=1,
-                    )
-                },
-                check_inputs=False,
-            )["output"]
-        ).squeeze(0).permute(1, 2, 0).mul_(255)
-        """
-
-    @torch.inference_mode()
-    def cacheFrame(self):
-        self.I0.copy_(self.I1, non_blocking=True)
+            return self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
 
     @torch.inference_mode()
     def processFrame(self, frame):
         return (
             (
-                frame.to(self.device, non_blocking=True)
+                frame.to(self.device)
                 .permute(2, 0, 1)
-                .unsqueeze_(0)
+                .unsqueeze(0)
                 .float()
                 if not self.half
-                else frame.to(self.device, non_blocking=True)
+                else frame.to(self.device)
                 .permute(2, 0, 1)
-                .unsqueeze_(0)
+                .unsqueeze(0)
                 .half()
             )
-            .mul_(1 / 255)
+            .mul(1 / 255)
             .contiguous()
         )
 
     @torch.inference_mode()
-    def run(self, I1):
+    def run(self, frame, interpolateFactor, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun is True:
-                self.I0.copy_(self.processFrame(I1), non_blocking=True)
+                self.I0 = self.processFrame(frame)
                 self.firstRun = False
-                return False
+                return
+            self.I1 = self.processFrame(frame)
+            for i in range(interpolateFactor - 1):
+                timestep = torch.full(
+                    (1, 1, self.height, self.width),
+                    (i + 1) * 1 / interpolateFactor,
+                    dtype=self.dType,
+                    device=self.device,
+                )
 
-            self.I1.copy_(self.processFrame(I1), non_blocking=True)
-            return True
+                self.dummyInput.copy_(torch.cat([self.I0, self.I1, timestep], dim=1))
+
+                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+
+                self.stream.synchronize()
+                writeBuffer.write(self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).clamp(0, 255))
+
+            self.I0.copy_(self.I1)

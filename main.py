@@ -141,10 +141,8 @@ class VideoProcessor:
                 result = self.dedup_process.run(frame)
                 if result:
                     self.dedupCount += 1
-                    self.semaphore.release()
                     return
                 
-
             if self.denoise:
                 frame = self.denoise_process.run(frame)
 
@@ -152,15 +150,8 @@ class VideoProcessor:
                 frame = self.upscale_process.run(frame)
 
             if self.interpolate:
-                run = self.interpolate_process.run(frame)
-                if run:
-                    for i in range(self.interpolate_factor - 1):
-                        result = self.interpolate_process.make_inference(
-                            (i + 1) * 1.0 / (self.interpolate_factor + 1)
-                        )
-                        self.writeBuffer.write(result)
+                self.interpolate_process.run(frame, self.interpolate_factor, self.writeBuffer)
 
-                    self.interpolate_process.cacheFrame()
             self.writeBuffer.write(frame)
 
         except Exception as e:
