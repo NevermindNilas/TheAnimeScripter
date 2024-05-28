@@ -5,6 +5,7 @@ import cupy
 
 from src.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
+from src.coloredPrints import yellow, red
 
 torch.set_float32_matmul_precision("medium")
 # from: https://github.com/HolyWu/vs-gmfss_fortuna/blob/master/vsgmfss_fortuna/__init__.py
@@ -12,13 +13,12 @@ torch.set_float32_matmul_precision("medium")
 
 class GMFSS:
     def __init__(
-        self, interpolation_factor, half, width, height, UHD, ensemble=False, nt=1
+        self, interpolation_factor, half, width, height, ensemble=False, nt=1
     ):
         self.width = width
         self.height = height
         self.half = half
         self.interpolation_factor = interpolation_factor
-        self.UHD = UHD
         self.ensemble = ensemble
         self.nt = nt
 
@@ -26,10 +26,11 @@ class GMFSS:
         pw = ((self.width - 1) // 32 + 1) * 32
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
-        if self.UHD:
+        if self.width > 1920 or self.height > 1080:
+            print(yellow("Warning: Output Resolution is higher than 1080p. Expect significant slowdowns or no functionality at all due to VRAM Constraints when using GMFSS, in case of issues consider switching to RIFE."))
             self.scale = 0.5
         else:
-            self.scale = 1.0
+            self.scale = 1
 
         self.handle_model()
 
@@ -47,11 +48,10 @@ class GMFSS:
             toPrint = "CUDA is not available, using CPU. Expect significant slowdows or no functionality at all. If you have a NVIDIA GPU, please install CUDA and make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
             print(toPrint)
             logging.warning(toPrint)
-        try:
-            cupy.cuda.get_cuda_path()
-        except Exception:
-            toPrint = "Couldn't find relevant CUDA installation. Please make sure that CUDA_Path is in the environment variables. CUDA Installation link: https://developer.nvidia.com/cuda-downloads"
-            print(toPrint)
+
+        if cupy.cuda.get_cuda_path() is None:
+            toPrint = "Couldn't find relevant CUDA installation. Please install CUDA TOOLKIT from: https://developer.nvidia.com/cuda-downloads and try again."
+            print(red(toPrint))
             logging.error(toPrint)
 
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")

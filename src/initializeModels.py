@@ -196,7 +196,6 @@ def initializeModels(self):
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolate_factor, '.3f')}fps"
         )
 
-        UHD = True if outputWidth >= 3840 or outputHeight >= 2160 else False
         match self.interpolate_method:
             case (
                 "rife"
@@ -212,7 +211,6 @@ def initializeModels(self):
                     self.half,
                     outputWidth,
                     outputHeight,
-                    UHD,
                     self.interpolate_method,
                     self.ensemble,
                     self.nt,
@@ -226,7 +224,6 @@ def initializeModels(self):
                     self.half,
                     outputWidth,
                     outputHeight,
-                    UHD,
                     self.ensemble,
                     self.nt,
                 )

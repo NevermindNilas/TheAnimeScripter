@@ -17,7 +17,6 @@ class RifeCuda:
         half,
         width,
         height,
-        UHD,
         interpolateMethod,
         ensemble=False,
         nt=1,
@@ -36,7 +35,6 @@ class RifeCuda:
             nt (int): The number of streams to use, not available for now.
         """
         self.half = half
-        self.UHD = UHD
         self.scale = 1.0
         self.width = width
         self.height = height
@@ -45,13 +43,12 @@ class RifeCuda:
         self.nt = nt
         self.interpolateFactor = interpolateFactor
 
-        if self.UHD:
+        if self.width > 1920 or self.height > 1080:
             self.scale = 0.5
-
-        if self.UHD and self.half:
-            print(yellow("UHD and fp16 are not compatible with RIFE, defaulting to fp32"))
-            logging.info("UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32") 
-            self.half = False
+            if self.half:
+                print(yellow("UHD and fp16 are not compatible with RIFE, defaulting to fp32"))
+                logging.info("UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32") 
+                self.half = False
 
         self.handle_model()
 
@@ -232,7 +229,7 @@ class RifeTensorRT:
         self.nt = nt
         self.model = None
 
-        if self.width >= 3840 or self.height >= 2160:
+        if self.width >= 1920 or self.height >= 1080:
             if self.half:
                 print(yellow("UHD and fp16 are not compatible with RIFE, defaulting to fp32"))
                 logging.info("UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32") 
