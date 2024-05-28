@@ -1,4 +1,5 @@
 import os
+import torch
 
 from rife_ncnn_vulkan_python import Rife
 from src.downloadModels import downloadModels, modelsMap, weightsDir
@@ -69,16 +70,19 @@ class rifeNCNN:
         self.frame1 = None
         self.shape = (self.height, self.width)
 
-    def make_inference(self, timestep):
-        return self.rife.process_fast_torch(self.frame1, self.frame2, timestep=timestep)
-
-    def cacheFrame(self):
-        self.frame1 = self.frame2.copy()
-
-    def run(self, frame):
+    def run(self, frame, interpolateFactor, writeBuffer):
         if self.frame1 is None:
-            self.frame1 = frame.cpu().numpy()
+            self.frame1 = frame.cpu().numpy().astype("uint8")
             return False
 
-        self.frame2 = frame.cpu().numpy()
-        return True
+        self.frame2 = frame.cpu().numpy().astype("uint8")
+        
+        for i in range(interpolateFactor):
+            timestep = (i + 1) * 1 / interpolateFactor
+            
+            output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
+
+            output = torch.from_numpy(output).to(frame.device)
+            writeBuffer.write(output)
+        
+        self.frame1 = self.frame2
