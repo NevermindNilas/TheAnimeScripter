@@ -1,8 +1,6 @@
 import os
 import logging
 import sys
-import time
-
 
 from urllib.parse import urlparse
 from .generateOutput import outputNameGenerator
@@ -52,7 +50,8 @@ def argumentChecker(args, mainPath, scriptVersion):
         logging.info("Dedup is enabled, audio will be disabled")
 
     if args.dedup_method == "ssim" or args.dedup_method == "ssim-cuda":
-        args.dedup_sens = 1.0 - (args.dedup_sens / 1000) * 0.1
+        args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
+        print(args.dedup_sens)
 
     if args.custom_encoder:
         logging.info(
