@@ -92,20 +92,22 @@ class IFBlock(nn.Module):
 
 
 class IFNet(nn.Module):
-    def __init__(self):
+    def __init__(self, ensemble=False, scale=1):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7, c=192)
         self.block1 = IFBlock(8 + 4, c=128)
         self.block2 = IFBlock(8 + 4, c=96)
         self.block3 = IFBlock(8 + 4, c=64)
 
+        self.scale_list=[8/scale, 4/scale, 2/scale, 1/scale]
+        self.ensemble = ensemble
+
     def forward(
         self,
         image1,
         image2,
         timestep,
-        scale_list=[8, 4, 2, 1],
-        ensemble=False,
+        interpolateFactor=2,
     ):
         merged = []
         mask_list = []
@@ -119,13 +121,13 @@ class IFNet(nn.Module):
                 flow, mask = block[i](
                     torch.cat((image1[:, :3], image2[:, :3], timestep), 1),
                     None,
-                    scale=scale_list[i],
+                    scale=self.scale_list[i],
                 )
-                if ensemble:
+                if self.ensemble:
                     f1, m1 = block[i](
                         torch.cat((image2[:, :3], image1[:, :3], 1 - timestep), 1),
                         None,
-                        scale=scale_list[i],
+                        scale=self.scale_list[i],
                     )
                     flow = (flow + torch.cat((f1[:, 2:4], f1[:, :2]), 1)) / 2
                     mask = (mask + (-m1)) / 2
@@ -135,9 +137,9 @@ class IFNet(nn.Module):
                         (warped_image0[:, :3], warped_image1[:, :3], timestep, mask), 1
                     ),
                     flow,
-                    scale=scale_list[i],
+                    scale=self.scale_list[i],
                 )
-                if ensemble:
+                if self.ensemble:
                     f1, m1 = block[i](
                         torch.cat(
                             (
@@ -149,7 +151,7 @@ class IFNet(nn.Module):
                             1,
                         ),
                         torch.cat((flow[:, 2:4], flow[:, :2]), 1),
-                        scale=scale_list[i],
+                        scale=self.scale_list[i],
                     )
                     f0 = (f0 + torch.cat((f1[:, 2:4], f1[:, :2]), 1)) / 2
                     m0 = (m0 + (-m1)) / 2

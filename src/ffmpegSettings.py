@@ -11,11 +11,11 @@ from queue import Queue
 def getDedupStrenght(
     dedupSens: float = 0.0,
     hi_min: float = 64 * 2,
-    hi_max: float = 64 * 150,
+    hi_max: float = 64 * 250,
     lo_min: float = 64 * 2,
-    lo_max: float = 64 * 30,
+    lo_max: float = 64 * 50,
     frac_min: float = 0.1,
-    frac_max: float = 0.3,
+    frac_max: float = 0.5,
 ) -> str:
     """
     Get FFMPEG dedup Params based on the dedupSens attribute.

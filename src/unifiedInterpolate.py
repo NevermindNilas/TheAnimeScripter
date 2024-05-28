@@ -73,7 +73,7 @@ class RifeCuda:
             case "rife4.6":
                 from .rifearches.IFNet_rife46 import IFNet
 
-        self.model = IFNet()
+        self.model = IFNet(self.ensemble, self.scale)
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
 
@@ -94,13 +94,6 @@ class RifeCuda:
         ph = ((self.height - 1) // 32 + 1) * 32
         pw = ((self.width - 1) // 32 + 1) * 32
         self.padding = (0, pw - self.width, 0, ph - self.height)
-
-        self.scaleList = [
-            8 / self.scale,
-            4 / self.scale,
-            2 / self.scale,
-            1 / self.scale,
-        ]
 
         self.I0 = torch.zeros(
             1,
@@ -126,37 +119,40 @@ class RifeCuda:
 
         self.firstRun = True
 
+    
+
     @torch.inference_mode()
     def processFrame(self, frame):
-        if self.half:
-            frame = (
-                frame.to(self.device, non_blocking=True)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .half()
-                .mul(1 / 255)
-            )
-        else:
-            frame = (
-                frame.to(self.device, non_blocking=True)
+        return (
+            (
+                frame.to(self.device)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
                 .float()
-                .mul(1 / 255)
+                if not self.half
+                else frame.to(self.device)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .half()
             )
+            .mul(1 / 255)
+            .contiguous()
+        )
 
-        if self.padding != (0, 0, 0, 0):
-            frame = F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
-
-        return frame
+    @torch.inference_mode()
+    def padFrame(self, frame):
+        return F.pad(frame, [0, self.padding[1], 0, self.padding[3]]) if self.padding != (0, 0, 0, 0) else frame
 
     @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
         if self.firstRun is True:
             self.I0 = self.processFrame(frame)
+            self.I0 = self.padFrame(self.I0)
             self.firstRun = False
             return
         self.I1 = self.processFrame(frame)
+        self.I1 = self.padFrame(self.I1)
+
         for i in range(interpolateFactor - 1):
             timestep = torch.full(
                 (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
@@ -165,7 +161,7 @@ class RifeCuda:
                 device=self.device,
             )
             output = self.model(
-                    self.I0, self.I1, timestep, self.scaleList, self.ensemble
+                    self.I0, self.I1, timestep, interpolateFactor
             )
             output = output[:, :, : self.height, : self.width]
             writeBuffer.write(output.mul(255.0).squeeze(0).permute(1, 2, 0))
@@ -316,16 +312,11 @@ class RifeTensorRT:
             device=self.device,
         )
 
-        self.timestep = (
-            torch.zeros(
-                1,
-                1,
-                self.height,
-                self.width,
-                dtype=self.dType,
-                device=self.device,
-            )
-            * 0.5
+        self.timestep = torch.full(
+            (1, 1, self.height, self.width),
+            0.5,
+            dtype=self.dType,
+            device=self.device,
         )
 
         self.dummyIinput = torch.zeros(
@@ -360,22 +351,6 @@ class RifeTensorRT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
         self.firstRun = True
-
-    @torch.inference_mode()
-    def make_inference(self, n):
-        with torch.cuda.stream(self.stream):
-            timestep = torch.full(
-                (1, 1, self.height, self.width),
-                n,
-                dtype=self.dType,
-                device=self.device,
-            )
-
-            self.dummyInput.copy_(torch.cat([self.I0, self.I1, timestep], dim=1))
-            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-            self.stream.synchronize()
-
-            return self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -415,7 +390,8 @@ class RifeTensorRT:
 
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
 
+                output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).clamp(0, 255)
                 self.stream.synchronize()
-                writeBuffer.write(self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).clamp(0, 255))
+                writeBuffer.write(output)
 
             self.I0.copy_(self.I1)
