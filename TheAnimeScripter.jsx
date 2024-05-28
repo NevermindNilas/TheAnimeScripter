@@ -829,35 +829,69 @@ var TheAnimeScripter = (function () {
                     "\"" + exeFile + "\"",
                     "--input", "\"" + activeLayerPath + "\"",
                     "--output", "\"" + outputName + "\"",
-                    ...(checkboxInterpolateValue() ? ["--interpolate"] : []),
                     "--interpolate_factor", interpolateValue(),
                     "--interpolate_method", interpolateModel().toLowerCase(),
-                    ...(checkboxUpscaleValue() ? ["--upscale"] : []),
                     "--upscale_factor", upscaleValue(),
                     "--upscale_method", upscaleModel().toLowerCase(),
-                    ...(checkboxDeduplicateValue() ? ["--dedup"] : []),
                     "--dedup_sens", dedupSensValue(),
                     "--dedup_method", dedupMethod().toLowerCase(),
                     "--half",
                     "--inpoint", sourceInPoint,
                     "--outpoint", sourceOutPoint,
-                    ...(checkboxSharpenValue() ? ["--sharpen"] : []),
                     "--sharpen_sens", sharpenSensValue(),
-                    "--segment", segmentValue,
-                    "--scenechange", sceneChangeValue,
-                    "--depth", depthValue,
                     "--depth_method", depthModel().toLowerCase(),
                     "--encode_method", encoderMethod().toLowerCase(),
                     "--scenechange_sens", sceneChangeSensValue(),
-                    ...(checkboxEnsembleValue() ? ["--ensemble"] : []),
-                    ...(checkboxResizeValue() ? ["--resize"] : []),
                     "--resize_method", resizeMethod().toLowerCase(),
                     "--resize_factor", resizeValue(),
                     "--nt", threadsValue(),
-                    ...(checkboxDenoiseValue() ? ["--denoise"] : []),
                     "--denoise_method", denoiseMethod().toLowerCase(),
-                    ...(checkboxConsentValue() ? ["--consent"] : []),
                 ];
+
+                if (checkboxInterpolateValue()) {
+                    attempt.push("--interpolate");
+                }
+
+                if (checkboxUpscaleValue()) {
+                    attempt.push("--upscale");
+                }
+
+                if (checkboxDeduplicateValue()) {
+                    attempt.push("--dedup");
+                }
+
+                if (checkboxSharpenValue()) {
+                    attempt.push("--sharpen");
+                }
+
+                if (checkboxEnsembleValue()) {
+                    attempt.push("--ensemble");
+                }
+
+                if (checkboxResizeValue()) {
+                    attempt.push("--resize");
+                }
+
+                if (checkboxDenoiseValue()) {
+                    attempt.push("--denoise");
+                }
+
+                if (checkboxConsentValue()) {
+                    attempt.push("--consent");
+                }
+
+                if (segmentValue == 1) {
+                    attempt.push("--segment");
+                }
+
+                if (depthValue == 1) {
+                    attempt.push("--depth");
+                }
+
+                if (sceneChangeValue == 1) {
+                    attempt.push("--scenechange");
+                }
+
                 if (customModelPath && customModelPath !== "undefined") {
                     attempt.push("--custom_model", customModelPath);
                 }
