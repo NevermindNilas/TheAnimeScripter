@@ -48,6 +48,11 @@ class RifeCuda:
         if self.UHD:
             self.scale = 0.5
 
+        if self.UHD and self.half:
+            print(yellow("UHD and fp16 are not compatible with RIFE, defaulting to fp32"))
+            logging.info("UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32") 
+            self.half = False
+
         self.handle_model()
 
     def handle_model(self):
@@ -86,6 +91,8 @@ class RifeCuda:
 
         if self.isCudaAvailable and self.half:
             self.model.half()
+        else:
+            self.model.float()
 
         self.model.load_state_dict(torch.load(modelPath))
         self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()
@@ -119,6 +126,7 @@ class RifeCuda:
 
         self.firstRun = True
 
+        self.stream = torch.cuda.Stream()
     
 
     @torch.inference_mode()
@@ -145,28 +153,31 @@ class RifeCuda:
 
     @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
-        if self.firstRun is True:
-            self.I0 = self.processFrame(frame)
-            self.I0 = self.padFrame(self.I0)
-            self.firstRun = False
-            return
-        self.I1 = self.processFrame(frame)
-        self.I1 = self.padFrame(self.I1)
+        with torch.cuda.stream(self.stream):
+            if self.firstRun is True:
+                self.I0 = self.processFrame(frame)
+                self.I0 = self.padFrame(self.I0)
+                self.firstRun = False
+                return
+            self.I1 = self.processFrame(frame)
+            self.I1 = self.padFrame(self.I1)
 
-        for i in range(interpolateFactor - 1):
-            timestep = torch.full(
-                (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
-                (i + 1) * 1 / interpolateFactor,
-                dtype=torch.float16 if self.half else torch.float32,
-                device=self.device,
-            )
-            output = self.model(
-                    self.I0, self.I1, timestep, interpolateFactor
-            )
-            output = output[:, :, : self.height, : self.width]
-            writeBuffer.write(output.mul(255.0).squeeze(0).permute(1, 2, 0))
+            for i in range(interpolateFactor - 1):
+                timestep = torch.full(
+                    (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
+                    (i + 1) * 1 / interpolateFactor,
+                    dtype=torch.float16 if self.half else torch.float32,
+                    device=self.device,
+                )
+                output = self.model(
+                        self.I0, self.I1, timestep, interpolateFactor
+                )
+                output = output[:, :, : self.height, : self.width]
+                output = output.mul(255.0).squeeze(0).permute(1, 2, 0)
+                self.stream.synchronize()
+                writeBuffer.write(output)
 
-        self.I0.copy_(self.I1, non_blocking=True)
+            self.I0.copy_(self.I1, non_blocking=True)
 
 
 class RifeTensorRT:
