@@ -300,14 +300,14 @@ def modelsMap(
         case "rife4.6-tensorrt":
             if half:
                 if ensemble:
-                    return "rife_v4.6_ensemble_fp16_op20_sim.onnx"
+                    return "rife46_v2_ensembleTrue_op16_fp16_mlrt_sim.onnx"
                 else:
-                    return "rife_v4.6_fp16_op20_sim.onnx"
+                    return "rife46_v2_ensembleFalse_op16_fp16_mlrt_sim.onnx"
             else:
                 if ensemble:
-                    return "rife_v4.6_ensemble_op20_sim.onnx"
+                    return "rife46_v2_ensembleTrue_op16_mlrt_sim.onnx"
                 else:
-                    return "rife_v4.6_op20_sim.onnx"
+                    return "rife46_v2_ensembleFalse_op16_mlrt_sim.onnx"
                 
         case "rife4.17-tensorrt":
             if half:
@@ -388,7 +388,7 @@ def downloadModels(
 
     if model in ["vits", "vitb", "vitl"]:
         fullUrl = f"{DEPTHURL}{filename}"
-    elif model in ["rife4.15-tensorrt", "rife4.17-tensorrt"]:
+    elif model in ["rife4.15-tensorrt", "rife4.17-tensorrt", "rife4.6-tensorrt"]:
         fullUrl = f"{SUDOURL}{filename}"
     else:
         fullUrl = f"{TASURL}{filename}"
