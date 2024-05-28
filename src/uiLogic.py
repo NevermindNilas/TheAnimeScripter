@@ -3,6 +3,7 @@ import os
 import json
 import threading
 import logging
+import sys
 
 from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
@@ -104,7 +105,10 @@ def runCommand(self, mainPath, settingsFile) -> None:
             if loweredOption in ["input", "output"]:
                 command.append(f"--{loweredOption} \"{loweredOptionValue}\"")
             else:
-                command.append(f"--{loweredOption} {loweredOptionValue}")
+                if loweredOptionValue in ["true", "True"]:
+                    command.append(f"--{loweredOption}")
+                else:
+                    command.append(f"--{loweredOption} {loweredOptionValue}")
 
         command = " ".join(command)
         print(command)
@@ -113,25 +117,28 @@ def runCommand(self, mainPath, settingsFile) -> None:
                 process = subprocess.Popen(
                     command,
                     shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    bufsize=0,
+                    stdout=subprocess.PIPE,  # Change this
+                    stderr=subprocess.STDOUT,  # And this
+                    bufsize=1,
                     universal_newlines=True,
                 )
-                while True:
-                    output = process.stdout.readline()
-                    if output == "" and process.poll() is not None:
-                        break
-                    if output:
-                        self.outputWindow.append(output.strip())
+
+                def stream_output():
+                    for line in iter(process.stdout.readline, ''):
+                        self.outputWindow.append(line.strip())
+                    process.stdout.close()
+
+                threading.Thread(target=stream_output).start()
+                process.wait()
+
             except Exception as e:
                 self.outputWindow.append(
                     f"An error occurred while running the command, {e}"
                 )
                 logging.error(f"An error occurred while running, {e}")
 
-
         threading.Thread(target=runSubprocess, args=(command,)).start()
+
 
     except Exception as e:
         self.outputWindow.append(f"An error occurred while running the command, {e}")
