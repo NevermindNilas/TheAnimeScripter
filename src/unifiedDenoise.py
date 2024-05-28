@@ -1,7 +1,6 @@
 import os
 import torch
 import logging
-import numpy as np
 
 from spandrel import ModelLoader, ImageModelDescriptor
 from .downloadModels import downloadModels, weightsDir, modelsMap
