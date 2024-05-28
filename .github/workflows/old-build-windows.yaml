@@ -1,4 +1,4 @@
-name: Build
+name: Old-Build-Method-Windows
 
 on:
   workflow_dispatch:
