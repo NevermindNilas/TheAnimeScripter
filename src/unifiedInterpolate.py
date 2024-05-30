@@ -130,18 +130,15 @@ class RifeCuda:
     def processFrame(self, frame):
         return (
             (
-                frame.to(self.device)
+                frame.to(self.device, non_blocking=True, dtype=torch.float32)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
-                .float()
                 if not self.half
-                else frame.to(self.device)
+                else frame.to(self.device, non_blocking=True, dtype=torch.float16)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
-                .half()
             )
             .mul(1 / 255)
-            .contiguous()
         )
 
     @torch.inference_mode()
@@ -363,25 +360,22 @@ class RifeTensorRT:
             tensor_name = self.engine.get_tensor_name(i)
             if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
-
+            
         self.firstRun = True
 
     @torch.inference_mode()
     def processFrame(self, frame):
         return (
             (
-                frame.to(self.device)
+                frame.to(self.device, non_blocking=True, dtype=torch.float32)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
-                .float()
                 if not self.half
-                else frame.to(self.device)
+                else frame.to(self.device, non_blocking=True, dtype=torch.float16)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
-                .half()
             )
             .mul(1 / 255)
-            .contiguous()
         )
 
     @torch.inference_mode()
@@ -399,13 +393,10 @@ class RifeTensorRT:
                     dtype=self.dType,
                     device=self.device,
                 )
-
                 self.dummyInput.copy_(torch.cat([self.I0, self.I1, timestep], dim=1))
-
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-
-                output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).clamp(0, 255)
+                output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul_(255)
                 self.stream.synchronize()
                 writeBuffer.write(output)
-
-            self.I0.copy_(self.I1)
+    
+            self.I0.copy_(self.I1, non_blocking=True)
