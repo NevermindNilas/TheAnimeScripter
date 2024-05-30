@@ -229,7 +229,7 @@ class RifeTensorRT:
         self.nt = nt
         self.model = None
 
-        if self.width >= 1920 or self.height >= 1080:
+        if self.width > 1920 or self.height > 1080:
             if self.half:
                 print(yellow("UHD and fp16 are not compatible with RIFE, defaulting to fp32"))
                 logging.info("UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32") 
