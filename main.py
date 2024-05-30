@@ -157,7 +157,6 @@ class VideoProcessor:
                 )
 
             self.writeBuffer.write(frame)
-            print(1)
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
 
