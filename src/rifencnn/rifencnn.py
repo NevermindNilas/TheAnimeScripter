@@ -77,7 +77,7 @@ class rifeNCNN:
 
         self.frame2 = frame.cpu().numpy().astype("uint8")
         
-        for i in range(interpolateFactor):
+        for i in range(interpolateFactor - 1):
             timestep = (i + 1) * 1 / interpolateFactor
             
             output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
