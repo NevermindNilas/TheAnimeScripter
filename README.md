@@ -95,7 +95,6 @@ All of the available parameters for interacting with the CLI or directly with ma
 - ShuffleCugan ( CUDA, TensorRT, and NCNN )
 - Span ( CUDA, TensorRT, DirectML and NCNN versions)
 - RealESRGan ( CUDA and NCNN versions)
-- OmniSR ( CUDA only )
 - SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective TensorRT and DirectML versions)
 
 **Unofficially Supported:**
@@ -132,8 +131,6 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 | [FFmpeg Group](https://github.com/FFmpeg/FFmpeg)                                                      | FFmpeg               |
 | [YT-DLP](https://github.com/yt-dlp/yt-dlp)                                                            | YT-DLP               |
 | [Hongyuanyu](https://github.com/hongyuanyu/span)                                                      | SPAN                 |
-| [Phhofm](https://github.com/phhofm)                                                                   | Cugan, OmniSR Models |
-| [Francis0625](https://github.com/Francis0625/Omni-SR)                                                 | OmniSR               |
 | [Breakthrough](https://github.com/Breakthrough/PySceneDetect)                                         | Automated Scene Detection |
 | [Chainner-org](https://github.com/chaiNNer-org/spandrel)                                              | Spandrel, easy to use arch implementations |
 | [Kim2091](https://openmodeldb.info/models/1x-span-anime-pretrain)                                      | Span 1x Model        |
