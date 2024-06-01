@@ -225,7 +225,6 @@ def dropdownsLabels(method):
                 "Cugan",
                 "RealESRGAN",
                 "Span",
-                "OmniSR",
                 "ShuffleCugan-TensorRT",
                 "Span-TensorRT",
                 "Compact-TensorRT",

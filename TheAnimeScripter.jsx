@@ -479,7 +479,6 @@ var TheAnimeScripter = (function () {
         "SuperUltraCompact",
         "Span",
         "RealEsrgan",
-        "OmniSR",
         "ShuffleCugan-TensorRT",
         "Span-TensorRT",
         "Compact-TensorRT",

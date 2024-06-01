@@ -18,7 +18,6 @@ def modelsList() -> list[str]:
         "ultracompact",
         "superultracompact",
         "span",
-        "omnisr",
         "shufflecugan",
         "cugan",
         "segment",
@@ -146,9 +145,6 @@ def modelsMap(
                 return "2x_ModernSpanimationV1_clamp_fp16_op19_onnxslim.onnx"
             else:
                 return "2x_ModernSpanimationV1_clamp_op19_onnxslim.onnx"
-
-        case "omnisr":
-            return "2xHFA2kOmniSR.pth"
 
         case "shufflecugan" | "shufflecugan-directml":
             if modelType == "pth":
