@@ -36,14 +36,15 @@ def getWindowsInfo():
 
 def getLinuxInfo():
     osName = platform.uname().system
-    cpuInfo = psutil.cpu_info()
+    cpuCount = psutil.cpu_count()
+    cpuFreq = psutil.cpu_freq().current if psutil.cpu_freq() else "N/A"  # Some systems may not support cpu_freq
     ramInfo = psutil.virtual_memory()
     systemRam = round(ramInfo.total / (1024.0**3), 2)  # Convert Bytes to GB
     availableRam = round(ramInfo.available / (1024.0**3), 2)  # Convert Bytes to GB
     gpus = GPUtil.getGPUs()
 
     logging.info(f"OS Name: {osName}")
-    logging.info(f"CPU: {cpuInfo.brand_raw}")
+    logging.info(f"CPU: {cpuCount} cores, {cpuFreq} MHz")
     logging.info(f"RAM: {systemRam} GB")
     logging.info(f"Available RAM: {availableRam} GB")
     for i, gpu in enumerate(gpus):
