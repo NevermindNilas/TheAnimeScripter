@@ -128,7 +128,6 @@ def initializeModels(self):
                 | "ultracompact"
                 | "superultracompact"
                 | "span"
-                | "omnisr"
                 | "realesrgan"
             ):
                 upscale_process = UniversalPytorch(
@@ -234,6 +233,7 @@ def initializeModels(self):
                 | "rife4.15-ncnn"
                 | "rife4.15-lite-ncnn"
                 | "rife4.16-lite-ncnn"
+                | "rife4.17-ncnn"
             ):
                 from src.rifencnn.rifencnn import rifeNCNN
 

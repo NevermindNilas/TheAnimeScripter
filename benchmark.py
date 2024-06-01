@@ -83,7 +83,7 @@ def runUpscaleBenchmark(inputVideo, executor):
     results = {}
     for method in upscaleMethods:
         print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
-        if method in ["omnisr", "realresrgan", "cugan"]:
+        if method in ["realresrgan", "cugan"]:
             output = os.popen(
                 f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 1"
             ).read()
@@ -180,7 +180,6 @@ if __name__ == "__main__":
         "ultracompact",
         "superultracompact",
         "span",
-        "omnisr",
         "realesrgan",
         "cugan-directml",
         "compact-directml",
