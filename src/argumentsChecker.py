@@ -51,7 +51,6 @@ def argumentChecker(args, mainPath, scriptVersion):
 
     if args.dedup_method == "ssim" or args.dedup_method == "ssim-cuda":
         args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
-        print(args.dedup_sens)
 
     if args.custom_encoder:
         logging.info(

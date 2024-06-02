@@ -3,7 +3,6 @@ import os
 import json
 import threading
 import logging
-import sys
 
 from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
