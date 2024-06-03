@@ -62,8 +62,8 @@ class VideoProcessor:
         self.sharpen = args.sharpen
         self.sharpen_sens = args.sharpen_sens
         self.segment = args.segment
-        self.scenechange = args.scenechange
-        self.scenechange_sens = args.scenechange_sens
+        self.autoclip = args.autoclip
+        self.autoclip_sens = args.autoclip_sens
         self.depth = args.depth
         self.depth_method = args.depth_method
         self.encode_method = args.encode_method
@@ -105,13 +105,13 @@ class VideoProcessor:
             )
 
         if self.scenechange:
-            from src.scenechange.scene_change import Scenechange
+            from src.autoclip.autoclip import AutoClip
 
             logging.info("Detecting scene changes")
 
-            Scenechange(
+            AutoClip(
                 self.input,
-                self.scenechange_sens,
+                self.autoclip_sens,
                 mainPath,
                 self.inpoint,
                 self.outpoint,
@@ -344,12 +344,12 @@ if __name__ == "__main__":
         "--segment", action="store_true", help="Segment the video", required=False
     )
     argparser.add_argument(
-        "--scenechange",
+        "--autoclip",
         action="store_true",
         help="Detect scene changes",
         required=False,
     )
-    argparser.add_argument("--scenechange_sens", type=float, default=50)
+    argparser.add_argument("--autoclip_sens", type=float, default=50)
     argparser.add_argument(
         "--depth",
         action="store_true",

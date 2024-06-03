@@ -64,10 +64,10 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--segment` (action=store_true): Enable segmentation.
 - `--segment_method` (str, default="anime", choices=["anime", "anime-tensorrt"])L Choose the desired segmentation method.
 
-#### Scene Change Detection:
+#### Auto Cut Clips Detection:
 
-- `--scenechange` (action=store_true): Enable scene change detection.
-- `--scenechange_sens` (float, default=40): Sensitivity of scene change detection.
+- `--autoclip` (action=store_true): Enable scene change detection.
+- `--autoclip_sens` (float, default=40): Sensitivity of scene change detection.
 
 #### Depth Map Generation:
 

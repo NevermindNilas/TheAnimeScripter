@@ -4,17 +4,17 @@ from scenedetect import VideoManager, FrameTimecode, SceneManager
 from scenedetect.detectors import ContentDetector
 
 
-class Scenechange:
-    def __init__(self, input, scenechange_sens, output_dir, inPoint, outPoint):
+class AutoClip:
+    def __init__(self, input, autoclip_sens, output_dir, inPoint, outPoint):
         self.input = input
-        self.scenechange_sens = scenechange_sens
+        self.autoclip_sens = autoclip_sens
         self.output_dir = output_dir
         self.inPoint = inPoint
         self.outPoint = outPoint
 
         video_manager = VideoManager([self.input])
         scene_manager = SceneManager()
-        scene_manager.add_detector(ContentDetector(threshold=self.scenechange_sens))
+        scene_manager.add_detector(ContentDetector(threshold=self.autoclip_sens))
 
         if self.outPoint != 0:
             start_time = FrameTimecode(self.inPoint, video_manager.get_framerate())
@@ -29,7 +29,7 @@ class Scenechange:
 
         scene_list = scene_manager.get_scene_list()
 
-        with open(os.path.join(self.output_dir, "scenechangeresults.txt"), "w") as f:
+        with open(os.path.join(self.output_dir, "autoclipresults.txt"), "w") as f:
             for i, scene in enumerate(scene_list):
                 start_time = scene[0].get_seconds()
                 end_time = scene[1].get_seconds()
