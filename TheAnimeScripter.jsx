@@ -8,7 +8,7 @@ var TheAnimeScripter = (function () {
     var outputFolder = app.settings.haveSetting(scriptName, "outputFolder") ? app.settings.getSetting(scriptName, "outputFolder") : "undefined";
     var theAnimeScripterPath = app.settings.haveSetting(scriptName, "theAnimeScripterPath") ? app.settings.getSetting(scriptName, "theAnimeScripterPath") : "undefined";
     var segmentValue = 0;
-    var sceneChangeValue = 0;
+    var autoClipValue = 0;
     var depthValue = 0;
     var customModelPath = "undefined";
     var consentData = app.settings.haveSetting(scriptName, "consentData") ? app.settings.getSetting(scriptName, "consentData") : false;
@@ -126,13 +126,13 @@ var TheAnimeScripter = (function () {
     buttonSegment.preferredSize.width = 105;
     buttonSegment.alignment = ["center", "top"];
 
-    var buttonSceneChange = panelPostProcess.add("button", undefined, undefined, {
-        name: "buttonSceneChange"
+    var buttonAutoClip = panelPostProcess.add("button", undefined, undefined, {
+        name: "buttonAutoClip"
     });
 
-    buttonSceneChange.text = "Auto Cut";
-    buttonSceneChange.preferredSize.width = 105;
-    buttonSceneChange.alignment = ["center", "top"];
+    buttonAutoClip.text = "Auto Cut";
+    buttonAutoClip.preferredSize.width = 105;
+    buttonAutoClip.alignment = ["center", "top"];
 
     buttonGetVideo = panelPostProcess.add("button", undefined, undefined, {
         name: "buttonGetVideo"
@@ -321,15 +321,15 @@ var TheAnimeScripter = (function () {
         }
     }
 
-    createSlider(generalPanel, "Sharpenening Sensitivity", "Sharpen", 50);
+    createSlider(generalPanel, "Sharpenening Sensitivity", "SharpenSens", 50);
     createSlider(generalPanel, "Deduplication Sensitivity", "DedupSens", 50);
-    createSlider(generalPanel, "Auto Cut Sensitivity", "SceneChange", 50);
+    createSlider(generalPanel, "Auto Cut Sensitivity", "AutoClipSens", 50);
 
     var sharpenSensValue = function () {
-        return labelValues["Sharpen"];
+        return labelValues["SharpenSens"];
     };
     var sceneChangeSensValue = function () {
-        return labelValues["SceneChange"];
+        return labelValues["AutoClipSens"];
     };
     var dedupSensValue = function () {
         return labelValues["DedupSens"];
@@ -647,8 +647,8 @@ var TheAnimeScripter = (function () {
         settingsWindow.show();
     };
 
-    buttonSceneChange.onClick = function () {
-        sceneChangeValue = 1;
+    buttonAutoClip.onClick = function () {
+        autoClipValue = 1;
         startChain();
     }
 
@@ -840,7 +840,7 @@ var TheAnimeScripter = (function () {
                     "--sharpen_sens", sharpenSensValue(),
                     "--depth_method", depthModel().toLowerCase(),
                     "--encode_method", encoderMethod().toLowerCase(),
-                    "--scenechange_sens", sceneChangeSensValue(),
+                    "--autoclip_sens", sceneChangeSensValue(),
                     "--resize_method", resizeMethod().toLowerCase(),
                     "--resize_factor", resizeValue(),
                     "--nt", threadsValue(),
@@ -887,8 +887,8 @@ var TheAnimeScripter = (function () {
                     attempt.push("--depth");
                 }
 
-                if (sceneChangeValue == 1) {
-                    attempt.push("--scenechange");
+                if (autoClipValue == 1) {
+                    attempt.push("--autoclip");
                 }
 
                 if (customModelPath && customModelPath !== "undefined") {
@@ -906,16 +906,16 @@ var TheAnimeScripter = (function () {
             }
 
             while (true) {
-                if (sceneChangeValue == 1) {
-                    var sceneChangeLogPath = theAnimeScripterPath + "\\scenechangeresults.txt";
-                    var sceneChangeLog = new File(sceneChangeLogPath);
-                    sceneChangeLog.open("r");
+                if (autoClipValue == 1) {
+                    var autoClipLogPath = theAnimeScripterPath + "\\autoclipresults.txt";
+                    var autoClipLog = new File(autoClipLogPath);
+                    autoClipLog.open("r");
 
                     inPoint = layer.inPoint;
                     outPoint = layer.outPoint;
 
-                    while (!sceneChangeLog.eof) {
-                        var line = sceneChangeLog.readln();
+                    while (!autoClipLog.eof) {
+                        var line = autoClipLog.readln();
                         var timestamp = parseFloat(line) + inPoint;
                         var duplicateLayer = layer.duplicate();
                         layer.outPoint = timestamp;
@@ -923,7 +923,7 @@ var TheAnimeScripter = (function () {
 
                         layer = duplicateLayer;
                     }
-                    sceneChangeLog.close();
+                    autoClipLog.close();
                     break;
                 } else {
                     var maxAttempts = 3;
@@ -967,7 +967,7 @@ var TheAnimeScripter = (function () {
             }
             i++;
         }
-        sceneChangeValue = 0;
+        autoClipValue = 0;
         segmentValue = 0;
         depthValue = 0;
     }
