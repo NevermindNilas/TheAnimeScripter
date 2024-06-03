@@ -113,6 +113,7 @@ def initializeModels(self):
     interpolate_process = None
     denoise_process = None
     dedup_process = None
+    scenechange_process = None
 
     if self.upscale:
         from src.unifiedUpscale import UniversalPytorch
@@ -316,6 +317,13 @@ def initializeModels(self):
 
             # case ffmpeg, ffmpeg works on decode, refer to ffmpegSettings.py ReadBuffer class.
 
+    if self.scenechange:
+        from src.scenechange.scenechange import SceneChange
+
+        scenechange_process = SceneChange(
+            self.half,
+        )
+
     return (
         outputWidth,
         outputHeight,
@@ -323,4 +331,5 @@ def initializeModels(self):
         interpolate_process,
         denoise_process,
         dedup_process,
+        scenechange_process,
     )

@@ -84,6 +84,7 @@ class VideoProcessor:
         self.consent = args.consent
         self.segment_method = args.segment_method
         self.flow = args.flow
+        self.scenechange = args.scenechange
 
         self.width, self.height, self.fps = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
@@ -104,7 +105,7 @@ class VideoProcessor:
                 f"Resizing to {self.width}x{self.height}, aspect ratio: {aspect_ratio}"
             )
 
-        if self.scenechange:
+        if self.autoclip:
             from src.autoclip.autoclip import AutoClip
 
             logging.info("Detecting scene changes")
@@ -152,6 +153,13 @@ class VideoProcessor:
                 frame = self.upscale_process.run(frame)
 
             if self.interpolate:
+                if self.scenechange:
+                    result = self.scenechange_process.run(frame)
+                    if result:
+                        for _ in (self.interpolate_factor - 1):
+                            self.writeBuffer.write(frame)
+                        return
+
                 self.interpolate_process.run(
                     frame, self.interpolate_factor, self.writeBuffer
                 )
@@ -185,6 +193,7 @@ class VideoProcessor:
                 self.interpolate_process,
                 self.denoise_process,
                 self.dedup_process,
+                self.scenechange_process,
             ) = initializeModels(self)
 
             self.readBuffer = BuildBuffer(
@@ -468,6 +477,9 @@ if __name__ == "__main__":
     )
     argparser.add_argument(
         "--flow", action="store_true", help="Extract the Optical Flow", required=False
+    )
+    argparser.add_argument(
+        "--scenechange", action="store_true", help="Detect scene changes", required=False
     )
 
     args = argparser.parse_args()
