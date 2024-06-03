@@ -9,7 +9,9 @@ TASURL = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/mai
 DEPTHURL = (
     "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/"
 )
-SUDOURL = "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
+SUDOURL = (
+    "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
+)
 
 
 def modelsList() -> list[str]:
@@ -59,6 +61,7 @@ def modelsList() -> list[str]:
         "rife-v4.6-ncnn",
         "rife-v4.15-lite-ncnn",
         "rife-v4.16-lite-ncnn",
+        "scenechange",
     ]
 
 
@@ -193,7 +196,7 @@ def modelsMap(
 
         case "rife" | "rife4.17":
             return "rife417.pth"
-        
+
         case "rife4.15":
             return "rife415.pth"
 
@@ -271,25 +274,25 @@ def modelsMap(
                 return "rife-v4.15-lite-ensenmble-ncnn.zip"
             else:
                 return "rife-v4.15-lite-ncnn.zip"
-        
+
         case "small-tensorrt":
             if half:
                 return "depth_anything_vits14_float16_slim.onnx"
             else:
                 return "depth_anything_vits14_float32_slim.onnx"
-        
+
         case "base-tensorrt":
             if half:
                 return "depth_anything_vitb14_float16_slim.onnx"
             else:
                 return "depth_anything_vitb14_float32_slim.onnx"
-            
+
         case "large-tensorrt":
             if half:
                 return "depth_anything_vitl14_float16_slim.onnx"
             else:
                 return "depth_anything_vitl14_float32_slim.onnx"
-        
+
         case "segment-tensorrt":
             return "isnet_is.onnx"
 
@@ -304,7 +307,7 @@ def modelsMap(
                     return "rife46_v2_ensembleTrue_op16_mlrt_sim.onnx"
                 else:
                     return "rife46_v2_ensembleFalse_op16_mlrt_sim.onnx"
-                
+
         case "rife4.17-tensorrt":
             if half:
                 if ensemble:
@@ -316,6 +319,12 @@ def modelsMap(
                     return "rife417_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
                 else:
                     return "rife417_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+
+        case "scenechange":
+            if half:
+                return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_fp16_op17_onnxslim.onnx"
+            else:
+                return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_op17_onnxslim.onnx"
         case _:
             raise ValueError(f"Model {model} not found.")
 
@@ -331,7 +340,7 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
     print(toLog)
 
     response = requests.get(download_url, stream=True)
-    
+
     try:
         total_size_in_bytes = int(response.headers.get("content-length", 0))
         if total_size_in_bytes == 0:
@@ -384,7 +393,12 @@ def downloadModels(
 
     if model in ["vits", "vitb", "vitl"]:
         fullUrl = f"{DEPTHURL}{filename}"
-    elif model in ["rife4.15-tensorrt", "rife4.17-tensorrt", "rife4.6-tensorrt"]:
+    elif model in [
+        "rife4.15-tensorrt",
+        "rife4.17-tensorrt",
+        "rife4.6-tensorrt",
+        "scenechange",
+    ]:
         fullUrl = f"{SUDOURL}{filename}"
     else:
         fullUrl = f"{TASURL}{filename}"

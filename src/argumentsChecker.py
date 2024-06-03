@@ -19,7 +19,7 @@ def argumentChecker(args, mainPath, scriptVersion):
         args.version = scriptVersion
 
     args.sharpen_sens /= 100
-    args.scenechange_sens = 100 - args.scenechange_sens
+    args.autoclip_sens = 100 - args.autoclip_sens
 
     logging.info("============== Arguments ==============")
 
