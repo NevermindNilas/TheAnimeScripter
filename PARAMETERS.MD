@@ -66,8 +66,8 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 #### Auto Cut Clips Detection:
 
-- `--autoclip` (action=store_true): Enable scene change detection.
-- `--autoclip_sens` (float, default=40): Sensitivity of scene change detection.
+- `--autoclip` (action=store_true): Enable auto cut clip detection.
+- `--autoclip_sens` (float, default=40): Sensitivity of auto cut clip detection.
 
 #### Depth Map Generation:
 
