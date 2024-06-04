@@ -33,9 +33,12 @@ from BlurWindow.blurWindow import GlobalBlur
 
 import logging
 
-logging.basicConfig(filename='gui.log', level=logging.ERROR, 
-                    format='%(asctime)s %(levelname)s %(name)s %(message)s')
-logger=logging.getLogger(__name__)
+logging.basicConfig(
+    filename="gui.log",
+    level=logging.ERROR,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 TITLE = "The Anime Scripter - 1.8.2 (Alpha)"
 W, H = 1280, 720
@@ -44,6 +47,7 @@ if getattr(sys, "frozen", False):
     mainPath = os.path.dirname(sys.executable)
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
+
 
 class VideoProcessingApp(QMainWindow):
     def __init__(self):
@@ -67,7 +71,7 @@ class VideoProcessingApp(QMainWindow):
         self.settingsFile = os.path.join(os.getcwd(), "settings.json")
         loadSettings(self, self.settingsFile)
         fadeIn(self, self.centralWidget, 500)
-    
+
     def createLayouts(self):
         self.layout = QVBoxLayout()
         self.centralWidget.setLayout(self.layout)
@@ -109,7 +113,6 @@ class VideoProcessingApp(QMainWindow):
             checkbox.setToolTip(help_text)
             setattr(self, f"{text.replace(' ', '').lower()}Checkbox", checkbox)
             self.checkboxes[text.replace(" ", "").lower()] = checkbox
-
 
     def createWidgets(self):
         self.checkboxInputLayout = QHBoxLayout()
@@ -288,8 +291,10 @@ class VideoProcessingApp(QMainWindow):
             self.updateEncodeParamsLabel
         )
 
-        noteLabel = QLabel("NOTE: If this page hasn't updated but you see a \"Settings saved successfully\" in the log panel then it's fine. The settings have been saved.")
-        
+        noteLabel = QLabel(
+            "NOTE: If this page hasn't updated but you see a \"Settings saved successfully\" in the log panel then it's fine. The settings have been saved."
+        )
+
         # Add the note label to the settings layout
         mainSettings.addWidget(noteLabel)
         settingsLayout.addWidget(mainSettingsGroup)
@@ -301,10 +306,13 @@ class VideoProcessingApp(QMainWindow):
         extraSettingsGroup = self.createGroup("Extra Settings", extraSettings)
 
         checkboxes = [
-            ("Keep Audio", "Enable or disable audio in the output file."),
             (
                 "Benchmark Mode",
                 "Benchmark mode will disable encoding and only monitor the performance of the script without the creation of an output file.",
+            ),
+            (
+                "Scene Change Detection",
+                "Enable or disable scene change detection, can impact performance but it will improve the quality of the output when interpolating.",
             ),
         ]
 

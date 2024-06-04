@@ -191,8 +191,8 @@ def saveSettings(self, settingsFile):
             "depth_method": self.depthMethodDropdown.currentText(),
             "encode_method": self.encodeMethodDropdown.currentText(),
             "resize_method": self.resizeMethodDropdown.currentText(),
-            "audio": self.keepaudioCheckbox.isChecked(),
             "benchmark": self.benchmarkmodeCheckbox.isChecked(),
+            "scenechange": self.scenechangedetectionCheckbox.isChecked(),
         }
         for i in range(self.checkboxLayout.count()):
             checkbox = self.checkboxLayout.itemAt(i).widget()
