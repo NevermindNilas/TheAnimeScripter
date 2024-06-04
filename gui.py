@@ -116,7 +116,7 @@ class VideoProcessingApp(QMainWindow):
 
     def createWidgets(self):
         self.checkboxInputLayout = QHBoxLayout()
-
+    
         for option in [
             "Resize",
             "Dedup",
@@ -128,15 +128,15 @@ class VideoProcessingApp(QMainWindow):
             "Depth",
         ]:
             self.createCheckbox(option)
-
+    
         inputFields = [
             ("Interpolate Factor:", 2, 100),
             ("Upscale Factor:", 2, 4),
             ("Resize Factor:", 1, 4),
         ]
-
+    
         self.inputFieldsLayout = QVBoxLayout()
-
+    
         for label, defaultValue, maxValue in inputFields:
             layout, entry = self.createInputField(label, defaultValue, maxValue)
             self.inputFieldsLayout.addLayout(layout)
@@ -144,34 +144,84 @@ class VideoProcessingApp(QMainWindow):
                 self.resizeFactorEntry = entry
             elif label == "Interpolate Factor:":
                 self.interpolateFactorEntry = entry
-
             elif label == "Upscale Factor:":
                 self.upscaleFactorEntry = entry
-
+    
         self.checkboxInputLayout.addLayout(self.checkboxLayout)
         self.checkboxInputLayout.addLayout(self.inputFieldsLayout)
-
+    
+        # Add settings to the options panel
+        mainSettings = QVBoxLayout()
+        mainSettings.setSpacing(10)
+        mainSettings.setAlignment(Qt.AlignmentFlag.AlignTop)
+    
+        dropdowns = [
+            ("Resize Method:", "Resize"),
+            ("Interpolate Method:", "Interpolation"),
+            ("Upscale Method:", "Upscaling"),
+            ("Denoise Method:", "Denoise"),
+            ("Dedup Method:", "Dedup"),
+            ("Depth Method:", "Depth"),
+            ("Encode Method:", "Encode"),
+        ]
+    
+        for label, method in dropdowns:
+            dropdownLayout, dropdown = self.createLabeledDropdown(
+                label, dropdownsLabels(method)
+            )
+            setattr(self, f"{method.lower()}MethodDropdown", dropdown)
+            mainSettings.addLayout(dropdownLayout)
+    
+        self.encodeParamsLabel = QLabel()
+        mainSettings.addWidget(self.encodeParamsLabel)
+        self.updateEncodeParamsLabel(self.encodeMethodDropdown.currentText())
+        self.encodeMethodDropdown.currentTextChanged.connect(
+            self.updateEncodeParamsLabel
+        )
+        self.checkboxInputLayout.addLayout(mainSettings)
+    
+        extraSettings = QVBoxLayout()
+        extraSettings.setSpacing(10)
+        extraSettings.setAlignment(Qt.AlignmentFlag.AlignTop)
+    
+        checkboxes = [
+            (
+                "Benchmark Mode",
+                "Benchmark mode will disable encoding and only monitor the performance of the script without the creation of an output file.",
+            ),
+            (
+                "Scene Change Detection",
+                "Enable or disable scene change detection, can impact performance but it will improve the quality of the output when interpolating.",
+            ),
+        ]
+    
+        for text, help_text in checkboxes:
+            checkbox = QCheckBox(text)
+            checkbox.setToolTip(help_text)
+            setattr(self, f"{text.replace(' ', '').lower()}Checkbox", checkbox)
+            extraSettings.addWidget(checkbox)
+    
+        self.checkboxInputLayout.addLayout(extraSettings)
+    
         self.pathGroup = self.createGroup("Paths", self.pathLayout)
         self.checkboxGroup = self.createGroup("Options", self.checkboxInputLayout)
         self.outputGroup = self.createGroup("Log", self.outputLayout)
-
+    
         self.inputEntry = self.createPathWidgets("Input Path:", self.browseInput)
         self.outputEntry = self.createPathWidgets("Output Path:", self.browseOutput)
-
+    
         self.outputWindow = QTextEdit()
         self.outputWindow.setReadOnly(True)
         self.outputLayout.addWidget(self.outputWindow)
-
+    
         sys.stdout = StreamToTextEdit(self.outputWindow)
         sys.stderr = StreamToTextEdit(self.outputWindow)
-
+    
         self.runButton = self.createButton("Run", self.runButtonOnClick)
-        self.settingsButton = self.createButton("Settings", self.openSettingsPanel)
-
+    
         self.buttonLayout = QHBoxLayout()
         self.buttonLayout.addWidget(self.runButton)
-        self.buttonLayout.addWidget(self.settingsButton)
-
+    
         self.addWidgetsToLayout(
             self.layout, [self.pathGroup, self.checkboxGroup, self.outputGroup], 5
         )
@@ -255,85 +305,6 @@ class VideoProcessingApp(QMainWindow):
     def closeEvent(self, event):
         saveSettings(self, self.settingsFile)
         event.accept()
-
-    def openSettingsPanel(self):
-        loadSettings(self, self.settingsFile)
-        self.settingsWidget = QWidget()
-        settingsLayout = QVBoxLayout()
-
-        mainSettings = QVBoxLayout()
-        mainSettings.setContentsMargins(10, 10, 10, 10)
-        mainSettings.setSpacing(10)
-        mainSettings.setAlignment(Qt.AlignmentFlag.AlignTop)
-        mainSettingsGroup = self.createGroup("Main Settings", mainSettings)
-
-        dropdowns = [
-            ("Resize Method:", "Resize"),
-            ("Interpolate Method:", "Interpolation"),
-            ("Upscale Method:", "Upscaling"),
-            ("Denoise Method:", "Denoise"),
-            ("Dedup Method:", "Dedup"),
-            ("Depth Method:", "Depth"),
-            ("Encode Method:", "Encode"),
-        ]
-
-        for label, method in dropdowns:
-            dropdownLayout, dropdown = self.createLabeledDropdown(
-                label, dropdownsLabels(method)
-            )
-            setattr(self, f"{method.lower()}MethodDropdown", dropdown)
-            mainSettings.addLayout(dropdownLayout)
-
-        self.encodeParamsLabel = QLabel()
-        mainSettings.addWidget(self.encodeParamsLabel)
-        self.updateEncodeParamsLabel(self.encodeMethodDropdown.currentText())
-        self.encodeMethodDropdown.currentTextChanged.connect(
-            self.updateEncodeParamsLabel
-        )
-
-        noteLabel = QLabel(
-            "NOTE: If this page hasn't updated but you see a \"Settings saved successfully\" in the log panel then it's fine. The settings have been saved."
-        )
-
-        # Add the note label to the settings layout
-        mainSettings.addWidget(noteLabel)
-        settingsLayout.addWidget(mainSettingsGroup)
-
-        extraSettings = QVBoxLayout()
-        extraSettings.setContentsMargins(10, 10, 10, 10)
-        extraSettings.setSpacing(10)
-        extraSettings.setAlignment(Qt.AlignmentFlag.AlignTop)
-        extraSettingsGroup = self.createGroup("Extra Settings", extraSettings)
-
-        checkboxes = [
-            (
-                "Benchmark Mode",
-                "Benchmark mode will disable encoding and only monitor the performance of the script without the creation of an output file.",
-            ),
-            (
-                "Scene Change Detection",
-                "Enable or disable scene change detection, can impact performance but it will improve the quality of the output when interpolating.",
-            ),
-        ]
-
-        for text, help_text in checkboxes:
-            checkbox = QCheckBox(text)
-            checkbox.setToolTip(help_text)
-            setattr(self, f"{text.replace(' ', '').lower()}Checkbox", checkbox)
-            extraSettings.addWidget(checkbox)
-
-        settingsLayout.addWidget(extraSettingsGroup)
-
-        buttonsLayout = QHBoxLayout()
-        backButton = self.createButton("Back", self.goBack)
-        buttonsLayout.addWidget(backButton)
-        settingsLayout.addLayout(buttonsLayout)
-
-        self.settingsWidget.setLayout(settingsLayout)
-        self.stackedWidget.addWidget(self.settingsWidget)
-        self.stackedWidget.setCurrentWidget(self.settingsWidget)
-
-        fadeIn(self, self.settingsWidget, 300)
 
     def updateEncodeParamsLabel(self, text):
         encodeDict = dropdownsLabels("Encode")
