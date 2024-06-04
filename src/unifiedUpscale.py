@@ -415,6 +415,7 @@ class UniversalDirectML:
             self.dummyOutput.squeeze(0)
             .permute(1, 2, 0)
             .mul_(255)
+            .clamp_(0, 255)
             .contiguous()
         )
 
