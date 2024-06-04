@@ -366,14 +366,13 @@ class UniversalDirectML:
             (1, 3, self.height, self.width),
             device=self.deviceType,
             dtype=self.torchDType,
-        )
-        self.dummyInput = self.dummyInput.contiguous()
+        ).contiguous()
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
             device=self.deviceType,
             dtype=self.torchDType,
-        )
+        ).contiguous()
 
         self.IoBinding.bind_output(
             name="output",

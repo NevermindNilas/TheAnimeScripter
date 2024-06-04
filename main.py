@@ -39,7 +39,7 @@ if getattr(sys, "frozen", False):
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.8.1"
+scriptVersion = "1.8.2"
 warnings.filterwarnings("ignore")
 
 
@@ -141,8 +141,7 @@ class VideoProcessor:
     def processFrame(self, frame):
         try:
             if self.dedup and self.dedup_method != "ffmpeg":
-                result = self.dedup_process.run(frame)
-                if result:
+                if self.dedup_process.run(frame):
                     self.dedupCount += 1
                     return
 
@@ -153,13 +152,6 @@ class VideoProcessor:
                 frame = self.upscale_process.run(frame)
 
             if self.interpolate:
-                if self.scenechange:
-                    result = self.scenechange_process.run(frame)
-                    if result:
-                        for _ in (self.interpolate_factor - 1):
-                            self.writeBuffer.write(frame)
-                        return
-
                 self.interpolate_process.run(
                     frame, self.interpolate_factor, self.writeBuffer
                 )
@@ -500,7 +492,7 @@ if __name__ == "__main__":
         videoFiles = [
             os.path.join(args.input, file)
             for file in os.listdir(args.input)
-            if file.endswith((".mp4", ".mkv", ".mov", ".avi"))
+            if file.endswith((".mp4", ".mkv", ".mov", ".avi", ".webm"))
         ]
         toPrint = f"Processing {len(videoFiles)} files"
         logging.info(toPrint)

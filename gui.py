@@ -37,7 +37,7 @@ logging.basicConfig(filename='gui.log', level=logging.ERROR,
                     format='%(asctime)s %(levelname)s %(name)s %(message)s')
 logger=logging.getLogger(__name__)
 
-TITLE = "The Anime Scripter - 1.8.1 (Alpha)"
+TITLE = "The Anime Scripter - 1.8.2 (Alpha)"
 W, H = 1280, 720
 
 if getattr(sys, "frozen", False):

@@ -215,6 +215,7 @@ def initializeModels(self):
                     self.ensemble,
                     self.nt,
                     self.interpolate_factor,
+                    self.scenechange,
                 )
             case "gmfss":
                 from src.gmfss.gmfss_fortuna_union import GMFSS
@@ -226,6 +227,7 @@ def initializeModels(self):
                     outputHeight,
                     self.ensemble,
                     self.nt,
+                    self.scenechange,
                 )
 
             case (
@@ -236,7 +238,7 @@ def initializeModels(self):
                 | "rife4.16-lite-ncnn"
                 | "rife4.17-ncnn"
             ):
-                from src.rifencnn.rifencnn import rifeNCNN
+                from src.unifiedInterpolate import rifeNCNN
 
                 interpolate_process = rifeNCNN(
                     self.interpolate_method,
@@ -244,6 +246,8 @@ def initializeModels(self):
                     self.nt,
                     outputWidth,
                     outputHeight,
+                    self.scenechange,
+                    self.half,
                 )
 
             case (
@@ -263,6 +267,7 @@ def initializeModels(self):
                     self.half,
                     self.ensemble,
                     self.nt,
+                    self.scenechange,
                 )
 
     if self.denoise:
@@ -316,13 +321,6 @@ def initializeModels(self):
                 )
 
             # case ffmpeg, ffmpeg works on decode, refer to ffmpegSettings.py ReadBuffer class.
-
-    if self.scenechange:
-        from src.scenechange.scenechange import SceneChange
-
-        scenechange_process = SceneChange(
-            self.half,
-        )
 
     return (
         outputWidth,

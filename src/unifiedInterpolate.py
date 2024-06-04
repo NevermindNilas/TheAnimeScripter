@@ -2,6 +2,7 @@ import os
 import torch
 import logging
 import tensorrt as trt
+import numpy as np
 
 from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
@@ -21,6 +22,7 @@ class RifeCuda:
         ensemble=False,
         nt=1,
         interpolateFactor=2,
+        sceneChange=False,
     ):
         """
         Initialize the RIFE model
@@ -33,6 +35,8 @@ class RifeCuda:
             interpolateMethod (str): The method to use for interpolation.
             ensemble (bool): Whether to use ensemble mode.
             nt (int): The number of streams to use, not available for now.
+            interpolateFactor (int): The interpolation factor.
+            scenechange (bool): Whether to use scene change detection.
         """
         self.half = half
         self.scale = 1.0
@@ -42,12 +46,19 @@ class RifeCuda:
         self.ensemble = ensemble
         self.nt = nt
         self.interpolateFactor = interpolateFactor
+        self.sceneChange = sceneChange
 
         if self.width > 1920 or self.height > 1080:
             self.scale = 0.5
             if self.half:
-                print(yellow("UHD and fp16 are not compatible with RIFE, defaulting to fp32"))
-                logging.info("UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32") 
+                print(
+                    yellow(
+                        "UHD and fp16 are not compatible with RIFE, defaulting to fp32"
+                    )
+                )
+                logging.info(
+                    "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
+                )
                 self.half = False
 
         self.handle_model()
@@ -104,9 +115,7 @@ class RifeCuda:
             3,
             self.height + self.padding[3],
             self.width + self.padding[1],
-            dtype=torch.float16
-            if self.half
-            else torch.float32,
+            dtype=torch.float16 if self.half else torch.float32,
             device=self.device,
         )
 
@@ -115,46 +124,64 @@ class RifeCuda:
             3,
             self.height + self.padding[3],
             self.width + self.padding[1],
-            dtype=torch.float16
-            if self.half
-            else torch.float32,
+            dtype=torch.float16 if self.half else torch.float32,
             device=self.device,
         )
 
         self.firstRun = True
 
         self.stream = torch.cuda.Stream()
-    
+
+        if self.sceneChange:
+            self.sceneChangeProcess = SceneChange(self.half)
+
+    @torch.inference_mode()
+    def cacheFrame(self):
+        self.I0.copy_(self.I1, non_blocking=True)
+        self.model.cache()
+
+    @torch.inference_mode()
+    def cacheFrameReset(self):
+        self.I0.copy_(self.I1, non_blocking=True)
+        self.model.cacheReset(self.I0)
 
     @torch.inference_mode()
     def processFrame(self, frame):
         return (
-            (
-                frame.to(self.device, non_blocking=True, dtype=torch.float32)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                if not self.half
-                else frame.to(self.device, non_blocking=True, dtype=torch.float16)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-            )
-            .mul(1 / 255)
-        )
+            frame.to(self.device, non_blocking=True, dtype=torch.float32)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            if not self.half
+            else frame.to(self.device, non_blocking=True, dtype=torch.float16)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+        ).mul(1 / 255)
 
     @torch.inference_mode()
     def padFrame(self, frame):
-        return F.pad(frame, [0, self.padding[1], 0, self.padding[3]]) if self.padding != (0, 0, 0, 0) else frame
+        return (
+            F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
+            if self.padding != (0, 0, 0, 0)
+            else frame
+        )
 
     @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
         with torch.cuda.stream(self.stream):
-            if self.firstRun is True:
-                self.I0 = self.processFrame(frame)
-                self.I0 = self.padFrame(self.I0)
+            if self.firstRun:
+                self.I0 = self.padFrame(self.processFrame(frame))
                 self.firstRun = False
                 return
-            self.I1 = self.processFrame(frame)
-            self.I1 = self.padFrame(self.I1)
+
+            self.I1 = self.padFrame(self.processFrame(frame))
+
+            if self.sceneChange:
+                if self.sceneChangeProcess.run(self.I0, self.I1):
+                    for _ in range(interpolateFactor - 1):
+                        writeBuffer.write(frame)
+                    self.cacheFrameReset()
+                    self.stream.synchronize()
+                    return
 
             for i in range(interpolateFactor - 1):
                 timestep = torch.full(
@@ -163,15 +190,13 @@ class RifeCuda:
                     dtype=torch.float16 if self.half else torch.float32,
                     device=self.device,
                 )
-                output = self.model(
-                        self.I0, self.I1, timestep, interpolateFactor
-                )
+                output = self.model(self.I0, self.I1, timestep, interpolateFactor)
                 output = output[:, :, : self.height, : self.width]
                 output = output.mul(255.0).squeeze(0).permute(1, 2, 0)
                 self.stream.synchronize()
                 writeBuffer.write(output)
 
-            self.I0.copy_(self.I1, non_blocking=True)
+            self.cacheFrame()
 
 
 class RifeTensorRT:
@@ -184,6 +209,7 @@ class RifeTensorRT:
         half: bool = True,
         ensemble: bool = False,
         nt: int = 1,
+        sceneChange: bool = False,
     ):
         """
         Interpolates frames using TensorRT
@@ -225,11 +251,18 @@ class RifeTensorRT:
         self.ensemble = ensemble
         self.nt = nt
         self.model = None
+        self.sceneChange = sceneChange
 
         if self.width > 1920 or self.height > 1080:
             if self.half:
-                print(yellow("UHD and fp16 are not compatible with RIFE, defaulting to fp32"))
-                logging.info("UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32") 
+                print(
+                    yellow(
+                        "UHD and fp16 are not compatible with RIFE, defaulting to fp32"
+                    )
+                )
+                logging.info(
+                    "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
+                )
                 self.half = False
 
         self.handleModel()
@@ -360,32 +393,44 @@ class RifeTensorRT:
             tensor_name = self.engine.get_tensor_name(i)
             if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
-            
+
         self.firstRun = True
+        if self.sceneChange:
+            self.sceneChangeProcess = SceneChange(self.half)
 
     @torch.inference_mode()
     def processFrame(self, frame):
         return (
-            (
-                frame.to(self.device, non_blocking=True, dtype=torch.float32)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                if not self.half
-                else frame.to(self.device, non_blocking=True, dtype=torch.float16)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-            )
-            .mul(1 / 255)
-        )
+            frame.to(self.device, non_blocking=True, dtype=torch.float32)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            if not self.half
+            else frame.to(self.device, non_blocking=True, dtype=torch.float16)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+        ).mul(1 / 255)
+    
+    @torch.inference_mode()
+    def cacheFrame(self):
+        self.I0.copy_(self.I1, non_blocking=True)
 
     @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
         with torch.cuda.stream(self.stream):
-            if self.firstRun is True:
+            if self.firstRun:
                 self.I0 = self.processFrame(frame)
                 self.firstRun = False
                 return
             self.I1 = self.processFrame(frame)
+
+            if self.sceneChange:
+                if self.sceneChangeProcess.run(self.I0, self.I1):
+                    for _ in range(interpolateFactor - 1):
+                        writeBuffer.write(frame)
+                    self.cacheFrame()
+                    self.stream.synchronize()
+                    return
+
             for i in range(interpolateFactor - 1):
                 timestep = torch.full(
                     (1, 1, self.height, self.width),
@@ -398,5 +443,176 @@ class RifeTensorRT:
                 output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul_(255)
                 self.stream.synchronize()
                 writeBuffer.write(output)
+
+            self.cacheFrame()
+
+class rifeNCNN:
+    def __init__(
+        self, interpolateMethod, ensemble=False, nt=1, width=1920, height=1080, sceneChange=False, half=True
+    ):
+        self.interpolateMethod = interpolateMethod
+        self.nt = nt
+        self.height = height
+        self.width = width
+        self.ensemble = ensemble
+        self.sceneChange = sceneChange
+        self.half = half
+
+        UHD = True if width >= 3840 or height >= 2160 else False
+        scale = 2 if UHD else 1
+
+        from rife_ncnn_vulkan_python import Rife
+
+        match interpolateMethod:
+            case "rife4.15-ncnn" | "rife-ncnn":
+                self.interpolateMethod = "rife-v4.15-ncnn"
+            case "rife4.6-ncnn":
+                self.interpolateMethod = "rife-v4.6-ncnn"
+            case "rife4.15-lite-ncnn":
+                self.interpolateMethod = "rife-v4.15-lite-ncnn"
+            case "rife4.16-lite-ncnn":
+                self.interpolateMethod = "rife-v4.16-lite-ncnn"
+            case "rife4.17-lite-ncnn":
+                self.interpolateMethod = "rife-v4.17-lite-ncnn"
+
+        self.filename = modelsMap(
+            self.interpolateMethod,
+            ensemble=self.ensemble,
+        )
+
+        if self.filename.endswith("-ncnn.zip"):
+            self.filename = self.filename[:-9]
+        elif self.filename.endswith("-ncnn"):
+            self.filename = self.filename[:-5]
+            
+        if not os.path.exists(
+            os.path.join(weightsDir, self.interpolateMethod, self.filename)
+        ):
+            modelPath = downloadModels(
+                model=self.interpolateMethod,
+                ensemble=self.ensemble,
+            )
+        else:
+            modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)
+
+        if modelPath.endswith("-ncnn.zip"):
+            modelPath = modelPath[:-9]
+        elif modelPath.endswith("-ncnn"):
+            modelPath = modelPath[:-5]        
+
+        self.rife = Rife(
+            gpuid=0,
+            model=modelPath,
+            scale=scale,
+            tta_mode=False,
+            tta_temporal_mode=False,
+            uhd_mode=UHD,
+            num_threads=self.nt,
+        )
+
+        self.frame1 = None
+        self.shape = (self.height, self.width)
+
+        if self.sceneChange:
+            self.sceneChangeProcess = SceneChange(self.half)
+
+    def cacheFrame(self):
+        self.frame1 = self.frame2
+        
+    def run(self, frame, interpolateFactor, writeBuffer):
+        if self.frame1 is None:
+            self.frame1 = frame.cpu().numpy().astype("uint8")
+            return False
+
+        self.frame2 = frame.cpu().numpy().astype("uint8")
+        
+        if self.sceneChange:
+            if self.sceneChangeProcess.runNumpy(self.frame1, self.frame2):
+                for _ in range(interpolateFactor - 1):
+                    writeBuffer.write(frame)
+                self.cacheFrame()
+                return
+            
+        for i in range(interpolateFactor - 1):
+            timestep = (i + 1) * 1 / interpolateFactor
+            
+            output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
+
+            output = torch.from_numpy(output).to(frame.device)
+            writeBuffer.write(output)
+        
+        self.cacheFrame()
+
+class SceneChange:
+    def __init__(
+        self,
+        half,
+    ):
+        self.half = half
+
+        import onnxruntime as ort
+        import cv2
+
+        self.ort = ort
+        self.cv2 = cv2
+
+        self.loadModel()
+
+    def loadModel(self):
+        filename = modelsMap(
+            "scenechange",
+            self.half,
+        )
+
+        if not os.path.exists(os.path.join(weightsDir, "scenechange", filename)):
+            modelPath = downloadModels(
+                "scenechange",
+                self.half,
+            )
+
+        else:
+            modelPath = os.path.join(weightsDir, "scenechange", filename)
+
+        providers = self.ort.get_available_providers()
+        if "DmlExecutionProvider" in providers:
+            logging.info(
+                "DirectML provider available for scenechange detection. Defaulting to DirectML"
+            )
+            self.model = self.ort.InferenceSession(
+                modelPath, providers=["DmlExecutionProvider"]
+            )
+        else:
+            logging.info(
+                "DirectML provider not available for scenechange detection, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
+            )
+            self.model = self.ort.InferenceSession(
+                modelPath, providers=["CPUExecutionProvider"]
+            )
+
+        self.firstRun = True
+
+    @torch.inference_mode()
+    def run(self, frame0, frame1):
+        if not self.half:
+            frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").squeeze(0).cpu().numpy()
+            frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").squeeze(0).cpu().numpy()
+        else:
+            frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").squeeze(0).half().cpu().numpy()
+            frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").squeeze(0).half().cpu().numpy()
+
+        inputs = np.ascontiguousarray(np.concatenate((frame0, frame1), 0))
+        result = self.model.run(None, {"input": inputs})[0][0][0]
+        return result > 0.93
     
-            self.I0.copy_(self.I1, non_blocking=True)
+    def runNumpy(self, frame1, frame2):
+        frame0 = self.cv2.resize(frame1, (224, 224)).transpose(2, 0, 1)
+        frame1 = self.cv2.resize(frame2, (224, 224)).transpose(2, 0, 1)
+    
+        if self.half:
+            frame0 = frame0.astype(np.float16)
+            frame1 = frame1.astype(np.float16)
+    
+        inputs = np.ascontiguousarray(np.concatenate((frame0, frame1), 0))
+        result = self.model.run(None, {"input": inputs})[0][0][0]
+    
+        return result > 0.93
