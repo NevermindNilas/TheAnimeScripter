@@ -127,13 +127,17 @@ class IFNet(nn.Module):
         self.ensemble = ensemble
         self.counter = 1
 
+    def cache(self):
+        self.f0.copy_(self.f1, non_blocking=True)
+    
+    def cacheReset(self, frame):
+        self.f0 = self.encode(frame[:, :3])
+
     def forward(self, img0, img1, timestep, interpolateFactor = 2):
         # Overengineered but it seems to work
         if interpolateFactor == 2:
             if self.f0 is None:
                 self.f0 = self.encode(img0[:, :3])
-            else:
-                self.f0.copy_(self.f1, non_blocking=True)
                 
             self.f1 = self.encode(img1[:, :3])
         else:
@@ -141,8 +145,6 @@ class IFNet(nn.Module):
                 self.counter = 1
                 if self.f0 is None:
                     self.f0 = self.encode(img0[:, :3])
-                else:
-                    self.f0.copy_(self.f1, non_blocking=True)
                 self.f1 = self.encode(img1[:, :3])
             else:
                 if self.f0 is None or self.f1 is None:

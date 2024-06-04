@@ -13,7 +13,14 @@ torch.set_float32_matmul_precision("medium")
 
 class GMFSS:
     def __init__(
-        self, interpolation_factor, half, width, height, ensemble=False, nt=1
+        self,
+        interpolation_factor,
+        half,
+        width,
+        height,
+        ensemble=False,
+        nt=1,
+        sceneChange=False,
     ):
         self.width = width
         self.height = height
@@ -21,13 +28,18 @@ class GMFSS:
         self.interpolation_factor = interpolation_factor
         self.ensemble = ensemble
         self.nt = nt
+        self.sceneChange = sceneChange
 
         ph = ((self.height - 1) // 32 + 1) * 32
         pw = ((self.width - 1) // 32 + 1) * 32
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
         if self.width > 1920 or self.height > 1080:
-            print(yellow("Warning: Output Resolution is higher than 1080p. Expect significant slowdowns or no functionality at all due to VRAM Constraints when using GMFSS, in case of issues consider switching to RIFE."))
+            print(
+                yellow(
+                    "Warning: Output Resolution is higher than 1080p. Expect significant slowdowns or no functionality at all due to VRAM Constraints when using GMFSS, in case of issues consider switching to RIFE."
+                )
+            )
             self.scale = 0.5
         else:
             self.scale = 1
@@ -58,8 +70,8 @@ class GMFSS:
 
         torch.set_grad_enabled(False)
         if self.isCudaAvailable:
-            #self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
-            #self.current_stream = 0
+            # self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
+            # self.current_stream = 0
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -80,9 +92,7 @@ class GMFSS:
             3,
             self.height + self.padding[3],
             self.width + self.padding[1],
-            dtype=torch.float16
-            if self.half
-            else torch.float32,
+            dtype=torch.float16 if self.half else torch.float32,
             device=self.device,
         )
 
@@ -91,16 +101,18 @@ class GMFSS:
             3,
             self.height + self.padding[3],
             self.width + self.padding[1],
-            dtype=torch.float16
-            if self.half
-            else torch.float32,
+            dtype=torch.float16 if self.half else torch.float32,
             device=self.device,
         )
 
         self.stream = torch.cuda.Stream()
         self.firstRun = True
 
-    @torch.inference_mode() 
+        if self.sceneChange:
+            from src.unifiedInterpolate import SceneChange
+            self.sceneChangeProcess = SceneChange(self.half)
+
+    @torch.inference_mode()
     def make_inference(self, n):
         """
         if self.isCudaAvailable:
@@ -114,28 +126,26 @@ class GMFSS:
         )
         output = self.model(self.I0, self.I1, timestep)
 
-        #if self.isCudaAvailable:
-            #torch.cuda.synchronize(self.stream[self.current_stream])
-            #self.current_stream = (self.current_stream + 1) % len(self.stream)
+        # if self.isCudaAvailable:
+        # torch.cuda.synchronize(self.stream[self.current_stream])
+        # self.current_stream = (self.current_stream + 1) % len(self.stream)
 
         if self.padding != (0, 0, 0, 0):
             output = output[..., : self.height, : self.width]
-        
+
         return output.squeeze(0).permute(1, 2, 0).mul_(255)
+    
+    @torch.inference_mode()
+    def cacheFrame(self):
+        self.I0.copy_(self.I1, non_blocking=True)
 
     @torch.inference_mode()
     def processFrame(self, frame):
         return (
             (
-                frame.to(self.device)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .float()
+                frame.to(self.device).permute(2, 0, 1).unsqueeze(0).float()
                 if not self.half
-                else frame.to(self.device)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .half()
+                else frame.to(self.device).permute(2, 0, 1).unsqueeze(0).half()
             )
             .mul(1 / 255)
             .contiguous()
@@ -143,7 +153,11 @@ class GMFSS:
 
     @torch.inference_mode()
     def padFrame(self, frame):
-        return F.pad(frame, [0, self.padding[1], 0, self.padding[3]]) if self.padding != (0, 0, 0, 0) else frame
+        return (
+            F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
+            if self.padding != (0, 0, 0, 0)
+            else frame
+        )
 
     @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
@@ -156,18 +170,25 @@ class GMFSS:
             self.I1 = self.processFrame(frame)
             self.I1 = self.padFrame(self.I1)
 
+            if self.sceneChange:
+                if self.sceneChangeProcess.run(self.I0, self.I1):
+                    for _ in range(interpolateFactor - 1):
+                        writeBuffer.write(frame)
+                    self.cacheFrame()
+                    self.stream.synchronize()
+                    return
+
             for i in range(interpolateFactor - 1):
                 timestep = torch.tensor(
                     (i + 1) * 1.0 / self.interpolation_factor,
                     dtype=self.dtype,
                     device=self.device,
                 )
-                output = self.model(
-                        self.I0, self.I1, timestep
-                )
+                output = self.model(self.I0, self.I1, timestep)
                 output = output[:, :, : self.height, : self.width]
                 output = output.mul(255.0).squeeze(0).permute(1, 2, 0)
                 self.stream.synchronize()
                 writeBuffer.write(output)
+            
+            self.cacheFrame()
 
-            self.I0.copy_(self.I1, non_blocking=True)

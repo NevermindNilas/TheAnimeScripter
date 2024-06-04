@@ -102,6 +102,12 @@ class IFNet(nn.Module):
         self.scale_list=[8/scale, 4/scale, 2/scale, 1/scale]
         self.ensemble = ensemble
 
+    def cache(self):
+        pass
+    
+    def cacheReset(self, frame):
+        pass
+
     def forward(
         self,
         image1,
