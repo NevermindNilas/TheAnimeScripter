@@ -91,7 +91,7 @@ All of the available parameters for interacting with the CLI or directly with ma
 ### Upscaling Models
 
 **Officially Supported:**
-- Cugan ( CUDA, DirectML and NCNN versions )
+- Cugan ( CUDA & DirectML)
 - ShuffleCugan ( CUDA, TensorRT, and NCNN )
 - Span ( CUDA, TensorRT, DirectML and NCNN versions)
 - RealESRGan ( CUDA and NCNN versions)
