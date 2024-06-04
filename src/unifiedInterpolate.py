@@ -396,7 +396,7 @@ class RifeTensorRT:
 
         self.firstRun = True
         if self.sceneChange:
-            self.sceneChangeProcess = SceneChangeTensorRT(self.half)
+            self.sceneChangeProcess = SceneChangeTensorRT(self.halfS)
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -561,17 +561,19 @@ class SceneChange:
     def loadModel(self):
         filename = modelsMap(
             "scenechange",
-            self.half,
+            half = self.half,
         )
 
         if not os.path.exists(os.path.join(weightsDir, "scenechange", filename)):
             modelPath = downloadModels(
                 "scenechange",
-                self.half,
+                half = self.half,
             )
 
         else:
             modelPath = os.path.join(weightsDir, "scenechange", filename)
+
+        logging.info(f"Loading scenechange detection model from {modelPath}")
 
         providers = self.ort.get_available_providers()
         if "DmlExecutionProvider" in providers:
@@ -597,10 +599,15 @@ class SceneChange:
             frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").squeeze(0).cpu().numpy()
             frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").squeeze(0).cpu().numpy()
         else:
-            frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").squeeze(0).half().cpu().numpy()
-            frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").squeeze(0).half().cpu().numpy()
+            frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").squeeze(0).cpu().numpy()
+            frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").squeeze(0).cpu().numpy()
+
+        if self.half:
+            frame0 = frame0.astype(np.float16)
+            frame1 = frame1.astype(np.float16)
 
         inputs = np.ascontiguousarray(np.concatenate((frame0, frame1), 0))
+
         result = self.model.run(None, {"input": inputs})[0][0][0]
         return result > 0.93
     
@@ -645,13 +652,13 @@ class SceneChangeTensorRT():
     def handleModel(self):
         filename = modelsMap(
             "scenechange",
-            self.half,
+            half = self.half,
         )
 
         if not os.path.exists(os.path.join(weightsDir, "scenechange", filename)):
             modelPath = downloadModels(
                 "scenechange",
-                self.half,
+                half = self.half,
             )
 
         else:
