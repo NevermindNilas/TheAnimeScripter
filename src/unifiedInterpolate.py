@@ -596,11 +596,11 @@ class SceneChange:
     @torch.inference_mode()
     def run(self, frame0, frame1):
         if not self.half:
-            frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").contiguous().squeeze(0).cpu().numpy()
-            frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").contiguous().squeeze(0).cpu().numpy()
+            frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").contiguous().squeeze_(0).cpu().numpy()
+            frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").contiguous().squeeze_(0).cpu().numpy()
         else:
-            frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").contiguous().half().squeeze(0).cpu().numpy()
-            frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").contiguous().half().squeeze(0).cpu().numpy()
+            frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").contiguous().half().squeeze_(0).cpu().numpy()
+            frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").contiguous().half().squeeze_(0).cpu().numpy()
 
         inputs = np.concatenate((frame0, frame1), 0)
 
@@ -738,7 +738,7 @@ class SceneChangeTensorRT():
                 frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").contiguous().squeeze(0).half()
                 frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").contiguous().squeeze(0).half()
 
-            self.dummyInput.copy_(torch.cat([frame0, frame1], dim=0))
+            self.dummyInput.copy_(torch.cat([frame0, frame1], dim=0), non_blocking=True)
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()
             return self.dummyOutput[0][0].item() > 0.93
