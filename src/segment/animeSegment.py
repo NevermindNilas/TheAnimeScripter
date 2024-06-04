@@ -8,7 +8,6 @@ import tensorrt as trt
 import torch.nn.functional as F
 
 from polygraphy.backend.trt import (
-    TrtRunner,
     engine_from_network,
     network_from_onnx_path,
     CreateConfig,
