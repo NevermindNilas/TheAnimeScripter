@@ -144,6 +144,7 @@ def processURL(args, mainPath):
             args.encode_method,
             args.custom_encoder,
             args.ffmpeg_path,
+            args.ae,
         )
 
         args.input = str(args.output)
