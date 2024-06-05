@@ -7,13 +7,14 @@ from yt_dlp import YoutubeDL
 
 class VideoDownloader:
     def __init__(
-        self, video_link, output, encodeMethod, customEncoder, ffmpegPath: str = None
+        self, video_link, output, encodeMethod, customEncoder, ffmpegPath: str = None, ae: bool = False
     ):
         self.link = video_link
         self.output = output
         self.encodeMethod = encodeMethod
         self.customEncoder = customEncoder
         self.ffmpegPath = ffmpegPath
+        self.ae = ae
 
         resolutions = self.listResolutions()
 
@@ -32,10 +33,10 @@ class VideoDownloader:
 
         self.resolution = answers["resolution"]
 
-        if self.resolution > 1080:
-            toPrint = f"The selected resolution {self.resolution} is higher than 1080p, this will require an aditional step of encoding the video for compatibility with After Effects, [WIP]"
-            logging.warning(toPrint)
-            print(toPrint)
+        if self.resolution > 1080 and self.ae:
+                toPrint = f"The selected resolution {self.resolution} is higher than 1080p, this will require an aditional step of encoding the video for compatibility with After Effects"
+                logging.warning(toPrint)
+                print(toPrint)
         else:
             toPrint = f"Selected resolution: {self.resolution}"
             logging.info(toPrint)
@@ -65,7 +66,7 @@ class VideoDownloader:
             ydl.download([self.link])
 
     def getOptions(self):
-        if self.resolution > 1080:
+        if self.resolution > 1080 and self.ae:
             return {
                 "format": f"bestvideo[height<={self.resolution}]+bestaudio[ext=m4a]/best[ext=mp4]",
                 "outtmpl": os.path.splitext(self.output)[0],
