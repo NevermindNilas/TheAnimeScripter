@@ -845,6 +845,7 @@ var TheAnimeScripter = (function () {
                     "--resize_factor", resizeValue(),
                     "--nt", threadsValue(),
                     "--denoise_method", denoiseMethod().toLowerCase(),
+                    "--ae",
                 ];
 
                 if (checkboxInterpolateValue()) {
@@ -1003,6 +1004,7 @@ var TheAnimeScripter = (function () {
                 "\"" + exeFile + "\"",
                 "--output", "\"" + outputName + "\"",
                 "--input", "\"" + textGetVideo.text + "\"",
+                "--ae",
             ];
             var command = attempt.join(" ");
             callCommand(command);

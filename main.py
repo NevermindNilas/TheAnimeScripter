@@ -473,6 +473,7 @@ if __name__ == "__main__":
     argparser.add_argument(
         "--scenechange", action="store_true", help="Detect scene changes", required=False
     )
+    argparser.add_argument("--ae", action="store_true", help="A simple flag for notifying if the script is ran from the After Effects interface", required=False)
 
     args = argparser.parse_args()
     args = argumentChecker(args, mainPath, scriptVersion)
