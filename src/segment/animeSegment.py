@@ -238,11 +238,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
         else:
             modelPath = os.path.join(weightsDir, "segment-tensorrt", filename)
 
-        if torch.cuda.is_available():
-            self.device = "cuda:0"
-        else:
-            self.device = "cpu"
-
+        self.device = torch.device("cuda")
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
 
@@ -309,6 +305,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
 
+    @torch.inference_mode()
     def processFrame(self, frame):
         try:
             with torch.cuda.stream(self.stream):
