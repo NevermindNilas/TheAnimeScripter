@@ -6,7 +6,6 @@ import torch.nn.functional as F
 import tensorrt as trt
 
 from polygraphy.backend.trt import (
-    TrtRunner,
     engine_from_network,
     network_from_onnx_path,
     CreateConfig,
@@ -157,48 +156,40 @@ class Depth:
         else:
             self.half = False
 
-        self.transform = Compose(
-            [
-                Resize(
-                    width=518,
-                    height=518,
-                    resize_target=False,
-                    keep_aspect_ratio=True,
-                    ensure_multiple_of=14,
-                    resize_method="lower_bound",
-                    image_interpolation_method=cv2.INTER_CUBIC,
-                ),
-                NormalizeImage(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                PrepareForNet(),
-            ]
-        )
+        self.mean_tensor = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(self.device)
+        self.std_tensor = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(self.device)
+
+        aspectRatio = self.width / self.height
+        # Fix height at 518 and adjust width
+        self.newHeight = 518
+        newWidth = round(self.newHeight * aspectRatio / 14) * 14
+        # Ensure newWidth is a multiple of 14
+        self.newWidth = (newWidth // 14) * 14
 
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            frame = frame / 255.0
-            frame = frame.numpy()
-            frame = self.transform({"image": frame})["image"]
-
-            frame = torch.from_numpy(frame).unsqueeze(0).to(self.device)
-
+            frame = frame.to(self.device).mul(1.0 / 255.0).permute(2, 0, 1).unsqueeze(0)
+            
+            frame = F.interpolate(
+                frame.float(), (self.newHeight, self.newWidth), mode="bilinear", align_corners=False
+            )
+            frame = ((frame.to(self.device) - self.mean_tensor) / self.std_tensor)
             if self.half and self.isCudaAvailable:
                 frame = frame.half()
-            else:
-                frame = frame.float()
-
+    
             depth = self.model(frame)
-
             depth = F.interpolate(
                 depth[None],
                 (self.height, self.width),
                 mode="bilinear",
                 align_corners=False,
-            )[0, 0]
+            ).squeeze(0).squeeze(0)
+
             depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-
+    
             self.writeBuffer.write(depth)
-
+    
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
@@ -312,10 +303,10 @@ class DepthTensorRT:
         
         aspectRatio = self.width / self.height
         # Fix height at 518 and adjust width
-        newHeight = 518
-        newWidth = round(newHeight * aspectRatio / 14) * 14
+        self.newHeight = 518
+        newWidth = round(self.newHeight * aspectRatio / 14) * 14
         # Ensure newWidth is a multiple of 14
-        newWidth = (newWidth // 14) * 14
+        self.newWidth = (newWidth // 14) * 14
 
         if not os.path.exists(modelPath.replace(".onnx", f"_{enginePrecision}.engine")):
             toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
@@ -324,9 +315,9 @@ class DepthTensorRT:
             profiles = [
                 Profile().add(
                     "image",
-                    min=(1, 3, newHeight, newWidth),
-                    opt=(1, 3, newHeight, newWidth),
-                    max=(1, 3, newHeight, newWidth),
+                    min=(1, 3, self.newHeight, self.newWidth),
+                    opt=(1, 3, self.newHeight, self.newWidth),
+                    max=(1, 3, self.newHeight, self.newWidth),
                 ),
             ]
             self.engine = engine_from_network(
@@ -338,22 +329,6 @@ class DepthTensorRT:
             )
 
             self.engine.__call__()
-
-        self.transform = Compose(
-            [
-                Resize(
-                    width=518,
-                    height=518,
-                    resize_target=False,
-                    keep_aspect_ratio=True,
-                    ensure_multiple_of=14,
-                    resize_method="lower_bound",
-                    image_interpolation_method=cv2.INTER_CUBIC,
-                ),
-                NormalizeImage(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-                PrepareForNet(),
-            ]
-        )
         
         with open(modelPath.replace(".onnx", f"_{enginePrecision}.engine"), "rb") as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
             self.engine = runtime.deserialize_cuda_engine(f.read()) 
@@ -361,16 +336,19 @@ class DepthTensorRT:
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
-            (1, 3, newHeight, newWidth),
+            (1, 3, self.newHeight, newWidth),
             device=self.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
 
         self.dummyOutput = torch.zeros(
-            (1, 1, newHeight, newWidth),
+            (1, 1, self.newHeight, newWidth),
             device=self.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
+        
+        self.mean_tensor = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(self.device)
+        self.std_tensor = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(self.device)
 
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
 
@@ -388,21 +366,20 @@ class DepthTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame):
+        with torch.cuda.stream(self.stream):
             try:
-                frame = (frame / 255.0).numpy()
-                frame = self.transform({"image": frame})["image"]
-
-                frame = torch.from_numpy(frame).unsqueeze(0).to(self.device)
-
+                frame = frame.to(self.device).mul(1.0 / 255.0).permute(2, 0, 1).unsqueeze(0)
+                
+                frame = F.interpolate(
+                    frame.float(), (self.newHeight, self.newWidth), mode="bilinear", align_corners=False
+                )
+                frame = ((frame.to(self.device) - self.mean_tensor) / self.std_tensor)
                 if self.half and self.isCudaAvailable:
                     frame = frame.half()
-                else:
-                    frame = frame.float()
 
-                with torch.cuda.stream(self.stream):
-                    self.stream.synchronize()
-                    self.dummyInput.copy_(frame)
-                    self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+                self.dummyInput.copy_(frame)
+                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+                self.stream.synchronize()
 
                 depth = F.interpolate(
                     self.dummyOutput,
