@@ -595,17 +595,15 @@ class SceneChange:
 
     @torch.inference_mode()
     def run(self, frame0, frame1):
-        if not self.half:
-            frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").contiguous().squeeze_(0).cpu().numpy()
-            frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").contiguous().squeeze_(0).cpu().numpy()
+        if self.half:
+            frame0 = F.interpolate(frame0, size=(224, 224), mode="bilinear").contiguous().squeeze_(0).cpu().numpy()
+            frame1 = F.interpolate(frame1, size=(224, 224), mode="bilinear").contiguous().squeeze_(0).cpu().numpy()
         else:
             frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").contiguous().half().squeeze_(0).cpu().numpy()
             frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").contiguous().half().squeeze_(0).cpu().numpy()
 
         inputs = np.concatenate((frame0, frame1), 0)
-
-        result = self.model.run(None, {"input": inputs})[0][0][0]
-        return result > 0.93
+        return self.model.run(None, {"input": inputs})[0][0][0] > 0.93
     
     def runNumpy(self, frame1, frame2):
         frame0 = self.cv2.resize(frame1, (224, 224)).transpose(2, 0, 1)
@@ -616,7 +614,6 @@ class SceneChange:
             frame1 = frame1.astype(np.float16)
     
         inputs = np.ascontiguousarray(np.concatenate((frame0, frame1), 0))
-    
         return self.model.run(None, {"input": inputs})[0][0][0] > 0.93
 
 class SceneChangeTensorRT():
@@ -731,9 +728,9 @@ class SceneChangeTensorRT():
     @torch.inference_mode()
     def run(self, frame0, frame1):
         with torch.cuda.stream(self.stream):
-            if not self.half:
-                frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").contiguous().squeeze(0)
-                frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").contiguous().squeeze(0)
+            if self.half:
+                frame0 = F.interpolate(frame0, size=(224, 224), mode="bilinear").contiguous().squeeze(0)
+                frame1 = F.interpolate(frame1, size=(224, 224), mode="bilinear").contiguous().squeeze(0)
             else:
                 frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").contiguous().squeeze(0).half()
                 frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").contiguous().squeeze(0).half()

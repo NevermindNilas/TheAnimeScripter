@@ -62,6 +62,12 @@ def modelsList() -> list[str]:
         "rife-v4.15-lite-ncnn",
         "rife-v4.16-lite-ncnn",
         "scenechange",
+        "small-tensorrt",
+        "base-tensorrt",
+        "large-tensorrt",
+        "small-directml",
+        "base-directml",
+        "large-directml",
     ]
 
 
@@ -275,19 +281,19 @@ def modelsMap(
             else:
                 return "rife-v4.15-lite-ncnn.zip"
 
-        case "small-tensorrt":
+        case "small-tensorrt" | "small-directml":
             if half:
                 return "depth_anything_vits14_float16_slim.onnx"
             else:
                 return "depth_anything_vits14_float32_slim.onnx"
 
-        case "base-tensorrt":
+        case "base-tensorrt" | "base-directml":
             if half:
                 return "depth_anything_vitb14_float16_slim.onnx"
             else:
                 return "depth_anything_vitb14_float32_slim.onnx"
 
-        case "large-tensorrt":
+        case "large-tensorrt" | "large-directml":
             if half:
                 return "depth_anything_vitl14_float16_slim.onnx"
             else:

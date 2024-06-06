@@ -84,6 +84,26 @@ def Depth(self):
                 self.buffer_limit,
                 self.benchmark,
             )
+        case "small-directml" | "base-directml" | "large-directml":
+            from src.depth.depth import DepthDirectML
+
+            DepthDirectML(
+                self.input,
+                self.output,
+                self.ffmpeg_path,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encode_method,
+                self.depth_method,
+                self.custom_encoder,
+                self.nt,
+                self.buffer_limit,
+                self.benchmark,
+            )
 
 
 def opticalFlow(self):
