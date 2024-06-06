@@ -91,9 +91,9 @@ All of the available parameters for interacting with the CLI or directly with ma
 ### Upscaling Models
 
 **Officially Supported:**
-- Cugan ( CUDA & DirectML)
+- Cugan ( CUDA & DirectML )
 - ShuffleCugan ( CUDA, TensorRT, and NCNN )
-- Span ( CUDA, TensorRT, DirectML and NCNN versions)
+- Span ( CUDA, TensorRT, DirectML and NCNN versions )
 - RealESRGan ( CUDA and NCNN versions)
 - SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective TensorRT and DirectML versions)
 
@@ -132,7 +132,6 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 | [Hongyuanyu](https://github.com/hongyuanyu/span)                                                      | SPAN                 |
 | [Breakthrough](https://github.com/Breakthrough/PySceneDetect)                                         | Automated Scene Detection |
 | [Chainner-org](https://github.com/chaiNNer-org/spandrel)                                              | Spandrel, easy to use arch implementations |
-| [Kim2091](https://openmodeldb.info/models/1x-span-anime-pretrain)                                      | Span 1x Model        |
 | [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                 |
 | [Sirosky](https://openmodeldb.info/models/2x-AniScale-2-ESRGAN-Lite)                                   | RealESRGAN Model     |
 | [TNTWise](https://github.com/TNTwise) | For Rife ONNX and NCNN models | 

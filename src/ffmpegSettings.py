@@ -40,6 +40,8 @@ def matchEncoder(encode_method: str):
     match encode_method:
         case "x264":
             command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "17"])
+        case "x264_10bit":
+            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "17", "-profile:v", "high10"])
         case "x264_animation":
             command.extend(
                 [
@@ -53,12 +55,31 @@ def matchEncoder(encode_method: str):
                     "17",
                 ]
             )
+        case "x264_animation_10bit":
+            command.extend(
+                [
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "veryfast",
+                    "-tune",
+                    "animation",
+                    "-crf",
+                    "17",
+                    "-profile:v",
+                    "high10",
+                ]
+            )
         case "x265":
             command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "17"])
+        case "x265_10bit":
+            command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "17", "-profile:v", "main10"])
         case "nvenc_h264":
             command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "17"])
         case "nvenc_h265":
             command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "17"])
+        case "nvenc_h265_10bit":
+            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "17", "-profile:v", "main10"])
         case "qsv_h264":
             command.extend(
                 ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "17"]
@@ -66,6 +87,10 @@ def matchEncoder(encode_method: str):
         case "qsv_h265":
             command.extend(
                 ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "17"]
+            )
+        case "qsv_h265_10bit":
+            command.extend(
+                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "17", "-profile:v", "main10"]
             )
         case "nvenc_av1":
             command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "17"])
@@ -79,14 +104,14 @@ def matchEncoder(encode_method: str):
             command.extend(
                 ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "17"]
             )
-        case "vp9":
-            command.extend(["-c:v", "libvpx-vp9", "-crf", "17"])
-        case "qsv_vp9":
-            command.extend(["-c:v", "vp9_qsv", "-preset", "veryfast"])
+        case "hevc_amf_10bit":
+            command.extend(
+                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "17", "-profile:v", "main10"]
+            )
         # Needs further testing, -qscale:v 15 seems to be extremely lossy
         case "prores":
             command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "17"])
-
+        
     return command
 
 
@@ -367,6 +392,13 @@ class WriteBuffer:
             inputPixFormat = "gray"
             outputPixFormat = "yuv420p10le"
 
+        elif self.encode_method in ["x264_10bit", "x265_10bit"]:
+            inputPixFormat = "rgb24"
+            outputPixFormat = "yuv420p10le"
+        
+        elif self.encode_method in ["nvenc_h265_10bit",  "hevc_amf_10bit", "qsv_h265_10bit"]:
+            inputPixFormat = "rgb24"
+            outputPixFormat = "p010le"
         else:
             inputPixFormat = "rgb24"
             outputPixFormat = "yuv420p"

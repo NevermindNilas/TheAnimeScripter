@@ -375,18 +375,22 @@ if __name__ == "__main__":
         type=str,
         choices=[
             "x264",
+            "x264_10bit",
             "x264_animation",
+            "x264_animation_10bit",
             "x265",
+            "x265_10bit",
             "nvenc_h264",
             "nvenc_h265",
+            "nvenc_h265_10bit",
             "qsv_h264",
             "qsv_h265",
+            "qsv_h265_10bit",
             "nvenc_av1",
             "av1",
             "h264_amf",
             "hevc_amf",
-            "vp9",
-            "qsv_vp9",
+            "hevc_amf_10bit",
             "prores",
         ],
         default="x264",
@@ -471,9 +475,17 @@ if __name__ == "__main__":
         "--flow", action="store_true", help="Extract the Optical Flow", required=False
     )
     argparser.add_argument(
-        "--scenechange", action="store_true", help="Detect scene changes", required=False
+        "--scenechange",
+        action="store_true",
+        help="Detect scene changes",
+        required=False,
     )
-    argparser.add_argument("--ae", action="store_true", help="A simple flag for notifying if the script is ran from the After Effects interface", required=False)
+    argparser.add_argument(
+        "--ae",
+        action="store_true",
+        help="A simple flag for notifying if the script is ran from the After Effects interface",
+        required=False,
+    )
 
     args = argparser.parse_args()
     args = argumentChecker(args, mainPath, scriptVersion)
