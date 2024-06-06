@@ -367,6 +367,9 @@ if __name__ == "__main__":
             "small-tensorrt",
             "base-tensorrt",
             "large-tensorrt",
+            "small-directml",
+            "base-directml",
+            "large-directml",
         ],
         default="small",
     )
