@@ -265,9 +265,12 @@ def dropdownsLabels(method):
                     "x264_animation",
                     "-c:v libx264 -preset fast -tune animation -crf 17",
                 ),
+                "x264_10bit": ("x264_10bit", "-c:v libx264 -preset fast -profile:v high10 -crf 17"),
                 "x265": ("x265", "-c:v libx265 -preset fast -crf 17"),
+                "x265_10bit": ("x265_10bit", "-c:v libx265 -preset fast -profile:v main10 -crf 17"),
                 "nvenc_h264": ("nvenc_h264", "-c:v h264_nvenc -preset p1 -cq 17"),
                 "nvenc_h265": ("nvenc_h265", "-c:v hevc_nvenc -preset p1 -cq 17"),
+                "nvenc_h265_10bit": ("nvenc_h265_10bit", "-c:v hevc_nvenc -preset p1 -profile:v main10 -cq 17"),
                 "qsv_h264": (
                     "qsv_h264",
                     "-c:v h264_qsv -preset veryfast -global_quality 17",
@@ -276,12 +279,15 @@ def dropdownsLabels(method):
                     "qsv_h265",
                     "-c:v hevc_qsv -preset veryfast -global_quality 17",
                 ),
+                "qsv_h265_10bit": (
+                    "qsv_h265_10bit",
+                    "-c:v hevc_qsv -preset veryfast -profile:v main10 -global_quality 17",
+                ),
                 "nvenc_av1": ("nvenc_av1", "-c:v av1_nvenc -preset p1 -cq 17"),
                 "av1": ("av1", "-c:v libsvtav1 -preset 8 -crf 17"),
                 "h264_amf": ("h264_amf", "-c:v h264_amf -quality speed -rc cqp -qp 17"),
                 "hevc_amf": ("hevc_amf", "-c:v hevc_amf -quality speed -rc cqp -qp 17"),
-                "vp9": ("vp9", "-c:v libvpx-vp9 -crf 17"),
-                "qsv_vp9": ("qsv_vp9", "-c:v vp9_qsv -preset veryfast"),
+                "hevc_amf_10bit": ("hevc_amf_10bit", "-c:v hevc_amf -quality speed -rc cqp -qp 17 -profile:v main10"),
                 "prores": ("prores", "-c:v prores_ks -profile:v 4 -qscale:v 17"),
             }
         case "Resize":
