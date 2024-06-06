@@ -114,33 +114,31 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self.model.eval()
         self.model.to(self.device)
 
-    def get_mask(self, input_img):
+    def get_mask(self, input_img: torch.Tensor) -> torch.Tensor:
         s = 1024
-        input_img = (input_img / 255).astype(np.float32)
         h, w = h0, w0 = input_img.shape[:-1]
         h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
         ph, pw = s - h, s - w
-        img_input = cv2.resize(input_img, (w, h))
-        img_input = np.pad(
-            img_input, ((ph // 2, ph - ph // 2), (pw // 2, pw - pw // 2), (0, 0))
+        input_img = input_img.float().to(self.device).mul_(1 / 255).permute(2, 0, 1).unsqueeze(0)
+        img_input = F.interpolate(
+            input_img,
+            size=(h, w),
+            mode="bilinear",
+            align_corners=False,
         )
-        img_input = np.transpose(img_input, (2, 0, 1))
-        img_input = img_input[np.newaxis, :]
-        tmpImg = torch.from_numpy(img_input).type(torch.FloatTensor).to(self.device)
-
+        img_input = F.pad(img_input, (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2))
         with torch.no_grad():
-            pred = self.model(tmpImg)
-            pred = pred[0]
-            pred = pred[:, ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w]
-            pred = torch.nn.functional.interpolate(
-                pred.unsqueeze(0), size=(h0, w0), mode="bilinear", align_corners=False
-            ).squeeze(0)
-            pred = pred.permute(1, 2, 0)
-            return pred.mul(255).byte()
+            pred = self.model(img_input)
+            pred = pred[:, :, ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w]
+            pred = F.interpolate(
+                pred, size=(h0, w0), mode="bilinear", align_corners=False
+            ).squeeze_(0).permute(1, 2, 0).mul_(255).to(torch.uint8)
+            return pred
 
+    @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            mask = self.get_mask(frame.numpy())
+            mask = self.get_mask(frame)
             mask = torch.squeeze(mask, dim=2)
             frameWithmask = torch.cat((frame.to(self.device), mask.unsqueeze(2)), dim=2)
             self.writeBuffer.write(frameWithmask)
