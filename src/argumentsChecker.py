@@ -49,7 +49,7 @@ def argumentChecker(args, mainPath, scriptVersion):
         args.audio = False
         logging.info("Dedup is enabled, audio will be disabled")
 
-    if args.dedup_method == "ssim" or args.dedup_method == "ssim-cuda":
+    if args.dedup_method in ["ssim", "ssim-cuda"]:
         args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
 
     if args.custom_encoder:
