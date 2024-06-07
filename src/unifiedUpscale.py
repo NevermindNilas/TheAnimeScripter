@@ -94,14 +94,11 @@ class UniversalPytorch:
                 self.model.half()
 
         self.stream = torch.cuda.Stream()
+        
     @torch.inference_mode()
     def run(self, frame: torch.tensor) -> torch.tensor:
         with torch.cuda.stream(self.stream):
-            if self.half:
-                frame = frame.permute(2, 0, 1).unsqueeze(0).to(self.device).half().mul(1 / 255)
-            else:
-                frame = frame.permute(2, 0, 1).unsqueeze(0).to(self.device).float().mul(1 / 255)
-
+            frame = frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).mul_(1 / 255)
             output = self.model(frame).squeeze(0).permute(1, 2, 0).mul(255)
             self.stream.synchronize()
             return output

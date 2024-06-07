@@ -7,6 +7,7 @@ import numpy as np
 from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
 from .coloredPrints import yellow
+from concurrent.futures import ThreadPoolExecutor
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
@@ -148,14 +149,12 @@ class RifeCuda:
     @torch.inference_mode()
     def processFrame(self, frame):
         return (
-            frame.to(self.device, non_blocking=True, dtype=torch.float32)
+            frame.to(self.device, non_blocking=True, dtype=torch.float32 if not self.half else torch.float16)
             .permute(2, 0, 1)
-            .unsqueeze(0)
-            if not self.half
-            else frame.to(self.device, non_blocking=True, dtype=torch.float16)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-        ).mul(1 / 255)
+            .unsqueeze_(0)
+            .mul_(1 / 255)
+            .contiguous()
+        )
 
     @torch.inference_mode()
     def padFrame(self, frame):
@@ -372,7 +371,7 @@ class RifeTensorRT:
             device=self.device,
         )
 
-        self.dummyInput = torch.zeros(
+        self.dummyInput = torch.empty(
             (1, 7, self.height, self.width),
             device=self.device,
             dtype=torch.float16 if self.half else torch.float32,
@@ -401,50 +400,90 @@ class RifeTensorRT:
     @torch.inference_mode()
     def processFrame(self, frame):
         return (
-            frame.to(self.device, non_blocking=True, dtype=torch.float32)
+            frame.to(self.device, non_blocking=True, dtype=torch.float32 if not self.half else torch.float16)
             .permute(2, 0, 1)
-            .unsqueeze(0)
-            if not self.half
-            else frame.to(self.device, non_blocking=True, dtype=torch.float16)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-        ).mul(1 / 255)
+            .unsqueeze_(0)
+            .mul_(1 / 255)
+            .contiguous()
+        )
     
     @torch.inference_mode()
     def cacheFrame(self):
         self.I0.copy_(self.I1, non_blocking=True)
+    
+    @torch.inference_mode()
+    def processFrames(self, frame):
+        if self.firstRun:
+            self.I0.copy_(self.processFrame(frame), non_blocking=True)
+            self.firstRun = False
+            return False
+        self.I1.copy_(self.processFrame(frame), non_blocking=True)
+        return True
+    
+    @torch.inference_mode()
+    def inference(self, frame, interpolateFactor, writeBuffer):
+        if self.sceneChange:
+            if self.sceneChangeProcess.run(self.I0, self.I1):
+                for _ in range(interpolateFactor - 1):
+                    writeBuffer.write(frame)
+                self.cacheFrame()
+                self.stream.synchronize()
+                return
+            
+        for i in range(interpolateFactor - 1):
+            timestep = torch.full(
+                (1, 1, self.height, self.width),
+                (i + 1) * 1 / interpolateFactor,
+                dtype=self.dType,
+                device=self.device,
+            ).contiguous()
+            
+            self.dummyInput.copy_(torch.cat([self.I0, self.I1, timestep], dim=1), non_blocking=True)
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul_(255)
+            self.stream.synchronize()
+            writeBuffer.write(output)
 
     @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
         with torch.cuda.stream(self.stream):
-            if self.firstRun:
-                self.I0 = self.processFrame(frame)
-                self.firstRun = False
-                return
-            self.I1 = self.processFrame(frame)
-
-            if self.sceneChange:
-                if self.sceneChangeProcess.run(self.I0, self.I1):
-                    for _ in range(interpolateFactor - 1):
-                        writeBuffer.write(frame)
-                    self.cacheFrame()
-                    self.stream.synchronize()
+            with ThreadPoolExecutor() as executor:
+                result = executor.submit(self.processFrames, frame)
+                if result:
+                    executor.submit(self.inference, frame, interpolateFactor, writeBuffer)
+                    executor.submit(self.cacheFrame)
+                else:
                     return
-
-            for i in range(interpolateFactor - 1):
-                timestep = torch.full(
-                    (1, 1, self.height, self.width),
-                    (i + 1) * 1 / interpolateFactor,
-                    dtype=self.dType,
-                    device=self.device,
-                )
-                self.dummyInput.copy_(torch.cat([self.I0, self.I1, timestep], dim=1))
-                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-                output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul_(255)
-                self.stream.synchronize()
-                writeBuffer.write(output)
-
-            self.cacheFrame()
+                
+            #if self.firstRun:
+            #    self.I0.copy_(self.processFrame(frame), non_blocking=True)
+            #    self.firstRun = False
+            #    return
+            #self.I1.copy_(self.processFrame(frame), non_blocking=True)
+#
+            #if self.sceneChange:
+            #    if self.sceneChangeProcess.run(self.I0, self.I1):
+            #        for _ in range(interpolateFactor - 1):
+            #            writeBuffer.write(frame)
+            #        self.cacheFrame()
+            #        self.stream.synchronize()
+            #        return
+#
+            #for i in range(interpolateFactor - 1):
+            #    timestep = torch.full(
+            #        (1, 1, self.height, self.width),
+            #        (i + 1) * 1 / interpolateFactor,
+            #        dtype=self.dType,
+            #        device=self.device,
+            #    ).contiguous()
+            #    
+            #    self.dummyInput.copy_(torch.cat([self.I0, self.I1, timestep], dim=1), non_blocking=True)
+            #    self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            #    output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul_(255)
+            #    self.stream.synchronize()
+            #    writeBuffer.write(output)
+#
+            #self.cacheFrame()
 
 class rifeNCNN:
     def __init__(
