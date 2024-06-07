@@ -292,16 +292,10 @@ def initializeModels(self):
 
     if self.denoise:
         match self.denoise_method:
-            case "scunet" | "dpir" | "nafnet" | "span":
+            case "scunet" | "dpir" | "nafnet":
                 from src.unifiedDenoise import UnifiedDenoise
-
                 denoise_process = UnifiedDenoise(
                     self.denoise_method,
-                    self.width,
-                    self.height,
-                    self.half,
-                    self.custom_model,
-                    self.nt,
                 )
 
     if self.dedup:
