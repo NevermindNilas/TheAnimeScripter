@@ -14,7 +14,6 @@ yt-dlp
 requests
 tqdm
 tensorrt
-einops
 scikit-image
 scenedetect[opencv]
 pytorch-lightning
