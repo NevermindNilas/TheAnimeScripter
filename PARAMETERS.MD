@@ -97,9 +97,9 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 #### Performance Settings:
 
 - `--half` (action=store_true, default=True): Enable FP16 which improves the performance, generally by about 50% but can technically result in lower quality results. Generally speaking it's worth using Fp16 for the faster inference.
-- `--buffer_limit` (int, default=50): Set the limit for how many frames can be in the decoding and encoding buffers at any given time. This can be used to reduce memory usage at the cost of potential performance loss due to overhead. A value that is too high can lead to Out of Memory errors ( OOM ). Don't set this too high unless you have a lot of RAM to spare.
+- `--buffer_limit` (int, default=50): Set the limit for how many frames can be in the decoding and encoding buffers at any given time. Useful for when the encoding is the main bottleneck in the process but it does come at a cost of larger ram consumption.
 
-## Examples:
+## Manual Usage Examples:
 
 Sidenotes:
 - Replace `.\input\test.mp4` with a full or relative path to a video file or folder.
@@ -134,7 +134,7 @@ Example 7: Enable depth map generation using the "large" method.
 
 - `python .\main.py --input .\input\test.mp4 --depth --depth_method large`
 
-Example 8: Download a YouTube video and then upscale it with shufflecugan.
+Example 8: Download a YouTube video, upscale it with span-tensorrt, interpolate it with rife4.17-tensorrt coupled with scene change detection.
 
-- `python .\main.py --input https://www.youtube.com/watch?v=dQw4w9WgXcQ --upscale --upscale_method shufflecugan`
+- `python .\main.py --input https://www.youtube.com/watch?v=dQw4w9WgXcQ --upscale --upscale_method span-tensorrt --interpolate --interpolate_method rife4.17-tensorrt --scenechange`
 - Remember to replace the YouTube URL with the actual URL of the video you want to download.
