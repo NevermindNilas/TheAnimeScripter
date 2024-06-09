@@ -33,19 +33,19 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--interpolate` (action=store_true): Enable interpolation.
 - `--interpolate_factor` (int, default=2): Factor for interpolation.
 - `--interpolate_method` (str, default="rife"): Interpolation method:
-    - Options: "rife", "rife4.6", "rife4.15", "rife4.15-lite", "rife4.17", "rife-ncnn", "rife4.6-ncnn", "rife4.15-ncnn", "rife4.15-lite-ncnn", "rife4.16-lite-ncnn", "rife4.6-tensorrt", "rife4.15-tensorrt", "rife4.15-lite-tensorrt", "rife4.17-tensorrt", "gmfss".
-    - Notation: `rife`, `rife-ncnn`, will default to the latest available version.
+    - Options: "rife4.6 / rife4.6-ncnn / rife4.6-tensorrt", "rife4.15 / rife4.15-ncnn / rife4.15-tensorrt", "rife4.15-lite / rife4.15-lite-ncnn / rife4.15-lite-tensorrt ", "rife4.16-lite / rife4.16-lite-ncnn", "rife4.17 / rife4.17-tensorrt", "gmfss".
 - `--ensemble` (action=store_true): Activate Ensemble for higher quality outputs from Rife.
 
 #### Scene Change Settings:
-- `--scenechange` (action=store_true, default=False): Enable scene change detection, useful for avoiding interpolation between different scenes of a clip / video in order to avoid artifacting. This only works if --interpolate is available, expect performance losses.
+
+- `--scenechange` (action=store_true, default=False): Enable scene change detection, useful for avoiding interpolation between different scenes of a clip / video in order to avoid artifacting. This only works if `--interpolate` is available, expect performance losses.
 
 #### Deduplication settings:
 
 - `--dedup` (action=store_true): Enable deduplication.
 - `--dedup_method` (str, default="ffmpeg"): Deduplication method. Deduplication Methods: "ffmpeg, ssim, mse, ssim-cuda"
 - `--dedup_sens` (float, default=50): Sensitivity of deduplication.
-- `--sample_size` (int, default=32): Sample Size for SSIM Dedupping, it resizes the image to a 32 x 32 ( or your selected value ) image and does the similarity calculation. Higher values means lower performance but technically higher accuracy.
+- `--sample_size` (int, default=224): Sample Size for SSIM Dedupping, it resizes the image to a 224 x 224 ( or your selected value ) image and does the similarity calculation. Higher values means lower performance but technically higher accuracy.
 
 ##### Denoising settings:
 
