@@ -2,44 +2,52 @@
 *                    The Anime Scripter                *
 *******************************************************
 
-Creator: NevermindNilas
-Discord: https://discord.gg/GkCrawMuZ6
-Github: https://github.com/NevermindNilas/TheAnimeScripter
+Creator: 
+    NevermindNilas
 
-The Anime Scripter is provided "as is", without any warranty. For any issues, please report them to Nilas via the Discord server. For more information about the license, refer to License.md.
+Discord: 
+    Join our community on Discord - https://discord.gg/GkCrawMuZ6
 
-# System Requirements:
+GitHub:
+    Explore the project - https://github.com/NevermindNilas/TheAnimeScripter
 
-## Minimum:
+Disclaimer: 
+    The Anime Scripter is provided "as is", without warranty of any kind. For issues or suggestions, please report them via our Discord server. For license details, refer to License.md.
+
+Overview:
+    The Anime Scripter (TAS) is a cutting-edge tool designed for After Effects 2024, ensuring the best compatibility and performance. 
+    While TAS strives for backward compatibility, optimal performance is not guaranteed on older versions.
+
+System Requirements:
+
+Minimum:
     - OS: Windows 10/11
-    - CPU: Quad-Core CPU
+    - CPU: Quad-Core
     - RAM: 16 GB
-    - GPU: Any GPU with DirectX 12 and Vulkan support
-    - Disk Space: Approximately 8 GB
+    - GPU: Supports DirectX 12 and Vulkan
+    - Disk Space: ~8 GB
 
-## Recommended:
-    - OS: Windows 10/11
-    - CPU: Octa-Core CPU
+Recommended:
+    - OS: Windows 10/11, fully updated
+    - CPU: Octa-Core
     - RAM: 32 GB
-    - GPU: NVidia 3000 Series or higher / AMD 6000 Series or higher
-    - Disk Space: Approximately 8 GB
+    - GPU: NVidia 3000 Series / AMD 6000 Series or better
+    - Disk Space: ~8 GB
 
-## Recommended GPUs:
-    - For NCNN, virtually any VULKAN capable GPUs.
-    - For DirectML, any AMD RX500+ series, any Intel GPU and any NVIDIA 900+ series.
-    - For CUDA, Any NVIDIA 1000+ series.
-    - For TensorRT, Any NVIDIA RTX 2000 series GPU
+Recommended GPUs:
+    - NCNN / DirectML: Compatible with all Vulkan / DirectX 12 capable GPUs.
+    - CUDA: Requires NVIDIA 1000+ series.
+    - TensorRT: Requires NVIDIA RTX 2000+ series GPUs.
 
-# Installation:
-    Please refer to the installation tutorial or build the .exe file yourself using the guide available at: 
+Installation:
+    Get started by following our detailed installation guide. Visit our GitHub page for step-by-step instructions: 
     https://github.com/NevermindNilas/TheAnimeScripter?tab=readme-ov-file#%EF%B8%8F-getting-started
 
-# Important Notes:
-    - TensorRT Engines may take a couple of minutes to build, but they are reused once built. The performance benefits are well worth the wait.
-    - AMD / Intel GPU users are advised to use the NCNN or DirectML Versions of upscalers / interpolators for optimal performance and to avoid falling back to CPU.
-    - GMFSS may experience VRAM limitations for high-resolution clips; ensure your GPU has 8 GB or more VRAM for 1080p footage.
-    - Enabling the Rife Ensemble triggers internal calls to the warp algorithm, providing better results at the cost of some performance. Enable it if the performance loss is acceptable.
-    - The resize multiplier supports fractional values like 0.5 for downscaling the clip (3840x2160 -> 1920x1080).
-    - All upscalers, have 2x models (1920x1080 -> 3840x2160).
-    - GMFSS, Depth Map, and Segmentation require CUDA-capable GPUs for acceleration; otherwise, the script will fallback to CPU with potential performance issues.
-    - The Denoising algorithms are extremely slow by nature and require high-end GPUs for good performance. NVidia 3090/4080 is recommended.
+Important Notes:
+    - Building TensorRT Engines is a one-time process that may take a few minutes but significantly boosts performance.
+    - For AMD / Intel GPU users: Opt for NCNN or DirectML versions to achieve the best performance.
+    - The Rife Ensemble feature enhances results at a slight performance cost. Enable it if the trade-off is acceptable.
+    - Resize multiplier now supports fractional values (e.g., 0.5 for downscaling from 3840x2160 to 1920x1080).
+    - Upscalers include 2x models for converting 1920x1080 to 3840x2160.
+    - Features like GMFSS, Depth Map, and Segmentation acceleration require CUDA / TensorRT -capable GPUs. Without these, processing defaults to CPU, impacting performance significantly.
+    - Denoising is resource-intensive and performs best on high-end GPUs, such as NVidia 3090/4080.
