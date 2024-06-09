@@ -37,10 +37,13 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
     - Notation: `rife`, `rife-ncnn`, will default to the latest available version.
 - `--ensemble` (action=store_true): Activate Ensemble for higher quality outputs from Rife.
 
+#### Scene Change Settings:
+- `--scenechange` (action=store_true, default=False): Enable scene change detection, useful for avoiding interpolation between different scenes of a clip / video in order to avoid artifacting. This only works if --interpolate is available, expect performance losses.
+
 #### Deduplication settings:
 
 - `--dedup` (action=store_true): Enable deduplication.
-- `--dedup_method` (str, default="ffmpeg"): Deduplication method. Deduplication Methods: "ffmpeg, ssim"
+- `--dedup_method` (str, default="ffmpeg"): Deduplication method. Deduplication Methods: "ffmpeg, ssim, mse, ssim-cuda"
 - `--dedup_sens` (float, default=50): Sensitivity of deduplication.
 - `--sample_size` (int, default=32): Sample Size for SSIM Dedupping, it resizes the image to a 32 x 32 ( or your selected value ) image and does the similarity calculation. Higher values means lower performance but technically higher accuracy.
 
@@ -48,7 +51,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 - `--denoise` (action=store_true): Enable denoising.
 - `--denoise_method` (str, default="scunet"): Choose a denoising model:
-     - Options: "scunet", "nafnet", "span", "dpir"
+     - Options: "scunet", "nafnet", "dpir"
 
 #### Precision and Trimming:
 
@@ -74,7 +77,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 - `--depth` (action=store_true): Generate Depth Maps.
 - `--depth_method` (str, default="small"): Depth map generation method:
-     - Options: "small", "base", "large".
+     - Options: "small / small-tensorrt / small-directml", "base / base-tensorrt / base-directml ", " large / large-tensorrt / large-directml".
 
 #### Resizing:
 
@@ -93,8 +96,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 #### Performance Settings:
 
-- `--half` (action=store_true): Enable FP16 which improves the performance, generally by about 50% but can technically result in lower quality results. Generally speaking it's worth using Fp16 for the faster inference.
-- `--nt` (int, default=1): Allocate the number of threads for the script to use. Relatively dodgy, use with caution.
+- `--half` (action=store_true, default=True): Enable FP16 which improves the performance, generally by about 50% but can technically result in lower quality results. Generally speaking it's worth using Fp16 for the faster inference.
 - `--buffer_limit` (int, default=50): Set the limit for how many frames can be in the decoding and encoding buffers at any given time. This can be used to reduce memory usage at the cost of potential performance loss due to overhead. A value that is too high can lead to Out of Memory errors ( OOM ). Don't set this too high unless you have a lot of RAM to spare.
 
 ## Examples:
@@ -124,9 +126,9 @@ Example 5: Enable denoising using the nafnet model.
 
 - `python .\main.py --input .\input\test.mp4 --denoise --denoise_method nafnet`
 
-Example 6: Enable scene change detection with a sensitivity of 50.
+Example 6: Enable interpolation coupled with scene change detection.
 
-- `python .\main.py --input .\input\test.mp4 --scenechange --scenechange_sens 50`
+- `python .\main.py --input .\input\test.mp4 --interpolate --scenechange` 
 
 Example 7: Enable depth map generation using the "large" method.
 
