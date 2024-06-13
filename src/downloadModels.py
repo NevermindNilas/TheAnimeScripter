@@ -26,7 +26,6 @@ def modelsList() -> list[str]:
         "segment-tensorrt",
         "scunet",
         "dpir",
-        "realesrgan",
         "nafnet",
         "span-denoise",
         "gmfss",
@@ -187,9 +186,6 @@ def modelsMap(
 
         case "dpir":
             return "drunet_deblocking_color.pth"
-
-        case "realesrgan":
-            return "2xHFA2kShallowESRGAN.pth"
 
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
