@@ -478,7 +478,6 @@ var TheAnimeScripter = (function () {
         "UltraCompact",
         "SuperUltraCompact",
         "Span",
-        "RealEsrgan",
         "ShuffleCugan-TensorRT",
         "Span-TensorRT",
         "Compact-TensorRT",
@@ -490,7 +489,6 @@ var TheAnimeScripter = (function () {
         "SuperUltraCompact-DirectML",
         "Span-DirectML",
         "ShuffleCugan-NCNN",
-        "RealEsrgan-NCNN",
         "Span-NCNN",
     ], "Choose which model you want to utilize, read more in INFO, for AMD users choose DirectML or NCNN models");
     createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.17", "Rife4.16-lite", "Rife4.15", "Rife4.15-lite", "Rife4.6", "Rife4.17-TensorRT", "Rife4.15-TensorRT", "Rife4.15-Lite-TensorRT", "Rife4.6-TensorRT", "Rife4.15-NCNN", "Rife4.15-Lite-NCNN", "Rife4.16-Lite-NCNN", "Rife4.6-NCNN", "GMFSS"], "Choose which interpolation model you want to utilize, read more in readme.txt, for AMD users choose DirectML or NCNN models, TensorRT is for NVIDIA RTX 2000 and above GPUs");

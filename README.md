@@ -94,7 +94,6 @@ All of the available parameters for interacting with the CLI or directly with ma
 - Cugan ( CUDA & DirectML )
 - ShuffleCugan ( CUDA, TensorRT, and NCNN )
 - Span ( CUDA, TensorRT, DirectML and NCNN versions )
-- RealESRGan ( CUDA and NCNN versions)
 - SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective TensorRT and DirectML versions)
 
 **Unofficially Supported:**
@@ -122,7 +121,6 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 | [HZWER](https://github.com/hzwer/Practical-RIFE)                                                      | Rife                 |
 | [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN)                                        | Cugan                |
 | [JingyunLiang](https://github.com/JingyunLiang/SwinIR)                                                | SwinIR               |
-| [Xintao](https://github.com/xinntao/Real-ESRGAN)                                                      | Realesrgan, Compact architectures |
 | [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai)                              | Compact, UltraCompact, SuperUltraCompact models |
 | [SkyTNT](https://github.com/SkyTNT/anime-segmentation)                                                | Anime Segmentation   |
 | [LiheYoung](https://github.com/LiheYoung/Depth-Anything)                                              | Depth Anything       |
@@ -133,7 +131,6 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 | [Breakthrough](https://github.com/Breakthrough/PySceneDetect)                                         | Automated Scene Detection |
 | [Chainner-org](https://github.com/chaiNNer-org/spandrel)                                              | Spandrel, easy to use arch implementations |
 | [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                 |
-| [Sirosky](https://openmodeldb.info/models/2x-AniScale-2-ESRGAN-Lite)                                   | RealESRGAN Model     |
 | [TNTWise](https://github.com/TNTwise) | For Rife ONNX and NCNN models | 
 | [WolframRhodium](https://github.com/WolframRhodium) | For Rife V2 models |
 
