@@ -21,7 +21,6 @@ class AutoClip:
             end_time = FrameTimecode(self.outPoint, video_manager.get_framerate())
             video_manager.set_duration(start_time=start_time, end_time=end_time)
 
-
         video_manager.set_downscale_factor()
 
         video_manager.start()

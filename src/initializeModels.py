@@ -149,7 +149,6 @@ def initializeModels(self):
                 | "ultracompact"
                 | "superultracompact"
                 | "span"
-                | "realesrgan"
             ):
                 upscale_process = UniversalPytorch(
                     self.upscale_method,
@@ -168,7 +167,6 @@ def initializeModels(self):
                 | "span-directml"
                 | "cugan-directml"
                 | "shufflecugan-directml"
-                | "realesrgan-directml"
             ):
                 from .unifiedUpscale import UniversalDirectML
 
@@ -182,7 +180,7 @@ def initializeModels(self):
                     self.nt,
                 )
 
-            case "shufflecugan-ncnn" | "span-ncnn" | "realesrgan-ncnn":
+            case "shufflecugan-ncnn" | "span-ncnn":
                 from .unifiedUpscaleNCNN import UniversalNCNN
 
                 upscale_process = UniversalNCNN(
@@ -198,7 +196,6 @@ def initializeModels(self):
                 | "ultracompact-tensorrt"
                 | "superultracompact-tensorrt"
                 | "span-tensorrt"
-                | "realesrgan-tensorrt"
             ):
                 from .unifiedUpscale import UniversalTensorRT
 
