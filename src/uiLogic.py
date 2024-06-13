@@ -222,7 +222,6 @@ def dropdownsLabels(method):
             return [
                 "ShuffleCugan",
                 "Cugan",
-                "RealESRGAN",
                 "Span",
                 "ShuffleCugan-TensorRT",
                 "Span-TensorRT",
@@ -230,7 +229,6 @@ def dropdownsLabels(method):
                 "UltraCompact-TensorRT",
                 "SuperUltraCompact-TensorRT",
                 "Cugan-DirectML",
-                "RealESRGAN-DirectML",
                 "Span-DirectML",
                 "ShuffleCugan-NCNN",
                 "Span-NCNN",

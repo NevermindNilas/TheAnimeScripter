@@ -25,7 +25,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--upscale` (action=store_true): Enable upscaling.
 - `--upscale_factor` (int, default=2): Factor for upscaling.
 - `--upscale_method` (str, default="ShuffleCugan"): Upscaling method:
-     - Options: "cugan / shufflecugan / shufflecugan-tensorrt", "compact / ultracompact / superultracompact / compact-directml / ultracompact-directml / superultracompact-directml / compact-tensorrt / ultracompact-tensorrt / superultracompact-tensorrt", "span / span-directml / span-tensorrt", "realesrgan". 
+     - Options: "cugan / shufflecugan / shufflecugan-tensorrt", "compact / ultracompact / superultracompact / compact-directml / ultracompact-directml / superultracompact-directml / compact-tensorrt / ultracompact-tensorrt / superultracompact-tensorrt", "span / span-directml / span-tensorrt" 
 - `--custom_model` (str, default=""): Choose a different model for supported upscaling architectures. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
 
 #### Interpolation Settings:

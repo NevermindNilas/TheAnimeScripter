@@ -17,12 +17,6 @@ class UniversalNCNN:
                 self.modelId = 4
             case ("span-ncnn", 4):
                 self.modelId = 5
-            case ("realesrgan-ncnn", 2):
-                self.modelId = 7
-            case ("realesrgan-ncnn", 3):
-                self.modelId = 8
-            case ("realesrgan-ncnn", 4):
-                self.modelId = 9
             case ("shufflecugan-ncnn", 2):
                 self.modelId = 29
             case _:
