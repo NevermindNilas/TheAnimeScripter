@@ -12,6 +12,7 @@ GPUtil
 spandrel
 yt-dlp
 requests
+accelerate
 tqdm
 tensorrt
 scikit-image

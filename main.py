@@ -273,6 +273,8 @@ if __name__ == "__main__":
             "rife4.17-tensorrt",
             "rife-tensorrt",
             "gmfss",
+            "raft_pervfi_lite",
+            "raft_pervfi",
         ],
         default="rife",
     )
