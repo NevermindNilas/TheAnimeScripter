@@ -102,7 +102,7 @@ class RifeCuda:
         else:
             self.model.float()
 
-        self.model.load_state_dict(torch.load(modelPath))
+        self.model.load_state_dict(torch.load(modelPath, map_location=self.device))
         self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()
         self.model.to(self.device)
 
@@ -179,6 +179,7 @@ class RifeCuda:
                         writeBuffer.write(frame)
                     self.cacheFrameReset()
                     self.stream.synchronize()
+                    self.sceneChangeProcess.cacheFrame()
                     return
 
             for i in range(interpolateFactor - 1):
@@ -195,6 +196,8 @@ class RifeCuda:
                 writeBuffer.write(output)
 
             self.cacheFrame()
+            if self.sceneChange:
+                self.sceneChangeProcess.cacheFrame()
 
 
 class RifeTensorRT:
@@ -361,15 +364,6 @@ class RifeTensorRT:
             device=self.device,
         )
 
-        self.dummyIinput = torch.zeros(
-            1,
-            7,
-            self.height,
-            self.width,
-            dtype=self.dType,
-            device=self.device,
-        )
-
         self.dummyInput = torch.empty(
             (1, 7, self.height, self.width),
             device=self.device,
@@ -425,6 +419,7 @@ class RifeTensorRT:
                         writeBuffer.write(frame)
                     self.cacheFrame()
                     self.stream.synchronize()
+                    self.sceneChangeProcess.cacheFrame()
                     return
 
             for i in range(interpolateFactor - 1):
@@ -442,8 +437,10 @@ class RifeTensorRT:
                 writeBuffer.write(output)
 
             self.cacheFrame()
+            if self.sceneChange:
+                self.sceneChangeProcess.cacheFrame()
 
-class rifeNCNN:
+class RifeNCNN:
     def __init__(
         self, interpolateMethod, ensemble=False, nt=1, width=1920, height=1080, sceneChange=False, half=True
     ):
@@ -528,6 +525,7 @@ class rifeNCNN:
                 for _ in range(interpolateFactor - 1):
                     writeBuffer.write(frame)
                 self.cacheFrame()
+                self.sceneChangeProcess.cacheFrame()
                 return
             
         for i in range(interpolateFactor - 1):
@@ -539,6 +537,8 @@ class rifeNCNN:
             writeBuffer.write(output)
         
         self.cacheFrame()
+        if self.sceneChange:
+            self.sceneChangeProcess.cacheFrame()
 
 class SceneChange:
     def __init__(
@@ -588,29 +588,42 @@ class SceneChange:
                 modelPath, providers=["CPUExecutionProvider"]
             )
 
-        self.firstRun = True
+        self.I0 = None
+        self.I1 = None
 
     @torch.inference_mode()
-    def run(self, frame0, frame1):
-        if self.half:
-            frame0 = F.interpolate(frame0, size=(224, 224), mode="bilinear").contiguous().squeeze_(0).cpu().numpy()
-            frame1 = F.interpolate(frame1, size=(224, 224), mode="bilinear").contiguous().squeeze_(0).cpu().numpy()
-        else:
-            frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").contiguous().half().squeeze_(0).cpu().numpy()
-            frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").contiguous().half().squeeze_(0).cpu().numpy()
+    def processFrameTorch(self, frame):
+        return F.interpolate(frame.half() if self.half else frame.float(), size=(224, 224), mode="bilinear").contiguous().squeeze_(0).cpu().numpy()
+    
+    def processFrameNumpy(self, frame):
+        return (
+            self.cv2.resize(frame, (224, 224)).transpose(2, 0, 1).astype(np.float16)
+            if self.half
+            else self.cv2.resize(frame, (224, 224)).transpose(2, 0, 1).astype(np.float32)
+        )
 
-        inputs = np.concatenate((frame0, frame1), 0)
+    def cacheFrame(self):
+        self.I0 = self.I1
+    
+    @torch.inference_mode()
+    def run(self, I0, I1):
+        if self.I0 is None:
+            self.I0 = self.processFrameTorch(I1)
+            return False
+        
+        self.I1 = self.processFrameTorch(I1)
+        inputs = np.concatenate((self.I0, self.I1), 0)
         return self.model.run(None, {"input": inputs})[0][0][0] > 0.93
     
     def runNumpy(self, frame1, frame2):
-        frame0 = self.cv2.resize(frame1, (224, 224)).transpose(2, 0, 1)
-        frame1 = self.cv2.resize(frame2, (224, 224)).transpose(2, 0, 1)
+        if self.I0 is None:
+            self.I0 = self.processFrameNumpy(frame1)
+            return False
+        
+        self.I1 = self.processFrameNumpy(frame2)
     
-        if self.half:
-            frame0 = frame0.astype(np.float16)
-            frame1 = frame1.astype(np.float16)
     
-        inputs = np.ascontiguousarray(np.concatenate((frame0, frame1), 0))
+        inputs = np.ascontiguousarray(np.concatenate((self.I0, self.I1), 0))
         return self.model.run(None, {"input": inputs})[0][0][0] > 0.93
 
 class SceneChangeTensorRT():
@@ -722,17 +735,26 @@ class SceneChangeTensorRT():
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
 
-    @torch.inference_mode()
-    def run(self, frame0, frame1):
-        with torch.cuda.stream(self.stream):
-            if self.half:
-                frame0 = F.interpolate(frame0, size=(224, 224), mode="bilinear").contiguous().squeeze(0)
-                frame1 = F.interpolate(frame1, size=(224, 224), mode="bilinear").contiguous().squeeze(0)
-            else:
-                frame0 = F.interpolate(frame0.float(), size=(224, 224), mode="bilinear").contiguous().squeeze(0).half()
-                frame1 = F.interpolate(frame1.float(), size=(224, 224), mode="bilinear").contiguous().squeeze(0).half()
+        self.I0 = None 
 
-            self.dummyInput.copy_(torch.cat([frame0, frame1], dim=0), non_blocking=True)
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        return F.interpolate(frame.half() if self.half else frame.float(), size=(224, 224), mode="bilinear").contiguous().squeeze(0)
+    
+    @torch.inference_mode()
+    def cacheFrame(self):
+        self.I0.copy_(self.I1, non_blocking=True)
+
+    @torch.inference_mode()
+    def run(self, I0, I1):
+        with torch.cuda.stream(self.stream):
+            if self.I0 is None:
+                self.I0.copy_(self.processFrame(I1), non_blocking=True)
+                return False
+
+            self.I1.copy_(self.processFrame(I1), non_blocking=True)
+
+            self.dummyInput.copy_(torch.cat([self.I0, self.I1], dim=0), non_blocking=True)
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()
             return self.dummyOutput[0][0].item() > 0.93
