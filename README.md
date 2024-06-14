@@ -133,6 +133,7 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 | [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                 |
 | [TNTWise](https://github.com/TNTwise) | For Rife ONNX and NCNN models | 
 | [WolframRhodium](https://github.com/WolframRhodium) | For Rife V2 models |
+| [mulns](https://github.com/mulns/PerVFI) | For PerVFI |
 
 ## 🌟 Star History
 
