@@ -67,6 +67,8 @@ def modelsList() -> list[str]:
         "small-directml",
         "base-directml",
         "large-directml",
+        "pervfi_lite",
+        "pervfi",
     ]
 
 
@@ -327,6 +329,16 @@ def modelsMap(
                 return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_fp16_op17_onnxslim.onnx"
             else:
                 return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_op17_onnxslim.onnx"
+        
+        case "pervfi_lite":
+            return "pervfi_lite.pth"
+        
+        case "pervfi":
+            return "pervfi.pth"
+        
+        case "raft":
+            return "raft-sintel.pth"
+        
         case _:
             raise ValueError(f"Model {model} not found.")
 

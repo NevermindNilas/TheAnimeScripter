@@ -129,7 +129,6 @@ class RifeCuda:
         )
 
         self.firstRun = True
-
         self.stream = torch.cuda.Stream()
 
         if self.sceneChange:
@@ -539,6 +538,161 @@ class RifeNCNN:
         self.cacheFrame()
         if self.sceneChange:
             self.sceneChangeProcess.cacheFrame()
+
+class PerVFIRaftCuda:
+    def __init__(
+        self,
+        interpolateMethod,
+        half,
+        width,
+        height,
+        interpolateFactor,
+        sceneChange,
+    ):
+        
+        self.interpolateMethod = interpolateMethod
+        self.half = half
+        self.width = width
+        self.height = height
+        self.interpolateFactor = interpolateFactor
+        self.sceneChange = sceneChange
+
+        self.handleModel()
+
+    def handleModel(self):
+        # Hardcoded with RAFT for now!!!!
+        self.interpolateMethod = self.interpolateMethod.lower().split("_")[1]
+        self.filename = modelsMap(self.interpolateMethod)
+        if not os.path.exists(os.path.join(weightsDir, self.interpolateMethod, self.filename)):
+            modelPath = downloadModels(model=self.interpolateMethod)
+        else:
+            modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)
+
+        if not os.path.exists(os.path.join(weightsDir, "raft", "raft-sintel.pth")):
+            flowPath = downloadModels(model="raft")
+        else:
+            flowPath = os.path.join(weightsDir, "raft", "raft-sintel.pth")
+        
+        self.isCudaAvailable = torch.cuda.is_available()
+        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
+
+        # This seems to also handle model loading for me to cuda directly, I will need to modify the arch
+        # For CPU support and more granurality
+        from src.pervfiarches.pipeline import Pipeline_infer
+        match self.interpolateMethod:
+            case "pervfi_small":
+                self.model = Pipeline_infer("RAFT", "vb", modelPath, flowPath, self.device)
+            case "pervfi":
+                self.model = Pipeline_infer("RAFT", "v00", modelPath, flowPath, self.device)
+
+
+        torch.set_grad_enabled(False)
+        if self.isCudaAvailable:
+            torch.backends.cudnn.enabled = True
+            torch.backends.cudnn.benchmark = True
+            if self.half:
+                torch.set_default_dtype(torch.float16)
+
+        if self.isCudaAvailable and self.half:
+            self.model.half()
+        else:
+            self.half = False
+            self.model.float()
+
+        ph = ((self.height - 1) // 8 + 1) * 8
+        pw = ((self.width - 1) // 8 + 1) * 8
+        self.padding = (0, pw - self.width, 0, ph - self.height)
+
+        
+        self.I0 = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=torch.float16 if self.half else torch.float32,
+            device=self.device,
+        )
+
+        self.I1 = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=torch.float16 if self.half else torch.float32,
+            device=self.device,
+        )
+
+        self.firstRun = True
+        self.stream = torch.cuda.Stream()
+
+        if self.sceneChange:
+            self.sceneChangeProcess = SceneChange(self.half)
+
+    @torch.inference_mode()
+    def cacheFrame(self):
+        self.I0.copy_(self.I1, non_blocking=True)
+        #self.model.cache()
+
+    @torch.inference_mode()
+    def cacheFrameReset(self):
+        self.I0.copy_(self.I1, non_blocking=True)
+        #self.model.cacheReset(self.I0)
+
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        return (
+            frame.to(self.device, non_blocking=True, dtype=torch.float32 if not self.half else torch.float16)
+            .permute(2, 0, 1)
+            .unsqueeze_(0)
+            .mul_(1 / 255)
+            .contiguous()
+        )
+    
+    @torch.inference_mode()
+    def padFrame(self, frame):
+        return (
+            F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
+            if self.padding != (0, 0, 0, 0)
+            else frame
+        )
+    
+    @torch.inference_mode()
+    def run(self, frame, interpolateFactor, writeBuffer):
+        with torch.cuda.stream(self.stream):
+            if self.firstRun:
+                self.I0 = self.padFrame(self.processFrame(frame))
+                self.firstRun = False
+                return
+
+            self.I1 = self.padFrame(self.processFrame(frame))
+
+            if self.sceneChange:
+                if self.sceneChangeProcess.run(self.I0, self.I1):
+                    for _ in range(interpolateFactor - 1):
+                        writeBuffer.write(frame)
+                    self.cacheFrameReset()
+                    self.stream.synchronize()
+                    self.sceneChangeProcess.cacheFrame()
+                    return
+
+            for i in range(interpolateFactor - 1):
+                timestep = torch.full(
+                    (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
+                    (i + 1) * 1 / interpolateFactor,
+                    dtype=torch.float16 if self.half else torch.float32,
+                    device=self.device,
+                )
+                output = self.model(self.I0, self.I1, timestep, interpolateFactor)
+                output = output[:, :, : self.height, : self.width]
+                output = output.mul(255.0).squeeze(0).permute(1, 2, 0)
+                self.stream.synchronize()
+                writeBuffer.write(output)
+
+            self.cacheFrame()
+            if self.sceneChange:
+                self.sceneChangeProcess.cacheFrame()
+
+
 
 class SceneChange:
     def __init__(
