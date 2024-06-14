@@ -287,6 +287,22 @@ def initializeModels(self):
                     self.scenechange,
                 )
 
+            case (
+                "raft_pervfi_lite"
+                | "raft_pervfi"
+            ):
+                
+                from src.unifiedInterpolate import PerVFIRaftCuda
+
+                interpolate_process = PerVFIRaftCuda(
+                    self.interpolate_method,
+                    self.half,
+                    outputWidth,
+                    outputHeight,
+                    self.interpolate_factor,
+                    self.scenechange,
+                )
+
     if self.denoise:
         match self.denoise_method:
             case "scunet" | "dpir" | "nafnet":
