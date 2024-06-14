@@ -255,9 +255,9 @@ def initializeModels(self):
                 | "rife4.16-lite-ncnn"
                 | "rife4.17-ncnn"
             ):
-                from src.unifiedInterpolate import rifeNCNN
+                from src.unifiedInterpolate import RifeNCNN
 
-                interpolate_process = rifeNCNN(
+                interpolate_process = RifeNCNN(
                     self.interpolate_method,
                     self.ensemble,
                     self.nt,

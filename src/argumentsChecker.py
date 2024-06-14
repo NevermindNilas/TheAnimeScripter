@@ -35,22 +35,23 @@ def argumentChecker(args, mainPath, scriptVersion):
     args.ffmpeg_path = getFFMPEG()
 
     if args.offline:
-        toPrint = "Offline mode enabled, downloading all available models, this can take a minute but it will allow for the script to be used offline"
+        toPrint = "Offline mode enabled, downloading all available models, this can take some time but it will allow for the script to be used offline"
         logging.info(toPrint)
         print(green(toPrint))
         options = modelsList()
         for option in options:
             downloadModels(option)
-        toPrint = "All models downloaded, exiting"
+        toPrint = "All models downloaded!"
         logging.info(toPrint)
         print(green(toPrint))
 
     if args.dedup:
-        args.audio = False
         logging.info("Dedup is enabled, audio will be disabled")
+        args.audio = False
 
     if args.dedup_method in ["ssim", "ssim-cuda"]:
         args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
+        logging.info(f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}")
 
     if args.custom_encoder:
         logging.info(
