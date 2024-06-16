@@ -5,31 +5,10 @@ import os
 import sys
 import shutil
 import torch
-
+import decord
 from queue import Queue
 
-def getDedupStrenght(
-    dedupSens: float = 0.0,
-    hi_min: float = 64 * 2,
-    hi_max: float = 64 * 250,
-    lo_min: float = 64 * 2,
-    lo_max: float = 64 * 50,
-    frac_min: float = 0.1,
-    frac_max: float = 0.5,
-) -> str:
-    """
-    Get FFMPEG dedup Params based on the dedupSens attribute.
-    The min maxes are based on preset values that work well for most content.
-    returns: str - hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB
-    """
-
-    def interpolate(x, x1, x2, y1, y2):
-        return y1 + (x - x1) * (y2 - y1) / (x2 - x1)
-
-    hi = interpolate(dedupSens, 0, 100, hi_min, hi_max)
-    lo = interpolate(dedupSens, 0, 100, lo_min, lo_max)
-    frac = interpolate(dedupSens, 0, 100, frac_min, frac_max)
-    return f"hi={hi}:lo={lo}:frac={frac},setpts=N/FRAME_RATE/TB"
+decord.bridge.set_bridge('torch')
 
 
 def matchEncoder(encode_method: str):
@@ -124,7 +103,7 @@ class BuildBuffer:
         outpoint: float = 0.0,
         dedup: bool = False,
         dedupSens: float = 0.0,
-        dedupMethod: str = "ffmpeg",
+        dedupMethod: str = "ssim",
         width: int = 1920,
         height: int = 1080,
         resize: bool = False,
@@ -211,10 +190,6 @@ class BuildBuffer:
         )
 
         filters = []
-        if self.dedup:
-            if self.dedupeMethod == "ffmpeg":
-                filters.append(f"mpdecimate={getDedupStrenght(self.dedupSens)}")
-
         if self.resize:
             if self.resizeMethod in ["spline16", "spline36", "point"]:
                 filters.append(
@@ -250,45 +225,36 @@ class BuildBuffer:
         """
         self.readBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
         verbose = True
-        command = self.decodeSettings()
-
-        if verbose:
-            logging.info(f"Decoding options: {' '.join(map(str, command))}")
+        #command = self.decodeSettings()
+        #
+        #if verbose:
+        #    logging.info(f"Decoding options: {' '.join(map(str, command))}")
             
         try:
-            process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                bufsize=1,
-            )
+            video = decord.VideoReader(self.input, ctx=decord.cpu(0), width=self.width, height=self.height)
 
+            if self.outpoint != 0:
+                self.outpoint = int(self.outpoint * video.get_avg_fps())
+                self.inpoint = int(self.inpoint * video.get_avg_fps())
+                totalFrames = video.get_batch(range(self.inpoint, self.outpoint)).shape[0]
+            else:
+                totalFrames = len(video)
+            
             self.readingDone = False
-            frame_size = self.width * self.height * 3
             self.decodedFrames = 0
-            while True:
-                #frame = np.frombuffer(
-                #    process.stdout.read(frame_size), dtype=np.uint8
-                #).reshape((self.height, self.width, 3))
-                
-                frame = torch.frombuffer(
-                    process.stdout.read(frame_size), dtype=torch.uint8
-                ).reshape((self.height, self.width, 3))
 
+            for i in range(totalFrames):
+                frame = torch.from_numpy(video[i].asnumpy())
                 self.readBuffer.put(frame)
                 self.decodedFrames += 1
-
-        except ValueError:
-            if verbose:
-                logging.info(f"Built buffer with {self.decodedFrames} frames")
 
         except Exception as e:
             if verbose:
                 logging.error(f"An error occurred: {str(e)}")
 
         finally:
-            process.stdout.close()
-            process.terminate()
+            if verbose:
+                logging.info(f"Built buffer with {self.decodedFrames} frames")
             self.readingDone = True
             self.readBuffer.put(None)
             
