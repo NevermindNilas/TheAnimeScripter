@@ -292,6 +292,9 @@ def initializeModels(self):
                 | "raft_pervfi"
             ):
                 
+                raise NotImplementedError("PERVFI is not supported yet.")
+                
+                """
                 from src.unifiedInterpolate import PerVFIRaftCuda
 
                 interpolate_process = PerVFIRaftCuda(
@@ -302,6 +305,7 @@ def initializeModels(self):
                     self.interpolate_factor,
                     self.scenechange,
                 )
+                """
 
     if self.denoise:
         match self.denoise_method:

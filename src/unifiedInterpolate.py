@@ -539,6 +539,7 @@ class RifeNCNN:
         if self.sceneChange:
             self.sceneChangeProcess.cacheFrame()
 
+"""
 class PerVFIRaftCuda:
     def __init__(
         self,
@@ -692,7 +693,7 @@ class PerVFIRaftCuda:
             if self.sceneChange:
                 self.sceneChangeProcess.cacheFrame()
 
-
+"""
 
 class SceneChange:
     def __init__(
