@@ -140,7 +140,7 @@ class VideoProcessor:
 
     def processFrame(self, frame):
         try:
-            if self.dedup and self.dedup_method != "ffmpeg":
+            if self.dedup:
                 if self.dedup_process.run(frame):
                     self.dedupCount += 1
                     return
@@ -319,8 +319,8 @@ if __name__ == "__main__":
     argparser.add_argument(
         "--dedup_method",
         type=str,
-        default="ffmpeg",
-        choices=["ffmpeg", "ssim", "mse", "ssim-cuda", "mse-cuda"],
+        default="ssim",
+        choices=["ssim", "mse", "ssim-cuda", "mse-cuda"],
     )
     argparser.add_argument("--dedup_sens", type=float, default=35)
     argparser.add_argument("--sample_size", type=int, default=224)

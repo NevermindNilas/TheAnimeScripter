@@ -43,7 +43,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 #### Deduplication settings:
 
 - `--dedup` (action=store_true): Enable deduplication.
-- `--dedup_method` (str, default="ffmpeg"): Deduplication method. Deduplication Methods: "ffmpeg, ssim, mse, ssim-cuda"
+- `--dedup_method` (str, default="ssim"): Deduplication method. Deduplication Methods: "ffmpeg, ssim, mse, ssim-cuda"
 - `--dedup_sens` (float, default=50): Sensitivity of deduplication.
 - `--sample_size` (int, default=224): Sample Size for SSIM Dedupping, it resizes the image to a 224 x 224 ( or your selected value ) image and does the similarity calculation. Higher values means lower performance but technically higher accuracy.
 

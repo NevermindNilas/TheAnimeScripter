@@ -3,7 +3,7 @@
 pyqt6
 opencv-python
 timm
-numpy
+numpy==1.26.4
 cupy-cuda12x
 kornia
 scipy
