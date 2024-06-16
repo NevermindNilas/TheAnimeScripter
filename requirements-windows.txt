@@ -9,7 +9,6 @@ kornia
 scipy
 wmi
 spandrel
-accelerate
 yt-dlp
 requests
 tqdm
