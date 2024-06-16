@@ -889,7 +889,8 @@ class SceneChangeTensorRT():
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
 
-        self.I0 = None 
+        self.I0 = None
+        self.I1 = torch.zeros(6, 224, 224, device=self.device, dtype=self.dType)
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -903,7 +904,7 @@ class SceneChangeTensorRT():
     def run(self, I0, I1):
         with torch.cuda.stream(self.stream):
             if self.I0 is None:
-                self.I0.copy_(self.processFrame(I1), non_blocking=True)
+                self.I0 = self.processFrame(I1)
                 return False
 
             self.I1.copy_(self.processFrame(I1), non_blocking=True)
