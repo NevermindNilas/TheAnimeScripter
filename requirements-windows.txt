@@ -11,7 +11,7 @@ wmi
 spandrel
 yt-dlp
 requests
-tqdm
+alive-progress
 tensorrt
 tensorrt_cu12
 scikit-image

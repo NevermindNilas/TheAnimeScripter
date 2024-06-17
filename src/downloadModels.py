@@ -1,7 +1,7 @@
 import os
 import logging
 import requests
-from tqdm import tqdm
+from alive_progress import alive_bar
 
 dirPath = os.path.dirname(__file__)
 weightsDir = os.path.join(dirPath, "weights")
@@ -363,15 +363,11 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
         total_size_in_bytes = None
         logging.error(e)
 
-    progress_bar = tqdm(
-        total=total_size_in_bytes, unit="iB", unit_scale=True, colour="green"
-    )
-
-    with open(os.path.join(folderPath, filename), "wb") as file:
-        for data in response.iter_content(chunk_size=1024):
-            progress_bar.update(len(data))
-            file.write(data)
-    progress_bar.close()
+    with alive_bar(total_size_in_bytes, title="Progress", bar="smooth") as bar:
+        with open(os.path.join(folderPath, filename), "wb") as file:
+            for data in response.iter_content(chunk_size=1024):
+                file.write(data)
+                bar(len(data))
 
     if filename.endswith(".zip"):
         import zipfile

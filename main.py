@@ -25,8 +25,7 @@ import warnings
 import sys
 import logging
 
-
-from tqdm import tqdm
+from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
 from src.argumentsChecker import argumentChecker
 from src.getVideoMetadata import getVideoMetadata
@@ -144,8 +143,6 @@ class VideoProcessor:
             if self.dedup:
                 if self.dedup_process.run(frame):
                     self.dedupCount += 1
-                    self.pbar.total -= 1
-                    self.pbar.refresh()
                     return
 
             if self.denoise:
@@ -160,10 +157,6 @@ class VideoProcessor:
                 )
 
             self.writeBuffer.write(frame)
-            if self.interpolate:
-                self.pbar.update(self.interpolate_factor)
-            else:
-                self.pbar.update(1)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
@@ -171,29 +164,20 @@ class VideoProcessor:
     def process(self):
         frameCount = 0
         self.dedupCount = 0
-        while True:
-            frame = self.readBuffer.read()
-            if frame is None:
-                break
-            self.processFrame(frame)
-            frameCount += 1
-
+        increment = 1 if not self.interpolate else self.interpolate_factor
+        with alive_bar(self.totalFrames * increment, title='Processing', bar='smooth', unit='frames') as bar:
+            for _ in range(self.totalFrames):
+                frame = self.readBuffer.read()
+                self.processFrame(frame)
+                frameCount += 1
+                bar(increment)
+    
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
             logging.info(f"Deduplicated {self.dedupCount} frames")
-
+    
         self.writeBuffer.close()
-
     def start(self):
-        self.pbar = tqdm(
-            total=self.totalFrames * self.interpolate_factor if self.interpolate else self.totalFrames,
-            unit="frames",
-            unit_scale=True,
-            colour="green",
-            desc="🎥 Processing Frames",
-            bar_format="{l_bar}{bar}|{n_fmt}/{total_fmt} [ETA: {remaining}, {rate_fmt}]",
-        )
-
         try:
             (
                 self.new_width,
@@ -237,7 +221,7 @@ class VideoProcessor:
                 audio=self.audio,
                 benchmark=self.benchmark,
             )
-            
+
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
