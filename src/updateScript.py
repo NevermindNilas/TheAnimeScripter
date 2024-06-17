@@ -2,10 +2,9 @@ import requests
 import logging
 import json
 import pathlib
-from tqdm import tqdm
+from alive_progress import alive_bar
 import subprocess
 import os
-import shutil
 
 from .coloredPrints import green
 
@@ -56,21 +55,16 @@ def updateScript(scriptVersion, mainPath):
                         totalSizeInBytes = int(
                             response.headers.get("content-length", 0)
                         )
-                        blockSize = 1024
-                        progressBar = tqdm(
+
+                        with alive_bar(
                             total=totalSizeInBytes,
-                            unit="iB",
-                            unit_scale=True,
-                            bar_format="{l_bar}%s{bar}%s{r_bar}"
-                            % ("\033[32m", "\033[0m"),
-                        )
-                        with open(filePath, "wb") as file:
-                            for data in response.iter_content(blockSize):
-                                progressBar.update(len(data))
+                            title="Downloading",
+                            bar="smooth",
+                            length=30,
+                        ) as bar, open(filePath, "wb") as file:
+                            for data in response.iter_content(1024):
                                 file.write(data)
-                        progressBar.close()
-                        if totalSizeInBytes != 0 and progressBar.n != totalSizeInBytes:
-                            print("ERROR, something went wrong")
+                                bar(len(data))
 
                         logging.info(
                             "Download complete, extracting files, depending on the size of the update this might take a while"
@@ -96,7 +90,7 @@ def updateScript(scriptVersion, mainPath):
 
                         filePath.unlink()
                         break
-            
+
             """
             TO:DO - WIP, need to fix this
             answer = input("Do you wish to copy over the models and ffmpeg files to the new directory? (y/n): ")

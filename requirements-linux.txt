@@ -12,7 +12,7 @@ GPUtil
 spandrel
 yt-dlp
 requests
-tqdm
+alive-progress
 tensorrt
 scikit-image
 scenedetect[opencv]

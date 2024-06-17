@@ -4,7 +4,7 @@ import glob
 import zipfile
 import tarfile
 import logging
-from tqdm import tqdm
+from alive_progress import alive_bar
 from pathlib import Path
 import platform
 
@@ -53,12 +53,10 @@ def downloadAndExtractFFMPEG(ffmpegPath):
     response = requests.get(FFMPEGURL, stream=True)
     totalSizeInBytes = int(response.headers.get("content-length", 0))
 
-    with tqdm(
-        total=totalSizeInBytes, unit="iB", unit_scale=True, colour="green"
-    ) as progress_bar, open(ffmpegArchivePath, "wb") as file:
+    with alive_bar(total=totalSizeInBytes, title="Downloading FFMPEG", bar="smooth") as bar, open(ffmpegArchivePath, "wb") as file:
         for data in response.iter_content(chunk_size=1024):
-            progress_bar.update(len(data))
             file.write(data)
+            bar(len(data))
 
     extractFunc(ffmpegArchivePath, ffmpegDir)
 
