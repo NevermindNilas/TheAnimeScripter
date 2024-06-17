@@ -26,6 +26,7 @@ import sys
 import logging
 
 
+from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 from src.argumentsChecker import argumentChecker
 from src.getVideoMetadata import getVideoMetadata
@@ -86,7 +87,7 @@ class VideoProcessor:
         self.flow = args.flow
         self.scenechange = args.scenechange
 
-        self.width, self.height, self.fps = getVideoMetadata(
+        self.width, self.height, self.fps, self.totalFrames = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
         )
 
@@ -143,6 +144,8 @@ class VideoProcessor:
             if self.dedup:
                 if self.dedup_process.run(frame):
                     self.dedupCount += 1
+                    self.pbar.total -= 1
+                    self.pbar.refresh()
                     return
 
             if self.denoise:
@@ -157,6 +160,11 @@ class VideoProcessor:
                 )
 
             self.writeBuffer.write(frame)
+            if self.interpolate:
+                self.pbar.update(self.interpolate_factor)
+            else:
+                self.pbar.update(1)
+
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
 
@@ -177,6 +185,15 @@ class VideoProcessor:
         self.writeBuffer.close()
 
     def start(self):
+        self.pbar = tqdm(
+            total=self.totalFrames * self.interpolate_factor if self.interpolate else self.totalFrames,
+            unit="frames",
+            unit_scale=True,
+            colour="green",
+            desc="🎥 Processing Frames",
+            bar_format="{l_bar}{bar}|{n_fmt}/{total_fmt} [ETA: {remaining}, {rate_fmt}]",
+        )
+
         try:
             (
                 self.new_width,
@@ -220,7 +237,7 @@ class VideoProcessor:
                 audio=self.audio,
                 benchmark=self.benchmark,
             )
-
+            
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
