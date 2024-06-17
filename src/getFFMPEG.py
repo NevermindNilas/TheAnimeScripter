@@ -61,7 +61,7 @@ def downloadAndExtractFFMPEG(ffmpegPath):
         monitor=True,
         elapsed=True,
         stats=False,
-        dual_line=True,
+        dual_line=False,
         force_tty=True,
     ) as bar, open(ffmpegArchivePath, "wb") as file:
         for data in response.iter_content(chunk_size=1024 * 1024):

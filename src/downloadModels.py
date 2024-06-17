@@ -372,7 +372,7 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
         monitor=True,
         elapsed=True,
         stats=False,
-        dual_line=True,
+        dual_line=False,
         force_tty=True,
     ) as bar:
         with open(os.path.join(folderPath, filename), "wb") as file:
