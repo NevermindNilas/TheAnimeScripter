@@ -77,6 +77,8 @@ class RifeCuda:
         match self.interpolateMethod:
             case "rife" | "rife4.17":
                 from .rifearches.IFNet_rife417 import IFNet
+            case "rife4.17-lite":
+                from .rifearches.IFNet_rife417lite import IFNet
             case "rife4.15":
                 from .rifearches.IFNet_rife415 import IFNet
             case "rife4.15-lite":
@@ -100,6 +102,7 @@ class RifeCuda:
         if self.isCudaAvailable and self.half:
             self.model.half()
         else:
+            self.half = False
             self.model.float()
 
         self.model.load_state_dict(torch.load(modelPath, map_location=self.device))
@@ -129,7 +132,7 @@ class RifeCuda:
         )
 
         self.firstRun = True
-        self.stream = torch.cuda.Stream()
+        self.stream = torch.cuda.Stream() if self.isCudaAvailable else None
 
         if self.sceneChange:
             self.sceneChangeProcess = SceneChange(self.half)
@@ -164,7 +167,7 @@ class RifeCuda:
 
     @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
-        with torch.cuda.stream(self.stream):
+        with torch.cuda.stream(self.stream) if self.isCudaAvailable else torch.no_grad():
             if self.firstRun:
                 self.I0 = self.padFrame(self.processFrame(frame))
                 self.firstRun = False
@@ -177,7 +180,7 @@ class RifeCuda:
                     for _ in range(interpolateFactor - 1):
                         writeBuffer.write(frame)
                     self.cacheFrameReset()
-                    self.stream.synchronize()
+                    self.stream.synchronize() if self.isCudaAvailable else None
                     self.sceneChangeProcess.cacheFrame()
                     return
 
@@ -191,7 +194,7 @@ class RifeCuda:
                 output = self.model(self.I0, self.I1, timestep, interpolateFactor)
                 output = output[:, :, : self.height, : self.width]
                 output = output.mul(255.0).squeeze(0).permute(1, 2, 0)
-                self.stream.synchronize()
+                self.stream.synchronize() if self.isCudaAvailable else None
                 writeBuffer.write(output)
 
             self.cacheFrame()
