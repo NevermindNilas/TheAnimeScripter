@@ -30,10 +30,6 @@ def getFFMPEG():
 
 def downloadAndExtractFFMPEG(ffmpegPath):
     logging.info("Getting FFMPEG")
-    print(
-        "Couldn't find FFMPEG, downloading it now. This will take a few seconds on the first run, but will be cached for future runs."
-    )
-
     if platform.system() == "Windows":
         FFMPEGURL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
         extractFunc = extractFFMPEGZip
@@ -52,15 +48,27 @@ def downloadAndExtractFFMPEG(ffmpegPath):
 
     response = requests.get(FFMPEGURL, stream=True)
     totalSizeInBytes = int(response.headers.get("content-length", 0))
+    totalSizeInMB = int(totalSizeInBytes / 1024 / 1024)
 
-    with alive_bar(total=totalSizeInBytes, title="Downloading FFMPEG", bar="smooth") as bar, open(ffmpegArchivePath, "wb") as file:
-        for data in response.iter_content(chunk_size=1024):
+    with alive_bar(
+        total=totalSizeInMB + 1,
+        title="Downloading FFmpeg",
+        bar="smooth",
+        unit="MB",
+        spinner=True,
+        enrich_print=True,
+        receipt=True,
+        monitor=True,
+        elapsed=True,
+        stats=False,
+        dual_line=True,
+        force_tty=True,
+    ) as bar, open(ffmpegArchivePath, "wb") as file:
+        for data in response.iter_content(chunk_size=1024 * 1024):
             file.write(data)
-            bar(len(data))
+            bar(int(len(data) / (1024 * 1024)))
 
     extractFunc(ffmpegArchivePath, ffmpegDir)
-
-    print("\n")
     return str(ffmpegPath)
 
 
@@ -81,7 +89,7 @@ def extractFFMPEGTar(ffmpegTarPath, ffmpegDir):
     with tarfile.open(ffmpegTarPath, "r:xz") as tarRef:
         tarRef.extractall(ffmpegDir)
 
-    for directory in ffmpegDir.glob('ffmpeg-*-static'):
+    for directory in ffmpegDir.glob("ffmpeg-*-static"):
         (directory / "ffmpeg").rename(ffmpegDir / "ffmpeg")
         break
 

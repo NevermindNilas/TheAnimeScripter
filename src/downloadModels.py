@@ -329,16 +329,16 @@ def modelsMap(
                 return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_fp16_op17_onnxslim.onnx"
             else:
                 return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_op17_onnxslim.onnx"
-        
+
         case "pervfi_lite":
             return "pervfi_lite.pth"
-        
+
         case "pervfi":
             return "pervfi.pth"
-        
+
         case "raft":
             return "raft-sintel.pth"
-        
+
         case _:
             raise ValueError(f"Model {model} not found.")
 
@@ -351,23 +351,36 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
 
     toLog = f"Downloading {model.upper()} model..."
     logging.info(toLog)
-    print(toLog)
 
     response = requests.get(download_url, stream=True)
 
     try:
         total_size_in_bytes = int(response.headers.get("content-length", 0))
-        if total_size_in_bytes == 0:
-            total_size_in_bytes = None
+        total_size_in_mb = total_size_in_bytes / (1024 * 1024)  # Convert bytes to MB
     except Exception as e:
-        total_size_in_bytes = None
+        total_size_in_mb = 0  # If there's an error, default to 0 MB
         logging.error(e)
 
-    with alive_bar(total_size_in_bytes, title="Progress", bar="smooth") as bar:
+    with alive_bar(
+        int(total_size_in_mb + 1), # Hacky but it works
+        title=f"Downloading {model.capitalize()} model",
+        bar="smooth",
+        unit = "MB",
+        spinner=True,
+        enrich_print=False,
+        receipt=True,
+        monitor=True,
+        elapsed=True,
+        stats=False,
+        dual_line=True,
+        force_tty=True,
+    ) as bar:
         with open(os.path.join(folderPath, filename), "wb") as file:
-            for data in response.iter_content(chunk_size=1024):
+            for data in response.iter_content(
+                chunk_size=1024 * 1024
+            ):
                 file.write(data)
-                bar(len(data))
+                bar(int(len(data) / (1024 * 1024)))
 
     if filename.endswith(".zip"):
         import zipfile
@@ -377,8 +390,7 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
         os.remove(os.path.join(folderPath, filename))
         filename = filename[:-4]
 
-    toLog = f"Downloaded {model.upper()} model to: {os.path.join(folderPath, filename)}"
-
+    toLog = f"Downloaded {model.capitalize()} model to: {os.path.join(folderPath, filename)}"
     logging.info(toLog)
     print(toLog)
 
