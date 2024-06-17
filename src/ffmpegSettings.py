@@ -233,17 +233,19 @@ class BuildBuffer:
         try:
             video = decord.VideoReader(self.input, ctx=decord.cpu(0), width=self.width, height=self.height)
 
+            fps = video.get_avg_fps()
             if self.outpoint != 0:
-                self.outpoint = int(self.outpoint * video.get_avg_fps())
-                self.inpoint = int(self.inpoint * video.get_avg_fps())
-                totalFrames = video.get_batch(range(self.inpoint, self.outpoint)).shape[0]
+                self.outpoint = int(self.outpoint * fps)
+                self.inpoint = int(self.inpoint * fps)
+                self.totalFrames = video.get_batch(range(self.inpoint, self.outpoint)).shape[0]
             else:
-                totalFrames = len(video)
+                self.totalFrames = len(video)
+
             
             self.readingDone = False
             self.decodedFrames = 0
 
-            for i in range(totalFrames):
+            for i in range(self.totalFrames):
                 frame = torch.from_numpy(video[i].asnumpy())
                 self.readBuffer.put(frame)
                 self.decodedFrames += 1
@@ -281,6 +283,12 @@ class BuildBuffer:
         Get the size of the queue.
         """
         return self.readBuffer.qsize()
+    
+    def getTotalFrames(self):
+        """
+        Get the total amount of frames.
+        """
+        return self.totalFrames
 
 
 class WriteBuffer:
@@ -491,25 +499,26 @@ class WriteBuffer:
             logging.info(f"Encoding options: {' '.join(map(str, command))}")
 
         try:
-            with subprocess.Popen(
-                command,
-                stdin=subprocess.PIPE,
-                stdout=sys.stdout,
-                stderr=subprocess.STDOUT,
-                universal_newlines=True,
-            ) as self.process:
+            with open('log.txt', 'a') as log_file:
+                with subprocess.Popen(
+                    command,
+                    stdin=subprocess.PIPE,
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    universal_newlines=True,
+                ) as self.process:
 
-                writtenFrames = 0
-                self.isWritingDone = False
-                while True:
-                    frame = self.writeBuffer.get()
-                    if frame is None:
-                        if verbose:
-                            logging.info(f"Encoded {writtenFrames} frames")
-                        break
-                    
-                    self.process.stdin.buffer.write(frame.contiguous().byte().cpu().numpy())
-                    writtenFrames += 1
+                    writtenFrames = 0
+                    self.isWritingDone = False
+                    while True:
+                        frame = self.writeBuffer.get()
+                        if frame is None:
+                            if verbose:
+                                logging.info(f"Encoded {writtenFrames} frames")
+                            break
+                        
+                        self.process.stdin.buffer.write(frame.contiguous().byte().cpu().numpy())
+                        writtenFrames += 1
 
         except Exception as e:
             if verbose:

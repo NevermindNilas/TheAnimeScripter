@@ -165,21 +165,17 @@ class UniversalTensorRT:
             self.filename = modelsMap(
                 self.upscaleMethod, self.upscaleFactor, modelType=modelType, half=self.half
             )
-            if not os.path.exists(
-                os.path.join(weightsDir, self.upscaleMethod, self.filename)
-            ):
+            modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
+            if not os.path.exists(modelPath):
                 modelPath = downloadModels(
                     model=self.upscaleMethod,
                     upscaleFactor=self.upscaleFactor,
                     half=self.half,
                     modelType=modelType,
                 )
-            else:
-                modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
         else:
-            if os.path.isfile(self.customModel):
-                modelPath = self.customModel
-            else:
+            modelPath = self.customModel
+            if not os.path.exists(self.customModel):
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
                 )
