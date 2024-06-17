@@ -201,6 +201,9 @@ def modelsMap(
         case "rife" | "rife4.17":
             return "rife417.pth"
 
+        case "rife4.17-lite":
+            return "rife417_lite.pth"
+
         case "rife4.15":
             return "rife415.pth"
 
