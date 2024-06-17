@@ -40,7 +40,10 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     inOutDuration = round((outPoint - inPoint) / fps, 2) if fps else 0
 
     # Calculate total frames from inPoint to outPoint
-    totalFramesToBeProcessed = int((outPoint - inPoint) * fps)
+    if outPoint != 0:
+        totalFramesToBeProcessed = int((outPoint - inPoint) * fps)
+    else:
+        totalFramesToBeProcessed = nframes
 
     logging.info(
         textwrap.dedent(f"""
@@ -58,4 +61,4 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
 
     cap.release()
 
-    return width, height, fps
+    return width, height, fps, totalFramesToBeProcessed
