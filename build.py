@@ -96,6 +96,7 @@ def create_executable():
             "--noconsole",
             "--noupx",
             "--clean",
+            "--debug=all",
             "--icon",
             f"{icon_path}",
             gui_path,
