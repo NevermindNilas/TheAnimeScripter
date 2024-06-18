@@ -3,6 +3,7 @@ import os
 import json
 import threading
 import logging
+import time
 
 from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
@@ -93,7 +94,10 @@ def runCommand(self, mainPath, settingsFile) -> None:
 
         for option in loadSettingsFile:
             loweredOption = option.lower()
-            loweredOptionValue = str(loadSettingsFile[option]).lower()
+
+            loweredOptionValue = str(loadSettingsFile[option])
+            if "http" not in loweredOptionValue:
+                loweredOptionValue = loweredOptionValue.lower()
 
             if loweredOptionValue == "false":
                 continue
@@ -111,32 +115,10 @@ def runCommand(self, mainPath, settingsFile) -> None:
 
         command = " ".join(command)
         print(command)
-        def runSubprocess(command):
-            try:
-                process = subprocess.Popen(
-                    command,
-                    shell=True,
-                    stdout=subprocess.PIPE,  # Change this
-                    stderr=subprocess.STDOUT,  # And this
-                    bufsize=1,
-                    universal_newlines=True,
-                )
+        def runCommandInTerminal(command):
+            os.system(f'start cmd /c "{command} & exit"')
 
-                def stream_output():
-                    for line in iter(process.stdout.readline, ''):
-                        self.outputWindow.append(line.strip())
-                    process.stdout.close()
-
-                threading.Thread(target=stream_output).start()
-                process.wait()
-
-            except Exception as e:
-                self.outputWindow.append(
-                    f"An error occurred while running the command, {e}"
-                )
-                logging.error(f"An error occurred while running, {e}")
-
-        threading.Thread(target=runSubprocess, args=(command,)).start()
+        threading.Thread(target=runCommandInTerminal, args=(command,), daemon=True).start()
 
 
     except Exception as e:
@@ -193,6 +175,7 @@ def saveSettings(self, settingsFile):
             "resize_method": self.resizeMethodDropdown.currentText(),
             "benchmark": self.benchmarkmodeCheckbox.isChecked(),
             "scenechange": self.scenechangedetectionCheckbox.isChecked(),
+            "ensemble": self.rifeensembleCheckbox.isChecked(),
         }
         for i in range(self.checkboxLayout.count()):
             checkbox = self.checkboxLayout.itemAt(i).widget()
@@ -203,7 +186,6 @@ def saveSettings(self, settingsFile):
         self.outputWindow.append("Settings saved successfully")
     except Exception as e:
         self.outputWindow.append(f"An error occurred while saving settings, {e}")
-
 
 def fadeIn(self, widget, duration=500):
     opacity_effect = QGraphicsOpacityEffect(widget)
@@ -223,6 +205,9 @@ def dropdownsLabels(method):
                 "ShuffleCugan",
                 "Cugan",
                 "Span",
+                "Compact",
+                "UltraCompact",
+                "SuperUltraCompact",
                 "ShuffleCugan-TensorRT",
                 "Span-TensorRT",
                 "Compact-TensorRT",
@@ -230,12 +215,16 @@ def dropdownsLabels(method):
                 "SuperUltraCompact-TensorRT",
                 "Cugan-DirectML",
                 "Span-DirectML",
+                "Compact-DirectML",
+                "UltraCompact-DirectML",
+                "SuperUltraCompact-DirectML",
                 "ShuffleCugan-NCNN",
                 "Span-NCNN",
             ]
         case "Interpolation":
             return [
                 "Rife4.17",
+                "Rife4.17-Lite",
                 "Rife4.16-Lite",
                 "Rife4.15-Lite",
                 "Rife4.15",
@@ -253,7 +242,7 @@ def dropdownsLabels(method):
         case "Denoise":
             return ["DPIR", "SCUNet", "NAFNet", "Span"]
         case "Dedup":
-            return ["SSIM", "FFMPEG", "MSE", "SSIM-CUDA"]
+            return ["SSIM", "MSE", "SSIM-CUDA"]
         case "Depth":
             return ["Small", "Base", "Large", "Small-TensorRT", "Base-TensorRT", "Large-TensorRT", "Small-DirectML", "Base-DirectML", "Large-DirectML"]
         case "Encode":
