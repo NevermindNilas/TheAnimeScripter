@@ -40,7 +40,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TITLE = "The Anime Scripter - 1.8.3 (Alpha)"
+TITLE = "The Anime Scripter - 1.8.5 (Alpha)"
 W, H = 1280, 720
 
 if getattr(sys, "frozen", False):
@@ -66,7 +66,6 @@ class VideoProcessingApp(QMainWindow):
 
         self.createLayouts()
         self.createWidgets()
-        self.createDropdowns()
 
         self.settingsFile = os.path.join(os.getcwd(), "settings.json")
         loadSettings(self, self.settingsFile)
@@ -80,43 +79,11 @@ class VideoProcessingApp(QMainWindow):
         self.checkboxLayout = QVBoxLayout()
         self.outputLayout = QVBoxLayout()
 
-    def createDropdowns(self):
-        dropdowns = [
-            ("Resize Method:", "Resize"),
-            ("Interpolate Method:", "Interpolation"),
-            ("Upscale Method:", "Upscaling"),
-            ("Denoise Method:", "Denoise"),
-            ("Dedup Method:", "Dedup"),
-            ("Depth Method:", "Depth"),
-            ("Encode Method:", "Encode"),
-        ]
-
-        self.dropdowns = {}
-        for label, method in dropdowns:
-            dropdownLayout, dropdown = self.createLabeledDropdown(
-                label, dropdownsLabels(method)
-            )
-            setattr(self, f"{method.lower()}MethodDropdown", dropdown)
-            self.dropdowns[method.lower()] = dropdownLayout
-
-        checkboxes = [
-            ("Keep Audio", "Enable or disable audio in the output file."),
-            (
-                "Benchmark Mode",
-                "Benchmark mode will disable encoding and only monitor the performance of the script without the creation of an output file.",
-            ),
-        ]
-
-        self.checkboxes = {}
-        for text, help_text in checkboxes:
-            checkbox = QCheckBox(text)
-            checkbox.setToolTip(help_text)
-            setattr(self, f"{text.replace(' ', '').lower()}Checkbox", checkbox)
-            self.checkboxes[text.replace(" ", "").lower()] = checkbox
-
     def createWidgets(self):
-        self.checkboxInputLayout = QHBoxLayout()
-    
+        self.inputEntry = self.createPathWidgets("Input Path:", self.browseInput)
+        self.outputEntry = self.createPathWidgets("Output Path:", self.browseOutput)
+
+        self.OptionLayout = QHBoxLayout()
         for option in [
             "Resize",
             "Dedup",
@@ -128,15 +95,16 @@ class VideoProcessingApp(QMainWindow):
             "Depth",
         ]:
             self.createCheckbox(option)
-    
+
         inputFields = [
             ("Interpolate Factor:", 2, 100),
             ("Upscale Factor:", 2, 4),
             ("Resize Factor:", 1, 4),
         ]
-    
+
         self.inputFieldsLayout = QVBoxLayout()
-    
+        self.inputFieldsLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
         for label, defaultValue, maxValue in inputFields:
             layout, entry = self.createInputField(label, defaultValue, maxValue)
             self.inputFieldsLayout.addLayout(layout)
@@ -146,15 +114,11 @@ class VideoProcessingApp(QMainWindow):
                 self.interpolateFactorEntry = entry
             elif label == "Upscale Factor:":
                 self.upscaleFactorEntry = entry
-    
-        self.checkboxInputLayout.addLayout(self.checkboxLayout)
-        self.checkboxInputLayout.addLayout(self.inputFieldsLayout)
-    
-        # Add settings to the options panel
-        mainSettings = QVBoxLayout()
-        mainSettings.setSpacing(10)
-        mainSettings.setAlignment(Qt.AlignmentFlag.AlignTop)
-    
+
+        self.mainSettings = QVBoxLayout()
+        self.mainSettings.setSpacing(10)
+        self.mainSettings.setAlignment(Qt.AlignmentFlag.AlignTop)
+
         dropdowns = [
             ("Resize Method:", "Resize"),
             ("Interpolate Method:", "Interpolation"),
@@ -164,26 +128,24 @@ class VideoProcessingApp(QMainWindow):
             ("Depth Method:", "Depth"),
             ("Encode Method:", "Encode"),
         ]
-    
+
         for label, method in dropdowns:
             dropdownLayout, dropdown = self.createLabeledDropdown(
                 label, dropdownsLabels(method)
             )
             setattr(self, f"{method.lower()}MethodDropdown", dropdown)
-            mainSettings.addLayout(dropdownLayout)
-    
+            self.mainSettings.addLayout(dropdownLayout)
+
         self.encodeParamsLabel = QLabel()
-        mainSettings.addWidget(self.encodeParamsLabel)
+        self.mainSettings.addWidget(self.encodeParamsLabel)
         self.updateEncodeParamsLabel(self.encodeMethodDropdown.currentText())
         self.encodeMethodDropdown.currentTextChanged.connect(
             self.updateEncodeParamsLabel
         )
-        self.checkboxInputLayout.addLayout(mainSettings)
-    
-        extraSettings = QVBoxLayout()
-        extraSettings.setSpacing(10)
-        extraSettings.setAlignment(Qt.AlignmentFlag.AlignTop)
-    
+
+        self.extraSettings = QVBoxLayout()
+        self.extraSettings.setAlignment(Qt.AlignmentFlag.AlignTop)
+
         checkboxes = [
             (
                 "Benchmark Mode",
@@ -193,35 +155,41 @@ class VideoProcessingApp(QMainWindow):
                 "Scene Change Detection",
                 "Enable or disable scene change detection, can impact performance but it will improve the quality of the output when interpolating.",
             ),
+            (
+                "Rife Ensemble",
+                "Enable or disable RIFE ensemble, this can improve the quality of the interpolation at the cost of less performance.",
+            ),
         ]
-    
+
         for text, help_text in checkboxes:
             checkbox = QCheckBox(text)
             checkbox.setToolTip(help_text)
             setattr(self, f"{text.replace(' ', '').lower()}Checkbox", checkbox)
-            extraSettings.addWidget(checkbox)
-    
-        self.checkboxInputLayout.addLayout(extraSettings)
-    
-        self.pathGroup = self.createGroup("Paths", self.pathLayout)
-        self.checkboxGroup = self.createGroup("Options", self.checkboxInputLayout)
-        self.outputGroup = self.createGroup("Log", self.outputLayout)
-    
-        self.inputEntry = self.createPathWidgets("Input Path:", self.browseInput)
-        self.outputEntry = self.createPathWidgets("Output Path:", self.browseOutput)
-    
+            self.extraSettings.addWidget(checkbox)
+
+        self.OptionLayout.addLayout(self.checkboxLayout)
+        self.OptionLayout.addLayout(self.inputFieldsLayout)
+        self.OptionLayout.addLayout(self.mainSettings)
+        self.OptionLayout.addLayout(self.extraSettings)
+        self.OptionLayout.addStretch(1)
+        self.OptionLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        self.pathGroup = self.createGroup("Paths", self.pathLayout, 100)
+        self.checkboxGroup = self.createGroup("Options", self.OptionLayout)
+        self.outputGroup = self.createGroup("Log", self.outputLayout, 250)
+
         self.outputWindow = QTextEdit()
         self.outputWindow.setReadOnly(True)
         self.outputLayout.addWidget(self.outputWindow)
-    
+
         sys.stdout = StreamToTextEdit(self.outputWindow)
         sys.stderr = StreamToTextEdit(self.outputWindow)
-    
+
         self.runButton = self.createButton("Run", self.runButtonOnClick)
-    
+
         self.buttonLayout = QHBoxLayout()
         self.buttonLayout.addWidget(self.runButton)
-    
+
         self.addWidgetsToLayout(
             self.layout, [self.pathGroup, self.checkboxGroup, self.outputGroup], 5
         )
@@ -235,12 +203,13 @@ class VideoProcessingApp(QMainWindow):
         dropdown.addItems(options)
         layout.addWidget(label)
         layout.addWidget(dropdown)
-        layout.addStretch(1)
         return layout, dropdown
 
-    def createGroup(self, title, layout):
+    def createGroup(self, title, layout, maxHeight=None):
         group = QGroupBox(title)
         group.setLayout(layout)
+        if maxHeight is not None:
+            group.setMaximumHeight(maxHeight)
         return group
 
     def runButtonOnClick(self):
@@ -266,7 +235,7 @@ class VideoProcessingApp(QMainWindow):
         entry = QLineEdit()
         entry.setText(str(defaultValue))
         entry.setValidator(QIntValidator(0, maxValue))
-        entry.setFixedWidth(30)
+        entry.setFixedWidth(50)
         entry.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         layout.addWidget(entry)
@@ -275,6 +244,7 @@ class VideoProcessingApp(QMainWindow):
 
     def createCheckbox(self, text):
         checkbox = QCheckBox(text)
+        self.checkboxLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.checkboxLayout.addWidget(checkbox)
 
     def createButton(self, text, slot):
@@ -292,7 +262,7 @@ class VideoProcessingApp(QMainWindow):
             self,
             "Select Input File",
             "",
-            "Video Files (*.mp4 *.mkv *.mov *.avi);;All Files (*)",
+            "Video Files (*.mp4 *.mkv *.mov *.avi *.webm);;All Files (*)",
         )
         if filePath:
             self.inputEntry.setText(filePath)
