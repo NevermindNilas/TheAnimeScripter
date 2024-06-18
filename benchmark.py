@@ -84,19 +84,19 @@ def runUpscaleBenchmark(inputVideo, executor):
     for method in upscaleMethods:
         print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
         if method in ["realresrgan", "cugan"]:
-            output = os.popen(
+            subprocess.run(
                 f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 1"
             ).read()
         elif "-tensorrt" in method:
-            output = os.popen(
+            subprocess.run(
                 f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 8"
             ).read()
         else:
-            output = os.popen(
+            subprocess.run(
                 f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 5"
             ).read()
 
-        fps = parseFPS(output)
+        fps = parseFPS()
         results[method] = fps
         time.sleep(TIMESLEEP)
         currentTest += 1
@@ -112,15 +112,15 @@ def runInterpolateBenchmark(inputVideo, executor):
         currentTest += 1
 
         if method != "gmfss":
-            output = os.popen(
+            subprocess.run(
                 f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark "
             ).read()
         else:
-            output = os.popen(
+            subprocess.run(
                 f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --outpoint 3"
             ).read()
 
-        fps = parseFPS(output)
+        fps = parseFPS()
         results[method] = fps
         time.sleep(TIMESLEEP)
 
@@ -130,26 +130,29 @@ def runInterpolateBenchmark(inputVideo, executor):
         currentTest += 1
 
         if method != "gmfss":  # Ensemble is irrelevant for GMFSS
-            output = os.popen(
+            subprocess.run(
                 f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 15"
             ).read()
         else:
-            output = os.popen(
+            subprocess.run(
                 f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 3"  # GMFSS is so slow that even this is too much
             ).read()
 
-        fps = parseFPS(output)
+        fps = parseFPS()
         results[f"{method}-ensemble"] = fps
         time.sleep(TIMESLEEP)
 
     return results
 
 
-def parseFPS(output):
-    match = re.findall(r"fps=\s*([\d.]+)", output)
-    if match:
-        print("FPS:", float(match[-1]))
-        return float(match[-1])
+def parseFPS():
+    with open("log.txt", "r") as file:
+        output = file.read()
+    matches = re.findall(r"fps=\s*([\d.]+)", output)
+    if matches:
+        highest_fps = max(map(float, matches))
+        print("Highest FPS:", highest_fps)
+        return highest_fps
     else:
         print("None")
         return None
@@ -171,7 +174,7 @@ def parseSystemInfo():
 if __name__ == "__main__":
     TIMESLEEP = 2
     CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
-    TESTINGVERSION = "V4"
+    TESTINGVERSION = "V4.1"
 
     upscaleMethods = [
         "shufflecugan",
@@ -199,13 +202,17 @@ if __name__ == "__main__":
         "rife4.15",
         "rife4.15-lite",
         "rife4.16-lite",
+        "rife4.17",
+        "rife4.17-lite",
         "rife4.6-ncnn",
         "rife4.15-ncnn",
         "rife4.15-lite-ncnn",
         "rife4.16-lite-ncnn",
+        "rife4.17-ncnn",
         "rife4.6-tensorrt",
-        "rife4.15-lite-tensorrt",
         "rife4.15-tensorrt",
+        "rife4.15-lite-tensorrt",
+        "rife4.17-tensorrt",
         "gmfss",
     ]
 

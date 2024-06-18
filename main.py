@@ -309,7 +309,6 @@ if __name__ == "__main__":
             "ultracompact-tensorrt",
             "superultracompact-tensorrt",
             "span-tensorrt",
-            "cugan-tensorrt",
             "shufflecugan-tensorrt",
         ],
         default="shufflecugan",
