@@ -149,15 +149,16 @@ def parseFPS():
     with open("log.txt", "r") as file:
         output = file.read()
     matches = re.findall(r"fps=\s*([\d.]+)", output)
-    if matches:
-        highest_fps = max(map(float, matches))
-        average_fps = round(sum(map(float, matches)) / len(matches), 2)
-        print("Highest FPS:", highest_fps, "Average FPS:", average_fps)
-        return average_fps
+    # Filter out fps values that are 0.0 or 0
+    filtered = [float(fps) for fps in matches if float(fps) > 0]
+    if filtered:
+        highestFPS = max(filtered)
+        averageFPS = round(sum(filtered) / len(filtered), 2)
+        print("Highest FPS:", highestFPS, "Average FPS:", averageFPS)
+        return averageFPS
     else:
-        print("None")
+        print("Couldn't identify FPS value. Skipping...")
         return None
-
 
 def parseSystemInfo():
     systemInfo = {}
