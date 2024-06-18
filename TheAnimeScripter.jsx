@@ -496,7 +496,7 @@ var TheAnimeScripter = (function () {
     createDropdownField(panel1, "Encoder", "Encoder", ["X264", "X264_10Bit", "X264_Animation", "X264_Animation_10Bit", "X265", "X265_10Bit", "NVENC_H264", "NVENC_H265", "NVENC_H265_10Bit", "NVENC_AV1", "QSV_H264", "QSV_H265", "QSV_H265_10Bit", "H264_AMF", "HEVC_AMF", "HEVC_AMF_10Bit", "AV1"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs, AMF for AMD GPUs and QSV for Intel iGPUs");
     createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear", "Bilinear", "Bicubic", "Experimental", "Neighbor", "Area", "Bicublin", "Gauss", "Sinc", "Lanczos", "Spline", "Spline16", "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
     createDropdownField(panel1, "Dedup Method", "Dedup", ["SSIM", "MSE", "SSIM-CUDA"], "Choose which deduplication method you want to utilize, SSIM-CUDA is for NVIDIA Only whilst the rest will work on any system.");
-    createDropdownField(panel1, "Denoise Method", "Denoise", ["Span", "SCUNet", "NAFNet", "DPIR"]);
+    createDropdownField(panel1, "Denoise Method", "Denoise", ["SCUNet", "NAFNet", "DPIR"]);
 
     var upscaleModel = function () {
         return dropdownValues["Model"];
