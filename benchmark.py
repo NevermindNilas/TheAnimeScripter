@@ -83,18 +83,18 @@ def runUpscaleBenchmark(inputVideo, executor):
     results = {}
     for method in upscaleMethods:
         print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
-        if method in ["realresrgan", "cugan"]:
+        if method in ["cugan"]:
             subprocess.run(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 1"
-            ).read()
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 1.5"
+            )
         elif "-tensorrt" in method:
             subprocess.run(
                 f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 8"
-            ).read()
+            )
         else:
             subprocess.run(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 5"
-            ).read()
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark"
+            )
 
         fps = parseFPS()
         results[method] = fps
@@ -113,12 +113,12 @@ def runInterpolateBenchmark(inputVideo, executor):
 
         if method != "gmfss":
             subprocess.run(
-                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark "
-            ).read()
+                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark"
+            )
         else:
             subprocess.run(
                 f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --outpoint 3"
-            ).read()
+            )
 
         fps = parseFPS()
         results[method] = fps
@@ -132,11 +132,11 @@ def runInterpolateBenchmark(inputVideo, executor):
         if method != "gmfss":  # Ensemble is irrelevant for GMFSS
             subprocess.run(
                 f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 15"
-            ).read()
+            )
         else:
             subprocess.run(
                 f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 3"  # GMFSS is so slow that even this is too much
-            ).read()
+            )
 
         fps = parseFPS()
         results[f"{method}-ensemble"] = fps
@@ -151,8 +151,9 @@ def parseFPS():
     matches = re.findall(r"fps=\s*([\d.]+)", output)
     if matches:
         highest_fps = max(map(float, matches))
-        print("Highest FPS:", highest_fps)
-        return highest_fps
+        average_fps = round(sum(map(float, matches)) / len(matches), 2)
+        print("Highest FPS:", highest_fps, "Average FPS:", average_fps)
+        return average_fps
     else:
         print("None")
         return None
@@ -242,6 +243,9 @@ if __name__ == "__main__":
             for method in interpolateMethods
             if "ncnn" in method or "directml" in method
         ]
+    elif GPUVENDOR == "Intel":
+        pass
+
 
     if platform.system() == "Linux":
         upscaleMethods = [
