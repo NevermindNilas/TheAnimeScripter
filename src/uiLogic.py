@@ -94,15 +94,19 @@ def runCommand(self, mainPath, settingsFile) -> None:
 
         for option in loadSettingsFile:
             loweredOption = option.lower()
-
             loweredOptionValue = str(loadSettingsFile[option])
-            if "http" not in loweredOptionValue:
+
+            if loweredOption == "output":
+                if loweredOptionValue == "":                    
+                    continue
+            elif loweredOption == "input":
+                if loweredOptionValue == "":
+                    print("Input path is empty")
+                    return
+            else:
                 loweredOptionValue = loweredOptionValue.lower()
 
             if loweredOptionValue == "false":
-                continue
-
-            if loweredOption == "output" and loweredOptionValue == "":
                 continue
 
             if loweredOption in ["input", "output"]:
