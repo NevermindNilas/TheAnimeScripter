@@ -40,7 +40,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TITLE = "The Anime Scripter - 1.8.5 (Alpha)"
+TITLE = "The Anime Scripter - 1.8.6 (Alpha)"
 W, H = 1280, 720
 
 if getattr(sys, "frozen", False):
