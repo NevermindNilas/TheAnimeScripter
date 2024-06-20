@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/cu121
-#pypresence
+pypresence
 pyqt6
 opencv-python
 timm

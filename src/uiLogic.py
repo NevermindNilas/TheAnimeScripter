@@ -1,9 +1,7 @@
-import subprocess
 import os
 import json
 import threading
 import logging
-import time
 
 from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
@@ -15,14 +13,14 @@ def Style() -> str:
     """
     return """
         * {
-            font-family: Tahoma;
-            font-size: 12px;
+            font-family: Segoe UI;
+            font-size: 14px;
             color: #FFFFFF;
         
         }
         QMainWindow {
             background-color: rgba(0, 0, 0, 0);
-            border-radius: 10px;
+            border-radius: 5px;
         }
         
         QWidget {
@@ -32,9 +30,8 @@ def Style() -> str:
         QPushButton {
             background-color: rgba(60, 60, 60, 0.5);
             color: #FFFFFF;
-            border: none;
             border-radius: 5px;
-            padding: 5px 10px;
+            min-height: 25px;
         }
 
         QPushButton:hover {
@@ -44,14 +41,29 @@ def Style() -> str:
         QLineEdit {
             background-color: rgba(60, 60, 60, 0.5);
             color: #FFFFFF;
-            border: none;
             border-radius: 5px;
-            padding: 5px;
+            min-height: 25px;
         }
+
+        QComboBox {
+            min-width: 100px;
+            background-color: rgba(60, 60, 60, 0.5);
+            color: #FFFFFF;
+            border-radius: 5px;
+            min-height: 25px;
+        }
+
+        QComboBox QAbstractItemView {
+            border: 2px solid darkgray; /* Border for the dropdown list */
+            selection-background-color: #606060; /* Background color of hovered item */
+            color: #FFFFFF; /* Text color of items */
+            background-color: rgba(60, 60, 60, 0.8); /* Background of the dropdown */
+            border-radius: 5px; /* Rounded corners for the dropdown list */
+        }
+
 
         QCheckBox {
             color: #FFFFFF;
-            padding: 5px;
         }
 
         QTextEdit {
@@ -65,7 +77,7 @@ def Style() -> str:
         QGroupBox {
             border: 1px solid #4A4A4A;
             border-radius: 5px;
-            margin-top: 1ex;
+            margin-top: 2ex;
         }
 
         QGroupBox::title {
@@ -73,8 +85,6 @@ def Style() -> str:
             subcontrol-position: top center;
             padding: -7px 5px 0 5px;
         }
-
-        
     """
 
 def runCommand(self, mainPath, settingsFile) -> None:
@@ -120,13 +130,13 @@ def runCommand(self, mainPath, settingsFile) -> None:
         command = " ".join(command)
         print(command)
         def runCommandInTerminal(command):
-            os.system(f'start cmd /c "{command} & exit"')
+            os.system(f'start cmd /c {command}')
 
         threading.Thread(target=runCommandInTerminal, args=(command,), daemon=True).start()
 
 
     except Exception as e:
-        self.outputWindow.append(f"An error occurred while running the command, {e}")
+        print(f"An error occurred while running the command, {e}")
         logging.error(f"An error occurred while running, {e}")
 
 
