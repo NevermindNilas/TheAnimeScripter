@@ -14,7 +14,7 @@ def Style() -> str:
     return """
         * {
             font-family: Segoe UI;
-            font-size: 14px;
+            font-size: 13px;
             color: #FFFFFF;
         
         }
@@ -130,7 +130,14 @@ def runCommand(self, mainPath, settingsFile) -> None:
         command = " ".join(command)
         print(command)
         def runCommandInTerminal(command):
-            os.system(f'start cmd /c {command}')
+            # Check if Windows Terminal (wt) is available
+            wt_available = os.system('where wt >nul 2>&1')
+            terminal_command = f'start wt cmd /c {command}' if wt_available == 0 else f'start cmd /c {command}'
+            try:
+                os.system(terminal_command)
+            except Exception as e:
+                print(f"An error occurred while running the command: {e}")
+
 
         threading.Thread(target=runCommandInTerminal, args=(command,), daemon=True).start()
 
