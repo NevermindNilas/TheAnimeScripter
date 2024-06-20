@@ -179,8 +179,8 @@ class RifeCuda:
                 if self.sceneChangeProcess.run(self.I0, self.I1):
                     for _ in range(interpolateFactor - 1):
                         writeBuffer.write(frame)
-                    self.cacheFrameReset()
                     self.stream.synchronize() if self.isCudaAvailable else None
+                    self.cacheFrameReset()
                     self.sceneChangeProcess.cacheFrame()
                     return
 
@@ -419,8 +419,8 @@ class RifeTensorRT:
                 if self.sceneChangeProcess.run(self.I0, self.I1):
                     for _ in range(interpolateFactor - 1):
                         writeBuffer.write(frame)
-                    self.cacheFrame()
                     self.stream.synchronize()
+                    self.cacheFrame()
                     self.sceneChangeProcess.cacheFrame()
                     return
 
