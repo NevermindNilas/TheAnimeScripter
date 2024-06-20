@@ -1,5 +1,10 @@
 import os
 import sys
+import time
+import random
+
+from pypresence import Presence
+from pypresence.exceptions import DiscordNotFound
 
 from PyQt6.QtWidgets import (
     QApplication,
@@ -40,14 +45,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TITLE = "The Anime Scripter - 1.8.6 (Alpha)"
+TITLE = "The Anime Scripter - 1.8.7 (Alpha)"
 W, H = 1280, 720
+REPOSITORY = "https://github.com/NevermindNilas/TheAnimeScripter"
 
 if getattr(sys, "frozen", False):
     mainPath = os.path.dirname(sys.executable)
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
-
 
 class VideoProcessingApp(QMainWindow):
     def __init__(self):
@@ -58,6 +63,7 @@ class VideoProcessingApp(QMainWindow):
 
         GlobalBlur(self.winId(), Acrylic=True)
 
+        self.pyPresence()
         self.setStyleSheet(Style())
         self.centralWidget = QWidget()
         self.stackedWidget = QStackedWidget()
@@ -70,6 +76,44 @@ class VideoProcessingApp(QMainWindow):
         self.settingsFile = os.path.join(os.getcwd(), "settings.json")
         loadSettings(self, self.settingsFile)
         fadeIn(self, self.centralWidget, 500)
+
+    
+    def pyPresence(self):
+        presetTitles = [
+            "Enhancing my videos",
+            "True 4K Enjoyer",
+            "Editing with Style",
+            "Crafting Cinematic Masterpieces",
+            "Bringing Pixels to Life",
+            "Cutting and Splicing Magic",
+            "From Raw to Refined",
+            "Harnessing the Power of AI",
+            "Journey Through Editing",
+            "Creating the Perfect Video",
+            "Transforming Media",
+            "Mastering the Art of Video",
+            "From Pixels to Perfection",
+        ]
+        chosenTitle = random.choice(presetTitles)
+
+        # Get version from TITLE:
+        version = TITLE.split(" - ")[1].split(" (")[0]
+        try:
+            clientID = "1213461768785891388"
+            RPC = Presence(clientID)
+            RPC.connect()
+            RPC.update(
+                state=chosenTitle,
+                details=f"Version: {version}",
+                large_image="icon",
+                large_text="The Anime Scripter",
+                start=int(time.time()),
+                buttons=[{"label": "View on GitHub", "url": REPOSITORY}]
+            )
+        except ConnectionRefusedError:
+            print("Could not connect to Discord. Is Discord running?")
+        except DiscordNotFound:
+            print("Discord is not installed or not running.")
 
     def createLayouts(self):
         self.layout = QVBoxLayout()
