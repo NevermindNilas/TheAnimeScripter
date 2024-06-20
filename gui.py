@@ -102,8 +102,8 @@ class VideoProcessingApp(QMainWindow):
             RPC = Presence(clientID)
             RPC.connect()
             RPC.update(
-                state=chosenTitle,
-                details=f"Version: {version}",
+                state=f"Version: {version}",
+                details=chosenTitle,
                 large_image="icon",
                 large_text="The Anime Scripter",
                 start=int(time.time()),
@@ -143,8 +143,8 @@ class VideoProcessingApp(QMainWindow):
             ("Interpolate Factor:", 2, 100),
             ("Upscale Factor:", 2, 4),
             ("Resize Factor:", 1, 4),
-            ("Dedup Sensitivity: ", 0, 100),
-            ("Sharpen Sensitivity: ", 0, 100),
+            #("Dedup Sensitivity: ", 0, 100),
+            #("Sharpen Sensitivity: ", 0, 100),
         ]
 
         self.inputFieldsLayout = QVBoxLayout()
