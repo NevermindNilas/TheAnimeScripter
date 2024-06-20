@@ -334,14 +334,6 @@ class VideoProcessingApp(QMainWindow):
         else:
             self.encodeParamsLabel.setText("")
 
-    def goBack(self):
-        saveSettings(self, self.settingsFile)
-        self.stackedWidget.removeWidget(self.settingsWidget)
-        self.stackedWidget.setCurrentWidget(self.centralWidget)
-
-        fadeIn(self, self.centralWidget, 300)
-
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = VideoProcessingApp()

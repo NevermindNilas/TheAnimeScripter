@@ -3,7 +3,7 @@ import json
 import threading
 import logging
 
-from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
+from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect, QLineEdit
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
 
 def Style() -> str:
@@ -165,17 +165,32 @@ def loadSettings(self, settingsFile):
                 settings = json.load(file)
             self.inputEntry.setText(settings.get("input", ""))
             self.outputEntry.setText(settings.get("output", ""))
+            self.resizeFactorEntry.setText(settings.get("resize_factor", ""))
+            self.interpolateFactorEntry.setText(settings.get("interpolate_factor", ""))
+            self.upscaleFactorEntry.setText(settings.get("upscale_factor", ""))
+            
+            # Dropdowns
+            self.interpolationMethodDropdown.setCurrentIndex(self.interpolationMethodDropdown.findText(settings.get("interpolate_method", "")))
+            self.upscalingMethodDropdown.setCurrentIndex(self.upscalingMethodDropdown.findText(settings.get("upscale_method", "")))
+            self.denoiseMethodDropdown.setCurrentIndex(self.denoiseMethodDropdown.findText(settings.get("denoise_method", "")))
+            self.dedupMethodDropdown.setCurrentIndex(self.dedupMethodDropdown.findText(settings.get("dedup_method", "")))
+            self.depthMethodDropdown.setCurrentIndex(self.depthMethodDropdown.findText(settings.get("depth_method", "")))
+            self.encodeMethodDropdown.setCurrentIndex(self.encodeMethodDropdown.findText(settings.get("encode_method", "")))
+            self.resizeMethodDropdown.setCurrentIndex(self.resizeMethodDropdown.findText(settings.get("resize_method", "")))
+            
+            # Checkboxes
             for i in range(self.checkboxLayout.count()):
                 checkbox = self.checkboxLayout.itemAt(i).widget()
                 if isinstance(checkbox, QCheckBox):
                     checkbox.setChecked(settings.get(checkbox.text(), False))
-
+            
+            # Additional stuff
+            self.benchmarkmodeCheckbox.setChecked(settings.get("benchmark", False))
+            self.scenechangedetectionCheckbox.setChecked(settings.get("scenechange", False))
+            self.rifeensembleCheckbox.setChecked(settings.get("ensemble", False))
+            
         except Exception as e:
-            print(
-                self.outputWindow.append(
-                    f"An error occurred while loading settings, {e}"
-                )
-            )
+            self.outputWindow.append(f"An error occurred while loading settings, {e}")
             logging.error(f"An error occurred while loading settings, {e}")
 
 
