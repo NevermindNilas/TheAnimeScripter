@@ -5,20 +5,6 @@ import re
 import subprocess
 import platform
 
-
-def figureOutGPUVendor():
-    try:
-        with open("log.txt", "r") as file:
-            lines = file.readlines()
-            for line in lines:
-                if "NVIDIA" in line or "nvidia" in line:
-                    return "NVIDIA"
-                if "AMD" in line or "amd" in line:
-                    return "AMD"
-    except Exception as e:
-        print("Error figuring out GPU vendor:", e)
-
-
 def runAllBenchmarks(executor, version, inputVideo=None):
     print(
         "Running all benchmarks. Depending on your system, this may take a while. Please be patient and keep the terminal in focus at all time."
@@ -221,7 +207,14 @@ if __name__ == "__main__":
     currentTest = 0
     executor, version = getExe()
     inputVideo = getClip(executor)
-    GPUVENDOR = figureOutGPUVendor()
+
+    while True:
+        GPUVENDOR = input("Please enter your GPU vendor (NVIDIA, AMD, Intel): ").upper()
+        if GPUVENDOR in ["NVIDIA", "AMD", "INTEL"]:
+            break
+        else:
+            print(f"Invalid GPU vendor, >>> {GPUVENDOR} <<<  is not a valid option. Please try again.")
+
     if GPUVENDOR == "NVIDIA":
         upscaleMethods = [
             method
@@ -233,7 +226,7 @@ if __name__ == "__main__":
             for method in interpolateMethods
             if "ncnn" not in method and "directml" not in method
         ]
-    elif GPUVENDOR == "AMD":
+    elif GPUVENDOR == "AMD" or GPUVENDOR == "INTEL":
         upscaleMethods = [
             method
             for method in upscaleMethods
@@ -243,10 +236,7 @@ if __name__ == "__main__":
             method
             for method in interpolateMethods
             if "ncnn" in method or "directml" in method
-        ]
-    elif GPUVENDOR == "Intel":
-        pass
-
+        ]      
 
     if platform.system() == "Linux":
         upscaleMethods = [
@@ -254,7 +244,6 @@ if __name__ == "__main__":
         ]
 
     TOTALTESTS = len(upscaleMethods) + len(interpolateMethods) * 2
-
     print(f"GPU Vendor: {GPUVENDOR}")
     print(f"Total models to benchmark: {TOTALTESTS}")
     print(f"Using {executor} version {version}")
