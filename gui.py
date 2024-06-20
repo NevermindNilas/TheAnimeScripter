@@ -80,7 +80,7 @@ class VideoProcessingApp(QMainWindow):
     
     def pyPresence(self):
         presetTitles = [
-            "Enhancing my videos",
+            "Enhancing My Videos",
             "True 4K Enjoyer",
             "Editing with Style",
             "Crafting Cinematic Masterpieces",
@@ -96,7 +96,6 @@ class VideoProcessingApp(QMainWindow):
         ]
         chosenTitle = random.choice(presetTitles)
 
-        # Get version from TITLE:
         version = TITLE.split(" - ")[1].split(" (")[0]
         try:
             clientID = "1213461768785891388"
@@ -144,6 +143,8 @@ class VideoProcessingApp(QMainWindow):
             ("Interpolate Factor:", 2, 100),
             ("Upscale Factor:", 2, 4),
             ("Resize Factor:", 1, 4),
+            ("Dedup Sensitivity: ", 0, 100),
+            ("Sharpen Sensitivity: ", 0, 100),
         ]
 
         self.inputFieldsLayout = QVBoxLayout()
@@ -158,6 +159,10 @@ class VideoProcessingApp(QMainWindow):
                 self.interpolateFactorEntry = entry
             elif label == "Upscale Factor:":
                 self.upscaleFactorEntry = entry
+            elif label == "Dedup Sensitivity: ":
+                self.dedupSensitivityEntry = entry
+            elif label == "Sharpen Sensitivity: ":
+                self.sharpenSensitivityEntry = entry
 
         self.mainSettings = QVBoxLayout()
         self.mainSettings.setSpacing(10)
@@ -220,6 +225,7 @@ class VideoProcessingApp(QMainWindow):
 
         self.pathGroup = self.createGroup("Paths", self.pathLayout, 100)
         self.checkboxGroup = self.createGroup("Options", self.OptionLayout)
+        #self.commandGroup = self.createGroup("Command", self.commandLayout, 100)
         self.outputGroup = self.createGroup("Log", self.outputLayout, 250)
 
         self.outputWindow = QTextEdit()
