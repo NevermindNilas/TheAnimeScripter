@@ -3,7 +3,7 @@ import json
 import threading
 import logging
 
-from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect, QLineEdit
+from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
 
 def Style() -> str:
@@ -102,6 +102,8 @@ def runCommand(self, mainPath, settingsFile) -> None:
 
         loadSettingsFile = json.load(open(settingsFile))
 
+        DontcloseTerminal = loadSettingsFile.get("close_terminal")
+
         for option in loadSettingsFile:
             loweredOption = option.lower()
             loweredOptionValue = str(loadSettingsFile[option])
@@ -119,6 +121,9 @@ def runCommand(self, mainPath, settingsFile) -> None:
             if loweredOptionValue == "false":
                 continue
 
+            if loweredOption == "close_terminal":
+                continue
+
             if loweredOption in ["input", "output"]:
                 command.append(f"--{loweredOption} \"{loweredOptionValue}\"")
             else:
@@ -132,9 +137,12 @@ def runCommand(self, mainPath, settingsFile) -> None:
         def runCommandInTerminal(command):
             # Check if Windows Terminal (wt) is available
             wt_available = os.system('where wt >nul 2>&1')
-            terminal_command = f'start wt cmd /c {command}' if wt_available == 0 else f'start cmd /c {command}'
+            if DontcloseTerminal:
+                terminalCommand = f'start wt cmd /k {command}' if wt_available == 0 else f'start cmd /k {command}'
+            else:
+                terminalCommand = f'start wt cmd /c {command}' if wt_available == 0 else f'start cmd /c {command}'
             try:
-                os.system(terminal_command)
+                os.system(terminalCommand)
             except Exception as e:
                 print(f"An error occurred while running the command: {e}")
 
@@ -188,6 +196,7 @@ def loadSettings(self, settingsFile):
             self.benchmarkmodeCheckbox.setChecked(settings.get("benchmark", False))
             self.scenechangedetectionCheckbox.setChecked(settings.get("scenechange", False))
             self.rifeensembleCheckbox.setChecked(settings.get("ensemble", False))
+            self.donotcloseterminalonfinishCheckbox.setChecked(settings.get("close_terminal", False))
             
         except Exception as e:
             self.outputWindow.append(f"An error occurred while loading settings, {e}")
@@ -212,6 +221,7 @@ def saveSettings(self, settingsFile):
             "benchmark": self.benchmarkmodeCheckbox.isChecked(),
             "scenechange": self.scenechangedetectionCheckbox.isChecked(),
             "ensemble": self.rifeensembleCheckbox.isChecked(),
+            "close_terminal": self.donotcloseterminalonfinishCheckbox.isChecked(),
         }
         for i in range(self.checkboxLayout.count()):
             checkbox = self.checkboxLayout.itemAt(i).widget()
