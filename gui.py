@@ -208,6 +208,10 @@ class VideoProcessingApp(QMainWindow):
                 "Rife Ensemble",
                 "Enable or disable RIFE ensemble, this can improve the quality of the interpolation at the cost of less performance.",
             ),
+            (
+                "Do not Close Terminal on Finish",
+                "Do not close the terminal window after the script has finished running, used for debugging purposes.",
+            )
         ]
 
         for text, help_text in checkboxes:
