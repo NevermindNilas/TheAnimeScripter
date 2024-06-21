@@ -141,7 +141,7 @@ def parseFPS():
         highestFPS = max(filtered)
         averageFPS = round(sum(filtered) / len(filtered), 2)
         print("Highest FPS:", highestFPS, "Average FPS:", averageFPS)
-        return averageFPS
+        return ("Highest FPS:", highestFPS, "Average FPS:", averageFPS)
     else:
         print("Couldn't identify FPS value. Skipping...")
         return None
@@ -162,7 +162,7 @@ def parseSystemInfo():
 if __name__ == "__main__":
     TIMESLEEP = 2
     CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
-    TESTINGVERSION = "V4.1"
+    TESTINGVERSION = "V4.2"
 
     upscaleMethods = [
         "shufflecugan",
