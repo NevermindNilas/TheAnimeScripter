@@ -54,10 +54,12 @@ if getattr(sys, "frozen", False):
 else:
     mainPath = os.path.dirname(os.path.abspath(__file__))
 
+
 class VideoProcessingApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        self.printSettings = False
         self.setWindowTitle(TITLE)
         self.setFixedSize(W, H)
 
@@ -77,7 +79,8 @@ class VideoProcessingApp(QMainWindow):
         loadSettings(self, self.settingsFile)
         fadeIn(self, self.centralWidget, 500)
 
-    
+        self.printSettings = True
+
     def pyPresence(self):
         presetTitles = [
             "Enhancing My Videos",
@@ -107,7 +110,7 @@ class VideoProcessingApp(QMainWindow):
                 large_image="icon",
                 large_text="The Anime Scripter",
                 start=int(time.time()),
-                buttons=[{"label": "View on GitHub", "url": REPOSITORY}]
+                buttons=[{"label": "View on GitHub", "url": REPOSITORY}],
             )
         except ConnectionRefusedError:
             print("Could not connect to Discord. Is Discord running?")
@@ -120,7 +123,7 @@ class VideoProcessingApp(QMainWindow):
 
         self.pathLayout = QVBoxLayout()
         self.checkboxLayout = QVBoxLayout()
-        self.outputLayout = QVBoxLayout()
+        self.logLayout = QVBoxLayout()
 
     def createWidgets(self):
         self.inputEntry = self.createPathWidgets("Input Path:", self.browseInput)
@@ -143,8 +146,8 @@ class VideoProcessingApp(QMainWindow):
             ("Interpolate Factor:", 2, 100),
             ("Upscale Factor:", 2, 4),
             ("Resize Factor:", 1, 4),
-            #("Dedup Sensitivity: ", 0, 100),
-            #("Sharpen Sensitivity: ", 0, 100),
+            # ("Dedup Sensitivity: ", 0, 100),
+            # ("Sharpen Sensitivity: ", 0, 100),
         ]
 
         self.inputFieldsLayout = QVBoxLayout()
@@ -211,7 +214,7 @@ class VideoProcessingApp(QMainWindow):
             (
                 "Do not Close Terminal on Finish",
                 "Do not close the terminal window after the script has finished running, used for debugging purposes.",
-            )
+            ),
         ]
 
         for text, help_text in checkboxes:
@@ -219,6 +222,7 @@ class VideoProcessingApp(QMainWindow):
             checkbox.setToolTip(help_text)
             setattr(self, f"{text.replace(' ', '').lower()}Checkbox", checkbox)
             self.extraSettings.addWidget(checkbox)
+            checkbox.stateChanged.connect(self.printCommandOnChange)
 
         self.OptionLayout.addLayout(self.checkboxLayout)
         self.OptionLayout.addLayout(self.inputFieldsLayout)
@@ -229,12 +233,11 @@ class VideoProcessingApp(QMainWindow):
 
         self.pathGroup = self.createGroup("Paths", self.pathLayout, 100)
         self.checkboxGroup = self.createGroup("Options", self.OptionLayout)
-        #self.commandGroup = self.createGroup("Command", self.commandLayout, 100)
-        self.outputGroup = self.createGroup("Log", self.outputLayout, 250)
+        self.outputGroup = self.createGroup("Log", self.logLayout, 200)
 
         self.outputWindow = QTextEdit()
         self.outputWindow.setReadOnly(True)
-        self.outputLayout.addWidget(self.outputWindow)
+        self.logLayout.addWidget(self.outputWindow)
 
         sys.stdout = StreamToTextEdit(self.outputWindow)
         sys.stderr = StreamToTextEdit(self.outputWindow)
@@ -257,6 +260,7 @@ class VideoProcessingApp(QMainWindow):
         dropdown.addItems(options)
         layout.addWidget(label)
         layout.addWidget(dropdown)
+        dropdown.currentTextChanged.connect(self.printCommandOnChange)
         return layout, dropdown
 
     def createGroup(self, title, layout, maxHeight=None):
@@ -266,9 +270,15 @@ class VideoProcessingApp(QMainWindow):
             group.setMaximumHeight(maxHeight)
         return group
 
+    def printCommandOnChange(self):
+        if not self.printSettings:
+            return
+        saveSettings(self, self.settingsFile, printSave=False)
+        runCommand(self, mainPath, self.settingsFile, run=False)
+
     def runButtonOnClick(self):
-        saveSettings(self, self.settingsFile)
-        runCommand(self, mainPath, self.settingsFile)
+        saveSettings(self, self.settingsFile, printSave=False)
+        runCommand(self, mainPath, self.settingsFile, run=True)
 
     def createPathWidgets(self, label, slot):
         layout = QHBoxLayout()
@@ -280,6 +290,7 @@ class VideoProcessingApp(QMainWindow):
         layout.addWidget(entry)
         layout.addWidget(button)
         self.pathLayout.addLayout(layout)
+        entry.textChanged.connect(self.printCommandOnChange)
         return entry
 
     def createInputField(self, label, defaultValue, maxValue):
@@ -294,12 +305,14 @@ class VideoProcessingApp(QMainWindow):
         layout.addWidget(label)
         layout.addWidget(entry)
         layout.addStretch(0)
+        entry.textChanged.connect(self.printCommandOnChange)
         return layout, entry
 
     def createCheckbox(self, text):
         checkbox = QCheckBox(text)
         self.checkboxLayout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.checkboxLayout.addWidget(checkbox)
+        checkbox.stateChanged.connect(self.printCommandOnChange)
 
     def createButton(self, text, slot):
         button = QPushButton(text)
@@ -337,6 +350,7 @@ class VideoProcessingApp(QMainWindow):
             self.encodeParamsLabel.setText(params)
         else:
             self.encodeParamsLabel.setText("")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
