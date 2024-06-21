@@ -6,6 +6,7 @@ import logging
 from PyQt6.QtWidgets import QCheckBox, QGraphicsOpacityEffect
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
 
+
 def Style() -> str:
     """
     Returns the stylesheet for the UI,
@@ -87,7 +88,8 @@ def Style() -> str:
         }
     """
 
-def runCommand(self, mainPath, settingsFile) -> None:
+
+def runCommand(self, mainPath, settingsFile, run=False) -> None:
     try:
         mainExePath = os.path.join(mainPath, "main.exe")
         if not os.path.isfile(mainExePath):
@@ -101,7 +103,6 @@ def runCommand(self, mainPath, settingsFile) -> None:
             command = [mainExePath]
 
         loadSettingsFile = json.load(open(settingsFile))
-
         DontcloseTerminal = loadSettingsFile.get("close_terminal")
 
         for option in loadSettingsFile:
@@ -109,7 +110,7 @@ def runCommand(self, mainPath, settingsFile) -> None:
             loweredOptionValue = str(loadSettingsFile[option])
 
             if loweredOption == "output":
-                if loweredOptionValue == "":                    
+                if loweredOptionValue == "":
                     continue
             elif loweredOption == "input":
                 if loweredOptionValue == "":
@@ -125,7 +126,7 @@ def runCommand(self, mainPath, settingsFile) -> None:
                 continue
 
             if loweredOption in ["input", "output"]:
-                command.append(f"--{loweredOption} \"{loweredOptionValue}\"")
+                command.append(f'--{loweredOption} "{loweredOptionValue}"')
             else:
                 if loweredOptionValue in ["true", "True"]:
                     command.append(f"--{loweredOption}")
@@ -134,21 +135,31 @@ def runCommand(self, mainPath, settingsFile) -> None:
 
         command = " ".join(command)
         print(command)
-        def runCommandInTerminal(command):
-            # Check if Windows Terminal (wt) is available
-            wt_available = os.system('where wt >nul 2>&1')
-            if DontcloseTerminal:
-                terminalCommand = f'start wt cmd /k {command}' if wt_available == 0 else f'start cmd /k {command}'
-            else:
-                terminalCommand = f'start wt cmd /c {command}' if wt_available == 0 else f'start cmd /c {command}'
-            try:
-                os.system(terminalCommand)
-            except Exception as e:
-                print(f"An error occurred while running the command: {e}")
+        if run:
 
+            def runCommandInTerminal(command):
+                # Check if Windows Terminal (wt) is available
+                WindowsTerminal = os.system("where wt >nul 2>&1")
+                if DontcloseTerminal:
+                    terminalCommand = (
+                        f"start wt cmd /k {command}"
+                        if WindowsTerminal == 0
+                        else f"start cmd /k {command}"
+                    )
+                else:
+                    terminalCommand = (
+                        f"start wt cmd /c {command}"
+                        if WindowsTerminal == 0
+                        else f"start cmd /c {command}"
+                    )
+                try:
+                    os.system(terminalCommand)
+                except Exception as e:
+                    print(f"An error occurred while running the command: {e}")
 
-        threading.Thread(target=runCommandInTerminal, args=(command,), daemon=True).start()
-
+            threading.Thread(
+                target=runCommandInTerminal, args=(command,), daemon=True
+            ).start()
 
     except Exception as e:
         print(f"An error occurred while running the command, {e}")
@@ -176,34 +187,56 @@ def loadSettings(self, settingsFile):
             self.resizeFactorEntry.setText(settings.get("resize_factor", ""))
             self.interpolateFactorEntry.setText(settings.get("interpolate_factor", ""))
             self.upscaleFactorEntry.setText(settings.get("upscale_factor", ""))
-            
+
             # Dropdowns
-            self.interpolationMethodDropdown.setCurrentIndex(self.interpolationMethodDropdown.findText(settings.get("interpolate_method", "")))
-            self.upscalingMethodDropdown.setCurrentIndex(self.upscalingMethodDropdown.findText(settings.get("upscale_method", "")))
-            self.denoiseMethodDropdown.setCurrentIndex(self.denoiseMethodDropdown.findText(settings.get("denoise_method", "")))
-            self.dedupMethodDropdown.setCurrentIndex(self.dedupMethodDropdown.findText(settings.get("dedup_method", "")))
-            self.depthMethodDropdown.setCurrentIndex(self.depthMethodDropdown.findText(settings.get("depth_method", "")))
-            self.encodeMethodDropdown.setCurrentIndex(self.encodeMethodDropdown.findText(settings.get("encode_method", "")))
-            self.resizeMethodDropdown.setCurrentIndex(self.resizeMethodDropdown.findText(settings.get("resize_method", "")))
-            
+            self.interpolationMethodDropdown.setCurrentIndex(
+                self.interpolationMethodDropdown.findText(
+                    settings.get("interpolate_method", "")
+                )
+            )
+            self.upscalingMethodDropdown.setCurrentIndex(
+                self.upscalingMethodDropdown.findText(
+                    settings.get("upscale_method", "")
+                )
+            )
+            self.denoiseMethodDropdown.setCurrentIndex(
+                self.denoiseMethodDropdown.findText(settings.get("denoise_method", ""))
+            )
+            self.dedupMethodDropdown.setCurrentIndex(
+                self.dedupMethodDropdown.findText(settings.get("dedup_method", ""))
+            )
+            self.depthMethodDropdown.setCurrentIndex(
+                self.depthMethodDropdown.findText(settings.get("depth_method", ""))
+            )
+            self.encodeMethodDropdown.setCurrentIndex(
+                self.encodeMethodDropdown.findText(settings.get("encode_method", ""))
+            )
+            self.resizeMethodDropdown.setCurrentIndex(
+                self.resizeMethodDropdown.findText(settings.get("resize_method", ""))
+            )
+
             # Checkboxes
             for i in range(self.checkboxLayout.count()):
                 checkbox = self.checkboxLayout.itemAt(i).widget()
                 if isinstance(checkbox, QCheckBox):
                     checkbox.setChecked(settings.get(checkbox.text(), False))
-            
+
             # Additional stuff
             self.benchmarkmodeCheckbox.setChecked(settings.get("benchmark", False))
-            self.scenechangedetectionCheckbox.setChecked(settings.get("scenechange", False))
+            self.scenechangedetectionCheckbox.setChecked(
+                settings.get("scenechange", False)
+            )
             self.rifeensembleCheckbox.setChecked(settings.get("ensemble", False))
-            self.donotcloseterminalonfinishCheckbox.setChecked(settings.get("close_terminal", False))
-            
+            self.donotcloseterminalonfinishCheckbox.setChecked(
+                settings.get("close_terminal", False)
+            )
+
         except Exception as e:
             self.outputWindow.append(f"An error occurred while loading settings, {e}")
             logging.error(f"An error occurred while loading settings, {e}")
 
 
-def saveSettings(self, settingsFile):
+def saveSettings(self, settingsFile, printSave=True):
     try:
         settings = {
             "input": self.inputEntry.text(),
@@ -229,9 +262,13 @@ def saveSettings(self, settingsFile):
                 settings[checkbox.text()] = checkbox.isChecked()
         with open(settingsFile, "w") as file:
             json.dump(settings, file, indent=4)
-        self.outputWindow.append("Settings saved successfully")
+
+        if printSave:
+            self.outputWindow.append("Settings saved successfully")
+
     except Exception as e:
         self.outputWindow.append(f"An error occurred while saving settings, {e}")
+
 
 def fadeIn(self, widget, duration=500):
     opacity_effect = QGraphicsOpacityEffect(widget)
@@ -290,7 +327,17 @@ def dropdownsLabels(method):
         case "Dedup":
             return ["SSIM", "MSE", "SSIM-CUDA"]
         case "Depth":
-            return ["Small", "Base", "Large", "Small-TensorRT", "Base-TensorRT", "Large-TensorRT", "Small-DirectML", "Base-DirectML", "Large-DirectML"]
+            return [
+                "Small",
+                "Base",
+                "Large",
+                "Small-TensorRT",
+                "Base-TensorRT",
+                "Large-TensorRT",
+                "Small-DirectML",
+                "Base-DirectML",
+                "Large-DirectML",
+            ]
         case "Encode":
             return {
                 "x264": ("x264", "-c:v libx264 -preset fast -crf 17"),
@@ -298,12 +345,21 @@ def dropdownsLabels(method):
                     "x264_animation",
                     "-c:v libx264 -preset fast -tune animation -crf 17",
                 ),
-                "x264_10bit": ("x264_10bit", "-c:v libx264 -preset fast -profile:v high10 -crf 17"),
+                "x264_10bit": (
+                    "x264_10bit",
+                    "-c:v libx264 -preset fast -profile:v high10 -crf 17",
+                ),
                 "x265": ("x265", "-c:v libx265 -preset fast -crf 17"),
-                "x265_10bit": ("x265_10bit", "-c:v libx265 -preset fast -profile:v main10 -crf 17"),
+                "x265_10bit": (
+                    "x265_10bit",
+                    "-c:v libx265 -preset fast -profile:v main10 -crf 17",
+                ),
                 "nvenc_h264": ("nvenc_h264", "-c:v h264_nvenc -preset p1 -cq 17"),
                 "nvenc_h265": ("nvenc_h265", "-c:v hevc_nvenc -preset p1 -cq 17"),
-                "nvenc_h265_10bit": ("nvenc_h265_10bit", "-c:v hevc_nvenc -preset p1 -profile:v main10 -cq 17"),
+                "nvenc_h265_10bit": (
+                    "nvenc_h265_10bit",
+                    "-c:v hevc_nvenc -preset p1 -profile:v main10 -cq 17",
+                ),
                 "qsv_h264": (
                     "qsv_h264",
                     "-c:v h264_qsv -preset veryfast -global_quality 17",
@@ -320,8 +376,19 @@ def dropdownsLabels(method):
                 "av1": ("av1", "-c:v libsvtav1 -preset 8 -crf 17"),
                 "h264_amf": ("h264_amf", "-c:v h264_amf -quality speed -rc cqp -qp 17"),
                 "hevc_amf": ("hevc_amf", "-c:v hevc_amf -quality speed -rc cqp -qp 17"),
-                "hevc_amf_10bit": ("hevc_amf_10bit", "-c:v hevc_amf -quality speed -rc cqp -qp 17 -profile:v main10"),
+                "hevc_amf_10bit": (
+                    "hevc_amf_10bit",
+                    "-c:v hevc_amf -quality speed -rc cqp -qp 17 -profile:v main10",
+                ),
                 "prores": ("prores", "-c:v prores_ks -profile:v 4 -qscale:v 17"),
             }
         case "Resize":
-            return ["Bilinear", "Bicubic", "Lanczos", "Nearest", "Spline", "Spline16", "Spline36"]
+            return [
+                "Bilinear",
+                "Bicubic",
+                "Lanczos",
+                "Nearest",
+                "Spline",
+                "Spline16",
+                "Spline36",
+            ]
