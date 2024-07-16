@@ -2,7 +2,7 @@ var panelGlobal = this;
 var TheAnimeScripter = (function () {
 
     var scriptName = "TheAnimeScripter";
-    var scriptVersion = "v1.8.6";
+    var scriptVersion = "v1.8.9";
 
     // Default Values for the settings
     var outputFolder = app.settings.haveSetting(scriptName, "outputFolder") ? app.settings.getSetting(scriptName, "outputFolder") : "undefined";
@@ -11,7 +11,6 @@ var TheAnimeScripter = (function () {
     var autoClipValue = 0;
     var depthValue = 0;
     var customModelPath = "undefined";
-    var consentData = app.settings.haveSetting(scriptName, "consentData") ? app.settings.getSetting(scriptName, "consentData") : false;
 
 
     var exeFile = theAnimeScripterPath + "\\main.exe";
@@ -379,10 +378,6 @@ var TheAnimeScripter = (function () {
     createMultiplierField(generalPanel, "Upscale Multiplier", "UpscaleMultiplier", "2");
     createMultiplierField(generalPanel, "Number of Threads", "ThreadsMultiplier", "1"); // Ik  this is not a multiplier but it fits the theme
 
-    var consentGroup = generalPanel.add("group", undefined, {
-        name: "groupConsent"
-    });
-
     var resizeValue = function () {
         return fieldValues["ResizeMultiplier"];
     };
@@ -396,17 +391,7 @@ var TheAnimeScripter = (function () {
         return fieldValues["ThreadsMultiplier"];
     };
 
-    consentGroup.orientation = "row";
-    consentGroup.alignChildren = ["left", "center"];
-    consentGroup.spacing = 0;
-    consentGroup.margins = 0;
-
-    createCheckboxField(generalPanel, "Help Improve the Script", "checkboxConsent", "By enabling this option, you allow the script to send anonymous data for improvement purposes. The data includes the output found in the generated log.txt and is used solely to enhance the script's functionality. This data is not shared with any third parties. You can review the data being sent in the consent.json file located in the script directory. You can disable this option at any time.");
     createCheckboxField(generalPanel, "Rife Ensemble", "checkboxEnsemble", "Use Rife Ensemble to interpolate frames, this will increase the quality of the video but also the processing time");
-
-    var checkboxConsentValue = function () {
-        return checkboxValues["checkboxConsent"];
-    }
 
     var checkboxEnsembleValue = function () {
         return checkboxValues["checkboxEnsemble"];
@@ -491,8 +476,8 @@ var TheAnimeScripter = (function () {
         "ShuffleCugan-NCNN",
         "Span-NCNN",
     ], "Choose which model you want to utilize, read more in INFO, for AMD users choose DirectML or NCNN models");
-    createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.17", "Rife4.17-Lite", "Rife4.16-Lite", "Rife4.15", "Rife4.15-Lite", "Rife4.6", "Rife4.17-TensorRT", "Rife4.15-TensorRT", "Rife4.15-Lite-TensorRT", "Rife4.6-TensorRT", "Rife4.16-Lite-NCNN", "Rife4.15-NCNN", "Rife4.15-Lite-NCNN", "Rife4.6-NCNN", "GMFSS"], "Choose which interpolation model you want to utilize, read more in readme.txt, for AMD users choose DirectML or NCNN models, TensorRT is for NVIDIA RTX 2000 and above GPUs");
-    createDropdownField(panel1, "Depth Model", "Depth", ["Small", "Base", "Large", "Small-TensorRT", "Base-TensorRT", "Large-TensorRT", "Small-DirectML", "Base-DirectML", "Large-DirectML"], "Choose which depth map model you want to utilize, ordered by speed, read more in INFO");
+    createDropdownField(panel1, "Interpolate Model", "Interpolate", ["Rife4.18","Rife4.17", "Rife4.17-Lite", "Rife4.16-Lite", "Rife4.15", "Rife4.15-Lite", "Rife4.6", "Rife4.18-TensorRT", "Rife4.17-TensorRT", "Rife4.15-TensorRT", "Rife4.15-Lite-TensorRT", "Rife4.6-TensorRT", "Rife4.16-Lite-NCNN", "Rife4.15-NCNN", "Rife4.15-Lite-NCNN", "Rife4.6-NCNN", "GMFSS"], "Choose which interpolation model you want to utilize, read more in readme.txt, for AMD users choose DirectML or NCNN models, TensorRT is for NVIDIA RTX 2000 and above GPUs");
+    createDropdownField(panel1, "Depth Model", "Depth", ["Small_V2", "Base_V2", "Large_V2", "Small_V2-TensorRT", "Base_V2-TensorRT", "Large_V2-TensorRT"], "Choose which depth map model you want to utilize, ordered by speed, read more in INFO");
     createDropdownField(panel1, "Encoder", "Encoder", ["X264", "X264_10Bit", "X264_Animation", "X264_Animation_10Bit", "X265", "X265_10Bit", "NVENC_H264", "NVENC_H265", "NVENC_H265_10Bit", "NVENC_AV1", "QSV_H264", "QSV_H265", "QSV_H265_10Bit", "H264_AMF", "HEVC_AMF", "HEVC_AMF_10Bit", "AV1"], "Choose which encoder you want to utilize, in no specific order, NVENC for NVidia GPUs, AMF for AMD GPUs and QSV for Intel iGPUs");
     createDropdownField(panel1, "Resize Method", "Resize", ["Fast_Bilinear", "Bilinear", "Bicubic", "Experimental", "Neighbor", "Area", "Bicublin", "Gauss", "Sinc", "Lanczos", "Spline", "Spline16", "Spline36"], "Choose which resize method you want to utilize, For upscaling I would suggest Lanczos or Spline, for downscaling I would suggest Area or Bicubic");
     createDropdownField(panel1, "Dedup Method", "Dedup", ["SSIM", "MSE", "SSIM-CUDA"], "Choose which deduplication method you want to utilize, SSIM-CUDA is for NVIDIA Only whilst the rest will work on any system.");
@@ -874,9 +859,6 @@ var TheAnimeScripter = (function () {
                     attempt.push("--denoise");
                 }
 
-                if (checkboxConsentValue()) {
-                    attempt.push("--consent");
-                }
 
                 if (segmentValue == 1) {
                     attempt.push("--segment");

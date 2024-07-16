@@ -18,9 +18,9 @@ def Segment(self):
             self.outpoint,
             self.encode_method,
             self.custom_encoder,
-            self.nt,
             self.buffer_limit,
             self.benchmark,
+            self.totalFrames,
         )
     elif self.segment_method == "anime-tensorrt":
         from src.segment.animeSegment import AnimeSegmentTensorRT
@@ -36,18 +36,37 @@ def Segment(self):
             self.outpoint,
             self.encode_method,
             self.custom_encoder,
-            self.nt,
             self.buffer_limit,
             self.benchmark,
+            self.totalFrames,
+        )
+
+    elif self.segment_method == "anime-directml":
+        from src.segment.animeSegment import AnimeSegmentDirectML
+
+        AnimeSegmentDirectML(
+            self.input,
+            self.output,
+            self.ffmpeg_path,
+            self.width,
+            self.height,
+            self.outputFPS,
+            self.inpoint,
+            self.outpoint,
+            self.encode_method,
+            self.custom_encoder,
+            self.buffer_limit,
+            self.benchmark,
+            self.totalFrames,
         )
 
 
 def Depth(self):
     match self.depth_method:
-        case "small" | "base" | "large":
-            from src.depth.depth import Depth
+        case "small_v2" | "base_v2" | "large_v2":
+            from src.depth.depth import DepthV2
 
-            Depth(
+            DepthV2(
                 self.input,
                 self.output,
                 self.ffmpeg_path,
@@ -63,11 +82,13 @@ def Depth(self):
                 self.nt,
                 self.buffer_limit,
                 self.benchmark,
+                self.totalFrames,
             )
-        case "small-tensorrt" | "base-tensorrt" | "large-tensorrt":
-            from src.depth.depth import DepthTensorRT
 
-            DepthTensorRT(
+        case "small_v2-tensorrt" | "base_v2-tensorrt" | "large_v2-tensorrt":
+            from src.depth.depth import DepthTensorRTV2
+
+            DepthTensorRTV2(
                 self.input,
                 self.output,
                 self.ffmpeg_path,
@@ -83,11 +104,13 @@ def Depth(self):
                 self.nt,
                 self.buffer_limit,
                 self.benchmark,
+                self.totalFrames,
             )
-        case "small-directml" | "base-directml" | "large-directml":
-            from src.depth.depth import DepthDirectML
 
-            DepthDirectML(
+        case "small_v2-directml" | "base_v2-directml" | "large_v2-directml":
+            from src.depth.depth import DepthDirectMLV2
+
+            DepthDirectMLV2(
                 self.input,
                 self.output,
                 self.ffmpeg_path,
@@ -103,7 +126,9 @@ def Depth(self):
                 self.nt,
                 self.buffer_limit,
                 self.benchmark,
+                self.totalFrames,
             )
+
 
 
 def opticalFlow(self):
@@ -134,8 +159,16 @@ def initializeModels(self):
     denoise_process = None
     dedup_process = None
     scenechange_process = None
+    upscaleSkipProcess = None 
 
     if self.upscale:
+        if self.upscale_skip:
+            from src.dedup.dedup import DedupSSIM
+
+            upscaleSkipProcess = DedupSSIM(
+                0.996,
+            )
+
         from src.unifiedUpscale import UniversalPytorch
 
         outputWidth *= self.upscale_factor
@@ -157,7 +190,7 @@ def initializeModels(self):
                     self.width,
                     self.height,
                     self.custom_model,
-                    self.nt,
+                    upscaleSkipProcess,
                 )
 
             case (
@@ -177,7 +210,7 @@ def initializeModels(self):
                     self.width,
                     self.height,
                     self.custom_model,
-                    self.nt,
+                    upscaleSkipProcess,
                 )
 
             case "shufflecugan-ncnn" | "span-ncnn":
@@ -186,7 +219,7 @@ def initializeModels(self):
                 upscale_process = UniversalNCNN(
                     self.upscale_method,
                     self.upscale_factor,
-                    self.nt,
+                    upscaleSkipProcess,
                 )
 
             case (
@@ -206,7 +239,7 @@ def initializeModels(self):
                     self.width,
                     self.height,
                     self.custom_model,
-                    self.nt,
+                    upscaleSkipProcess,
                 )
     if self.interpolate:
         logging.info(
@@ -221,7 +254,7 @@ def initializeModels(self):
                 | "rife4.15-lite"
                 | "rife4.16-lite"
                 | "rife4.17"
-                | "rife4.17-lite"
+                | "rife4.18"
             ):
                 from src.unifiedInterpolate import RifeCuda
 
@@ -234,6 +267,7 @@ def initializeModels(self):
                     self.nt,
                     self.interpolate_factor,
                     self.scenechange,
+                    self.scenechange_sens,
                 )
             case "gmfss":
                 from src.gmfss.gmfss_fortuna_union import GMFSS
@@ -246,6 +280,7 @@ def initializeModels(self):
                     self.ensemble,
                     self.nt,
                     self.scenechange,
+                    self.scenechange_sens,
                 )
 
             case (
@@ -255,6 +290,7 @@ def initializeModels(self):
                 | "rife4.15-lite-ncnn"
                 | "rife4.16-lite-ncnn"
                 | "rife4.17-ncnn"
+                | "rife4.18-ncnn"
             ):
                 from src.unifiedInterpolate import RifeNCNN
 
@@ -264,8 +300,9 @@ def initializeModels(self):
                     self.nt,
                     outputWidth,
                     outputHeight,
-                    self.scenechange,
                     self.half,
+                    self.scenechange,
+                    self.scenechange_sens,
                 )
 
             case (
@@ -274,6 +311,7 @@ def initializeModels(self):
                 | "rife4.15-tensorrt"
                 | "rife4.15-lite-tensorrt"
                 | "rife4.17-tensorrt"
+                | "rife4.18-tensorrt"
             ):
                 from src.unifiedInterpolate import RifeTensorRT
 
@@ -286,27 +324,8 @@ def initializeModels(self):
                     self.ensemble,
                     self.nt,
                     self.scenechange,
+                    self.scenechange_sens,
                 )
-
-            case (
-                "raft_pervfi_lite"
-                | "raft_pervfi"
-            ):
-                
-                raise NotImplementedError("PERVFI is not supported yet.")
-                
-                """
-                from src.unifiedInterpolate import PerVFIRaftCuda
-
-                interpolate_process = PerVFIRaftCuda(
-                    self.interpolate_method,
-                    self.half,
-                    outputWidth,
-                    outputHeight,
-                    self.interpolate_factor,
-                    self.scenechange,
-                )
-                """
 
     if self.denoise:
         match self.denoise_method:
@@ -352,7 +371,6 @@ def initializeModels(self):
                     self.half,
                 )
 
-            # case ffmpeg, ffmpeg works on decode, refer to ffmpegSettings.py ReadBuffer class.
 
     return (
         outputWidth,

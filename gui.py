@@ -2,6 +2,9 @@ import os
 import sys
 import time
 import random
+import win32com.client
+import json
+import logging
 
 from pypresence import Presence
 from pypresence.exceptions import DiscordNotFound
@@ -21,6 +24,7 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QStackedWidget,
     QComboBox,
+    QMessageBox,
 )
 
 from PyQt6.QtGui import QIntValidator
@@ -36,7 +40,6 @@ from src.uiLogic import (
 )
 from BlurWindow.blurWindow import GlobalBlur
 
-import logging
 
 logging.basicConfig(
     filename="gui.log",
@@ -45,7 +48,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TITLE = "The Anime Scripter - 1.8.7 (Alpha)"
+TITLE = "The Anime Scripter - 1.9.0 (Alpha)"
 W, H = 1280, 720
 REPOSITORY = "https://github.com/NevermindNilas/TheAnimeScripter"
 
@@ -77,25 +80,22 @@ class VideoProcessingApp(QMainWindow):
 
         self.settingsFile = os.path.join(os.getcwd(), "settings.json")
         loadSettings(self, self.settingsFile)
+        saveSettings(self, self.settingsFile, printSave=False)
         fadeIn(self, self.centralWidget, 500)
+        
+        #try:
+        #    if not os.path.exists(os.path.join(os.environ["USERPROFILE"], "Desktop", "TAS GUI.lnk")):
+        #        shortcut = json.loads(open("settings.json", "r").read())
+        #        if shortcut["save_shortcut"] in ["null", None]:
+        #            self.createShortcutOnDesktop()
+        #except Exception as e:
+        #    print(e)
 
         self.printSettings = True
 
     def pyPresence(self):
         presetTitles = [
-            "Enhancing My Videos",
-            "True 4K Enjoyer",
-            "Editing with Style",
-            "Crafting Cinematic Masterpieces",
-            "Bringing Pixels to Life",
-            "Cutting and Splicing Magic",
-            "From Raw to Refined",
-            "Harnessing the Power of AI",
-            "Journey Through Editing",
-            "Creating the Perfect Video",
-            "Transforming Media",
-            "Mastering the Art of Video",
-            "From Pixels to Perfection",
+            "I got nothing",
         ]
         chosenTitle = random.choice(presetTitles)
 
@@ -116,6 +116,8 @@ class VideoProcessingApp(QMainWindow):
             print("Could not connect to Discord. Is Discord running?")
         except DiscordNotFound:
             print("Discord is not installed or not running.")
+        except ConnectionError:
+            print("Could not connect to Discord. Is Discord running?")
 
     def createLayouts(self):
         self.layout = QVBoxLayout()
@@ -223,6 +225,11 @@ class VideoProcessingApp(QMainWindow):
             setattr(self, f"{text.replace(' ', '').lower()}Checkbox", checkbox)
             self.extraSettings.addWidget(checkbox)
             checkbox.stateChanged.connect(self.printCommandOnChange)
+
+        self.backgroundButton = self.createButton(
+            "Set Custom Background", self.browseBackground
+        )
+        self.extraSettings.addWidget(self.backgroundButton)
 
         self.OptionLayout.addLayout(self.checkboxLayout)
         self.OptionLayout.addLayout(self.inputFieldsLayout)
@@ -351,6 +358,41 @@ class VideoProcessingApp(QMainWindow):
         else:
             self.encodeParamsLabel.setText("")
 
+    def browseBackground(self):
+        filePath, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Background Image",
+            "",
+            "Image Files (*.png *.jpg *.jpeg *.bmp);;All Files (*)",
+        )
+        if filePath:
+            self.setStyleSheet(f"""
+                QMainWindow {{
+                    background-image: url({filePath});
+                    background-repeat: no-repeat;
+                    background-position: center;
+                }}
+            """)
+
+    #def createShortcutOnDesktop(self):
+    #    reply = QMessageBox()
+    #    reply.setText("Would you like to create a shortcut on your desktop?")
+    #    reply.setStandardButtons(QMessageBox.StandardButton.Yes | 
+    #                        QMessageBox.StandardButton.No)
+    #    self.answer = reply.exec()
+#
+    #    self.answer = True if self.answer == QMessageBox.StandardButton.Yes else False
+    #    if self.answer:
+    #        desktop_path = os.path.join(os.environ['USERPROFILE'], 'Desktop')
+    #        shortcut_path = os.path.join(desktop_path, "TAS GUI.lnk")
+#
+    #        shell = win32com.client.Dispatch("WScript.Shell")
+    #        shortcut = shell.CreateShortcut(shortcut_path)
+    #        shortcut.TargetPath = os.path.join(os.getcwd(), "gui.exe")
+    #        shortcut.WorkingDirectory = os.getcwd()
+    #        shortcut.IconLocation = os.path.join(os.getcwd(), "gui.exe")
+    #        shortcut.save()
+    #        saveSettings(self, self.settingsFile)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

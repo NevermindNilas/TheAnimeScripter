@@ -48,15 +48,15 @@ class DedupSSIMCuda:
     def processFrame(self, frame):
         frame = (
             frame
+            .to(self.DEVICE)
             .permute(2, 0, 1)
             .unsqueeze(0)
-            .to(self.DEVICE)
             .float()
             if not self.half
             else frame
+            .to(self.DEVICE)
             .permute(2, 0, 1)
             .unsqueeze(0)
-            .to(self.DEVICE)
             .half()
         ).mul(1 / 255.0)
         frame = self.F.interpolate(

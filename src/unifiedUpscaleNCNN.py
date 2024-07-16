@@ -6,11 +6,11 @@ class UniversalNCNN:
         self,
         upscaleMethod,
         upscaleFactor,
-        nt,
+        upscaleSkip
     ):
         self.upscaleMethod = upscaleMethod
         self.upscaleFactor = upscaleFactor
-        self.nt = nt
+        self.upscaleSkip = upscaleSkip
 
         match (self.upscaleMethod, self.upscaleFactor):
             case ("span-ncnn", 2):
@@ -24,17 +24,34 @@ class UniversalNCNN:
                     f"Invalid upscale method {self.upscaleMethod} with factor {self.upscaleFactor}"
                 )
 
-        if self.nt == 1:
-            self.nt == 2
-
         self.model = UPSCALE(
             gpuid=0,
             tta_mode=False,
             tilesize=0,
             model=self.modelId,
-            num_threads=self.nt,
+            num_threads=2,
         )
 
+        if self.upscaleSkip is not None:
+            self.skippedCounter = 0
+            self.prevFrame = None
+
     def run(self, frame):
+        if self.upscaleSkip is not None:
+            if self.upscaleSkip.run(frame):
+                self.skippedCounter += 1
+                return self.prevFrame
+            
         frame = self.model.process_cv2(frame.cpu().numpy())
-        return torch.from_numpy(frame).permute(2, 0, 1)
+        frame = torch.from_numpy(frame)
+
+        if self.upscaleSkip is not None:
+            self.prevFrame = frame
+
+        return frame
+    
+    def getSkippedCounter(self):
+        return self.skippedCounter
+
+    
+

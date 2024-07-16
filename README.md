@@ -100,8 +100,8 @@ All of the available parameters for interacting with the CLI or directly with ma
 - Custom models compatible with [Spandrel](https://github.com/chaiNNer-org/spandrel) can be used via the `--custom_model` parameter.
 
 ### Interpolation Models
-- Rife CUDA (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17 )
-- Rife TensorRT (Versions: 4.6, 4.15, 4.15-lite, 4.17 )
+- Rife CUDA (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18 )
+- Rife TensorRT (Versions: 4.6, 4.15, 4.15-lite, 4.17, 4.18 )
 - Rife NCNN ( Versions: 4.6, 4.15, 4.15-lite, 4.16-lite ) 
 - GMFSS ( Available for CUDA )
 
@@ -133,7 +133,6 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 | [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                 |
 | [TNTWise](https://github.com/TNTwise) | For Rife ONNX and NCNN models | 
 | [WolframRhodium](https://github.com/WolframRhodium) | For Rife V2 models |
-| [dmlc](https://github.com/dmlc/decord) | For Decord |
 
 ## 🌟 Star History
 

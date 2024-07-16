@@ -3,14 +3,34 @@ import logging
 import requests
 from alive_progress import alive_bar
 
-dirPath = os.path.dirname(__file__)
-weightsDir = os.path.join(dirPath, "weights")
+if os.name == "nt":
+    appdata = os.getenv("APPDATA")
+    mainPath = os.path.join(appdata, "TheAnimeScripter")
+
+    if not os.path.exists(mainPath):
+        os.makedirs(mainPath)
+
+    weightsDir = os.path.join(mainPath, "weights")
+else:
+    dirPath = os.path.dirname(__file__)
+    weightsDir = os.path.join(dirPath, "weights")
+
 TASURL = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
 DEPTHURL = (
     "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/"
 )
 SUDOURL = (
     "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
+)
+
+DEPTHV2URLSMALL = (
+    "https://huggingface.co/depth-anything/Depth-Anything-V2-Small/resolve/main/"
+)
+DEPTHV2URLBASE = (
+    "https://huggingface.co/depth-anything/Depth-Anything-V2-Base/resolve/main/"
+)
+DEPTHV2URLLARGE = (
+    "https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/"
 )
 
 
@@ -24,6 +44,7 @@ def modelsList() -> list[str]:
         "cugan",
         "segment",
         "segment-tensorrt",
+        "segment-directml",
         "scunet",
         "dpir",
         "nafnet",
@@ -35,6 +56,7 @@ def modelsList() -> list[str]:
         "rife4.15-lite",
         "rife4.16-lite",
         "rife4.17",
+        "rife4.18",
         "vits",
         "vitb",
         "vitl",
@@ -60,6 +82,8 @@ def modelsList() -> list[str]:
         "rife-v4.6-ncnn",
         "rife-v4.15-lite-ncnn",
         "rife-v4.16-lite-ncnn",
+        "rife-v4.17-ncnn",
+        "rife-v4.18-ncnn",
         "scenechange",
         "small-tensorrt",
         "base-tensorrt",
@@ -67,8 +91,15 @@ def modelsList() -> list[str]:
         "small-directml",
         "base-directml",
         "large-directml",
-        "pervfi_lite",
-        "pervfi",
+        "small_v2",
+        "base_v2",
+        "large_v2",
+        "small_v2-directml",
+        "base_v2-directml",
+        "large_v2-directml",
+        "small_v2-tensorrt",
+        "base_v2-tensorrt",
+        "large_v2-tensorrt",
     ]
 
 
@@ -198,11 +229,11 @@ def modelsMap(
         case "gmfss":
             return "gmfss-fortuna-union.zip"
 
-        case "rife" | "rife4.17":
-            return "rife417.pth"
+        case "rife" | "rife4.18":
+            return "rife418.pth"
 
-        case "rife4.17-lite":
-            return "rife417_lite.pth"
+        case "rife4.17":
+            return "rife417.pth"
 
         case "rife4.15":
             return "rife415.pth"
@@ -258,6 +289,18 @@ def modelsMap(
         case "sam-vith":
             return "sam_vit_h_4b8939.pth"
 
+        case "rife-v4.18-ncnn":
+            if ensemble:
+                return "rife-v4.18-ensemble-ncnn.zip"
+            else:
+                return "rife-v4.18-ncnn.zip"
+
+        case "rife-v4.17-ncnn":
+            if ensemble:
+                return "rife-v4.17-ensemble-ncnn.zip"
+            else:
+                return "rife-v4.17-ncnn.zip"
+
         case "rife-v4.16-lite-ncnn":
             if ensemble:
                 return "rife-v4.16-lite-ensemble-ncnn.zip"
@@ -300,7 +343,7 @@ def modelsMap(
             else:
                 return "depth_anything_vitl14_float32_slim.onnx"
 
-        case "segment-tensorrt":
+        case "segment-tensorrt" | "segment-directml":
             return "isnet_is.onnx"
 
         case "rife4.6-tensorrt":
@@ -314,6 +357,18 @@ def modelsMap(
                     return "rife46_v2_ensembleTrue_op16_mlrt_sim.onnx"
                 else:
                     return "rife46_v2_ensembleFalse_op16_mlrt_sim.onnx"
+
+        case "rife4.18-tensorrt":
+            if half:
+                if ensemble:
+                    return "rife418_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
+                else:
+                    return "rife418_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+            else:
+                if ensemble:
+                    return "rife418_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
+                else:
+                    return "rife418_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
 
         case "rife4.17-tensorrt":
             if half:
@@ -333,14 +388,32 @@ def modelsMap(
             else:
                 return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_op17_onnxslim.onnx"
 
-        case "pervfi_lite":
-            return "pervfi_lite.pth"
+        case "small_v2":
+            return "depth_anything_v2_vits.pth"
 
-        case "pervfi":
-            return "pervfi.pth"
+        case "base_v2":
+            return "depth_anything_v2_vitb.pth"
 
-        case "raft":
-            return "raft-sintel.pth"
+        case "large_v2":
+            return "depth_anything_v2_vitl.pth"
+
+        case "small_v2-directml" | "small_v2-tensorrt":
+            if half:
+                return "depth_anything_v2_vits14_float16_slim.onnx"
+            else:
+                return "depth_anything_v2_vits14_float32_slim.onnx"
+
+        case "base_v2-directml" | "base_v2-tensorrt":
+            if half:
+                return "depth_anything_v2_vitb14_float16_slim.onnx"
+            else:
+                return "depth_anything_v2_vitb14_float32_slim.onnx"
+
+        case "large_v2-directml" | "large_v2-tensorrt":
+            if half:
+                return "depth_anything_v2_vitl14_float16_slim.onnx"
+            else:
+                return "depth_anything_v2_vitl14_float32_slim.onnx"
 
         case _:
             raise ValueError(f"Model {model} not found.")
@@ -365,10 +438,10 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
         logging.error(e)
 
     with alive_bar(
-        int(total_size_in_mb + 1), # Hacky but it works
+        int(total_size_in_mb + 1),  # Hacky but it works
         title=f"Downloading {model.capitalize()} model",
         bar="smooth",
-        unit = "MB",
+        unit="MB",
         spinner=True,
         enrich_print=False,
         receipt=True,
@@ -379,9 +452,7 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
         force_tty=True,
     ) as bar:
         with open(os.path.join(folderPath, filename), "wb") as file:
-            for data in response.iter_content(
-                chunk_size=1024 * 1024
-            ):
+            for data in response.iter_content(chunk_size=1024 * 1024):
                 file.write(data)
                 bar(int(len(data) / (1024 * 1024)))
 
@@ -419,12 +490,21 @@ def downloadModels(
     if model in ["vits", "vitb", "vitl"]:
         fullUrl = f"{DEPTHURL}{filename}"
     elif model in [
+        "rife4.18-tensorrt",
         "rife4.15-tensorrt",
         "rife4.17-tensorrt",
         "rife4.6-tensorrt",
         "scenechange",
     ]:
         fullUrl = f"{SUDOURL}{filename}"
+
+    elif model == "small_v2":
+        fullUrl = f"{DEPTHV2URLSMALL}{filename}"
+    elif model == "base_v2":
+        fullUrl = f"{DEPTHV2URLBASE}{filename}"
+    elif model == "large_v2":
+        fullUrl = f"{DEPTHV2URLLARGE}{filename}"
+
     else:
         fullUrl = f"{TASURL}{filename}"
 

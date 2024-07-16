@@ -114,7 +114,7 @@ class IFBlock(nn.Module):
 
 
 class IFNet(nn.Module):
-    def __init__(self, ensemble=False, scale=1):
+    def __init__(self, ensemble=False, scale=1, interpolateFactor=2):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7 + 16, c=192)
         self.block1 = IFBlock(8 + 4 + 16, c=128)
@@ -126,22 +126,23 @@ class IFNet(nn.Module):
         self.scale_list=[8/scale, 4/scale, 2/scale, 1/scale]
         self.ensemble = ensemble
         self.counter = 1
-
+        self.interpolateFactor = interpolateFactor
+        
     def cache(self):
         self.f0.copy_(self.f1, non_blocking=True)
     
     def cacheReset(self, frame):
         self.f0 = self.encode(frame[:, :3])
 
-    def forward(self, img0, img1, timestep, interpolateFactor = 2):
+    def forward(self, img0, img1, timestep):
         # Overengineered but it seems to work
-        if interpolateFactor == 2:
+        if self.interpolateFactor == 2:
             if self.f0 is None:
                 self.f0 = self.encode(img0[:, :3])
                 
             self.f1 = self.encode(img1[:, :3])
         else:
-            if self.counter == interpolateFactor:
+            if self.counter == self.interpolateFactor:
                 self.counter = 1
                 if self.f0 is None:
                     self.f0 = self.encode(img0[:, :3])

@@ -10,14 +10,7 @@ from src.ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red
 
-
 def argumentChecker(args, mainPath, scriptVersion):
-    if args.version:
-        print(scriptVersion)
-        sys.exit()
-    else:
-        args.version = scriptVersion
-
     args.sharpen_sens /= 100
     args.autoclip_sens = 100 - args.autoclip_sens
 
@@ -51,7 +44,13 @@ def argumentChecker(args, mainPath, scriptVersion):
 
     if args.dedup_method in ["ssim", "ssim-cuda"]:
         args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
-        logging.info(f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}")
+        logging.info(
+            f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
+        )
+
+    if args.scenechange_sens:
+        args.scenechange_sens = 0.9 - (args.scenechange_sens / 1000)
+        logging.info(f"New scenechange sensitivity is: {args.scenechange_sens}")
 
     if args.custom_encoder:
         logging.info(
@@ -60,10 +59,17 @@ def argumentChecker(args, mainPath, scriptVersion):
     else:
         logging.info("No custom encoder specified, using default encoder")
 
-    if args.consent:
-        logging.info(
-            "Consent flag detected, thank you for helping me improve the script"
-        )
+    if args.upscale_skip:
+        logging.info("Upscale skip enabled, the script will skip frames that are upscaled to save time, this is far from perfect and can cause issues")
+        
+    if args.upscale_skip and args.dedup:
+        logging.error("Upscale skip and dedup cannot be used together, disabling upscale skip to prevent issues")
+        args.upscale_skip = False
+
+    if args.upscale_skip and not args.upscale:
+        logging.error("Upscale skip is enabled but upscaling is not, disabling upscale skip")
+        args.upscale_skip = False
+
 
     """
     # Doesn't work with AMD GPUs
@@ -79,13 +85,6 @@ def argumentChecker(args, mainPath, scriptVersion):
             logging.info("Half precision is not supported on your system, disabling it")
             args.half = False
     """
-
-    if args.update:
-        logging.info("Update flag detected, checking for updates")
-        from .updateScript import updateScript
-
-        updateScript(scriptVersion, mainPath)
-        sys.exit()
 
     if args.input is None:
         toPrint = "No input specified, please specify an input file or URL to continue"
@@ -131,7 +130,7 @@ def processURL(args, mainPath):
     Check if the input is a URL, if it is, download the video and set the input to the downloaded video
     """
     result = urlparse(args.input)
-    if result.netloc.lower() in ['www.youtube.com', 'youtube.com', 'youtu.be']:
+    if result.netloc.lower() in ["www.youtube.com", "youtube.com", "youtu.be"]:
         logging.info("URL is valid and will be used for processing")
 
         if args.output is None:
@@ -152,5 +151,7 @@ def processURL(args, mainPath):
         args.output = None
         logging.info(f"New input path: {args.input}")
     else:
-        logging.error("URL is invalid or not a YouTube URL, please check the URL and try again")
+        logging.error(
+            "URL is invalid or not a YouTube URL, please check the URL and try again"
+        )
         sys.exit()
