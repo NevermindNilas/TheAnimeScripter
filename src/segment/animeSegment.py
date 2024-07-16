@@ -1,27 +1,14 @@
 import numpy as np
 import logging
 import os
-import cv2
 import torch
-
-import tensorrt as trt
 import torch.nn.functional as F
-
-from polygraphy.backend.trt import (
-    engine_from_network,
-    network_from_onnx_path,
-    CreateConfig,
-    Profile,
-    SaveEngine,
-)
-
 
 from src.downloadModels import downloadModels, weightsDir, modelsMap
 from concurrent.futures import ThreadPoolExecutor
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
-from .train import AnimeSegmentation
 from src.coloredPrints import yellow
-
+from alive_progress import alive_bar
 
 class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentation but it's fine
     def __init__(
@@ -36,9 +23,9 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         outpoint=0,
         encode_method="x264",
         custom_encoder="",
-        nt=1,
         buffer_limit=50,
         benchmark=False,
+        totalFrames=0,
     ):
         self.input = input
         self.output = output
@@ -50,9 +37,9 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self.outpoint = outpoint
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
-        self.nt = nt
         self.buffer_limit = buffer_limit
         self.benchmark = benchmark
+        self.totalFrames = totalFrames
 
         self.handleModel()
         try:
@@ -68,6 +55,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 resize=False,
                 resizeMethod=None,
                 queueSize=self.buffer_limit,
+                totalFrames=self.totalFrames,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -108,6 +96,8 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         else:
             self.device = "cpu"
 
+        from .train import AnimeSegmentation
+
         self.model = AnimeSegmentation.try_load(
             "isnet_is", modelPath, self.device, img_size=1024
         )
@@ -147,14 +137,18 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
 
     def process(self):
         frameCount = 0
-        while True:
-            frame = self.readBuffer.read()
-            if frame is None:
-                break
-            self.processFrame(frame)
-            frameCount += 1
+
+        with alive_bar(
+            self.totalFrames, title="Processing", bar="smooth", unit="frames"
+        ) as bar:
+            for _ in range(self.totalFrames):
+                frame = self.readBuffer.read()
+                self.processFrame(frame)
+                frameCount += 1
+                bar(1)
 
         logging.info(f"Processed {frameCount} frames")
+
         self.writeBuffer.close()
 
 
@@ -171,9 +165,9 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
         outpoint=0,
         encode_method="x264",
         custom_encoder="",
-        nt=1,
         buffer_limit=50,
         benchmark=False,
+        totalFrames=0,
     ):
         self.input = input
         self.output = output
@@ -185,9 +179,25 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
         self.outpoint = outpoint
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
-        self.nt = nt
         self.buffer_limit = buffer_limit
         self.benchmark = benchmark
+        self.totalFrames = totalFrames
+
+        import tensorrt as trt
+        from polygraphy.backend.trt import (
+            engine_from_network,
+            network_from_onnx_path,
+            CreateConfig,
+            Profile,
+            SaveEngine,
+        )
+
+        self.trt = trt
+        self.engine_from_network = engine_from_network
+        self.network_from_onnx_path = network_from_onnx_path
+        self.CreateConfig = CreateConfig
+        self.Profile = Profile
+        self.SaveEngine = SaveEngine
 
         self.handleModel()
         try:
@@ -203,6 +213,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
                 resize=False,
                 resizeMethod=None,
                 queueSize=self.buffer_limit,
+                totalFrames=self.totalFrames,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -249,7 +260,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
             print(yellow(toPrint))
             logging.info(toPrint)
             profiles = [
-                Profile().add(
+                self.Profile().add(
                     "input",
                     min=(1, 3, 64, 64),
                     opt=(
@@ -261,11 +272,11 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
                     max=(1, 3, 2160, 3840),
                 ),
             ]
-            self.engine = engine_from_network(
-                network_from_onnx_path(modelPath),
-                config=CreateConfig(profiles=profiles),
+            self.engine = self.engine_from_network(
+                self.network_from_onnx_path(modelPath),
+                config=self.CreateConfig(profiles=profiles),
             )
-            self.engine = SaveEngine(
+            self.engine = self.SaveEngine(
                 self.engine, modelPath.replace(".onnx", f"_{enginePrecision}.engine")
             )
 
@@ -273,7 +284,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
 
         with open(
             modelPath.replace(".onnx", f"_{enginePrecision}.engine"), "rb"
-        ) as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
+        ) as f, self.trt.Runtime(self.trt.Logger(self.trt.Logger.INFO)) as runtime:
             self.engine = runtime.deserialize_cuda_engine(f.read())
             self.context = self.engine.create_execution_context()
 
@@ -297,7 +308,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
                 self.engine.get_tensor_name(i), self.bindings[i]
             )
             tensor_name = self.engine.get_tensor_name(i)
-            if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
+            if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
         with torch.cuda.stream(self.stream):
@@ -338,12 +349,194 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
 
     def process(self):
         frameCount = 0
-        while True:
-            frame = self.readBuffer.read()
-            if frame is None:
-                break
-            self.processFrame(frame)
-            frameCount += 1
+
+        with alive_bar(
+            self.totalFrames, title="Processing", bar="smooth", unit="frames"
+        ) as bar:
+            for _ in range(self.totalFrames):
+                frame = self.readBuffer.read()
+                self.processFrame(frame)
+                frameCount += 1
+                bar(1)
 
         logging.info(f"Processed {frameCount} frames")
+
+        self.writeBuffer.close()
+
+class AnimeSegmentDirectML:
+    def __init__(
+        self,
+        input,
+        output,
+        ffmpeg_path,
+        width,
+        height,
+        fps,
+        inpoint=0,
+        outpoint=0,
+        encode_method="x264",
+        custom_encoder="",
+        buffer_limit=50,
+        benchmark=False,
+        totalFrames=0,
+    ):
+        self.input = input
+        self.output = output
+        self.ffmpeg_path = ffmpeg_path
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.encode_method = encode_method
+        self.custom_encoder = custom_encoder
+        self.buffer_limit = buffer_limit
+        self.benchmark = benchmark
+        self.totalFrames = totalFrames
+
+        import onnxruntime as ort
+        ort.set_default_logger_severity(3)
+        self.ort = ort
+
+        self.handleModel()
+        try:
+            self.readBuffer = BuildBuffer(
+                input=self.input,
+                ffmpegPath=self.ffmpeg_path,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
+                dedup=False,
+                dedupSens=None,
+                width=self.width,
+                height=self.height,
+                resize=False,
+                resizeMethod=None,
+                queueSize=self.buffer_limit,
+                totalFrames=self.totalFrames,
+            )
+
+            self.writeBuffer = WriteBuffer(
+                self.input,
+                self.output,
+                self.ffmpeg_path,
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
+                self.fps,
+                self.buffer_limit,
+                sharpen=False,
+                sharpen_sens=None,
+                grayscale=False,
+                transparent=True,
+                audio=False,
+                benchmark=self.benchmark,
+            )
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.readBuffer.start)
+                executor.submit(self.process)
+                executor.submit(self.writeBuffer.start)
+
+        except Exception as e:
+            logging.error(f"An error occurred while processing the video: {e}")
+
+    def handleModel(self):
+        self.filename = modelsMap("segment-directml")
+        if not os.path.exists(os.path.join(weightsDir, "segment-directml", self.filename)):
+            modelPath = downloadModels(model="segment-directml")
+        else:
+            modelPath = os.path.join(weightsDir, "segment-directml", self.filename)
+        
+        self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
+        self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
+
+        providers = self.ort.get_available_providers()
+        if "DmlExecutionProvider" in providers:
+            logging.info("DirectML provider available. Defaulting to DirectML")
+            provider = "DmlExecutionProvider"
+        else:
+            logging.info(
+                "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
+            )
+            provider = "CPUExecutionProvider"
+ 
+        self.model = self.ort.InferenceSession(modelPath, providers=[provider])
+        self.deviceType = "cpu"
+        self.device = torch.device(self.deviceType)
+        self.numpyDType = np.float32
+        self.torchDType = torch.float32
+
+        self.IoBinding = self.model.io_binding()
+        self.dummyInput = torch.zeros(
+            (1, 3, self.height + self.padHeight, self.width + self.padWidth),
+            device=self.device,
+            dtype=torch.float32,
+        ).contiguous()
+
+        self.dummyOutput = torch.zeros(
+            (1, 1, self.height + self.padHeight, self.width + self.padWidth),
+            device=self.device,
+            dtype=torch.float32,
+        ).contiguous()
+
+        self.IoBinding.bind_output(
+            name="output",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+    def processFrame(self, frame: torch.tensor) -> torch.tensor:
+        try:
+            frame = (
+                frame.to(self.device)
+                .float()
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .mul(1 / 255)
+            )
+            frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
+            print(frame.shape)
+            self.dummyInput.copy_(frame)
+
+            self.IoBinding.bind_input(
+                name="input",
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyDType,
+                shape=self.dummyInput.shape,
+                buffer_ptr=self.dummyInput.data_ptr(),
+            )
+
+            frameWithMask = torch.cat((frame, self.dummyOutput), dim=1)
+            frameWithMask = frameWithMask[
+                :,
+                :,
+                : frameWithMask.shape[2] - self.padHeight,
+                : frameWithMask.shape[3] - self.padWidth,
+            ]
+            frameWithMask = frameWithMask.squeeze(0).permute(1, 2, 0).mul(255).byte()
+            print(frameWithMask.shape)
+            self.writeBuffer.write(frameWithMask)
+
+        except Exception as e:
+            logging.exception(f"An error occurred while processing the frame, {e}")
+
+    def process(self):
+        frameCount = 0
+
+        with alive_bar(
+            self.totalFrames, title="Processing", bar="smooth", unit="frames"
+        ) as bar:
+            for _ in range(self.totalFrames):
+                frame = self.readBuffer.read()
+                self.processFrame(frame)
+                frameCount += 1
+                bar(1)
+
+        logging.info(f"Processed {frameCount} frames")
+
         self.writeBuffer.close()

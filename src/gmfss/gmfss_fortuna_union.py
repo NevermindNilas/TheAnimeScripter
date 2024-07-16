@@ -21,6 +21,7 @@ class GMFSS:
         ensemble=False,
         nt=1,
         sceneChange=False,
+        sceneChangeThreshold=0.85,
     ):
         self.width = width
         self.height = height
@@ -29,6 +30,7 @@ class GMFSS:
         self.ensemble = ensemble
         self.nt = nt
         self.sceneChange = sceneChange
+        self.sceneChangeThreshold = sceneChangeThreshold
 
         ph = ((self.height - 1) // 32 + 1) * 32
         pw = ((self.width - 1) // 32 + 1) * 32
@@ -110,7 +112,7 @@ class GMFSS:
 
         if self.sceneChange:
             from src.unifiedInterpolate import SceneChange
-            self.sceneChangeProcess = SceneChange(self.half)
+            self.sceneChangeProcess = SceneChange(self.half, self.sceneChangeThreshold)
 
     @torch.inference_mode()
     def make_inference(self, n):

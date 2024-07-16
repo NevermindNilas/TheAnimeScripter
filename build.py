@@ -35,8 +35,10 @@ def create_executable():
     print("Creating executable with PyInstaller...")
     src_path = os.path.join(base_dir, "src")
     main_path = os.path.join(base_dir, "main.py")
-    gui_path = os.path.join(base_dir, "gui.py")
-    icon_path = os.path.join(base_dir, "src", "assets", "icon.ico")
+    guiPath = os.path.join(base_dir, "gui.py")
+    iconPath = os.path.join(base_dir, "src", "assets", "icon.ico")
+    updaterPath = os.path.join(base_dir, "updater.py")
+    benchmarkPath = os.path.join(base_dir, "benchmark.py")
 
     universal_ncnn_models_path = os.path.join(
         distribution("upscale_ncnn_py").locate_file("upscale_ncnn_py"),
@@ -79,11 +81,9 @@ def create_executable():
             "--collect-all",
             "readchar",
             "--collect-all",
-            "decord",
-            "--collect-all",
             "grapheme",
             "--icon",
-            f"{icon_path}",
+            f"{iconPath}",
             main_path,
         ],
         check=True,
@@ -102,8 +102,8 @@ def create_executable():
             "--clean",
             "--debug=all",
             "--icon",
-            f"{icon_path}",
-            gui_path,
+            f"{iconPath}",
+            guiPath,
         ],
         check=True,
     )
@@ -111,7 +111,6 @@ def create_executable():
     print("Finished creating the GUI executable")
     print("Creating the benchmark executable...")
 
-    benchmarkPath = os.path.join(base_dir, "benchmark.py")
     subprocess.run(
         [
             ".\\venv\\Scripts\\pyinstaller",
@@ -121,17 +120,38 @@ def create_executable():
             "--noupx",
             "--clean",
             "--icon",
-            f"{icon_path}",
+            f"{iconPath}",
             benchmarkPath,
         ],
         check=True,
     )
 
-    guiInternalPath = os.path.join(base_dir, "dist", "gui", "_internal")
-    mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
-    benchmarkInternalPath = os.path.join(base_dir, "dist", "benchmark", "_internal")
+    print("Finished creating the benchmark executable")
+    print("Creating the updater executable...")
 
-    for directory in [guiInternalPath, benchmarkInternalPath]:
+    subprocess.run(
+        [
+            ".\\venv\\Scripts\\pyinstaller",
+            "--noconfirm",
+            "--onedir",
+            "--console",
+            "--noupx",
+            "--clean",
+            "--icon",
+            f"{iconPath}",
+            updaterPath,
+        ],
+        check=True,
+    )
+    print("Finished creating the updater executable")
+
+
+    mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
+    guiInternalPath = os.path.join(base_dir, "dist", "gui", "_internal")
+    benchmarkInternalPath = os.path.join(base_dir, "dist", "benchmark", "_internal")
+    updaterInternalPath = os.path.join(base_dir, "dist", "updater", "_internal")
+
+    for directory in [guiInternalPath, benchmarkInternalPath, updaterInternalPath]:
         for filename in os.listdir(directory):
             sourceFilePath = os.path.join(directory, filename)
             mainFilePath = os.path.join(mainInternalPath, filename)
@@ -144,12 +164,12 @@ def create_executable():
 
     guiExeFilePath = os.path.join(base_dir, "dist", "gui", "gui.exe")
     benchmarkExeFilePath = os.path.join(base_dir, "dist", "benchmark", "benchmark.exe")
+    updaterExeFilePath = os.path.join(base_dir, "dist", "updater", "updater.exe")
     mainExeFilePath = os.path.join(base_dir, "dist", "main")
 
     shutil.move(guiExeFilePath, mainExeFilePath)
     shutil.move(benchmarkExeFilePath, mainExeFilePath)
-    mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
-
+    shutil.move(updaterExeFilePath, mainExeFilePath)
 
 def move_extras():
     dist_dir = os.path.join(base_dir, "dist")
@@ -191,9 +211,14 @@ def clean_up():
             print("Error while removing dll file: ", e)
 
     guiFolder = os.path.join(base_dir, "dist", "gui")
+    benchmarkFolder = os.path.join(base_dir, "dist", "benchmark")
+    updaterFolder = os.path.join(base_dir, "dist", "updater")
 
     try:
         shutil.rmtree(guiFolder)
+        shutil.rmtree(benchmarkFolder)
+        shutil.rmtree(updaterFolder)
+        
     except Exception as e:
         print("Error while removing gui folder: ", e)
 

@@ -2,7 +2,6 @@ import cv2
 import logging
 import textwrap
 
-
 def getVideoMetadata(inputPath, inPoint, outPoint):
     """
     Get metadata from a video file.

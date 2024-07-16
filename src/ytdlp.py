@@ -1,9 +1,8 @@
 import os
 import logging
-import inquirer
 
+from inquirer import List, prompt
 from yt_dlp import YoutubeDL
-
 
 class VideoDownloader:
     def __init__(
@@ -25,14 +24,14 @@ class VideoDownloader:
         resolutions = self.listResolutions()
 
         questions = [
-            inquirer.List(
+            List(
                 "resolution",
                 message="Select the resolution you want to download, use up and down arrow keys to navigate and press enter to select:",
                 choices=resolutions,
             ),
         ]
 
-        answers = inquirer.prompt(questions)
+        answers = prompt(questions)
         if not answers:
             logging.error("No resolution selected, exiting")
             exit(1)
