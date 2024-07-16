@@ -5,19 +5,18 @@ import pathlib
 import subprocess
 import os
 import sys
-import argparse
 
 from alive_progress import alive_bar
-from src.coloredPrints import green
 
 URL = r"https://api.github.com/repos/NevermindNilas/TheAnimeScripter/releases/latest"
+
 
 def updateScript(scriptVersion, mainPath):
     """
     Update the script if the version is outdated
     """
     try:
-        print(green("Checking for updates..."))
+        print("Checking for updates...")
         response = requests.get(URL)
         data = json.loads(response.text)
         latestVersion = data["tag_name"]
@@ -71,9 +70,7 @@ def updateScript(scriptVersion, mainPath):
                             "Download complete, extracting files, depending on the size of the update this might take a while"
                         )
                         print(
-                            green(
-                                "Download complete, extracting files, depending on the size of the update this might take a while"
-                            )
+                            "Download complete, extracting files, depending on the size of the update this might take a while"
                         )
 
                         extractDir = parentDir / fileNameWithoutExt
@@ -103,15 +100,40 @@ def updateScript(scriptVersion, mainPath):
             """
 
             print(
-                green(
-                    f"Update downloaded to {extractDir}, if you are an After Effects user, please update the After Effects UI script as well. You may copp over the models found in the src/weights folder and ffmpeg to the new directory if you wish to do so."
-                )
+                f"Update downloaded to {extractDir}, if you are an After Effects user, please update the After Effects UI script as well. You may copp over the models found in the src/weights folder and ffmpeg to the new directory if you wish to do so."
             )
 
         else:
-            print(green("No updates found, script is up to date"))
+            print("No updates found, script is up to date")
     except Exception as e:
         logging.error(f"An error occurred: {e}")
+
+
+def getVersionOfMainExe(mainPath):
+    mainExePath = os.path.join(mainPath, "main.exe")
+    if not os.path.exists(mainExePath):
+        mainExePath = os.path.join(mainPath, "main.py")
+        if not os.path.exists(mainExePath):
+            mainExePath = None
+        else:
+            # If it's a Python script, prepare the command as a list
+            mainExePath = ["python", mainExePath]
+    else:
+        mainExePath = [os.path.abspath(mainExePath)]
+
+    if mainExePath is None:
+        print("main.exe or main.py not found, exiting...")
+        sys.exit()
+
+    version = subprocess.run(
+        mainExePath + ["--version"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    return version.stdout.strip()
+
 
 if __name__ == "__main__":
     if getattr(sys, "frozen", False):
@@ -119,10 +141,5 @@ if __name__ == "__main__":
     else:
         mainPath = os.path.dirname(os.path.abspath(__file__))
 
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "--version",
-        action="store_true",
-    )
-    
+    mainExeVersion = getVersionOfMainExe(mainPath)
+    updateScript(mainExeVersion, mainPath)

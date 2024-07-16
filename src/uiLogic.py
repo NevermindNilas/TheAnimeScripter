@@ -255,6 +255,7 @@ def saveSettings(self, settingsFile, printSave=True):
             "scenechange": self.scenechangedetectionCheckbox.isChecked(),
             "ensemble": self.rifeensembleCheckbox.isChecked(),
             "close_terminal": self.donotcloseterminalonfinishCheckbox.isChecked(),
+            #"save_shortcut": self.answer if hasattr(self, "answer") else None,
         }
         for i in range(self.checkboxLayout.count()):
             checkbox = self.checkboxLayout.itemAt(i).widget()
@@ -306,16 +307,19 @@ def dropdownsLabels(method):
             ]
         case "Interpolation":
             return [
+                "Rife4.18",
                 "Rife4.17",
-                "Rife4.17-Lite",
                 "Rife4.16-Lite",
                 "Rife4.15-Lite",
                 "Rife4.15",
                 "Rife4.6",
+                "Rife4.18-TensorRT",
                 "Rife4.17-TensorRT",
                 "Rife4.15-TensorRT",
                 "Rife4.15-Lite-TensorRT",
                 "Rife4.6-TensorRT",
+                "Rife4.17-NCNN",
+                "Rife4.17-NCNN",
                 "Rife4.16-Lite-NCNN",
                 "Rife4.15-NCNN",
                 "Rife4.15-Lite-NCNN",
@@ -323,64 +327,61 @@ def dropdownsLabels(method):
                 "GMFSS",
             ]
         case "Denoise":
-            return ["DPIR", "SCUNet", "NAFNet", "Span"]
+            return ["DPIR", "SCUNet", "NAFNet"]
         case "Dedup":
             return ["SSIM", "MSE", "SSIM-CUDA"]
         case "Depth":
             return [
-                "Small",
-                "Base",
-                "Large",
-                "Small-TensorRT",
-                "Base-TensorRT",
-                "Large-TensorRT",
-                "Small-DirectML",
-                "Base-DirectML",
-                "Large-DirectML",
+                "Small_v2",
+                "Base_v2",
+                "Large_v2",
+                "Small_v2-TensorRT",
+                "Base_v2-TensorRT",
+                "Large_v2-TensorRT",
             ]
         case "Encode":
             return {
-                "x264": ("x264", "-c:v libx264 -preset fast -crf 17"),
+                "x264": ("x264", "-c:v libx264 -preset fast -crf 15"),
                 "x264_animation": (
                     "x264_animation",
-                    "-c:v libx264 -preset fast -tune animation -crf 17",
+                    "-c:v libx264 -preset fast -tune animation -crf 15",
                 ),
                 "x264_10bit": (
                     "x264_10bit",
-                    "-c:v libx264 -preset fast -profile:v high10 -crf 17",
+                    "-c:v libx264 -preset fast -profile:v high10 -crf 15",
                 ),
-                "x265": ("x265", "-c:v libx265 -preset fast -crf 17"),
+                "x265": ("x265", "-c:v libx265 -preset fast -crf 15"),
                 "x265_10bit": (
                     "x265_10bit",
-                    "-c:v libx265 -preset fast -profile:v main10 -crf 17",
+                    "-c:v libx265 -preset fast -profile:v main10 -crf 15",
                 ),
-                "nvenc_h264": ("nvenc_h264", "-c:v h264_nvenc -preset p1 -cq 17"),
-                "nvenc_h265": ("nvenc_h265", "-c:v hevc_nvenc -preset p1 -cq 17"),
+                "nvenc_h264": ("nvenc_h264", "-c:v h264_nvenc -preset p1 -cq 15"),
+                "nvenc_h265": ("nvenc_h265", "-c:v hevc_nvenc -preset p1 -cq 15"),
                 "nvenc_h265_10bit": (
                     "nvenc_h265_10bit",
-                    "-c:v hevc_nvenc -preset p1 -profile:v main10 -cq 17",
+                    "-c:v hevc_nvenc -preset p1 -profile:v main10 -cq 15",
                 ),
                 "qsv_h264": (
                     "qsv_h264",
-                    "-c:v h264_qsv -preset veryfast -global_quality 17",
+                    "-c:v h264_qsv -preset veryfast -global_quality 15",
                 ),
                 "qsv_h265": (
                     "qsv_h265",
-                    "-c:v hevc_qsv -preset veryfast -global_quality 17",
+                    "-c:v hevc_qsv -preset veryfast -global_quality 15",
                 ),
                 "qsv_h265_10bit": (
                     "qsv_h265_10bit",
-                    "-c:v hevc_qsv -preset veryfast -profile:v main10 -global_quality 17",
+                    "-c:v hevc_qsv -preset veryfast -profile:v main10 -global_quality 15",
                 ),
-                "nvenc_av1": ("nvenc_av1", "-c:v av1_nvenc -preset p1 -cq 17"),
-                "av1": ("av1", "-c:v libsvtav1 -preset 8 -crf 17"),
-                "h264_amf": ("h264_amf", "-c:v h264_amf -quality speed -rc cqp -qp 17"),
-                "hevc_amf": ("hevc_amf", "-c:v hevc_amf -quality speed -rc cqp -qp 17"),
+                "nvenc_av1": ("nvenc_av1", "-c:v av1_nvenc -preset p1 -cq 15"),
+                "av1": ("av1", "-c:v libsvtav1 -preset 8 -crf 15"),
+                "h264_amf": ("h264_amf", "-c:v h264_amf -quality speed -rc cqp -qp 15"),
+                "hevc_amf": ("hevc_amf", "-c:v hevc_amf -quality speed -rc cqp -qp 15"),
                 "hevc_amf_10bit": (
                     "hevc_amf_10bit",
-                    "-c:v hevc_amf -quality speed -rc cqp -qp 17 -profile:v main10",
+                    "-c:v hevc_amf -quality speed -rc cqp -qp 15 -profile:v main10",
                 ),
-                "prores": ("prores", "-c:v prores_ks -profile:v 4 -qscale:v 17"),
+                "prores": ("prores", "-c:v prores_ks -profile:v 4 -qscale:v 15"),
             }
         case "Resize":
             return [
