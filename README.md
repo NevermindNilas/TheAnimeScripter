@@ -55,7 +55,7 @@ Windows:
   - Download one of the latest releases from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
 
 Linux:
-  - GUI / CLI is N/A yet. Refer to manual usage and the [Parameters](PARAMETERS.MD) guide
+  - GUI is N/A yet. Refer to manual usage with the CLI and the [Parameters](PARAMETERS.MD) guide
 
 ### Or Manually Build
 
@@ -69,17 +69,13 @@ For Windows:
 For Linux:
   - N/A
 
-### How to Use Inside of After Effects
+### How to Use Inside of Adobe After Effects with TheAnimeScripter
 
-1. Open `File -> Scripts -> Install ScriptUI Panel`.
-2. Choose `TheAnimeScripter.jsx` file from the folder.
-3. Restart After Effects when prompted.
-4. After reopening, go to `Window -> TheAnimeScripter.jsx`.
-5. Dock the panel wherever you prefer.
-
-In the settings panel:
-- Set the folder to the same directory as The Anime Scripter.
-- Specify the output location.
+1. First, run the `DO THIS FIRST.reg` file. This will allow TheAnimeScripter to run in Adobe After Effects.
+2. Navigate to the CEP extensions folder located at `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\`.
+3. Copy the entire folder to the path mentioned in step 2.
+4. Restart Adobe After Effects to apply the changes.
+5. After reopening, go to `Window -> Extensions -> TheAnimeScripter` to access the script.
 
 ## 📚 Available Inputs
 
@@ -102,7 +98,7 @@ All of the available parameters for interacting with the CLI or directly with ma
 ### Interpolation Models
 - Rife CUDA (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18 )
 - Rife TensorRT (Versions: 4.6, 4.15, 4.15-lite, 4.17, 4.18 )
-- Rife NCNN ( Versions: 4.6, 4.15, 4.15-lite, 4.16-lite ) 
+- Rife NCNN ( Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18 ) 
 - GMFSS ( Available for CUDA )
 
 ### Denoise Models
@@ -123,7 +119,7 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 | [JingyunLiang](https://github.com/JingyunLiang/SwinIR)                                                | SwinIR               |
 | [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai)                              | Compact, UltraCompact, SuperUltraCompact models |
 | [SkyTNT](https://github.com/SkyTNT/anime-segmentation)                                                | Anime Segmentation   |
-| [LiheYoung](https://github.com/LiheYoung/Depth-Anything)                                              | Depth Anything       |
+| [DepthAnything](https://github.com/DepthAnything/Depth-Anything-V2)                                              | Depth Anything  V2      |
 | [98mxr](https://github.com/98mxr/GMFSS_Fortuna)                                                       | GMFSS Fortuna Union  |
 | [FFmpeg Group](https://github.com/FFmpeg/FFmpeg)                                                      | FFmpeg               |
 | [YT-DLP](https://github.com/yt-dlp/yt-dlp)                                                            | YT-DLP               |

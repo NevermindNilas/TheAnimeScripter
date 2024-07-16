@@ -34,7 +34,6 @@ from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
 
-# Get user appdata path
 if os.name == "nt":
     appdata = os.getenv("APPDATA")
     mainPath = os.path.join(appdata, "TheAnimeScripter")
