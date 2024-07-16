@@ -92,7 +92,7 @@ class IFBlock(nn.Module):
 
 
 class IFNet(nn.Module):
-    def __init__(self, ensemble=False, scale=1):
+    def __init__(self, ensemble=False, scale=1, interpolateFactor=2):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7, c=192)
         self.block1 = IFBlock(8 + 4, c=128)
@@ -101,6 +101,7 @@ class IFNet(nn.Module):
 
         self.scale_list=[8/scale, 4/scale, 2/scale, 1/scale]
         self.ensemble = ensemble
+        self.interpolateFactor = interpolateFactor
 
     def cache(self):
         pass
@@ -113,13 +114,12 @@ class IFNet(nn.Module):
         image1,
         image2,
         timestep,
-        interpolateFactor=2,
     ):
         merged = []
         mask_list = []
         warped_image0 = image1
         warped_image1 = image2
-        
+
         flow = None
         block = [self.block0, self.block1, self.block2, self.block3]
         for i in range(4):

@@ -1,14 +1,27 @@
 import logging
 import subprocess
-import numpy as np
 import os
 import shutil
 import torch
-import decord
+import sys
+
 from queue import Queue
 
-decord.bridge.set_bridge('torch')
+if os.name == "nt":
+    appdata = os.getenv("APPDATA")
+    mainPath = os.path.join(appdata, "TheAnimeScripter")
+    
+    if not os.path.exists(mainPath):
+        os.makedirs(mainPath)
+else:
+    dirPath = os.path.dirname(os.path.realpath(__file__))
 
+ffmpegLogPath = os.path.join(mainPath, "ffmpegLog.txt")
+
+if getattr(sys, "frozen", False):
+    outputPath = os.path.dirname(sys.executable)
+else:
+    outputPath = os.path.dirname(os.path.abspath(__file__))
 
 def matchEncoder(encode_method: str):
     """
@@ -17,9 +30,9 @@ def matchEncoder(encode_method: str):
     command = []
     match encode_method:
         case "x264":
-            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "17"])
+            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "15"])
         case "x264_10bit":
-            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "17", "-profile:v", "high10"])
+            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "15", "-profile:v", "high10"])
         case "x264_animation":
             command.extend(
                 [
@@ -30,7 +43,7 @@ def matchEncoder(encode_method: str):
                     "-tune",
                     "animation",
                     "-crf",
-                    "17",
+                    "15",
                 ]
             )
         case "x264_animation_10bit":
@@ -43,52 +56,52 @@ def matchEncoder(encode_method: str):
                     "-tune",
                     "animation",
                     "-crf",
-                    "17",
+                    "15",
                     "-profile:v",
                     "high10",
                 ]
             )
         case "x265":
-            command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "17"])
+            command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "15"])
         case "x265_10bit":
-            command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "17", "-profile:v", "main10"])
+            command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "15", "-profile:v", "main10"])
         case "nvenc_h264":
-            command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "17"])
+            command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "15"])
         case "nvenc_h265":
-            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "17"])
+            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "15"])
         case "nvenc_h265_10bit":
-            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "17", "-profile:v", "main10"])
+            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "15", "-profile:v", "main10"])
         case "qsv_h264":
             command.extend(
-                ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "17"]
+                ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "15"]
             )
         case "qsv_h265":
             command.extend(
-                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "17"]
+                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "15"]
             )
         case "qsv_h265_10bit":
             command.extend(
-                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "17", "-profile:v", "main10"]
+                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "15", "-profile:v", "main10"]
             )
         case "nvenc_av1":
-            command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "17"])
+            command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "15"])
         case "av1":
-            command.extend(["-c:v", "libsvtav1", "-preset", "8", "-crf", "17"])
+            command.extend(["-c:v", "libsvtav1", "-preset", "8", "-crf", "15"])
         case "h264_amf":
             command.extend(
-                ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp", "17"]
+                ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15"]
             )
         case "hevc_amf":
             command.extend(
-                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "17"]
+                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15"]
             )
         case "hevc_amf_10bit":
             command.extend(
-                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "17", "-profile:v", "main10"]
+                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15", "-profile:v", "main10"]
             )
         # Needs further testing, -qscale:v 15 seems to be extremely lossy
         case "prores":
-            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "17"])
+            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "15"])
         
     return command
 
@@ -109,6 +122,7 @@ class BuildBuffer:
         resizeMethod: str = "bilinear",
         buffSize: int = 10**8,
         queueSize: int = 50,
+        totalFrames: int = 0,
     ):
         """
         A class meant to Pipe the Output of FFMPEG into a Queue for further processing.
@@ -140,25 +154,7 @@ class BuildBuffer:
         self.resizeMethod = resizeMethod
         self.buffSize = buffSize
         self.queueSize = queueSize
-
-    def parameters(self):
-        """
-        Returns the parameters of the class.
-        """
-        return {
-            "input": self.input,
-            "ffmpegPath": self.ffmpegPath,
-            "inpoint": self.inpoint,
-            "outpoint": self.outpoint,
-            "dedup": self.dedup,
-            "dedupSens": self.dedupSens,
-            "resize": self.resize,
-            "width": self.width,
-            "height": self.height,
-            "resizeMethod": self.resizeMethod,
-            "buffSize": self.buffSize,
-            "queueSize": self.queueSize,
-        }
+        self.totalFrames = totalFrames
 
     def decodeSettings(self) -> list:
         """
@@ -205,10 +201,12 @@ class BuildBuffer:
         command.extend(
             [
                 "-f",
-                "rawvideo",
+                "image2pipe",
                 "-pix_fmt",
                 "rgb24",
-                "pipe:1",
+                '-vcodec', 
+                'rawvideo',
+                '-'
             ]
         )
 
@@ -224,40 +222,35 @@ class BuildBuffer:
         """
         self.readBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
         verbose = True
-        #command = self.decodeSettings()
-        #
-        #if verbose:
-        #    logging.info(f"Decoding options: {' '.join(map(str, command))}")
+        command = self.decodeSettings()
+
+        if verbose:
+            logging.info(f"Decoding options: {' '.join(map(str, command))}")
             
         try:
-            video = decord.VideoReader(self.input, ctx=decord.cpu(0), width=self.width, height=self.height)
-
-            fps = video.get_avg_fps()
-            if self.outpoint != 0:
-                self.outpoint = int(self.outpoint * fps)
-                self.inpoint = int(self.inpoint * fps)
-                self.totalFrames = video.get_batch(range(self.inpoint, self.outpoint)).shape[0]
-            else:
-                self.totalFrames = len(video)
-
-            
-            self.readingDone = False
+            chunk = self.width * self.height * 3
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+            )
             self.decodedFrames = 0
+            self.readingDone = False
 
-            for i in range(self.totalFrames):
-                frame = torch.from_numpy(video[i].asnumpy())
-                self.readBuffer.put(frame)
+            for _ in range(self.totalFrames):
+                raw_frame = process.stdout.read(chunk)
+                self.readBuffer.put(torch.frombuffer(raw_frame, dtype=torch.uint8).view(self.height, self.width, 3))
                 self.decodedFrames += 1
-
+                
         except Exception as e:
             if verbose:
                 logging.error(f"An error occurred: {str(e)}")
-
         finally:
             if verbose:
                 logging.info(f"Built buffer with {self.decodedFrames} frames")
             self.readingDone = True
             self.readBuffer.put(None)
+            process.stdout.close()
             
     def read(self):
         """
@@ -393,10 +386,6 @@ class WriteBuffer:
                 f"{inputPixFormat}",
                 "-r",
                 str(self.fps),
-                "-thread_queue_size",
-                "100",
-                "-max_interleave_delta",
-                "0",
                 "-i",
                 "-",
                 "-an",
@@ -498,7 +487,7 @@ class WriteBuffer:
             logging.info(f"Encoding options: {' '.join(map(str, command))}")
 
         try:
-            with open('log.txt', 'a') as log_file:
+            with open(ffmpegLogPath, 'w') as log_file:
                 with subprocess.Popen(
                     command,
                     stdin=subprocess.PIPE,
@@ -528,7 +517,7 @@ class WriteBuffer:
             if self.audio and not self.benchmark:
                 self.mergeAudio()
 
-    def write(self, frame: np.ndarray):
+    def write(self, frame: torch.Tensor):
         """
         Add a frame to the queue. Must be in RGB format.
         """

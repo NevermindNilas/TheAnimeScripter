@@ -34,14 +34,21 @@ from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
 
+# Get user appdata path
+if os.name == "nt":
+    appdata = os.getenv("APPDATA")
+    mainPath = os.path.join(appdata, "TheAnimeScripter")
+    
+    if not os.path.exists(mainPath):
+        os.makedirs(mainPath)
+
 if getattr(sys, "frozen", False):
-    mainPath = os.path.dirname(sys.executable)
+    outputPath = os.path.dirname(sys.executable)
 else:
-    mainPath = os.path.dirname(os.path.abspath(__file__))
+    outputPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.8.6"
+scriptVersion = "1.9.0"
 warnings.filterwarnings("ignore")
-
 
 class VideoProcessor:
     def __init__(self, args):
@@ -81,10 +88,11 @@ class VideoProcessor:
         self.denoise_method = args.denoise_method
         self.sample_size = args.sample_size
         self.benchmark = args.benchmark
-        self.consent = args.consent
         self.segment_method = args.segment_method
         self.flow = args.flow
         self.scenechange = args.scenechange
+        self.scenechange_sens = args.scenechange_sens
+        self.upscale_skip = args.upscale_skip
 
         self.width, self.height, self.fps, self.totalFrames = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
@@ -133,11 +141,6 @@ class VideoProcessor:
         else:
             self.start()
 
-        if self.consent:
-            from src.consent import Consent
-
-            Consent(logPath=os.path.join(mainPath, "log.txt"))
-
     def processFrame(self, frame):
         try:
             if self.dedup:
@@ -175,6 +178,10 @@ class VideoProcessor:
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
             logging.info(f"Deduplicated {self.dedupCount} frames")
+        if self.upscale_skip:
+            logging.info(f"Skipped {self.upscale_process.getSkippedCounter} frames")
+        #if self.scenechange:
+        #    logging.info(f"Detected {self.interpolate_process.getSceneChangeCounter} scene changes")
     
         self.writeBuffer.close()
     def start(self):
@@ -202,6 +209,7 @@ class VideoProcessor:
                 self.resize,
                 self.resize_method,
                 self.buffer_limit,
+                totalFrames=self.totalFrames,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -242,7 +250,7 @@ if __name__ == "__main__":
     logging.info(f"{' '.join(sys.argv)}\n")
 
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("--version", action="store_true")
+    argparser.add_argument("--version", action="version", version=f"{scriptVersion}")
     argparser.add_argument("--input", type=str)
     argparser.add_argument("--output", type=str)
     argparser.add_argument(
@@ -262,17 +270,19 @@ if __name__ == "__main__":
             "rife4.15-lite",
             "rife4.16-lite",
             "rife4.17",
-            "rife4.17-lite",
+            "rife4.18",
             "rife-ncnn",
             "rife4.6-ncnn",
             "rife4.15-ncnn",
             "rife4.15-lite-ncnn",
             "rife4.16-lite-ncnn",
             "rife4.17-ncnn",
+            "rife4.18-ncnn",
             "rife4.6-tensorrt",
             "rife4.15-tensorrt",
             "rife4.15-lite-tensorrt",
             "rife4.17-tensorrt",
+            "rife4.18-tensorrt",
             "rife-tensorrt",
             "gmfss",
         ],
@@ -359,17 +369,17 @@ if __name__ == "__main__":
         "--depth_method",
         type=str,
         choices=[
-            "small",
-            "base",
-            "large",
-            "small-tensorrt",
-            "base-tensorrt",
-            "large-tensorrt",
-            "small-directml",
-            "base-directml",
-            "large-directml",
+            "small_v2",
+            "base_v2",
+            "large_v2",
+            "small_v2-tensorrt",
+            "base_v2-tensorrt",
+            "large_v2-tensorrt",
+            "small_v2-directml",
+            "base_v2-directml",
+            "large_v2-directml",
         ],
-        default="small",
+        default="small_v2",
     )
     argparser.add_argument(
         "--encode_method",
@@ -455,22 +465,10 @@ if __name__ == "__main__":
         required=False,
     )
     argparser.add_argument(
-        "--consent",
-        action="store_true",
-        help="Allow the script to store data from the log.txt file in order to improve the script and try to preemptively fix the script",
-        required=False,
-    )
-    argparser.add_argument(
         "--segment_method",
         type=str,
         default="anime",
-        choices=["anime", "anime-tensorrt"],
-    )
-    argparser.add_argument(
-        "--update",
-        action="store_true",
-        help="Check and Update the script to the latest version",
-        required=False,
+        choices=["anime", "anime-tensorrt", "anime-directml"], # TO:DO https://github.com/CartoonSegmentation/CartoonSegmentation
     )
     argparser.add_argument(
         "--flow", action="store_true", help="Extract the Optical Flow", required=False
@@ -487,6 +485,18 @@ if __name__ == "__main__":
         help="A simple flag for notifying if the script is ran from the After Effects interface",
         required=False,
     )
+    argparser.add_argument(
+        "--upscale_skip",
+        action="store_true",
+        help="Use SSIM / SSIM-CUDA to skip duplicate frames when upscaling.",
+        required=False,
+    )
+    argparser.add_argument(
+        "--scenechange_sens",
+        type=float,
+        default=50,
+        help="The higher the value, the more sensitive the scene change detection will be, values between 0-100",
+    )
 
     args = argparser.parse_args()
     args = argumentChecker(args, mainPath, scriptVersion)
@@ -494,7 +504,7 @@ if __name__ == "__main__":
     if os.path.isfile(args.input):
         print(green(f"Processing {args.input}"))
         if args.output is None:
-            outputFolder = os.path.join(mainPath, "output")
+            outputFolder = os.path.join(outputPath, "output")
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
             args.output = os.path.join(outputFolder, outputNameGenerator(args))
         elif os.path.isdir(args.output):
@@ -519,7 +529,7 @@ if __name__ == "__main__":
             print(green(toPrint))
 
             if args.output is None:
-                outputFolder = os.path.join(mainPath, "output")
+                outputFolder = os.path.join(outputPath, "output")
                 os.makedirs(os.path.join(outputFolder), exist_ok=True)
                 args.output = os.path.join(outputFolder, outputNameGenerator(args))
 

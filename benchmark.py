@@ -132,7 +132,7 @@ def runInterpolateBenchmark(inputVideo, executor):
 
 
 def parseFPS():
-    with open("log.txt", "r") as file:
+    with open("ffmpeg_log.txt", "r") as file:
         output = file.read()
     matches = re.findall(r"fps=\s*([\d.]+)", output)
     # Filter out fps values that are 0.0 or 0
@@ -191,7 +191,6 @@ if __name__ == "__main__":
         "rife4.15-lite",
         "rife4.16-lite",
         "rife4.17",
-        "rife4.17-lite",
         "rife4.6-ncnn",
         "rife4.15-ncnn",
         "rife4.15-lite-ncnn",

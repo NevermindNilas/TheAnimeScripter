@@ -11,7 +11,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--version` (action=store_true): Outputs the script version.
 - `--benchmark` (action=store_true): Enable benchmarking. This will not output any video and it will only test the performance of the script without any additional processing.
 - `--offline` (action=store_true): Enable offline mode, this will download all available models and store them locally in the weights folder, due to Github rate limiting and variables like internet connection this can take up to 5 minutes but it will make the script work 100% offline. ( except for YTDLP )
-- `--consent` (action=store_true, default=False): WIP! Enable fully anonymous logging of usage, this will store data from log.txt and send it to my server, the only data that is being processed from log.txt are: " Arguments " ( excluding input/output ), " System Specs " and " Processing Outputs ". This can help provide better insight on usage and errors.
 - `--ae` (actions=store_true, default=False): A simple flag for the script to know if it's ran from the After Effects interface or not.
 
 #### Input and Output:
@@ -27,18 +26,20 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--upscale_method` (str, default="ShuffleCugan"): Upscaling method:
      - Options: "cugan / shufflecugan / shufflecugan-tensorrt", "compact / ultracompact / superultracompact / compact-directml / ultracompact-directml / superultracompact-directml / compact-tensorrt / ultracompact-tensorrt / superultracompact-tensorrt", "span / span-directml / span-tensorrt" 
 - `--custom_model` (str, default=""): Choose a different model for supported upscaling architectures. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
+- `--upscale_skip` (action=store_true): Increase the perceived upscaling performance by not processing duplicates and instead reutilizing the previous frame. Don't trust with 100% certainty
 
 #### Interpolation Settings:
 
 - `--interpolate` (action=store_true): Enable interpolation.
 - `--interpolate_factor` (int, default=2): Factor for interpolation.
 - `--interpolate_method` (str, default="rife"): Interpolation method:
-    - Options: "rife4.6 / rife4.6-ncnn / rife4.6-tensorrt", "rife4.15 / rife4.15-ncnn / rife4.15-tensorrt", "rife4.15-lite / rife4.15-lite-ncnn / rife4.15-lite-tensorrt ", "rife4.16-lite / rife4.16-lite-ncnn", "rife4.17 / rife4.17-tensorrt", "gmfss".
+    - Options: "rife4.6 / rife4.6-ncnn / rife4.6-tensorrt", "rife4.15 / rife4.15-ncnn / rife4.15-tensorrt", "rife4.15-lite / rife4.15-lite-ncnn / rife4.15-lite-tensorrt ", "rife4.16-lite / rife4.16-lite-ncnn", "rife4.17 / rife4.17-tensorrt", "rife4.18 / rife4.18-tensorrt", "gmfss".
 - `--ensemble` (action=store_true): Activate Ensemble for higher quality outputs from Rife.
 
 #### Scene Change Settings:
 
 - `--scenechange` (action=store_true, default=False): Enable scene change detection, useful for avoiding interpolation between different scenes of a clip / video in order to avoid artifacting. This only works if `--interpolate` is available, expect performance losses.
+- `--scenechange_sens` (float, default=50): Change the sensitivity of the scene change detection, values go from a minimum of 0.80 - 0.90 ( equivalent to --scenechange_sens 0 - --scenechange_sens 100 )
 
 #### Deduplication settings:
 
