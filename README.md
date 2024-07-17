@@ -69,12 +69,12 @@ For Windows:
 For Linux:
   - N/A
 
-### How to Use Inside of Adobe After Effects with TheAnimeScripter
+### How to Use Inside of Adobe After Effects.
 
 1. First, make sure to download the latest available `-AdobeEdition` from [HERE](https://github.com/NevermindNilas/TheAnimeScripter/releases/)
 2. After downloading, run the `DO THIS FIRST.reg` file. This will allow TheAnimeScripter to run in Adobe After Effects.
 3. Navigate to the CEP extensions folder located at `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\`.
-4. Copy the entire folder to the path mentioned in step 2.
+4. Copy the entire folder to the path mentioned in step 3.
 5. Restart Adobe After Effects to apply the changes.
 6. After reopening, go to `Window -> Extensions -> TheAnimeScripter` to access the script.
 
