@@ -302,7 +302,6 @@ if __name__ == "__main__":
         type=str,
         choices=[
             "shufflecugan",
-            "cugan",
             "compact",
             "ultracompact",
             "superultracompact",
@@ -311,7 +310,6 @@ if __name__ == "__main__":
             "ultracompact-directml",
             "superultracompact-directml",
             "span-directml",
-            "cugan-directml",
             "shufflecugan-ncnn",
             "span-ncnn",
             "compact-tensorrt",
