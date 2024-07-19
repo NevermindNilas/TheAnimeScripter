@@ -41,7 +41,6 @@ def modelsList() -> list[str]:
         "superultracompact",
         "span",
         "shufflecugan",
-        "cugan",
         "segment",
         "segment-tensorrt",
         "segment-directml",
@@ -63,7 +62,6 @@ def modelsList() -> list[str]:
         "sam-vitb",
         "sam-vitl",
         "sam-vith",
-        "cugan-directml",
         "shufflecugan-directml",
         "compact-directml",
         "ultracompact-directml",
@@ -201,15 +199,6 @@ def modelsMap(
                 return "sudo_shuffle_cugan_fp16_op18_clamped.onnx"
             else:
                 return "sudo_shuffle_cugan_op18_clamped.onnx"
-
-        case "cugan" | "cugan-directml":
-            if modelType == "pth":
-                return "2xHFA2kReal-CUGAN.pth"
-            else:
-                if half:
-                    return "2xHFA2kReal-CUGAN-fp16.onnx"
-                else:
-                    return "2xHFA2kReal-CUGAN-fp32.onnx"
 
         case "segment":
             return "isnetis.ckpt"

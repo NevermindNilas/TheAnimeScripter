@@ -69,11 +69,7 @@ def runUpscaleBenchmark(inputVideo, executor):
     results = {}
     for method in upscaleMethods:
         print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
-        if method in ["cugan"]:
-            subprocess.run(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 1.5"
-            )
-        elif "-tensorrt" in method:
+        if "-tensorrt" in method:
             subprocess.run(
                 f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 8"
             )
@@ -166,12 +162,10 @@ if __name__ == "__main__":
 
     upscaleMethods = [
         "shufflecugan",
-        "cugan",
         "compact",
         "ultracompact",
         "superultracompact",
         "span",
-        "cugan-directml",
         "compact-directml",
         "ultracompact-directml",
         "superultracompact-directml",
