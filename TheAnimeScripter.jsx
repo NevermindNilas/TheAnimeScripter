@@ -458,7 +458,6 @@ var TheAnimeScripter = (function () {
 
     createDropdownField(panel1, "Upscale Model", "Model", [
         "ShuffleCugan",
-        "Cugan",
         "Compact",
         "UltraCompact",
         "SuperUltraCompact",
@@ -468,7 +467,6 @@ var TheAnimeScripter = (function () {
         "Compact-TensorRT",
         "UltraCompact-TensorRT",
         "SuperUltraCompact-TensorRT",
-        "Cugan-DirectML",
         "Compact-DirectML",
         "UltraCompact-DirectML",
         "SuperUltraCompact-DirectML",

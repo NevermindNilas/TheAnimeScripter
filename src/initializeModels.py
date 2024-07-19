@@ -177,7 +177,6 @@ def initializeModels(self):
         match self.upscale_method:
             case (
                 "shufflecugan"
-                | "cugan"
                 | "compact"
                 | "ultracompact"
                 | "superultracompact"
@@ -198,7 +197,6 @@ def initializeModels(self):
                 | "ultracompact-directml"
                 | "superultracompact-directml"
                 | "span-directml"
-                | "cugan-directml"
                 | "shufflecugan-directml"
             ):
                 from .unifiedUpscale import UniversalDirectML
@@ -224,7 +222,6 @@ def initializeModels(self):
 
             case (
                 "shufflecugan-tensorrt"
-                | "cugan-tensorrt"
                 | "compact-tensorrt"
                 | "ultracompact-tensorrt"
                 | "superultracompact-tensorrt"

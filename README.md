@@ -57,17 +57,6 @@ Windows:
 Linux:
   - GUI is N/A yet. Refer to manual usage with the CLI and the [Parameters](PARAMETERS.MD) guide
 
-### Or Manually Build
-
-For Windows:
-  - Git clone the repository or use the source code from one of the releases.
-  - Download and install Python 3.11 from [here](https://www.python.org/downloads/release/python-3110/) (add to System Path).
-  - Open a terminal inside the folder.
-  - Run `pip install -r requirements-dev-windows.txt`
-  - Run: `python build.py`
-
-For Linux:
-  - N/A
 
 ### How to Use Inside of Adobe After Effects.
 
@@ -88,7 +77,6 @@ All of the available parameters for interacting with the CLI or directly with ma
 ### Upscaling Models
 
 **Officially Supported:**
-- Cugan ( CUDA & DirectML )
 - ShuffleCugan ( CUDA, TensorRT, and NCNN )
 - Span ( CUDA, TensorRT, DirectML and NCNN versions )
 - SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective TensorRT and DirectML versions)
@@ -116,8 +104,6 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 |-------------------------------------------------------------------------------------------------------|----------------------|
 | [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)                                       | Shufflecugan and many more ONNX models |
 | [HZWER](https://github.com/hzwer/Practical-RIFE)                                                      | Rife                 |
-| [AILAB](https://github.com/bilibili/ailab/tree/main/Real-CUGAN)                                        | Cugan                |
-| [JingyunLiang](https://github.com/JingyunLiang/SwinIR)                                                | SwinIR               |
 | [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai)                              | Compact, UltraCompact, SuperUltraCompact models |
 | [SkyTNT](https://github.com/SkyTNT/anime-segmentation)                                                | Anime Segmentation   |
 | [DepthAnything](https://github.com/DepthAnything/Depth-Anything-V2)                                              | Depth Anything  V2      |
