@@ -287,7 +287,6 @@ def dropdownsLabels(method):
         case "Upscaling":
             return [
                 "ShuffleCugan",
-                "Cugan",
                 "Span",
                 "Compact",
                 "UltraCompact",
@@ -297,7 +296,6 @@ def dropdownsLabels(method):
                 "Compact-TensorRT",
                 "UltraCompact-TensorRT",
                 "SuperUltraCompact-TensorRT",
-                "Cugan-DirectML",
                 "Span-DirectML",
                 "Compact-DirectML",
                 "UltraCompact-DirectML",
