@@ -28,7 +28,7 @@ def outputNameGenerator(args):
 
     parts.append(f"-{random.randint(0, 1000)}")
 
-    if args.segment:
+    if args.segment or args.encode_method in ["prores"]:
         extension = ".mov"
     elif args.input:
         extension = os.path.splitext(args.input)[1]
