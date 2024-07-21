@@ -247,7 +247,7 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
 /_/    /_/ /_/\___/      /_/  |_/_/ /_//_/  /_/ /_/ /_/\___/      /____/ \___/ /_/    /_/  _  .___/\__/ \___//_/     
                                                                                            /_/                       
 """
-    print(banner)
+    print(red(banner))
     logging.basicConfig(
         filename=os.path.join(mainPath, "log.txt"),
         filemode="w",
@@ -258,7 +258,7 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
     logging.info(f"{' '.join(sys.argv)}\n")
 
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("--version", action="version", version=f"The Anime Scripter v: {scriptVersion}")
+    argparser.add_argument("--version", action="version", version=f"{scriptVersion}")
     argparser.add_argument("--input", type=str)
     argparser.add_argument("--output", type=str)
     argparser.add_argument(
