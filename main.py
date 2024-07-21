@@ -409,6 +409,7 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
             "hevc_amf",
             "hevc_amf_10bit",
             "prores",
+            "prores_segment",
         ],
         default="x264",
     )
