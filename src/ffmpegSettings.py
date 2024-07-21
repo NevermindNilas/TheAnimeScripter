@@ -99,8 +99,9 @@ def matchEncoder(encode_method: str):
             command.extend(
                 ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15", "-profile:v", "main10"]
             )
-        # Needs further testing, -qscale:v 15 seems to be extremely lossy
         case "prores":
+            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "15"])
+        case "prores_segment":
             command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "15"])
         
     return command
@@ -344,15 +345,16 @@ class WriteBuffer:
         """
 
         if self.transparent:
-            if self.encode_method not in ["prores", "prores_ks"]:
+            if self.encode_method not in ["prores_segment"]:
                 if verbose:
                     logging.info(
                         "Switching internally to prores for transparency support"
                     )
-                self.encode_method = "prores"
+                self.encode_method = "prores_segment"
 
-            inputPixFormat = "rgba"
-            outputPixFormat = "yuva444p10le"
+                inputPixFormat = "rgba"
+                outputPixFormat = "yuva444p10le"
+            
 
         elif self.grayscale:
             inputPixFormat = "gray"
@@ -365,6 +367,10 @@ class WriteBuffer:
         elif self.encode_method in ["nvenc_h265_10bit",  "hevc_amf_10bit", "qsv_h265_10bit"]:
             inputPixFormat = "rgb24"
             outputPixFormat = "p010le"
+        
+        elif self.encode_method in ["prores"]:
+            inputPixFormat = "rgb24"
+            outputPixFormat = "yuv444p10le"
         else:
             inputPixFormat = "rgb24"
             outputPixFormat = "yuv420p"
@@ -559,7 +565,8 @@ class WriteBuffer:
             ]
             subprocess.run(extractCommand)
 
-            mergedFile = os.path.splitext(self.output)[0] + "_merged.mp4"
+            fileExtension = os.path.splitext(self.output)[1]
+            mergedFile = os.path.splitext(self.output)[0] + "_merged" + fileExtension
 
             ffmpegCommand = [
                 self.ffmpegPath,
