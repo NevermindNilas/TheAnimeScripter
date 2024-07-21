@@ -174,19 +174,16 @@ def create_executable():
 def move_extras():
     dist_dir = os.path.join(base_dir, "dist")
     main_dir = os.path.join(dist_dir, "main")
-    jsx_path = os.path.join(base_dir, "TheAnimeScripter.jsx")
     license_path = os.path.join(base_dir, "LICENSE")
     readme_path = os.path.join(base_dir, "README.md")
     readme_txt_path = os.path.join(base_dir, "README.txt")
-    target_path = os.path.join(main_dir, os.path.basename(jsx_path))
 
     try:
-        shutil.copy(jsx_path, target_path)
         shutil.copy(license_path, main_dir)
         shutil.copy(readme_path, main_dir)
         shutil.copy(readme_txt_path, main_dir)
     except Exception as e:
-        print("Error while copying jsx file: ", e)
+        print("Error while copying files: ", e)
 
 
 def clean_up():
