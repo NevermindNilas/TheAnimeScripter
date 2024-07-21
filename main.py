@@ -46,7 +46,7 @@ if getattr(sys, "frozen", False):
 else:
     outputPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.9.0"
+scriptVersion = "1.9.1"
 warnings.filterwarnings("ignore")
 
 class VideoProcessor:
@@ -239,6 +239,15 @@ class VideoProcessor:
 
 
 if __name__ == "__main__":
+    banner ="""
+_____________            _______       _____                      ________            _____        _____             
+___  __/__  /______      ___    |_________(_)______ ________      __  ___/_______________(_)_________  /_____________
+__  /  __  __ \  _ \     __  /| |_  __ \_  /__  __ `__ \  _ \     _____ \_  ___/_  ___/_  /___  __ \  __/  _ \_  ___/
+_  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _  /   _  / __  /_/ / /_ /  __/  /    
+/_/    /_/ /_/\___/      /_/  |_/_/ /_//_/  /_/ /_/ /_/\___/      /____/ \___/ /_/    /_/  _  .___/\__/ \___//_/     
+                                                                                           /_/                       
+"""
+    print(banner)
     logging.basicConfig(
         filename=os.path.join(mainPath, "log.txt"),
         filemode="w",
@@ -249,7 +258,7 @@ if __name__ == "__main__":
     logging.info(f"{' '.join(sys.argv)}\n")
 
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("--version", action="version", version=f"{scriptVersion}")
+    argparser.add_argument("--version", action="version", version=f"The Anime Scripter v: {scriptVersion}")
     argparser.add_argument("--input", type=str)
     argparser.add_argument("--output", type=str)
     argparser.add_argument(

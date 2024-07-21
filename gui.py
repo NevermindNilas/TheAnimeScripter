@@ -48,7 +48,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-TITLE = "The Anime Scripter - 1.9.0 (Alpha)"
+TITLE = "The Anime Scripter - 1.9.1 (Alpha)"
 W, H = 1280, 720
 REPOSITORY = "https://github.com/NevermindNilas/TheAnimeScripter"
 

@@ -166,7 +166,7 @@ def initializeModels(self):
             from src.dedup.dedup import DedupSSIM
 
             upscaleSkipProcess = DedupSSIM(
-                0.996,
+                0.995,
             )
 
         from src.unifiedUpscale import UniversalPytorch
