@@ -99,9 +99,7 @@ def matchEncoder(encode_method: str):
             command.extend(
                 ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15", "-profile:v", "main10"]
             )
-        case "prores":
-            command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "15"])
-        case "prores_segment":
+        case "prores" | "prores_segment":
             command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "15"])
         
     return command
@@ -141,6 +139,7 @@ class BuildBuffer:
         "spline",
         buffSize: int - The size of the subprocess buffer in bytes, don't touch unless you are working with some ginormous 8K content.
         queueSize: int - The size of the queue.
+        totalFrames: int - The total amount of frames to decode.
         """
         self.input = os.path.normpath(input)
         self.ffmpegPath = os.path.normpath(ffmpegPath)
@@ -418,18 +417,18 @@ class WriteBuffer:
                 customEncoderList = self.custom_encoder.split()
 
                 if "-vf" in customEncoderList:
-                    vf_index = customEncoderList.index("-vf")
+                    vfIndex = customEncoderList.index("-vf")
 
                     if self.sharpen:
-                        customEncoderList[vf_index + 1] += ",cas={}".format(
+                        customEncoderList[vfIndex + 1] += ",cas={}".format(
                             self.sharpen_sens
                         )
 
                     if self.grayscale:
-                        customEncoderList[vf_index + 1] += ",format=gray"
+                        customEncoderList[vfIndex + 1] += ",format=gray"
 
                     if self.transparent:
-                        customEncoderList[vf_index + 1] += ",format=rgba"
+                        customEncoderList[vfIndex + 1] += ",format=rgba"
                 else:
                     filters = []
                     if self.sharpen:
@@ -448,8 +447,6 @@ class WriteBuffer:
                 command.extend(customEncoderList)
 
         else:
-            # This is for benchmarking purposes,
-            # it will not output any video and should be as low overhead as possible, I think.
             command = [
                 self.ffmpegPath,
                 "-y",
