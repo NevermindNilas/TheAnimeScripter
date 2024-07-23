@@ -46,6 +46,7 @@ def modelsList() -> list[str]:
         "segment-directml",
         "scunet",
         "dpir",
+        "real-plksr",
         "nafnet",
         "span-denoise",
         "gmfss",
@@ -208,12 +209,12 @@ def modelsMap(
 
         case "dpir":
             return "drunet_deblocking_color.pth"
+        
+        case "real-plksr":
+            return "1xDeJPG_realplksr_otf.pth"
 
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
-
-        case "span-denoise":
-            return "1x_span_anime_pretrain.pth"
 
         case "gmfss":
             return "gmfss-fortuna-union.zip"
