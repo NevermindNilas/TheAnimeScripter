@@ -37,7 +37,7 @@ from src.coloredPrints import green, blue, red
 if os.name == "nt":
     appdata = os.getenv("APPDATA")
     mainPath = os.path.join(appdata, "TheAnimeScripter")
-    
+
     if not os.path.exists(mainPath):
         os.makedirs(mainPath)
 
@@ -48,6 +48,7 @@ else:
 
 scriptVersion = "1.9.1"
 warnings.filterwarnings("ignore")
+
 
 class VideoProcessor:
     def __init__(self, args):
@@ -167,22 +168,28 @@ class VideoProcessor:
         frameCount = 0
         self.dedupCount = 0
         increment = 1 if not self.interpolate else self.interpolate_factor
-        with alive_bar(self.totalFrames * increment, title='Processing', bar='smooth', unit='frames') as bar:
+        with alive_bar(
+            self.totalFrames * increment,
+            title="Processing",
+            bar="smooth",
+            unit="frames",
+        ) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()
                 self.processFrame(frame)
                 frameCount += 1
                 bar(increment)
-    
+
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
             logging.info(f"Deduplicated {self.dedupCount} frames")
         if self.upscale_skip:
             logging.info(f"Skipped {self.upscale_process.getSkippedCounter} frames")
-        #if self.scenechange:
+        # if self.scenechange:
         #    logging.info(f"Detected {self.interpolate_process.getSceneChangeCounter} scene changes")
-    
+
         self.writeBuffer.close()
+
     def start(self):
         try:
             (
@@ -239,7 +246,7 @@ class VideoProcessor:
 
 
 if __name__ == "__main__":
-    banner ="""
+    banner = """
 _____________            _______       _____                      ________            _____        _____             
 ___  __/__  /______      ___    |_________(_)______ ________      __  ___/_______________(_)_________  /_____________
 __  /  __  __ \  _ \     __  /| |_  __ \_  /__  __ `__ \  _ \     _____ \_  ___/_  ___/_  /___  __ \  __/  _ \_  ___/
@@ -459,7 +466,12 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         "--denoise_method",
         type=str,
         default="scunet",
-        choices=["scunet", "nafnet", "dpir", "span"],
+        choices=[
+            "scunet",
+            "nafnet",
+            "dpir",
+            "real-plksr",
+        ],
         help="Choose the desired denoiser, span is the best for animation purposes whilst scunet is better for general purpose.",
     )
     argparser.add_argument(
@@ -475,7 +487,11 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         "--segment_method",
         type=str,
         default="anime",
-        choices=["anime", "anime-tensorrt", "anime-directml"], # TO:DO https://github.com/CartoonSegmentation/CartoonSegmentation
+        choices=[
+            "anime",
+            "anime-tensorrt",
+            "anime-directml",
+        ],  # TO:DO https://github.com/CartoonSegmentation/CartoonSegmentation
     )
     argparser.add_argument(
         "--flow", action="store_true", help="Extract the Optical Flow", required=False
