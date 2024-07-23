@@ -326,7 +326,7 @@ def initializeModels(self):
 
     if self.denoise:
         match self.denoise_method:
-            case "scunet" | "dpir" | "nafnet":
+            case "scunet" | "dpir" | "nafnet" | "real-plksr":
                 from src.unifiedDenoise import UnifiedDenoise
                 denoise_process = UnifiedDenoise(
                     self.denoise_method,
