@@ -94,6 +94,7 @@ All of the available parameters for interacting with the CLI or directly with ma
 - SCUNet
 - NAFNet
 - DPIR
+- Real-Plksr ( deJpeg )
 
 ## 📈 Benchmarks
 Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
