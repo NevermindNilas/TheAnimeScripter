@@ -52,7 +52,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 - `--denoise` (action=store_true): Enable denoising.
 - `--denoise_method` (str, default="scunet"): Choose a denoising model:
-     - Options: "scunet", "nafnet", "dpir"
+     - Options: "scunet", "nafnet", "dpir", "real-plksr"
 
 #### Precision and Trimming:
 
