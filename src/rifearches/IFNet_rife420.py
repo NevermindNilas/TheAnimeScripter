@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .warplayer import warp
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
@@ -114,12 +116,12 @@ class IFBlock(nn.Module):
 
 
 class IFNet(nn.Module):
-    def __init__(self, ensemble=False, scale=1, interpolateFactor = 2):
+    def __init__(self, ensemble=False, scale=1, interpolateFactor=2):
         super(IFNet, self).__init__()
-        self.block0 = IFBlock(7 + 16, c=192)
-        self.block1 = IFBlock(8 + 4 + 16, c=128)
+        self.block0 = IFBlock(7 + 16, c=384)
+        self.block1 = IFBlock(8 + 4 + 16, c=192)
         self.block2 = IFBlock(8 + 4 + 16, c=96)
-        self.block3 = IFBlock(8 + 4 + 16, c=64)
+        self.block3 = IFBlock(8 + 4 + 16, c=48)
         self.encode = Head()
         self.f0 = None
         self.f1 = None
@@ -127,23 +129,6 @@ class IFNet(nn.Module):
         self.ensemble = ensemble
         self.counter = 1
         self.interpolateFactor = interpolateFactor
-        self.multiply = torch.ones((2,), dtype=torch.float32).cuda().half()
-        h_mul = 2 / (1088 - 1)
-        v_mul = 2 / (1920 - 1)
-        self.multiply[0] *= h_mul
-        self.multiply[1] *= v_mul
-        self.multiply = self.multiply.reshape(1, 2, 1, 1)
-        self.grid = torch.cat(
-            (
-                (torch.arange(1920) * h_mul - 1)
-                .reshape(1, 1, 1, -1)
-                .expand(-1, -1, 1088, -1),
-                (torch.arange(1088) * v_mul - 1)
-                .reshape(1, 1, -1, 1)
-                .expand(-1, -1, -1, 1920),
-            ),
-            dim=1,
-        ).cuda().half()
 
     def cache(self):
         self.f0.copy_(self.f1, non_blocking=True)
@@ -189,7 +174,7 @@ class IFNet(nn.Module):
                     flow = (flow + torch.cat((f_[:, 2:4], f_[:, :2]), 1)) / 2
                     mask = (mask + (-m_)) / 2
             else:
-                wf0 = warp(self.f0, flow[:, :2]) 
+                wf0 = warp(self.f0, flow[:, :2])
                 wf1 = warp(self.f1, flow[:, 2:4])
                 fd, m0 = block[i](
                     torch.cat(
