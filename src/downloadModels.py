@@ -60,9 +60,6 @@ def modelsList() -> list[str]:
         "vits",
         "vitb",
         "vitl",
-        "sam-vitb",
-        "sam-vitl",
-        "sam-vith",
         "shufflecugan-directml",
         "compact-directml",
         "ultracompact-directml",
@@ -272,15 +269,6 @@ def modelsMap(
 
         case "vitl":
             return "depth_anything_vitl14.pth"
-
-        case "sam-vitb":
-            return "sam_vit_b_01ec64.pth"
-
-        case "sam-vitl":
-            return "sam_vit_l_0b3195.pth"
-
-        case "sam-vith":
-            return "sam_vit_h_4b8939.pth"
 
         case "rife-v4.18-ncnn":
             if ensemble:
