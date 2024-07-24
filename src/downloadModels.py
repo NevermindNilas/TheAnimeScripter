@@ -48,7 +48,6 @@ def modelsList() -> list[str]:
         "dpir",
         "real-plksr",
         "nafnet",
-        "span-denoise",
         "gmfss",
         "rife",
         "rife4.6",
