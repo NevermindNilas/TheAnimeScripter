@@ -75,7 +75,9 @@ class RifeCuda:
             modelPath = os.path.join(weightsDir, "rife", self.filename)
 
         match self.interpolateMethod:
-            case "rife" | "rife4.18":
+            case "rife" | "rife4.20":
+                from .rifearches.IFNet_rife420 import IFNet
+            case "rife4.18":
                 from .rifearches.IFNet_rife418 import IFNet
             case "rife4.17":
                 from .rifearches.IFNet_rife417 import IFNet
@@ -216,7 +218,7 @@ class RifeCuda:
 class RifeTensorRT:
     def __init__(
         self,
-        interpolateMethod: str = "rife4.17",
+        interpolateMethod: str = "rife4.20-tensorrt",
         interpolateFactor: int = 2,
         width: int = 0,
         height: int = 0,
@@ -335,7 +337,6 @@ class RifeTensorRT:
             self.config = self.CreateConfig(
                 fp16=self.half,
                 profiles=profile,
-                preview_features=[],
             )
 
             self.engine = self.engine_from_network(
@@ -371,13 +372,6 @@ class RifeTensorRT:
             device=self.device,
         )
 
-        self.timestep = torch.full(
-            (1, 1, self.height, self.width),
-            0.5,
-            dtype=self.dType,
-            device=self.device,
-        )
-
         self.dummyInput = torch.empty(
             (1, 7, self.height, self.width),
             device=self.device,
@@ -406,14 +400,13 @@ class RifeTensorRT:
                 self.half, self.sceneChangeThreshold
             )
 
+        self.dataTransferStream = torch.cuda.Stream()
+        self.inferStream = torch.cuda.Stream()
+
     @torch.inference_mode()
     def processFrame(self, frame):
         return (
-            frame.to(
-                self.device,
-                non_blocking=True,
-                dtype=torch.float32 if not self.half else torch.float16,
-            )
+            frame
             .permute(2, 0, 1)
             .unsqueeze_(0)
             .mul_(1 / 255)
@@ -428,13 +421,16 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
+        with torch.cuda.stream(self.dataTransferStream):
+            frame = frame.to(self.device, non_blocking=True, dtype=torch.float32 if not self.half else torch.float16)
+
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0.copy_(self.processFrame(frame), non_blocking=True)
                 self.firstRun = False
                 return
+            
             self.I1.copy_(self.processFrame(frame), non_blocking=True)
-
             if self.sceneChange:
                 if self.sceneChangeProcess.run(self.I0, self.I1):
                     for _ in range(interpolateFactor - 1):

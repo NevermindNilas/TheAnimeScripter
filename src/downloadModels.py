@@ -218,8 +218,11 @@ def modelsMap(
 
         case "gmfss":
             return "gmfss-fortuna-union.zip"
+        
+        case "rife" | "rife4.20":
+            return "rife420.pth"
 
-        case "rife" | "rife4.18":
+        case "rife4.18":
             return "rife418.pth"
 
         case "rife4.17":

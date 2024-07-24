@@ -647,3 +647,4 @@ class DepthTensorRTV2:
         logging.info(f"Processed {frameCount} frames")
 
         self.writeBuffer.close()
+
