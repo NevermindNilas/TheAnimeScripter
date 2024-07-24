@@ -183,7 +183,7 @@ class RifeCuda:
             self.I1 = self.padFrame(self.processFrame(frame))
 
             if self.sceneChange:
-                if self.sceneChangeProcess.run(self.I0, self.I1):
+                if self.sceneChangeProcess.runTorch(self.I0, self.I1):
                     for _ in range(interpolateFactor - 1):
                         writeBuffer.write(frame)
                     self.stream.synchronize()
@@ -610,9 +610,6 @@ class SceneChange:
                 modelPath, providers=["CPUExecutionProvider"]
             )
 
-        self.I0 = None
-        self.I1 = None
-
     @torch.inference_mode()
     def processFrameTorch(self, frame):
         return (
@@ -639,19 +636,14 @@ class SceneChange:
         )
 
     @torch.inference_mode()
-    def run(self, I0, I1):
-        self.I0 = self.processFrameTorch(I0)
-        self.I1 = self.processFrameTorch(I1)
-        inputs = self.np.concatenate((self.I0, self.I1), 0)
+    def runTorch(self, I0, I1):
+        inputs = self.np.concatenate((self.processFrameTorch(I0), self.processFrameTorch(I1)), 0)
         return (
             self.model.run(None, {"input": inputs})[0][0][0] > self.sceneChangeThreshold
         )
 
     def runNumpy(self, frame1, frame2):
-        self.I0 = self.processFrameNumpy(frame1)
-        self.I1 = self.processFrameNumpy(frame2)
-
-        inputs = self.np.ascontiguousarray(self.np.concatenate((self.I0, self.I1), 0))
+        inputs = self.np.ascontiguousarray(self.np.concatenate((self.processFrameNumpy(frame1), self.processFrameNumpy(frame2)), 0))
         return (
             self.model.run(None, {"input": inputs})[0][0][0] > self.sceneChangeThreshold
         )
@@ -766,8 +758,6 @@ class SceneChangeTensorRT:
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
 
-        self.I0 = torch.zeros(3, 224, 224, device=self.device, dtype=self.dType)
-        self.I1 = torch.zeros(3, 224, 224, device=self.device, dtype=self.dType)
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -784,11 +774,8 @@ class SceneChangeTensorRT:
     @torch.inference_mode()
     def run(self, I0, I1):
         with torch.cuda.stream(self.stream):
-            self.I0.copy_(self.processFrame(I0), non_blocking=True)
-            self.I1.copy_(self.processFrame(I1), non_blocking=True)
-
             self.dummyInput.copy_(
-                torch.cat([self.I0, self.I1], dim=0), non_blocking=True
+                torch.cat([self.processFrame(I0), self.processFrame(I1)], dim=0), non_blocking=True
             )
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()
