@@ -144,8 +144,6 @@ class RifeCuda:
     def cacheFrame(self):
         self.I0.copy_(self.I1, non_blocking=True)
         self.model.cache()
-        #if self.sceneChange:
-        #    self.sceneChangeProcess.cacheFrame()
 
     @torch.inference_mode()
     def cacheFrameReset(self):
@@ -176,9 +174,7 @@ class RifeCuda:
 
     @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
-        with torch.cuda.stream(
-            self.stream
-        ) if self.isCudaAvailable else torch.no_grad():
+        with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0 = self.padFrame(self.processFrame(frame))
                 self.firstRun = False
@@ -209,7 +205,6 @@ class RifeCuda:
                 writeBuffer.write(output)
 
             self.cacheFrame()
-
 
     def getSceneChangeCounter(self):
         return self.sceneChangeCounter
@@ -405,38 +400,34 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        return (
-            frame
-            .permute(2, 0, 1)
-            .unsqueeze_(0)
-            .mul_(1 / 255)
-            .contiguous()
-        )
+        if self.sceneChange:
+            frame = frame.to(self.device, non_blocking=True, dtype=self.dType)
+
+        return frame.permute(2, 0, 1).unsqueeze_(0).mul_(1 / 255).contiguous()
 
     @torch.inference_mode()
     def cacheFrame(self):
         self.I0.copy_(self.I1, non_blocking=True)
-        #if self.sceneChange:
-        #    self.sceneChangeProcess.cacheFrame()
 
     @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
-        with torch.cuda.stream(self.dataTransferStream):
-            frame = frame.to(self.device, non_blocking=True, dtype=torch.float32 if not self.half else torch.float16)
+        if not self.sceneChange:
+            with torch.cuda.stream(self.dataTransferStream):
+                frame = frame.to(self.device, non_blocking=True, dtype=self.dType)
 
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0.copy_(self.processFrame(frame), non_blocking=True)
                 self.firstRun = False
                 return
-            
+
             self.I1.copy_(self.processFrame(frame), non_blocking=True)
             if self.sceneChange:
                 if self.sceneChangeProcess.run(self.I0, self.I1):
                     for _ in range(interpolateFactor - 1):
                         writeBuffer.write(frame)
-                    self.stream.synchronize()
                     self.cacheFrame()
+                    self.stream.synchronize()
                     return
 
             for i in range(interpolateFactor - 1):
@@ -456,6 +447,7 @@ class RifeTensorRT:
                 writeBuffer.write(output)
 
             self.cacheFrame()
+
 
 class RifeNCNN:
     def __init__(
@@ -540,8 +532,6 @@ class RifeNCNN:
 
     def cacheFrame(self):
         self.frame1 = self.frame2
-        #if self.sceneChange:
-        #    self.sceneChangeProcess.cacheFrame()
 
     def run(self, frame, interpolateFactor, writeBuffer):
         if self.frame1 is None:
@@ -566,7 +556,6 @@ class RifeNCNN:
             writeBuffer.write(output)
 
         self.cacheFrame()
-
 
 
 class SceneChange:
@@ -640,23 +629,17 @@ class SceneChange:
 
     def processFrameNumpy(self, frame):
         return (
-            self.cv2.resize(frame, (224, 224)).transpose(2, 0, 1).astype(self.np.float16)
+            self.cv2.resize(frame, (224, 224))
+            .transpose(2, 0, 1)
+            .astype(self.np.float16)
             if self.half
             else self.cv2.resize(frame, (224, 224))
             .transpose(2, 0, 1)
             .astype(self.np.float32)
         )
 
-    def cacheFrame(self):
-        #self.I0 = self.I1
-        pass
-
     @torch.inference_mode()
     def run(self, I0, I1):
-        #if self.I0 is None:
-        #    self.I0 = self.processFrameTorch(I1)
-        #    return False
-
         self.I0 = self.processFrameTorch(I0)
         self.I1 = self.processFrameTorch(I1)
         inputs = self.np.concatenate((self.I0, self.I1), 0)
@@ -665,21 +648,20 @@ class SceneChange:
         )
 
     def runNumpy(self, frame1, frame2):
-        if self.I0 is None:
-            self.I0 = self.processFrameNumpy(frame1)
-            return False
-
+        self.I0 = self.processFrameNumpy(frame1)
         self.I1 = self.processFrameNumpy(frame2)
 
         inputs = self.np.ascontiguousarray(self.np.concatenate((self.I0, self.I1), 0))
-        return self.model.run(None, {"input": inputs})[0][0][0] > self.sceneChangeThreshold
+        return (
+            self.model.run(None, {"input": inputs})[0][0][0] > self.sceneChangeThreshold
+        )
 
 
 class SceneChangeTensorRT:
     def __init__(self, half, sceneChangeThreshold=0.85):
         self.half = half
         self.sceneChangeThreshold = sceneChangeThreshold
-        
+
         from polygraphy.backend.trt import (
             TrtRunner,
             engine_from_network,
@@ -699,7 +681,6 @@ class SceneChangeTensorRT:
         self.EngineFromBytes = EngineFromBytes
         self.SaveEngine = SaveEngine
         self.BytesFromPath = BytesFromPath
-        
 
         self.handleModel()
 
@@ -781,10 +762,7 @@ class SceneChangeTensorRT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
         with torch.cuda.stream(self.stream):
-            for _ in range(50):
-                self.dummyInput.copy_(
-                    torch.zeros(6, 224, 224, device=self.device, dtype=self.dType)
-                )
+            for _ in range(10):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
 
@@ -804,16 +782,8 @@ class SceneChangeTensorRT:
         )
 
     @torch.inference_mode()
-    def cacheFrame(self):
-        self.I0.copy_(self.I1, non_blocking=True)
-
-    @torch.inference_mode()
     def run(self, I0, I1):
         with torch.cuda.stream(self.stream):
-            #if self.I0 is None:
-            #    self.I0 = self.processFrame(I1)
-            #    return False
-            
             self.I0.copy_(self.processFrame(I0), non_blocking=True)
             self.I1.copy_(self.processFrame(I1), non_blocking=True)
 
@@ -822,4 +792,5 @@ class SceneChangeTensorRT:
             )
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()
+
             return self.dummyOutput[0][0].item() > self.sceneChangeThreshold
