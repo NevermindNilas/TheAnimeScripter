@@ -127,6 +127,7 @@ class IFNet(nn.Module):
         self.ensemble = ensemble
         self.counter = 1
         self.interpolateFactor = interpolateFactor
+        """
         self.multiply = torch.ones((2,), dtype=torch.float32).cuda().half()
         h_mul = 2 / (1088 - 1)
         v_mul = 2 / (1920 - 1)
@@ -144,6 +145,7 @@ class IFNet(nn.Module):
             ),
             dim=1,
         ).cuda().half()
+        """
 
     def cache(self):
         self.f0.copy_(self.f1, non_blocking=True)
