@@ -138,7 +138,7 @@ class RifeCuda:
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
-        self.I0.copy_(self.processFrame(frame), non_blocking=True)
+        self.I0.copy_(self.padFrame(self.processFrame(frame)), non_blocking=True)
         self.model.cacheReset(self.I0)
 
     @torch.inference_mode()
