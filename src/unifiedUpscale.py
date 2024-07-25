@@ -294,7 +294,8 @@ class UniversalTensorRT:
                 if self.upscaleSkip.run(frame):
                     self.skippedCounter += 1
                     return self.prevFrame
-                
+            
+            self.stream.wait_stream(self.dataTransferStream)
             self.dummyInput.copy_(frame.permute(2, 0, 1).unsqueeze_(0).mul_(1 / 255), non_blocking=True)
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).clamp(0, 255)
