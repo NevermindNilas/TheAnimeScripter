@@ -65,7 +65,7 @@ class SceneChange:
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        frame = frame.numpy()
+        frame = frame.cpu().numpy()
         frame = self.cv2.resize(frame, (224, 224))
         frame = frame.astype(self.np.float16) if self.half else frame.astype(self.np.float32)
         frame = frame / 255.0
