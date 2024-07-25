@@ -1,7 +1,6 @@
 import os
 import torch
 import logging
-import tensorrt as trt
 
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
@@ -156,6 +155,9 @@ class UniversalTensorRT:
         )
         from polygraphy.backend.common import BytesFromPath
 
+        import tensorrt as trt
+
+
         self.TrtRunner = TrtRunner
         self.engine_from_network = engine_from_network
         self.network_from_onnx_path = network_from_onnx_path
@@ -172,6 +174,8 @@ class UniversalTensorRT:
         self.height = height
         self.customModel = customModel
         self.upscaleSkip = upscaleSkip
+
+        self.trt = trt
 
         self.handleModel()
 
@@ -231,7 +235,7 @@ class UniversalTensorRT:
 
         with open(
             modelPath.replace(".onnx", f"_{enginePrecision}.engine"), "rb"
-        ) as f, trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime:
+        ) as f, self.trt.Runtime(self.trt.Logger(self.trt.Logger.INFO)) as runtime:
             self.engine = runtime.deserialize_cuda_engine(f.read())
             self.context = self.engine.create_execution_context()
 
@@ -256,7 +260,7 @@ class UniversalTensorRT:
                 self.engine.get_tensor_name(i), self.bindings[i]
             )
             tensor_name = self.engine.get_tensor_name(i)
-            if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
+            if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
         with torch.cuda.stream(self.stream):
