@@ -159,7 +159,7 @@ def initializeModels(self):
     denoise_process = None
     dedup_process = None
     scenechange_process = None
-    upscaleSkipProcess = None 
+    upscaleSkipProcess = None
 
     if self.upscale:
         if self.upscale_skip:
@@ -264,8 +264,6 @@ def initializeModels(self):
                     self.ensemble,
                     self.nt,
                     self.interpolate_factor,
-                    self.scenechange,
-                    self.scenechange_sens,
                 )
             case "gmfss":
                 from src.gmfss.gmfss_fortuna_union import GMFSS
@@ -277,8 +275,6 @@ def initializeModels(self):
                     outputHeight,
                     self.ensemble,
                     self.nt,
-                    self.scenechange,
-                    self.scenechange_sens,
                 )
 
             case (
@@ -299,8 +295,6 @@ def initializeModels(self):
                     outputWidth,
                     outputHeight,
                     self.half,
-                    self.scenechange,
-                    self.scenechange_sens,
                 )
 
             case (
@@ -321,8 +315,6 @@ def initializeModels(self):
                     self.half,
                     self.ensemble,
                     self.nt,
-                    self.scenechange,
-                    self.scenechange_sens,
                 )
 
     if self.denoise:
@@ -369,6 +361,19 @@ def initializeModels(self):
                     self.half,
                 )
 
+    if self.scenechange:
+        if "tensorrt" in self.interpolate_method:
+            from src.scenechange import SceneChangeTensorRT
+            scenechange_process = SceneChangeTensorRT(
+                self.half,
+                self.scenechange_sens,
+            )
+        else:
+            from src.scenechange import SceneChange
+            scenechange_process = SceneChange(
+                self.half,
+                self.scenechange_sens,
+            )
 
     return (
         outputWidth,

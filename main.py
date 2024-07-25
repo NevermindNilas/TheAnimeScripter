@@ -148,6 +148,11 @@ class VideoProcessor:
                     self.dedupCount += 1
                     return
 
+            if self.scenechange:
+                self.isSceneChange = self.scenechange_process.run(frame)
+                if self.isSceneChange is True:
+                    self.sceneChangeCounter += 1
+
             if self.denoise:
                 frame = self.denoise_process.run(frame)
 
@@ -155,9 +160,14 @@ class VideoProcessor:
                 frame = self.upscale_process.run(frame)
 
             if self.interpolate:
-                self.interpolate_process.run(
-                    frame, self.interpolate_factor, self.writeBuffer
-                )
+                if self.scenechange is True and self.isSceneChange is True:
+                    for _ in range(self.interpolate_factor -1):
+                        self.writeBuffer.write(frame)
+                    self.interpolate_process.cacheFrameReset(frame)
+                else:
+                    self.interpolate_process.run(
+                        frame, self.interpolate_factor, self.writeBuffer
+                    )
 
             self.writeBuffer.write(frame)
 
@@ -167,6 +177,8 @@ class VideoProcessor:
     def process(self):
         frameCount = 0
         self.dedupCount = 0
+        self.isSceneChange = False
+        self.sceneChangeCounter = 0
         increment = 1 if not self.interpolate else self.interpolate_factor
         with alive_bar(
             self.totalFrames * increment,
@@ -185,8 +197,8 @@ class VideoProcessor:
             logging.info(f"Deduplicated {self.dedupCount} frames")
         if self.upscale_skip:
             logging.info(f"Skipped {self.upscale_process.getSkippedCounter} frames")
-        # if self.scenechange:
-        #    logging.info(f"Detected {self.interpolate_process.getSceneChangeCounter} scene changes")
+        if self.scenechange:
+           logging.info(f"Detected {self.sceneChangeCounter} scene changes")
 
         self.writeBuffer.close()
 
