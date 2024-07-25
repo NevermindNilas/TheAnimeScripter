@@ -391,7 +391,6 @@ class RifeTensorRT:
     def run(self, frame, interpolateFactor, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
-                frame = frame.to(self.device, non_blocking=True, dtype=self.dType)
                 self.I0.copy_(self.processFrame(frame), non_blocking=True)
                 self.firstRun = False
                 return
