@@ -33,13 +33,14 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--interpolate` (action=store_true): Enable interpolation.
 - `--interpolate_factor` (int, default=2): Factor for interpolation.
 - `--interpolate_method` (str, default="rife"): Interpolation method:
-    - Options: "rife4.6 / rife4.6-ncnn / rife4.6-tensorrt", "rife4.15 / rife4.15-ncnn / rife4.15-tensorrt", "rife4.15-lite / rife4.15-lite-ncnn / rife4.15-lite-tensorrt ", "rife4.16-lite / rife4.16-lite-ncnn", "rife4.17 / rife4.17-tensorrt", "rife4.18 / rife4.18-tensorrt", "gmfss".
+    - Options: "rife4.6 / rife4.6-ncnn / rife4.6-tensorrt", "rife4.15 / rife4.15-ncnn / rife4.15-tensorrt", "rife4.15-lite / rife4.15-lite-ncnn / rife4.15-lite-tensorrt ", "rife4.16-lite / rife4.16-lite-ncnn", "rife4.17 / rife4.17-tensorrt", "rife4.18 / rife4.18-tensorrt", "rife4.20 / rife4.20-tensorrt", "gmfss".
 - `--ensemble` (action=store_true): Activate Ensemble for higher quality outputs from Rife.
 
 #### Scene Change Settings:
 
 - `--scenechange` (action=store_true, default=False): Enable scene change detection, useful for avoiding interpolation between different scenes of a clip / video in order to avoid artifacting. This only works if `--interpolate` is available, expect performance losses.
 - `--scenechange_sens` (float, default=50): Change the sensitivity of the scene change detection, values go from a minimum of 0.80 - 0.90 ( equivalent to --scenechange_sens 0 - --scenechange_sens 100 )
+- `--scenechange_methodd` (str, default="maxvit-directml"): Choose which scenechange method to use. Options: "maxvit-directml", "maxvit-tensorrt"
 
 #### Deduplication settings:
 

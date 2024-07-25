@@ -362,13 +362,13 @@ def initializeModels(self):
                 )
 
     if self.scenechange:
-        if "tensorrt" in self.interpolate_method:
+        if self.scenechange_method == "maxvit-tensorrt":
             from src.scenechange import SceneChangeTensorRT
             scenechange_process = SceneChangeTensorRT(
                 self.half,
                 self.scenechange_sens,
             )
-        else:
+        elif self.scenechange_method == "maxvit-directml":
             from src.scenechange import SceneChange
             scenechange_process = SceneChange(
                 self.half,
