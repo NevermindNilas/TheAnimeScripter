@@ -60,50 +60,33 @@ class SceneChange:
                 modelPath, providers=["CPUExecutionProvider"]
             )
 
-    @torch.inference_mode()
-    def processFrameTorch(self, frame):
-        return (
-            F.interpolate(
-                frame.half() if self.half else frame.float(),
-                size=(224, 224),
-                mode="bilinear",
-            )
-            .contiguous()
-            .squeeze_(0)
-            .cpu()
-            .numpy()
-        )
-
-    def processFrameNumpy(self, frame):
-        return (
-            self.cv2.resize(frame, (224, 224))
-            .transpose(2, 0, 1)
-            .astype(self.np.float16)
-            if self.half
-            else self.cv2.resize(frame, (224, 224))
-            .transpose(2, 0, 1)
-            .astype(self.np.float32)
-        )
+        self.I0 = None
+        self.I1 = None
 
     @torch.inference_mode()
-    def run(self, I0, I1):
+    def processFrame(self, frame):
+        frame = frame.numpy()
+        frame = self.cv2.resize(frame, (224, 224))
+        frame = frame.astype(self.np.float16) if self.half else frame.astype(self.np.float32)
+        frame = frame / 255.0
+        frame = frame.transpose((2, 0, 1))
+        return frame
+    
+    @torch.inference_mode()
+    def run(self, frame):
+        if self.I0 is None:
+            self.I0 = self.processFrame(frame)
+            return False
+        
+        self.I1 = self.processFrame(frame)
         inputs = self.np.concatenate(
-            (self.processFrameTorch(I0), self.processFrameTorch(I1)), 0
+            (self.I0, self.I1), 0
         )
+
+        self.I0 = self.I1
         return (
             self.model.run(None, {"input": inputs})[0][0][0] > self.sceneChangeThreshold
         )
-
-    def runNumpy(self, frame1, frame2):
-        inputs = self.np.ascontiguousarray(
-            self.np.concatenate(
-                (self.processFrameNumpy(frame1), self.processFrameNumpy(frame2)), 0
-            )
-        )
-        return (
-            self.model.run(None, {"input": inputs})[0][0][0] > self.sceneChangeThreshold
-        )
-
 
 class SceneChangeTensorRT:
     def __init__(self, half, sceneChangeThreshold=0.85):
