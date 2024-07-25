@@ -274,7 +274,6 @@ def initializeModels(self):
                     outputWidth,
                     outputHeight,
                     self.ensemble,
-                    self.nt,
                 )
 
             case (

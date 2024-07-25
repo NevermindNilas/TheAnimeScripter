@@ -43,7 +43,7 @@ class RifeCuda:
         self.nt = nt
         self.interpolateFactor = interpolateFactor
 
-        if self.width > 1920 or self.height > 1080:
+        if self.width > 1920 and self.height > 1080:
             self.scale = 0.5
             if self.half:
                 print(
@@ -240,7 +240,7 @@ class RifeTensorRT:
         self.nt = nt
         self.model = None
 
-        if self.width > 1920 or self.height > 1080:
+        if self.width > 1920 and self.height > 1080:
             if self.half:
                 print(
                     yellow(
@@ -365,8 +365,6 @@ class RifeTensorRT:
 
         self.firstRun = True
 
-        self.dataTransferStream = torch.cuda.Stream()
-
     @torch.inference_mode()
     def processFrame(self, frame):
         return (
@@ -393,6 +391,7 @@ class RifeTensorRT:
     def run(self, frame, interpolateFactor, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
+                frame = frame.to(self.device, non_blocking=True, dtype=self.dType)
                 self.I0.copy_(self.processFrame(frame), non_blocking=True)
                 self.firstRun = False
                 return
