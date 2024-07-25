@@ -92,6 +92,7 @@ class VideoProcessor:
         self.flow = args.flow
         self.scenechange = args.scenechange
         self.scenechange_sens = args.scenechange_sens
+        self.scenechange_method = args.scenechange_method
         self.upscale_skip = args.upscale_skip
 
         self.width, self.height, self.fps, self.totalFrames = getVideoMetadata(
@@ -150,7 +151,7 @@ class VideoProcessor:
 
             if self.scenechange:
                 self.isSceneChange = self.scenechange_process.run(frame)
-                if self.isSceneChange is True:
+                if self.isSceneChange:
                     self.sceneChangeCounter += 1
 
             if self.denoise:
@@ -160,8 +161,8 @@ class VideoProcessor:
                 frame = self.upscale_process.run(frame)
 
             if self.interpolate:
-                if self.scenechange is True and self.isSceneChange is True:
-                    for _ in range(self.interpolate_factor -1):
+                if self.isSceneChange:
+                    for _ in range(self.interpolate_factor - 1):
                         self.writeBuffer.write(frame)
                     self.interpolate_process.cacheFrameReset(frame)
                 else:
@@ -514,6 +515,15 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         action="store_true",
         help="Detect scene changes",
         required=False,
+    )
+    argparser.add_argument(
+        "--scenechange_method",
+        type=str,
+        default="maxvit-directml",
+        choices=[
+            "maxvit-tensorrt",
+            "maxvit-directml",
+        ],
     )
     argparser.add_argument(
         "--ae",
