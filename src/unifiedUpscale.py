@@ -84,8 +84,6 @@ class UniversalPytorch:
 
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
         if self.isCudaAvailable:
-            # self.stream = [torch.cuda.Stream() for _ in range(self.nt)]
-            # self.currentStream = 0
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
             if self.half:
@@ -100,23 +98,15 @@ class UniversalPytorch:
                 device=self.device,
                 dtype=torch.float16 if self.half else torch.float32,
             )
-
         
-        self.dataTransferStream = torch.cuda.Stream()
-
     def run(self, frame: torch.tensor) -> torch.tensor:
-        with torch.cuda.stream(self.dataTransferStream):
-            frame = frame.to(self.device, non_blocking=True, memory_format=torch.contiguous_format, dtype=torch.float16 if self.half else torch.float32)
-
         with torch.cuda.stream(self.stream):
-            self.stream.wait_stream(self.dataTransferStream)
-
             if self.upscaleSkip is not None:
                 if self.upscaleSkip.run(frame):
                     self.skippedCounter += 1
                     return self.prevFrame
 
-            frame = frame.permute(2, 0, 1).unsqueeze_(0).mul_(1 / 255)
+            frame = frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).mul_(1 / 255)
             output = self.model(frame).squeeze(0).permute(1, 2, 0).mul(255)
             self.stream.synchronize()
 
@@ -246,7 +236,6 @@ class UniversalTensorRT:
             self.context = self.engine.create_execution_context()
 
         self.stream = torch.cuda.Stream()
-        self.dataTransferStream = torch.cuda.Stream()
 
         self.dummyInput = torch.zeros(
             (1, 3, self.height, self.width),
@@ -283,20 +272,15 @@ class UniversalTensorRT:
                 dtype=torch.float16 if self.half else torch.float32,
             )
 
-
     @torch.inference_mode()
     def run(self, frame):
-        with torch.cuda.stream(self.dataTransferStream):
-            frame = frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32)
-
         with torch.cuda.stream(self.stream):
             if self.upscaleSkip is not None:
                 if self.upscaleSkip.run(frame):
                     self.skippedCounter += 1
                     return self.prevFrame
             
-            self.stream.wait_stream(self.dataTransferStream)
-            self.dummyInput.copy_(frame.permute(2, 0, 1).unsqueeze_(0).mul_(1 / 255), non_blocking=True)
+            self.dummyInput.copy_(frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).mul_(1 / 255), non_blocking=True)
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).clamp(0, 255)
             self.stream.synchronize()
