@@ -94,7 +94,7 @@ class DedupSSIM:
         return score > self.ssimThreshold
 
     def processFrame(self, frame):
-        frame = frame.numpy()
+        frame = frame.cpu().numpy()
         frame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
