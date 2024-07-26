@@ -98,9 +98,8 @@ class UniversalPytorch:
                 dtype=torch.float16 if self.half else torch.float32,
             )
 
-        #self.model = self.model.to(memory_format=torch.channels_last)
         self.model = self.model.model.to(memory_format=torch.channels_last)
-        
+
     def run(self, frame: torch.tensor) -> torch.tensor:
         with torch.cuda.stream(self.stream):
             if self.upscaleSkip is not None:
@@ -108,7 +107,7 @@ class UniversalPytorch:
                     self.skippedCounter += 1
                     return self.prevFrame
 
-            frame = frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).mul_(1 / 255).to(memory_format=torch.channels_last)
+            frame = frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).to(memory_format=torch.channels_last).mul_(1 / 255)
             output = self.model(frame).to(memory_format=torch.channels_last).squeeze(0).mul(255).permute(1, 2, 0)
             self.stream.synchronize()
 
