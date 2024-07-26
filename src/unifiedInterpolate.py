@@ -116,7 +116,7 @@ class RifeCuda:
             self.width + self.padding[1],
             dtype=torch.float16 if self.half else torch.float32,
             device=self.device,
-        )
+        ).to(memory_format=torch.channels_last)
 
         self.I1 = torch.zeros(
             1,
@@ -125,11 +125,8 @@ class RifeCuda:
             self.width + self.padding[1],
             dtype=torch.float16 if self.half else torch.float32,
             device=self.device,
-        )
+        ).to(memory_format=torch.channels_last)
         
-        self.I0 = self.I0.to(memory_format=torch.channels_last)
-        self.I1 = self.I1.to(memory_format=torch.channels_last)
-
         self.firstRun = True
         self.stream = torch.cuda.Stream() if self.isCudaAvailable else None
 
@@ -155,9 +152,7 @@ class RifeCuda:
             .unsqueeze_(0)
             .to(memory_format=torch.channels_last)
             .mul_(1 / 255)
-            .contiguous()
         )
-
     @torch.inference_mode()
     def padFrame(self, frame):
         return (
@@ -184,11 +179,10 @@ class RifeCuda:
                     device=self.device,
                 )
                 output = self.model(self.I0, self.I1, timestep).to(memory_format=torch.channels_last)
-                output = output[:, :, : self.height, : self.width]
-                output = output.mul(255.0).squeeze(0).permute(1, 2, 0)
+                output = output[:, :, :self.height, :self.width]
+                output = output.squeeze(0).permute(1, 2, 0).mul(255.0)
                 self.stream.synchronize()
                 writeBuffer.write(output)
-
             self.cacheFrame()
 
 class RifeTensorRT:
