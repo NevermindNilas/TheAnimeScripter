@@ -16,8 +16,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Improvements
 - Up to 15% faster Upscaling Performance when using TensorRT.
+- Up to 20% faster Upscaling Performance hwen using CUDA.
 - Up to 10% faster Interpolation Performance when using TensorRT.
-- Up to 15% faster Interpolation Performance when using CUDA.
+- Up to 30% faster Interpolation Performance when using CUDA.
 - Decoupled Scenechange from interpolation.
 - Up to 20% faster SceneChange performance whne using DirectML & TensorRT.
 - Rife UHD Mode should allow for a bit more flexibility.

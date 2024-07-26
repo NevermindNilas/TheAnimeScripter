@@ -103,7 +103,7 @@ class RifeCuda:
 
         self.model.load_state_dict(torch.load(modelPath, map_location=self.device))
         self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()
-        self.model.to(self.device)
+        self.model.to(self.device).to(memory_format=torch.channels_last)
 
         ph = ((self.height - 1) // 64 + 1) * 64
         pw = ((self.width - 1) // 64 + 1) * 64
@@ -126,6 +126,11 @@ class RifeCuda:
             dtype=torch.float16 if self.half else torch.float32,
             device=self.device,
         )
+        
+        self.I0 = self.I0.to(memory_format=torch.channels_last)
+        self.I1 = self.I1.to(memory_format=torch.channels_last)
+
+        print(self.I0.to(memory_format=torch.channels_last_3d).shape)
 
         self.firstRun = True
         self.stream = torch.cuda.Stream() if self.isCudaAvailable else None
@@ -150,6 +155,7 @@ class RifeCuda:
             )
             .permute(2, 0, 1)
             .unsqueeze_(0)
+            .to(memory_format=torch.channels_last)
             .mul_(1 / 255)
             .contiguous()
         )
@@ -179,7 +185,7 @@ class RifeCuda:
                     dtype=torch.float16 if self.half else torch.float32,
                     device=self.device,
                 )
-                output = self.model(self.I0, self.I1, timestep)
+                output = self.model(self.I0, self.I1, timestep).to(memory_format=torch.channels_last)
                 output = output[:, :, : self.height, : self.width]
                 output = output.mul(255.0).squeeze(0).permute(1, 2, 0)
                 self.stream.synchronize()
