@@ -130,8 +130,6 @@ class RifeCuda:
         self.I0 = self.I0.to(memory_format=torch.channels_last)
         self.I1 = self.I1.to(memory_format=torch.channels_last)
 
-        print(self.I0.to(memory_format=torch.channels_last_3d).shape)
-
         self.firstRun = True
         self.stream = torch.cuda.Stream() if self.isCudaAvailable else None
 
