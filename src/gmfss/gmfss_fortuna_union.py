@@ -109,6 +109,7 @@ class GMFSS:
             frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32)
             .permute(2, 0, 1)
             .unsqueeze(0)
+            .to(memory_format=torch.channels_last)
             .mul(1.0 / 255.0)
             .contiguous()
         )
@@ -137,7 +138,7 @@ class GMFSS:
                     dtype=self.dtype,
                     device=self.device,
                 )
-                output = self.model(self.I0, self.I1, timestep)
+                output = self.model(self.I0, self.I1, timestep).to(memory_format=torch.channels_last)
                 output = output[:, :, : self.height, : self.width]
                 output = output.mul(255.0).squeeze(0).permute(1, 2, 0)
                 self.stream.synchronize()
