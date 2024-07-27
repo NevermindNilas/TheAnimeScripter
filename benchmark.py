@@ -148,7 +148,7 @@ def parseFPS():
 
 def parseSystemInfo():
     systemInfo = {}
-    with open("log.txt", "r") as file:
+    with open(logTxtPath, "r") as file:
         lines = file.readlines()
         start = lines.index("============== System Checker ==============\n") + 1
         end = lines.index("============== Arguments Checker ==============\n")
