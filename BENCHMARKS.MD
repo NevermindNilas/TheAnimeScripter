@@ -9,7 +9,10 @@ V2 -> V3, Added new options and a different video with more duplicated frames fo
 V1 -> V2, Longer video for more accurate results, More time in between runs to cool of the gpu, more options ( dedup )
 
 #### Testing Methodology V4
-# 13700K OC + UV, 3090 OC, 32GB DDR5 6400MHz CL 30, Windows 11, Nilas
+# 13700K OC + UV, 3090 OC, 32GB DDR5 6400MHz CL30, TAS 1.9.1, Windows 11, Nilas
+![benchmarkResults](https://github.com/user-attachments/assets/c43b23fc-e8fc-4f1b-8749-d88130617a36)
+
+# 13700K OC + UV, 3090 OC, 32GB DDR5 6400MHz CL 30, TAS 1.8.0 Windows 11, Nilas
 ![Untitled](https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/4b99b774-e3f1-482a-a4cc-4b07da80521d)
 
 #### Testing Methodology V3
