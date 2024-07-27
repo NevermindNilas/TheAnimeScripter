@@ -5,6 +5,9 @@ import re
 import subprocess
 import platform
 
+# appdata / Romaing / TheAnimeSCripter / ffmpeg_log.txt
+ffmpegLogPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter", "ffmpegLog.txt")
+
 def runAllBenchmarks(executor, version, inputVideo=None):
     print(
         "Running all benchmarks. Depending on your system, this may take a while. Please be patient and keep the terminal in focus at all time."
@@ -71,11 +74,11 @@ def runUpscaleBenchmark(inputVideo, executor):
         print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
         if "-tensorrt" in method:
             subprocess.run(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 8"
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 16"
             )
         else:
             subprocess.run(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark"
+                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark --outpoint 12"
             )
 
         fps = parseFPS()
@@ -95,11 +98,11 @@ def runInterpolateBenchmark(inputVideo, executor):
 
         if method != "gmfss":
             subprocess.run(
-                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark"
+                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark --outpoint 75"
             )
         else:
             subprocess.run(
-                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --outpoint 3"
+                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --outpoint 4"
             )
 
         fps = parseFPS()
@@ -113,11 +116,11 @@ def runInterpolateBenchmark(inputVideo, executor):
 
         if method != "gmfss":  # Ensemble is irrelevant for GMFSS
             subprocess.run(
-                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 15"
+                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 20"
             )
         else:
             subprocess.run(
-                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 3"  # GMFSS is so slow that even this is too much
+                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 4"  # GMFSS is so slow that even this is too much
             )
 
         fps = parseFPS()
@@ -128,7 +131,7 @@ def runInterpolateBenchmark(inputVideo, executor):
 
 
 def parseFPS():
-    with open("ffmpeg_log.txt", "r") as file:
+    with open(ffmpegLogPath, "r") as file:
         output = file.read()
     matches = re.findall(r"fps=\s*([\d.]+)", output)
     # Filter out fps values that are 0.0 or 0
