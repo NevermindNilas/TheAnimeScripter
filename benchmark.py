@@ -7,6 +7,7 @@ import platform
 
 # appdata / Romaing / TheAnimeSCripter / ffmpeg_log.txt
 ffmpegLogPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter", "ffmpegLog.txt")
+logTxtPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter", "log.txt")
 
 def runAllBenchmarks(executor, version, inputVideo=None):
     print(
@@ -98,7 +99,7 @@ def runInterpolateBenchmark(inputVideo, executor):
 
         if method != "gmfss":
             subprocess.run(
-                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark --outpoint 75"
+                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark"
             )
         else:
             subprocess.run(
@@ -159,9 +160,9 @@ def parseSystemInfo():
 
 
 if __name__ == "__main__":
-    TIMESLEEP = 2
+    TIMESLEEP = 1
     CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
-    TESTINGVERSION = "V4.2"
+    TESTINGVERSION = "V4.3"
 
     upscaleMethods = [
         "shufflecugan",
@@ -184,19 +185,15 @@ if __name__ == "__main__":
 
     interpolateMethods = [
         "rife4.6",
-        "rife4.15",
-        "rife4.15-lite",
         "rife4.16-lite",
         "rife4.17",
+        "rife4.20",
         "rife4.6-ncnn",
-        "rife4.15-ncnn",
-        "rife4.15-lite-ncnn",
         "rife4.16-lite-ncnn",
-        "rife4.17-ncnn",
+        "rife4.18-ncnn",        
         "rife4.6-tensorrt",
-        "rife4.15-tensorrt",
         "rife4.15-lite-tensorrt",
-        "rife4.17-tensorrt",
+        "rife4.18-tensorrt",
         "gmfss",
     ]
 
