@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Issue [43](https://github.com/NevermindNilas/TheAnimeScripter/issues/43).
 - Issue [41](https://github.com/NevermindNilas/TheAnimeScripter/issues/41).
 - A couple of issues with scenechange caching.
+- Fix issues with benchmark.py
 
 ## The Anime Scripter - Adobe Edition
 
