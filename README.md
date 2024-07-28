@@ -49,10 +49,14 @@ Empower your video editing journey with these robust, efficient features designe
 
 ## 🛠️ Getting Started
 
-### How to Download
+### How to Download The Standalone / CLI version:
 
 Windows:
-  - Download one of the latest releases from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
+  - Stable:
+    - Download the latest release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
+
+  - Nightly:
+    - Download nightly versions from [here](https://github.com/NevermindNilas/TAS-Nightly/releases)
 
 Linux:
   - GUI is N/A yet. Refer to manual usage with the CLI and the [Parameters](PARAMETERS.MD) guide

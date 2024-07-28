@@ -299,15 +299,19 @@ class RifeTensorRT:
             profile = [
                 self.Profile().add(
                     "input",
-                    min=(1, 7, 32, 32),
+                    min=(1, 7, 64, 64),
                     opt=(1, 7, self.height, self.width),
                     max=(1, 7, 2160, 3840),
                 )
             ]
 
+                
+
             self.config = self.CreateConfig(
                 fp16=self.half,
                 profiles=profile,
+                profiling_verbosity=self.trt.ProfilingVerbosity.DETAILED,
+                preview_features=[],
             )
 
             self.engine = self.engine_from_network(
@@ -332,7 +336,7 @@ class RifeTensorRT:
             self.width,
             dtype=self.dType,
             device=self.device,
-        )
+        ).contiguous()
 
         self.I1 = torch.zeros(
             1,
@@ -341,19 +345,19 @@ class RifeTensorRT:
             self.width,
             dtype=self.dType,
             device=self.device,
-        )
+        ).contiguous()
 
         self.dummyInput = torch.empty(
             (1, 7, self.height, self.width),
             device=self.device,
-            dtype=torch.float16 if self.half else torch.float32,
-        )
+            dtype=self.dType,
+        ).contiguous()
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height, self.width),
             device=self.device,
-            dtype=torch.float16 if self.half else torch.float32,
-        )
+            dtype=self.dType,
+        ).contiguous()
 
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
 
@@ -373,7 +377,7 @@ class RifeTensorRT:
             frame.to(
                 self.device,
                 non_blocking=True,
-                dtype=torch.float32 if not self.half else torch.float16,
+                dtype=self.dType,
             )
             .permute(2, 0, 1)
             .unsqueeze(0)
