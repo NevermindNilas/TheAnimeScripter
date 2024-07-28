@@ -62,14 +62,13 @@ Linux:
   - GUI is N/A yet. Refer to manual usage with the CLI and the [Parameters](PARAMETERS.MD) guide
 
 
-### How to Use Inside of Adobe After Effects.
+### How to Use Inside Adobe After Effects
 
-1. First, make sure to download the latest available `-AdobeEdition` from [HERE](https://github.com/NevermindNilas/TheAnimeScripter/releases/)
-2. After downloading, run the `DO THIS FIRST.reg` file. This will allow TheAnimeScripter to run in Adobe After Effects.
-3. Navigate to the CEP extensions folder located at `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\`.
-4. Copy the entire folder to the path mentioned in step 3.
-5. Restart Adobe After Effects to apply the changes.
-6. After reopening, go to `Window -> Extensions -> TheAnimeScripter` to access the script.
+1. Download the latest `-AdobeEdition` release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases/).
+2. Extract the files using WinRAR or 7-Zip.
+3. Run `DO THIS FIRST.reg` to enable TheAnimeScripter in Adobe After Effects.
+4. Copy the extracted folder to `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\`.
+5. Access the script via `Window -> Extensions -> TheAnimeScripter` ( A restart of After Efffects may be needed ).
 
 ## 📚 Available Inputs
 
@@ -89,7 +88,7 @@ All of the available parameters for interacting with the CLI or directly with ma
 - Custom models compatible with [Spandrel](https://github.com/chaiNNer-org/spandrel) can be used via the `--custom_model` parameter.
 
 ### Interpolation Models
-- Rife CUDA (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18 )
+- Rife CUDA (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20 )
 - Rife TensorRT (Versions: 4.6, 4.15, 4.15-lite, 4.17, 4.18 )
 - Rife NCNN ( Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18 ) 
 - GMFSS ( Available for CUDA )
