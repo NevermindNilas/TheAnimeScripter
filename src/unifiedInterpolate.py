@@ -17,7 +17,6 @@ class RifeCuda:
         height,
         interpolateMethod,
         ensemble=False,
-        nt=1,
         interpolateFactor=2,
     ):
         """
@@ -39,7 +38,6 @@ class RifeCuda:
         self.height = height
         self.interpolateMethod = interpolateMethod
         self.ensemble = ensemble
-        self.nt = nt
         self.interpolateFactor = interpolateFactor
 
         if self.width > 1920 and self.height > 1080:
@@ -194,7 +192,6 @@ class RifeTensorRT:
         height: int = 0,
         half: bool = True,
         ensemble: bool = False,
-        nt: int = 1,
     ):
         """
         Interpolates frames using TensorRT
@@ -239,7 +236,6 @@ class RifeTensorRT:
         self.height = height
         self.half = half
         self.ensemble = ensemble
-        self.nt = nt
         self.model = None
 
         if self.width > 1920 and self.height > 1080:
@@ -427,13 +423,11 @@ class RifeNCNN:
         self,
         interpolateMethod,
         ensemble=False,
-        nt=1,
         width=1920,
         height=1080,
         half=True,
     ):
         self.interpolateMethod = interpolateMethod
-        self.nt = nt
         self.height = height
         self.width = width
         self.ensemble = ensemble
@@ -490,7 +484,6 @@ class RifeNCNN:
             tta_mode=False,
             tta_temporal_mode=False,
             uhd_mode=UHD,
-            num_threads=self.nt,
         )
 
         self.frame1 = None

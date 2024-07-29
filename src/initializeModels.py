@@ -79,7 +79,6 @@ def Depth(self):
                 self.encode_method,
                 self.depth_method,
                 self.custom_encoder,
-                self.nt,
                 self.buffer_limit,
                 self.benchmark,
                 self.totalFrames,
@@ -101,7 +100,6 @@ def Depth(self):
                 self.encode_method,
                 self.depth_method,
                 self.custom_encoder,
-                self.nt,
                 self.buffer_limit,
                 self.benchmark,
                 self.totalFrames,
@@ -123,7 +121,6 @@ def Depth(self):
                 self.encode_method,
                 self.depth_method,
                 self.custom_encoder,
-                self.nt,
                 self.buffer_limit,
                 self.benchmark,
                 self.totalFrames,
@@ -262,7 +259,6 @@ def initializeModels(self):
                     outputHeight,
                     self.interpolate_method,
                     self.ensemble,
-                    self.nt,
                     self.interpolate_factor,
                 )
             case "gmfss":
@@ -290,7 +286,6 @@ def initializeModels(self):
                 interpolate_process = RifeNCNN(
                     self.interpolate_method,
                     self.ensemble,
-                    self.nt,
                     outputWidth,
                     outputHeight,
                     self.half,
@@ -313,7 +308,6 @@ def initializeModels(self):
                     outputHeight,
                     self.half,
                     self.ensemble,
-                    self.nt,
                 )
 
     if self.denoise:
