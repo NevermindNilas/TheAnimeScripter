@@ -14,7 +14,7 @@ tensorrt
 tensorrt_cu12
 scikit-image
 scenedetect[opencv]
-onnxruntime-directml
+onnxruntime-directml==1.17.3
 pytorch-lightning
 inquirer
 onnx
