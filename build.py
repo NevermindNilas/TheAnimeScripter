@@ -31,11 +31,12 @@ def install_pyinstaller():
         [".\\venv\\Scripts\\python", "-m", "pip", "install", "pyinstaller"], check=True
     )
 
+
 def create_executable():
     print("Creating executable with PyInstaller...")
     src_path = os.path.join(base_dir, "src")
     main_path = os.path.join(base_dir, "main.py")
-    guiPath = os.path.join(base_dir, "gui.py")
+    # guiPath = os.path.join(base_dir, "gui.py")
     iconPath = os.path.join(base_dir, "src", "assets", "icon.ico")
     updaterPath = os.path.join(base_dir, "updater.py")
     benchmarkPath = os.path.join(base_dir, "benchmark.py")
@@ -90,25 +91,25 @@ def create_executable():
     )
 
     print("Finished creating the CLI executable")
-    print("Creating the GUI executable...")
+    # print("Creating the GUI executable...")
 
-    subprocess.run(
-        [
-            ".\\venv\\Scripts\\pyinstaller",
-            "--noconfirm",
-            "--onedir",
-            "--noconsole",
-            "--noupx",
-            "--clean",
-            "--debug=all",
-            "--icon",
-            f"{iconPath}",
-            guiPath,
-        ],
-        check=True,
-    )
+    # subprocess.run(
+    #    [
+    #        ".\\venv\\Scripts\\pyinstaller",
+    #        "--noconfirm",
+    #        "--onedir",
+    #        "--noconsole",
+    #        "--noupx",
+    #        "--clean",
+    #        "--debug=all",
+    #        "--icon",
+    #        f"{iconPath}",
+    #        guiPath,
+    #    ],
+    #    check=True,
+    # )
 
-    print("Finished creating the GUI executable")
+    # print("Finished creating the GUI executable")
     print("Creating the benchmark executable...")
 
     subprocess.run(
@@ -145,13 +146,12 @@ def create_executable():
     )
     print("Finished creating the updater executable")
 
-
     mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
-    guiInternalPath = os.path.join(base_dir, "dist", "gui", "_internal")
+    # guiInternalPath = os.path.join(base_dir, "dist", "gui", "_internal")
     benchmarkInternalPath = os.path.join(base_dir, "dist", "benchmark", "_internal")
     updaterInternalPath = os.path.join(base_dir, "dist", "updater", "_internal")
 
-    for directory in [guiInternalPath, benchmarkInternalPath, updaterInternalPath]:
+    for directory in [benchmarkInternalPath, updaterInternalPath]:
         for filename in os.listdir(directory):
             sourceFilePath = os.path.join(directory, filename)
             mainFilePath = os.path.join(mainInternalPath, filename)
@@ -162,14 +162,15 @@ def create_executable():
             elif os.path.isdir(sourceFilePath):
                 shutil.copytree(sourceFilePath, mainFilePath, dirs_exist_ok=True)
 
-    guiExeFilePath = os.path.join(base_dir, "dist", "gui", "gui.exe")
+    # guiExeFilePath = os.path.join(base_dir, "dist", "gui", "gui.exe")
     benchmarkExeFilePath = os.path.join(base_dir, "dist", "benchmark", "benchmark.exe")
     updaterExeFilePath = os.path.join(base_dir, "dist", "updater", "updater.exe")
     mainExeFilePath = os.path.join(base_dir, "dist", "main")
 
-    shutil.move(guiExeFilePath, mainExeFilePath)
+    # shutil.move(guiExeFilePath, mainExeFilePath)
     shutil.move(benchmarkExeFilePath, mainExeFilePath)
     shutil.move(updaterExeFilePath, mainExeFilePath)
+
 
 def move_extras():
     dist_dir = os.path.join(base_dir, "dist")
@@ -207,19 +208,20 @@ def clean_up():
         except Exception as e:
             print("Error while removing dll file: ", e)
 
-    guiFolder = os.path.join(base_dir, "dist", "gui")
+    # guiFolder = os.path.join(base_dir, "dist", "gui")
     benchmarkFolder = os.path.join(base_dir, "dist", "benchmark")
     updaterFolder = os.path.join(base_dir, "dist", "updater")
 
     try:
-        shutil.rmtree(guiFolder)
+        # shutil.rmtree(guiFolder)
         shutil.rmtree(benchmarkFolder)
         shutil.rmtree(updaterFolder)
-        
+
     except Exception as e:
         print("Error while removing gui folder: ", e)
 
     print("Done!, you can find the built executable in the dist folder")
+
 
 if __name__ == "__main__":
     create_venv()
@@ -229,4 +231,3 @@ if __name__ == "__main__":
     create_executable()
     move_extras()
     clean_up()
-    
