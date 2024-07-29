@@ -102,6 +102,7 @@ class IFNet(nn.Module):
         self.scale_list=[8/scale, 4/scale, 2/scale, 1/scale]
         self.ensemble = ensemble
         self.interpolateFactor = interpolateFactor
+        self.blocks = [self.block0, self.block1, self.block2, self.block3]
 
     def cache(self):
         pass
@@ -121,16 +122,15 @@ class IFNet(nn.Module):
         warped_image1 = image2
 
         flow = None
-        block = [self.block0, self.block1, self.block2, self.block3]
         for i in range(4):
             if flow is None:
-                flow, mask = block[i](
+                flow, mask = self.blocks[i](
                     torch.cat((image1[:, :3], image2[:, :3], timestep), 1),
                     None,
                     scale=self.scale_list[i],
                 )
                 if self.ensemble:
-                    f1, m1 = block[i](
+                    f1, m1 = self.blocks[i](
                         torch.cat((image2[:, :3], image1[:, :3], 1 - timestep), 1),
                         None,
                         scale=self.scale_list[i],
@@ -138,7 +138,7 @@ class IFNet(nn.Module):
                     flow = (flow + torch.cat((f1[:, 2:4], f1[:, :2]), 1)) / 2
                     mask = (mask + (-m1)) / 2
             else:
-                f0, m0 = block[i](
+                f0, m0 = self.blocks[i](
                     torch.cat(
                         (warped_image0[:, :3], warped_image1[:, :3], timestep, mask), 1
                     ),
@@ -146,7 +146,7 @@ class IFNet(nn.Module):
                     scale=self.scale_list[i],
                 )
                 if self.ensemble:
-                    f1, m1 = block[i](
+                    f1, m1 = self.blocks[i](
                         torch.cat(
                             (
                                 warped_image1[:, :3],
@@ -161,8 +161,8 @@ class IFNet(nn.Module):
                     )
                     f0 = (f0 + torch.cat((f1[:, 2:4], f1[:, :2]), 1)) / 2
                     m0 = (m0 + (-m1)) / 2
-                flow = flow + f0
-                mask = mask + m0
+                flow += f0
+                mask += m0
             mask_list.append(mask)
             warped_image0 = warp(image1, flow[:, :2])
             warped_image1 = warp(image2, flow[:, 2:4])
