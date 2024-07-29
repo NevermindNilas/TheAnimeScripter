@@ -7,17 +7,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  
 ## [Unreleased] - yyyy-mm-dd
  
-## The Anime Scripter
+### The Anime Scripter
 
-### New
+#### New
 - Added Rife 4.20 CUDA and Tensorrt.
 - Added Depth Anything V2 - DirectML.
 - New variable named `--scenechange_method` with choices `maxvit-directml` & `maxvit-tensorrt` ( special thanks to @sudo for the models ).
 - Added Prores encoding support
 
-### Improvements
+#### Improvements
 - Up to 15% faster Upscaling Performance when using TensorRT.
-- Up to 20% faster Upscaling Performance hwen using CUDA.
+- Up to 20% faster Upscaling Performance when using CUDA.
 - Up to 10% faster Interpolation Performance when using TensorRT.
 - Up to 30% faster Interpolation Performance when using CUDA.
 - Decoupled Scenechange from interpolation.
@@ -27,21 +27,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - More dynamic imports for faster startup times.
 - Upgraded Torch version from 2.2.2 -> 2.4.0.
 - Upgraded CUDA version from 12.1 -> 12.5.
+- Reformated and cleaned up the code.
+- `--help` should display a bit nicer now compared to previous releases and it should have more `helpers` added to them.
  
-### Fixed
+#### Fixed
 - Issue [43](https://github.com/NevermindNilas/TheAnimeScripter/issues/43).
 - Issue [41](https://github.com/NevermindNilas/TheAnimeScripter/issues/41).
 - A couple of issues with scenechange caching.
 - Fix issues with benchmark.py
 - DLL missing with onnxruntime-directml
 
-## The Anime Scripter - Adobe Edition
+#### The Anime Scripter - Adobe Edition
 
-### New
+#### New
 - TBA
 
-### Improvements
+#### Improvements
 - TBA
 
-### Fixed
+#### Fixed
 - TBA

@@ -1,6 +1,7 @@
 import os
 import logging
 import sys
+import argparse
 
 from urllib.parse import urlparse
 from .generateOutput import outputNameGenerator
@@ -11,7 +12,311 @@ from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red
 
 
-def argumentChecker(args, mainPath, scriptVersion):
+def createParser(isFrozen, scriptVersion, mainPath):
+    argParser = argparse.ArgumentParser(
+        description="The Anime Scripter CLI Tool",
+        usage="main.py [options]" if not isFrozen else "main.exe [options]",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
+    # Basic options
+    generalGroup = argParser.add_argument_group("General")
+    generalGroup.add_argument("--version", action="version", version=f"{scriptVersion}")
+    generalGroup.add_argument("--input", type=str, help="Input video file")
+    generalGroup.add_argument("--output", type=str, help="Output video file")
+    generalGroup.add_argument(
+        "--inpoint", type=float, default=0, help="Input start time"
+    )
+    generalGroup.add_argument(
+        "--outpoint", type=float, default=0, help="Input end time"
+    )
+
+    # Performance options
+    performanceGroup = argParser.add_argument_group("Performance")
+    performanceGroup.add_argument(
+        "--half", type=bool, help="Use half precision for inference", default=True
+    )
+
+    # Interpolation options
+    interpolationGroup = argParser.add_argument_group("Interpolation")
+    interpolationGroup.add_argument(
+        "--interpolate", action="store_true", help="Interpolate the video"
+    )
+    interpolationGroup.add_argument(
+        "--interpolateFactor", type=int, default=2, help="Interpolation factor"
+    )
+    interpolationGroup.add_argument(
+        "--interpolateDen", type=int, default=1, help="Interpolation denominator"
+    )
+    interpolationGroup.add_argument(
+        "--interpolateMethod",
+        type=str,
+        choices=[
+            "rife",
+            "rife4.6",
+            "rife4.15",
+            "rife4.15-lite",
+            "rife4.16-lite",
+            "rife4.17",
+            "rife4.18",
+            "rife4.20",
+            "rife-ncnn",
+            "rife4.6-ncnn",
+            "rife4.15-ncnn",
+            "rife4.15-lite-ncnn",
+            "rife4.16-lite-ncnn",
+            "rife4.17-ncnn",
+            "rife4.18-ncnn",
+            "rife4.6-tensorrt",
+            "rife4.15-tensorrt",
+            "rife4.15-lite-tensorrt",
+            "rife4.17-tensorrt",
+            "rife4.18-tensorrt",
+            "rife-tensorrt",
+            "gmfss",
+        ],
+        default="rife",
+        help="Interpolation method",
+    )
+    interpolationGroup.add_argument(
+        "--ensemble",
+        action="store_true",
+        help="Use the ensemble model for interpolation",
+    )
+
+    # Upscaling options
+    upscaleGroup = argParser.add_argument_group("Upscaling")
+    upscaleGroup.add_argument(
+        "--upscale", action="store_true", help="Upscale the video"
+    )
+    upscaleGroup.add_argument(
+        "--upscaleFactor", type=int, choices=[2], default=2, help="Upscaling factor"
+    )
+    upscaleGroup.add_argument(
+        "--upscaleMethod",
+        type=str,
+        choices=[
+            "shufflecugan",
+            "compact",
+            "ultracompact",
+            "superultracompact",
+            "span",
+            "compact-directml",
+            "ultracompact-directml",
+            "superultracompact-directml",
+            "span-directml",
+            "shufflecugan-ncnn",
+            "span-ncnn",
+            "compact-tensorrt",
+            "ultracompact-tensorrt",
+            "superultracompact-tensorrt",
+            "span-tensorrt",
+            "shufflecugan-tensorrt",
+        ],
+        default="shufflecugan",
+        help="Upscaling method",
+    )
+    upscaleGroup.add_argument(
+        "--customModel", type=str, default="", help="Path to custom upscaling model"
+    )
+    upscaleGroup.add_argument(
+        "--upscaleSkip",
+        action="store_true",
+        help="Use SSIM / SSIM-CUDA to skip duplicate frames when upscaling",
+    )
+
+    # Deduplication options
+    dedupGroup = argParser.add_argument_group("Deduplication")
+    dedupGroup.add_argument(
+        "--dedup", action="store_true", help="Deduplicate the video"
+    )
+    dedupGroup.add_argument(
+        "--dedupMethod",
+        type=str,
+        default="ssim",
+        choices=["ssim", "mse", "ssim-cuda", "mse-cuda"],
+        help="Deduplication method",
+    )
+    dedupGroup.add_argument(
+        "--dedupSens", type=float, default=35, help="Deduplication sensitivity"
+    )
+    dedupGroup.add_argument(
+        "--sampleSize", type=int, default=224, help="Sample size for deduplication"
+    )
+
+    # Video processing options
+    processingGroup = argParser.add_argument_group("Video Processing")
+    processingGroup.add_argument(
+        "--sharpen", action="store_true", help="Sharpen the video"
+    )
+    processingGroup.add_argument(
+        "--sharpenSens", type=float, default=50, help="Sharpening sensitivity"
+    )
+    processingGroup.add_argument(
+        "--denoise", action="store_true", help="Denoise the video"
+    )
+    processingGroup.add_argument(
+        "--denoiseMethod",
+        type=str,
+        default="scunet",
+        choices=["scunet", "nafnet", "dpir", "real-plksr"],
+        help="Denoising method",
+    )
+    processingGroup.add_argument(
+        "--resize", action="store_true", help="Resize the video"
+    )
+    processingGroup.add_argument(
+        "--resizeFactor",
+        type=float,
+        default=2,
+        help="Resize factor (can be between 0 and 1 for downscaling)",
+    )
+    processingGroup.add_argument(
+        "--resizeMethod",
+        type=str,
+        choices=[
+            "fast_bilinear",
+            "bilinear",
+            "bicubic",
+            "experimental",
+            "neighbor",
+            "area",
+            "bicublin",
+            "gauss",
+            "sinc",
+            "lanczos",
+            "point",
+            "spline",
+            "spline16",
+            "spline36",
+        ],
+        default="bicubic",
+        help="Resize method",
+    )
+
+    # Scene detection options
+    sceneGroup = argParser.add_argument_group("Scene Detection")
+    sceneGroup.add_argument("--segment", action="store_true", help="Segment the video")
+    sceneGroup.add_argument(
+        "--segmentMethod",
+        type=str,
+        default="anime",
+        choices=["anime", "anime-tensorrt", "anime-directml"],
+        help="Segmentation method",
+    )
+    sceneGroup.add_argument(
+        "--autoclip", action="store_true", help="Detect scene changes"
+    )
+    sceneGroup.add_argument(
+        "--autoclipSens", type=float, default=50, help="Autoclip sensitivity"
+    )
+    sceneGroup.add_argument(
+        "--scenechange", action="store_true", help="Detect scene changes"
+    )
+    sceneGroup.add_argument(
+        "--scenechangeMethod",
+        type=str,
+        default="maxvit-directml",
+        choices=["maxvit-tensorrt", "maxvit-directml"],
+        help="Scene change detection method",
+    )
+    sceneGroup.add_argument(
+        "--scenechangeSens",
+        type=float,
+        default=50,
+        help="Scene change detection sensitivity (0-100)",
+    )
+
+    # Depth estimation options
+    depthGroup = argParser.add_argument_group("Depth Estimation")
+    depthGroup.add_argument(
+        "--depth", action="store_true", help="Estimate the depth of the video"
+    )
+    depthGroup.add_argument(
+        "--depthMethod",
+        type=str,
+        choices=[
+            "small_v2",
+            "base_v2",
+            "large_v2",
+            "small_v2-tensorrt",
+            "base_v2-tensorrt",
+            "large_v2-tensorrt",
+            "small_v2-directml",
+            "base_v2-directml",
+            "large_v2-directml",
+        ],
+        default="small_v2",
+        help="Depth estimation method",
+    )
+
+    # Encoding options
+    encodingGroup = argParser.add_argument_group("Encoding")
+    encodingGroup.add_argument(
+        "--encodeMethod",
+        type=str,
+        choices=[
+            "x264",
+            "x264_10bit",
+            "x264_animation",
+            "x264_animation_10bit",
+            "x265",
+            "x265_10bit",
+            "nvenc_h264",
+            "nvenc_h265",
+            "nvenc_h265_10bit",
+            "nvenc_av1",
+            "qsv_h264",
+            "qsv_h265",
+            "qsv_h265_10bit",
+            "av1",
+            "h264_amf",
+            "hevc_amf",
+            "hevc_amf_10bit",
+            "prores",
+            "prores_segment",
+        ],
+        default="x264",
+        help="Encoding method",
+    )
+    encodingGroup.add_argument(
+        "--customEncoder", type=str, default="", help="Custom encoder settings"
+    )
+
+    # Flow options
+    flowGroup = argParser.add_argument_group("Optical Flow")
+    flowGroup.add_argument(
+        "--flow", action="store_true", help="Extract the Optical Flow"
+    )
+
+    # Miscellaneous options
+    miscGroup = argParser.add_argument_group("Miscellaneous")
+    miscGroup.add_argument("--bufferLimit", type=int, default=50, help="Buffer limit")
+    miscGroup.add_argument(
+        "--audio",
+        action="store_true",
+        help="Extract and merge audio track",
+        default=True,
+    )
+    miscGroup.add_argument(
+        "--benchmark", action="store_true", help="Benchmark the script"
+    )
+    miscGroup.add_argument(
+        "--offline",
+        action="store_true",
+        help="Download all available models for offline use",
+    )
+    miscGroup.add_argument(
+        "--ae",
+        action="store_true",
+        help="Notify if script is run from After Effects interface",
+    )
+
+    args = argParser.parse_args()
+    argumentsChecker(args, mainPath)
+
+
+def argumentsChecker(args, mainPath, scriptVersion):
     banner = """
 _____________            _______       _____                      ________            _____        _____             
 ___  __/__  /______      ___    |_________(_)______ ________      __  ___/_______________(_)_________  /_____________
