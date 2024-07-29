@@ -10,7 +10,20 @@ from src.ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red
 
+
 def argumentChecker(args, mainPath, scriptVersion):
+    banner = """
+_____________            _______       _____                      ________            _____        _____             
+___  __/__  /______      ___    |_________(_)______ ________      __  ___/_______________(_)_________  /_____________
+__  /  __  __ \  _ \     __  /| |_  __ \_  /__  __ `__ \  _ \     _____ \_  ___/_  ___/_  /___  __ \  __/  _ \_  ___/
+_  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _  /   _  / __  /_/ / /_ /  __/  /    
+/_/    /_/ /_/\___/      /_/  |_/_/ /_//_/  /_/ /_/ /_/\___/      /____/ \___/ /_/    /_/  _  .___/\__/ \___//_/     
+                                                                                           /_/                       
+"""
+
+    if not args.benchmark:
+        print(red(banner))
+
     args.sharpen_sens /= 100
     args.autoclip_sens = 100 - args.autoclip_sens
 
@@ -60,16 +73,21 @@ def argumentChecker(args, mainPath, scriptVersion):
         logging.info("No custom encoder specified, using default encoder")
 
     if args.upscale_skip:
-        logging.info("Upscale skip enabled, the script will skip frames that are upscaled to save time, this is far from perfect and can cause issues")
-        
+        logging.info(
+            "Upscale skip enabled, the script will skip frames that are upscaled to save time, this is far from perfect and can cause issues"
+        )
+
     if args.upscale_skip and args.dedup:
-        logging.error("Upscale skip and dedup cannot be used together, disabling upscale skip to prevent issues")
+        logging.error(
+            "Upscale skip and dedup cannot be used together, disabling upscale skip to prevent issues"
+        )
         args.upscale_skip = False
 
     if args.upscale_skip and not args.upscale:
-        logging.error("Upscale skip is enabled but upscaling is not, disabling upscale skip")
+        logging.error(
+            "Upscale skip is enabled but upscaling is not, disabling upscale skip"
+        )
         args.upscale_skip = False
-
 
     """
     # Doesn't work with AMD GPUs
