@@ -27,12 +27,14 @@ import logging
 
 from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
-from src.argumentsChecker import argumentChecker
+from src.argumentsChecker import createParser
 from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import initializeModels, Segment, Depth, opticalFlow
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
+
+isFrozen = False
 
 if os.name == "nt":
     appdata = os.getenv("APPDATA")
@@ -42,8 +44,10 @@ if os.name == "nt":
         os.makedirs(mainPath)
 
 if getattr(sys, "frozen", False):
+    isFrozen = True
     outputPath = os.path.dirname(sys.executable)
 else:
+    isFrozen = False
     outputPath = os.path.dirname(os.path.abspath(__file__))
 
 scriptVersion = "1.9.1"
@@ -199,7 +203,7 @@ class VideoProcessor:
         if self.upscale_skip:
             logging.info(f"Skipped {self.upscale_process.getSkippedCounter} frames")
         if self.scenechange:
-           logging.info(f"Detected {self.sceneChangeCounter} scene changes")
+            logging.info(f"Detected {self.sceneChangeCounter} scene changes")
 
         self.writeBuffer.close()
 
@@ -267,277 +271,9 @@ if __name__ == "__main__":
     )
     logging.info("============== Command Line Arguments ==============")
     logging.info(f"{' '.join(sys.argv)}\n")
-
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument("--version", action="version", version=f"{scriptVersion}")
-    argparser.add_argument("--input", type=str)
-    argparser.add_argument("--output", type=str)
-    argparser.add_argument(
-        "--interpolate",
-        action="store_true",
-        help="Interpolate the video",
-        required=False,
-    )
-    argparser.add_argument("--interpolate_factor", type=int, default=2)
-    argparser.add_argument(
-        "--interpolate_method",
-        type=str,
-        choices=[
-            "rife",
-            "rife4.6",
-            "rife4.15",
-            "rife4.15-lite",
-            "rife4.16-lite",
-            "rife4.17",
-            "rife4.18",
-            "rife4.20",
-            "rife-ncnn",
-            "rife4.6-ncnn",
-            "rife4.15-ncnn",
-            "rife4.15-lite-ncnn",
-            "rife4.16-lite-ncnn",
-            "rife4.17-ncnn",
-            "rife4.18-ncnn",
-            "rife4.6-tensorrt",
-            "rife4.15-tensorrt",
-            "rife4.15-lite-tensorrt",
-            "rife4.17-tensorrt",
-            "rife4.18-tensorrt",
-            "rife-tensorrt",
-            "gmfss",
-        ],
-        default="rife",
-    )
-    argparser.add_argument(
-        "--ensemble",
-        action="store_true",
-        help="Use the ensemble model for interpolation",
-        required=False,
-    )
-    argparser.add_argument(
-        "--upscale", action="store_true", help="Upscale the video", required=False
-    )
-    argparser.add_argument("--upscale_factor", type=int, choices=[2, 3, 4], default=2)
-    argparser.add_argument(
-        "--upscale_method",
-        type=str,
-        choices=[
-            "shufflecugan",
-            "compact",
-            "ultracompact",
-            "superultracompact",
-            "span",
-            "compact-directml",
-            "ultracompact-directml",
-            "superultracompact-directml",
-            "span-directml",
-            "shufflecugan-ncnn",
-            "span-ncnn",
-            "compact-tensorrt",
-            "ultracompact-tensorrt",
-            "superultracompact-tensorrt",
-            "span-tensorrt",
-            "shufflecugan-tensorrt",
-        ],
-        default="shufflecugan",
-    )
-    argparser.add_argument("--custom_model", type=str, default="")
-    argparser.add_argument(
-        "--dedup", action="store_true", help="Deduplicate the video", required=False
-    )
-    argparser.add_argument(
-        "--dedup_method",
-        type=str,
-        default="ssim",
-        choices=["ssim", "mse", "ssim-cuda", "mse-cuda"],
-    )
-    argparser.add_argument("--dedup_sens", type=float, default=35)
-    argparser.add_argument("--sample_size", type=int, default=224)
-    argparser.add_argument("--nt", type=int, default=1)
-    argparser.add_argument(
-        "--half",
-        action="store_true",
-        help="Use half precision for inference",
-        required=False,
-        default=True,
-    )
-    argparser.add_argument("--inpoint", type=float, default=0)
-    argparser.add_argument("--outpoint", type=float, default=0)
-    argparser.add_argument(
-        "--sharpen", action="store_true", help="Sharpen the video", required=False
-    )
-    argparser.add_argument("--sharpen_sens", type=float, default=50)
-    argparser.add_argument(
-        "--segment", action="store_true", help="Segment the video", required=False
-    )
-    argparser.add_argument(
-        "--autoclip",
-        action="store_true",
-        help="Detect scene changes",
-        required=False,
-    )
-    argparser.add_argument("--autoclip_sens", type=float, default=50)
-    argparser.add_argument(
-        "--depth",
-        action="store_true",
-        help="Estimate the depth of the video",
-        required=False,
-    )
-    argparser.add_argument(
-        "--depth_method",
-        type=str,
-        choices=[
-            "small_v2",
-            "base_v2",
-            "large_v2",
-            "small_v2-tensorrt",
-            "base_v2-tensorrt",
-            "large_v2-tensorrt",
-            "small_v2-directml",
-            "base_v2-directml",
-            "large_v2-directml",
-        ],
-        default="small_v2",
-    )
-    argparser.add_argument(
-        "--encode_method",
-        type=str,
-        choices=[
-            "x264",
-            "x264_10bit",
-            "x264_animation",
-            "x264_animation_10bit",
-            "x265",
-            "x265_10bit",
-            "nvenc_h264",
-            "nvenc_h265",
-            "nvenc_h265_10bit",
-            "qsv_h264",
-            "qsv_h265",
-            "qsv_h265_10bit",
-            "nvenc_av1",
-            "av1",
-            "h264_amf",
-            "hevc_amf",
-            "hevc_amf_10bit",
-            "prores",
-            "prores_segment",
-        ],
-        default="x264",
-    )
-    argparser.add_argument(
-        "--resize", action="store_true", help="Resize the video", required=False
-    )
-    argparser.add_argument(
-        "--resize_factor",
-        type=float,
-        default=2,
-        help="Resize factor for the decoded video, can also be values between 0 & 1 for downscaling though it needs more work, it will always keep the desired aspect ratio",
-    )
-    argparser.add_argument(
-        "--resize_method",
-        type=str,
-        choices=[
-            "fast_bilinear",
-            "bilinear",
-            "bicubic",
-            "experimental",
-            "neighbor",
-            "area",
-            "bicublin",
-            "gauss",
-            "sinc",
-            "lanczos",
-            "point",
-            "spline",
-            "spline16",
-            "spline36",
-        ],
-        default="bicubic",
-        help="Choose the desired resizer, I am particularly happy with lanczos for upscaling and area for downscaling",
-    )
-    argparser.add_argument("--custom_encoder", type=str, default="")
-    argparser.add_argument("--buffer_limit", type=int, default=50)
-    argparser.add_argument(
-        "--audio",
-        action="store_true",
-        help="Extract the audio track and later merge it back into the output video, if dedup is true this will be set to False automatically",
-        default=True,
-    )
-    argparser.add_argument(
-        "--denoise", action="store_true", help="Denoise the video", required=False
-    )
-    argparser.add_argument(
-        "--denoise_method",
-        type=str,
-        default="scunet",
-        choices=[
-            "scunet",
-            "nafnet",
-            "dpir",
-            "real-plksr",
-        ],
-        help="Choose the desired denoiser, span is the best for animation purposes whilst scunet is better for general purpose.",
-    )
-    argparser.add_argument(
-        "--benchmark", action="store_true", help="Benchmark the script", required=False
-    )
-    argparser.add_argument(
-        "--offline",
-        action="store_true",
-        help="Download all available models for a near full offline experience",
-        required=False,
-    )
-    argparser.add_argument(
-        "--segment_method",
-        type=str,
-        default="anime",
-        choices=[
-            "anime",
-            "anime-tensorrt",
-            "anime-directml",
-        ],  # TO:DO https://github.com/CartoonSegmentation/CartoonSegmentation
-    )
-    argparser.add_argument(
-        "--flow", action="store_true", help="Extract the Optical Flow", required=False
-    )
-    argparser.add_argument(
-        "--scenechange",
-        action="store_true",
-        help="Detect scene changes",
-        required=False,
-    )
-    argparser.add_argument(
-        "--scenechange_method",
-        type=str,
-        default="maxvit-directml",
-        choices=[
-            "maxvit-tensorrt",
-            "maxvit-directml",
-        ],
-    )
-    argparser.add_argument(
-        "--ae",
-        action="store_true",
-        help="A simple flag for notifying if the script is ran from the After Effects interface",
-        required=False,
-    )
-    argparser.add_argument(
-        "--upscale_skip",
-        action="store_true",
-        help="Use SSIM / SSIM-CUDA to skip duplicate frames when upscaling.",
-        required=False,
-    )
-    argparser.add_argument(
-        "--scenechange_sens",
-        type=float,
-        default=50,
-        help="The higher the value, the more sensitive the scene change detection will be, values between 0-100",
-    )
-
-    args = argparser.parse_args()
-    args = argumentChecker(args, mainPath, scriptVersion)
     
+    args = createParser(isFrozen, scriptVersion, mainPath)
+
     if os.path.isfile(args.input):
         print(green(f"Processing {args.input}"))
         if args.output is None:

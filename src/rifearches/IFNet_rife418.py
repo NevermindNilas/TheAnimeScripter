@@ -127,25 +127,7 @@ class IFNet(nn.Module):
         self.ensemble = ensemble
         self.counter = 1
         self.interpolateFactor = interpolateFactor
-        """
-        self.multiply = torch.ones((2,), dtype=torch.float32).cuda().half()
-        h_mul = 2 / (1088 - 1)
-        v_mul = 2 / (1920 - 1)
-        self.multiply[0] *= h_mul
-        self.multiply[1] *= v_mul
-        self.multiply = self.multiply.reshape(1, 2, 1, 1)
-        self.grid = torch.cat(
-            (
-                (torch.arange(1920) * h_mul - 1)
-                .reshape(1, 1, 1, -1)
-                .expand(-1, -1, 1088, -1),
-                (torch.arange(1088) * v_mul - 1)
-                .reshape(1, 1, -1, 1)
-                .expand(-1, -1, -1, 1920),
-            ),
-            dim=1,
-        ).cuda().half()
-        """
+        self.blocks = [self.block0, self.block1, self.block2, self.block3]
 
     def cache(self):
         self.f0.copy_(self.f1, non_blocking=True)
@@ -174,16 +156,15 @@ class IFNet(nn.Module):
         warped_img0 = img0
         warped_img1 = img1
         flow = None
-        block = [self.block0, self.block1, self.block2, self.block3]
         for i in range(4):
             if flow is None:
-                flow, mask = block[i](
+                flow, mask = self.blocks[i](
                     torch.cat((img0[:, :3], img1[:, :3], self.f0, self.f1, timestep), 1),
                     None,
                     scale=self.scale_list[i],
                 )
                 if self.ensemble:
-                    f_, m_ = block[i](
+                    f_, m_ = self.blocks[i](
                         torch.cat((img1[:, :3], img0[:, :3], self.f1, self.f0, 1 - timestep), 1),
                         None,
                         scale=self.scale_list[i],
@@ -193,7 +174,7 @@ class IFNet(nn.Module):
             else:
                 wf0 = warp(self.f0, flow[:, :2]) 
                 wf1 = warp(self.f1, flow[:, 2:4])
-                fd, m0 = block[i](
+                fd, m0 = self.blocks[i](
                     torch.cat(
                         (
                             warped_img0[:, :3],
@@ -209,7 +190,7 @@ class IFNet(nn.Module):
                     scale=self.scale_list[i],
                 )
                 if self.ensemble:
-                    f_, m_ = block[i](
+                    f_, m_ = self.blocks[i](
                         torch.cat(
                             (
                                 warped_img1[:, :3],
