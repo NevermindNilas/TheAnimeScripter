@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Issue [41](https://github.com/NevermindNilas/TheAnimeScripter/issues/41).
 - A couple of issues with scenechange caching.
 - Fix issues with benchmark.py
+- DLL missing with onnxruntime-directml
 
 ## The Anime Scripter - Adobe Edition
 
