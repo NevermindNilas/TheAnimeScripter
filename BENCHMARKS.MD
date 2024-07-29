@@ -9,7 +9,13 @@ V2 -> V3, Added new options and a different video with more duplicated frames fo
 V1 -> V2, Longer video for more accurate results, More time in between runs to cool of the gpu, more options ( dedup )
 
 #### Testing Methodology V4
-# 13700K OC + UV, 3090 OC, 32GB DDR5 6400MHz CL30, TAS 1.9.1, Windows 11, Nilas
+# Toji
+![benchmarkResults](https://github.com/user-attachments/assets/195e38da-b3d8-45af-868c-def2b3034e7f)
+
+# Sergio
+![benchmarkResults](https://github.com/user-attachments/assets/de2a0573-1c0a-46a3-a4e0-f02fa5f13e85)
+
+# Nilas
 ![benchmarkResults](https://github.com/user-attachments/assets/c43b23fc-e8fc-4f1b-8749-d88130617a36)
 
 # 13700K OC + UV, 3090 OC, 32GB DDR5 6400MHz CL 30, TAS 1.8.0 Windows 11, Nilas
