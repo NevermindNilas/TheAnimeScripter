@@ -32,7 +32,6 @@ class DepthV2:
         encode_method="x264",
         depth_method="small",
         custom_encoder="",
-        nt=1,
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
@@ -49,7 +48,6 @@ class DepthV2:
         self.encode_method = encode_method
         self.depth_method = depth_method
         self.custom_encoder = custom_encoder
-        self.nt = nt
         self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
@@ -228,7 +226,6 @@ class DepthDirectMLV2:
         encode_method="x264",
         depth_method="small",
         custom_encoder="",
-        nt=1,
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
@@ -249,7 +246,6 @@ class DepthDirectMLV2:
         self.encode_method = encode_method
         self.depth_method = depth_method
         self.custom_encoder = custom_encoder
-        self.nt = nt
         self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
@@ -432,7 +428,6 @@ class DepthTensorRTV2:
         encode_method="x264",
         depth_method="small",
         custom_encoder="",
-        nt=1,
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
@@ -449,7 +444,6 @@ class DepthTensorRTV2:
         self.encode_method = encode_method
         self.depth_method = depth_method
         self.custom_encoder = custom_encoder
-        self.nt = nt
         self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
