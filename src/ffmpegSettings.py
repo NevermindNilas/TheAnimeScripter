@@ -301,6 +301,7 @@ class WriteBuffer:
         transparent: bool = False,
         audio: bool = True,
         benchmark: bool = False,
+        bitDepth: str = "8bit",
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -335,6 +336,7 @@ class WriteBuffer:
         self.transparent = transparent
         self.audio = audio
         self.benchmark = benchmark
+        self.bitDepth = bitDepth
 
     def encodeSettings(self, verbose: bool = False) -> list:
         """
@@ -342,8 +344,20 @@ class WriteBuffer:
 
         verbose : bool - Whether to log the progress of the encoding.
         """
+        if self.bitDepth == "8bit":
+            inputPixFormat = "rgb24"
+            outputPixFormat = "yuv420p"
+        else:
+            inputPixFormat = "rgb48be"
+            outputPixFormat = "yuv444p10le"
 
         if self.transparent:
+            if self.bitDepth != "8bit":
+                logging.info(
+                    "Transparency is not supported in 16bit right now, switching to 8bit"
+                )
+                self.bitDepth = "8bit"
+
             if self.encode_method not in ["prores_segment"]:
                 if verbose:
                     logging.info(
@@ -353,26 +367,38 @@ class WriteBuffer:
 
                 inputPixFormat = "rgba"
                 outputPixFormat = "yuva444p10le"
-            
 
         elif self.grayscale:
-            inputPixFormat = "gray"
-            outputPixFormat = "yuv420p10le"
+            if self.bitDepth == "8bit":
+                inputPixFormat = "gray"
+                outputPixFormat = "yuv420p"
+            else:
+                inputPixFormat = "gray16be"
+                outputPixFormat = "yuv444p10le"
 
         elif self.encode_method in ["x264_10bit", "x265_10bit"]:
-            inputPixFormat = "rgb24"
-            outputPixFormat = "yuv420p10le"
+            if self.bitDepth == "8bit":
+                inputPixFormat = "rgb24"
+                outputPixFormat = "yuv420p10le"
+            else:
+                inputPixFormat = "rgb48be"
+                outputPixFormat = "yuv444p10le"
         
         elif self.encode_method in ["nvenc_h265_10bit",  "hevc_amf_10bit", "qsv_h265_10bit"]:
-            inputPixFormat = "rgb24"
-            outputPixFormat = "p010le"
+            if self.bitDepth == "8bit":
+                inputPixFormat = "rgb24"
+                outputPixFormat = "p010le"
+            else:
+                inputPixFormat = "rgb48be"
+                outputPixFormat = "p010le"
         
         elif self.encode_method in ["prores"]:
-            inputPixFormat = "rgb24"
-            outputPixFormat = "yuv444p10le"
-        else:
-            inputPixFormat = "rgb24"
-            outputPixFormat = "yuv420p"
+            if self.bitDepth == "8bit":
+                inputPixFormat = "rgb24"
+                outputPixFormat = "yuv444p10le"
+            else:
+                inputPixFormat = "rgb48be"
+                outputPixFormat = "yuv444p10le"
 
         if not self.benchmark:
             command = [
@@ -425,7 +451,7 @@ class WriteBuffer:
                         )
 
                     if self.grayscale:
-                        customEncoderList[vfIndex + 1] += ",format=gray"
+                        customEncoderList[vfIndex + 1] += ",format=gray" if self.bitDepth == "8bit" else ",format=gray16be"
 
                     if self.transparent:
                         customEncoderList[vfIndex + 1] += ",format=rgba"
@@ -508,7 +534,12 @@ class WriteBuffer:
                                 logging.info(f"Encoded {writtenFrames} frames")
                             break
                         
-                        self.process.stdin.buffer.write(frame.contiguous().byte().cpu().numpy())
+                        if self.bitDepth == "8bit":
+                            frame = frame.to(torch.uint8).contiguous().cpu().numpy()
+                        else:
+                            frame = frame.to(torch.uint16).contiguous().cpu().numpy()
+
+                        self.process.stdin.buffer.write(frame)
                         writtenFrames += 1
 
         except Exception as e:

@@ -82,6 +82,7 @@ def Depth(self):
                 self.buffer_limit,
                 self.benchmark,
                 self.totalFrames,
+                self.bit_depth,
             )
 
         case "small_v2-tensorrt" | "base_v2-tensorrt" | "large_v2-tensorrt":
@@ -103,6 +104,7 @@ def Depth(self):
                 self.buffer_limit,
                 self.benchmark,
                 self.totalFrames,
+                self.bit_depth,
             )
 
         case "small_v2-directml" | "base_v2-directml" | "large_v2-directml":
@@ -124,6 +126,7 @@ def Depth(self):
                 self.buffer_limit,
                 self.benchmark,
                 self.totalFrames,
+                self.bit_depth,
             )
 
 

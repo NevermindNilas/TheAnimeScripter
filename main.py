@@ -96,6 +96,7 @@ class VideoProcessor:
         self.scenechange_sens = args.scenechange_sens
         self.scenechange_method = args.scenechange_method
         self.upscale_skip = args.upscale_skip
+        self.bit_depth = args.bit_depth
 
         self.width, self.height, self.fps, self.totalFrames = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
@@ -249,6 +250,7 @@ class VideoProcessor:
                 transparent=False,
                 audio=self.audio,
                 benchmark=self.benchmark,
+                bitDepth=self.bit_depth,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
