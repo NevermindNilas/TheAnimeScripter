@@ -9,7 +9,7 @@
       <img src="https://img.shields.io/discord/1041502781808328704?label=Discord" alt="Discord Shield"/></a>
 </p>
 <p align="center">
-    <img src="https://raw.githubusercontent.com/hyperbrew/bolt-cep/master/src/js/assets/built-with-bolt-cep/Built_With_BOLT_CEP_Logo_Black_V01.png" alt="Built with BOLT CEP" style="height: auto; width: 400;">
+    <img src="https://raw.githubusercontent.com/hyperbrew/bolt-cep/master/src/js/assets/built-with-bolt-cep/Built_With_BOLT_CEP_Logo_White_V01.png" alt="Built with BOLT CEP" style="height: auto; width: 400;">
 </p>
 
 
