@@ -40,7 +40,7 @@ jobs:
       - name: Compress main directory
         run: |
           cd ${{ github.workspace }}/dist/main/
-          7z a -t7z -m0=lzma -mx=9 -mfb=64 -md=32m ../../TAS_.7z *
+          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_.7z *
 
       - name: Upload Release Asset
         id: upload-release-asset
