@@ -42,10 +42,7 @@ Empower your video editing journey with these robust, efficient features designe
 
 ## 🖥️ Graphical User Interfaces for Windows and After Effects
 
-<p float="left">
-  <img src="https://raw.githubusercontent.com/NevermindNilas/TheAnimeScripter/main/src/assets/image.png" width="700" />
-  <img src="https://github.com/NevermindNilas/TheAnimeScripter/assets/128264457/36671784-2512-4e9a-b7f2-a7035b741365" width="100" /> 
-</p>
+- Actively being reworked!
 
 ## 🛠️ Getting Started
 
