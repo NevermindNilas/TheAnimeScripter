@@ -35,6 +35,7 @@ class DepthV2:
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
+        bitDepth: str = "16bit",
     ):
         self.input = input
         self.output = output
@@ -51,6 +52,7 @@ class DepthV2:
         self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
+        self.bitDepth = bitDepth
 
         self.handleModels()
 
@@ -85,6 +87,7 @@ class DepthV2:
                 grayscale=True,
                 audio=False,
                 benchmark=self.benchmark,
+                bitDepth=self.bitDepth,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
@@ -229,6 +232,7 @@ class DepthDirectMLV2:
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
+        bitDepth: str = "16bit",
     ):
         import onnxruntime as ort
 
@@ -249,6 +253,7 @@ class DepthDirectMLV2:
         self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
+        self.bitDepth = bitDepth
 
         self.handleModels()
 
@@ -283,6 +288,7 @@ class DepthDirectMLV2:
                 grayscale=True,
                 audio=False,
                 benchmark=self.benchmark,
+                bitDepth=self.bitDepth
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
@@ -431,6 +437,7 @@ class DepthTensorRTV2:
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
+        bitDepth: str = "16bit",
     ):
         self.input = input
         self.output = output
@@ -497,6 +504,7 @@ class DepthTensorRTV2:
                 grayscale=True,
                 audio=False,
                 benchmark=self.benchmark,
+                bitDepth=bitDepth
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
@@ -608,7 +616,7 @@ class DepthTensorRTV2:
                 if self.half and self.isCudaAvailable:
                     frame = frame.half()
 
-                self.dummyInput.copy_(frame)
+                self.dummyInput.copy_(frame, non_blocking=True)
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
 

@@ -311,6 +311,9 @@ def createParser(isFrozen, scriptVersion, mainPath):
         action="store_true",
         help="Notify if script is run from After Effects interface",
     )
+    miscGroup.add_argument(
+        "--bit_depth", type=str, default="8bit", help="Bit Depth of the raw pipe input to FFMPEG. Useful if you want the highest quality possible - this doesn't have anything to do with --pix_fmt of the encoded ffmpeg.", choices=["8bit", "16bit"]
+    )
 
     args = argParser.parse_args()
     return argumentsChecker(args, mainPath)
@@ -394,20 +397,12 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         )
         args.upscale_skip = False
 
-    """
-    # Doesn't work with AMD GPUs
-    if args.half:
-        try:
-            import torch
-        except ImportError:
-            logging.info("Torch is not installed, please install it to use the script")
+    if args.bit_depth == "16bit" and args.segment:
+        logging.error(
+            "16bit input is not supported with segmentation, defaulting to 8bit"
+        )
+        args.bit_depth = "8bit"
 
-        if torch.cuda.is_bf16_supported():
-            logging.info("Half precision enabled")
-        else:
-            logging.info("Half precision is not supported on your system, disabling it")
-            args.half = False
-    """
 
     if args.input is None:
         toPrint = "No input specified, please specify an input file or URL to continue"
