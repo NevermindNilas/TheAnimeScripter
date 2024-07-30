@@ -10,9 +10,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### The Anime Scripter
 
 #### New
-- Added Rife 4.20 CUDA and Tensorrt.
+- Added Rife 4.20 CUDA.
 - Added Depth Anything V2 - DirectML.
 - New variable named `--scenechange_method` with choices `maxvit-directml` & `maxvit-tensorrt` ( special thanks to @sudo for the models ).
+- ProRes 444 HQ Encoder ( `--encode_method prores` )
 - Added Prores encoding support
 
 #### Improvements
@@ -40,10 +41,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### The Anime Scripter - Adobe Edition
 
 #### New
-- TBA
+- New installation method with code signing for a more secure and robust installation method.
+- Dynamic Downloading and Updating of TAS.
 
 #### Improvements
-- TBA
+- A lot of UI Changes to streamline the look of TAS and make it more compact ( still a WIP )
+- The `About` Page has been changed into a Help Icon on the left Bottom.
+- More Tooltips and informations on everything that is going on.
+- A progress bar for when you download a new release of TAS ( still a WIP )
+- The 'executable' is now ONLY 230kb on initial launch and it will soon allow for a more broader usecase with both a "Full" and "Lite" version of TAS.
+- The dropdowns now have proper hinting and sectioning of which model is for which gpu architechture.
+- Added new Models and Encoders to the UI.
+- Improved the performance and reduced some jankyness from the backend.
 
 #### Fixed
-- TBA
+- Fixed a bug where inpoint / outpoint would go out of bounds.
+- Fixed a bug where Youtube imports failed if no composition was selected.
