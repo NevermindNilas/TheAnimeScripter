@@ -20,7 +20,6 @@ Home: https://github.com/NevermindNilas/TheAnimeScripter
 """
 
 import os
-import argparse
 import warnings
 import sys
 import logging
@@ -85,7 +84,6 @@ class VideoProcessor:
         self.resize_method = args.resize_method
         self.custom_model = args.custom_model
         self.custom_encoder = args.custom_encoder
-        self.nt = args.nt
         self.buffer_limit = args.buffer_limit
         self.audio = args.audio
         self.denoise = args.denoise
@@ -271,7 +269,7 @@ if __name__ == "__main__":
     )
     logging.info("============== Command Line Arguments ==============")
     logging.info(f"{' '.join(sys.argv)}\n")
-    
+
     args = createParser(isFrozen, scriptVersion, mainPath)
 
     if os.path.isfile(args.input):

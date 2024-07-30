@@ -43,13 +43,13 @@ def createParser(isFrozen, scriptVersion, mainPath):
         "--interpolate", action="store_true", help="Interpolate the video"
     )
     interpolationGroup.add_argument(
-        "--interpolateFactor", type=int, default=2, help="Interpolation factor"
+        "--interpolate_factor", type=int, default=2, help="Interpolation factor"
     )
     interpolationGroup.add_argument(
-        "--interpolateDen", type=int, default=1, help="Interpolation denominator"
+        "--interpolate_den", type=int, default=1, help="Interpolation denominator"
     )
     interpolationGroup.add_argument(
-        "--interpolateMethod",
+        "--interpolate_method",
         type=str,
         choices=[
             "rife",
@@ -90,10 +90,10 @@ def createParser(isFrozen, scriptVersion, mainPath):
         "--upscale", action="store_true", help="Upscale the video"
     )
     upscaleGroup.add_argument(
-        "--upscaleFactor", type=int, choices=[2], default=2, help="Upscaling factor"
+        "--upscale_factor", type=int, choices=[2], default=2, help="Upscaling factor"
     )
     upscaleGroup.add_argument(
-        "--upscaleMethod",
+        "--upscale_method",
         type=str,
         choices=[
             "shufflecugan",
@@ -117,10 +117,10 @@ def createParser(isFrozen, scriptVersion, mainPath):
         help="Upscaling method",
     )
     upscaleGroup.add_argument(
-        "--customModel", type=str, default="", help="Path to custom upscaling model"
+        "--custom_model", type=str, default="", help="Path to custom upscaling model"
     )
     upscaleGroup.add_argument(
-        "--upscaleSkip",
+        "--upscale_skip",
         action="store_true",
         help="Use SSIM / SSIM-CUDA to skip duplicate frames when upscaling",
     )
@@ -131,17 +131,17 @@ def createParser(isFrozen, scriptVersion, mainPath):
         "--dedup", action="store_true", help="Deduplicate the video"
     )
     dedupGroup.add_argument(
-        "--dedupMethod",
+        "--dedup_method",
         type=str,
         default="ssim",
         choices=["ssim", "mse", "ssim-cuda", "mse-cuda"],
         help="Deduplication method",
     )
     dedupGroup.add_argument(
-        "--dedupSens", type=float, default=35, help="Deduplication sensitivity"
+        "--dedup_sens", type=float, default=35, help="Deduplication sensitivity"
     )
     dedupGroup.add_argument(
-        "--sampleSize", type=int, default=224, help="Sample size for deduplication"
+        "--sample_size", type=int, default=224, help="Sample size for deduplication"
     )
 
     # Video processing options
@@ -150,13 +150,13 @@ def createParser(isFrozen, scriptVersion, mainPath):
         "--sharpen", action="store_true", help="Sharpen the video"
     )
     processingGroup.add_argument(
-        "--sharpenSens", type=float, default=50, help="Sharpening sensitivity"
+        "--sharpen_sens", type=float, default=50, help="Sharpening sensitivity"
     )
     processingGroup.add_argument(
         "--denoise", action="store_true", help="Denoise the video"
     )
     processingGroup.add_argument(
-        "--denoiseMethod",
+        "--denoise_method",
         type=str,
         default="scunet",
         choices=["scunet", "nafnet", "dpir", "real-plksr"],
@@ -166,13 +166,13 @@ def createParser(isFrozen, scriptVersion, mainPath):
         "--resize", action="store_true", help="Resize the video"
     )
     processingGroup.add_argument(
-        "--resizeFactor",
+        "--resize_factor",
         type=float,
         default=2,
         help="Resize factor (can be between 0 and 1 for downscaling)",
     )
     processingGroup.add_argument(
-        "--resizeMethod",
+        "--resize_method",
         type=str,
         choices=[
             "fast_bilinear",
@@ -198,7 +198,7 @@ def createParser(isFrozen, scriptVersion, mainPath):
     sceneGroup = argParser.add_argument_group("Scene Detection")
     sceneGroup.add_argument("--segment", action="store_true", help="Segment the video")
     sceneGroup.add_argument(
-        "--segmentMethod",
+        "--segment_method",
         type=str,
         default="anime",
         choices=["anime", "anime-tensorrt", "anime-directml"],
@@ -208,20 +208,20 @@ def createParser(isFrozen, scriptVersion, mainPath):
         "--autoclip", action="store_true", help="Detect scene changes"
     )
     sceneGroup.add_argument(
-        "--autoclipSens", type=float, default=50, help="Autoclip sensitivity"
+        "--autoclip_sens", type=float, default=50, help="Autoclip sensitivity"
     )
     sceneGroup.add_argument(
         "--scenechange", action="store_true", help="Detect scene changes"
     )
     sceneGroup.add_argument(
-        "--scenechangeMethod",
+        "--scenechange_method",
         type=str,
         default="maxvit-directml",
         choices=["maxvit-tensorrt", "maxvit-directml"],
         help="Scene change detection method",
     )
     sceneGroup.add_argument(
-        "--scenechangeSens",
+        "--scenechange_sens",
         type=float,
         default=50,
         help="Scene change detection sensitivity (0-100)",
@@ -233,7 +233,7 @@ def createParser(isFrozen, scriptVersion, mainPath):
         "--depth", action="store_true", help="Estimate the depth of the video"
     )
     depthGroup.add_argument(
-        "--depthMethod",
+        "--depth_method",
         type=str,
         choices=[
             "small_v2",
@@ -253,7 +253,7 @@ def createParser(isFrozen, scriptVersion, mainPath):
     # Encoding options
     encodingGroup = argParser.add_argument_group("Encoding")
     encodingGroup.add_argument(
-        "--encodeMethod",
+        "--encode_method",
         type=str,
         choices=[
             "x264",
@@ -280,7 +280,7 @@ def createParser(isFrozen, scriptVersion, mainPath):
         help="Encoding method",
     )
     encodingGroup.add_argument(
-        "--customEncoder", type=str, default="", help="Custom encoder settings"
+        "--custom_encoder", type=str, default="", help="Custom encoder settings"
     )
 
     # Flow options
@@ -291,7 +291,7 @@ def createParser(isFrozen, scriptVersion, mainPath):
 
     # Miscellaneous options
     miscGroup = argParser.add_argument_group("Miscellaneous")
-    miscGroup.add_argument("--bufferLimit", type=int, default=50, help="Buffer limit")
+    miscGroup.add_argument("--buffer_limit", type=int, default=50, help="Buffer limit")
     miscGroup.add_argument(
         "--audio",
         action="store_true",
@@ -313,10 +313,10 @@ def createParser(isFrozen, scriptVersion, mainPath):
     )
 
     args = argParser.parse_args()
-    argumentsChecker(args, mainPath)
+    return argumentsChecker(args, mainPath)
 
 
-def argumentsChecker(args, mainPath, scriptVersion):
+def argumentsChecker(args, mainPath):
     banner = """
 _____________            _______       _____                      ________            _____        _____             
 ___  __/__  /______      ___    |_________(_)______ ________      __  ___/_______________(_)_________  /_____________
