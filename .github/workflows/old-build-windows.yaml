@@ -8,6 +8,12 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      - name: Get Date
+        id: date
+        uses: Kaven-Universe/github-action-current-date-time@v1.4.0
+        with:
+          format: "YYYY_MM_DD"
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -18,37 +24,18 @@ jobs:
         with:
           python-version: "3.11.9"
 
+      - name: Update pip
+        run: python -m pip install --upgrade pip
+
       - name: Pip Install Requirements-Dev
         run: python -m pip install -r requirements-dev-windows.txt
 
       - name: Sanity Check - List pip modules
         run: python -m pip list
       
-      #- name: Install setuptools
-      #  run: python -m pip install --upgrade pip setuptools
-#
-      ## This should hopefully work
-      #- name: Cache pip modules
-      #  uses: actions/cache@v3
-      #  with:
-      #    path: ~\AppData\Local\pip\Cache
-      #    key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-      #    restore-keys: |
-      #      ${{ runner.os }}-pip-
-#
-      #- name: Install dependencies
-      #  run: python -m pip install -r requirements.txt
-#
-      #- name: Sanity Check - List pip modules
-      #  run: python -m pip list
-
       - name: Run build script
-        run: python build.py --venv
+        run: python build.py
 
-      - name: Get the date
-        id: date
-        run: echo "::set-output name=date::$(date +'%Y%m%d%H%M%S')"
-      
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -61,8 +48,8 @@ jobs:
 
       - name: Compress main directory
         run: |
-          cd ${{ github.workspace }}/dist/main/
-          7z a -t7z -m0=lzma -mx=9 -mfb=64 -md=32m ../../TAS_${{ steps.get_version.outputs.VERSION }}.7z *
+          cd TheAnimeScripter/dist/main/
+          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../../TAS_${{ steps.date.outputs.date }}.7z *
           
       - name: Upload Release Asset
         id: upload-release-asset
@@ -71,6 +58,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: TAS_${{ steps.get_version.outputs.VERSION }}.7z
-          asset_name: TAS_${{ steps.get_version.outputs.VERSION }}.7z
+          asset_path: TAS_${{ steps.date.outputs.date }}.7z
+          asset_name: TAS_${{ steps.date.outputs.date }}.7z
           asset_content_type: application/x-7z-compressed
