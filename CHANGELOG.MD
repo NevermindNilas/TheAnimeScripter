@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - The dropdowns now have proper hinting and sectioning of which model is for which gpu architechture.
 - Added new Models and Encoders to the UI.
 - Improved the performance and reduced some jankyness from the backend.
+- Changed preset template from lossless to highquality to reduce overall space for rendering
 
 #### Fixed
 - Fixed a bug where inpoint / outpoint would go out of bounds.
