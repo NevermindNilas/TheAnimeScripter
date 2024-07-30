@@ -66,9 +66,9 @@ Linux:
 
 1. Download the latest `-AdobeEdition` release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases/).
 2. Extract the files using WinRAR or 7-Zip.
-3. Run `DO THIS FIRST.reg` to enable TheAnimeScripter in Adobe After Effects.
-4. Copy the extracted folder to `C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\`.
-5. Access the script via `Window -> Extensions -> TheAnimeScripter` ( A restart of After Efffects may be needed ).
+3. Follow this step-by-step [tutorial](https://www.goodboy.ninja/help/install/extensions)
+
+- [In case if you failed to install it, click here for manual installation](https://www.goodboy.ninja/help/install/extensions-manually)
 
 ## 📚 Available Inputs
 
