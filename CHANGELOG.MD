@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### New
 - New installation method with code signing for a more secure and robust installation method.
 - Dynamic Downloading and Updating of TAS.
+- Pre-Render now works with more than 1 active / selected layer
 
 #### Improvements
 - A lot of UI Changes to streamline the look of TAS and make it more compact ( still a WIP )
@@ -57,3 +58,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### Fixed
 - Fixed a bug where inpoint / outpoint would go out of bounds.
 - Fixed a bug where Youtube imports failed if no composition was selected.
+- Fixed a bug where pre-render would not not adjust the work area properly before processing.
