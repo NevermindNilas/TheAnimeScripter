@@ -12,9 +12,9 @@ from alive_progress import alive_bar
 
 
 def calculateAspectRatio(width, height):
-    aspectRatio = width / height
-    newHeight = 518  # hardcoded value
-    newWidth = round(newHeight * aspectRatio / 14) * 14
+    newWidth = ((width + 13 ) // 14) * 14
+    newHeight = ((height + 13) // 14) * 14
+
     return newHeight, newWidth
 
 class DepthV2:
@@ -338,15 +338,17 @@ class DepthDirectMLV2:
             self.numpyDType = np.float32
             self.torchDType = torch.float32
 
+        self.newWidth, self.newHeight = calculateAspectRatio(self.width, self.height)
+
         self.IoBinding = self.model.io_binding()
         self.dummyInput = torch.zeros(
-            (1, 3, 518, 518),
+            (1, 3, self.newHeight, self.newWidth),
             device=self.deviceType,
             dtype=self.torchDType,
         ).contiguous()
 
         self.dummyOutput = torch.zeros(
-            (1, 1, 518, 518),
+            (1, 1, self.newHeight, self.newWidth),
             device=self.deviceType,
             dtype=self.torchDType,
         ).contiguous()
@@ -367,7 +369,7 @@ class DepthDirectMLV2:
 
             frame = F.interpolate(
                 frame,
-                size=(518, 518),
+                size=(self.newHeight, self.newWidth),
                 mode="bilinear",
                 align_corners=False,
             )

@@ -17,11 +17,9 @@ class SceneChange:
         self.half = half
 
         import onnxruntime as ort
-        import cv2
         import numpy as np
 
         self.ort = ort
-        self.cv2 = cv2
         self.np = np
         self.sceneChangeThreshold = sceneChangeThreshold
 
@@ -66,7 +64,7 @@ class SceneChange:
     @torch.inference_mode()
     def processFrame(self, frame):
         frame = frame.cpu().numpy()
-        frame = self.cv2.resize(frame, (224, 224))
+        frame = self.np.resize(frame, (224, 224, 3))
         frame = frame.astype(self.np.float16) if self.half else frame.astype(self.np.float32)
         frame = frame / 255.0
         frame = frame.transpose((2, 0, 1))
