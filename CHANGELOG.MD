@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### New
 - Added `--bit_depth` in order to enable higher precision workflows. Options [8bit, 16bit].
 
+#### Improvements
+- Scenechange should be 5% faster than previously.
+
+#### Fixes
+- TensorRT artifactings when using Depth Maps.
+- Depth Maps produced incostistent results with buggy and aliased outputs, TRT looked arguably worse than DirectML across the board.
+
 ## [1.9.1] - 2024-07-30
  
 ### The Anime Scripter
