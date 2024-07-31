@@ -404,6 +404,11 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         )
         args.bit_depth = "8bit"
 
+    if args.encode_method == "gif":
+        logging.info("GIF encoding selected, disabling audio")
+        args.audio = False
+
+
 
     if args.input is None:
         toPrint = "No input specified, please specify an input file or URL to continue"
