@@ -275,6 +275,7 @@ def createParser(isFrozen, scriptVersion, mainPath):
             "hevc_amf_10bit",
             "prores",
             "prores_segment",
+            "gif",
         ],
         default="x264",
         help="Encoding method",

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### New
 - Added `--bit_depth` in order to enable higher precision workflows. Options [8bit, 16bit].
+- .GIF input support using `--encode_method gif`
 
 #### Improvements
 - Scenechange should be 5% faster than previously.
