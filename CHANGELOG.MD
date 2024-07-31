@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### Improvements
 - Scenechange should be 5% faster than previously.
+- Depth Maps should now produce significantly better outputs compared to previous releases at a roughly 5x deduction in performance.
 
 #### Fixes
 - TensorRT artifactings when using Depth Maps.
