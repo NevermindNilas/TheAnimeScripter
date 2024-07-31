@@ -348,14 +348,12 @@ class WriteBuffer:
             inputPixFormat = "rgb24"
             outputPixFormat = "yuv420p"
         else:
-            inputPixFormat = "rgb48be"
+            inputPixFormat = "rgb48le"
             outputPixFormat = "yuv444p10le"
 
         if self.transparent:
             if self.bitDepth != "8bit":
-                logging.info(
-                    "Transparency is not supported in 16bit right now, switching to 8bit"
-                )
+                print("Transparency is not supported in 16bit right now, switching to 8bit")
                 self.bitDepth = "8bit"
 
             if self.encode_method not in ["prores_segment"]:
@@ -373,7 +371,7 @@ class WriteBuffer:
                 inputPixFormat = "gray"
                 outputPixFormat = "yuv420p"
             else:
-                inputPixFormat = "gray16be"
+                inputPixFormat = "gray16le"
                 outputPixFormat = "yuv444p10le"
 
         elif self.encode_method in ["x264_10bit", "x265_10bit"]:
@@ -381,7 +379,7 @@ class WriteBuffer:
                 inputPixFormat = "rgb24"
                 outputPixFormat = "yuv420p10le"
             else:
-                inputPixFormat = "rgb48be"
+                inputPixFormat = "rgb48le"
                 outputPixFormat = "yuv444p10le"
         
         elif self.encode_method in ["nvenc_h265_10bit",  "hevc_amf_10bit", "qsv_h265_10bit"]:
@@ -389,7 +387,7 @@ class WriteBuffer:
                 inputPixFormat = "rgb24"
                 outputPixFormat = "p010le"
             else:
-                inputPixFormat = "rgb48be"
+                inputPixFormat = "rgb48le"
                 outputPixFormat = "p010le"
         
         elif self.encode_method in ["prores"]:
@@ -397,7 +395,7 @@ class WriteBuffer:
                 inputPixFormat = "rgb24"
                 outputPixFormat = "yuv444p10le"
             else:
-                inputPixFormat = "rgb48be"
+                inputPixFormat = "rgb48le"
                 outputPixFormat = "yuv444p10le"
 
         if not self.benchmark:
@@ -537,7 +535,7 @@ class WriteBuffer:
                         if self.bitDepth == "8bit":
                             frame = frame.to(torch.uint8).contiguous().cpu().numpy()
                         else:
-                            frame = frame.to(torch.uint16).contiguous().cpu().numpy()
+                            frame = frame.to(torch.float32).mul(257).to(torch.uint16).contiguous().cpu().numpy()
 
                         self.process.stdin.buffer.write(frame)
                         writtenFrames += 1
