@@ -237,9 +237,12 @@ class BuildBuffer:
             self.decodedFrames = 0
             self.readingDone = False
 
-            for _ in range(self.totalFrames):
-                raw_frame = process.stdout.read(chunk)
-                self.readBuffer.put(torch.frombuffer(raw_frame, dtype=torch.uint8).view(self.height, self.width, 3))
+            while True:
+                rawFrame = process.stdout.read(chunk)
+                if not rawFrame:
+                    self.readBuffer.put(None)
+                    break
+                self.readBuffer.put(torch.frombuffer(rawFrame, dtype=torch.uint8).view(self.height, self.width, 3))
                 self.decodedFrames += 1
                 
         except Exception as e:

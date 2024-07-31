@@ -192,6 +192,9 @@ class VideoProcessor:
         ) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()
+                if frame is None:
+                    self.writeBuffer.close()
+                    break
                 self.processFrame(frame)
                 frameCount += 1
                 bar(increment)
