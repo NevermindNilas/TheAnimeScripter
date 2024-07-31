@@ -101,6 +101,8 @@ def matchEncoder(encode_method: str):
             )
         case "prores" | "prores_segment":
             command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "15"])
+        case "gif":
+            command.extend(["-c:v", "gif", "-loop", "0"])
         
     return command
 
