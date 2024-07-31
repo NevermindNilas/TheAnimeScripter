@@ -1,5 +1,4 @@
-import cv2
-
+import numpy as np
 
 class DedupSSIMCuda:
     def __init__(
@@ -75,8 +74,10 @@ class DedupSSIM:
         self.prevFrame = None
 
         from skimage.metrics import structural_similarity as ssim
+        from skimage import color
 
         self.ssim = ssim
+        self.color = color
 
     def run(self, frame):
         """
@@ -88,15 +89,15 @@ class DedupSSIM:
 
         frame = self.processFrame(frame)
 
-        score = self.ssim(self.prevFrame, frame)
+        score = self.ssim(self.prevFrame, frame, data_range=frame.max() - frame.min())
         self.prevFrame = frame.copy()
 
         return score > self.ssimThreshold
 
     def processFrame(self, frame):
         frame = frame.cpu().numpy()
-        frame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        frame = np.resize(frame, (self.sampleSize, self.sampleSize, 3))
+        frame = self.color.rgb2gray(frame)
 
         return frame
 
@@ -112,8 +113,10 @@ class DedupMSE:
         self.prevFrame = None
 
         from skimage.metrics import mean_squared_error as mse
+        from skimage import color
 
         self.mse = mse
+        self.color = color
 
     def run(self, frame):
         """
@@ -131,8 +134,8 @@ class DedupMSE:
         return score < self.mseThreshold
 
     def processFrame(self, frame):
-        frame = frame.numpy()
-        frame = cv2.resize(frame, (self.sampleSize, self.sampleSize))
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        frame = frame.cpu().numpy()
+        frame = np.resize(frame, (self.sampleSize, self.sampleSize, 3))
+        frame = self.color.rgb2gray(frame)
 
         return frame
