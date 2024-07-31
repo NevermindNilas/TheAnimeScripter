@@ -60,4 +60,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
 
     cap.release()
 
-    return width, height, fps, totalFramesToBeProcessed
+    if totalFramesToBeProcessed != nframes:
+        return width, height, fps, totalFramesToBeProcessed
+
+    return width, height, fps, nframes
