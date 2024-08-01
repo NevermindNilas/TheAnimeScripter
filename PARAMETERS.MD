@@ -84,7 +84,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 - `--depth` (action=store_true): Generate Depth Maps.
 - `--depth_method` (str, default="small"): Depth map generation method:
-     - Options: "small / small-tensorrt / small-directml", "base / base-tensorrt / base-directml ", " large / large-tensorrt / large-directml".
+     - Options: "small_v2 / small_v2-tensorrt / small_v2-directml", "base_v2 / base_v2-tensorrt / base_v2-directml ", " large_v2 / large_v2-tensorrt / large_v2-directml".
 
 #### Resizing:
 
@@ -94,12 +94,36 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
     - Options: "lanczos" (recommended for upscaling), "area" (recommended for downscaling).
 
 #### Encoding Settings:
-
 - `--encode_method` (str, default="x264"): Encoding method:
-    - Options: x264, x264_animation, x265, nvenc_h264, nvenc_h265, qsv_h264, qsv_h265, h264_amf, hevc_amf, prores.
+    - Options:
+        - `x264`: Uses `libx264` codec with `-preset veryfast -crf 15`.
+        - `x264_10bit`: Uses `libx264` codec with `-preset veryfast -crf 15 -profile:v high10`.
+        - `x264_animation`: Uses `libx264` codec with `-preset veryfast -tune animation -crf 15`.
+        - `x264_animation_10bit`: Uses `libx264` codec with `-preset veryfast -tune animation -crf 15 -profile:v high10`.
+        - `x265`: Uses `libx265` codec with `-preset veryfast -crf 15`.
+        - `x265_10bit`: Uses `libx265` codec with `-preset veryfast -crf 15 -profile:v main10`.
+        - `nvenc_h264`: Uses `h264_nvenc` codec with `-preset p1 -cq 15`.
+        - `nvenc_h265`: Uses `hevc_nvenc` codec with `-preset p1 -cq 15`.
+        - `nvenc_h265_10bit`: Uses `hevc_nvenc` codec with `-preset p1 -cq 15 -profile:v main10`.
+        - `qsv_h264`: Uses `h264_qsv` codec with `-preset veryfast -global_quality 15`.
+        - `qsv_h265`: Uses `hevc_qsv` codec with `-preset veryfast -global_quality 15`.
+        - `qsv_h265_10bit`: Uses `hevc_qsv` codec with `-preset veryfast -global_quality 15 -profile:v main10`.
+        - `nvenc_av1`: Uses `av1_nvenc` codec with `-preset p1 -cq 15`.
+        - `av1`: Uses `libsvtav1` codec with `-preset 8 -crf 15`.
+        - `h264_amf`: Uses `h264_amf` codec with `-quality speed -rc cqp -qp 15`.
+        - `hevc_amf`: Uses `hevc_amf` codec with `-quality speed -rc cqp -qp 15`.
+        - `hevc_amf_10bit`: Uses `hevc_amf` codec with `-quality speed -rc cqp -qp 15 -profile:v main10`.
+        - `prores`: Uses `prores_ks` codec with `-profile:v 4 -qscale:v 15`.
+        - `gif`: Uses `gif` codec with `-qscale:v 1 -loop 0`.
+        - `image`: Uses `png` codec with `-q:v 1`.
+
+    - NOTE: 
+        - Depending on --bit_depth the output --pix_fmt and encoder the output pix format can dynamically switch between yuv420p, yuv420p10le and yuv444p10le.
+        - If you want even more fine grained access refer to `--custom_encoder` below.
+
 - `--custom_encoder` (str, default=""): Comprehensive encoding option allowing users to specify their own `ffmpeg` parameters, including filters. Input a string of `ffmpeg` parameters, separated by spaces.
 
-    Example: `--custom_encoder="-c:v libx264 -crf 14 -vf hqdn3d -pix_fmt yuv420"`
+    Example: `--custom_encoder="-c:v libx264 -crf 14 -vf hqdn3d -pix_fmt yuv420p"`
 
 #### Performance Settings:
 
@@ -137,9 +161,9 @@ Example 6: Enable interpolation coupled with scene change detection.
 
 - `python .\main.py --input .\input\test.mp4 --interpolate --scenechange` 
 
-Example 7: Enable depth map generation using the "large" method.
+Example 7: Enable depth map generation using the "large" method and 16bit workflow.
 
-- `python .\main.py --input .\input\test.mp4 --depth --depth_method large`
+- `python .\main.py --input .\input\test.mp4 --depth --depth_method large_v2 --bit_depth 16bit`
 
 Example 8: Download a YouTube video, upscale it with span-tensorrt, interpolate it with rife4.17-tensorrt coupled with scene change detection.
 
