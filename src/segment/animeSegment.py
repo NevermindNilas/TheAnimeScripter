@@ -244,10 +244,11 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
 
     def handleModel(self):
         filename = modelsMap("segment-tensorrt")
-        if not os.path.exists(os.path.join(weightsDir, "segment-tensorrt", filename)):
+        folderName = "segment-onnx"
+        if not os.path.exists(os.path.join(weightsDir, folderName, filename)):
             modelPath = downloadModels(model="segment-tensorrt")
         else:
-            modelPath = os.path.join(weightsDir, "segment-tensorrt", filename)
+            modelPath = os.path.join(weightsDir, folderName, filename)
 
         self.device = torch.device("cuda")
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
@@ -443,10 +444,11 @@ class AnimeSegmentDirectML:
 
     def handleModel(self):
         self.filename = modelsMap("segment-directml")
-        if not os.path.exists(os.path.join(weightsDir, "segment-directml", self.filename)):
+        folderName = "segment-onnx"
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
             modelPath = downloadModels(model="segment-directml")
         else:
-            modelPath = os.path.join(weightsDir, "segment-directml", self.filename)
+            modelPath = os.path.join(weightsDir, folderName, self.filename)
         
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width

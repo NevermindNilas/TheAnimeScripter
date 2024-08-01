@@ -305,8 +305,10 @@ def createParser(isFrozen, scriptVersion, mainPath):
     )
     miscGroup.add_argument(
         "--offline",
-        action="store_true",
-        help="Download all available models for offline use",
+        type=str,
+        nargs='*',
+        default="none",
+        help="Download a specific model or multiple models for offline use, use keyword 'all' to download all models",
     )
     miscGroup.add_argument(
         "--ae",
@@ -350,13 +352,20 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
     logging.info("\n============== Arguments Checker ==============")
     args.ffmpeg_path = getFFMPEG()
 
-    if args.offline:
+    if args.offline != "none":
         toPrint = "Offline mode enabled, downloading all available models, this can take some time but it will allow for the script to be used offline"
         logging.info(toPrint)
         print(green(toPrint))
-        options = modelsList()
+
+        options = modelsList() if args.offline == ["all"] else args.offline
         for option in options:
-            downloadModels(option)
+            for precision in [True, False]:
+                try:
+                    downloadModels(option, half=precision)
+                except Exception as e:
+                    logging.error(e)
+                    print(red(f"Failed to download model: {option} with precision: " + ("fp16" if precision else "fp32")))
+
         toPrint = "All models downloaded!"
         logging.info(toPrint)
         print(green(toPrint))

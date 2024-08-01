@@ -10,7 +10,13 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 - `--version` (action=store_true): Outputs the script version.
 - `--benchmark` (action=store_true): Enable benchmarking. This will not output any video and it will only test the performance of the script without any additional processing.
-- `--offline` (action=store_true): Enable offline mode, this will download all available models and store them locally in the weights folder, due to Github rate limiting and variables like internet connection this can take up to 5 minutes but it will make the script work 100% offline. ( except for YTDLP )
+- `--offline` (str: "none"): Download models based on user selection.
+    Choices / Examples:
+        - "None": Default state, does not download anything.
+        - "All": Downloads all available models.
+        - Single Option (e.g., "rife4.20"): Downloads the specified model.
+        - Multiple Options (e.g., "rife4.20 rife4.18 shufflecugan-tensorrt"): Downloads the specified models (any model can be listed here).
+        
 - `--ae` (actions=store_true, default=False): A simple flag for the script to know if it's ran from the After Effects interface or not.
 
 #### Input and Output:
