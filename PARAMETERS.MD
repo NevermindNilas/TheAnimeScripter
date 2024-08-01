@@ -118,8 +118,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
         - `image`: Uses `png` codec with `-q:v 1`.
 
     - NOTE: 
-        - Depending on --bit_depth the output --pix_fmt and encoder the output pix format can dynamically switch between yuv420p, yuv420p10le and yuv444p10le.
-        - If you want even more fine grained access refer to `--custom_encoder` below.
+        - Depending on `--bit_depth` and the desired `--encode_method` the output pix format (ffmpeg's --pix_fmt ) can dynamically switch between yuv420p, yuv420p10le and yuv444p10le. If you want even more fine grained access refer to `--custom_encoder` below.
 
 - `--custom_encoder` (str, default=""): Comprehensive encoding option allowing users to specify their own `ffmpeg` parameters, including filters. Input a string of `ffmpeg` parameters, separated by spaces.
 
