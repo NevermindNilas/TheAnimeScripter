@@ -12,8 +12,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### New
 - Added `--bit_depth` in order to enable higher precision workflows. Options [8bit, 16bit].
-- .GIF input support using `--encode_method gif`
-- .png / .jpeg support using `--encode_method image`
+- .GIF input support using `--encode_method gif` - STILL A WIP!!!
+- .png / .jpeg support using `--encode_method image` - STILL A WIP!!!
 - A complete overhaul on how model downloading works, it is recommended to go to Appdata\Roaming\TheAnimeScripter\Weights and deleting the whole folder with this version
 
 #### Improvements
