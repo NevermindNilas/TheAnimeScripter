@@ -91,30 +91,13 @@ class SceneChangeTensorRT:
         self.half = half
         self.sceneChangeThreshold = sceneChangeThreshold
 
-        from polygraphy.backend.trt import (
-            TrtRunner,
-            engine_from_network,
-            network_from_onnx_path,
-            CreateConfig,
-            Profile,
-            EngineFromBytes,
-            SaveEngine,
-        )
-        from polygraphy.backend.common import BytesFromPath
-
         import tensorrt as trt
-
-
-        self.TrtRunner = TrtRunner
-        self.engine_from_network = engine_from_network
-        self.network_from_onnx_path = network_from_onnx_path
-        self.CreateConfig = CreateConfig
-        self.Profile = Profile
-        self.EngineFromBytes = EngineFromBytes
-        self.SaveEngine = SaveEngine
-        self.BytesFromPath = BytesFromPath
+        from .utils.trtHandler import TensorRTEngineCreator, TensorRTEngineLoader, TensorRTEngineNameHandler
 
         self.trt = trt
+        self.TensorRTEngineCreator = TensorRTEngineCreator
+        self.TensorRTEngineLoader = TensorRTEngineLoader
+        self.TensorRTEngineNameHandler = TensorRTEngineNameHandler
 
         self.handleModel()
 
@@ -125,51 +108,29 @@ class SceneChangeTensorRT:
         )
 
         if not os.path.exists(os.path.join(weightsDir, "scenechange", filename)):
-            modelPath = downloadModels(
+            self.modelPath = downloadModels(
                 "scenechange",
                 half=self.half,
             )
 
         else:
-            modelPath = os.path.join(weightsDir, "scenechange", filename)
+            self.modelPath = os.path.join(weightsDir, "scenechange", filename)
 
-        if self.half:
-            trtEngineModelPath = modelPath.replace(".onnx", "_fp16.engine")
-        else:
-            trtEngineModelPath = modelPath.replace(".onnx", "_fp32.engine")
+        enginePath = self.TensorRTEngineNameHandler(
+            modelPath=self.modelPath, fp16=self.half, optInputShape=[0, 6, 224, 224]
+        )
 
-        if not os.path.exists(trtEngineModelPath):
-            toPrint = f"Engine not found, creating dynamic engine for model: {modelPath}, this may take a while, but it is worth the wait..."
-            print(yellow(toPrint))
-            logging.info(toPrint)
-
-            profile = [
-                self.Profile().add(
-                    "input",
-                    min=(6, 224, 224),
-                    opt=(6, 224, 224),
-                    max=(6, 224, 224),
-                )
-            ]
-
-            self.config = self.CreateConfig(
+        if not os.path.exists(enginePath):
+            self.engine, self.context = self.TensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
                 fp16=self.half,
-                profiles=profile,
-                preview_features=[],
+                inputsMin=[6, 224, 224],
+                inputsOpt=[6, 224, 224],
+                inputsMax=[6, 224, 224],
             )
-
-            self.engine = self.engine_from_network(
-                self.network_from_onnx_path(modelPath),
-                config=self.config,
-            )
-            self.engine = self.SaveEngine(self.engine, trtEngineModelPath)
-            self.engine.__call__()
-
-        with open(trtEngineModelPath, "rb") as f, self.trt.Runtime(
-            self.trt.Logger(self.trt.Logger.INFO)
-        ) as runtime:
-            self.engine = runtime.deserialize_cuda_engine(f.read())
-            self.context = self.engine.create_execution_context()
+        else:
+            self.engine, self.context = self.TensorRTEngineLoader(enginePath)
 
         self.dType = torch.float16 if self.half else torch.float32
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
