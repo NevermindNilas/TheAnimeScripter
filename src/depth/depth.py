@@ -459,20 +459,12 @@ class DepthTensorRTV2:
         self.totalFrames = totalFrames
 
         import tensorrt as trt
-        from polygraphy.backend.trt import (
-            engine_from_network,
-            network_from_onnx_path,
-            CreateConfig,
-            Profile,
-            SaveEngine,
-        )
+        from src.utils.trtHandler import TensorRTEngineCreator, TensorRTEngineLoader, TensorRTEngineNameHandler
 
         self.trt = trt
-        self.engine_from_network = engine_from_network
-        self.network_from_onnx_path = network_from_onnx_path
-        self.CreateConfig = CreateConfig
-        self.Profile = Profile
-        self.SaveEngine = SaveEngine
+        self.TensorRTEngineCreator = TensorRTEngineCreator
+        self.TensorRTEngineLoader = TensorRTEngineLoader
+        self.TensorRTEngineNameHandler = TensorRTEngineNameHandler
 
         self.handleModels()
 
@@ -527,45 +519,32 @@ class DepthTensorRTV2:
 
         folderName = self.depth_method.replace("-tensorrt", "-onnx")
         if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            modelPath = downloadModels(
+            self.modelPath = downloadModels(
                 model=self.depth_method,
                 half=self.half,
                 modelType="onnx",
             )
         else:
-            modelPath = os.path.join(weightsDir, folderName, self.filename)
+            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
 
         self.newHeight, self.newWidth = calculateAspectRatio(self.width, self.height)
 
-        engineName = f"{self.depth_method}_{self.height}x{self.width}.engine"
-
-        enginePath = modelPath.replace(".onnx", engineName)
+        enginePath = self.TensorRTEngineNameHandler(
+            modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 3, self.newHeight, self.newWidth]
+        )
 
         if not os.path.exists(enginePath):
-            toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
-            print(yellow(toPrint))
-            logging.info(toPrint)
-            profiles = [
-                self.Profile().add(
-                    "image",
-                    min=(1, 3, self.newHeight, self.newWidth),
-                    opt=(1, 3, self.newHeight, self.newWidth),
-                    max=(1, 3, self.newHeight, self.newWidth),
-                ),
-            ]
-            self.engine = self.engine_from_network(
-                self.network_from_onnx_path(modelPath),
-                config=self.CreateConfig(fp16=self.half, profiles=profiles),
+            self.engine, self.context = self.TensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
+                fp16=self.half,
+                inputsMin=[1, 3, self.newHeight, self.newWidth],
+                inputsOpt=[1, 3, self.newHeight, self.newWidth],
+                inputsMax=[1, 3, self.newHeight, self.newWidth],
+                inputName="image",
             )
-            self.engine = self.SaveEngine(self.engine, enginePath)
-
-            self.engine.__call__()
-
-        with open(enginePath, "rb") as f, self.trt.Runtime(
-            self.trt.Logger(self.trt.Logger.INFO)
-        ) as runtime:
-            self.engine = runtime.deserialize_cuda_engine(f.read())
-            self.context = self.engine.create_execution_context()
+        else:
+            self.engine, self.context = self.TensorRTEngineLoader(enginePath)
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(

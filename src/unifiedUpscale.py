@@ -146,28 +146,15 @@ class UniversalTensorRT:
         """
 
         # Attempt to lazy load for faster startup
-        from polygraphy.backend.trt import (
-            TrtRunner,
-            engine_from_network,
-            network_from_onnx_path,
-            CreateConfig,
-            Profile,
-            EngineFromBytes,
-            SaveEngine,
-        )
-        from polygraphy.backend.common import BytesFromPath
+
 
         import tensorrt as trt
+        from .utils.trtHandler import TensorRTEngineCreator, TensorRTEngineLoader, TensorRTEngineNameHandler
 
-
-        self.TrtRunner = TrtRunner
-        self.engine_from_network = engine_from_network
-        self.network_from_onnx_path = network_from_onnx_path
-        self.CreateConfig = CreateConfig
-        self.Profile = Profile
-        self.EngineFromBytes = EngineFromBytes
-        self.SaveEngine = SaveEngine
-        self.BytesFromPath = BytesFromPath
+        self.trt = trt
+        self.TensorRTEngineCreator = TensorRTEngineCreator
+        self.TensorRTEngineLoader = TensorRTEngineLoader
+        self.TensorRTEngineNameHandler = TensorRTEngineNameHandler
 
         self.upscaleMethod = upscaleMethod
         self.upscaleFactor = upscaleFactor
@@ -177,7 +164,6 @@ class UniversalTensorRT:
         self.customModel = customModel
         self.upscaleSkip = upscaleSkip
 
-        self.trt = trt
 
         self.handleModel()
 
@@ -192,16 +178,16 @@ class UniversalTensorRT:
             )
             folderName = self.upscaleMethod.replace("-tensorrt", "-onnx")
             if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-                modelPath = downloadModels(
+                self.modelPath = downloadModels(
                     model=self.upscaleMethod,
                     upscaleFactor=self.upscaleFactor,
                     half=self.half,
                     modelType=modelType,
                 )
             else:
-                modelPath = os.path.join(weightsDir, folderName, self.filename)
+                self.modelPath = os.path.join(weightsDir, folderName, self.filename)
         else:
-            modelPath = self.customModel
+            self.modelPath = self.customModel
             if not os.path.exists(self.customModel):
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
@@ -215,36 +201,23 @@ class UniversalTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
-        enginePrecision = "fp16" if "fp16" in modelPath else "fp32"
-        if not os.path.exists(modelPath.replace(".onnx", f"_{enginePrecision}.engine")):
-            toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
-            print(yellow(toPrint))
-            logging.info(toPrint)
-            profiles = [
-                self.Profile().add(
-                    "input",
-                    min=(1, 3, 8, 8),
-                    opt=(1, 3, self.height, self.width),
-                    max=(1, 3, 1080, 1920),
-                ),
-            ]
-            self.engine = self.engine_from_network(
-                self.network_from_onnx_path(modelPath),
-                config=self.CreateConfig(fp16=self.half, profiles=profiles),
-            )
-            self.engine = self.SaveEngine(
-                self.engine, modelPath.replace(".onnx", f"_{enginePrecision}.engine")
-            )
-            self.engine.__call__()
+        enginePath = self.TensorRTEngineNameHandler(
+            modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 3, self.height, self.width]
+        )
 
-        with open(
-            modelPath.replace(".onnx", f"_{enginePrecision}.engine"), "rb"
-        ) as f, self.trt.Runtime(self.trt.Logger(self.trt.Logger.INFO)) as runtime:
-            self.engine = runtime.deserialize_cuda_engine(f.read())
-            self.context = self.engine.create_execution_context()
+        if not os.path.exists(enginePath):
+            self.engine, self.context = self.TensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
+                fp16=self.half,
+                inputsMin=[1, 3, 8, 8],
+                inputsOpt=[1, 3, self.height, self.width],
+                inputsMax=[1, 3, 1080, 1920],
+            )
+        else:
+            self.engine, self.context = self.TensorRTEngineLoader(enginePath)
 
         self.stream = torch.cuda.Stream()
-
         self.dummyInput = torch.zeros(
             (1, 3, self.height, self.width),
             device=self.device,
@@ -290,7 +263,7 @@ class UniversalTensorRT:
             
             self.dummyInput.copy_(frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).mul_(1 / 255), non_blocking=True)
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-            output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).clamp(0, 255)
+            output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul_(255).clamp_(0, 255)
             self.stream.synchronize()
 
             if self.upscaleSkip is not None:

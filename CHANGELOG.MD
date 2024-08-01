@@ -21,10 +21,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Made sure the output is now always clamped
 - `--ofline` can now be dynamically selected to download a specific model or list of models based on user selection. Use keyword `all` to download all of the available models.
 - The number of models have been drastically cut 
+- TensorRT Engine workflow should now be drastically more robust than previously with better edge case handling.
+- Revised documentation in Parameters.md
 
 #### Fixes
 - TensorRT artifactings when using Depth Maps.
 - Depth Maps produced incostistent results with buggy and aliased outputs, TRT looked arguably worse than DirectML across the board.
+
+#### The Anime Scripter - Adobe Edition
+
+#### New
+- TBA
+
+#### Improvements
+- More UI Changes.
+
+#### Fixed
+- TBA
 
 ## [1.9.1] - 2024-07-30
  

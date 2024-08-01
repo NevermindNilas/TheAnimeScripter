@@ -205,29 +205,12 @@ class RifeTensorRT:
             ensemble (bool, optional): Ensemble. Defaults to False.
             nt (int, optional): Number of threads. Defaults to 1.
         """
-        from polygraphy.backend.trt import (
-            TrtRunner,
-            engine_from_network,
-            network_from_onnx_path,
-            CreateConfig,
-            Profile,
-            EngineFromBytes,
-            SaveEngine,
-        )
-        from polygraphy.backend.common import BytesFromPath
-
         import tensorrt as trt
+        from .utils.trtHandler import TensorRTEngineCreator, TensorRTEngineLoader, TensorRTEngineNameHandler
 
-
-        self.TrtRunner = TrtRunner
-        self.engine_from_network = engine_from_network
-        self.network_from_onnx_path = network_from_onnx_path
-        self.CreateConfig = CreateConfig
-        self.Profile = Profile
-        self.EngineFromBytes = EngineFromBytes
-        self.SaveEngine = SaveEngine
-        self.BytesFromPath = BytesFromPath
-
+        self.TensorRTEngineCreator = TensorRTEngineCreator
+        self.TensorRTEngineLoader = TensorRTEngineLoader
+        self.TensorRTEngineNameHandler = TensorRTEngineNameHandler
         self.trt = trt
 
         self.interpolateMethod = interpolateMethod
@@ -264,14 +247,14 @@ class RifeTensorRT:
         if not os.path.exists(
             os.path.join(weightsDir, folderName, self.filename)
         ):
-            modelPath = downloadModels(
+            self.modelPath = downloadModels(
                 model=self.interpolateMethod,
                 modelType="onnx",
                 half=self.half,
                 ensemble=self.ensemble,
             )
         else:
-            modelPath = os.path.join(weightsDir, folderName, self.filename)
+            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
 
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
@@ -281,48 +264,21 @@ class RifeTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
-        if "fp16" in modelPath:
-            trtEngineModelPath = modelPath.replace(".onnx", "_fp16.engine")
-        elif "fp32" in modelPath:
-            trtEngineModelPath = modelPath.replace(".onnx", "_fp32.engine")
-        else:
-            trtEngineModelPath = modelPath.replace(".onnx", ".engine")
+        enginePath = self.TensorRTEngineNameHandler(
+            modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 3, self.height, self.width]
+        )
 
-        if not os.path.exists(trtEngineModelPath):
-            toPrint = f"Engine not found, creating dynamic engine for model: {modelPath}, this may take a while, but it is worth the wait..."
-            print(yellow(toPrint))
-            logging.info(toPrint)
-
-            profile = [
-                self.Profile().add(
-                    "input",
-                    min=(1, 7, 64, 64),
-                    opt=(1, 7, self.height, self.width),
-                    max=(1, 7, 2160, 3840),
-                )
-            ]
-
-                
-
-            self.config = self.CreateConfig(
+        if not os.path.exists(enginePath):
+            self.engine, self.context = self.TensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
                 fp16=self.half,
-                profiles=profile,
-                profiling_verbosity=self.trt.ProfilingVerbosity.DETAILED,
-                preview_features=[],
+                inputsMin=[1, 7, 32, 32],
+                inputsOpt=[1, 7, self.height, self.width],
+                inputsMax=[1, 7, 2160, 3840],
             )
-
-            self.engine = self.engine_from_network(
-                self.network_from_onnx_path(modelPath),
-                config=self.config,
-            )
-            self.engine = self.SaveEngine(self.engine, trtEngineModelPath)
-            self.engine.__call__()
-
-        with open(trtEngineModelPath, "rb") as f, self.trt.Runtime(
-            self.trt.Logger(self.trt.Logger.INFO)
-        ) as runtime:
-            self.engine = runtime.deserialize_cuda_engine(f.read())
-            self.context = self.engine.create_execution_context()
+        else:
+            self.engine, self.context = self.TensorRTEngineLoader(enginePath)
 
         self.dType = torch.float16 if self.half else torch.float32
         self.stream = torch.cuda.Stream()
@@ -410,10 +366,10 @@ class RifeTensorRT:
 
                 self.dummyInput.copy_(
                     torch.cat([self.I0, self.I1, timestep], dim=1), non_blocking=True
-                )
+                ).contiguous()
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-                output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul_(255)
                 self.stream.synchronize()
+                output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul_(255)
                 writeBuffer.write(output)
 
             self.cacheFrame()
