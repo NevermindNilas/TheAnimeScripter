@@ -184,20 +184,12 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
         self.totalFrames = totalFrames
 
         import tensorrt as trt
-        from polygraphy.backend.trt import (
-            engine_from_network,
-            network_from_onnx_path,
-            CreateConfig,
-            Profile,
-            SaveEngine,
-        )
+        from src.utils.trtHandler import TensorRTEngineCreator, TensorRTEngineLoader, TensorRTEngineNameHandler
 
         self.trt = trt
-        self.engine_from_network = engine_from_network
-        self.network_from_onnx_path = network_from_onnx_path
-        self.CreateConfig = CreateConfig
-        self.Profile = Profile
-        self.SaveEngine = SaveEngine
+        self.TensorRTEngineCreator = TensorRTEngineCreator
+        self.TensorRTEngineLoader = TensorRTEngineLoader
+        self.TensorRTEngineNameHandler = TensorRTEngineNameHandler
 
         self.handleModel()
         try:
@@ -246,48 +238,30 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
         filename = modelsMap("segment-tensorrt")
         folderName = "segment-onnx"
         if not os.path.exists(os.path.join(weightsDir, folderName, filename)):
-            modelPath = downloadModels(model="segment-tensorrt")
+            self.modelPath = downloadModels(model="segment-tensorrt")
         else:
-            modelPath = os.path.join(weightsDir, folderName, filename)
+            self.modelPath = os.path.join(weightsDir, folderName, filename)
 
         self.device = torch.device("cuda")
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
+        
+        enginePath = self.TensorRTEngineNameHandler(
+            modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 3, self.height + self.padHeight, self.width + self.padWidth]
+        )
 
-        enginePrecision = "fp32"
-
-        if not os.path.exists(modelPath.replace(".onnx", f"_{enginePrecision}.engine")):
-            toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
-            print(yellow(toPrint))
-            logging.info(toPrint)
-            profiles = [
-                self.Profile().add(
-                    "input",
-                    min=(1, 3, 64, 64),
-                    opt=(
-                        1,
-                        3,
-                        self.height + self.padHeight,
-                        self.width + self.padWidth,
-                    ),
-                    max=(1, 3, 2160, 3840),
-                ),
-            ]
-            self.engine = self.engine_from_network(
-                self.network_from_onnx_path(modelPath),
-                config=self.CreateConfig(profiles=profiles),
+        if not os.path.exists(enginePath):
+            self.engine, self.context = self.TensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
+                fp16=self.half,
+                inputsMin=[1, 3, self.height + self.padHeight, self.width + self.padWidth],
+                inputsOpt=[1, 3, self.height + self.padHeight, self.width + self.padWidth],
+                inputsMax=[1, 3, self.height + self.padHeight, self.width + self.padWidth],
+                inputName="input",
             )
-            self.engine = self.SaveEngine(
-                self.engine, modelPath.replace(".onnx", f"_{enginePrecision}.engine")
-            )
-
-            self.engine.__call__()
-
-        with open(
-            modelPath.replace(".onnx", f"_{enginePrecision}.engine"), "rb"
-        ) as f, self.trt.Runtime(self.trt.Logger(self.trt.Logger.INFO)) as runtime:
-            self.engine = runtime.deserialize_cuda_engine(f.read())
-            self.context = self.engine.create_execution_context()
+        else:
+            self.engine, self.context = self.TensorRTEngineLoader(enginePath)
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
