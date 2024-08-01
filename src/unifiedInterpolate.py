@@ -368,8 +368,8 @@ class RifeTensorRT:
                     torch.cat([self.I0, self.I1, timestep], dim=1), non_blocking=True
                 ).contiguous()
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-                self.stream.synchronize()
                 output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul_(255)
+                self.stream.synchronize()
                 writeBuffer.write(output)
 
             self.cacheFrame()
