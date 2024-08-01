@@ -260,8 +260,9 @@ class RifeTensorRT:
             ensemble=self.ensemble,
         )
 
+        folderName = self.interpolateMethod.replace("-tensorrt", "-onnx")
         if not os.path.exists(
-            os.path.join(weightsDir, self.interpolateMethod, self.filename)
+            os.path.join(weightsDir, folderName, self.filename)
         ):
             modelPath = downloadModels(
                 model=self.interpolateMethod,
@@ -270,7 +271,7 @@ class RifeTensorRT:
                 ensemble=self.ensemble,
             )
         else:
-            modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)
+            modelPath = os.path.join(weightsDir, folderName, self.filename)
 
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")

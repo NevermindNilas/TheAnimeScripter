@@ -304,14 +304,15 @@ class DepthDirectMLV2:
             model=self.depth_method, modelType="onnx", half=self.half
         )
 
-        if not os.path.exists(os.path.join(weightsDir, self.filename, self.filename)):
+        folderName = self.depth_method.replace("-directml", "-onnx")
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
             modelPath = downloadModels(
                 model=self.depth_method,
                 half=self.half,
                 modelType="onnx",
             )
         else:
-            modelPath = os.path.join(weightsDir, self.filename, self.filename)
+            modelPath = os.path.join(weightsDir, folderName, self.filename)
 
         providers = self.ort.get_available_providers()
 
@@ -524,18 +525,19 @@ class DepthTensorRTV2:
             model=self.depth_method, modelType="onnx", half=self.half
         )
 
-        if not os.path.exists(os.path.join(weightsDir, self.filename, self.filename)):
+        folderName = self.depth_method.replace("-tensorrt", "-onnx")
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
             modelPath = downloadModels(
                 model=self.depth_method,
                 half=self.half,
                 modelType="onnx",
             )
         else:
-            modelPath = os.path.join(weightsDir, self.filename, self.filename)
+            modelPath = os.path.join(weightsDir, folderName, self.filename)
 
         self.newHeight, self.newWidth = calculateAspectRatio(self.width, self.height)
 
-        engineName = f"{self.depth_method}.engine"
+        engineName = f"{self.depth_method}_{self.height}x{self.width}.engine"
 
         enginePath = modelPath.replace(".onnx", engineName)
 

@@ -190,14 +190,16 @@ class UniversalTensorRT:
                 modelType=modelType,
                 half=self.half,
             )
-            modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
-            if not os.path.exists(modelPath):
+            folderName = self.upscaleMethod.replace("-tensorrt", "-onnx")
+            if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
                 modelPath = downloadModels(
                     model=self.upscaleMethod,
                     upscaleFactor=self.upscaleFactor,
                     half=self.half,
                     modelType=modelType,
                 )
+            else:
+                modelPath = os.path.join(weightsDir, folderName, self.filename)
         else:
             modelPath = self.customModel
             if not os.path.exists(self.customModel):
@@ -349,8 +351,9 @@ class UniversalDirectML:
             self.filename = modelsMap(
                 self.upscaleMethod, self.upscaleFactor, modelType="onnx"
             )
+            folderName = self.upscaleMethod.replace("directml", "-onnx")
             if not os.path.exists(
-                os.path.join(weightsDir, self.upscaleMethod, self.filename)
+                os.path.join(weightsDir, folderName, self.filename)
             ):
                 modelPath = downloadModels(
                     model=self.upscaleMethod,
@@ -359,7 +362,7 @@ class UniversalDirectML:
                     half=self.half,
                 )
             else:
-                modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
+                modelPath = os.path.join(weightsDir, folderName, self.filename)
         else:
             logging.info(
                 f"Using custom model: {self.customModel}, this is an experimental feature, expect potential issues"
