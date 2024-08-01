@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - The number of models have been drastically cut 
 - TensorRT Engine workflow should now be drastically more robust than previously with better edge case handling.
 - Revised documentation in Parameters.md
+- Through a few 'optimizations' in model downloads, the total weights folder should be ~1.5GB lower.
 
 #### Fixes
 - TensorRT artifactings when using Depth Maps.
