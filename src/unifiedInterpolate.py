@@ -232,6 +232,9 @@ class RifeTensorRT:
                     "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
                 )
                 self.half = False
+                self.UHD = True
+        else:
+            self.UHD = False
 
         self.handleModel()
 
@@ -264,18 +267,29 @@ class RifeTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
+
         enginePath = self.TensorRTEngineNameHandler(
-            modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 3, self.height, self.width]
+            modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 7, self.height, self.width]
         )
+
+        if self.UHD:
+            inputsMin = [1, 7, 1080, 1920]
+            inputsOpt = [1, 7, self.height, self.width]
+            inputsMax = [1, 7, 2160, 3840]
+        else:
+            inputsMin = [1, 7, 32, 32]
+            inputsOpt = [1, 7, self.height, self.width]
+            inputsMax = [1, 7, 1080, 1920]
 
         if not os.path.exists(enginePath):
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
                 fp16=self.half,
-                inputsMin=[1, 7, 32, 32],
-                inputsOpt=[1, 7, self.height, self.width],
-                inputsMax=[1, 7, 2160, 3840],
+                inputsMin=inputsMin,
+                inputsOpt=inputsOpt,
+                inputsMax=inputsMax,
+                optimizationLevel=1
             )
         else:
             self.engine, self.context = self.TensorRTEngineLoader(enginePath)
