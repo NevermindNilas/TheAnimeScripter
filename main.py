@@ -31,7 +31,9 @@ from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import initializeModels, Segment, Depth, opticalFlow
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
-from src.coloredPrints import green, blue, red
+from src.coloredPrints import green, blue, red, yellow
+
+print(yellow("!WARNING! With TAS version 1.9.2 there have been significant changes to how models are downloaded and stored. It is recommended to go to TheAnimeScripter weights folder and delete all the models before running the script again. \nPath is {user}\Appdata\Roaming\TheAnimeScripter\Weights."))
 
 isFrozen = False
 
