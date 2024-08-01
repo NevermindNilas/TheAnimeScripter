@@ -276,6 +276,7 @@ def createParser(isFrozen, scriptVersion, mainPath):
             "prores",
             "prores_segment",
             "gif",
+            "image",
         ],
         default="x264",
         help="Encoding method",
@@ -404,7 +405,7 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         )
         args.bit_depth = "8bit"
 
-    if args.encode_method == "gif":
+    if args.encode_method in ["gif", "image"]:
         logging.info("GIF encoding selected, disabling audio")
         args.audio = False
 

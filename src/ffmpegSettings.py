@@ -10,7 +10,7 @@ from queue import Queue
 if os.name == "nt":
     appdata = os.getenv("APPDATA")
     mainPath = os.path.join(appdata, "TheAnimeScripter")
-    
+
     if not os.path.exists(mainPath):
         os.makedirs(mainPath)
 else:
@@ -23,6 +23,7 @@ if getattr(sys, "frozen", False):
 else:
     outputPath = os.path.dirname(os.path.abspath(__file__))
 
+
 def matchEncoder(encode_method: str):
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
@@ -32,7 +33,18 @@ def matchEncoder(encode_method: str):
         case "x264":
             command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "15"])
         case "x264_10bit":
-            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "15", "-profile:v", "high10"])
+            command.extend(
+                [
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "veryfast",
+                    "-crf",
+                    "15",
+                    "-profile:v",
+                    "high10",
+                ]
+            )
         case "x264_animation":
             command.extend(
                 [
@@ -64,13 +76,35 @@ def matchEncoder(encode_method: str):
         case "x265":
             command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "15"])
         case "x265_10bit":
-            command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "15", "-profile:v", "main10"])
+            command.extend(
+                [
+                    "-c:v",
+                    "libx265",
+                    "-preset",
+                    "veryfast",
+                    "-crf",
+                    "15",
+                    "-profile:v",
+                    "main10",
+                ]
+            )
         case "nvenc_h264":
             command.extend(["-c:v", "h264_nvenc", "-preset", "p1", "-cq", "15"])
         case "nvenc_h265":
             command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "15"])
         case "nvenc_h265_10bit":
-            command.extend(["-c:v", "hevc_nvenc", "-preset", "p1", "-cq", "15", "-profile:v", "main10"])
+            command.extend(
+                [
+                    "-c:v",
+                    "hevc_nvenc",
+                    "-preset",
+                    "p1",
+                    "-cq",
+                    "15",
+                    "-profile:v",
+                    "main10",
+                ]
+            )
         case "qsv_h264":
             command.extend(
                 ["-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "15"]
@@ -81,7 +115,16 @@ def matchEncoder(encode_method: str):
             )
         case "qsv_h265_10bit":
             command.extend(
-                ["-c:v", "hevc_qsv", "-preset", "veryfast", "-global_quality", "15", "-profile:v", "main10"]
+                [
+                    "-c:v",
+                    "hevc_qsv",
+                    "-preset",
+                    "veryfast",
+                    "-global_quality",
+                    "15",
+                    "-profile:v",
+                    "main10",
+                ]
             )
         case "nvenc_av1":
             command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "15"])
@@ -97,13 +140,26 @@ def matchEncoder(encode_method: str):
             )
         case "hevc_amf_10bit":
             command.extend(
-                ["-c:v", "hevc_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15", "-profile:v", "main10"]
+                [
+                    "-c:v",
+                    "hevc_amf",
+                    "-quality",
+                    "speed",
+                    "-rc",
+                    "cqp",
+                    "-qp",
+                    "15",
+                    "-profile:v",
+                    "main10",
+                ]
             )
         case "prores" | "prores_segment":
             command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "15"])
         case "gif":
             command.extend(["-c:v", "gif", "-qscale:v", "1", "-loop", "0"])
-        
+        case "image":
+            command.extend(["-c:v", "png", "-q:v", "1"])
+
     return command
 
 
@@ -201,15 +257,7 @@ class BuildBuffer:
             command.extend(["-vf", ",".join(filters)])
 
         command.extend(
-            [
-                "-f",
-                "image2pipe",
-                "-pix_fmt",
-                "rgb24",
-                '-vcodec', 
-                'rawvideo',
-                '-'
-            ]
+            ["-f", "image2pipe", "-pix_fmt", "rgb24", "-vcodec", "rawvideo", "-"]
         )
 
         return command
@@ -228,7 +276,7 @@ class BuildBuffer:
 
         if verbose:
             logging.info(f"Decoding options: {' '.join(map(str, command))}")
-            
+
         try:
             chunk = self.width * self.height * 3
             process = subprocess.Popen(
@@ -244,9 +292,13 @@ class BuildBuffer:
                 if not rawFrame:
                     self.readBuffer.put(None)
                     break
-                self.readBuffer.put(torch.frombuffer(rawFrame, dtype=torch.uint8).view(self.height, self.width, 3))
+                self.readBuffer.put(
+                    torch.frombuffer(rawFrame, dtype=torch.uint8).view(
+                        self.height, self.width, 3
+                    )
+                )
                 self.decodedFrames += 1
-                
+
         except Exception as e:
             if verbose:
                 logging.error(f"An error occurred: {str(e)}")
@@ -256,7 +308,7 @@ class BuildBuffer:
             self.readingDone = True
             self.readBuffer.put(None)
             process.stdout.close()
-            
+
     def read(self):
         """
         Returns a numpy array in RGB format.
@@ -280,7 +332,7 @@ class BuildBuffer:
         Get the size of the queue.
         """
         return self.readBuffer.qsize()
-    
+
     def getTotalFrames(self):
         """
         Get the total amount of frames.
@@ -358,7 +410,9 @@ class WriteBuffer:
 
         if self.transparent:
             if self.bitDepth != "8bit":
-                print("Transparency is not supported in 16bit right now, switching to 8bit")
+                print(
+                    "Transparency is not supported in 16bit right now, switching to 8bit"
+                )
                 self.bitDepth = "8bit"
 
             if self.encode_method not in ["prores_segment"]:
@@ -386,15 +440,19 @@ class WriteBuffer:
             else:
                 inputPixFormat = "rgb48le"
                 outputPixFormat = "yuv444p10le"
-        
-        elif self.encode_method in ["nvenc_h265_10bit",  "hevc_amf_10bit", "qsv_h265_10bit"]:
+
+        elif self.encode_method in [
+            "nvenc_h265_10bit",
+            "hevc_amf_10bit",
+            "qsv_h265_10bit",
+        ]:
             if self.bitDepth == "8bit":
                 inputPixFormat = "rgb24"
                 outputPixFormat = "p010le"
             else:
                 inputPixFormat = "rgb48le"
                 outputPixFormat = "p010le"
-        
+
         elif self.encode_method in ["prores"]:
             if self.bitDepth == "8bit":
                 inputPixFormat = "rgb24"
@@ -454,7 +512,11 @@ class WriteBuffer:
                         )
 
                     if self.grayscale:
-                        customEncoderList[vfIndex + 1] += ",format=gray" if self.bitDepth == "8bit" else ",format=gray16be"
+                        customEncoderList[vfIndex + 1] += (
+                            ",format=gray"
+                            if self.bitDepth == "8bit"
+                            else ",format=gray16be"
+                        )
 
                     if self.transparent:
                         customEncoderList[vfIndex + 1] += ",format=rgba"
@@ -470,7 +532,9 @@ class WriteBuffer:
                         customEncoderList.extend(["-vf", ",".join(filters)])
 
                 if "-pix_fmt" not in customEncoderList:
-                    logging.info(f"-pix_fmt was not found in the custom encoder list, adding {outputPixFormat}, for future reference, it is recommended to add it.")
+                    logging.info(
+                        f"-pix_fmt was not found in the custom encoder list, adding {outputPixFormat}, for future reference, it is recommended to add it."
+                    )
                     customEncoderList.extend(["-pix_fmt", outputPixFormat])
 
                 command.extend(customEncoderList)
@@ -519,7 +583,7 @@ class WriteBuffer:
             logging.info(f"Encoding options: {' '.join(map(str, command))}")
 
         try:
-            with open(ffmpegLogPath, 'w') as log_file:
+            with open(ffmpegLogPath, "w") as log_file:
                 with subprocess.Popen(
                     command,
                     stdin=subprocess.PIPE,
@@ -527,7 +591,6 @@ class WriteBuffer:
                     stderr=subprocess.STDOUT,
                     universal_newlines=True,
                 ) as self.process:
-
                     writtenFrames = 0
                     self.isWritingDone = False
                     while True:
@@ -536,11 +599,19 @@ class WriteBuffer:
                             if verbose:
                                 logging.info(f"Encoded {writtenFrames} frames")
                             break
-                        
+
                         if self.bitDepth == "8bit":
-                            frame = frame.to(torch.uint8).contiguous().cpu().numpy()
+                            frame = frame.clamp(0, 255).to(torch.uint8).contiguous().cpu().numpy()
                         else:
-                            frame = frame.to(torch.float32).mul(257).to(torch.uint16).contiguous().cpu().numpy()
+                            frame = (
+                                frame.clamp(0, 255)
+                                .to(torch.float32)
+                                .mul(257)
+                                .to(torch.uint16)
+                                .contiguous()
+                                .cpu()
+                                .numpy()
+                            )
 
                         self.process.stdin.buffer.write(frame)
                         writtenFrames += 1
