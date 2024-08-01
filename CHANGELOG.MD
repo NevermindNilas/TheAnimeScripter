@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### Improvements
 - Depth Maps should now produce significantly better outputs compared to previous releases at a roughly 5x deduction in performance.
 - Made sure the output is now always clamped
-- `--ofline` can now be dynamically selected to download a specific model or list of models based on user selection. Use keywork `all` to download all of the available models.
+- `--ofline` can now be dynamically selected to download a specific model or list of models based on user selection. Use keyword `all` to download all of the available models.
 - The number of models have been drastically cut 
 
 #### Fixes
