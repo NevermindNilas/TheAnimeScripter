@@ -14,11 +14,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added `--bit_depth` in order to enable higher precision workflows. Options [8bit, 16bit].
 - .GIF input support using `--encode_method gif`
 - .png / .jpeg support using `--encode_method image`
+- A complete overhaul on how model downloading works, it is recommended to go to Appdata\Roaming\TheAnimeScripter\Weights and deleting the whole folder with this version
 
 #### Improvements
-- Scenechange should be 5% faster than previously.
 - Depth Maps should now produce significantly better outputs compared to previous releases at a roughly 5x deduction in performance.
 - Made sure the output is now always clamped
+- `--ofline` can now be dynamically selected to download a specific model or list of models based on user selection. Use keywork `all` to download all of the available models.
+- The number of models have been drastically cut 
 
 #### Fixes
 - TensorRT artifactings when using Depth Maps.

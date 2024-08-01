@@ -2,6 +2,7 @@ import os
 import logging
 import requests
 from alive_progress import alive_bar
+from .coloredPrints import green
 
 if os.name == "nt":
     appdata = os.getenv("APPDATA")
@@ -56,9 +57,7 @@ def modelsList() -> list[str]:
         "rife4.16-lite",
         "rife4.17",
         "rife4.18",
-        "vits",
-        "vitb",
-        "vitl",
+        "rife4.20",
         "shufflecugan-directml",
         "compact-directml",
         "ultracompact-directml",
@@ -73,6 +72,7 @@ def modelsList() -> list[str]:
         "rife4.15-tensorrt",
         "rife4.15-lite-tensorrt",
         "rife4.17-tensorrt",
+        "rife4.18-tensorrt",
         "rife-v4.15-ncnn",
         "rife-v4.6-ncnn",
         "rife-v4.15-lite-ncnn",
@@ -80,12 +80,6 @@ def modelsList() -> list[str]:
         "rife-v4.17-ncnn",
         "rife-v4.18-ncnn",
         "scenechange",
-        "small-tensorrt",
-        "base-tensorrt",
-        "large-tensorrt",
-        "small-directml",
-        "base-directml",
-        "large-directml",
         "small_v2",
         "base_v2",
         "large_v2",
@@ -260,15 +254,6 @@ def modelsMap(
         case "rife4.16-lite":
             return "rife416_lite.pth"
 
-        case "vits":
-            return "depth_anything_vits14.pth"
-
-        case "vitb":
-            return "depth_anything_vitb14.pth"
-
-        case "vitl":
-            return "depth_anything_vitl14.pth"
-
         case "rife-v4.18-ncnn":
             if ensemble:
                 return "rife-v4.18-ensemble-ncnn.zip"
@@ -304,24 +289,6 @@ def modelsMap(
                 return "rife-v4.15-lite-ensenmble-ncnn.zip"
             else:
                 return "rife-v4.15-lite-ncnn.zip"
-
-        case "small-tensorrt" | "small-directml":
-            if half:
-                return "depth_anything_vits14_float16_slim.onnx"
-            else:
-                return "depth_anything_vits14_float32_slim.onnx"
-
-        case "base-tensorrt" | "base-directml":
-            if half:
-                return "depth_anything_vitb14_float16_slim.onnx"
-            else:
-                return "depth_anything_vitb14_float32_slim.onnx"
-
-        case "large-tensorrt" | "large-directml":
-            if half:
-                return "depth_anything_vitl14_float16_slim.onnx"
-            else:
-                return "depth_anything_vitl14_float32_slim.onnx"
 
         case "segment-tensorrt" | "segment-directml":
             return "isnet_is.onnx"
@@ -399,57 +366,68 @@ def modelsMap(
             raise ValueError(f"Model {model} not found.")
 
 
-def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str):
-    if os.path.exists(os.path.join(folderPath, filename)):
-        toLog = f"{model.upper()} model already exists at: {os.path.join(folderPath, filename)}"
-        logging.info(toLog)
-        return os.path.join(folderPath, filename)
+def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str, retries: int = 3):
+    for attempt in range(retries):
+        try:
+            if os.path.exists(os.path.join(folderPath, filename)):
+                toLog = f"{model.upper()} model already exists at: {os.path.join(folderPath, filename)}"
+                logging.info(toLog)
+                return os.path.join(folderPath, filename)
 
-    toLog = f"Downloading {model.upper()} model..."
-    logging.info(toLog)
+            toLog = f"Downloading {model.upper()} model... (Attempt {attempt + 1}/{retries})"
+            logging.info(toLog)
 
-    response = requests.get(download_url, stream=True)
+            response = requests.get(download_url, stream=True)
+            response.raise_for_status()
 
-    try:
-        total_size_in_bytes = int(response.headers.get("content-length", 0))
-        total_size_in_mb = total_size_in_bytes / (1024 * 1024)  # Convert bytes to MB
-    except Exception as e:
-        total_size_in_mb = 0  # If there's an error, default to 0 MB
-        logging.error(e)
+            try:
+                total_size_in_bytes = int(response.headers.get("content-length", 0))
+                total_size_in_mb = total_size_in_bytes / (1024 * 1024)  # Convert bytes to MB
+            except Exception as e:
+                total_size_in_mb = 0  # If there's an error, default to 0 MB
+                logging.error(e)
 
-    with alive_bar(
-        int(total_size_in_mb + 1),  # Hacky but it works
-        title=f"Downloading {model.capitalize()} model",
-        bar="smooth",
-        unit="MB",
-        spinner=True,
-        enrich_print=False,
-        receipt=True,
-        monitor=True,
-        elapsed=True,
-        stats=False,
-        dual_line=False,
-        force_tty=True,
-    ) as bar:
-        with open(os.path.join(folderPath, filename), "wb") as file:
-            for data in response.iter_content(chunk_size=1024 * 1024):
-                file.write(data)
-                bar(int(len(data) / (1024 * 1024)))
+            with alive_bar(
+                int(total_size_in_mb + 1),  # Hacky but it works
+                title=f"Downloading {model.capitalize()} model",
+                bar="smooth",
+                unit="MB",
+                spinner=True,
+                enrich_print=False,
+                receipt=True,
+                monitor=True,
+                elapsed=True,
+                stats=False,
+                dual_line=False,
+                force_tty=True,
+            ) as bar:
+                with open(os.path.join(folderPath, filename), "wb") as file:
+                    for data in response.iter_content(chunk_size=1024 * 1024):
+                        file.write(data)
+                        bar(int(len(data) / (1024 * 1024)))
 
-    if filename.endswith(".zip"):
-        import zipfile
+            if filename.endswith(".zip"):
+                import zipfile
 
-        with zipfile.ZipFile(os.path.join(folderPath, filename), "r") as zip_ref:
-            zip_ref.extractall(folderPath)
-        os.remove(os.path.join(folderPath, filename))
-        filename = filename[:-4]
+                with zipfile.ZipFile(os.path.join(folderPath, filename), "r") as zip_ref:
+                    zip_ref.extractall(folderPath)
+                os.remove(os.path.join(folderPath, filename))
+                filename = filename[:-4]
 
-    toLog = f"Downloaded {model.capitalize()} model to: {os.path.join(folderPath, filename)}"
-    logging.info(toLog)
-    print(toLog)
+            toLog = f"Downloaded {model.capitalize()} model to: {os.path.join(folderPath, filename)}"
+            logging.info(toLog)
+            print(green(toLog))
 
-    return os.path.join(folderPath, filename)
+            return os.path.join(folderPath, filename)
 
+        except (requests.exceptions.RequestException, zipfile.BadZipFile) as e:
+            logging.error(f"Error during download: {e}")
+            if os.path.exists(os.path.join(folderPath, filename)):
+                os.remove(os.path.join(folderPath, filename))
+            if attempt == retries - 1:
+                raise
+
+    return None
 
 def downloadModels(
     model: str = None,
@@ -463,13 +441,17 @@ def downloadModels(
     """
     os.makedirs(weightsDir, exist_ok=True)
 
+
     filename = modelsMap(model, upscaleFactor, modelType, half, ensemble)
-    folderPath = os.path.join(weightsDir, model)
+    if model.endswith("-tensorrt") or model.endswith("-directml"):
+        folderName = model.replace("-tensorrt", "-onnx").replace("-directml", "-onnx")
+    else:
+        folderName = model
+
+    folderPath = os.path.join(weightsDir, folderName)
     os.makedirs(folderPath, exist_ok=True)
 
-    if model in ["vits", "vitb", "vitl"]:
-        fullUrl = f"{DEPTHURL}{filename}"
-    elif model in [
+    if model in [
         "rife4.18-tensorrt",
         "rife4.15-tensorrt",
         "rife4.17-tensorrt",
