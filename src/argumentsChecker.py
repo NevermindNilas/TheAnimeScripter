@@ -361,6 +361,7 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         for option in options:
             for precision in [True, False]:
                 try:
+                    option = option.lower()
                     downloadModels(option, half=precision)
                 except Exception as e:
                     logging.error(e)
