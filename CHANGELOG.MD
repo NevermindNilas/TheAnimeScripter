@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - .GIF input support using `--encode_method gif` - STILL A WIP!!!
 - .png / .jpeg support using `--encode_method image` - STILL A WIP!!!
 - A complete overhaul on how model downloading works, it is recommended to go to Appdata\Roaming\TheAnimeScripter\Weights and deleting the whole folder with this version
+- Rife 4.20 TensorRT
+- Released before 1.9.1 but wasn't announced, TAS now has nightly builds at: https://github.com/NevermindNilas/TAS-Nightly 
 
 #### Improvements
 - Depth Maps should now produce significantly better outputs compared to previous releases at a roughly 5x deduction in performance.

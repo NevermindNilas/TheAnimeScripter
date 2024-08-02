@@ -72,6 +72,7 @@ def createParser(isFrozen, scriptVersion, mainPath):
             "rife4.15-lite-tensorrt",
             "rife4.17-tensorrt",
             "rife4.18-tensorrt",
+            "rife4.20-tensorrt",
             "rife-tensorrt",
             "gmfss",
         ],
