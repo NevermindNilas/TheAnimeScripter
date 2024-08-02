@@ -320,6 +320,7 @@ def initializeModels(self):
                 from src.unifiedDenoise import UnifiedDenoise
                 denoise_process = UnifiedDenoise(
                     self.denoise_method,
+                    self.half,
                 )
 
     if self.dedup:
