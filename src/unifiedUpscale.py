@@ -67,7 +67,6 @@ class UniversalPytorch:
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
                 )
-        #self.modelPath = r"C:\Users\nilas\Downloads\net_g_1461000.pth"
         try:
             self.model = ModelLoader().load_from_file(modelPath)
         except Exception as e:
@@ -108,7 +107,7 @@ class UniversalPytorch:
                     return self.prevFrame
 
             frame = frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).to(memory_format=torch.channels_last).mul_(1 / 255)
-            output = self.model(frame).to(memory_format=torch.channels_last).squeeze(0).mul(255).permute(1, 2, 0)
+            output = self.model(frame).squeeze(0).mul(255).permute(1, 2, 0)
             self.stream.synchronize()
 
             if self.upscaleSkip is not None:

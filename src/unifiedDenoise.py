@@ -13,6 +13,7 @@ class UnifiedDenoise:
     def __init__(
         self,
         model: str = "scunet",
+        half: bool = True,
     ):
         """
         Initialize the denoiser with the desired model
@@ -26,12 +27,17 @@ class UnifiedDenoise:
         """
 
         self.model = model
+        self.half = half
         self.handleModel()
 
     def handleModel(self):
         """
         Load the Model
         """
+        if self.model in ["nafnet"]:
+            self.half = False
+            print("NAFNet does not support half precision, using float32 instead")
+
         self.filename = modelsMap(self.model)
         if not os.path.exists(os.path.join(weightsDir, self.model, self.filename)):
             modelPath = downloadModels(model=self.model)
@@ -48,17 +54,26 @@ class UnifiedDenoise:
         self.model = (
             self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()
         )
-        self.model.float()
+
+        if self.half:
+            self.model.model.half()
+            self.dType = torch.float16
+        else:
+            self.dType = torch.float32
+            
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
         self.stream = torch.cuda.Stream()
+
+        self.model.model.to(memory_format=torch.channels_last)
 
     @torch.inference_mode()
     def run(self, frame: torch.tensor) -> torch.tensor:
         with torch.cuda.stream(self.stream):
             frame = (
-                frame.to(self.device, non_blocking=True, dtype=torch.float32)
+                frame.to(self.device, non_blocking=True, dtype=self.dType)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
+                .to(memory_format=torch.channels_last)
                 .mul_(1 / 255)
             )
 
