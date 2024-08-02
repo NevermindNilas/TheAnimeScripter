@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - .png / .jpeg support using `--encode_method image` - STILL A WIP!!!
 - A complete overhaul on how model downloading works, it is recommended to go to Appdata\Roaming\TheAnimeScripter\Weights and deleting the whole folder with this version
 - Rife 4.20 TensorRT
-- Released before 1.9.1 but wasn't announced, TAS now has nightly builds at: https://github.com/NevermindNilas/TAS-Nightly 
+- Released before 1.9.1 but wasn't announced, TAS now has nightly builds at: https://github.com/NevermindNilas/TAS-Nightly
+- Upgraded SPAN Models to `2x_Spanimation V1.5` - Special thanks to @TNTWise for the models.
 
 #### Improvements
 - Depth Maps should now produce significantly better outputs compared to previous releases at a roughly 5x deduction in performance.
@@ -26,6 +27,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - TensorRT Engine workflow should now be drastically more robust than previously with better edge case handling.
 - Revised documentation in Parameters.md
 - Through a few 'optimizations' in model downloads, the total weights folder should be ~1.5GB lower.
+- NCNN Upscaling models should now be dynamically downloaded based on user request
 
 #### Fixes
 - TensorRT artifactings when using Depth Maps.

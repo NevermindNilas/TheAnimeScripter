@@ -4,7 +4,6 @@ import logging
 
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
-from .coloredPrints import yellow
 
 # Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
@@ -68,6 +67,7 @@ class UniversalPytorch:
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
                 )
+        #self.modelPath = r"C:\Users\nilas\Downloads\net_g_1461000.pth"
         try:
             self.model = ModelLoader().load_from_file(modelPath)
         except Exception as e:
@@ -169,11 +169,10 @@ class UniversalTensorRT:
 
     def handleModel(self):
         if not self.customModel:
-            modelType = "onnx"
             self.filename = modelsMap(
                 self.upscaleMethod,
                 self.upscaleFactor,
-                modelType=modelType,
+                modelType="onnx",
                 half=self.half,
             )
             folderName = self.upscaleMethod.replace("-tensorrt", "-onnx")
@@ -182,7 +181,7 @@ class UniversalTensorRT:
                     model=self.upscaleMethod,
                     upscaleFactor=self.upscaleFactor,
                     half=self.half,
-                    modelType=modelType,
+                    modelType="onnx",
                 )
             else:
                 self.modelPath = os.path.join(weightsDir, folderName, self.filename)

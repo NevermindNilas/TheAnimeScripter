@@ -81,6 +81,8 @@ def modelsList() -> list[str]:
         "rife-v4.17-ncnn",
         "rife-v4.18-ncnn",
         "scenechange",
+        "span-ncnn",
+        "shufflecugan-ncnn",
         "small_v2",
         "base_v2",
         "large_v2",
@@ -111,86 +113,64 @@ def modelsMap(
     """
 
     match model:
-        case "compact" | "compact-directml":
+        case "compact" | "compact-directml" | "compact-tensorrt":
             if modelType == "pth":
                 return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k.pth"
             else:
                 if half:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k-fp16-sim.onnx"
+                    return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k_clamp_fp16_op18_onnxslim.onnx"
                 else:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k-fp32-sim.onnx"
+                    return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k_clamp_op18_onnxslim.onnx"
 
-        case "ultracompact" | "ultracompact-directml":
+        case "ultracompact" | "ultracompact-directml" | "ultracompact-tensorrt":
             if modelType == "pth":
                 return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k.pth"
             else:
                 if half:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k-fp16-sim.onnx"
+                    return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k_clamp_fp16_op18_onnxslim.onnx"
                 else:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k-fp32-sim.onnx"
+                    return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k_clamp_op18_onnxslim.onnx"
 
-        case "superultracompact" | "superultracompact-directml":
+        case (
+            "superultracompact"
+            | "superultracompact-directml"
+            | "superultracompact-tensorrt"
+        ):
             if modelType == "pth":
                 return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k.pth"
             else:
                 if half:
-                    return (
-                        "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k-fp16-sim.onnx"
-                    )
+                    return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k_clamp_fp16_op18_onnxslim.1.onnx"
+
                 else:
-                    return (
-                        "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k-fp32-sim.onnx"
-                    )
+                    return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k_clamp_op18_onnxslim.onnx"
 
-        case "compact-tensorrt":
-            if half:
-                return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k_clamp_fp16_op18_onnxslim.onnx"
-            else:
-                return (
-                    "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k_clamp_op18_onnxslim.onnx"
-                )
-
-        case "ultracompact-tensorrt":
-            if half:
-                return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k_clamp_fp16_op18_onnxslim.onnx"
-            else:
-                return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k_clamp_op18_onnxslim.onnx"
-
-        case "superultracompact-tensorrt":
-            if half:
-                return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k_clamp_fp16_op18_onnxslim.1.onnx"
-            else:
-                return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k_clamp_op18_onnxslim.onnx"
-
-        case "span" | "span-directml":
+        case "span" | "span-directml" | "span-tensorrt" | "span-ncnn":
             if modelType == "pth":
-                return "2x_ModernSpanimationV1.pth"
-            else:
+                return "2x_ModernSpanimationV1.5.pth"
+            elif modelType == "onnx":
                 if half:
-                    return "2x_ModernSpanimationV1_fp16_op17.onnx"
+                    return "2x_ModernSpanimationV1.5_clamp_fp16_op20_onnxslim.onnx"
                 else:
-                    return "2x_ModernSpanimationV1_fp32_op17.onnx"
+                    return "2x_ModernSpanimationV1.5_clamp_op20_onnxslim.onnx"
+            elif modelType == "ncnn":
+                return "2x_modernspanimationv1.5-ncnn.zip"
 
-        case "span-tensorrt":
-            if half:
-                return "2x_ModernSpanimationV1_clamp_fp16_op19_onnxslim.onnx"
-            else:
-                return "2x_ModernSpanimationV1_clamp_op19_onnxslim.onnx"
-
-        case "shufflecugan" | "shufflecugan-directml":
+        case (
+            "shufflecugan"
+            | "shufflecugan-directml"
+            | "shufflecugan-tensorrt"
+            | "shufflecugan-ncnn"
+        ):
             if modelType == "pth":
                 return "sudo_shuffle_cugan_9.584.969.pth"
-            else:
+            elif modelType == "onnx":
                 if half:
-                    return "sudo_shuffle_cugan_9.584.969-fp16.onnx"
+                    return "sudo_shuffle_cugan_fp16_op18_clamped.onnx"
                 else:
-                    return "sudo_shuffle_cugan_9.584.969-fp32.onnx"
-
-        case "shufflecugan-tensorrt":
-            if half:
-                return "sudo_shuffle_cugan_fp16_op18_clamped.onnx"
-            else:
-                return "sudo_shuffle_cugan_op18_clamped.onnx"
+                    return "sudo_shuffle_cugan_op18_clamped.onnx"
+            elif modelType == "ncnn":
+                return "2xsudo_shuffle_cugan-ncnn.zip"
 
         case "segment":
             return "isnetis.ckpt"
@@ -200,7 +180,7 @@ def modelsMap(
 
         case "dpir":
             return "drunet_deblocking_color.pth"
-        
+
         case "real-plksr":
             return "1xDeJPG_realplksr_otf.pth"
 
@@ -209,138 +189,130 @@ def modelsMap(
 
         case "gmfss":
             return "gmfss-fortuna-union.zip"
-        
-        case "rife" | "rife4.20":
-            return "rife420.pth"
 
-        case "rife4.18":
-            return "rife418.pth"
-
-        case "rife4.17":
-            return "rife417.pth"
-
-        case "rife4.15":
-            return "rife415.pth"
-
-        case "rife4.15-lite":
-            return "rife415_lite.pth"
-
-        case "rife4.6":
-            return "rife46.pth"
-
-        case "rife4.15-tensorrt":
-            if half:
-                if ensemble:
-                    return "rife415_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
+        case "rife" | "rife4.20" | "rife4.20-tensorrt":
+            if modelType == "pth":
+                return "rife420.pth"
+            elif modelType == "onnx":
+                if half:
+                    if ensemble:
+                        return "rife420_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
+                    else:
+                        return "rife420_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                 else:
-                    return "rife415_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
-            else:
-                if ensemble:
-                    return "rife415_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
+                    if ensemble:
+                        return "rife420_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
+                    else:
+                        return "rife420_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+
+        case "rife4.18" | "rife4.18-tensorrt" | "rife-v4.18-ncnn":
+            if modelType == "pth":
+                return "rife418.pth"
+            elif modelType == "onnx":
+                if half:
+                    if ensemble:
+                        return "rife418_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
+                    else:
+                        return "rife418_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                 else:
-                    return "rife415_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
-
-        case "rife4.15-lite-tensorrt":
-            if half:
+                    if ensemble:
+                        return "rife418_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
+                    else:
+                        return "rife418_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+            elif modelType == "ncnn":
                 if ensemble:
-                    return "rife_v4.15_lite_ensemble_fp16_op20_sim.onnx"
+                    return "rife-v4.18-ensemble-ncnn.zip"
                 else:
-                    return "rife_v4.15_lite_fp16_op20_sim.onnx"
-            else:
+                    return "rife-v4.18-ncnn.zip"
+
+        case "rife4.17" | "rife4.17-tensorrt" | "rife-v4.17-ncnn":
+            if modelType == "pth":
+                return "rife417.pth"
+            elif modelType == "onnx":
+                if half:
+                    if ensemble:
+                        return "rife417_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
+                    else:
+                        return "rife417_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                else:
+                    if ensemble:
+                        return "rife417_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
+                    else:
+                        return "rife417_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+            elif modelType == "ncnn":
                 if ensemble:
-                    return "rife_v4.15_lite_ensemble_fp32_op20_sim.onnx"
+                    return "rife-v4.17-ensemble-ncnn.zip"
                 else:
-                    return "rife_v4.15_lite_fp32_op20_sim.onnx"
+                    return "rife-v4.17-ncnn.zip"
 
-        case "rife4.16-lite":
-            return "rife416_lite.pth"
+        case "rife4.15" | "rife4.15-tensorrt":
+            if modelType == "pth":
+                return "rife415.pth"
+            elif modelType == "onnx":
+                if half:
+                    if ensemble:
+                        return "rife415_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
+                    else:
+                        return "rife415_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                else:
+                    if ensemble:
+                        return "rife415_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
+                    else:
+                        return "rife415_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+            elif modelType == "ncnn":
+                if ensemble:
+                    return "rife-v4.15-ensemble-ncnn.zip"
+                else:
+                    return "rife-v4.15-ncnn.zip"
 
-        case "rife-v4.18-ncnn":
-            if ensemble:
-                return "rife-v4.18-ensemble-ncnn.zip"
-            else:
-                return "rife-v4.18-ncnn.zip"
+        case "rife4.15-lite" | "rife4.15-lite-tensorrt" | "rife-v4.15-lite-ncnn":
+            if modelType == "pth":
+                return "rife415_lite.pth"
+            elif modelType == "onnx":
+                if half:
+                    if ensemble:
+                        return "rife_v4.15_lite_ensemble_fp16_op20_sim.onnx"
+                    else:
+                        return "rife_v4.15_lite_fp16_op20_sim.onnx"
+                else:
+                    if ensemble:
+                        return "rife_v4.15_lite_ensemble_fp32_op20_sim.onnx"
+                    else:
+                        return "rife_v4.15_lite_fp32_op20_sim.onnx"
+            elif modelType == "ncnn":
+                if ensemble:
+                    return "rife-v4.15-lite-ensenmble-ncnn.zip"
+                else:
+                    return "rife-v4.15-lite-ncnn.zip"
 
-        case "rife-v4.17-ncnn":
-            if ensemble:
-                return "rife-v4.17-ensemble-ncnn.zip"
-            else:
-                return "rife-v4.17-ncnn.zip"
-
-        case "rife-v4.16-lite-ncnn":
-            if ensemble:
-                return "rife-v4.16-lite-ensemble-ncnn.zip"
-            else:
-                return "rife-v4.16-lite-ncnn.zip"
-
-        case "rife-v4.15-ncnn":
-            if ensemble:
-                return "rife-v4.15-ensemble-ncnn.zip"
-            else:
-                return "rife-v4.15-ncnn.zip"
-
-        case "rife-v4.6-ncnn":
-            if ensemble:
-                return "rife-v4.6-ensemble-ncnn.zip"
-            else:
+        case "rife4.6" | "rife4.6-tensorrt" | "rife4.6-ncnn":
+            if modelType == "pth":
+                return "rife46.pth"
+            elif modelType == "onnx":
+                if half:
+                    if ensemble:
+                        return "rife46_v2_ensembleTrue_op16_fp16_mlrt_sim.onnx"
+                    else:
+                        return "rife46_v2_ensembleFalse_op16_fp16_mlrt_sim.onnx"
+                else:
+                    if ensemble:
+                        return "rife46_v2_ensembleTrue_op16_mlrt_sim.onnx"
+                    else:
+                        return "rife46_v2_ensembleFalse_op16_mlrt_sim.onnx"
+            elif modelType == "ncnn":
                 return "rife-v4.6-ncnn.zip"
 
-        case "rife-v4.15-lite-ncnn":
-            if ensemble:
-                return "rife-v4.15-lite-ensenmble-ncnn.zip"
-            else:
-                return "rife-v4.15-lite-ncnn.zip"
+        case "rife4.16-lite" | "rife-v4.16-lite-ncnn":
+            if modelType == "pth":
+                return "rife416_lite.pth"
+            elif modelType == "ncnn":
+                if ensemble:
+                    return "rife-v4.16-lite-ensemble-ncnn.zip"
+                else:
+                    return "rife-v4.16-lite-ncnn.zip"
 
         case "segment-tensorrt" | "segment-directml":
             return "isnet_is.onnx"
-
-        case "rife4.6-tensorrt":
-            if half:
-                if ensemble:
-                    return "rife46_v2_ensembleTrue_op16_fp16_mlrt_sim.onnx"
-                else:
-                    return "rife46_v2_ensembleFalse_op16_fp16_mlrt_sim.onnx"
-            else:
-                if ensemble:
-                    return "rife46_v2_ensembleTrue_op16_mlrt_sim.onnx"
-                else:
-                    return "rife46_v2_ensembleFalse_op16_mlrt_sim.onnx"
-
-        case "rife4.18-tensorrt":
-            if half:
-                if ensemble:
-                    return "rife418_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
-                else:
-                    return "rife418_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
-            else:
-                if ensemble:
-                    return "rife418_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
-                else:
-                    return "rife418_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
-
-        case "rife4.17-tensorrt":
-            if half:
-                if ensemble:
-                    return "rife417_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
-                else:
-                    return "rife417_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
-            else:
-                if ensemble:
-                    return "rife417_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
-                else:
-                    return "rife417_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
-                
-        case "rife4.20-tensorrt":
-            if half:
-                if ensemble:
-                    return "rife420_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
-                else:
-                    return "rife420_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
-            else:
-                if ensemble:
-                    return "rife420_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
-                else:
-                    return "rife420_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
 
         case "scenechange":
             if half:
@@ -379,7 +351,9 @@ def modelsMap(
             raise ValueError(f"Model {model} not found.")
 
 
-def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str, retries: int = 3):
+def downloadAndLog(
+    model: str, filename: str, download_url: str, folderPath: str, retries: int = 3
+):
     for attempt in range(retries):
         try:
             if os.path.exists(os.path.join(folderPath, filename)):
@@ -395,7 +369,9 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
 
             try:
                 total_size_in_bytes = int(response.headers.get("content-length", 0))
-                total_size_in_mb = total_size_in_bytes / (1024 * 1024)  # Convert bytes to MB
+                total_size_in_mb = total_size_in_bytes / (
+                    1024 * 1024
+                )  # Convert bytes to MB
             except Exception as e:
                 total_size_in_mb = 0  # If there's an error, default to 0 MB
                 logging.error(e)
@@ -422,7 +398,9 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
             if filename.endswith(".zip"):
                 import zipfile
 
-                with zipfile.ZipFile(os.path.join(folderPath, filename), "r") as zip_ref:
+                with zipfile.ZipFile(
+                    os.path.join(folderPath, filename), "r"
+                ) as zip_ref:
                     zip_ref.extractall(folderPath)
                 os.remove(os.path.join(folderPath, filename))
                 filename = filename[:-4]
@@ -442,6 +420,7 @@ def downloadAndLog(model: str, filename: str, download_url: str, folderPath: str
 
     return None
 
+
 def downloadModels(
     model: str = None,
     upscaleFactor: int = 2,
@@ -453,7 +432,6 @@ def downloadModels(
     Downloads the model.
     """
     os.makedirs(weightsDir, exist_ok=True)
-
 
     filename = modelsMap(model, upscaleFactor, modelType, half, ensemble)
     if model.endswith("-tensorrt") or model.endswith("-directml"):
@@ -471,6 +449,7 @@ def downloadModels(
         "rife4.17-tensorrt",
         "rife4.6-tensorrt",
         "scenechange",
+        "span-tensorrt",
     ]:
         fullUrl = f"{SUDOURL}{filename}"
 
