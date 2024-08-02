@@ -36,7 +36,7 @@ class UniversalNCNN:
             modelPath = modelPath[:-9]
         elif modelPath.endswith("-ncnn"):
             modelPath = modelPath[:-5]
-        
+
         lastSlash = modelPath.split("\\")[-1]
         modelPath = modelPath + "\\" + lastSlash
 
@@ -44,7 +44,7 @@ class UniversalNCNN:
             gpuid=0,
             tta_mode=False,
             tilesize=0,
-            model_str=modelPath,        
+            model_str=modelPath,
             num_threads=2,
         )
 
@@ -58,8 +58,7 @@ class UniversalNCNN:
                 self.skippedCounter += 1
                 return self.prevFrame
 
-        frame = self.model.process_cv2(frame.cpu().numpy())
-        frame = torch.from_numpy(frame)
+        frame = self.model.process_torch(frame)
 
         if self.upscaleSkip is not None:
             self.prevFrame = frame
