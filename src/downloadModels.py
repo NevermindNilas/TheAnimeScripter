@@ -73,6 +73,7 @@ def modelsList() -> list[str]:
         "rife4.15-lite-tensorrt",
         "rife4.17-tensorrt",
         "rife4.18-tensorrt",
+        "rife4.20-tensorrt",
         "rife-v4.15-ncnn",
         "rife-v4.6-ncnn",
         "rife-v4.15-lite-ncnn",
@@ -328,6 +329,18 @@ def modelsMap(
                     return "rife417_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
                 else:
                     return "rife417_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+                
+        case "rife4.20-tensorrt":
+            if half:
+                if ensemble:
+                    return "rife420_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
+                else:
+                    return "rife420_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+            else:
+                if ensemble:
+                    return "rife420_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
+                else:
+                    return "rife420_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
 
         case "scenechange":
             if half:
@@ -452,6 +465,7 @@ def downloadModels(
     os.makedirs(folderPath, exist_ok=True)
 
     if model in [
+        "rife4.20-tensorrt",
         "rife4.18-tensorrt",
         "rife4.15-tensorrt",
         "rife4.17-tensorrt",
