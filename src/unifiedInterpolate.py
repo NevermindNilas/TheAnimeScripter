@@ -426,6 +426,7 @@ class RifeNCNN:
         self.filename = modelsMap(
             self.interpolateMethod,
             ensemble=self.ensemble,
+            modelType="ncnn",
         )
 
         if self.filename.endswith("-ncnn.zip"):
@@ -439,6 +440,7 @@ class RifeNCNN:
             modelPath = downloadModels(
                 model=self.interpolateMethod,
                 ensemble=self.ensemble,
+                modelType="ncnn",
             )
         else:
             modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)
