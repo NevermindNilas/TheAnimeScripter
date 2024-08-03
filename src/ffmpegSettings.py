@@ -409,12 +409,6 @@ class WriteBuffer:
             outputPixFormat = "yuv444p10le"
 
         if self.transparent:
-            if self.bitDepth != "8bit":
-                print(
-                    "Transparency is not supported in 16bit right now, switching to 8bit"
-                )
-                self.bitDepth = "8bit"
-
             if self.encode_method not in ["prores_segment"]:
                 if verbose:
                     logging.info(
@@ -525,7 +519,11 @@ class WriteBuffer:
                     if self.sharpen:
                         filters.append("cas={}".format(self.sharpen_sens))
                     if self.grayscale:
-                        filters.append("format=gray")
+                        customEncoderList[vfIndex + 1] += (
+                            ",format=gray"
+                            if self.bitDepth == "8bit"
+                            else ",format=gray16be"
+                        )
                     if self.transparent:
                         filters.append("format=rgba")
                     if filters:
@@ -537,6 +535,7 @@ class WriteBuffer:
                     )
                     customEncoderList.extend(["-pix_fmt", outputPixFormat])
 
+                customEncoderList.append(self.output)
                 command.extend(customEncoderList)
 
         else:
