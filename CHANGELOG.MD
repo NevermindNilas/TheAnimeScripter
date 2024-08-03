@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Denoising is up to 2x faster now.
 - Prebuilds will now be 100-150mb smaller.
 
+#### Removals:
+- Rife4.15, Rife4.15-ncnn and Rife4.15-TensorRT
+
 #### Fixes
 - TensorRT artifactings when using Depth Maps.
 - Depth Maps produced incostistent results with buggy and aliased outputs, TRT looked arguably worse than DirectML across the board.
