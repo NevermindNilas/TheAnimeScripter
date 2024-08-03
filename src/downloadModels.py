@@ -52,7 +52,6 @@ def modelsList() -> list[str]:
         "gmfss",
         "rife",
         "rife4.6",
-        "rife4.15",
         "rife4.15-lite",
         "rife4.16-lite",
         "rife4.17",
@@ -69,12 +68,10 @@ def modelsList() -> list[str]:
         "superultracompact-tensorrt",
         "span-tensorrt",
         "rife4.6-tensorrt",
-        "rife4.15-tensorrt",
         "rife4.15-lite-tensorrt",
         "rife4.17-tensorrt",
         "rife4.18-tensorrt",
         "rife4.20-tensorrt",
-        "rife-v4.15-ncnn",
         "rife-v4.6-ncnn",
         "rife-v4.15-lite-ncnn",
         "rife-v4.16-lite-ncnn",
@@ -244,26 +241,6 @@ def modelsMap(
                     return "rife-v4.17-ensemble-ncnn.zip"
                 else:
                     return "rife-v4.17-ncnn.zip"
-
-        case "rife4.15" | "rife4.15-tensorrt" | "rife-v4.15-ncnn":
-            if modelType == "pth":
-                return "rife415.pth"
-            elif modelType == "onnx":
-                if half:
-                    if ensemble:
-                        return "rife415_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
-                    else:
-                        return "rife415_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
-                else:
-                    if ensemble:
-                        return "rife415_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
-                    else:
-                        return "rife415_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
-            elif modelType == "ncnn":
-                if ensemble:
-                    return "rife-v4.15-ensemble-ncnn.zip"
-                else:
-                    return "rife-v4.15-ncnn.zip"
 
         case "rife4.15-lite" | "rife4.15-lite-tensorrt" | "rife-v4.15-lite-ncnn":
             if modelType == "pth":
@@ -446,7 +423,6 @@ def downloadModels(
     if model in [
         "rife4.20-tensorrt",
         "rife4.18-tensorrt",
-        "rife4.15-tensorrt",
         "rife4.17-tensorrt",
         "rife4.6-tensorrt",
         "scenechange",

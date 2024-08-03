@@ -38,7 +38,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--interpolate` (action=store_true): Enable interpolation.
 - `--interpolate_factor` (int, default=2): Factor for interpolation.
 - `--interpolate_method` (str, default="rife"): Interpolation method:
-    - Options: "rife4.6 / rife4.6-ncnn / rife4.6-tensorrt", "rife4.15 / rife4.15-ncnn / rife4.15-tensorrt", "rife4.15-lite / rife4.15-lite-ncnn / rife4.15-lite-tensorrt ", "rife4.16-lite / rife4.16-lite-ncnn", "rife4.17 / rife4.17-tensorrt", "rife4.18 / rife4.18-tensorrt", "rife4.20 / rife4.20-tensorrt", "gmfss".
+    - Options: "rife4.6 / rife4.6-ncnn / rife4.6-tensorrt", "rife4.15-lite / rife4.15-lite-ncnn / rife4.15-lite-tensorrt ", "rife4.16-lite / rife4.16-lite-ncnn", "rife4.17 / rife4.17-tensorrt", "rife4.18 / rife4.18-tensorrt", "rife4.20 / rife4.20-tensorrt", "gmfss".
 - `--ensemble` (action=store_true): Activate Ensemble for higher quality outputs from Rife.
 
 #### Scene Change Settings:
@@ -146,7 +146,7 @@ Example 2: Enable Interpolating with custom interpolate method rife 4.6.
 
 Example 3: Enable upscaling and interpolating with custom models.
 
-- `python .\main.py --input .\input\test.mp4 --upscale --upscale_method superultracompact --interpolate --interpolate_method rife4.15`
+- `python .\main.py --input .\input\test.mp4 --upscale --upscale_method superultracompact --interpolate --interpolate_method rife4.20`
 
 Example 4: Enable deduplication with a sensitivity of 60 and custom deduplication method.
 

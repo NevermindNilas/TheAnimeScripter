@@ -247,7 +247,6 @@ def initializeModels(self):
             case (
                 "rife"
                 | "rife4.6"
-                | "rife4.15"
                 | "rife4.15-lite"
                 | "rife4.16-lite"
                 | "rife4.17"
@@ -278,7 +277,6 @@ def initializeModels(self):
             case (
                 "rife-ncnn"
                 | "rife4.6-ncnn"
-                | "rife4.15-ncnn"
                 | "rife4.15-lite-ncnn"
                 | "rife4.16-lite-ncnn"
                 | "rife4.17-ncnn"
@@ -297,7 +295,6 @@ def initializeModels(self):
             case (
                 "rife-tensorrt"
                 | "rife4.6-tensorrt"
-                | "rife4.15-tensorrt"
                 | "rife4.15-lite-tensorrt"
                 | "rife4.17-tensorrt"
                 | "rife4.18-tensorrt"
