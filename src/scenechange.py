@@ -4,9 +4,9 @@ import logging
 
 from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
-from .coloredPrints import yellow
 
 torch.set_float32_matmul_precision("medium")
+
 
 class SceneChange:
     def __init__(

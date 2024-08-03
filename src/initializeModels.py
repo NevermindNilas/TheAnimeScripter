@@ -360,13 +360,13 @@ def initializeModels(self):
                 )
 
     if self.scenechange:
-        if self.scenechange_method == "maxvit-tensorrt":
+        if self.scenechange_method == "maxxvit-tensorrt":
             from src.scenechange import SceneChangeTensorRT
             scenechange_process = SceneChangeTensorRT(
                 self.half,
                 self.scenechange_sens,
             )
-        elif self.scenechange_method == "maxvit-directml":
+        elif self.scenechange_method == "maxxvit-directml":
             from src.scenechange import SceneChange
             scenechange_process = SceneChange(
                 self.half,

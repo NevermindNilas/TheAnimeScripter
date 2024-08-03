@@ -31,9 +31,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Marginal performance boosts for Upscale NCNN
 - Denoising should be up 2x faster now.
 
+
 #### Fixes
 - TensorRT artifactings when using Depth Maps.
 - Depth Maps produced incostistent results with buggy and aliased outputs, TRT looked arguably worse than DirectML across the board.
+- Scenechange Models have been renamed from " Maxvit " -> " Maxxvit " to better represent the real model.
 
 #### The Anime Scripter - Adobe Edition
 
