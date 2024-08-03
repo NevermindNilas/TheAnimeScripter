@@ -45,7 +45,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 - `--scenechange` (action=store_true, default=False): Enable scene change detection, useful for avoiding interpolation between different scenes of a clip / video in order to avoid artifacting. This only works if `--interpolate` is available, expect performance losses.
 - `--scenechange_sens` (float, default=50): Change the sensitivity of the scene change detection, values go from a minimum of 0.80 - 0.90 ( equivalent to --scenechange_sens 0 - --scenechange_sens 100 )
-- `--scenechange_methodd` (str, default="maxvit-directml"): Choose which scenechange method to use. Options: "maxvit-directml", "maxvit-tensorrt"
+- `--scenechange_methodd` (str, default="maxxvit-directml"): Choose which scenechange method to use. Options: "maxxvit-directml", "maxxvit-tensorrt"
 
 #### Deduplication settings:
 

@@ -217,8 +217,8 @@ def createParser(isFrozen, scriptVersion, mainPath):
     sceneGroup.add_argument(
         "--scenechange_method",
         type=str,
-        default="maxvit-directml",
-        choices=["maxvit-tensorrt", "maxvit-directml"],
+        default="maxxvit-directml",
+        choices=["maxxvit-tensorrt", "maxxvit-directml"],
         help="Scene change detection method",
     )
     sceneGroup.add_argument(
