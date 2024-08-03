@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Marginal performance boosts for Upscale NCNN
 - Denoising is up to 2x faster now.
 - Prebuilds will now be 100-150mb smaller.
+- Audio Merging is now practically instantenous :)
 
 #### Removals:
 - Rife4.15, Rife4.15-ncnn and Rife4.15-TensorRT
