@@ -118,7 +118,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
         - `image`: Uses `png` codec with `-q:v 1`.
 
     - NOTE: 
-        - Depending on `--bit_depth` and the desired `--encode_method` the output pix format (ffmpeg's --pix_fmt ) can dynamically switch between yuv420p, yuv420p10le and yuv444p10le. If you want even more fine grained access refer to `--custom_encoder` below.
+        - Depending on `--bit_depth` and the desired `--encode_method` the output pix format (`ffmpeg's -pix_fmt`) can dynamically switch between yuv420p, yuv420p10le and yuv444p10le. If you want even more fine grained access refer to `--custom_encoder` below.
 
 - `--custom_encoder` (str, default=""): Comprehensive encoding option allowing users to specify their own `ffmpeg` parameters, including filters. Input a string of `ffmpeg` parameters, separated by spaces.
 
@@ -168,3 +168,6 @@ Example 8: Download a YouTube video, upscale it with span-tensorrt, interpolate 
 
 - `python .\main.py --input https://www.youtube.com/watch?v=dQw4w9WgXcQ --upscale --upscale_method span-tensorrt --interpolate --interpolate_method rife4.17-tensorrt --scenechange`
 - Remember to replace the YouTube URL with the actual URL of the video you want to download.
+
+Example 9: Process from second 8 'till 17 with SuperUltraCompact-TensorRT upscaling, Rife 4.20 Interpolation, Maxvit-TensorRT Scenechange Detection and a custom av1 encoder preset:
+- `python .\main.py --input .\input\test.mp4 --inpoint 8 --outpoint 17 --upscale --upscale_method superultracompact-tensorrt --interpolate --interpolate_method rife4.20 --scenechange --scenechange_method maxxvit-tensorrt --custom_encoder "-c:v libsvtav1 -preset 8 -crf 30 -vf hqdn3d=1.5:1.5:6:6 -pix_fmt yuv420p"`
