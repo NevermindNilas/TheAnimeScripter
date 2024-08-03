@@ -359,6 +359,8 @@ class WriteBuffer:
         audio: bool = True,
         benchmark: bool = False,
         bitDepth: str = "8bit",
+        inpoint: float = 0.0,
+        outpoint: float = 0.0,
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -394,6 +396,8 @@ class WriteBuffer:
         self.audio = audio
         self.benchmark = benchmark
         self.bitDepth = bitDepth
+        self.inpoint = inpoint
+        self.outpoint = outpoint
 
     def encodeSettings(self, verbose: bool = False) -> list:
         """
@@ -600,7 +604,13 @@ class WriteBuffer:
                             break
 
                         if self.bitDepth == "8bit":
-                            frame = frame.clamp(0, 255).to(torch.uint8).contiguous().cpu().numpy()
+                            frame = (
+                                frame.clamp(0, 255)
+                                .to(torch.uint8)
+                                .contiguous()
+                                .cpu()
+                                .numpy()
+                            )
                         else:
                             frame = (
                                 frame.clamp(0, 255)
@@ -635,7 +645,7 @@ class WriteBuffer:
         Close the queue.
         """
         self.writeBuffer.put(None)
-    
+
     def mergeAudio(self):
         try:
             ffmpegCommand = [
@@ -649,7 +659,7 @@ class WriteBuffer:
             if "Stream #0:1" not in result.stderr.decode():
                 logging.info("No audio stream found, skipping audio merge")
                 return
-    
+
             fileExtension = os.path.splitext(self.output)[1]
             mergedFile = os.path.splitext(self.output)[0] + "_merged" + fileExtension
 
@@ -658,6 +668,14 @@ class WriteBuffer:
                 "-v",
                 "error",
                 "-stats",
+            ]
+            
+            if self.outpoint != 0:
+                ffmpegCommand.extend(
+                    ["-ss", str(self.inpoint), "-to", str(self.outpoint)]
+                )
+            
+            ffmpegCommand.extend([
                 "-i",
                 self.input,
                 "-i",
@@ -665,7 +683,7 @@ class WriteBuffer:
                 "-c:v",
                 "copy",
                 "-c:a",
-                "libopus" if self.output.endswith(".webm") else "copy",
+                "copy" if not self.output.endswith(".webm") else "libopus",
                 "-map",
                 "1:v:0",
                 "-map",
@@ -673,12 +691,12 @@ class WriteBuffer:
                 "-shortest",
                 "-y",
                 mergedFile,
-            ]
-            
+            ])
+
             logging.info(f"Merging audio with: {' '.join(ffmpegCommand)}")
-    
+
             subprocess.run(ffmpegCommand)
             shutil.move(mergedFile, self.output)
-    
+
         except Exception as e:
             logging.error(f"An error occurred: {str(e)}")
