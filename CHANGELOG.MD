@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - NCNN Upscaling models should now be dynamically downloaded based on user request
 - Marginal performance boosts for Upscale NCNN
 - Denoising is up to 2x faster now.
-- Prebuilds will not be 100-150mb smaller.
+- Prebuilds will now be 100-150mb smaller.
 
 #### Fixes
 - TensorRT artifactings when using Depth Maps.
