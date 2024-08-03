@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Denoising is up to 2x faster now.
 - Prebuilds will now be 100-150mb smaller.
 - Audio Merging is now practically instantenous :)
+- Fix issues with `--custom_encoder`
 
 #### Removals:
 - Rife4.15, Rife4.15-ncnn and Rife4.15-TensorRT
