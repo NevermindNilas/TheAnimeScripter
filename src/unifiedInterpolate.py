@@ -73,8 +73,6 @@ class RifeCuda:
                 from .rifearches.IFNet_rife418 import IFNet
             case "rife4.17":
                 from .rifearches.IFNet_rife417 import IFNet
-            case "rife4.15":
-                from .rifearches.IFNet_rife415 import IFNet
             case "rife4.15-lite":
                 from .rifearches.IFNet_rife415lite import IFNet
             case "rife4.16-lite":
@@ -410,8 +408,6 @@ class RifeNCNN:
         from rife_ncnn_vulkan_python import Rife
 
         match interpolateMethod:
-            case "rife4.15-ncnn" | "rife-ncnn":
-                self.interpolateMethod = "rife-v4.15-ncnn"
             case "rife4.6-ncnn":
                 self.interpolateMethod = "rife-v4.6-ncnn"
             case "rife4.15-lite-ncnn":
