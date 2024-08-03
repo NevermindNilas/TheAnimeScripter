@@ -256,6 +256,8 @@ class VideoProcessor:
                 audio=self.audio,
                 benchmark=self.benchmark,
                 bitDepth=self.bit_depth,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
