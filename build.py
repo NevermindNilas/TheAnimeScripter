@@ -41,11 +41,6 @@ def create_executable():
     updaterPath = os.path.join(base_dir, "updater.py")
     benchmarkPath = os.path.join(base_dir, "benchmark.py")
 
-    universal_ncnn_models_path = os.path.join(
-        distribution("upscale_ncnn_py").locate_file("upscale_ncnn_py"),
-        "models",
-    )
-
     print("Creating the CLI executable...")
     subprocess.run(
         [
@@ -57,8 +52,6 @@ def create_executable():
             "--clean",
             "--add-data",
             f"{src_path};src/",
-            "--add-data",
-            f"{universal_ncnn_models_path};upscale_ncnn_py/models",
             "--hidden-import",
             "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
             "--hidden-import",
