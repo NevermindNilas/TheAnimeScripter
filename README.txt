@@ -25,14 +25,14 @@ Minimum:
     - CPU: Quad-Core
     - RAM: 16 GB
     - GPU: Supports DirectX 12 and Vulkan
-    - Disk Space: ~8 GB
+    - Disk Space: ~12 GB
 
 Recommended:
     - OS: Windows 10/11, fully updated
     - CPU: Octa-Core
     - RAM: 32 GB
     - GPU: NVidia 3000 Series / AMD 6000 Series or better
-    - Disk Space: ~8 GB
+    - Disk Space: ~12 GB
 
 Recommended GPUs:
     - NCNN / DirectML: Compatible with all Vulkan / DirectX 12 capable GPUs.

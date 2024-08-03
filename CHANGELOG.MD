@@ -29,8 +29,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Through a few 'optimizations' in model downloads, the total weights folder should be ~1.5GB lower.
 - NCNN Upscaling models should now be dynamically downloaded based on user request
 - Marginal performance boosts for Upscale NCNN
-- Denoising should be up 2x faster now.
-
+- Denoising is up to 2x faster now.
+- Prebuilds will not be 100-150mb smaller.
 
 #### Fixes
 - TensorRT artifactings when using Depth Maps.
