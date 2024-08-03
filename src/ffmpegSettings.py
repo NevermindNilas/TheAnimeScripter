@@ -636,10 +636,9 @@ class WriteBuffer:
         Close the queue.
         """
         self.writeBuffer.put(None)
-
+    
     def mergeAudio(self):
         try:
-            # Checking first if the clip has audio to begin with, if not we skip the audio merge
             ffmpegCommand = [
                 self.ffmpegPath,
                 "-i",
@@ -651,22 +650,7 @@ class WriteBuffer:
             if "Stream #0:1" not in result.stderr.decode():
                 logging.info("No audio stream found, skipping audio merge")
                 return
-
-            audioFile = os.path.splitext(self.output)[0] + "_audio.aac"
-            extractCommand = [
-                self.ffmpegPath,
-                "-v",
-                "error",
-                "-stats",
-                "-i",
-                self.input,
-                "-vn",
-                "-acodec",
-                "copy",
-                audioFile,
-            ]
-            subprocess.run(extractCommand)
-
+    
             fileExtension = os.path.splitext(self.output)[1]
             mergedFile = os.path.splitext(self.output)[0] + "_merged" + fileExtension
 
@@ -676,13 +660,13 @@ class WriteBuffer:
                 "error",
                 "-stats",
                 "-i",
-                audioFile,
+                self.input,
                 "-i",
                 self.output,
                 "-c:v",
                 "copy",
                 "-c:a",
-                "aac",
+                "copy",
                 "-map",
                 "1:v:0",
                 "-map",
@@ -691,12 +675,11 @@ class WriteBuffer:
                 "-y",
                 mergedFile,
             ]
-
+    
             logging.info(f"Merging audio with: {' '.join(ffmpegCommand)}")
-
+    
             subprocess.run(ffmpegCommand)
             shutil.move(mergedFile, self.output)
-            os.remove(audioFile)
-
+    
         except Exception as e:
             logging.error(f"An error occurred: {str(e)}")

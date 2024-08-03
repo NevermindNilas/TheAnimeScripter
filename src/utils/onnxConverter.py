@@ -8,9 +8,9 @@ from onnxconverter_common import float16
 OPSET = 21
 
 modelList = [
-    r"G:\rife_v4.20_ensemble.onnx",
-    r"G:\rife_v4.20.onnx"
+    r"C:\Users\nilas\Downloads\AniOnnx.onnx"
     ]
+
 
 for modelPath in modelList:
     model = onnx.load(modelPath)
