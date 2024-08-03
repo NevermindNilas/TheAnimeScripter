@@ -653,28 +653,51 @@ class WriteBuffer:
             fileExtension = os.path.splitext(self.output)[1]
             mergedFile = os.path.splitext(self.output)[0] + "_merged" + fileExtension
 
-            ffmpegCommand = [
-                self.ffmpegPath,
-                "-v",
-                "error",
-                "-stats",
-                "-i",
-                self.input,
-                "-i",
-                self.output,
-                "-c:v",
-                "copy",
-                "-c:a",
-                "copy",
-                "-map",
-                "1:v:0",
-                "-map",
-                "0:a:0",
-                "-shortest",
-                "-y",
-                mergedFile,
-            ]
-    
+            if not self.output.endswith(".webm"):
+                ffmpegCommand = [
+                    self.ffmpegPath,
+                    "-v",
+                    "error",
+                    "-stats",
+                    "-i",
+                    self.input,
+                    "-i",
+                    self.output,
+                    "-c:v",
+                    "copy",
+                    "-c:a",
+                    "copy",
+                    "-map",
+                    "1:v:0",
+                    "-map",
+                    "0:a:0",
+                    "-shortest",
+                    "-y",
+                    mergedFile,
+                ]
+            else:
+                ffmpegCommand = [
+                    self.ffmpegPath,
+                    "-v",
+                    "error",
+                    "-stats",
+                    "-i",
+                    self.input,
+                    "-i",
+                    self.output,
+                    "-c:v",
+                    "copy",
+                    "-c:a",
+                    "libopus",
+                    "-map",
+                    "1:v:0",
+                    "-map",
+                    "0:a:0",
+                    "-shortest",
+                    "-y",
+                    mergedFile,
+                ]
+            
             logging.info(f"Merging audio with: {' '.join(ffmpegCommand)}")
     
             subprocess.run(ffmpegCommand)
