@@ -257,7 +257,7 @@ class BuildBuffer:
             command.extend(["-vf", ",".join(filters)])
 
         command.extend(
-            ["-f", "image2pipe", "-pix_fmt", "rgb24", "-vcodec", "rawvideo", "-"]
+            ["-f", "image2pipe", "-pix_fmt", "yuv420p", "-vcodec", "rawvideo", "-"]
         )
 
         return command
@@ -277,8 +277,19 @@ class BuildBuffer:
         if verbose:
             logging.info(f"Decoding options: {' '.join(map(str, command))}")
 
+        import cv2
+        import numpy as np
+        import subprocess
+        import torch
+        
         try:
-            chunk = self.width * self.height * 3
+            yPlane = self.width * self.height
+            uPlane = (self.width // 2) * (self.height // 2)
+            vPlane = (self.width // 2) * (self.height // 2)
+            reshape = (self.height * 3 // 2, self.width)
+            
+        
+            chunk = yPlane + uPlane + vPlane
             process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
@@ -286,22 +297,18 @@ class BuildBuffer:
             )
             self.decodedFrames = 0
             self.readingDone = False
-
+        
             while True:
                 rawFrame = process.stdout.read(chunk)
                 if not rawFrame:
                     self.readBuffer.put(None)
                     break
-                self.readBuffer.put(
-                    torch.frombuffer(rawFrame, dtype=torch.uint8).view(
-                        self.height, self.width, 3
-                    )
-                )
+        
+                self.readBuffer.put(torch.from_numpy(cv2.cvtColor(np.frombuffer(rawFrame, dtype=np.uint8).reshape(reshape), cv2.COLOR_YUV2RGB_I420)))
                 self.decodedFrames += 1
 
         except Exception as e:
-            if verbose:
-                logging.error(f"An error occurred: {str(e)}")
+            logging.error(f"An error occurred: {str(e)}")
         finally:
             if verbose:
                 logging.info(f"Built buffer with {self.decodedFrames} frames")
