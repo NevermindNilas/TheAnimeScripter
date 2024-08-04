@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Prebuilds will now be 100-150mb smaller.
 - Audio Merging is now practically instantenous :)
 - Compatability with vp9 and .webm processes
+- Couple of changes to warplayer should have made it marginally faster and marginally more memory efficient.
 
 #### Removals:
 - Rife4.15, Rife4.15-ncnn and Rife4.15-TensorRT
@@ -43,6 +44,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Depth Maps produced incostistent results with buggy and aliased outputs, TRT looked arguably worse than DirectML across the board.
 - Scenechange Models have been renamed from " Maxvit " -> " Maxxvit " to better represent the real model.
 - Fix issues with `--custom_encoder`
+- Partial fix for issue [44](https://github.com/NevermindNilas/TheAnimeScripter/issues/44)
 
 #### The Anime Scripter - Adobe Edition
 
