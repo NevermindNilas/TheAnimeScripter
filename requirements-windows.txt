@@ -2,7 +2,6 @@
 opencv-python
 timm
 numpy==1.26.4
-cupy-cuda12x==12.3.0
 kornia
 scipy
 wmi
