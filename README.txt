@@ -48,6 +48,5 @@ Important Notes:
     - For AMD / Intel GPU users: Opt for NCNN or DirectML versions to achieve the best performance.
     - The Rife Ensemble feature enhances results at a slight performance cost. Enable it if the trade-off is acceptable.
     - Resize multiplier now supports fractional values (e.g., 0.5 for downscaling from 3840x2160 to 1920x1080).
-    - Upscalers include 2x models for converting 1920x1080 to 3840x2160.
-    - Features like GMFSS, Depth Map, and Segmentation acceleration require CUDA / TensorRT -capable GPUs. Without these, processing defaults to CPU, impacting performance significantly.
+    - Upscalers only include 2x models.
     - Denoising is resource-intensive and performs best on high-end GPUs, such as NVidia 3090/4080.

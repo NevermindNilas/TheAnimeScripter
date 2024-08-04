@@ -88,7 +88,6 @@ All of the available parameters for interacting with the CLI or directly with ma
 - Rife CUDA (Versions: 4.6, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21 )
 - Rife TensorRT (Versions: 4.6, 4.15-lite, 4.17, 4.18, 4.20, 4.21 )
 - Rife NCNN ( Versions: 4.6, 4.15-lite, 4.16-lite, 4.17, 4.18 ) 
-- GMFSS ( Available for CUDA )
 
 ### Denoise Models
 - SCUNet
@@ -108,7 +107,6 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 | [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai)                              | Compact, UltraCompact, SuperUltraCompact models |
 | [SkyTNT](https://github.com/SkyTNT/anime-segmentation)                                                | Anime Segmentation   |
 | [DepthAnything](https://github.com/DepthAnything/Depth-Anything-V2)                                              | Depth Anything  V2      |
-| [98mxr](https://github.com/98mxr/GMFSS_Fortuna)                                                       | GMFSS Fortuna Union  |
 | [FFmpeg Group](https://github.com/FFmpeg/FFmpeg)                                                      | FFmpeg               |
 | [YT-DLP](https://github.com/yt-dlp/yt-dlp)                                                            | YT-DLP               |
 | [Hongyuanyu](https://github.com/hongyuanyu/span)                                                      | SPAN                 |

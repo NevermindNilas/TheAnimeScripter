@@ -73,7 +73,6 @@ def createParser(isFrozen, scriptVersion, mainPath):
             "rife4.20-tensorrt",
             "rife4.21-tensorrt",
             "rife-tensorrt",
-            "gmfss",
         ],
         default="rife",
         help="Interpolation method",

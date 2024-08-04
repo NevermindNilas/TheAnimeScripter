@@ -49,7 +49,6 @@ def modelsList() -> list[str]:
         "dpir",
         "real-plksr",
         "nafnet",
-        "gmfss",
         "rife",
         "rife4.6",
         "rife4.15-lite",
@@ -186,8 +185,6 @@ def modelsMap(
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
 
-        case "gmfss":
-            return "gmfss-fortuna-union.zip"
 
         case "rife4.20" | "rife4.20-tensorrt":
             if modelType == "pth":

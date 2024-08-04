@@ -264,16 +264,6 @@ def initializeModels(self):
                     self.ensemble,
                     self.interpolate_factor,
                 )
-            case "gmfss":
-                from src.gmfss.gmfss_fortuna_union import GMFSS
-
-                interpolate_process = GMFSS(
-                    int(self.interpolate_factor),
-                    self.half,
-                    outputWidth,
-                    outputHeight,
-                    self.ensemble,
-                )
 
             case (
                 "rife-ncnn"
