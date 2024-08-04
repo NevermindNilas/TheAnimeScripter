@@ -57,6 +57,7 @@ def modelsList() -> list[str]:
         "rife4.17",
         "rife4.18",
         "rife4.20",
+        "rife4.21",
         "shufflecugan-directml",
         "compact-directml",
         "ultracompact-directml",
@@ -72,6 +73,7 @@ def modelsList() -> list[str]:
         "rife4.17-tensorrt",
         "rife4.18-tensorrt",
         "rife4.20-tensorrt",
+        "rife4.21-tensorrt",
         "rife-v4.6-ncnn",
         "rife-v4.15-lite-ncnn",
         "rife-v4.16-lite-ncnn",
@@ -187,7 +189,7 @@ def modelsMap(
         case "gmfss":
             return "gmfss-fortuna-union.zip"
 
-        case "rife" | "rife4.20" | "rife4.20-tensorrt":
+        case "rife4.20" | "rife4.20-tensorrt":
             if modelType == "pth":
                 return "rife420.pth"
             elif modelType == "onnx":
@@ -201,6 +203,27 @@ def modelsMap(
                         return "rife420_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
                     else:
                         return "rife420_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+            elif modelType == "ncnn":
+                raise ValueError("NCNN model not available for RIFE 4.20 yet.")
+        
+        case "rife" | "rife4.21" | "rife4.21-tensorrt":
+            if modelType == "pth":
+                return "rife421.pth"
+            elif modelType == "onnx":
+                if half:
+                    if ensemble:
+                        #return "rife421_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
+                        print("Ensemble is not supported yet for RIFE 4.21-Tensorrt")
+                    else:
+                        return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                else:
+                    if ensemble:
+                        #return "rife421_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
+                        print("Ensemble is not supported yet for RIFE 4.21-Tensorrt")
+                    else:
+                        return "rife421_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+            elif modelType == "ncnn":
+                raise ValueError("NCNN model not available for RIFE 4.21 yet.")
 
         case "rife4.18" | "rife4.18-tensorrt" | "rife-v4.18-ncnn":
             if modelType == "pth":
@@ -421,6 +444,7 @@ def downloadModels(
     os.makedirs(folderPath, exist_ok=True)
 
     if model in [
+        "rife4.21-tensorrt",
         "rife4.20-tensorrt",
         "rife4.18-tensorrt",
         "rife4.17-tensorrt",
