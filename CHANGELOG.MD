@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Audio Merging is now practically instantenous :)
 - Compatability with vp9 and .webm processes
 - Couple of changes to warplayer should have made it marginally faster and marginally more memory efficient.
+- Decoding is now up to 15% faster.
+- Deduplication is now up to 10% faster
+- Sharpening is now up to 15% faster
 
 #### Removals:
 - Rife4.15, Rife4.15-ncnn and Rife4.15-TensorRT
