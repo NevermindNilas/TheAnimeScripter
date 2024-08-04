@@ -97,14 +97,9 @@ def runInterpolateBenchmark(inputVideo, executor):
         print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
         currentTest += 1
 
-        if method != "gmfss":
-            subprocess.run(
-                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark"
-            )
-        else:
-            subprocess.run(
-                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --outpoint 4"
-            )
+        subprocess.run(
+            f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark"
+        )
 
         fps = parseFPS()
         results[method] = fps
@@ -115,14 +110,9 @@ def runInterpolateBenchmark(inputVideo, executor):
         )
         currentTest += 1
 
-        if method != "gmfss":  # Ensemble is irrelevant for GMFSS
-            subprocess.run(
-                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 20"
-            )
-        else:
-            subprocess.run(
-                f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 4"  # GMFSS is so slow that even this is too much
-            )
+        subprocess.run(
+            f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 20"
+        )
 
         fps = parseFPS()
         results[f"{method}-ensemble"] = fps
@@ -186,7 +176,7 @@ if __name__ == "__main__":
     interpolateMethods = [
         "rife4.6",
         "rife4.16-lite",
-        "rife4.17",
+        "rife4.18",
         "rife4.20",
         "rife4.6-ncnn",
         "rife4.16-lite-ncnn",
@@ -194,7 +184,7 @@ if __name__ == "__main__":
         "rife4.6-tensorrt",
         "rife4.15-lite-tensorrt",
         "rife4.18-tensorrt",
-        "gmfss",
+        "rife4.20-tensorrt",
     ]
 
     currentTest = 0
