@@ -63,12 +63,6 @@ def create_executable():
             "--collect-all",
             "tensorrt_libs",
             "--collect-all",
-            "cupy",
-            "--collect-all",
-            "cupyx",
-            "--collect-all",
-            "cupy_backends",
-            "--collect-all",
             "fastrlock",
             "--collect-all",
             "inquirer",
@@ -181,26 +175,6 @@ def move_extras():
 
 
 def clean_up():
-    # Seems like pyinstaller duplicates some dll files due to cupy cuda
-    # Removing them in order to fit the <2GB limit
-    dllFiles = [
-        "cublasLt64_12.dll",
-        "cusparse64_12.dll",
-        "cufft64_11.dll",
-        "cusolver64_11.dll",
-        "cublas64_12.dll",
-        "curand64_10.dll",
-        "nvrtc64_120_0.dll",
-        "nvJitLink_120_0.dll",
-    ]
-    dllPath = os.path.join(base_dir, "dist", "main", "_internal")
-
-    for file in dllFiles:
-        try:
-            os.remove(os.path.join(dllPath, file))
-        except Exception as e:
-            print("Error while removing dll file: ", e)
-
     # guiFolder = os.path.join(base_dir, "dist", "gui")
     benchmarkFolder = os.path.join(base_dir, "dist", "benchmark")
     updaterFolder = os.path.join(base_dir, "dist", "updater")
