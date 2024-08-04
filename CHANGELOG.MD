@@ -11,11 +11,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### The Anime Scripter
 
 #### New
+- Rife 4.20 TensorRT
+- Rife 4.21 CUDA and TensorRT
 - Added `--bit_depth` in order to enable higher precision workflows. Options [8bit, 16bit].
 - .GIF input support using `--encode_method gif` - STILL A WIP!!!
 - .png / .jpeg support using `--encode_method image` - STILL A WIP!!!
 - A complete overhaul on how model downloading works, it is recommended to go to Appdata\Roaming\TheAnimeScripter\Weights and deleting the whole folder with this version
-- Rife 4.20 TensorRT
 - Released before 1.9.1 but wasn't announced, TAS now has nightly builds at: https://github.com/NevermindNilas/TAS-Nightly
 - Upgraded SPAN Models to `2x_Spanimation V1.5` - Special thanks to @TNTWise for the models.
 
