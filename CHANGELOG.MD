@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Decoding is now up to 15% faster.
 - Deduplication is now up to 10% faster
 - Sharpening is now up to 15% faster
+- Benchmark will now use a selectable list for deciding the prefered GPU.
 
 #### Removals:
 - Rife4.15, Rife4.15-ncnn and Rife4.15-TensorRT
