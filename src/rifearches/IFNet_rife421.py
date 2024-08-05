@@ -3,8 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .warplayer import warp
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
@@ -170,7 +168,7 @@ class IFNet(nn.Module):
                     scale=self.scale_list[i],
                 )
                 if self.ensemble:
-                    f_, m_, feat_ = self.blocks[i](
+                    f_, m_, feat = self.blocks[i](
                         torch.cat(
                             (img1[:, :3], img0[:, :3], self.f1, self.f0, 1 - timestep),
                             1,
@@ -200,7 +198,7 @@ class IFNet(nn.Module):
                     scale=self.scale_list[i],
                 )
                 if self.ensemble:
-                    f_, m_, feat_ = self.blocks[i](
+                    f_, m_, feat = self.blocks[i](
                         torch.cat(
                             (
                                 warped_img1[:, :3],
@@ -209,7 +207,7 @@ class IFNet(nn.Module):
                                 wf0,
                                 1 - timestep,
                                 -mask,
-                                feat_,
+                                feat,
                             ),
                             1,
                         ),

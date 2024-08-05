@@ -4,6 +4,7 @@ import json
 import re
 import subprocess
 import platform
+import inquirer
 
 # appdata / Romaing / TheAnimeSCripter / ffmpeg_log.txt
 ffmpegLogPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter", "ffmpegLog.txt")
@@ -191,13 +192,21 @@ if __name__ == "__main__":
     executor, version = getExe()
     inputVideo = getClip(executor)
 
-    while True:
-        GPUVENDOR = input("Please enter your GPU vendor (NVIDIA, AMD, Intel): ").upper()
-        if GPUVENDOR in ["NVIDIA", "AMD", "INTEL"]:
-            break
-        else:
-            print(f"Invalid GPU vendor, >>> {GPUVENDOR} <<<  is not a valid option. Please try again.")
-
+    
+    # Define the questions
+    questions = [
+        inquirer.List(
+            'GPUVENDOR',
+            message="Please select your GPU vendor",
+            choices=["NVIDIA", "AMD", "Intel"],
+        ),
+    ]
+    
+    # Ask the questions
+    answers = inquirer.prompt(questions)
+    GPUVENDOR = answers['GPUVENDOR'].upper()
+    
+    # Filter methods based on GPU vendor
     if GPUVENDOR == "NVIDIA":
         upscaleMethods = [
             method
@@ -209,7 +218,7 @@ if __name__ == "__main__":
             for method in interpolateMethods
             if "ncnn" not in method and "directml" not in method
         ]
-    elif GPUVENDOR == "AMD" or GPUVENDOR == "INTEL":
+    elif GPUVENDOR in ["AMD", "INTEL"]:
         upscaleMethods = [
             method
             for method in upscaleMethods
@@ -219,7 +228,7 @@ if __name__ == "__main__":
             method
             for method in interpolateMethods
             if "ncnn" in method or "directml" in method
-        ]      
+        ]
 
     if platform.system() == "Linux":
         upscaleMethods = [
