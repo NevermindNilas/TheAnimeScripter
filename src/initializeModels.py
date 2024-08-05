@@ -131,25 +131,6 @@ def Depth(self):
 
 
 
-def opticalFlow(self):
-    from src.flow.flow import OpticalFlowPytorch
-
-    OpticalFlowPytorch(
-        self.input,
-        self.output,
-        self.ffmpeg_path,
-        self.width,
-        self.height,
-        self.fps,
-        self.half,
-        self.inpoint,
-        self.outpoint,
-        self.encode_method,
-        self.custom_encoder,
-        self.buffer_limit,
-        self.benchmark,
-    )
-
 
 def initializeModels(self):
     outputWidth = self.width
