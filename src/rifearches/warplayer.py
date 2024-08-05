@@ -2,12 +2,10 @@ import torch
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 tenGrid = None
-xNorm = None
-yNorm = None
 
 
 def warp(tenInput, tenFlow):
-    global tenGrid, xNorm, yNorm
+    global tenGrid
     if tenGrid is None or tenGrid.size() != tenFlow.size():
         N, _, H, W = tenFlow.shape
         tenHorizontal = (
