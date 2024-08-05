@@ -448,7 +448,8 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         args.resize,
         args.dedup,
         args.depth,
-        args.autoclip
+        args.autoclip,
+        args.flow,
     ]
 
     if not any(processingMethods):
