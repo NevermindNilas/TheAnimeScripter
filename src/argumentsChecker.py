@@ -12,7 +12,7 @@ from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red
 
 
-def createParser(isFrozen, scriptVersion, mainPath):
+def createParser(isFrozen, scriptVersion, mainPath, outputPath):
     argParser = argparse.ArgumentParser(
         description="The Anime Scripter CLI Tool",
         usage="main.py [options]" if not isFrozen else "main.exe [options]",
@@ -319,10 +319,10 @@ def createParser(isFrozen, scriptVersion, mainPath):
     )
 
     args = argParser.parse_args()
-    return argumentsChecker(args, mainPath)
+    return argumentsChecker(args, mainPath, outputPath)
 
 
-def argumentsChecker(args, mainPath):
+def argumentsChecker(args, mainPath, outputPath):
     banner = """
 _____________            _______       _____                      ________            _____        _____             
 ___  __/__  /______      ___    |_________(_)______ ________      __  ___/_______________(_)_________  /_____________
@@ -427,7 +427,7 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         sys.exit()
     else:
         if args.input.startswith("http") or args.input.startswith("www"):
-            processURL(args, mainPath)
+            processURL(args, outputPath)
         else:
             try:
                 args.input = os.path.abspath(args.input)
@@ -460,7 +460,7 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
     return args
 
 
-def processURL(args, mainPath):
+def processURL(args, outputPath):
     """
     Check if the input is a URL, if it is, download the video and set the input to the downloaded video
     """
@@ -469,7 +469,7 @@ def processURL(args, mainPath):
         logging.info("URL is valid and will be used for processing")
 
         if args.output is None:
-            outputFolder = os.path.join(mainPath, "output")
+            outputFolder = os.path.join(outputPath, "output")
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
             args.output = os.path.join(outputFolder, outputNameGenerator(args))
 

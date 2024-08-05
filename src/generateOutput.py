@@ -4,7 +4,7 @@ import random
 def outputNameGenerator(args):
     arg_map = {
         "resize": f"-Re{args.resize_factor}",
-        "dedup": "-De",
+        "dedup": f"-De{args.dedup_sens}",
         "interpolate": f"-Int{args.interpolate_factor}",
         "upscale": f"-Up{args.upscale_factor}",
         "sharpen": f"-Sh{args.sharpen_sens}",
