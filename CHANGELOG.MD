@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Scenechange Models have been renamed from " Maxvit " -> " Maxxvit " to better represent the real model.
 - Fix issues with `--custom_encoder`
 - Partial fix for issue [44](https://github.com/NevermindNilas/TheAnimeScripter/issues/44)
+- TAS' ytdlp should now store the downloads in the output folder of main.exe in case if `--output` is not defined.
 
 #### The Anime Scripter - Adobe Edition
 
