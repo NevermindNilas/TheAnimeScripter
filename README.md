@@ -1,5 +1,3 @@
-![TheAnimeScripter](https://socialify.git.ci/NevermindNilas/TheAnimeScripter/image?description=1&descriptionEditable=Welcome%20to%20TheAnimeScripter%20%E2%80%93%20the%20ultimate%20tool%20for%20video%20processing.%20Enjoy%20%20%20seamless%20video%20processing%20with%20our%20intuitive%20GUIs%20for%20Windows%20and%20After%20Effects.&font=KoHo&forks=1&issues=1&language=1&name=1&owner=1&pattern=Solid&pulls=1&stargazers=1&theme=Dark)
-
 <p align="center">
     <a href="https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F"><img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F&labelColor=%23697689&countColor=%23ff8a65&style=plastic&labelStyle=none" /></a> 
     <a href="https://github.com/NevermindNilas/TheAnimeScripter/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/NevermindNilas/TheAnimeScripter.svg?style=flat-square" /></a>
@@ -8,9 +6,7 @@
     <a href="https://discord.gg/hwGHXga8ck">
       <img src="https://img.shields.io/discord/1041502781808328704?label=Discord" alt="Discord Shield"/></a>
 </p>
-<p align="center">
-    <img src="https://raw.githubusercontent.com/hyperbrew/bolt-cep/master/src/js/assets/built-with-bolt-cep/Built_With_BOLT_CEP_Logo_White_V01.png" alt="Built with BOLT CEP" style="width: 400px;">
-</p>
+
 
 
 ## 🚀 Key Features
@@ -115,6 +111,7 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 | [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                 |
 | [TNTWise](https://github.com/TNTwise) | For Rife ONNX / NCNN and Spanimation | 
 | [WolframRhodium](https://github.com/WolframRhodium) | For Rife V2 models |
+| [Hyperbrew](https://github.com/hyperbrew/bolt-cep) | For Bolt CEP
 
 If I forgot to mention anyone please direct an email at: nilascontact@gmail.com
 
