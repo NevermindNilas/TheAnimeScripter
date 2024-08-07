@@ -35,14 +35,13 @@ from src.coloredPrints import green, blue, red, yellow
 
 print(yellow("!WARNING! With TAS version 1.9.2 there have been significant changes to how models are downloaded and stored. It is recommended to go to TheAnimeScripter weights folder and delete all the models before running the script again. \nPath is {user}\Appdata\Roaming\TheAnimeScripter\Weights."))
 
-isFrozen = False
-
 if os.name == "nt":
-    appdata = os.getenv("APPDATA")
-    mainPath = os.path.join(appdata, "TheAnimeScripter")
+    mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
+else:
+    mainPath = os.path.expanduser("~/.theanimescripter")
 
-    if not os.path.exists(mainPath):
-        os.makedirs(mainPath)
+if not os.path.exists(mainPath):
+    os.makedirs(mainPath)
 
 if getattr(sys, "frozen", False):
     isFrozen = True
@@ -51,7 +50,7 @@ else:
     isFrozen = False
     outputPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.9.1"
+scriptVersion = "1.9.2"
 warnings.filterwarnings("ignore")
 
 
