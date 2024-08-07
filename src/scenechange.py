@@ -120,7 +120,8 @@ class SceneChangeTensorRT:
             modelPath=self.modelPath, fp16=self.half, optInputShape=[0, 6, 224, 224]
         )
 
-        if not os.path.exists(enginePath):
+        self.engine, self.context = self.TensorRTEngineLoader(enginePath)
+        if self.engine is None or self.context is None or not os.path.exists(enginePath):
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -129,8 +130,6 @@ class SceneChangeTensorRT:
                 inputsOpt=[6, 224, 224],
                 inputsMax=[6, 224, 224],
             )
-        else:
-            self.engine, self.context = self.TensorRTEngineLoader(enginePath)
 
         self.dType = torch.float16 if self.half else torch.float32
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
