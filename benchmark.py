@@ -6,9 +6,17 @@ import subprocess
 import platform
 import inquirer
 
+if os.name == "nt":
+    mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
+else:
+    mainPath = os.path.expanduser("~/.theanimescripter")
+
+if not os.path.exists(mainPath):
+    os.makedirs(mainPath)
+
 # appdata / Romaing / TheAnimeSCripter / ffmpeg_log.txt
-ffmpegLogPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter", "ffmpegLog.txt")
-logTxtPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter", "log.txt")
+ffmpegLogPath = os.path.join(mainPath, "ffmpegLog.txt")
+logTxtPath = os.path.join(mainPath, "log.txt")
 
 def runAllBenchmarks(executor, version, inputVideo=None):
     print(
