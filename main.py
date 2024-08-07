@@ -38,7 +38,7 @@ print(yellow("!WARNING! With TAS version 1.9.2 there have been significant chang
 if os.name == "nt":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
 else:
-    mainPath = os.path.expanduser("~/.theanimescripter")
+    mainPath = os.path.join(os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/config")), "TheAnimeScripter")
 
 if not os.path.exists(mainPath):
     os.makedirs(mainPath)
