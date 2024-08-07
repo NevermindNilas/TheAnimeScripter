@@ -124,7 +124,7 @@ class RifeCuda:
             dtype=torch.float16 if self.half else torch.float32,
             device=self.device,
         ).to(memory_format=torch.channels_last)
-        
+
         self.firstRun = True
         self.stream = torch.cuda.Stream() if self.isCudaAvailable else None
 
@@ -151,6 +151,7 @@ class RifeCuda:
             .to(memory_format=torch.channels_last)
             .mul_(1 / 255)
         )
+
     @torch.inference_mode()
     def padFrame(self, frame):
         return (
@@ -176,12 +177,15 @@ class RifeCuda:
                     dtype=torch.float16 if self.half else torch.float32,
                     device=self.device,
                 )
-                output = self.model(self.I0, self.I1, timestep).to(memory_format=torch.channels_last)
-                output = output[:, :, :self.height, :self.width]
+                output = self.model(self.I0, self.I1, timestep).to(
+                    memory_format=torch.channels_last
+                )
+                output = output[:, :, : self.height, : self.width]
                 output = output.squeeze(0).permute(1, 2, 0).mul(255.0)
                 self.stream.synchronize()
                 writeBuffer.write(output)
             self.cacheFrame()
+
 
 class RifeTensorRT:
     def __init__(
@@ -206,7 +210,11 @@ class RifeTensorRT:
             nt (int, optional): Number of threads. Defaults to 1.
         """
         import tensorrt as trt
-        from .utils.trtHandler import TensorRTEngineCreator, TensorRTEngineLoader, TensorRTEngineNameHandler
+        from .utils.trtHandler import (
+            TensorRTEngineCreator,
+            TensorRTEngineLoader,
+            TensorRTEngineNameHandler,
+        )
 
         self.TensorRTEngineCreator = TensorRTEngineCreator
         self.TensorRTEngineLoader = TensorRTEngineLoader
@@ -247,9 +255,7 @@ class RifeTensorRT:
         )
 
         folderName = self.interpolateMethod.replace("-tensorrt", "-onnx")
-        if not os.path.exists(
-            os.path.join(weightsDir, folderName, self.filename)
-        ):
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
             self.modelPath = downloadModels(
                 model=self.interpolateMethod,
                 modelType="onnx",
@@ -267,9 +273,10 @@ class RifeTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
-
         enginePath = self.TensorRTEngineNameHandler(
-            modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 7, self.height, self.width]
+            modelPath=self.modelPath,
+            fp16=self.half,
+            optInputShape=[1, 7, self.height, self.width],
         )
 
         if self.UHD:
@@ -281,18 +288,20 @@ class RifeTensorRT:
             inputsOpt = [1, 7, self.height, self.width]
             inputsMax = [1, 7, 1080, 1920]
 
-        if not os.path.exists(enginePath):
-            self.engine, self.context = self.TensorRTEngineCreator(
-                modelPath=self.modelPath,
-                enginePath=enginePath,
-                fp16=self.half,
-                inputsMin=inputsMin,
-                inputsOpt=inputsOpt,
-                inputsMax=inputsMax,
-                optimizationLevel=1
-            )
-        else:
-            self.engine, self.context = self.TensorRTEngineLoader(enginePath)
+        self.engine, self.context = self.TensorRTEngineLoader(enginePath)
+
+        if self.engine is None or self.context is None:
+            logging.info("Loading engine failed, creating a new one")
+            
+        self.engine, self.context = self.TensorRTEngineCreator(
+            modelPath=self.modelPath,
+            enginePath=enginePath,
+            fp16=self.half,
+            inputsMin=inputsMin,
+            inputsOpt=inputsOpt,
+            inputsMax=inputsMax,
+            optimizationLevel=1,
+        )
 
         self.dType = torch.float16 if self.half else torch.float32
         self.stream = torch.cuda.Stream()
@@ -355,7 +364,7 @@ class RifeTensorRT:
     @torch.inference_mode()
     def cacheFrame(self):
         self.I0.copy_(self.I1, non_blocking=True)
-    
+
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
         self.I0.copy_(self.processFrame(frame), non_blocking=True)
