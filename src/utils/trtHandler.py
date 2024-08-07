@@ -76,12 +76,20 @@ def TensorRTEngineLoader(
         enginePath (str): The path to the engine file.
     """
     
-    with open(enginePath, "rb") as f, trt.Runtime(
-        trt.Logger(trt.Logger.INFO)
-    ) as runtime:
-        engine = runtime.deserialize_cuda_engine(f.read())
-        context = engine.create_execution_context()
-        return engine, context
+    try:
+        with open(enginePath, "rb") as f, trt.Runtime(
+            trt.Logger(trt.Logger.INFO)
+        ) as runtime:
+            engine = runtime.deserialize_cuda_engine(f.read())
+            context = engine.create_execution_context()
+            return engine, context
+    
+    except FileNotFoundError:
+        return None, None
+
+    except Exception as e:
+        logging.error(f"Error loading engine: {e}")
+        return None, None
 
 
 def TensorRTEngineNameHandler(
