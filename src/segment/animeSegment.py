@@ -10,6 +10,7 @@ from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.coloredPrints import yellow
 from alive_progress import alive_bar
 
+
 class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentation but it's fine
     def __init__(
         self,
@@ -109,7 +110,13 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         h, w = h0, w0 = input_img.shape[:-1]
         h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
         ph, pw = s - h, s - w
-        input_img = input_img.float().to(self.device).mul_(1 / 255).permute(2, 0, 1).unsqueeze(0)
+        input_img = (
+            input_img.float()
+            .to(self.device)
+            .mul_(1 / 255)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+        )
         img_input = F.interpolate(
             input_img,
             size=(h, w),
@@ -120,9 +127,13 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         with torch.no_grad():
             pred = self.model(img_input)
             pred = pred[:, :, ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w]
-            pred = F.interpolate(
-                pred, size=(h0, w0), mode="bilinear", align_corners=False
-            ).squeeze_(0).permute(1, 2, 0).mul_(255).to(torch.uint8)
+            pred = (
+                F.interpolate(pred, size=(h0, w0), mode="bilinear", align_corners=False)
+                .squeeze_(0)
+                .permute(1, 2, 0)
+                .mul_(255)
+                .to(torch.uint8)
+            )
             return pred
 
     @torch.inference_mode()
@@ -184,7 +195,11 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
         self.totalFrames = totalFrames
 
         import tensorrt as trt
-        from src.utils.trtHandler import TensorRTEngineCreator, TensorRTEngineLoader, TensorRTEngineNameHandler
+        from src.utils.trtHandler import (
+            TensorRTEngineCreator,
+            TensorRTEngineLoader,
+            TensorRTEngineNameHandler,
+        )
 
         self.trt = trt
         self.TensorRTEngineCreator = TensorRTEngineCreator
@@ -245,23 +260,48 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
         self.device = torch.device("cuda")
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
-        
+
         enginePath = self.TensorRTEngineNameHandler(
-            modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 3, self.height + self.padHeight, self.width + self.padWidth]
+            modelPath=self.modelPath,
+            fp16=self.half,
+            optInputShape=[
+                1,
+                3,
+                self.height + self.padHeight,
+                self.width + self.padWidth,
+            ],
         )
 
-        if not os.path.exists(enginePath):
+        self.engine, self.context = self.TensorRTEngineLoader(enginePath)
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
                 fp16=self.half,
-                inputsMin=[1, 3, self.height + self.padHeight, self.width + self.padWidth],
-                inputsOpt=[1, 3, self.height + self.padHeight, self.width + self.padWidth],
-                inputsMax=[1, 3, self.height + self.padHeight, self.width + self.padWidth],
+                inputsMin=[
+                    1,
+                    3,
+                    self.height + self.padHeight,
+                    self.width + self.padWidth,
+                ],
+                inputsOpt=[
+                    1,
+                    3,
+                    self.height + self.padHeight,
+                    self.width + self.padWidth,
+                ],
+                inputsMax=[
+                    1,
+                    3,
+                    self.height + self.padHeight,
+                    self.width + self.padWidth,
+                ],
                 inputName="input",
             )
-        else:
-            self.engine, self.context = self.TensorRTEngineLoader(enginePath)
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
@@ -338,6 +378,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
 
         self.writeBuffer.close()
 
+
 class AnimeSegmentDirectML:
     def __init__(
         self,
@@ -370,6 +411,7 @@ class AnimeSegmentDirectML:
         self.totalFrames = totalFrames
 
         import onnxruntime as ort
+
         ort.set_default_logger_severity(3)
         self.ort = ort
 
@@ -423,7 +465,7 @@ class AnimeSegmentDirectML:
             modelPath = downloadModels(model="segment-directml")
         else:
             modelPath = os.path.join(weightsDir, folderName, self.filename)
-        
+
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
 
@@ -436,7 +478,7 @@ class AnimeSegmentDirectML:
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             provider = "CPUExecutionProvider"
- 
+
         self.model = self.ort.InferenceSession(modelPath, providers=[provider])
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
@@ -468,11 +510,7 @@ class AnimeSegmentDirectML:
     def processFrame(self, frame: torch.tensor) -> torch.tensor:
         try:
             frame = (
-                frame.to(self.device)
-                .float()
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .mul(1 / 255)
+                frame.to(self.device).float().permute(2, 0, 1).unsqueeze(0).mul(1 / 255)
             )
             frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
             print(frame.shape)

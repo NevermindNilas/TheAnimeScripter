@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Upgraded SPAN Models to `2x_Spanimation V1.5` - Special thanks to @TNTWise for the models.
 
 #### Improvements
+- Up to 25% faster Rife TensorRT Inference performance.
+- Better TensorRT Engine Handling in case if the engine / driver is outdated.
 - Depth Maps should now produce significantly better outputs compared to previous releases at a roughly 5x deduction in performance.
 - Made sure the output is now always clamped
 - `--ofline` can now be dynamically selected to download a specific model or list of models based on user selection. Use keyword `all` to download all of the available models.
