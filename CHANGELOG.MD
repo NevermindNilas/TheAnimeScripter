@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### The Anime Scripter
 
 #### New
+- !Upgraded to Python 3.12!
 - Rife 4.20 TensorRT
 - Rife 4.21 CUDA and TensorRT
 - Added `--bit_depth` in order to enable higher precision workflows. Options [8bit, 16bit].
@@ -52,6 +53,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fix issues with `--custom_encoder`
 - Partial fix for issue [44](https://github.com/NevermindNilas/TheAnimeScripter/issues/44)
 - TAS' ytdlp should now store the downloads in the output folder of main.exe in case if `--output` is not defined.
+- Fixed some bugs / issues with Pathing for Linux.
 
 #### The Anime Scripter - Adobe Edition
 
