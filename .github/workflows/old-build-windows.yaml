@@ -16,7 +16,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: "3.11.9"
+          python-version: "3.12.5"
 
       - name: Pip Install Requirements-Dev
         run: python -m pip install -r requirements-dev-windows.txt
