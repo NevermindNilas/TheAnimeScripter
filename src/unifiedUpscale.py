@@ -203,7 +203,8 @@ class UniversalTensorRT:
             modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 3, self.height, self.width]
         )
 
-        if not os.path.exists(enginePath):
+        self.engine, self.context = self.TensorRTEngineLoader(enginePath)
+        if self.engine is None or self.context is None or not os.path.exists(enginePath):
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -212,8 +213,6 @@ class UniversalTensorRT:
                 inputsOpt=[1, 3, self.height, self.width],
                 inputsMax=[1, 3, 1080, 1920],
             )
-        else:
-            self.engine, self.context = self.TensorRTEngineLoader(enginePath)
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(

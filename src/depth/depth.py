@@ -533,7 +533,8 @@ class DepthTensorRTV2:
             modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 3, self.newHeight, self.newWidth]
         )
 
-        if not os.path.exists(enginePath):
+        self.engine, self.context = self.TensorRTEngineLoader(enginePath)
+        if self.engine is None or self.context is None or not os.path.exists(enginePath):
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -543,8 +544,6 @@ class DepthTensorRTV2:
                 inputsMax=[1, 3, self.newHeight, self.newWidth],
                 inputName="image",
             )
-        else:
-            self.engine, self.context = self.TensorRTEngineLoader(enginePath)
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(

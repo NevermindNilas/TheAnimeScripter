@@ -289,19 +289,17 @@ class RifeTensorRT:
             inputsMax = [1, 7, 1080, 1920]
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
-
-        if self.engine is None or self.context is None:
+        if self.engine is None or self.context is None or not os.path.exists(enginePath):
             logging.info("Loading engine failed, creating a new one")
-            
-        self.engine, self.context = self.TensorRTEngineCreator(
-            modelPath=self.modelPath,
-            enginePath=enginePath,
-            fp16=self.half,
-            inputsMin=inputsMin,
-            inputsOpt=inputsOpt,
-            inputsMax=inputsMax,
-            optimizationLevel=1,
-        )
+            self.engine, self.context = self.TensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
+                fp16=self.half,
+                inputsMin=inputsMin,
+                inputsOpt=inputsOpt,
+                inputsMax=inputsMax,
+                optimizationLevel=1,
+            )
 
         self.dType = torch.float16 if self.half else torch.float32
         self.stream = torch.cuda.Stream()
