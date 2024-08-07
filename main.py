@@ -28,7 +28,7 @@ from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
 from src.argumentsChecker import createParser
 from src.getVideoMetadata import getVideoMetadata
-from src.initializeModels import initializeModels, Segment, Depth, opticalFlow
+from src.initializeModels import initializeModels, Segment, Depth
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red, yellow
@@ -142,7 +142,8 @@ class VideoProcessor:
 
         elif self.flow:
             logging.info("Extracting Optical Flow")
-            opticalFlow(self)
+            #opticalFlow(self)
+            pass
 
         else:
             self.start()

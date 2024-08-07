@@ -9,8 +9,6 @@ spandrel
 yt-dlp
 requests
 alive-progress
-tensorrt
-tensorrt_cu12
 scikit-image
 scenedetect[opencv]
 onnxruntime-directml==1.17.3
@@ -18,8 +16,10 @@ pytorch-lightning
 inquirer
 onnx
 colored
+tensorrt
+tensorrt_cu12
 tensorrt-cu12-bindings
-tensorrt-cu12_libs==10.0.1
+tensorrt-cu12_libs
 torch==2.4.0
 torchvision==0.19.0
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp311-cp311-win_amd64.whl
