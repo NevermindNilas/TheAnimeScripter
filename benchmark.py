@@ -14,7 +14,6 @@ else:
 if not os.path.exists(mainPath):
     os.makedirs(mainPath)
 
-# appdata / Romaing / TheAnimeSCripter / ffmpeg_log.txt
 ffmpegLogPath = os.path.join(mainPath, "ffmpegLog.txt")
 logTxtPath = os.path.join(mainPath, "log.txt")
 

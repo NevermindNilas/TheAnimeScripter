@@ -12,11 +12,11 @@ from alive_progress import alive_bar
 if os.name == "nt":
     appdata = os.getenv("APPDATA")
     mainPath = os.path.join(appdata, "TheAnimeScripter")
-
-    if not os.path.exists(mainPath):
-        os.makedirs(mainPath)
 else:
-    dirPath = os.path.dirname(os.path.realpath(__file__))
+    mainPath = os.path.join(os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/config")), "TheAnimeScripter")
+
+if not os.path.exists(mainPath):
+    os.makedirs(mainPath)
 
 def getFFMPEG():
     ffmpegPath = shutil.which("ffmpeg")
@@ -75,6 +75,7 @@ def downloadAndExtractFFMPEG(ffmpegPath):
 
     extractFunc(ffmpegArchivePath, ffmpegDir)
     return str(ffmpegPath)
+
 def extractFFMPEGZip(ffmpegZipPath, ffmpegDir):
     with zipfile.ZipFile(ffmpegZipPath, "r") as zipRef:
         zipRef.extractall(ffmpegDir)
