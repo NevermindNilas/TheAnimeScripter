@@ -12,8 +12,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### New
 - !Upgraded to Python 3.12!
-- Rife 4.20 TensorRT
+- Rife 4.22 CUDA
 - Rife 4.21 CUDA and TensorRT
+- Rife 4.20 TensorRT
 - Added `--bit_depth` in order to enable higher precision workflows. Options [8bit, 16bit].
 - .GIF input support using `--encode_method gif` - STILL A WIP!!!
 - .png / .jpeg support using `--encode_method image` - STILL A WIP!!!
