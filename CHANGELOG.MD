@@ -59,7 +59,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### The Anime Scripter - Adobe Edition
 
 #### New
-- TBA
+- Enabled auto clip functionality.
 - Half-Automated TAS updates.
 - `--bit_depth` has been added to the encoding settings.
 
@@ -68,7 +68,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Simplified some backend functionality for better performance
 
 #### Fixed
-- TBA
+- Some weird scaling issues.
+- TAS Update popping up randomly at times and closing.
 
 ## [1.9.1] - 2024-07-30
  
