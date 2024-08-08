@@ -203,20 +203,42 @@ def modelsMap(
             elif modelType == "ncnn":
                 raise ValueError("NCNN model not available for RIFE 4.20 yet.")
         
-        case "rife" | "rife4.21" | "rife4.21-tensorrt":
+        case "rife" | "rife4.22" | "rife4.22-tensorrt":
+            if modelType == "pth":
+                return "rife422.pth"
+            elif modelType == "onnx":
+                if half:
+                    if ensemble:
+                        print("Starting rife 4.21 Ensemble is no longer going to be supported.")
+                        raise ValueError("NOT ADDED YET")
+
+                        #return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                    else:
+                        raise ValueError("NOT ADDED YET")
+                        #return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                else:
+                    if ensemble:
+                        print("Starting rife 4.21 Ensemble is no longer going to be supported.")
+                        raise ValueError("NOT ADDED YET")
+                        #return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+                    else:
+                        raise ValueError("NOT ADDED YET")
+                        #return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+                    
+        case "rife4.21" | "rife4.21-tensorrt":
             if modelType == "pth":
                 return "rife421.pth"
             elif modelType == "onnx":
                 if half:
                     if ensemble:
-                        #return "rife421_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
-                        print("Ensemble is not supported yet for RIFE 4.21-Tensorrt")
+                        print("Starting rife 4.21 Ensemble is no longer going to be supported.")
+                        return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
                         return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                 else:
                     if ensemble:
-                        #return "rife421_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
-                        print("Ensemble is not supported yet for RIFE 4.21-Tensorrt")
+                        print("Starting rife 4.21 Ensemble is no longer going to be supported.")
+                        return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
                         return "rife421_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
             elif modelType == "ncnn":
