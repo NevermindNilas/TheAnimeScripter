@@ -67,7 +67,9 @@ class RifeCuda:
             modelPath = os.path.join(weightsDir, "rife", self.filename)
 
         match self.interpolateMethod:
-            case "rife" | "rife4.21":
+            case "rife" | "rife4.22":
+                from .rifearches.IFNET_rife422 import IFNet
+            case "rife4.21":
                 from .rifearches.IFNet_rife421 import IFNet
             case "rife4.20":
                 from .rifearches.IFNet_rife420 import IFNet
