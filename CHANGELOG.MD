@@ -60,9 +60,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### New
 - TBA
+- Half-Automated TAS updates.
+- `--bit_depth` has been added to the encoding settings.
 
 #### Improvements
 - More UI Changes.
+- Simplified some backend functionality for better performance
 
 #### Fixed
 - TBA
