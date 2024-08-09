@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### The Anime Scripter
 
 #### New
+- Added OpenProteus by Sirosky
+
+
+## [1.9.3] - 2024-08-09
+
+### The Anime Scripter
+
+#### New
 - Added Rife4.22 TensorRT
 - Added Video Stabilization using Vidgear
 
