@@ -1,178 +1,270 @@
-#####################################################
-#               Available Parameters             #
-#####################################################
+# Anime Scripter Parameters
 
-## Overview:
+## Table of Contents
+1. [Overview](#overview)
+2. [Command-Line Arguments](#command-line-arguments)
+3. [Input and Output](#input-and-output)
+4. [Processing Options](#processing-options)
+   - [Upscaling](#upscaling)
+   - [Interpolation](#interpolation)
+   - [Scene Change Detection](#scene-change-detection)
+   - [Deduplication](#deduplication)
+   - [Denoising](#denoising)
+   - [Sharpening](#sharpening)
+   - [Segmentation](#segmentation)
+   - [Auto Cut Clips Detection](#auto-cut-clips-detection)
+   - [Depth Map Generation](#depth-map-generation)
+   - [Resizing](#resizing)
+5. [Encoding Settings](#encoding-settings)
+6. [Video Stabilization](#video-stabilization)
+7. [Performance Settings](#performance-settings)
+8. [Usage Examples](#usage-examples)
+
+## Overview
 
 The Anime Scripter is a powerful tool for enhancing and manipulating videos with a wide range of options. It supports functionalities such as interpolation, upscaling, deduplication, denoising, sharpening, scene change detection, depth map generation, and more. Users can customize the processing pipeline to meet their specific requirements using a comprehensive set of parameters.
 
-### Command-Line Arguments:
+## Command-Line Arguments
 
-- `--version` (action=store_true): Outputs the script version.
-- `--benchmark` (action=store_true): Enable benchmarking. This will not output any video and it will only test the performance of the script without any additional processing.
-- `--offline` (str: "none"): Download models based on user selection. Choices / Examples:
-    - "none": Default state, does not download anything.
-    - "all": Downloads all available models.
-    - Single Option (e.g., "rife4.20"): Downloads the specified model.
-    - Multiple Options (e.g., "rife4.20 rife4.18 shufflecugan-tensorrt"): Downloads the specified models (any model can be listed here).
-        
-- `--ae` (actions=store_true, default=False): A simple flag for the script to know if it's ran from the After Effects interface or not.
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--version` | flag | - | Outputs the script version |
+| `--benchmark` | flag | - | Enable benchmarking (no video output, performance testing only) |
+| `--offline` | str | "none" | Download models based on user selection |
+| `--ae` | flag | False | Indicates if the script is run from the After Effects interface |
 
-#### Input and Output:
+### Offline Mode Options
+- `"none"`: Default state, does not download anything
+- `"all"`: Downloads all available models
+- Single Option (e.g., `"rife4.20"`): Downloads the specified model
+- Multiple Options (e.g., `"rife4.20 rife4.18 shufflecugan-tensorrt"`): Downloads the specified models
 
-- `--input` (str): Absolute path of the input video.
-- `--output` (str): Output string or absolute path for the processed video.
-- `--audio` (action=store_true): Enable audio processing.
+## Input and Output
 
-#### Upscaling Settings:
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--input` | str | - | Absolute path of the input video |
+| `--output` | str | - | Output string or absolute path for the processed video |
+| `--audio` | flag | - | Enable audio processing |
 
-- `--upscale` (action=store_true): Enable upscaling.
-- `--upscale_factor` (int, default=2): Factor for upscaling.
-- `--upscale_method` (str, default="ShuffleCugan"): Upscaling method:
-     - Options: "shufflecugan / shufflecugan-tensorrt", "compact / ultracompact / superultracompact / compact-directml / ultracompact-directml / superultracompact-directml / compact-tensorrt / ultracompact-tensorrt / superultracompact-tensorrt", "span / span-directml / span-tensorrt", "open-proteus / open-proteus-tensorrt / open-proteus-directml" 
-- `--custom_model` (str, default=""): Choose a different model for supported upscaling architectures. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
-- `--upscale_skip` (action=store_true): Increase the perceived upscaling performance by not processing duplicates and instead reutilizing the previous frame. Don't trust with 100% certainty
+## Processing Options
 
-#### Interpolation Settings:
+### Upscaling
 
-- `--interpolate` (action=store_true): Enable interpolation.
-- `--interpolate_factor` (int, default=2): Factor for interpolation.
-- `--interpolate_method` (str, default="rife"): Interpolation method:
-    - Options: "rife4.6 / rife4.6-ncnn / rife4.6-tensorrt", "rife4.15-lite / rife4.15-lite-ncnn / rife4.15-lite-tensorrt ", "rife4.16-lite / rife4.16-lite-ncnn", "rife4.17 / rife4.17-tensorrt", "rife4.18 / rife4.18-tensorrt", "rife4.20 / rife4.20-tensorrt", "rife4.21 / rife4.21-tensorrt", "rife4.22 / rife4.22-tensorrt".
-- `--ensemble` (action=store_true): Activate Ensemble for higher quality outputs from Rife.
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--upscale` | flag | - | Enable upscaling |
+| `--upscale_factor` | int | 2 | Factor for upscaling |
+| `--upscale_method` | str | "ShuffleCugan" | Upscaling method |
+| `--custom_model` | str | "" | Path to a custom model file (.pth or .onnx) |
+| `--upscale_skip` | flag | - | Skip processing duplicates for faster perceived upscaling |
 
-#### Scene Change Settings:
+#### Upscale Methods
+- `"shufflecugan"` / `"shufflecugan-tensorrt"`
+- `"compact"` / `"ultracompact"` / `"superultracompact"` (with `-directml` or `-tensorrt` variants)
+- `"span"` / `"span-directml"` / `"span-tensorrt"`
+- `"open-proteus"` / `"open-proteus-tensorrt"` / `"open-proteus-directml"`
 
-- `--scenechange` (action=store_true, default=False): Enable scene change detection, useful for avoiding interpolation between different scenes of a clip / video in order to avoid artifacting. This only works if `--interpolate` is available, expect performance losses.
-- `--scenechange_sens` (float, default=50): Change the sensitivity of the scene change detection, values go from a minimum of 0.80 - 0.90 ( equivalent to --scenechange_sens 0 - --scenechange_sens 100 )
-- `--scenechange_methodd` (str, default="maxxvit-directml"): Choose which scenechange method to use. Options: "maxxvit-directml", "maxxvit-tensorrt"
+### Interpolation
 
-#### Deduplication settings:
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--interpolate` | flag | - | Enable interpolation |
+| `--interpolate_factor` | int | 2 | Factor for interpolation |
+| `--interpolate_method` | str | "rife" | Interpolation method |
+| `--ensemble` | flag | - | Activate Ensemble for higher quality Rife outputs |
 
-- `--dedup` (action=store_true): Enable deduplication.
-- `--dedup_method` (str, default="ssim"): Deduplication method. Deduplication Methods: "ffmpeg, ssim, mse, ssim-cuda"
-- `--dedup_sens` (float, default=50): Sensitivity of deduplication.
-- `--sample_size` (int, default=224): Sample Size for SSIM Dedupping, it resizes the image to a 224 x 224 ( or your selected value ) image and does the similarity calculation. Higher values means lower performance but technically higher accuracy.
+#### Interpolate Methods
+- `"rife4.6"` / `"rife4.6-ncnn"` / `"rife4.6-tensorrt"`
+- `"rife4.15-lite"` / `"rife4.15-lite-ncnn"` / `"rife4.15-lite-tensorrt"`
+- `"rife4.16-lite"` / `"rife4.16-lite-ncnn"`
+- `"rife4.17"` / `"rife4.17-tensorrt"`
+- `"rife4.18"` / `"rife4.18-tensorrt"`
+- `"rife4.20"` / `"rife4.20-tensorrt"`
+- `"rife4.21"` / `"rife4.21-tensorrt"`
+- `"rife4.22"` / `"rife4.22-tensorrt"`
 
-##### Denoising settings:
+### Scene Change Detection
 
-- `--denoise` (action=store_true): Enable denoising.
-- `--denoise_method` (str, default="scunet"): Choose a denoising model:
-     - Options: "scunet", "nafnet", "dpir", "real-plksr"
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--scenechange` | flag | False | Enable scene change detection |
+| `--scenechange_sens` | float | 50 | Sensitivity of scene change detection (0.80 - 0.90) |
+| `--scenechange_method` | str | "maxxvit-directml" | Scene change detection method |
 
-#### Precision and Trimming:
+#### Scene Change Methods
+- `"maxxvit-directml"`
+- `"maxxvit-tensorrt"`
 
-- `--inpoint` (float, default=0): Inpoint for the video, used for accurate seeking based on Timecode variables, mainly used within the AE interface.
-- `--outpoint` (float, default=0): Outpoint for the video.
+### Deduplication
 
-#### Sharpening Settings:
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--dedup` | flag | - | Enable deduplication |
+| `--dedup_method` | str | "ssim" | Deduplication method |
+| `--dedup_sens` | float | 50 | Sensitivity of deduplication |
+| `--sample_size` | int | 224 | Sample size for SSIM deduplication |
 
-- `--sharpen` (action=store_true): Enable sharpening.
-- `--sharpen_sens` (float, default=50): Sensitivity of sharpening.
+#### Dedup Methods
+- `"ffmpeg"`
+- `"ssim"`
+- `"mse"`
+- `"ssim-cuda"`
 
-#### Segmentation Settings:
+### Denoising
 
-- `--segment` (action=store_true): Enable segmentation.
-- `--segment_method` (str, default="anime", choices=["anime", "anime-tensorrt"])L Choose the desired segmentation method.
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--denoise` | flag | - | Enable denoising |
+| `--denoise_method` | str | "scunet" | Denoising model |
 
-#### Auto Cut Clips Detection:
+#### Denoise Methods
+- `"scunet"`
+- `"nafnet"`
+- `"dpir"`
+- `"real-plksr"`
 
-- `--autoclip` (action=store_true): Enable auto cut clip detection.
-- `--autoclip_sens` (float, default=40): Sensitivity of auto cut clip detection.
+### Sharpening
 
-#### Depth Map Generation:
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--sharpen` | flag | - | Enable sharpening |
+| `--sharpen_sens` | float | 50 | Sensitivity of sharpening |
 
-- `--depth` (action=store_true): Generate Depth Maps.
-- `--depth_method` (str, default="small"): Depth map generation method:
-     - Options: "small_v2 / small_v2-tensorrt / small_v2-directml", "base_v2 / base_v2-tensorrt / base_v2-directml ", " large_v2 / large_v2-tensorrt / large_v2-directml".
+### Segmentation
 
-#### Resizing:
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--segment` | flag | - | Enable segmentation |
+| `--segment_method` | str | "anime" | Segmentation method |
 
-- `--resize` (action=store_true): Enable resizing.
-- `--resize_factor` (int, default=2): Factor for resizing the decoded video. Can also be a float value between 0 and 1 for downscaling.
-- `--resize_method` (str, choices=["fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos", "spline", "spline16", "spline36", "point"], default="bicubic"): Resizing method:
-    - Options: "lanczos" (recommended for upscaling), "area" (recommended for downscaling).
+#### Segment Methods
+- `"anime"`
+- `"anime-tensorrt"`
 
-#### Encoding Settings:
-- `--encode_method` (str, default="x264"): Encoding method:
-    - Options:
-        - `x264`: Uses `libx264` codec with `-preset veryfast -crf 15`.
-        - `x264_10bit`: Uses `libx264` codec with `-preset veryfast -crf 15 -profile:v high10`.
-        - `x264_animation`: Uses `libx264` codec with `-preset veryfast -tune animation -crf 15`.
-        - `x264_animation_10bit`: Uses `libx264` codec with `-preset veryfast -tune animation -crf 15 -profile:v high10`.
-        - `x265`: Uses `libx265` codec with `-preset veryfast -crf 15`.
-        - `x265_10bit`: Uses `libx265` codec with `-preset veryfast -crf 15 -profile:v main10`.
-        - `nvenc_h264`: Uses `h264_nvenc` codec with `-preset p1 -cq 15`.
-        - `nvenc_h265`: Uses `hevc_nvenc` codec with `-preset p1 -cq 15`.
-        - `nvenc_h265_10bit`: Uses `hevc_nvenc` codec with `-preset p1 -cq 15 -profile:v main10`.
-        - `qsv_h264`: Uses `h264_qsv` codec with `-preset veryfast -global_quality 15`.
-        - `qsv_h265`: Uses `hevc_qsv` codec with `-preset veryfast -global_quality 15`.
-        - `qsv_h265_10bit`: Uses `hevc_qsv` codec with `-preset veryfast -global_quality 15 -profile:v main10`.
-        - `nvenc_av1`: Uses `av1_nvenc` codec with `-preset p1 -cq 15`.
-        - `av1`: Uses `libsvtav1` codec with `-preset 8 -crf 15`.
-        - `h264_amf`: Uses `h264_amf` codec with `-quality speed -rc cqp -qp 15`.
-        - `hevc_amf`: Uses `hevc_amf` codec with `-quality speed -rc cqp -qp 15`.
-        - `hevc_amf_10bit`: Uses `hevc_amf` codec with `-quality speed -rc cqp -qp 15 -profile:v main10`.
-        - `prores`: Uses `prores_ks` codec with `-profile:v 4 -qscale:v 15`.
-        - `gif`: Uses `gif` codec with `-qscale:v 1 -loop 0`.
-        - `image`: Uses `png` codec with `-q:v 1`.
+### Auto Cut Clips Detection
 
-    - NOTE: 
-        - Depending on `--bit_depth` and the desired `--encode_method` the output pix format (`ffmpeg's -pix_fmt`) can dynamically switch between yuv420p, yuv420p10le and yuv444p10le. If you want even more fine grained access refer to `--custom_encoder` below.
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--autoclip` | flag | - | Enable auto cut clip detection |
+| `--autoclip_sens` | float | 40 | Sensitivity of auto cut clip detection |
 
-- `--custom_encoder` (str, default=""): Comprehensive encoding option allowing users to specify their own `ffmpeg` parameters, including filters. Input a string of `ffmpeg` parameters, separated by spaces.
+### Depth Map Generation
 
-    Example: `--custom_encoder="-c:v libx264 -crf 14 -vf hqdn3d -pix_fmt yuv420p"`
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--depth` | flag | - | Generate depth maps |
+| `--depth_method` | str | "small" | Depth map generation method |
 
-#### Video Stabilization Settings:
+#### Depth Methods
+- `"small_v2"` / `"small_v2-tensorrt"` / `"small_v2-directml"`
+- `"base_v2"` / `"base_v2-tensorrt"` / `"base_v2-directml"`
+- `"large_v2"` / `"large_v2-tensorrt"` / `"large_v2-directml"`
 
-- `--stabilize` (action=store_true): Enable stabilization.
+### Resizing
 
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--resize` | flag | - | Enable resizing |
+| `--resize_factor` | float | 2 | Factor for resizing (>1 for upscaling, <1 for downscaling) |
+| `--resize_method` | str | "bicubic" | Resizing method |
 
-#### Performance Settings:
+#### Resize Methods
+- `"fast_bilinear"`, `"bilinear"`, `"bicubic"`, `"experimental"`, `"neighbor"`, `"area"`
+- `"bicublin"`, `"gauss"`, `"sinc"`, `"lanczos"`, `"spline"`, `"spline16"`, `"spline36"`, `"point"`
 
-- `--half` (action=store_true, default=True): Enable FP16 which improves the performance, generally by about 50% but can technically result in lower quality results. Generally speaking it's worth using Fp16 for the faster inference.
-- `--buffer_limit` (int, default=50): Set the limit for how many frames can be in the decoding and encoding buffers at any given time. Useful for when the encoding is the main bottleneck in the process but it does come at a cost of larger ram consumption.
+## Encoding Settings
 
-## Manual Usage Examples:
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--encode_method` | str | "x264" | Encoding method |
+| `--custom_encoder` | str | "" | Custom FFmpeg encoding parameters |
 
-Sidenotes:
-- Replace `.\input\test.mp4` with a full or relative path to a video file or folder.
-- `--output` is not necessary since the script can automatically create a file name for you based on the input's name.
-- In case if you want to utilize the script using the packaged main.exe file, replace `python .\main.py` with `main.exe`
+### Encode Methods
+- `"x264"`: libx264, preset veryfast, CRF 15
+- `"x264_10bit"`: libx264, preset veryfast, CRF 15, high10 profile
+- `"x264_animation"`: libx264, preset veryfast, tune animation, CRF 15
+- `"x264_animation_10bit"`: libx264, preset veryfast, tune animation, CRF 15, high10 profile
+- `"x265"`: libx265, preset veryfast, CRF 15
+- `"x265_10bit"`: libx265, preset veryfast, CRF 15, main10 profile
+- `"nvenc_h264"`: h264_nvenc, preset p1, CQ 15
+- `"nvenc_h265"`: hevc_nvenc, preset p1, CQ 15
+- `"nvenc_h265_10bit"`: hevc_nvenc, preset p1, CQ 15, main10 profile
+- `"qsv_h264"`: h264_qsv, preset veryfast, global quality 15
+- `"qsv_h265"`: hevc_qsv, preset veryfast, global quality 15
+- `"qsv_h265_10bit"`: hevc_qsv, preset veryfast, global quality 15, main10 profile
+- `"nvenc_av1"`: av1_nvenc, preset p1, CQ 15
+- `"av1"`: libsvtav1, preset 8, CRF 15
+- `"h264_amf"`: h264_amf, quality speed, RC CQP, QP 15
+- `"hevc_amf"`: hevc_amf, quality speed, RC CQP, QP 15
+- `"hevc_amf_10bit"`: hevc_amf, quality speed, RC CQP, QP 15, main10 profile
+- `"prores"`: prores_ks, profile 4, qscale 15
+- `"gif"`: gif, qscale 1, loop 0
+- `"image"`: png, quality 1
 
-Example 1: Enable upscaling with half precision mode on. ( this will default to shufflecugan, also half precision mode is on by default so it's not necessary to type out )
+**Note**: The output pixel format (`-pix_fmt`) can dynamically switch between yuv420p, yuv420p10le, and yuv444p10le based on `--bit_depth` and `--encode_method`.
 
-- `python .\main.py --input .\input\test.mp4 --upscale --half `
+## Video Stabilization
 
-Example 2: Enable Interpolating with custom interpolate method rife 4.6.
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--stabilize` | flag | - | Enable video stabilization |
 
-- `python .\main.py --input .\input\test.mp4 --interpolate --interpolate_method rife4.6`
+## Performance Settings
 
-Example 3: Enable upscaling and interpolating with custom models.
+| Argument | Type | Default | Description |
+|----------|------|---------|-------------|
+| `--half` | flag | True | Enable FP16 for improved performance |
+| `--buffer_limit` | int | 50 | Set the limit for decoding and encoding buffers |
 
-- `python .\main.py --input .\input\test.mp4 --upscale --upscale_method superultracompact --interpolate --interpolate_method rife4.20`
+## Usage Examples
 
-Example 4: Enable deduplication with a sensitivity of 60 and custom deduplication method.
+**Note**: Replace `.\input\test.mp4` with a full or relative path to a video file or folder. The `--output` argument is optional, as the script can automatically generate a file name based on the input.
 
-- `python .\main.py --input .\input\test.mp4 --dedup --dedup_sens 60 --dedup_method ssim`
+When using the packaged `main.exe` file, replace `python .\main.py` with `main.exe` in the following examples.
 
-Example 5: Enable denoising using the nafnet model.
+1. Enable upscaling with half precision mode (default):
+   ```
+   python .\main.py --input .\input\test.mp4 --upscale
+   ```
 
-- `python .\main.py --input .\input\test.mp4 --denoise --denoise_method nafnet`
+2. Enable interpolation with Rife 4.6:
+   ```
+   python .\main.py --input .\input\test.mp4 --interpolate --interpolate_method rife4.6
+   ```
 
-Example 6: Enable interpolation coupled with scene change detection.
+3. Enable upscaling and interpolation with custom models:
+   ```
+   python .\main.py --input .\input\test.mp4 --upscale --upscale_method superultracompact --interpolate --interpolate_method rife4.20
+   ```
 
-- `python .\main.py --input .\input\test.mp4 --interpolate --scenechange` 
+4. Enable deduplication with custom sensitivity and method:
+   ```
+   python .\main.py --input .\input\test.mp4 --dedup --dedup_sens 60 --dedup_method ssim
+   ```
 
-Example 7: Enable depth map generation using the "large" method and 16bit workflow.
+5. Enable denoising using the NAFNet model:
+   ```
+   python .\main.py --input .\input\test.mp4 --denoise --denoise_method nafnet
+   ```
 
-- `python .\main.py --input .\input\test.mp4 --depth --depth_method large_v2 --bit_depth 16bit`
+6. Enable interpolation with scene change detection:
+   ```
+   python .\main.py --input .\input\test.mp4 --interpolate --scenechange
+   ```
 
-Example 8: Download a YouTube video, upscale it with span-tensorrt, interpolate it with rife4.17-tensorrt coupled with scene change detection.
+7. Generate depth maps using the "large" method and 16-bit workflow:
+   ```
+   python .\main.py --input .\input\test.mp4 --depth --depth_method large_v2 --bit_depth 16bit
+   ```
 
-- `python .\main.py --input https://www.youtube.com/watch?v=dQw4w9WgXcQ --upscale --upscale_method span-tensorrt --interpolate --interpolate_method rife4.17-tensorrt --scenechange`
-- Remember to replace the YouTube URL with the actual URL of the video you want to download.
+8. Download a YouTube video, upscale with Span-TensorRT, interpolate with Rife 4.17-TensorRT, and use scene change detection:
+   ```
+   python .\main.py --input https://www.youtube.com/watch?v=dQw4w9WgXcQ --upscale --upscale_method span-tensorrt --interpolate --interpolate_method rife4.17-tensorrt --scenechange
+   ```
+   (Replace the YouTube URL with the actual video URL you want to download)
 
-Example 9: Process from second 8 'till 17 with SuperUltraCompact-TensorRT upscaling, Rife 4.20 Interpolation, Maxvit-TensorRT Scenechange Detection and a custom av1 encoder preset:
-- `python .\main.py --input .\input\test.mp4 --inpoint 8 --outpoint 17 --upscale --upscale_method superultracompact-tensorrt --interpolate --interpolate_method rife4.20 --scenechange --scenechange_method maxxvit-tensorrt --custom_encoder "-c:v libsvtav1 -preset 8 -crf 30 -vf hqdn3d=1.5:1.5:6:6 -pix_fmt yuv420p"`
+9. Process video from second 8 to 17 with custom settings:
+   ```
+   python .\main.py --input .\input\test.mp4 --inpoint 8 --outpoint 17 --upscale --upscale_method superultracompact-tensorrt --interpolate --interpolate_method rife4.20 --scenechange --scenechange_method maxxvit-tensorrt --custom_encoder "-c:v libsvtav1 -preset 8 -crf 30 -vf hqdn3d=1.5:1.5:6:6 -pix_fmt yuv420p"
+   ```
