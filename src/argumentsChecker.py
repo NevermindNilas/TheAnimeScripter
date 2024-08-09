@@ -292,6 +292,12 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
         "--flow", action="store_true", help="Extract the Optical Flow"
     )
 
+    # Stabilizer Options
+    stabilizerGroup = argParser.add_argument_group("Stabilizer")
+    stabilizerGroup.add_argument(
+        "--stabilize", action="store_true", help="Stabilize the video using VidStab"
+    )
+
     # Miscellaneous options
     miscGroup = argParser.add_argument_group("Miscellaneous")
     miscGroup.add_argument("--buffer_limit", type=int, default=50, help="Buffer limit")
@@ -420,8 +426,6 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         logging.info("GIF encoding selected, disabling audio")
         args.audio = False
 
-
-
     if args.input is None:
         toPrint = "No input specified, please specify an input file or URL to continue"
         logging.error(toPrint)
@@ -452,6 +456,7 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         args.depth,
         args.autoclip,
         args.flow,
+        args.stabilize
     ]
 
     if not any(processingMethods):

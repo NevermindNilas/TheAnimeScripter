@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### New
 - Added Rife4.22 TensorRT
+- Added Video Stabilization using Vidgear
 
 #### Improvements
 

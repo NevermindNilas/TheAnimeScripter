@@ -1,5 +1,15 @@
 import logging
 
+def AutoClip(self, mainPath):
+    from src.autoclip import AutoClip
+
+    AutoClip(
+        self.input,
+        self.autoclip_sens,
+        mainPath,
+        self.inpoint,
+        self.outpoint,
+    )
 
 def Segment(self):
     # Lazy loading for startup time reasons
@@ -129,8 +139,25 @@ def Depth(self):
                 self.bit_depth,
             )
 
+def Stabilize(self):
+    from src.stabilize.stabilize import VideoStabilizer
 
-
+    VideoStabilizer(
+        self.input,
+        self.output,
+        self.ffmpeg_path,
+        self.width,
+        self.height,
+        self.fps,
+        self.half,
+        self.inpoint,
+        self.outpoint,
+        self.encode_method,
+        self.custom_encoder,
+        self.buffer_limit,
+        self.benchmark,
+        self.totalFrames,
+    )
 
 def initializeModels(self):
     outputWidth = self.width
