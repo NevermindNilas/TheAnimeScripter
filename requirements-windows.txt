@@ -16,6 +16,7 @@ pytorch-lightning
 inquirer
 onnx
 colored
+vidgear
 tensorrt
 tensorrt_cu12
 tensorrt-cu12-bindings
