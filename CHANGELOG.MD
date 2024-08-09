@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
  
 
-## [UNRELEASED] - yyyy-mm-dd
+## [1.9.2] - 2024-08-09
 
 ### The Anime Scripter
 
