@@ -49,7 +49,7 @@ else:
     isFrozen = False
     outputPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.9.2"
+scriptVersion = "1.9.3"
 warnings.filterwarnings("ignore")
 
 
