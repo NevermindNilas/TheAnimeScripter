@@ -210,20 +210,15 @@ def modelsMap(
                 if half:
                     if ensemble:
                         print("Starting rife 4.21 Ensemble is no longer going to be supported.")
-                        raise ValueError("NOT ADDED YET")
-
-                        #return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                        return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
-                        raise ValueError("NOT ADDED YET")
-                        #return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                        return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                 else:
                     if ensemble:
                         print("Starting rife 4.21 Ensemble is no longer going to be supported.")
-                        raise ValueError("NOT ADDED YET")
-                        #return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+                        return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
                     else:
-                        raise ValueError("NOT ADDED YET")
-                        #return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+                        return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
                     
         case "rife4.21" | "rife4.21-tensorrt":
             if modelType == "pth":
@@ -463,6 +458,7 @@ def downloadModels(
     os.makedirs(folderPath, exist_ok=True)
 
     if model in [
+        "rife4.22-tensorrt",
         "rife4.21-tensorrt",
         "rife4.20-tensorrt",
         "rife4.18-tensorrt",
