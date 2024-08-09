@@ -47,7 +47,7 @@
 
 - **Windows and After Effects:** Actively being reworked and improved!
   
-  ![Adobe GUI](https://github.com/user-attachments/assets/8144b020-a3ca-42be-9c61-38875e07d82a)
+  ![Adobe GUI](https://github.com/user-attachments/assets/aa054363-d22f-45d9-8099-142485f35f6a)
   *Adobe GUI in action*
 
 ## 🛠️ Getting Started
