@@ -29,7 +29,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--upscale` (action=store_true): Enable upscaling.
 - `--upscale_factor` (int, default=2): Factor for upscaling.
 - `--upscale_method` (str, default="ShuffleCugan"): Upscaling method:
-     - Options: "shufflecugan / shufflecugan-tensorrt", "compact / ultracompact / superultracompact / compact-directml / ultracompact-directml / superultracompact-directml / compact-tensorrt / ultracompact-tensorrt / superultracompact-tensorrt", "span / span-directml / span-tensorrt" 
+     - Options: "shufflecugan / shufflecugan-tensorrt", "compact / ultracompact / superultracompact / compact-directml / ultracompact-directml / superultracompact-directml / compact-tensorrt / ultracompact-tensorrt / superultracompact-tensorrt", "span / span-directml / span-tensorrt", "open-proteus / open-proteus-tensorrt / open-proteus-directml" 
 - `--custom_model` (str, default=""): Choose a different model for supported upscaling architectures. Relies on `--upscaling_factor` and `--upscaling_method`. Input must be the full path to a desired .pth or .onnx file.
 - `--upscale_skip` (action=store_true): Increase the perceived upscaling performance by not processing duplicates and instead reutilizing the previous frame. Don't trust with 100% certainty
 
@@ -38,7 +38,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `--interpolate` (action=store_true): Enable interpolation.
 - `--interpolate_factor` (int, default=2): Factor for interpolation.
 - `--interpolate_method` (str, default="rife"): Interpolation method:
-    - Options: "rife4.6 / rife4.6-ncnn / rife4.6-tensorrt", "rife4.15-lite / rife4.15-lite-ncnn / rife4.15-lite-tensorrt ", "rife4.16-lite / rife4.16-lite-ncnn", "rife4.17 / rife4.17-tensorrt", "rife4.18 / rife4.18-tensorrt", "rife4.20 / rife4.20-tensorrt", "rife4.21 / rife4.21-tensorrt", "rife4.22".
+    - Options: "rife4.6 / rife4.6-ncnn / rife4.6-tensorrt", "rife4.15-lite / rife4.15-lite-ncnn / rife4.15-lite-tensorrt ", "rife4.16-lite / rife4.16-lite-ncnn", "rife4.17 / rife4.17-tensorrt", "rife4.18 / rife4.18-tensorrt", "rife4.20 / rife4.20-tensorrt", "rife4.21 / rife4.21-tensorrt", "rife4.22 / rife4.22-tensorrt".
 - `--ensemble` (action=store_true): Activate Ensemble for higher quality outputs from Rife.
 
 #### Scene Change Settings:

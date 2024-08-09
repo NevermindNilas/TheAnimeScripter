@@ -96,22 +96,23 @@ Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
 
 ## 🙏 Acknowledgements
 
-| **Name and Link**                                                                                     | **For**              |
-|-------------------------------------------------------------------------------------------------------|----------------------|
-| [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)                                       | Shufflecugan and many more ONNX models |
-| [HZWER](https://github.com/hzwer/Practical-RIFE)                                                      | Rife                 |
+| **Name and Link**                                                                                     | **For**                                      |
+|-------------------------------------------------------------------------------------------------------|----------------------------------------------|
+| [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)                                       | Shufflecugan and many more ONNX models       |
+| [HZWER](https://github.com/hzwer/Practical-RIFE)                                                      | Rife                                         |
 | [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai)                              | Compact, UltraCompact, SuperUltraCompact models |
-| [SkyTNT](https://github.com/SkyTNT/anime-segmentation)                                                | Anime Segmentation   |
-| [DepthAnything](https://github.com/DepthAnything/Depth-Anything-V2)                                              | Depth Anything  V2      |
-| [FFmpeg Group](https://github.com/FFmpeg/FFmpeg)                                                      | FFmpeg               |
-| [YT-DLP](https://github.com/yt-dlp/yt-dlp)                                                            | YT-DLP               |
-| [Hongyuanyu](https://github.com/hongyuanyu/span)                                                      | SPAN                 |
-| [Breakthrough](https://github.com/Breakthrough/PySceneDetect)                                         | Automated Scene Detection |
-| [Chainner-org](https://github.com/chaiNNer-org/spandrel)                                              | Spandrel, easy to use arch implementations |
-| [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                 |
-| [TNTWise](https://github.com/TNTwise) | For Rife ONNX / NCNN and Spanimation | 
-| [WolframRhodium](https://github.com/WolframRhodium) | For Rife V2 models |
-| [Hyperbrew](https://github.com/hyperbrew/bolt-cep) | For Bolt CEP
+| [SkyTNT](https://github.com/SkyTNT/anime-segmentation)                                                | Anime Segmentation                           |
+| [DepthAnything](https://github.com/DepthAnything/Depth-Anything-V2)                                    | Depth Anything V2                            |
+| [FFmpeg Group](https://github.com/FFmpeg/FFmpeg)                                                      | FFmpeg                                       |
+| [YT-DLP](https://github.com/yt-dlp/yt-dlp)                                                            | YT-DLP                                       |
+| [Hongyuanyu](https://github.com/hongyuanyu/span)                                                      | SPAN                                         |
+| [Breakthrough](https://github.com/Breakthrough/PySceneDetect)                                         | Automated Scene Detection                    |
+| [Chainner-org](https://github.com/chaiNNer-org/spandrel)                                              | Spandrel, easy to use arch implementations   |
+| [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                                         |
+| [TNTWise](https://github.com/TNTwise)                                                                 | Rife ONNX / NCNN and Spanimation             |
+| [WolframRhodium](https://github.com/WolframRhodium)                                                   | Rife V2 models                               |
+| [Hyperbrew](https://github.com/hyperbrew/bolt-cep)                                                    | Bolt CEP                                     |
+| [Sirosky](https://github.com/Sirosky/Upscale-Hub)                                                     | Open-Proteus                                 |
 
 If I forgot to mention anyone please direct an email at: nilascontact@gmail.com
 
