@@ -37,6 +37,7 @@ DEPTHV2URLLARGE = (
 
 def modelsList() -> list[str]:
     return [
+        "open-proteus",
         "compact",
         "ultracompact",
         "superultracompact",
@@ -58,10 +59,12 @@ def modelsList() -> list[str]:
         "rife4.20",
         "rife4.21",
         "shufflecugan-directml",
+        "open-proteus-directml",
         "compact-directml",
         "ultracompact-directml",
         "superultracompact-directml",
         "span-directml",
+        "open-proteus-tensorrt",
         "shufflecugan-tensorrt",
         "compact-tensorrt",
         "ultracompact-tensorrt",
@@ -111,6 +114,15 @@ def modelsMap(
     """
 
     match model:
+        case "open-proteus" | "open-proteus-directml" | "open-proteus-tensorrt":
+            if modelType == "pth":
+                return "2x_OpenProteus_Compact_i2_70K.pth"
+            else:
+                if half:
+                    return "2x_OpenProteus_Compact_i2_70K-fp16.onnx"
+                else:
+                    return "2x_OpenProteus_Compact_i2_70K-fp32.onnx"
+
         case "compact" | "compact-directml" | "compact-tensorrt":
             if modelType == "pth":
                 return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k.pth"
@@ -361,6 +373,7 @@ def modelsMap(
                 return "depth_anything_v2_vitl14_float16_slim.onnx"
             else:
                 return "depth_anything_v2_vitl14_float32_slim.onnx"
+
 
         case _:
             raise ValueError(f"Model {model} not found.")
