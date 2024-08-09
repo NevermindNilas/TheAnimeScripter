@@ -7,7 +7,17 @@
       <img src="https://img.shields.io/discord/1041502781808328704?label=Discord" alt="Discord Shield"/></a>
 </p>
 
+# The Anime Scripter
 
+## Table of Contents
+- [Key Features](#-key-features)
+- [Getting Started](#-getting-started)
+- [Available Inputs](#-available-inputs)
+- [Available Models](#-available-models)
+- [Benchmarks](#-benchmarks)
+- [Acknowledgements](#-acknowledgements)
+- [Star History](#-star-history)
+- [Promo Video](#-promo-video)
 
 ## 🚀 Key Features
 
@@ -33,88 +43,83 @@
 
 11. **Graphical User Interface:** Navigate through our user-friendly interface designed for both beginners and professionals, ensuring a smooth editing workflow from start to finish.
 
-Empower your video editing journey with these robust, efficient features designed to elevate your content to new heights.
+## 🖥️ Graphical User Interfaces
 
-
-## 🖥️ Graphical User Interfaces for Windows and After Effects
-
-- Actively being reworked!
+- **Windows and After Effects:** Actively being reworked and improved!
+  
+  ![Adobe GUI](https://github.com/user-attachments/assets/8144b020-a3ca-42be-9c61-38875e07d82a)
+  *Adobe GUI in action*
 
 ## 🛠️ Getting Started
 
-### How to Download The Standalone / CLI version:
-
-Windows:
-  - Stable:
-    - Download the latest release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
-
-  - Nightly:
-    - Download nightly versions from [here](https://github.com/NevermindNilas/TAS-Nightly/releases)
-
-Linux:
-  - GUI is N/A yet. Refer to manual usage with the CLI and the [Parameters](PARAMETERS.MD) guide
-
-
-### How to Use Inside Adobe After Effects
+### Adobe After Effects Integration
 
 1. Download the latest `-AdobeEdition` release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases/).
 2. Extract the files using WinRAR or 7-Zip.
 3. Follow this step-by-step [tutorial](https://www.goodboy.ninja/help/install/extensions)
+> If installation fails, refer to the [manual installation guide](https://www.goodboy.ninja/help/install/extensions-manually).
 
-- [In case if you failed to install it, click here for manual installation](https://www.goodboy.ninja/help/install/extensions-manually)
+### Standalone / CLI Version
+
+#### Windows
+- **Stable:** Download the latest release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
+- **Nightly:** Download nightly versions from [here](https://github.com/NevermindNilas/TAS-Nightly/releases)
+
+#### Linux
+- GUI is not available yet. Refer to manual usage with the CLI and the [Parameters](PARAMETERS.MD) guide.
 
 ## 📚 Available Inputs
 
-All of the available parameters for interacting with the CLI or directly with main.py can be found in the [Parameters](PARAMETERS.MD) guide.
-
+All available parameters for interacting with the CLI or directly with `main.py` can be found in the [Parameters](PARAMETERS.MD) guide.
 
 ## 📁 Available Models
 
 ### Upscaling Models
 
 **Officially Supported:**
-- ShuffleCugan ( CUDA, TensorRT, and NCNN )
-- Span ( CUDA, TensorRT, DirectML and NCNN versions )
+- ShuffleCugan (CUDA, TensorRT, and NCNN)
+- Span (CUDA, TensorRT, DirectML and NCNN versions)
 - SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective TensorRT and DirectML versions)
+- OpenProteus ( Cuda, TensorRT and DirectML ) 
 
 **Unofficially Supported:**
 - Custom models compatible with [Spandrel](https://github.com/chaiNNer-org/spandrel) can be used via the `--custom_model` parameter.
 
 ### Interpolation Models
-- Rife CUDA (Versions: 4.6, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21 )
-- Rife TensorRT (Versions: 4.6, 4.15-lite, 4.17, 4.18, 4.20, 4.21 )
-- Rife NCNN ( Versions: 4.6, 4.15-lite, 4.16-lite, 4.17, 4.18 ) 
+- Rife CUDA (Versions: 4.6, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22 )
+- Rife TensorRT (Versions: 4.6, 4.15-lite, 4.17, 4.18, 4.20, 4.21, 4.22 )
+- Rife NCNN (Versions: 4.6, 4.15-lite, 4.16-lite, 4.17, 4.18)
 
 ### Denoise Models
 - SCUNet
 - NAFNet
 - DPIR
-- Real-Plksr ( deJpeg )
+- Real-Plksr (deJpeg)
 
 ## 📈 Benchmarks
-Both internal and user generated benchmarks can be found [here](BENCHMARKS.MD).
+Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 
 ## 🙏 Acknowledgements
 
-| **Name and Link**                                                                                     | **For**                                      |
-|-------------------------------------------------------------------------------------------------------|----------------------------------------------|
-| [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)                                       | Shufflecugan and many more ONNX models       |
-| [HZWER](https://github.com/hzwer/Practical-RIFE)                                                      | Rife                                         |
-| [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai)                              | Compact, UltraCompact, SuperUltraCompact models |
-| [SkyTNT](https://github.com/SkyTNT/anime-segmentation)                                                | Anime Segmentation                           |
-| [DepthAnything](https://github.com/DepthAnything/Depth-Anything-V2)                                    | Depth Anything V2                            |
-| [FFmpeg Group](https://github.com/FFmpeg/FFmpeg)                                                      | FFmpeg                                       |
-| [YT-DLP](https://github.com/yt-dlp/yt-dlp)                                                            | YT-DLP                                       |
-| [Hongyuanyu](https://github.com/hongyuanyu/span)                                                      | SPAN                                         |
-| [Breakthrough](https://github.com/Breakthrough/PySceneDetect)                                         | Automated Scene Detection                    |
-| [Chainner-org](https://github.com/chaiNNer-org/spandrel)                                              | Spandrel, easy to use arch implementations   |
-| [cszn](https://github.com/cszn/DPIR)                                                                  | DPIR                                         |
-| [TNTWise](https://github.com/TNTwise)                                                                 | Rife ONNX / NCNN and Spanimation             |
-| [WolframRhodium](https://github.com/WolframRhodium)                                                   | Rife V2 models                               |
-| [Hyperbrew](https://github.com/hyperbrew/bolt-cep)                                                    | Bolt CEP                                     |
-| [Sirosky](https://github.com/Sirosky/Upscale-Hub)                                                     | Open-Proteus                                 |
+| Name | For |
+|------|-----|
+| [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) | Shufflecugan and many more ONNX models |
+| [HZWER](https://github.com/hzwer/Practical-RIFE) | Rife |
+| [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai) | Compact, UltraCompact, SuperUltraCompact models |
+| [SkyTNT](https://github.com/SkyTNT/anime-segmentation) | Anime Segmentation |
+| [DepthAnything](https://github.com/DepthAnything/Depth-Anything-V2) | Depth Anything V2 |
+| [FFmpeg Group](https://github.com/FFmpeg/FFmpeg) | FFmpeg |
+| [YT-DLP](https://github.com/yt-dlp/yt-dlp) | YT-DLP |
+| [Hongyuanyu](https://github.com/hongyuanyu/span) | SPAN |
+| [Breakthrough](https://github.com/Breakthrough/PySceneDetect) | Automated Scene Detection |
+| [Chainner-org](https://github.com/chaiNNer-org/spandrel) | Spandrel, easy to use arch implementations |
+| [cszn](https://github.com/cszn/DPIR) | DPIR |
+| [TNTWise](https://github.com/TNTwise) | Rife ONNX / NCNN and Spanimation |
+| [WolframRhodium](https://github.com/WolframRhodium) | Rife V2 models |
+| [Hyperbrew](https://github.com/hyperbrew/bolt-cep) | Bolt CEP |
+| [Sirosky](https://github.com/Sirosky/Upscale-Hub) | Open-Proteus |
 
-If I forgot to mention anyone please direct an email at: nilascontact@gmail.com
+If we forgot to mention anyone, please email: nilascontact@gmail.com
 
 ## 🌟 Star History
 
