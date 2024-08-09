@@ -124,6 +124,11 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
     Example: `--custom_encoder="-c:v libx264 -crf 14 -vf hqdn3d -pix_fmt yuv420p"`
 
+#### Video Stabilization Settings:
+
+- `--stabilize` (action=store_true): Enable stabilization.
+
+
 #### Performance Settings:
 
 - `--half` (action=store_true, default=True): Enable FP16 which improves the performance, generally by about 50% but can technically result in lower quality results. Generally speaking it's worth using Fp16 for the faster inference.
