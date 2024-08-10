@@ -19,7 +19,7 @@ def activate_venv():
 def install_requirements():
     print("Installing the requirements...")
     subprocess.run(
-        [".\\venv\\Scripts\\pip3", "install", "-r", "requirements-windows.txt"],
+        [".\\venv\\Scripts\\pip3", "install", "-r", "requirements-windows-lite.txt"],
         check=True,
     )
 
