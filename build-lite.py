@@ -9,18 +9,18 @@ distPath = os.path.join(base_dir, "dist-lite" if "--output" in sys.argv else "di
 
 def create_venv():
     print("Creating the virtual environment...")
-    subprocess.run(["python", "-m", "venv", "venv"], check=True)
+    subprocess.run(["python", "-m", "venv", "venv-lite"], check=True)
 
 
 def activate_venv():
     print("Activating the virtual environment...")
-    subprocess.run(".\\venv\\Scripts\\activate", shell=True, check=True)
+    subprocess.run(".\\venv-lite\\Scripts\\activate", shell=True, check=True)
 
 
 def install_requirements():
     print("Installing the requirements...")
     subprocess.run(
-        [".\\venv\\Scripts\\pip3", "install", "-r", "requirements-windows-lite.txt"],
+        [".\\venv-lite\\Scripts\\pip3", "install", "-r", "requirements-windows-lite.txt"],
         check=True,
     )
 
@@ -28,7 +28,7 @@ def install_requirements():
 def install_pyinstaller():
     print("Installing PyInstaller...")
     subprocess.run(
-        [".\\venv\\Scripts\\python", "-m", "pip", "install", "pyinstaller"], check=True
+        [".\\venv-lite\\Scripts\\python", "-m", "pip", "install", "pyinstaller"], check=True
     )
 
 
@@ -37,13 +37,12 @@ def create_executable():
     src_path = os.path.join(base_dir, "src")
     main_path = os.path.join(base_dir, "main.py")
     iconPath = os.path.join(base_dir, "src", "assets", "icon.ico")
-    updaterPath = os.path.join(base_dir, "updater.py")
     benchmarkPath = os.path.join(base_dir, "benchmark.py")
 
     print("Creating the CLI executable...")
     subprocess.run(
         [
-            ".\\venv\\Scripts\\pyinstaller",
+            ".\\venv-lite\\Scripts\\pyinstaller",
             "--noconfirm",
             "--onedir",
             "--console",
@@ -77,30 +76,11 @@ def create_executable():
     )
 
     print("Finished creating the CLI executable")
-    # print("Creating the GUI executable...")
 
-    # subprocess.run(
-    #    [
-    #        ".\\venv\\Scripts\\pyinstaller",
-    #        "--noconfirm",
-    #        "--onedir",
-    #        "--noconsole",
-    #        "--noupx",
-    #        "--clean",
-    #        "--debug=all",
-    #        "--icon",
-    #        f"{iconPath}",
-    #        guiPath,
-    #    ],
-    #    check=True,
-    # )
-
-    # print("Finished creating the GUI executable")
     print("Creating the benchmark executable...")
-
     subprocess.run(
         [
-            ".\\venv\\Scripts\\pyinstaller",
+            ".\\venv-lite\\Scripts\\pyinstaller",
             "--noconfirm",
             "--onedir",
             "--console",
@@ -112,32 +92,12 @@ def create_executable():
         ],
         check=True,
     )
-
     print("Finished creating the benchmark executable")
-    print("Creating the updater executable...")
-
-    subprocess.run(
-        [
-            ".\\venv\\Scripts\\pyinstaller",
-            "--noconfirm",
-            "--onedir",
-            "--console",
-            "--noupx",
-            "--clean",
-            "--icon",
-            f"{iconPath}",
-            updaterPath,
-        ],
-        check=True,
-    )
-    print("Finished creating the updater executable")
 
     mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
-    # guiInternalPath = os.path.join(base_dir, "dist", "gui", "_internal")
     benchmarkInternalPath = os.path.join(base_dir, "dist", "benchmark", "_internal")
-    updaterInternalPath = os.path.join(base_dir, "dist", "updater", "_internal")
 
-    for directory in [benchmarkInternalPath, updaterInternalPath]:
+    for directory in [benchmarkInternalPath]:
         for filename in os.listdir(directory):
             sourceFilePath = os.path.join(directory, filename)
             mainFilePath = os.path.join(mainInternalPath, filename)
@@ -148,14 +108,10 @@ def create_executable():
             elif os.path.isdir(sourceFilePath):
                 shutil.copytree(sourceFilePath, mainFilePath, dirs_exist_ok=True)
 
-    # guiExeFilePath = os.path.join(base_dir, "dist", "gui", "gui.exe")
     benchmarkExeFilePath = os.path.join(base_dir, "dist", "benchmark", "benchmark.exe")
-    updaterExeFilePath = os.path.join(base_dir, "dist", "updater", "updater.exe")
     mainExeFilePath = os.path.join(base_dir, "dist", "main")
 
-    # shutil.move(guiExeFilePath, mainExeFilePath)
     shutil.move(benchmarkExeFilePath, mainExeFilePath)
-    shutil.move(updaterExeFilePath, mainExeFilePath)
 
 
 def move_extras():
@@ -175,15 +131,13 @@ def move_extras():
 
 def clean_up():
     benchmarkFolder = os.path.join(base_dir, distPath, "benchmark")
-    updaterFolder = os.path.join(base_dir, distPath, "updater")
 
     try:
         shutil.rmtree(benchmarkFolder)
-        shutil.rmtree(updaterFolder)
     except Exception as e:
         print("Error while removing folders: ", e)
 
-    print("Done!, you can find the built executable in the dist folder")
+    print("Done! You can find the built executable in the dist folder")
 
 
 if __name__ == "__main__":
