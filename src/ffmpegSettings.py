@@ -368,6 +368,7 @@ class WriteBuffer:
         bitDepth: str = "8bit",
         inpoint: float = 0.0,
         outpoint: float = 0.0,
+        preview: bool = False,
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -386,6 +387,10 @@ class WriteBuffer:
         transparent: bool - Whether to encode the video with transparency.
         audio: bool - Whether to include audio in the output video.
         benchmark: bool - Whether to benchmark the encoding process, this will not output any video.
+        bitDepth: str - The bit depth of the output video. Options include "8bit" and "10bit".
+        inpoint: float - The start time of the segment to encode, in seconds.
+        outpoint: float - The end time of the segment to encode, in seconds.
+        preview: bool - Whether to preview the video.
         """
         self.input = input
         self.output = os.path.normpath(output)
@@ -405,6 +410,7 @@ class WriteBuffer:
         self.bitDepth = bitDepth
         self.inpoint = inpoint
         self.outpoint = outpoint
+        self.preview = preview
 
     def encodeSettings(self, verbose: bool = False) -> list:
         """
@@ -587,6 +593,7 @@ class WriteBuffer:
         verbose: bool = True
         command = self.encodeSettings(verbose=verbose)
 
+        self.latestFrame = None
         self.writeBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
 
         if verbose:
@@ -629,6 +636,9 @@ class WriteBuffer:
                                 .numpy()
                             )
 
+                        if self.preview:
+                            self.latestFrame = frame
+
                         self.process.stdin.buffer.write(frame)
                         writtenFrames += 1
 
@@ -640,6 +650,12 @@ class WriteBuffer:
             self.isWritingDone = True
             if self.audio and not self.benchmark:
                 self.mergeAudio()
+    
+    def peek(self):
+        """
+        Peek the queue.
+        """
+        return self.latestFrame if self.latestFrame is not None else None
 
     def write(self, frame: torch.Tensor):
         """

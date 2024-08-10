@@ -52,7 +52,6 @@ else:
 scriptVersion = "1.9.4"
 warnings.filterwarnings("ignore")
 
-
 class VideoProcessor:
     def __init__(self, args):
         self.input = args.input
@@ -98,6 +97,7 @@ class VideoProcessor:
         self.upscale_skip = args.upscale_skip
         self.bit_depth = args.bit_depth
         self.stabilize = args.stabilize
+        self.preview = args.preview
 
         self.width, self.height, self.fps, self.totalFrames = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
@@ -205,6 +205,8 @@ class VideoProcessor:
             logging.info(f"Detected {self.sceneChangeCounter} scene changes")
 
         self.writeBuffer.close()
+        if self.preview:
+            self.preview.close()
 
     def start(self):
         try:
@@ -253,12 +255,21 @@ class VideoProcessor:
                 bitDepth=self.bit_depth,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
+                preview=self.preview,
             )
 
-            with ThreadPoolExecutor(max_workers=3) as executor:
+            if self.preview:
+                from src.previewSettings import Preview
+                self.preview = Preview(
+                    writeBuffer=self.writeBuffer,
+                )
+
+            with ThreadPoolExecutor(max_workers=4 if self.preview else 3) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
                 executor.submit(self.writeBuffer.start)
+                if self.preview:
+                    executor.submit(self.preview.start)
 
         except Exception as e:
             logging.exception(f"Something went wrong: {e}")
