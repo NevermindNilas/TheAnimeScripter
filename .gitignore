@@ -13,6 +13,8 @@ installer.cfg
 build/
 develop-eggs/
 dist/
+dist-lite/
+dist-full/
 downloads/
 eggs/
 .eggs/
@@ -162,6 +164,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+venv-lite/
+venv-full/
 
 # Spyder project settings
 .spyderproject
