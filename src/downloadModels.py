@@ -37,9 +37,9 @@ DEPTHV2URLLARGE = (
 
 def modelsList() -> list[str]:
     return [
-        "aniscale",
-        "aniscale-directml",
-        "aniscale-tensorrt",
+        "aniscale2",
+        "aniscale2-directml",
+        "aniscale2-tensorrt",
         "open-proteus",
         "compact",
         "ultracompact",
@@ -119,7 +119,7 @@ def modelsMap(
     """
 
     match model:
-        case "aniscale" | "aniscale-directml" | "aniscale-tensorrt":
+        case "aniscale2" | "aniscale2-directml" | "aniscale2-tensorrt":
             if modelType == "pth":
                 return "2x_AniScale2S_Compact_i8_60K.pth"
             else:
