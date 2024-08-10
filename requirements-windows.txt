@@ -17,6 +17,7 @@ inquirer
 onnx
 colored
 vidgear
+flask
 tensorrt
 tensorrt_cu12
 tensorrt-cu12-bindings
