@@ -31,7 +31,7 @@ from src.getVideoMetadata import getVideoMetadata
 from src.initializeModels import initializeModels, Segment, Depth, Stabilize, AutoClip
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
-from src.coloredPrints import green, blue, red, yellow
+from src.coloredPrints import green, blue, red
 
 
 if os.name == "nt":
