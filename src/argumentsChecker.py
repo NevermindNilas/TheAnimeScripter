@@ -11,7 +11,6 @@ from src.ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red
 
-
 def createParser(isFrozen, scriptVersion, mainPath, outputPath):
     argParser = argparse.ArgumentParser(
         description="The Anime Scripter CLI Tool",
@@ -29,6 +28,9 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
     )
     generalGroup.add_argument(
         "--outpoint", type=float, default=0, help="Input end time"
+    )
+    generalGroup.add_argument(
+        "--preview", action="store_true", help="Preview the video during processing"
     )
 
     # Performance options
@@ -428,6 +430,13 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
     if args.encode_method in ["gif", "image"]:
         logging.info("GIF encoding selected, disabling audio")
         args.audio = False
+        if args.preview:
+            logging.error("Preview is not supported with GIF and Image encoding, disabling preview")
+            args.preview = False
+
+    if args.preview:
+        logging.info("Preview is enabled, the script will start a preview server to show the video during processing, this can have a signficant impact on performance")
+        print(green("Preview is enabled, the script will start a preview server to show the video during processing, this can have a signficant impact on performance"))
 
     if args.input is None:
         toPrint = "No input specified, please specify an input file or URL to continue"
