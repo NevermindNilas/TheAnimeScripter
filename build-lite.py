@@ -70,6 +70,8 @@ def create_executable():
             "grapheme",
             "--icon",
             f"{iconPath}",
+            "--distpath",
+            distPath,
             main_path,
         ],
         check=True,
@@ -88,14 +90,16 @@ def create_executable():
             "--clean",
             "--icon",
             f"{iconPath}",
+            "--distpath",
+            distPath,
             benchmarkPath,
         ],
         check=True,
     )
     print("Finished creating the benchmark executable")
 
-    mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
-    benchmarkInternalPath = os.path.join(base_dir, "dist", "benchmark", "_internal")
+    mainInternalPath = os.path.join(distPath, "main", "_internal")
+    benchmarkInternalPath = os.path.join(distPath, "benchmark", "_internal")
 
     for directory in [benchmarkInternalPath]:
         for filename in os.listdir(directory):
@@ -108,15 +112,14 @@ def create_executable():
             elif os.path.isdir(sourceFilePath):
                 shutil.copytree(sourceFilePath, mainFilePath, dirs_exist_ok=True)
 
-    benchmarkExeFilePath = os.path.join(base_dir, "dist", "benchmark", "benchmark.exe")
-    mainExeFilePath = os.path.join(base_dir, "dist", "main")
+    benchmarkExeFilePath = os.path.join(distPath, "benchmark", "benchmark.exe")
+    mainExeFilePath = os.path.join(distPath, "main")
 
     shutil.move(benchmarkExeFilePath, mainExeFilePath)
 
 
 def move_extras():
-    dist_dir = os.path.join(base_dir, "dist")
-    main_dir = os.path.join(dist_dir, "main")
+    main_dir = os.path.join(distPath, "main")
     license_path = os.path.join(base_dir, "LICENSE")
     readme_path = os.path.join(base_dir, "README.md")
     readme_txt_path = os.path.join(base_dir, "README.txt")
