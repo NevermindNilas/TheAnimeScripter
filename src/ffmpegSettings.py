@@ -444,13 +444,13 @@ class WriteBuffer:
                 inputPixFormat = "gray16le"
                 outputPixFormat = "yuv444p10le"
 
-        elif self.encode_method in ["x264_10bit", "x265_10bit"]:
+        elif self.encode_method in ["x264_10bit", "x265_10bit", "x264_animation_10bit"]:
             if self.bitDepth == "8bit":
                 inputPixFormat = "rgb24"
                 outputPixFormat = "yuv420p10le"
             else:
                 inputPixFormat = "rgb48le"
-                outputPixFormat = "yuv444p10le"
+                outputPixFormat = "yuv420p10le"
 
         elif self.encode_method in [
             "nvenc_h265_10bit",
