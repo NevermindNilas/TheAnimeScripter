@@ -34,7 +34,7 @@ def install_pyinstaller():
 def create_executable():
     print("Creating executable with PyInstaller...")
     src_path = os.path.join(base_dir, "src")
-    main_path = os.path.join(base_dir, "main.py")
+    mainPath = os.path.join(base_dir, "main.py")
     iconPath = os.path.join(base_dir, "src", "assets", "icon.ico")
     benchmarkPath = os.path.join(base_dir, "benchmark.py")
 
@@ -71,7 +71,7 @@ def create_executable():
             f"{iconPath}",
             "--distpath",
             distPath,
-            main_path,
+            mainPath,
         ],
         check=True,
     )
@@ -89,6 +89,8 @@ def create_executable():
             "--clean",
             "--icon",
             f"{iconPath}",
+            "--distpath",
+            distPath,
             benchmarkPath,
         ],
         check=True,
@@ -98,9 +100,9 @@ def create_executable():
     mainInternalPath = os.path.join(base_dir, "dist-full", "main", "_internal")
     benchmarkInternalPath = os.path.join(base_dir, "dist-full", "benchmark", "_internal")
 
-    for directory in [benchmarkInternalPath]:
-        for filename in os.listdir(directory):
-            sourceFilePath = os.path.join(directory, filename)
+    if os.path.exists(benchmarkInternalPath):
+        for filename in os.listdir(benchmarkInternalPath):
+            sourceFilePath = os.path.join(benchmarkInternalPath, filename)
             mainFilePath = os.path.join(mainInternalPath, filename)
 
             if os.path.isfile(sourceFilePath):
@@ -113,7 +115,6 @@ def create_executable():
     mainExeFilePath = os.path.join(base_dir, "dist-full", "main")
 
     shutil.move(benchmarkExeFilePath, mainExeFilePath)
-
 
 def move_extras():
     dist_dir = os.path.join(base_dir, "dist-full")
