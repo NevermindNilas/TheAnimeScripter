@@ -287,9 +287,6 @@ if __name__ == "__main__":
 
     args = createParser(isFrozen, scriptVersion, mainPath, outputPath)
 
-    print(yellow("!WARNING! With TAS version 1.9.2 there have been significant changes to how models are downloaded and stored. It is recommended to go to TheAnimeScripter weights folder and delete all the models before running the script again. \nPath is {user}\\Appdata\\Roaming\\TheAnimeScripter\\Weights."))
-    
-
     if os.path.isfile(args.input):
         print(green(f"Processing {args.input}"))
         if args.output is None:
