@@ -37,6 +37,9 @@ DEPTHV2URLLARGE = (
 
 def modelsList() -> list[str]:
     return [
+        "aniscale",
+        "aniscale-directml",
+        "aniscale-tensorrt",
         "open-proteus",
         "compact",
         "ultracompact",
@@ -58,6 +61,7 @@ def modelsList() -> list[str]:
         "rife4.18",
         "rife4.20",
         "rife4.21",
+        "rife4.22",
         "shufflecugan-directml",
         "open-proteus-directml",
         "compact-directml",
@@ -76,6 +80,7 @@ def modelsList() -> list[str]:
         "rife4.18-tensorrt",
         "rife4.20-tensorrt",
         "rife4.21-tensorrt",
+        "rife4.22-tensorrt",
         "rife-v4.6-ncnn",
         "rife-v4.15-lite-ncnn",
         "rife-v4.16-lite-ncnn",
@@ -114,6 +119,15 @@ def modelsMap(
     """
 
     match model:
+        case "aniscale" | "aniscale-directml" | "aniscale-tensorrt":
+            if modelType == "pth":
+                return "2x_AniScale2S_Compact_i8_60K.pth"
+            else:
+                if half:
+                    return "2x_AniScale2S_Compact_i8_60K-fp16.onnx"
+                else:
+                    return "2x_AniScale2S_Compact_i8_60K-fp32.onnx"
+
         case "open-proteus" | "open-proteus-directml" | "open-proteus-tensorrt":
             if modelType == "pth":
                 return "2x_OpenProteus_Compact_i2_70K.pth"
