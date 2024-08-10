@@ -10,13 +10,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### The Anime Scripter
 
 #### New
-- Added OpenProteus by Sirosky
+- Added OpenProteus and AniScale2 by Sirosky
+- New lite version of TAS ( WIP )
 
 #### Improvements
 - Improved parameters and examples.
 
 #### Fixes
 - Fixed a bug with 16bit workflow and x264_animation_10bit
+- [Issue #44](https://github.com/NevermindNilas/TheAnimeScripter/issues/45)
+
+#### Removals
+- Updater.exe
 
 ## [1.9.3] - 2024-08-09
 
