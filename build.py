@@ -3,7 +3,7 @@ import os
 import shutil
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-distPath = os.path.join(base_dir, "dist")
+distPath = os.path.join(base_dir, "dist-full")
 
 
 def create_venv():
@@ -69,6 +69,8 @@ def create_executable():
             "grapheme",
             "--icon",
             f"{iconPath}",
+            "--distpath",
+            distPath,
             main_path,
         ],
         check=True,
@@ -93,8 +95,8 @@ def create_executable():
     )
     print("Finished creating the benchmark executable")
 
-    mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
-    benchmarkInternalPath = os.path.join(base_dir, "dist", "benchmark", "_internal")
+    mainInternalPath = os.path.join(base_dir, "dist-full", "main", "_internal")
+    benchmarkInternalPath = os.path.join(base_dir, "dist-full", "benchmark", "_internal")
 
     for directory in [benchmarkInternalPath]:
         for filename in os.listdir(directory):
@@ -107,14 +109,14 @@ def create_executable():
             elif os.path.isdir(sourceFilePath):
                 shutil.copytree(sourceFilePath, mainFilePath, dirs_exist_ok=True)
 
-    benchmarkExeFilePath = os.path.join(base_dir, "dist", "benchmark", "benchmark.exe")
-    mainExeFilePath = os.path.join(base_dir, "dist", "main")
+    benchmarkExeFilePath = os.path.join(base_dir, "dist-full", "benchmark", "benchmark.exe")
+    mainExeFilePath = os.path.join(base_dir, "dist-full", "main")
 
     shutil.move(benchmarkExeFilePath, mainExeFilePath)
 
 
 def move_extras():
-    dist_dir = os.path.join(base_dir, "dist")
+    dist_dir = os.path.join(base_dir, "dist-full")
     main_dir = os.path.join(dist_dir, "main")
     license_path = os.path.join(base_dir, "LICENSE")
     readme_path = os.path.join(base_dir, "README.md")
@@ -129,14 +131,14 @@ def move_extras():
 
 
 def clean_up():
-    benchmarkFolder = os.path.join(base_dir, "dist", "benchmark")
+    benchmarkFolder = os.path.join(base_dir, "dist-full", "benchmark")
 
     try:
         shutil.rmtree(benchmarkFolder)
     except Exception as e:
         print("Error while removing benchmark folder: ", e)
 
-    print("Done! You can find the built executable in the dist folder")
+    print("Done! You can find the built executable in the dist-full folder")
 
 
 if __name__ == "__main__":
