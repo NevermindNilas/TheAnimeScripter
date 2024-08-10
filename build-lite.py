@@ -1,9 +1,10 @@
 import subprocess
 import os
 import shutil
+import sys
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-distPath = os.path.join(base_dir, "dist")
+distPath = os.path.join(base_dir, "dist-lite" if "--output" in sys.argv else "dist")
 
 
 def create_venv():
@@ -173,17 +174,14 @@ def move_extras():
 
 
 def clean_up():
-    # guiFolder = os.path.join(base_dir, "dist", "gui")
-    benchmarkFolder = os.path.join(base_dir, "dist", "benchmark")
-    updaterFolder = os.path.join(base_dir, "dist", "updater")
+    benchmarkFolder = os.path.join(base_dir, distPath, "benchmark")
+    updaterFolder = os.path.join(base_dir, distPath, "updater")
 
     try:
-        # shutil.rmtree(guiFolder)
         shutil.rmtree(benchmarkFolder)
         shutil.rmtree(updaterFolder)
-
     except Exception as e:
-        print("Error while removing gui folder: ", e)
+        print("Error while removing folders: ", e)
 
     print("Done!, you can find the built executable in the dist folder")
 
