@@ -89,6 +89,7 @@ class VideoDownloader:
                         # self.customEncoder if self.customEncoder else matchEncoder(self.encodeMethod),
                     }
                 ],
+                "nocookies": True,
             }
         else:
             return {
@@ -98,4 +99,5 @@ class VideoDownloader:
                 "quiet": True,
                 "noplaylist": True,
                 "no_warnings": True,
+                "nocookies": True,
             }

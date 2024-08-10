@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### New
 - Added OpenProteus by Sirosky
 
+#### Improvements
+- Improved parameters and examples.
+
+#### Fixes
+- Fixed a bug with 16bit workflow and x264_animation_10bit
 
 ## [1.9.3] - 2024-08-09
 
