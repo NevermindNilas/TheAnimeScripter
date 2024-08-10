@@ -27,6 +27,9 @@ jobs:
       - name: Run build script
         run: python build.py --venv
 
+      - name: Run build-lite script
+        run: python build-lite.py --venv --output dist-lite
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
