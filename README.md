@@ -80,7 +80,8 @@ All available parameters for interacting with the CLI or directly with `main.py`
 - ShuffleCugan (CUDA, TensorRT, and NCNN)
 - Span (CUDA, TensorRT, DirectML and NCNN versions)
 - SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective TensorRT and DirectML versions)
-- OpenProteus ( Cuda, TensorRT and DirectML ) 
+- OpenProteus ( Cuda, TensorRT and DirectML )
+- AniScale 2 ( Cuda, TensorRT and DirectML )
 
 **Unofficially Supported:**
 - Custom models compatible with [Spandrel](https://github.com/chaiNNer-org/spandrel) can be used via the `--custom_model` parameter.
