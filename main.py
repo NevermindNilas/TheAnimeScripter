@@ -328,7 +328,7 @@ if __name__ == "__main__":
             elif os.path.isdir(copyArgsOutput):
                 args.output = os.path.join(copyArgsOutput, outputNameGenerator(args))
 
-            print(args.output)
+            print(green(f"Output File: {args.output}"))
             VideoProcessor(args)
             args.output = copyArgsOutput
     else:
