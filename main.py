@@ -37,7 +37,9 @@ from src.coloredPrints import green, blue, red
 if os.name == "nt":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
 else:
-    mainPath = os.path.join(os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/config")), "TheAnimeScripter")
+    mainPath = os.path.join(
+        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/config")), "TheAnimeScripter"
+    )
 
 if not os.path.exists(mainPath):
     os.makedirs(mainPath)
@@ -51,6 +53,7 @@ else:
 
 scriptVersion = "1.9.4"
 warnings.filterwarnings("ignore")
+
 
 class VideoProcessor:
     def __init__(self, args):
@@ -136,7 +139,7 @@ class VideoProcessor:
 
         elif self.flow:
             logging.info("Extracting Optical Flow")
-            #opticalFlow(self)
+            # opticalFlow(self)
             pass
 
         else:
@@ -260,6 +263,7 @@ class VideoProcessor:
 
             if self.preview:
                 from src.previewSettings import Preview
+
                 self.preview = Preview(
                     writeBuffer=self.writeBuffer,
                 )
@@ -307,6 +311,9 @@ if __name__ == "__main__":
         toPrint = f"Processing {len(videoFiles)} files"
         logging.info(toPrint)
         print(blue(toPrint))
+        copyArgsOutput = args.output if args.output else None
+        if args.output:
+            os.makedirs(args.output, exist_ok=True)
 
         for videoFile in videoFiles:
             args.input = os.path.abspath(videoFile)
@@ -314,14 +321,16 @@ if __name__ == "__main__":
             logging.info(toPrint)
             print(green(toPrint))
 
-            if args.output is None:
+            if copyArgsOutput is None:
                 outputFolder = os.path.join(outputPath, "output")
-                os.makedirs(os.path.join(outputFolder), exist_ok=True)
+                os.makedirs(outputFolder, exist_ok=True)
                 args.output = os.path.join(outputFolder, outputNameGenerator(args))
+            elif os.path.isdir(copyArgsOutput):
+                args.output = os.path.join(copyArgsOutput, outputNameGenerator(args))
 
+            print(args.output)
             VideoProcessor(args)
-            args.output = None
-
+            args.output = copyArgsOutput
     else:
         toPrint = f"File or directory {args.input} does not exist, exiting"
         print(red(toPrint))
