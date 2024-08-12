@@ -4,6 +4,8 @@ import os
 import shutil
 import torch
 import sys
+import numpy as np
+
 
 from queue import Queue
 
@@ -494,6 +496,8 @@ class WriteBuffer:
                 "-an",
                 "-fps_mode",
                 "cfr",
+                "-threads",
+                "0",
             ]
 
             if not self.custom_encoder:
@@ -606,7 +610,6 @@ class WriteBuffer:
                     stdin=subprocess.PIPE,
                     stdout=log_file,
                     stderr=subprocess.STDOUT,
-                    universal_newlines=True,
                 ) as self.process:
                     writtenFrames = 0
                     self.isWritingDone = False
@@ -616,7 +619,7 @@ class WriteBuffer:
                             if verbose:
                                 logging.info(f"Encoded {writtenFrames} frames")
                             break
-
+        
                         if self.bitDepth == "8bit":
                             frame = (
                                 frame.clamp(0, 255)
@@ -631,21 +634,22 @@ class WriteBuffer:
                                 .to(torch.float32)
                                 .mul(257)
                                 .to(torch.uint16)
-                                .contiguous()
                                 .cpu()
                                 .numpy()
                             )
-
+                        
                         if self.preview:
                             self.latestFrame = frame
-
-                        self.process.stdin.buffer.write(frame)
+                        
+                        frame = np.ascontiguousarray(frame)
+                        
+                        self.process.stdin.write(frame.tobytes())
                         writtenFrames += 1
-
+        
         except Exception as e:
             if verbose:
                 logging.error(f"An error occurred: {str(e)}")
-
+        
         finally:
             self.isWritingDone = True
             if self.audio and not self.benchmark:
