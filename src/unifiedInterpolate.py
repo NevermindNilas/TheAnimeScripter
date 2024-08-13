@@ -366,6 +366,10 @@ class RifeTensorRT:
         self.I0.copy_(self.I1, non_blocking=True)
 
     @torch.inference_mode()
+    def cacheFrameReset(self, frame):
+        self.I0.copy_(self.processFrame(frame), non_blocking=True)
+
+    @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
