@@ -3,7 +3,6 @@ import os
 from onnx import version_converter
 from onnxconverter_common import float16
 
-# Check if onnxslim is available
 try:
     import onnxslim
 
@@ -12,9 +11,8 @@ except ImportError:
     print("onnxslim not found. Please install onnx-slim using: pip install onnxslim")
     isOnnxSlim = False
 
-# Constants
 OPSET = 21
-modelList = [r"C:\Users\nilas\Downloads\sudo_shuffle_span_op20_10.5m_1080p.onnx"]
+modelList = [r"C:\Users\nilas\Downloads\2x_2xSudoShuffleSPAN.pth.onnx"]
 
 
 def convertAndSaveModel(model, modelPath, precision, opset):
