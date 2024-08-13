@@ -13,9 +13,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added OpenProteus and AniScale2 by Sirosky
 - New lite version of TAS ( WIP )
 - Support for multi audio and multi subtitle extraction and addition.
+- Added ShuffleSpan by Sudo ( WIP )
 
 #### Improvements
 - Improved parameters and examples.
+- Upgraded to nightly ONNXRuntime DirectML.
 
 #### Fixes
 - Fixed a bug with 16bit workflow and x264_animation_10bit

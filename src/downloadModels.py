@@ -37,6 +37,9 @@ DEPTHV2URLLARGE = (
 
 def modelsList() -> list[str]:
     return [
+        "shufflespan",
+        "shufflespan-directml",
+        "shufflespan-tensorrt",
         "aniscale2",
         "aniscale2-directml",
         "aniscale2-tensorrt",
@@ -119,6 +122,15 @@ def modelsMap(
     """
 
     match model:
+        case "shufflespan" | "shufflespan-directml" | "shufflespan-tensorrt":
+            if modelType == "pth":
+                return "sudo_shuffle_span_10.5m.pth"
+            else:
+                if half:
+                    return "sudo_shuffle_span_op20_10.5m_1080p_fp16_op21_slim.onnx"
+                else:
+                    return "sudo_shuffle_span_op20_10.5m_1080p_fp32_op21_slim.onnx"
+                
         case "aniscale2" | "aniscale2-directml" | "aniscale2-tensorrt":
             if modelType == "pth":
                 return "2x_AniScale2S_Compact_i8_60K.pth"
