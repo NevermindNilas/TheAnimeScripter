@@ -113,7 +113,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         input_img = (
             input_img.float()
             .to(self.device)
-            .mul_(1 / 255)
+            .mul(1 / 255)
             .permute(2, 0, 1)
             .unsqueeze(0)
         )
@@ -131,7 +131,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 F.interpolate(pred, size=(h0, w0), mode="bilinear", align_corners=False)
                 .squeeze_(0)
                 .permute(1, 2, 0)
-                .mul_(255)
+                .mul(255)
                 .to(torch.uint8)
             )
             return pred
@@ -357,7 +357,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
                 ]
 
                 self.writeBuffer.write(
-                    frameWithmask.squeeze(0).permute(1, 2, 0).mul_(255).byte()
+                    frameWithmask.squeeze(0).permute(1, 2, 0).mul(255).byte()
                 )
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
