@@ -14,20 +14,13 @@ except ImportError:
 
 # Constants
 OPSET = 21
-IR_VERSION = 9
-modelList = [r"C:\Users\nilas\Downloads\LD-AnimeCompact.onnx"]
+modelList = [r"C:\Users\nilas\Downloads\sudo_shuffle_span_op20_10.5m_1080p.onnx"]
 
 
-def setIrVersion(model, irVersion):
-    model.ir_version = irVersion
-    return model
-
-
-def convertAndSaveModel(model, modelPath, precision, opset, irVersion):
+def convertAndSaveModel(model, modelPath, precision, opset):
     if precision == "fp16":
         model = float16.convert_float_to_float16(model)
     model = version_converter.convert_version(model, opset)
-    model = setIrVersion(model, irVersion)
     newModelPath = modelPath.replace(".onnx", f"_{precision}_op{opset}.onnx")
     onnx.save(model, newModelPath)
     savedModel = onnx.load(newModelPath)
@@ -48,12 +41,12 @@ def slimModel(modelPath, slimPath):
 for modelPath in modelList:
     model = onnx.load(modelPath)
 
-    newModelPathFp16 = convertAndSaveModel(model, modelPath, "fp16", OPSET, IR_VERSION)
+    newModelPathFp16 = convertAndSaveModel(model, modelPath, "fp16", OPSET)
     slimPathFp16 = newModelPathFp16.replace(".onnx", "_slim.onnx")
     print(f"{newModelPathFp16} {slimPathFp16}")
     slimModel(newModelPathFp16, slimPathFp16)
 
-    newModelPathFp32 = convertAndSaveModel(model, modelPath, "fp32", OPSET, IR_VERSION)
+    newModelPathFp32 = convertAndSaveModel(model, modelPath, "fp32", OPSET)
     slimPathFp32 = newModelPathFp32.replace(".onnx", "_slim.onnx")
     print(f"{newModelPathFp32} {slimPathFp32}")
     slimModel(newModelPathFp32, slimPathFp32)
