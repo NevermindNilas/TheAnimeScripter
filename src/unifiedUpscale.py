@@ -106,7 +106,7 @@ class UniversalPytorch:
                     self.skippedCounter += 1
                     return self.prevFrame
 
-            frame = frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).to(memory_format=torch.channels_last).mul_(1 / 255)
+            frame = frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).to(memory_format=torch.channels_last).mul(1 / 255)
             output = self.model(frame).squeeze(0).mul(255).permute(1, 2, 0)
             self.stream.synchronize()
 
@@ -258,9 +258,9 @@ class UniversalTensorRT:
                     self.skippedCounter += 1
                     return self.prevFrame
             
-            self.dummyInput.copy_(frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).mul_(1 / 255), non_blocking=True)
+            self.dummyInput.copy_(frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).mul(1 / 255), non_blocking=True)
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-            output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul_(255).clamp_(0, 255)
+            output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul(255).clamp_(0, 255)
             self.stream.synchronize()
 
             if self.upscaleSkip is not None:
@@ -414,9 +414,9 @@ class UniversalDirectML:
                 return self.prevFrame
 
         if self.half:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).half().mul_(1 / 255)
+            frame = frame.permute(2, 0, 1).unsqueeze(0).half().mul(1 / 255)
         else:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).float().mul_(1 / 255)
+            frame = frame.permute(2, 0, 1).unsqueeze(0).float().mul(1 / 255)
 
         self.dummyInput.copy_(frame.contiguous())
         self.IoBinding.bind_input(
@@ -431,7 +431,7 @@ class UniversalDirectML:
         frame = (
             self.dummyOutput.squeeze(0)
             .permute(1, 2, 0)
-            .mul_(255)
+            .mul(255)
             .clamp_(0, 255)
             .contiguous()
         )
