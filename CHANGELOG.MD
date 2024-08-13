@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed a bug with 16bit workflow and x264_animation_10bit
 - [Issue #44](https://github.com/NevermindNilas/TheAnimeScripter/issues/45)
 - Fixes issues with input folder and output folder cases.
+- [Issue #46](https://github.com/NevermindNilas/TheAnimeScripter/issues/46) - Fixed concurrency issues associated with Rife TensorRT and high cpu usages.
 
 #### Removals
 - Updater.exe
