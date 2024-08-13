@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### New
 - Added OpenProteus and AniScale2 by Sirosky
 - New lite version of TAS ( WIP )
+- Support for multi audio and multi subtitle extraction and addition.
 
 #### Improvements
 - Improved parameters and examples.
