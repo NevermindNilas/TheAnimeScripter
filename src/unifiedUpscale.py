@@ -87,7 +87,7 @@ class UniversalPytorch:
             if self.half:
                 torch.set_default_dtype(torch.float16)
                 self.model.half()
-        
+
         self.stream = torch.cuda.Stream()
         if self.upscaleSkip is not None:
             self.skippedCounter = 0
@@ -106,7 +106,17 @@ class UniversalPytorch:
                     self.skippedCounter += 1
                     return self.prevFrame
 
-            frame = frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).to(memory_format=torch.channels_last).mul(1 / 255)
+            frame = (
+                frame.to(
+                    self.device,
+                    non_blocking=True,
+                    dtype=torch.float16 if self.half else torch.float32,
+                )
+                .permute(2, 0, 1)
+                .unsqueeze_(0)
+                .to(memory_format=torch.channels_last)
+                .mul(1 / 255)
+            )
             output = self.model(frame).squeeze(0).mul(255).permute(1, 2, 0)
             self.stream.synchronize()
 
@@ -114,8 +124,7 @@ class UniversalPytorch:
                 self.prevFrame.copy_(output, non_blocking=True)
 
             return output
-    
-        
+
     def getSkippedCounter(self):
         return self.skippedCounter
 
@@ -146,9 +155,12 @@ class UniversalTensorRT:
 
         # Attempt to lazy load for faster startup
 
-
         import tensorrt as trt
-        from .utils.trtHandler import TensorRTEngineCreator, TensorRTEngineLoader, TensorRTEngineNameHandler
+        from .utils.trtHandler import (
+            TensorRTEngineCreator,
+            TensorRTEngineLoader,
+            TensorRTEngineNameHandler,
+        )
 
         self.trt = trt
         self.TensorRTEngineCreator = TensorRTEngineCreator
@@ -162,7 +174,6 @@ class UniversalTensorRT:
         self.height = height
         self.customModel = customModel
         self.upscaleSkip = upscaleSkip
-
 
         self.handleModel()
 
@@ -200,11 +211,17 @@ class UniversalTensorRT:
                 torch.set_default_dtype(torch.float16)
 
         enginePath = self.TensorRTEngineNameHandler(
-            modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 3, self.height, self.width]
+            modelPath=self.modelPath,
+            fp16=self.half,
+            optInputShape=[1, 3, self.height, self.width],
         )
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
-        if self.engine is None or self.context is None or not os.path.exists(enginePath):
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -257,19 +274,32 @@ class UniversalTensorRT:
                 if self.upscaleSkip.run(frame):
                     self.skippedCounter += 1
                     return self.prevFrame
-            
-            self.dummyInput.copy_(frame.to(self.device, non_blocking=True, dtype=torch.float16 if self.half else torch.float32).permute(2, 0, 1).unsqueeze_(0).mul(1 / 255), non_blocking=True)
+
+            self.dummyInput.copy_(
+                frame.to(
+                    self.device,
+                    non_blocking=True,
+                    dtype=torch.float16 if self.half else torch.float32,
+                )
+                .permute(2, 0, 1)
+                .unsqueeze_(0)
+                .mul(1 / 255),
+                non_blocking=True,
+            )
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-            output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul(255).clamp_(0, 255)
+            output = (
+                self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul(255).clamp_(0, 255)
+            )
             self.stream.synchronize()
 
             if self.upscaleSkip is not None:
                 self.prevFrame.copy_(output, non_blocking=True)
 
             return output
-        
+
     def getSkippedCounter(self):
         return self.skippedCounter
+
 
 class UniversalDirectML:
     def __init__(
@@ -322,9 +352,7 @@ class UniversalDirectML:
                 self.upscaleMethod, self.upscaleFactor, modelType="onnx"
             )
             folderName = self.upscaleMethod.replace("directml", "-onnx")
-            if not os.path.exists(
-                os.path.join(weightsDir, folderName, self.filename)
-            ):
+            if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
                 modelPath = downloadModels(
                     model=self.upscaleMethod,
                     upscaleFactor=self.upscaleFactor,
@@ -440,6 +468,6 @@ class UniversalDirectML:
             self.prevFrame.copy_(frame, non_blocking=True)
 
         return frame
-    
+
     def getSkippedCounter(self):
         return self.skippedCounter
