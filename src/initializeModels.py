@@ -226,7 +226,7 @@ def initializeModels(self):
                 )
 
             case "shufflecugan-ncnn" | "span-ncnn":
-                from .unifiedUpscaleNCNN import UniversalNCNN
+                from .unifiedUpscale import UniversalNCNN
 
                 upscale_process = UniversalNCNN(
                     self.upscale_method,
