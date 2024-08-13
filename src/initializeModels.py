@@ -191,6 +191,7 @@ def initializeModels(self):
                 | "span"
                 | "open-proteus"
                 | "aniscale2"
+                | "shufflespan"
             ):
                 upscale_process = UniversalPytorch(
                     self.upscale_method,
@@ -210,6 +211,7 @@ def initializeModels(self):
                 | "shufflecugan-directml"
                 | "open-proteus-directml"
                 | "aniscale2-directml"
+                | "shufflespan-directml"
             ):
                 from .unifiedUpscale import UniversalDirectML
 
@@ -240,6 +242,7 @@ def initializeModels(self):
                 | "span-tensorrt"
                 | "open-proteus-tensorrt"
                 | "aniscale2-tensorrt"
+                | "shufflespan-tensorrt"
             ):
                 from .unifiedUpscale import UniversalTensorRT
 

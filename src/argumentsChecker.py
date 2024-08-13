@@ -11,6 +11,7 @@ from src.ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red
 
+
 def createParser(isFrozen, scriptVersion, mainPath, outputPath):
     argParser = argparse.ArgumentParser(
         description="The Anime Scripter CLI Tool",
@@ -99,6 +100,7 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
         "--upscale_method",
         type=str,
         choices=[
+            "shufflespan",
             "shufflecugan",
             "compact",
             "ultracompact",
@@ -107,6 +109,7 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
             "compact-directml",
             "ultracompact-directml",
             "superultracompact-directml",
+            "shufflespan-directml",
             "span-directml",
             "shufflecugan-ncnn",
             "span-ncnn",
@@ -115,6 +118,7 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
             "superultracompact-tensorrt",
             "span-tensorrt",
             "shufflecugan-tensorrt",
+            "shufflespan-tensorrt",
             "open-proteus",
             "open-proteus-tensorrt",
             "open-proteus-directml",
@@ -321,7 +325,7 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
     miscGroup.add_argument(
         "--offline",
         type=str,
-        nargs='*',
+        nargs="*",
         default="none",
         help="Download a specific model or multiple models for offline use, use keyword 'all' to download all models",
     )
@@ -331,7 +335,11 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
         help="Notify if script is run from After Effects interface",
     )
     miscGroup.add_argument(
-        "--bit_depth", type=str, default="8bit", help="Bit Depth of the raw pipe input to FFMPEG. Useful if you want the highest quality possible - this doesn't have anything to do with --pix_fmt of the encoded ffmpeg.", choices=["8bit", "16bit"]
+        "--bit_depth",
+        type=str,
+        default="8bit",
+        help="Bit Depth of the raw pipe input to FFMPEG. Useful if you want the highest quality possible - this doesn't have anything to do with --pix_fmt of the encoded ffmpeg.",
+        choices=["8bit", "16bit"],
     )
 
     args = argParser.parse_args()
@@ -380,7 +388,12 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
                     downloadModels(option, half=precision)
                 except Exception as e:
                     logging.error(e)
-                    print(red(f"Failed to download model: {option} with precision: " + ("fp16" if precision else "fp32")))
+                    print(
+                        red(
+                            f"Failed to download model: {option} with precision: "
+                            + ("fp16" if precision else "fp32")
+                        )
+                    )
 
         toPrint = "All models downloaded!"
         logging.info(toPrint)
@@ -434,12 +447,20 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         logging.info("GIF encoding selected, disabling audio")
         args.audio = False
         if args.preview:
-            logging.error("Preview is not supported with GIF and Image encoding, disabling preview")
+            logging.error(
+                "Preview is not supported with GIF and Image encoding, disabling preview"
+            )
             args.preview = False
 
     if args.preview:
-        logging.info("Preview is enabled, the script will start a preview server to show the video during processing, this can have a signficant impact on performance")
-        print(green("Preview is enabled, the script will start a preview server to show the video during processing, this can have a signficant impact on performance"))
+        logging.info(
+            "Preview is enabled, the script will start a preview server to show the video during processing, this can have a signficant impact on performance"
+        )
+        print(
+            green(
+                "Preview is enabled, the script will start a preview server to show the video during processing, this can have a signficant impact on performance"
+            )
+        )
 
     if args.input is None:
         toPrint = "No input specified, please specify an input file or URL to continue"
@@ -471,7 +492,7 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         args.depth,
         args.autoclip,
         args.flow,
-        args.stabilize
+        args.stabilize,
     ]
 
     if not any(processingMethods):
