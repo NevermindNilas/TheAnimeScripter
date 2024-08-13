@@ -483,8 +483,6 @@ class WriteBuffer:
                 "-stats",
                 "-f",
                 "rawvideo",
-                "-vcodec",
-                "rawvideo",
                 "-s",
                 f"{self.width}x{self.height}",
                 "-pix_fmt",
@@ -494,10 +492,6 @@ class WriteBuffer:
                 "-i",
                 "-",
                 "-an",
-                "-fps_mode",
-                "cfr",
-                "-threads",
-                "0",
             ]
 
             if not self.custom_encoder:
@@ -558,6 +552,7 @@ class WriteBuffer:
 
                 customEncoderList.append(self.output)
                 command.extend(customEncoderList)
+
 
         else:
             command = [

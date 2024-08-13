@@ -151,7 +151,7 @@ class RifeCuda:
             .permute(2, 0, 1)
             .unsqueeze_(0)
             .to(memory_format=torch.channels_last)
-            .mul_(1 / 255)
+            .mul(1 / 255)
         )
 
     @torch.inference_mode()
@@ -366,10 +366,6 @@ class RifeTensorRT:
         self.I0.copy_(self.I1, non_blocking=True)
 
     @torch.inference_mode()
-    def cacheFrameReset(self, frame):
-        self.I0.copy_(self.processFrame(frame), non_blocking=True)
-
-    @torch.inference_mode()
     def run(self, frame, interpolateFactor, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
@@ -391,11 +387,13 @@ class RifeTensorRT:
                     torch.cat([self.I0, self.I1, timestep], dim=1), non_blocking=True
                 ).contiguous()
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-                output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul_(255)
+                output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul(255)
                 self.stream.synchronize()
                 writeBuffer.write(output)
-
+            
             self.cacheFrame()
+
+
 
 
 class RifeNCNN:
