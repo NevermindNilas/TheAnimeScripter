@@ -1,47 +1,59 @@
 import onnx
 import os
-import onnxslim
-
 from onnx import version_converter
 from onnxconverter_common import float16
 
+# Check if onnxslim is available
+try:
+    import onnxslim
+
+    isOnnxSlim = True
+except ImportError:
+    print("onnxslim not found. Please install onnx-slim using: pip install onnxslim")
+    isOnnxSlim = False
+
+# Constants
 OPSET = 21
 IR_VERSION = 9
+modelList = [r"C:\Users\nilas\Downloads\LD-AnimeCompact.onnx"]
 
-modelList = [r"C:\Users\nilas\Downloads\AniOnnx.onnx"]
 
-
-def set_ir_version(model, ir_version):
-    model.ir_version = ir_version
+def setIrVersion(model, irVersion):
+    model.ir_version = irVersion
     return model
+
+
+def convertAndSaveModel(model, modelPath, precision, opset, irVersion):
+    if precision == "fp16":
+        model = float16.convert_float_to_float16(model)
+    model = version_converter.convert_version(model, opset)
+    model = setIrVersion(model, irVersion)
+    newModelPath = modelPath.replace(".onnx", f"_{precision}_op{opset}.onnx")
+    onnx.save(model, newModelPath)
+    savedModel = onnx.load(newModelPath)
+    print(f"Opset version for {precision}: {savedModel.opset_import[0].version}")
+    print(f"IR version for {precision}: {savedModel.ir_version}")
+    return newModelPath
+
+
+def slimModel(modelPath, slimPath):
+    if isOnnxSlim:
+        slimPath = onnxslim.slim(modelPath, slimPath)
+        os.remove(modelPath)
+    else:
+        print(f"onnxslim not found. Skipping {modelPath} slimming")
+    return slimPath
 
 
 for modelPath in modelList:
     model = onnx.load(modelPath)
 
-    # Convert to fp16
-    modelFp16 = float16.convert_float_to_float16(model)
-    modelFp16 = version_converter.convert_version(modelFp16, OPSET)
-    modelFp16 = set_ir_version(modelFp16, IR_VERSION)
-    newModelPathFp16 = modelPath.replace(".onnx", f"_fp16_op{OPSET}.onnx")
-    onnx.save(modelFp16, newModelPathFp16)
-    savedModelFp16 = onnx.load(newModelPathFp16)
-    print("Opset version for fp16:", savedModelFp16.opset_import[0].version)
-    print("IR version for fp16:", savedModelFp16.ir_version)
+    newModelPathFp16 = convertAndSaveModel(model, modelPath, "fp16", OPSET, IR_VERSION)
     slimPathFp16 = newModelPathFp16.replace(".onnx", "_slim.onnx")
     print(f"{newModelPathFp16} {slimPathFp16}")
-    slimPathFp16 = onnxslim.slim(newModelPathFp16, slimPathFp16)
-    os.remove(newModelPathFp16)
+    slimModel(newModelPathFp16, slimPathFp16)
 
-    # Convert to fp32
-    modelFp32 = version_converter.convert_version(model, OPSET)
-    modelFp32 = set_ir_version(modelFp32, IR_VERSION)
-    newModelPathFp32 = modelPath.replace(".onnx", f"_fp32_op{OPSET}.onnx")
-    onnx.save(modelFp32, newModelPathFp32)
-    savedModelFp32 = onnx.load(newModelPathFp32)
-    print("Opset version for fp32:", savedModelFp32.opset_import[0].version)
-    print("IR version for fp32:", savedModelFp32.ir_version)
+    newModelPathFp32 = convertAndSaveModel(model, modelPath, "fp32", OPSET, IR_VERSION)
     slimPathFp32 = newModelPathFp32.replace(".onnx", "_slim.onnx")
     print(f"{newModelPathFp32} {slimPathFp32}")
-    slimPathFp32 = onnxslim.slim(newModelPathFp32, slimPathFp32)
-    os.remove(newModelPathFp32)
+    slimModel(newModelPathFp32, slimPathFp32)
