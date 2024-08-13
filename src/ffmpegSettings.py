@@ -5,7 +5,7 @@ import shutil
 import torch
 import sys
 import numpy as np
-
+import cv2
 
 from queue import Queue
 
@@ -279,11 +279,6 @@ class BuildBuffer:
         if verbose:
             logging.info(f"Decoding options: {' '.join(map(str, command))}")
 
-        import cv2
-        import numpy as np
-        import subprocess
-        import torch
-        
         try:
             yPlane = self.width * self.height
             uPlane = (self.width // 2) * (self.height // 2)
