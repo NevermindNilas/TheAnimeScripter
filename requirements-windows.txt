@@ -1,7 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu124
---pre torch
---pre torchvision
-opencv-python
+torch
+torchvision
+opencv-python==4.9.0.80
 timm
 numpy==1.26.4
 kornia
