@@ -259,7 +259,11 @@ class BuildBuffer:
             command.extend(["-vf", ",".join(filters)])
 
         command.extend(
-            ["-f", "image2pipe", "-pix_fmt", "yuv420p", "-vcodec", "rawvideo", "-"]
+            [
+                "-f", "rawvideo",
+                "-pix_fmt", "yuv420p",
+                "-"
+            ]
         )
 
         return command
@@ -614,7 +618,6 @@ class WriteBuffer:
                             frame = (
                                 frame.clamp(0, 255)
                                 .to(torch.uint8)
-                                .contiguous()
                                 .cpu()
                                 .numpy()
                             )
@@ -630,7 +633,7 @@ class WriteBuffer:
                         
                         if self.preview:
                             self.latestFrame = frame
-                        
+
                         frame = np.ascontiguousarray(frame)
                         
                         self.process.stdin.write(frame.tobytes())

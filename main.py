@@ -32,6 +32,7 @@ from src.initializeModels import initializeModels, Segment, Depth, Stabilize, Au
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
+#from src.linedarken import LineDarken
 
 
 if os.name == "nt":
@@ -172,8 +173,10 @@ class VideoProcessor:
                     self.interpolate_process.run(
                         frame, self.interpolate_factor, self.writeBuffer
                     )
+            
 
-            self.writeBuffer.write(frame)
+            if not self.benchmark:
+                self.writeBuffer.write(frame)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
