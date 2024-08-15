@@ -65,26 +65,29 @@ class SceneChange:
     def processFrame(self, frame):
         frame = frame.cpu().numpy()
         frame = self.np.resize(frame, (224, 224, 3))
-        frame = frame.astype(self.np.float16) if self.half else frame.astype(self.np.float32)
+        frame = (
+            frame.astype(self.np.float16)
+            if self.half
+            else frame.astype(self.np.float32)
+        )
         frame = frame / 255.0
         frame = frame.transpose((2, 0, 1))
         return frame
-    
+
     @torch.inference_mode()
     def run(self, frame):
         if self.I0 is None:
             self.I0 = self.processFrame(frame)
             return False
-        
+
         self.I1 = self.processFrame(frame)
-        inputs = self.np.concatenate(
-            (self.I0, self.I1), 0
-        )
+        inputs = self.np.concatenate((self.I0, self.I1), 0)
 
         self.I0 = self.I1
         return (
             self.model.run(None, {"input": inputs})[0][0][0] > self.sceneChangeThreshold
         )
+
 
 class SceneChangeTensorRT:
     def __init__(self, half, sceneChangeThreshold=0.85):
@@ -92,7 +95,11 @@ class SceneChangeTensorRT:
         self.sceneChangeThreshold = sceneChangeThreshold
 
         import tensorrt as trt
-        from .utils.trtHandler import TensorRTEngineCreator, TensorRTEngineLoader, TensorRTEngineNameHandler
+        from .utils.trtHandler import (
+            TensorRTEngineCreator,
+            TensorRTEngineLoader,
+            TensorRTEngineNameHandler,
+        )
 
         self.trt = trt
         self.TensorRTEngineCreator = TensorRTEngineCreator
@@ -121,7 +128,11 @@ class SceneChangeTensorRT:
         )
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
-        if self.engine is None or self.context is None or not os.path.exists(enginePath):
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -165,17 +176,22 @@ class SceneChangeTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        frame = frame.to(self.device, non_blocking=True, dtype=self.dType).permute(2, 0, 1).unsqueeze(0).mul(1.0 / 255.0)
+        frame = (
+            frame.to(self.device, non_blocking=True, dtype=self.dType)
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            .mul(1.0 / 255.0)
+        )
         frame = F.interpolate(frame, size=(224, 224), mode="bilinear")
         return frame.contiguous().squeeze(0)
-    
+
     @torch.inference_mode()
     def run(self, frame):
         with torch.cuda.stream(self.stream):
             if self.I0 is None:
                 self.I0 = self.processFrame(frame)
                 return False
-            
+
             self.I1 = self.processFrame(frame)
 
             self.dummyInput.copy_(
@@ -188,3 +204,60 @@ class SceneChangeTensorRT:
             self.stream.synchronize()
 
             return self.dummyOutput[0][0].item() > self.sceneChangeThreshold
+
+
+class SceneChangeCPU:
+    def __init__(self, sceneChangeThreshold):
+        import cv2
+        import numpy as np
+
+        self.cv2 = cv2
+        self.np = np
+        self.sceneChangeThreshold = sceneChangeThreshold
+        self.I0 = None
+
+    def processFrame(self, frame):
+        frame = self.cv2.resize(frame.cpu().numpy(), (224, 224))
+        frame = self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2GRAY)
+        frame = frame.astype(self.np.float16) / 255.0
+        return frame
+
+    def run(self, frame):
+        if self.I0 is None:
+            self.I0 = self.processFrame(frame)
+            return False
+
+        self.I1 = self.processFrame(frame)
+        mse = self.np.clip((self.np.mean((self.I0 - self.I1) ** 2) * 10), 0, 1)
+
+        self.I0 = self.I1
+        return mse > self.sceneChangeThreshold
+
+
+"""
+class SceneChangeCPUTorch:
+    def __init__(self, sceneChangeThreshold):
+        self.sceneChangeThreshold = sceneChangeThreshold
+        self.I0 = None
+
+    def processFrame(self, frame):
+        frame = F.interpolate(frame.unsqueeze(0).float(), size=(224, 224), mode='bilinear', align_corners=False)
+        frame = torch.mean(frame, dim=0, keepdim=True)
+        frame = frame.half() / 255.0
+        return frame
+    
+    def run(self, frame):
+        frame = frame.cuda()
+        if self.I0 is None:
+            self.I0 = self.processFrame(frame)
+            return False
+        
+        self.I1 = self.processFrame(frame)
+        mse = torch.mean((self.I0 - self.I1) ** 2) * 10
+        mse = mse.clamp(0, 1)
+        
+        self.I0 = self.I1
+        if mse.item() > self.sceneChangeThreshold:
+            print(mse.item())
+        return mse.item() > self.sceneChangeThreshold
+"""
