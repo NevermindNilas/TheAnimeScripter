@@ -380,6 +380,11 @@ def initializeModels(self):
                 self.half,
                 self.scenechange_sens,
             )
+        elif self.scenechange_method == "differential":
+            from src.scenechange import SceneChangeCPU
+            scenechange_process = SceneChangeCPU(
+                self.scenechange_sens,
+            )   
 
     return (
         outputWidth,
