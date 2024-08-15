@@ -32,7 +32,6 @@ from src.initializeModels import initializeModels, Segment, Depth, Stabilize, Au
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
-#from src.linedarken import LineDarken
 
 
 if os.name == "nt":
@@ -174,7 +173,6 @@ class VideoProcessor:
                         frame, self.interpolate_factor, self.writeBuffer
                     )
             
-
             if not self.benchmark:
                 self.writeBuffer.write(frame)
 
