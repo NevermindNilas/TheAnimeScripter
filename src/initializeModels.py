@@ -1,5 +1,6 @@
 import logging
 
+
 def AutoClip(self, mainPath):
     from src.autoclip import AutoClip
 
@@ -10,6 +11,7 @@ def AutoClip(self, mainPath):
         self.inpoint,
         self.outpoint,
     )
+
 
 def Segment(self):
     # Lazy loading for startup time reasons
@@ -139,6 +141,7 @@ def Depth(self):
                 self.bit_depth,
             )
 
+
 def Stabilize(self):
     from src.stabilize.stabilize import VideoStabilizer
 
@@ -158,6 +161,7 @@ def Stabilize(self):
         self.benchmark,
         self.totalFrames,
     )
+
 
 def initializeModels(self):
     outputWidth = self.width
@@ -326,6 +330,7 @@ def initializeModels(self):
         match self.denoise_method:
             case "scunet" | "dpir" | "nafnet" | "real-plksr":
                 from src.unifiedDenoise import UnifiedDenoise
+
                 denoise_process = UnifiedDenoise(
                     self.denoise_method,
                     self.half,
@@ -368,23 +373,54 @@ def initializeModels(self):
                 )
 
     if self.scenechange:
-        if self.scenechange_method == "maxxvit-tensorrt":
-            from src.scenechange import SceneChangeTensorRT
-            scenechange_process = SceneChangeTensorRT(
-                self.half,
-                self.scenechange_sens,
-            )
-        elif self.scenechange_method == "maxxvit-directml":
-            from src.scenechange import SceneChange
-            scenechange_process = SceneChange(
-                self.half,
-                self.scenechange_sens,
-            )
-        elif self.scenechange_method == "differential":
-            from src.scenechange import SceneChangeCPU
-            scenechange_process = SceneChangeCPU(
-                self.scenechange_sens,
-            )   
+        match self.scenechange_method:
+            case "maxxvit-tensorrt" | "shift_lpips-tensorrt":
+                from src.scenechange import SceneChangeTensorRT
+
+                scenechange_process = SceneChangeTensorRT(
+                    self.half,
+                    self.scenechange_sens,
+                    self.scenechange_method,
+                )
+            case "maxxvit-directml":
+                from src.scenechange import SceneChange
+
+                scenechange_process = SceneChange(
+                    self.half,
+                    self.scenechange_sens,
+                )
+            case "differential":
+                from src.scenechange import SceneChangeCPU
+
+                scenechange_process = SceneChangeCPU(
+                    self.scenechange_sens,
+                )
+            case "differential-cuda":
+                from src.scenechange import SceneChangeCuda
+
+                scenechange_process = SceneChangeCuda(
+                    self.scenechange_sens,
+                )
+            case "differential-tensorrt":
+                from src.scenechange import DifferentialTensorRT
+
+                scenechange_process = DifferentialTensorRT(
+                    self.scenechange_sens,
+                    self.height,
+                    self.width,
+                )
+            case "differential-directml":
+                # from src.scenechange import DifferentialDirectML
+                # scenechange_process = DifferentialDirectML(
+                #     self.scenechange_sens,
+                # )
+                raise NotImplementedError(
+                    "Differential DirectML is not implemented yet"
+                )
+            case _:
+                raise ValueError(
+                    f"Unknown scenechange method: {self.scenechange_method}"
+                )
 
     return (
         outputWidth,
