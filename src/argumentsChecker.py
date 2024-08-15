@@ -230,7 +230,14 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
         "--scenechange_method",
         type=str,
         default="maxxvit-directml",
-        choices=["maxxvit-tensorrt", "maxxvit-directml", "differential"],
+        choices=[
+            "maxxvit-tensorrt",
+            "maxxvit-directml",
+            "differential",
+            "differential-tensorrt",
+            "shift_lpips-tensorrt",
+            "shift_lpips-directml",
+        ],
         help="Scene change detection method",
     )
     sceneGroup.add_argument(
@@ -410,8 +417,21 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
         )
 
     if args.scenechange_sens:
-        if args.scenechange_method == "differential":
+        if args.scenechange_method == [
+            "differential",
+            "differential-tensorrt",
+            "diffrential-directml",
+        ]:
             args.scenechange_sens = 0.65 - (args.scenechange_sens / 1000)
+            logging.info(
+                f"New scenechange sensitivity for {args.scenechange_method} is: {args.scenechange_sens}"
+            )
+        elif args.scenechange_method in [
+            "shift_lpips",
+            "shift_lpips-tensorrt",
+            "shift_lpips-directml",
+        ]:
+            args.scenechange_sens = 0.50 - (args.scenechange_sens / 1000)
             logging.info(
                 f"New scenechange sensitivity for {args.scenechange_method} is: {args.scenechange_sens}"
             )
