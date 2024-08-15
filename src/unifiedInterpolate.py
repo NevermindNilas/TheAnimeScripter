@@ -300,7 +300,6 @@ class RifeTensorRT:
                 inputsMin=inputsMin,
                 inputsOpt=inputsOpt,
                 inputsMax=inputsMax,
-                optimizationLevel=1,
             )
 
         self.dType = torch.float16 if self.half else torch.float32

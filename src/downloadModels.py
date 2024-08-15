@@ -89,7 +89,6 @@ def modelsList() -> list[str]:
         "rife-v4.16-lite-ncnn",
         "rife-v4.17-ncnn",
         "rife-v4.18-ncnn",
-        "scenechange",
         "span-ncnn",
         "shufflecugan-ncnn",
         "small_v2",
@@ -101,6 +100,11 @@ def modelsList() -> list[str]:
         "small_v2-tensorrt",
         "base_v2-tensorrt",
         "large_v2-tensorrt",
+        "maxxvit-tensorrt",
+        "maxxvit-directml",
+        "shift_lpips-tensorrt",
+        "shift_lpips-directml",
+        "differential-tensorrt",
     ]
 
 
@@ -130,7 +134,7 @@ def modelsMap(
                     return "sudo_shuffle_span_op20_10.5m_1080p_fp16_op21_slim.onnx"
                 else:
                     return "sudo_shuffle_span_op20_10.5m_1080p_fp32_op21_slim.onnx"
-                
+
         case "aniscale2" | "aniscale2-directml" | "aniscale2-tensorrt":
             if modelType == "pth":
                 return "2x_AniScale2S_Compact_i8_60K.pth"
@@ -223,7 +227,6 @@ def modelsMap(
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
 
-
         case "rife4.20" | "rife4.20-tensorrt":
             if modelType == "pth":
                 return "rife420.pth"
@@ -240,37 +243,45 @@ def modelsMap(
                         return "rife420_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
             elif modelType == "ncnn":
                 raise ValueError("NCNN model not available for RIFE 4.20 yet.")
-        
+
         case "rife" | "rife4.22" | "rife4.22-tensorrt":
             if modelType == "pth":
                 return "rife422.pth"
             elif modelType == "onnx":
                 if half:
                     if ensemble:
-                        print("Starting rife 4.21 Ensemble is no longer going to be supported.")
+                        print(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        )
                         return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
                         return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                 else:
                     if ensemble:
-                        print("Starting rife 4.21 Ensemble is no longer going to be supported.")
+                        print(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        )
                         return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
                     else:
                         return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
-                    
+
         case "rife4.21" | "rife4.21-tensorrt":
             if modelType == "pth":
                 return "rife421.pth"
             elif modelType == "onnx":
                 if half:
                     if ensemble:
-                        print("Starting rife 4.21 Ensemble is no longer going to be supported.")
+                        print(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        )
                         return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
                         return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                 else:
                     if ensemble:
-                        print("Starting rife 4.21 Ensemble is no longer going to be supported.")
+                        print(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        )
                         return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
                         return "rife421_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
@@ -351,7 +362,7 @@ def modelsMap(
                         return "rife46_v2_ensembleTrue_op16_mlrt_sim.onnx"
                     else:
                         return "rife46_v2_ensembleFalse_op16_mlrt_sim.onnx"
-                    
+
             elif modelType == "ncnn":
                 return "rife-v4.6-ncnn.zip"
 
@@ -367,11 +378,20 @@ def modelsMap(
         case "segment-tensorrt" | "segment-directml":
             return "isnet_is.onnx"
 
-        case "scenechange":
+        case "maxxvit-tensorrt" | "maxxvit-directml":
             if half:
                 return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_fp16_op17_onnxslim.onnx"
             else:
                 return "maxxvitv2_rmlp_base_rw_224.sw_in12k_b80_224px_20k_coloraug0.4_6ch_clamp_softmax_op17_onnxslim.onnx"
+
+        case "shift_lpips-tensorrt" | "shift_lpips-directml":
+            if half:
+                return "sc_shift_lpips_alex_256px_CHW_6ch_clamp_op20_fp16_onnxslim.onnx"
+            else:
+                return "sc_shift_lpips_alex_256px_CHW_6ch_clamp_op20_onnxslim.onnx"
+
+        case "differential-tensorrt":
+            return "scene_change_nilas.onnx"
 
         case "small_v2":
             return "depth_anything_v2_vits.pth"
@@ -399,7 +419,6 @@ def modelsMap(
                 return "depth_anything_v2_vitl14_float16_slim.onnx"
             else:
                 return "depth_anything_v2_vitl14_float32_slim.onnx"
-
 
         case _:
             raise ValueError(f"Model {model} not found.")
@@ -503,10 +522,19 @@ def downloadModels(
         "rife4.18-tensorrt",
         "rife4.17-tensorrt",
         "rife4.6-tensorrt",
-        "scenechange",
         "span-tensorrt",
+        "span-directml",
+        "shift_lpips-tensorrt",
+        "shift_lpips-directml",
     ]:
         fullUrl = f"{SUDOURL}{filename}"
+        try:
+            # Just adds a redundant check if sudo decides to nuke his models.
+            return downloadAndLog(model, filename, fullUrl, folderPath)
+        except Exception as e:
+            logging.warning(f"Failed to download from SUDOURL: {e}")
+            fullUrl = f"{TASURL}{filename}"
+            return downloadAndLog(model, filename, fullUrl, folderPath)
 
     elif model == "small_v2":
         fullUrl = f"{DEPTHV2URLSMALL}{filename}"
@@ -514,7 +542,6 @@ def downloadModels(
         fullUrl = f"{DEPTHV2URLBASE}{filename}"
     elif model == "large_v2":
         fullUrl = f"{DEPTHV2URLLARGE}{filename}"
-
     else:
         fullUrl = f"{TASURL}{filename}"
 
