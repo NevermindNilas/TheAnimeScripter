@@ -407,12 +407,14 @@ class UniversalDirectML:
             (1, 3, self.height, self.width),
             device=self.deviceType,
             dtype=self.torchDType,
+            pin_memory=True,
         ).contiguous()
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
             device=self.deviceType,
             dtype=self.torchDType,
+            pin_memory=True,
         ).contiguous()
 
         self.IoBinding.bind_output(
@@ -422,6 +424,15 @@ class UniversalDirectML:
             element_type=self.numpyDType,
             shape=self.dummyOutput.shape,
             buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+        self.IoBinding.bind_input(
+            name="input",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyInput.shape,
+            buffer_ptr=self.dummyInput.data_ptr(),
         )
 
         if self.upscaleSkip is not None:
@@ -447,14 +458,7 @@ class UniversalDirectML:
             frame = frame.permute(2, 0, 1).unsqueeze(0).float().mul(1 / 255)
 
         self.dummyInput.copy_(frame.contiguous())
-        self.IoBinding.bind_input(
-            name="input",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.dummyInput.shape,
-            buffer_ptr=self.dummyInput.data_ptr(),
-        )
+
         self.model.run_with_iobinding(self.IoBinding)
         frame = (
             self.dummyOutput.squeeze(0)
