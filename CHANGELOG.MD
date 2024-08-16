@@ -14,8 +14,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - New lite version of TAS ( WIP )
 - Support for multi audio and multi subtitle extraction and addition.
 - Added ShuffleSpan by Sudo ( WIP )
-- Added Differential | Differential-TensorRT ( My own attempts ) at a scenechange method ( WIP )
-- Added `Shift_LPIPS` | `Shift_LPIPS-TensorRT` Scenechange Methods by Sudo
+- Added `Differential` | `Differential-TensorRT` ( My own attempts ) at a scenechange method ( WIP )
+- Added `Shift_LPIPS-directml`| `Shift_LPIPS-TensorRT` Scenechange Methods by Sudo.
+- New `--hide_banner` flag to Hide TAS' banner when processing.
 
 #### Improvements
 - Improved parameters and examples.
