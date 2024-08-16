@@ -33,6 +33,9 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
     generalGroup.add_argument(
         "--preview", action="store_true", help="Preview the video during processing"
     )
+    generalGroup.add_argument(
+        "--hide_banner", action="store_true", help="Hide the TAS banner"
+    )
 
     # Performance options
     performanceGroup = argParser.add_argument_group("Performance")
@@ -363,7 +366,7 @@ _  /   _  / / /  __/     _  ___ |  / / /  / _  / / / / /  __/     ____/ // /__ _
                                                                                            /_/                       
 """
 
-    if not args.benchmark:
+    if not args.hide_banner:
         print(red(banner))
 
     args.sharpen_sens /= 100
