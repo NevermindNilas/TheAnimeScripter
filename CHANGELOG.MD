@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fixes issues with input folder and output folder cases.
 - [Issue #46](https://github.com/NevermindNilas/TheAnimeScripter/issues/46) - Fixed concurrency issues associated with Rife TensorRT and high cpu usages.
 
+#### Regressions
+- Temporarely reverted back to pytorch 2.3.1 and cuda 12.1 until .dll issues are fixed.
+
 #### Removals
 - Updater.exe
 
