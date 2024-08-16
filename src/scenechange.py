@@ -301,7 +301,6 @@ class DifferentialTensorRT:
         self.height = height
         self.width = width
 
-        print(self.height, self.width)
         self.handleModel()
 
     def handleModel(self):
@@ -324,8 +323,6 @@ class DifferentialTensorRT:
         inputsMin = [1, 6, self.height, self.width]
         inputsOpt = [1, 6, self.height, self.width]
         inputsMax = [1, 6, self.height, self.width]
-
-        print(inputsMin, inputsOpt, inputsMax)
 
         enginePath = self.TensorRTEngineNameHandler(
             modelPath=self.modelPath,
