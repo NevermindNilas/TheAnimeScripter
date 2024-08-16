@@ -20,12 +20,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### Improvements
 - Improved parameters and examples.
 - Upgraded to nightly ONNXRuntime DirectML.
+- Added recursive checks for Model Downloads.
 
 #### Fixes
 - Fixed a bug with 16bit workflow and x264_animation_10bit
 - [Issue #44](https://github.com/NevermindNilas/TheAnimeScripter/issues/45)
 - Fixes issues with input folder and output folder cases.
 - [Issue #46](https://github.com/NevermindNilas/TheAnimeScripter/issues/46) - Fixed concurrency issues associated with Rife TensorRT and high cpu usages.
+- Fixed an issues with span-directml where it would point to a different host.
 
 #### Regressions
 - Temporarely reverted back to pytorch 2.3.1 and cuda 12.1 until .dll issues are fixed.
