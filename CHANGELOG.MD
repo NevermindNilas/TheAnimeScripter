@@ -5,23 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [UNRELEASED] - YYYY-MM-DD
+## [1.9.4] - YYYY-MM-DD
 
 ### The Anime Scripter
 
 #### New
+- A new 3D like Banner :)
 - Added OpenProteus and AniScale2 by Sirosky
 - New lite version of TAS ( WIP )
 - Support for multi audio and multi subtitle extraction and addition.
 - Added ShuffleSpan by Sudo ( WIP )
 - Added `Differential` | `Differential-TensorRT` ( My own attempts ) at a scenechange method ( WIP )
-- Added `Shift_LPIPS-directml`| `Shift_LPIPS-TensorRT` Scenechange Methods by Sudo.
+- Added `Shift_LPIPS-TensorRT` Scenechange Methods by Sudo.
 - New `--hide_banner` flag to Hide TAS' banner when processing.
+- Preview functionality with the command `--preview`, use port `127.0.0.1:5050/frame` in order to check the results of TAS.
 
 #### Improvements
 - Improved parameters and examples.
-- Upgraded to nightly ONNXRuntime DirectML.
+- Upgraded to nightly ONNXRuntime DirectML in order to avoid IR issues.
 - Added recursive checks for Model Downloads.
+- Significantly better I/O folder handling, this should result in better edge case handling.
 
 #### Fixes
 - Fixed a bug with 16bit workflow and x264_animation_10bit
@@ -31,10 +34,24 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed an issues with span-directml where it would point to a different host.
 
 #### Regressions
-- Temporarely reverted back to pytorch 2.2.2 and cuda 12.1 until .dll issues are fixed.
+- Temporarely reverted back to pytorch 2.2.2 and cuda 12.1 until .dll issues are fixed, this may result in slight performance losses.
 
 #### Removals
 - Updater.exe
+
+### Adobe Edition
+
+#### New
+- TAS will now dynamically switch between "Full" or "Lite" mode depending on your available GPU.
+
+#### Improved
+- Improved Error handling.
+- The terminal ( command prompt ) will now start minimized in order to not disrupt your workflow.
+- Immense improvements on output handling, TAS will now selectively create and choose specific types of folders based on your current process. This also comes with nice text formatting for the output with keywords like "_DE" for Deduplication and "_SH" for Sharpen.
+- Better download functionality with a possibility in increased max download speed.
+
+#### Bug Fixes
+- For some users the download would often hang, this should now have been remedied or at least improved and TAS should now attempt to reconnect in case of a error connection.
 
 ## [1.9.3] - 2024-08-09
 
