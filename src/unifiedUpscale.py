@@ -407,14 +407,12 @@ class UniversalDirectML:
             (1, 3, self.height, self.width),
             device=self.deviceType,
             dtype=self.torchDType,
-            pin_memory=True,
         ).contiguous()
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
             device=self.deviceType,
             dtype=self.torchDType,
-            pin_memory=True,
         ).contiguous()
 
         self.IoBinding.bind_output(
