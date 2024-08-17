@@ -1,6 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cu121
-torch==2.2.2.
-torchvision==0.18.0
+torch==2.2.2
+torchvision==0.17.2
 opencv-python==4.9.0.80
 timm
 numpy==1.26.4
