@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed an issues with span-directml where it would point to a different host.
 
 #### Regressions
-- Temporarely reverted back to pytorch 2.3.1 and cuda 12.1 until .dll issues are fixed.
+- Temporarely reverted back to pytorch 2.2.2 and cuda 12.1 until .dll issues are fixed.
 
 #### Removals
 - Updater.exe
