@@ -626,9 +626,9 @@ class WriteBuffer:
                                 frame.clamp(0, 255)
                                 .to(torch.float32)
                                 .mul(257)
-                                .to(torch.uint16)
                                 .cpu()
                                 .numpy()
+                                .astype(np.uint16)
                             )
                         
                         if self.preview:
