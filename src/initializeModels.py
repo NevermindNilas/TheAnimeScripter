@@ -275,6 +275,7 @@ def initializeModels(self):
                 | "rife4.20"
                 | "rife4.21"
                 | "rife4.22"
+                | "rife4.22-lite"
             ):
                 from src.unifiedInterpolate import RifeCuda
 
