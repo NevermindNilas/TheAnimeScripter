@@ -616,14 +616,14 @@ class WriteBuffer:
         
                         if self.bitDepth == "8bit":
                             frame = (
-                                frame.clamp(0, 255)
+                                frame
                                 .to(torch.uint8)
                                 .cpu()
                                 .numpy()
                             )
                         else:
                             frame = (
-                                frame.clamp(0, 255)
+                                frame
                                 .to(torch.float32)
                                 .mul(257)
                                 .cpu()
