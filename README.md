@@ -118,7 +118,7 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 | [TNTWise](https://github.com/TNTwise) | Rife ONNX / NCNN and Spanimation |
 | [WolframRhodium](https://github.com/WolframRhodium) | Rife V2 models |
 | [Hyperbrew](https://github.com/hyperbrew/bolt-cep) | Bolt CEP |
-| [Sirosky](https://github.com/Sirosky/Upscale-Hub) | Open-Proteus |
+| [Sirosky](https://github.com/Sirosky/Upscale-Hub) | Open-Proteus and AniScale 2 |
 
 If we forgot to mention anyone, please email: nilascontact@gmail.com
 
