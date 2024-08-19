@@ -85,6 +85,7 @@ def modelsList() -> list[str]:
         "rife4.20-tensorrt",
         "rife4.21-tensorrt",
         "rife4.22-tensorrt",
+        "rife4.22-lite-tensorrt",
         "rife-v4.6-ncnn",
         "rife-v4.15-lite-ncnn",
         "rife-v4.16-lite-ncnn",
@@ -228,7 +229,7 @@ def modelsMap(
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
         
-        case "rife4.22-lite":
+        case "rife4.22-lite" | "rife4.22-lite-tensorrt":
             if modelType == "pth":
                 return "rife422_lite.pth"
             elif modelType == "onnx":
@@ -237,17 +238,17 @@ def modelsMap(
                         print(
                             "Starting rife 4.21 Ensemble is no longer going to be supported."
                         )
-                        return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                        return "rife4.22_lite_fp16_op21_slim.onnx"
                     else:
-                        return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                        return "rife4.22_lite_fp16_op21_slim.onnx"
                 else:
                     if ensemble:
                         print(
                             "Starting rife 4.21 Ensemble is no longer going to be supported."
                         )
-                        return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+                        return "rife4.22_lite_fp32_op21_slim.onnx"
                     else:
-                        return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+                        return "rife4.22_lite_fp32_op21_slim.onnx"
             elif modelType == "ncnn":
                 raise ValueError("NCNN model not available for RIFE 4.22 yet.")
         
