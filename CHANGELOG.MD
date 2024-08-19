@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [UNRELEASED] - YYYY-MM-DD
+
+### The Anime Scripter
+
+##### NEW
+- Added `Rife4.22-Lite` and `Rife4.22-Lite-Tensorrt`
+
+##### Improvements
+- Upgraded base polygraphy from 0.49.12 -> 0.49.13
+- Removed unnecessary clamps.
+
+#### Adobe Edition
+N/A
+
+## [1.9.5] - 2024-08-17
+
+### The Anime Scripter
+N/A
+
+### Adobe Edition
+
+#### Fixes
+- Fixed issues with `Full` or `Lite` Method selection in model download.
+
 ## [1.9.4] - 2024-08-17
 
 ### The Anime Scripter
