@@ -12,7 +12,7 @@ except ImportError:
     isOnnxSlim = False
 
 OPSET = 21
-modelList = [r"C:\Users\nilas\Downloads\2x_2xSudoShuffleSPAN.pth.onnx"]
+modelList = [r"F:\rife4.22_lite.onnx"]
 
 
 def convertAndSaveModel(model, modelPath, precision, opset):
