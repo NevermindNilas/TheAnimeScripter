@@ -107,7 +107,6 @@ def TensorRTEngineNameHandler(
     """
     enginePrecision = "fp16" if fp16 else "fp32"
     height, width = optInputShape[2], optInputShape[3]
-    enginePath = modelPath.replace(
+    return modelPath.replace(
         ".onnx", f"_{enginePrecision}_{height}x{width}.engine"
     )
-    return enginePath
