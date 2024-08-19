@@ -65,6 +65,7 @@ def modelsList() -> list[str]:
         "rife4.20",
         "rife4.21",
         "rife4.22",
+        "rife4.22-lite",
         "shufflecugan-directml",
         "open-proteus-directml",
         "compact-directml",
@@ -226,7 +227,30 @@ def modelsMap(
 
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
-
+        
+        case "rife4.22-lite":
+            if modelType == "pth":
+                return "rife422_lite.pth"
+            elif modelType == "onnx":
+                if half:
+                    if ensemble:
+                        print(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        )
+                        return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                    else:
+                        return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                else:
+                    if ensemble:
+                        print(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        )
+                        return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+                    else:
+                        return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+            elif modelType == "ncnn":
+                raise ValueError("NCNN model not available for RIFE 4.22 yet.")
+        
         case "rife4.20" | "rife4.20-tensorrt":
             if modelType == "pth":
                 return "rife420.pth"

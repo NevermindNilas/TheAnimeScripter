@@ -67,6 +67,8 @@ class RifeCuda:
             modelPath = os.path.join(weightsDir, "rife", self.filename)
 
         match self.interpolateMethod:
+            case "rife4.22-lite":
+                from .rifearches.IFNET_rife422lite import IFNet
             case "rife" | "rife4.22":
                 from .rifearches.IFNET_rife422 import IFNet
             case "rife4.21":
@@ -291,7 +293,11 @@ class RifeTensorRT:
             inputsMax = [1, 7, 1080, 1920]
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
-        if self.engine is None or self.context is None or not os.path.exists(enginePath):
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
             logging.info("Loading engine failed, creating a new one")
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
@@ -393,10 +399,8 @@ class RifeTensorRT:
                 output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul(255)
                 self.stream.synchronize()
                 writeBuffer.write(output)
-            
+
             self.cacheFrame()
-
-
 
 
 class RifeNCNN:
