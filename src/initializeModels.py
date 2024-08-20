@@ -286,6 +286,7 @@ def initializeModels(self):
                     self.interpolate_method,
                     self.ensemble,
                     self.interpolate_factor,
+                    self.fps,
                 )
 
             case (
