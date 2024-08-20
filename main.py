@@ -23,6 +23,7 @@ import os
 import warnings
 import sys
 import logging
+import math
 
 from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
@@ -101,9 +102,10 @@ class VideoProcessor:
         self.bit_depth = args.bit_depth
         self.stabilize = args.stabilize
         self.preview = args.preview
+        self.ffprobe_path = args.ffprobe_path
 
         self.width, self.height, self.fps, self.totalFrames = getVideoMetadata(
-            self.input, self.inpoint, self.outpoint
+            self.input, self.inpoint, self.outpoint, self.ffprobe_path
         )
 
         self.outputFPS = (
@@ -170,7 +172,7 @@ class VideoProcessor:
                     self.interpolate_process.cacheFrameReset(frame)
                 else:
                     self.interpolate_process.run(
-                        frame, self.interpolate_factor, self.writeBuffer
+                        frame, self.writeBuffer
                     )
             
             if not self.benchmark:
@@ -184,12 +186,13 @@ class VideoProcessor:
         self.dedupCount = 0
         self.isSceneChange = False
         self.sceneChangeCounter = 0
-        increment = 1 if not self.interpolate else self.interpolate_factor
+        increment = 1 if not self.interpolate else math.ceil(self.interpolate_factor)
         with alive_bar(
             self.totalFrames * increment,
             title="Processing",
             bar="smooth",
             unit="frames",
+            enrich_print=False,
         ) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()

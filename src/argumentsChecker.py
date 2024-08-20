@@ -49,11 +49,9 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
         "--interpolate", action="store_true", help="Interpolate the video"
     )
     interpolationGroup.add_argument(
-        "--interpolate_factor", type=int, default=2, help="Interpolation factor"
+        "--interpolate_factor", type=float, default=2, help="Interpolation factor"
     )
-    interpolationGroup.add_argument(
-        "--interpolate_den", type=int, default=1, help="Interpolation denominator"
-    )
+
     interpolationGroup.add_argument(
         "--interpolate_method",
         type=str,
@@ -381,14 +379,14 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
 
     argsDict = vars(args)
     for arg in argsDict:
-        if argsDict[arg] is None or argsDict[arg] == "":
+        if argsDict[arg] is None or argsDict[arg] in ["", "none"] or argsDict[arg] is False:
             continue
         logging.info(f"{arg.upper()}: {argsDict[arg]}")
-
+    
     checkSystem()
 
     logging.info("\n============== Arguments Checker ==============")
-    args.ffmpeg_path = getFFMPEG()
+    args.ffmpeg_path, args.ffprobe_path = getFFMPEG()
 
     if args.offline != "none":
         toPrint = "Offline mode enabled, downloading all available models, this can take some time but it will allow for the script to be used offline"

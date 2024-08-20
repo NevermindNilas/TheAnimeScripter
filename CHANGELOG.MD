@@ -11,13 +11,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ##### NEW
 - Added `Rife4.22-Lite` and `Rife4.22-Lite-Tensorrt`
+- Added `FFProbe` to increase the `robustness` of the TAS.
 
 ##### Improvements
 - Upgraded base polygraphy from 0.49.12 -> 0.49.13
 - Removed unnecessary clamps.
+- The metadata, progress bar and everything else related to video details should be MUCH more accurate now, including logging.
+- Log.txt should now be more compact with `Arguments` no longer having unused arguments.
 
 #### Adobe Edition
-N/A
+
+#### NEW
+- Added `Rife4.22-Lite` and `Rife4.22-Lite-Tensorrt` options to the dropdowns.
 
 ## [1.9.5] - 2024-08-17
 
