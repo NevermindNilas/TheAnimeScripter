@@ -412,7 +412,7 @@ class RifeNCNN:
         self.width = width
         self.ensemble = ensemble
         self.half = half
-        self.interpoalteFactor = interpolateFactor
+        self.interpolateFactor = interpolateFactor
 
         UHD = True if width >= 3840 or height >= 2160 else False
         scale = 2 if UHD else 1
@@ -480,7 +480,7 @@ class RifeNCNN:
 
         self.frame2 = frame.cpu().numpy().astype("uint8")
 
-        for i in range(self.interpoalteFactor - 1):
+        for i in range(self.interpolateFactor - 1):
             timestep = (i + 1) * 1 / self.interpolateFactor
 
             output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
