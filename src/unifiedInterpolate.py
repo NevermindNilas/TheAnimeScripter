@@ -18,6 +18,7 @@ class RifeCuda:
         interpolateMethod,
         ensemble=False,
         interpolateFactor=2,
+        inputFPS=30,
     ):
         """
         Initialize the RIFE model
@@ -39,6 +40,7 @@ class RifeCuda:
         self.interpolateMethod = interpolateMethod
         self.ensemble = ensemble
         self.interpolateFactor = interpolateFactor
+        self.inputFPS = inputFPS
 
         if self.width > 1920 and self.height > 1080:
             self.scale = 0.5

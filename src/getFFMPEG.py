@@ -26,22 +26,30 @@ os.makedirs(mainPath, exist_ok=True)
 
 def getFFMPEG():
     ffmpegPath = shutil.which("ffmpeg")
-    if ffmpegPath is None:
+    ffprobePath = shutil.which("ffprobe")
+    if ffmpegPath is None or ffprobePath is None:
         ffmpegPath = os.path.join(
             mainPath,
             "ffmpeg",
             "ffmpeg.exe" if platform.system() == "Windows" else "ffmpeg",
         )
+        ffprobePath = os.path.join(
+            mainPath,
+            "ffmpeg",
+            "ffprobe.exe" if platform.system() == "Windows" else "ffprobe",
+        )
         logging.info(f"FFMPEG Path: {ffmpegPath}")
-        if not os.path.exists(ffmpegPath):
-            ffmpegPath = downloadAndExtractFFMPEG(ffmpegPath)
+        logging.info(f"FFPROBE Path: {ffprobePath}")
+        if not os.path.exists(ffmpegPath) or not os.path.exists(ffprobePath):
+            downloadAndExtractFFMPEG(ffmpegPath, ffprobePath)
     else:
         logging.info(f"FFMPEG was found in System Path: {ffmpegPath}")
-    return str(ffmpegPath)
+        logging.info(f"FFPROBE was found in System Path: {ffprobePath}")
+    return str(ffmpegPath), str(ffprobePath)
 
 
-def downloadAndExtractFFMPEG(ffmpegPath):
-    logging.info("Getting FFMPEG")
+def downloadAndExtractFFMPEG(ffmpegPath, ffprobePath):
+    logging.info("Getting FFMPEG and FFPROBE")
     extractFunc = (
         extractFFMPEGZip if platform.system() == "Windows" else extractFFMPEGTar
     )
@@ -64,16 +72,26 @@ def downloadAndExtractFFMPEG(ffmpegPath):
             bar(len(data) // (1024 * 1024))
 
     extractFunc(ffmpegArchivePath, ffmpegDir)
-    return str(ffmpegPath)
+    return str(ffmpegPath), str(ffprobePath)
 
 
 def extractFFMPEGZip(ffmpegZipPath, ffmpegDir):
     with zipfile.ZipFile(ffmpegZipPath, "r") as zipRef:
         zipRef.extractall(ffmpegDir)
-    os.rename(
-        os.path.join(ffmpegDir, "ffmpeg-master-latest-win64-gpl", "bin", "ffmpeg.exe"),
-        os.path.join(ffmpegDir, "ffmpeg.exe"),
-    )
+    if not os.path.exists(os.path.join(ffmpegDir, "ffmpeg.exe")):
+        os.rename(
+            os.path.join(
+                ffmpegDir, "ffmpeg-master-latest-win64-gpl", "bin", "ffmpeg.exe"
+            ),
+            os.path.join(ffmpegDir, "ffmpeg.exe"),
+        )
+    if not os.path.exists(os.path.join(ffmpegDir, "ffprobe.exe")):
+        os.rename(
+            os.path.join(
+                ffmpegDir, "ffmpeg-master-latest-win64-gpl", "bin", "ffprobe.exe"
+            ),
+            os.path.join(ffmpegDir, "ffprobe.exe"),
+        )
     os.remove(ffmpegZipPath)
     shutil.rmtree(os.path.join(ffmpegDir, "ffmpeg-master-latest-win64-gpl"))
 
@@ -82,6 +100,13 @@ def extractFFMPEGTar(ffmpegTarPath, ffmpegDir):
     with tarfile.open(ffmpegTarPath, "r:xz") as tarRef:
         tarRef.extractall(ffmpegDir)
     for directory in glob.glob(os.path.join(ffmpegDir, "ffmpeg-*-static")):
-        os.rename(os.path.join(directory, "ffmpeg"), os.path.join(ffmpegDir, "ffmpeg"))
+        if not os.path.exists(os.path.join(ffmpegDir, "ffmpeg")):
+            os.rename(
+                os.path.join(directory, "ffmpeg"), os.path.join(ffmpegDir, "ffmpeg")
+            )
+        if not os.path.exists(os.path.join(ffmpegDir, "ffprobe")):
+            os.rename(
+                os.path.join(directory, "ffprobe"), os.path.join(ffmpegDir, "ffprobe")
+            )
         shutil.rmtree(directory)
     os.remove(ffmpegTarPath)
