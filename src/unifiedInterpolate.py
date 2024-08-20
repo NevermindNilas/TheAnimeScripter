@@ -285,14 +285,10 @@ class RifeTensorRT:
             optInputShape=[1, 7, self.height, self.width],
         )
 
-        if self.UHD:
-            inputsMin = [1, 7, 1080, 1920]
-            inputsOpt = [1, 7, self.height, self.width]
-            inputsMax = [1, 7, 2160, 3840]
-        else:
-            inputsMin = [1, 7, 32, 32]
-            inputsOpt = [1, 7, self.height, self.width]
-            inputsMax = [1, 7, 1080, 1920]
+
+        inputsMin = [1, 7, self.height, self.width]
+        inputsOpt = [1, 7, self.height, self.width]
+        inputsMax = [1, 7, self.height, self.width]
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
         if (
@@ -377,7 +373,7 @@ class RifeTensorRT:
         self.I0.copy_(self.processFrame(frame), non_blocking=True)
 
     @torch.inference_mode()
-    def run(self, frame, interpolateFactor, writeBuffer):
+    def run(self, frame, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0.copy_(self.processFrame(frame), non_blocking=True)
@@ -386,10 +382,10 @@ class RifeTensorRT:
 
             self.I1.copy_(self.processFrame(frame), non_blocking=True)
 
-            for i in range(interpolateFactor - 1):
+            for i in range(self.interpolateFactor - 1):
                 timestep = torch.full(
                     (1, 1, self.height, self.width),
-                    (i + 1) * 1 / interpolateFactor,
+                    (i + 1) * 1 / self.interpolateFactor,
                     dtype=self.dType,
                     device=self.device,
                 ).contiguous()
@@ -413,12 +409,14 @@ class RifeNCNN:
         width=1920,
         height=1080,
         half=True,
+        interpolateFactor=2,
     ):
         self.interpolateMethod = interpolateMethod
         self.height = height
         self.width = width
         self.ensemble = ensemble
         self.half = half
+        self.interpoalteFactor = interpolateFactor
 
         UHD = True if width >= 3840 or height >= 2160 else False
         scale = 2 if UHD else 1
@@ -479,15 +477,15 @@ class RifeNCNN:
     def cacheFrame(self):
         self.frame1 = self.frame2
 
-    def run(self, frame, interpolateFactor, writeBuffer):
+    def run(self, frame, writeBuffer):
         if self.frame1 is None:
             self.frame1 = frame.cpu().numpy().astype("uint8")
             return False
 
         self.frame2 = frame.cpu().numpy().astype("uint8")
 
-        for i in range(interpolateFactor - 1):
-            timestep = (i + 1) * 1 / interpolateFactor
+        for i in range( - 1):
+            timestep = (i + 1) * 1 / self.interpolateFactor
 
             output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
 
