@@ -154,8 +154,8 @@ class RifeCuda:
             )
             .permute(2, 0, 1)
             .unsqueeze_(0)
+            .mul_(1 / 255)
             .to(memory_format=torch.channels_last)
-            .mul(1 / 255)
         )
 
     @torch.inference_mode()
@@ -167,7 +167,7 @@ class RifeCuda:
         )
 
     @torch.inference_mode()
-    def run(self, frame, interpolateFactor, writeBuffer):
+    def run(self, frame, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0 = self.padFrame(self.processFrame(frame))
@@ -176,18 +176,14 @@ class RifeCuda:
 
             self.I1 = self.padFrame(self.processFrame(frame))
 
-            for i in range(interpolateFactor - 1):
+            for i in range(self.interpolateFactor - 1):
                 timestep = torch.full(
                     (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
-                    (i + 1) * 1 / interpolateFactor,
+                    (i + 1) * 1 / self.interpolateFactor,
                     dtype=torch.float16 if self.half else torch.float32,
                     device=self.device,
                 )
-                output = self.model(self.I0, self.I1, timestep).to(
-                    memory_format=torch.channels_last
-                )
-                output = output[:, :, : self.height, : self.width]
-                output = output.squeeze(0).permute(1, 2, 0).mul(255.0)
+                output = self.model(self.I0, self.I1, timestep)[: self.height, : self.width, :]
                 self.stream.synchronize()
                 writeBuffer.write(output)
             self.cacheFrame()
