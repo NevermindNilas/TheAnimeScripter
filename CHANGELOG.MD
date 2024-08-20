@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Removed unnecessary clamps.
 - The metadata, progress bar and everything else related to video details should be MUCH more accurate now, including logging.
 - Log.txt should now be more compact with `Arguments` no longer having unused arguments.
+- Rife TRT will only build Static Engines in order to improve stability and versatility.
+- Rife CUDA is now up to 10% faster than before.
 
 #### Adobe Edition
 
