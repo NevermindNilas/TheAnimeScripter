@@ -12,7 +12,7 @@ except ImportError:
     isOnnxSlim = False
 
 OPSET = 21
-modelList = [r"F:\rife4.22_lite.onnx"]
+modelList = [r"C:\Users\nilas\Desktop\rifeV2_export\rife.onnx"]
 
 
 def convertAndSaveModel(model, modelPath, precision, opset):
