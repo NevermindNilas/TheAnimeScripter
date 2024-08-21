@@ -167,7 +167,7 @@ class RifeCuda:
         )
 
     @torch.inference_mode()
-    def run(self, frame, writeBuffer):
+    def run(self, frame, benchmark, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0 = self.padFrame(self.processFrame(frame))
@@ -185,7 +185,8 @@ class RifeCuda:
                 )
                 output = self.model(self.I0, self.I1, timestep)[: self.height, : self.width, :]
                 self.stream.synchronize()
-                writeBuffer.write(output)
+                if not benchmark:
+                    writeBuffer.write(output)
             self.cacheFrame()
 
 
@@ -369,7 +370,7 @@ class RifeTensorRT:
         self.I0.copy_(self.processFrame(frame), non_blocking=True)
 
     @torch.inference_mode()
-    def run(self, frame, writeBuffer):
+    def run(self, frame, benchmark, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0.copy_(self.processFrame(frame), non_blocking=True)
@@ -392,7 +393,8 @@ class RifeTensorRT:
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul(255)
                 self.stream.synchronize()
-                writeBuffer.write(output)
+                if not benchmark:
+                    writeBuffer.write(output)
 
             self.cacheFrame()
 
@@ -473,7 +475,7 @@ class RifeNCNN:
     def cacheFrame(self):
         self.frame1 = self.frame2
 
-    def run(self, frame, writeBuffer):
+    def run(self, frame, benchmark, writeBuffer):
         if self.frame1 is None:
             self.frame1 = frame.cpu().numpy().astype("uint8")
             return False
@@ -482,10 +484,9 @@ class RifeNCNN:
 
         for i in range(self.interpolateFactor - 1):
             timestep = (i + 1) * 1 / self.interpolateFactor
-
             output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
-
             output = torch.from_numpy(output).to(frame.device)
-            writeBuffer.write(output)
+            if not benchmark:
+                writeBuffer.write(output)
 
         self.cacheFrame()
