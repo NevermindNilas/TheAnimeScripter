@@ -102,10 +102,9 @@ class VideoProcessor:
         self.bit_depth = args.bit_depth
         self.stabilize = args.stabilize
         self.preview = args.preview
-        self.ffprobe_path = args.ffprobe_path
 
         self.width, self.height, self.fps, self.totalFrames = getVideoMetadata(
-            self.input, self.inpoint, self.outpoint, self.ffprobe_path
+            self.input, self.inpoint, self.outpoint
         )
 
         self.outputFPS = (
@@ -118,7 +117,6 @@ class VideoProcessor:
             aspect_ratio = self.width / self.height
             self.width = round(self.width * self.resize_factor / 2) * 2
             self.height = round(self.width / aspect_ratio / 2) * 2
-
             logging.info(
                 f"Resizing to {self.width}x{self.height}, aspect ratio: {aspect_ratio}"
             )
@@ -174,7 +172,7 @@ class VideoProcessor:
                     self.interpolate_process.run(
                         frame, self.benchmark, self.writeBuffer
                     )
-            
+
             if not self.benchmark:
                 self.writeBuffer.write(frame)
 
