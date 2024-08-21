@@ -1,12 +1,10 @@
-import subprocess
-import json
+import cv2
 import logging
 import textwrap
 
-
-def getVideoMetadata(inputPath, inPoint, outPoint, ffprobePath):
+def getVideoMetadata(inputPath, inPoint, outPoint):
     """
-    Get metadata from a video file using ffprobe.
+    Get metadata from a video file.
 
     Parameters:
     inputPath (str): The path to the video file.
@@ -14,45 +12,37 @@ def getVideoMetadata(inputPath, inPoint, outPoint, ffprobePath):
     outPoint (float): The end time of the video clip.
 
     Returns:
-    tuple: A tuple containing the width, height, fps, and total frames to be processed.
+    tuple: A tuple containing the width, height, and fps of the video.
     """
-
-    def run_ffprobe(inputPath):
-        cmd = [
-            ffprobePath,
-            "-v",
-            "error",
-            "-select_streams",
-            "v:0",
-            "-show_entries",
-            "stream=width,height,r_frame_rate,duration,nb_frames,codec_name",
-            "-of",
-            "json",
-            inputPath,
-        ]
-        result = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
-        return json.loads(result.stdout)
-
     try:
-        metadata = run_ffprobe(inputPath)
-        stream = metadata["streams"][0]
+        cap = cv2.VideoCapture(inputPath)
     except Exception as e:
-        logging.error(f"Error getting video metadata: {e}")
+        logging.error(f"Error opening video file: {e}")
         exit(1)
 
-    width = int(stream["width"])
-    height = int(stream["height"])
-    fps = eval(stream["r_frame_rate"])  # Convert '30/1' to 30.0
-    nframes = int(stream.get("nb_frames", 0))
-    codec = stream["codec_name"].upper()
-    duration = float(stream["duration"])
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-    inOutDuration = round((outPoint - inPoint), 2)
-    totalFramesToBeProcessed = (
-        round((outPoint - inPoint) * fps) if outPoint != 0 else nframes
-    )
+    if width == 0 or height == 0:
+        logging.error(
+            "Width or height cannot be zero. Please check the input video file and make sure that it was put in quotation marks."
+        )
+        exit(1)
+
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    nframes = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
+
+    codec = "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
+
+    duration = round(nframes / fps, 2) if fps else 0
+    inOutDuration = round((outPoint - inPoint) / fps, 2) if fps else 0
+
+    # Calculate total frames from inPoint to outPoint
+    if outPoint != 0:
+        totalFramesToBeProcessed = int((outPoint - inPoint) * fps)
+    else:
+        totalFramesToBeProcessed = nframes
 
     logging.info(
         textwrap.dedent(f"""
@@ -63,9 +53,11 @@ def getVideoMetadata(inputPath, inPoint, outPoint, ffprobePath):
     FPS: {round(fps, 2)}
     Number of total frames: {nframes}
     Codec: {codec}
-    Total Duration of Video: {duration} seconds
+    Duration: {duration} seconds
     In-Out Duration: {inOutDuration} seconds
     Total frames to be processed: {totalFramesToBeProcessed}""")
     )
+
+    cap.release()
 
     return width, height, fps, totalFramesToBeProcessed

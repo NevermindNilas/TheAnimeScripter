@@ -386,7 +386,7 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
     checkSystem()
 
     logging.info("\n============== Arguments Checker ==============")
-    args.ffmpeg_path, args.ffprobe_path = getFFMPEG()
+    args.ffmpeg_path = getFFMPEG()
 
     if args.offline != "none":
         toPrint = "Offline mode enabled, downloading all available models, this can take some time but it will allow for the script to be used offline"

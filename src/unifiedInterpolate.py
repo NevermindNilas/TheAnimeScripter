@@ -346,6 +346,7 @@ class RifeTensorRT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
         self.firstRun = True
+        self.useI0AsSource = True
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -377,7 +378,10 @@ class RifeTensorRT:
                 self.firstRun = False
                 return
 
-            self.I1.copy_(self.processFrame(frame), non_blocking=True)
+            source = self.I0 if self.useI0AsSource else self.I1
+            destination = self.I1 if self.useI0AsSource else self.I0
+
+            destination.copy_(self.processFrame(frame), non_blocking=True)
 
             for i in range(self.interpolateFactor - 1):
                 timestep = torch.full(
@@ -388,7 +392,7 @@ class RifeTensorRT:
                 ).contiguous()
 
                 self.dummyInput.copy_(
-                    torch.cat([self.I0, self.I1, timestep], dim=1), non_blocking=True
+                    torch.cat([source, destination, timestep], dim=1), non_blocking=True
                 ).contiguous()
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul(255)
@@ -396,7 +400,7 @@ class RifeTensorRT:
                 if not benchmark:
                     writeBuffer.write(output)
 
-            self.cacheFrame()
+            self.useI0AsSource = not self.useI0AsSource
 
 
 class RifeNCNN:
