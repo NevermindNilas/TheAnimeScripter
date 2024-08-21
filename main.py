@@ -172,7 +172,7 @@ class VideoProcessor:
                     self.interpolate_process.cacheFrameReset(frame)
                 else:
                     self.interpolate_process.run(
-                        frame, self.writeBuffer
+                        frame, self.benchmark, self.writeBuffer
                     )
             
             if not self.benchmark:
