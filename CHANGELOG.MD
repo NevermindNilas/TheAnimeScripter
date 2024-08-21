@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Log.txt should now be more compact with `Arguments` no longer having unused arguments.
 - Rife TRT will only build Static Engines in order to improve stability and versatility.
 - Rife CUDA is now up to 10% faster than before.
+- Benchmarks are now going to be more accurate for interpolation.
 
 #### Adobe Edition
 
