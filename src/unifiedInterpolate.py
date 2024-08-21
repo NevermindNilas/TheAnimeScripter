@@ -485,6 +485,9 @@ class RifeNCNN:
     def cacheFrame(self):
         self.frame1 = self.frame2
 
+    def cacheFrameReset(self, frame):
+        self.frame1 = frame.cpu().numpy().astype("uint8")
+
     def run(self, frame, benchmark, writeBuffer):
         if self.frame1 is None:
             self.frame1 = frame.cpu().numpy().astype("uint8")
