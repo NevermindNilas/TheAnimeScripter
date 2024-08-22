@@ -45,52 +45,38 @@ def runAllBenchmarks(executor, version, inputVideo=None):
             indent=4,
         )
 
-
 def getExe():
     if os.path.exists("main.exe"):
         version = subprocess.check_output(["main.exe", "--version"]).decode().strip()
-        return "main.exe", version
+        return ["main.exe"], version
     else:
         if platform.system() == "Linux":
-            version = (
-                subprocess.check_output(["python3.12", "main.py", "--version"])
-                .decode()
-                .strip()
-            )
-            return "python3.12 main.py", version
+            version = subprocess.check_output(["python3.12", "main.py", "--version"]).decode().strip()
+            return ["python3.12", "main.py"], version
         else:
-            version = (
-                subprocess.check_output(["python", "main.py", "--version"])
-                .decode()
-                .strip()
-            )
-            return "python main.py", version
-
+            version = subprocess.check_output(["python", "main.py", "--version"]).decode().strip()
+            return ["python", "main.py"], version
 
 def getClip(executor):
     print("Please select 1080p as the desired quality.")
     outputPath = "output/test.mp4"
-    # Utilize subprocess Popen with the stdout directed to the terminal
-    subprocess.Popen(
-        f"{executor} --input {CLIPURL} --output {outputPath}", shell=True
-    ).wait()
-    # os.popen(f"{executor} --input {CLIPURL} --output {outputPath}").read()
+    cmd = executor + ["--input", CLIPURL, "--output", outputPath]
+    subprocess.Popen(cmd, shell=False).wait()
     return os.path.abspath(outputPath)
-
 
 def runUpscaleBenchmark(inputVideo, executor):
     global currentTest
     results = {}
     for method in upscaleMethods:
         print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
-        if "-tensorrt" in method:
-            subprocess.run(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark  --outpoint 16"
-            )
-        else:
-            subprocess.run(
-                f"{executor} --input {inputVideo} --upscale  --upscale_method {method} --benchmark --outpoint 12"
-            )
+        cmd = executor + [
+            "--input", inputVideo,
+            "--upscale",
+            "--upscale_method", method,
+            "--benchmark",
+            "--outpoint", "16" if "-tensorrt" in method else "12"
+        ]
+        subprocess.run(cmd, check=True, cwd=os.path.dirname(os.path.abspath(__file__)))
 
         fps = parseFPS()
         results[method] = fps
@@ -99,7 +85,6 @@ def runUpscaleBenchmark(inputVideo, executor):
 
     return results
 
-
 def runInterpolateBenchmark(inputVideo, executor):
     global currentTest
     results = {}
@@ -107,9 +92,13 @@ def runInterpolateBenchmark(inputVideo, executor):
         print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
         currentTest += 1
 
-        subprocess.run(
-            f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark"
-        )
+        cmd = executor + [
+            "--input", inputVideo,
+            "--interpolate",
+            "--interpolate_method", method,
+            "--benchmark"
+        ]
+        subprocess.run(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
 
         fps = parseFPS()
         results[method] = fps
@@ -120,16 +109,21 @@ def runInterpolateBenchmark(inputVideo, executor):
         )
         currentTest += 1
 
-        subprocess.run(
-            f"{executor} --input {inputVideo} --interpolate  --interpolate_method {method} --benchmark  --ensemble  --outpoint 20"
-        )
+        cmd = executor + [
+            "--input", inputVideo,
+            "--interpolate",
+            "--interpolate_method", method,
+            "--benchmark",
+            "--ensemble",
+            "--outpoint", "20"
+        ]
+        subprocess.run(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
 
         fps = parseFPS()
         results[f"{method}-ensemble"] = fps
         time.sleep(TIMESLEEP)
 
     return results
-
 
 def parseFPS():
     with open(ffmpegLogPath, "r") as file:
@@ -157,7 +151,6 @@ def parseSystemInfo():
                 key, value = line.strip().split(": ")
                 systemInfo[key] = value
     return systemInfo
-
 
 if __name__ == "__main__":
     TIMESLEEP = 1
@@ -201,7 +194,6 @@ if __name__ == "__main__":
     executor, version = getExe()
     inputVideo = getClip(executor)
 
-    
     # Define the questions
     questions = [
         inquirer.List(
@@ -247,5 +239,6 @@ if __name__ == "__main__":
     TOTALTESTS = len(upscaleMethods) + len(interpolateMethods) * 2
     print(f"GPU Vendor: {GPUVENDOR}")
     print(f"Total models to benchmark: {TOTALTESTS}")
-    print(f"Using {executor} version {version}")
+    print(f"Using {' '.join(executor)} version {version}")
+    print("Current working directory:", os.getcwd())
     runAllBenchmarks(executor, version, inputVideo)
