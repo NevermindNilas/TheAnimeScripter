@@ -4,7 +4,9 @@ import requests
 from alive_progress import alive_bar
 from .coloredPrints import green
 
-if os.name == "nt":
+import platform
+
+if platform.system() == "Windows":
     appdata = os.getenv("APPDATA")
     mainPath = os.path.join(appdata, "TheAnimeScripter")
 
@@ -13,8 +15,13 @@ if os.name == "nt":
 
     weightsDir = os.path.join(mainPath, "weights")
 else:
-    dirPath = os.path.dirname(__file__)
-    weightsDir = os.path.join(dirPath, "weights")
+    xdg_config_home = os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+    mainPath = os.path.join(xdg_config_home, "TheAnimeScripter")
+
+    if not os.path.exists(mainPath):
+        os.makedirs(mainPath)
+
+    weightsDir = os.path.join(mainPath, "weights")
 
 TASURL = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
 DEPTHURL = (

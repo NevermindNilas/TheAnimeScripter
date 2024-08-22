@@ -10,16 +10,14 @@ import glob
 from alive_progress import alive_bar
 
 # Determine paths and URLs based on the operating system
-if os.name == "nt":
+if platform.system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
     FFMPEGURL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 else:
     mainPath = os.path.join(
-        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/config")), "TheAnimeScripter"
+        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "TheAnimeScripter"
     )
-    FFMPEGURL = (
-        "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
-    )
+    FFMPEGURL = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
 
 os.makedirs(mainPath, exist_ok=True)
 
