@@ -14,7 +14,7 @@ jobs:
             build-script: build.py
             asset-content-type: application/x-7z-compressed
             asset-extension: .7z
-            asset-suffix: "_FULL_Windows"
+            asset-suffix: "_Full_Windows"
           - os: windows-latest
             python-version: "3.12.4"
             build-script: build.py
@@ -24,9 +24,9 @@ jobs:
           - os: ubuntu-latest
             python-version: "3.12.4"
             build-script: build-linux.py
-            asset-content-type: application/gzip
-            asset-extension: .tar.gz
-            asset-suffix: "_FULL_Linux"
+            asset-content-type: application/x-7z-compressed
+            asset-extension: .7z
+            asset-suffix: "_Full_Linux"
       fail-fast: true
     runs-on: ${{ matrix.os }}
 
@@ -100,15 +100,23 @@ jobs:
           release_name: TAS_${{ steps.date.outputs.date }}
           draft: true
 
-      - name: Compress main directory
-        shell: bash
+      - name: Compress full directory ( Windows - Full )
+        if: matrix.os == 'windows-latest' && contains(matrix.asset-suffix, "Full")
         run: |
-          cd "/d/a/TheAnimeScripter/TheAnimeScripter/dist/main/"
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            7z a -t7z -m0=lzma -mx=9 -mfb=64 -md=32m ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-suffix }}${{ matrix.asset-extension }} *
-          else
-            tar -czvf ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-suffix }}${{ matrix.asset-extension }} *
-          fi
+          cd ${{ github.workspace }}/dist-full/main/
+          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-suffix }}${{ matrix.asset-extension }} *
+
+      - name: Compress lite directory ( Windows - Lite )
+        if: matrix.os == 'windows-latest' && contains(matrix.asset-suffix, "Lite")
+        run: |
+          cd ${{ github.workspace }}/dist-lite/main/
+          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-suffix }}${{ matrix.asset-extension }} *
+
+      - name: Compress full directory ( Ubuntu )
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd ${{ github.workspace }}/dist-full/main/
+          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-suffix }}${{ matrix.asset-extension }} *
 
       - name: Upload Release Asset
         id: upload-release-asset
