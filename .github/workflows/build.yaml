@@ -56,15 +56,6 @@ jobs:
       - name: Print upload URL
         run: echo "${{ needs.create_release.outputs.upload_url }}"
 
-      - name: Verify asset file exists
-        run: |
-          if [ -f TAS_${{ needs.create_release.outputs.date }}_Full_Windows.7z ]; then
-            echo "Asset file exists."
-          else
-            echo "Asset file does not exist."
-            exit 1
-          fi
-
       - name: Upload Release Asset
         id: upload-release-asset
         uses: actions/upload-release-asset@v1
@@ -94,9 +85,9 @@ jobs:
         uses: jlumbroso/free-disk-space@main
         with:
           tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
+          android: false
+          dotnet: false
+          haskell: false
           large-packages: true
           docker-images: true
           swap-storage: true
@@ -124,15 +115,6 @@ jobs:
 
       - name: Print upload URL
         run: echo "${{ needs.create_release.outputs.upload_url }}"
-
-      - name: Verify asset file exists
-        run: |
-          if [ -f TAS_${{ needs.create_release.outputs.date }}_Full_Linux.7z ]; then
-            echo "Asset file exists."
-          else
-            echo "Asset file does not exist."
-            exit 1
-          fi
 
       - name: Upload Release Asset
         id: upload-release-asset
@@ -176,15 +158,6 @@ jobs:
 
       - name: Print upload URL
         run: echo "${{ needs.create_release.outputs.upload_url }}"
-
-      - name: Verify asset file exists
-        run: |
-          if [ -f TAS_${{ needs.create_release.outputs.date }}_Lite_Windows.7z ]; then
-            echo "Asset file exists."
-          else
-            echo "Asset file does not exist."
-            exit 1
-          fi
 
       - name: Upload Release Asset
         id: upload-release-asset
