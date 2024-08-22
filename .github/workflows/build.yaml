@@ -101,13 +101,13 @@ jobs:
           draft: true
 
       - name: Compress full directory ( Windows - Full )
-        if: matrix.os == 'windows-latest' && contains(matrix.asset-suffix, "Full")
+        if: matrix.os == 'windows-latest' && contains(matrix.asset-suffix, '_Full')
         run: |
           cd ${{ github.workspace }}/dist-full/main/
           7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-suffix }}${{ matrix.asset-extension }} *
 
       - name: Compress lite directory ( Windows - Lite )
-        if: matrix.os == 'windows-latest' && contains(matrix.asset-suffix, "Lite")
+        if: matrix.os == 'windows-latest' && contains(matrix.asset-suffix, '_Lite')
         run: |
           cd ${{ github.workspace }}/dist-lite/main/
           7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-suffix }}${{ matrix.asset-extension }} *
