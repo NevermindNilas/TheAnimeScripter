@@ -17,7 +17,7 @@ jobs:
             asset-suffix: "_Full_Windows"
           - os: windows-latest
             python-version: "3.12.4"
-            build-script: build.py
+            build-script: build-lite.py
             asset-content-type: application/x-7z-compressed
             asset-extension: .7z
             asset-suffix: "_Lite_Windows"
@@ -83,8 +83,13 @@ jobs:
           echo "Available disk space on all drives:"
           Get-PSDrive -PSProvider FileSystem | Select-Object -Property Name, @{Name="Used(GB)";Expression={[math]::round($_.Used/1GB,2)}}, @{Name="Free(GB)";Expression={[math]::round($_.Free/1GB,2)}}, @{Name="Total(GB)";Expression={[math]::round($_.Used/1GB,2) + [math]::round($_.Free/1GB,2)}}
 
-      - name: Run build script
-        run: python ${{ matrix.build-script }} --venv
+      - name: Run full build script ( Windows - Full )
+        if: contains(matrix.asset-suffix, '_Full')
+        run: python ${{ matrix.build-script }} --output dist-full
+
+      - name: Run lite build script ( Windows - Lite )
+        if: contains(matrix.asset-suffix, '_Lite')
+        run: python ${{ matrix.build-script }} --output dist-lite
 
       - name: Get the date
         id: date
