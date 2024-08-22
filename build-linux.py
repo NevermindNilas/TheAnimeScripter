@@ -51,11 +51,6 @@ def create_executable():
     main_path = os.path.join(base_dir, "main.py")
     icon_path = os.path.join(base_dir, "src", "assets", "icon.ico")
 
-    universal_ncnn_models_path = os.path.join(
-        distribution("upscale_ncnn_py").locate_file("upscale_ncnn_py"),
-        "models",
-    )
-
     print("Creating the CLI executable...")
 
     pyinstallerPath = shutil.which("pyinstaller", path="./venv/bin")
@@ -63,66 +58,66 @@ def create_executable():
         print("PyInstaller not found in the virtual environment")
         return
 
-    subprocess.run(
-        [
-            pyinstallerPath,
-            "--noconfirm",
-            "--onedir",
-            "--console",
-            "--noupx",
-            "--clean",
-            "--add-data",
-            f"{src_path}:src/",
-            "--add-data",
-            f"{universal_ncnn_models_path}:upscale_ncnn_py/models",
-            "--hidden-import",
-            "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
-            "--hidden-import",
-            "upscale_ncnn_py.upscale_ncnn_py_wrapper",
-            "--collect-all",
-            "tensorrt",
-            "--collect-all",
-            "tensorrt-cu12-bindings",
-            "--collect-all",
-            "tensorrt_libs",
-            "--collect-all",
-            "cupy",
-            "--collect-all",
-            "cupyx",
-            "--collect-all",
-            "cupy_backends",
-            "--collect-all",
-            "fastrlock",
-            "--collect-all",
-            "inquirer",
-            "--collect-all",
-            "readchar",
-            "--icon",
-            f"{icon_path}",
-            main_path,
-        ],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                pyinstallerPath,
+                "--noconfirm",
+                "--onedir",
+                "--console",
+                "--noupx",
+                "--clean",
+                "--add-data",
+                f"{src_path}:src/",
+                "--hidden-import",
+                "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
+                "--hidden-import",
+                "upscale_ncnn_py.upscale_ncnn_py_wrapper",
+                "--collect-all",
+                "tensorrt",
+                "--collect-all",
+                "tensorrt-cu12-bindings",
+                "--collect-all",
+                "tensorrt_libs",
+                "--collect-all",
+                "fastrlock",
+                "--collect-all",
+                "inquirer",
+                "--collect-all",
+                "readchar",
+                "--icon",
+                f"{icon_path}",
+                main_path,
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Error during PyInstaller execution: {e}")
+        return
 
     print("Finished creating the CLI executable")
 
     print("Creating the benchmark executable...")
 
     benchmarkPath = os.path.join(base_dir, "benchmark.py")
-    subprocess.run(
-        [
-            pyinstallerPath,
-            "--noconfirm",
-            "--onedir",
-            "--console",
-            "--noupx",
-            "--clean",
-            "--icon",
-            f"{icon_path}",
-            benchmarkPath,
-        ],
-        check=True,
-    )
+    try:
+        subprocess.run(
+            [
+                pyinstallerPath,
+                "--noconfirm",
+                "--onedir",
+                "--console",
+                "--noupx",
+                "--clean",
+                "--icon",
+                f"{icon_path}",
+                benchmarkPath,
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        print(f"Error during PyInstaller execution: {e}")
+        return
 
     mainInternalPath = os.path.join(base_dir, "dist", "main", "_internal")
     benchmarkInternalPath = os.path.join(base_dir, "dist", "benchmark", "_internal")
