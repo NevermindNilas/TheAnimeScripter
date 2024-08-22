@@ -1,7 +1,6 @@
 import subprocess
 import os
 import shutil
-from importlib.metadata import distribution
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 distPath = os.path.join(base_dir, "dist")
