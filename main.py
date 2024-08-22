@@ -24,6 +24,7 @@ import warnings
 import sys
 import logging
 import math
+import platform
 
 from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
@@ -35,11 +36,11 @@ from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
 
 
-if os.name == "nt":
+if platform.system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
 else:
     mainPath = os.path.join(
-        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/config")), "TheAnimeScripter"
+        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "TheAnimeScripter"
     )
 
 if not os.path.exists(mainPath):

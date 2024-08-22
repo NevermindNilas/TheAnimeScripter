@@ -6,17 +6,22 @@ import torch
 import sys
 import numpy as np
 import cv2
+import platform
 
 from queue import Queue
 
-if os.name == "nt":
+if platform.system() == "Windows":
     appdata = os.getenv("APPDATA")
     mainPath = os.path.join(appdata, "TheAnimeScripter")
 
     if not os.path.exists(mainPath):
         os.makedirs(mainPath)
 else:
-    dirPath = os.path.dirname(os.path.realpath(__file__))
+    xdg_config_home = os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
+    mainPath = os.path.join(xdg_config_home, "TheAnimeScripter")
+
+    if not os.path.exists(mainPath):
+        os.makedirs(mainPath)
 
 ffmpegLogPath = os.path.join(mainPath, "ffmpegLog.txt")
 

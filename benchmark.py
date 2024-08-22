@@ -6,10 +6,12 @@ import subprocess
 import platform
 import inquirer
 
-if os.name == "nt":
+if platform.system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
 else:
-    mainPath = os.path.expanduser("~/.theanimescripter")
+    mainPath = os.path.join(
+        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "TheAnimeScripter"
+    )
 
 if not os.path.exists(mainPath):
     os.makedirs(mainPath)
@@ -51,11 +53,11 @@ def getExe():
     else:
         if platform.system() == "Linux":
             version = (
-                subprocess.check_output(["python3.11", "main.py", "--version"])
+                subprocess.check_output(["python3.12", "main.py", "--version"])
                 .decode()
                 .strip()
             )
-            return "python3.11 main.py", version
+            return "python3.12 main.py", version
         else:
             version = (
                 subprocess.check_output(["python", "main.py", "--version"])
