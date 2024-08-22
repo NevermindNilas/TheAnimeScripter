@@ -11,21 +11,18 @@ jobs:
         include:
           - os: windows-latest
             python-version: "3.12.4"
-            requirements-file: requirements-dev-windows.txt
             build-script: build.py
             asset-content-type: application/x-7z-compressed
             asset-extension: .7z
             asset-suffix: "_FULL_Windows"
           - os: windows-latest
             python-version: "3.12.4"
-            requirements-file: requirements-dev-windows.txt
             build-script: build.py
             asset-content-type: application/x-7z-compressed
             asset-extension: .7z
             asset-suffix: "_Lite_Windows"
           - os: ubuntu-latest
             python-version: "3.12.4"
-            requirements-file: requirements-dev-linux.txt
             build-script: build-linux.py
             asset-content-type: application/gzip
             asset-extension: .tar.gz
@@ -43,9 +40,6 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Pip Install Requirements-Dev
-        run: python -m pip install -r ${{ matrix.requirements-file }}
 
       - name: Sanity Check - List pip modules
         run: python -m pip list
