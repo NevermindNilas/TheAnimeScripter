@@ -1,0 +1,32 @@
+name: TestUpload
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create_release:
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      date: ${{ steps.date.outputs.date }}
+    steps:
+      - name: Get the date
+        id: date
+        run: echo "::set-output name=date::$(date +'%Y%m%d%H%M%S')"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TAS }}
+        with:
+          tag_name: TAS_${{ steps.date.outputs.date }}
+          release_name: TAS_${{ steps.date.outputs.date }}
+          draft: true
+    
+  test_upload:
+    needs: create_release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print upload URL
+        run: echo "${{ needs.create_release.outputs.upload_url }}"
