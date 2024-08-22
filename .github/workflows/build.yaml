@@ -10,17 +10,26 @@ jobs:
         os: [windows-latest, ubuntu-latest]
         include:
           - os: windows-latest
-            python-version: "3.11.9"
+            python-version: "3.12.4"
             requirements-file: requirements-dev-windows.txt
             build-script: build.py
             asset-content-type: application/x-7z-compressed
             asset-extension: .7z
+            asset-suffix: "_FULL_Windows"
+          - os: windows-latest
+            python-version: "3.12.4"
+            requirements-file: requirements-dev-windows.txt
+            build-script: build.py
+            asset-content-type: application/x-7z-compressed
+            asset-extension: .7z
+            asset-suffix: "_Lite_Windows"
           - os: ubuntu-latest
-            python-version: "3.11.9"
+            python-version: "3.12.4"
             requirements-file: requirements-dev-linux.txt
             build-script: build-linux.py
             asset-content-type: application/gzip
             asset-extension: .tar.gz
+            asset-suffix: "_FULL_Linux"
       fail-fast: true
     runs-on: ${{ matrix.os }}
 
@@ -63,9 +72,9 @@ jobs:
         run: |
           cd "/d/a/TheAnimeScripter/TheAnimeScripter/dist/main/"
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            7z a -t7z -m0=lzma -mx=9 -mfb=64 -md=32m ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-extension }} *
+            7z a -t7z -m0=lzma -mx=9 -mfb=64 -md=32m ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-suffix }}${{ matrix.asset-extension }} *
           else
-            tar -czvf ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-extension }} *
+            tar -czvf ../../TAS_${{ steps.date.outputs.date }}${{ matrix.asset-suffix }}${{ matrix.asset-extension }} *
           fi
 
       - name: Upload Release Asset
@@ -75,6 +84,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: TAS_${{ steps.date.outputs.date }}${{ matrix.asset-extension }}
-          asset_name: TAS_${{ steps.date.outputs.date }}${{ matrix.asset-extension }}
+          asset_path: TAS_${{ steps.date.outputs.date }}${{ matrix.asset-suffix }}${{ matrix.asset-extension }}
+          asset_name: TAS_${{ steps.date.outputs.date }}${{ matrix.asset-suffix }}${{ matrix.asset-extension }}
           asset_content_type: ${{ matrix.asset-content-type }}
