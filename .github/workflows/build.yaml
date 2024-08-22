@@ -58,7 +58,7 @@ jobs:
         uses: Jimver/cuda-toolkit@v0.2.16
         id: cuda-toolkit
         with:
-          cuda: '12.4.0'
+          cuda: "12.4.0"
 
       - name: Verify CUDA Installation (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
@@ -67,8 +67,21 @@ jobs:
           echo "Cuda install location: ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}"
           nvcc -V
 
-      - name: Sanity Check - List pip modules
-        run: python -m pip list
+      - name: Print working directory and disk space (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "Current working directory:"
+          pwd
+          echo "Available disk space:"
+          df -h
+
+      - name: Print working directory and disk space (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "Current working directory:"
+          pwd
+          echo "Available disk space on all drives:"
+          Get-PSDrive -PSProvider FileSystem | Select-Object -Property Name, @{Name="Used(GB)";Expression={[math]::round($_.Used/1GB,2)}}, @{Name="Free(GB)";Expression={[math]::round($_.Free/1GB,2)}}, @{Name="Total(GB)";Expression={[math]::round($_.Used/1GB,2) + [math]::round($_.Free/1GB,2)}}
 
       - name: Run build script
         run: python ${{ matrix.build-script }} --venv
