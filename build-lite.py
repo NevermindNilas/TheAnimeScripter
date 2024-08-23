@@ -1,10 +1,9 @@
 import subprocess
 import os
 import shutil
-import sys
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
-distPath = os.path.join(base_dir, "dist-lite" if "--output" in sys.argv else "dist")
+distPath = os.path.join(base_dir, "dist-lite")
 
 
 def create_venv():

@@ -38,13 +38,6 @@ jobs:
         with:
           python-version: "3.12.4"
 
-      - name: Print working directory and disk space
-        run: |
-          echo "Current working directory:"
-          pwd
-          echo "Available disk space on all drives:"
-          Get-PSDrive -PSProvider FileSystem | Select-Object -Property Name, @{Name="Used(GB)";Expression={[math]::round($_.Used/1GB,2)}}, @{Name="Free(GB)";Expression={[math]::round($_.Free/1GB,2)}}, @{Name="Total(GB)";Expression={[math]::round($_.Used/1GB,2) + [math]::round($_.Free/1GB,2)}}
-
       - name: Run full build script
         run: python build.py --output dist-full
 
@@ -52,9 +45,6 @@ jobs:
         run: |
           cd ${{ github.workspace }}/dist-full/main/
           7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ needs.create_release.outputs.date }}_Full_Windows.7z *
-
-      - name: Print upload URL
-        run: echo "${{ needs.create_release.outputs.upload_url }}"
 
       - name: Upload Release Asset
         id: upload-release-asset
@@ -98,13 +88,6 @@ jobs:
         with:
           cuda: "12.4.0"
 
-      - name: Print working directory and disk space
-        run: |
-          echo "Current working directory:"
-          pwd
-          echo "Available disk space:"
-          df -h
-
       - name: Run full build script
         run: python build-linux.py --output dist-full
 
@@ -112,9 +95,6 @@ jobs:
         run: |
           cd ${{ github.workspace }}/dist/main/
           7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ needs.create_release.outputs.date }}_Full_Linux.7z *
-
-      - name: Print upload URL
-        run: echo "${{ needs.create_release.outputs.upload_url }}"
 
       - name: Upload Release Asset
         id: upload-release-asset
@@ -141,13 +121,6 @@ jobs:
         with:
           python-version: "3.12.4"
 
-      - name: Print working directory and disk space
-        run: |
-          echo "Current working directory:"
-          pwd
-          echo "Available disk space on all drives:"
-          Get-PSDrive -PSProvider FileSystem | Select-Object -Property Name, @{Name="Used(GB)";Expression={[math]::round($_.Used/1GB,2)}}, @{Name="Free(GB)";Expression={[math]::round($_.Free/1GB,2)}}, @{Name="Total(GB)";Expression={[math]::round($_.Used/1GB,2) + [math]::round($_.Free/1GB,2)}}
-
       - name: Run lite build script
         run: python build-lite.py --output dist-lite
 
@@ -155,9 +128,6 @@ jobs:
         run: |
           cd ${{ github.workspace }}/dist-lite/main/
           7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ needs.create_release.outputs.date }}_Lite_Windows.7z *
-
-      - name: Print upload URL
-        run: echo "${{ needs.create_release.outputs.upload_url }}"
 
       - name: Upload Release Asset
         id: upload-release-asset

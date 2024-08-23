@@ -178,16 +178,15 @@ if __name__ == "__main__":
 
     interpolateMethods = [
         "rife4.6",
-        "rife4.16-lite",
-        "rife4.18",
         "rife4.20",
+        "rife4.22"
+        "rife4.22-lite",
         "rife4.6-ncnn",
-        "rife4.16-lite-ncnn",
         "rife4.18-ncnn",        
         "rife4.6-tensorrt",
-        "rife4.15-lite-tensorrt",
-        "rife4.18-tensorrt",
         "rife4.20-tensorrt",
+        "rife4.22-tensorrt",
+        "rife4.22-lite-tensorrt",
     ]
 
     currentTest = 0
