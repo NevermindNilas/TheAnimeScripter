@@ -52,7 +52,7 @@ def TensorRTEngineCreator(
     ]
     engine = engine_from_network(
         network_from_onnx_path(modelPath),
-        config=CreateConfig(fp16=fp16, profiles=profiles),
+        config=CreateConfig(fp16=fp16, profiles=profiles, preview_features=[]),
     )
     engine = SaveEngine(engine, enginePath)
     engine.__call__()
