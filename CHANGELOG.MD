@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Rife TRT will only build Static Engines in order to improve stability and versatility.
 - Rife CUDA is now up to 10% faster than before.
 - Benchmarks are now going to be more accurate for interpolation.
+- Upgraded ONNXRuntime-DirectML to 1.19.1
 
 #### Adobe Edition
 
