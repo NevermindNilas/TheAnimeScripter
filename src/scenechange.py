@@ -27,18 +27,18 @@ class SceneChange:
 
     def loadModel(self):
         filename = modelsMap(
-            "scenechange",
+            "maxxvit-directml",
             half=self.half,
         )
 
-        if not os.path.exists(os.path.join(weightsDir, "scenechange", filename)):
+        if not os.path.exists(os.path.join(weightsDir, "maxxvit-directml", filename)):
             modelPath = downloadModels(
-                "scenechange",
+                "maxxvit-directml",
                 half=self.half,
             )
 
         else:
-            modelPath = os.path.join(weightsDir, "scenechange", filename)
+            modelPath = os.path.join(weightsDir, "maxxvit-directml", filename)
 
         logging.info(f"Loading scenechange detection model from {modelPath}")
 
@@ -70,7 +70,7 @@ class SceneChange:
             if self.half
             else frame.astype(self.np.float32)
         )
-        frame = frame / 255.0
+        frame = frame / 255
         frame = frame.transpose((2, 0, 1))
         return frame
 
@@ -84,8 +84,11 @@ class SceneChange:
         inputs = self.np.concatenate((self.I0, self.I1), 0)
 
         self.I0 = self.I1
+
+        result = self.model.run(None, {"input": inputs})[0][0][0]
+
         return (
-            self.model.run(None, {"input": inputs})[0][0][0] > self.sceneChangeThreshold
+            result > self.sceneChangeThreshold
         )
 
 
