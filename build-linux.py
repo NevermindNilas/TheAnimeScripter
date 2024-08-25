@@ -155,6 +155,13 @@ def move_extras():
     except Exception as e:
         print("Error while copying jsx file: ", e)
 
+def clean_up():
+    benchmark_dir = os.path.join(base_dir, "dist", "benchmark")
+    
+    try:
+        shutil.rmtree(benchmark_dir)
+    except Exception as e:
+        print("Error while deleting benchmark directory: ", e)
 
 if __name__ == "__main__":
     create_venv()
@@ -162,3 +169,4 @@ if __name__ == "__main__":
     install_pyinstaller()
     create_executable()
     move_extras()
+    clean_up()

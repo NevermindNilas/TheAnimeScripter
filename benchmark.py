@@ -51,8 +51,12 @@ def getExe():
         return ["main.exe"], version
     else:
         if platform.system() == "Linux":
-            version = subprocess.check_output(["python3.12", "main.py", "--version"]).decode().strip()
-            return ["python3.12", "main.py"], version
+            if os.path.exists("./main"):
+                version = subprocess.check_output(["./main", "--version"]).decode().strip()
+                return ["./main"], version
+            else:
+                version = subprocess.check_output(["python3.12", "main.py", "--version"]).decode().strip()
+                return ["python3.12", "main.py"], version
         else:
             version = subprocess.check_output(["python", "main.py", "--version"]).decode().strip()
             return ["python", "main.py"], version
@@ -76,6 +80,7 @@ def runUpscaleBenchmark(inputVideo, executor):
             "--benchmark",
             "--outpoint", "16" if "-tensorrt" in method else "12"
         ]
+        print(f"Running command: {' '.join(cmd)}")  # Debugging line
         subprocess.run(cmd, check=True, cwd=os.path.dirname(os.path.abspath(__file__)))
 
         fps = parseFPS()
@@ -98,6 +103,7 @@ def runInterpolateBenchmark(inputVideo, executor):
             "--interpolate_method", method,
             "--benchmark"
         ]
+        print(f"Running command: {' '.join(cmd)}")  # Debugging line
         subprocess.run(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
 
         fps = parseFPS()
@@ -117,6 +123,7 @@ def runInterpolateBenchmark(inputVideo, executor):
             "--ensemble",
             "--outpoint", "20"
         ]
+        print(f"Running command: {' '.join(cmd)}")  # Debugging line
         subprocess.run(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
 
         fps = parseFPS()
@@ -240,4 +247,10 @@ if __name__ == "__main__":
     print(f"Total models to benchmark: {TOTALTESTS}")
     print(f"Using {' '.join(executor)} version {version}")
     print("Current working directory:", os.getcwd())
-    runAllBenchmarks(executor, version, inputVideo)
+    
+    # Check if the executable exists
+    exe_path = os.path.abspath(executor[0])
+    if not os.path.exists(exe_path):
+        print(f"Error: The executable {exe_path} does not exist.")
+    else:
+        runAllBenchmarks(executor, version, inputVideo)
