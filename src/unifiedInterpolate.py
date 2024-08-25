@@ -383,6 +383,7 @@ class RifeTensorRT:
                 self.I0.copy_(self.processFrame(frame), non_blocking=True)
                 self.firstRun = False
                 return
+            
 
             source = self.I0 if self.useI0AsSource else self.I1
             destination = self.I1 if self.useI0AsSource else self.I0
