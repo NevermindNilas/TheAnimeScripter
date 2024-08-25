@@ -84,6 +84,8 @@ def create_executable():
                 "inquirer",
                 "--collect-all",
                 "readchar",
+                "--collect-all",
+                "grapheme",
                 "--icon",
                 f"{icon_path}",
                 main_path,
