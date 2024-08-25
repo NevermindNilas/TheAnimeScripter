@@ -1,4 +1,4 @@
-name: Old-Build-Method-Linux
+name: Test-Linux-Build
 
 on:
   workflow_dispatch:
