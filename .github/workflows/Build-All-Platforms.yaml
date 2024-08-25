@@ -82,11 +82,11 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      - name: Install CUDA Toolkit
-        uses: Jimver/cuda-toolkit@v0.2.16
-        id: cuda-toolkit
-        with:
-          cuda: "12.4.0"
+      #- name: Install CUDA Toolkit
+      #  uses: Jimver/cuda-toolkit@v0.2.16
+      #  id: cuda-toolkit
+      #  with:
+      #    cuda: "12.4.0"
 
       - name: Run full build script
         run: python build-linux.py --output dist-full
