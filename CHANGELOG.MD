@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Benchmarks are now going to be more accurate for interpolation.
 - Upgraded ONNXRuntime-DirectML to 1.19.1
 - Improved the progress bar with more information and less unnecessary eye candy.
+- Improved stability of image inputs.
+- More video metadata requests.
 
 #### Adobe Edition
 

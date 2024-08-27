@@ -104,7 +104,7 @@ class VideoProcessor:
         self.stabilize = args.stabilize
         self.preview = args.preview
 
-        self.width, self.height, self.fps, self.totalFrames = getVideoMetadata(
+        self.width, self.height, self.fps, self.totalFrames, self.pixFMT = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
         )
 

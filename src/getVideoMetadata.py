@@ -12,7 +12,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     outPoint (float): The end time of the video clip.
 
     Returns:
-    tuple: A tuple containing the width, height, and fps of the video.
+    tuple: A tuple containing the width, height, fps, total frames to be processed, and pixel format of the video.
     """
     try:
         cap = cv2.VideoCapture(inputPath)
@@ -44,6 +44,9 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     else:
         totalFramesToBeProcessed = nframes
 
+    pix_fmt = cap.get(cv2.CAP_PROP_FORMAT)
+    pix_fmt_str = "rgb24" if pix_fmt == cv2.CV_8UC3 else "yuv420p"
+
     logging.info(
         textwrap.dedent(f"""
     ============== Video Metadata ==============
@@ -55,9 +58,10 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     Codec: {codec}
     Duration: {duration} seconds
     In-Out Duration: {inOutDuration} seconds
-    Total frames to be processed: {totalFramesToBeProcessed}""")
+    Total frames to be processed: {totalFramesToBeProcessed}
+    Pixel Format: {pix_fmt_str}""")
     )
 
     cap.release()
 
-    return width, height, fps, totalFramesToBeProcessed
+    return width, height, fps, totalFramesToBeProcessed, pix_fmt_str
