@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Briefcase-Version: 0.3.19
+Name: theanimescripter
+Formal-Name: TheAnimeScripter
+App-ID: com.theanimescripter.theanimescripter
+Version: 0.0.1
+Home-page: https://github.com/NevermindNilas/TheAnimeScripter
+Download-URL: https://github.com/NevermindNilas/TheAnimeScripter
+Author: https://github.com/NevermindNilas/TheAnimeScripter
+Author-email: None
+Summary: the ultimate tool for Video Upscaling, Interpolating and many more. Available as a CLI, GUI and Adobe Extension.

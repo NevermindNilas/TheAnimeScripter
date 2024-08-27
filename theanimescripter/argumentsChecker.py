@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from .generateOutput import outputNameGenerator
 from .checkSpecs import checkSystem
 from .getFFMPEG import getFFMPEG
-from src.ytdlp import VideoDownloader
+from .ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red
 
