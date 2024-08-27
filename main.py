@@ -186,12 +186,17 @@ class VideoProcessor:
         self.isSceneChange = False
         self.sceneChangeCounter = 0
         increment = 1 if not self.interpolate else math.ceil(self.interpolate_factor)
+        
         with alive_bar(
-            self.totalFrames * increment,
-            title="Processing",
-            bar="smooth",
+            total=self.totalFrames * increment,
+            title="Processing Frame: ",
+            length=30,
+            stats="| {rate}",
+            elapsed="Elapsed Time: {elapsed}",
+            monitor=" {count}/{total} | [{percent:.0%}] | ",
+            #stats_end="{total_time} • {rate:.2f}/s",
             unit="frames",
-            enrich_print=False,
+            spinner=None,
         ) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()

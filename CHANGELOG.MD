@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Rife CUDA is now up to 10% faster than before.
 - Benchmarks are now going to be more accurate for interpolation.
 - Upgraded ONNXRuntime-DirectML to 1.19.1
+- Improved the progress bar with more information and less unnecessary eye candy.
 
 #### Adobe Edition
 
