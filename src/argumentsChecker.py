@@ -494,23 +494,34 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
             )
         )
 
+    args.isImage = False
     if args.input is None:
         toPrint = "No input specified, please specify an input file or URL to continue"
         logging.error(toPrint)
         print(red(toPrint))
         sys.exit()
-    else:
-        if args.input.startswith("http") or args.input.startswith("www"):
+    elif args.input.startswith("http") or args.input.startswith("www"):
             processURL(args, outputPath)
-        else:
-            try:
-                args.input = os.path.abspath(args.input)
-                args.input = str(args.input)
-            except Exception:
-                logging.error(
-                    "Error processing the input, this is usually because of weird input names with spaces or characters that are not allowed"
-                )
-                sys.exit()
+
+    elif args.input.endswith((".png", ".jpg", ".jpeg")):
+        logging.info("Image input detected, disabling audio")
+        args.audio = False
+        if args.encode_method not in [".gif", "image"]:
+            logging.error(
+                "Image input detected but encoding method is not set to GIF or Image, defaulting to Image encoding"
+            )
+            args.encode_method = "image"
+            args.isImage = True
+
+    else:
+        try:
+            args.input = os.path.abspath(args.input)
+            args.input = str(args.input)
+        except Exception:
+            logging.error(
+                "Error processing the input, this is usually because of weird input names with spaces or characters that are not allowed"
+            )
+            sys.exit()
 
     processingMethods = [
         args.interpolate,
