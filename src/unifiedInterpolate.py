@@ -133,7 +133,6 @@ class RifeCuda:
 
         self.firstRun = True
         self.stream = torch.cuda.Stream() if self.isCudaAvailable else None
-        self.useI0AsSource = True
 
     @torch.inference_mode()
     def cacheFrame(self):
@@ -176,10 +175,7 @@ class RifeCuda:
                 self.firstRun = False
                 return
             
-            source = self.I0 if self.useI0AsSource else self.I1
-            destination = self.I1 if self.useI0AsSource else self.I0
-
-            destination.copy_(self.padFrame(self.processFrame(frame)), non_blocking=True)
+            self.I1 = self.padFrame(self.processFrame(frame))
 
             for i in range(self.interpolateFactor - 1):
                 timestep = torch.full(
@@ -188,12 +184,12 @@ class RifeCuda:
                     dtype=torch.float16 if self.half else torch.float32,
                     device=self.device,
                 )
-                output = self.model(source, destination, timestep)[: self.height, : self.width, :]
+                output = self.model(self.I0, self.I1, timestep)[: self.height, : self.width, :]
                 self.stream.synchronize()
                 if not benchmark:
                     writeBuffer.write(output)
 
-            self.useI0AsSource = not self.useI0AsSource
+            self.cacheFrame()
 
 class RifeTensorRT:
     def __init__(
@@ -383,11 +379,9 @@ class RifeTensorRT:
                 self.I0.copy_(self.processFrame(frame), non_blocking=True)
                 self.firstRun = False
                 return
-            
 
             source = self.I0 if self.useI0AsSource else self.I1
             destination = self.I1 if self.useI0AsSource else self.I0
-
             destination.copy_(self.processFrame(frame), non_blocking=True)
 
             for i in range(self.interpolateFactor - 1):
