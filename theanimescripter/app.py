@@ -32,12 +32,12 @@ import platform
 
 from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
-from .argumentsChecker import createParser
-from .getVideoMetadata import getVideoMetadata
-from .initializeModels import initializeModels, Segment, Depth, Stabilize, AutoClip
-from .ffmpegSettings import BuildBuffer, WriteBuffer
-from .generateOutput import outputNameGenerator
-from .coloredPrints import green, blue, red
+from theanimescripter.argumentsChecker import createParser
+from theanimescripter.getVideoMetadata import getVideoMetadata
+from theanimescripter.initializeModels import initializeModels, Segment, Depth, Stabilize, AutoClip
+from theanimescripter.ffmpegSettings import BuildBuffer, WriteBuffer
+from theanimescripter.generateOutput import outputNameGenerator
+from theanimescripter.coloredPrints import green, blue, red
 
 
 if platform.system() == "Windows":
@@ -270,7 +270,7 @@ class VideoProcessor:
             )
 
             if self.preview:
-                from src.previewSettings import Preview
+                from theanimescripter.previewSettings import Preview
 
                 self.preview = Preview(
                     writeBuffer=self.writeBuffer,

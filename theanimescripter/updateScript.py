@@ -8,7 +8,7 @@ import sys
 import argparse
 
 from alive_progress import alive_bar
-from src.coloredPrints import green
+from theanimescripter.coloredPrints import green
 
 URL = r"https://api.github.com/repos/NevermindNilas/TheAnimeScripter/releases/latest"
 

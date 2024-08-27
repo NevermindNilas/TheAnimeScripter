@@ -4,10 +4,11 @@ import os
 import torch
 import torch.nn.functional as F
 
-from src.downloadModels import downloadModels, weightsDir, modelsMap
+from theanimescripter.downloadModels import downloadModels, weightsDir, modelsMap
 from concurrent.futures import ThreadPoolExecutor
-from src.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.coloredPrints import yellow
+
+from theanimescripter.ffmpegSettings import BuildBuffer, WriteBuffer
+from theanimescripter.coloredPrints import yellow
 from alive_progress import alive_bar
 
 
@@ -97,7 +98,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         else:
             self.device = "cpu"
 
-        from .train import AnimeSegmentation
+        from theanimescripter.segment.train import AnimeSegmentation
 
         self.model = AnimeSegmentation.try_load(
             "isnet_is", modelPath, self.device, img_size=1024
@@ -111,11 +112,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
         ph, pw = s - h, s - w
         input_img = (
-            input_img.float()
-            .to(self.device)
-            .mul(1 / 255)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
+            input_img.float().to(self.device).mul(1 / 255).permute(2, 0, 1).unsqueeze(0)
         )
         img_input = F.interpolate(
             input_img,
@@ -195,7 +192,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
         self.totalFrames = totalFrames
 
         import tensorrt as trt
-        from src.utils.trtHandler import (
+        from theanimescripter.utils.trtHandler import (
             TensorRTEngineCreator,
             TensorRTEngineLoader,
             TensorRTEngineNameHandler,

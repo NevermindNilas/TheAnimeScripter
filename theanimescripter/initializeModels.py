@@ -2,7 +2,7 @@ import logging
 
 
 def AutoClip(self, mainPath):
-    from src.autoclip import AutoClip
+    from theanimescripter.autoclip.autoclip import AutoClip
 
     AutoClip(
         self.input,
@@ -17,7 +17,7 @@ def Segment(self):
     # Lazy loading for startup time reasons
 
     if self.segment_method == "anime":
-        from src.segment.animeSegment import AnimeSegment
+        from theanimescripter.segment.animeSegment import AnimeSegment
 
         AnimeSegment(
             self.input,
@@ -35,7 +35,7 @@ def Segment(self):
             self.totalFrames,
         )
     elif self.segment_method == "anime-tensorrt":
-        from src.segment.animeSegment import AnimeSegmentTensorRT
+        from theanimescripter.segment.animeSegment import AnimeSegmentTensorRT
 
         AnimeSegmentTensorRT(
             self.input,
@@ -54,7 +54,7 @@ def Segment(self):
         )
 
     elif self.segment_method == "anime-directml":
-        from src.segment.animeSegment import AnimeSegmentDirectML
+        from theanimescripter.segment.animeSegment import AnimeSegmentDirectML
 
         AnimeSegmentDirectML(
             self.input,
@@ -76,7 +76,7 @@ def Segment(self):
 def Depth(self):
     match self.depth_method:
         case "small_v2" | "base_v2" | "large_v2":
-            from src.depth.depth import DepthV2
+            from theanimescripter.depth.depth import DepthV2
 
             DepthV2(
                 self.input,
@@ -98,7 +98,7 @@ def Depth(self):
             )
 
         case "small_v2-tensorrt" | "base_v2-tensorrt" | "large_v2-tensorrt":
-            from src.depth.depth import DepthTensorRTV2
+            from theanimescripter.depth.depth import DepthTensorRTV2
 
             DepthTensorRTV2(
                 self.input,
@@ -120,7 +120,7 @@ def Depth(self):
             )
 
         case "small_v2-directml" | "base_v2-directml" | "large_v2-directml":
-            from src.depth.depth import DepthDirectMLV2
+            from theanimescripter.depth.depth import DepthDirectMLV2
 
             DepthDirectMLV2(
                 self.input,
@@ -143,7 +143,7 @@ def Depth(self):
 
 
 def Stabilize(self):
-    from src.stabilize.stabilize import VideoStabilizer
+    from theanimescripter.stabilize.stabilize import VideoStabilizer
 
     VideoStabilizer(
         self.input,
@@ -175,13 +175,13 @@ def initializeModels(self):
 
     if self.upscale:
         if self.upscale_skip:
-            from src.dedup.dedup import DedupSSIM
+            from theanimescripter.dedup.dedup import DedupSSIM
 
             upscaleSkipProcess = DedupSSIM(
                 0.995,
             )
 
-        from src.unifiedUpscale import UniversalPytorch
+        from theanimescripter.unifiedUpscale import UniversalPytorch
 
         outputWidth *= self.upscale_factor
         outputHeight *= self.upscale_factor
@@ -217,7 +217,7 @@ def initializeModels(self):
                 | "aniscale2-directml"
                 | "shufflespan-directml"
             ):
-                from .unifiedUpscale import UniversalDirectML
+                from theanimescripter.unifiedUpscale import UniversalDirectML
 
                 upscale_process = UniversalDirectML(
                     self.upscale_method,
@@ -230,7 +230,7 @@ def initializeModels(self):
                 )
 
             case "shufflecugan-ncnn" | "span-ncnn":
-                from .unifiedUpscale import UniversalNCNN
+                from theanimescripter.unifiedUpscale import UniversalNCNN
 
                 upscale_process = UniversalNCNN(
                     self.upscale_method,
@@ -248,7 +248,7 @@ def initializeModels(self):
                 | "aniscale2-tensorrt"
                 | "shufflespan-tensorrt"
             ):
-                from .unifiedUpscale import UniversalTensorRT
+                from theanimescripter.unifiedUpscale import UniversalTensorRT
 
                 upscale_process = UniversalTensorRT(
                     self.upscale_method,
@@ -277,7 +277,7 @@ def initializeModels(self):
                 | "rife4.22"
                 | "rife4.22-lite"
             ):
-                from src.unifiedInterpolate import RifeCuda
+                from theanimescripter.unifiedInterpolate import RifeCuda
 
                 interpolate_process = RifeCuda(
                     self.half,
@@ -297,7 +297,7 @@ def initializeModels(self):
                 | "rife4.17-ncnn"
                 | "rife4.18-ncnn"
             ):
-                from src.unifiedInterpolate import RifeNCNN
+                from theanimescripter.unifiedInterpolate import RifeNCNN
 
                 interpolate_process = RifeNCNN(
                     self.interpolate_method,
@@ -318,7 +318,7 @@ def initializeModels(self):
                 | "rife4.22-tensorrt"
                 | "rife4.22-lite-tensorrt"
             ):
-                from src.unifiedInterpolate import RifeTensorRT
+                from theanimescripter.unifiedInterpolate import RifeTensorRT
 
                 interpolate_process = RifeTensorRT(
                     self.interpolate_method,
@@ -332,7 +332,7 @@ def initializeModels(self):
     if self.denoise:
         match self.denoise_method:
             case "scunet" | "dpir" | "nafnet" | "real-plksr":
-                from src.unifiedDenoise import UnifiedDenoise
+                from theanimescripter.unifiedDenoise import UnifiedDenoise
 
                 denoise_process = UnifiedDenoise(
                     self.denoise_method,
@@ -342,7 +342,7 @@ def initializeModels(self):
     if self.dedup:
         match self.dedup_method:
             case "ssim":
-                from src.dedup.dedup import DedupSSIM
+                from theanimescripter.dedup.dedup import DedupSSIM
 
                 dedup_process = DedupSSIM(
                     self.dedup_sens,
@@ -350,7 +350,7 @@ def initializeModels(self):
                 )
 
             case "mse":
-                from src.dedup.dedup import DedupMSE
+                from theanimescripter.dedup.dedup import DedupMSE
 
                 dedup_process = DedupMSE(
                     self.dedup_sens,
@@ -358,7 +358,7 @@ def initializeModels(self):
                 )
 
             case "ssim-cuda":
-                from src.dedup.dedup import DedupSSIMCuda
+                from theanimescripter.dedup.dedup import DedupSSIMCuda
 
                 dedup_process = DedupSSIMCuda(
                     self.dedup_sens,
@@ -367,7 +367,7 @@ def initializeModels(self):
                 )
 
             case "mse-cuda":
-                from src.dedup.dedup import DedupMSECuda
+                from theanimescripter.dedup.dedup import DedupMSECuda
 
                 dedup_process = DedupMSECuda(
                     self.dedup_sens,
@@ -378,34 +378,33 @@ def initializeModels(self):
     if self.scenechange:
         match self.scenechange_method:
             case "maxxvit-tensorrt" | "shift_lpips-tensorrt":
-                from src.scenechange import SceneChangeTensorRT
-
+                from theanimescripter.scenechange import SceneChangeTensorRT
                 scenechange_process = SceneChangeTensorRT(
                     self.half,
                     self.scenechange_sens,
                     self.scenechange_method,
                 )
             case "maxxvit-directml":
-                from src.scenechange import SceneChange
+                from theanimescripter.scenechange import SceneChange
 
                 scenechange_process = SceneChange(
                     self.half,
                     self.scenechange_sens,
                 )
             case "differential":
-                from src.scenechange import SceneChangeCPU
+                from theanimescripter.scenechange import SceneChangeCPU
 
                 scenechange_process = SceneChangeCPU(
                     self.scenechange_sens,
                 )
             case "differential-cuda":
-                from src.scenechange import SceneChangeCuda
+                from theanimescripter.scenechange import SceneChangeCuda
 
                 scenechange_process = SceneChangeCuda(
                     self.scenechange_sens,
                 )
             case "differential-tensorrt":
-                from src.scenechange import DifferentialTensorRT
+                from theanimescripter.scenechange import DifferentialTensorRT
 
                 scenechange_process = DifferentialTensorRT(
                     self.scenechange_sens,
@@ -413,7 +412,7 @@ def initializeModels(self):
                     self.width,
                 )
             case "differential-directml":
-                # from src.scenechange import DifferentialDirectML
+                # from theanimescripter.scenechange import DifferentialDirectML
                 # scenechange_process = DifferentialDirectML(
                 #     self.scenechange_sens,
                 # )
