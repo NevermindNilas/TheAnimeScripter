@@ -34,6 +34,7 @@ from src.initializeModels import initializeModels, Segment, Depth, Stabilize, Au
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
+from src.version import __version__
 
 
 if platform.system() == "Windows":
@@ -53,7 +54,6 @@ else:
     isFrozen = False
     outputPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.9.6"
 warnings.filterwarnings("ignore")
 
 
@@ -297,7 +297,7 @@ if __name__ == "__main__":
     logging.info("============== Command Line Arguments ==============")
     logging.info(f"{' '.join(sys.argv)}\n")
 
-    args = createParser(isFrozen, scriptVersion, mainPath, outputPath)
+    args = createParser(isFrozen, __version__, mainPath, outputPath)
 
     if os.path.isfile(args.input):
         print(green(f"Processing {args.input}"))
