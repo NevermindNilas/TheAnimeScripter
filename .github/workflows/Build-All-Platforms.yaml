@@ -24,6 +24,10 @@ jobs:
         id: get_version
         run: echo "version=$(python -c 'import src.version; print(src.version.__version__)')" >> $GITHUB_ENV
 
+      - name: Print version
+        id: print_version
+        run: echo ${{ steps.get_version.outputs.version }}
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
