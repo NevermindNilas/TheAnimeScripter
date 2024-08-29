@@ -19,12 +19,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - The metadata, progress bar and everything else related to video details should be MUCH more accurate now, including logging.
 - Log.txt should now be more compact with `Arguments` no longer having unused arguments.
 - Rife TRT will only build Static Engines in order to improve stability and versatility.
-- Rife CUDA is now up to 10% faster than before.
+- Rife CUDA is now up to 15% faster than before.
+- Rife TRT is now up to 15% faster than before.
+- Chained Processes with Upscaling and Interpolation TRT / CUDA will now be more memory efficient and performant.
 - Benchmarks are now going to be more accurate for interpolation.
 - Upgraded ONNXRuntime-DirectML to 1.19.1
 - Improved the progress bar with more information and less unnecessary eye candy.
 - Improved stability of image inputs.
 - More video metadata requests.
+
+#### Fixes:
+- Some CUDA Race conditions could be met in extremely High FPS workflows ( 500+ FPS ).
 
 #### Adobe Edition
 
