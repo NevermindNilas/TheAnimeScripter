@@ -1,146 +1,124 @@
 import subprocess
-import os
 import shutil
+from pathlib import Path
 
-base_dir = os.path.dirname(os.path.abspath(__file__))
-distPath = os.path.join(base_dir, "dist-lite")
+baseDir = Path(__file__).resolve().parent
+distPath = baseDir / "dist-lite"
+venvPath = baseDir / "venv-lite"
+venvScripts = venvPath / "Scripts"
 
+def runSubprocess(command, shell=False):
+    try:
+        subprocess.run(command, shell=shell, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error while running command {command}: {e}")
+        raise
 
-def create_venv():
+def createVenv():
     print("Creating the virtual environment...")
-    subprocess.run(["python", "-m", "venv", "venv-lite"], check=True)
+    runSubprocess(["python", "-m", "venv", str(venvPath)])
 
-
-def activate_venv():
+def activateVenv():
     print("Activating the virtual environment...")
-    subprocess.run(".\\venv-lite\\Scripts\\activate", shell=True, check=True)
+    runSubprocess(str(venvScripts / "activate"), shell=True)
 
-
-def install_requirements():
+def installRequirements():
     print("Installing the requirements...")
-    subprocess.run(
-        [".\\venv-lite\\Scripts\\pip3", "install", "-r", "requirements-windows-lite.txt"],
-        check=True,
-    )
+    runSubprocess([str(venvScripts / "pip3"), "install", "-r", "requirements-windows-lite.txt"])
 
-
-def install_pyinstaller():
+def installPyinstaller():
     print("Installing PyInstaller...")
-    subprocess.run(
-        [".\\venv-lite\\Scripts\\python", "-m", "pip", "install", "pyinstaller"], check=True
-    )
+    runSubprocess([str(venvScripts / "python"), "-m", "pip", "install", "pyinstaller"])
 
-
-def create_executable():
+def createExecutable():
     print("Creating executable with PyInstaller...")
-    src_path = os.path.join(base_dir, "src")
-    main_path = os.path.join(base_dir, "main.py")
-    iconPath = os.path.join(base_dir, "src", "assets", "icon.ico")
-    benchmarkPath = os.path.join(base_dir, "benchmark.py")
+    srcPath = baseDir / "src"
+    mainPath = baseDir / "main.py"
+    iconPath = srcPath / "assets" / "icon.ico"
+    benchmarkPath = baseDir / "benchmark.py"
+
+    commonArgs = [
+        "--noconfirm",
+        "--onedir",
+        "--console",
+        "--noupx",
+        "--clean",
+        "--icon",
+        str(iconPath),
+        "--distpath",
+        str(distPath),
+    ]
+
+    cliArgs = commonArgs + [
+        "--add-data",
+        f"{srcPath};src/",
+        "--hidden-import",
+        "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
+        "--hidden-import",
+        "upscale_ncnn_py.upscale_ncnn_py_wrapper",
+        "--collect-all",
+        "fastrlock",
+        "--collect-all",
+        "inquirer",
+        "--collect-all",
+        "readchar",
+        "--collect-all",
+        "grapheme",
+        str(mainPath),
+    ]
+
+    benchmarkArgs = commonArgs + [str(benchmarkPath)]
 
     print("Creating the CLI executable...")
-    subprocess.run(
-        [
-            ".\\venv-lite\\Scripts\\pyinstaller",
-            "--noconfirm",
-            "--onedir",
-            "--console",
-            "--noupx",
-            "--clean",
-            "--add-data",
-            f"{src_path};src/",
-            "--hidden-import",
-            "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
-            "--hidden-import",
-            "upscale_ncnn_py.upscale_ncnn_py_wrapper",
-            "--collect-all",
-            "fastrlock",
-            "--collect-all",
-            "inquirer",
-            "--collect-all",
-            "readchar",
-            "--collect-all",
-            "grapheme",
-            "--icon",
-            f"{iconPath}",
-            "--distpath",
-            distPath,
-            main_path,
-        ],
-        check=True,
-    )
+    runSubprocess([str(venvScripts / "pyinstaller")] + cliArgs)
 
     print("Finished creating the CLI executable")
 
     print("Creating the benchmark executable...")
-    subprocess.run(
-        [
-            ".\\venv-lite\\Scripts\\pyinstaller",
-            "--noconfirm",
-            "--onedir",
-            "--console",
-            "--noupx",
-            "--clean",
-            "--icon",
-            f"{iconPath}",
-            "--distpath",
-            distPath,
-            benchmarkPath,
-        ],
-        check=True,
-    )
+    runSubprocess([str(venvScripts / "pyinstaller")] + benchmarkArgs)
     print("Finished creating the benchmark executable")
 
-    mainInternalPath = os.path.join(distPath, "main", "_internal")
-    benchmarkInternalPath = os.path.join(distPath, "benchmark", "_internal")
+    mainInternalPath = distPath / "main" / "_internal"
+    benchmarkInternalPath = distPath / "benchmark" / "_internal"
 
-    for directory in [benchmarkInternalPath]:
-        for filename in os.listdir(directory):
-            sourceFilePath = os.path.join(directory, filename)
-            mainFilePath = os.path.join(mainInternalPath, filename)
+    if benchmarkInternalPath.exists():
+        for item in benchmarkInternalPath.iterdir():
+            targetPath = mainInternalPath / item.name
+            if item.is_file():
+                shutil.copy2(item, targetPath)
+            elif item.is_dir():
+                shutil.copytree(item, targetPath, dirs_exist_ok=True)
 
-            if os.path.isfile(sourceFilePath):
-                shutil.copy2(sourceFilePath, mainFilePath)
+    benchmarkExePath = distPath / "benchmark" / "benchmark.exe"
+    mainExePath = distPath / "main"
 
-            elif os.path.isdir(sourceFilePath):
-                shutil.copytree(sourceFilePath, mainFilePath, dirs_exist_ok=True)
+    shutil.move(benchmarkExePath, mainExePath)
 
-    benchmarkExeFilePath = os.path.join(distPath, "benchmark", "benchmark.exe")
-    mainExeFilePath = os.path.join(distPath, "main")
+def moveExtras():
+    mainDir = distPath / "main"
+    filesToCopy = ["LICENSE", "README.md", "README.txt"]
 
-    shutil.move(benchmarkExeFilePath, mainExeFilePath)
+    for fileName in filesToCopy:
+        try:
+            shutil.copy(baseDir / fileName, mainDir)
+        except Exception as e:
+            print(f"Error while copying {fileName}: {e}")
 
-
-def move_extras():
-    main_dir = os.path.join(distPath, "main")
-    license_path = os.path.join(base_dir, "LICENSE")
-    readme_path = os.path.join(base_dir, "README.md")
-    readme_txt_path = os.path.join(base_dir, "README.txt")
-
-    try:
-        shutil.copy(license_path, main_dir)
-        shutil.copy(readme_path, main_dir)
-        shutil.copy(readme_txt_path, main_dir)
-    except Exception as e:
-        print("Error while copying files: ", e)
-
-
-def clean_up():
-    benchmarkFolder = os.path.join(base_dir, distPath, "benchmark")
+def cleanUp():
+    benchmarkFolder = distPath / "benchmark"
 
     try:
         shutil.rmtree(benchmarkFolder)
     except Exception as e:
-        print("Error while removing folders: ", e)
+        print(f"Error while removing benchmark folder: {e}")
 
-    print("Done! You can find the built executable in the dist folder")
-
+    print("Done! You can find the built executable in the dist-lite folder")
 
 if __name__ == "__main__":
-    create_venv()
-    activate_venv()
-    install_requirements()
-    install_pyinstaller()
-    create_executable()
-    move_extras()
-    clean_up()
+    createVenv()
+    activateVenv()
+    installRequirements()
+    installPyinstaller()
+    createExecutable()
+    moveExtras()
+    cleanUp()
