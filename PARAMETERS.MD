@@ -218,6 +218,9 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 |----------|------|---------|-------------|
 | `--half` | flag | True | Enable FP16 for improved performance |
 | `--buffer_limit` | int | 50 | Set the limit for decoding and encoding buffers |
+| `--static` | flag | True | Force static engine generation and bypass the arbitrary set limitations of TAS |
+
+**Note**: Interpolation TRT, Depth TRT, Segment TRT all already are set to static engine generation due to set limitations within the models themselves.
 
 ## Usage Examples
 

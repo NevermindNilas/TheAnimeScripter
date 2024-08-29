@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ##### NEW
 - Added `Rife4.22-Lite` and `Rife4.22-Lite-Tensorrt`
+- Added `--static` flag to force static engine generation for Upscale TensorRT.
 
 ##### Improvements
 - Upgraded base polygraphy from 0.49.12 -> 0.49.13

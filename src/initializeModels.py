@@ -258,6 +258,7 @@ def initializeModels(self):
                     self.height,
                     self.custom_model,
                     upscaleSkipProcess,
+                    self.forceStatic,
                 )
     if self.interpolate:
         logging.info(
