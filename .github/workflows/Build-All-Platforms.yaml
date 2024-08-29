@@ -8,11 +8,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
-      date: ${{ steps.date.outputs.date }}
+      version: ${{ steps.get_version.outputs.version }}
     steps:
-      - name: Get the date
-        id: date
-        run: echo "::set-output name=date::$(date +'%Y%m%d%H%M%S')"
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.12.4"
+
+      - name: Extract version
+        id: get_version
+        run: echo "version=$(python -c 'import src.version; print(src.version.__version__)')" >> $GITHUB_ENV
+
+      - name: Print version
+        id: print_version
+        run: echo ${{ steps.get_version.outputs.version }}
 
       - name: Create Release
         id: create_release
@@ -20,8 +34,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
-          tag_name: TAS_${{ steps.date.outputs.date }}
-          release_name: TAS_${{ steps.date.outputs.date }}
+          tag_name: TAS_${{ env.version }}
+          release_name: TAS_${{ env.version }}
           draft: true
 
   build_full_windows:
@@ -44,7 +58,7 @@ jobs:
       - name: Compress full directory
         run: |
           cd ${{ github.workspace }}/dist-full/main/
-          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ needs.create_release.outputs.date }}_Full_Windows.7z *
+          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ needs.create_release.outputs.version }}_Full_Windows.7z *
 
       - name: Upload Release Asset
         id: upload-release-asset
@@ -53,8 +67,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: TAS_${{ needs.create_release.outputs.date }}_Full_Windows.7z
-          asset_name: TAS_${{ needs.create_release.outputs.date }}_Full_Windows.7z
+          asset_path: TAS_${{ needs.create_release.outputs.version }}_Full_Windows.7z
+          asset_name: TAS_${{ needs.create_release.outputs.version }}_Full_Windows.7z
           asset_content_type: application/x-7z-compressed
 
   build_full_linux:
@@ -82,19 +96,13 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      #- name: Install CUDA Toolkit
-      #  uses: Jimver/cuda-toolkit@v0.2.16
-      #  id: cuda-toolkit
-      #  with:
-      #    cuda: "12.4.0"
-
       - name: Run full build script
         run: python build-linux.py --output dist-full
 
       - name: Compress full directory
         run: |
           cd ${{ github.workspace }}/dist/main/
-          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ needs.create_release.outputs.date }}_Full_Linux.7z *
+          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ needs.create_release.outputs.version }}_Full_Linux.7z *
 
       - name: Upload Release Asset
         id: upload-release-asset
@@ -103,8 +111,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: TAS_${{ needs.create_release.outputs.date }}_Full_Linux.7z
-          asset_name: TAS_${{ needs.create_release.outputs.date }}_Full_Linux.7z
+          asset_path: TAS_${{ needs.create_release.outputs.version }}_Full_Linux.7z
+          asset_name: TAS_${{ needs.create_release.outputs.version }}_Full_Linux.7z
           asset_content_type: application/x-7z-compressed
 
   build_lite_windows:
@@ -127,7 +135,7 @@ jobs:
       - name: Compress lite directory
         run: |
           cd ${{ github.workspace }}/dist-lite/main/
-          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ needs.create_release.outputs.date }}_Lite_Windows.7z *
+          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS_${{ needs.create_release.outputs.version }}_Lite_Windows.7z *
 
       - name: Upload Release Asset
         id: upload-release-asset
@@ -136,6 +144,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: TAS_${{ needs.create_release.outputs.date }}_Lite_Windows.7z
-          asset_name: TAS_${{ needs.create_release.outputs.date }}_Lite_Windows.7z
+          asset_path: TAS_${{ needs.create_release.outputs.version }}_Lite_Windows.7z
+          asset_name: TAS_${{ needs.create_release.outputs.version }}_Lite_Windows.7z
           asset_content_type: application/x-7z-compressed

@@ -34,6 +34,7 @@ from src.initializeModels import initializeModels, Segment, Depth, Stabilize, Au
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
+from src.version import __version__
 
 
 if platform.system() == "Windows":
@@ -53,7 +54,6 @@ else:
     isFrozen = False
     outputPath = os.path.dirname(os.path.abspath(__file__))
 
-scriptVersion = "1.9.6"
 warnings.filterwarnings("ignore")
 
 
@@ -104,7 +104,7 @@ class VideoProcessor:
         self.stabilize = args.stabilize
         self.preview = args.preview
 
-        self.width, self.height, self.fps, self.totalFrames = getVideoMetadata(
+        self.width, self.height, self.fps, self.totalFrames, self.pixFMT = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
         )
 
@@ -186,12 +186,17 @@ class VideoProcessor:
         self.isSceneChange = False
         self.sceneChangeCounter = 0
         increment = 1 if not self.interpolate else math.ceil(self.interpolate_factor)
+        
         with alive_bar(
-            self.totalFrames * increment,
-            title="Processing",
-            bar="smooth",
+            total=self.totalFrames * increment,
+            title="Processing Frame: ",
+            length=30,
+            stats="| {rate}",
+            elapsed="Elapsed Time: {elapsed}",
+            monitor=" {count}/{total} | [{percent:.0%}] | ",
+            #stats_end="{total_time} • {rate:.2f}/s",
             unit="frames",
-            enrich_print=False,
+            spinner=None,
         ) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()
@@ -292,7 +297,7 @@ if __name__ == "__main__":
     logging.info("============== Command Line Arguments ==============")
     logging.info(f"{' '.join(sys.argv)}\n")
 
-    args = createParser(isFrozen, scriptVersion, mainPath, outputPath)
+    args = createParser(isFrozen, __version__, mainPath, outputPath)
 
     if os.path.isfile(args.input):
         print(green(f"Processing {args.input}"))
