@@ -42,6 +42,9 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
     performanceGroup.add_argument(
         "--half", type=bool, help="Use half precision for inference", default=True
     )
+    performanceGroup.add_argument(
+        "--static", action="store_true", help="Force Static Mode engine generation for TensorRT"
+    )
 
     # Interpolation options
     interpolationGroup = argParser.add_argument_group("Interpolation")
