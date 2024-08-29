@@ -139,6 +139,7 @@ class UniversalTensorRT:
         height: int = 1080,
         customModel: str = None,
         upscaleSkip: bool | None = None,
+        forceStatic: bool = False,
     ):
         """
         Initialize the upscaler with the desired model
@@ -174,6 +175,7 @@ class UniversalTensorRT:
         self.height = height
         self.customModel = customModel
         self.upscaleSkip = upscaleSkip
+        self.forceStatic = forceStatic
 
         self.handleModel()
 
@@ -229,6 +231,7 @@ class UniversalTensorRT:
                 inputsMin=[1, 3, 8, 8],
                 inputsOpt=[1, 3, self.height, self.width],
                 inputsMax=[1, 3, 1080, 1920],
+                forceStatic=self.forceStatic,
             )
 
         self.stream = torch.cuda.Stream()

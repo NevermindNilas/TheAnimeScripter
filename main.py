@@ -103,6 +103,7 @@ class VideoProcessor:
         self.bit_depth = args.bit_depth
         self.stabilize = args.stabilize
         self.preview = args.preview
+        self.forceStatic = args.static
 
         self.width, self.height, self.fps, self.totalFrames, self.pixFMT = getVideoMetadata(
             self.input, self.inpoint, self.outpoint

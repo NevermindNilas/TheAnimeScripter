@@ -24,6 +24,8 @@ def TensorRTEngineCreator(
     inputName: str = "input",
     maxWorkspaceSize: int = (1 << 30),
     optimizationLevel: int = 3,
+    forceRebuild: bool = False,
+    forceStatic: bool = False,
 ) -> Tuple[trt.ICudaEngine, trt.IExecutionContext]:
     """
     Create a TensorRT engine from an ONNX model.
@@ -42,6 +44,10 @@ def TensorRTEngineCreator(
     toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
     print(yellow(toPrint))
     logging.info(toPrint)
+    if forceStatic:
+        inputsMin = inputsOpt
+        inputsMax = inputsOpt
+        
     profiles = [
         Profile().add(
             inputName,
