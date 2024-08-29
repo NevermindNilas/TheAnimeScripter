@@ -309,8 +309,8 @@ class BuildBuffer:
                 if not rawFrame:
                     self.readBuffer.put(None)
                     break
-        
-                self.readBuffer.put(torch.from_numpy(cv2.cvtColor(np.frombuffer(rawFrame, dtype=np.uint8).reshape(reshape), cv2.COLOR_YUV2RGB_I420)))
+                
+                self.readBuffer.put(torch.from_numpy(cv2.cvtColor(np.frombuffer(rawFrame, dtype=np.uint8).reshape(reshape), cv2.COLOR_YUV2RGB_I420)).pin_memory())
                 self.decodedFrames += 1
 
         except Exception as e:
