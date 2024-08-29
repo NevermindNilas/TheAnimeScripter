@@ -169,6 +169,8 @@ class RifeCuda:
 
     @torch.inference_mode()
     def run(self, frame, benchmark, writeBuffer):
+        if self.device.type == frame.device.type:
+            torch.cuda.synchronize()
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0 = self.padFrame(self.processFrame(frame))
@@ -185,7 +187,10 @@ class RifeCuda:
                     device=self.device,
                 )
                 output = self.model(self.I0, self.I1, timestep)[: self.height, : self.width, :]
-                self.stream.synchronize()
+
+                if self.interpolateFactor > 2:
+                    self.stream.synchronize()
+
                 if not benchmark:
                     writeBuffer.write(output)
 
@@ -374,6 +379,9 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def run(self, frame, benchmark, writeBuffer):
+        if self.device.type == frame.device.type:
+            torch.cuda.synchronize()
+
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0.copy_(self.processFrame(frame), non_blocking=True)
@@ -396,8 +404,11 @@ class RifeTensorRT:
                     torch.cat([source, destination, timestep], dim=1), non_blocking=True
                 ).contiguous()
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-                output = self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul(255)
-                self.stream.synchronize()
+                output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
+
+                if self.interpolateFactor > 2:
+                    self.stream.synchronize()
+
                 if not benchmark:
                     writeBuffer.write(output)
 
