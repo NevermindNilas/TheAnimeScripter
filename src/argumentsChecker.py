@@ -52,7 +52,7 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
         "--interpolate", action="store_true", help="Interpolate the video"
     )
     interpolationGroup.add_argument(
-        "--interpolate_factor", type=float, default=2, help="Interpolation factor"
+        "--interpolate_factor", type=int, default=2, help="Interpolation factor"
     )
 
     interpolationGroup.add_argument(

@@ -186,7 +186,7 @@ class VideoProcessor:
         self.dedupCount = 0
         self.isSceneChange = False
         self.sceneChangeCounter = 0
-        increment = 1 if not self.interpolate else math.ceil(self.interpolate_factor)
+        increment = 1 if not self.interpolate else self.interpolate_factor
         
         with alive_bar(
             total=self.totalFrames * increment,
