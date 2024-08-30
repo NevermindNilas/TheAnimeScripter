@@ -10,11 +10,19 @@ from src.downloadModels import downloadModels, weightsDir, modelsMap
 from alive_progress import alive_bar
 
 
-def calculateAspectRatio(width, height):
-    newWidth = ((width + 13 ) // 14) * 14
-    newHeight = ((height + 13) // 14) * 14
+def calculateAspectRatio(width, height, depthQuality="high"):
+    if depthQuality == "high":
+        newWidth = ((width + 13) // 14) * 14
+        newHeight = ((height + 13) // 14) * 14
+    else:
+        # The AI was trained on 518px apparently, so we need to pad the image to 518px
+        aspectRatio = width / height
+        newHeight = 518
+        newWidth = round((newHeight * aspectRatio) / 14) * 14
 
+    logging.info(f"Depth Padding: {newWidth}x{newHeight}")
     return newHeight, newWidth
+
 
 class DepthV2:
     def __init__(
@@ -35,6 +43,7 @@ class DepthV2:
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
+        depthQuality: str = "high",
     ):
         self.input = input
         self.output = output
@@ -52,6 +61,7 @@ class DepthV2:
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
+        self.depthQuality = depthQuality
 
         self.handleModels()
 
@@ -165,7 +175,9 @@ class DepthV2:
             torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(self.device)
         )
 
-        self.newHeight, self.newWidth = calculateAspectRatio(self.width, self.height)
+        self.newHeight, self.newWidth = calculateAspectRatio(
+            self.width, self.height, self.depthQuality
+        )
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -232,6 +244,7 @@ class DepthDirectMLV2:
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
+        depthQuality: str = "high",
     ):
         import onnxruntime as ort
 
@@ -253,6 +266,7 @@ class DepthDirectMLV2:
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
+        self.depthQuality = depthQuality
 
         self.handleModels()
 
@@ -287,7 +301,7 @@ class DepthDirectMLV2:
                 grayscale=True,
                 audio=False,
                 benchmark=self.benchmark,
-                bitDepth=self.bitDepth
+                bitDepth=self.bitDepth,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
@@ -338,7 +352,9 @@ class DepthDirectMLV2:
             self.numpyDType = np.float32
             self.torchDType = torch.float32
 
-        self.newWidth, self.newHeight = calculateAspectRatio(self.width, self.height)
+        self.newWidth, self.newHeight = calculateAspectRatio(
+            self.width, self.height, self.depthQuality
+        )
 
         self.IoBinding = self.model.io_binding()
         self.dummyInput = torch.zeros(
@@ -440,6 +456,7 @@ class DepthTensorRTV2:
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
+        depthQuality: str = "high",
     ):
         self.input = input
         self.output = output
@@ -456,9 +473,15 @@ class DepthTensorRTV2:
         self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
+        self.bitDepth = bitDepth
+        self.depthQuality = depthQuality
 
         import tensorrt as trt
-        from src.utils.trtHandler import TensorRTEngineCreator, TensorRTEngineLoader, TensorRTEngineNameHandler
+        from src.utils.trtHandler import (
+            TensorRTEngineCreator,
+            TensorRTEngineLoader,
+            TensorRTEngineNameHandler,
+        )
 
         self.trt = trt
         self.TensorRTEngineCreator = TensorRTEngineCreator
@@ -498,7 +521,7 @@ class DepthTensorRTV2:
                 grayscale=True,
                 audio=False,
                 benchmark=self.benchmark,
-                bitDepth=bitDepth
+                bitDepth=self.bitDepth,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
@@ -526,14 +549,22 @@ class DepthTensorRTV2:
         else:
             self.modelPath = os.path.join(weightsDir, folderName, self.filename)
 
-        self.newHeight, self.newWidth = calculateAspectRatio(self.width, self.height)
+        self.newHeight, self.newWidth = calculateAspectRatio(
+            self.width, self.height, self.depthQuality
+        )
 
         enginePath = self.TensorRTEngineNameHandler(
-            modelPath=self.modelPath, fp16=self.half, optInputShape=[1, 3, self.newHeight, self.newWidth]
+            modelPath=self.modelPath,
+            fp16=self.half,
+            optInputShape=[1, 3, self.newHeight, self.newWidth],
         )
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
-        if self.engine is None or self.context is None or not os.path.exists(enginePath):
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -581,40 +612,29 @@ class DepthTensorRTV2:
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        with torch.cuda.stream(self.stream):
-            try:
-                frame = (
-                    frame.to(self.device).mul(1.0 / 255.0).permute(2, 0, 1).unsqueeze(0)
-                )
-
-                frame = F.interpolate(
-                    frame.float(),
-                    (self.newHeight, self.newWidth),
-                    mode="bilinear",
-                    align_corners=False,
-                )
-                frame = (frame.to(self.device) - self.mean_tensor) / self.std_tensor
-                if self.half and self.isCudaAvailable:
-                    frame = frame.half()
-
-                self.dummyInput.copy_(frame, non_blocking=True)
-                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-                self.stream.synchronize()
-
-                depth = F.interpolate(
-                    self.dummyOutput,
-                    size=[self.height, self.width],
-                    mode="bilinear",
-                    align_corners=False,
-                ).squeeze(0)
-
-                depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255
-                self.writeBuffer.write(depth)
-
-            except Exception as e:
-                logging.exception(
-                    f"Something went wrong while processing the frame, {e}"
-                )
+        try:
+            frame = frame.to(self.device).mul(1.0 / 255.0).permute(2, 0, 1).unsqueeze(0)
+            frame = F.interpolate(
+                frame.float(),
+                (self.newHeight, self.newWidth),
+                mode="bilinear",
+                align_corners=False,
+            )
+            frame = (frame.to(self.device) - self.mean_tensor) / self.std_tensor
+            if self.half and self.isCudaAvailable:
+                frame = frame.half()
+            self.dummyInput.copy_(frame, non_blocking=True)
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            depth = F.interpolate(
+                self.dummyOutput,
+                size=[self.height, self.width],
+                mode="bilinear",
+                align_corners=False,
+            ).squeeze(0)
+            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255
+            self.writeBuffer.write(depth)
+        except Exception as e:
+            logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
         frameCount = 0
@@ -630,4 +650,3 @@ class DepthTensorRTV2:
         logging.info(f"Processed {frameCount} frames")
 
         self.writeBuffer.close()
-
