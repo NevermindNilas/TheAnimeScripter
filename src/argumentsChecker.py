@@ -275,6 +275,13 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
         default="small_v2",
         help="Depth estimation method",
     )
+    depthGroup.add_argument(
+        "--depth_quality",
+        type=str,
+        choices=["low", "high"],
+        default="high",
+        help="This will determine the quality of the depth map, low is significantly faster but lower quality",
+    )
 
     # Encoding options
     encodingGroup = argParser.add_argument_group("Encoding")
