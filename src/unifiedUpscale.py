@@ -180,6 +180,12 @@ class UniversalTensorRT:
         self.handleModel()
 
     def handleModel(self):
+        if self.width > 1920 and self.height > 1080:
+            self.forceStatic = True
+            logging.info(
+                "Forcing static engine due to resolution higher than 1080p, wtf are you upscaling?"
+            )
+
         if not self.customModel:
             self.filename = modelsMap(
                 self.upscaleMethod,
@@ -272,7 +278,8 @@ class UniversalTensorRT:
 
     @torch.inference_mode()
     def run(self, frame):
-
+        if self.device.type == frame.device.type:
+            torch.cuda.synchronize()
 
         with torch.cuda.stream(self.stream):
             if self.upscaleSkip is not None:
@@ -287,13 +294,13 @@ class UniversalTensorRT:
                     dtype=torch.float16 if self.half else torch.float32,
                 )
                 .permute(2, 0, 1)
-                .unsqueeze_(0)
+                .unsqueeze(0)
                 .mul(1 / 255),
                 non_blocking=True,
             )
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             output = (
-                self.dummyOutput.squeeze_(0).permute(1, 2, 0).mul(255).clamp_(0, 255)
+                self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).clamp(0, 255)
             )
             #self.stream.synchronize()
 
