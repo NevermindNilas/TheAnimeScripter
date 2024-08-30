@@ -157,11 +157,18 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 |----------|------|---------|-------------|
 | `--depth` | flag | - | Generate depth maps |
 | `--depth_method` | str | "small" | Depth map generation method |
+| `--depth_quality` | str | "high" | Depth map generation quality |
 
 #### Depth Methods
 - `"small_v2"` / `"small_v2-tensorrt"` / `"small_v2-directml"`
 - `"base_v2"` / `"base_v2-tensorrt"` / `"base_v2-directml"`
 - `"large_v2"` / `"large_v2-tensorrt"` / `"large_v2-directml"`
+
+#### Depth Quality selection
+- `"low"` / `"high"`
+- Additional Notes: This is not reliable with TensorRT and should only be preferred if you own a low end GPU. 
+
+
 
 ### Resizing
 

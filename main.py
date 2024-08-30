@@ -23,7 +23,6 @@ import os
 import warnings
 import sys
 import logging
-import math
 import platform
 
 from alive_progress import alive_bar
@@ -104,6 +103,7 @@ class VideoProcessor:
         self.stabilize = args.stabilize
         self.preview = args.preview
         self.forceStatic = args.static
+        self.depth_quality = args.depth_quality
 
         self.width, self.height, self.fps, self.totalFrames, self.pixFMT = getVideoMetadata(
             self.input, self.inpoint, self.outpoint
