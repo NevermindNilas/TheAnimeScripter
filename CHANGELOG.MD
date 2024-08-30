@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ##### NEW
 - Added `Rife4.22-Lite` and `Rife4.22-Lite-Tensorrt`
 - Added `--static` flag to force static engine generation for Upscale TensorRT.
+- Temp state for downloaded models will now ensure file integrity in case of internet loss.
+- Added `--depth_quality` flag with options `low, high` ( default high ). For the users with lower end system to benefit of higher inference speeds. ( Not reliable for TensorRT )
 
 ##### Improvements
 - Upgraded base polygraphy from 0.49.12 -> 0.49.13
@@ -27,6 +29,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Improved the progress bar with more information and less unnecessary eye candy.
 - Improved stability of image inputs.
 - More video metadata requests.
+- The download progress bar will now also tell the download speed in MB/s
+- Some slight adjustments to the building methodology of TAS.
 
 #### Fixes:
 - Some CUDA Race conditions could be met in extremely High FPS workflows ( 500+ FPS ).

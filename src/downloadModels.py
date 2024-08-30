@@ -455,10 +455,12 @@ def modelsMap(
         case _:
             raise ValueError(f"Model {model} not found.")
 
-
 def downloadAndLog(
     model: str, filename: str, download_url: str, folderPath: str, retries: int = 3
 ):
+    tempFolder = os.path.join(folderPath, "TEMP")
+    os.makedirs(tempFolder, exist_ok=True)
+
     for attempt in range(retries):
         try:
             if os.path.exists(os.path.join(folderPath, filename)):
@@ -481,6 +483,8 @@ def downloadAndLog(
                 total_size_in_mb = 0  # If there's an error, default to 0 MB
                 logging.error(e)
 
+            tempFilePath = os.path.join(tempFolder, filename)
+
             with alive_bar(
                 int(total_size_in_mb + 1),  # Hacky but it works
                 title=f"Downloading {model.capitalize()} model",
@@ -491,11 +495,11 @@ def downloadAndLog(
                 receipt=True,
                 monitor=True,
                 elapsed=True,
-                stats=False,
+                stats=True,
                 dual_line=False,
                 force_tty=True,
             ) as bar:
-                with open(os.path.join(folderPath, filename), "wb") as file:
+                with open(tempFilePath, "wb") as file:
                     for data in response.iter_content(chunk_size=1024 * 1024):
                         file.write(data)
                         bar(int(len(data) / (1024 * 1024)))
@@ -503,12 +507,14 @@ def downloadAndLog(
             if filename.endswith(".zip"):
                 import zipfile
 
-                with zipfile.ZipFile(
-                    os.path.join(folderPath, filename), "r"
-                ) as zip_ref:
+                with zipfile.ZipFile(tempFilePath, "r") as zip_ref:
                     zip_ref.extractall(folderPath)
-                os.remove(os.path.join(folderPath, filename))
+                os.remove(tempFilePath)
                 filename = filename[:-4]
+            else:
+                os.rename(tempFilePath, os.path.join(folderPath, filename))
+            
+            os.removedirs(tempFolder)
 
             toLog = f"Downloaded {model.capitalize()} model to: {os.path.join(folderPath, filename)}"
             logging.info(toLog)
