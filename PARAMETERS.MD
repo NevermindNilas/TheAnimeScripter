@@ -66,6 +66,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `"compact"` / `"ultracompact"` / `"superultracompact"` (with `-directml` or `-tensorrt` variants)
 - `"span"` / `"span-directml"` / `"span-tensorrt"`
 - `"open-proteus"` / `"open-proteus-tensorrt"` / `"open-proteus-directml"`
+- `"aniscale2"` / `"aniscale2-tensorrt"` / `"aniscale2-directml"`
 
 ### Interpolation
 
