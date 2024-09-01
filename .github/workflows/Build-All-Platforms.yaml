@@ -162,19 +162,19 @@ jobs:
         with:
           python-version: "3.12.4"
 
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
+      #- name: Free Disk Space
+      #  uses: jlumbroso/free-disk-space@main
+      #  with:
+      #    tool-cache: false
+      #    android: true
+      #    dotnet: true
+      #    haskell: true
+      #    large-packages: true
+      #    docker-images: true
+      #    swap-storage: true
 
       - name: Run lite build script
-        run: python build-lite-linux.py
+        run: python build-linux-lite.py
 
       - name: Compress lite directory
         run: |
