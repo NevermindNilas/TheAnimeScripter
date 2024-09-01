@@ -11,6 +11,9 @@ yt-dlp
 requests
 alive-progress
 tensorrt
+tensorrt_cu12
+tensorrt-cu12-bindings
+tensorrt-cu12_libs
 scikit-image
 scenedetect[opencv]
 pytorch-lightning
