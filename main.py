@@ -35,7 +35,6 @@ from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
 from src.version import __version__
 
-
 if platform.system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
 else:
@@ -174,6 +173,7 @@ class VideoProcessor:
                     self.interpolate_process.run(
                         frame, self.benchmark, self.writeBuffer
                     )
+
 
             if not self.benchmark:
                 self.writeBuffer.write(frame)
