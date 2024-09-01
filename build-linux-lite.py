@@ -28,25 +28,6 @@ def createVenv():
 def installRequirements():
     print("Installing the requirements...")
     runSubprocess([str(venvBinPath / "python3.12"), "-m", "pip", "install", "-r", "requirements-linux-lite.txt"])
-    
-    unwanted_packages = [
-        "nvidia-cuda-nvrtc-cu12",
-        "nvidia-cuda-runtime-cu12",
-        "nvidia-cuda-cupti-cu12",
-        "nvidia-cudnn-cu12",
-        "nvidia-cublas-cu12",
-        "nvidia-cufft-cu12",
-        "nvidia-curand-cu12",
-        "nvidia-cusolver-cu12",
-        "nvidia-cusparse-cu12",
-        "nvidia-nccl-cu12",
-        "nvidia-nvtx-cu12",
-        "nvidia-nvjitlink-cu12",
-        "triton"
-    ]
-    
-    for package in unwanted_packages:
-        runSubprocess([str(venvBinPath / "python3.12"), "-m", "pip", "uninstall", "-y", package])
 
 def installPyinstaller():
     print("Installing PyInstaller...")
@@ -59,26 +40,6 @@ def createExecutable():
     iconPath = srcPath / "assets" / "icon.ico"
     benchmarkPath = baseDir / "benchmark.py"
 
-    exclude_packages = [
-        "nvidia-cuda-nvrtc-cu12",
-        "nvidia-cuda-runtime-cu12",
-        "nvidia-cuda-cupti-cu12",
-        "nvidia-cudnn-cu12",
-        "nvidia-cublas-cu12",
-        "nvidia-cufft-cu12",
-        "nvidia-curand-cu12",
-        "nvidia-cusolver-cu12",
-        "nvidia-cusparse-cu12",
-        "nvidia-nccl-cu12",
-        "nvidia-nvtx-cu12",
-        "nvidia-nvjitlink-cu12",
-        "triton"
-    ]
-
-    exclude_args = []
-    for package in exclude_packages:
-        exclude_args.extend(["--exclude-module", package])
-
     commonArgs = [
         "--noconfirm",
         "--onedir",
@@ -89,7 +50,7 @@ def createExecutable():
         str(iconPath),
         "--distpath",
         str(distPath),
-    ] + exclude_args
+    ]
 
     cliArgs = commonArgs + [
         "--add-data",
