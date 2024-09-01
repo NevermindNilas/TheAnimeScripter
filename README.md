@@ -119,6 +119,7 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 | [WolframRhodium](https://github.com/WolframRhodium) | Rife V2 models |
 | [Hyperbrew](https://github.com/hyperbrew/bolt-cep) | Bolt CEP |
 | [Sirosky](https://github.com/Sirosky/Upscale-Hub) | Open-Proteus and AniScale 2 |
+| [Trentonom0r3](https://github.com/Trentonom0r3) | For helping with TAS Adobe Edition |
 
 If we forgot to mention anyone, please email: nilascontact@gmail.com
 
