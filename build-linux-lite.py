@@ -3,8 +3,8 @@ import shutil
 from pathlib import Path
 
 baseDir = Path(__file__).resolve().parent
-distPath = baseDir / "dist-full"
-venvPath = baseDir / "venv-full"
+distPath = baseDir / "dist-lite"
+venvPath = baseDir / "venv-lite"
 venvBinPath = venvPath / "bin"
 
 def runSubprocess(command, shell=False):
@@ -27,7 +27,7 @@ def createVenv():
 
 def installRequirements():
     print("Installing the requirements...")
-    runSubprocess([str(venvBinPath / "python3.12"), "-m", "pip", "install", "-r", "requirements-linux.txt"])
+    runSubprocess([str(venvBinPath / "python3.12"), "-m", "pip", "install", "-r", "requirements-linux-lite.txt"])
 
 def installPyinstaller():
     print("Installing PyInstaller...")
@@ -59,12 +59,6 @@ def createExecutable():
         "rife_ncnn_vulkan_python.rife_ncnn_vulkan_wrapper",
         "--hidden-import",
         "upscale_ncnn_py.upscale_ncnn_py_wrapper",
-        "--collect-all",
-        "tensorrt",
-        "--collect-all",
-        "tensorrt-cu12-bindings",
-        "--collect-all",
-        "tensorrt_libs",
         "--collect-all",
         "fastrlock",
         "--collect-all",
