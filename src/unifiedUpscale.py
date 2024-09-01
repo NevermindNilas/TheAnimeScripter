@@ -287,7 +287,7 @@ class UniversalTensorRT:
                     self.skippedCounter += 1
                     return self.prevFrame
 
-            self.dummyInput.copy_(
+            self.dummyInput[:].copy_(
                 frame.to(
                     self.device,
                     non_blocking=True,
