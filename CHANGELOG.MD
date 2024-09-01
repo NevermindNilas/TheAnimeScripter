@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### Fixes:
 - Some CUDA Race conditions could be met in extremely High FPS workflows ( 500+ FPS ).
+- Fix some oversights in Rife 4.22 and Rife 4.22-lite that were reducing the output quality.
 
 #### Adobe Edition
 
