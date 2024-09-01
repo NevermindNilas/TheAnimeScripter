@@ -28,6 +28,25 @@ def createVenv():
 def installRequirements():
     print("Installing the requirements...")
     runSubprocess([str(venvBinPath / "python3.12"), "-m", "pip", "install", "-r", "requirements-linux-lite.txt"])
+    
+    unwanted_packages = [
+        "nvidia-cuda-nvrtc-cu12",
+        "nvidia-cuda-runtime-cu12",
+        "nvidia-cuda-cupti-cu12",
+        "nvidia-cudnn-cu12",
+        "nvidia-cublas-cu12",
+        "nvidia-cufft-cu12",
+        "nvidia-curand-cu12",
+        "nvidia-cusolver-cu12",
+        "nvidia-cusparse-cu12",
+        "nvidia-nccl-cu12",
+        "nvidia-nvtx-cu12",
+        "nvidia-nvjitlink-cu12",
+        "triton"
+    ]
+    
+    for package in unwanted_packages:
+        runSubprocess([str(venvBinPath / "python3.12"), "-m", "pip", "uninstall", "-y", package])
 
 def installPyinstaller():
     print("Installing PyInstaller...")
