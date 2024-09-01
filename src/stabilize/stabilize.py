@@ -1,12 +1,10 @@
 import torch
 import logging
-import numpy as np
 
 from vidgear.gears.stabilizer import Stabilizer
 from concurrent.futures import ThreadPoolExecutor
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from alive_progress import alive_bar
-from src.coloredPrints import yellow
 
 class VideoStabilizer:
     def __init__(

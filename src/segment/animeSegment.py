@@ -7,7 +7,6 @@ import torch.nn.functional as F
 from src.downloadModels import downloadModels, weightsDir, modelsMap
 from concurrent.futures import ThreadPoolExecutor
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.coloredPrints import yellow
 from alive_progress import alive_bar
 
 
