@@ -13,6 +13,30 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added Rife4.20-NCNN, 4.21-NCNN, 4.22-NCNN, 4.22-Lite-NCNN
 
 #### Fixes
+- CUDA errors seen in the Lite Edition of TAS for Windows.
+
+#### Regressions:
+- Some performance gains found in 1.9.6 have been lost due to errors in dependency handling.
+
+### Adobe Edition
+
+#### New
+- Added new NCNN Models
+
+#### Improvements:
+- TAS backend downloads will now be up to `2300%` faster.
+- Fix some race condition issues found in the backend.
+- Made sure for 7z to overwrite existing TAS installations
+- Improve path handling
+- Better error handling.
+- In case of download errors TAS should now attempt to redownload the backend.
+
+#### Removals
+- Removed some old 4.15-lite & 4.17 models in favor of newer and more performant options.
+
+## NOTES:
+- TAS Full is meant for NVIDIA users who want to benefit from CUDA and TensorRT Accelerations.
+- TAS Lite is meant for AMD / Intel users only. 
 
 ## [1.9.6] - 2024-09-02
 
