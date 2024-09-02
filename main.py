@@ -93,7 +93,6 @@ class VideoProcessor:
         self.sample_size = args.sample_size
         self.benchmark = args.benchmark
         self.segment_method = args.segment_method
-        self.flow = args.flow
         self.scenechange = args.scenechange
         self.scenechange_sens = args.scenechange_sens
         self.scenechange_method = args.scenechange_method
@@ -137,11 +136,6 @@ class VideoProcessor:
         elif self.segment:
             logging.info("Segmenting video")
             Segment(self)
-
-        elif self.flow:
-            logging.info("Extracting Optical Flow")
-            # opticalFlow(self)
-            pass
 
         else:
             self.start()
