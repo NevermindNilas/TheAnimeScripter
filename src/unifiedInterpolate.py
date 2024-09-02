@@ -169,10 +169,6 @@ class RifeCuda:
 
     @torch.inference_mode()
     def run(self, frame, benchmark, writeBuffer):
-        if self.device.type == frame.device.type:
-            torch.cuda.synchronize()
-
-
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0 = self.padFrame(self.processFrame(frame))
@@ -189,7 +185,6 @@ class RifeCuda:
                     device=self.device,
                 )
                 output = self.model(self.I0, self.I1, timestep)[: self.height, : self.width, :]
-
                 self.stream.synchronize()
 
                 if not benchmark:
