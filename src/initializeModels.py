@@ -300,6 +300,10 @@ def initializeModels(self):
                 | "rife4.16-lite-ncnn"
                 | "rife4.17-ncnn"
                 | "rife4.18-ncnn"
+                | "rife4.20-ncnn"
+                | "rife4.21-ncnn"
+                | "rife4.22-ncnn"
+                | "rife4.22-lite-ncnn"
             ):
                 from src.unifiedInterpolate import RifeNCNN
 
