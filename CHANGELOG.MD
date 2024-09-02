@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.9.7] - 2024-09-02
+
+### The Anime Scripter
+
+#### NEW
+- Added Rife4.20-NCNN, 4.21-NCNN, 4.22-NCNN, 4.22-Lite-NCNN
+
+#### Fixes
+
 ## [1.9.6] - 2024-09-02
 
 ### The Anime Scripter
