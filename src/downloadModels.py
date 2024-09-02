@@ -240,7 +240,7 @@ def modelsMap(
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
         
-        case "rife4.22-lite" | "rife4.22-lite-tensorrt":
+        case "rife4.22-lite" | "rife4.22-lite-tensorrt" | "rife4.22-lite-ncnn":
             if modelType == "pth":
                 return "rife422_lite.pth"
             elif modelType == "onnx":
@@ -261,7 +261,13 @@ def modelsMap(
                     else:
                         return "rife4.22_lite_fp32_op21_slim.onnx"
             elif modelType == "ncnn":
-                raise ValueError("NCNN model not available for RIFE 4.22 yet.")
+                if ensemble:
+                    print(
+                        "Starting rife 4.21 Ensemble is no longer going to be supported."
+                    )
+                    return "rife-v4.22-lite-ensemble-ncnn.zip"
+                else:
+                    return "rife-v4.22-lite-ncnn.zip"
         
         case "rife4.20" | "rife4.20-tensorrt" | "rife4.20-ncnn":
             if modelType == "pth":
