@@ -98,6 +98,10 @@ def modelsList() -> list[str]:
         "rife-v4.16-lite-ncnn",
         "rife-v4.17-ncnn",
         "rife-v4.18-ncnn",
+        "rife-v4.20-ncnn",
+        "rife-v4.21-ncnn",
+        "rife-v4.22-ncnn",
+        "rife-v4.22-lite-ncnn",
         "span-ncnn",
         "shufflecugan-ncnn",
         "small_v2",
@@ -259,7 +263,7 @@ def modelsMap(
             elif modelType == "ncnn":
                 raise ValueError("NCNN model not available for RIFE 4.22 yet.")
         
-        case "rife4.20" | "rife4.20-tensorrt":
+        case "rife4.20" | "rife4.20-tensorrt" | "rife4.20-ncnn":
             if modelType == "pth":
                 return "rife420.pth"
             elif modelType == "onnx":
@@ -274,9 +278,12 @@ def modelsMap(
                     else:
                         return "rife420_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
             elif modelType == "ncnn":
-                raise ValueError("NCNN model not available for RIFE 4.20 yet.")
+                if ensemble:
+                    return "rife-v4.20-ensemble-ncnn.zip"
+                else:
+                    return "rife-v4.20-ncnn.zip"
 
-        case "rife" | "rife4.22" | "rife4.22-tensorrt":
+        case "rife" | "rife4.22" | "rife4.22-tensorrt" | "rife4.22-ncnn":
             if modelType == "pth":
                 return "rife422.pth"
             elif modelType == "onnx":
@@ -296,8 +303,16 @@ def modelsMap(
                         return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
                     else:
                         return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+            elif modelType == "ncnn":
+                if ensemble:
+                    print(
+                        "Starting rife 4.21 Ensemble is no longer going to be supported."
+                    )
+                    return "rife-v4.22-ncnn.zip"
+                else:
+                    return "rife-v4.22-ncnn.zip"
 
-        case "rife4.21" | "rife4.21-tensorrt":
+        case "rife4.21" | "rife4.21-tensorrt" | "rife4.21-ncnn":
             if modelType == "pth":
                 return "rife421.pth"
             elif modelType == "onnx":
@@ -318,7 +333,13 @@ def modelsMap(
                     else:
                         return "rife421_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
             elif modelType == "ncnn":
-                raise ValueError("NCNN model not available for RIFE 4.21 yet.")
+                if ensemble:
+                    print(
+                        "Starting rife 4.21 Ensemble is no longer going to be supported."
+                    )
+                    return "rife-v4.21-ncnn.zip"
+                else:
+                    return "rife-v4.21-ncnn.zip"
 
         case "rife4.18" | "rife4.18-tensorrt" | "rife-v4.18-ncnn":
             if modelType == "pth":
