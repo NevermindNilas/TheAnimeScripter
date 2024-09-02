@@ -278,9 +278,6 @@ class UniversalTensorRT:
 
     @torch.inference_mode()
     def run(self, frame):
-        if self.device.type == frame.device.type:
-            torch.cuda.synchronize()
-
         with torch.cuda.stream(self.stream):
             if self.upscaleSkip is not None:
                 if self.upscaleSkip.run(frame):
@@ -302,7 +299,7 @@ class UniversalTensorRT:
             output = (
                 self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).clamp(0, 255)
             )
-            #self.stream.synchronize()
+            self.stream.synchronize()
 
             if self.upscaleSkip is not None:
                 self.prevFrame.copy_(output, non_blocking=True)
