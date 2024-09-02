@@ -322,12 +322,6 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
         "--custom_encoder", type=str, default="", help="Custom encoder settings"
     )
 
-    # Flow options
-    flowGroup = argParser.add_argument_group("Optical Flow")
-    flowGroup.add_argument(
-        "--flow", action="store_true", help="Extract the Optical Flow"
-    )
-
     # Stabilizer Options
     stabilizerGroup = argParser.add_argument_group("Stabilizer")
     stabilizerGroup.add_argument(
@@ -548,7 +542,6 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         args.dedup,
         args.depth,
         args.autoclip,
-        args.flow,
         args.stabilize,
     ]
 
