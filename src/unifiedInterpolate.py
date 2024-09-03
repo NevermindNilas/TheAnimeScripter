@@ -330,7 +330,7 @@ class RifeTensorRT:
                 .to(device=self.device, dtype=self.dtype)
                 .reshape(1, 2, 1, 1)
             )
-            
+
             self.backWarp = torch.cat(
                 (
                     (torch.arange(self.pw) * hMul - 1)
@@ -342,7 +342,7 @@ class RifeTensorRT:
                 ),
                 dim=1,
             ).to(device=self.device, dtype=self.dtype)
-        
+
         self.model = IFNet(
             scale=self.scale,
             ensemble=False,
@@ -357,9 +357,9 @@ class RifeTensorRT:
         self.model.to(self.device)
         if self.half:
             self.model.half()
-        
+
         self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
-        
+
         dummyInput1 = torch.zeros(
             1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
         )
@@ -369,9 +369,9 @@ class RifeTensorRT:
         dummyInput3 = torch.zeros(
             1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
         )
-        
+
         self.modelPath = self.modelPath.replace(".pth", ".onnx")
-        
+
         torch.onnx.export(
             self.model,
             (dummyInput1, dummyInput2, dummyInput3),
@@ -393,21 +393,13 @@ class RifeTensorRT:
             optInputShape=[1, 3, self.height, self.width],
         )
 
-        inputsMin = [
+        inputs = [
             [1, 3, self.ph, self.pw],
             [1, 3, self.ph, self.pw],
             [1, 1, self.ph, self.pw],
         ]
-        inputsOpt = [
-            [1, 3, self.ph, self.pw],
-            [1, 3, self.ph, self.pw],
-            [1, 1, self.ph, self.pw],
-        ]
-        inputsMax = [
-            [1, 3, self.ph, self.pw],
-            [1, 3, self.ph, self.pw],
-            [1, 1, self.ph, self.pw],
-        ]
+
+        inputsMin = inputsOpt = inputsMax = inputs
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
         if (
@@ -426,7 +418,7 @@ class RifeTensorRT:
                 inputName=["img0", "img1", "timestep"],
                 isMultiInput=True,
             )
-            
+
         try:
             os.remove(self.modelPath)
         except Exception as e:
@@ -520,6 +512,7 @@ class RifeTensorRT:
                     writeBuffer.write(self.dummyOutput)
 
             self.I0.copy_(self.I1, non_blocking=True)
+
 
 class RifeNCNN:
     def __init__(
