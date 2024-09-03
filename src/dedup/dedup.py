@@ -30,7 +30,7 @@ class DedupSSIMCuda:
 
         self.ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(self.DEVICE)
 
-    def run(self, frame):
+    def __call__(self, frame):
         """
         Returns True if the frames are duplicates
         """
@@ -79,7 +79,7 @@ class DedupSSIM:
         self.ssim = ssim
         self.color = color
 
-    def run(self, frame):
+    def __call__(self, frame):
         """
         Returns True if the frames are duplicates
         """
@@ -118,7 +118,7 @@ class DedupMSE:
         self.mse = mse
         self.color = color
 
-    def run(self, frame):
+    def __call__(self, frame):
         """
         Returns True if the frames are duplicates
         """
