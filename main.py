@@ -39,7 +39,8 @@ if platform.system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
 else:
     mainPath = os.path.join(
-        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "TheAnimeScripter"
+        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+        "TheAnimeScripter",
     )
 
 if not os.path.exists(mainPath):
@@ -103,8 +104,8 @@ class VideoProcessor:
         self.forceStatic = args.static
         self.depth_quality = args.depth_quality
 
-        self.width, self.height, self.fps, self.totalFrames, self.pixFMT = getVideoMetadata(
-            self.input, self.inpoint, self.outpoint
+        self.width, self.height, self.fps, self.totalFrames, self.pixFMT = (
+            getVideoMetadata(self.input, self.inpoint, self.outpoint)
         )
 
         self.outputFPS = (
@@ -168,7 +169,6 @@ class VideoProcessor:
                         frame, self.benchmark, self.writeBuffer
                     )
 
-
             if not self.benchmark:
                 self.writeBuffer.write(frame)
 
@@ -181,7 +181,7 @@ class VideoProcessor:
         self.isSceneChange = False
         self.sceneChangeCounter = 0
         increment = 1 if not self.interpolate else self.interpolate_factor
-        
+
         with alive_bar(
             total=self.totalFrames * increment,
             title="Processing Frame: ",
@@ -189,7 +189,7 @@ class VideoProcessor:
             stats="| {rate}",
             elapsed="Elapsed Time: {elapsed}",
             monitor=" {count}/{total} | [{percent:.0%}] | ",
-            #stats_end="{total_time} • {rate:.2f}/s",
+            # stats_end="{total_time} • {rate:.2f}/s",
             unit="frames",
             spinner=None,
         ) as bar:

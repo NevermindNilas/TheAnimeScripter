@@ -264,13 +264,7 @@ class BuildBuffer:
         if filters:
             command.extend(["-vf", ",".join(filters)])
 
-        command.extend(
-            [
-                "-f", "rawvideo",
-                "-pix_fmt", "yuv420p",
-                "-"
-            ]
-        )
+        command.extend(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-"])
 
         return command
 
@@ -278,17 +272,17 @@ class BuildBuffer:
         """
         The actual underlying logic for decoding, it starts a queue and gets the necessary FFMPEG command from decodeSettings.
         This is meant to be used in a separate thread for faster processing.
-    
+
         queue : queue.Queue, optional - The queue to put the frames into. If None, a new queue will be created.
         verbose : bool - Whether to log the progress of the decoding.
         """
         self.readBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
         verbose = True
         command = self.decodeSettings()
-    
+
         if verbose:
             logging.info(f"Decoding options: {' '.join(map(str, command))}")
-        
+
         try:
             self.isCudaAvailable = torch.cuda.is_available()
         except Exception:
@@ -299,7 +293,7 @@ class BuildBuffer:
             logging.info("CUDA is available, defaulting to full CUDA workflow")
         else:
             logging.info("CUDA is not available, defaulting to CPU workflow")
-    
+
         try:
             yPlane = self.width * self.height
             uPlane = (self.width // 2) * (self.height // 2)
@@ -318,13 +312,13 @@ class BuildBuffer:
 
             chunkExecutor = threading.Thread(target=self.convertFrames, args=(reshape,))
             readExecutor = threading.Thread(target=self.readSTDOUT, args=(chunk,))
-            
+
             chunkExecutor.start()
             readExecutor.start()
 
             chunkExecutor.join()
             readExecutor.join()
-    
+
         except Exception as e:
             logging.error(f"An error occurred: {str(e)}")
         finally:
@@ -333,7 +327,7 @@ class BuildBuffer:
             self.readingDone = True
             self.readBuffer.put(None)
             self.process.stdout.close()
-    
+
     def readSTDOUT(self, chunk):
         for _ in range(self.totalFrames):
             rawFrame = self.process.stdout.read(chunk)
@@ -341,11 +335,16 @@ class BuildBuffer:
                 self.chunkQueue.put_nowait(rawFrame)
             except Full:
                 self.chunkQueue.put(rawFrame)
-        
+
     def convertFrames(self, reshape):
         for _ in range(self.totalFrames):
             rawFrame = self.chunkQueue.get()
-            frame = torch.from_numpy(cv2.cvtColor(np.frombuffer(rawFrame, dtype=np.uint8).reshape(reshape), cv2.COLOR_YUV2RGB_I420))
+            frame = torch.from_numpy(
+                cv2.cvtColor(
+                    np.frombuffer(rawFrame, dtype=np.uint8).reshape(reshape),
+                    cv2.COLOR_YUV2RGB_I420,
+                )
+            )
             if self.isCudaAvailable:
                 frame = frame.to(device="cuda", non_blocking=True)
             try:
@@ -589,7 +588,6 @@ class WriteBuffer:
                 customEncoderList.append(self.output)
                 command.extend(customEncoderList)
 
-
         else:
             command = [
                 self.ffmpegPath,
@@ -650,41 +648,35 @@ class WriteBuffer:
                             if verbose:
                                 logging.info(f"Encoded {writtenFrames} frames")
                             break
-        
+
                         if self.bitDepth == "8bit":
-                            frame = (
-                                frame
-                                .to(torch.uint8)
-                                .cpu()
-                                .numpy()
-                            )
+                            frame = frame.to(torch.uint8).cpu().numpy()
                         else:
                             frame = (
-                                frame
-                                .to(torch.float32)
+                                frame.to(torch.float32)
                                 .mul(257)
                                 .cpu()
                                 .numpy()
                                 .astype(np.uint16)
                             )
-                        
+
                         if self.preview:
                             self.latestFrame = frame
 
                         frame = np.ascontiguousarray(frame)
-                        
+
                         self.process.stdin.write(frame.tobytes())
                         writtenFrames += 1
-        
+
         except Exception as e:
             if verbose:
                 logging.error(f"An error occurred: {str(e)}")
-        
+
         finally:
             self.isWritingDone = True
             if self.audio and not self.benchmark:
                 self.mergeAudio()
-    
+
     def peek(self):
         """
         Peek the queue.
@@ -726,29 +718,31 @@ class WriteBuffer:
                 "error",
                 "-stats",
             ]
-            
+
             if self.outpoint != 0:
                 ffmpegCommand.extend(
                     ["-ss", str(self.inpoint), "-to", str(self.outpoint)]
                 )
-            
-            ffmpegCommand.extend([
-                "-i",
-                self.input,
-                "-i",
-                self.output,
-                "-c:v",
-                "copy",
-                "-c:a",
-                "copy" if not self.output.endswith(".webm") else "libopus",
-                "-map",
-                "1:v:0",
-                "-map",
-                "0:a:0",
-                "-shortest",
-                "-y",
-                mergedFile,
-            ])
+
+            ffmpegCommand.extend(
+                [
+                    "-i",
+                    self.input,
+                    "-i",
+                    self.output,
+                    "-c:v",
+                    "copy",
+                    "-c:a",
+                    "copy" if not self.output.endswith(".webm") else "libopus",
+                    "-map",
+                    "1:v:0",
+                    "-map",
+                    "0:a:0",
+                    "-shortest",
+                    "-y",
+                    mergedFile,
+                ]
+            )
 
             logging.info(f"Merging audio with: {' '.join(ffmpegCommand)}")
 
