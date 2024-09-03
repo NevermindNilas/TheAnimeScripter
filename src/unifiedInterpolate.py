@@ -1,6 +1,7 @@
 import os
 import torch
 import logging
+import math
 
 from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
@@ -168,13 +169,13 @@ class RifeCuda:
         )
 
     @torch.inference_mode()
-    def run(self, frame, benchmark, writeBuffer):
+    def __call__(self, frame, benchmark, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0 = self.padFrame(self.processFrame(frame))
                 self.firstRun = False
                 return
-            
+
             self.I1 = self.padFrame(self.processFrame(frame))
 
             for i in range(self.interpolateFactor - 1):
@@ -184,13 +185,16 @@ class RifeCuda:
                     dtype=torch.float16 if self.half else torch.float32,
                     device=self.device,
                 )
-                output = self.model(self.I0, self.I1, timestep)[: self.height, : self.width, :]
+                output = self.model(self.I0, self.I1, timestep)[
+                    : self.height, : self.width, :
+                ]
                 self.stream.synchronize()
 
                 if not benchmark:
                     writeBuffer.write(output)
 
             self.cacheFrame()
+
 
 class RifeTensorRT:
     def __init__(
@@ -249,45 +253,161 @@ class RifeTensorRT:
         else:
             self.UHD = False
 
+        self.scale = 1.0 if not self.UHD else 0.5
         self.handleModel()
 
     def handleModel(self):
+        self.device = torch.device("cuda")
         self.filename = modelsMap(
-            self.interpolateMethod,
-            modelType="onnx",
+            self.interpolateMethod.replace("-tensorrt", ""),
+            modelType="pth",
             half=self.half,
             ensemble=self.ensemble,
         )
 
-        folderName = self.interpolateMethod.replace("-tensorrt", "-onnx")
+        folderName = self.interpolateMethod.replace("-tensorrt", "")
         if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
             self.modelPath = downloadModels(
-                model=self.interpolateMethod,
-                modelType="onnx",
+                model=self.interpolateMethod.replace("-tensorrt", ""),
+                modelType="pth",
                 half=self.half,
                 ensemble=self.ensemble,
             )
         else:
             self.modelPath = os.path.join(weightsDir, folderName, self.filename)
 
-        self.isCudaAvailable = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
-        if self.isCudaAvailable:
-            torch.backends.cudnn.enabled = True
-            torch.backends.cudnn.benchmark = True
-            if self.half:
-                torch.set_default_dtype(torch.float16)
+        match self.interpolateMethod:
+            case "rife4.22-tensorrt":
+                from src.rifearches.Rife422_v2 import IFNet
+            case "rife4.22-lite-tensorrt":
+                pass
+            case "rife4.21-tensorrt":
+                from src.rifearches.Rife422_v2 import IFNet
+            case "rife4.20-tensorrt":
+                pass
+            case "rife4.18-tensorrt":
+                pass
+            case "rife4.17-tensorrt":
+                pass
+            case "rife4.15-tensorrt":
+                pass
+            case "rife4.6-tensorrt":
+                from src.rifearches.Rife46_v2 import IFNet
+
+        torch.backends.cudnn.enabled = True
+        torch.backends.cudnn.benchmark = True
+        if self.half:
+            torch.set_default_dtype(torch.float16)
+
+        self.dtype = torch.float16 if self.half else torch.float32
+        tmp = max(32, int(32 / 1.0))
+        self.pw = math.ceil(self.width / tmp) * tmp
+        self.ph = math.ceil(self.height / tmp) * tmp
+        self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
+
+        if self.interpolateMethod == "rife4.6-tensorrt":
+            self.tenFlow = torch.tensor(
+                [(self.pw - 1.0) / 2.0, (self.ph - 1.0) / 2.0],
+                dtype=self.dtype,
+                device=self.device,
+            )
+            tenHorizontal = (
+                torch.linspace(-1.0, 1.0, self.pw, dtype=self.dtype, device=self.device)
+                .view(1, 1, 1, self.pw)
+                .expand(-1, -1, self.ph, -1)
+            ).to(dtype=self.dtype, device=self.device)
+            tenVertical = (
+                torch.linspace(-1.0, 1.0, self.ph, dtype=self.dtype, device=self.device)
+                .view(1, 1, self.ph, 1)
+                .expand(-1, -1, -1, self.pw)
+            ).to(dtype=self.dtype, device=self.device)
+            self.backWarp = torch.cat([tenHorizontal, tenVertical], 1)
+        else:
+            hMul = 2 / (self.pw - 1)
+            vMul = 2 / (self.ph - 1)
+            self.tenFlow = (
+                torch.Tensor([hMul, vMul])
+                .to(device=self.device, dtype=self.dtype)
+                .reshape(1, 2, 1, 1)
+            )
+            
+            self.backWarp = torch.cat(
+                (
+                    (torch.arange(self.pw) * hMul - 1)
+                    .reshape(1, 1, 1, -1)
+                    .expand(-1, -1, self.ph, -1),
+                    (torch.arange(self.ph) * vMul - 1)
+                    .reshape(1, 1, -1, 1)
+                    .expand(-1, -1, -1, self.pw),
+                ),
+                dim=1,
+            ).to(device=self.device, dtype=self.dtype)
+        
+        self.model = IFNet(
+            scale=self.scale,
+            ensemble=False,
+            dtype=self.dtype,
+            device=self.device,
+            width=self.width,
+            height=self.height,
+            backWarp=self.backWarp,
+            tenFlow=self.tenFlow,
+        )
+
+        self.model.to(self.device)
+        if self.half:
+            self.model.half()
+        
+        self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
+        
+        dummyInput1 = torch.zeros(
+            1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
+        )
+        dummyInput2 = torch.zeros(
+            1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
+        )
+        dummyInput3 = torch.zeros(
+            1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
+        )
+        
+        self.modelPath = self.modelPath.replace(".pth", ".onnx")
+        
+        torch.onnx.export(
+            self.model,
+            (dummyInput1, dummyInput2, dummyInput3),
+            self.modelPath,
+            input_names=["img0", "img1", "timestep"],
+            output_names=["output"],
+            dynamic_axes={
+                "img0": {0: "batch", 2: "height", 3: "width"},
+                "img1": {0: "batch", 2: "height", 3: "width"},
+                "timestep": {0: "batch", 2: "height", 3: "width"},
+                "output": {1: "height", 2: "width"},
+            },
+            opset_version=19,
+        )
 
         enginePath = self.TensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
-            optInputShape=[1, 7, self.height, self.width],
+            optInputShape=[1, 3, self.height, self.width],
         )
 
-
-        inputsMin = [1, 7, self.height, self.width]
-        inputsOpt = [1, 7, self.height, self.width]
-        inputsMax = [1, 7, self.height, self.width]
+        inputsMin = [
+            [1, 3, self.ph, self.pw],
+            [1, 3, self.ph, self.pw],
+            [1, 1, self.ph, self.pw],
+        ]
+        inputsOpt = [
+            [1, 3, self.ph, self.pw],
+            [1, 3, self.ph, self.pw],
+            [1, 1, self.ph, self.pw],
+        ]
+        inputsMax = [
+            [1, 3, self.ph, self.pw],
+            [1, 3, self.ph, self.pw],
+            [1, 1, self.ph, self.pw],
+        ]
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
         if (
@@ -303,111 +423,102 @@ class RifeTensorRT:
                 inputsMin=inputsMin,
                 inputsOpt=inputsOpt,
                 inputsMax=inputsMax,
+                inputName=["img0", "img1", "timestep"],
             )
+            
+        try:
+            os.remove(self.modelPath)
+        except Exception as e:
+            logging.error(f"Error removing onnx model: {e}")
 
         self.dType = torch.float16 if self.half else torch.float32
         self.stream = torch.cuda.Stream()
         self.I0 = torch.zeros(
             1,
             3,
-            self.height,
-            self.width,
+            self.ph,
+            self.pw,
             dtype=self.dType,
             device=self.device,
-        ).contiguous()
+        )
 
         self.I1 = torch.zeros(
             1,
             3,
-            self.height,
-            self.width,
+            self.ph,
+            self.pw,
             dtype=self.dType,
             device=self.device,
-        ).contiguous()
+        )
 
-        self.dummyInput = torch.empty(
-            (1, 7, self.height, self.width),
-            device=self.device,
-            dtype=self.dType,
-        ).contiguous()
+        self.dummyTimeStep = torch.zeros(
+            1, 1, self.ph, self.pw, dtype=self.dType, device=self.device
+        )
 
         self.dummyOutput = torch.zeros(
-            (1, 3, self.height, self.width),
+            (self.height, self.width, 3),
             device=self.device,
             dtype=self.dType,
-        ).contiguous()
+        )
 
-        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
+        self.dummyStepBatch = torch.cat(
+            [
+                torch.full(
+                    (1, 1, self.ph, self.pw),
+                    (i + 1) * 1 / self.interpolateFactor,
+                    dtype=self.dType,
+                    device=self.device,
+                )
+                for i in range(self.interpolateFactor - 1)
+            ],
+            dim=0,
+        )
+
+        self.tensors = [self.I0, self.I1, self.dummyTimeStep, self.dummyOutput]
+        self.bindings = [tensor.data_ptr() for tensor in self.tensors]
 
         for i in range(self.engine.num_io_tensors):
-            self.context.set_tensor_address(
-                self.engine.get_tensor_name(i), self.bindings[i]
-            )
             tensor_name = self.engine.get_tensor_name(i)
+            self.context.set_tensor_address(tensor_name, self.bindings[i])
+
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
-                self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+                self.context.set_input_shape(tensor_name, self.tensors[i].shape)
 
         self.firstRun = True
-        self.useI0AsSource = True
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        return (
-            frame.to(
-                self.device,
-                non_blocking=True,
-                dtype=self.dType,
-            )
+        return F.pad(
+            frame.to(dtype=self.dType, non_blocking=True)
+            .mul(1 / 255.0)
             .permute(2, 0, 1)
-            .unsqueeze(0)
-            .mul(1 / 255)
-            .contiguous()
+            .unsqueeze(0),
+            self.padding,
         )
-
-    @torch.inference_mode()
-    def cacheFrame(self):
-        self.I0.copy_(self.I1, non_blocking=True)
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
         self.I0.copy_(self.processFrame(frame), non_blocking=True)
-        self.useI0AsSource = True
 
     @torch.inference_mode()
-    def run(self, frame, benchmark, writeBuffer):
-        if self.device.type == frame.device.type:
-            torch.cuda.synchronize()
-
+    def __call__(self, frame, benchmark, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
-                self.I0.copy_(self.processFrame(frame), non_blocking=True)
+                self.I0[:].copy_(self.processFrame(frame), non_blocking=True)
                 self.firstRun = False
                 return
 
-            source = self.I0 if self.useI0AsSource else self.I1
-            destination = self.I1 if self.useI0AsSource else self.I0
-            destination.copy_(self.processFrame(frame), non_blocking=True)
+            self.I1[:].copy_(self.processFrame(frame), non_blocking=True)
 
             for i in range(self.interpolateFactor - 1):
-                timestep = torch.full(
-                    (1, 1, self.height, self.width),
-                    (i + 1) * 1 / self.interpolateFactor,
-                    dtype=self.dType,
-                    device=self.device,
-                ).contiguous()
-
-                self.dummyInput.copy_(
-                    torch.cat([source, destination, timestep], dim=1), non_blocking=True
-                ).contiguous()
+                self.dummyTimeStep[:].copy_(self.dummyStepBatch[i], non_blocking=True)
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
 
-                self.stream.synchronize()
-
                 if not benchmark:
-                    writeBuffer.write(self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255))
+                    self.stream.synchronize()
+                    writeBuffer.write(self.dummyOutput)
 
-            self.useI0AsSource = not self.useI0AsSource
-
+            self.I0.copy_(self.I1, non_blocking=True)
 
 class RifeNCNN:
     def __init__(
@@ -488,7 +599,7 @@ class RifeNCNN:
     def cacheFrameReset(self, frame):
         self.frame1 = frame.cpu().numpy().astype("uint8")
 
-    def run(self, frame, benchmark, writeBuffer):
+    def __call__(self, frame, benchmark, writeBuffer):
         if self.frame1 is None:
             self.frame1 = frame.cpu().numpy().astype("uint8")
             return False

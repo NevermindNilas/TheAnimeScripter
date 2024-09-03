@@ -144,20 +144,20 @@ class VideoProcessor:
     def processFrame(self, frame):
         try:
             if self.dedup:
-                if self.dedup_process.run(frame):
+                if self.dedup_process(frame):
                     self.dedupCount += 1
                     return
 
             if self.scenechange:
-                self.isSceneChange = self.scenechange_process.run(frame)
+                self.isSceneChange = self.scenechange_process(frame)
                 if self.isSceneChange:
                     self.sceneChangeCounter += 1
 
             if self.denoise:
-                frame = self.denoise_process.run(frame)
+                frame = self.denoise_process(frame)
 
             if self.upscale:
-                frame = self.upscale_process.run(frame)
+                frame = self.upscale_process(frame)
 
             if self.interpolate:
                 if self.isSceneChange:
@@ -165,7 +165,7 @@ class VideoProcessor:
                         self.writeBuffer.write(frame)
                     self.interpolate_process.cacheFrameReset(frame)
                 else:
-                    self.interpolate_process.run(
+                    self.interpolate_process(
                         frame, self.benchmark, self.writeBuffer
                     )
 

@@ -67,7 +67,7 @@ class UnifiedDenoise:
         self.model.model.to(memory_format=torch.channels_last)
 
     @torch.inference_mode()
-    def run(self, frame: torch.tensor) -> torch.tensor:
+    def __call__(self, frame: torch.tensor) -> torch.tensor:
         with torch.cuda.stream(self.stream):
             frame = (
                 frame.to(self.device, non_blocking=True, dtype=self.dType)

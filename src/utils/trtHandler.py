@@ -21,11 +21,12 @@ def TensorRTEngineCreator(
     inputsMin: List[torch.Tensor] = [],
     inputsOpt: List[torch.Tensor] = [],
     inputsMax: List[torch.Tensor] = [],
-    inputName: str = "input",
+    inputName: List[str] = ["input"],
     maxWorkspaceSize: int = (1 << 30),
     optimizationLevel: int = 3,
     forceRebuild: bool = False,
     forceStatic: bool = False,
+    isMultiInput: bool = False,
 ) -> Tuple[trt.ICudaEngine, trt.IExecutionContext]:
     """
     Create a TensorRT engine from an ONNX model.
@@ -37,25 +38,38 @@ def TensorRTEngineCreator(
         inputsMin (List[torch.Tensor]): The minimum shape that the profile will support.
         inputsOpt (List[torch.Tensor]): The shape for which TensorRT will optimize the engine.
         inputsMax (List[torch.Tensor]): The maximum shape that the profile will support.
-        inputName (str): The name of the input tensor.
+        inputName (List[str]): The names of the input tensors.
         maxWorkspaceSize (int): The maximum GPU memory that the engine will use.
         optimizationLevel (int): The optimization level for the engine.
     """
     toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
     print(yellow(toPrint))
     logging.info(toPrint)
+
     if forceStatic:
         inputsMin = inputsOpt
         inputsMax = inputsOpt
-        
-    profiles = [
-        Profile().add(
-            inputName,
+
+    profiles = []
+    profile = Profile()
+    if isMultiInput:
+        for name, minShape, optShape, maxShape in zip(inputName, inputsMin, inputsOpt, inputsMax):
+            profile.add(
+                name,
+                min=tuple(minShape),
+                opt=tuple(optShape),
+                max=tuple(maxShape),
+            )
+    else:
+        profile.add(
+            inputName[0],
             min=tuple(inputsMin),
             opt=tuple(inputsOpt),
             max=tuple(inputsMax),
-        ),
-    ]
+        )
+
+    profiles.append(profile)
+
     engine = engine_from_network(
         network_from_onnx_path(modelPath),
         config=CreateConfig(fp16=fp16, profiles=profiles, preview_features=[]),
