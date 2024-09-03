@@ -294,7 +294,7 @@ if __name__ == "__main__":
 
     args = createParser(isFrozen, __version__, mainPath, outputPath)
 
-    if os.path.isfile(args.input):
+    if os.path.isfile(args.input) and not args.input.endswith(".txt"):
         print(green(f"Processing {args.input}"))
         if args.output is None:
             outputFolder = os.path.join(outputPath, "output")
@@ -335,6 +335,37 @@ if __name__ == "__main__":
             VideoProcessor(args)
             args.output = copyArgsOutput
     else:
-        toPrint = f"File or directory {args.input} does not exist, exiting"
-        print(red(toPrint))
-        logging.info(toPrint)
+        try:
+            if args.input.endswith(".txt"):
+                with open(args.input, "r") as file:
+                    videoFiles = [line.strip().strip('"') for line in file.readlines()]
+            else:
+                videoFiles = args.input.split(",")
+            toPrint = f"Processing {len(videoFiles)} files"
+            logging.info(toPrint)
+            print(blue(toPrint))
+
+            copyArgsOutput = args.output if args.output else None
+            if args.output:
+                os.makedirs(args.output, exist_ok=True)
+
+            for videoFile in videoFiles:
+                args.input = os.path.abspath(videoFile)
+                toPrint = f"Processing {args.input}"
+                logging.info(toPrint)
+                print(green(toPrint))
+
+                if copyArgsOutput is None:
+                    outputFolder = os.path.join(outputPath, "output")
+                    os.makedirs(outputFolder, exist_ok=True)
+                    args.output = os.path.join(outputFolder, outputNameGenerator(args))
+                elif os.path.isdir(copyArgsOutput):
+                    args.output = os.path.join(copyArgsOutput, outputNameGenerator(args))
+
+                print(green(f"Output File: {args.output}"))
+                VideoProcessor(args)
+                args.output = copyArgsOutput
+        except Exception:
+            toPrint = f"File or directory {args.input} does not exist, exiting"
+            print(red(toPrint))
+            logging.info(toPrint)

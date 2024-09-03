@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [UNRELEASED] - YYYY-MM-DD
+
+#### The Anime Scripter
+
+#### NEW
+- `--input` will now support: `.txt` files with a list of videos as well as a full string with multiple videos: `"G:\TheAnimeScripter\input\input.mp4,G:\TheAnimeScripter\input\input.mp4"`
+
+#### Improvements
+- New coroutines for CUDA detection in order to improve performance.
+- Decoupling of STDOUT from the main loop will now result in up to 50% performance gains for decoding, this should benefit all processes marginally.
+
+#### Removals
+- TBA
+
 ## [1.9.7] - 2024-09-02
 
 ### The Anime Scripter
