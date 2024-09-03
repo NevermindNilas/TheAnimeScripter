@@ -43,12 +43,27 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ## Input and Output
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--input` | str | - | Absolute path of the input video |
-| `--output` | str | - | Output string or absolute path for the processed video |
-| `--audio` | flag | - | Enable audio processing |
+| Argument  | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `--input` | str  | -       | Absolute path of the input video(s). Multiple paths should be separated by semicolons (`;`). |
+| `--output` | str | -       | Output string or absolute path for the processed video |
+| `--audio` | flag | -       | Enable audio processing |
 
+- **NOTE:** `--input` supports `(".mp4", ".mkv", ".mov", ".avi", ".webm")` containers as well as `.txt`, inputs in `.txt` should be separated by a new line.
+
+### Examples
+
+#### Multiple Input Files
+```sh
+--input "G:\TheAnimeScripter\input.mp4;G:\TheAnimeScripter\input - Copy.mp4"
+
+# Or if the input is a txt, this is how the process should look like 
+--input "G:\TheAnimeScripter\test.txt"
+
+# Contents of TXT:
+"G:\TheAnimeScripter\input.mp4" # separate by a new line here
+"G:\TheAnimeScripter\input - Copy.mp4"
+```
 ## Processing Options
 
 ### Upscaling
@@ -238,52 +253,52 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 When using the packaged `main.exe` file, replace `python .\main.py` with `main.exe` in the following examples.
 
 1. Enable upscaling with half precision mode (default):
-   ```
+   ```sh
    python .\main.py --input .\input\test.mp4 --upscale
    ```
 
 2. Enable interpolation with Rife 4.6:
-   ```
+   ```sh
    python .\main.py --input .\input\test.mp4 --interpolate --interpolate_method rife4.6
    ```
 
 3. Enable upscaling and interpolation with custom models:
-   ```
+   ```sh
    python .\main.py --input .\input\test.mp4 --upscale --upscale_method superultracompact --interpolate --interpolate_method rife4.20
    ```
 
 4. Enable deduplication with custom sensitivity and method:
-   ```
+   ```sh
    python .\main.py --input .\input\test.mp4 --dedup --dedup_sens 60 --dedup_method ssim
    ```
 
 5. Enable denoising using the NAFNet model:
-   ```
+   ```sh
    python .\main.py --input .\input\test.mp4 --denoise --denoise_method nafnet
    ```
 
 6. Enable interpolation with scene change detection:
-   ```
+   ```sh
    python .\main.py --input .\input\test.mp4 --interpolate --scenechange
    ```
 
 7. Generate depth maps using the "large" method and 16-bit workflow:
-   ```
+   ```sh
    python .\main.py --input .\input\test.mp4 --depth --depth_method large_v2 --bit_depth 16bit
    ```
 
 8. Download a YouTube video, upscale with Span-TensorRT, interpolate with Rife 4.17-TensorRT, and use scene change detection:
-   ```
+   ```sh
    python .\main.py --input https://www.youtube.com/watch?v=dQw4w9WgXcQ --upscale --upscale_method span-tensorrt --interpolate --interpolate_method rife4.17-tensorrt --scenechange
    ```
    (Replace the YouTube URL with the actual video URL you want to download)
 
 9. Process video from second 8 to 17 with custom settings:
-   ```
+   ```sh
    python .\main.py --input .\input\test.mp4 --inpoint 8 --outpoint 17 --upscale --upscale_method superultracompact-tensorrt --interpolate --interpolate_method rife4.20 --scenechange --scenechange_method maxxvit-tensorrt --custom_encoder "-c:v libsvtav1 -preset 8 -crf 30 -vf hqdn3d=1.5:1.5:6:6 -pix_fmt yuv420p"
    ```
 
 10. Upscale, Interpolate, Scenechange, x264_animation_10bit and 16bit workflow example:
-   ```
+   ```sh
    python .\main.py --input https://www.youtube.com/watch?v=YRL74JmhVgk --upscale --upscale_method shufflecugan-tensorrt --interpolate --interpolate_method rife4.22-tensorrt --scenechange --scenechange_method maxxvit-tensorrt --encode_method x264_animation_10bit --bit_depth 16bit   
    ```
