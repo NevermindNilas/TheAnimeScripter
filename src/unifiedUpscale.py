@@ -99,7 +99,7 @@ class UniversalPytorch:
 
         self.model = self.model.model.to(memory_format=torch.channels_last)
 
-    def run(self, frame: torch.tensor) -> torch.tensor:
+    def __call__(self, frame: torch.tensor) -> torch.tensor:
         with torch.cuda.stream(self.stream):
             if self.upscaleSkip is not None:
                 if self.upscaleSkip.run(frame):
@@ -277,7 +277,7 @@ class UniversalTensorRT:
             )
 
     @torch.inference_mode()
-    def run(self, frame):
+    def __call__(self, frame):
         with torch.cuda.stream(self.stream):
             if self.upscaleSkip is not None:
                 if self.upscaleSkip.run(frame):
@@ -443,7 +443,7 @@ class UniversalDirectML:
             )
             self.skippedCounter = 0
 
-    def run(self, frame: torch.tensor) -> torch.tensor:
+    def __call__(self, frame: torch.tensor) -> torch.tensor:
         """
         Run the model on the input frame
         """
@@ -460,7 +460,7 @@ class UniversalDirectML:
             shape=self.dummyInput.shape,
             buffer_ptr=self.dummyInput.data_ptr(),
         )
-        
+
         if self.half:
             frame = frame.permute(2, 0, 1).unsqueeze(0).half().mul(1 / 255)
         else:
@@ -533,7 +533,7 @@ class UniversalNCNN:
             self.skippedCounter = 0
             self.prevFrame = None
 
-    def run(self, frame):
+    def __call__(self, frame):
         if self.upscaleSkip is not None:
             if self.upscaleSkip.run(frame):
                 self.skippedCounter += 1

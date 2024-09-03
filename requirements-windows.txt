@@ -1,6 +1,5 @@
---extra-index-url https://download.pytorch.org/whl/cu121
-torch==2.3.1
-torchvision==0.18.1
+https://download.pytorch.org/whl/nightly/cu124/torch-2.5.0.dev20240903%2Bcu124-cp312-cp312-win_amd64.whl
+https://download.pytorch.org/whl/nightly/cu124/torchvision-0.20.0.dev20240903%2Bcu124-cp312-cp312-win_amd64.whl
 opencv-python-headless
 timm
 numpy==1.26.4
@@ -16,6 +15,7 @@ scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning
 inquirer
+onnx
 colored
 vidgear
 flask

@@ -75,7 +75,7 @@ class SceneChange:
         return frame
 
     @torch.inference_mode()
-    def run(self, frame):
+    def __call__(self, frame):
         if self.I0 is None:
             self.I0 = self.processFrame(frame)
             return False
@@ -198,7 +198,7 @@ class SceneChangeTensorRT:
         return frame.contiguous().squeeze(0)
 
     @torch.inference_mode()
-    def run(self, frame):
+    def __call__(self, frame):
         with torch.cuda.stream(self.stream):
             if self.I0 is None:
                 self.I0 = self.processFrame(frame)
@@ -234,7 +234,7 @@ class SceneChangeCPU:
         frame = frame.astype(self.np.float16) / 255.0
         return frame
 
-    def run(self, frame):
+    def __call__(self, frame):
         if self.I0 is None:
             self.I0 = self.processFrame(frame)
             return False
@@ -266,7 +266,7 @@ class SceneChangeCuda:
             frame = frame.half() / 255.0
         return frame
 
-    def run(self, frame):
+    def __call__(self, frame):
         with torch.cuda.stream(self.stream):
             if self.I0 is None:
                 self.I0 = self.processFrame(frame)
@@ -390,7 +390,7 @@ class DifferentialTensorRT:
         )
 
     @torch.inference_mode()
-    def run(self, frame):
+    def __call__(self, frame):
         with torch.cuda.stream(self.stream):
             if self.I0 is None:
                 self.I0 = self.processFrame(frame)
