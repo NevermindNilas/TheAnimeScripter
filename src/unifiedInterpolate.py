@@ -286,11 +286,11 @@ class RifeTensorRT:
             case "rife4.20-tensorrt":
                 pass
             case "rife4.18-tensorrt":
-                pass
+                from src.rifearches.Rife415_v2 import IFNet
             case "rife4.17-tensorrt":
                 pass
             case "rife4.15-tensorrt":
-                pass
+                from src.rifearches.Rife415_v2 import IFNet
             case "rife4.6-tensorrt":
                 from src.rifearches.Rife46_v2 import IFNet
 
