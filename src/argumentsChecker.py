@@ -80,6 +80,7 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
             "rife4.22-ncnn",
             "rife4.22-lite-ncnn",
             "rife4.6-tensorrt",
+            "rife4.15-tensorrt",
             "rife4.15-lite-tensorrt",
             "rife4.17-tensorrt",
             "rife4.18-tensorrt",
