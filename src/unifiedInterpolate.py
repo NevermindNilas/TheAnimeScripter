@@ -424,6 +424,7 @@ class RifeTensorRT:
                 inputsOpt=inputsOpt,
                 inputsMax=inputsMax,
                 inputName=["img0", "img1", "timestep"],
+                isMultiInput=True,
             )
             
         try:
