@@ -1,6 +1,10 @@
 import torch
 
-# Credit to vs-rife for many of the improvements seen 
+"""
+Credit to vs-rife and HolyWU for many of the improvements seen 
+    https://github.com/HolyWu/vs-rife
+"""
+
 
 def warp(tenInput, tenFlow, tenFlowDiv, backWarp):
     tenFlow = torch.cat(
