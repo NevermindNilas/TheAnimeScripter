@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### The Anime Scripter
 
 #### NEW
-- `--input` will now support: `.txt` files with a list of videos as well as a full string with multiple videos: `"G:\TheAnimeScripter\input\input.mp4,G:\TheAnimeScripter\input\input.mp4"`
+- `--input` will now support: `.txt` files with a list of videos as well as a full string with multiple videos: `"G:\TheAnimeScripter\input\input.mp4;G:\TheAnimeScripter\input\input.mp4"`
 
 #### Improvements
 - New coroutines for CUDA detection in order to improve performance.

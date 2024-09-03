@@ -340,7 +340,7 @@ if __name__ == "__main__":
                 with open(args.input, "r") as file:
                     videoFiles = [line.strip().strip('"') for line in file.readlines()]
             else:
-                videoFiles = args.input.split(",")
+                videoFiles = args.input.split(";")
             toPrint = f"Processing {len(videoFiles)} files"
             logging.info(toPrint)
             print(blue(toPrint))
