@@ -433,14 +433,7 @@ class UniversalDirectML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
-        self.IoBinding.bind_input(
-            name="input",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.dummyInput.shape,
-            buffer_ptr=self.dummyInput.data_ptr(),
-        )
+
 
         if self.upscaleSkip is not None:
             self.prevFrame = torch.zeros(
@@ -459,6 +452,15 @@ class UniversalDirectML:
                 self.skippedCounter += 1
                 return self.prevFrame
 
+        self.IoBinding.bind_input(
+            name="input",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyInput.shape,
+            buffer_ptr=self.dummyInput.data_ptr(),
+        )
+        
         if self.half:
             frame = frame.permute(2, 0, 1).unsqueeze(0).half().mul(1 / 255)
         else:
