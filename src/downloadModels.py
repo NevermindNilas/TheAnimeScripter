@@ -406,6 +406,26 @@ def modelsMap(
                     return "rife-v4.15-lite-ensenmble-ncnn.zip"
                 else:
                     return "rife-v4.15-lite-ncnn.zip"
+        
+        case "rife4.15" | "rife4.15-tensorrt" | "rife-v4.15-ncnn":
+            if modelType == "pth":
+                return "rife415.pth"
+            elif modelType == "onnx":
+                if half:
+                    if ensemble:
+                        return "rife415_v2_ensembleTrue_op20_fp16_clamp_onnxslim.onnx"
+                    else:
+                        return "rife415_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
+                else:
+                    if ensemble:
+                        return "rife415_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
+                    else:
+                        return "rife415_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+            elif modelType == "ncnn":
+                if ensemble:
+                    return "rife-v4.15-ensemble-ncnn.zip"
+                else:
+                    return "rife-v4.15-ncnn.zip"
 
         case "rife4.6" | "rife4.6-tensorrt" | "rife-v4.6-ncnn":
             if modelType == "pth":
