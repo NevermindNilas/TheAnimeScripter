@@ -59,14 +59,23 @@
 3. Follow this step-by-step [tutorial](https://www.goodboy.ninja/help/install/extensions)
 > If installation fails, refer to the [manual installation guide](https://www.goodboy.ninja/help/install/extensions-manually).
 
-### Standalone / CLI Version
+### Standalone / GUI:
+
+#### Windows
+- N/A - Under active development.
+
+#### Linux
+- N/A - Under active development.
+
+### CLI Interface:
 
 #### Windows
 - **Stable:** Download the latest release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
 - **Nightly:** Download nightly versions from [here](https://github.com/NevermindNilas/TAS-Nightly/releases)
 
 #### Linux
-- GUI is not available yet. Refer to manual usage with the CLI and the [Parameters](PARAMETERS.MD) guide.
+- **Stable:** Download the latest release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
+- **Nightly:** N/A
 
 ## 📚 Available Inputs
 
@@ -89,7 +98,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 ### Interpolation Models
 - Rife CUDA (Versions: 4.6, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite )
 - Rife TensorRT (Versions: 4.6, 4.15-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite )
-- Rife NCNN (Versions: 4.6, 4.15-lite, 4.16-lite, 4.17, 4.18)
+- Rife NCNN (Versions: 4.6, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite )
 
 ### Denoise Models
 - SCUNet
