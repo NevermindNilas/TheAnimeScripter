@@ -7,8 +7,9 @@ import sys
 import numpy as np
 import cv2
 import platform
+import threading
 
-from queue import Queue
+from queue import Queue, Full
 
 if platform.system() == "Windows":
     appdata = os.getenv("APPDATA")
@@ -277,42 +278,53 @@ class BuildBuffer:
         """
         The actual underlying logic for decoding, it starts a queue and gets the necessary FFMPEG command from decodeSettings.
         This is meant to be used in a separate thread for faster processing.
-
+    
         queue : queue.Queue, optional - The queue to put the frames into. If None, a new queue will be created.
         verbose : bool - Whether to log the progress of the decoding.
         """
         self.readBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
         verbose = True
         command = self.decodeSettings()
-
+    
         if verbose:
             logging.info(f"Decoding options: {' '.join(map(str, command))}")
+        
+        try:
+            self.isCudaAvailable = torch.cuda.is_available()
+        except Exception:
+            logging.inof("Couldn't check for CUDA availability, defaulting to CPU")
+            self.isCudaAvailable = False
 
+        if self.isCudaAvailable:
+            logging.info("CUDA is available, defaulting to full CUDA workflow")
+        else:
+            logging.info("CUDA is not available, defaulting to CPU workflow")
+    
         try:
             yPlane = self.width * self.height
             uPlane = (self.width // 2) * (self.height // 2)
             vPlane = (self.width // 2) * (self.height // 2)
             reshape = (self.height * 3 // 2, self.width)
-            
-        
             chunk = yPlane + uPlane + vPlane
-            process = subprocess.Popen(
+            self.process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
             )
             self.decodedFrames = 0
             self.readingDone = False
-        
-            while True:
-                rawFrame = process.stdout.read(chunk)
-                if not rawFrame:
-                    self.readBuffer.put(None)
-                    break
 
-                self.readBuffer.put(torch.from_numpy(cv2.cvtColor(np.frombuffer(rawFrame, dtype=np.uint8).reshape(reshape), cv2.COLOR_YUV2RGB_I420)))
-                self.decodedFrames += 1
+            self.chunkQueue = Queue(maxsize=self.queueSize)
 
+            chunkExecutor = threading.Thread(target=self.convertFrames, args=(reshape,))
+            readExecutor = threading.Thread(target=self.readSTDOUT, args=(chunk,))
+            
+            chunkExecutor.start()
+            readExecutor.start()
+
+            chunkExecutor.join()
+            readExecutor.join()
+    
         except Exception as e:
             logging.error(f"An error occurred: {str(e)}")
         finally:
@@ -320,7 +332,27 @@ class BuildBuffer:
                 logging.info(f"Built buffer with {self.decodedFrames} frames")
             self.readingDone = True
             self.readBuffer.put(None)
-            process.stdout.close()
+            self.process.stdout.close()
+    
+    def readSTDOUT(self, chunk):
+        for _ in range(self.totalFrames):
+            rawFrame = self.process.stdout.read(chunk)
+            try:
+                self.chunkQueue.put_nowait(rawFrame)
+            except Full:
+                self.chunkQueue.put(rawFrame)
+        
+    def convertFrames(self, reshape):
+        for _ in range(self.totalFrames):
+            rawFrame = self.chunkQueue.get()
+            frame = torch.from_numpy(cv2.cvtColor(np.frombuffer(rawFrame, dtype=np.uint8).reshape(reshape), cv2.COLOR_YUV2RGB_I420))
+            if self.isCudaAvailable:
+                frame = frame.to(device="cuda", non_blocking=True)
+            try:
+                self.readBuffer.put_nowait(frame)
+            except Full:
+                self.readBuffer.put(frame)
+            self.decodedFrames += 1
 
     def read(self):
         """
