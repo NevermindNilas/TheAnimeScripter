@@ -7,7 +7,7 @@
       <img src="https://img.shields.io/discord/1041502781808328704?label=Discord" alt="Discord Shield"/></a>
 </p>
 
-# The Anime Scripter
+# The Anime Scripter  ( TAS )
 
 ## Table of Contents
 - [Key Features](#-key-features)
