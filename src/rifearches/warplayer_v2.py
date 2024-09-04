@@ -1,8 +1,9 @@
 import torch
 
 """
-Credit to vs-rife and HolyWU for many of the improvements seen 
+Credit to HolyWU ( VS-Rife ) and Amusement Club for many of the improvements seen 
     https://github.com/HolyWu/vs-rife
+    https://github.com/AmusementClub/vs-mlrt
 """
 
 
