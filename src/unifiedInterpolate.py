@@ -256,6 +256,10 @@ class RifeTensorRT:
 
     def handleModel(self):
         self.device = torch.device("cuda")
+        torch.backends.cudnn.enabled = True
+        torch.backends.cudnn.benchmark = True
+        if self.half:
+            torch.set_default_dtype(torch.float16)
         self.filename = modelsMap(
             self.interpolateMethod.replace("-tensorrt", ""),
             modelType="pth",
@@ -269,137 +273,23 @@ class RifeTensorRT:
                 model=self.interpolateMethod.replace("-tensorrt", ""),
                 modelType="pth",
                 half=self.half,
-                ensemble=self.ensemble,
+                #ensemble=self.ensemble,
             )
         else:
             self.modelPath = os.path.join(weightsDir, folderName, self.filename)
-
-        match self.interpolateMethod:
-            case "rife4.22-tensorrt":
-                from src.rifearches.Rife422_v2 import IFNet
-            case "rife4.22-lite-tensorrt":
-                pass
-            case "rife4.21-tensorrt":
-                from src.rifearches.Rife422_v2 import IFNet
-            case "rife4.20-tensorrt":
-                pass
-            case "rife4.18-tensorrt":
-                from src.rifearches.Rife415_v2 import IFNet
-            case "rife4.17-tensorrt":
-                pass
-            case "rife4.15-tensorrt":
-                from src.rifearches.Rife415_v2 import IFNet
-            case "rife4.6-tensorrt":
-                from src.rifearches.Rife46_v2 import IFNet
-
-        torch.backends.cudnn.enabled = True
-        torch.backends.cudnn.benchmark = True
-        if self.half:
-            torch.set_default_dtype(torch.float16)
-
+        
         self.dtype = torch.float16 if self.half else torch.float32
         tmp = max(32, int(32 / 1.0))
         self.pw = math.ceil(self.width / tmp) * tmp
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
 
-        if self.interpolateMethod == "rife4.6-tensorrt":
-            self.tenFlow = torch.tensor(
-                [(self.pw - 1.0) / 2.0, (self.ph - 1.0) / 2.0],
-                dtype=self.dtype,
-                device=self.device,
-            )
-            tenHorizontal = (
-                torch.linspace(-1.0, 1.0, self.pw, dtype=self.dtype, device=self.device)
-                .view(1, 1, 1, self.pw)
-                .expand(-1, -1, self.ph, -1)
-            ).to(dtype=self.dtype, device=self.device)
-            tenVertical = (
-                torch.linspace(-1.0, 1.0, self.ph, dtype=self.dtype, device=self.device)
-                .view(1, 1, self.ph, 1)
-                .expand(-1, -1, -1, self.pw)
-            ).to(dtype=self.dtype, device=self.device)
-            self.backWarp = torch.cat([tenHorizontal, tenVertical], 1)
-        else:
-            hMul = 2 / (self.pw - 1)
-            vMul = 2 / (self.ph - 1)
-            self.tenFlow = (
-                torch.Tensor([hMul, vMul])
-                .to(device=self.device, dtype=self.dtype)
-                .reshape(1, 2, 1, 1)
-            )
-
-            self.backWarp = torch.cat(
-                (
-                    (torch.arange(self.pw) * hMul - 1)
-                    .reshape(1, 1, 1, -1)
-                    .expand(-1, -1, self.ph, -1),
-                    (torch.arange(self.ph) * vMul - 1)
-                    .reshape(1, 1, -1, 1)
-                    .expand(-1, -1, -1, self.pw),
-                ),
-                dim=1,
-            ).to(device=self.device, dtype=self.dtype)
-
-        self.model = IFNet(
-            scale=self.scale,
-            ensemble=False,
-            dtype=self.dtype,
-            device=self.device,
-            width=self.width,
-            height=self.height,
-            backWarp=self.backWarp,
-            tenFlow=self.tenFlow,
-        )
-
-        self.model.to(self.device)
-        if self.half:
-            self.model.half()
-        else:
-            self.model.float()
-
-        self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
-
-        dummyInput1 = torch.zeros(
-            1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
-        )
-        dummyInput2 = torch.zeros(
-            1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
-        )
-        dummyInput3 = torch.zeros(
-            1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
-        )
-
-        self.modelPath = self.modelPath.replace(".pth", ".onnx")
-
-        torch.onnx.export(
-            self.model,
-            (dummyInput1, dummyInput2, dummyInput3),
-            self.modelPath,
-            input_names=["img0", "img1", "timestep"],
-            output_names=["output"],
-            dynamic_axes={
-                "img0": {0: "batch", 2: "height", 3: "width"},
-                "img1": {0: "batch", 2: "height", 3: "width"},
-                "timestep": {0: "batch", 2: "height", 3: "width"},
-                "output": {1: "height", 2: "width"},
-            },
-            opset_version=19,
-        )
-
         enginePath = self.TensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
             optInputShape=[1, 3, self.height, self.width],
+            ensemble = self.ensemble,
         )
-
-        inputs = [
-            [1, 3, self.ph, self.pw],
-            [1, 3, self.ph, self.pw],
-            [1, 1, self.ph, self.pw],
-        ]
-
-        inputsMin = inputsOpt = inputsMax = inputs
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
         if (
@@ -407,6 +297,116 @@ class RifeTensorRT:
             or self.context is None
             or not os.path.exists(enginePath)
         ):
+            match self.interpolateMethod:
+                case "rife4.22-tensorrt":
+                    from src.rifearches.Rife422_v2 import IFNet
+                case "rife4.22-lite-tensorrt":
+                    from src.rifearches.Rife422_lite_v2 import IFNet
+                case "rife4.21-tensorrt":
+                    from src.rifearches.Rife422_v2 import IFNet
+                case "rife4.20-tensorrt":
+                    from src.rifearches.Rife420_v2 import IFNet
+                case "rife4.18-tensorrt":
+                    from src.rifearches.Rife415_v2 import IFNet
+                case "rife4.17-tensorrt":
+                    from src.rifearches.Rife415_v2 import IFNet
+                case "rife4.15-tensorrt":
+                    from src.rifearches.Rife415_v2 import IFNet
+                case "rife4.6-tensorrt":
+                    from src.rifearches.Rife46_v2 import IFNet
+
+            if self.interpolateMethod == "rife4.6-tensorrt":
+                self.tenFlow = torch.tensor(
+                    [(self.pw - 1.0) / 2.0, (self.ph - 1.0) / 2.0],
+                    dtype=self.dtype,
+                    device=self.device,
+                )
+                tenHorizontal = (
+                    torch.linspace(-1.0, 1.0, self.pw, dtype=self.dtype, device=self.device)
+                    .view(1, 1, 1, self.pw)
+                    .expand(-1, -1, self.ph, -1)
+                ).to(dtype=self.dtype, device=self.device)
+                tenVertical = (
+                    torch.linspace(-1.0, 1.0, self.ph, dtype=self.dtype, device=self.device)
+                    .view(1, 1, self.ph, 1)
+                    .expand(-1, -1, -1, self.pw)
+                ).to(dtype=self.dtype, device=self.device)
+                self.backWarp = torch.cat([tenHorizontal, tenVertical], 1)
+            else:
+                hMul = 2 / (self.pw - 1)
+                vMul = 2 / (self.ph - 1)
+                self.tenFlow = (
+                    torch.Tensor([hMul, vMul])
+                    .to(device=self.device, dtype=self.dtype)
+                    .reshape(1, 2, 1, 1)
+                )
+
+                self.backWarp = torch.cat(
+                    (
+                        (torch.arange(self.pw) * hMul - 1)
+                        .reshape(1, 1, 1, -1)
+                        .expand(-1, -1, self.ph, -1),
+                        (torch.arange(self.ph) * vMul - 1)
+                        .reshape(1, 1, -1, 1)
+                        .expand(-1, -1, -1, self.pw),
+                    ),
+                    dim=1,
+                ).to(device=self.device, dtype=self.dtype)
+
+            self.model = IFNet(
+                scale=self.scale,
+                ensemble=self.ensemble,
+                dtype=self.dtype,
+                device=self.device,
+                width=self.width,
+                height=self.height,
+                backWarp=self.backWarp,
+                tenFlow=self.tenFlow,
+            )
+
+            self.model.to(self.device)
+            if self.half:
+                self.model.half()
+            else:
+                self.model.float()
+
+            self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
+
+            dummyInput1 = torch.zeros(
+                1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
+            )
+            dummyInput2 = torch.zeros(
+                1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
+            )
+            dummyInput3 = torch.zeros(
+                1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
+            )
+
+            self.modelPath = self.modelPath.replace(".pth", ".onnx")
+
+            torch.onnx.export(
+                self.model,
+                (dummyInput1, dummyInput2, dummyInput3),
+                self.modelPath,
+                input_names=["img0", "img1", "timestep"],
+                output_names=["output"],
+                dynamic_axes={
+                    "img0": {0: "batch", 2: "height", 3: "width"},
+                    "img1": {0: "batch", 2: "height", 3: "width"},
+                    "timestep": {0: "batch", 2: "height", 3: "width"},
+                    "output": {1: "height", 2: "width"},
+                },
+                opset_version=19,
+            )
+            
+            inputs = [
+                [1, 3, self.ph, self.pw],
+                [1, 3, self.ph, self.pw],
+                [1, 1, self.ph, self.pw],
+            ]
+
+            inputsMin = inputsOpt = inputsMax = inputs
+
             logging.info("Loading engine failed, creating a new one")
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
@@ -419,10 +419,10 @@ class RifeTensorRT:
                 isMultiInput=True,
             )
 
-        try:
-            os.remove(self.modelPath)
-        except Exception as e:
-            logging.error(f"Error removing onnx model: {e}")
+            try:
+                os.remove(self.modelPath)
+            except Exception as e:
+                logging.error(f"Error removing onnx model: {e}")
 
         self.dtype = torch.float16 if self.half else torch.float32
         self.stream = torch.cuda.Stream()
