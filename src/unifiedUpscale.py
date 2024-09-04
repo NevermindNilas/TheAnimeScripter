@@ -297,7 +297,7 @@ class UniversalTensorRT:
             )
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             output = (
-                self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).clamp(0, 255)
+                self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
             )
             self.stream.synchronize()
 
@@ -473,7 +473,6 @@ class UniversalDirectML:
             self.dummyOutput.squeeze(0)
             .permute(1, 2, 0)
             .mul(255)
-            .clamp_(0, 255)
             .contiguous()
         )
 
