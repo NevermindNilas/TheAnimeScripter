@@ -58,10 +58,9 @@ class DedupSSIMCuda:
             .unsqueeze(0)
             .half()
         ).mul(1 / 255.0)
-        frame = self.F.interpolate(
+        return self.F.interpolate(
             frame, (self.sampleSize, self.sampleSize), mode="nearest"
         )
-        return frame
 
 class DedupSSIM:
     def __init__(
@@ -97,9 +96,8 @@ class DedupSSIM:
     def processFrame(self, frame):
         frame = frame.cpu().numpy()
         frame = np.resize(frame, (self.sampleSize, self.sampleSize, 3))
-        frame = self.color.rgb2gray(frame)
 
-        return frame
+        return self.color.rgb2gray(frame)
 
 
 class DedupMSE:
