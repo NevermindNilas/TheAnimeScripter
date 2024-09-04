@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### NEW
 - `--input` will now support: `.txt` files with a list of videos as well as a full string with multiple videos: `"G:\TheAnimeScripter\input\input.mp4;G:\TheAnimeScripter\input\input.mp4"`
 - Entire Rife TensorRT Interpolation backend remake, it is recommended to remove any rife4.x folders and engines and allow TAS to rebuild new ones.
+- TAS has now proper multi subtitle and audio support.
 
 #### Improvements
 - New coroutines for CUDA detection in order to improve performance.
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Major improvements to Rife TensorRT as well as CUDA should now result in up to 20% performance gains ( this was dependency tested and it should work fine )
 - Overall total model size will now be significantly lower.
 - TensorRT Handler functionality has been improved tremendously and it should now be signficantly more robust and feature rich than before ( this will come in handy in the future )
+- Rewrote some of the chain loop backend.
 
 #### Notes
 - The new Rife TensorRT backend comes with a few advantantages and disadvantages. Models will consume up to a few hundred megabytes until the engines are created,
