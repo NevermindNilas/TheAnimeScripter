@@ -273,8 +273,7 @@ class SceneChangeCuda:
                 return False
 
             self.I1 = self.processFrame(frame)
-            mse = torch.mean((self.I0 - self.I1) ** 2) * 10
-            mse = mse.clamp(0, 1)
+            mse = (torch.mean((self.I0 - self.I1) ** 2) * 10).clamp(0, 1)
 
             self.I0.copy_(self.I1, non_blocking=True)
             torch.cuda.synchronize()
