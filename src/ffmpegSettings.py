@@ -709,46 +709,42 @@ class WriteBuffer:
             if "Stream #0:1" not in result.stderr.decode():
                 logging.info("No audio stream found, skipping audio merge")
                 return
-
+    
             fileExtension = os.path.splitext(self.output)[1]
             mergedFile = os.path.splitext(self.output)[0] + "_merged" + fileExtension
-
+    
             ffmpegCommand = [
                 self.ffmpegPath,
                 "-v",
                 "error",
                 "-stats",
             ]
-
+    
             if self.outpoint != 0:
                 ffmpegCommand.extend(
                     ["-ss", str(self.inpoint), "-to", str(self.outpoint)]
                 )
-
+    
             ffmpegCommand.extend(
                 [
-                    "-i",
-                    self.input,
-                    "-i",
-                    self.output,
-                    "-c:v",
-                    "copy",
-                    "-c:a",
-                    "copy" if not self.output.endswith(".webm") else "libopus",
-                    "-map",
-                    "1:v:0",
-                    "-map",
-                    "0:a:0",
+                    "-i", self.input,
+                    "-i", self.output,
+                    "-c:v", "copy",
+                    "-c:a", "copy" if not self.output.endswith(".webm") else "libopus",
+                    "-c:s", "copy",
+                    "-map", "1:v:0",
+                    "-map", "0:a",
+                    "-map", "0:s?",
                     "-shortest",
                     "-y",
                     mergedFile,
                 ]
             )
-
-            logging.info(f"Merging audio with: {' '.join(ffmpegCommand)}")
-
+    
+            logging.info(f"Merging audio and subtitles with: {' '.join(ffmpegCommand)}")
+    
             subprocess.run(ffmpegCommand)
             shutil.move(mergedFile, self.output)
-
+    
         except Exception as e:
             logging.error(f"An error occurred: {str(e)}")
