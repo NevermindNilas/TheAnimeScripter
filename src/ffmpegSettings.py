@@ -650,11 +650,11 @@ class WriteBuffer:
                             break
 
                         if self.bitDepth == "8bit":
-                            frame = frame.clamp(0,255).to(torch.uint8).cpu().numpy()
+                            frame = frame.to(torch.uint8).cpu().numpy()
                         else:
                             frame = (
                                 frame
-                                .clamp(0, 255)
+                                #.clamp(0, 255)
                                 .to(torch.float32)
                                 .mul(257)
                                 .to(torch.uint16)
