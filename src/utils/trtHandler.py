@@ -116,17 +116,31 @@ def TensorRTEngineNameHandler(
     modelPath: str = "",
     fp16: bool = False,
     optInputShape: List[int] = [],
+    ensemble: bool = False,
 ) -> str:
     """
     Create a name for the TensorRT engine file.
     
     Parameters:
-        modelPath (str): The path to the ONNX model.
+        modelPath (str): The path to the ONNX / PTH model.
         fp16 (bool): Use half precision for the engine.
         optInputShape (List[int]): The shape for which TensorRT will optimize the engine.
     """
     enginePrecision = "fp16" if fp16 else "fp32"
     height, width = optInputShape[2], optInputShape[3]
+    
+    if modelPath.endswith(".onnx"):
+        extension = ".onnx"
+    elif modelPath.endswith(".pth"):
+        extension = ".pth"
+    else:
+        raise ValueError("Unsupported model file extension. Only .onnx and .pth are supported.")
+    
+    if ensemble:
+        return modelPath.replace(
+            extension, f"_{enginePrecision}_{height}x{width}_ensemble.engine"
+        )
+    
     return modelPath.replace(
-        ".onnx", f"_{enginePrecision}_{height}x{width}.engine"
+        extension, f"_{enginePrecision}_{height}x{width}.engine"
     )
