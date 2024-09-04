@@ -274,4 +274,4 @@ class IFNet(nn.Module):
         warped_img0, warped_img1 = torch.split(warped_imgs, [1, 1])
         return (warped_img0 * mask + warped_img1 * (1 - mask))[
             :, :, : self.height, : self.width
-        ][0].permute(1, 2, 0)
+        ][0].permute(1, 2, 0).mul(255)
