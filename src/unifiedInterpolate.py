@@ -519,7 +519,7 @@ class RifeTensorRT:
 
                 if not benchmark:
                     self.stream.synchronize()
-                    writeBuffer.write(self.dummyOutput)
+                    writeBuffer.write(self.dummyOutput.cpu())
 
             self.I0.copy_(self.I1, non_blocking=True)
 
