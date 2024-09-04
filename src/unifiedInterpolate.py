@@ -249,11 +249,9 @@ class RifeTensorRT:
                     "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
                 )
                 self.half = False
-                self.UHD = True
+                self.scale = 0.5
         else:
-            self.UHD = False
-
-        self.scale = 1.0 if not self.UHD else 0.5
+            self.scale = 1.0
         self.handleModel()
 
     def handleModel(self):
@@ -357,6 +355,8 @@ class RifeTensorRT:
         self.model.to(self.device)
         if self.half:
             self.model.half()
+        else:
+            self.model.float()
 
         self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
 
@@ -424,14 +424,14 @@ class RifeTensorRT:
         except Exception as e:
             logging.error(f"Error removing onnx model: {e}")
 
-        self.dType = torch.float16 if self.half else torch.float32
+        self.dtype = torch.float16 if self.half else torch.float32
         self.stream = torch.cuda.Stream()
         self.I0 = torch.zeros(
             1,
             3,
             self.ph,
             self.pw,
-            dtype=self.dType,
+            dtype=self.dtype,
             device=self.device,
         )
 
@@ -440,31 +440,39 @@ class RifeTensorRT:
             3,
             self.ph,
             self.pw,
-            dtype=self.dType,
+            dtype=self.dtype,
             device=self.device,
         )
 
-        self.dummyTimeStep = torch.zeros(
-            1, 1, self.ph, self.pw, dtype=self.dType, device=self.device
-        )
+        if self.interpolateFactor == 2:
+            self.dummyTimeStep = torch.full(
+                (1, 1, self.ph, self.pw),
+                0.5,
+                dtype=self.dtype,
+                device=self.device
+            )
+        else:
+            self.dummyTimeStep = torch.zeros(
+                1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
+            )
 
+            self.dummyStepBatch = torch.cat(
+                [
+                    torch.full(
+                        (1, 1, self.ph, self.pw),
+                        (i + 1) * 1 / self.interpolateFactor,
+                        dtype=self.dtype,
+                        device=self.device,
+                    )
+                    for i in range(self.interpolateFactor - 1)
+                ],
+                dim=0,
+            )
+        
         self.dummyOutput = torch.zeros(
             (self.height, self.width, 3),
             device=self.device,
-            dtype=self.dType,
-        )
-
-        self.dummyStepBatch = torch.cat(
-            [
-                torch.full(
-                    (1, 1, self.ph, self.pw),
-                    (i + 1) * 1 / self.interpolateFactor,
-                    dtype=self.dType,
-                    device=self.device,
-                )
-                for i in range(self.interpolateFactor - 1)
-            ],
-            dim=0,
+            dtype=self.dtype,
         )
 
         self.tensors = [self.I0, self.I1, self.dummyTimeStep, self.dummyOutput]
@@ -482,7 +490,7 @@ class RifeTensorRT:
     @torch.inference_mode()
     def processFrame(self, frame):
         return F.pad(
-            frame.to(dtype=self.dType, non_blocking=True)
+            frame.to(dtype=self.dtype, non_blocking=True)
             .mul(1 / 255.0)
             .permute(2, 0, 1)
             .unsqueeze(0),
@@ -504,7 +512,9 @@ class RifeTensorRT:
             self.I1[:].copy_(self.processFrame(frame), non_blocking=True)
 
             for i in range(self.interpolateFactor - 1):
-                self.dummyTimeStep[:].copy_(self.dummyStepBatch[i], non_blocking=True)
+                if self.interpolateFactor != 2:
+                    self.dummyTimeStep[:].copy_(self.dummyStepBatch[i], non_blocking=True)
+
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
 
                 if not benchmark:
