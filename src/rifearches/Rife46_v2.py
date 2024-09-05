@@ -21,17 +21,17 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
 
 
 class MyPixelShuffle(nn.Module):
-    def __init__(self, upscale_factor):
+    def __init__(self, upscaleFactor):
         super(MyPixelShuffle, self).__init__()
-        self.upscale_factor = upscale_factor
+        self.upscaleFactor = upscaleFactor
 
     def forward(self, input):
         b, c, hh, hw = input.size()
-        out_channel = c // (self.upscale_factor**2)
-        h = hh * self.upscale_factor
-        w = hw * self.upscale_factor
+        out_channel = c // (self.upscaleFactor**2)
+        h = hh * self.upscaleFactor
+        w = hw * self.upscaleFactor
         x_view = input.view(
-            b, out_channel, self.upscale_factor, self.upscale_factor, hh, hw
+            b, out_channel, self.upscaleFactor, self.upscaleFactor, hh, hw
         )
         return x_view.permute(0, 1, 4, 2, 5, 3).reshape(b, out_channel, h, w)
 
@@ -111,13 +111,13 @@ class IFNet(nn.Module):
         self.height = height
         self.backWarp = backWarp
         self.tenFlow = tenFlow
+        self.blocks = [self.block0, self.block1, self.block2, self.block3]
 
     def forward(self, img0, img1, timeStep):
         warpedImg0, warpedImg1 = img0, img1
         flow = mask = None
-        blocks = [self.block0, self.block1, self.block2, self.block3]
 
-        for i, block in enumerate(blocks):
+        for i, block in enumerate(self.blocks):
             scale = self.scaleList[i]
 
             if flow is None:
