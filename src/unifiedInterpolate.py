@@ -551,8 +551,8 @@ class RifeTensorRT:
                     self.stream.synchronize()
                     writeBuffer.write(self.dummyOutput.cpu())
 
-            self.f0.copy_(self.f1, non_blocking=True)
-            self.I0.copy_(self.I1, non_blocking=True)
+            self.f0[:].copy_(self.f1, non_blocking=True)
+            self.I0[:].copy_(self.I1, non_blocking=True)
 
 
 class RifeNCNN:
