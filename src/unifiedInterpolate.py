@@ -249,9 +249,8 @@ class RifeTensorRT:
                     "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
                 )
                 self.half = False
-                self.scale = 0.5
-        else:
-            self.scale = 1.0
+
+        self.scale = 1.0
         self.handleModel()
 
     def handleModel(self):
@@ -291,6 +290,10 @@ class RifeTensorRT:
             ensemble = self.ensemble,
         )
 
+        
+        from src.rifearches.Rife415_v2 import Head
+        self.norm = Head().cuda()
+
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
         if (
             self.engine is None
@@ -314,6 +317,8 @@ class RifeTensorRT:
                     from src.rifearches.Rife415_v2 import IFNet
                 case "rife4.6-tensorrt":
                     from src.rifearches.Rife46_v2 import IFNet
+
+
 
             if self.interpolateMethod == "rife4.6-tensorrt":
                 self.tenFlow = torch.tensor(
@@ -381,20 +386,24 @@ class RifeTensorRT:
             dummyInput3 = torch.zeros(
                 1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
             )
+            dummyInput4 = torch.zeros(
+                1, 8, self.ph, self.pw, dtype=self.dtype, device=self.device
+            )
 
             self.modelPath = self.modelPath.replace(".pth", ".onnx")
 
             torch.onnx.export(
                 self.model,
-                (dummyInput1, dummyInput2, dummyInput3),
+                (dummyInput1, dummyInput2, dummyInput3, dummyInput4),
                 self.modelPath,
-                input_names=["img0", "img1", "timestep"],
-                output_names=["output"],
+                input_names=["img0", "img1", "timestep", "f0"],
+                output_names=["output", "f1"],
                 dynamic_axes={
                     "img0": {0: "batch", 2: "height", 3: "width"},
                     "img1": {0: "batch", 2: "height", 3: "width"},
                     "timestep": {0: "batch", 2: "height", 3: "width"},
                     "output": {1: "height", 2: "width"},
+                    "f1": {0: "batch", 2: "height", 3: "width"},
                 },
                 opset_version=19,
             )
@@ -403,6 +412,7 @@ class RifeTensorRT:
                 [1, 3, self.ph, self.pw],
                 [1, 3, self.ph, self.pw],
                 [1, 1, self.ph, self.pw],
+                [1, 8, self.ph, self.pw],
             ]
 
             inputsMin = inputsOpt = inputsMax = inputs
@@ -444,6 +454,15 @@ class RifeTensorRT:
             device=self.device,
         )
 
+        self.f0 = torch.zeros(
+            1,
+            8,
+            self.ph,
+            self.pw,
+            dtype=self.dtype,
+            device=self.device,
+        )
+
         if self.interpolateFactor == 2:
             self.dummyTimeStep = torch.full(
                 (1, 1, self.ph, self.pw),
@@ -475,7 +494,16 @@ class RifeTensorRT:
             dtype=self.dtype,
         )
 
-        self.tensors = [self.I0, self.I1, self.dummyTimeStep, self.dummyOutput]
+        self.f1 = torch.zeros(
+            1,
+            8,
+            self.ph,
+            self.pw,
+            dtype=self.dtype,
+            device=self.device,
+        )
+
+        self.tensors = [self.I0, self.I1, self.dummyTimeStep, self.f0, self.dummyOutput, self.f1]
         self.bindings = [tensor.data_ptr() for tensor in self.tensors]
 
         for i in range(self.engine.num_io_tensors):
@@ -484,7 +512,7 @@ class RifeTensorRT:
 
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.tensors[i].shape)
-
+            
         self.firstRun = True
 
     @torch.inference_mode()
@@ -500,11 +528,13 @@ class RifeTensorRT:
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
         self.I0.copy_(self.processFrame(frame), non_blocking=True)
+        self.f0.copy_(self.norm(self.processFrame(frame)), non_blocking=True)
 
     @torch.inference_mode()
     def __call__(self, frame, benchmark, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
+                self.f0.copy_(self.norm(self.processFrame(frame)), non_blocking=True)
                 self.I0[:].copy_(self.processFrame(frame), non_blocking=True)
                 self.firstRun = False
                 return
@@ -521,6 +551,7 @@ class RifeTensorRT:
                     self.stream.synchronize()
                     writeBuffer.write(self.dummyOutput.cpu())
 
+            self.f0.copy_(self.f1, non_blocking=True)
             self.I0.copy_(self.I1, non_blocking=True)
 
 
