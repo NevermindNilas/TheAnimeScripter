@@ -145,17 +145,18 @@ class IFNet(nn.Module):
         self.paddedHeight = backWarp.shape[2]
         self.paddedWidth = backWarp.shape[3]
 
-    def forward(self, img0, img1, timeStep):
+        self.blocks = [self.block0, self.block1, self.block2, self.block3]
+
+    def forward(self, img0, img1, timeStep, f0):
         imgs = torch.cat([img0, img1], dim=1)
         imgs2 = torch.reshape(imgs, (2, 3, self.paddedHeight, self.paddedWidth))
-        fs2 = self.encode(imgs2)
-        fs = torch.reshape(fs2, (1, 16, self.paddedHeight, self.paddedWidth))
+        f1 = self.encode(img1[:, :3])
+        fs = torch.cat([f0, f1], dim=1)
+        fs2 = torch.reshape(fs, (2, 8, self.paddedHeight, self.paddedWidth))
         warpedImg0 = img0
         warpedImg1 = img1
         flows = None
-        blocks = [self.block0, self.block1, self.block2, self.block3]
-        scaleList = [8, 4, 2, 1]
-        for block, scale in zip(blocks, scaleList):
+        for block, scale in zip(self.blocks, self.scaleList):
             if flows is None:
                 temp = torch.cat((imgs, fs, timeStep), 1)
                 flows, mask, feat = block(temp, scale=scale)
@@ -208,4 +209,4 @@ class IFNet(nn.Module):
             ][0]
             .permute(1, 2, 0)
             .mul(255)
-        )
+        ), f1

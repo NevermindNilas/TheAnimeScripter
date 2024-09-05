@@ -149,29 +149,27 @@ class IFNet(nn.Module):
         self.encode = Head()
         self.device = device
         self.dtype = dtype
-        self.scale_list = [8 / scale, 4 / scale, 2 / scale, 1 / scale]
+        self.scaleList = [8 / scale, 4 / scale, 2 / scale, 1 / scale]
         self.ensemble = ensemble
         self.width = width
         self.height = height
-
         self.backWarp = backWarp
         self.tenFlow = tenFlow
+        self.blocks = [self.block0, self.block1, self.block2, self.block3]
 
         self.paddedHeight = backWarp.shape[2]
         self.paddedWidth = backWarp.shape[3]
 
-    def forward(self, img0, img1, timestep):
+    def forward(self, img0, img1, timestep, f0):
         imgs = torch.cat([img0, img1], dim=1)
         imgs_2 = torch.reshape(imgs, (2, 3, self.paddedHeight, self.paddedWidth))
-        fs_2 = self.encode(imgs_2)
-        fs = torch.reshape(fs_2, (1, 8, self.paddedHeight, self.paddedWidth))
-
+        f1 = self.encode(img1[:, :3])
+        fs = torch.cat([f0, f1], dim=1)
+        fs_2 = torch.reshape(fs, (2, 8, self.paddedHeight, self.paddedWidth))
         warped_img0 = img0
         warped_img1 = img1
         flows = None
-        blocks = [self.block0, self.block1, self.block2, self.block3]
-        scale_list = [8, 4, 2, 1]
-        for block, scale in zip(blocks, scale_list):
+        for block, scale in zip(self.blocks, self.scaleList):
             if flows is None:
                 temp = torch.cat((imgs, fs, timestep), 1)
                 flows, mask, feat = block(temp, scale=scale)
@@ -224,4 +222,4 @@ class IFNet(nn.Module):
             ][0]
             .permute(1, 2, 0)
             .mul(255)
-        )
+        ), f1
