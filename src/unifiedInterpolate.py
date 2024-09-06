@@ -10,6 +10,62 @@ from .coloredPrints import yellow
 torch.set_float32_matmul_precision("medium")
 
 
+def importRifeArch(interpolateMethod, version):
+    match version:
+        case "v1":
+            match interpolateMethod:
+                case "rife4.22-lite":
+                    from .rifearches.IFNET_rife422lite import IFNet
+                case "rife" | "rife4.22":
+                    from .rifearches.IFNET_rife422 import IFNet
+                case "rife4.21":
+                    from .rifearches.IFNet_rife421 import IFNet
+                case "rife4.20":
+                    from .rifearches.IFNet_rife420 import IFNet
+                case "rife4.18":
+                    from .rifearches.IFNet_rife418 import IFNet
+                case "rife4.17":
+                    from .rifearches.IFNet_rife417 import IFNet
+                case "rife4.15-lite":
+                    from .rifearches.IFNet_rife415lite import IFNet
+                case "rife4.16-lite":
+                    from .rifearches.IFNet_rife416lite import IFNet
+                case "rife4.6":
+                    from .rifearches.IFNet_rife46 import IFNet
+            return IFNet
+
+        case "v2":
+            match interpolateMethod:
+                case "rife4.22-tensorrt":
+                    from src.rifearches.Rife422_v2 import IFNet
+                    from src.rifearches.Rife422_v2 import Head
+                case "rife4.22-lite-tensorrt":
+                    from src.rifearches.Rife422_lite_v2 import IFNet
+                    from src.rifearches.Rife422_lite_v2 import Head
+                case "rife4.21-tensorrt":
+                    from src.rifearches.Rife422_v2 import IFNet
+                    from src.rifearches.Rife422_v2 import Head
+                case "rife4.20-tensorrt":
+                    from src.rifearches.Rife420_v2 import IFNet
+                    from src.rifearches.Rife420_v2 import Head
+                case "rife4.18-tensorrt":
+                    from src.rifearches.Rife415_v2 import IFNet
+                    from src.rifearches.Rife415_v2 import Head
+                case "rife4.17-tensorrt":
+                    from src.rifearches.Rife415_v2 import IFNet
+                    from src.rifearches.Rife415_v2 import Head
+                case "rife4.15-tensorrt":
+                    from src.rifearches.Rife415_v2 import IFNet
+                    from src.rifearches.Rife415_v2 import Head
+                case "rife4.6-tensorrt":
+                    from src.rifearches.Rife46_v2 import IFNet
+
+            if interpolateMethod == "rife4.6-tensorrt":
+                return IFNet, None
+
+            return IFNet, Head
+
+
 class RifeCuda:
     def __init__(
         self,
@@ -69,26 +125,7 @@ class RifeCuda:
         else:
             modelPath = os.path.join(weightsDir, "rife", self.filename)
 
-        match self.interpolateMethod:
-            case "rife4.22-lite":
-                from .rifearches.IFNET_rife422lite import IFNet
-            case "rife" | "rife4.22":
-                from .rifearches.IFNET_rife422 import IFNet
-            case "rife4.21":
-                from .rifearches.IFNet_rife421 import IFNet
-            case "rife4.20":
-                from .rifearches.IFNet_rife420 import IFNet
-            case "rife4.18":
-                from .rifearches.IFNet_rife418 import IFNet
-            case "rife4.17":
-                from .rifearches.IFNet_rife417 import IFNet
-            case "rife4.15-lite":
-                from .rifearches.IFNet_rife415lite import IFNet
-            case "rife4.16-lite":
-                from .rifearches.IFNet_rife416lite import IFNet
-            case "rife4.6":
-                from .rifearches.IFNet_rife46 import IFNet
-
+        IFNet = importRifeArch(self.interpolateMethod, "v1")
         self.model = IFNet(self.ensemble, self.scale, self.interpolateFactor)
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
@@ -272,11 +309,11 @@ class RifeTensorRT:
                 model=self.interpolateMethod.replace("-tensorrt", ""),
                 modelType="pth",
                 half=self.half,
-                #ensemble=self.ensemble,
+                # ensemble=self.ensemble,
             )
         else:
             self.modelPath = os.path.join(weightsDir, folderName, self.filename)
-        
+
         self.dtype = torch.float16 if self.half else torch.float32
         tmp = max(32, int(32 / 1.0))
         self.pw = math.ceil(self.width / tmp) * tmp
@@ -287,12 +324,11 @@ class RifeTensorRT:
             modelPath=self.modelPath,
             fp16=self.half,
             optInputShape=[1, 3, self.height, self.width],
-            ensemble = self.ensemble,
+            ensemble=self.ensemble,
         )
 
-        
-        from src.rifearches.Rife415_v2 import Head
-        self.norm = Head().cuda()
+        IFNet, Head = importRifeArch(self.interpolateMethod, "v2")
+        self.norm = Head().cuda() if Head is not None else None
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
         if (
@@ -300,26 +336,6 @@ class RifeTensorRT:
             or self.context is None
             or not os.path.exists(enginePath)
         ):
-            match self.interpolateMethod:
-                case "rife4.22-tensorrt":
-                    from src.rifearches.Rife422_v2 import IFNet
-                case "rife4.22-lite-tensorrt":
-                    from src.rifearches.Rife422_lite_v2 import IFNet
-                case "rife4.21-tensorrt":
-                    from src.rifearches.Rife422_v2 import IFNet
-                case "rife4.20-tensorrt":
-                    from src.rifearches.Rife420_v2 import IFNet
-                case "rife4.18-tensorrt":
-                    from src.rifearches.Rife415_v2 import IFNet
-                case "rife4.17-tensorrt":
-                    from src.rifearches.Rife415_v2 import IFNet
-                case "rife4.15-tensorrt":
-                    from src.rifearches.Rife415_v2 import IFNet
-                case "rife4.6-tensorrt":
-                    from src.rifearches.Rife46_v2 import IFNet
-
-
-
             if self.interpolateMethod == "rife4.6-tensorrt":
                 self.tenFlow = torch.tensor(
                     [(self.pw - 1.0) / 2.0, (self.ph - 1.0) / 2.0],
@@ -327,12 +343,16 @@ class RifeTensorRT:
                     device=self.device,
                 )
                 tenHorizontal = (
-                    torch.linspace(-1.0, 1.0, self.pw, dtype=self.dtype, device=self.device)
+                    torch.linspace(
+                        -1.0, 1.0, self.pw, dtype=self.dtype, device=self.device
+                    )
                     .view(1, 1, 1, self.pw)
                     .expand(-1, -1, self.ph, -1)
                 ).to(dtype=self.dtype, device=self.device)
                 tenVertical = (
-                    torch.linspace(-1.0, 1.0, self.ph, dtype=self.dtype, device=self.device)
+                    torch.linspace(
+                        -1.0, 1.0, self.ph, dtype=self.dtype, device=self.device
+                    )
                     .view(1, 1, self.ph, 1)
                     .expand(-1, -1, -1, self.pw)
                 ).to(dtype=self.dtype, device=self.device)
@@ -407,7 +427,7 @@ class RifeTensorRT:
                 },
                 opset_version=19,
             )
-            
+
             inputs = [
                 [1, 3, self.ph, self.pw],
                 [1, 3, self.ph, self.pw],
@@ -454,21 +474,28 @@ class RifeTensorRT:
             device=self.device,
         )
 
-        self.f0 = torch.zeros(
-            1,
-            8,
-            self.ph,
-            self.pw,
-            dtype=self.dtype,
-            device=self.device,
-        )
+        if self.norm is not None:
+            self.f0 = torch.zeros(
+                1,
+                8,
+                self.ph,
+                self.pw,
+                dtype=self.dtype,
+                device=self.device,
+            )
+
+            self.f1 = torch.zeros(
+                1,
+                8,
+                self.ph,
+                self.pw,
+                dtype=self.dtype,
+                device=self.device,
+            )
 
         if self.interpolateFactor == 2:
             self.dummyTimeStep = torch.full(
-                (1, 1, self.ph, self.pw),
-                0.5,
-                dtype=self.dtype,
-                device=self.device
+                (1, 1, self.ph, self.pw), 0.5, dtype=self.dtype, device=self.device
             )
         else:
             self.dummyTimeStep = torch.zeros(
@@ -487,23 +514,27 @@ class RifeTensorRT:
                 ],
                 dim=0,
             )
-        
+
         self.dummyOutput = torch.zeros(
             (self.height, self.width, 3),
             device=self.device,
             dtype=self.dtype,
         )
 
-        self.f1 = torch.zeros(
-            1,
-            8,
-            self.ph,
-            self.pw,
-            dtype=self.dtype,
-            device=self.device,
-        )
+        self.tensors = [
+            self.I0,
+            self.I1,
+            self.dummyTimeStep,
+        ]
 
-        self.tensors = [self.I0, self.I1, self.dummyTimeStep, self.f0, self.dummyOutput, self.f1]
+        if self.norm is not None:
+            self.tensors.extend([self.f0])
+
+        self.tensors.extend([self.dummyOutput])
+
+        if self.norm is not None:
+            self.tensors.extend([self.f1])
+
         self.bindings = [tensor.data_ptr() for tensor in self.tensors]
 
         for i in range(self.engine.num_io_tensors):
@@ -512,7 +543,7 @@ class RifeTensorRT:
 
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.tensors[i].shape)
-            
+
         self.firstRun = True
 
     @torch.inference_mode()
@@ -528,13 +559,17 @@ class RifeTensorRT:
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
         self.I0.copy_(self.processFrame(frame), non_blocking=True)
-        self.f0.copy_(self.norm(self.processFrame(frame)), non_blocking=True)
+        if self.norm is not None:
+            self.f0.copy_(self.norm(self.processFrame(frame)), non_blocking=True)
 
     @torch.inference_mode()
     def __call__(self, frame, benchmark, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
-                self.f0.copy_(self.norm(self.processFrame(frame)), non_blocking=True)
+                if self.norm is not None:
+                    self.f0.copy_(
+                        self.norm(self.processFrame(frame)), non_blocking=True
+                    )
                 self.I0[:].copy_(self.processFrame(frame), non_blocking=True)
                 self.firstRun = False
                 return
@@ -543,7 +578,9 @@ class RifeTensorRT:
 
             for i in range(self.interpolateFactor - 1):
                 if self.interpolateFactor != 2:
-                    self.dummyTimeStep[:].copy_(self.dummyStepBatch[i], non_blocking=True)
+                    self.dummyTimeStep[:].copy_(
+                        self.dummyStepBatch[i], non_blocking=True
+                    )
 
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
 
@@ -551,8 +588,9 @@ class RifeTensorRT:
                     self.stream.synchronize()
                     writeBuffer.write(self.dummyOutput.cpu())
 
-            self.f0[:].copy_(self.f1, non_blocking=True)
             self.I0[:].copy_(self.I1, non_blocking=True)
+            if self.norm is not None:
+                self.f0[:].copy_(self.f1, non_blocking=True)
 
 
 class RifeNCNN:
