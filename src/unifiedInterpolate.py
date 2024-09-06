@@ -445,7 +445,7 @@ class RifeTensorRT:
                 [1, 3, self.ph, self.pw],
                 [1, 1, self.ph, self.pw],
             ]
-            
+
             if self.norm is not None:
                 inputs.append([1, 8, self.ph, self.pw])
 
