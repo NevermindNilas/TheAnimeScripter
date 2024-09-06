@@ -406,25 +406,37 @@ class RifeTensorRT:
             dummyInput3 = torch.zeros(
                 1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
             )
-            dummyInput4 = torch.zeros(
-                1, 8, self.ph, self.pw, dtype=self.dtype, device=self.device
-            )
+
+            if self.norm is not None:
+                dummyInput4 = torch.zeros(
+                    1, 8, self.ph, self.pw, dtype=self.dtype, device=self.device
+                )
 
             self.modelPath = self.modelPath.replace(".pth", ".onnx")
 
+            inputList = [dummyInput1, dummyInput2, dummyInput3]
+            inputNames = ["img0", "img1", "timestep"]
+            outputNames = ["output"]
+            dynamicAxes = {
+                "img0": {0: "batch", 2: "height", 3: "width"},
+                "img1": {0: "batch", 2: "height", 3: "width"},
+                "timestep": {0: "batch", 2: "height", 3: "width"},
+                "output": {1: "height", 2: "width"},
+            }
+
+            if self.norm is not None:
+                inputList.append(dummyInput4)
+                inputNames.append("f0")
+                outputNames.append("f1")
+                dynamicAxes["f0"] = {0: "batch", 2: "height", 3: "width"}
+
             torch.onnx.export(
                 self.model,
-                (dummyInput1, dummyInput2, dummyInput3, dummyInput4),
+                tuple(inputList),
                 self.modelPath,
-                input_names=["img0", "img1", "timestep", "f0"],
-                output_names=["output", "f1"],
-                dynamic_axes={
-                    "img0": {0: "batch", 2: "height", 3: "width"},
-                    "img1": {0: "batch", 2: "height", 3: "width"},
-                    "timestep": {0: "batch", 2: "height", 3: "width"},
-                    "output": {1: "height", 2: "width"},
-                    "f1": {0: "batch", 2: "height", 3: "width"},
-                },
+                input_names=inputNames,
+                output_names=outputNames,
+                dynamic_axes=dynamicAxes,
                 opset_version=19,
             )
 
@@ -432,8 +444,10 @@ class RifeTensorRT:
                 [1, 3, self.ph, self.pw],
                 [1, 3, self.ph, self.pw],
                 [1, 1, self.ph, self.pw],
-                [1, 8, self.ph, self.pw],
             ]
+            
+            if self.norm is not None:
+                inputs.append([1, 8, self.ph, self.pw])
 
             inputsMin = inputsOpt = inputsMax = inputs
 
