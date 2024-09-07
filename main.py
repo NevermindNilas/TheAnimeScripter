@@ -165,9 +165,7 @@ class VideoProcessor:
                         self.writeBuffer.write(frame)
                     self.interpolate_process.cacheFrameReset(frame)
                 else:
-                    self.interpolate_process(
-                        frame, self.benchmark, self.writeBuffer
-                    )
+                    self.interpolate_process(frame, self.benchmark, self.writeBuffer)
 
             if not self.benchmark:
                 self.writeBuffer.write(frame)
@@ -205,8 +203,8 @@ class VideoProcessor:
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
             logging.info(f"Deduplicated {self.dedupCount} frames")
-        if self.upscale_skip:
-            logging.info(f"Skipped {self.upscale_process.getSkippedCounter} frames")
+        # if self.upscale_skip:
+        #     logging.info(f"Skipped {self.upscale_process.getSkippedCounter} frames")
         if self.scenechange:
             logging.info(f"Detected {self.sceneChangeCounter} scene changes")
 
@@ -360,7 +358,9 @@ if __name__ == "__main__":
                     os.makedirs(outputFolder, exist_ok=True)
                     args.output = os.path.join(outputFolder, outputNameGenerator(args))
                 elif os.path.isdir(copyArgsOutput):
-                    args.output = os.path.join(copyArgsOutput, outputNameGenerator(args))
+                    args.output = os.path.join(
+                        copyArgsOutput, outputNameGenerator(args)
+                    )
 
                 print(green(f"Output File: {args.output}"))
                 VideoProcessor(args)

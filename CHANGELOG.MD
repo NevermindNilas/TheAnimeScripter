@@ -1,7 +1,7 @@
 
 # Change Log
 All notable changes to this project will be documented in this file.
- 
+
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## NOTES:
 - TAS Full is meant for NVIDIA users who want to benefit from CUDA and TensorRT Accelerations.
-- TAS Lite is meant for AMD / Intel users only. 
+- TAS Lite is meant for AMD / Intel users only.
 
 ## [1.9.6] - 2024-09-02
 
@@ -210,7 +210,7 @@ N/A
 - Depth Maps should now produce significantly better outputs compared to previous releases at a roughly 5x deduction in performance.
 - Made sure the output is now always clamped
 - `--ofline` can now be dynamically selected to download a specific model or list of models based on user selection. Use keyword `all` to download all of the available models.
-- The number of models have been drastically cut 
+- The number of models have been drastically cut
 - TensorRT Engine workflow should now be drastically more robust than previously with better edge case handling.
 - Revised documentation in Parameters.md
 - Through a few 'optimizations' in model downloads, the total weights folder should be ~1.5GB lower.
@@ -254,7 +254,7 @@ N/A
 - TAS Update popping up randomly at times and closing.
 
 ## [1.9.1] - 2024-07-30
- 
+
 ### The Anime Scripter
 
 #### New
@@ -278,7 +278,7 @@ N/A
 - Upgraded CUDA version from 12.1 -> 12.5.
 - Reformated and cleaned up the code.
 - `--help` should display a bit nicer now compared to previous releases and it should have more `helpers` added to them.
- 
+
 #### Fixed
 - Issue [43](https://github.com/NevermindNilas/TheAnimeScripter/issues/43).
 - Issue [41](https://github.com/NevermindNilas/TheAnimeScripter/issues/41).
