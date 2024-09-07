@@ -19,7 +19,7 @@ onnx
 colored
 vidgear
 flask
-tensorrt
+tensorrt==10.3.0
 tensorrt_cu12
 tensorrt-cu12-bindings
 tensorrt-cu12_libs
