@@ -10,7 +10,6 @@ spandrel
 yt-dlp
 requests
 alive-progress
-scikit-image
 scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning

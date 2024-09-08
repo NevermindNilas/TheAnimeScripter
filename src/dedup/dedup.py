@@ -63,11 +63,9 @@ class DedupSSIM:
         self.sampleSize = sampleSize
         self.prevFrame = None
 
-        from skimage import color
         from .ssimcpu import SSIM
 
         self.ssim = SSIM
-        self.color = color
 
     def __call__(self, frame):
         """
@@ -98,12 +96,6 @@ class DedupMSE:
         self.sampleSize = sampleSize
         self.prevFrame = None
 
-        from skimage.metrics import mean_squared_error as mse
-        from skimage import color
-
-        self.mse = mse
-        self.color = color
-
     def __call__(self, frame):
         """
         Returns True if the frames are duplicates
@@ -113,16 +105,14 @@ class DedupMSE:
             return False
 
         frame = self.processFrame(frame)
+        score = ((self.prevFrame - frame) ** 2).mean(axis=1).mean()
 
-        score = self.mse(self.prevFrame, frame)
         self.prevFrame = frame.copy()
 
         return score < self.mseThreshold
 
     def processFrame(self, frame):
-        return self.color.rgb2gray(
-            np.resize(frame.cpu().numpy(), (self.sampleSize, self.sampleSize, 3))
-        )
+        return np.resize(frame.cpu().numpy(), (self.sampleSize, self.sampleSize, 3))
 
 
 class DedupMSSSIMCuda:
