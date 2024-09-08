@@ -11,9 +11,10 @@ from src.ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red
 from rich_argparse import RichHelpFormatter
+from .version import __version__ as version
 
 
-def createParser(isFrozen, scriptVersion, mainPath, outputPath):
+def createParser(isFrozen, mainPath, outputPath):
     argParser = argparse.ArgumentParser(
         description="The Anime Scripter CLI Tool",
         usage="main.py [options]" if not isFrozen else "main.exe [options]",
@@ -22,7 +23,7 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
 
     # Basic options
     generalGroup = argParser.add_argument_group("General")
-    generalGroup.add_argument("--version", action="version", version=f"{scriptVersion}")
+    generalGroup.add_argument("--version", action="version", version=version)
     generalGroup.add_argument("--input", type=str, help="Input video file")
     generalGroup.add_argument("--output", type=str, help="Output video file")
     generalGroup.add_argument(
@@ -36,6 +37,19 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
     )
     generalGroup.add_argument(
         "--hide_banner", action="store_true", help="Hide the TAS banner"
+    )
+
+    # Preset Configuration options
+    presetGroup = argParser.add_argument_group("Preset Configuration")
+    presetGroup.add_argument(
+        "--preset",
+        type=str,
+        help="Create and use a preset configuration file based on the current arguments",
+    )
+    presetGroup.add_argument(
+        "--list_presets",
+        action="store_true",
+        help="List all available presets",
     )
 
     # Performance options
@@ -380,12 +394,19 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
        _______\/\\\_______\/\\\_______\/\\\_\///\\\\\\\\\\\/___
         _______\///________\///________\///____\///////////_____
 """
+    if args.list_presets:
+        from src.presetLogic import listPresets
+
+        listPresets(mainPath)
+        sys.exit()
+
+    if args.preset:
+        from src.presetLogic import createPreset
+
+        args = createPreset(args, mainPath)
 
     if not args.benchmark and not args.hide_banner:
         print(red(banner))
-
-    args.sharpen_sens /= 100
-    args.autoclip_sens = 100 - args.autoclip_sens
 
     logging.info("============== Arguments ==============")
 
@@ -403,6 +424,9 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
 
     logging.info("\n============== Arguments Checker ==============")
     args.ffmpeg_path = getFFMPEG()
+
+    args.sharpen_sens /= 100
+    args.autoclip_sens = 100 - args.autoclip_sens
 
     if args.offline != "none":
         toPrint = "Offline mode enabled, downloading all available models, this can take some time but it will allow for the script to be used offline"

@@ -33,7 +33,6 @@ from src.initializeModels import initializeModels, Segment, Depth, Stabilize, Au
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
-from src.version import __version__
 
 if platform.system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
@@ -290,7 +289,7 @@ if __name__ == "__main__":
     logging.info("============== Command Line Arguments ==============")
     logging.info(f"{' '.join(sys.argv)}\n")
 
-    args = createParser(isFrozen, __version__, mainPath, outputPath)
+    args = createParser(isFrozen, mainPath, outputPath)
 
     if os.path.isfile(args.input) and not args.input.endswith(".txt"):
         print(green(f"Processing {args.input}"))
