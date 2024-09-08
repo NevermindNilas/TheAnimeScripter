@@ -26,14 +26,14 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ## Command-Line Arguments
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--version` | flag | - | Outputs the script version |
-| `--benchmark` | flag | - | Enable benchmarking (no video output, performance testing only) |
-| `--offline` | str | "none" | Download models based on user selection |
-| `--ae` | flag | False | Indicates if the script is run from the After Effects interface |
-| `--preview` | flag | False | Enable previewing the process |
-| `--hide_banner` | flag | False | Hide TAS' Banner when processing |
+| Argument        | Type | Default | Description                                                     |
+|-----------------|------|---------|-----------------------------------------------------------------|
+| `--version`     | flag | -       | Outputs the script version                                      |
+| `--benchmark`   | flag | -       | Enable benchmarking (no video output, performance testing only) |
+| `--offline`     | str  | "none"  | Download models based on user selection                         |
+| `--ae`          | flag | False   | Indicates if the script is run from the After Effects interface |
+| `--preview`     | flag | False   | Enable previewing the process                                   |
+| `--hide_banner` | flag | False   | Hide TAS' Banner when processing                                |
 
 ### Offline Mode Options
 - `"none"`: Default state, does not download anything
@@ -41,13 +41,23 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - Single Option (e.g., `"rife4.20"`): Downloads the specified model
 - Multiple Options (e.g., `"rife4.20 rife4.18 shufflecugan-tensorrt"`): Downloads the specified models
 
+## Preset Arguments
+
+| Argument        | Type   | Default | Description                                                                                           |
+|-----------------|--------|---------|-------------------------------------------------------------------------------------------------------|
+| `--preset`      | string | -       | A new and semi-baked in preset configuration system with reusability in mind.                         |
+| `--preset_list` | flag   | False   | Prints all of the available presets; this comes with a forced full exit of the script after execution |
+
+**Usage:** `--preset {name}` will allow for all of the arguments declared within the initial system arguments to be saved inside a JSON file and then reused.
+
+**Note:** This lacks an updating/removal system for now, so it's a one-off.
 ## Input and Output
 
-| Argument  | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `--input` | str  | -       | Absolute path of the input video(s). Multiple paths should be separated by semicolons (`;`). |
-| `--output` | str | -       | Output string or absolute path for the processed video |
-| `--audio` | flag | -       | Enable audio processing |
+| Argument   | Type | Default | Description                                                                                  |
+|------------|------|---------|----------------------------------------------------------------------------------------------|
+| `--input`  | str  | -       | Absolute path of the input video(s). Multiple paths should be separated by semicolons (`;`). |
+| `--output` | str  | -       | Output string or absolute path for the processed video                                       |
+| `--audio`  | flag | -       | Enable audio processing                                                                      |
 
 - **NOTE:** `--input` supports `(".mp4", ".mkv", ".mov", ".avi", ".webm")` containers as well as `.txt`, inputs in `.txt` should be separated by a new line.
 
@@ -57,7 +67,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ```sh
 --input "G:\TheAnimeScripter\input.mp4;G:\TheAnimeScripter\input - Copy.mp4"
 
-# Or if the input is a txt, this is how the process should look like 
+# Or if the input is a txt, this is how the process should look like
 --input "G:\TheAnimeScripter\test.txt"
 
 # Contents of TXT:
@@ -68,13 +78,13 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ### Upscaling
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--upscale` | flag | - | Enable upscaling |
-| `--upscale_factor` | int | 2 | Factor for upscaling |
-| `--upscale_method` | str | "ShuffleCugan" | Upscaling method |
-| `--custom_model` | str | "" | Path to a custom model file (.pth or .onnx) |
-| `--upscale_skip` | flag | - | Skip processing duplicates for faster perceived upscaling |
+| Argument           | Type | Default        | Description                                               |
+|--------------------|------|----------------|-----------------------------------------------------------|
+| `--upscale`        | flag | -              | Enable upscaling                                          |
+| `--upscale_factor` | int  | 2              | Factor for upscaling                                      |
+| `--upscale_method` | str  | "ShuffleCugan" | Upscaling method                                          |
+| `--custom_model`   | str  | ""             | Path to a custom model file (.pth or .onnx)               |
+| `--upscale_skip`   | flag | -              | Skip processing duplicates for faster perceived upscaling |
 
 #### Upscale Methods
 - `"shufflecugan"` / `"shufflecugan-tensorrt"`
@@ -85,12 +95,12 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ### Interpolation
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--interpolate` | flag | - | Enable interpolation |
-| `--interpolate_factor` | int | 2 | Factor for interpolation |
-| `--interpolate_method` | str | "rife" | Interpolation method |
-| `--ensemble` | flag | - | Activate Ensemble for higher quality Rife outputs |
+| Argument               | Type | Default | Description                                       |
+|------------------------|------|---------|---------------------------------------------------|
+| `--interpolate`        | flag | -       | Enable interpolation                              |
+| `--interpolate_factor` | int  | 2       | Factor for interpolation                          |
+| `--interpolate_method` | str  | "rife"  | Interpolation method                              |
+| `--ensemble`           | flag | -       | Activate Ensemble for higher quality Rife outputs |
 
 #### Interpolate Methods
 - `"rife4.6"` / `"rife4.6-ncnn"` / `"rife4.6-tensorrt"`
@@ -101,15 +111,15 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `"rife4.20"` / `"rife4.20-tensorrt"` / `"rife4.20-ncnn"`
 - `"rife4.21"` / `"rife4.21-tensorrt"` / `"rife4.21-ncnn"`
 - `"rife4.22"` / `"rife4.22-tensorrt"` / `"rife4.22-ncnn"`
-- `"rife4.22-lite"` / `"rife4.22-lite-tensorrt"` / `"rife4.22-lite-ncnn"` 
+- `"rife4.22-lite"` / `"rife4.22-lite-tensorrt"` / `"rife4.22-lite-ncnn"`
 
 ### Scene Change Detection
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--scenechange` | flag | False | Enable scene change detection |
-| `--scenechange_sens` | float | 50 | Sensitivity of scene change detection (0.80 - 0.90) |
-| `--scenechange_method` | str | "maxxvit-directml" | Scene change detection method |
+| Argument               | Type  | Default            | Description                                         |
+|------------------------|-------|--------------------|-----------------------------------------------------|
+| `--scenechange`        | flag  | False              | Enable scene change detection                       |
+| `--scenechange_sens`   | float | 50                 | Sensitivity of scene change detection (0.80 - 0.90) |
+| `--scenechange_method` | str   | "maxxvit-directml" | Scene change detection method                       |
 
 #### Scene Change Methods
 - `"maxxvit-directml"`
@@ -117,12 +127,12 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ### Deduplication
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--dedup` | flag | - | Enable deduplication |
-| `--dedup_method` | str | "ssim" | Deduplication method |
-| `--dedup_sens` | float | 50 | Sensitivity of deduplication |
-| `--sample_size` | int | 224 | Sample size for SSIM deduplication |
+| Argument         | Type  | Default | Description                        |
+|------------------|-------|---------|------------------------------------|
+| `--dedup`        | flag  | -       | Enable deduplication               |
+| `--dedup_method` | str   | "ssim"  | Deduplication method               |
+| `--dedup_sens`   | float | 50      | Sensitivity of deduplication       |
+| `--sample_size`  | int   | 224     | Sample size for SSIM deduplication |
 
 #### Dedup Methods
 - `"ffmpeg"`
@@ -132,10 +142,10 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ### Denoising
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--denoise` | flag | - | Enable denoising |
-| `--denoise_method` | str | "scunet" | Denoising model |
+| Argument           | Type | Default  | Description      |
+|--------------------|------|----------|------------------|
+| `--denoise`        | flag | -        | Enable denoising |
+| `--denoise_method` | str  | "scunet" | Denoising model  |
 
 #### Denoise Methods
 - `"scunet"`
@@ -145,17 +155,17 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ### Sharpening
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--sharpen` | flag | - | Enable sharpening |
-| `--sharpen_sens` | float | 50 | Sensitivity of sharpening |
+| Argument         | Type  | Default | Description               |
+|------------------|-------|---------|---------------------------|
+| `--sharpen`      | flag  | -       | Enable sharpening         |
+| `--sharpen_sens` | float | 50      | Sensitivity of sharpening |
 
 ### Segmentation
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--segment` | flag | - | Enable segmentation |
-| `--segment_method` | str | "anime" | Segmentation method |
+| Argument           | Type | Default | Description         |
+|--------------------|------|---------|---------------------|
+| `--segment`        | flag | -       | Enable segmentation |
+| `--segment_method` | str  | "anime" | Segmentation method |
 
 #### Segment Methods
 - `"anime"`
@@ -163,18 +173,18 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ### Auto Cut Clips Detection
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--autoclip` | flag | - | Enable auto cut clip detection |
-| `--autoclip_sens` | float | 40 | Sensitivity of auto cut clip detection |
+| Argument          | Type  | Default | Description                            |
+|-------------------|-------|---------|----------------------------------------|
+| `--autoclip`      | flag  | -       | Enable auto cut clip detection         |
+| `--autoclip_sens` | float | 40      | Sensitivity of auto cut clip detection |
 
 ### Depth Map Generation
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--depth` | flag | - | Generate depth maps |
-| `--depth_method` | str | "small" | Depth map generation method |
-| `--depth_quality` | str | "high" | Depth map generation quality |
+| Argument          | Type | Default | Description                  |
+|-------------------|------|---------|------------------------------|
+| `--depth`         | flag | -       | Generate depth maps          |
+| `--depth_method`  | str  | "small" | Depth map generation method  |
+| `--depth_quality` | str  | "high"  | Depth map generation quality |
 
 #### Depth Methods
 - `"small_v2"` / `"small_v2-tensorrt"` / `"small_v2-directml"`
@@ -183,17 +193,17 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 #### Depth Quality selection
 - `"low"` / `"high"`
-- Additional Notes: This is not reliable with TensorRT and should only be preferred if you own a low end GPU. 
+- Additional Notes: This is not reliable with TensorRT and should only be preferred if you own a low end GPU.
 
 
 
 ### Resizing
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--resize` | flag | - | Enable resizing |
-| `--resize_factor` | float | 2 | Factor for resizing (>1 for upscaling, <1 for downscaling) |
-| `--resize_method` | str | "bicubic" | Resizing method |
+| Argument          | Type  | Default   | Description                                                |
+|-------------------|-------|-----------|------------------------------------------------------------|
+| `--resize`        | flag  | -         | Enable resizing                                            |
+| `--resize_factor` | float | 2         | Factor for resizing (>1 for upscaling, <1 for downscaling) |
+| `--resize_method` | str   | "bicubic" | Resizing method                                            |
 
 #### Resize Methods
 - `"fast_bilinear"`, `"bilinear"`, `"bicubic"`, `"experimental"`, `"neighbor"`, `"area"`
@@ -201,10 +211,10 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ## Encoding Settings
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--encode_method` | str | "x264" | Encoding method |
-| `--custom_encoder` | str | "" | Custom FFmpeg encoding parameters |
+| Argument           | Type | Default | Description                       |
+|--------------------|------|---------|-----------------------------------|
+| `--encode_method`  | str  | "x264"  | Encoding method                   |
+| `--custom_encoder` | str  | ""      | Custom FFmpeg encoding parameters |
 
 ### Encode Methods
 - `"x264"`: libx264, preset veryfast, CRF 15
@@ -232,17 +242,17 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ## Video Stabilization
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--stabilize` | flag | - | Enable video stabilization |
+| Argument      | Type | Default | Description                |
+|---------------|------|---------|----------------------------|
+| `--stabilize` | flag | -       | Enable video stabilization |
 
 ## Performance Settings
 
-| Argument | Type | Default | Description |
-|----------|------|---------|-------------|
-| `--half` | flag | True | Enable FP16 for improved performance |
-| `--buffer_limit` | int | 50 | Set the limit for decoding and encoding buffers |
-| `--static` | flag | True | Force static engine generation and bypass the arbitrary set limitations of TAS |
+| Argument         | Type | Default | Description                                                                    |
+|------------------|------|---------|--------------------------------------------------------------------------------|
+| `--half`         | flag | True    | Enable FP16 for improved performance                                           |
+| `--buffer_limit` | int  | 50      | Set the limit for decoding and encoding buffers                                |
+| `--static`       | flag | True    | Force static engine generation and bypass the arbitrary set limitations of TAS |
 
 **Note**: Interpolation TRT, Depth TRT, Segment TRT all already are set to static engine generation due to set limitations within the models themselves.
 
@@ -300,5 +310,5 @@ When using the packaged `main.exe` file, replace `python .\main.py` with `main.e
 
 10. Upscale, Interpolate, Scenechange, x264_animation_10bit and 16bit workflow example:
    ```sh
-   python .\main.py --input https://www.youtube.com/watch?v=YRL74JmhVgk --upscale --upscale_method shufflecugan-tensorrt --interpolate --interpolate_method rife4.22-tensorrt --scenechange --scenechange_method maxxvit-tensorrt --encode_method x264_animation_10bit --bit_depth 16bit   
+   python .\main.py --input https://www.youtube.com/watch?v=YRL74JmhVgk --upscale --upscale_method shufflecugan-tensorrt --interpolate --interpolate_method rife4.22-tensorrt --scenechange --scenechange_method maxxvit-tensorrt --encode_method x264_animation_10bit --bit_depth 16bit
    ```
