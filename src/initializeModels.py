@@ -178,9 +178,9 @@ def initializeModels(self):
 
     if self.upscale:
         if self.upscale_skip:
-            from src.dedup.dedup import DedupSSIMCuda
+            from src.dedup.dedup import DedupSSIM
 
-            upscaleSkipProcess = DedupSSIMCuda(
+            upscaleSkipProcess = DedupSSIM(
                 0.995,
             )
 
