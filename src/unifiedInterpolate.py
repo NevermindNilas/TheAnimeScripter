@@ -274,7 +274,6 @@ class RifeTensorRT:
         self.half = half
         self.ensemble = ensemble
         self.model = None
-
         if self.width > 1920 and self.height > 1080:
             if self.half:
                 print(
@@ -459,7 +458,7 @@ class RifeTensorRT:
                 inputsMin=inputsMin,
                 inputsOpt=inputsOpt,
                 inputsMax=inputsMax,
-                inputName=["img0", "img1", "timestep"],
+                inputName=inputNames,
                 isMultiInput=True,
             )
 

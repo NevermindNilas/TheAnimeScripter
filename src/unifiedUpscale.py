@@ -102,7 +102,7 @@ class UniversalPytorch:
     def __call__(self, frame: torch.tensor) -> torch.tensor:
         with torch.cuda.stream(self.stream):
             if self.upscaleSkip is not None:
-                if self.upscaleSkip.run(frame):
+                if self.upscaleSkip(frame):
                     self.skippedCounter += 1
                     return self.prevFrame
 

@@ -10,13 +10,14 @@ from .getFFMPEG import getFFMPEG
 from src.ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red
+from rich_argparse import RichHelpFormatter
 
 
 def createParser(isFrozen, scriptVersion, mainPath, outputPath):
     argParser = argparse.ArgumentParser(
         description="The Anime Scripter CLI Tool",
         usage="main.py [options]" if not isFrozen else "main.exe [options]",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class=RichHelpFormatter,
     )
 
     # Basic options
@@ -43,7 +44,9 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
         "--half", type=bool, help="Use half precision for inference", default=True
     )
     performanceGroup.add_argument(
-        "--static", action="store_true", help="Force Static Mode engine generation for TensorRT"
+        "--static",
+        action="store_true",
+        help="Force Static Mode engine generation for TensorRT",
     )
 
     # Interpolation options
@@ -367,14 +370,14 @@ def createParser(isFrozen, scriptVersion, mainPath, outputPath):
 
 def argumentsChecker(args, mainPath, outputPath):
     banner = r"""
-__/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___        
- _\///////\\\/////____/\\\\\\\\\\\\\____/\\\/////////\\\_       
-  _______\/\\\________/\\\/////////\\\__\//\\\______\///__      
-   _______\/\\\_______\/\\\_______\/\\\___\////\\\_________     
-    _______\/\\\_______\/\\\\\\\\\\\\\\\______\////\\\______    
-     _______\/\\\_______\/\\\/////////\\\_________\////\\\___   
-      _______\/\\\_______\/\\\_______\/\\\__/\\\______\//\\\__  
-       _______\/\\\_______\/\\\_______\/\\\_\///\\\\\\\\\\\/___ 
+__/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
+ _\///////\\\/////____/\\\\\\\\\\\\\____/\\\/////////\\\_
+  _______\/\\\________/\\\/////////\\\__\//\\\______\///__
+   _______\/\\\_______\/\\\_______\/\\\___\////\\\_________
+    _______\/\\\_______\/\\\\\\\\\\\\\\\______\////\\\______
+     _______\/\\\_______\/\\\/////////\\\_________\////\\\___
+      _______\/\\\_______\/\\\_______\/\\\__/\\\______\//\\\__
+       _______\/\\\_______\/\\\_______\/\\\_\///\\\\\\\\\\\/___
         _______\///________\///________\///____\///////////_____
 """
 
@@ -388,10 +391,14 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
 
     argsDict = vars(args)
     for arg in argsDict:
-        if argsDict[arg] is None or argsDict[arg] in ["", "none"] or argsDict[arg] is False:
+        if (
+            argsDict[arg] is None
+            or argsDict[arg] in ["", "none"]
+            or argsDict[arg] is False
+        ):
             continue
         logging.info(f"{arg.upper()}: {argsDict[arg]}")
-    
+
     checkSystem()
 
     logging.info("\n============== Arguments Checker ==============")
@@ -510,7 +517,7 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         print(red(toPrint))
         sys.exit()
     elif args.input.startswith("http") or args.input.startswith("www"):
-            processURL(args, outputPath)
+        processURL(args, outputPath)
 
     elif args.input.endswith((".png", ".jpg", ".jpeg")):
         logging.info("Image input detected, disabling audio")
