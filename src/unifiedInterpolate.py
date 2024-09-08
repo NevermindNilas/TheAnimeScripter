@@ -583,17 +583,15 @@ class RifeTensorRT:
                     self.f0.copy_(
                         self.norm(self.processFrame(frame)), non_blocking=True
                     )
-                self.I0[:].copy_(self.processFrame(frame), non_blocking=True)
+                self.I0.copy_(self.processFrame(frame), non_blocking=True)
                 self.firstRun = False
                 return
 
-            self.I1[:].copy_(self.processFrame(frame), non_blocking=True)
+            self.I1.copy_(self.processFrame(frame), non_blocking=True)
 
             for i in range(self.interpolateFactor - 1):
                 if self.interpolateFactor != 2:
-                    self.dummyTimeStep[:].copy_(
-                        self.dummyStepBatch[i], non_blocking=True
-                    )
+                    self.dummyTimeStep.copy_(self.dummyStepBatch[i], non_blocking=True)
 
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
 
@@ -601,9 +599,9 @@ class RifeTensorRT:
                     self.stream.synchronize()
                     writeBuffer.write(self.dummyOutput.cpu())
 
-            self.I0[:].copy_(self.I1, non_blocking=True)
+            self.I0.copy_(self.I1, non_blocking=True)
             if self.norm is not None:
-                self.f0[:].copy_(self.f1, non_blocking=True)
+                self.f0.copy_(self.f1, non_blocking=True)
 
 
 class RifeNCNN:
