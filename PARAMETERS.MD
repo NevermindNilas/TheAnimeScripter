@@ -5,16 +5,16 @@
 2. [Command-Line Arguments](#command-line-arguments)
 3. [Input and Output](#input-and-output)
 4. [Processing Options](#processing-options)
-   - [Upscaling](#upscaling)
-   - [Interpolation](#interpolation)
-   - [Scene Change Detection](#scene-change-detection)
-   - [Deduplication](#deduplication)
-   - [Denoising](#denoising)
-   - [Sharpening](#sharpening)
-   - [Segmentation](#segmentation)
-   - [Auto Cut Clips Detection](#auto-cut-clips-detection)
-   - [Depth Map Generation](#depth-map-generation)
-   - [Resizing](#resizing)
+   - [4.1 Upscaling](#upscaling)
+   - [4.2 Interpolation](#interpolation)
+   - [4.3 Scene Change Detection](#scene-change-detection)
+   - [4.4 Deduplication](#deduplication)
+   - [4.5 Denoising](#denoising)
+   - [4.6 Sharpening](#sharpening)
+   - [4.7 Segmentation](#segmentation)
+   - [4.8 Auto Cut Clips Detection](#auto-cut-clips-detection)
+   - [4.9 Depth Map Generation](#depth-map-generation)
+   - [4.10 Resizing](#resizing)
 5. [Encoding Settings](#encoding-settings)
 6. [Video Stabilization](#video-stabilization)
 7. [Performance Settings](#performance-settings)
@@ -262,53 +262,103 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 When using the packaged `main.exe` file, replace `python .\main.py` with `main.exe` in the following examples.
 
-1. Enable upscaling with half precision mode (default):
+<h3>
+<details>
+<summary> 1. Enable upscaling </summary>
+
    ```sh
    python .\main.py --input .\input\test.mp4 --upscale
    ```
+</details>
+</h3>
 
-2. Enable interpolation with Rife 4.6:
+<h3>
+<details>
+<summary> 2. Enable interpolation with Rife 4.6:</summary>
+
    ```sh
    python .\main.py --input .\input\test.mp4 --interpolate --interpolate_method rife4.6
    ```
+</details>
+</h3>
 
-3. Enable upscaling and interpolation with custom models:
-   ```sh
-   python .\main.py --input .\input\test.mp4 --upscale --upscale_method superultracompact --interpolate --interpolate_method rife4.20
-   ```
+<h3>
+<details>
+<summary> 3. Enable upscaling and interpolation with custom models:</summary>
 
-4. Enable deduplication with custom sensitivity and method:
+```sh
+python .\main.py --input .\input\test.mp4 --upscale --upscale_method superultracompact --interpolate --interpolate_method rife4.20
+```
+</details>
+</h3>
+
+<h3>
+<details>
+<summary>4. Enable deduplication with custom sensitivity and method: </summary>
+
    ```sh
    python .\main.py --input .\input\test.mp4 --dedup --dedup_sens 60 --dedup_method ssim
    ```
+</details>
+<h3>
 
-5. Enable denoising using the NAFNet model:
+<h3>
+<details>
+<summary>5. Enable denoising using the NAFNet model:</summary>
+
    ```sh
    python .\main.py --input .\input\test.mp4 --denoise --denoise_method nafnet
    ```
+</details>
+</h3>
 
-6. Enable interpolation with scene change detection:
+<h3>
+<details>
+<summary>6. Enable interpolation with scene change detection: </summary>
+
    ```sh
    python .\main.py --input .\input\test.mp4 --interpolate --scenechange
    ```
+</details>
+</h3>
 
-7. Generate depth maps using the "large" method and 16-bit workflow:
+<h3>
+<details>
+<summary>7. Generate depth maps using the "large" method and 16-bit workflow:</summary>
+
    ```sh
    python .\main.py --input .\input\test.mp4 --depth --depth_method large_v2 --bit_depth 16bit
    ```
+</details>
+</h3>
 
-8. Download a YouTube video, upscale with Span-TensorRT, interpolate with Rife 4.17-TensorRT, and use scene change detection:
+<h3>
+<details>
+<summary>8. Download a YouTube video, upscale with Span-TensorRT, interpolate with Rife 4.17-TensorRT, and use scene change detection:</summary>
+
    ```sh
    python .\main.py --input https://www.youtube.com/watch?v=dQw4w9WgXcQ --upscale --upscale_method span-tensorrt --interpolate --interpolate_method rife4.17-tensorrt --scenechange
    ```
    (Replace the YouTube URL with the actual video URL you want to download)
+</details>
+</h3>
 
-9. Process video from second 8 to 17 with custom settings:
+<h3>
+<details>
+<summary>9. Process video from second 8 to 17 with custom settings:</summary>
+
    ```sh
    python .\main.py --input .\input\test.mp4 --inpoint 8 --outpoint 17 --upscale --upscale_method superultracompact-tensorrt --interpolate --interpolate_method rife4.20 --scenechange --scenechange_method maxxvit-tensorrt --custom_encoder "-c:v libsvtav1 -preset 8 -crf 30 -vf hqdn3d=1.5:1.5:6:6 -pix_fmt yuv420p"
    ```
+</details>
+</h3>
 
-10. Upscale, Interpolate, Scenechange, x264_animation_10bit and 16bit workflow example:
+<h3>
+<details>
+<summary>10. Upscale, Interpolate, Scenechange, x264_animation_10bit and 16bit workflow example:</summary>
+
    ```sh
    python .\main.py --input https://www.youtube.com/watch?v=YRL74JmhVgk --upscale --upscale_method shufflecugan-tensorrt --interpolate --interpolate_method rife4.22-tensorrt --scenechange --scenechange_method maxxvit-tensorrt --encode_method x264_animation_10bit --bit_depth 16bit
    ```
+</details>
+</h3>

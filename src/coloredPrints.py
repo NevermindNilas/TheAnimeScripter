@@ -26,6 +26,10 @@ def cyan(text):
     return "%s%s%s" % (fg("cyan"), text, attr("reset"))
 
 
+def lightBlue(text):
+    return "%s%s%s" % (fg("light_blue"), text, attr("reset"))
+
+
 def rainbow(text):
     colors = ["red", "yellow", "green", "blue", "magenta", "cyan"]
     coloredText = ""
