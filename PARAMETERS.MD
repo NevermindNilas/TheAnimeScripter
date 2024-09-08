@@ -15,16 +15,17 @@
    - [4.8 Auto Cut Clips Detection](#auto-cut-clips-detection)
    - [4.9 Depth Map Generation](#depth-map-generation)
    - [4.10 Resizing](#resizing)
+   - [4.11 Presets](#preset-arguments)
 5. [Encoding Settings](#encoding-settings)
 6. [Video Stabilization](#video-stabilization)
 7. [Performance Settings](#performance-settings)
 8. [Usage Examples](#usage-examples)
 
-## Overview
+## 1. Overview
 
 The Anime Scripter is a powerful tool for enhancing and manipulating videos with a wide range of options. It supports functionalities such as interpolation, upscaling, deduplication, denoising, sharpening, scene change detection, depth map generation, and more. Users can customize the processing pipeline to meet their specific requirements using a comprehensive set of parameters.
 
-## Command-Line Arguments
+## 2. Command-Line Arguments
 
 | Argument        | Type | Default | Description                                                     |
 |-----------------|------|---------|-----------------------------------------------------------------|
@@ -41,17 +42,8 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - Single Option (e.g., `"rife4.20"`): Downloads the specified model
 - Multiple Options (e.g., `"rife4.20 rife4.18 shufflecugan-tensorrt"`): Downloads the specified models
 
-## Preset Arguments
 
-| Argument        | Type   | Default | Description                                                                                           |
-|-----------------|--------|---------|-------------------------------------------------------------------------------------------------------|
-| `--preset`      | string | -       | A new and semi-baked in preset configuration system with reusability in mind.                         |
-| `--preset_list` | flag   | False   | Prints all of the available presets; this comes with a forced full exit of the script after execution |
-
-**Usage:** `--preset {name}` will allow for all of the arguments declared within the initial system arguments to be saved inside a JSON file and then reused.
-
-**Note:** This lacks an updating/removal system for now, so it's a one-off.
-## Input and Output
+## 3. Input and Output
 
 | Argument   | Type | Default | Description                                                                                  |
 |------------|------|---------|----------------------------------------------------------------------------------------------|
@@ -208,6 +200,17 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 #### Resize Methods
 - `"fast_bilinear"`, `"bilinear"`, `"bicubic"`, `"experimental"`, `"neighbor"`, `"area"`
 - `"bicublin"`, `"gauss"`, `"sinc"`, `"lanczos"`, `"spline"`, `"spline16"`, `"spline36"`, `"point"`
+
+## Preset Arguments
+
+| Argument        | Type   | Default | Description                                                                                           |
+|-----------------|--------|---------|-------------------------------------------------------------------------------------------------------|
+| `--preset`      | string | -       | A new and semi-baked in preset configuration system with reusability in mind.                         |
+| `--preset_list` | flag   | False   | Prints all of the available presets; this comes with a forced full exit of the script after execution |
+
+**Usage:** `--preset {name}` will allow for all of the arguments declared within the initial system arguments to be saved inside a JSON file and then reused.
+
+**Note:** This lacks an updating/removal system for now, so it's a one-off.
 
 ## Encoding Settings
 
