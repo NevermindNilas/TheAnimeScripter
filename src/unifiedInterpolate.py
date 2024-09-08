@@ -558,20 +558,38 @@ class RifeTensorRT:
                 self.context.set_input_shape(tensor_name, self.tensors[i].shape)
 
         self.firstRun = True
+        self.normalizationStream = torch.cuda.Stream()
 
     @torch.inference_mode()
-    def processFrame(self, frame):
-        return F.pad(
-            frame.to(dtype=self.dtype, non_blocking=True)
-            .mul(1 / 255.0)
-            .permute(2, 0, 1)
-            .unsqueeze(0),
-            self.padding,
-        )
+    def processFrame(self, frame, name=None):
+        if name == "I0":
+            with torch.cuda.stream(self.normalizationStream):
+                self.I0.copy_(
+                    F.pad(
+                        frame.to(dtype=self.dtype, non_blocking=True)
+                        .mul(1 / 255.0)
+                        .permute(2, 0, 1)
+                        .unsqueeze(0),
+                        self.padding,
+                    ),
+                    non_blocking=True,
+                )
+        else:
+            with torch.cuda.stream(self.normalizationStream):
+                self.I1.copy_(
+                    F.pad(
+                        frame.to(dtype=self.dtype, non_blocking=True)
+                        .mul(1 / 255.0)
+                        .permute(2, 0, 1)
+                        .unsqueeze(0),
+                        self.padding,
+                    ),
+                    non_blocking=True,
+                )
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
-        self.I0.copy_(self.processFrame(frame), non_blocking=True)
+        self.I0.copy_(self.processFrame(frame, "I0"), non_blocking=True)
         if self.norm is not None:
             self.f0.copy_(self.norm(self.processFrame(frame)), non_blocking=True)
 
@@ -581,14 +599,13 @@ class RifeTensorRT:
             if self.firstRun:
                 if self.norm is not None:
                     self.f0.copy_(
-                        self.norm(self.processFrame(frame)), non_blocking=True
+                        self.norm(self.processFrame(frame), "I0"), non_blocking=True
                     )
-                self.I0.copy_(self.processFrame(frame), non_blocking=True)
+                self.processFrame(frame, "I0")
                 self.firstRun = False
                 return
 
-            self.I1.copy_(self.processFrame(frame), non_blocking=True)
-
+            self.processFrame(frame, "I1")
             for i in range(self.interpolateFactor - 1):
                 if self.interpolateFactor != 2:
                     self.dummyTimeStep.copy_(self.dummyStepBatch[i], non_blocking=True)
