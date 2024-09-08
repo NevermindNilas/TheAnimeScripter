@@ -33,12 +33,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Rewrote some of the chain loop backend.
 - Dedup with SSIM-CUDA is now significantly faster.
 - Better import handling for Rife CUDA and Rife TRT.
+- SSIM CPU is now up to `2x` faster ( decode limited )
+- MSE CPU is now `15%` faster.
 
 #### Notes
 - The new Rife TensorRT backend comes with many advantages. TAS will now create `.onnx` models on the fly until `.engine` files are created, after which the `.onnx` files will be removed internally. This has the added benefit of reducing the overall weights folders by about 1GB since weights can be reused and generated if needed.
 
 #### Removals
-- TBA
+- `Scikit-Image` package.
 
 ## [1.9.7] - 2024-09-02
 

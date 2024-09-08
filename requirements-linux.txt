@@ -14,7 +14,6 @@ tensorrt==10.3.0
 tensorrt_cu12==10.3.0
 tensorrt-cu12-bindings==10.3.0
 tensorrt-cu12_libs==10.3.0
-scikit-image
 scenedetect[opencv]
 pytorch-lightning
 inquirer
