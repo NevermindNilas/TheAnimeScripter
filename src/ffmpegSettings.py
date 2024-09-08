@@ -355,7 +355,7 @@ class BuildBuffer:
 
     def read(self):
         """
-        Returns a numpy array in RGB format.
+        Returns a torch array in RGB format.
         """
         return self.readBuffer.get()
 
