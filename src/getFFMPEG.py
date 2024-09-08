@@ -15,9 +15,12 @@ if platform.system() == "Windows":
     FFMPEGURL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 else:
     mainPath = os.path.join(
-        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "TheAnimeScripter"
+        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+        "TheAnimeScripter",
     )
-    FFMPEGURL = "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+    FFMPEGURL = (
+        "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+    )
 
 os.makedirs(mainPath, exist_ok=True)
 
