@@ -562,30 +562,43 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame, name=None):
-        if name == "I0":
-            with torch.cuda.stream(self.normalizationStream):
-                self.I0.copy_(
-                    F.pad(
-                        frame.to(dtype=self.dtype, non_blocking=True)
-                        .mul(1 / 255.0)
-                        .permute(2, 0, 1)
-                        .unsqueeze(0),
-                        self.padding,
-                    ),
-                    non_blocking=True,
-                )
-        else:
-            with torch.cuda.stream(self.normalizationStream):
-                self.I1.copy_(
-                    F.pad(
-                        frame.to(dtype=self.dtype, non_blocking=True)
-                        .mul(1 / 255.0)
-                        .permute(2, 0, 1)
-                        .unsqueeze(0),
-                        self.padding,
-                    ),
-                    non_blocking=True,
-                )
+        with torch.cuda.stream(self.normalizationStream):
+            match name:
+                case "I0":
+                    self.I0.copy_(
+                        F.pad(
+                            frame.to(dtype=self.dtype, non_blocking=True)
+                            .mul(1 / 255.0)
+                            .permute(2, 0, 1)
+                            .unsqueeze(0),
+                            self.padding,
+                        ),
+                        non_blocking=True,
+                    )
+                case "I1":
+                    self.I1.copy_(
+                        F.pad(
+                            frame.to(dtype=self.dtype, non_blocking=True)
+                            .mul(1 / 255.0)
+                            .permute(2, 0, 1)
+                            .unsqueeze(0),
+                            self.padding,
+                        ),
+                        non_blocking=True,
+                    )
+                case "f0":
+                    self.f0.copy_(
+                        self.norm(
+                            F.pad(
+                                frame.to(dtype=self.dtype, non_blocking=True)
+                                .mul(1 / 255.0)
+                                .permute(2, 0, 1)
+                                .unsqueeze(0),
+                                self.padding,
+                            )
+                        ),
+                        non_blocking=True,
+                    )
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
@@ -595,30 +608,29 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def __call__(self, frame, benchmark, writeBuffer):
-        with torch.cuda.stream(self.stream):
-            if self.firstRun:
-                if self.norm is not None:
-                    self.f0.copy_(
-                        self.norm(self.processFrame(frame), "I0"), non_blocking=True
-                    )
-                self.processFrame(frame, "I0")
-                self.firstRun = False
-                return
-
-            self.processFrame(frame, "I1")
-            for i in range(self.interpolateFactor - 1):
-                if self.interpolateFactor != 2:
-                    self.dummyTimeStep.copy_(self.dummyStepBatch[i], non_blocking=True)
-
-                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-
-                if not benchmark:
-                    self.stream.synchronize()
-                    writeBuffer.write(self.dummyOutput.cpu())
-
-            self.I0.copy_(self.I1, non_blocking=True)
+        if self.firstRun:
             if self.norm is not None:
-                self.f0.copy_(self.f1, non_blocking=True)
+                self.f0.copy_(
+                    self.norm(self.processFrame(frame), "f0"), non_blocking=True
+                )
+            self.processFrame(frame, "I0")
+            self.firstRun = False
+            return
+
+        self.processFrame(frame, "I1")
+        for i in range(self.interpolateFactor - 1):
+            if self.interpolateFactor != 2:
+                self.dummyTimeStep.copy_(self.dummyStepBatch[i], non_blocking=True)
+
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+
+            if not benchmark:
+                self.stream.synchronize()
+                writeBuffer.write(self.dummyOutput.cpu())
+
+        self.I0.copy_(self.I1, non_blocking=True)
+        if self.norm is not None:
+            self.f0.copy_(self.f1, non_blocking=True)
 
 
 class RifeNCNN:
