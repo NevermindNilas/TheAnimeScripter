@@ -1,6 +1,6 @@
 import json
 import os
-from .coloredPrints import green, bold, red, blue
+from .coloredPrints import green, bold, green
 
 
 def createPreset(args, mainPath: str):
@@ -52,7 +52,7 @@ def listPresets(mainPath: str):
             return
 
         for presetName, presetValues in presets.items():
-            print(bold(blue(f"{presetName}:")))
+            print(bold(green(f"{presetName}:")))
             trueValues = [
                 key
                 for key, value in presetValues.items()
