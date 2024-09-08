@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Entire Rife TensorRT Interpolation backend remake. It is recommended to remove any rife4.x folders and engines and allow TAS to rebuild new ones.
 - TAS now has proper multi subtitle and audio support.
 - Added MS-SSIM-Cuda (WIP)
+- `--preset` & `--preset_list`: A new and semi-baked in preset configuration system with reusability in mind.
+
+  **Usage:** `--preset {name}` will allow for all of the arguments declared within the initial system arguments to be saved inside a JSON file and then reused multiple times.
+
+  **Note:** This lacks an updating/removal system for now, so it's a one-off.
+
+  **Preset list:** Simply prints the available presets with their enabled options.
 
 #### Improvements
 - Major improvements for Rife TensorRT; it is now up to 30% faster. TAS now has the fastest Rife implementation (to my knowledge & based on internal benchmarks).
