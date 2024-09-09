@@ -2,7 +2,7 @@ torch==2.4.1
 torchvision==0.19.1
 opencv-python-headless
 timm
-numpy==2.1.1
+numpy==1.26.4
 kornia
 scipy
 wmi
