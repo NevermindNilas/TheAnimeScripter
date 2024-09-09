@@ -76,6 +76,7 @@ class RifeCuda:
         ensemble=False,
         interpolateFactor=2,
         inputFPS=30,
+        interpolateSkip: bool | None = None,
     ):
         """
         Initialize the RIFE model
@@ -98,6 +99,7 @@ class RifeCuda:
         self.ensemble = ensemble
         self.interpolateFactor = interpolateFactor
         self.inputFPS = inputFPS
+        self.interpolateSkip = interpolateSkip
 
         if self.width > 1920 and self.height > 1080:
             self.scale = 0.5
@@ -172,6 +174,9 @@ class RifeCuda:
         self.firstRun = True
         self.stream = torch.cuda.Stream() if self.isCudaAvailable else None
 
+        if self.interpolateSkip is not None:
+            self.skippedCounter = 0
+
     @torch.inference_mode()
     def cacheFrame(self):
         self.I0.copy_(self.I1, non_blocking=True)
@@ -181,7 +186,8 @@ class RifeCuda:
     def cacheFrameReset(self, frame):
         self.I0.copy_(self.padFrame(self.processFrame(frame)), non_blocking=True)
         self.model.cacheReset(self.I0)
-        self.useI0AsSource = True
+        if self.interpolateSkip is not None:
+            self.interpolateSkip.reset()
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -628,17 +634,16 @@ class RifeTensorRT:
             self.firstRun = False
             return
 
-        self.processFrame(frame, "I1")
-
         if self.interpolateSkip is not None:
             if self.interpolateSkip(frame):
                 self.skippedCounter += 1
                 if not benchmark:
                     for _ in range(self.interpolateFactor - 1):
-                        print("writing skipped frame")
                         writeBuffer.write(frame)
+                self.I0.copy_(self.I1, non_blocking=True)
                 return
 
+        self.processFrame(frame, "I1")
         for i in range(self.interpolateFactor - 1):
             if self.interpolateFactor != 2:
                 self.dummyTimeStep.copy_(self.dummyStepBatch[i], non_blocking=True)
