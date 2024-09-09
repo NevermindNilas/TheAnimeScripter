@@ -27,7 +27,7 @@ class VideoDownloader:
         questions = [
             List(
                 "resolution",
-                message="Select the resolution you want to download (width x height), use up and down arrow keys to navigate and press enter to select:",
+                message="Select the resolution you want to download (width x height), use up and down arrow keys to navigate and press enter to select",
                 choices=[f"{w}x{h}" for w, h in resolutions],
             ),
         ]
