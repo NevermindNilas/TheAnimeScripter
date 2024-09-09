@@ -242,6 +242,7 @@ class RifeTensorRT:
         height: int = 0,
         half: bool = True,
         ensemble: bool = False,
+        interpolateSkip: bool | None = None,
     ):
         """
         Interpolates frames using TensorRT
@@ -274,6 +275,7 @@ class RifeTensorRT:
         self.half = half
         self.ensemble = ensemble
         self.model = None
+        self.interpolateSkip = interpolateSkip
         if self.width > 1920 and self.height > 1080:
             if self.half:
                 print(
@@ -560,6 +562,9 @@ class RifeTensorRT:
         self.firstRun = True
         self.normalizationStream = torch.cuda.Stream()
 
+        if self.interpolateSkip is not None:
+            self.skippedCounter = 0
+
     @torch.inference_mode()
     def processFrame(self, frame, name=None):
         with torch.cuda.stream(self.normalizationStream):
@@ -605,6 +610,8 @@ class RifeTensorRT:
         self.I0.copy_(self.processFrame(frame, "I0"), non_blocking=True)
         if self.norm is not None:
             self.f0.copy_(self.norm(self.processFrame(frame)), non_blocking=True)
+        if self.interpolateSkip is not None:
+            self.interpolateSkip.reset()
 
     @torch.inference_mode()
     def __call__(self, frame, benchmark, writeBuffer):
@@ -613,11 +620,23 @@ class RifeTensorRT:
                 self.f0.copy_(
                     self.norm(self.processFrame(frame), "f0"), non_blocking=True
                 )
+
             self.processFrame(frame, "I0")
+            if self.interpolateSkip is not None:
+                self.interpolateSkip(frame)
+
             self.firstRun = False
             return
 
         self.processFrame(frame, "I1")
+
+        if self.interpolateSkip is not None:
+            if self.interpolateSkip(frame):
+                self.skippedCounter += 1
+                for _ in range(self.interpolateFactor - 1):
+                    writeBuffer.write(frame)
+                return
+
         for i in range(self.interpolateFactor - 1):
             if self.interpolateFactor != 2:
                 self.dummyTimeStep.copy_(self.dummyStepBatch[i], non_blocking=True)
@@ -631,6 +650,9 @@ class RifeTensorRT:
         self.I0.copy_(self.I1, non_blocking=True)
         if self.norm is not None:
             self.f0.copy_(self.f1, non_blocking=True)
+
+    def getSkippedCounter(self):
+        return self.skippedCounter
 
 
 class RifeNCNN:
