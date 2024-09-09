@@ -501,18 +501,31 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         logging.info(
             "Upscale skip enabled, the script will skip frames that are upscaled to save time, this is far from perfect and can cause issues"
         )
+        if args.dedup:
+            logging.error(
+                "Upscale skip and dedup cannot be used together, disabling upscale skip to prevent issues"
+            )
+            args.upscale_skip = False
+        elif not args.upscale:
+            logging.error(
+                "Upscale skip is enabled but upscaling is not, disabling upscale skip"
+            )
+            args.upscale_skip = False
 
-    if args.upscale_skip and args.dedup:
-        logging.error(
-            "Upscale skip and dedup cannot be used together, disabling upscale skip to prevent issues"
+    if args.interpolate_skip:
+        logging.info(
+            "Interpolate skip enabled, the script will skip frames that are interpolated to save time, this is far from perfect and can cause issues"
         )
-        args.upscale_skip = False
-
-    if args.upscale_skip and not args.upscale:
-        logging.error(
-            "Upscale skip is enabled but upscaling is not, disabling upscale skip"
-        )
-        args.upscale_skip = False
+        if args.dedup:
+            logging.error(
+                "Interpolate skip and dedup cannot be used together, disabling interpolate skip to prevent issues"
+            )
+            args.interpolate_skip = False
+        elif not args.interpolate:
+            logging.error(
+                "Interpolate skip is enabled but interpolation is not, disabling interpolate skip"
+            )
+            args.interpolate_skip = False
 
     if args.bit_depth == "16bit" and args.segment:
         logging.error(
