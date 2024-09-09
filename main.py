@@ -102,6 +102,7 @@ class VideoProcessor:
         self.preview = args.preview
         self.forceStatic = args.static
         self.depth_quality = args.depth_quality
+        self.interpolate_skip = args.interpolate_skip
 
         self.width, self.height, self.fps, self.totalFrames, self.pixFMT = (
             getVideoMetadata(self.input, self.inpoint, self.outpoint)
@@ -202,8 +203,7 @@ class VideoProcessor:
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
             logging.info(f"Deduplicated {self.dedupCount} frames")
-        # if self.upscale_skip:
-        #     logging.info(f"Skipped {self.upscale_process.getSkippedCounter} frames")
+
         if self.scenechange:
             logging.info(f"Detected {self.sceneChangeCounter} scene changes")
 

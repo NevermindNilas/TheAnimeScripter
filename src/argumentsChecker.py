@@ -115,6 +115,11 @@ def createParser(isFrozen, mainPath, outputPath):
         action="store_true",
         help="Use the ensemble model for interpolation",
     )
+    interpolationGroup.add_argument(
+        "--interpolate_skip",
+        action="store_true",
+        help="Use SSIM to skip duplicate frames when interpolating",
+    )
 
     # Upscaling options
     upscaleGroup = argParser.add_argument_group("Upscaling")
@@ -163,7 +168,7 @@ def createParser(isFrozen, mainPath, outputPath):
     upscaleGroup.add_argument(
         "--upscale_skip",
         action="store_true",
-        help="Use SSIM / SSIM-CUDA to skip duplicate frames when upscaling",
+        help="Use SSIM to skip duplicate frames when upscaling",
     )
 
     # Deduplication options

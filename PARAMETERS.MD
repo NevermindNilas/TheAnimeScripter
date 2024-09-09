@@ -87,12 +87,13 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ### Interpolation
 
-| Argument               | Type | Default | Description                                       |
-|------------------------|------|---------|---------------------------------------------------|
-| `--interpolate`        | flag | -       | Enable interpolation                              |
-| `--interpolate_factor` | int  | 2       | Factor for interpolation                          |
-| `--interpolate_method` | str  | "rife"  | Interpolation method                              |
-| `--ensemble`           | flag | -       | Activate Ensemble for higher quality Rife outputs |
+| Argument               | Type | Default | Description                                                     |
+|------------------------|------|---------|-----------------------------------------------------------------|
+| `--interpolate`        | flag | -       | Enable interpolation                                            |
+| `--interpolate_factor` | int  | 2       | Factor for interpolation                                        |
+| `--interpolate_method` | str  | "rife"  | Interpolation method                                            |
+| `--ensemble`           | flag | -       | Activate Ensemble for higher quality Rife outputs               |
+| `--interpolate_skip`   | flag | -       | Enable duplicate frame skipping in order to improve performance |
 
 #### Interpolate Methods
 - `"rife4.6"` / `"rife4.6-ncnn"` / `"rife4.6-tensorrt"`

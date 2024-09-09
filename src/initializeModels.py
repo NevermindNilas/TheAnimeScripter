@@ -175,13 +175,14 @@ def initializeModels(self):
     dedup_process = None
     scenechange_process = None
     upscaleSkipProcess = None
+    interpolateSkipProcess = None
 
     if self.upscale:
         if self.upscale_skip:
             from src.dedup.dedup import DedupSSIM
 
             upscaleSkipProcess = DedupSSIM(
-                0.995,
+                0.999,
             )
 
         from src.unifiedUpscale import UniversalPytorch
@@ -268,6 +269,13 @@ def initializeModels(self):
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolate_factor, '.3f')}fps"
         )
 
+        if self.interpolate_skip:
+            from src.dedup.dedup import DedupSSIM
+
+            interpolateSkipProcess = DedupSSIM(
+                0.999,
+            )
+
         match self.interpolate_method:
             case (
                 "rife"
@@ -291,6 +299,7 @@ def initializeModels(self):
                     self.ensemble,
                     self.interpolate_factor,
                     self.fps,
+                    interpolateSkipProcess,
                 )
 
             case (
@@ -313,6 +322,7 @@ def initializeModels(self):
                     outputWidth,
                     outputHeight,
                     self.half,
+                    interpolateSkipProcess,
                 )
 
             case (
@@ -336,6 +346,7 @@ def initializeModels(self):
                     outputHeight,
                     self.half,
                     self.ensemble,
+                    interpolateSkipProcess,
                 )
 
     if self.denoise:

@@ -85,6 +85,9 @@ class DedupSSIM:
     def processFrame(self, frame):
         return np.resize(frame.cpu().numpy(), (self.sampleSize, self.sampleSize, 3))
 
+    def reset(self):
+        self.prevFrame = None
+
 
 class DedupMSE:
     def __init__(
