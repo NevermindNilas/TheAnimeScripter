@@ -460,12 +460,11 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
     if args.dedup:
         logging.info("Dedup is enabled, audio will be disabled")
         args.audio = False
-
-    if args.dedup_method in ["ssim", "ssim-cuda"]:
-        args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
-        logging.info(
-            f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
-        )
+        if args.dedup_method in ["ssim", "ssim-cuda"]:
+            args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
+            logging.info(
+                f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
+            )
 
     if args.scenechange_sens:
         if args.scenechange_method == [
