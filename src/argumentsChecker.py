@@ -466,7 +466,7 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
                 f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
             )
 
-    if args.scenechange_sens:
+    if args.scenechange:
         if args.scenechange_method == [
             "differential",
             "differential-tensorrt",
