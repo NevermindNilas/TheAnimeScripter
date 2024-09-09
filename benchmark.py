@@ -187,7 +187,7 @@ def parseSystemInfo():
 
 
 if __name__ == "__main__":
-    TIMESLEEP = 1
+    TIMESLEEP = 2
     CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
     TESTINGVERSION = "V4.3"
 
@@ -212,12 +212,12 @@ if __name__ == "__main__":
 
     interpolateMethods = [
         "rife4.6",
-        "rife4.20",
-        "rife4.22" "rife4.22-lite",
+        "rife4.22",
+        "rife4.22-lite",
         "rife4.6-ncnn",
-        "rife4.18-ncnn",
+        "rife4.22-lite-ncnn",
+        "rife4.22-ncnn",
         "rife4.6-tensorrt",
-        "rife4.20-tensorrt",
         "rife4.22-tensorrt",
         "rife4.22-lite-tensorrt",
     ]
@@ -274,9 +274,4 @@ if __name__ == "__main__":
     print(f"Using {' '.join(executor)} version {version}")
     print("Current working directory:", os.getcwd())
 
-    # Check if the executable exists
-    exe_path = os.path.abspath(executor[0])
-    if not os.path.exists(exe_path):
-        print(f"Error: The executable {exe_path} does not exist.")
-    else:
-        runAllBenchmarks(executor, version, inputVideo)
+    runAllBenchmarks(executor, version, inputVideo)
