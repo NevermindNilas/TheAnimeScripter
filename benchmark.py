@@ -10,7 +10,8 @@ if platform.system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
 else:
     mainPath = os.path.join(
-        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "TheAnimeScripter"
+        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+        "TheAnimeScripter",
     )
 
 if not os.path.exists(mainPath):
@@ -18,6 +19,7 @@ if not os.path.exists(mainPath):
 
 ffmpegLogPath = os.path.join(mainPath, "ffmpegLog.txt")
 logTxtPath = os.path.join(mainPath, "log.txt")
+
 
 def runAllBenchmarks(executor, version, inputVideo=None):
     print(
@@ -45,6 +47,7 @@ def runAllBenchmarks(executor, version, inputVideo=None):
             indent=4,
         )
 
+
 def getExe():
     if os.path.exists("main.exe"):
         version = subprocess.check_output(["main.exe", "--version"]).decode().strip()
@@ -52,14 +55,25 @@ def getExe():
     else:
         if platform.system() == "Linux":
             if os.path.exists("./main"):
-                version = subprocess.check_output(["./main", "--version"]).decode().strip()
+                version = (
+                    subprocess.check_output(["./main", "--version"]).decode().strip()
+                )
                 return ["./main"], version
             else:
-                version = subprocess.check_output(["python3.12", "main.py", "--version"]).decode().strip()
+                version = (
+                    subprocess.check_output(["python3.12", "main.py", "--version"])
+                    .decode()
+                    .strip()
+                )
                 return ["python3.12", "main.py"], version
         else:
-            version = subprocess.check_output(["python", "main.py", "--version"]).decode().strip()
+            version = (
+                subprocess.check_output(["python", "main.py", "--version"])
+                .decode()
+                .strip()
+            )
             return ["python", "main.py"], version
+
 
 def getClip(executor):
     print("Please select 1080p as the desired quality.")
@@ -68,17 +82,21 @@ def getClip(executor):
     subprocess.Popen(cmd, shell=False).wait()
     return os.path.abspath(outputPath)
 
+
 def runUpscaleBenchmark(inputVideo, executor):
     global currentTest
     results = {}
     for method in upscaleMethods:
         print(f"[{currentTest}/{TOTALTESTS}] {method} benchmark...")
         cmd = executor + [
-            "--input", inputVideo,
+            "--input",
+            inputVideo,
             "--upscale",
-            "--upscale_method", method,
+            "--upscale_method",
+            method,
             "--benchmark",
-            "--outpoint", "16" if "-tensorrt" in method else "12"
+            "--outpoint",
+            "16" if "-tensorrt" in method else "12",
         ]
         print(f"Running command: {' '.join(cmd)}")  # Debugging line
         subprocess.run(cmd, check=True, cwd=os.path.dirname(os.path.abspath(__file__)))
@@ -90,6 +108,7 @@ def runUpscaleBenchmark(inputVideo, executor):
 
     return results
 
+
 def runInterpolateBenchmark(inputVideo, executor):
     global currentTest
     results = {}
@@ -98,10 +117,12 @@ def runInterpolateBenchmark(inputVideo, executor):
         currentTest += 1
 
         cmd = executor + [
-            "--input", inputVideo,
+            "--input",
+            inputVideo,
             "--interpolate",
-            "--interpolate_method", method,
-            "--benchmark"
+            "--interpolate_method",
+            method,
+            "--benchmark",
         ]
         print(f"Running command: {' '.join(cmd)}")  # Debugging line
         subprocess.run(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
@@ -116,12 +137,15 @@ def runInterpolateBenchmark(inputVideo, executor):
         currentTest += 1
 
         cmd = executor + [
-            "--input", inputVideo,
+            "--input",
+            inputVideo,
             "--interpolate",
-            "--interpolate_method", method,
+            "--interpolate_method",
+            method,
             "--benchmark",
             "--ensemble",
-            "--outpoint", "20"
+            "--outpoint",
+            "20",
         ]
         print(f"Running command: {' '.join(cmd)}")  # Debugging line
         subprocess.run(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
@@ -131,6 +155,7 @@ def runInterpolateBenchmark(inputVideo, executor):
         time.sleep(TIMESLEEP)
 
     return results
+
 
 def parseFPS():
     with open(ffmpegLogPath, "r") as file:
@@ -147,6 +172,7 @@ def parseFPS():
         print("Couldn't identify FPS value. Skipping...")
         return None
 
+
 def parseSystemInfo():
     systemInfo = {}
     with open(logTxtPath, "r") as file:
@@ -158,6 +184,7 @@ def parseSystemInfo():
                 key, value = line.strip().split(": ")
                 systemInfo[key] = value
     return systemInfo
+
 
 if __name__ == "__main__":
     TIMESLEEP = 1
@@ -186,10 +213,9 @@ if __name__ == "__main__":
     interpolateMethods = [
         "rife4.6",
         "rife4.20",
-        "rife4.22"
-        "rife4.22-lite",
+        "rife4.22" "rife4.22-lite",
         "rife4.6-ncnn",
-        "rife4.18-ncnn",        
+        "rife4.18-ncnn",
         "rife4.6-tensorrt",
         "rife4.20-tensorrt",
         "rife4.22-tensorrt",
@@ -203,16 +229,16 @@ if __name__ == "__main__":
     # Define the questions
     questions = [
         inquirer.List(
-            'GPUVENDOR',
+            "GPUVENDOR",
             message="Please select your GPU vendor",
             choices=["NVIDIA", "AMD", "Intel"],
         ),
     ]
-    
+
     # Ask the questions
     answers = inquirer.prompt(questions)
-    GPUVENDOR = answers['GPUVENDOR'].upper()
-    
+    GPUVENDOR = answers["GPUVENDOR"].upper()
+
     # Filter methods based on GPU vendor
     if GPUVENDOR == "NVIDIA":
         upscaleMethods = [
@@ -247,7 +273,7 @@ if __name__ == "__main__":
     print(f"Total models to benchmark: {TOTALTESTS}")
     print(f"Using {' '.join(executor)} version {version}")
     print("Current working directory:", os.getcwd())
-    
+
     # Check if the executable exists
     exe_path = os.path.abspath(executor[0])
     if not os.path.exists(exe_path):
