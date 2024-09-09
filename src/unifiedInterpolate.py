@@ -598,17 +598,12 @@ class RifeTensorRT:
                         non_blocking=True,
                     )
                 case "f0":
-                    self.f0.copy_(
-                        self.norm(
-                            F.pad(
-                                frame.to(dtype=self.dtype, non_blocking=True)
-                                .mul(1 / 255.0)
-                                .permute(2, 0, 1)
-                                .unsqueeze(0),
-                                self.padding,
-                            )
-                        ),
-                        non_blocking=True,
+                    return F.pad(
+                        frame.to(dtype=self.dtype, non_blocking=True)
+                        .mul(1 / 255.0)
+                        .permute(2, 0, 1)
+                        .unsqueeze(0),
+                        self.padding,
                     )
 
     @torch.inference_mode()
@@ -624,7 +619,7 @@ class RifeTensorRT:
         if self.firstRun:
             if self.norm is not None:
                 self.f0.copy_(
-                    self.norm(self.processFrame(frame), "f0"), non_blocking=True
+                    self.norm(self.processFrame(frame, "f0")), non_blocking=True
                 )
 
             self.processFrame(frame, "I0")
