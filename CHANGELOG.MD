@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   **Note:** This lacks an updating/removal system for now, so it's a one-off.
 
   **Preset list:** Simply prints the available presets with their enabled options.
+- New flag `--interpolate_skip` works similarly to how `--upscale_skip` works, where frames are skipped if they are near duplicates (SSIM >= 0.999). This is only recommended for Anime/Animation use cases, results show up to 50% faster inference speed on average.
 
 #### Improvements
 - Major improvements for Rife TensorRT; it is now up to 30% faster. TAS now has the fastest Rife implementation (to my knowledge & based on internal benchmarks).
