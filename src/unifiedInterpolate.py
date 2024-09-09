@@ -633,8 +633,10 @@ class RifeTensorRT:
         if self.interpolateSkip is not None:
             if self.interpolateSkip(frame):
                 self.skippedCounter += 1
-                for _ in range(self.interpolateFactor - 1):
-                    writeBuffer.write(frame)
+                if not benchmark:
+                    for _ in range(self.interpolateFactor - 1):
+                        print("writing skipped frame")
+                        writeBuffer.write(frame)
                 return
 
         for i in range(self.interpolateFactor - 1):
