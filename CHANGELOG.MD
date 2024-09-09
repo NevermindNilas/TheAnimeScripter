@@ -36,12 +36,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Better import handling for Rife CUDA and Rife TRT.
 - SSIM CPU is now up to `2x` faster ( decode limited )
 - MSE CPU is now `15%` faster.
-- Upgraded Numpy: `1.26.4` -> `2.1.1` for the increased performance in CPU heavy workloads.
 - Upgraded Torch: `2.3.1` -> `2.4.1` for the added performance benefits.
 
 #### Notes
 - The new Rife TensorRT backend comes with many advantages. TAS will now create `.onnx` models on the fly until `.engine` files are created, after which the `.onnx` files will be removed internally. This has the added benefit of reducing the overall weights folders by about 1GB since weights can be reused and generated if needed.
-- Currently TAS is heavily limited by it's decode speeds in most CPU heavy tasks and not only. I am looking to further improve it somehow, the switch from Numpy 1.26.4 has seen some regression in pure decode speed but other CPU heavy workloads like `Dedup-SSIM` has seen major improvements in exchange so I will bite the bullet.
+- Currently TAS is heavily limited by it's decode speeds in most CPU heavy tasks and not only. I am looking to further improve it somehow.
 
 #### Removals
 - `Scikit-Image` package.
