@@ -293,8 +293,8 @@ def initializeModels(self):
 
                 interpolate_process = RifeCuda(
                     self.half,
-                    outputWidth,
-                    outputHeight,
+                    self.width,
+                    self.height,
                     self.interpolate_method,
                     self.ensemble,
                     self.interpolate_factor,
@@ -342,8 +342,8 @@ def initializeModels(self):
                 interpolate_process = RifeTensorRT(
                     self.interpolate_method,
                     self.interpolate_factor,
-                    outputWidth,
-                    outputHeight,
+                    self.width,
+                    self.height,
                     self.half,
                     self.ensemble,
                     interpolateSkipProcess,
