@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 opencv-python-headless
 timm
 numpy==1.26.4

@@ -15,7 +15,7 @@ scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning
 inquirer
-onnx
+onnx==1.16.0
 colored
 vidgear
 flask
