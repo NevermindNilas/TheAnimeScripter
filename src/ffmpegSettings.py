@@ -32,6 +32,24 @@ else:
     outputPath = os.path.dirname(os.path.abspath(__file__))
 
 
+def checkForCudaWorkflow(verbose: bool = True) -> bool:
+    try:
+        isCudaAvailable = torch.cuda.is_available()
+    except Exception:
+        if verbose:
+            logging.info("Couldn't check for CUDA availability, defaulting to CPU")
+        isCudaAvailable = False
+
+    if isCudaAvailable:
+        if verbose:
+            logging.info("CUDA is available, defaulting to full CUDA workflow")
+    else:
+        if verbose:
+            logging.info("CUDA is not available, defaulting to CPU workflow")
+
+    return isCudaAvailable
+
+
 def matchEncoder(encode_method: str):
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
@@ -283,16 +301,7 @@ class BuildBuffer:
         if verbose:
             logging.info(f"Decoding options: {' '.join(map(str, command))}")
 
-        try:
-            self.isCudaAvailable = torch.cuda.is_available()
-        except Exception:
-            logging.info("Couldn't check for CUDA availability, defaulting to CPU")
-            self.isCudaAvailable = False
-
-        if self.isCudaAvailable:
-            logging.info("CUDA is available, defaulting to full CUDA workflow")
-        else:
-            logging.info("CUDA is not available, defaulting to CPU workflow")
+        self.isCudaAvailable = checkForCudaWorkflow(verbose=True)
 
         try:
             yPlane = self.width * self.height
