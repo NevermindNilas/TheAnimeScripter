@@ -212,7 +212,7 @@ class RifeCuda:
         )
 
     @torch.inference_mode()
-    def __call__(self, frame, benchmark, writeBuffer):
+    def __call__(self, frame, benchmark, interpQueue):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0 = self.padFrame(self.processFrame(frame))
@@ -234,7 +234,7 @@ class RifeCuda:
                 self.stream.synchronize()
 
                 if not benchmark:
-                    writeBuffer.write(output)
+                    interpQueue.put(output)
 
             self.cacheFrame()
 
@@ -567,6 +567,7 @@ class RifeTensorRT:
 
         self.firstRun = True
         self.normalizationStream = torch.cuda.Stream()
+        self.dataStream = torch.cuda.Stream()
 
         if self.interpolateSkip is not None:
             self.skippedCounter = 0
@@ -578,7 +579,9 @@ class RifeTensorRT:
                 case "I0":
                     self.I0.copy_(
                         F.pad(
-                            frame.to(dtype=self.dtype, non_blocking=True)
+                            frame.to(
+                                device=self.device, dtype=self.dtype, non_blocking=True
+                            )
                             .mul(1 / 255.0)
                             .permute(2, 0, 1)
                             .unsqueeze(0),
@@ -608,14 +611,14 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
-        self.I0.copy_(self.processFrame(frame, "I0"), non_blocking=True)
+        self.processFrame(frame, "I0")
         if self.norm is not None:
-            self.f0.copy_(self.norm(self.processFrame(frame)), non_blocking=True)
+            self.f0.copy_(self.norm(self.processFrame(frame, "f0")), non_blocking=True)
         if self.interpolateSkip is not None:
             self.interpolateSkip.reset()
 
     @torch.inference_mode()
-    def __call__(self, frame, benchmark, writeBuffer):
+    def __call__(self, frame, benchmark, interpQueue):
         if self.firstRun:
             if self.norm is not None:
                 self.f0.copy_(
@@ -635,7 +638,7 @@ class RifeTensorRT:
                 self.skippedCounter += 1
                 if not benchmark:
                     for _ in range(self.interpolateFactor - 1):
-                        writeBuffer.write(frame)
+                        interpQueue.put(frame)
                 self.I0.copy_(self.I1, non_blocking=True)
                 return
 
@@ -647,7 +650,7 @@ class RifeTensorRT:
             self.stream.synchronize()
 
             if not benchmark:
-                writeBuffer.write(self.dummyOutput.cpu())
+                interpQueue.put(self.dummyOutput.cpu())
 
         self.I0.copy_(self.I1, non_blocking=True)
         if self.norm is not None:

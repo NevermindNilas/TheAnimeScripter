@@ -33,6 +33,7 @@ from src.initializeModels import initializeModels, Segment, Depth, Stabilize, Au
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
+from queue import Queue
 
 if platform.system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
@@ -156,16 +157,39 @@ class VideoProcessor:
             if self.denoise:
                 frame = self.denoise_process(frame)
 
-            if self.upscale:
-                frame = self.upscale_process(frame)
-
             if self.interpolate:
                 if self.isSceneChange:
-                    for _ in range(self.interpolate_factor - 1):
-                        self.writeBuffer.write(frame)
                     self.interpolate_process.cacheFrameReset(frame)
                 else:
-                    self.interpolate_process(frame, self.benchmark, self.writeBuffer)
+                    self.interpolate_process(frame, self.benchmark, self.interpQueue)
+
+            if self.upscale:
+                if self.interpolate:
+                    if self.isSceneChange:
+                        frame = self.upscale_process(frame)
+                        for _ in range(self.interpolate_factor - 1):
+                            if not self.benchmark:
+                                self.writeBuffer.write(frame)
+                    else:
+                        while not self.interpQueue.empty():
+                            result = self.upscale_process(self.interpQueue.get())
+                            if not self.benchmark:
+                                self.writeBuffer.write(result)
+                        frame = self.upscale_process(frame)
+                else:
+                    frame = self.upscale_process(frame)
+
+            else:
+                if self.interpolate:
+                    if self.isSceneChange or not self.interpQueue.empty():
+                        for _ in range(self.interpolate_factor - 1):
+                            if not self.benchmark:
+                                frameToWrite = (
+                                    frame
+                                    if self.isSceneChange
+                                    else self.interpQueue.get()
+                                )
+                                self.writeBuffer.write(frameToWrite)
 
             if not self.benchmark:
                 self.writeBuffer.write(frame)
@@ -179,7 +203,8 @@ class VideoProcessor:
         self.isSceneChange = False
         self.sceneChangeCounter = 0
         increment = 1 if not self.interpolate else self.interpolate_factor
-
+        if self.interpolate:
+            self.interpQueue = Queue(maxsize=self.interpolate_factor)
         with alive_bar(
             total=self.totalFrames * increment,
             title="Processing Frame: ",
