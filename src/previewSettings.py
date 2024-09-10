@@ -10,8 +10,11 @@ from PIL import Image
 from concurrent.futures import ThreadPoolExecutor
 from .coloredPrints import green
 
+
 class Preview:
-    def __init__(self, localHost: str = "127.0.0.1", port: int = 5000, writeBuffer: Queue = None):
+    def __init__(
+        self, localHost: str = "127.0.0.1", port: int = 5000, writeBuffer: Queue = None
+    ):
         self.localHost = localHost
         self.port = port
         self.app = Flask(__name__)
@@ -19,8 +22,10 @@ class Preview:
         self.readQueue = Queue()
         self.app.add_url_rule("/frame", "getFrame", self.getFrame)
         self.app.add_url_rule("/lowFrame", "getFrameLowRes", self.getFrame)
-        self.app.add_url_rule("/stopServer", "stopServer", self.stopServer, methods=['GET'])
-        
+        self.app.add_url_rule(
+            "/stopServer", "stopServer", self.stopServer, methods=["GET"]
+        )
+
         self.executor = ThreadPoolExecutor(max_workers=1)
         self.frame: np.ndarray = None
         self.lastFrame: np.ndarray = None
@@ -47,26 +52,26 @@ class Preview:
             print(f"Error in getFrame: {e}")
             logging.error(f"Error in getFrame: {e}")
             return Response("Error while converting frame", status=500)
-        
+
     def getFrameLowRes(self):
         try:
             self.frame = self.writeBuffer.peek()
             if self.frame is not None:
                 self.lastFrame = self.frame
-    
+
             frameToUse = self.frame if self.frame is not None else self.lastFrame
-    
+
             if frameToUse is None:
                 return Response("No frame available", status=500)
-    
+
             imgMode = "L" if frameToUse.shape[2] == 1 else "RGB"
             img = Image.fromarray(frameToUse, imgMode)
-    
+
             newWidth = img.width // 4
             newHeight = img.height // 4
-    
+
             img = img.resize((newWidth, newHeight))
-    
+
             buf = io.BytesIO()
             img.save(buf, format="JPEG")
             buf.seek(0)
@@ -83,9 +88,9 @@ class Preview:
 
     def start(self):
         print(green(f"Starting preview server at http://{self.localHost}:{self.port}"))
-        os.environ['FLASK_ENV'] = 'production'
+        os.environ["FLASK_ENV"] = "production"
         self.app.logger.disabled = True
-        log = logging.getLogger('werkzeug')
+        log = logging.getLogger("werkzeug")
         log.setLevel(logging.ERROR)
         log.disabled = True
         self.app.run(host=self.localHost, port=self.port)
