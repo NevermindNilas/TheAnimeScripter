@@ -113,7 +113,7 @@ class UniversalPytorch:
                     dtype=torch.float16 if self.half else torch.float32,
                 )
                 .permute(2, 0, 1)
-                .unsqueeze_(0)
+                .unsqueeze(0)
                 .to(memory_format=torch.channels_last)
                 .mul(1 / 255)
             )
