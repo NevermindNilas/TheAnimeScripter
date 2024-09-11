@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   **Preset list:** Simply prints the available presets with their enabled options.
 
 #### Improvements
+- Upscale TRT should now be up to `10%` faster
 - Entire Rife TensorRT Interpolation backend remake. It is recommended to remove any rife4.x folders and engines and allow TAS to rebuild new ones.
 - New coroutines for CUDA detection to improve performance.
 - Decoupling of STDOUT from the main loop will now result in up to 50% performance gains for decoding. This should benefit all processes.

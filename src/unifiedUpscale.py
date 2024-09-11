@@ -5,7 +5,6 @@ import logging
 from spandrel import ImageModelDescriptor, ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
 
-# Apparently this can improve performance slightly
 torch.set_float32_matmul_precision("medium")
 
 

@@ -319,10 +319,10 @@ def initializeModels(self):
                 interpolate_process = RifeNCNN(
                     self.interpolate_method,
                     self.ensemble,
-                    outputWidth,
-                    outputHeight,
+                    self.width,
+                    self.height,
                     self.half,
-                    interpolateSkipProcess,
+                    self.interpolate_factor,
                 )
 
             case (
