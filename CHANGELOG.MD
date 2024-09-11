@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `--input` will now support:
   - `.txt` files with a list of videos
   - A full string with multiple videos: `"G:\TheAnimeScripter\input\input.mp4;G:\TheAnimeScripter\input\input.mp4"`
-- Entire Rife TensorRT Interpolation backend remake. It is recommended to remove any rife4.x folders and engines and allow TAS to rebuild new ones.
+- Interpolation will now work prior to upscaling in order to increase the output's quality and to be more VRAM friendly.
 - TAS now has proper multi subtitle and audio support.
 - Added MS-SSIM-Cuda (WIP)
 - `--preset` & `--preset_list`: A new and semi-baked in preset configuration system with reusability in mind.
@@ -23,24 +23,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   **Note:** This lacks an updating/removal system for now, so it's a one-off.
 
   **Preset list:** Simply prints the available presets with their enabled options.
-- New flag `--interpolate_skip` works similarly to how `--upscale_skip` works, where frames are skipped if they are near duplicates (SSIM >= 0.999). This is only recommended for Anime/Animation use cases, results show up to 50% faster inference speed on average.
 
 #### Improvements
-- Major improvements for Rife TensorRT; it is now up to 30% faster. TAS now has the fastest Rife implementation (to my knowledge & based on internal benchmarks).
+- Entire Rife TensorRT Interpolation backend remake. It is recommended to remove any rife4.x folders and engines and allow TAS to rebuild new ones.
 - New coroutines for CUDA detection to improve performance.
-- Decoupling of STDOUT from the main loop will now result in up to 50% performance gains for decoding. This should benefit all processes marginally.
+- Decoupling of STDOUT from the main loop will now result in up to 50% performance gains for decoding. This should benefit all processes.
 - Overall total model size is now significantly lower.
 - TensorRT Handler functionality has been improved tremendously and is now significantly more robust and feature-rich than before (this will come in handy in the future).
 - Rewrote some of the chain loop backend.
 - Dedup with SSIM-CUDA is now significantly faster.
-- Better import handling for Rife CUDA and Rife TRT.
 - SSIM CPU is now up to `2x` faster ( decode limited )
 - MSE CPU is now `15%` faster.
 - Upgraded Torch: `2.3.1` -> `2.4.1` for the added performance benefits.
 
 #### Notes
-- The new Rife TensorRT backend comes with many advantages. TAS will now create `.onnx` models on the fly until `.engine` files are created, after which the `.onnx` files will be removed internally. This has the added benefit of reducing the overall weights folders by about 1GB since weights can be reused and generated if needed.
-- Currently TAS is heavily limited by it's decode speeds in most CPU heavy tasks and not only. I am looking to further improve it somehow.
+- Currently TAS is heavily limited by it's decode speeds in most CPU heavy tasks and not only. I am looking to further improve it down the line.
 
 #### Removals
 - `Scikit-Image` package.
