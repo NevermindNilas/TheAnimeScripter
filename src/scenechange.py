@@ -87,13 +87,13 @@ class SceneChange:
 
         result = self.model.run(None, {"input": inputs})[0][0][0]
 
-        return (
-            result > self.sceneChangeThreshold
-        )
+        return result > self.sceneChangeThreshold
 
 
 class SceneChangeTensorRT:
-    def __init__(self, half, sceneChangeThreshold=0.85, sceneChangeMethod="scenechange-tensorrt"):
+    def __init__(
+        self, half, sceneChangeThreshold=0.85, sceneChangeMethod="scenechange-tensorrt"
+    ):
         self.half = half
         self.sceneChangeThreshold = sceneChangeThreshold
         self.sceneChangeMethod = sceneChangeMethod
@@ -136,7 +136,9 @@ class SceneChangeTensorRT:
             self.height = self.width = 256
 
         enginePath = self.TensorRTEngineNameHandler(
-            modelPath=self.modelPath, fp16=self.half, optInputShape=[0, 6, self.height, self.width]
+            modelPath=self.modelPath,
+            fp16=self.half,
+            optInputShape=[0, 6, self.height, self.width],
         )
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
@@ -184,7 +186,9 @@ class SceneChangeTensorRT:
                 self.stream.synchronize()
 
         self.I0 = None
-        self.I1 = torch.zeros((3, self.height, self.width), device=self.device, dtype=self.dType)
+        self.I1 = torch.zeros(
+            (3, self.height, self.width), device=self.device, dtype=self.dType
+        )
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -214,8 +218,9 @@ class SceneChangeTensorRT:
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.I0.copy_(self.I1, non_blocking=True)
             self.stream.synchronize()
+            result = self.dummyOutput[0][0].item()
 
-            return self.dummyOutput[0][0].item() > self.sceneChangeThreshold
+            return result > self.sceneChangeThreshold
 
 
 class SceneChangeCPU:
@@ -311,7 +316,9 @@ class DifferentialTensorRT:
             half=True,
         )
 
-        if not os.path.exists(os.path.join(weightsDir, "differential-tensorrt", filename)):
+        if not os.path.exists(
+            os.path.join(weightsDir, "differential-tensorrt", filename)
+        ):
             self.modelPath = downloadModels(
                 "differential-tensorrt",
                 half=True,
@@ -377,7 +384,9 @@ class DifferentialTensorRT:
                 self.stream.synchronize()
 
         self.I0 = None
-        self.I1 = torch.zeros((1, 6, self.height, self.width), device=self.device, dtype=self.dType)
+        self.I1 = torch.zeros(
+            (1, 6, self.height, self.width), device=self.device, dtype=self.dType
+        )
 
     @torch.inference_mode()
     def processFrame(self, frame):

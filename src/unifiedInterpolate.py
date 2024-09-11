@@ -1,69 +1,12 @@
 import os
 import torch
 import logging
-import math
 
 from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
 from .coloredPrints import yellow
 
 torch.set_float32_matmul_precision("medium")
-
-
-def importRifeArch(interpolateMethod, version):
-    match version:
-        case "v1":
-            match interpolateMethod:
-                case "rife4.22-lite":
-                    from .rifearches.IFNET_rife422lite import IFNet
-                case "rife" | "rife4.22":
-                    from .rifearches.IFNET_rife422 import IFNet
-                case "rife4.21":
-                    from .rifearches.IFNet_rife421 import IFNet
-                case "rife4.20":
-                    from .rifearches.IFNet_rife420 import IFNet
-                case "rife4.18":
-                    from .rifearches.IFNet_rife418 import IFNet
-                case "rife4.17":
-                    from .rifearches.IFNet_rife417 import IFNet
-                case "rife4.15-lite":
-                    from .rifearches.IFNet_rife415lite import IFNet
-                case "rife4.16-lite":
-                    from .rifearches.IFNet_rife416lite import IFNet
-                case "rife4.6":
-                    from .rifearches.IFNet_rife46 import IFNet
-            return IFNet
-
-        case "v2":
-            match interpolateMethod:
-                case "rife4.22-tensorrt":
-                    from src.rifearches.Rife422_v2 import IFNet
-                    from src.rifearches.Rife422_v2 import Head
-                case "rife4.22-lite-tensorrt":
-                    from src.rifearches.Rife422_lite_v2 import IFNet
-                    from src.rifearches.Rife422_lite_v2 import Head
-                case "rife4.21-tensorrt":
-                    from src.rifearches.Rife422_v2 import IFNet
-                    from src.rifearches.Rife422_v2 import Head
-                case "rife4.20-tensorrt":
-                    from src.rifearches.Rife420_v2 import IFNet
-                    from src.rifearches.Rife420_v2 import Head
-                case "rife4.18-tensorrt":
-                    from src.rifearches.Rife415_v2 import IFNet
-                    from src.rifearches.Rife415_v2 import Head
-                case "rife4.17-tensorrt":
-                    from src.rifearches.Rife415_v2 import IFNet
-                    from src.rifearches.Rife415_v2 import Head
-                case "rife4.15-tensorrt":
-                    from src.rifearches.Rife415_v2 import IFNet
-                    from src.rifearches.Rife415_v2 import Head
-                case "rife4.6-tensorrt":
-                    from src.rifearches.Rife46_v2 import IFNet
-
-            if interpolateMethod == "rife4.6-tensorrt":
-                return IFNet, None
-
-            return IFNet, Head
 
 
 class RifeCuda:
@@ -76,7 +19,7 @@ class RifeCuda:
         ensemble=False,
         interpolateFactor=2,
         inputFPS=30,
-        interpolateSkip: bool | None = None,
+        interpolateSkip=False,
     ):
         """
         Initialize the RIFE model
@@ -127,7 +70,26 @@ class RifeCuda:
         else:
             modelPath = os.path.join(weightsDir, "rife", self.filename)
 
-        IFNet = importRifeArch(self.interpolateMethod, "v1")
+        match self.interpolateMethod:
+            case "rife4.22-lite":
+                from .rifearches.IFNET_rife422lite import IFNet
+            case "rife" | "rife4.22":
+                from .rifearches.IFNET_rife422 import IFNet
+            case "rife4.21":
+                from .rifearches.IFNet_rife421 import IFNet
+            case "rife4.20":
+                from .rifearches.IFNet_rife420 import IFNet
+            case "rife4.18":
+                from .rifearches.IFNet_rife418 import IFNet
+            case "rife4.17":
+                from .rifearches.IFNet_rife417 import IFNet
+            case "rife4.15-lite":
+                from .rifearches.IFNet_rife415lite import IFNet
+            case "rife4.16-lite":
+                from .rifearches.IFNet_rife416lite import IFNet
+            case "rife4.6":
+                from .rifearches.IFNet_rife46 import IFNet
+
         self.model = IFNet(self.ensemble, self.scale, self.interpolateFactor)
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
@@ -174,9 +136,6 @@ class RifeCuda:
         self.firstRun = True
         self.stream = torch.cuda.Stream() if self.isCudaAvailable else None
 
-        if self.interpolateSkip is not None:
-            self.skippedCounter = 0
-
     @torch.inference_mode()
     def cacheFrame(self):
         self.I0.copy_(self.I1, non_blocking=True)
@@ -186,8 +145,7 @@ class RifeCuda:
     def cacheFrameReset(self, frame):
         self.I0.copy_(self.padFrame(self.processFrame(frame)), non_blocking=True)
         self.model.cacheReset(self.I0)
-        if self.interpolateSkip is not None:
-            self.interpolateSkip.reset()
+        self.useI0AsSource = True
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -212,7 +170,7 @@ class RifeCuda:
         )
 
     @torch.inference_mode()
-    def __call__(self, frame, benchmark, interpQueue):
+    def __call__(self, frame, benchmark, writeBuffer):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0 = self.padFrame(self.processFrame(frame))
@@ -234,7 +192,7 @@ class RifeCuda:
                 self.stream.synchronize()
 
                 if not benchmark:
-                    interpQueue.put(output)
+                    writeBuffer.write(output)
 
             self.cacheFrame()
 
@@ -281,7 +239,7 @@ class RifeTensorRT:
         self.half = half
         self.ensemble = ensemble
         self.model = None
-        self.interpolateSkip = interpolateSkip
+
         if self.width > 1920 and self.height > 1080:
             if self.half:
                 print(
@@ -293,49 +251,48 @@ class RifeTensorRT:
                     "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
                 )
                 self.half = False
+                self.UHD = True
+        else:
+            self.UHD = False
 
-        self.scale = 1.0
         self.handleModel()
 
     def handleModel(self):
-        self.device = torch.device("cuda")
-        torch.backends.cudnn.enabled = True
-        torch.backends.cudnn.benchmark = True
-        if self.half:
-            torch.set_default_dtype(torch.float16)
         self.filename = modelsMap(
-            self.interpolateMethod.replace("-tensorrt", ""),
-            modelType="pth",
+            self.interpolateMethod,
+            modelType="onnx",
             half=self.half,
             ensemble=self.ensemble,
         )
 
-        folderName = self.interpolateMethod.replace("-tensorrt", "")
+        folderName = self.interpolateMethod.replace("-tensorrt", "-onnx")
         if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
             self.modelPath = downloadModels(
-                model=self.interpolateMethod.replace("-tensorrt", ""),
-                modelType="pth",
+                model=self.interpolateMethod,
+                modelType="onnx",
                 half=self.half,
-                # ensemble=self.ensemble,
+                ensemble=self.ensemble,
             )
         else:
             self.modelPath = os.path.join(weightsDir, folderName, self.filename)
 
-        self.dtype = torch.float16 if self.half else torch.float32
-        tmp = max(32, int(32 / 1.0))
-        self.pw = math.ceil(self.width / tmp) * tmp
-        self.ph = math.ceil(self.height / tmp) * tmp
-        self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
+        self.isCudaAvailable = torch.cuda.is_available()
+        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
+        if self.isCudaAvailable:
+            torch.backends.cudnn.enabled = True
+            torch.backends.cudnn.benchmark = True
+            if self.half:
+                torch.set_default_dtype(torch.float16)
 
         enginePath = self.TensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
-            optInputShape=[1, 3, self.height, self.width],
-            ensemble=self.ensemble,
+            optInputShape=[1, 7, self.height, self.width],
         )
 
-        IFNet, Head = importRifeArch(self.interpolateMethod, "v2")
-        self.norm = Head().cuda() if Head is not None else None
+        inputsMin = [1, 7, self.height, self.width]
+        inputsOpt = [1, 7, self.height, self.width]
+        inputsMax = [1, 7, self.height, self.width]
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
         if (
@@ -343,121 +300,6 @@ class RifeTensorRT:
             or self.context is None
             or not os.path.exists(enginePath)
         ):
-            if self.interpolateMethod == "rife4.6-tensorrt":
-                self.tenFlow = torch.tensor(
-                    [(self.pw - 1.0) / 2.0, (self.ph - 1.0) / 2.0],
-                    dtype=self.dtype,
-                    device=self.device,
-                )
-                tenHorizontal = (
-                    torch.linspace(
-                        -1.0, 1.0, self.pw, dtype=self.dtype, device=self.device
-                    )
-                    .view(1, 1, 1, self.pw)
-                    .expand(-1, -1, self.ph, -1)
-                ).to(dtype=self.dtype, device=self.device)
-                tenVertical = (
-                    torch.linspace(
-                        -1.0, 1.0, self.ph, dtype=self.dtype, device=self.device
-                    )
-                    .view(1, 1, self.ph, 1)
-                    .expand(-1, -1, -1, self.pw)
-                ).to(dtype=self.dtype, device=self.device)
-                self.backWarp = torch.cat([tenHorizontal, tenVertical], 1)
-            else:
-                hMul = 2 / (self.pw - 1)
-                vMul = 2 / (self.ph - 1)
-                self.tenFlow = (
-                    torch.Tensor([hMul, vMul])
-                    .to(device=self.device, dtype=self.dtype)
-                    .reshape(1, 2, 1, 1)
-                )
-
-                self.backWarp = torch.cat(
-                    (
-                        (torch.arange(self.pw) * hMul - 1)
-                        .reshape(1, 1, 1, -1)
-                        .expand(-1, -1, self.ph, -1),
-                        (torch.arange(self.ph) * vMul - 1)
-                        .reshape(1, 1, -1, 1)
-                        .expand(-1, -1, -1, self.pw),
-                    ),
-                    dim=1,
-                ).to(device=self.device, dtype=self.dtype)
-
-            self.model = IFNet(
-                scale=self.scale,
-                ensemble=self.ensemble,
-                dtype=self.dtype,
-                device=self.device,
-                width=self.width,
-                height=self.height,
-                backWarp=self.backWarp,
-                tenFlow=self.tenFlow,
-            )
-
-            self.model.to(self.device)
-            if self.half:
-                self.model.half()
-            else:
-                self.model.float()
-
-            self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
-
-            dummyInput1 = torch.zeros(
-                1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
-            )
-            dummyInput2 = torch.zeros(
-                1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
-            )
-            dummyInput3 = torch.zeros(
-                1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
-            )
-
-            if self.norm is not None:
-                dummyInput4 = torch.zeros(
-                    1, 8, self.ph, self.pw, dtype=self.dtype, device=self.device
-                )
-
-            self.modelPath = self.modelPath.replace(".pth", ".onnx")
-
-            inputList = [dummyInput1, dummyInput2, dummyInput3]
-            inputNames = ["img0", "img1", "timestep"]
-            outputNames = ["output"]
-            dynamicAxes = {
-                "img0": {0: "batch", 2: "height", 3: "width"},
-                "img1": {0: "batch", 2: "height", 3: "width"},
-                "timestep": {0: "batch", 2: "height", 3: "width"},
-                "output": {1: "height", 2: "width"},
-            }
-
-            if self.norm is not None:
-                inputList.append(dummyInput4)
-                inputNames.append("f0")
-                outputNames.append("f1")
-                dynamicAxes["f0"] = {0: "batch", 2: "height", 3: "width"}
-
-            torch.onnx.export(
-                self.model,
-                tuple(inputList),
-                self.modelPath,
-                input_names=inputNames,
-                output_names=outputNames,
-                dynamic_axes=dynamicAxes,
-                opset_version=19,
-            )
-
-            inputs = [
-                [1, 3, self.ph, self.pw],
-                [1, 3, self.ph, self.pw],
-                [1, 1, self.ph, self.pw],
-            ]
-
-            if self.norm is not None:
-                inputs.append([1, 8, self.ph, self.pw])
-
-            inputsMin = inputsOpt = inputsMax = inputs
-
             logging.info("Loading engine failed, creating a new one")
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
@@ -466,198 +308,109 @@ class RifeTensorRT:
                 inputsMin=inputsMin,
                 inputsOpt=inputsOpt,
                 inputsMax=inputsMax,
-                inputName=inputNames,
-                isMultiInput=True,
             )
 
-            try:
-                os.remove(self.modelPath)
-            except Exception as e:
-                logging.error(f"Error removing onnx model: {e}")
-
-        self.dtype = torch.float16 if self.half else torch.float32
+        self.dType = torch.float16 if self.half else torch.float32
         self.stream = torch.cuda.Stream()
         self.I0 = torch.zeros(
             1,
             3,
-            self.ph,
-            self.pw,
-            dtype=self.dtype,
+            self.height,
+            self.width,
+            dtype=self.dType,
             device=self.device,
-        )
+        ).contiguous()
 
         self.I1 = torch.zeros(
             1,
             3,
-            self.ph,
-            self.pw,
-            dtype=self.dtype,
+            self.height,
+            self.width,
+            dtype=self.dType,
             device=self.device,
-        )
+        ).contiguous()
 
-        if self.norm is not None:
-            self.f0 = torch.zeros(
-                1,
-                8,
-                self.ph,
-                self.pw,
-                dtype=self.dtype,
-                device=self.device,
-            )
-
-            self.f1 = torch.zeros(
-                1,
-                8,
-                self.ph,
-                self.pw,
-                dtype=self.dtype,
-                device=self.device,
-            )
-
-        if self.interpolateFactor == 2:
-            self.dummyTimeStep = torch.full(
-                (1, 1, self.ph, self.pw), 0.5, dtype=self.dtype, device=self.device
-            )
-        else:
-            self.dummyTimeStep = torch.zeros(
-                1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
-            )
-
-            self.dummyStepBatch = torch.cat(
-                [
-                    torch.full(
-                        (1, 1, self.ph, self.pw),
-                        (i + 1) * 1 / self.interpolateFactor,
-                        dtype=self.dtype,
-                        device=self.device,
-                    )
-                    for i in range(self.interpolateFactor - 1)
-                ],
-                dim=0,
-            )
+        self.dummyInput = torch.empty(
+            (1, 7, self.height, self.width),
+            device=self.device,
+            dtype=self.dType,
+        ).contiguous()
 
         self.dummyOutput = torch.zeros(
-            (self.height, self.width, 3),
+            (1, 3, self.height, self.width),
             device=self.device,
-            dtype=self.dtype,
-        )
+            dtype=self.dType,
+        ).contiguous()
 
-        self.tensors = [
-            self.I0,
-            self.I1,
-            self.dummyTimeStep,
-        ]
-
-        if self.norm is not None:
-            self.tensors.extend([self.f0])
-
-        self.tensors.extend([self.dummyOutput])
-
-        if self.norm is not None:
-            self.tensors.extend([self.f1])
-
-        self.bindings = [tensor.data_ptr() for tensor in self.tensors]
+        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
 
         for i in range(self.engine.num_io_tensors):
+            self.context.set_tensor_address(
+                self.engine.get_tensor_name(i), self.bindings[i]
+            )
             tensor_name = self.engine.get_tensor_name(i)
-            self.context.set_tensor_address(tensor_name, self.bindings[i])
-
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
-                self.context.set_input_shape(tensor_name, self.tensors[i].shape)
+                self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
         self.firstRun = True
-        self.normalizationStream = torch.cuda.Stream()
-        self.dataStream = torch.cuda.Stream()
-
-        if self.interpolateSkip is not None:
-            self.skippedCounter = 0
+        self.useI0AsSource = True
 
     @torch.inference_mode()
-    def processFrame(self, frame, name=None):
-        with torch.cuda.stream(self.normalizationStream):
-            match name:
-                case "I0":
-                    self.I0.copy_(
-                        F.pad(
-                            frame.to(
-                                device=self.device, dtype=self.dtype, non_blocking=True
-                            )
-                            .mul(1 / 255.0)
-                            .permute(2, 0, 1)
-                            .unsqueeze(0),
-                            self.padding,
-                        ),
-                        non_blocking=True,
-                    )
-                case "I1":
-                    self.I1.copy_(
-                        F.pad(
-                            frame.to(dtype=self.dtype, non_blocking=True)
-                            .mul(1 / 255.0)
-                            .permute(2, 0, 1)
-                            .unsqueeze(0),
-                            self.padding,
-                        ),
-                        non_blocking=True,
-                    )
-                case "f0":
-                    return F.pad(
-                        frame.to(dtype=self.dtype, non_blocking=True)
-                        .mul(1 / 255.0)
-                        .permute(2, 0, 1)
-                        .unsqueeze(0),
-                        self.padding,
-                    )
+    def processFrame(self, frame):
+        return (
+            frame.to(
+                self.device,
+                non_blocking=True,
+                dtype=self.dType,
+            )
+            .permute(2, 0, 1)
+            .unsqueeze(0)
+            .mul(1 / 255)
+            .contiguous()
+        )
+
+    @torch.inference_mode()
+    def cacheFrame(self):
+        self.I0.copy_(self.I1, non_blocking=True)
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
-        self.processFrame(frame, "I0")
-        if self.norm is not None:
-            self.f0.copy_(self.norm(self.processFrame(frame, "f0")), non_blocking=True)
-        if self.interpolateSkip is not None:
-            self.interpolateSkip.reset()
+        self.I0.copy_(self.processFrame(frame), non_blocking=True)
+        self.useI0AsSource = True
 
     @torch.inference_mode()
     def __call__(self, frame, benchmark, interpQueue):
-        if self.firstRun:
-            if self.norm is not None:
-                self.f0.copy_(
-                    self.norm(self.processFrame(frame, "f0")), non_blocking=True
-                )
-
-            self.processFrame(frame, "I0")
-            if self.interpolateSkip is not None:
-                self.interpolateSkip(frame)
-
-            self.firstRun = False
-            return
-
-        self.processFrame(frame, "I1")
-        if self.interpolateSkip is not None:
-            if self.interpolateSkip(frame):
-                self.skippedCounter += 1
-                if not benchmark:
-                    for _ in range(self.interpolateFactor - 1):
-                        interpQueue.put(frame)
-                self.I0.copy_(self.I1, non_blocking=True)
+        with torch.cuda.stream(self.stream):
+            if self.firstRun:
+                self.I0.copy_(self.processFrame(frame), non_blocking=True)
+                self.firstRun = False
                 return
 
-        for i in range(self.interpolateFactor - 1):
-            if self.interpolateFactor != 2:
-                self.dummyTimeStep.copy_(self.dummyStepBatch[i], non_blocking=True)
+            source = self.I0 if self.useI0AsSource else self.I1
+            destination = self.I1 if self.useI0AsSource else self.I0
+            destination.copy_(self.processFrame(frame), non_blocking=True)
 
-            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-            self.stream.synchronize()
+            for i in range(self.interpolateFactor - 1):
+                timestep = torch.full(
+                    (1, 1, self.height, self.width),
+                    (i + 1) * 1 / self.interpolateFactor,
+                    dtype=self.dType,
+                    device=self.device,
+                ).contiguous()
 
-            if not benchmark:
-                interpQueue.put(self.dummyOutput.cpu())
+                self.dummyInput.copy_(
+                    torch.cat([source, destination, timestep], dim=1), non_blocking=True
+                ).contiguous()
+                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
 
-        self.I0.copy_(self.I1, non_blocking=True)
-        if self.norm is not None:
-            self.f0.copy_(self.f1, non_blocking=True)
+                self.stream.synchronize()
 
-    def getSkippedCounter(self):
-        return self.skippedCounter
+                if not benchmark:
+                    interpQueue.put(
+                        self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
+                    )
+
+            self.useI0AsSource = not self.useI0AsSource
 
 
 class RifeNCNN:
