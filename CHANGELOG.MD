@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - SSIM CPU is now up to `2x` faster ( decode limited )
 - MSE CPU is now `15%` faster.
 - Upgraded Torch: `2.3.1` -> `2.4.1` for the added performance benefits.
+- Linux lite builds should be significantly smaller now ( looking for testers & debuggers )
 
 #### Notes
 - Currently TAS is heavily limited by it's decode speeds in most CPU heavy tasks and not only. I am looking to further improve it down the line.
