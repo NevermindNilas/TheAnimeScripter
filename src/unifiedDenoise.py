@@ -5,9 +5,6 @@ import logging
 from spandrel import ModelLoader
 from .downloadModels import downloadModels, weightsDir, modelsMap
 
-# Apparently this can improve performance slightly
-torch.set_float32_matmul_precision("medium")
-
 
 class UnifiedDenoise:
     def __init__(
@@ -60,7 +57,7 @@ class UnifiedDenoise:
             self.dType = torch.float16
         else:
             self.dType = torch.float32
-            
+
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
         self.stream = torch.cuda.Stream()
 
