@@ -170,7 +170,7 @@ class RifeCuda:
         )
 
     @torch.inference_mode()
-    def __call__(self, frame, benchmark, writeBuffer):
+    def __call__(self, frame, benchmark, interpQueue):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0 = self.padFrame(self.processFrame(frame))
@@ -192,7 +192,7 @@ class RifeCuda:
                 self.stream.synchronize()
 
                 if not benchmark:
-                    writeBuffer.write(output)
+                    interpQueue.put(output)
 
             self.cacheFrame()
 
@@ -402,13 +402,11 @@ class RifeTensorRT:
                     torch.cat([source, destination, timestep], dim=1), non_blocking=True
                 ).contiguous()
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-
+                output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
                 self.stream.synchronize()
 
                 if not benchmark:
-                    interpQueue.put(
-                        self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
-                    )
+                    interpQueue.put(output)
 
             self.useI0AsSource = not self.useI0AsSource
 
@@ -492,7 +490,7 @@ class RifeNCNN:
     def cacheFrameReset(self, frame):
         self.frame1 = frame.cpu().numpy().astype("uint8")
 
-    def __call__(self, frame, benchmark, writeBuffer):
+    def __call__(self, frame, benchmark, interpQueue):
         if self.frame1 is None:
             self.frame1 = frame.cpu().numpy().astype("uint8")
             return False
@@ -504,6 +502,6 @@ class RifeNCNN:
             output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
             output = torch.from_numpy(output).to(frame.device)
             if not benchmark:
-                writeBuffer.write(output)
+                interpQueue.put(output)
 
         self.cacheFrame()
