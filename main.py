@@ -34,6 +34,7 @@ from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
 from queue import Queue
+from src.darken import darkenLines
 
 if platform.system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
@@ -148,6 +149,8 @@ class VideoProcessor:
                 if self.dedup_process(frame):
                     self.dedupCount += 1
                     return
+
+            # frame = darkenLines(frame)
 
             if self.scenechange:
                 self.isSceneChange = self.scenechange_process(frame)
