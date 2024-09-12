@@ -72,6 +72,25 @@ def Segment(self):
             self.totalFrames,
         )
 
+    elif self.segment_method == "cartoon":
+        from src.segment.cartoonSegment import CartoonSegment
+
+        CartoonSegment(
+            self.input,
+            self.output,
+            self.ffmpeg_path,
+            self.width,
+            self.height,
+            self.outputFPS,
+            self.inpoint,
+            self.outpoint,
+            self.encode_method,
+            self.custom_encoder,
+            self.buffer_limit,
+            self.benchmark,
+            self.totalFrames,
+        )
+
 
 def Depth(self):
     match self.depth_method:

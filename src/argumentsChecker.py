@@ -247,7 +247,7 @@ def createParser(isFrozen, mainPath, outputPath):
         "--segment_method",
         type=str,
         default="anime",
-        choices=["anime", "anime-tensorrt", "anime-directml"],
+        choices=["anime", "anime-tensorrt", "anime-directml", "cartoon"],
         help="Segmentation method",
     )
     sceneGroup.add_argument(
