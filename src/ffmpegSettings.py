@@ -37,6 +37,7 @@ def childProcessEncode(
             process.stdin.write(numpyArray[dataID].tobytes())
 
 
+"""
 def childProcessDecode(
     sharedArray,
     processQueue: MPQueue,
@@ -44,7 +45,6 @@ def childProcessDecode(
     command,
     width,
     height,
-    fps,
 ):
     numpyArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
         (workingFrames, *numpyShape)
@@ -59,6 +59,7 @@ def childProcessDecode(
             if dataID is None:
                 break
             process.stdin.write(numpyArray[dataID].tobytes())
+"""
 
 
 if platform.system() == "Windows":
