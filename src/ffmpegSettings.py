@@ -37,14 +37,28 @@ def childProcessEncode(
             process.stdin.write(numpyArray[dataID].tobytes())
 
 
-""" WILL BE ADDED IN THE FUTURE
 def childProcessDecode(
     sharedArray,
     processQueue: MPQueue,
     numpyShape,
     command,
+    width,
+    height,
+    fps,
 ):
-"""
+    numpyArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
+        (workingFrames, *numpyShape)
+    )
+    with subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    ) as process:
+        while True:
+            dataID = processQueue.get()
+            if dataID is None:
+                break
+            process.stdin.write(numpyArray[dataID].tobytes())
 
 
 if platform.system() == "Windows":
@@ -676,14 +690,21 @@ class WriteBuffer:
         self.latestFrame = None
         self.writeBuffer = queue if queue is not None else Queue(maxsize=500)
 
+        if self.grayscale:
+            channels = 1
+        elif self.transparent:
+            channels = 4
+        else:
+            channels = 3
+
         if verbose:
             logging.info(f"Encoding options: {' '.join(map(str, command))}")
 
         sharedArray = Array(
-            "b", int(workingFrames * np.prod([self.height, self.width, 3]))
+            "b", int(workingFrames * np.prod([self.height, self.width, channels]))
         )
         npArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
-            workingFrames, self.height, self.width, 3
+            workingFrames, self.height, self.width, channels
         )
         processQueue = MPQueue(maxsize=(workingFrames - 2))
         writtenFrames = 0
@@ -694,7 +715,7 @@ class WriteBuffer:
                 args=(
                     sharedArray,
                     processQueue,
-                    (self.height, self.width, 3),
+                    (self.height, self.width, channels),
                     command,
                 ),
             )

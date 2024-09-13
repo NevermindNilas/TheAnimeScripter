@@ -299,7 +299,8 @@ class VideoProcessor:
             with ThreadPoolExecutor(max_workers=4 if self.preview else 3) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
-                executor.submit(self.writeBuffer.start)
+                if self.benchmark:
+                    executor.submit(self.writeBuffer.start)
                 if self.preview:
                     executor.submit(self.preview.start)
 
