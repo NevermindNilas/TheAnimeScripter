@@ -413,6 +413,9 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
     if not args.benchmark and not args.hide_banner:
         print(red(banner))
 
+    logging.info("============== Version ==============")
+    logging.info(f"TAS: {version}\n")
+
     logging.info("============== Arguments ==============")
 
     argsDict = vars(args)
