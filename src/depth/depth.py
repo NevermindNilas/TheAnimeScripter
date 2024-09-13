@@ -203,7 +203,7 @@ class DepthV2:
             ).squeeze(0)
 
             depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-            self.writeBuffer.write(depth)
+            self.writeBuffer.write(depth.permute(1, 2, 0))
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -415,7 +415,7 @@ class DepthDirectMLV2:
             ).squeeze(0)
 
             depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255
-            self.writeBuffer.write(depth)
+            self.writeBuffer.write(depth.permute(1, 2, 0))
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -572,7 +572,7 @@ class DepthTensorRTV2:
                 inputsMin=[1, 3, self.newHeight, self.newWidth],
                 inputsOpt=[1, 3, self.newHeight, self.newWidth],
                 inputsMax=[1, 3, self.newHeight, self.newWidth],
-                inputName="image",
+                inputName=["image"],
             )
 
         self.stream = torch.cuda.Stream()
@@ -632,7 +632,7 @@ class DepthTensorRTV2:
                 align_corners=False,
             ).squeeze(0)
             depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255
-            self.writeBuffer.write(depth)
+            self.writeBuffer.write(depth.permute(1, 2, 0))
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 

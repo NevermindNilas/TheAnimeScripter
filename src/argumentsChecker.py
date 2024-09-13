@@ -545,6 +545,12 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
             args.preview = False
 
     if args.preview:
+        if args.benchmark:
+            logging.error(
+                "Preview is not supported with benchmarking, disabling preview"
+            )
+            args.preview = False
+
         logging.info(
             "Preview is enabled, the script will start a preview server to show the video during processing, this can have a signficant impact on performance"
         )
