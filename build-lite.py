@@ -7,6 +7,7 @@ distPath = baseDir / "dist-lite"
 venvPath = baseDir / "venv-lite"
 venvScripts = venvPath / "Scripts"
 
+
 def runSubprocess(command, shell=False):
     try:
         subprocess.run(command, shell=shell, check=True)
@@ -14,21 +15,28 @@ def runSubprocess(command, shell=False):
         print(f"Error while running command {command}: {e}")
         raise
 
+
 def createVenv():
     print("Creating the virtual environment...")
     runSubprocess(["python", "-m", "venv", str(venvPath)])
+
 
 def activateVenv():
     print("Activating the virtual environment...")
     runSubprocess(str(venvScripts / "activate"), shell=True)
 
+
 def installRequirements():
     print("Installing the requirements...")
-    runSubprocess([str(venvScripts / "pip3"), "install", "-r", "requirements-windows-lite.txt"])
+    runSubprocess(
+        [str(venvScripts / "pip3"), "install", "-r", "requirements-windows-lite.txt"]
+    )
+
 
 def installPyinstaller():
     print("Installing PyInstaller...")
     runSubprocess([str(venvScripts / "python"), "-m", "pip", "install", "pyinstaller"])
+
 
 def createExecutable():
     print("Creating executable with PyInstaller...")
@@ -94,6 +102,7 @@ def createExecutable():
 
     shutil.move(benchmarkExePath, mainExePath)
 
+
 def moveExtras():
     mainDir = distPath / "main"
     filesToCopy = ["LICENSE", "README.md", "README.txt"]
@@ -104,6 +113,7 @@ def moveExtras():
         except Exception as e:
             print(f"Error while copying {fileName}: {e}")
 
+
 def cleanUp():
     benchmarkFolder = distPath / "benchmark"
 
@@ -113,6 +123,7 @@ def cleanUp():
         print(f"Error while removing benchmark folder: {e}")
 
     print("Done! You can find the built executable in the dist-lite folder")
+
 
 if __name__ == "__main__":
     createVenv()
