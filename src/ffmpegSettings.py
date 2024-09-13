@@ -256,6 +256,8 @@ class BuildBuffer:
         """
         command = [
             self.ffmpegPath,
+            "-vsync",
+            "0",
         ]
 
         if self.outpoint != 0:
@@ -765,3 +767,12 @@ class WriteBuffer:
 
         except Exception as e:
             logging.error(f"An error occurred: {str(e)}")
+
+
+"""
+class FFMPEGPipe:
+    def __init__():
+        pass
+
+    def BuildBuffer(se)
+"""
