@@ -104,17 +104,13 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self.model.eval()
         self.model.to(self.device)
 
-    def get_mask(self, input_img: torch.Tensor) -> torch.Tensor:
+    def getMask(self, input_img: torch.Tensor) -> torch.Tensor:
         s = 1024
         h, w = h0, w0 = input_img.shape[:-1]
         h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
         ph, pw = s - h, s - w
         input_img = (
-            input_img.float()
-            .to(self.device)
-            .mul(1 / 255)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
+            input_img.float().to(self.device).mul(1 / 255).permute(2, 0, 1).unsqueeze(0)
         )
         img_input = F.interpolate(
             input_img,
@@ -138,8 +134,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            mask = self.get_mask(frame)
-            mask = torch.squeeze(mask, dim=2)
+            mask = torch.squeeze(self.getMask(frame), dim=2)
             frameWithmask = torch.cat((frame.to(self.device), mask.unsqueeze(2)), dim=2)
             self.writeBuffer.write(frameWithmask)
         except Exception as e:
@@ -162,7 +157,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self.writeBuffer.close()
 
 
-class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSegmentation but it's fine
+class AnimeSegmentTensorRT:
     def __init__(
         self,
         input,
@@ -262,7 +257,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
 
         enginePath = self.TensorRTEngineNameHandler(
             modelPath=self.modelPath,
-            fp16=self.half,
+            fp16=False,  # Setting this to false cuz fp16 results are really bad compared to fp32
             optInputShape=[
                 1,
                 3,
@@ -280,7 +275,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
-                fp16=self.half,
+                fp16=False,  # Setting this to false cuz fp16 results are really bad compared to fp32
                 inputsMin=[
                     1,
                     3,
@@ -299,7 +294,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
                     self.height + self.padHeight,
                     self.width + self.padWidth,
                 ],
-                inputName="input",
+                inputName=["input"],
             )
 
         self.stream = torch.cuda.Stream()
@@ -356,7 +351,7 @@ class AnimeSegmentTensorRT:  # A bit ambiguous because of .train import AnimeSeg
                 ]
 
                 self.writeBuffer.write(
-                    frameWithmask.squeeze(0).permute(1, 2, 0).mul(255).byte()
+                    frameWithmask.squeeze(0).permute(1, 2, 0).mul(255)
                 )
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
