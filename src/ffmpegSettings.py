@@ -8,8 +8,44 @@ import numpy as np
 import cv2
 import platform
 import threading
+from multiprocessing import Process, Array
+from multiprocessing import Queue as MPQueue
 
-from queue import Queue, Full
+from queue import Full, Queue
+
+workingFrames = 10
+
+
+def childProcessEncode(
+    sharedArray,
+    processQueue: MPQueue,
+    numpyShape,
+    command,
+):
+    numpyArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
+        (workingFrames, *numpyShape)
+    )
+    with subprocess.Popen(
+        command,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    ) as process:
+        while True:
+            dataID = processQueue.get()
+            if dataID is None:
+                break
+            process.stdin.write(numpyArray[dataID].tobytes())
+
+
+""" WILL BE ADDED IN THE FUTURE
+def childProcessDecode(
+    sharedArray,
+    processQueue: MPQueue,
+    numpyShape,
+    command,
+):
+"""
+
 
 if platform.system() == "Windows":
     appdata = os.getenv("APPDATA")
@@ -638,47 +674,60 @@ class WriteBuffer:
         command = self.encodeSettings(verbose=verbose)
 
         self.latestFrame = None
-        self.writeBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
+        self.writeBuffer = queue if queue is not None else Queue(maxsize=500)
 
         if verbose:
             logging.info(f"Encoding options: {' '.join(map(str, command))}")
 
+        sharedArray = Array(
+            "b", int(workingFrames * np.prod([self.height, self.width, 3]))
+        )
+        npArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
+            workingFrames, self.height, self.width, 3
+        )
+        processQueue = MPQueue(maxsize=(workingFrames - 2))
+        writtenFrames = 0
+
         try:
-            with open(ffmpegLogPath, "w") as log_file:
-                with subprocess.Popen(
+            process = Process(
+                target=childProcessEncode,
+                args=(
+                    sharedArray,
+                    processQueue,
+                    (self.height, self.width, 3),
                     command,
-                    stdin=subprocess.PIPE,
-                    stdout=log_file,
-                    stderr=subprocess.STDOUT,
-                ) as self.process:
-                    writtenFrames = 0
-                    self.isWritingDone = False
-                    while True:
-                        frame = self.writeBuffer.get()
-                        if frame is None:
-                            if verbose:
-                                logging.info(f"Encoded {writtenFrames} frames")
-                            break
+                ),
+            )
+            process.start()
 
-                        if self.bitDepth == "8bit":
-                            frame = frame.clamp(0, 255).to(torch.uint8).cpu().numpy()
-                        else:
-                            frame = (
-                                frame.clamp(0, 255)
-                                .to(torch.float32)
-                                .mul(257)
-                                .to(torch.uint16)
-                                .cpu()
-                                .numpy()
-                            )
+            while True:
+                frame = self.writeBuffer.get()
+                if frame is None:
+                    processQueue.put(None)
+                    process.join()
+                    break
 
-                        if self.preview:
-                            self.latestFrame = frame
+                if self.bitDepth == "8bit":
+                    frame = frame.clamp(0, 255).to(torch.uint8).cpu().numpy()
+                else:
+                    frame = (
+                        frame.clamp(0, 255)
+                        .to(torch.float32)
+                        .mul(257)
+                        .to(torch.uint16)
+                        .cpu()
+                        .numpy()
+                    )
 
-                        frame = np.ascontiguousarray(frame)
+                if self.preview:
+                    self.latestFrame = frame
 
-                        self.process.stdin.write(frame.tobytes())
-                        writtenFrames += 1
+                frame = np.ascontiguousarray(frame)
+
+                dataID = writtenFrames % workingFrames
+                npArray[dataID] = frame
+                processQueue.put(dataID)
+                writtenFrames += 1
 
         except Exception as e:
             if verbose:
@@ -767,12 +816,3 @@ class WriteBuffer:
 
         except Exception as e:
             logging.error(f"An error occurred: {str(e)}")
-
-
-"""
-class FFMPEGPipe:
-    def __init__():
-        pass
-
-    def BuildBuffer(se)
-"""

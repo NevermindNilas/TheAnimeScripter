@@ -15,7 +15,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   - A full string with multiple videos: `"G:\TheAnimeScripter\input\input.mp4;G:\TheAnimeScripter\input\input.mp4"`
 - Interpolation will now work prior to upscaling in order to increase the output's quality and to be more VRAM friendly.
 - TAS now has proper multi subtitle and audio support.
-- Added MS-SSIM-Cuda (WIP)
 - `--preset` & `--preset_list`: A new and semi-baked in preset configuration system with reusability in mind.
 
   **Usage:** `--preset {name}` will allow for all of the arguments declared within the initial system arguments to be saved inside a JSON file and then reused multiple times.
@@ -37,9 +36,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - MSE CPU is now `15%` faster.
 - Upgraded Torch: `2.3.1` -> `2.4.1` for the added performance benefits.
 - Linux lite builds should be significantly smaller now ( looking for testers & debuggers )
+- Encoding should now be up to `50%` more efficient than before, internal results show `dedup ssim` speeds with encode going from `~280FPS` all the way to `~460-480FPS`at `1080P` with a 13700k.
 
 #### Notes
-- Currently TAS is heavily limited by it's decode speeds in most CPU heavy tasks and not only. I am looking to further improve it down the line.
+- Currently TAS is slightly limited by STDOUT and STDIN from FFMPEG. I will look to further improve this down the line.
+- With the current changes in encoding, I can reasonable argue that CPU and subprocessing are starting to become decent bottlenecks.
+
+#### Regressions
+- With the new changes in Decode/Encode, RAM usage will see a hit, I've seen up to `~500mb` more usage in RAM, though that's whilst considering that TAS uses roughly `2.5GB` during a reasonable workload.
 
 #### Removals
 - `Scikit-Image` package.
