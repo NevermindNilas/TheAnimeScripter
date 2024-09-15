@@ -30,7 +30,7 @@ def TensorRTEngineCreator(
 ) -> Tuple[trt.ICudaEngine, trt.IExecutionContext]:
     """
     Create a TensorRT engine from an ONNX model.
-    
+
     Parameters:
         modelPath (str): The path to the ONNX model.
         enginePath (str): The path to save the engine.
@@ -53,7 +53,9 @@ def TensorRTEngineCreator(
     profiles = []
     profile = Profile()
     if isMultiInput:
-        for name, minShape, optShape, maxShape in zip(inputName, inputsMin, inputsOpt, inputsMax):
+        for name, minShape, optShape, maxShape in zip(
+            inputName, inputsMin, inputsOpt, inputsMax
+        ):
             profile.add(
                 name,
                 min=tuple(minShape),
@@ -91,11 +93,11 @@ def TensorRTEngineLoader(
 ) -> Tuple[trt.ICudaEngine, trt.IExecutionContext]:
     """
     Load a TensorRT engine from a file.
-    
+
     Parameters:
         enginePath (str): The path to the engine file.
     """
-    
+
     try:
         with open(enginePath, "rb") as f, trt.Runtime(
             trt.Logger(trt.Logger.INFO)
@@ -103,12 +105,16 @@ def TensorRTEngineLoader(
             engine = runtime.deserialize_cuda_engine(f.read())
             context = engine.create_execution_context()
             return engine, context
-    
+
     except FileNotFoundError:
         return None, None
 
     except Exception:
-        print(yellow("Model engine was found but it is outdated due to a Driver or TensorRT Update, creating a new engine."))
+        print(
+            yellow(
+                "Model engine was found but it is outdated due to a Driver or TensorRT Update, creating a new engine."
+            )
+        )
         return None, None
 
 
@@ -120,7 +126,7 @@ def TensorRTEngineNameHandler(
 ) -> str:
     """
     Create a name for the TensorRT engine file.
-    
+
     Parameters:
         modelPath (str): The path to the ONNX / PTH model.
         fp16 (bool): Use half precision for the engine.
@@ -128,19 +134,19 @@ def TensorRTEngineNameHandler(
     """
     enginePrecision = "fp16" if fp16 else "fp32"
     height, width = optInputShape[2], optInputShape[3]
-    
+
     if modelPath.endswith(".onnx"):
         extension = ".onnx"
     elif modelPath.endswith(".pth"):
         extension = ".pth"
     else:
-        raise ValueError("Unsupported model file extension. Only .onnx and .pth are supported.")
-    
+        raise ValueError(
+            "Unsupported model file extension. Only .onnx and .pth are supported."
+        )
+
     if ensemble:
         return modelPath.replace(
             extension, f"_{enginePrecision}_{height}x{width}_ensemble.engine"
         )
-    
-    return modelPath.replace(
-        extension, f"_{enginePrecision}_{height}x{width}.engine"
-    )
+
+    return modelPath.replace(extension, f"_{enginePrecision}_{height}x{width}.engine")
