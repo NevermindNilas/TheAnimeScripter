@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
   **Note:** This lacks an updating/removal system for now, so it's a one-off.
 
   **Preset list:** Simply prints the available presets with their enabled options.
+- TAS should now have proper CTRL + C support which extends to a graceful exit of the whole operation.
 
 #### Improvements
 - Upscale TRT should now be up to `10%` faster
@@ -61,6 +62,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### Improvements
 - Some UI Cleanup of features that are no longer planed to be added in the near future.
 - Improved some background blur related things.
+- Since TAS now comes with proper `CTRL + C` support, you can now exit the process gracefully and not worry about annoying alerts and errors.
 
 #### Notes
 - Preview is still under active development and I am planning to further improve on it in the near future, but attention will now shift towards the Standalone edition which is about 80-90% of the way done.
