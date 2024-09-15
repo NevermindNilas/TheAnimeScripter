@@ -24,6 +24,7 @@ import warnings
 import sys
 import logging
 import platform
+import signal
 
 from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
@@ -311,6 +312,7 @@ class VideoProcessor:
 
 if __name__ == "__main__":
     mp.freeze_support()
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     logging.basicConfig(
         filename=os.path.join(mainPath, "log.txt"),
         filemode="w",
