@@ -34,6 +34,7 @@ from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
 from queue import Queue
+import multiprocessing as mp
 # from src.darken import darkenLines
 
 if platform.system() == "Windows":
@@ -309,6 +310,7 @@ class VideoProcessor:
 
 
 if __name__ == "__main__":
+    mp.freeze_support()
     logging.basicConfig(
         filename=os.path.join(mainPath, "log.txt"),
         filemode="w",
