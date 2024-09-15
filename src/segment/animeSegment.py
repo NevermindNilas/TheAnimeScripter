@@ -507,7 +507,6 @@ class AnimeSegmentDirectML:
                 frame.to(self.device).float().permute(2, 0, 1).unsqueeze(0).mul(1 / 255)
             )
             frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
-            print(frame.shape)
             self.dummyInput.copy_(frame)
 
             self.IoBinding.bind_input(
@@ -526,9 +525,7 @@ class AnimeSegmentDirectML:
                 : frameWithMask.shape[2] - self.padHeight,
                 : frameWithMask.shape[3] - self.padWidth,
             ]
-            frameWithMask = frameWithMask.squeeze(0).permute(1, 2, 0).mul(255).byte()
-            print(frameWithMask.shape)
-            self.writeBuffer.write(frameWithMask)
+            self.writeBuffer.write(frameWithMask.squeeze(0).permute(1, 2, 0).mul(255))
 
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
