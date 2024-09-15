@@ -1,5 +1,5 @@
 <p align="center">
-    <a href="https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F"><img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F&labelColor=%23697689&countColor=%23ff8a65&style=plastic&labelStyle=none" /></a> 
+    <a href="https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F"><img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F&labelColor=%23697689&countColor=%23ff8a65&style=plastic&labelStyle=none" /></a>
     <a href="https://github.com/NevermindNilas/TheAnimeScripter/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/NevermindNilas/TheAnimeScripter.svg?style=flat-square" /></a>
     <a href="https://github.com/NevermindNilas/TheAnimeScripter/releases"><img alt="GitHub All Releases" src="https://img.shields.io/github/downloads/NevermindNilas/TheAnimeScripter/total.svg?style=flat-square&color=%2364ff82" /></a>
     <a href="https://github.com/NevermindNilas/TheAnimeScripter/commits"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/NevermindNilas/TheAnimeScripter.svg?style=flat-square" /></a>
@@ -46,7 +46,7 @@
 ## 🖥️ Graphical User Interfaces
 
 - **Windows and After Effects:** Actively being reworked and improved!
-  
+
   ![Adobe GUI](https://github.com/user-attachments/assets/aa054363-d22f-45d9-8099-142485f35f6a)
   *Adobe GUI in action*
 
@@ -111,24 +111,24 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 
 ## 🙏 Acknowledgements
 
-| Name | For |
-|------|-----|
-| [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker) | Shufflecugan and many more ONNX models |
-| [HZWER](https://github.com/hzwer/Practical-RIFE) | Rife |
+| Name                                                                      | For                                             |
+|---------------------------------------------------------------------------|-------------------------------------------------|
+| [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)           | Shufflecugan and many more ONNX models          |
+| [HZWER](https://github.com/hzwer/Practical-RIFE)                          | Rife                                            |
 | [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai) | Compact, UltraCompact, SuperUltraCompact models |
-| [SkyTNT](https://github.com/SkyTNT/anime-segmentation) | Anime Segmentation |
-| [DepthAnything](https://github.com/DepthAnything/Depth-Anything-V2) | Depth Anything V2 |
-| [FFmpeg Group](https://github.com/FFmpeg/FFmpeg) | FFmpeg |
-| [YT-DLP](https://github.com/yt-dlp/yt-dlp) | YT-DLP |
-| [Hongyuanyu](https://github.com/hongyuanyu/span) | SPAN |
-| [Breakthrough](https://github.com/Breakthrough/PySceneDetect) | Automated Scene Detection |
-| [Chainner-org](https://github.com/chaiNNer-org/spandrel) | Spandrel, easy to use arch implementations |
-| [cszn](https://github.com/cszn/DPIR) | DPIR |
-| [TNTWise](https://github.com/TNTwise) | Rife ONNX / NCNN and Spanimation |
-| [WolframRhodium](https://github.com/WolframRhodium) | Rife V2 models |
-| [Hyperbrew](https://github.com/hyperbrew/bolt-cep) | Bolt CEP |
-| [Sirosky](https://github.com/Sirosky/Upscale-Hub) | Open-Proteus and AniScale 2 |
-| [Trentonom0r3](https://github.com/Trentonom0r3) | For helping with TAS Adobe Edition |
+| [SkyTNT](https://github.com/SkyTNT/anime-segmentation)                    | Anime Segmentation                              |
+| [DepthAnything](https://github.com/DepthAnything/Depth-Anything-V2)       | Depth Anything V2                               |
+| [FFmpeg Group](https://github.com/FFmpeg/FFmpeg)                          | FFmpeg                                          |
+| [YT-DLP](https://github.com/yt-dlp/yt-dlp)                                | YT-DLP                                          |
+| [Hongyuanyu](https://github.com/hongyuanyu/span)                          | SPAN                                            |
+| [Breakthrough](https://github.com/Breakthrough/PySceneDetect)             | Automated Scene Detection                       |
+| [Chainner-org](https://github.com/chaiNNer-org/spandrel)                  | Spandrel, easy to use arch implementations      |
+| [TNTWise](https://github.com/TNTwise)                                     | Rife ONNX / NCNN and Spanimation                |
+| [WolframRhodium](https://github.com/WolframRhodium)                       | Rife V2 models                                  |
+| [Hyperbrew](https://github.com/hyperbrew/bolt-cep)                        | Bolt CEP                                        |
+| [Sirosky](https://github.com/Sirosky/Upscale-Hub)                         | Open-Proteus and AniScale 2                     |
+| [Trentonom0r3](https://github.com/Trentonom0r3)                           | Helping with TAS Adobe Edition                  |
+| [Adegerard](https://github.com/adegerard)                                 | Several ideas in how to further improve TAS     |
 
 If we forgot to mention anyone, please email: nilascontact@gmail.com
 
