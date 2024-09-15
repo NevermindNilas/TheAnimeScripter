@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [UNRELEASED] - YYYY-MM-DD
 
-#### The Anime Scripter
+### The Anime Scripter
 
 #### NEW
 - `--input` will now support:
@@ -47,6 +47,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### Removals
 - `Scikit-Image` package.
+
+### TAS - Adobe Edition
+
+#### New
+- `Enable Preview Windows` checkbox:
+  - This will utilize the `--preview` functionality within TAS to display a live preview of the progress, note this comes with a tax in performance.
+- New Options for `Remove Background`:
+  - `TensorRT` acceleration has been added to segmentation for further boost in performance.
+- `Pre-Render` will be even more flexible:
+  - The preview functionality within TAS was and still is fairly limited, but with this release you will have a bit more control over the desired output. You will now be able to choose between two baked in functionalities, `Lossless` ( the current default ) and `Quicktime`. For most usecases `Quicktime` is plenty good and there's no need to choose Lossless but feel free to mess around with it.
+
+#### Improvements
+- Some UI Cleanup of features that are no longer planed to be added in the near future.
+- Improved some background blur related things.
+
+#### Notes
+- Preview is still under active development and I am planning to further improve on it in the near future, but attention will now shift towards the Standalone edition which is about 80-90% of the way done.
 
 ## [1.9.7] - 2024-09-02
 
