@@ -1,6 +1,7 @@
-import cv2
+from pymediainfo import MediaInfo
 import logging
 import textwrap
+
 
 def getVideoMetadata(inputPath, inPoint, outPoint):
     """
@@ -14,26 +15,21 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     Returns:
     tuple: A tuple containing the width, height, fps, total frames to be processed, and pixel format of the video.
     """
-    try:
-        cap = cv2.VideoCapture(inputPath)
-    except Exception as e:
-        logging.error(f"Error opening video file: {e}")
+    mediaInfo = MediaInfo.parse(inputPath)
+    videoTrack = next(
+        (track for track in mediaInfo.tracks if track.track_type == "Video"), None
+    )
+
+    if videoTrack is None:
+        logging.error("No video stream found in the file.")
         exit(1)
 
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-    if width == 0 or height == 0:
-        logging.error(
-            "Width or height cannot be zero. Please check the input video file and make sure that it was put in quotation marks."
-        )
-        exit(1)
-
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    nframes = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    fourcc = int(cap.get(cv2.CAP_PROP_FOURCC))
-
-    codec = "".join([chr((fourcc >> 8 * i) & 0xFF) for i in range(4)])
+    width = videoTrack.width
+    height = videoTrack.height
+    fps = float(videoTrack.frame_rate)
+    nframes = int(videoTrack.frame_count)
+    codec = videoTrack.codec
+    pixFmt = videoTrack.pixel_format
 
     duration = round(nframes / fps, 2) if fps else 0
     inOutDuration = round((outPoint - inPoint) / fps, 2) if fps else 0
@@ -43,9 +39,6 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         totalFramesToBeProcessed = int((outPoint - inPoint) * fps)
     else:
         totalFramesToBeProcessed = nframes
-
-    pix_fmt = cap.get(cv2.CAP_PROP_FORMAT)
-    pix_fmt_str = "rgb24" if pix_fmt == cv2.CV_8UC3 else "yuv420p"
 
     logging.info(
         textwrap.dedent(f"""
@@ -59,9 +52,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     Duration: {duration} seconds
     In-Out Duration: {inOutDuration} seconds
     Total frames to be processed: {totalFramesToBeProcessed}
-    Pixel Format: {pix_fmt_str}""")
+    Pixel Format: {pixFmt}""")
     )
 
-    cap.release()
-
-    return width, height, fps, totalFramesToBeProcessed, pix_fmt_str
+    return width, height, fps, totalFramesToBeProcessed, pixFmt
