@@ -300,7 +300,7 @@ class UniversalTensorRT:
         if self.upscaleSkip is not None:
             self.prevFrame.copy_(output, non_blocking=True)
 
-        return output
+        return output.contiguous()
 
     def getSkippedCounter(self):
         return self.skippedCounter
