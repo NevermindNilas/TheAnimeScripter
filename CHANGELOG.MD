@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [UNRELEASED] - YYYY-MM-DD
+
+### The Anime Scripter
+
+#### New
+- `VP9` and `QSV_VP9` encode methods were added back in order to support `.webm` inputs.
+
+#### Improved:
+- Improved encoding performance
+- Better metadata requesting powered by `pymediainfo`
+
 ## [1.9.8] - 2024-09-15
 
 ### The Anime Scripter
