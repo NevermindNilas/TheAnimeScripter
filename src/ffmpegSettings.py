@@ -16,27 +16,6 @@ from queue import Full, Queue
 workingFrames = 10
 
 
-def childProcessEncode(
-    sharedArray,
-    processQueue: MPQueue,
-    numpyShape,
-    command,
-):
-    numpyArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
-        (workingFrames, *numpyShape)
-    )
-    with subprocess.Popen(
-        command,
-        stdin=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-    ) as process:
-        while True:
-            dataID = processQueue.get()
-            if dataID is None:
-                break
-            process.stdin.write(numpyArray[dataID].tobytes())
-
-
 """
 def childProcessDecode(
     sharedArray,
@@ -81,6 +60,29 @@ if getattr(sys, "frozen", False):
     outputPath = os.path.dirname(sys.executable)
 else:
     outputPath = os.path.dirname(os.path.abspath(__file__))
+
+
+def childProcessEncode(
+    sharedArray,
+    processQueue: MPQueue,
+    numpyShape,
+    command,
+):
+    numpyArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
+        (workingFrames, *numpyShape)
+    )
+    with open(ffmpegLogPath, "w") as ffmpegLog:
+        with subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            stdout=ffmpegLog,
+        ) as process:
+            while True:
+                dataID = processQueue.get()
+                if dataID is None:
+                    break
+                process.stdin.write(np.ascontiguousarray(numpyArray[dataID]).tobytes())
 
 
 def checkForCudaWorkflow(verbose: bool = True) -> bool:
@@ -575,20 +577,19 @@ class WriteBuffer:
             command = [
                 self.ffmpegPath,
                 "-y",
-                "-v",
-                "warning",
                 "-stats",
                 "-f",
                 "rawvideo",
-                "-s",
+                "-video_size",
                 f"{self.width}x{self.height}",
                 "-pix_fmt",
                 f"{inputPixFormat}",
                 "-r",
                 str(self.fps),
                 "-i",
-                "-",
-                "-an",
+                "pipe:0",
+                "-map",
+                "0:v",
             ]
 
             if not self.custom_encoder:
@@ -730,21 +731,22 @@ class WriteBuffer:
                     break
 
                 if self.bitDepth == "8bit":
-                    frame = frame.clamp(0, 255).to(torch.uint8).cpu().numpy()
+                    frame = (
+                        frame.clamp(0, 255).to(torch.uint8).cpu().contiguous().numpy()
+                    )
                 else:
                     frame = (
                         frame.clamp(0, 255)
                         .to(torch.float32)
                         .mul(257)
                         .to(torch.uint16)
+                        .contiguous()
                         .cpu()
                         .numpy()
                     )
 
                 if self.preview:
                     self.latestFrame = frame
-
-                frame = np.ascontiguousarray(frame)
 
                 dataID = writtenFrames % workingFrames
                 npArray[dataID] = frame
