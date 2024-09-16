@@ -245,13 +245,13 @@ class UniversalTensorRT:
             (1, 3, self.height, self.width),
             device=self.device,
             dtype=torch.float16 if self.half else torch.float32,
-        )
+        ).contiguous()
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
             device=self.device,
             dtype=torch.float16 if self.half else torch.float32,
-        )
+        ).contiguous()
 
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
 
