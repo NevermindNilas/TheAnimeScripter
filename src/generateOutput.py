@@ -1,6 +1,7 @@
 import os
 import random
 
+
 def outputNameGenerator(args):
     arg_map = {
         "resize": f"-Re{args.resize_factor}",

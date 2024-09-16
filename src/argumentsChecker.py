@@ -337,6 +337,8 @@ def createParser(isFrozen, mainPath, outputPath):
             "prores_segment",
             "gif",
             "image",
+            "vp9",
+            "qsv_vp9",
         ],
         default="x264",
         help="Encoding method",

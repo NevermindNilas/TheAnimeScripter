@@ -241,6 +241,8 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `"prores"`: prores_ks, profile 4, qscale 15
 - `"gif"`: gif, qscale 1, loop 0
 - `"image"`: png, quality 1
+- `"vp9"`: libvpx-vp9, preset veryfast, CRF 15
+- `"qsv_vp9"`: vp9_qsv, preset veryfast, global quality 15
 
 **Note**: The output pixel format (`-pix_fmt`) can dynamically switch between yuv420p, yuv420p10le, and yuv444p10le based on `--bit_depth` and `--encode_method`.
 
