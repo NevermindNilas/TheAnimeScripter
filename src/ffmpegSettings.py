@@ -71,18 +71,17 @@ def childProcessEncode(
     numpyArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
         (workingFrames, *numpyShape)
     )
-    with open(ffmpegLogPath, "w") as ffmpegLog:
-        with subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            stdout=ffmpegLog,
-        ) as process:
-            while True:
-                dataID = processQueue.get()
-                if dataID is None:
-                    break
-                process.stdin.write(np.ascontiguousarray(numpyArray[dataID]).tobytes())
+    with subprocess.Popen(
+        command,
+        stdin=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+    ) as process:
+        while True:
+            dataID = processQueue.get()
+            if dataID is None:
+                break
+            process.stdin.write(np.ascontiguousarray(numpyArray[dataID]).tobytes())
 
 
 def checkForCudaWorkflow(verbose: bool = True) -> bool:
@@ -662,7 +661,7 @@ class WriteBuffer:
                 "rawvideo",
                 "-vcodec",
                 "rawvideo",
-                "-s",
+                "-video_size",
                 f"{self.width}x{self.height}",
                 "-pix_fmt",
                 f"{inputPixFormat}",
@@ -690,7 +689,7 @@ class WriteBuffer:
         command = self.encodeSettings(verbose=verbose)
 
         self.latestFrame = None
-        self.writeBuffer = queue if queue is not None else Queue(maxsize=500)
+        self.writeBuffer = queue if queue is not None else Queue(maxsize=1000)
 
         if self.grayscale:
             channels = 1
@@ -740,8 +739,8 @@ class WriteBuffer:
                         .to(torch.float32)
                         .mul(257)
                         .to(torch.uint16)
-                        .contiguous()
                         .cpu()
+                        .contiguous()
                         .numpy()
                     )
 
