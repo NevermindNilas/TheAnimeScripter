@@ -240,16 +240,23 @@ def createParser(isFrozen, mainPath, outputPath):
         help="Resize method",
     )
 
-    # Scene detection options
-    sceneGroup = argParser.add_argument_group("Scene Detection")
-    sceneGroup.add_argument("--segment", action="store_true", help="Segment the video")
-    sceneGroup.add_argument(
+    # Segmentation options
+    segmentationGroup = argParser.add_argument_group(
+        "Segmentation / Background Removal"
+    )
+    segmentationGroup.add_argument(
+        "--segment", action="store_true", help="Segment the video"
+    )
+    segmentationGroup.add_argument(
         "--segment_method",
         type=str,
         default="anime",
         choices=["anime", "anime-tensorrt", "anime-directml", "cartoon"],
         help="Segmentation method",
     )
+
+    # Scene detection options
+    sceneGroup = argParser.add_argument_group("Scene Detection")
     sceneGroup.add_argument(
         "--autoclip", action="store_true", help="Detect scene changes"
     )

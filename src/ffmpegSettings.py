@@ -241,9 +241,7 @@ def matchEncoder(encode_method: str):
         case "vp9":
             command.extend(["-c:v", "libvpx-vp9", "-crf", "15", "-preset", "veryfast"])
         case "qsv_vp9":
-            command.extend(
-                ["-c:v", "vp9_qsv", "-global_quality", "15", "-preset", "veryfast"]
-            )
+            command.extend(["-c:v", "vp9_qsv", "-preset", "veryfast"])
 
     return command
 
