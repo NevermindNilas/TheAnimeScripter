@@ -19,6 +19,7 @@ colored
 vidgear
 flask
 rich-argparse
+pymediainfo
 tensorrt==10.3.0
 tensorrt_cu12==10.3.0
 tensorrt-cu12-bindings==10.3.0
