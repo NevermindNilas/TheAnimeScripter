@@ -71,17 +71,18 @@ def childProcessEncode(
     numpyArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
         (workingFrames, *numpyShape)
     )
-    with subprocess.Popen(
-        command,
-        stdin=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-    ) as process:
-        while True:
-            dataID = processQueue.get()
-            if dataID is None:
-                break
-            process.stdin.write(np.ascontiguousarray(numpyArray[dataID]).tobytes())
+    with open(ffmpegLogPath, "w") as logPath:
+        with subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stderr=logPath,
+            stdout=logPath,
+        ) as process:
+            while True:
+                dataID = processQueue.get()
+                if dataID is None:
+                    break
+                process.stdin.write(np.ascontiguousarray(numpyArray[dataID]).tobytes())
 
 
 def checkForCudaWorkflow(verbose: bool = True) -> bool:
@@ -237,6 +238,12 @@ def matchEncoder(encode_method: str):
             command.extend(["-c:v", "gif", "-qscale:v", "1", "-loop", "0"])
         case "image":
             command.extend(["-c:v", "png", "-q:v", "1"])
+        case "vp9":
+            command.extend(["-c:v", "libvpx-vp9", "-crf", "15", "-preset", "veryfast"])
+        case "qsv_vp9":
+            command.extend(
+                ["-c:v", "vp9_qsv", "-global_quality", "15", "-preset", "veryfast"]
+            )
 
     return command
 
