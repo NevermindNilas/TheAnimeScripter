@@ -13,32 +13,7 @@ from multiprocessing import Queue as MPQueue
 
 from queue import Full, Queue
 
-workingFrames = 10
-
-
-"""
-def childProcessDecode(
-    sharedArray,
-    processQueue: MPQueue,
-    numpyShape,
-    command,
-    width,
-    height,
-):
-    numpyArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
-        (workingFrames, *numpyShape)
-    )
-    with subprocess.Popen(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-    ) as process:
-        while True:
-            dataID = processQueue.get()
-            if dataID is None:
-                break
-            process.stdin.write(numpyArray[dataID].tobytes())
-"""
+workingFrames = 100
 
 
 if platform.system() == "Windows":
@@ -68,7 +43,7 @@ def childProcessEncode(
     numpyShape,
     command,
 ):
-    numpyArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
+    torchArray = torch.frombuffer(sharedArray.get_obj(), dtype=torch.uint8).reshape(
         (workingFrames, *numpyShape)
     )
     with open(ffmpegLogPath, "w") as logPath:
@@ -82,7 +57,10 @@ def childProcessEncode(
                 dataID = processQueue.get()
                 if dataID is None:
                     break
-                process.stdin.write(np.ascontiguousarray(numpyArray[dataID]).tobytes())
+                # ADD BIT DEPTH
+                frame = torchArray[dataID].to(torch.uint8).cpu().contiguous().numpy()
+
+                process.stdin.write(np.ascontiguousarray(frame).tobytes())
 
 
 def checkForCudaWorkflow(verbose: bool = True) -> bool:
@@ -517,6 +495,31 @@ class WriteBuffer:
         self.outpoint = outpoint
         self.preview = preview
 
+        self.writtenFrames = 0
+        self.processQueue = MPQueue(maxsize=(workingFrames - 2))
+
+        self.command = self.encodeSettings()
+
+        self.latestFrame = None
+
+        if self.grayscale:
+            self.channels = 1
+        elif self.transparent:
+            self.channels = 4
+        else:
+            self.channels = 3
+
+        logging.info(f"Encoding options: {' '.join(map(str, self.command))}")
+
+        dimensions = torch.tensor([self.height, self.width, self.channels])
+        self.sharedArray = Array(
+            "b",
+            int(workingFrames * torch.prod(dimensions)),
+        )
+        self.npArray = torch.frombuffer(
+            self.sharedArray.get_obj(), dtype=torch.uint8
+        ).reshape(workingFrames, self.height, self.width, self.channels)
+
     def encodeSettings(self, verbose: bool = False) -> list:
         """
         This will return the command for FFMPEG to work with, it will be used inside of the scope of the class.
@@ -581,6 +584,7 @@ class WriteBuffer:
             command = [
                 self.ffmpegPath,
                 "-y",
+                "-hide_banner",
                 "-stats",
                 "-f",
                 "rawvideo",
@@ -659,6 +663,7 @@ class WriteBuffer:
             command = [
                 self.ffmpegPath,
                 "-y",
+                "-hide_banner",
                 "-v",
                 "warning",
                 "-stats",
@@ -691,80 +696,22 @@ class WriteBuffer:
         queue : queue.Queue, optional - The queue to get the frames
         """
         verbose: bool = True
-        command = self.encodeSettings(verbose=verbose)
-
-        self.latestFrame = None
-        self.writeBuffer = queue if queue is not None else Queue(maxsize=1000)
-
-        if self.grayscale:
-            channels = 1
-        elif self.transparent:
-            channels = 4
-        else:
-            channels = 3
-
-        if verbose:
-            logging.info(f"Encoding options: {' '.join(map(str, command))}")
-
-        sharedArray = Array(
-            "b", int(workingFrames * np.prod([self.height, self.width, channels]))
-        )
-        npArray = np.frombuffer(sharedArray.get_obj(), dtype=np.uint8).reshape(
-            workingFrames, self.height, self.width, channels
-        )
-        processQueue = MPQueue(maxsize=(workingFrames - 2))
-        writtenFrames = 0
 
         try:
-            process = Process(
+            self.process = Process(
                 target=childProcessEncode,
                 args=(
-                    sharedArray,
-                    processQueue,
-                    (self.height, self.width, channels),
-                    command,
+                    self.sharedArray,
+                    self.processQueue,
+                    (self.height, self.width, self.channels),
+                    self.command,
                 ),
             )
-            process.start()
-
-            while True:
-                frame = self.writeBuffer.get()
-                if frame is None:
-                    processQueue.put(None)
-                    process.join()
-                    break
-
-                if self.bitDepth == "8bit":
-                    frame = (
-                        frame.clamp(0, 255).to(torch.uint8).cpu().contiguous().numpy()
-                    )
-                else:
-                    frame = (
-                        frame.clamp(0, 255)
-                        .to(torch.float32)
-                        .mul(257)
-                        .to(torch.uint16)
-                        .cpu()
-                        .contiguous()
-                        .numpy()
-                    )
-
-                if self.preview:
-                    self.latestFrame = frame
-
-                dataID = writtenFrames % workingFrames
-                npArray[dataID] = frame
-                processQueue.put(dataID)
-                writtenFrames += 1
+            self.process.start()
 
         except Exception as e:
             if verbose:
                 logging.error(f"An error occurred: {str(e)}")
-
-        finally:
-            self.isWritingDone = True
-            if self.audio and not self.benchmark:
-                self.mergeAudio()
 
     def peek(self):
         """
@@ -776,13 +723,23 @@ class WriteBuffer:
         """
         Add a frame to the queue. Must be in RGB format.
         """
-        self.writeBuffer.put(frame)
+        try:
+            dataID = self.writtenFrames % workingFrames
+            self.npArray[dataID] = frame
+            self.processQueue.put(dataID)
+            self.writtenFrames += 1
+        except Exception as e:
+            logging.error(f"An error occurred: {str(e)}")
 
     def close(self):
         """
         Close the queue.
         """
-        self.writeBuffer.put(None)
+        self.processQueue.put(None)
+        self.isWritingDone = True
+        self.process.join()
+        if self.audio and not self.benchmark:
+            self.mergeAudio()
 
     def mergeAudio(self):
         try:
