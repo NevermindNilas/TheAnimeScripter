@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Benchmarking should now provide significantly more accurate results.
 
 #### Fixed
+- Fixed wrong / overexaggerated performance reports from TAS
 - Fixed a regression from 1.9.8 where encoding performance was significantly impacted.
 - Fixed an issue where the first frame of a processed video was black when upscaling.
 
