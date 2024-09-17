@@ -166,37 +166,31 @@ class VideoProcessor:
                 if self.isSceneChange:
                     self.interpolate_process.cacheFrameReset(frame)
                 else:
-                    self.interpolate_process(frame, self.benchmark, self.interpQueue)
+                    self.interpolate_process(frame, self.interpQueue)
 
             if self.upscale:
                 if self.interpolate:
                     if self.isSceneChange:
                         frame = self.upscale_process(frame)
                         for _ in range(self.interpolate_factor - 1):
-                            if not self.benchmark:
-                                self.writeBuffer.write(frame)
+                            self.writeBuffer.write(frame)
                     else:
                         while not self.interpQueue.empty():
                             result = self.upscale_process(self.interpQueue.get())
-                            if not self.benchmark:
-                                self.writeBuffer.write(result)
+                            self.writeBuffer.write(result)
                         frame = self.upscale_process(frame)
                 else:
-                    frame = self.upscale_process(frame)
+                    self.writeBuffer.write(self.upscale_process(frame))
 
             else:
                 if self.interpolate:
                     if self.isSceneChange or not self.interpQueue.empty():
                         for _ in range(self.interpolate_factor - 1):
-                            if not self.benchmark:
-                                frameToWrite = (
-                                    frame
-                                    if self.isSceneChange
-                                    else self.interpQueue.get()
-                                )
-                                self.writeBuffer.write(frameToWrite)
+                            frameToWrite = (
+                                frame if self.isSceneChange else self.interpQueue.get()
+                            )
+                            self.writeBuffer.write(frameToWrite)
 
-            if not self.benchmark:
                 self.writeBuffer.write(frame)
 
         except Exception as e:
@@ -298,11 +292,10 @@ class VideoProcessor:
                     writeBuffer=self.writeBuffer,
                 )
 
-            with ThreadPoolExecutor(max_workers=4 if self.preview else 3) as executor:
+            self.writeBuffer.start()
+            with ThreadPoolExecutor(max_workers=3 if self.preview else 2) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
-                if not self.benchmark:
-                    executor.submit(self.writeBuffer.start)
                 if self.preview:
                     executor.submit(self.preview.start)
 
