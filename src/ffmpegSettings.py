@@ -55,10 +55,6 @@ def childProcessEncode(
         .contiguous()
     )
 
-    # Move tensor to GPU if CUDA is available
-    if torch.cuda.is_available():
-        torchArray = torchArray.cuda()
-
     with open(ffmpegLogPath, "w") as logPath:
         with subprocess.Popen(
             command,
@@ -70,12 +66,16 @@ def childProcessEncode(
                 dataID = processQueue.get()
                 if dataID is None:
                     break
-                frame = torchArray[dataID]
                 if bitDepth == "8bit":
-                    process.stdin.write(frame.cpu().numpy().tobytes())
+                    process.stdin.write(torchArray[dataID].numpy().tobytes())
                 else:
                     process.stdin.write(
-                        frame.float().mul(257).to(torch.uint16).cpu().numpy().tobytes()
+                        torchArray[dataID]
+                        .float()
+                        .mul(257)
+                        .to(torch.uint16)
+                        .numpy()
+                        .tobytes()
                     )
 
     with open(ffmpegLogPath, "r") as logPath:
@@ -546,10 +546,6 @@ class WriteBuffer:
         self.torchArray = torch.frombuffer(self.sharedMem.buf, dtype=torch.uint8).view(
             workingFrames, *dimensions.tolist()
         )
-
-        if torch.cuda.is_available():
-            self.torchArray = self.torchArray.cuda()
-
         self.process = Process(
             target=childProcessEncode,
             args=(
