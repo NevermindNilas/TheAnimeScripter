@@ -43,8 +43,10 @@ def childProcessEncode(
     numpyShape,
     command,
 ):
-    torchArray = torch.frombuffer(sharedArray.get_obj(), dtype=torch.uint8).reshape(
-        (workingFrames, *numpyShape)
+    torchArray = (
+        torch.frombuffer(sharedArray.get_obj(), dtype=torch.uint8)
+        .reshape((workingFrames, *numpyShape))
+        .contiguous()
     )
     with open(ffmpegLogPath, "w") as logPath:
         with subprocess.Popen(
@@ -58,9 +60,10 @@ def childProcessEncode(
                 if dataID is None:
                     break
                 # ADD BIT DEPTH
-                frame = torchArray[dataID].to(torch.uint8).cpu().contiguous().numpy()
 
-                process.stdin.write(np.ascontiguousarray(frame).tobytes())
+                process.stdin.write(
+                    torchArray[dataID].to(torch.uint8).cpu().numpy().tobytes()
+                )
 
 
 def checkForCudaWorkflow(verbose: bool = True) -> bool:
@@ -516,9 +519,11 @@ class WriteBuffer:
             "b",
             int(workingFrames * torch.prod(dimensions)),
         )
-        self.npArray = torch.frombuffer(
-            self.sharedArray.get_obj(), dtype=torch.uint8
-        ).reshape(workingFrames, self.height, self.width, self.channels)
+        self.torchArray = (
+            torch.frombuffer(self.sharedArray.get_obj(), dtype=torch.uint8)
+            .reshape(workingFrames, self.height, self.width, self.channels)
+            .contiguous()
+        )
 
     def encodeSettings(self, verbose: bool = False) -> list:
         """
@@ -725,7 +730,7 @@ class WriteBuffer:
         """
         try:
             dataID = self.writtenFrames % workingFrames
-            self.npArray[dataID] = frame
+            self.torchArray[dataID] = frame
             self.processQueue.put(dataID)
             self.writtenFrames += 1
         except Exception as e:
