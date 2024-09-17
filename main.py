@@ -35,7 +35,7 @@ from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
 from queue import Queue
-import multiprocessing as mp
+import torch.multiprocessing as mp
 # from src.darken import darkenLines
 
 if platform.system() == "Windows":
@@ -172,13 +172,14 @@ class VideoProcessor:
                 if self.interpolate:
                     if self.isSceneChange:
                         frame = self.upscale_process(frame)
-                        for _ in range(self.interpolate_factor - 1):
+                        for _ in range(self.interpolate_factor):
                             self.writeBuffer.write(frame)
                     else:
                         while not self.interpQueue.empty():
-                            result = self.upscale_process(self.interpQueue.get())
-                            self.writeBuffer.write(result)
-                        frame = self.upscale_process(frame)
+                            self.writeBuffer.write(
+                                self.upscale_process(self.interpQueue.get())
+                            )
+                        self.writeBuffer.write(self.upscale_process(frame))
                 else:
                     self.writeBuffer.write(self.upscale_process(frame))
 
@@ -192,6 +193,9 @@ class VideoProcessor:
                             self.writeBuffer.write(frameToWrite)
 
                 self.writeBuffer.write(frame)
+
+            if self.preview:
+                self.preview.add(frame.clamp(0, 255).byte().cpu().numpy())
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
@@ -288,9 +292,7 @@ class VideoProcessor:
             if self.preview:
                 from src.previewSettings import Preview
 
-                self.preview = Preview(
-                    writeBuffer=self.writeBuffer,
-                )
+                self.preview = Preview()
 
             self.writeBuffer.start()
             with ThreadPoolExecutor(max_workers=3 if self.preview else 2) as executor:
@@ -305,6 +307,7 @@ class VideoProcessor:
 
 if __name__ == "__main__":
     mp.freeze_support()
+    mp.set_start_method("spawn", force=True)
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     logging.basicConfig(
         filename=os.path.join(mainPath, "log.txt"),

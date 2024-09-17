@@ -282,7 +282,8 @@ class UniversalTensorRT:
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(
-                frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0).mul(1 / 255)
+                frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0).mul(1 / 255),
+                non_blocking=True,
             )
 
     @torch.inference_mode()
@@ -294,7 +295,7 @@ class UniversalTensorRT:
 
         self.processFrame(frame)
         self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-        output = self.dummyOutput.squeeze(0).permute(1, 2, 0).clamp(0, 1).mul(255)
+        output = self.dummyOutput.squeeze(0).permute(1, 2, 0).clamp(0, 1).mul(255).cpu()
         self.stream.synchronize()
 
         if self.upscaleSkip is not None:
