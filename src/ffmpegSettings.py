@@ -8,12 +8,13 @@ import numpy as np
 import cv2
 import platform
 import threading
-from multiprocessing import Process, Array
+from torch.multiprocessing import Process
 from multiprocessing import Queue as MPQueue
+from multiprocessing.shared_memory import SharedMemory
 
 from queue import Full, Queue
 
-workingFrames = 100
+workingFrames = 200
 
 
 if platform.system() == "Windows":
@@ -38,15 +39,16 @@ else:
 
 
 def childProcessEncode(
-    sharedArray,
+    sharedMemName,
     processQueue: MPQueue,
     numpyShape,
     command,
     bitDepth: str = "8bit",
 ):
+    shm = SharedMemory(name=sharedMemName)
     torchArray = (
-        torch.frombuffer(sharedArray.get_obj(), dtype=torch.uint8)
-        .reshape((workingFrames, *numpyShape))
+        torch.frombuffer(shm.buf, dtype=torch.uint8)
+        .view(workingFrames, *numpyShape)
         .contiguous()
     )
     with open(ffmpegLogPath, "w") as logPath:
@@ -60,19 +62,12 @@ def childProcessEncode(
                 dataID = processQueue.get()
                 if dataID is None:
                     break
+                frame = torchArray[dataID]
                 if bitDepth == "8bit":
-                    process.stdin.write(
-                        torchArray[dataID].to(torch.uint8).cpu().numpy().tobytes()
-                    )
+                    process.stdin.write(frame.numpy().tobytes())
                 else:
                     process.stdin.write(
-                        torchArray[dataID]
-                        .float()
-                        .mul(257)
-                        .to(torch.uint16)
-                        .cpu()
-                        .numpy()
-                        .tobytes()
+                        frame.float().mul(257).to(torch.uint16).numpy().tobytes()
                     )
 
 
@@ -525,22 +520,19 @@ class WriteBuffer:
         logging.info(f"Encoding options: {' '.join(map(str, self.command))}")
 
         dimensions = torch.tensor([self.height, self.width, self.channels])
-        self.sharedArray = Array(
-            "b",
-            int(workingFrames * torch.prod(dimensions)),
-        )
-        self.torchArray = (
-            torch.frombuffer(self.sharedArray.get_obj(), dtype=torch.uint8)
-            .reshape(workingFrames, self.height, self.width, self.channels)
-            .contiguous()
+        size = int(torch.prod(dimensions).item()) * workingFrames
+        self.sharedMem = SharedMemory(create=True, size=size)
+        # Create a torch tensor directly from the shared memory buffer
+        self.torchArray = torch.frombuffer(self.sharedMem.buf, dtype=torch.uint8).view(
+            workingFrames, *dimensions.tolist()
         )
 
         self.process = Process(
             target=childProcessEncode,
             args=(
-                self.sharedArray,
+                self.sharedMem.name,
                 self.processQueue,
-                (self.height, self.width, self.channels),
+                dimensions,
                 self.command,
                 self.bitDepth,
             ),
@@ -611,13 +603,15 @@ class WriteBuffer:
                 self.ffmpegPath,
                 "-y",
                 "-hide_banner",
+                "-loglevel",
+                "error",
                 "-stats",
                 "-f",
                 "rawvideo",
+                "-pixel_format",
+                f"{inputPixFormat}",
                 "-video_size",
                 f"{self.width}x{self.height}",
-                "-pix_fmt",
-                f"{inputPixFormat}",
                 "-r",
                 str(self.fps),
                 "-i",
@@ -723,12 +717,6 @@ class WriteBuffer:
         """
 
         self.process.start()
-
-    def peek(self):
-        """
-        Peek the queue.
-        """
-        return self.latestFrame if self.latestFrame is not None else None
 
     def write(self, frame: torch.Tensor):
         """

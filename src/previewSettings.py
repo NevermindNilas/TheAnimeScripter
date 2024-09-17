@@ -13,14 +13,11 @@ from .coloredPrints import green
 
 
 class Preview:
-    def __init__(
-        self, localHost: str = "127.0.0.1", port: int = 5000, writeBuffer: Queue = None
-    ):
+    def __init__(self, localHost: str = "127.0.0.1", port: int = 5000):
         self.localHost = localHost
         self.port = port
         self.app = Flask(__name__)
-        self.writeBuffer = writeBuffer
-        self.readQueue = Queue()
+        self.readQueue = Queue(maxsize=1)
         self.app.add_url_rule("/frame", "getFrame", self.getFrame)
         self.app.add_url_rule(
             "/stopServer", "stopServer", self.stopServer, methods=["GET"]
@@ -33,9 +30,14 @@ class Preview:
         self.server = None
         self.server_thread = None
 
+    def add(self, frame):
+        if not self.readQueue.full():
+            self.readQueue.put(frame, block=False)
+
     def getFrame(self):
         try:
-            self.frame = self.writeBuffer.peek()
+            self.frame = self.readQueue.get()
+
             if self.frame is not None:
                 self.lastFrame = self.frame
 
