@@ -101,7 +101,7 @@ def matchEncoder(encode_method: str):
     command = []
     match encode_method:
         case "x264":
-            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "15"])
+            command.extend(["-c:v", "libx264", "-preset", "ultrafast", "-crf", "50"])
         case "x264_10bit":
             command.extend(
                 [
@@ -535,6 +535,17 @@ class WriteBuffer:
             .contiguous()
         )
 
+        self.process = Process(
+            target=childProcessEncode,
+            args=(
+                self.sharedArray,
+                self.processQueue,
+                (self.height, self.width, self.channels),
+                self.command,
+                self.bitDepth,
+            ),
+        )
+
     def encodeSettings(self, verbose: bool = False) -> list:
         """
         This will return the command for FFMPEG to work with, it will be used inside of the scope of the class.
@@ -710,24 +721,8 @@ class WriteBuffer:
         verbose : bool - Whether to log the progress of the encoding.
         queue : queue.Queue, optional - The queue to get the frames
         """
-        verbose: bool = True
 
-        try:
-            self.process = Process(
-                target=childProcessEncode,
-                args=(
-                    self.sharedArray,
-                    self.processQueue,
-                    (self.height, self.width, self.channels),
-                    self.command,
-                    self.bitDepth,
-                ),
-            )
-            self.process.start()
-
-        except Exception as e:
-            if verbose:
-                logging.error(f"An error occurred: {str(e)}")
+        self.process.start()
 
     def peek(self):
         """
