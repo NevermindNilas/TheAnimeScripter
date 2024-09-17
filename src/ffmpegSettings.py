@@ -11,14 +11,11 @@ import threading
 import re
 
 from src.coloredPrints import green
-from torch.multiprocessing import Process
-from multiprocessing import Queue as MPQueue
+from multiprocessing import Process, Queue as MPQueue
 from multiprocessing.shared_memory import SharedMemory
-
 from queue import Full, Queue
 
 workingFrames = 200
-
 
 if platform.system() == "Windows":
     appdata = os.getenv("APPDATA")
@@ -39,57 +36,6 @@ if getattr(sys, "frozen", False):
     outputPath = os.path.dirname(sys.executable)
 else:
     outputPath = os.path.dirname(os.path.abspath(__file__))
-
-
-def childProcessEncode(
-    sharedMemName,
-    processQueue: MPQueue,
-    numpyShape,
-    command,
-    bitDepth: str = "8bit",
-):
-    shm = SharedMemory(name=sharedMemName)
-    torchArray = (
-        torch.frombuffer(shm.buf, dtype=torch.uint8)
-        .view(workingFrames, *numpyShape)
-        .contiguous()
-    )
-
-    with open(ffmpegLogPath, "w") as logPath:
-        with subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            stderr=logPath,
-            stdout=logPath,
-        ) as process:
-            while True:
-                dataID = processQueue.get()
-                if dataID is None:
-                    break
-                if bitDepth == "8bit":
-                    process.stdin.write(torchArray[dataID].numpy().tobytes())
-                else:
-                    process.stdin.write(
-                        torchArray[dataID]
-                        .float()
-                        .mul(257)
-                        .to(torch.uint16)
-                        .numpy()
-                        .tobytes()
-                    )
-
-    with open(ffmpegLogPath, "r") as logPath:
-        lines = logPath.readlines()
-        pattern = re.compile(r"fps=\s*(\d+)")
-
-        for line in reversed(lines):
-            match = pattern.search(line)
-            if match:
-                fps = match.group(1)
-                print(
-                    green(f"\n{'='*40}\n  FFMPEG Reported FPS: {fps} FPS\n{'='*40}\n")
-                )
-                break
 
 
 def checkForCudaWorkflow(verbose: bool = True) -> bool:
@@ -547,7 +493,7 @@ class WriteBuffer:
             workingFrames, *dimensions.tolist()
         )
         self.process = Process(
-            target=childProcessEncode,
+            target=self.childProcessEncode,
             args=(
                 self.sharedMem.name,
                 self.processQueue,
@@ -737,6 +683,59 @@ class WriteBuffer:
 
         self.process.start()
 
+    @staticmethod
+    def childProcessEncode(
+        sharedMemName,
+        processQueue: MPQueue,
+        numpyShape,
+        command,
+        bitDepth: str = "8bit",
+    ):
+        shm = SharedMemory(name=sharedMemName)
+        torchArray = (
+            torch.frombuffer(shm.buf, dtype=torch.uint8)
+            .view(workingFrames, *numpyShape)
+            .contiguous()
+        )
+
+        with open(ffmpegLogPath, "w") as logPath:
+            with subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stderr=logPath,
+                stdout=logPath,
+            ) as process:
+                while True:
+                    dataID = processQueue.get()
+                    if dataID is None:
+                        break
+                    if bitDepth == "8bit":
+                        process.stdin.write(torchArray[dataID].numpy().tobytes())
+                    else:
+                        process.stdin.write(
+                            torchArray[dataID]
+                            .float()
+                            .mul(257)
+                            .to(torch.uint16)
+                            .numpy()
+                            .tobytes()
+                        )
+
+        with open(ffmpegLogPath, "r") as logPath:
+            lines = logPath.readlines()
+            pattern = re.compile(r"fps=\s*(\d+)")
+
+            for line in reversed(lines):
+                match = pattern.search(line)
+                if match:
+                    fps = match.group(1)
+                    print(
+                        green(
+                            f"\n{'='*40}\n  FFMPEG Reported FPS: {fps} FPS\n{'='*40}\n"
+                        )
+                    )
+                    break
+
     def write(self, frame: torch.Tensor):
         """
         Add a frame to the queue. Must be in RGB format.
@@ -780,7 +779,6 @@ class WriteBuffer:
                 self.ffmpegPath,
                 "-v",
                 "error",
-                "-stats",
             ]
 
             if self.outpoint != 0:
