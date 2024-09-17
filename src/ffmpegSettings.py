@@ -42,6 +42,7 @@ def childProcessEncode(
     processQueue: MPQueue,
     numpyShape,
     command,
+    bitDepth: str = "8bit",
 ):
     torchArray = (
         torch.frombuffer(sharedArray.get_obj(), dtype=torch.uint8)
@@ -59,11 +60,20 @@ def childProcessEncode(
                 dataID = processQueue.get()
                 if dataID is None:
                     break
-                # ADD BIT DEPTH
-
-                process.stdin.write(
-                    torchArray[dataID].to(torch.uint8).cpu().numpy().tobytes()
-                )
+                if bitDepth == "8bit":
+                    process.stdin.write(
+                        torchArray[dataID].to(torch.uint8).cpu().numpy().tobytes()
+                    )
+                else:
+                    process.stdin.write(
+                        torchArray[dataID]
+                        .float()
+                        .mul(257)
+                        .to(torch.uint16)
+                        .cpu()
+                        .numpy()
+                        .tobytes()
+                    )
 
 
 def checkForCudaWorkflow(verbose: bool = True) -> bool:
@@ -710,6 +720,7 @@ class WriteBuffer:
                     self.processQueue,
                     (self.height, self.width, self.channels),
                     self.command,
+                    self.bitDepth,
                 ),
             )
             self.process.start()
