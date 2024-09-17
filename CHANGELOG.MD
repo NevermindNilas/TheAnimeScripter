@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### Fixed
 - Fixed a regression from 1.9.8 where encoding performance was significantly impacted.
+- Fixed an issue where the first frame of a processed video was black when upscaling.
 
 ## [1.9.8] - 2024-09-15
 
