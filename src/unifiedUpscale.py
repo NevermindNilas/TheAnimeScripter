@@ -294,7 +294,7 @@ class UniversalTensorRT:
 
         self.processFrame(frame)
         self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-        output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
+        output = self.dummyOutput.squeeze(0).permute(1, 2, 0).clamp(0, 1).mul(255)
         self.stream.synchronize()
 
         if self.upscaleSkip is not None:
