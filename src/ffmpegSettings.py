@@ -8,6 +8,9 @@ import numpy as np
 import cv2
 import platform
 import threading
+import re
+
+from src.coloredPrints import green
 from torch.multiprocessing import Process
 from multiprocessing import Queue as MPQueue
 from multiprocessing.shared_memory import SharedMemory
@@ -51,6 +54,11 @@ def childProcessEncode(
         .view(workingFrames, *numpyShape)
         .contiguous()
     )
+
+    # Move tensor to GPU if CUDA is available
+    if torch.cuda.is_available():
+        torchArray = torchArray.cuda()
+
     with open(ffmpegLogPath, "w") as logPath:
         with subprocess.Popen(
             command,
@@ -64,11 +72,24 @@ def childProcessEncode(
                     break
                 frame = torchArray[dataID]
                 if bitDepth == "8bit":
-                    process.stdin.write(frame.numpy().tobytes())
+                    process.stdin.write(frame.cpu().numpy().tobytes())
                 else:
                     process.stdin.write(
-                        frame.float().mul(257).to(torch.uint16).numpy().tobytes()
+                        frame.float().mul(257).to(torch.uint16).cpu().numpy().tobytes()
                     )
+
+    with open(ffmpegLogPath, "r") as logPath:
+        lines = logPath.readlines()
+        pattern = re.compile(r"fps=\s*(\d+)")
+
+        for line in reversed(lines):
+            match = pattern.search(line)
+            if match:
+                fps = match.group(1)
+                print(
+                    green(f"\n{'='*40}\n  FFMPEG Reported FPS: {fps} FPS\n{'='*40}\n")
+                )
+                break
 
 
 def checkForCudaWorkflow(verbose: bool = True) -> bool:
@@ -522,10 +543,12 @@ class WriteBuffer:
         dimensions = torch.tensor([self.height, self.width, self.channels])
         size = int(torch.prod(dimensions).item()) * workingFrames
         self.sharedMem = SharedMemory(create=True, size=size)
-        # Create a torch tensor directly from the shared memory buffer
         self.torchArray = torch.frombuffer(self.sharedMem.buf, dtype=torch.uint8).view(
             workingFrames, *dimensions.tolist()
         )
+
+        if torch.cuda.is_available():
+            self.torchArray = self.torchArray.cuda()
 
         self.process = Process(
             target=childProcessEncode,
