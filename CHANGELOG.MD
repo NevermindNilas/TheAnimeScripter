@@ -13,8 +13,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `VP9` and `QSV_VP9` encode methods were added back in order to support `.webm` inputs.
 
 #### Improved:
-- Improved encoding performance
 - Better metadata requesting powered by `pymediainfo`
+- Benchmarking should now provide significantly more accurate results.
+
+#### Fixed
+- Fixed a regression from 1.9.8 where encoding performance was significantly impacted.
 
 ## [1.9.8] - 2024-09-15
 

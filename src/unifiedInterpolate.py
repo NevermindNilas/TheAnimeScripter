@@ -170,7 +170,7 @@ class RifeCuda:
         )
 
     @torch.inference_mode()
-    def __call__(self, frame, benchmark, interpQueue):
+    def __call__(self, frame, interpQueue):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0 = self.padFrame(self.processFrame(frame))
@@ -191,8 +191,7 @@ class RifeCuda:
                 ]
                 self.stream.synchronize()
 
-                if not benchmark:
-                    interpQueue.put(output)
+                interpQueue.put(output)
 
             self.cacheFrame()
 
@@ -379,7 +378,7 @@ class RifeTensorRT:
         self.useI0AsSource = True
 
     @torch.inference_mode()
-    def __call__(self, frame, benchmark, interpQueue):
+    def __call__(self, frame, interpQueue):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
                 self.I0.copy_(self.processFrame(frame), non_blocking=True)
@@ -405,8 +404,7 @@ class RifeTensorRT:
                 output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
                 self.stream.synchronize()
 
-                if not benchmark:
-                    interpQueue.put(output)
+                interpQueue.put(output)
 
             self.useI0AsSource = not self.useI0AsSource
 
@@ -490,7 +488,7 @@ class RifeNCNN:
     def cacheFrameReset(self, frame):
         self.frame1 = frame.cpu().numpy().astype("uint8")
 
-    def __call__(self, frame, benchmark, interpQueue):
+    def __call__(self, frame, interpQueue):
         if self.frame1 is None:
             self.frame1 = frame.cpu().numpy().astype("uint8")
             return False
@@ -501,7 +499,6 @@ class RifeNCNN:
             timestep = (i + 1) * 1 / self.interpolateFactor
             output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
             output = torch.from_numpy(output).to(frame.device)
-            if not benchmark:
-                interpQueue.put(output)
+            interpQueue.put(output)
 
         self.cacheFrame()
