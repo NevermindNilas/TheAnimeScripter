@@ -1,7 +1,6 @@
 import logging
 import subprocess
 import os
-import shutil
 import torch
 import sys
 import numpy as np
@@ -581,9 +580,21 @@ class WriteBuffer:
                 str(self.fps),
                 "-i",
                 "pipe:0",
-                "-map",
-                "0:v",
             ]
+            if self.audio:
+                command.extend(
+                    [
+                        "-i",
+                        self.input,
+                    ]
+                )
+
+            command.extend(
+                [
+                    "-map",
+                    "0:v",
+                ]
+            )
 
             if not self.custom_encoder:
                 command.extend(matchEncoder(self.encode_method))
@@ -598,8 +609,7 @@ class WriteBuffer:
                 if filters:
                     command.extend(["-vf", ",".join(filters)])
 
-                command.extend(["-pix_fmt", outputPixFormat, self.output])
-
+                command.extend(["-pix_fmt", outputPixFormat])
             else:
                 customEncoderList = self.custom_encoder.split()
 
@@ -641,8 +651,23 @@ class WriteBuffer:
                     )
                     customEncoderList.extend(["-pix_fmt", outputPixFormat])
 
-                customEncoderList.append(self.output)
                 command.extend(customEncoderList)
+
+            if self.audio:
+                command.extend(
+                    [
+                        "-map",
+                        "1:a",
+                        "-c:a",
+                        "copy",
+                        "-map",
+                        "1:s?",
+                        "-c:s",
+                        "copy",
+                        "-shortest",
+                    ]
+                )
+            command.extend([self.output])
 
         else:
             command = [
@@ -653,8 +678,6 @@ class WriteBuffer:
                 "warning",
                 "-stats",
                 "-f",
-                "rawvideo",
-                "-vcodec",
                 "rawvideo",
                 "-video_size",
                 f"{self.width}x{self.height}",
@@ -728,10 +751,21 @@ class WriteBuffer:
             for line in reversed(lines):
                 match = pattern.search(line)
                 if match:
-                    fps = match.group(1)
+                    fps = float(match.group(1))
+                    fpsStr = f"{fps:5.2f} FPS"
+                    message = f"FFMPEG Reported FPS: {fpsStr}"
+                    totalLength = len(message)
+                    boxWidth = 42
+                    paddingLeft = (boxWidth - totalLength) // 2
+                    paddingRight = boxWidth - totalLength - paddingLeft
+
                     print(
                         green(
-                            f"\n{'='*40}\n  FFMPEG Reported FPS: {fps} FPS\n{'='*40}\n"
+                            f"\n┌{'─'*boxWidth}┐\n"
+                            f"│{' '*boxWidth}│\n"
+                            f"│{' '*paddingLeft}{message}{' '*paddingRight}│\n"
+                            f"│{' '*boxWidth}│\n"
+                            f"└{'─'*boxWidth}┘\n"
                         )
                     )
                     break
@@ -755,65 +789,3 @@ class WriteBuffer:
         self.processQueue.put(None)
         self.isWritingDone = True
         self.process.join()
-        if self.audio and not self.benchmark:
-            self.mergeAudio()
-
-    def mergeAudio(self):
-        try:
-            ffmpegCommand = [
-                self.ffmpegPath,
-                "-i",
-                self.input,
-            ]
-            result = subprocess.run(
-                ffmpegCommand, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-            )
-            if "Stream #0:1" not in result.stderr.decode():
-                logging.info("No audio stream found, skipping audio merge")
-                return
-
-            fileExtension = os.path.splitext(self.output)[1]
-            mergedFile = os.path.splitext(self.output)[0] + "_merged" + fileExtension
-
-            ffmpegCommand = [
-                self.ffmpegPath,
-                "-v",
-                "error",
-            ]
-
-            if self.outpoint != 0:
-                ffmpegCommand.extend(
-                    ["-ss", str(self.inpoint), "-to", str(self.outpoint)]
-                )
-
-            ffmpegCommand.extend(
-                [
-                    "-i",
-                    self.input,
-                    "-i",
-                    self.output,
-                    "-c:v",
-                    "copy",
-                    "-c:a",
-                    "copy" if not self.output.endswith(".webm") else "libopus",
-                    "-c:s",
-                    "copy",
-                    "-map",
-                    "1:v:0",
-                    "-map",
-                    "0:a",
-                    "-map",
-                    "0:s?",
-                    "-shortest",
-                    "-y",
-                    mergedFile,
-                ]
-            )
-
-            logging.info(f"Merging audio and subtitles with: {' '.join(ffmpegCommand)}")
-
-            subprocess.run(ffmpegCommand)
-            shutil.move(mergedFile, self.output)
-
-        except Exception as e:
-            logging.error(f"An error occurred: {str(e)}")
