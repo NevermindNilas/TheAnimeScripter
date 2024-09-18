@@ -10,7 +10,8 @@ import threading
 import re
 
 from src.coloredPrints import green
-from multiprocessing import Process, Queue as MPQueue
+from torch.multiprocessing import Process
+from multiprocessing import Queue as MPQueue
 from multiprocessing.shared_memory import SharedMemory
 from queue import Full, Queue
 
@@ -485,22 +486,17 @@ class WriteBuffer:
 
         logging.info(f"Encoding options: {' '.join(map(str, self.command))}")
 
-        dimensions = torch.tensor([self.height, self.width, self.channels])
-        size = int(torch.prod(dimensions).item()) * workingFrames
-        self.sharedMem = SharedMemory(create=True, size=size)
-        self.torchArray = torch.frombuffer(self.sharedMem.buf, dtype=torch.uint8).view(
-            workingFrames, *dimensions.tolist()
+        dimensions = torch.tensor(
+            [workingFrames, self.height, self.width, self.channels]
         )
-
-        try:
-            self.torchArray = self.torchArray.pin_memory()
-        except Exception:
-            pass
+        self.torchArray = torch.zeros(
+            *dimensions.tolist(), dtype=torch.uint8
+        ).share_memory_()
 
         self.process = Process(
             target=self.childProcessEncode,
             args=(
-                self.sharedMem.name,
+                self.torchArray,
                 self.processQueue,
                 dimensions,
                 self.command,
@@ -703,37 +699,17 @@ class WriteBuffer:
         return command
 
     def start(self, queue: Queue = None):
-        """
-        The actual underlying logic for encoding, it starts a queue and gets the necessary FFMPEG command from encodeSettings.
-        This is meant to be used in a separate thread for faster processing.
-
-        verbose : bool - Whether to log the progress of the encoding.
-        queue : queue.Queue, optional - The queue to get the frames
-        """
-
         self.process.start()
 
     @staticmethod
     def childProcessEncode(
-        sharedMemName,
+        shared_tensor,
         processQueue: MPQueue,
-        numpyShape,
+        torchShape,
         command,
         bitDepth: str = "8bit",
         channels: int = 3,
     ):
-        shm = SharedMemory(name=sharedMemName)
-        torchArray = (
-            torch.frombuffer(shm.buf, dtype=torch.uint8)
-            .view(workingFrames, *numpyShape)
-            .contiguous()
-        )
-
-        try:
-            torchArray = torchArray.pin_memory()
-        except Exception:
-            pass
-
         with open(ffmpegLogPath, "w") as logPath:
             with subprocess.Popen(
                 command,
@@ -746,7 +722,7 @@ class WriteBuffer:
                     if dataID is None:
                         break
 
-                    frame = torchArray[dataID].numpy()
+                    frame = shared_tensor[dataID].numpy()
 
                     if channels == 3:
                         if bitDepth == "8bit":
@@ -794,7 +770,7 @@ class WriteBuffer:
         """
         try:
             dataID = self.writtenFrames % workingFrames
-            self.torchArray[dataID] = frame
+            self.torchArray[dataID].copy_(frame)
             self.processQueue.put(dataID)
             self.writtenFrames += 1
         except Exception as e:
