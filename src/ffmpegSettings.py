@@ -491,6 +491,12 @@ class WriteBuffer:
         self.torchArray = torch.frombuffer(self.sharedMem.buf, dtype=torch.uint8).view(
             workingFrames, *dimensions.tolist()
         )
+
+        try:
+            self.torchArray = self.torchArray.pin_memory()
+        except Exception:
+            pass
+
         self.process = Process(
             target=self.childProcessEncode,
             args=(
@@ -722,6 +728,11 @@ class WriteBuffer:
             .view(workingFrames, *numpyShape)
             .contiguous()
         )
+
+        try:
+            torchArray = torchArray.pin_memory()
+        except Exception:
+            pass
 
         with open(ffmpegLogPath, "w") as logPath:
             with subprocess.Popen(
