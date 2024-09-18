@@ -108,7 +108,7 @@ class VideoProcessor:
         self.depth_quality = args.depth_quality
         self.interpolate_skip = args.interpolate_skip
 
-        self.width, self.height, self.fps, self.totalFrames, self.pixFMT = (
+        self.width, self.height, self.fps, self.totalFrames, self.pixFMT, self.audio = (
             getVideoMetadata(self.input, self.inpoint, self.outpoint)
         )
 
