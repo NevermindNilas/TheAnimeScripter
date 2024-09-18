@@ -12,10 +12,9 @@ import re
 from src.coloredPrints import green
 from torch.multiprocessing import Process
 from multiprocessing import Queue as MPQueue
-from multiprocessing.shared_memory import SharedMemory
 from queue import Full, Queue
 
-workingFrames = 200
+workingFrames = 100
 
 if platform.system() == "Windows":
     appdata = os.getenv("APPDATA")
@@ -63,7 +62,7 @@ def matchEncoder(encode_method: str):
     command = []
     match encode_method:
         case "x264":
-            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "15"])
+            command.extend(["-c:v", "libx264", "-preset", "ultrafast", "-crf", "50"])
         case "x264_10bit":
             command.extend(
                 [
@@ -493,6 +492,11 @@ class WriteBuffer:
             *dimensions.tolist(), dtype=torch.uint8
         ).share_memory_()
 
+        try:
+            self.torchArray = self.torchArray.cuda()
+        except Exception:
+            pass
+
         self.process = Process(
             target=self.childProcessEncode,
             args=(
@@ -703,7 +707,7 @@ class WriteBuffer:
 
     @staticmethod
     def childProcessEncode(
-        shared_tensor,
+        sharedTensor,
         processQueue: MPQueue,
         torchShape,
         command,
@@ -722,7 +726,7 @@ class WriteBuffer:
                     if dataID is None:
                         break
 
-                    frame = shared_tensor[dataID].numpy()
+                    frame = sharedTensor[dataID].cpu().numpy()
 
                     if channels == 3:
                         if bitDepth == "8bit":
@@ -770,7 +774,7 @@ class WriteBuffer:
         """
         try:
             dataID = self.writtenFrames % workingFrames
-            self.torchArray[dataID].copy_(frame)
+            self.torchArray[dataID].copy_(frame, non_blocking=True)
             self.processQueue.put(dataID)
             self.writtenFrames += 1
         except Exception as e:
