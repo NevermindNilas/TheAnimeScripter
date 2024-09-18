@@ -11,15 +11,30 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### New
 - `VP9` and `QSV_VP9` encode methods were added back in order to support `.webm` inputs.
+- A new `FFMPEG Reported FPS` banner that will tell the end user a more reliable FPS.
 
 #### Improved:
 - Better metadata requesting powered by `pymediainfo`
 - Benchmarking should now provide significantly more accurate results.
+- Audio & Subtitle Merging will now happen during the encode phase in order to decrease overall render time.
+- Encode will now be fully parallel to the inference on order to give minimal bottlenecks to the inference thread.
+- Better logging from FFMPEG.
 
 #### Fixed
 - Fixed wrong / overexaggerated performance reports from TAS
 - Fixed a regression from 1.9.8 where encoding performance was significantly impacted.
 - Fixed an issue where the first frame of a processed video was black when upscaling.
+
+### Adobe Edition
+
+#### New
+- `Manual Method` button for step by step tutorial on how to install TAS' backend manually in case of download errors.
+
+#### Improvements
+- N/A
+
+#### Fixed
+- An issue where TAS' backend would be downloaded
 
 ## [1.9.8] - 2024-09-15
 
