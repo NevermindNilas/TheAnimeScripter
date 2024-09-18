@@ -499,6 +499,7 @@ class WriteBuffer:
                 dimensions,
                 self.command,
                 self.bitDepth,
+                self.channels,
             ),
         )
 
@@ -509,7 +510,7 @@ class WriteBuffer:
         verbose : bool - Whether to log the progress of the encoding.
         """
         if self.bitDepth == "8bit":
-            inputPixFormat = "rgb24"
+            inputPixFormat = "yuv420p"
             outputPixFormat = "yuv420p"
         else:
             inputPixFormat = "rgb48le"
@@ -523,7 +524,7 @@ class WriteBuffer:
                     )
                 self.encode_method = "prores_segment"
 
-                inputPixFormat = "rgba"
+                inputPixFormat = "yuva420p"
                 outputPixFormat = "yuva444p10le"
 
         elif self.grayscale:
@@ -536,7 +537,7 @@ class WriteBuffer:
 
         elif self.encode_method in ["x264_10bit", "x265_10bit", "x264_animation_10bit"]:
             if self.bitDepth == "8bit":
-                inputPixFormat = "rgb24"
+                inputPixFormat = "yuv420p"
                 outputPixFormat = "yuv420p10le"
             else:
                 inputPixFormat = "rgb48le"
@@ -548,7 +549,7 @@ class WriteBuffer:
             "qsv_h265_10bit",
         ]:
             if self.bitDepth == "8bit":
-                inputPixFormat = "rgb24"
+                inputPixFormat = "yuv420p"
                 outputPixFormat = "p010le"
             else:
                 inputPixFormat = "rgb48le"
@@ -556,7 +557,7 @@ class WriteBuffer:
 
         elif self.encode_method in ["prores"]:
             if self.bitDepth == "8bit":
-                inputPixFormat = "rgb24"
+                inputPixFormat = "yuv420p"
                 outputPixFormat = "yuv444p10le"
             else:
                 inputPixFormat = "rgb48le"
@@ -605,7 +606,7 @@ class WriteBuffer:
                 if self.grayscale:
                     filters.append("format=gray")
                 if self.transparent:
-                    filters.append("format=rgba")
+                    filters.append("format=yuva420p")
                 if filters:
                     command.extend(["-vf", ",".join(filters)])
 
@@ -629,7 +630,7 @@ class WriteBuffer:
                         )
 
                     if self.transparent:
-                        customEncoderList[vfIndex + 1] += ",format=rgba"
+                        customEncoderList[vfIndex + 1] += ",format=yuva420p"
                 else:
                     filters = []
                     if self.sharpen:
@@ -641,7 +642,7 @@ class WriteBuffer:
                             else ",format=gray16be"
                         )
                     if self.transparent:
-                        filters.append("format=rgba")
+                        filters.append("format=yuva420p")
                     if filters:
                         customEncoderList.extend(["-vf", ",".join(filters)])
 
@@ -713,6 +714,7 @@ class WriteBuffer:
         numpyShape,
         command,
         bitDepth: str = "8bit",
+        channels: int = 3,
     ):
         shm = SharedMemory(name=sharedMemName)
         torchArray = (
@@ -732,17 +734,22 @@ class WriteBuffer:
                     dataID = processQueue.get()
                     if dataID is None:
                         break
+
+                    frame = torchArray[dataID].numpy()
+
+                    if channels == 3:
+                        if bitDepth == "8bit":
+                            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV_I420)
+                    elif channels == 4:
+                        frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2YUVA_I420)
+
                     if bitDepth == "8bit":
-                        process.stdin.write(torchArray[dataID].numpy().tobytes())
+                        frame = frame.tobytes()
                     else:
-                        process.stdin.write(
-                            torchArray[dataID]
-                            .float()
-                            .mul(257)
-                            .to(torch.uint16)
-                            .numpy()
-                            .tobytes()
-                        )
+                        frame = frame.astype(np.float32) * 257
+                        frame = frame.astype(np.uint16).tobytes()
+
+                    process.stdin.write(frame)
 
         with open(ffmpegLogPath, "r") as logPath:
             lines = logPath.readlines()
