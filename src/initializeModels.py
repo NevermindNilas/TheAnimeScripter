@@ -14,8 +14,6 @@ def AutoClip(self, mainPath):
 
 
 def Segment(self):
-    # Lazy loading for startup time reasons
-
     if self.segment_method == "anime":
         from src.segment.animeSegment import AnimeSegment
 

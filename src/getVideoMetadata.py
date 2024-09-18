@@ -13,11 +13,14 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     outPoint (float): The end time of the video clip.
 
     Returns:
-    tuple: A tuple containing the width, height, fps, total frames to be processed, and pixel format of the video.
+    tuple: A tuple containing the width, height, fps, total frames to be processed, pixel format of the video, and a boolean indicating if the video has audio.
     """
     mediaInfo = MediaInfo.parse(inputPath)
     videoTrack = next(
         (track for track in mediaInfo.tracks if track.track_type == "Video"), None
+    )
+    audioTrack = next(
+        (track for track in mediaInfo.tracks if track.track_type == "Audio"), None
     )
 
     if videoTrack is None:
@@ -40,6 +43,8 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     else:
         totalFramesToBeProcessed = nframes
 
+    hasAudio = audioTrack is not None
+
     logging.info(
         textwrap.dedent(f"""
     ============== Video Metadata ==============
@@ -52,7 +57,8 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     Duration: {duration} seconds
     In-Out Duration: {inOutDuration} seconds
     Total frames to be processed: {totalFramesToBeProcessed}
-    Pixel Format: {pixFmt}""")
+    Pixel Format: {pixFmt}
+    Has Audio: {hasAudio}""")
     )
 
-    return width, height, fps, totalFramesToBeProcessed, pixFmt
+    return width, height, fps, totalFramesToBeProcessed, pixFmt, hasAudio
