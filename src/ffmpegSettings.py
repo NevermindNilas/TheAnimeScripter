@@ -358,10 +358,11 @@ class BuildBuffer:
 
     def convertFrames(self, reshape):
         for _ in range(self.totalFrames):
-            rawFrame = self.chunkQueue.get()
             frame = torch.from_numpy(
                 cv2.cvtColor(
-                    np.frombuffer(rawFrame, dtype=np.uint8).reshape(reshape),
+                    np.frombuffer(self.chunkQueue.get(), dtype=np.uint8).reshape(
+                        reshape
+                    ),
                     cv2.COLOR_YUV2RGB_I420,
                 )
             )
