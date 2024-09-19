@@ -337,6 +337,7 @@ if __name__ == "__main__":
             for file in os.listdir(args.input)
             if file.endswith((".mp4", ".mkv", ".mov", ".avi", ".webm"))
         ]
+
         toPrint = f"Processing {len(videoFiles)} files"
         logging.info(toPrint)
         print(blue(toPrint))
@@ -345,6 +346,7 @@ if __name__ == "__main__":
             os.makedirs(args.output, exist_ok=True)
 
         for videoFile in videoFiles:
+            args = (isFrozen, mainPath, outputPath)
             args.input = os.path.abspath(videoFile)
             toPrint = f"Processing {args.input}"
             logging.info(toPrint)
