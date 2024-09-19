@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Audio & Subtitle Merging will now happen during the encode phase in order to decrease overall render time.
 - Encode will now be fully parallel to the inference on order to give minimal bottlenecks to the inference thread.
 - Better logging from FFMPEG.
+- Better CUDA and Encode handling will result in a `30%` boost in performance for NVIDIA Users ( WIP )
 
 #### Fixed
 - Fixed wrong / overexaggerated performance reports from TAS
