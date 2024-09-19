@@ -9,7 +9,7 @@ from .checkSpecs import checkSystem
 from .getFFMPEG import getFFMPEG
 from src.ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
-from .coloredPrints import green, red
+from .coloredPrints import green, red, blue
 from rich_argparse import RichHelpFormatter
 from .version import __version__ as version
 
@@ -651,3 +651,22 @@ def processURL(args, outputPath):
             "URL is invalid or not a YouTube URL, please check the URL and try again"
         )
         sys.exit()
+
+
+def inputChecker(input, encodeMethod, customEncoder):
+    """
+    In order to prevent issues with webm inputs and certain encoders, we need to check the input and the encoder
+    """
+    if not customEncoder:
+        if input.endswith(".webm"):
+            if encodeMethod not in ["vp9", "qsv_vp9", "av1"]:
+                toPrint = "WebM input detected, defaulting to VP9 encoding"
+                logging.error(toPrint)
+                print(blue(toPrint))
+        elif input.endswith((".png", ".jpg", ".jpeg")):
+            logging.info("Image input detected, disabling audio")
+            if encodeMethod not in [".gif", "image"]:
+                logging.error(
+                    "Image input detected but encoding method is not set to GIF or Image, defaulting to Image encoding"
+                )
+                encodeMethod = "image"
