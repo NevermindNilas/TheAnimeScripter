@@ -360,17 +360,25 @@ class BuildBuffer:
 
     @torch.inference_mode()
     def convertFrames(self, reshape, isCudaAvailable):
+        dummyTensor = torch.zeros((self.height, self.width, 3), dtype=torch.uint8)
+        try:
+            dummyTensor = dummyTensor.pin_memory()
+        except Exception:
+            pass
+
         for _ in range(self.totalFrames):
-            frame = torch.from_numpy(
-                cv2.cvtColor(
-                    np.frombuffer(self.chunkQueue.get(), dtype=np.uint8).reshape(
-                        reshape
-                    ),
-                    cv2.COLOR_YUV2RGB_I420,
+            dummyTensor.copy_(
+                torch.from_numpy(
+                    cv2.cvtColor(
+                        np.frombuffer(self.chunkQueue.get(), dtype=np.uint8).reshape(
+                            reshape
+                        ),
+                        cv2.COLOR_YUV2RGB_I420,
+                    )
                 )
             )
             if self.isCudaAvailable:
-                frame = frame.to(device="cuda", non_blocking=True)
+                frame = dummyTensor.to(device="cuda", non_blocking=True)
             try:
                 self.readBuffer.put_nowait(frame)
             except Full:
