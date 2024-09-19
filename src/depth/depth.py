@@ -524,10 +524,10 @@ class DepthTensorRTV2:
                 bitDepth=self.bitDepth,
             )
 
+            self.writeBuffer.start()
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
-                executor.submit(self.writeBuffer.start)
 
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
