@@ -285,6 +285,7 @@ class UniversalTensorRT:
                 frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0).mul(1 / 255),
                 non_blocking=True,
             )
+            self.normStream.synchronize()
 
     @torch.inference_mode()
     def __call__(self, frame):
