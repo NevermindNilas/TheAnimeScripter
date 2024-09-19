@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Encode will now be fully parallel to the inference on order to give minimal bottlenecks to the inference thread.
 - Better logging from FFMPEG.
 - Better CUDA and Encode handling will result in a `30%` boost in performance for NVIDIA Users ( WIP )
+- If `--output` is declared and the path doesn't exist, TAS will now try to create the folder automatically.
 
 #### Fixed
 - Fixed wrong / overexaggerated performance reports from TAS
