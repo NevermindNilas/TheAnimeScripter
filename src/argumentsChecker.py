@@ -408,6 +408,7 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
        _______\/\\\_______\/\\\_______\/\\\_\///\\\\\\\\\\\/___
         _______\///________\///________\///____\///////////_____
 """
+
     if args.list_presets:
         from src.presetLogic import listPresets
 
@@ -429,45 +430,63 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
 
     argsDict = vars(args)
     for arg in argsDict:
-        if (
-            argsDict[arg] is None
-            or argsDict[arg] in ["", "none"]
-            or argsDict[arg] is False
-        ):
-            continue
-        logging.info(f"{arg.upper()}: {argsDict[arg]}")
+        if argsDict[arg] not in [None, "", "none", False]:
+            logging.info(f"{arg.upper()}: {argsDict[arg]}")
 
     checkSystem()
 
     logging.info("\n============== Arguments Checker ==============")
     args.ffmpeg_path = getFFMPEG()
 
-    args.sharpen_sens /= 100
-    args.autoclip_sens = 100 - args.autoclip_sens
+    def adjustSkipSens():
+        feature_checks = {
+            "upscale_skip": {
+                "depends_on": "upscale",
+                "incompatible_with": "dedup",
+                "enabled_msg": "Upscale skip enabled...",
+                "error_msgs": {
+                    "incompatible": "Upscale skip and dedup cannot be used together...",
+                    "missing_dependency": "Upscale skip is enabled but upscaling is not...",
+                },
+            },
+            "interpolate_skip": {
+                "depends_on": "interpolate",
+                "incompatible_with": "dedup",
+                "enabled_msg": "Interpolate skip enabled...",
+                "error_msgs": {
+                    "incompatible": "Interpolate skip and dedup cannot be used together...",
+                    "missing_dependency": "Interpolate skip is enabled but interpolation is not...",
+                },
+            },
+        }
+
+        for feature, conditions in feature_checks.items():
+            if getattr(args, feature):
+                logging.info(conditions["enabled_msg"])
+                if getattr(args, conditions["incompatible_with"]):
+                    logging.error(conditions["error_msgs"]["incompatible"])
+                    setattr(args, feature, False)
+                elif not getattr(args, conditions["depends_on"]):
+                    logging.error(conditions["error_msgs"]["missing_dependency"])
+                    setattr(args, feature, False)
+
+    adjustSkipSens()
 
     if args.offline != "none":
-        toPrint = "Offline mode enabled, downloading all available models, this can take some time but it will allow for the script to be used offline"
-        logging.info(toPrint)
-        print(green(toPrint))
-
+        logging.info(f"Offline mode enabled, downloading {args.offline} model(s)...")
+        print(green(f"Offline mode enabled, downloading {args.offline} model(s)..."))
         options = modelsList() if args.offline == ["all"] else args.offline
         for option in options:
             for precision in [True, False]:
                 try:
-                    option = option.lower()
-                    downloadModels(option, half=precision)
-                except Exception as e:
-                    logging.error(e)
-                    print(
-                        red(
-                            f"Failed to download model: {option} with precision: "
-                            + ("fp16" if precision else "fp32")
-                        )
+                    downloadModels(option.lower(), half=precision)
+                except Exception:
+                    logging.error(
+                        f"Failed to download model: {option} with precision: {'fp16' if precision else 'fp32'}"
                     )
 
-        toPrint = "All models downloaded!"
-        logging.info(toPrint)
-        print(green(toPrint))
+        logging.info("All model(s) downloaded!")
+        print(green("All model(s) downloaded!"))
 
     if args.dedup:
         logging.info("Dedup is enabled, audio will be disabled")
@@ -478,65 +497,23 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
                 f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
             )
 
-    if args.scenechange:
-        if args.scenechange_method == [
-            "differential",
-            "differential-tensorrt",
-            "diffrential-directml",
-        ]:
-            args.scenechange_sens = 0.65 - (args.scenechange_sens / 1000)
+    def adjustSens(args, method_key, sensitivities):
+        if args.scenechange_method in sensitivities:
+            args.scenechange_sens = sensitivities[args.scenechange_method] - (
+                args.scenechange_sens / 1000
+            )
             logging.info(
                 f"New scenechange sensitivity for {args.scenechange_method} is: {args.scenechange_sens}"
             )
-        elif args.scenechange_method in [
-            "shift_lpips",
-            "shift_lpips-tensorrt",
-            "shift_lpips-directml",
-        ]:
-            args.scenechange_sens = 0.50 - (args.scenechange_sens / 1000)
-            logging.info(
-                f"New scenechange sensitivity for {args.scenechange_method} is: {args.scenechange_sens}"
-            )
-        else:
-            args.scenechange_sens = 0.9 - (args.scenechange_sens / 1000)
-            logging.info(f"New scenechange sensitivity is: {args.scenechange_sens}")
+
+    sensMap = {"differential": 0.65, "shift_lpips": 0.50, "maxxvit": 0.9}
+
+    adjustSens(args, "scenechange_method", sensMap)
 
     if args.custom_encoder:
-        logging.info(
-            "Custom encoder specified, use with caution since some functions can make or break the encoding process"
-        )
+        logging.info("Custom encoder specified, use with caution")
     else:
         logging.info("No custom encoder specified, using default encoder")
-
-    if args.upscale_skip:
-        logging.info(
-            "Upscale skip enabled, the script will skip frames that are upscaled to save time, this is far from perfect and can cause issues"
-        )
-        if args.dedup:
-            logging.error(
-                "Upscale skip and dedup cannot be used together, disabling upscale skip to prevent issues"
-            )
-            args.upscale_skip = False
-        elif not args.upscale:
-            logging.error(
-                "Upscale skip is enabled but upscaling is not, disabling upscale skip"
-            )
-            args.upscale_skip = False
-
-    if args.interpolate_skip:
-        logging.info(
-            "Interpolate skip enabled, the script will skip frames that are interpolated to save time, this is far from perfect and can cause issues"
-        )
-        if args.dedup:
-            logging.error(
-                "Interpolate skip and dedup cannot be used together, disabling interpolate skip to prevent issues"
-            )
-            args.interpolate_skip = False
-        elif not args.interpolate:
-            logging.error(
-                "Interpolate skip is enabled but interpolation is not, disabling interpolate skip"
-            )
-            args.interpolate_skip = False
 
     if args.bit_depth == "16bit" and args.segment:
         logging.error(
@@ -544,60 +521,32 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         )
         args.bit_depth = "8bit"
 
-    if args.encode_method in ["gif", "image"]:
-        logging.info("GIF encoding selected, disabling audio")
-        args.audio = False
-        if args.preview:
-            logging.error(
-                "Preview is not supported with GIF and Image encoding, disabling preview"
-            )
-            args.preview = False
+    if args.output and not os.path.exists(args.output.split(".")[0]):
+        os.makedirs(args.output.split(".")[0], exist_ok=True)
 
-    if args.preview:
-        if args.benchmark:
-            logging.error(
-                "Preview is not supported with benchmarking, disabling preview"
-            )
-            args.preview = False
-
-        logging.info(
-            "Preview is enabled, the script will start a preview server to show the video during processing, this can have a signficant impact on performance"
-        )
-        print(
-            green(
-                "Preview is enabled, the script will start a preview server to show the video during processing, this can have a signficant impact on performance"
-            )
-        )
-
-    args.isImage = False
-    if args.input is None:
-        toPrint = "No input specified, please specify an input file or URL to continue"
-        logging.error(toPrint)
-        print(red(toPrint))
+    if not args.input:
+        logging.error("No input specified")
         sys.exit()
     elif args.input.startswith("http") or args.input.startswith("www"):
         processURL(args, outputPath)
-
     elif args.input.endswith((".png", ".jpg", ".jpeg")):
         logging.info("Image input detected, disabling audio")
         args.audio = False
-        if args.encode_method not in [".gif", "image"]:
+        if args.encode_method not in ["gif", "image"]:
             logging.error(
-                "Image input detected but encoding method is not set to GIF or Image, defaulting to Image encoding"
+                "Image input detected but encoding method not set to GIF or Image, defaulting to Image encoding"
             )
             args.encode_method = "image"
             args.isImage = True
-
     else:
         try:
             args.input = os.path.abspath(args.input)
             args.input = str(args.input)
         except Exception:
-            logging.error(
-                "Error processing the input, this is usually because of weird input names with spaces or characters that are not allowed"
-            )
+            logging.error("Error processing input")
             sys.exit()
 
+    # Early exit if no processing methods are enabled
     processingMethods = [
         args.interpolate,
         args.scenechange,
@@ -613,9 +562,7 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
     ]
 
     if not any(processingMethods):
-        toPrint = "No other processing methods specified, exiting"
-        logging.error(toPrint)
-        print(red(toPrint))
+        logging.error("No processing methods specified, exiting")
         sys.exit()
 
     return args
