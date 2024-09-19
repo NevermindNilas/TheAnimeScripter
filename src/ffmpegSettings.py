@@ -330,7 +330,9 @@ class BuildBuffer:
 
             self.chunkQueue = Queue(maxsize=self.queueSize)
 
-            chunkExecutor = threading.Thread(target=self.convertFrames, args=(reshape,))
+            chunkExecutor = threading.Thread(
+                target=self.convertFrames, args=(reshape, self.isCudaAvailable)
+            )
             readExecutor = threading.Thread(target=self.readSTDOUT, args=(chunk,))
 
             chunkExecutor.start()
@@ -356,7 +358,8 @@ class BuildBuffer:
             except Full:
                 self.chunkQueue.put(rawFrame)
 
-    def convertFrames(self, reshape):
+    @torch.inference_mode()
+    def convertFrames(self, reshape, isCudaAvailable):
         for _ in range(self.totalFrames):
             frame = torch.from_numpy(
                 cv2.cvtColor(
@@ -489,13 +492,16 @@ class WriteBuffer:
         dimensions = torch.tensor(
             [workingFrames, self.height, self.width, self.channels]
         )
+        dimsList = [self.height, self.width, self.channels]
         self.torchArray = torch.zeros(
             *dimensions.tolist(), dtype=torch.uint8
         ).share_memory_()
 
         try:
             self.torchArray = self.torchArray.cuda()
+            isCudaAvailable = True
         except Exception:
+            isCudaAvailable = False
             pass
 
         self.process = Process(
@@ -503,10 +509,11 @@ class WriteBuffer:
             args=(
                 self.torchArray,
                 self.processQueue,
-                dimensions,
+                dimsList,
                 self.command,
                 self.bitDepth,
                 self.channels,
+                isCudaAvailable,
             ),
         )
 
@@ -710,11 +717,18 @@ class WriteBuffer:
     def childProcessEncode(
         sharedTensor,
         processQueue: MPQueue,
-        torchShape,
+        dimsList,
         command,
         bitDepth: str = "8bit",
         channels: int = 3,
+        isCudaAvailable: bool = False,
     ):
+        dummyTensor = torch.zeros(dimsList, dtype=torch.uint8)
+
+        if isCudaAvailable:
+            dummyTensor = dummyTensor.pin_memory()
+            normStream = torch.cuda.Stream()
+
         with open(ffmpegLogPath, "w") as logPath:
             with subprocess.Popen(
                 command,
@@ -727,13 +741,26 @@ class WriteBuffer:
                     if dataID is None:
                         break
 
-                    frame = sharedTensor[dataID].cpu().numpy()
+                    if isCudaAvailable:
+                        with torch.cuda.stream(normStream):
+                            dummyTensor.copy_(sharedTensor[dataID], non_blocking=True)
+                            normStream.synchronize()
+                    else:
+                        dummyTensor.copy_(sharedTensor[dataID])
 
+                    if channels == 1:
+                        frame = cv2.cvtColor(
+                            dummyTensor.numpy(), cv2.COLOR_RGB2YUV_I420
+                        )
                     if channels == 3:
                         if bitDepth == "8bit":
-                            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2YUV_I420)
+                            frame = cv2.cvtColor(
+                                dummyTensor.numpy(), cv2.COLOR_RGB2YUV_I420
+                            )
                     elif channels == 4:
-                        frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2YUVA_I420)
+                        frame = cv2.cvtColor(
+                            dummyTensor.numpy(), cv2.COLOR_RGBA2YUVA_I420
+                        )
 
                     if bitDepth == "8bit":
                         frame = frame.tobytes()
