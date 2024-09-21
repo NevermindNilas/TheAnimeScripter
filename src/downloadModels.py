@@ -73,6 +73,7 @@ def modelsList() -> list[str]:
         "rife4.21",
         "rife4.22",
         "rife4.22-lite",
+        "rife4.25",
         "shufflecugan-directml",
         "open-proteus-directml",
         "compact-directml",
@@ -239,7 +240,29 @@ def modelsMap(
 
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
-        
+
+        case "rife4.25" | "rife4.25-tensorrt" | "rife4.25-ncnn":
+            if modelType == "pth":
+                return "rife425.pth"
+            elif modelType == "onnx":
+                if half:
+                    if ensemble:
+                        print(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        )
+                    else:
+                        return "rife425_fp16_op21_slim.onnx"
+                else:
+                    if ensemble:
+                        print(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        )
+                    else:
+                        return "rife425_fp32_op21_slim.onnx"
+
+            elif modelType == "ncnn":
+                pass
+
         case "rife4.22-lite" | "rife4.22-lite-tensorrt" | "rife4.22-lite-ncnn":
             if modelType == "pth":
                 return "rife422_lite.pth"
@@ -268,7 +291,7 @@ def modelsMap(
                     return "rife-v4.22-lite-ensemble-ncnn.zip"
                 else:
                     return "rife-v4.22-lite-ncnn.zip"
-        
+
         case "rife4.20" | "rife4.20-tensorrt" | "rife4.20-ncnn":
             if modelType == "pth":
                 return "rife420.pth"
@@ -406,7 +429,7 @@ def modelsMap(
                     return "rife-v4.15-lite-ensenmble-ncnn.zip"
                 else:
                     return "rife-v4.15-lite-ncnn.zip"
-        
+
         case "rife4.15" | "rife4.15-tensorrt" | "rife-v4.15-ncnn":
             if modelType == "pth":
                 return "rife415.pth"
@@ -502,6 +525,7 @@ def modelsMap(
         case _:
             raise ValueError(f"Model {model} not found.")
 
+
 def downloadAndLog(
     model: str, filename: str, download_url: str, folderPath: str, retries: int = 3
 ):
@@ -560,7 +584,7 @@ def downloadAndLog(
                 filename = filename[:-4]
             else:
                 os.rename(tempFilePath, os.path.join(folderPath, filename))
-            
+
             os.removedirs(tempFolder)
 
             toLog = f"Downloaded {model.capitalize()} model to: {os.path.join(folderPath, filename)}"
