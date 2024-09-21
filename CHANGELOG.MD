@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### New
 - `VP9` and `QSV_VP9` encode methods were added back in order to support `.webm` inputs.
-- A new `FFMPEG Reported FPS` banner that will tell the end user a more reliable FPS.
+- A more accurate progress meter after the process has finished.
 
 #### Improved:
 - Better metadata requesting powered by `pymediainfo`
@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Better logging from FFMPEG.
 - Better CUDA and Encode handling will result in a `30%` boost in performance for NVIDIA Users ( WIP )
 - If `--output` is declared and the path doesn't exist, TAS will now try to create the folder automatically.
+- More robust Try/Except statements in order to lower the time needed from beginning to code execution.
 
 #### Fixed
 - Fixed wrong / overexaggerated performance reports from TAS

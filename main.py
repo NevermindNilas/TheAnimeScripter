@@ -20,11 +20,11 @@ Home: https://github.com/NevermindNilas/TheAnimeScripter
 """
 
 import os
-import warnings
 import sys
 import logging
-import platform
-import signal
+from platform import system
+from signal import signal, SIGINT, SIG_DFL
+from time import time
 
 from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
@@ -35,10 +35,10 @@ from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
 from queue import Queue
-import torch.multiprocessing as mp
+from torch import multiprocessing as mp
 # from src.darken import darkenLines
 
-if platform.system() == "Windows":
+if system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
 else:
     mainPath = os.path.join(
@@ -55,8 +55,6 @@ if getattr(sys, "frozen", False):
 else:
     isFrozen = False
     outputPath = os.path.dirname(os.path.abspath(__file__))
-
-warnings.filterwarnings("ignore")
 
 
 class VideoProcessor:
@@ -146,59 +144,55 @@ class VideoProcessor:
             self.start()
 
     def processFrame(self, frame):
-        try:
-            if self.dedup:
-                if self.dedup_process(frame):
-                    self.dedupCount += 1
-                    return
+        if self.dedup:
+            if self.dedup_process(frame):
+                self.dedupCount += 1
+                return
 
-            # frame = darkenLines(frame)
+        # frame = darkenLines(frame)
 
-            if self.scenechange:
-                self.isSceneChange = self.scenechange_process(frame)
-                if self.isSceneChange:
-                    self.sceneChangeCounter += 1
+        if self.scenechange:
+            self.isSceneChange = self.scenechange_process(frame)
+            if self.isSceneChange:
+                self.sceneChangeCounter += 1
 
-            if self.denoise:
-                frame = self.denoise_process(frame)
+        if self.denoise:
+            frame = self.denoise_process(frame)
 
+        if self.interpolate:
+            if self.isSceneChange:
+                self.interpolate_process.cacheFrameReset(frame)
+            else:
+                self.interpolate_process(frame, self.interpQueue)
+
+        if self.upscale:
             if self.interpolate:
                 if self.isSceneChange:
-                    self.interpolate_process.cacheFrameReset(frame)
+                    frame = self.upscale_process(frame)
+                    for _ in range(self.interpolate_factor):
+                        self.writeBuffer.write(frame)
                 else:
-                    self.interpolate_process(frame, self.interpQueue)
-
-            if self.upscale:
-                if self.interpolate:
-                    if self.isSceneChange:
-                        frame = self.upscale_process(frame)
-                        for _ in range(self.interpolate_factor):
-                            self.writeBuffer.write(frame)
-                    else:
-                        while not self.interpQueue.empty():
-                            self.writeBuffer.write(
-                                self.upscale_process(self.interpQueue.get())
-                            )
-                        self.writeBuffer.write(self.upscale_process(frame))
-                else:
+                    while not self.interpQueue.empty():
+                        self.writeBuffer.write(
+                            self.upscale_process(self.interpQueue.get())
+                        )
                     self.writeBuffer.write(self.upscale_process(frame))
-
             else:
-                if self.interpolate:
-                    if self.isSceneChange or not self.interpQueue.empty():
-                        for _ in range(self.interpolate_factor - 1):
-                            frameToWrite = (
-                                frame if self.isSceneChange else self.interpQueue.get()
-                            )
-                            self.writeBuffer.write(frameToWrite)
+                self.writeBuffer.write(self.upscale_process(frame))
 
-                self.writeBuffer.write(frame)
+        else:
+            if self.interpolate:
+                if self.isSceneChange or not self.interpQueue.empty():
+                    for _ in range(self.interpolate_factor - 1):
+                        frameToWrite = (
+                            frame if self.isSceneChange else self.interpQueue.get()
+                        )
+                        self.writeBuffer.write(frameToWrite)
 
-            if self.preview:
-                self.preview.add(frame.clamp(0, 255).byte().cpu().numpy())
+            self.writeBuffer.write(frame)
 
-        except Exception as e:
-            logging.exception(f"Something went wrong while processing the frames, {e}")
+        if self.preview:
+            self.preview.add(frame.clamp(0, 255).byte().cpu().numpy())
 
     def process(self):
         frameCount = 0
@@ -208,25 +202,29 @@ class VideoProcessor:
         increment = 1 if not self.interpolate else self.interpolate_factor
         if self.interpolate:
             self.interpQueue = Queue(maxsize=self.interpolate_factor)
-        with alive_bar(
-            total=self.totalFrames * increment,
-            title="Processing Frame: ",
-            length=30,
-            stats="| {rate}",
-            elapsed="Elapsed Time: {elapsed}",
-            monitor=" {count}/{total} | [{percent:.0%}] | ",
-            # stats_end="{total_time} • {rate:.2f}/s",
-            unit="frames",
-            spinner=None,
-        ) as bar:
-            for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
-                    self.writeBuffer.close()
-                    break
-                self.processFrame(frame)
-                frameCount += 1
-                bar(increment)
+
+        try:
+            with alive_bar(
+                total=self.totalFrames * increment,
+                title="Processing Frame: ",
+                length=30,
+                stats="| {rate}",
+                elapsed="Elapsed Time: {elapsed}",
+                monitor=" {count}/{total} | [{percent:.0%}] | ",
+                # stats_end="{total_time} • {rate:.2f}/s",
+                unit="frames",
+                spinner=None,
+            ) as bar:
+                for _ in range(self.totalFrames):
+                    frame = self.readBuffer.read()
+                    if frame is None:
+                        self.writeBuffer.close()
+                        break
+                    self.processFrame(frame)
+                    frameCount += 1
+                    bar(increment)
+        except Exception as e:
+            logging.exception(f"Something went wrong while processing the frames, {e}")
 
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
@@ -251,6 +249,7 @@ class VideoProcessor:
                 self.scenechange_process,
             ) = initializeModels(self)
 
+            starTime: float = time()
             self.readBuffer = BuildBuffer(
                 self.input,
                 self.ffmpeg_path,
@@ -301,18 +300,28 @@ class VideoProcessor:
                 if self.preview:
                     executor.submit(self.preview.start)
 
+            elapsedTime: float = time() - starTime
+            logging.info(
+                f"Total Time: {elapsedTime:.2f} seconds FPS: {self.totalFrames / elapsedTime:.2f}"
+            )
+            print(
+                green(
+                    f"Total Time: {elapsedTime:.2f} seconds FPS: {self.totalFrames / elapsedTime:.2f}"
+                )
+            )
+
         except Exception as e:
-            logging.exception(f"Something went wrong: {e}")
+            logging.exception(f"Something went wrong while starting the processes, {e}")
 
 
 if __name__ == "__main__":
     mp.freeze_support()
-    if platform.system() == "Windows":
+    if system() == "Windows":
         mp.set_start_method("spawn", force=True)
     else:
         mp.set_start_method("fork", force=True)
 
-    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    signal(SIGINT, SIG_DFL)
     logging.basicConfig(
         filename=os.path.join(mainPath, "log.txt"),
         filemode="w",

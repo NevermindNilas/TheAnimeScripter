@@ -3,11 +3,8 @@ import logging
 import sys
 import argparse
 
-from urllib.parse import urlparse
-from .generateOutput import outputNameGenerator
 from .checkSpecs import checkSystem
 from .getFFMPEG import getFFMPEG
-from src.ytdlp import VideoDownloader
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red, blue
 from rich_argparse import RichHelpFormatter
@@ -572,11 +569,17 @@ def processURL(args, outputPath):
     """
     Check if the input is a URL, if it is, download the video and set the input to the downloaded video
     """
+    from urllib.parse import urlparse
+    from src.ytdlp import VideoDownloader
+
     result = urlparse(args.input)
+
     if result.netloc.lower() in ["www.youtube.com", "youtube.com", "youtu.be"]:
         logging.info("URL is valid and will be used for processing")
 
         if args.output is None:
+            from .generateOutput import outputNameGenerator
+
             outputFolder = os.path.join(outputPath, "output")
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
             args.output = os.path.join(outputFolder, outputNameGenerator(args))

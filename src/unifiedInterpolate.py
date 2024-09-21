@@ -2,7 +2,6 @@ import os
 import torch
 import logging
 
-from torch.nn import functional as F
 from .downloadModels import downloadModels, weightsDir, modelsMap
 from .coloredPrints import yellow
 
@@ -43,6 +42,10 @@ class RifeCuda:
         self.interpolateFactor = interpolateFactor
         self.inputFPS = inputFPS
         self.interpolateSkip = interpolateSkip
+
+        from torch.nn import functional as F
+
+        self.F = F
 
         if self.width > 1920 and self.height > 1080:
             self.scale = 0.5
@@ -164,7 +167,7 @@ class RifeCuda:
     @torch.inference_mode()
     def padFrame(self, frame):
         return (
-            F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
+            self.F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
             if self.padding != (0, 0, 0, 0)
             else frame
         )
@@ -365,7 +368,6 @@ class RifeTensorRT:
             .permute(2, 0, 1)
             .unsqueeze(0)
             .mul(1 / 255)
-            .contiguous()
         )
 
     @torch.inference_mode()
@@ -395,11 +397,11 @@ class RifeTensorRT:
                     (i + 1) * 1 / self.interpolateFactor,
                     dtype=self.dType,
                     device=self.device,
-                ).contiguous()
+                )
 
                 self.dummyInput.copy_(
                     torch.cat([source, destination, timestep], dim=1), non_blocking=True
-                ).contiguous()
+                )
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
                 self.stream.synchronize()
