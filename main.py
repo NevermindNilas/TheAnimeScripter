@@ -307,7 +307,11 @@ class VideoProcessor:
 
 if __name__ == "__main__":
     mp.freeze_support()
-    mp.set_start_method("spawn", force=True)
+    if platform.system() == "Windows":
+        mp.set_start_method("spawn", force=True)
+    else:
+        mp.set_start_method("fork", force=True)
+
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     logging.basicConfig(
         filename=os.path.join(mainPath, "log.txt"),
