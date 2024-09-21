@@ -444,6 +444,7 @@ def modelsMap(
                         return "rife415_v2_ensembleTrue_op20_clamp_onnxslim.onnx"
                     else:
                         return "rife415_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+
             elif modelType == "ncnn":
                 if ensemble:
                     return "rife-v4.15-ensemble-ncnn.zip"
@@ -630,6 +631,7 @@ def downloadModels(
         "rife4.20-tensorrt",
         "rife4.18-tensorrt",
         "rife4.17-tensorrt",
+        "rife4.15-tensorrt",
         "rife4.6-tensorrt",
         "span-tensorrt",
         "span-directml",
