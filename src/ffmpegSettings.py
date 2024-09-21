@@ -12,9 +12,9 @@ import re
 from src.coloredPrints import green
 from torch.multiprocessing import Process
 from multiprocessing import Queue as MPQueue
-from queue import Full, Queue
+from queue import Queue
 
-workingFrames = 100
+workingFrames = 50
 
 if platform.system() == "Windows":
     appdata = os.getenv("APPDATA")
@@ -314,57 +314,45 @@ class BuildBuffer:
 
         self.isCudaAvailable = checkForCudaWorkflow(verbose=True)
 
-        try:
-            yPlane = self.width * self.height
-            uPlane = (self.width // 2) * (self.height // 2)
-            vPlane = (self.width // 2) * (self.height // 2)
-            reshape = (self.height * 3 // 2, self.width)
-            chunk = yPlane + uPlane + vPlane
-            self.process = subprocess.Popen(
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-            )
-            self.decodedFrames = 0
-            self.readingDone = False
+        yPlane = self.width * self.height
+        uPlane = (self.width // 2) * (self.height // 2)
+        vPlane = (self.width // 2) * (self.height // 2)
+        reshape = (self.height * 3 // 2, self.width)
+        chunk = yPlane + uPlane + vPlane
+        self.process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        )
+        self.decodedFrames = 0
+        self.readingDone = False
+        self.chunkQueue = Queue(maxsize=self.queueSize)
+        chunkExecutor = threading.Thread(
+            target=self.convertFrames, args=(reshape, self.isCudaAvailable)
+        )
+        readExecutor = threading.Thread(target=self.readSTDOUT, args=(chunk,))
+        chunkExecutor.start()
+        readExecutor.start()
 
-            self.chunkQueue = Queue(maxsize=self.queueSize)
+        chunkExecutor.join()
+        readExecutor.join()
 
-            chunkExecutor = threading.Thread(
-                target=self.convertFrames, args=(reshape, self.isCudaAvailable)
-            )
-            readExecutor = threading.Thread(target=self.readSTDOUT, args=(chunk,))
-
-            chunkExecutor.start()
-            readExecutor.start()
-
-            chunkExecutor.join()
-            readExecutor.join()
-
-        except Exception as e:
-            logging.error(f"An error occurred: {str(e)}")
-        finally:
-            if verbose:
-                logging.info(f"Built buffer with {self.decodedFrames} frames")
-            self.readingDone = True
-            self.readBuffer.put(None)
-            self.process.stdout.close()
+        if verbose:
+            logging.info(f"Built buffer with {self.decodedFrames} frames")
+        self.readingDone = True
+        self.readBuffer.put(None)
+        self.process.stdout.close()
 
     def readSTDOUT(self, chunk):
         for _ in range(self.totalFrames):
             rawFrame = self.process.stdout.read(chunk)
-            try:
-                self.chunkQueue.put_nowait(rawFrame)
-            except Full:
-                self.chunkQueue.put(rawFrame)
+            self.chunkQueue.put(rawFrame)
 
     @torch.inference_mode()
     def convertFrames(self, reshape, isCudaAvailable):
         dummyTensor = torch.zeros((self.height, self.width, 3), dtype=torch.uint8)
-        try:
+        if isCudaAvailable:
             dummyTensor = dummyTensor.pin_memory()
-        except Exception:
-            pass
 
         for _ in range(self.totalFrames):
             dummyTensor.copy_(
@@ -378,11 +366,9 @@ class BuildBuffer:
                 )
             )
             if self.isCudaAvailable:
-                frame = dummyTensor.to(device="cuda", non_blocking=True)
-            try:
-                self.readBuffer.put_nowait(frame)
-            except Full:
-                self.readBuffer.put(frame)
+                frame = dummyTensor.to(device="cuda", non_blocking=False)
+
+            self.readBuffer.put(frame)
             self.decodedFrames += 1
 
     def read(self):
