@@ -22,6 +22,7 @@ Home: https://github.com/NevermindNilas/TheAnimeScripter
 import os
 import sys
 import logging
+import warnings
 from platform import system
 from signal import signal, SIGINT, SIG_DFL
 from time import time
@@ -36,7 +37,8 @@ from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
 from queue import Queue
 from torch import multiprocessing as mp
-# from src.darken import darkenLines
+
+warnings.filterwarnings("ignore")
 
 if system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
