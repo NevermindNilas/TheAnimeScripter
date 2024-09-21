@@ -103,23 +103,30 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         )
         self.model.eval()
         self.model.to(self.device)
+        self.stream = torch.cuda.Stream()
+        self.inferStream = torch.cuda.Stream()
 
+    @torch.inference_mode()
     def getMask(self, input_img: torch.Tensor) -> torch.Tensor:
-        s = 1024
-        h, w = h0, w0 = input_img.shape[:-1]
-        h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
-        ph, pw = s - h, s - w
-        input_img = (
-            input_img.float().to(self.device).mul(1 / 255).permute(2, 0, 1).unsqueeze(0)
-        )
-        img_input = F.interpolate(
-            input_img,
-            size=(h, w),
-            mode="bilinear",
-            align_corners=False,
-        )
-        img_input = F.pad(img_input, (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2))
-        with torch.no_grad():
+        with torch.cuda.stream(self.inferStream):
+            s = 1024
+            h, w = h0, w0 = input_img.shape[:-1]
+            h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
+            ph, pw = s - h, s - w
+            input_img = (
+                input_img.float()
+                .to(self.device)
+                .mul(1 / 255)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+            )
+            img_input = F.interpolate(
+                input_img,
+                size=(h, w),
+                mode="bilinear",
+                align_corners=False,
+            )
+            img_input = F.pad(img_input, (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2))
             pred = self.model(img_input)
             pred = pred[:, :, ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w]
             pred = (
@@ -129,14 +136,18 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 .mul(255)
                 .to(torch.uint8)
             )
+            self.inferStream.synchronize()
             return pred
 
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
             mask = torch.squeeze(self.getMask(frame), dim=2)
-            frameWithmask = torch.cat((frame.to(self.device), mask.unsqueeze(2)), dim=2)
-            self.writeBuffer.write(frameWithmask)
+            with torch.cuda.stream(self.stream):
+                frameWithmask = torch.cat((frame, mask.unsqueeze(2)), dim=2)
+                self.stream.synchronize()
+                self.writeBuffer.write(frameWithmask)
+
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
@@ -325,34 +336,46 @@ class AnimeSegmentTensorRT:
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
 
+        self.normStream = torch.cuda.Stream()
+        self.outputStream = torch.cuda.Stream()
+
+    @torch.inference_mode()
+    def normFrame(self, frame):
+        with torch.cuda.stream(self.normStream):
+            frame = F.pad(
+                frame.float().permute(2, 0, 1).unsqueeze(0).mul(1 / 255),
+                (0, 0, self.padHeight, self.padWidth),
+            )
+            self.dummyInput.copy_(frame, non_blocking=True)
+            self.normStream.synchronize()
+            return frame
+
+    @torch.inference_mode()
+    def outputNorm(self, frame):
+        with torch.cuda.stream(self.outputStream):
+            frameWithMask = torch.cat((frame, self.dummyOutput), dim=1)
+            frameWithMask = (
+                frameWithMask[
+                    :,
+                    :,
+                    : frameWithMask.shape[2] - self.padHeight,
+                    : frameWithMask.shape[3] - self.padWidth,
+                ]
+                .squeeze(0)
+                .permute(1, 2, 0)
+                .mul(255)
+            )
+            self.outputStream.synchronize()
+            return frameWithMask
+
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            with torch.cuda.stream(self.stream):
-                frame = (
-                    frame.to(self.device)
-                    .float()
-                    .permute(2, 0, 1)
-                    .unsqueeze(0)
-                    .mul(1 / 255)
-                )
-                frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
-
-                self.dummyInput.copy_(frame)
-                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-                self.stream.synchronize()
-
-                frameWithmask = torch.cat((frame, self.dummyOutput), dim=1)
-                frameWithmask = frameWithmask[
-                    :,
-                    :,
-                    : frameWithmask.shape[2] - self.padHeight,
-                    : frameWithmask.shape[3] - self.padWidth,
-                ]
-
-                self.writeBuffer.write(
-                    frameWithmask.squeeze(0).permute(1, 2, 0).mul(255)
-                )
+            frame = self.normFrame(frame)
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            self.stream.synchronize()
+            frameWithMask = self.outputNorm(frame)
+            self.writeBuffer.write(frameWithMask)
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
