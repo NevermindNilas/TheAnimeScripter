@@ -352,7 +352,9 @@ class BuildBuffer:
     @torch.inference_mode()
     def convertFrames(self, reshape, isCudaAvailable):
         dummyTensor = torch.zeros((self.height, self.width, 3), dtype=torch.uint8)
+
         if isCudaAvailable:
+            self.normStream = torch.cuda.Stream()
             dummyTensor = dummyTensor.pin_memory()
 
         for _ in range(self.totalFrames):
@@ -367,7 +369,9 @@ class BuildBuffer:
                 )
             )
             if self.isCudaAvailable:
-                frame = dummyTensor.to(device="cuda", non_blocking=False)
+                with torch.cuda.stream(self.normStream):
+                    frame = dummyTensor.to(device="cuda", non_blocking=False)
+                    self.normStream.synchronize()
 
             self.readBuffer.put(frame)
             self.decodedFrames += 1
@@ -494,9 +498,10 @@ class WriteBuffer:
 
         try:
             self.torchArray = self.torchArray.cuda()
-            isCudaAvailable = True
+            self.isCudaAvailable = True
+            self.normStream = torch.cuda.Stream()
         except Exception:
-            isCudaAvailable = False
+            self.isCudaAvailable = False
             pass
 
         self.process = Process(
@@ -508,7 +513,7 @@ class WriteBuffer:
                 self.command,
                 self.bitDepth,
                 self.channels,
-                isCudaAvailable,
+                self.isCudaAvailable,
             ),
         )
 
@@ -722,7 +727,6 @@ class WriteBuffer:
 
         if isCudaAvailable:
             dummyTensor = dummyTensor.pin_memory()
-            normStream = torch.cuda.Stream()
 
         with open(ffmpegLogPath, "w") as logPath:
             with subprocess.Popen(
@@ -737,9 +741,7 @@ class WriteBuffer:
                         break
 
                     if isCudaAvailable:
-                        with torch.cuda.stream(normStream):
-                            dummyTensor.copy_(sharedTensor[dataID], non_blocking=True)
-                            normStream.synchronize()
+                        dummyTensor.copy_(sharedTensor[dataID], non_blocking=False)
                     else:
                         dummyTensor.copy_(sharedTensor[dataID])
 
@@ -767,10 +769,13 @@ class WriteBuffer:
         Add a frame to the queue. Must be in RGB format.
         """
         try:
-            dataID = self.writtenFrames % workingFrames
-            self.torchArray[dataID].copy_(frame, non_blocking=True)
-            self.processQueue.put(dataID)
-            self.writtenFrames += 1
+            if self.isCudaAvailable:
+                dataID = self.writtenFrames % workingFrames
+                with torch.cuda.stream(self.normStream):
+                    self.torchArray[dataID].copy_(frame, non_blocking=True)
+                    self.normStream.synchronize()
+                self.processQueue.put(dataID)
+                self.writtenFrames += 1
         except Exception as e:
             logging.error(f"An error occurred: {str(e)}")
 
