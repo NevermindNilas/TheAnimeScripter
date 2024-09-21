@@ -6,15 +6,12 @@ import sys
 import numpy as np
 import cv2
 import platform
-import threading
-import re
 
-from src.coloredPrints import green
 from torch.multiprocessing import Process
 from multiprocessing import Queue as MPQueue
 from queue import Queue
 
-workingFrames = 50
+workingFrames = 10
 
 if platform.system() == "Windows":
     appdata = os.getenv("APPDATA")
@@ -249,6 +246,10 @@ class BuildBuffer:
         self.queueSize = queueSize
         self.totalFrames = totalFrames
 
+        import threading
+
+        self.threading = threading
+
     def decodeSettings(self) -> list:
         """
         This returns a command for FFMPEG to work with, it will be used inside of the scope of the class.
@@ -327,10 +328,10 @@ class BuildBuffer:
         self.decodedFrames = 0
         self.readingDone = False
         self.chunkQueue = Queue(maxsize=self.queueSize)
-        chunkExecutor = threading.Thread(
+        chunkExecutor = self.threading.Thread(
             target=self.convertFrames, args=(reshape, self.isCudaAvailable)
         )
-        readExecutor = threading.Thread(target=self.readSTDOUT, args=(chunk,))
+        readExecutor = self.threading.Thread(target=self.readSTDOUT, args=(chunk,))
         chunkExecutor.start()
         readExecutor.start()
 
@@ -760,32 +761,6 @@ class WriteBuffer:
                         frame = frame.astype(np.uint16).tobytes()
 
                     process.stdin.write(frame)
-
-        with open(ffmpegLogPath, "r") as logPath:
-            lines = logPath.readlines()
-            pattern = re.compile(r"fps=\s*(\d+)")
-
-            for line in reversed(lines):
-                match = pattern.search(line)
-                if match:
-                    fps = float(match.group(1))
-                    fpsStr = f"{fps:5.2f} FPS"
-                    message = f"FFMPEG Reported FPS: {fpsStr}"
-                    totalLength = len(message)
-                    boxWidth = 42
-                    paddingLeft = (boxWidth - totalLength) // 2
-                    paddingRight = boxWidth - totalLength - paddingLeft
-
-                    print(
-                        green(
-                            f"\n┌{'─'*boxWidth}┐\n"
-                            f"│{' '*boxWidth}│\n"
-                            f"│{' '*paddingLeft}{message}{' '*paddingRight}│\n"
-                            f"│{' '*boxWidth}│\n"
-                            f"└{'─'*boxWidth}┘\n"
-                        )
-                    )
-                    break
 
     def write(self, frame: torch.Tensor):
         """
