@@ -757,9 +757,8 @@ class WriteBuffer:
                         dummyTensor.copy_(sharedTensor[dataID])
 
                     if channels == 1:
-                        frame = cv2.cvtColor(
-                            dummyTensor.numpy(), cv2.COLOR_RGB2YUV_I420
-                        )
+                        frame = dummyTensor.numpy()
+
                     if channels == 3:
                         if bitDepth == "8bit":
                             frame = cv2.cvtColor(

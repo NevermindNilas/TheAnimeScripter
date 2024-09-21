@@ -179,31 +179,46 @@ class DepthV2:
             self.width, self.height, self.depthQuality
         )
 
+        self.normStream = torch.cuda.Stream()
+        self.outputNormStream = torch.cuda.Stream()
+        self.stream = torch.cuda.Stream()
+
+    @torch.inference_mode()
+    def normFrame(self, frame):
+        frame = frame.to(self.device).mul(1.0 / 255.0).permute(2, 0, 1).unsqueeze(0)
+        frame = F.interpolate(
+            frame.float(),
+            (self.newHeight, self.newWidth),
+            mode="bilinear",
+            align_corners=False,
+        )
+        frame = (frame - self.mean_tensor) / self.std_tensor
+        if self.half and self.isCudaAvailable:
+            frame = frame.half()
+        return frame
+
+    @torch.inference_mode()
+    def outputFrameNorm(self, depth):
+        depth = F.interpolate(
+            depth,
+            (self.height, self.width),
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze(0)
+        depth = ((depth - depth.min()) / (depth.max() - depth.min()) * 255).permute(
+            1, 2, 0
+        )
+        return depth
+
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            frame = frame.to(self.device).mul(1.0 / 255.0).permute(2, 0, 1).unsqueeze(0)
-
-            frame = F.interpolate(
-                frame.float(),
-                (self.newHeight, self.newWidth),
-                mode="bilinear",
-                align_corners=False,
-            )
-            frame = (frame.to(self.device) - self.mean_tensor) / self.std_tensor
-            if self.half and self.isCudaAvailable:
-                frame = frame.half()
-
-            depth = self.model(frame)
-            depth = F.interpolate(
-                depth,
-                (self.height, self.width),
-                mode="bilinear",
-                align_corners=False,
-            ).squeeze(0)
-
-            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-            self.writeBuffer.write(depth.permute(1, 2, 0))
+            with torch.cuda.stream(self.stream):
+                frame = self.normFrame(frame)
+                depth = self.model(frame)
+                depth = self.outputFrameNorm(depth)
+                self.stream.synchronize()
+                self.writeBuffer.write(depth)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -610,9 +625,12 @@ class DepthTensorRTV2:
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
 
+        self.normStream = torch.cuda.Stream()
+        self.outputNormStream = torch.cuda.Stream()
+
     @torch.inference_mode()
-    def processFrame(self, frame):
-        try:
+    def normFrame(self, frame):
+        with torch.cuda.stream(self.normStream):
             frame = frame.to(self.device).mul(1.0 / 255.0).permute(2, 0, 1).unsqueeze(0)
             frame = F.interpolate(
                 frame.float(),
@@ -620,19 +638,35 @@ class DepthTensorRTV2:
                 mode="bilinear",
                 align_corners=False,
             )
-            frame = (frame.to(self.device) - self.mean_tensor) / self.std_tensor
-            if self.half and self.isCudaAvailable:
+            frame = (frame - self.mean_tensor) / self.std_tensor
+            if self.half:
                 frame = frame.half()
             self.dummyInput.copy_(frame, non_blocking=True)
-            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            self.normStream.synchronize()
+
+    @torch.inference_mode()
+    def normOutputFrame(self):
+        with torch.cuda.stream(self.outputNormStream):
             depth = F.interpolate(
                 self.dummyOutput,
                 size=[self.height, self.width],
                 mode="bilinear",
                 align_corners=False,
             ).squeeze(0)
-            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255
-            self.writeBuffer.write(depth.permute(1, 2, 0))
+            depth = ((depth - depth.min()) / (depth.max() - depth.min()) * 255).permute(
+                1, 2, 0
+            )
+            self.outputNormStream.synchronize()
+            return depth
+
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        try:
+            self.normFrame(frame)
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            self.stream.synchronize()
+            depth = self.normOutputFrame()
+            self.writeBuffer.write(depth)
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
@@ -648,5 +682,4 @@ class DepthTensorRTV2:
                 bar(1)
 
         logging.info(f"Processed {frameCount} frames")
-
         self.writeBuffer.close()
