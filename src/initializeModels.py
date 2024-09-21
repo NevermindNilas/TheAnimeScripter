@@ -305,6 +305,7 @@ def initializeModels(self):
                 | "rife4.21"
                 | "rife4.22"
                 | "rife4.22-lite"
+                | "rife4.25"
             ):
                 from src.unifiedInterpolate import RifeCuda
 
@@ -353,6 +354,7 @@ def initializeModels(self):
                 | "rife4.21-tensorrt"
                 | "rife4.22-tensorrt"
                 | "rife4.22-lite-tensorrt"
+                | "rife4.25-tensorrt"
             ):
                 from src.unifiedInterpolate import RifeTensorRT
 

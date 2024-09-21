@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### The Anime Scripter
 
 #### New
+- Added `Rife 4.25` and `Rife 4.25-TensorRT`.
 - `VP9` and `QSV_VP9` encode methods were added back in order to support `.webm` inputs.
 - A more accurate progress meter after the process has finished.
 

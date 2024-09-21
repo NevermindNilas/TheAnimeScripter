@@ -318,8 +318,6 @@ if __name__ == "__main__":
     mp.freeze_support()
     if system() == "Windows":
         mp.set_start_method("spawn", force=True)
-    else:
-        mp.set_start_method("fork", force=True)
 
     signal(SIGINT, SIG_DFL)
     logging.basicConfig(
