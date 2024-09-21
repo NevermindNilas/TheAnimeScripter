@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### New
 - `Manual Method` button for step by step tutorial on how to install TAS' backend manually in case of download errors.
 
+#### Improved
+- Better download functionality for backend.
+
+#### Fixes
+- Backend download for TAS ( Counter: N/A )
+
 #### Improvements
 - N/A
 

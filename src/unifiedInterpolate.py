@@ -321,7 +321,7 @@ class RifeTensorRT:
             self.width,
             dtype=self.dType,
             device=self.device,
-        ).contiguous()
+        )
 
         self.I1 = torch.zeros(
             1,
@@ -330,19 +330,19 @@ class RifeTensorRT:
             self.width,
             dtype=self.dType,
             device=self.device,
-        ).contiguous()
+        )
 
         self.dummyInput = torch.empty(
             (1, 7, self.height, self.width),
             device=self.device,
             dtype=self.dType,
-        ).contiguous()
+        )
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height, self.width),
             device=self.device,
             dtype=self.dType,
-        ).contiguous()
+        )
 
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
 
