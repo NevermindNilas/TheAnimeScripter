@@ -74,6 +74,8 @@ class RifeCuda:
             modelPath = os.path.join(weightsDir, "rife", self.filename)
 
         match self.interpolateMethod:
+            case "rife" | "rife4.25":
+                from .rifearches.IFNet_rife425 import IFNet
             case "rife4.22-lite":
                 from .rifearches.IFNET_rife422lite import IFNet
             case "rife" | "rife4.22":
@@ -176,11 +178,13 @@ class RifeCuda:
     def __call__(self, frame, interpQueue):
         with torch.cuda.stream(self.stream):
             if self.firstRun:
-                self.I0 = self.padFrame(self.processFrame(frame))
+                self.I0.copy_(
+                    self.padFrame(self.processFrame(frame)), non_blocking=True
+                )
                 self.firstRun = False
                 return
 
-            self.I1 = self.padFrame(self.processFrame(frame))
+            self.I1.copy_(self.padFrame(self.processFrame(frame)), non_blocking=True)
 
             for i in range(self.interpolateFactor - 1):
                 timestep = torch.full(
@@ -193,7 +197,6 @@ class RifeCuda:
                     : self.height, : self.width, :
                 ]
                 self.stream.synchronize()
-
                 interpQueue.put(output)
 
             self.cacheFrame()
