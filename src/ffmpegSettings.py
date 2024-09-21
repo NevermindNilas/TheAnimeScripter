@@ -546,7 +546,7 @@ class WriteBuffer:
                     )
                 self.encode_method = "prores_segment"
 
-                inputPixFormat = "yuva420p"
+                inputPixFormat = "rgba"
                 outputPixFormat = "yuva444p10le"
 
         elif self.grayscale:
@@ -765,9 +765,7 @@ class WriteBuffer:
                                 dummyTensor.numpy(), cv2.COLOR_RGB2YUV_I420
                             )
                     elif channels == 4:
-                        frame = cv2.cvtColor(
-                            dummyTensor.numpy(), cv2.COLOR_RGBA2YUVA_I420
-                        )
+                        frame = dummyTensor.numpy()
 
                     if bitDepth == "8bit":
                         frame = frame.tobytes()
