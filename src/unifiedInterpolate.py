@@ -98,6 +98,7 @@ class RifeCuda:
         self.model = IFNet(self.ensemble, self.scale, self.interpolateFactor)
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
+        self.dType = torch.float16 if self.half else torch.float32
 
         torch.set_grad_enabled(False)
         if self.isCudaAvailable:
@@ -125,7 +126,7 @@ class RifeCuda:
             3,
             self.height + self.padding[3],
             self.width + self.padding[1],
-            dtype=torch.float16 if self.half else torch.float32,
+            dtype=self.dType,
             device=self.device,
         ).to(memory_format=torch.channels_last)
 
@@ -134,37 +135,82 @@ class RifeCuda:
             3,
             self.height + self.padding[3],
             self.width + self.padding[1],
-            dtype=torch.float16 if self.half else torch.float32,
+            dtype=self.dType,
             device=self.device,
         ).to(memory_format=torch.channels_last)
 
         self.firstRun = True
-        self.stream = torch.cuda.Stream() if self.isCudaAvailable else None
-
-    @torch.inference_mode()
-    def cacheFrame(self):
-        self.I0.copy_(self.I1, non_blocking=True)
-        self.model.cache()
+        self.stream = torch.cuda.Stream()
+        self.normStream = torch.cuda.Stream()
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
-        self.I0.copy_(self.padFrame(self.processFrame(frame)), non_blocking=True)
-        self.model.cacheReset(self.I0)
-        self.useI0AsSource = True
+        self.processFrame(frame, "cache")
+        self.processFrame(self.I0, "model")
 
     @torch.inference_mode()
-    def processFrame(self, frame):
-        return (
-            frame.to(
-                self.device,
-                non_blocking=True,
-                dtype=torch.float32 if not self.half else torch.float16,
-            )
-            .permute(2, 0, 1)
-            .unsqueeze_(0)
-            .mul_(1 / 255)
-            .to(memory_format=torch.channels_last)
-        )
+    def processFrame(self, frame, toNorm):
+        match toNorm:
+            case "I0":
+                with torch.cuda.stream(self.normStream):
+                    self.I0.copy_(
+                        self.padFrame(
+                            frame.to(
+                                device=self.device,
+                                dtype=self.dType,
+                                non_blocking=True,
+                            )
+                            .permute(2, 0, 1)
+                            .unsqueeze(0)
+                            .mul(1 / 255),
+                        )
+                    ).to(memory_format=torch.channels_last)
+                    self.normStream.synchronize()
+
+            case "I1":
+                with torch.cuda.stream(self.normStream):
+                    self.I1.copy_(
+                        self.padFrame(
+                            frame.to(
+                                device=self.device,
+                                dtype=self.dType,
+                                non_blocking=True,
+                            )
+                            .permute(2, 0, 1)
+                            .unsqueeze(0)
+                            .mul(1 / 255),
+                        ),
+                        non_blocking=True,
+                    ).to(memory_format=torch.channels_last)
+                    self.normStream.synchronize()
+
+            case "cache":
+                with torch.cuda.stream(self.normStream):
+                    self.I0.copy_(
+                        self.I1,
+                        non_blocking=True,
+                    )
+                    self.normStream.synchronize()
+
+            case "pad":
+                with torch.cuda.stream(self.normStream):
+                    output = self.padFrame(frame)
+                    self.normStream.synchronize()
+
+                return output
+
+            case "infer":
+                with torch.cuda.stream(self.stream):
+                    output = self.model(self.I0, self.I1, frame)[
+                        : self.height, : self.width, :
+                    ]
+                    self.stream.synchronize()
+                return output
+
+            case "model":
+                with torch.cuda.stream(self.stream):
+                    self.model.cacheReset(frame)
+                    self.stream.synchronize()
 
     @torch.inference_mode()
     def padFrame(self, frame):
@@ -176,30 +222,25 @@ class RifeCuda:
 
     @torch.inference_mode()
     def __call__(self, frame, interpQueue):
-        with torch.cuda.stream(self.stream):
-            if self.firstRun:
-                self.I0.copy_(
-                    self.padFrame(self.processFrame(frame)), non_blocking=True
-                )
-                self.firstRun = False
-                return
+        if self.firstRun:
+            self.processFrame(frame, "I0")
+            self.firstRun = False
+            return
 
-            self.I1.copy_(self.padFrame(self.processFrame(frame)), non_blocking=True)
+        self.processFrame(frame, "I1")
 
-            for i in range(self.interpolateFactor - 1):
-                timestep = torch.full(
-                    (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
-                    (i + 1) * 1 / self.interpolateFactor,
-                    dtype=torch.float16 if self.half else torch.float32,
-                    device=self.device,
-                )
-                output = self.model(self.I0, self.I1, timestep)[
-                    : self.height, : self.width, :
-                ]
-                self.stream.synchronize()
-                interpQueue.put(output)
+        for i in range(self.interpolateFactor - 1):
+            timestep = torch.full(
+                (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
+                (i + 1) * 1 / self.interpolateFactor,
+                dtype=self.dType,
+                device=self.device,
+            )
+            output = self.processFrame(timestep, "infer")
+            self.stream.synchronize()
+            interpQueue.put(output)
 
-            self.cacheFrame()
+        self.processFrame(None, "cache")
 
 
 class RifeTensorRT:
@@ -359,23 +400,68 @@ class RifeTensorRT:
 
         self.firstRun = True
         self.useI0AsSource = True
+        self.normStream = torch.cuda.Stream()
 
     @torch.inference_mode()
-    def processFrame(self, frame):
-        return (
-            frame.to(
-                self.device,
-                non_blocking=True,
-                dtype=self.dType,
-            )
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-            .mul(1 / 255)
-        )
+    def processFrame(self, frame, toNorm):
+        match toNorm:
+            case "I0":
+                with torch.cuda.stream(self.normStream):
+                    self.I0.copy_(
+                        frame.to(
+                            device=self.device,
+                            dtype=self.dType,
+                            non_blocking=True,
+                        )
+                        .permute(2, 0, 1)
+                        .unsqueeze(0)
+                        .mul(1 / 255),
+                        non_blocking=True,
+                    )
+                    self.normStream.synchronize()
+            case "I1":
+                with torch.cuda.stream(self.normStream):
+                    self.I1.copy_(
+                        frame.to(
+                            device=self.device,
+                            dtype=self.dType,
+                            non_blocking=True,
+                        )
+                        .permute(2, 0, 1)
+                        .unsqueeze(0)
+                        .mul(1 / 255),
+                        non_blocking=True,
+                    )
+                    self.normStream.synchronize()
 
-    @torch.inference_mode()
-    def cacheFrame(self):
-        self.I0.copy_(self.I1, non_blocking=True)
+            case "cache":
+                with torch.cuda.stream(self.normStream):
+                    self.I0.copy_(
+                        self.I1,
+                        non_blocking=True,
+                    )
+                    self.normStream.synchronize()
+
+            case "dummy":
+                with torch.cuda.stream(self.normStream):
+                    self.dummyInput.copy_(
+                        torch.cat(
+                            [
+                                self.I0,
+                                self.I1,
+                                frame,
+                            ],
+                            dim=1,
+                        ),
+                        non_blocking=True,
+                    )
+                    self.normStream.synchronize()
+
+            case "output":
+                with torch.cuda.stream(self.normStream):
+                    output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
+                    self.normStream.synchronize()
+                return output
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
@@ -384,34 +470,28 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def __call__(self, frame, interpQueue):
-        with torch.cuda.stream(self.stream):
-            if self.firstRun:
-                self.I0.copy_(self.processFrame(frame), non_blocking=True)
-                self.firstRun = False
-                return
+        if self.firstRun:
+            self.processFrame(frame, "I0")
+            self.firstRun = False
+            return
 
-            source = self.I0 if self.useI0AsSource else self.I1
-            destination = self.I1 if self.useI0AsSource else self.I0
-            destination.copy_(self.processFrame(frame), non_blocking=True)
+        self.processFrame(frame, "I1")
+        for i in range(self.interpolateFactor - 1):
+            timestep = torch.full(
+                (1, 1, self.height, self.width),
+                (i + 1) * 1 / self.interpolateFactor,
+                dtype=self.dType,
+                device=self.device,
+            )
 
-            for i in range(self.interpolateFactor - 1):
-                timestep = torch.full(
-                    (1, 1, self.height, self.width),
-                    (i + 1) * 1 / self.interpolateFactor,
-                    dtype=self.dType,
-                    device=self.device,
-                )
+            self.processFrame(timestep, "dummy")
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            self.stream.synchronize()
+            output = self.processFrame(None, "output")
 
-                self.dummyInput.copy_(
-                    torch.cat([source, destination, timestep], dim=1), non_blocking=True
-                )
-                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-                output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
-                self.stream.synchronize()
+            interpQueue.put(output)
 
-                interpQueue.put(output)
-
-            self.useI0AsSource = not self.useI0AsSource
+        self.processFrame(frame, "cache")
 
 
 class RifeNCNN:
