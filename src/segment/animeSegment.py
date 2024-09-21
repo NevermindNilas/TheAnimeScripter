@@ -126,8 +126,9 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 mode="bilinear",
                 align_corners=False,
             )
-            img_input = F.pad(img_input, (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2))
-            pred = self.model(img_input)
+            pred = self.model(
+                F.pad(img_input, (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2))
+            )
             pred = pred[:, :, ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w]
             pred = (
                 F.interpolate(pred, size=(h0, w0), mode="bilinear", align_corners=False)
