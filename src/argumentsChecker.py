@@ -362,12 +362,7 @@ def createParser(isFrozen, mainPath, outputPath):
     # Miscellaneous options
     miscGroup = argParser.add_argument_group("Miscellaneous")
     miscGroup.add_argument("--buffer_limit", type=int, default=50, help="Buffer limit")
-    miscGroup.add_argument(
-        "--audio",
-        action="store_true",
-        help="Extract and merge audio track",
-        default=True,
-    )
+
     miscGroup.add_argument(
         "--benchmark", action="store_true", help="Benchmark the script"
     )
@@ -426,50 +421,58 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
     logging.info(f"TAS: {version}\n")
 
     logging.info("============== Arguments ==============")
-
-    argsDict = vars(args)
-    for arg in argsDict:
-        if argsDict[arg] not in [None, "", "none", False]:
-            logging.info(f"{arg.upper()}: {argsDict[arg]}")
+    for arg, value in vars(args).items():
+        if value not in [None, "", "none", False]:
+            logging.info(f"{arg.upper()}: {value}")
 
     checkSystem()
 
     logging.info("\n============== Arguments Checker ==============")
     args.ffmpeg_path = getFFMPEG()
 
-    def adjustSkipSens():
-        feature_checks = {
-            "upscale_skip": {
-                "depends_on": "upscale",
-                "incompatible_with": "dedup",
-                "enabled_msg": "Upscale skip enabled...",
-                "error_msgs": {
-                    "incompatible": "Upscale skip and dedup cannot be used together...",
-                    "missing_dependency": "Upscale skip is enabled but upscaling is not...",
-                },
-            },
-            "interpolate_skip": {
-                "depends_on": "interpolate",
-                "incompatible_with": "dedup",
-                "enabled_msg": "Interpolate skip enabled...",
-                "error_msgs": {
-                    "incompatible": "Interpolate skip and dedup cannot be used together...",
-                    "missing_dependency": "Interpolate skip is enabled but interpolation is not...",
-                },
-            },
-        }
+    def adjustFeature(
+        feature,
+        dependsOn,
+        imcompatibleWith,
+        enabledMessage,
+        imcompatibleMessage,
+        missingDependencyMessage,
+    ):
+        if getattr(args, feature):
+            logging.info(
+                enabledMessage,
+            )
+            if getattr(
+                args,
+                imcompatibleWith,
+            ):
+                logging.error(
+                    imcompatibleMessage,
+                )
+                setattr(args, feature, False)
+            elif not getattr(args, dependsOn):
+                logging.error(
+                    missingDependencyMessage,
+                )
+                setattr(args, feature, False)
 
-        for feature, conditions in feature_checks.items():
-            if getattr(args, feature):
-                logging.info(conditions["enabled_msg"])
-                if getattr(args, conditions["incompatible_with"]):
-                    logging.error(conditions["error_msgs"]["incompatible"])
-                    setattr(args, feature, False)
-                elif not getattr(args, conditions["depends_on"]):
-                    logging.error(conditions["error_msgs"]["missing_dependency"])
-                    setattr(args, feature, False)
+    adjustFeature(
+        "upscale_skip",
+        "upscale",
+        "dedup",
+        "Upscale skip enabled...",
+        "Upscale skip and dedup cannot be used together...",
+        "Upscale skip is enabled but upscaling is not...",
+    )
 
-    adjustSkipSens()
+    adjustFeature(
+        "interpolate_skip",
+        "interpolate",
+        "dedup",
+        "Interpolate skip enabled...",
+        "Interpolate skip and dedup cannot be used together...",
+        "Interpolate skip is enabled but interpolation is not...",
+    )
 
     if args.offline != "none":
         logging.info(f"Offline mode enabled, downloading {args.offline} model(s)...")
@@ -483,31 +486,24 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
                     logging.error(
                         f"Failed to download model: {option} with precision: {'fp16' if precision else 'fp32'}"
                     )
-
         logging.info("All model(s) downloaded!")
         print(green("All model(s) downloaded!"))
 
     if args.dedup:
-        logging.info("Dedup is enabled, audio will be disabled")
-        args.audio = False
         if args.dedup_method in ["ssim", "ssim-cuda"]:
             args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
             logging.info(
                 f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
             )
 
-    def adjustSens(args, method_key, sensitivities):
-        if args.scenechange_method in sensitivities:
-            args.scenechange_sens = sensitivities[args.scenechange_method] - (
-                args.scenechange_sens / 1000
-            )
-            logging.info(
-                f"New scenechange sensitivity for {args.scenechange_method} is: {args.scenechange_sens}"
-            )
-
     sensMap = {"differential": 0.65, "shift_lpips": 0.50, "maxxvit": 0.9}
-
-    adjustSens(args, "scenechange_method", sensMap)
+    if args.scenechange_method in sensMap:
+        args.scenechange_sens = sensMap[args.scenechange_method] - (
+            args.scenechange_sens / 1000
+        )
+        logging.info(
+            f"New scenechange sensitivity for {args.scenechange_method} is: {args.scenechange_sens}"
+        )
 
     if args.custom_encoder:
         logging.info("Custom encoder specified, use with caution")
@@ -520,17 +516,15 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         )
         args.bit_depth = "8bit"
 
-    if args.output and not os.path.exists(args.output.split(".")[0]):
-        os.makedirs(args.output.split(".")[0], exist_ok=True)
+    if args.output and not os.path.exists(os.path.dirname(args.output)):
+        os.makedirs(os.path.dirname(args.output), exist_ok=True)
 
     if not args.input:
         logging.error("No input specified")
         sys.exit()
-    elif args.input.startswith("http") or args.input.startswith("www"):
+    elif args.input.startswith(("http", "www")):
         processURL(args, outputPath)
-    elif args.input.endswith((".png", ".jpg", ".jpeg")):
-        logging.info("Image input detected, disabling audio")
-        args.audio = False
+    elif args.input.lower().endswith((".png", ".jpg", ".jpeg")):
         if args.encode_method not in ["gif", "image"]:
             logging.error(
                 "Image input detected but encoding method not set to GIF or Image, defaulting to Image encoding"
@@ -540,12 +534,10 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
     else:
         try:
             args.input = os.path.abspath(args.input)
-            args.input = str(args.input)
         except Exception:
             logging.error("Error processing input")
             sys.exit()
 
-    # Early exit if no processing methods are enabled
     processingMethods = [
         args.interpolate,
         args.scenechange,
@@ -559,7 +551,6 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         args.autoclip,
         args.stabilize,
     ]
-
     if not any(processingMethods):
         logging.error("No processing methods specified, exiting")
         sys.exit()
@@ -616,7 +607,6 @@ def inputChecker(input, encodeMethod, customEncoder):
                 logging.error(toPrint)
                 print(blue(toPrint))
         elif input.endswith((".png", ".jpg", ".jpeg")):
-            logging.info("Image input detected, disabling audio")
             if encodeMethod not in [".gif", "image"]:
                 logging.error(
                     "Image input detected but encoding method is not set to GIF or Image, defaulting to Image encoding"

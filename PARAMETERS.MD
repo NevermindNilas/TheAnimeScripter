@@ -49,7 +49,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 |------------|------|---------|----------------------------------------------------------------------------------------------|
 | `--input`  | str  | -       | Absolute path of the input video(s). Multiple paths should be separated by semicolons (`;`). |
 | `--output` | str  | -       | Output string or absolute path for the processed video                                       |
-| `--audio`  | flag | -       | Enable audio processing                                                                      |
 
 - **NOTE:** `--input` supports `(".mp4", ".mkv", ".mov", ".avi", ".webm")` containers as well as `.txt`, inputs in `.txt` should be separated by a new line.
 

@@ -409,7 +409,6 @@ class RifeTensorRT:
                 with torch.cuda.stream(self.normStream):
                     self.I0.copy_(
                         frame.to(
-                            device=self.device,
                             dtype=self.dType,
                             non_blocking=True,
                         )
@@ -423,7 +422,6 @@ class RifeTensorRT:
                 with torch.cuda.stream(self.normStream):
                     self.I1.copy_(
                         frame.to(
-                            device=self.device,
                             dtype=self.dType,
                             non_blocking=True,
                         )

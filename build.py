@@ -109,6 +109,12 @@ def createExecutable():
     shutil.move(benchmarkExePath, mainExePath)
 
 
+def compileAll():
+    print("Compiling all the files...")
+    mainDir = distPath / "main"
+    runSubprocess([str(venvScripts / "python"), "-m", "compileall", str(mainDir)])
+
+
 def moveExtras():
     mainDir = distPath / "main"
     filesToCopy = ["LICENSE", "README.md", "README.txt"]
@@ -137,5 +143,6 @@ if __name__ == "__main__":
     installRequirements()
     installPyinstaller()
     createExecutable()
+    compileAll()
     moveExtras()
     cleanUp()
