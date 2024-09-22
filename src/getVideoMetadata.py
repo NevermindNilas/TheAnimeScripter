@@ -11,6 +11,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     inputPath (str): The path to the video file.
     inPoint (float): The start time of the video clip.
     outPoint (float): The end time of the video clip.
+    audio (bool): A boolean indicating if the video has audio.
 
     Returns:
     tuple: A tuple containing the width, height, fps, total frames to be processed, pixel format of the video, and a boolean indicating if the video has audio.

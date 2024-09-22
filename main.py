@@ -91,7 +91,6 @@ class VideoProcessor:
         self.custom_model = args.custom_model
         self.custom_encoder = args.custom_encoder
         self.buffer_limit = args.buffer_limit
-        self.audio = args.audio
         self.denoise = args.denoise
         self.denoise_method = args.denoise_method
         self.sample_size = args.sample_size

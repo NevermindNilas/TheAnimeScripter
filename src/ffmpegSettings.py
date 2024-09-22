@@ -34,20 +34,27 @@ else:
     outputPath = os.path.dirname(os.path.abspath(__file__))
 
 
-def checkForCudaWorkflow(verbose: bool = True) -> bool:
+def checkForCudaWorkflow() -> bool:
     try:
         isCudaAvailable = torch.cuda.is_available()
-    except Exception:
-        if verbose:
-            logging.info("Couldn't check for CUDA availability, defaulting to CPU")
+        torchVersion = torch.__version__
+        cudaVersion = torch.version.cuda
+    except Exception as e:
+        logging.info(
+            f"Couldn't check for CUDA availability, defaulting to CPU. Error: {e}"
+        )
         isCudaAvailable = False
+        torchVersion = "Unknown"
+        cudaVersion = "Unknown"
 
     if isCudaAvailable:
-        if verbose:
-            logging.info("CUDA is available, defaulting to full CUDA workflow")
+        logging.info(
+            f"CUDA is available, defaulting to full CUDA workflow. PyTorch version: {torchVersion}, CUDA version: {cudaVersion}"
+        )
     else:
-        if verbose:
-            logging.info("CUDA is not available, defaulting to CPU workflow")
+        logging.info(
+            f"CUDA is not available, defaulting to CPU workflow. PyTorch version: {torchVersion}"
+        )
 
     return isCudaAvailable
 
@@ -313,7 +320,7 @@ class BuildBuffer:
         if verbose:
             logging.info(f"Decoding options: {' '.join(map(str, command))}")
 
-        self.isCudaAvailable = checkForCudaWorkflow(verbose=True)
+        self.isCudaAvailable = checkForCudaWorkflow()
 
         yPlane = self.width * self.height
         uPlane = (self.width // 2) * (self.height // 2)
@@ -351,7 +358,9 @@ class BuildBuffer:
 
     @torch.inference_mode()
     def convertFrames(self, reshape, isCudaAvailable):
-        dummyTensor = torch.zeros((self.height, self.width, 3), dtype=torch.uint8)
+        dummyTensor = torch.zeros(
+            (self.height, self.width, 3), dtype=torch.uint8, device="cpu"
+        )
 
         if isCudaAvailable:
             self.normStream = torch.cuda.Stream()
@@ -373,7 +382,10 @@ class BuildBuffer:
                     frame = dummyTensor.to(device="cuda", non_blocking=False)
                     self.normStream.synchronize()
 
-            self.readBuffer.put(frame)
+                self.readBuffer.put(frame)
+            else:
+                self.readBuffer.put(dummyTensor)
+
             self.decodedFrames += 1
 
     def read(self):
@@ -776,6 +788,11 @@ class WriteBuffer:
                     self.normStream.synchronize()
                 self.processQueue.put(dataID)
                 self.writtenFrames += 1
+            else:
+                dataID = self.writtenFrames % workingFrames
+                self.torchArray[dataID].copy_(frame)
+                self.processQueue.put(dataID)
+                self.writtenFrames += 1
         except Exception as e:
             logging.error(f"An error occurred: {str(e)}")
 
@@ -786,3 +803,4 @@ class WriteBuffer:
         self.processQueue.put(None)
         self.isWritingDone = True
         self.process.join()
+        logging.info(f"Encoded {self.writtenFrames} frames")
