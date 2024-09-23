@@ -26,8 +26,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - More robust Try/Except statements in order to lower the time needed for code to fire up.
 - More robust cuda synchronization to improve reliability
 - Renamed `ffmpegLog.txt` to `ffmpeg.log`
-- System checking is more minimal now and only logs what's needed.
+- Renamed `log.txt` to `TAS.log`
+- System checking is more minimal now and only logs what's truly needed.
 - System checking is now conditional based on the flag `--benchmark`.
+- Slight adjustments to how `getFFMPEG.py` worked.
 
 #### Removed
 - `--audio` and anything related to it has been removed in favor of `pymediainfo`'s automated detection.
