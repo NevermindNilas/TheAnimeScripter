@@ -428,17 +428,15 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         checkSystem(sysUsed)
 
     logging.info("\n============== Arguments Checker ==============")
-    ffmpegPath = os.path.join(
+    args.ffmpeg_path = os.path.join(
         mainPath,
         "ffmpeg",
         "ffmpeg.exe" if sysUsed == "Windows" else "ffmpeg",
     )
-    if not os.path.exists(ffmpegPath):
+    if not os.path.exists(args.ffmpeg_path):
         from src.getFFMPEG import getFFMPEG
 
-        args.ffmpeg_path = getFFMPEG(mainPath, sysUsed, ffmpegPath)
-    else:
-        args.ffmpeg_path = ffmpegPath
+        args.ffmpeg_path = getFFMPEG(mainPath, sysUsed, args.ffmpeg_path)
 
     def adjustFeature(
         feature,
