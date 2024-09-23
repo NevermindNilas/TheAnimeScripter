@@ -1,6 +1,6 @@
 import json
 import os
-from .coloredPrints import green, bold, green
+from .coloredPrints import green, bold
 
 
 def createPreset(args, mainPath: str):

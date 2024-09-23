@@ -388,6 +388,12 @@ class RifeTensorRT:
             dtype=self.dType,
         )
 
+        self.testOutput = torch.zeros(
+            (3, self.height, self.width),
+            device=self.device,
+            dtype=self.dType,
+        )
+
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
 
         for i in range(self.engine.num_io_tensors):
@@ -399,97 +405,84 @@ class RifeTensorRT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
         self.firstRun = True
-        self.useI0AsSource = True
         self.normStream = torch.cuda.Stream()
+        self.useI0 = True
 
-    @torch.inference_mode()
-    def processFrame(self, frame, toNorm):
-        match toNorm:
-            case "I0":
-                with torch.cuda.stream(self.normStream):
-                    self.I0.copy_(
-                        frame.to(
-                            dtype=self.dType,
-                            non_blocking=True,
-                        )
-                        .permute(2, 0, 1)
-                        .unsqueeze(0)
-                        .mul(1 / 255),
-                        non_blocking=True,
-                    )
-                    self.normStream.synchronize()
-            case "I1":
-                with torch.cuda.stream(self.normStream):
-                    self.I1.copy_(
-                        frame.to(
-                            dtype=self.dType,
-                            non_blocking=True,
-                        )
-                        .permute(2, 0, 1)
-                        .unsqueeze(0)
-                        .mul(1 / 255),
-                        non_blocking=True,
-                    )
-                    self.normStream.synchronize()
+        self.timesteps = torch.empty(
+            (self.interpolateFactor - 1, 1, 1, self.height, self.width),
+            dtype=self.dType,
+            device=self.device,
+        )
 
-            case "cache":
-                with torch.cuda.stream(self.normStream):
-                    self.I0.copy_(
-                        self.I1,
-                        non_blocking=True,
-                    )
-                    self.normStream.synchronize()
-
-            case "dummy":
-                with torch.cuda.stream(self.normStream):
-                    self.dummyInput.copy_(
-                        torch.cat(
-                            [
-                                self.I0,
-                                self.I1,
-                                frame,
-                            ],
-                            dim=1,
-                        ),
-                        non_blocking=True,
-                    )
-                    self.normStream.synchronize()
-
-            case "output":
-                with torch.cuda.stream(self.normStream):
-                    output = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255)
-                    self.normStream.synchronize()
-                return output
-
-    @torch.inference_mode()
-    def cacheFrameReset(self, frame):
-        self.I0.copy_(self.processFrame(frame), non_blocking=True)
-        self.useI0AsSource = True
-
-    @torch.inference_mode()
-    def __call__(self, frame, interpQueue):
-        if self.firstRun:
-            self.processFrame(frame, "I0")
-            self.firstRun = False
-            return
-
-        self.processFrame(frame, "I1")
         for i in range(self.interpolateFactor - 1):
-            timestep = torch.full(
+            self.timesteps[i] = torch.full(
                 (1, 1, self.height, self.width),
-                (i + 1) * 1 / self.interpolateFactor,
+                (i + 1) * 1.0 / self.interpolateFactor,
                 dtype=self.dType,
                 device=self.device,
             )
 
-            self.processFrame(timestep, "dummy")
+    @torch.jit.script
+    def normalizeFrame(frame: torch.Tensor) -> torch.Tensor:
+        return frame.permute(2, 0, 1).unsqueeze(0).mul(1 / 255)
+
+    @torch.jit.script
+    def normalizeOutput(output: torch.Tensor) -> torch.Tensor:
+        return output.squeeze(0).permute(1, 2, 0).mul(255)
+
+    @torch.inference_mode()
+    def processFrame(self, frame: torch.Tensor):
+        if self.useI0:
+            with torch.cuda.stream(self.normStream):
+                self.I0.copy_(
+                    self.normalizeFrame(frame.to(self.dType)), non_blocking=True
+                )
+                self.normStream.synchronize()
+        else:
+            with torch.cuda.stream(self.normStream):
+                self.I1.copy_(
+                    self.normalizeFrame(frame.to(self.dType)), non_blocking=True
+                )
+                self.normStream.synchronize()
+
+    @torch.inference_mode()
+    def processDummyFrame(self, frame: torch.Tensor, timestep: torch.Tensor):
+        with torch.cuda.stream(self.normStream):
+            self.dummyInput.copy_(
+                torch.cat(
+                    [
+                        self.I0 if self.useI0 else self.I1,
+                        self.I1 if self.useI0 else self.I0,
+                        timestep,
+                    ],
+                    dim=1,
+                ),
+                non_blocking=True,
+            )
+            self.normStream.synchronize()
+
+    @torch.inference_mode()
+    def processOutput(self):
+        with torch.cuda.stream(self.normStream):
+            output = self.normalizeOutput(self.dummyOutput)
+            self.normStream.synchronize()
+        return output
+
+    @torch.inference_mode()
+    def __call__(self, frame, interpQueue):
+        if self.firstRun:
+            self.processFrame(frame)
+            self.firstRun = False
+            return
+
+        self.processFrame(frame)
+        for timestep in self.timesteps:
+            self.processDummyFrame(frame=None, timestep=timestep)
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()
-            output = self.processFrame(None, "output")
+            interpQueue.put(self.processOutput())
 
-            interpQueue.put(output)
-
-        self.processFrame(frame, "cache")
+        self.useI0 = not self.useI0
 
 
 class RifeNCNN:
