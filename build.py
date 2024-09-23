@@ -58,6 +58,8 @@ def createExecutable():
     ]
 
     cliArgs = commonArgs + [
+        "--optimize",
+        "1",
         "--add-data",
         f"{srcPath};src/",
         "--hidden-import",
@@ -112,7 +114,7 @@ def createExecutable():
 def compileAll():
     print("Compiling all the files...")
     mainDir = distPath / "main"
-    runSubprocess([str(venvScripts / "python"), "-m", "compileall", str(mainDir)])
+    runSubprocess([str(venvScripts / "python"), "-O", "-m", "compileall", str(mainDir)])
 
 
 def moveExtras():
