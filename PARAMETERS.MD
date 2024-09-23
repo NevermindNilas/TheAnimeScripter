@@ -56,14 +56,14 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 #### Multiple Input Files
 ```sh
---input "G:\TheAnimeScripter\input.mp4;G:\TheAnimeScripter\input - Copy.mp4"
+--input "G:\TheAnimeScripter\input.mp4;G:\TheAnimeScripter\test.mp4"
 
 # Or if the input is a txt, this is how the process should look like
 --input "G:\TheAnimeScripter\test.txt"
 
 # Contents of TXT:
-"G:\TheAnimeScripter\input.mp4" # separate by a new line here
-"G:\TheAnimeScripter\input - Copy.mp4"
+"G:\TheAnimeScripter\test1.mp4" # separate by a new line here
+"G:\TheAnimeScripter\test2.mp4"
 ```
 ## Processing Options
 
