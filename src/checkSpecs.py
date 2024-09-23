@@ -1,66 +1,46 @@
 import logging
-import platform
 
 
 def getWindowsInfo():
-    try:
-        import wmi
-    except ImportError:
-        logging.error("No system checker available, please install wmi for Windows")
+    import wmi
 
     computer = wmi.WMI()
-    osInfo = computer.Win32_OperatingSystem()[0]
     procInfo = computer.Win32_Processor()[0]
     gpuInfo = computer.Win32_VideoController()
-    osName = osInfo.Name.encode("utf-8").split(b"|")[0].decode("utf-8")
-    systemRam = format(
-        float(osInfo.TotalVisibleMemorySize) / 1048576, ".2f"
-    )  # Convert KB to GB
-    availableRam = format(
-        float(osInfo.FreePhysicalMemory) / 1048576, ".2f"
-    )  # Convert KB to GB
+    osInfo = computer.Win32_OperatingSystem()[0]
+    totalRam = float(osInfo.TotalVisibleMemorySize) / 1048576  # Convert KB to GB
 
-    logging.info(f"OS Name: {osName}")
     logging.info(f"CPU: {procInfo.Name}")
-    logging.info(f"RAM: {systemRam} GB")
-    logging.info(f"Available RAM: {availableRam} GB")
-    for i in range(len(gpuInfo)):
-        logging.info(f"Graphics Card {i}: {gpuInfo[i].Name}")
+    logging.info(f"Total RAM: {totalRam:.2f} GB")
+    for i, gpu in enumerate(gpuInfo):
+        logging.info(f"Graphics Card {i}: {gpu.Name}")
 
 
 def getLinuxInfo():
-    try:
-        import psutil
-        import GPUtil
-    except ImportError:
-        logging.error(
-            "No system checker available, please install psutil and GPUtil for Linux"
-        )
+    import psutil
+    import GPUtil
 
-    osName = platform.uname().system
-    cpuCount = psutil.cpu_count()
-    cpuFreq = (
-        psutil.cpu_freq().current if psutil.cpu_freq() else "N/A"
-    )  # Some systems may not support cpu_freq
+    cpuInfo = psutil.cpu_info()
     ramInfo = psutil.virtual_memory()
-    systemRam = round(ramInfo.total / (1024.0**3), 2)  # Convert Bytes to GB
-    availableRam = round(ramInfo.available / (1024.0**3), 2)  # Convert Bytes to GB
+    totalRam = round(ramInfo.total / (1024.0**3), 2)  # Convert Bytes to GB
     gpus = GPUtil.getGPUs()
 
-    logging.info(f"OS Name: {osName}")
-    logging.info(f"CPU: {cpuCount} cores, {cpuFreq} MHz")
-    logging.info(f"RAM: {systemRam} GB")
-    logging.info(f"Available RAM: {availableRam} GB")
+    logging.info(f"CPU: {cpuInfo.brand_raw}")
+    logging.info(f"Total RAM: {totalRam} GB")
     for i, gpu in enumerate(gpus):
         logging.info(f"Graphics Card {i}: {gpu.name}")
 
 
-def checkSystem():
+def checkSystem(sysUsed):
+    logging.info("\n============== System Checker ==============")
     try:
-        logging.info("\n============== System Checker ==============")
-        if platform.system() == "Windows":
+        if sysUsed == "Windows":
             getWindowsInfo()
-        elif platform.system() == "Linux":
+        elif sysUsed == "Linux":
             getLinuxInfo()
+        else:
+            logging.error("Unsupported operating system")
     except Exception as e:
         logging.error(f"An error occurred while checking the system: {e}")
+    except ImportError as e:
+        logging.error(f"Error importing the required modules: {e}")
