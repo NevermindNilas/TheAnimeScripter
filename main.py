@@ -40,24 +40,6 @@ from torch import multiprocessing as mp
 
 warnings.filterwarnings("ignore")
 
-if system() == "Windows":
-    mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
-else:
-    mainPath = os.path.join(
-        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
-        "TheAnimeScripter",
-    )
-
-if not os.path.exists(mainPath):
-    os.makedirs(mainPath)
-
-if getattr(sys, "frozen", False):
-    isFrozen = True
-    outputPath = os.path.dirname(sys.executable)
-else:
-    isFrozen = False
-    outputPath = os.path.dirname(os.path.abspath(__file__))
-
 
 class VideoProcessor:
     def __init__(self, args):
@@ -268,17 +250,17 @@ class VideoProcessor:
             )
 
             self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
-                self.ffmpeg_path,
-                self.encode_method,
-                self.custom_encoder,
-                self.new_width,
-                self.new_height,
-                self.outputFPS,
-                self.buffer_limit,
-                self.sharpen,
-                self.sharpen_sens,
+                mainPath=mainPath,
+                input=self.input,
+                output=self.output,
+                ffmpegPath=self.ffmpeg_path,
+                encode_method=self.encode_method,
+                custom_encoder=self.custom_encoder,
+                width=self.new_width,
+                height=self.new_height,
+                fps=self.outputFPS,
+                sharpen=self.sharpen,
+                sharpen_sens=self.sharpen_sens,
                 grayscale=False,
                 transparent=False,
                 audio=self.audio,
@@ -317,8 +299,30 @@ class VideoProcessor:
 
 if __name__ == "__main__":
     mp.freeze_support()
-    if system() == "Windows":
+
+    sysUsed = system()
+    if sysUsed == "Windows":
         mp.set_start_method("spawn", force=True)
+        mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
+    else:
+        try:
+            mp.set_start_method("forkserver", force=True)
+        except RuntimeError:
+            mp.set_start_method("spawn", force=True)
+        mainPath = os.path.join(
+            os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+            "TheAnimeScripter",
+        )
+
+    if not os.path.exists(mainPath):
+        os.makedirs(mainPath)
+
+    if getattr(sys, "frozen", False):
+        isFrozen = True
+        outputPath = os.path.dirname(sys.executable)
+    else:
+        isFrozen = False
+        outputPath = os.path.dirname(os.path.abspath(__file__))
 
     signal(SIGINT, SIG_DFL)
     logging.basicConfig(
@@ -330,7 +334,7 @@ if __name__ == "__main__":
     logging.info("============== Command Line Arguments ==============")
     logging.info(f"{' '.join(sys.argv)}\n")
 
-    args = createParser(isFrozen, mainPath, outputPath)
+    args = createParser(isFrozen, mainPath, outputPath, sysUsed)
 
     if os.path.isfile(args.input) and not args.input.endswith(".txt"):
         print(green(f"Processing {args.input}"))
