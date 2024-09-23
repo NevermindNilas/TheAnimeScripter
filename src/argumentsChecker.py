@@ -11,7 +11,7 @@ from rich_argparse import RichHelpFormatter
 from .version import __version__ as version
 
 
-def createParser(isFrozen, mainPath, outputPath):
+def createParser(isFrozen, mainPath, outputPath, sysUsed):
     argParser = argparse.ArgumentParser(
         description="The Anime Scripter CLI Tool",
         usage="main.py [options]" if not isFrozen else "main.exe [options]",
@@ -387,10 +387,10 @@ def createParser(isFrozen, mainPath, outputPath):
     )
 
     args = argParser.parse_args()
-    return argumentsChecker(args, mainPath, outputPath)
+    return argumentsChecker(args, mainPath, outputPath, sysUsed)
 
 
-def argumentsChecker(args, mainPath, outputPath):
+def argumentsChecker(args, mainPath, outputPath, sysUsed):
     banner = r"""
 __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
  _\///////\\\/////____/\\\\\\\\\\\\\____/\\\/////////\\\_
@@ -425,7 +425,8 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         if value not in [None, "", "none", False]:
             logging.info(f"{arg.upper()}: {value}")
 
-    checkSystem()
+    if not args.benchmark:
+        checkSystem(sysUsed)
 
     logging.info("\n============== Arguments Checker ==============")
     args.ffmpeg_path = getFFMPEG()

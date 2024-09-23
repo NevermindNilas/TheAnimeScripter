@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - If `--output` is declared and the path doesn't exist, TAS will now try to create the folder automatically.
 - More robust Try/Except statements in order to lower the time needed for code to fire up.
 - More robust cuda synchronization to improve reliability
+- Renamed `ffmpegLog.txt` to `ffmpeg.log`
+- System checking is more minimal now and only logs what's needed.
+- System checking is now conditional based on the flag `--benchmark`.
 
 #### Removed
 - `--audio` and anything related to it has been removed in favor of `pymediainfo`'s automated detection.

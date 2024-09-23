@@ -5,28 +5,13 @@ import torch
 import sys
 import numpy as np
 import cv2
-import platform
+import threading
 
-from torch.multiprocessing import Process
-from multiprocessing import Queue as MPQueue
+from torch.multiprocessing import Process, Queue as MPQueue
 from queue import Queue
 
 workingFrames = 10
 
-if platform.system() == "Windows":
-    appdata = os.getenv("APPDATA")
-    mainPath = os.path.join(appdata, "TheAnimeScripter")
-
-    if not os.path.exists(mainPath):
-        os.makedirs(mainPath)
-else:
-    xdg_config_home = os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
-    mainPath = os.path.join(xdg_config_home, "TheAnimeScripter")
-
-    if not os.path.exists(mainPath):
-        os.makedirs(mainPath)
-
-ffmpegLogPath = os.path.join(mainPath, "ffmpegLog.txt")
 
 if getattr(sys, "frozen", False):
     outputPath = os.path.dirname(sys.executable)
@@ -253,10 +238,6 @@ class BuildBuffer:
         self.queueSize = queueSize
         self.totalFrames = totalFrames
 
-        import threading
-
-        self.threading = threading
-
     def decodeSettings(self) -> list:
         """
         This returns a command for FFMPEG to work with, it will be used inside of the scope of the class.
@@ -305,7 +286,7 @@ class BuildBuffer:
 
         return command
 
-    def start(self, queue: Queue = None):
+    def start(self):
         """
         The actual underlying logic for decoding, it starts a queue and gets the necessary FFMPEG command from decodeSettings.
         This is meant to be used in a separate thread for faster processing.
@@ -313,7 +294,7 @@ class BuildBuffer:
         queue : queue.Queue, optional - The queue to put the frames into. If None, a new queue will be created.
         verbose : bool - Whether to log the progress of the decoding.
         """
-        self.readBuffer = queue if queue is not None else Queue(maxsize=self.queueSize)
+        self.readBuffer = Queue(maxsize=self.queueSize)
         verbose = True
         command = self.decodeSettings()
 
@@ -335,10 +316,10 @@ class BuildBuffer:
         self.decodedFrames = 0
         self.readingDone = False
         self.chunkQueue = Queue(maxsize=self.queueSize)
-        chunkExecutor = self.threading.Thread(
+        chunkExecutor = threading.Thread(
             target=self.convertFrames, args=(reshape, self.isCudaAvailable)
         )
-        readExecutor = self.threading.Thread(target=self.readSTDOUT, args=(chunk,))
+        readExecutor = threading.Thread(target=self.readSTDOUT, args=(chunk,))
         chunkExecutor.start()
         readExecutor.start()
 
@@ -422,6 +403,7 @@ class BuildBuffer:
 class WriteBuffer:
     def __init__(
         self,
+        mainPath: str = "",
         input: str = "",
         output: str = "",
         ffmpegPath: str = "",
@@ -490,6 +472,7 @@ class WriteBuffer:
         self.command = self.encodeSettings()
 
         self.latestFrame = None
+        ffmpegLogPath = os.path.join(mainPath, "ffmpeg.log")
 
         if self.grayscale:
             self.channels = 1
@@ -526,6 +509,7 @@ class WriteBuffer:
                 self.bitDepth,
                 self.channels,
                 self.isCudaAvailable,
+                ffmpegLogPath,
             ),
         )
 
@@ -722,7 +706,7 @@ class WriteBuffer:
 
         return command
 
-    def start(self, queue: Queue = None):
+    def start(self):
         self.process.start()
 
     @staticmethod
@@ -734,6 +718,7 @@ class WriteBuffer:
         bitDepth: str = "8bit",
         channels: int = 3,
         isCudaAvailable: bool = False,
+        ffmpegLogPath: str = "",
     ):
         dummyTensor = torch.zeros(dimsList, dtype=torch.uint8)
 
@@ -753,7 +738,9 @@ class WriteBuffer:
                         break
 
                     if isCudaAvailable:
-                        dummyTensor.copy_(sharedTensor[dataID], non_blocking=False)
+                        frame = dummyTensor.copy_(
+                            sharedTensor[dataID], non_blocking=False
+                        )
                     else:
                         dummyTensor.copy_(sharedTensor[dataID])
 
