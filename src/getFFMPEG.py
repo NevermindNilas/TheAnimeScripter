@@ -1,57 +1,35 @@
 import shutil
 import requests
-import zipfile
-import tarfile
 import logging
 import os
-import platform
-import glob
 
 from alive_progress import alive_bar
 
-# Determine paths and URLs based on the operating system
-if platform.system() == "Windows":
-    mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
-    FFMPEGURL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-else:
-    mainPath = os.path.join(
-        os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
-        "TheAnimeScripter",
-    )
-    FFMPEGURL = (
-        "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
-    )
 
-os.makedirs(mainPath, exist_ok=True)
-
-
-def getFFMPEG():
+def getFFMPEG(mainPath, sysUsed, path):
     ffmpegPath = shutil.which("ffmpeg")
     if ffmpegPath is None:
-        ffmpegPath = os.path.join(
-            mainPath,
-            "ffmpeg",
-            "ffmpeg.exe" if platform.system() == "Windows" else "ffmpeg",
-        )
-        logging.info(f"FFMPEG Path: {ffmpegPath}")
-        if not os.path.exists(ffmpegPath):
-            ffmpegPath = downloadAndExtractFFMPEG(ffmpegPath)
+        ffmpegPath = downloadAndExtractFFMPEG(path, sysUsed)
     else:
         logging.info(f"FFMPEG was found in System Path: {ffmpegPath}")
     return str(ffmpegPath)
 
 
-def downloadAndExtractFFMPEG(ffmpegPath):
+def downloadAndExtractFFMPEG(ffmpegPath, sysUsed):
     logging.info("Getting FFMPEG")
-    extractFunc = (
-        extractFFMPEGZip if platform.system() == "Windows" else extractFFMPEGTar
-    )
+    extractFunc = extractFFMPEGZip if sysUsed == "Windows" else extractFFMPEGTar
     ffmpegDir = os.path.dirname(ffmpegPath)
     ffmpegArchivePath = os.path.join(
-        ffmpegDir, "ffmpeg.zip" if platform.system() == "Windows" else "ffmpeg.tar.xz"
+        ffmpegDir, "ffmpeg.zip" if sysUsed == "Windows" else "ffmpeg.tar.xz"
     )
 
     os.makedirs(ffmpegDir, exist_ok=True)
+
+    FFMPEGURL = (
+        "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+        if sysUsed == "Windows"
+        else "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+    )
 
     response = requests.get(FFMPEGURL, stream=True)
     totalSizeInBytes = int(response.headers.get("content-length", 0))
@@ -69,6 +47,8 @@ def downloadAndExtractFFMPEG(ffmpegPath):
 
 
 def extractFFMPEGZip(ffmpegZipPath, ffmpegDir):
+    import zipfile
+
     with zipfile.ZipFile(ffmpegZipPath, "r") as zipRef:
         zipRef.extractall(ffmpegDir)
     os.rename(
@@ -80,9 +60,19 @@ def extractFFMPEGZip(ffmpegZipPath, ffmpegDir):
 
 
 def extractFFMPEGTar(ffmpegTarPath, ffmpegDir):
+    import tarfile
+
     with tarfile.open(ffmpegTarPath, "r:xz") as tarRef:
         tarRef.extractall(ffmpegDir)
-    for directory in glob.glob(os.path.join(ffmpegDir, "ffmpeg-*-static")):
-        os.rename(os.path.join(directory, "ffmpeg"), os.path.join(ffmpegDir, "ffmpeg"))
-        shutil.rmtree(directory)
+    for item in os.listdir(ffmpegDir):
+        full_path = os.path.join(ffmpegDir, item)
+        if (
+            os.path.isdir(full_path)
+            and item.startswith("ffmpeg-")
+            and item.endswith("-static")
+        ):
+            os.rename(
+                os.path.join(full_path, "ffmpeg"), os.path.join(ffmpegDir, "ffmpeg")
+            )
+            shutil.rmtree(full_path)
     os.remove(ffmpegTarPath)

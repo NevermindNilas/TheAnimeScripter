@@ -4,7 +4,6 @@ import sys
 import argparse
 
 from .checkSpecs import checkSystem
-from .getFFMPEG import getFFMPEG
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, red, blue
 from rich_argparse import RichHelpFormatter
@@ -429,7 +428,17 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         checkSystem(sysUsed)
 
     logging.info("\n============== Arguments Checker ==============")
-    args.ffmpeg_path = getFFMPEG()
+    ffmpegPath = os.path.join(
+        mainPath,
+        "ffmpeg",
+        "ffmpeg.exe" if sysUsed == "Windows" else "ffmpeg",
+    )
+    if not os.path.exists(ffmpegPath):
+        from src.getFFMPEG import getFFMPEG
+
+        args.ffmpeg_path = getFFMPEG(mainPath, sysUsed, ffmpegPath)
+    else:
+        args.ffmpeg_path = ffmpegPath
 
     def adjustFeature(
         feature,
