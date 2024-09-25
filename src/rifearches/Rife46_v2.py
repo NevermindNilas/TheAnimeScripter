@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .warplayer_v2 import warp
-
+import math
 
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
@@ -109,9 +109,29 @@ class IFNet(nn.Module):
         self.device = device
         self.width = width
         self.height = height
-        self.backWarp = backWarp
-        self.tenFlow = tenFlow
         self.blocks = [self.block0, self.block1, self.block2, self.block3]
+
+        self.dtype = torch.float16 if self.half else torch.float32
+        tmp = max(64, int(64 / 1.0))
+        self.pw = math.ceil(self.width / tmp) * tmp
+        self.ph = math.ceil(self.height / tmp) * tmp
+        self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
+        self.tenFlow = torch.tensor(
+            [(self.pw - 1.0) / 2.0, (self.ph - 1.0) / 2.0],
+            dtype=self.dtype,
+            device=self.device,
+        )
+        tenHorizontal = (
+            torch.linspace(-1.0, 1.0, self.pw, dtype=self.dtype, device=self.device)
+            .view(1, 1, 1, self.pw)
+            .expand(-1, -1, self.ph, -1)
+        ).to(dtype=self.dtype, device=self.device)
+        tenVertical = (
+            torch.linspace(-1.0, 1.0, self.ph, dtype=self.dtype, device=self.device)
+            .view(1, 1, self.ph, 1)
+            .expand(-1, -1, -1, self.pw)
+        ).to(dtype=self.dtype, device=self.device)
+        self.backWarp = torch.cat([tenHorizontal, tenVertical], 1)
 
     def forward(self, img0, img1, timeStep):
         warpedImg0, warpedImg1 = img0, img1
