@@ -15,8 +15,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `VP9` and `QSV_VP9` encode methods were added back in order to support `.webm` inputs.
 - A more accurate progress info after the process has finished for comparison purposes.
 - All of the .exe's will now come with precompiled `.pyc` code in order to improve initial start up times.
+- A newly restructed interpolation pipeline for TensorRT that should yield in up to `25%` performance gains.
 
 #### Improved:
+- With the new changes in Rife TensorRT, overall `weights` folder size will drop heavily, it's encouraged to remove the folder located at `%appdata%\Roaming\TheAnimeScripter\weights` and allow TAS to download and regenerate all Rife Engines.
 - Better metadata requesting powered by `pymediainfo`
 - Benchmarking should now provide significantly more accurate results.
 - Audio & Subtitle Merging will now happen during the encode phase in order to decrease overall render time.
