@@ -362,7 +362,6 @@ if __name__ == "__main__":
             os.makedirs(args.output, exist_ok=True)
 
         for videoFile in videoFiles:
-            args = (isFrozen, mainPath, outputPath)
             args.input = os.path.abspath(videoFile)
             toPrint = f"Processing {args.input}"
             logging.info(toPrint)
