@@ -10,52 +10,53 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### The Anime Scripter
 
 #### New
-- With the new changes in how encoding works within TAS, it is possible to process and watch a video all in real time with adequate hardware.
+- Enhanced encoding within TAS now allows real-time video processing and viewing with adequate hardware.
 - Added `Rife 4.25` and `Rife 4.25-TensorRT`.
-- `VP9` and `QSV_VP9` encode methods were added back in order to support `.webm` inputs.
-- A more accurate progress info after the process has finished for comparison purposes.
-- All of the .exe's will now come with precompiled `.pyc` code in order to improve initial start up times.
-- A newly restructed interpolation pipeline for TensorRT that should yield in up to `25%` performance gains.
+- Reintroduced `VP9` and `QSV_VP9` encoding methods to support `.webm` inputs.
+- More accurate progress information post-process for comparison purposes.
+- All executables now include precompiled `.pyc` code to improve startup times.
+- Restructured interpolation pipeline for TensorRT, yielding up to `25%` performance gains.
+- Full CUDA workflow now uses `cuda pinned memory workflow` to increase data movement efficiency.
 
-#### Improved:
-- With the new changes in Rife TensorRT, overall `weights` folder size will drop heavily, it's encouraged to remove the folder located at `%appdata%\Roaming\TheAnimeScripter\weights` and allow TAS to download and regenerate all Rife Engines.
-- Better metadata requesting powered by `pymediainfo`
-- Benchmarking should now provide significantly more accurate results.
-- Audio & Subtitle Merging will now happen during the encode phase in order to decrease overall render time.
-- Encode will now be fully parallel to the inference on order to give minimal bottlenecks to the inference thread.
-- Better logging from FFMPEG.
-- Better CUDA and Encode handling will result in a `30%` boost in performance for NVIDIA Users.
-- If `--output` is declared and the path doesn't exist, TAS will now try to create the folder automatically.
-- More robust Try/Except statements in order to lower the time needed for code to fire up.
-- More robust cuda synchronization to improve reliability
-- Renamed `ffmpegLog.txt` to `ffmpeg.log`
-- Renamed `log.txt` to `TAS.log`
-- System checking is more minimal now and only logs what's truly needed.
-- System checking is now conditional based on the flag `--benchmark`.
-- Slight adjustments to how `getFFMPEG.py` worked.
+#### Improved
+- Rife TensorRT changes significantly reduce the `weights` folder size. It's recommended to delete the folder at `%appdata%\Roaming\TheAnimeScripter\weights` and let TAS regenerate all Rife Engines.
+- Enhanced metadata retrieval powered by `pymediainfo`.
+- Benchmarking now provides significantly more accurate results.
+- Audio & Subtitle Merging now occurs during the encoding phase, reducing overall render time.
+- Encoding is now fully parallel to inference, minimizing bottlenecks in the inference thread.
+- Improved logging from FFMPEG.
+- Enhanced CUDA and encoding handling results in a `30%` performance boost for NVIDIA users.
+- TAS now attempts to create the folder automatically if `--output` is specified and the path doesn't exist.
+- More robust Try/Except statements reduce code initialization time.
+- Improved CUDA synchronization for better reliability.
+- Renamed `ffmpegLog.txt` to `ffmpeg.log`.
+- Renamed `log.txt` to `TAS.log`.
+- System checks are now minimal and log only essential information.
+- System checks are now conditional based on the `--benchmark` flag.
+- Slight adjustments to `getFFMPEG.py`.
 
 #### Removed
-- `--audio` and anything related to it has been removed in favor of `pymediainfo`'s automated detection.
+- Removed `--audio` and related features in favor of `pymediainfo`'s automated detection.
 
 #### Fixed
-- Fixed wrong / overexaggerated performance reports from TAS
-- Fixed a regression from 1.9.8 where encoding performance was significantly impacted.
+- Corrected exaggerated performance reports from TAS.
+- Fixed a regression from 1.9.8 that significantly impacted encoding performance.
 - Fixed an issue where the first frame of a processed video was black when upscaling.
-- Fixen a regression from 1.9.8 where frames would not be properly processed.
+- Fixed a regression from 1.9.8 where frames were not properly processed.
 
 ### Adobe Edition
 
 #### New
-- `Manual Method` button for step by step tutorial on how to install TAS' backend manually in case of download errors.
+- Added `Manual Method` button for a step-by-step tutorial on manually installing TAS' backend in case of download errors.
 
 #### Improved
-- Better download functionality for backend.
+- Enhanced backend download functionality.
 
-#### Fixes
-- Backend download for TAS ( Counter: N/A )
+#### Fixed
+- Fixed backend download for TAS (Counter: N/A).
 
 #### Improvements
-- Slight adjustments to the code in order to be a bit more memory efficient, likely no benefits.
+- Slight code adjustments for better memory efficiency, though benefits are likely minimal.
 
 
 ## [1.9.8] - 2024-09-15
