@@ -737,12 +737,7 @@ class WriteBuffer:
                     if dataID is None:
                         break
 
-                    if isCudaAvailable:
-                        frame = dummyTensor.copy_(
-                            sharedTensor[dataID], non_blocking=False
-                        )
-                    else:
-                        dummyTensor.copy_(sharedTensor[dataID])
+                    dummyTensor.copy_(sharedTensor[dataID], non_blocking=False)
 
                     if channels == 1:
                         frame = dummyTensor.numpy()

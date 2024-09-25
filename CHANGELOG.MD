@@ -10,9 +10,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### The Anime Scripter
 
 #### New
+- With the new changes in how encoding works within TAS, it is possible to process and watch a video all in real time with adequate hardware.
 - Added `Rife 4.25` and `Rife 4.25-TensorRT`.
 - `VP9` and `QSV_VP9` encode methods were added back in order to support `.webm` inputs.
-- A more accurate progress meter after the process has finished.
+- A more accurate progress info after the process has finished for comparison purposes.
 - All of the .exe's will now come with precompiled `.pyc` code in order to improve initial start up times.
 
 #### Improved:
@@ -21,7 +22,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Audio & Subtitle Merging will now happen during the encode phase in order to decrease overall render time.
 - Encode will now be fully parallel to the inference on order to give minimal bottlenecks to the inference thread.
 - Better logging from FFMPEG.
-- Better CUDA and Encode handling will result in a `30%` boost in performance for NVIDIA Users ( WIP )
+- Better CUDA and Encode handling will result in a `30%` boost in performance for NVIDIA Users.
 - If `--output` is declared and the path doesn't exist, TAS will now try to create the folder automatically.
 - More robust Try/Except statements in order to lower the time needed for code to fire up.
 - More robust cuda synchronization to improve reliability
@@ -38,6 +39,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed wrong / overexaggerated performance reports from TAS
 - Fixed a regression from 1.9.8 where encoding performance was significantly impacted.
 - Fixed an issue where the first frame of a processed video was black when upscaling.
+- Fixen a regression from 1.9.8 where frames would not be properly processed.
 
 ### Adobe Edition
 
@@ -51,10 +53,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Backend download for TAS ( Counter: N/A )
 
 #### Improvements
-- N/A
+- Slight adjustments to the code in order to be a bit more memory efficient, likely no benefits.
 
-#### Fixed
-- An issue where TAS' backend would be downloaded
 
 ## [1.9.8] - 2024-09-15
 

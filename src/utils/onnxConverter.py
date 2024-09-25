@@ -12,7 +12,9 @@ except ImportError:
     isOnnxSlim = False
 
 OPSET = 21
-modelList = [r"C:\Users\nilas\Downloads\rife.onnx"]
+modelList = [
+    r"C:\Users\nilas\AppData\Roaming\TheAnimeScripter\weights\rife4.22-onnx\rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
+]
 
 
 def convertAndSaveModel(model, modelPath, precision, opset):
