@@ -289,8 +289,14 @@ class VideoProcessor:
                 / elapsedTime
                 * (1 if not self.interpolate else self.interpolate_factor)
             )
-            logging.info(f"Total Time: {elapsedTime:.2f} seconds FPS: {fps:.2f}")
-            print(green(f"Total Time: {elapsedTime:.2f} seconds FPS: {fps:.2f}"))
+            logging.info(
+                f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {fps:.2f}"
+            )
+            print(
+                green(
+                    f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {fps:.2f}"
+                )
+            )
 
         except Exception as e:
             logging.exception(f"Something went wrong while starting the processes, {e}")
