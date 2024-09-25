@@ -586,7 +586,7 @@ def downloadAndLog(
             else:
                 os.rename(tempFilePath, os.path.join(folderPath, filename))
 
-            os.removedirs(tempFolder)
+            os.rmdir(tempFolder)
 
             toLog = f"Downloaded {model.capitalize()} model to: {os.path.join(folderPath, filename)}"
             logging.info(toLog)
@@ -618,7 +618,12 @@ def downloadModels(
 
     filename = modelsMap(model, upscaleFactor, modelType, half, ensemble)
     if model.endswith("-tensorrt") or model.endswith("-directml"):
-        folderName = model.replace("-tensorrt", "-onnx").replace("-directml", "-onnx")
+        if "rife" in model:
+            folderName = model.replace("-tensorrt", "")
+        else:
+            folderName = model.replace("-tensorrt", "-onnx").replace(
+                "-directml", "-onnx"
+            )
     else:
         folderName = model
 
@@ -626,13 +631,6 @@ def downloadModels(
     os.makedirs(folderPath, exist_ok=True)
 
     if model in [
-        "rife4.22-tensorrt",
-        "rife4.21-tensorrt",
-        "rife4.20-tensorrt",
-        "rife4.18-tensorrt",
-        "rife4.17-tensorrt",
-        "rife4.15-tensorrt",
-        "rife4.6-tensorrt",
         "span-tensorrt",
         "span-directml",
         "shift_lpips-tensorrt",
