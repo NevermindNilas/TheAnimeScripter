@@ -528,27 +528,19 @@ class RifeTensorRT:
                 device=self.device,
             )
 
-        if self.interpolateFactor == 2:
-            self.dummyTimeStep = torch.full(
-                (1, 1, self.ph, self.pw), 0.5, dtype=self.dtype, device=self.device
-            )
-        else:
-            self.dummyTimeStep = torch.zeros(
-                1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
-            )
+        self.dummyTimeStep = torch.zeros(
+            1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
+        )
 
-            self.dummyStepBatch = torch.cat(
-                [
-                    torch.full(
-                        (1, 1, self.ph, self.pw),
-                        (i + 1) * 1 / self.interpolateFactor,
-                        dtype=self.dtype,
-                        device=self.device,
-                    )
-                    for i in range(self.interpolateFactor - 1)
-                ],
-                dim=0,
+        self.dummyTimeSteps = [
+            torch.full(
+                (1, 1, self.ph, self.pw),
+                (i + 1) * 1 / self.interpolateFactor,
+                dtype=self.dtype,
+                device=self.device,
             )
+            for i in range(self.interpolateFactor - 1)
+        ]
 
         self.dummyOutput = torch.zeros(
             (self.height, self.width, 3),
@@ -624,6 +616,15 @@ class RifeTensorRT:
                         ),
                         non_blocking=True,
                     )
+                case "f0-copy":
+                    self.f0.copy_(self.f1, non_blocking=True)
+
+                case "cache":
+                    self.I0.copy_(self.I1, non_blocking=True)
+                case "timestep":
+                    self.dummyTimeStep.copy_(frame, non_blocking=True)
+
+            self.normalizationStream.synchronize()
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
@@ -647,18 +648,16 @@ class RifeTensorRT:
             return
 
         self.processFrame(frame, "I1")
-        for i in range(self.interpolateFactor - 1):
-            if self.interpolateFactor != 2:
-                self.dummyTimeStep.copy_(self.dummyStepBatch[i], non_blocking=True)
-
+        for timestep in self.dummyTimeSteps:
+            self.processFrame(timestep, "timestep")
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
 
             self.stream.synchronize()
             interpQueue.put(self.dummyOutput)
 
-        self.I0.copy_(self.I1, non_blocking=True)
+        self.processFrame(None, "cache")
         if self.norm is not None:
-            self.f0.copy_(self.f1, non_blocking=True)
+            self.processFrame(None, "f0-copy")
 
     def getSkippedCounter(self):
         return self.skippedCounter
