@@ -201,12 +201,12 @@ def modelsMap(
 
         case "span" | "span-directml" | "span-tensorrt" | "span-ncnn":
             if modelType == "pth":
-                return "2x_ModernSpanimationV1.5.pth"
+                return "2x_ModernSpanimationV2.pth"
             elif modelType == "onnx":
                 if half:
-                    return "2x_ModernSpanimationV1.5_clamp_fp16_op20_onnxslim.onnx"
+                    return "2x_ModernSpanimationV2_fp16_op21_slim.onnx"
                 else:
-                    return "2x_ModernSpanimationV1.5_clamp_op20_onnxslim.onnx"
+                    return "2x_ModernSpanimationV2_fp32_op21_slim.onnx"
             elif modelType == "ncnn":
                 return "2x_modernspanimationv1.5-ncnn.zip"
 
@@ -632,8 +632,6 @@ def downloadModels(
     os.makedirs(folderPath, exist_ok=True)
 
     if model in [
-        "span-tensorrt",
-        "span-directml",
         "shift_lpips-tensorrt",
         "shift_lpips-directml",
     ]:
