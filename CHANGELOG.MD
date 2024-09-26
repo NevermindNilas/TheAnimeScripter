@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - All executables now include precompiled `.pyc` code to improve startup times.
 - Restructured interpolation pipeline for TensorRT, yielding up to `25%` performance gains.
 - Full CUDA workflow now uses `cuda pinned memory workflow` to increase data movement efficiency.
+- Upgraded `Span` and `Span-TensorRT` models to `Spanimation-V2` - special thanks to @TNTWise.
 
 #### Improved
 - Rife TensorRT changes significantly reduce the `weights` folder size. It's recommended to delete the folder at `%appdata%\Roaming\TheAnimeScripter\weights` and let TAS regenerate all Rife Engines.
