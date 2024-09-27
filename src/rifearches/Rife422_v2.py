@@ -126,8 +126,6 @@ class IFNet(nn.Module):
         device="cuda",
         width=1920,
         height=1080,
-        backWarp=None,
-        tenFlow=None,
     ):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7 + 16, c=256)
