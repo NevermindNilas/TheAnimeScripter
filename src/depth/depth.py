@@ -44,6 +44,7 @@ class DepthV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        mainPath: str = "",
     ):
         self.input = input
         self.output = output
@@ -62,6 +63,7 @@ class DepthV2:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.mainPath = mainPath
 
         self.handleModels()
 
@@ -82,6 +84,7 @@ class DepthV2:
             )
 
             self.writeBuffer = WriteBuffer(
+                self.mainPath,
                 self.input,
                 self.output,
                 self.ffmpeg_path,
@@ -99,10 +102,10 @@ class DepthV2:
                 bitDepth=self.bitDepth,
             )
 
+            self.writeBuffer.start()
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
-                executor.submit(self.writeBuffer.start)
 
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
@@ -260,6 +263,7 @@ class DepthDirectMLV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        mainPath: str = "",
     ):
         import onnxruntime as ort
 
@@ -282,6 +286,7 @@ class DepthDirectMLV2:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.mainPath = mainPath
 
         self.handleModels()
 
@@ -302,6 +307,7 @@ class DepthDirectMLV2:
             )
 
             self.writeBuffer = WriteBuffer(
+                self.mainPath,
                 self.input,
                 self.output,
                 self.ffmpeg_path,
@@ -319,10 +325,10 @@ class DepthDirectMLV2:
                 bitDepth=self.bitDepth,
             )
 
+            self.writeBuffer.start()
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
-                executor.submit(self.writeBuffer.start)
 
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
@@ -472,6 +478,7 @@ class DepthTensorRTV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        mainPath: str = "",
     ):
         self.input = input
         self.output = output
@@ -490,6 +497,7 @@ class DepthTensorRTV2:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.mainPath = mainPath
 
         import tensorrt as trt
         from src.utils.trtHandler import (
@@ -522,6 +530,7 @@ class DepthTensorRTV2:
             )
 
             self.writeBuffer = WriteBuffer(
+                self.mainPath,
                 self.input,
                 self.output,
                 self.ffmpeg_path,
