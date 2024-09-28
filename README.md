@@ -124,7 +124,6 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 | [Breakthrough](https://github.com/Breakthrough/PySceneDetect)             | Automated Scene Detection                       |
 | [Chainner-org](https://github.com/chaiNNer-org/spandrel)                  | Spandrel, easy to use arch implementations      |
 | [TNTWise](https://github.com/TNTwise)                                     | Rife ONNX / NCNN and Spanimation                |
-| [WolframRhodium](https://github.com/WolframRhodium)                       | Rife V2 models                                  |
 | [Hyperbrew](https://github.com/hyperbrew/bolt-cep)                        | Bolt CEP                                        |
 | [Sirosky](https://github.com/Sirosky/Upscale-Hub)                         | Open-Proteus and AniScale 2                     |
 | [Trentonom0r3](https://github.com/Trentonom0r3)                           | Helping with TAS Adobe Edition                  |
