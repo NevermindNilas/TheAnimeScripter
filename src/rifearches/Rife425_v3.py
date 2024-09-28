@@ -167,13 +167,13 @@ class IFNet(nn.Module):
         ).to(device=self.device, dtype=self.dtype)
 
     def forward(self, img0, img1, timeStep, f0):
+        warpedImg0, warpedImg1 = img0, img1
         imgs = torch.cat([img0, img1], dim=1)
         imgs2 = torch.reshape(imgs, (2, 3, self.ph, self.pw))
         f1 = self.encode(img1[:, :3])
         fs = torch.cat([f0, f1], dim=1)
         fs2 = torch.reshape(fs, (2, 4, self.ph, self.pw))
-        warpedImg0 = img0
-        warpedImg1 = img1
+
         flows = None
         for block, scale in zip(self.blocks, self.scaleList):
             if flows is None:
