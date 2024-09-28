@@ -505,7 +505,8 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
             )
 
     sensMap = {
-        "differential": 0.65,
+        "differential": 0.75,
+        "differential-tensorrt": 0.75,
         "shift_lpips": 0.50,
         "maxxvit": 0.9,
         "maxxvit-tensorrt": 0.9,
