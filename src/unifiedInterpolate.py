@@ -39,23 +39,23 @@ def importRifeArch(interpolateMethod, version):
         case "v2":
             match interpolateMethod:
                 case "rife4.25-tensorrt":
-                    from src.rifearches.Rife425_v2 import IFNet, Head
+                    from src.rifearches.Rife425_v3 import IFNet, Head
                 case "rife4.22-tensorrt":
-                    from src.rifearches.Rife422_v2 import IFNet, Head
+                    from src.rifearches.Rife422_v3 import IFNet, Head
                 case "rife4.22-lite-tensorrt":
-                    from src.rifearches.Rife422_lite_v2 import IFNet, Head
+                    from src.rifearches.Rife422_lite_v3 import IFNet, Head
                 case "rife4.21-tensorrt":
-                    from src.rifearches.Rife422_v2 import IFNet, Head
+                    from src.rifearches.Rife422_v3 import IFNet, Head
                 case "rife4.20-tensorrt":
-                    from src.rifearches.Rife420_v2 import IFNet, Head
+                    from src.rifearches.Rife420_v3 import IFNet, Head
                 case "rife4.18-tensorrt":
-                    from src.rifearches.Rife415_v2 import IFNet, Head
+                    from src.rifearches.Rife415_v3 import IFNet, Head
                 case "rife4.17-tensorrt":
-                    from src.rifearches.Rife415_v2 import IFNet, Head
+                    from src.rifearches.Rife415_v3 import IFNet, Head
                 case "rife4.15-tensorrt":
-                    from src.rifearches.Rife415_v2 import IFNet, Head
+                    from src.rifearches.Rife415_v3 import IFNet, Head
                 case "rife4.6-tensorrt":
-                    from src.rifearches.Rife46_v2 import IFNet
+                    from src.rifearches.Rife46_v3 import IFNet
 
                     Head = None
 
@@ -569,9 +569,9 @@ class RifeTensorRT:
                     self.I0.copy_(
                         F.pad(
                             frame.to(dtype=self.dtype, non_blocking=True)
-                            .mul(1 / 255.0)
+                            .mul_(1 / 255.0)
                             .permute(2, 0, 1)
-                            .unsqueeze(0),
+                            .unsqueeze_(0),
                             self.padding,
                         ),
                         non_blocking=True,
@@ -580,9 +580,9 @@ class RifeTensorRT:
                     self.I1.copy_(
                         F.pad(
                             frame.to(dtype=self.dtype, non_blocking=True)
-                            .mul(1 / 255.0)
+                            .mul_(1 / 255.0)
                             .permute(2, 0, 1)
-                            .unsqueeze(0),
+                            .unsqueeze_(0),
                             self.padding,
                         ),
                         non_blocking=True,
@@ -592,9 +592,9 @@ class RifeTensorRT:
                         self.norm(
                             F.pad(
                                 frame.to(dtype=self.dtype, non_blocking=True)
-                                .mul(1 / 255.0)
+                                .mul_(1 / 255.0)
                                 .permute(2, 0, 1)
-                                .unsqueeze(0),
+                                .unsqueeze_(0),
                                 self.padding,
                             )
                         ),
