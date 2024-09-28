@@ -89,9 +89,7 @@ class SceneChange:
 
 
 class SceneChangeTensorRT:
-    def __init__(
-        self, half, sceneChangeThreshold=0.85, sceneChangeMethod="scenechange-tensorrt"
-    ):
+    def __init__(self, half, sceneChangeThreshold=0.85, sceneChangeMethod=""):
         self.half = half
         self.sceneChangeThreshold = sceneChangeThreshold
         self.sceneChangeMethod = sceneChangeMethod

@@ -504,7 +504,13 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
                 f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
             )
 
-    sensMap = {"differential": 0.65, "shift_lpips": 0.50, "maxxvit": 0.9}
+    sensMap = {
+        "differential": 0.65,
+        "shift_lpips": 0.50,
+        "maxxvit": 0.9,
+        "maxxvit-tensorrt": 0.9,
+        "maxxvit-directml": 0.9,
+    }
     if args.scenechange_method in sensMap:
         args.scenechange_sens = sensMap[args.scenechange_method] - (
             args.scenechange_sens / 1000
