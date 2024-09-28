@@ -159,6 +159,8 @@ class IFNet(nn.Module):
                     self.f1 = self.encode(img1[:, :3])
             self.counter += 1
 
+        print(self.f0.shape, self.f1.shape)
+
         merged = []
         warped_img0 = img0
         warped_img1 = img1

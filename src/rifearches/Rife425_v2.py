@@ -39,10 +39,10 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
 class Head(nn.Module):
     def __init__(self):
         super(Head, self).__init__()
-        self.cnn0 = nn.Conv2d(3, 32, 3, 2, 1)
-        self.cnn1 = nn.Conv2d(32, 32, 3, 1, 1)
-        self.cnn2 = nn.Conv2d(32, 32, 3, 1, 1)
-        self.cnn3 = nn.ConvTranspose2d(32, 8, 4, 2, 1)
+        self.cnn0 = nn.Conv2d(3, 16, 3, 2, 1)
+        self.cnn1 = nn.Conv2d(16, 16, 3, 1, 1)
+        self.cnn2 = nn.Conv2d(16, 16, 3, 1, 1)
+        self.cnn3 = nn.ConvTranspose2d(16, 4, 4, 2, 1)
         self.relu = nn.LeakyReLU(0.2, True)
 
     def forward(self, x, feat=False):
@@ -128,10 +128,10 @@ class IFNet(nn.Module):
         height=1080,
     ):
         super(IFNet, self).__init__()
-        self.block0 = IFBlock(7 + 16, c=256)
-        self.block1 = IFBlock(8 + 4 + 16 + 8, c=192)
-        self.block2 = IFBlock(8 + 4 + 16 + 8, c=96)
-        self.block3 = IFBlock(8 + 4 + 16 + 8, c=48)
+        self.block0 = IFBlock(7 + 8, c=192)
+        self.block1 = IFBlock(8 + 4 + 8 + 8, c=128)
+        self.block2 = IFBlock(8 + 4 + 8 + 8, c=96)
+        self.block3 = IFBlock(8 + 4 + 8 + 8, c=64)
         self.block4 = IFBlock(8 + 4 + 8 + 8, c=32)
 
         self.encode = Head()
@@ -142,7 +142,7 @@ class IFNet(nn.Module):
         self.width = width
         self.height = height
 
-        self.blocks = [self.block0, self.block1, self.block2, self.block3]
+        self.blocks = [self.block0, self.block1, self.block2, self.block3, self.block4]
         tmp = max(64, int(64 / 1.0))
         self.pw = math.ceil(self.width / tmp) * tmp
         self.ph = math.ceil(self.height / tmp) * tmp
@@ -171,7 +171,7 @@ class IFNet(nn.Module):
         imgs2 = torch.reshape(imgs, (2, 3, self.ph, self.pw))
         f1 = self.encode(img1[:, :3])
         fs = torch.cat([f0, f1], dim=1)
-        fs2 = torch.reshape(fs, (2, 8, self.ph, self.pw))
+        fs2 = torch.reshape(fs, (2, 4, self.ph, self.pw))
         warpedImg0 = img0
         warpedImg1 = img1
         flows = None
@@ -214,9 +214,9 @@ class IFNet(nn.Module):
                     padding_mode="border",
                     align_corners=True,
                 )
-                wimg, wf = torch.split(warps, [3, 8], dim=1)
+                wimg, wf = torch.split(warps, [3, 4], dim=1)
                 wimg = torch.reshape(wimg, (1, 6, self.ph, self.pw))
-                wf = torch.reshape(wf, (1, 16, self.ph, self.pw))
+                wf = torch.reshape(wf, (1, 8, self.ph, self.pw))
 
         mask = torch.sigmoid(mask)
         warpedImg0, warpedImg1 = torch.split(warpedImgs, [1, 1])

@@ -386,6 +386,11 @@ class RifeTensorRT:
             self.model.float()
         self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
 
+        if self.interpolateMethod in ["rife4.25-tensorrt", "rife4.22-lite-tensorrt"]:
+            channels = 4
+        else:
+            channels = 8
+
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
         if (
             self.engine is None
@@ -403,14 +408,14 @@ class RifeTensorRT:
             )
 
             if self.norm is not None:
-                if "lite" in self.interpolateMethod:
-                    dummyInput4 = torch.zeros(
-                        1, 4, self.ph, self.pw, dtype=self.dtype, device=self.device
-                    )
-                else:
-                    dummyInput4 = torch.zeros(
-                        1, 8, self.ph, self.pw, dtype=self.dtype, device=self.device
-                    )
+                dummyInput4 = torch.zeros(
+                    1,
+                    channels,
+                    self.ph,
+                    self.pw,
+                    dtype=self.dtype,
+                    device=self.device,
+                )
 
             self.modelPath = self.modelPath.replace(".pth", ".onnx")
 
@@ -447,10 +452,7 @@ class RifeTensorRT:
             ]
 
             if self.norm is not None:
-                if "lite" in self.interpolateMethod:
-                    inputs.append([1, 4, self.ph, self.pw])
-                else:
-                    inputs.append([1, 8, self.ph, self.pw])
+                inputs.append([1, channels, self.ph, self.pw])
 
             inputsMin = inputsOpt = inputsMax = inputs
 
@@ -492,8 +494,6 @@ class RifeTensorRT:
         )
 
         if self.norm is not None:
-            channels = 4 if "lite" in self.interpolateMethod else 8
-
             self.f0 = torch.zeros(
                 1,
                 channels,
