@@ -612,7 +612,7 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
-        self.I0.copy_(self.processFrame(frame, "I0"), non_blocking=True)
+        self.processFrame(frame, "I0")
         if self.norm is not None:
             self.f0.copy_(self.norm(self.processFrame(frame)), non_blocking=True)
         if self.interpolateSkip is not None:
