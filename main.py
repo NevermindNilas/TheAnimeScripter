@@ -117,11 +117,11 @@ class VideoProcessor:
 
         elif self.depth:
             logging.info("Depth Estimation")
-            Depth(self)
+            Depth(self, mainPath)
 
         elif self.segment:
             logging.info("Segmenting video")
-            Segment(self)
+            Segment(self, mainPath)
 
         else:
             self.start()

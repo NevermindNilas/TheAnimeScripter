@@ -26,6 +26,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
+        mainPath: str = None,
     ):
         self.input = input
         self.output = output
@@ -40,6 +41,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
+        self.mainPath = mainPath
 
         self.handleModel()
         try:
@@ -59,27 +61,28 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             )
 
             self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
-                self.ffmpeg_path,
-                self.encode_method,
-                self.custom_encoder,
-                self.width,
-                self.height,
-                self.fps,
-                self.buffer_limit,
-                sharpen=False,
-                sharpen_sens=None,
+                mainPath=self.mainPath,
+                input=self.input,
+                output=self.output,
+                ffmpegPath=self.ffmpeg_path,
+                encode_method=self.encode_method,
+                custom_encoder=self.custom_encoder,
                 grayscale=False,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
+                sharpen=False,
                 transparent=True,
                 audio=False,
                 benchmark=self.benchmark,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
             )
 
-            with ThreadPoolExecutor(max_workers=3) as executor:
+            self.writeBuffer.start()
+            with ThreadPoolExecutor(max_workers=2) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
-                executor.submit(self.writeBuffer.start)
 
         except Exception as e:
             logging.error(f"An error occurred while processing the video: {e}")
@@ -185,6 +188,7 @@ class AnimeSegmentTensorRT:
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
+        mainPath: str = None,
     ):
         self.input = input
         self.output = output
@@ -199,6 +203,7 @@ class AnimeSegmentTensorRT:
         self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
+        self.mainPath = mainPath
 
         import tensorrt as trt
         from src.utils.trtHandler import (
@@ -230,6 +235,7 @@ class AnimeSegmentTensorRT:
             )
 
             self.writeBuffer = WriteBuffer(
+                self.mainPath,
                 self.input,
                 self.output,
                 self.ffmpeg_path,
@@ -247,10 +253,10 @@ class AnimeSegmentTensorRT:
                 benchmark=self.benchmark,
             )
 
+            self.writeBuffer.start()
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
-                executor.submit(self.writeBuffer.start)
 
         except Exception as e:
             logging.error(f"An error occurred while processing the video: {e}")
@@ -413,6 +419,7 @@ class AnimeSegmentDirectML:
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
+        mainPath: str = None,
     ):
         self.input = input
         self.output = output
@@ -427,6 +434,7 @@ class AnimeSegmentDirectML:
         self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
+        self.mainPath = mainPath
 
         import onnxruntime as ort
 
@@ -451,6 +459,7 @@ class AnimeSegmentDirectML:
             )
 
             self.writeBuffer = WriteBuffer(
+                self.mainPath,
                 self.input,
                 self.output,
                 self.ffmpeg_path,
