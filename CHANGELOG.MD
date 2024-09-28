@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - More accurate progress information post-process for comparison purposes.
 - All executables now include precompiled `.pyc` code to improve startup times.
 - Restructured interpolation pipeline for TensorRT, yielding up to `25%` performance gains.
-- Full CUDA workflow now uses `cuda pinned memory workflow` to increase data movement efficiency.
+- Full CUDA workflow now uses `cuda pinned memory workflow` to increase data transfer efficiency.
 - Upgraded `Span` and `Span-TensorRT` models to `Spanimation-V2` - special thanks to @TNTWise.
 
 #### Improved
@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - System checks are now minimal and log only essential information.
 - System checks are now conditional based on the `--benchmark` flag.
 - Slight adjustments to `getFFMPEG.py`.
+- Improved Upscale-Cuda Code.
 
 #### Removed
 - Removed `--audio` and related features in favor of `pymediainfo`'s automated detection.
