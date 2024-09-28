@@ -13,7 +13,7 @@ def AutoClip(self, mainPath):
     )
 
 
-def Segment(self):
+def Segment(self, mainPath):
     if self.segment_method == "anime":
         from src.segment.animeSegment import AnimeSegment
 
@@ -31,6 +31,7 @@ def Segment(self):
             self.buffer_limit,
             self.benchmark,
             self.totalFrames,
+            mainPath=mainPath,
         )
     elif self.segment_method == "anime-tensorrt":
         from src.segment.animeSegment import AnimeSegmentTensorRT
@@ -49,6 +50,7 @@ def Segment(self):
             self.buffer_limit,
             self.benchmark,
             self.totalFrames,
+            mainPath=mainPath,
         )
 
     elif self.segment_method == "anime-directml":
@@ -68,6 +70,7 @@ def Segment(self):
             self.buffer_limit,
             self.benchmark,
             self.totalFrames,
+            mainPath=mainPath,
         )
 
     elif self.segment_method == "cartoon":
@@ -90,7 +93,7 @@ def Segment(self):
         )
 
 
-def Depth(self):
+def Depth(self, mainPath):
     match self.depth_method:
         case "small_v2" | "base_v2" | "large_v2":
             from src.depth.depth import DepthV2
@@ -113,6 +116,7 @@ def Depth(self):
                 self.totalFrames,
                 self.bit_depth,
                 self.depth_quality,
+                mainPath=mainPath,
             )
 
         case "small_v2-tensorrt" | "base_v2-tensorrt" | "large_v2-tensorrt":
@@ -136,6 +140,7 @@ def Depth(self):
                 self.totalFrames,
                 self.bit_depth,
                 self.depth_quality,
+                mainPath=mainPath,
             )
 
         case "small_v2-directml" | "base_v2-directml" | "large_v2-directml":
@@ -159,6 +164,7 @@ def Depth(self):
                 self.totalFrames,
                 self.bit_depth,
                 self.depth_quality,
+                mainPath=mainPath,
             )
 
 
