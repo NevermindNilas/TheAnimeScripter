@@ -131,9 +131,9 @@ class UniversalPytorch:
         with torch.cuda.stream(self.stream):
             output = (
                 self.model(self.dummyInput)
-                .squeeze_(0)
+                .squeeze(0)
                 .clamp(0, 1)
-                .mul_(255)
+                .mul(255)
                 .permute(1, 2, 0)
             )
             self.stream.synchronize()

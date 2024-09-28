@@ -569,9 +569,9 @@ class RifeTensorRT:
                     self.I0.copy_(
                         F.pad(
                             frame.to(dtype=self.dtype, non_blocking=True)
-                            .mul_(1 / 255.0)
+                            .mul(1 / 255.0)
                             .permute(2, 0, 1)
-                            .unsqueeze_(0),
+                            .unsqueeze(0),
                             self.padding,
                         ),
                         non_blocking=True,
@@ -580,9 +580,9 @@ class RifeTensorRT:
                     self.I1.copy_(
                         F.pad(
                             frame.to(dtype=self.dtype, non_blocking=True)
-                            .mul_(1 / 255.0)
+                            .mul(1 / 255.0)
                             .permute(2, 0, 1)
-                            .unsqueeze_(0),
+                            .unsqueeze(0),
                             self.padding,
                         ),
                         non_blocking=True,
@@ -592,9 +592,9 @@ class RifeTensorRT:
                         self.norm(
                             F.pad(
                                 frame.to(dtype=self.dtype, non_blocking=True)
-                                .mul_(1 / 255.0)
+                                .mul(1 / 255.0)
                                 .permute(2, 0, 1)
-                                .unsqueeze_(0),
+                                .unsqueeze(0),
                                 self.padding,
                             )
                         ),
