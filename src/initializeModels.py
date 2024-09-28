@@ -2,7 +2,7 @@ import logging
 
 
 def AutoClip(self, mainPath):
-    from src.autoclip import AutoClip
+    from src.autoclip.autoclip import AutoClip
 
     AutoClip(
         self.input,
