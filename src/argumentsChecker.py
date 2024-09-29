@@ -520,6 +520,10 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
             f"New scenechange sensitivity for {args.scenechange_method} is: {args.scenechange_sens}"
         )
 
+    if args.sharpen:
+        args.sharpen_sens = args.sharpen_sens / 100
+        logging.info(f"New sharpen sensitivity is: {args.sharpen_sens}")
+
     if args.custom_encoder:
         logging.info("Custom encoder specified, use with caution")
     else:
