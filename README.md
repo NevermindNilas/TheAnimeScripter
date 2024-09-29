@@ -69,13 +69,10 @@
 
 ### CLI Interface:
 
-#### Windows
+#### Windows / Linux
 - **Stable:** Download the latest release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
 - **Nightly:** Download nightly versions from [here](https://github.com/NevermindNilas/TAS-Nightly/releases)
 
-#### Linux
-- **Stable:** Download the latest release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
-- **Nightly:** N/A
 
 ## 📚 Available Inputs
 
