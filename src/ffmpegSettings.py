@@ -589,15 +589,29 @@ class WriteBuffer:
                 f"{self.width}x{self.height}",
                 "-r",
                 str(self.fps),
-                "-itsoffset",
-                str(self.inpoint),
-                "-i",
-                "pipe:0",
-                "-ss",
-                str(self.inpoint),
-                "-to",
-                str(self.outpoint),
             ]
+
+            if self.outpoint != 0:
+                command.extend(
+                    [
+                        "-itsoffset",
+                        str(self.inpoint),
+                        "-i",
+                        "pipe:0",
+                        "-ss",
+                        str(self.inpoint),
+                        "-to",
+                        str(self.outpoint),
+                    ]
+                )
+            else:
+                command.extend(
+                    [
+                        "-i",
+                        "pipe:0",
+                    ]
+                )
+
             if self.audio:
                 command.extend(
                     [
