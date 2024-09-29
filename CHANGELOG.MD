@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [UNRELEASED] - YYYY-MM-DD
+## [1.9.10] - 2024-09-29
+
+#### Fixed
+- Issues where if `--inpoint` and `--outpoint` wasn't declared, FFMPEG would self-destruct.
+- Issues where sharpening would go out of bounds relative to the max allowed sharpness from FFMPEG.
+
+
+## [1.9.9] - 2024-09-28
 
 ### The Anime Scripter
 
