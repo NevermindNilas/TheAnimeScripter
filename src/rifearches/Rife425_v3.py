@@ -169,10 +169,10 @@ class IFNet(nn.Module):
     def forward(self, img0, img1, timeStep, f0):
         warpedImg0, warpedImg1 = img0, img1
         imgs = torch.cat([img0, img1], dim=1)
-        imgs2 = torch.reshape(imgs, (2, 3, self.ph, self.pw))
+        imgs2 = imgs.view(2, 3, self.ph, self.pw)
         f1 = self.encode(img1[:, :3])
         fs = torch.cat([f0, f1], dim=1)
-        fs2 = torch.reshape(fs, (2, 4, self.ph, self.pw))
+        fs2 = fs.view(2, 4, self.ph, self.pw)
 
         flows = None
         for block, scale in zip(self.blocks, self.scaleList):
@@ -194,22 +194,24 @@ class IFNet(nn.Module):
                 fds, mask, feat = block(temp, scale=scale)
                 flows = flows + fds
 
-            precomp = (
-                self.backWarp + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlow
-            ).permute(0, 2, 3, 1)
             if scale == 1:
                 warpedImgs = torch.nn.functional.grid_sample(
                     imgs2,
-                    precomp,
+                    (
+                        self.backWarp
+                        + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlow
+                    ).permute(0, 2, 3, 1),
                     mode="bilinear",
                     padding_mode="border",
                     align_corners=True,
                 )
             else:
-                imgsFs2 = torch.cat((imgs2, fs2), 1)
                 warps = torch.nn.functional.grid_sample(
-                    imgsFs2,
-                    precomp,
+                    torch.cat((imgs2, fs2), 1),
+                    (
+                        self.backWarp
+                        + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlow
+                    ).permute(0, 2, 3, 1),
                     mode="bilinear",
                     padding_mode="border",
                     align_corners=True,
@@ -220,10 +222,7 @@ class IFNet(nn.Module):
 
         mask = torch.sigmoid(mask)
         warpedImg0, warpedImg1 = torch.split(warpedImgs, [1, 1])
-        return (
-            (warpedImg0 * mask + warpedImg1 * (1 - mask))[
-                :, :, : self.height, : self.width
-            ][0]
-            .permute(1, 2, 0)
-            .mul(255)
-        ), f1
+
+        return (warpedImg0 * mask + warpedImg1 * (1 - mask))[
+            :, :, : self.height, : self.width
+        ][0].permute(1, 2, 0).mul(255), f1

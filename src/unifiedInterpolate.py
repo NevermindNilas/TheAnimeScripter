@@ -36,7 +36,7 @@ def importRifeArch(interpolateMethod, version):
                     from .rifearches.IFNet_rife46 import IFNet
             return IFNet
 
-        case "v2":
+        case "v3":
             match interpolateMethod:
                 case "rife4.25-tensorrt":
                     from src.rifearches.Rife425_v3 import IFNet, Head
@@ -360,7 +360,7 @@ class RifeTensorRT:
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
 
-        IFNet, Head = importRifeArch(self.interpolateMethod, "v2")
+        IFNet, Head = importRifeArch(self.interpolateMethod, "v3")
         self.norm = Head().cuda() if Head is not None else None
 
         enginePath = self.TensorRTEngineNameHandler(
@@ -368,6 +368,7 @@ class RifeTensorRT:
             fp16=self.half,
             optInputShape=[1, 3, self.height, self.width],
             ensemble=self.ensemble,
+            isRife=True,
         )
 
         self.model = IFNet(
