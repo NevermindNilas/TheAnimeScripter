@@ -123,6 +123,7 @@ def TensorRTEngineNameHandler(
     fp16: bool = False,
     optInputShape: List[int] = [],
     ensemble: bool = False,
+    isRife: bool = False,
 ) -> str:
     """
     Create a name for the TensorRT engine file.
@@ -143,10 +144,13 @@ def TensorRTEngineNameHandler(
         raise ValueError(
             "Unsupported model file extension. Only .onnx and .pth are supported."
         )
+    if isRife:
+        name = [
+            f"_{enginePrecision}_{height}x{width}",
+        ]
+        if ensemble:
+            name.append("_ensemble")
 
-    if ensemble:
-        return modelPath.replace(
-            extension, f"_{enginePrecision}_{height}x{width}_ensemble.engine"
-        )
+        return modelPath.replace(extension, "".join(name) + ".engine")
 
     return modelPath.replace(extension, f"_{enginePrecision}_{height}x{width}.engine")
