@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added `H266` encoding support using command `--encode_method h266`.
 - Added `slow_x264`, `slow_x265` & `slow_av1` encode methods.
 
+#### Improvements
+- Increase buffer size for encoder from `10 -> 20`
+
 #### Notes
 - `H266` encoding requires FFMPEG version `7.1`, if you have FFMPEG in System Path make sure to upgrade it, otherwise if you downloaded it using TAS, make sure you delete the `ffmpeg` folder located at `%appdata%\Roaming\TheAnimeScripter\` and allow TAS to re-download the latest build.
 
