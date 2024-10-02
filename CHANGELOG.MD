@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [UNRELEASED] - YYYY-MM-DD
+
+### The Anime Scripter
+
+#### New
+- Added `H266` encoding support.
+
+#### Notes
+- `H266` encoding requires FFMPEG version `7.1`, if you have FFMPEG in System Path make sure to upgrade it, otherwise if you downloaded it using TAS, make sure you delete the `ffmpeg` folder located at `%appdata%\Roaming\TheAnimeScripter\`
+
 ## [1.9.10] - 2024-09-29
 
 #### Fixed
