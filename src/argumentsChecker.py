@@ -344,6 +344,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "image",
             "vp9",
             "qsv_vp9",
+            "h266",
         ],
         default="x264",
         help="Encoding method",

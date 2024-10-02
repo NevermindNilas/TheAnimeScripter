@@ -183,6 +183,9 @@ def matchEncoder(encode_method: str):
             command.extend(["-c:v", "libvpx-vp9", "-crf", "15", "-preset", "veryfast"])
         case "qsv_vp9":
             command.extend(["-c:v", "vp9_qsv", "-preset", "veryfast"])
+        case "h266":
+            # Placeholder QP until I figure what the actual fuck is going on
+            command.extend(["-c:v", "libvvenc", "-qp", "24", "-preset", "0"])
 
     return command
 
@@ -360,7 +363,7 @@ class BuildBuffer:
             )
             if self.isCudaAvailable:
                 with torch.cuda.stream(self.normStream):
-                    frame = dummyTensor.to(device="cuda", non_blocking=False)
+                    frame = dummyTensor.to(device="cuda", non_blocking=True)
                     self.normStream.synchronize()
 
                 self.readBuffer.put(frame)
