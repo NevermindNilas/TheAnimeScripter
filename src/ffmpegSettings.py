@@ -10,7 +10,7 @@ import threading
 from torch.multiprocessing import Process, Queue as MPQueue
 from queue import Queue
 
-workingFrames = 10
+workingFrames = 20
 
 
 if getattr(sys, "frozen", False):
@@ -411,14 +411,11 @@ class BuildBuffer:
         This is meant to be used in a separate thread for faster processing.
 
         queue : queue.Queue, optional - The queue to put the frames into. If None, a new queue will be created.
-        verbose : bool - Whether to log the progress of the decoding.
         """
         self.readBuffer = Queue(maxsize=self.queueSize)
-        verbose = True
         command = self.decodeSettings()
 
-        if verbose:
-            logging.info(f"Decoding options: {' '.join(map(str, command))}")
+        logging.info(f"Decoding options: {' '.join(map(str, command))}")
 
         self.isCudaAvailable = checkForCudaWorkflow()
 
@@ -445,8 +442,7 @@ class BuildBuffer:
         chunkExecutor.join()
         readExecutor.join()
 
-        if verbose:
-            logging.info(f"Built buffer with {self.decodedFrames} frames")
+        logging.info(f"Built buffer with {self.decodedFrames} frames")
         self.readingDone = True
         self.readBuffer.put(None)
         self.process.stdout.close()
@@ -606,6 +602,7 @@ class WriteBuffer:
             [workingFrames, self.height, self.width, self.channels]
         )
         dimsList = [self.height, self.width, self.channels]
+
         self.torchArray = torch.zeros(
             *dimensions.tolist(), dtype=torch.uint8
         ).share_memory_()
@@ -632,11 +629,10 @@ class WriteBuffer:
             ),
         )
 
-    def encodeSettings(self, verbose: bool = False) -> list:
+    def encodeSettings(self) -> list:
         """
         This will return the command for FFMPEG to work with, it will be used inside of the scope of the class.
 
-        verbose : bool - Whether to log the progress of the encoding.
         """
         if self.bitDepth == "8bit":
             inputPixFormat = "yuv420p"
@@ -647,10 +643,7 @@ class WriteBuffer:
 
         if self.transparent:
             if self.encode_method not in ["prores_segment"]:
-                if verbose:
-                    logging.info(
-                        "Switching internally to prores for transparency support"
-                    )
+                logging.info("Switching internally to prores for transparency support")
                 self.encode_method = "prores_segment"
 
                 inputPixFormat = "rgba"
