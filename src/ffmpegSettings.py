@@ -52,6 +52,46 @@ def matchEncoder(encode_method: str):
     match encode_method:
         case "x264":
             command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "15"])
+        case "slow_x264":
+            command.extend(
+                [
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "slow",
+                    "-crf",
+                    "18",
+                    "-profile:v",
+                    "high",
+                    "-level",
+                    "4.1",
+                    "-tune",
+                    "animation",
+                    "-x264-params",
+                    "ref=4:bframes=8:b-adapt=2:direct=auto:me=umh:subme=10:merange=24:trellis=2:deblock=-1,-1:psy-rd=1.00,0.15:aq-strength=1.0:rc-lookahead=60",
+                    "-bf",
+                    "3",
+                    "-g",
+                    "250",
+                    "-keyint_min",
+                    "25",
+                    "-sc_threshold",
+                    "40",
+                    "-qcomp",
+                    "0.6",
+                    "-qmin",
+                    "10",
+                    "-qmax",
+                    "51",
+                    "-maxrate",
+                    "5000k",
+                    "-bufsize",
+                    "10000k",
+                    "-movflags",
+                    "+faststart",
+                ]
+            )
+
         case "x264_10bit":
             command.extend(
                 [
@@ -95,6 +135,46 @@ def matchEncoder(encode_method: str):
             )
         case "x265":
             command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "15"])
+
+        case "slow_x265":
+            command.extend(
+                [
+                    "-c:v",
+                    "libx265",
+                    "-preset",
+                    "slow",
+                    "-crf",
+                    "18",
+                    "-profile:v",
+                    "main",
+                    "-level",
+                    "5.1",
+                    "-tune",
+                    "ssim",
+                    "-x265-params",
+                    "ref=6:bframes=8:b-adapt=2:direct=auto:me=umh:subme=7:merange=57:rd=6:psy-rd=2.0:aq-mode=3:aq-strength=0.8:rc-lookahead=60",
+                    "-bf",
+                    "4",
+                    "-g",
+                    "250",
+                    "-keyint_min",
+                    "25",
+                    "-sc_threshold",
+                    "40",
+                    "-qcomp",
+                    "0.7",
+                    "-qmin",
+                    "10",
+                    "-qmax",
+                    "51",
+                    "-maxrate",
+                    "5000k",
+                    "-bufsize",
+                    "10000k",
+                    "-movflags",
+                    "+faststart",
+                ]
+            )
         case "x265_10bit":
             command.extend(
                 [
@@ -150,6 +230,42 @@ def matchEncoder(encode_method: str):
             command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "15"])
         case "av1":
             command.extend(["-c:v", "libsvtav1", "-preset", "8", "-crf", "15"])
+
+        case "slow_av1":
+            command.extend(
+                [
+                    "-c:v",
+                    "libsvtav1",
+                    "-preset",
+                    "4",
+                    "-crf",
+                    "30",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-g",
+                    "240",
+                    "-keyint_min",
+                    "23",
+                    "-sc_threshold",
+                    "40",
+                    "-rc",
+                    "vbr",
+                    "-b:v",
+                    "0",
+                    "-maxrate",
+                    "5000k",
+                    "-bufsize",
+                    "10000k",
+                    "-tile-columns",
+                    "2",
+                    "-tile-rows",
+                    "2",
+                    "-row-mt",
+                    "1",
+                    "-movflags",
+                    "+faststart",
+                ]
+            )
         case "h264_amf":
             command.extend(
                 ["-c:v", "h264_amf", "-quality", "speed", "-rc", "cqp", "-qp", "15"]
