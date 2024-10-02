@@ -104,6 +104,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `"rife4.21"` / `"rife4.21-tensorrt"` / `"rife4.21-ncnn"`
 - `"rife4.22"` / `"rife4.22-tensorrt"` / `"rife4.22-ncnn"`
 - `"rife4.22-lite"` / `"rife4.22-lite-tensorrt"` / `"rife4.22-lite-ncnn"`
+- `"rife4.25"` / `"rife4.25-tensorrt"` / `N/A`
 
 ### Scene Change Detection
 
@@ -219,29 +220,40 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 | `--encode_method`  | str  | "x264"  | Encoding method                   |
 | `--custom_encoder` | str  | ""      | Custom FFmpeg encoding parameters |
 
-### Encode Methods
+# Encode Methods
+
+### Standard Encoders
 - `"x264"`: libx264, preset veryfast, CRF 15
 - `"x264_10bit"`: libx264, preset veryfast, CRF 15, high10 profile
 - `"x264_animation"`: libx264, preset veryfast, tune animation, CRF 15
 - `"x264_animation_10bit"`: libx264, preset veryfast, tune animation, CRF 15, high10 profile
 - `"x265"`: libx265, preset veryfast, CRF 15
 - `"x265_10bit"`: libx265, preset veryfast, CRF 15, main10 profile
+
+### Hardware Encoders
 - `"nvenc_h264"`: h264_nvenc, preset p1, CQ 15
 - `"nvenc_h265"`: hevc_nvenc, preset p1, CQ 15
 - `"nvenc_h265_10bit"`: hevc_nvenc, preset p1, CQ 15, main10 profile
+- `"nvenc_av1"`: av1_nvenc, preset p1, CQ 15
 - `"qsv_h264"`: h264_qsv, preset veryfast, global quality 15
 - `"qsv_h265"`: hevc_qsv, preset veryfast, global quality 15
 - `"qsv_h265_10bit"`: hevc_qsv, preset veryfast, global quality 15, main10 profile
-- `"nvenc_av1"`: av1_nvenc, preset p1, CQ 15
-- `"av1"`: libsvtav1, preset 8, CRF 15
+- `"qsv_vp9"`: vp9_qsv, preset veryfast, global quality 15
 - `"h264_amf"`: h264_amf, quality speed, RC CQP, QP 15
 - `"hevc_amf"`: hevc_amf, quality speed, RC CQP, QP 15
 - `"hevc_amf_10bit"`: hevc_amf, quality speed, RC CQP, QP 15, main10 profile
+
+### Other Formats
+- `"av1"`: libsvtav1, preset 8, CRF 15
 - `"prores"`: prores_ks, profile 4, qscale 15
 - `"gif"`: gif, qscale 1, loop 0
 - `"image"`: png, quality 1
 - `"vp9"`: libvpx-vp9, preset veryfast, CRF 15
-- `"qsv_vp9"`: vp9_qsv, preset veryfast, global quality 15
+
+### High Quality Presets
+- `"slow_x264"`: libx264, preset slow, CRF 18, high profile, level 4.1, tune animation, x264-params ref=4:bframes=8:b-adapt=2:direct=auto:me=umh:subme=10:merange=24:trellis=2:deblock=-1,-1:psy-rd=1.00,0.15:aq-strength=1.0:rc-lookahead=60, bf 3, g 250, keyint_min 25, sc_threshold 40, qcomp 0.6, qmin 10, qmax 51, maxrate 5000k, bufsize 10000k, movflags +faststart
+- `"slow_x265"`: libx265, preset slow, CRF 18, profile main, level 5.1, tune ssim, x265-params ref=6:bframes=8:b-adapt=2:direct=auto:me=umh:subme=7:merange=57:rd=6:psy-rd=2.0:aq-mode=3:aq-strength=0.8:rc-lookahead=60, bf 4, g 250, keyint_min 25, sc_threshold 40, qcomp 0.7, qmin 10, qmax 51, maxrate 5000k, bufsize 10000k, movflags +faststart
+- `"slow_av1"`: libsvtav1, preset 4, CRF 30, VBR, maxrate 5000k, bufsize 10000k, tile-columns 2, tile-rows 2, row-mt 1, movflags +faststart
 
 **Note**: The output pixel format (`-pix_fmt`) can dynamically switch between yuv420p, yuv420p10le, and yuv444p10le based on `--bit_depth` and `--encode_method`.
 
