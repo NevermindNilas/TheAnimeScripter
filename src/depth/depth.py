@@ -559,23 +559,25 @@ class DepthTensorRTV2:
     def handleModels(self):
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
-        self.filename = modelsMap(
-            model=self.depth_method, modelType="onnx", half=self.half
-        )
-
-        folderName = self.depth_method.replace("-tensorrt", "-onnx")
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            self.modelPath = downloadModels(
-                model=self.depth_method,
-                half=self.half,
-                modelType="onnx",
-            )
-        else:
-            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
-
         self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality
         )
+
+        # Ugly but it works.
+        self.depth_method = self.depth_method.replace("-tensorrt", "")
+
+        self.filename = modelsMap(
+            model=self.depth_method, modelType="pth", half=self.half
+        )
+
+        if not os.path.exists(os.path.join(weightsDir, self.filename, self.filename)):
+            self.modelPath = downloadModels(
+                model=self.depth_method,
+                half=self.half,
+                modelType="pth",
+            )
+        else:
+            self.modelPath = os.path.join(weightsDir, self.filename, self.filename)
 
         enginePath = self.TensorRTEngineNameHandler(
             modelPath=self.modelPath,
@@ -589,6 +591,65 @@ class DepthTensorRTV2:
             or self.context is None
             or not os.path.exists(enginePath)
         ):
+            from .dpt_v2 import DepthAnythingV2
+
+            match self.depth_method:
+                case "small_v2":
+                    method = "vits"
+                case "base_v2":
+                    method = "vitb"
+                case "large_v2":
+                    method = "vitl"
+                case "giant_v2":
+                    raise NotImplementedError("Giant model not available yet")
+                    # method = "vitg"
+
+            model_configs = {
+                "vits": {
+                    "encoder": "vits",
+                    "features": 64,
+                    "out_channels": [48, 96, 192, 384],
+                },
+                "vitb": {
+                    "encoder": "vitb",
+                    "features": 128,
+                    "out_channels": [96, 192, 384, 768],
+                },
+                "vitl": {
+                    "encoder": "vitl",
+                    "features": 256,
+                    "out_channels": [256, 512, 1024, 1024],
+                },
+                "vitg": {
+                    "encoder": "vitg",
+                    "features": 384,
+                    "out_channels": [1536, 1536, 1536, 1536],
+                },
+            }
+
+            self.model = DepthAnythingV2(**model_configs[method])
+            self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
+            self.model = self.model.to(self.device).eval()
+            if self.half and self.isCudaAvailable:
+                self.model = self.model.half()
+
+            dummyInput = torch.zeros(
+                (1, 3, self.newHeight, self.newWidth),
+                device=self.device,
+                dtype=torch.float16 if self.half else torch.float32,
+            )
+            self.modelPath = self.modelPath.replace(".pth", ".onnx")
+
+            torch.onnx.export(
+                self.model,
+                dummyInput,
+                self.modelPath,
+                opset_version=19,
+                input_names=["image"],
+                output_names=["depth"],
+                dynamic_axes={"image": {0: "batch_size"}, "depth": {0: "batch_size"}},
+            )
+
             self.engine, self.context = self.TensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -598,6 +659,11 @@ class DepthTensorRTV2:
                 inputsMax=[1, 3, self.newHeight, self.newWidth],
                 inputName=["image"],
             )
+
+            try:
+                os.remove(self.modelPath)
+            except Exception as e:
+                logging.exception(f"Failed to delete the onnx file, {e}")
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
@@ -630,7 +696,7 @@ class DepthTensorRTV2:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
         with torch.cuda.stream(self.stream):
-            for _ in range(10):
+            for _ in range(3):
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
 
