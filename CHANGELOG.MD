@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### Improvements
 - Increase buffer size for encoder from `10 -> 20`
 - Depth TensorRT will now dynamically generate ONNX files based on the selected `depth_method`. This will result in significantly higher quality from TRT which should now match the quality of CUDA. This comes with a `25%` tax in performance as well as a `2x` time increase in engine generation but it's well worth it.
+- Upgraded Github Actions runner from Python `3.12.4` -> `3.12.7`
 
 #### Notes
 - `H266` encoding requires FFMPEG version `7.1`, if you have FFMPEG in System Path make sure the versions matches, otherwise if you downloaded it using TAS, make sure you delete the `ffmpeg` folder located at `%appdata%\Roaming\TheAnimeScripter\` and allow TAS to re-download the latest build.
