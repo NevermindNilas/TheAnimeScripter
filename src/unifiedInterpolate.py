@@ -325,9 +325,11 @@ class RifeTensorRT:
                     "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
                 )
                 self.half = False
-                self.scale = 0.5
+                # self.scale = 1.0
         else:
-            self.scale = 1.0
+            pass
+            # self.scale = 1.0
+        self.scale = 1.0
         self.handleModel()
 
     def handleModel(self):
