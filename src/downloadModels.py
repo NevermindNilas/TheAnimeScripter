@@ -621,8 +621,7 @@ def downloadModels(
     if model.endswith("-tensorrt") or model.endswith("-directml"):
         if "rife" in model:
             folderName = model.replace("-tensorrt", "")
-        elif "small_v2" in model or "base_v2" in model or "large_v2" in model:
-            folderName = model.replace("-tensorrt", "").replace("-directml", "")
+
         else:
             folderName = model.replace("-tensorrt", "-onnx").replace(
                 "-directml", "-onnx"
