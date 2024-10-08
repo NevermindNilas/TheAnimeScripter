@@ -475,10 +475,11 @@ class BuildBuffer:
             )
             if self.isCudaAvailable:
                 with torch.cuda.stream(self.normStream):
-                    frame = dummyTensor.to(device="cuda", non_blocking=True)
+                    self.readBuffer.put(
+                        dummyTensor.to(device="cuda", non_blocking=True)
+                    )
                     self.normStream.synchronize()
 
-                self.readBuffer.put(frame)
             else:
                 self.readBuffer.put(dummyTensor)
 
