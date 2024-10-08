@@ -374,6 +374,17 @@ def initializeModels(self):
                     interpolateSkipProcess,
                 )
 
+            case "gmfss":
+                from src.gmfss.gmfss_fortuna_union import GMFSS
+
+                interpolate_process = GMFSS(
+                    int(self.interpolate_factor),
+                    self.half,
+                    outputWidth,
+                    outputHeight,
+                    self.ensemble,
+                )
+
     if self.denoise:
         match self.denoise_method:
             case "scunet" | "dpir" | "nafnet" | "real-plksr":

@@ -119,6 +119,7 @@ def modelsList() -> list[str]:
         "shift_lpips-tensorrt",
         "shift_lpips-directml",
         "differential-tensorrt",
+        "gmfss",
     ]
 
 
@@ -240,6 +241,9 @@ def modelsMap(
 
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
+
+        case "gmfss":
+            return "gmfss-fortuna-union.zip"
 
         case "rife4.25" | "rife4.25-tensorrt" | "rife4.25-ncnn":
             if modelType == "pth":
