@@ -202,12 +202,25 @@ def initializeModels(self):
 
     if self.upscale:
         if self.upscale_skip:
-            from src.dedup.dedup import DedupSSIM
+            if not "ncnn" or "directml" in self.upscale_method:
+                from src.dedup.dedup import DedupSSIMCuda
 
-            upscaleSkipProcess = DedupSSIM(
-                0.999,
-            )
+                upscaleSkipProcess = DedupSSIMCuda(
+                    0.999,
+                    1080
+                    if max(self.width, self.height) >= 1080
+                    else max(self.width, self.height),
+                    half=self.half,
+                )
+            else:
+                from src.dedup.dedup import DedupSSIM
 
+                upscaleSkipProcess = DedupSSIM(
+                    0.999,
+                    1080
+                    if max(self.width, self.height) >= 1080
+                    else max(self.width, self.height),
+                )
         from src.unifiedUpscale import UniversalPytorch
 
         outputWidth *= self.upscale_factor
