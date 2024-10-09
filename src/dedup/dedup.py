@@ -108,9 +108,12 @@ class DedupMSE:
             return False
 
         frame = self.processFrame(frame)
-        score = ((self.prevFrame - frame) ** 2).mean(axis=1).mean()
+        score = ((self.prevFrame - frame) ** 2).mean()
 
         self.prevFrame = frame.copy()
+        if score < self.mseThreshold:
+            # print(score)
+            pass
 
         return score < self.mseThreshold
 
