@@ -330,7 +330,9 @@ class UniversalTensorRT:
         output = self.processOutput()
 
         if self.upscaleSkip is not None:
-            self.prevFrame.copy_(output, non_blocking=True)
+            with torch.cuda.stream(self.stream):
+                self.prevFrame.copy_(output, non_blocking=True)
+                self.stream.synchronize()
 
         return output
 
