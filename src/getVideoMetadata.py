@@ -62,4 +62,4 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     Has Audio: {hasAudio}""")
     )
 
-    return width, height, fps, totalFramesToBeProcessed, pixFmt, hasAudio
+    return width, height, fps, totalFramesToBeProcessed, hasAudio
