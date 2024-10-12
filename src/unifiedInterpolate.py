@@ -110,9 +110,9 @@ class RifeCuda:
                 )
                 self.half = False
 
-        self.handle_model()
+        self.handleModel()
 
-    def handle_model(self):
+    def handleModel(self):
         """
         Load the desired model
         """
@@ -180,9 +180,9 @@ class RifeCuda:
 
     @torch.inference_mode()
     def processFrame(self, frame, toNorm):
-        match toNorm:
-            case "I0":
-                with torch.cuda.stream(self.normStream):
+        with torch.cuda.stream(self.normStream):
+            match toNorm:
+                case "I0":
                     self.I0.copy_(
                         self.padFrame(
                             frame.to(
@@ -195,10 +195,8 @@ class RifeCuda:
                             .mul(1 / 255),
                         )
                     ).to(memory_format=torch.channels_last)
-                    self.normStream.synchronize()
 
-            case "I1":
-                with torch.cuda.stream(self.normStream):
+                case "I1":
                     self.I1.copy_(
                         self.padFrame(
                             frame.to(
@@ -212,34 +210,30 @@ class RifeCuda:
                         ),
                         non_blocking=True,
                     ).to(memory_format=torch.channels_last)
-                    self.normStream.synchronize()
 
-            case "cache":
-                with torch.cuda.stream(self.normStream):
+                case "cache":
                     self.I0.copy_(
                         self.I1,
                         non_blocking=True,
                     )
                     self.model.cache()
-                    self.normStream.synchronize()
 
-            case "pad":
-                with torch.cuda.stream(self.normStream):
+                case "pad":
                     output = self.padFrame(frame)
-                    self.normStream.synchronize()
+                    return output
 
-                return output
+                case "infer":
+                    with torch.cuda.stream(self.stream):
+                        output = self.model(self.I0, self.I1, frame)[
+                            : self.height, : self.width, :
+                        ]
+                        self.stream.synchronize()
+                    return output
 
-            case "infer":
-                with torch.cuda.stream(self.stream):
-                    output = self.model(self.I0, self.I1, frame)[
-                        : self.height, : self.width, :
-                    ]
-                    self.stream.synchronize()
-                return output
+                case "model":
+                    self.model.cacheReset(frame)
 
-            case "model":
-                self.model.cacheReset(frame)
+            self.normStream.synchronize()
 
     @torch.inference_mode()
     def padFrame(self, frame):
