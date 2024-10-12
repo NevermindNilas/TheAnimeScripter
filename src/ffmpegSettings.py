@@ -857,6 +857,7 @@ class WriteBuffer:
 
         if isCudaAvailable:
             dummyTensor = dummyTensor.pin_memory()
+            normStream = torch.cuda.Stream()
 
         with open(ffmpegLogPath, "w") as logPath:
             with subprocess.Popen(
@@ -870,7 +871,12 @@ class WriteBuffer:
                     if dataID is None:
                         break
 
-                    dummyTensor.copy_(sharedTensor[dataID], non_blocking=False)
+                    if normStream:
+                        with torch.cuda.stream(normStream):
+                            dummyTensor.copy_(sharedTensor[dataID], non_blocking=True)
+                            normStream.synchronize()
+                    else:
+                        dummyTensor.copy_(sharedTensor[dataID], non_blocking=False)
 
                     if channels == 1:
                         frame = dummyTensor.numpy()

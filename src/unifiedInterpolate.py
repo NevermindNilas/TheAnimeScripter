@@ -519,16 +519,6 @@ class RifeTensorRT:
             1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
         )
 
-        self.dummyTimeSteps = [
-            torch.full(
-                (1, 1, self.ph, self.pw),
-                (i + 1) * 1 / self.interpolateFactor,
-                dtype=self.dtype,
-                device=self.device,
-            )
-            for i in range(self.interpolateFactor - 1)
-        ]
-
         self.dummyOutput = torch.zeros(
             (self.height, self.width, 3),
             device=self.device,
@@ -571,7 +561,7 @@ class RifeTensorRT:
                 case "I0":
                     self.I0.copy_(
                         F.pad(
-                            frame.to(dtype=self.dtype, non_blocking=True)
+                            frame.to(dtype=self.dtype)
                             .mul(1 / 255.0)
                             .permute(2, 0, 1)
                             .unsqueeze(0),
@@ -579,10 +569,11 @@ class RifeTensorRT:
                         ),
                         non_blocking=True,
                     )
+
                 case "I1":
                     self.I1.copy_(
                         F.pad(
-                            frame.to(dtype=self.dtype, non_blocking=True)
+                            frame.to(dtype=self.dtype)
                             .mul(1 / 255.0)
                             .permute(2, 0, 1)
                             .unsqueeze(0),
@@ -590,11 +581,12 @@ class RifeTensorRT:
                         ),
                         non_blocking=True,
                     )
+
                 case "f0":
                     self.f0.copy_(
                         self.norm(
                             F.pad(
-                                frame.to(dtype=self.dtype, non_blocking=True)
+                                frame.to(dtype=self.dtype)
                                 .mul(1 / 255.0)
                                 .permute(2, 0, 1)
                                 .unsqueeze(0),
@@ -603,13 +595,15 @@ class RifeTensorRT:
                         ),
                         non_blocking=True,
                     )
+
                 case "f0-copy":
                     self.f0.copy_(self.f1, non_blocking=True)
 
                 case "cache":
                     self.I0.copy_(self.I1, non_blocking=True)
+
                 case "timestep":
-                    self.dummyTimeStep.copy_(frame, non_blocking=True)
+                    self.dummyTimeStep.copy_(frame, non_blocking=False)
 
             self.normalizationStream.synchronize()
 
@@ -617,7 +611,7 @@ class RifeTensorRT:
     def cacheFrameReset(self, frame):
         self.processFrame(frame, "I0")
         if self.norm is not None:
-            self.f0.copy_(self.norm(self.processFrame(frame)), non_blocking=True)
+            self.processFrame(frame, "f0")
         if self.interpolateSkip is not None:
             self.interpolateSkip.reset()
 
@@ -635,7 +629,14 @@ class RifeTensorRT:
             return
 
         self.processFrame(frame, "I1")
-        for timestep in self.dummyTimeSteps:
+        for i in range(self.interpolateFactor - 1):
+            timestep = torch.full(
+                (1, 1, self.ph, self.pw),
+                (i + 1) * 1 / self.interpolateFactor,
+                dtype=self.dtype,
+                device=self.device,
+            )
+
             self.processFrame(timestep, "timestep")
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
 
