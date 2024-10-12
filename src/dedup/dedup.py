@@ -34,7 +34,7 @@ class DedupSSIMCuda:
         frame = self.processFrame(frame)
 
         score = self.ssim(self.prevFrame, frame).mean()
-        self.prevFrame.copy_(frame, non_blocking=True)
+        self.prevFrame.copy_(frame, non_blocking=False)
         return score > self.ssimThreshold
 
     def processFrame(self, frame):
@@ -111,9 +111,6 @@ class DedupMSE:
         score = ((self.prevFrame - frame) ** 2).mean()
 
         self.prevFrame = frame.copy()
-        if score < self.mseThreshold:
-            # print(score)
-            pass
 
         return score < self.mseThreshold
 

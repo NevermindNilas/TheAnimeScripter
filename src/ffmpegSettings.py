@@ -880,14 +880,22 @@ class WriteBuffer:
                             frame = cv2.cvtColor(
                                 dummyTensor.numpy(), cv2.COLOR_RGB2YUV_I420
                             )
+                        else:
+                            frame = dummyTensor.numpy()
+
                     elif channels == 4:
                         frame = dummyTensor.numpy()
 
                     if bitDepth == "8bit":
                         frame = frame.tobytes()
                     else:
-                        frame = frame.astype(np.float32) * 257
-                        frame = frame.astype(np.uint16).tobytes()
+                        frame = np.ascontiguousarray(
+                            (
+                                (frame.astype(np.float32) * 257)
+                                .astype(np.uint16)
+                                .tobytes()
+                            )
+                        )
 
                     process.stdin.write(frame)
 
