@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 #### Fixed
 - `16bit` workflow wouldn't work due to undeclared variable.
-- Fixed an issue where RIFE TRT would produce unwanted results on the 2nd frame of the output video.
+- Fixed an issue where RIFE TRT would produce unwanted results on the 2nd frame of the output video when CPU usage was high.
 
 #### Notes
 - `H266` encoding requires FFMPEG version `7.1`, if you have FFMPEG in System Path make sure the versions matches, otherwise if you downloaded it using TAS, make sure you delete the `ffmpeg` folder located at `%appdata%\Roaming\TheAnimeScripter\` and allow TAS to re-download the latest build.
