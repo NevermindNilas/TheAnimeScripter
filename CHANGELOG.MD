@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### Notes
 - `H266` encoding requires FFMPEG version `7.1`, if you have FFMPEG in System Path make sure the versions matches, otherwise if you downloaded it using TAS, make sure you delete the `ffmpeg` folder located at `%appdata%\Roaming\TheAnimeScripter\` and allow TAS to re-download the latest build.
 
+#### Adobe Edition
+
+### New
+- A New Status Indicator that will aid users and give more context on what TAS is doing at any given time.
+- Added new `Slow X264` & `Slow X265` Encoding options.
+
+### Improved
+- Restructured some of the code to be more resource efficient, all relevant calls will now only happen once on UI Mount.
+- Some small UI adjustments in order to be more compact.
+
 
 ## [1.9.10] - 2024-09-29
 
