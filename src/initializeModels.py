@@ -80,9 +80,9 @@ def Segment(self, mainPath):
 def Depth(self, mainPath):
     match self.depth_method:
         case "small_v2" | "base_v2" | "large_v2":
-            from src.depth.depth import DepthV2
+            from src.depth.depth import DepthCuda
 
-            DepthV2(
+            DepthCuda(
                 self.input,
                 self.output,
                 self.ffmpeg_path,

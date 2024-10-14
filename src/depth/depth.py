@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import torch.nn.functional as F
 
+from torchvision.transforms import Compose, Normalize
 from concurrent.futures import ThreadPoolExecutor
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.downloadModels import downloadModels, weightsDir, modelsMap
@@ -24,7 +25,7 @@ def calculateAspectRatio(width, height, depthQuality="high"):
     return newHeight, newWidth
 
 
-class DepthV2:
+class DepthCuda:
     def __init__(
         self,
         input,
@@ -195,9 +196,12 @@ class DepthV2:
             mode="bilinear",
             align_corners=False,
         )
+
         frame = (frame - self.mean_tensor) / self.std_tensor
+
         if self.half and self.isCudaAvailable:
             frame = frame.half()
+
         return frame
 
     @torch.inference_mode()
@@ -208,10 +212,10 @@ class DepthV2:
             mode="bilinear",
             align_corners=False,
         ).squeeze(0)
-        depth = ((depth - depth.min()) / (depth.max() - depth.min()) * 255).permute(
+
+        return ((depth - depth.min()) / (depth.max() - depth.min()) * 255).permute(
             1, 2, 0
         )
-        return depth
 
     @torch.inference_mode()
     def processFrame(self, frame):

@@ -124,7 +124,7 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 | [Hyperbrew](https://github.com/hyperbrew/bolt-cep)                        | Bolt CEP                                        |
 | [Sirosky](https://github.com/Sirosky/Upscale-Hub)                         | Open-Proteus and AniScale 2                     |
 | [Trentonom0r3](https://github.com/Trentonom0r3)                           | Helping with TAS Adobe Edition                  |
-| [Adegerard](https://github.com/adegerard)                                 | Several ideas in how to further improve TAS     |
+| [Adegerard](https://github.com/adegerard)                                 | Several ideas on how to further improve TAS     |
 
 If we forgot to mention anyone, please email: nilascontact@gmail.com
 
