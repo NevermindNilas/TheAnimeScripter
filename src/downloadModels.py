@@ -655,6 +655,7 @@ def downloadModels(
         fullUrl = f"{DEPTHV2URLBASE}{filename}"
     elif model == "large_v2":
         fullUrl = f"{DEPTHV2URLLARGE}{filename}"
+
     else:
         fullUrl = f"{TASURL}{filename}"
 
