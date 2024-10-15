@@ -811,7 +811,7 @@ class WriteBuffer:
                     command.extend(
                         [
                             "-map",
-                            "1:s",
+                            "1:s?",
                             "-c:s",
                             "srt",
                         ]
@@ -820,7 +820,7 @@ class WriteBuffer:
                     command.extend(
                         [
                             "-map",
-                            "1:s",
+                            "1:s?",
                             "-c:s",
                             "webvtt",
                         ]
@@ -829,7 +829,7 @@ class WriteBuffer:
                     command.extend(
                         [
                             "-map",
-                            "1:s",
+                            "1:s?",
                             "-c:s",
                             "srt",
                         ]
