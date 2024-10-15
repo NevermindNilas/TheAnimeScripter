@@ -692,7 +692,7 @@ class WriteBuffer:
                 "-y",
                 "-hide_banner",
                 "-loglevel",
-                "error",
+                "verbose",
                 "-stats",
                 "-f",
                 "rawvideo",
@@ -804,13 +804,39 @@ class WriteBuffer:
                         "1:a",
                         "-c:a",
                         "copy",
-                        "-map",
-                        "1:s?",
-                        "-c:s",
-                        "copy",
-                        "-shortest",
                     ]
                 )
+
+                if self.output.endswith(".mp4"):
+                    command.extend(
+                        [
+                            "-map",
+                            "1:s",
+                            "-c:s",
+                            "srt",
+                        ]
+                    )
+                elif self.output.endswith(".webm"):
+                    command.extend(
+                        [
+                            "-map",
+                            "1:s",
+                            "-c:s",
+                            "webvtt",
+                        ]
+                    )
+                else:
+                    command.extend(
+                        [
+                            "-map",
+                            "1:s",
+                            "-c:s",
+                            "srt",
+                        ]
+                    )
+
+                command.append("-shortest")
+
             command.extend([self.output])
 
         else:
@@ -858,61 +884,67 @@ class WriteBuffer:
         if isCudaAvailable:
             dummyTensor = dummyTensor.pin_memory()
 
-        with open(ffmpegLogPath, "w") as logPath:
-            with subprocess.Popen(
-                command,
-                stdin=subprocess.PIPE,
-                stderr=logPath,
-                stdout=logPath,
-            ) as process:
-                while True:
-                    dataID = processQueue.get()
-                    if dataID is None:
-                        break
+        try:
+            with open(ffmpegLogPath, "w") as logPath:
+                with subprocess.Popen(
+                    command,
+                    stdin=subprocess.PIPE,
+                    stderr=logPath,
+                    stdout=logPath,
+                ) as process:
+                    while True:
+                        dataID = processQueue.get()
+                        if dataID is None:
+                            break
 
-                    dummyTensor.copy_(sharedTensor[dataID], non_blocking=False)
+                        dummyTensor.copy_(sharedTensor[dataID], non_blocking=False)
 
-                    if channels == 1:
-                        frame = dummyTensor.numpy()
-
-                    if channels == 3:
-                        if bitDepth == "8bit":
-                            frame = cv2.cvtColor(
-                                dummyTensor.numpy(), cv2.COLOR_RGB2YUV_I420
-                            )
-                        else:
+                        if channels == 1:
                             frame = dummyTensor.numpy()
 
-                    elif channels == 4:
-                        frame = dummyTensor.numpy()
+                        if channels == 3:
+                            if bitDepth == "8bit":
+                                frame = cv2.cvtColor(
+                                    dummyTensor.numpy(), cv2.COLOR_RGB2YUV_I420
+                                )
+                            else:
+                                frame = dummyTensor.numpy()
 
-                    if bitDepth == "8bit":
-                        frame = frame.tobytes()
-                    else:
-                        frame = np.ascontiguousarray(
-                            (
-                                (frame.astype(np.float32) * 257)
-                                .astype(np.uint16)
-                                .tobytes()
+                        elif channels == 4:
+                            frame = dummyTensor.numpy()
+
+                        if bitDepth == "8bit":
+                            frame = frame.tobytes()
+                        else:
+                            frame = np.ascontiguousarray(
+                                (
+                                    (frame.astype(np.float32) * 257)
+                                    .astype(np.uint16)
+                                    .tobytes()
+                                )
                             )
-                        )
 
-                    process.stdin.write(frame)
+                        process.stdin.write(frame)
+        except Exception as e:
+            logging.exception(f"Error encoding frame: {e}")
 
     def write(self, frame: torch.Tensor):
         """
         Add a frame to the queue. Must be in RGB format.
         """
-        if self.isCudaAvailable:
-            dataID = self.writtenFrames % workingFrames
-            self.torchArray[dataID].copy_(frame, non_blocking=False)
-            self.processQueue.put(dataID)
-            self.writtenFrames += 1
-        else:
-            dataID = self.writtenFrames % workingFrames
-            self.torchArray[dataID].copy_(frame)
-            self.processQueue.put(dataID)
-            self.writtenFrames += 1
+        try:
+            if self.isCudaAvailable:
+                dataID = self.writtenFrames % workingFrames
+                self.torchArray[dataID].copy_(frame, non_blocking=False)
+                self.processQueue.put(dataID)
+                self.writtenFrames += 1
+            else:
+                dataID = self.writtenFrames % workingFrames
+                self.torchArray[dataID].copy_(frame)
+                self.processQueue.put(dataID)
+                self.writtenFrames += 1
+        except Exception as e:
+            logging.error(f"Error writing frame: {e}")
 
     def close(self):
         """
