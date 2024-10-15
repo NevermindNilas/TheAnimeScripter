@@ -857,7 +857,6 @@ class WriteBuffer:
 
         if isCudaAvailable:
             dummyTensor = dummyTensor.pin_memory()
-            normStream = torch.cuda.Stream()
 
         with open(ffmpegLogPath, "w") as logPath:
             with subprocess.Popen(
@@ -871,12 +870,7 @@ class WriteBuffer:
                     if dataID is None:
                         break
 
-                    if normStream:
-                        with torch.cuda.stream(normStream):
-                            dummyTensor.copy_(sharedTensor[dataID], non_blocking=True)
-                            normStream.synchronize()
-                    else:
-                        dummyTensor.copy_(sharedTensor[dataID], non_blocking=False)
+                    dummyTensor.copy_(sharedTensor[dataID], non_blocking=False)
 
                     if channels == 1:
                         frame = dummyTensor.numpy()
@@ -909,21 +903,16 @@ class WriteBuffer:
         """
         Add a frame to the queue. Must be in RGB format.
         """
-        try:
-            if self.isCudaAvailable:
-                dataID = self.writtenFrames % workingFrames
-                with torch.cuda.stream(self.normStream):
-                    self.torchArray[dataID].copy_(frame, non_blocking=True)
-                    self.normStream.synchronize()
-                self.processQueue.put(dataID)
-                self.writtenFrames += 1
-            else:
-                dataID = self.writtenFrames % workingFrames
-                self.torchArray[dataID].copy_(frame)
-                self.processQueue.put(dataID)
-                self.writtenFrames += 1
-        except Exception as e:
-            logging.error(f"An error occurred: {str(e)}")
+        if self.isCudaAvailable:
+            dataID = self.writtenFrames % workingFrames
+            self.torchArray[dataID].copy_(frame, non_blocking=False)
+            self.processQueue.put(dataID)
+            self.writtenFrames += 1
+        else:
+            dataID = self.writtenFrames % workingFrames
+            self.torchArray[dataID].copy_(frame)
+            self.processQueue.put(dataID)
+            self.writtenFrames += 1
 
     def close(self):
         """
