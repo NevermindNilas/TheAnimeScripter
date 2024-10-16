@@ -33,8 +33,8 @@ from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
 from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.utils.generateOutput import outputNameGenerator
-from src.utils.coloredPrints import green, blue, red
+from src.utils.coloredPrints import green
+from src.utils.inputOutputHandler import handleInputOutputs
 from queue import Queue
 from torch import multiprocessing as mp
 
@@ -42,9 +42,10 @@ warnings.filterwarnings("ignore")
 
 
 class VideoProcessor:
-    def __init__(self, args):
-        self.input = args.input
-        self.output = args.output
+    def __init__(self, args, **kwargs):
+        self.input = result["videoPath"]
+        self.output = result["outputPath"]
+        self.encode_method = result["encodeMethod"]
         self.interpolate = args.interpolate
         self.interpolate_factor = args.interpolate_factor
         self.interpolate_method = args.interpolate_method
@@ -64,7 +65,6 @@ class VideoProcessor:
         self.autoclip_sens = args.autoclip_sens
         self.depth = args.depth
         self.depth_method = args.depth_method
-        self.encode_method = args.encode_method
         self.ffmpeg_path = args.ffmpeg_path
         self.ensemble = args.ensemble
         self.resize = args.resize
@@ -332,81 +332,10 @@ if __name__ == "__main__":
 
     args = createParser(isFrozen, mainPath, outputPath, sysUsed)
 
-    if os.path.isfile(args.input) and not args.input.endswith(".txt"):
-        print(green(f"Processing {args.input}"))
-        if args.output is None:
-            outputFolder = os.path.join(outputPath, "output")
-            os.makedirs(os.path.join(outputFolder), exist_ok=True)
-            args.output = os.path.join(outputFolder, outputNameGenerator(args))
-        elif os.path.isdir(args.output):
-            args.output = os.path.join(args.output, outputNameGenerator(args))
+    results = handleInputOutputs(args, isFrozen)
 
-        VideoProcessor(args)
-
-    elif os.path.isdir(args.input):
-        videoFiles = [
-            os.path.join(args.input, file)
-            for file in os.listdir(args.input)
-            if file.endswith((".mp4", ".mkv", ".mov", ".avi", ".webm"))
-        ]
-
-        toPrint = f"Processing {len(videoFiles)} files"
-        logging.info(toPrint)
-        print(blue(toPrint))
-        copyArgsOutput = args.output if args.output else None
-        if args.output:
-            os.makedirs(args.output, exist_ok=True)
-
-        for videoFile in videoFiles:
-            args.input = os.path.abspath(videoFile)
-            toPrint = f"Processing {args.input}"
-            logging.info(toPrint)
-            print(green(toPrint))
-
-            if copyArgsOutput is None:
-                outputFolder = os.path.join(outputPath, "output")
-                os.makedirs(outputFolder, exist_ok=True)
-                args.output = os.path.join(outputFolder, outputNameGenerator(args))
-            elif os.path.isdir(copyArgsOutput):
-                args.output = os.path.join(copyArgsOutput, outputNameGenerator(args))
-
-            print(green(f"Output File: {args.output}"))
-            VideoProcessor(args)
-            args.output = copyArgsOutput
-    else:
-        try:
-            if args.input.endswith(".txt"):
-                with open(args.input, "r") as file:
-                    videoFiles = [line.strip().strip('"') for line in file.readlines()]
-            else:
-                videoFiles = args.input.split(";")
-            toPrint = f"Processing {len(videoFiles)} files"
-            logging.info(toPrint)
-            print(blue(toPrint))
-
-            copyArgsOutput = args.output if args.output else None
-            if args.output:
-                os.makedirs(args.output, exist_ok=True)
-
-            for videoFile in videoFiles:
-                args.input = os.path.abspath(videoFile)
-                toPrint = f"Processing {args.input}"
-                logging.info(toPrint)
-                print(green(toPrint))
-
-                if copyArgsOutput is None:
-                    outputFolder = os.path.join(outputPath, "output")
-                    os.makedirs(outputFolder, exist_ok=True)
-                    args.output = os.path.join(outputFolder, outputNameGenerator(args))
-                elif os.path.isdir(copyArgsOutput):
-                    args.output = os.path.join(
-                        copyArgsOutput, outputNameGenerator(args)
-                    )
-
-                print(green(f"Output File: {args.output}"))
-                VideoProcessor(args)
-                args.output = copyArgsOutput
-        except Exception:
-            toPrint = f"File or directory {args.input} does not exist, exiting"
-            print(red(toPrint))
-            logging.info(toPrint)
+    for result in results:
+        print(green(f"Processing: {result['videoPath']}"))
+        print(f"Output: {result['outputPath']}")
+        VideoProcessor(args, **result)
+        print("\n")
