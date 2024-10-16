@@ -16,7 +16,6 @@ onnxruntime-directml
 pytorch-lightning
 inquirer
 colored
-vidgear
 flask
 rich-argparse
 pymediainfo
