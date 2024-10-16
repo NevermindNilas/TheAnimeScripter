@@ -29,12 +29,12 @@ from time import time
 
 from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
-from src.argumentsChecker import createParser
-from src.getVideoMetadata import getVideoMetadata
-from src.initializeModels import initializeModels, Segment, Depth, AutoClip
-from src.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.generateOutput import outputNameGenerator
-from src.coloredPrints import green, blue, red
+from src.utils.argumentsChecker import createParser
+from src.utils.getVideoMetadata import getVideoMetadata
+from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
+from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.utils.generateOutput import outputNameGenerator
+from src.utils.coloredPrints import green, blue, red
 from queue import Queue
 from torch import multiprocessing as mp
 
@@ -301,14 +301,10 @@ if __name__ == "__main__":
     mp.freeze_support()
 
     sysUsed = system()
+    mp.set_start_method("spawn", force=True)
     if sysUsed == "Windows":
-        mp.set_start_method("spawn", force=True)
         mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
     else:
-        try:
-            mp.set_start_method("forkserver", force=True)
-        except RuntimeError:
-            mp.set_start_method("spawn", force=True)
         mainPath = os.path.join(
             os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
             "TheAnimeScripter",
