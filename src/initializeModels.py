@@ -152,27 +152,6 @@ def Depth(self, mainPath):
             )
 
 
-def Stabilize(self):
-    from src.stabilize.stabilize import VideoStabilizer
-
-    VideoStabilizer(
-        self.input,
-        self.output,
-        self.ffmpeg_path,
-        self.width,
-        self.height,
-        self.fps,
-        self.half,
-        self.inpoint,
-        self.outpoint,
-        self.encode_method,
-        self.custom_encoder,
-        self.buffer_limit,
-        self.benchmark,
-        self.totalFrames,
-    )
-
-
 def initializeModels(self):
     outputWidth = self.width
     outputHeight = self.height
