@@ -1,41 +1,60 @@
 import os
 import random
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 
-def outputNameGenerator(args):
-    arg_map = {
-        "resize": f"-Re{args.resize_factor}",
-        "dedup": f"-De{args.dedup_sens}",
-        "interpolate": f"-Int{args.interpolate_factor}",
-        "upscale": f"-Up{args.upscale_factor}",
-        "sharpen": f"-Sh{args.sharpen_sens}",
-        "denoise": f"-De{args.denoise_method}",
-        "segment": "-Segment",
-        "depth": "-Depth",
-        "ytdlp": "-YTDLP",
+def outputNameGenerator(args, videoInput, outputPath):
+    argMap = {
+        "resize": f"-Re{getattr(args, 'resize_factor', '')}",
+        "dedup": f"-De{getattr(args, 'dedup_sens', '')}",
+        "interpolate": f"-Int{getattr(args, 'interpolate_factor', '')}",
+        "upscale": f"-Up{getattr(args, 'upscale_factor', '')}",
+        "sharpen": f"-Sh{getattr(args, 'sharpen_sens', '')}",
+        "denoise": f"-De{getattr(args, 'denoise_method', '')}",
+        "segment": "-Segment" if getattr(args, "segment", False) else "",
+        "depth": "-Depth" if getattr(args, "depth", False) else "",
+        "ytdlp": "-YTDLP" if getattr(args, "ytdlp", False) else "",
     }
 
-    if "https://" in args.input or "http://" in args.input:
-        name = "TAS" + "-YTDLP" + f"-{random.randint(0, 1000)}" + ".mp4"
-        return name
-    else:
-        parts = [
-            os.path.splitext(os.path.basename(args.input))[0] if args.input else "TAS"
-        ]
+    try:
+        # Check if videoInput is a URL
+        if "https://" in videoInput or "http://" in videoInput:
+            name = "TAS" + "-YTDLP" + f"-{random.randint(0, 1000)}" + ".mp4"
+            logging.debug(f"Generated name for URL input: {name}")
+            return name
+        else:
+            parts = [
+                os.path.splitext(os.path.basename(videoInput))[0]
+                if videoInput
+                else "TAS"
+            ]
 
-    for arg, format_str in arg_map.items():
-        if getattr(args, arg, None):
-            parts.append(format_str)
+        for arg, formatStr in argMap.items():
+            if formatStr:
+                parts.append(formatStr)
 
-    parts.append(f"-{random.randint(0, 1000)}")
+        parts.append(f"-{random.randint(0, 1000)}")
 
-    if args.segment or args.encode_method in ["prores"]:
-        extension = ".mov"
-    elif args.input:
-        extension = os.path.splitext(args.input)[1]
-    else:
-        extension = ".mp4"
+        if getattr(args, "segment", False) or getattr(args, "encode_method", "") in [
+            "prores"
+        ]:
+            extension = ".mov"
+        elif videoInput:
+            extension = os.path.splitext(videoInput)[1]
+        else:
+            extension = ".mp4"
 
-    outputName = "".join(parts) + extension
+        outputName = "".join(parts) + extension
+        logging.debug(f"Generated output name: {outputName}")
 
-    return outputName
+        return outputName
+
+    except AttributeError as e:
+        logging.error(f"AttributeError: {e}")
+        raise
+    except Exception as e:
+        logging.error(f"An unexpected error occurred: {e}")
+        raise
