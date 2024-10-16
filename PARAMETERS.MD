@@ -17,9 +17,8 @@
    - [4.10 Resizing](#resizing)
    - [4.11 Presets](#preset-arguments)
 5. [Encoding Settings](#encoding-settings)
-6. [Video Stabilization](#video-stabilization)
-7. [Performance Settings](#performance-settings)
-8. [Usage Examples](#usage-examples)
+6. [Performance Settings](#performance-settings)
+7. [Usage Examples](#usage-examples)
 
 ## 1. Overview
 
@@ -258,11 +257,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 **Note**: The output pixel format (`-pix_fmt`) can dynamically switch between yuv420p, yuv420p10le, and yuv444p10le based on `--bit_depth` and `--encode_method`.
 
-## Video Stabilization
-
-| Argument      | Type | Default | Description                |
-|---------------|------|---------|----------------------------|
-| `--stabilize` | flag | -       | Enable video stabilization |
 
 ## Performance Settings
 

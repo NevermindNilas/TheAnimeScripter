@@ -31,7 +31,7 @@ from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
 from src.argumentsChecker import createParser
 from src.getVideoMetadata import getVideoMetadata
-from src.initializeModels import initializeModels, Segment, Depth, Stabilize, AutoClip
+from src.initializeModels import initializeModels, Segment, Depth, AutoClip
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.generateOutput import outputNameGenerator
 from src.coloredPrints import green, blue, red
@@ -83,7 +83,6 @@ class VideoProcessor:
         self.scenechange_method = args.scenechange_method
         self.upscale_skip = args.upscale_skip
         self.bit_depth = args.bit_depth
-        self.stabilize = args.stabilize
         self.preview = args.preview
         self.forceStatic = args.static
         self.depth_quality = args.depth_quality
@@ -106,10 +105,6 @@ class VideoProcessor:
             logging.info(
                 f"Resizing to {self.width}x{self.height}, aspect ratio: {aspect_ratio}"
             )
-
-        if self.stabilize:
-            logging.info("Stabilizing video")
-            Stabilize(self)
 
         elif self.autoclip:
             logging.info("Detecting scene changes")

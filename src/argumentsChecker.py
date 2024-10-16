@@ -357,12 +357,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         "--custom_encoder", type=str, default="", help="Custom encoder settings"
     )
 
-    # Stabilizer Options
-    stabilizerGroup = argParser.add_argument_group("Stabilizer")
-    stabilizerGroup.add_argument(
-        "--stabilize", action="store_true", help="Stabilize the video using VidStab"
-    )
-
     # Miscellaneous options
     miscGroup = argParser.add_argument_group("Miscellaneous")
     miscGroup.add_argument("--buffer_limit", type=int, default=50, help="Buffer limit")
@@ -573,7 +567,6 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         args.dedup,
         args.depth,
         args.autoclip,
-        args.stabilize,
     ]
     if not any(processingMethods):
         logging.error("No processing methods specified, exiting")
