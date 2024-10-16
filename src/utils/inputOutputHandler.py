@@ -1,6 +1,5 @@
 import os
 import sys
-import logging
 
 from src.utils.generateOutput import outputNameGenerator
 
@@ -45,12 +44,7 @@ def handleInputOutputs(args, isFrozen):
         ".jpg",
         ".jpeg",
     ]
-    result = {
-        "videoPath": [],
-        "outputPath": [],
-        "encodeMethod": encodeMethod,
-        "customEncoder": customEncoder,
-    }
+    result = {}
     videos = os.path.abspath(videos)
 
     # Redundant check, but it's here for safety
@@ -69,20 +63,14 @@ def handleInputOutputs(args, isFrozen):
                     outputPath, f"{inputName}%04d{os.path.splitext(video)[1]}"
                 )
             elif os.path.isdir(output):
-                return os.path.join(
-                    output, outputNameGenerator(args, video, outputPath)
-                )
+                return os.path.join(output, outputNameGenerator(args, video))
         else:
             if output is None:
-                return outputNameGenerator(args, video, outputPath)
+                return os.path.join(outputPath, outputNameGenerator(args, video))
             elif os.path.isdir(output):
-                return os.path.join(
-                    output, outputNameGenerator(args, video, outputPath)
-                )
+                return os.path.join(output, outputNameGenerator(args, video))
             elif os.path.isfile(output):
-                raise ValueError(
-                    "Output ( --output ) is a file, please provide a directory when using batch processing"
-                )
+                return output
         return output
 
     def encoderChecker(video, encodeMethod):
@@ -97,21 +85,29 @@ def handleInputOutputs(args, isFrozen):
                 return encodeMethod
         return encodeMethod
 
+    index = 1
     if os.path.isdir(videos):
-        videos = [
+        video_files = [
             os.path.join(videos, f)
             for f in os.listdir(videos)
             if os.path.splitext(f)[1] in AllowedExtensions
         ]
-        for video in videos:
-            result["videoPath"].append(video)
-            result["outputPath"].append(genOutputHandler(video, output))
-            result["encodeMethod"] = encoderChecker(video, encodeMethod)
+        for video in video_files:
+            result[index] = {
+                "videoName": video,
+                "outputPath": genOutputHandler(video, output),
+                "encodeMethod": encoderChecker(video, encodeMethod),
+                "customEncoder": customEncoder,
+            }
+            index += 1
 
     elif os.path.isfile(videos) and not videos.endswith((".txt")):
-        result["videoPath"].append(videos)
-        result["outputPath"].append(genOutputHandler(videos, output))
-        result["encodeMethod"] = encoderChecker(video, encodeMethod)
+        result[index] = {
+            "videoName": videos,
+            "outputPath": genOutputHandler(videos, output),
+            "encodeMethod": encoderChecker(videos, encodeMethod),
+            "customEncoder": customEncoder,
+        }
 
     else:
         if videos.endswith(".txt"):
@@ -123,9 +119,13 @@ def handleInputOutputs(args, isFrozen):
         for video in videoFiles:
             if not os.path.exists(video):
                 raise FileNotFoundError(f"File {video} does not exist")
-            result["videoPath"].append(video)
-            result["outputPath"].append(genOutputHandler(video, output))
-            result["encodeMethod"] = encoderChecker(video, encodeMethod)
+            result[index] = {
+                "videoName": video,
+                "outputPath": genOutputHandler(video, output),
+                "encodeMethod": encoderChecker(video, encodeMethod),
+                "customEncoder": customEncoder,
+            }
+            index += 1
 
-    # Returns a dict of videoPath, outputPath, encodeMethod, and customEncoder
+    # Returns a dictionary with indexed entries containing videoName, outputPath, encodeMethod, and customEncoder
     return result
