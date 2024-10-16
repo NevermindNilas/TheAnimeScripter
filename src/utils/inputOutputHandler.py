@@ -94,7 +94,7 @@ def handleInputOutputs(args, isFrozen):
         ]
         for video in video_files:
             result[index] = {
-                "videoName": video,
+                "videoPath": video,
                 "outputPath": genOutputHandler(video, output),
                 "encodeMethod": encoderChecker(video, encodeMethod),
                 "customEncoder": customEncoder,
@@ -103,7 +103,7 @@ def handleInputOutputs(args, isFrozen):
 
     elif os.path.isfile(videos) and not videos.endswith((".txt")):
         result[index] = {
-            "videoName": videos,
+            "videoPath": videos,
             "outputPath": genOutputHandler(videos, output),
             "encodeMethod": encoderChecker(videos, encodeMethod),
             "customEncoder": customEncoder,
@@ -120,12 +120,12 @@ def handleInputOutputs(args, isFrozen):
             if not os.path.exists(video):
                 raise FileNotFoundError(f"File {video} does not exist")
             result[index] = {
-                "videoName": video,
+                "videoPath": video,
                 "outputPath": genOutputHandler(video, output),
                 "encodeMethod": encoderChecker(video, encodeMethod),
                 "customEncoder": customEncoder,
             }
             index += 1
 
-    # Returns a dictionary with indexed entries containing videoName, outputPath, encodeMethod, and customEncoder
+    # Returns a dictionary with indexed entries containing videoPath, outputPath, encodeMethod, and customEncoder
     return result

@@ -43,7 +43,7 @@ warnings.filterwarnings("ignore")
 
 class VideoProcessor:
     def __init__(self, args, results=None):
-        self.input = results["videoName"]
+        self.input = results["videoPath"]
         self.output = results["outputPath"]
         self.encode_method = results["encodeMethod"]
         self.custom_encoder = results["customEncoder"]
@@ -337,6 +337,6 @@ if __name__ == "__main__":
 
     results = handleInputOutputs(args, isFrozen)
     for i in results:
-        print(green(f"Processing Video: {results[i]['videoName']}"))
+        print(green(f"Processing Video: {results[i]['videoPath']}"))
         print(green(f"Output Path: {results[i]['outputPath']}"))
         VideoProcessor(args, results=results[i])
