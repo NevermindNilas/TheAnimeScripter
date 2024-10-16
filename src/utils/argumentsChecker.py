@@ -3,11 +3,11 @@ import logging
 import sys
 import argparse
 
-from .utils.checkSpecs import checkSystem
-from .utils.downloadModels import downloadModels, modelsList
-from .utils.coloredPrints import green, blue
+from .checkSpecs import checkSystem
+from .downloadModels import downloadModels, modelsList
+from .coloredPrints import green, blue
 from rich_argparse import RichHelpFormatter
-from .version import __version__ as version
+from src.version import __version__ as version
 
 
 def createParser(isFrozen, mainPath, outputPath, sysUsed):
