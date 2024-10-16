@@ -313,12 +313,12 @@ if __name__ == "__main__":
     if not os.path.exists(mainPath):
         os.makedirs(mainPath)
 
-    if getattr(sys, "frozen", False):
-        isFrozen = True
-        outputPath = os.path.dirname(sys.executable)
-    else:
-        isFrozen = False
-        outputPath = os.path.dirname(os.path.abspath(__file__))
+    isFrozen = hasattr(sys, "_MEIPASS")
+    outputPath = (
+        os.path.dirname(sys.executable)
+        if isFrozen
+        else os.path.dirname(os.path.abspath(__file__))
+    )
 
     signal(SIGINT, SIG_DFL)
     logging.basicConfig(

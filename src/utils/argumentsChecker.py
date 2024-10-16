@@ -3,9 +3,9 @@ import logging
 import sys
 import argparse
 
-from .checkSpecs import checkSystem
-from .downloadModels import downloadModels, modelsList
-from .coloredPrints import green, red, blue
+from .utils.checkSpecs import checkSystem
+from .utils.downloadModels import downloadModels, modelsList
+from .utils.coloredPrints import green, blue
 from rich_argparse import RichHelpFormatter
 from .version import __version__ as version
 
@@ -30,9 +30,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
     )
     generalGroup.add_argument(
         "--preview", action="store_true", help="Preview the video during processing"
-    )
-    generalGroup.add_argument(
-        "--hide_banner", action="store_true", help="Hide the TAS banner"
     )
 
     # Preset Configuration options
@@ -389,18 +386,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
 
 
 def argumentsChecker(args, mainPath, outputPath, sysUsed):
-    banner = r"""
-__/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
- _\///////\\\/////____/\\\\\\\\\\\\\____/\\\/////////\\\_
-  _______\/\\\________/\\\/////////\\\__\//\\\______\///__
-   _______\/\\\_______\/\\\_______\/\\\___\////\\\_________
-    _______\/\\\_______\/\\\\\\\\\\\\\\\______\////\\\______
-     _______\/\\\_______\/\\\/////////\\\_________\////\\\___
-      _______\/\\\_______\/\\\_______\/\\\__/\\\______\//\\\__
-       _______\/\\\_______\/\\\_______\/\\\_\///\\\\\\\\\\\/___
-        _______\///________\///________\///____\///////////_____
-"""
-
     if args.list_presets:
         from src.presetLogic import listPresets
 
@@ -411,9 +396,6 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         from src.presetLogic import createPreset
 
         args = createPreset(args, mainPath)
-
-    if not args.benchmark and not args.hide_banner:
-        print(red(banner))
 
     logging.info("============== Version ==============")
     logging.info(f"TAS: {version}\n")

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added `slow_x264`, `slow_x265` & `slow_av1` encode methods.
 
 #### Improvements
+- A serious restructure to TAS' backend.
 - Increase buffer size for encoder from `10 -> 20`
 - Upgraded Github Actions runner from Python `3.12.4` -> `3.12.7`
 - Avoid unnecessary memalocs for decode.
@@ -21,6 +22,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `--upscale_skip` should now be significantly more reliable than before.
 - Removed redunant calculations in MSE deduplication improving the performance by `~5%`
 - Improved RIFE TRT reliability.
+
+#### Removals:
+- Vidgear package
+- Video Stabilization.
+- TAS Banner, might be reimplemented back in the future.
+- Command `--hide_banner`
 
 #### Fixed
 - `16bit` workflow wouldn't work due to undeclared variable.
