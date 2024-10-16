@@ -6,7 +6,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 
-def outputNameGenerator(args, videoInput, outputPath):
+def outputNameGenerator(args, videoInput):
     argMap = {
         "resize": f"-Re{getattr(args, 'resize_factor', '')}",
         "dedup": f"-De{getattr(args, 'dedup_sens', '')}",

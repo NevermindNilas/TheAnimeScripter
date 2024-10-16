@@ -42,10 +42,12 @@ warnings.filterwarnings("ignore")
 
 
 class VideoProcessor:
-    def __init__(self, args, **kwargs):
-        self.input = result["videoPath"]
-        self.output = result["outputPath"]
-        self.encode_method = result["encodeMethod"]
+    def __init__(self, args, results=None):
+        self.input = results["videoName"]
+        self.output = results["outputPath"]
+        self.encode_method = results["encodeMethod"]
+        self.custom_encoder = results["customEncoder"]
+
         self.interpolate = args.interpolate
         self.interpolate_factor = args.interpolate_factor
         self.interpolate_method = args.interpolate_method
@@ -71,7 +73,6 @@ class VideoProcessor:
         self.resize_factor = args.resize_factor
         self.resize_method = args.resize_method
         self.custom_model = args.custom_model
-        self.custom_encoder = args.custom_encoder
         self.buffer_limit = args.buffer_limit
         self.denoise = args.denoise
         self.denoise_method = args.denoise_method
@@ -314,6 +315,7 @@ if __name__ == "__main__":
         os.makedirs(mainPath)
 
     isFrozen = hasattr(sys, "_MEIPASS")
+
     outputPath = (
         os.path.dirname(sys.executable)
         if isFrozen
@@ -327,15 +329,14 @@ if __name__ == "__main__":
         format="%(message)s",
         level=logging.INFO,
     )
+    logging.info("This should go to the file!")
     logging.info("============== Command Line Arguments ==============")
     logging.info(f"{' '.join(sys.argv)}\n")
 
     args = createParser(isFrozen, mainPath, outputPath, sysUsed)
 
     results = handleInputOutputs(args, isFrozen)
-
-    for result in results:
-        print(green(f"Processing: {result['videoPath']}"))
-        print(f"Output: {result['outputPath']}")
-        VideoProcessor(args, **result)
-        print("\n")
+    for i in results:
+        print(green(f"Processing Video: {results[i]['videoName']}"))
+        print(green(f"Output Path: {results[i]['outputPath']}"))
+        VideoProcessor(args, results=results[i])
