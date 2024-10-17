@@ -14,6 +14,7 @@ scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning
 inquirer
+celux
 colored
 rich-argparse
 pymediainfo

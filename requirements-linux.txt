@@ -17,6 +17,7 @@ tensorrt-cu12_libs==10.3.0
 scenedetect[opencv]
 pytorch-lightning
 inquirer
+celux-cuda
 onnx==1.16.0
 rich-argparse
 colored

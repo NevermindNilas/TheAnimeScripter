@@ -23,16 +23,18 @@ import os
 import sys
 import logging
 import warnings
+import torch
+import celux
+
 from platform import system
 from signal import signal, SIGINT, SIG_DFL
 from time import time
-
 from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
 from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
 from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.utils.ffmpegSettings import WriteBuffer
 from src.utils.coloredPrints import green
 from src.utils.inputOutputHandler import handleInputOutputs
 from queue import Queue
@@ -171,7 +173,7 @@ class VideoProcessor:
             self.writeBuffer.write(frame)
 
         if self.preview:
-            self.preview.add(frame.clamp(0, 255).byte().cpu().numpy())
+            self.preview.add(frame.mul(255).byte().cpu().numpy())
 
     def process(self):
         frameCount = 0
@@ -183,25 +185,31 @@ class VideoProcessor:
             self.interpQueue = Queue(maxsize=self.interpolate_factor)
 
         try:
-            with alive_bar(
-                total=self.totalFrames * increment,
-                title="Processing Frame: ",
-                length=30,
-                stats="| {rate}",
-                elapsed="Elapsed Time: {elapsed}",
-                monitor=" {count}/{total} | [{percent:.0%}] | ",
-                # stats_end="{total_time} • {rate:.2f}/s",
-                unit="frames",
-                spinner=None,
-            ) as bar:
-                for _ in range(self.totalFrames):
-                    frame = self.readBuffer.read()
-                    if frame is None:
-                        self.writeBuffer.close()
-                        break
-                    self.processFrame(frame)
-                    frameCount += 1
-                    bar(increment)
+            # Eventually make this into a function that returns a reader
+            # with handling for --inpoint and --outpoint
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+
+            # NEEDS --inpoint and --outpoint before this can be used
+            with celux.VideoReader(
+                self.input, device=device, d_type="float16" if self.half else "float32"
+            ) as reader:
+                with alive_bar(
+                    total=self.totalFrames * increment,
+                    title="Processing Frame: ",
+                    length=30,
+                    stats="| {rate}",
+                    elapsed="Elapsed Time: {elapsed}",
+                    monitor=" {count}/{total} | [{percent:.0%}] | ",
+                    # stats_end="{total_time} • {rate:.2f}/s",
+                    unit="frames",
+                    spinner=None,
+                ) as bar:
+                    for frame in reader:
+                        self.processFrame(frame)
+                        frameCount += 1
+                        bar(increment)
+
+            self.writeBuffer.close()
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
 
@@ -229,21 +237,6 @@ class VideoProcessor:
             ) = initializeModels(self)
 
             starTime: float = time()
-            self.readBuffer = BuildBuffer(
-                self.input,
-                self.ffmpeg_path,
-                self.inpoint,
-                self.outpoint,
-                self.dedup,
-                self.dedup_sens,
-                self.dedup_method,
-                self.width,
-                self.height,
-                self.resize,
-                self.resize_method,
-                self.buffer_limit,
-                totalFrames=self.totalFrames,
-            )
 
             self.writeBuffer = WriteBuffer(
                 mainPath=mainPath,
@@ -273,8 +266,7 @@ class VideoProcessor:
                 self.preview = Preview()
 
             self.writeBuffer.start()
-            with ThreadPoolExecutor(max_workers=3 if self.preview else 2) as executor:
-                executor.submit(self.readBuffer.start)
+            with ThreadPoolExecutor(max_workers=2 if self.preview else 1) as executor:
                 executor.submit(self.process)
                 if self.preview:
                     executor.submit(self.preview.start)
@@ -334,8 +326,15 @@ if __name__ == "__main__":
     logging.info(f"{' '.join(sys.argv)}\n")
 
     args = createParser(isFrozen, mainPath, outputPath, sysUsed)
-
-    results = handleInputOutputs(args, isFrozen)
+    outputPath = os.path.join(
+        (
+            os.path.dirname(sys.executable)
+            if isFrozen
+            else os.path.dirname(os.path.abspath(__file__))
+        ),
+        "output",
+    )
+    results = handleInputOutputs(args, isFrozen, outputPath)
     for i in results:
         print(green(f"Processing Video: {results[i]['videoPath']}"))
         print(green(f"Output Path: {results[i]['outputPath']}"))
