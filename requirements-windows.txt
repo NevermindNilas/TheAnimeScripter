@@ -18,7 +18,6 @@ inquirer
 colored
 flask
 rich-argparse
-pymediainfo
 celux-cuda
 onnx==1.16.0
 tensorrt==10.3.0

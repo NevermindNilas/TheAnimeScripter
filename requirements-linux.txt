@@ -21,7 +21,6 @@ celux-cuda
 onnx==1.16.0
 rich-argparse
 colored
-pymediainfo
 torch==2.4.1
 torchvision==0.19.1
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/polygraphy-0.49.13-py2.py3-none-any.whl

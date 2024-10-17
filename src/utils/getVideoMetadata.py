@@ -1,6 +1,7 @@
-from pymediainfo import MediaInfo
 import logging
 import textwrap
+
+import celux
 
 
 def getVideoMetadata(inputPath, inPoint, outPoint):
@@ -15,6 +16,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
 
     Returns:
     tuple: A tuple containing the width, height, fps, total frames to be processed, pixel format of the video, and a boolean indicating if the video has audio.
+    """
     """
     mediaInfo = MediaInfo.parse(inputPath)
     videoTrack = next(
@@ -45,21 +47,39 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         totalFramesToBeProcessed = nframes
 
     hasAudio = audioTrack is not None
+    """
+
+    video = celux.VideoReader(inputPath)
+    videoMetadata = video.get_properties()
+
+    print(videoMetadata)
+
+    inOutDuration = round((outPoint - inPoint), 2)
+
+    if inPoint != 0 or outPoint != 0:
+        totalFramesToBeProcessed = int(inOutDuration * videoMetadata["fps"])
+    else:
+        totalFramesToBeProcessed = videoMetadata["total_frames"]
 
     logging.info(
         textwrap.dedent(f"""
     ============== Video Metadata ==============
-    Width: {width}
-    Height: {height}
-    AspectRatio: {round(width/height, 2)}
-    FPS: {round(fps, 2)}
-    Number of total frames: {nframes}
-    Codec: {codec}
-    Duration: {duration} seconds
+    Width: {videoMetadata['width']}
+    Height: {videoMetadata['height']}
+    AspectRatio: {round(videoMetadata['width'] / videoMetadata['height'], 2)}
+    FPS: {round(videoMetadata['fps'], 2)}
+    Number of total frames: {videoMetadata['total_frames']}
+    Duration: {videoMetadata['duration']} seconds
     In-Out Duration: {inOutDuration} seconds
     Total frames to be processed: {totalFramesToBeProcessed}
-    Pixel Format: {pixFmt}
-    Has Audio: {hasAudio}""")
+    Pixel Format: {videoMetadata['pixel_format']}
+    Has Audio: {videoMetadata['has_audio']}""")
     )
 
-    return width, height, fps, totalFramesToBeProcessed, hasAudio
+    return (
+        videoMetadata["width"],
+        videoMetadata["height"],
+        videoMetadata["fps"],
+        totalFramesToBeProcessed,
+        videoMetadata["has_audio"],
+    )

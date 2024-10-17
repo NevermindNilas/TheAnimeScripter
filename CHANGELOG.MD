@@ -24,12 +24,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Removed redunant calculations in MSE deduplication improving the performance by `~5%`
 - Improved RIFE TRT reliability.
 - With the switch to `celux`, CPU usage should be drastically lowered by up to `50%` for NVIDIA users.
+- Replaced Metadata Requests with celux' own metadata handling
 
 #### Removals:
 - Vidgear package
 - Video Stabilization.
 - TAS Banner, might be reimplemented back in the future.
 - Command `--hide_banner`
+- PyMediaInfo
 
 #### Fixed
 - `16bit` workflow wouldn't work due to undeclared variable.
