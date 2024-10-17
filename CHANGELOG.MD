@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Improved RIFE TRT reliability.
 - With the switch to `celux`, CPU usage should be drastically lowered by up to `50%` for NVIDIA users.
 - Replaced Metadata Requests with celux' own metadata handling
+- Upgraded Pytorch from `2.4.0` -> `2.5.0`
 
 #### Removals:
 - Vidgear package
