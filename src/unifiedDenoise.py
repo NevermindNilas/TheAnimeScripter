@@ -3,7 +3,7 @@ import torch
 import logging
 
 from spandrel import ModelLoader
-from .downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 
 
 class UnifiedDenoise:

@@ -3,7 +3,7 @@ import os
 import logging
 
 from torch.nn import functional as F
-from .downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 
 
 class SceneChange:

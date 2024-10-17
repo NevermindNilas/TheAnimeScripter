@@ -4,7 +4,7 @@ import sys
 from src.utils.generateOutput import outputNameGenerator
 
 
-def handleInputOutputs(args, isFrozen):
+def handleInputOutputs(args, isFrozen, outputPath):
     """
     The premise goes as,
 
@@ -13,10 +13,7 @@ def handleInputOutputs(args, isFrozen):
     this accounts for if the outputPath is not declared or if it's just a directory
 
     Args:
-        input (str): The videos string
-        output (str): The output name
-        encodeMethod (str): The encoding method
-        customEncoder (str): The custom encoder
+        outputPath (str): The path to the output directory
         isFrozen (bool): The frozen state of the application, Pyinstaller or Python
         args (argparse.Namespace): The arguments passed to the application
 
@@ -29,11 +26,6 @@ def handleInputOutputs(args, isFrozen):
     encodeMethod = args.encode_method
     customEncoder = args.custom_encoder
 
-    outputPath = (
-        os.path.dirname(sys.executable)
-        if isFrozen
-        else os.path.dirname(os.path.abspath(__file__))
-    )
     AllowedExtensions = [
         ".mp4",
         ".mkv",
