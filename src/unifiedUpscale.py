@@ -114,8 +114,7 @@ class UniversalPytorch:
             self.dummyInput.copy_(
                 frame.to(dtype=torch.float16 if self.half else torch.float32)
                 .permute(2, 0, 1)
-                .unsqueeze(0)
-                .mul(1 / 255),
+                .unsqueeze(0),
                 non_blocking=True,
             )
             self.normStream.synchronize()
@@ -129,13 +128,7 @@ class UniversalPytorch:
 
         self.processFrame(frame)
         with torch.cuda.stream(self.stream):
-            output = (
-                self.model(self.dummyInput)
-                .squeeze(0)
-                .clamp(0, 1)
-                .mul(255)
-                .permute(1, 2, 0)
-            )
+            output = self.model(self.dummyInput).squeeze(0).clamp(0, 1).permute(1, 2, 0)
             self.stream.synchronize()
 
         if self.upscaleSkip is not None:
@@ -490,14 +483,14 @@ class UniversalDirectML:
         )
 
         if self.half:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).half().mul(1 / 255)
+            frame = frame.permute(2, 0, 1).unsqueeze(0).half()
         else:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).float().mul(1 / 255)
+            frame = frame.permute(2, 0, 1).unsqueeze(0).float()
 
         self.dummyInput.copy_(frame.contiguous())
 
         self.model.run_with_iobinding(self.IoBinding)
-        frame = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).contiguous()
+        frame = self.dummyOutput.squeeze(0).permute(1, 2, 0).contiguous()
 
         if self.upscaleSkip is not None:
             self.prevFrame.copy_(frame, non_blocking=True)
