@@ -4,7 +4,7 @@ import logging
 import torch.nn.functional as F
 import math
 
-from .downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .coloredPrints import yellow
 
 torch.set_float32_matmul_precision("medium")

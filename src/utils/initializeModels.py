@@ -220,7 +220,7 @@ def initializeModels(self):
                 | "aniscale2-directml"
                 | "shufflespan-directml"
             ):
-                from .unifiedUpscale import UniversalDirectML
+                from src.unifiedUpscale import UniversalDirectML
 
                 upscale_process = UniversalDirectML(
                     self.upscale_method,
@@ -233,7 +233,7 @@ def initializeModels(self):
                 )
 
             case "shufflecugan-ncnn" | "span-ncnn":
-                from .unifiedUpscale import UniversalNCNN
+                from src.unifiedUpscale import UniversalNCNN
 
                 upscale_process = UniversalNCNN(
                     self.upscale_method,
@@ -251,7 +251,7 @@ def initializeModels(self):
                 | "aniscale2-tensorrt"
                 | "shufflespan-tensorrt"
             ):
-                from .unifiedUpscale import UniversalTensorRT
+                from src.unifiedUpscale import UniversalTensorRT
 
                 upscale_process = UniversalTensorRT(
                     self.upscale_method,

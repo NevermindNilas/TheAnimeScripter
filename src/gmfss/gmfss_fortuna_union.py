@@ -3,7 +3,7 @@ import torch
 import logging
 import cupy
 
-from src.downloadModels import downloadModels, weightsDir
+from src.utils.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
 from src.coloredPrints import yellow, red
 

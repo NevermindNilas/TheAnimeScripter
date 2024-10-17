@@ -10,7 +10,7 @@ import threading
 from torch.multiprocessing import Process, Queue as MPQueue
 from queue import Queue
 
-workingFrames = 20
+workingFrames = 25
 
 
 if getattr(sys, "frozen", False):
@@ -928,23 +928,15 @@ class WriteBuffer:
         except Exception as e:
             logging.exception(f"Error encoding frame: {e}")
 
+    @torch.inference_mode()
     def write(self, frame: torch.Tensor):
         """
         Add a frame to the queue. Must be in RGB format.
         """
-        try:
-            if self.isCudaAvailable:
-                dataID = self.writtenFrames % workingFrames
-                self.torchArray[dataID].copy_(frame, non_blocking=False)
-                self.processQueue.put(dataID)
-                self.writtenFrames += 1
-            else:
-                dataID = self.writtenFrames % workingFrames
-                self.torchArray[dataID].copy_(frame)
-                self.processQueue.put(dataID)
-                self.writtenFrames += 1
-        except Exception as e:
-            logging.error(f"Error writing frame: {e}")
+        dataID = self.writtenFrames % workingFrames
+        self.torchArray[dataID].copy_(frame.mul(255), non_blocking=False)
+        self.processQueue.put(dataID)
+        self.writtenFrames += 1
 
     def close(self):
         """

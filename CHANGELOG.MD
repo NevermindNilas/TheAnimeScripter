@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### New
 - Added `H266` encoding support using command `--encode_method h266`.
 - Added `slow_x264`, `slow_x265` & `slow_av1` encode methods.
+- Switched entire decode backend to `celux` and `celux-cuda`
 
 #### Improvements
 - A serious restructure to TAS' backend.
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `--upscale_skip` should now be significantly more reliable than before.
 - Removed redunant calculations in MSE deduplication improving the performance by `~5%`
 - Improved RIFE TRT reliability.
+- With the switch to `celux`, CPU usage should be drastically lowered by up to `50%` for NVIDIA users.
 
 #### Removals:
 - Vidgear package
@@ -32,6 +34,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### Fixed
 - `16bit` workflow wouldn't work due to undeclared variable.
 - Fixed an issue where RIFE TRT would produce unwanted results on the 2nd frame of the output video when CPU usage was high.
+
+#### Regressions / Breaking Changes:
+- If you are updating from `TAS 1.9.8, 1.9.9, 1.9.10`, YOU will have to delete all `RIFE` related Engines and regenerate them.
 
 #### Notes
 - `H266` encoding requires FFMPEG version `7.1`, if you have FFMPEG in System Path make sure the versions matches, otherwise if you downloaded it using TAS, make sure you delete the `ffmpeg` folder located at `%appdata%\Roaming\TheAnimeScripter\` and allow TAS to re-download the latest build.
