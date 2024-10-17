@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import math
 
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
-from .coloredPrints import yellow
+from .utils.coloredPrints import yellow
 
 torch.set_float32_matmul_precision("medium")
 
@@ -192,7 +192,6 @@ class RifeCuda:
                             )
                             .permute(2, 0, 1)
                             .unsqueeze(0)
-                            .mul(1 / 255),
                         )
                     ).to(memory_format=torch.channels_last)
 
@@ -206,7 +205,6 @@ class RifeCuda:
                             )
                             .permute(2, 0, 1)
                             .unsqueeze(0)
-                            .mul(1 / 255),
                         ),
                         non_blocking=True,
                     ).to(memory_format=torch.channels_last)
@@ -555,10 +553,7 @@ class RifeTensorRT:
                 case "I0":
                     self.I0.copy_(
                         F.pad(
-                            frame.to(dtype=self.dtype)
-                            .mul(1 / 255.0)
-                            .permute(2, 0, 1)
-                            .unsqueeze(0),
+                            frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
                             self.padding,
                         ),
                         non_blocking=True,
@@ -567,10 +562,7 @@ class RifeTensorRT:
                 case "I1":
                     self.I1.copy_(
                         F.pad(
-                            frame.to(dtype=self.dtype)
-                            .mul(1 / 255.0)
-                            .permute(2, 0, 1)
-                            .unsqueeze(0),
+                            frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
                             self.padding,
                         ),
                         non_blocking=True,
@@ -581,7 +573,6 @@ class RifeTensorRT:
                         self.norm(
                             F.pad(
                                 frame.to(dtype=self.dtype)
-                                .mul(1 / 255.0)
                                 .permute(2, 0, 1)
                                 .unsqueeze(0),
                                 self.padding,
