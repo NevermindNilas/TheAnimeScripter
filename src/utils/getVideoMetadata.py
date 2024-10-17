@@ -52,8 +52,6 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     video = celux.VideoReader(inputPath)
     videoMetadata = video.get_properties()
 
-    print(videoMetadata)
-
     inOutDuration = round((outPoint - inPoint), 2)
 
     if inPoint != 0 or outPoint != 0:
