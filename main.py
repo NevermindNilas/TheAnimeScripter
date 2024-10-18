@@ -42,7 +42,17 @@ warnings.filterwarnings("ignore")
 
 
 class VideoProcessor:
-    def __init__(self, args, results=None):
+    def __init__(
+        self,
+        args,
+        results=None,
+        width: int = None,
+        height: int = None,
+        fps: float = None,
+        totalFrames: int = None,
+        audio: bool = None,
+        outputFPS: float = None,
+    ):
         self.input = results["videoPath"]
         self.output = results["outputPath"]
         self.encode_method = results["encodeMethod"]
@@ -89,13 +99,13 @@ class VideoProcessor:
         self.depth_quality = args.depth_quality
         self.interpolate_skip = args.interpolate_skip
 
-        self.width, self.height, self.fps, self.totalFrames, self.audio = (
-            getVideoMetadata(self.input, self.inpoint, self.outpoint)
-        )
-
-        self.outputFPS = (
-            self.fps * self.interpolate_factor if self.interpolate else self.fps
-        )
+        # Video Metadata
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.totalFrames = totalFrames
+        self.audio = audio
+        self.outputFPS = outputFPS
 
         logging.info("\n============== Processing Outputs ==============")
 
@@ -343,4 +353,17 @@ if __name__ == "__main__":
     for i in results:
         print(green(f"Processing Video: {results[i]['videoPath']}"))
         print(green(f"Output Path: {results[i]['outputPath']}"))
-        VideoProcessor(args, results=results[i])
+        width, height, fps, totalFrames, audio = getVideoMetadata(
+            results[i]["videoPath"], args.inpoint, args.outpoint
+        )
+        outputFPS = fps * args.interpolate_factor if args.interpolate else fps
+        VideoProcessor(
+            args,
+            results=results[i],
+            width=width,
+            height=height,
+            fps=fps,
+            totalFrames=totalFrames,
+            audio=audio,
+            outputFPS=outputFPS,
+        )
