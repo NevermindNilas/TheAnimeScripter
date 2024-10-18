@@ -23,8 +23,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Improved RIFE TRT reliability.
 - Upgraded Pytorch from `2.4.0` -> `2.5.0`
 - Improved `Input/Output` handling which should result in a much more dynamic encoding selection for batch processes.
-- Small improvements for startup times ( +- 0.20ms )
 - Slight adjustment to chained processes should yield in a small performance boost.
+- Lazifying TAS has improved start up times by up to `1s` in certain workloads, this should improve the responsiveness of TAS by a margin of `30%` on average.
 
 #### Removals:
 - Vidgear package
