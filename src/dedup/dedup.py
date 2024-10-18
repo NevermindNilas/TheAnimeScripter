@@ -17,7 +17,7 @@ class DedupSSIMCuda:
         from torch.functional import F
 
         self.interpolate = F.interpolate
-        self.ssim = SSIM(data_range=255.0, channel=3).cuda()
+        self.ssim = SSIM(data_range=1.0, channel=3).cuda()
         if half:
             self.ssim.half()
         else:
@@ -83,7 +83,9 @@ class DedupSSIM:
         return score > self.ssimThreshold
 
     def processFrame(self, frame):
-        return np.resize(frame.cpu().numpy(), (self.sampleSize, self.sampleSize, 3))
+        return np.resize(
+            frame.mul(255).cpu().numpy(), (self.sampleSize, self.sampleSize, 3)
+        )
 
     def reset(self):
         self.prevFrame = None
@@ -115,7 +117,9 @@ class DedupMSE:
         return score < self.mseThreshold
 
     def processFrame(self, frame):
-        return np.resize(frame.cpu().numpy(), (self.sampleSize, self.sampleSize, 3))
+        return np.resize(
+            frame.mul(255).cpu().numpy(), (self.sampleSize, self.sampleSize, 3)
+        )
 
 
 class DedupMSSSIMCuda:
@@ -134,7 +138,7 @@ class DedupMSSSIMCuda:
         from torch.functional import F
 
         self.interpolate = F.interpolate
-        self.ssim = MS_SSIM(data_range=255.0, channel=3).cuda()
+        self.ssim = MS_SSIM(data_range=1.0, channel=3).cuda()
         if half:
             self.ssim.half()
         else:

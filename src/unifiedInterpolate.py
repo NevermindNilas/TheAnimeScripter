@@ -604,7 +604,6 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def __call__(self, frame, interpQueue):
-        self.normStream.wait_stream(torch.cuda.current_stream())
         if self.firstRun:
             if self.norm is not None:
                 self.processFrame(frame, "f0")
@@ -719,15 +718,15 @@ class RifeNCNN:
 
     def __call__(self, frame, interpQueue):
         if self.frame1 is None:
-            self.frame1 = frame.cpu().numpy().astype("uint8")
+            self.frame1 = frame.mul(255).cpu().numpy().astype("uint8")
             return False
 
-        self.frame2 = frame.cpu().numpy().astype("uint8")
+        self.frame2 = frame.mul(255).cpu().numpy().astype("uint8")
 
         for i in range(self.interpolateFactor - 1):
             timestep = (i + 1) * 1 / self.interpolateFactor
             output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
-            output = torch.from_numpy(output).to(frame.device)
+            output = torch.from_numpy(output).to(frame.device).mul(1 / 255)
             interpQueue.put(output)
 
         self.cacheFrame()
