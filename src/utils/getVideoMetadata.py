@@ -78,6 +78,6 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         videoMetadata["width"],
         videoMetadata["height"],
         videoMetadata["fps"],
-        totalFramesToBeProcessed,
+        int(totalFramesToBeProcessed),
         videoMetadata["has_audio"],
     )

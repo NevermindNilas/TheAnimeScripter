@@ -180,6 +180,7 @@ class RifeCuda:
 
     @torch.inference_mode()
     def processFrame(self, frame, toNorm):
+        self.normStream.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(self.normStream):
             match toNorm:
                 case "I0":
@@ -231,7 +232,7 @@ class RifeCuda:
                 case "model":
                     self.model.cacheReset(frame)
 
-            self.normStream.synchronize()
+        self.normStream.synchronize()
 
     @torch.inference_mode()
     def padFrame(self, frame):
@@ -541,14 +542,15 @@ class RifeTensorRT:
                 self.context.set_input_shape(tensor_name, self.tensors[i].shape)
 
         self.firstRun = True
-        self.normalizationStream = torch.cuda.Stream()
+        self.normStream = torch.cuda.Stream()
 
         if self.interpolateSkip is not None:
             self.skippedCounter = 0
 
     @torch.inference_mode()
     def processFrame(self, frame, name=None):
-        with torch.cuda.stream(self.normalizationStream):
+        self.normStream.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(self.normStream):
             match name:
                 case "I0":
                     self.I0.copy_(
@@ -590,7 +592,7 @@ class RifeTensorRT:
                 case "timestep":
                     self.dummyTimeStep.copy_(frame, non_blocking=False)
 
-            self.normalizationStream.synchronize()
+        self.normStream.synchronize()
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
@@ -602,6 +604,7 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def __call__(self, frame, interpQueue):
+        self.normStream.wait_stream(torch.cuda.current_stream())
         if self.firstRun:
             if self.norm is not None:
                 self.processFrame(frame, "f0")
@@ -624,7 +627,6 @@ class RifeTensorRT:
 
             self.processFrame(timestep, "timestep")
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-
             self.stream.synchronize()
             interpQueue.put(self.dummyOutput)
 
