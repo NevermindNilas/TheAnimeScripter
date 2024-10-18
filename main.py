@@ -273,13 +273,13 @@ class VideoProcessor:
                 outpoint=self.outpoint,
                 preview=self.preview,
             )
+            self.writeBuffer.start()
 
             if self.preview:
                 from src.previewSettings import Preview
 
                 self.preview = Preview()
 
-            self.writeBuffer.start()
             with ThreadPoolExecutor(max_workers=3 if self.preview else 2) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
