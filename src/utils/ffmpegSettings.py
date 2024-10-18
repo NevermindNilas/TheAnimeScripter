@@ -879,7 +879,7 @@ class WriteBuffer:
         isCudaAvailable: bool = False,
         ffmpegLogPath: str = "",
     ):
-        dummyTensor = torch.zeros(dimsList, dtype=torch.uint8)
+        dummyTensor = torch.zeros(dimsList, dtype=torch.uint8, device="cpu")
 
         if isCudaAvailable:
             dummyTensor = dummyTensor.pin_memory()
@@ -933,10 +933,19 @@ class WriteBuffer:
         """
         Add a frame to the queue. Must be in RGB format.
         """
-        dataID = self.writtenFrames % workingFrames
-        self.torchArray[dataID].copy_(frame.mul(255), non_blocking=False)
-        self.processQueue.put(dataID)
-        self.writtenFrames += 1
+        if self.isCudaAvailable:
+            dataID = self.writtenFrames % workingFrames
+            with torch.cuda.stream(self.normStream):
+                frame = frame.mul(255)
+                self.torchArray[dataID].copy_(frame, non_blocking=False)
+            self.normStream.synchronize()
+            self.processQueue.put(dataID)
+            self.writtenFrames += 1
+        else:
+            dataID = self.writtenFrames % workingFrames
+            self.torchArray[dataID].copy_(frame.mul(255), non_blocking=False)
+            self.processQueue.put(dataID)
+            self.writtenFrames += 1
 
     def close(self):
         """
