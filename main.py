@@ -23,8 +23,6 @@ import os
 import sys
 import logging
 import warnings
-import torch
-import celux
 
 from platform import system
 from signal import signal, SIGINT, SIG_DFL
