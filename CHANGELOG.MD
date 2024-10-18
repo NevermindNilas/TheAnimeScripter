@@ -12,20 +12,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### New
 - Added `H266` encoding support using command `--encode_method h266`.
 - Added `slow_x264`, `slow_x265` & `slow_av1` encode methods.
-- Switched entire decode backend to `celux` and `celux-cuda`
 
 #### Improvements
 - A serious restructure to TAS' backend.
-- Increase buffer size for encoder from `10 -> 20`
 - Upgraded Github Actions runner from Python `3.12.4` -> `3.12.7`
 - Avoid unnecessary memalocs for decode.
 - `--upscale_skip` will now default to CUDA SSIM or CPU SSIM based on the selected `--upscale_method`
 - `--upscale_skip` should now be significantly more reliable than before.
 - Removed redunant calculations in MSE deduplication improving the performance by `~5%`
 - Improved RIFE TRT reliability.
-- With the switch to `celux`, CPU usage should be drastically lowered by up to `50%` for NVIDIA users.
-- Replaced Metadata Requests with celux' own metadata handling
 - Upgraded Pytorch from `2.4.0` -> `2.5.0`
+- Improved `Input/Output` handling which should result in a much more dynamic encoding selection for batch processes.
+- Small improvements for startup times ( +- 0.20ms)
+- Slight adjustment to chained processes should yield in a small performance boost
 
 #### Removals:
 - Vidgear package
@@ -38,7 +37,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `16bit` workflow wouldn't work due to undeclared variable.
 - Fixed an issue where RIFE TRT would produce unwanted results on the 2nd frame of the output video when CPU usage was high.
 
-#### Regressions / Breaking Changes:
+#### Breaking Changes:
 - If you are updating from `TAS 1.9.8, 1.9.9, 1.9.10`, YOU will have to delete all `RIFE` related Engines and regenerate them.
 
 #### Notes

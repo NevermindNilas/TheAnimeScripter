@@ -34,7 +34,7 @@ from concurrent.futures import ThreadPoolExecutor
 from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
 from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
-from src.utils.ffmpegSettings import WriteBuffer
+from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.coloredPrints import green
 from src.utils.inputOutputHandler import handleInputOutputs
 from queue import Queue
@@ -185,29 +185,21 @@ class VideoProcessor:
             self.interpQueue = Queue(maxsize=self.interpolate_factor)
 
         try:
-            # Eventually make this into a function that returns a reader
-            # with handling for --inpoint and --outpoint
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-
-            # NEEDS --inpoint and --outpoint before this can be used
-            with celux.VideoReader(
-                self.input, device=device, d_type="float16" if self.half else "float32"
-            ) as reader:
-                with alive_bar(
-                    total=self.totalFrames * increment,
-                    title="Processing Frame: ",
-                    length=30,
-                    stats="| {rate}",
-                    elapsed="Elapsed Time: {elapsed}",
-                    monitor=" {count}/{total} | [{percent:.0%}] | ",
-                    # stats_end="{total_time} • {rate:.2f}/s",
-                    unit="frames",
-                    spinner=None,
-                ) as bar:
-                    for frame in reader:
-                        self.processFrame(frame)
-                        frameCount += 1
-                        bar(increment)
+            with alive_bar(
+                total=self.totalFrames * increment,
+                title="Processing Frame: ",
+                length=30,
+                stats="| {rate}",
+                elapsed="Elapsed Time: {elapsed}",
+                monitor=" {count}/{total} | [{percent:.0%}] | ",
+                unit="frames",
+                spinner=None,
+            ) as bar:
+                for _ in range(self.totalFrames):
+                    frame = self.readBuffer.read()
+                    self.processFrame(frame)
+                    frameCount += 1
+                    bar(increment)
 
             self.writeBuffer.close()
         except Exception as e:
@@ -237,7 +229,21 @@ class VideoProcessor:
             ) = initializeModels(self)
 
             starTime: float = time()
-
+            self.readBuffer = BuildBuffer(
+                self.input,
+                self.ffmpeg_path,
+                self.inpoint,
+                self.outpoint,
+                self.dedup,
+                self.dedup_sens,
+                self.dedup_method,
+                self.width,
+                self.height,
+                self.resize,
+                self.resize_method,
+                self.buffer_limit,
+                totalFrames=self.totalFrames,
+            )
             self.writeBuffer = WriteBuffer(
                 mainPath=mainPath,
                 input=self.input,
@@ -266,7 +272,8 @@ class VideoProcessor:
                 self.preview = Preview()
 
             self.writeBuffer.start()
-            with ThreadPoolExecutor(max_workers=2 if self.preview else 1) as executor:
+            with ThreadPoolExecutor(max_workers=3 if self.preview else 2) as executor:
+                executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
                 if self.preview:
                     executor.submit(self.preview.start)
