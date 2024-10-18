@@ -40,7 +40,7 @@ def darkenLines(
     """
 
     image = image.half() if half else image.float()
-    image = image.permute(2, 0, 1).mul(1 / 255.0)
+    image = image.permute(2, 0, 1)
 
     weightsLocal = weights.to(device=image.device, dtype=image.dtype)
     grayscale = torch.tensordot(image, weightsLocal, dims=([0], [0]))
@@ -73,4 +73,4 @@ def darkenLines(
 
     enhancedImage = image.sub_(darkenStrength * softenedEdges.unsqueeze(0))
     enhancedImage = torch.clamp(enhancedImage, 0, 1)
-    return enhancedImage.permute(1, 2, 0).mul(255)
+    return enhancedImage.permute(1, 2, 0)

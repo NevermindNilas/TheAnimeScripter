@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .warplayer import warp
 
+
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
         nn.Conv2d(
@@ -16,6 +17,7 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
         ),
         nn.LeakyReLU(0.2, True),
     )
+
 
 def conv_bn(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
@@ -121,7 +123,7 @@ class IFNet(nn.Module):
         self.encode = Head()
         self.f0 = None
         self.f1 = None
-        self.scale_list=[8/scale, 4/scale, 2/scale, 1/scale]
+        self.scale_list = [8 / scale, 4 / scale, 2 / scale, 1 / scale]
         self.ensemble = ensemble
         self.counter = 1
         self.interpolateFactor = interpolateFactor
@@ -129,7 +131,7 @@ class IFNet(nn.Module):
 
     def cache(self):
         self.f0.copy_(self.f1, non_blocking=True)
-    
+
     def cacheReset(self, frame):
         self.f0 = self.encode(frame[:, :3])
 
@@ -137,7 +139,7 @@ class IFNet(nn.Module):
         if self.interpolateFactor == 2:
             if self.f0 is None:
                 self.f0 = self.encode(img0[:, :3])
-                
+
             self.f1 = self.encode(img1[:, :3])
         else:
             if self.counter == self.interpolateFactor:
@@ -158,14 +160,17 @@ class IFNet(nn.Module):
         for i in range(4):
             if flow is None:
                 flow, mask = self.blocks[i](
-                    torch.cat((img0[:, :3], img1[:, :3], self.f0, self.f1, timestep), 1),
+                    torch.cat(
+                        (img0[:, :3], img1[:, :3], self.f0, self.f1, timestep), 1
+                    ),
                     None,
                     scale=self.scale_list[i],
                 )
                 if self.ensemble:
                     f_, m_ = self.blocks[i](
                         torch.cat(
-                            (img1[:, :3], img0[:, :3], self.f1, self.f0, 1 - timestep), 1
+                            (img1[:, :3], img0[:, :3], self.f1, self.f0, 1 - timestep),
+                            1,
                         ),
                         None,
                         scale=self.scale_list[i],
@@ -215,4 +220,6 @@ class IFNet(nn.Module):
             warped_img1 = warp(img1, flow[:, 2:4])
             merged.append((warped_img0, warped_img1))
         mask = torch.sigmoid(mask)
-        return (warped_img0 * mask + warped_img1 * (1 - mask)).mul(255).squeeze(0).permute(1, 2, 0)
+        return (
+            (warped_img0 * mask + warped_img1 * (1 - mask)).squeeze(0).permute(1, 2, 0)
+        )

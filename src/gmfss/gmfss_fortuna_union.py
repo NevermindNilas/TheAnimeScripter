@@ -113,7 +113,6 @@ class GMFSS:
             .permute(2, 0, 1)
             .unsqueeze(0)
             .to(memory_format=torch.channels_last)
-            .mul(1.0 / 255.0)
         )
 
     @torch.inference_mode()
@@ -144,7 +143,7 @@ class GMFSS:
                     memory_format=torch.channels_last
                 )
                 output = output[:, :, : self.height, : self.width]
-                output = output.mul(255.0).squeeze(0).permute(1, 2, 0)
+                output = output.squeeze(0).permute(1, 2, 0)
                 self.stream.synchronize()
                 interpQueue.put(output)
 
