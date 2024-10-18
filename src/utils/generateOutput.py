@@ -5,12 +5,24 @@ import logging
 
 def outputNameGenerator(args, videoInput):
     argMap = {
-        "resize": f"-Re{getattr(args, 'resize_factor', '')}",
-        "dedup": f"-De{getattr(args, 'dedup_sens', '')}",
-        "interpolate": f"-Int{getattr(args, 'interpolate_factor', '')}",
-        "upscale": f"-Up{getattr(args, 'upscale_factor', '')}",
-        "sharpen": f"-Sh{getattr(args, 'sharpen_sens', '')}",
-        "denoise": f"-De{getattr(args, 'denoise_method', '')}",
+        "resize": f"-Re{getattr(args, 'resize_factor', '')}"
+        if getattr(args, "resize", False)
+        else "",
+        "dedup": f"-De{getattr(args, 'dedup_sens', '')}"
+        if getattr(args, "dedup", False)
+        else "",
+        "interpolate": f"-Int{getattr(args, 'interpolate_factor', '')}"
+        if getattr(args, "interpolate", False)
+        else "",
+        "upscale": f"-Up{getattr(args, 'upscale_factor', '')}"
+        if getattr(args, "upscale", False)
+        else "",
+        "sharpen": f"-Sh{getattr(args, 'sharpen_sens', '')}"
+        if getattr(args, "sharpen", False)
+        else "",
+        "denoise": f"-De{getattr(args, 'denoise_method', '')}"
+        if getattr(args, "denoise", False)
+        else "",
         "segment": "-Segment" if getattr(args, "segment", False) else "",
         "depth": "-Depth" if getattr(args, "depth", False) else "",
         "ytdlp": "-YTDLP" if getattr(args, "ytdlp", False) else "",
