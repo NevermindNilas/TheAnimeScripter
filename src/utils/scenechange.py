@@ -1,9 +1,10 @@
 import torch
 import os
 import logging
+import cv2
 
 from torch.nn import functional as F
-from .downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 
 
 class SceneChange:
@@ -192,7 +193,6 @@ class SceneChangeTensorRT:
             frame.to(self.device, non_blocking=True, dtype=self.dType)
             .permute(2, 0, 1)
             .unsqueeze(0)
-            .mul(1.0 / 255.0)
         )
         frame = F.interpolate(frame, size=(self.height, self.width), mode="bilinear")
         return frame.contiguous().squeeze(0)
@@ -221,17 +221,15 @@ class SceneChangeTensorRT:
 
 class SceneChangeCPU:
     def __init__(self, sceneChangeThreshold):
-        import cv2
         import numpy as np
 
-        self.cv2 = cv2
         self.np = np
         self.sceneChangeThreshold = sceneChangeThreshold
         self.I0 = None
 
     def processFrame(self, frame):
-        frame = self.cv2.resize(frame.cpu().numpy(), (224, 224))
-        frame = self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2GRAY)
+        frame = cv2.resize(frame.cpu().numpy(), (224, 224))
+        frame = cv2.cvtColor(frame, self.cv2.COLOR_BGR2GRAY)
         frame = frame.astype(self.np.float16) / 255.0
         return frame
 

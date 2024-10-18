@@ -4,8 +4,8 @@ import logging
 import torch.nn.functional as F
 import math
 
-from .downloadModels import downloadModels, weightsDir, modelsMap
-from .coloredPrints import yellow
+from .utils.downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.coloredPrints import yellow
 
 torch.set_float32_matmul_precision("medium")
 
@@ -180,6 +180,7 @@ class RifeCuda:
 
     @torch.inference_mode()
     def processFrame(self, frame, toNorm):
+        self.normStream.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(self.normStream):
             match toNorm:
                 case "I0":
@@ -192,7 +193,6 @@ class RifeCuda:
                             )
                             .permute(2, 0, 1)
                             .unsqueeze(0)
-                            .mul(1 / 255),
                         )
                     ).to(memory_format=torch.channels_last)
 
@@ -206,7 +206,6 @@ class RifeCuda:
                             )
                             .permute(2, 0, 1)
                             .unsqueeze(0)
-                            .mul(1 / 255),
                         ),
                         non_blocking=True,
                     ).to(memory_format=torch.channels_last)
@@ -233,7 +232,7 @@ class RifeCuda:
                 case "model":
                     self.model.cacheReset(frame)
 
-            self.normStream.synchronize()
+        self.normStream.synchronize()
 
     @torch.inference_mode()
     def padFrame(self, frame):
@@ -543,22 +542,20 @@ class RifeTensorRT:
                 self.context.set_input_shape(tensor_name, self.tensors[i].shape)
 
         self.firstRun = True
-        self.normalizationStream = torch.cuda.Stream()
+        self.normStream = torch.cuda.Stream()
 
         if self.interpolateSkip is not None:
             self.skippedCounter = 0
 
     @torch.inference_mode()
     def processFrame(self, frame, name=None):
-        with torch.cuda.stream(self.normalizationStream):
+        self.normStream.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(self.normStream):
             match name:
                 case "I0":
                     self.I0.copy_(
                         F.pad(
-                            frame.to(dtype=self.dtype)
-                            .mul(1 / 255.0)
-                            .permute(2, 0, 1)
-                            .unsqueeze(0),
+                            frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
                             self.padding,
                         ),
                         non_blocking=True,
@@ -567,10 +564,7 @@ class RifeTensorRT:
                 case "I1":
                     self.I1.copy_(
                         F.pad(
-                            frame.to(dtype=self.dtype)
-                            .mul(1 / 255.0)
-                            .permute(2, 0, 1)
-                            .unsqueeze(0),
+                            frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
                             self.padding,
                         ),
                         non_blocking=True,
@@ -581,7 +575,6 @@ class RifeTensorRT:
                         self.norm(
                             F.pad(
                                 frame.to(dtype=self.dtype)
-                                .mul(1 / 255.0)
                                 .permute(2, 0, 1)
                                 .unsqueeze(0),
                                 self.padding,
@@ -599,7 +592,7 @@ class RifeTensorRT:
                 case "timestep":
                     self.dummyTimeStep.copy_(frame, non_blocking=False)
 
-            self.normalizationStream.synchronize()
+        self.normStream.synchronize()
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
@@ -633,7 +626,6 @@ class RifeTensorRT:
 
             self.processFrame(timestep, "timestep")
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-
             self.stream.synchronize()
             interpQueue.put(self.dummyOutput)
 
@@ -726,15 +718,15 @@ class RifeNCNN:
 
     def __call__(self, frame, interpQueue):
         if self.frame1 is None:
-            self.frame1 = frame.cpu().numpy().astype("uint8")
+            self.frame1 = frame.mul(255).cpu().numpy().astype("uint8")
             return False
 
-        self.frame2 = frame.cpu().numpy().astype("uint8")
+        self.frame2 = frame.mul(255).cpu().numpy().astype("uint8")
 
         for i in range(self.interpolateFactor - 1):
             timestep = (i + 1) * 1 / self.interpolateFactor
             output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
-            output = torch.from_numpy(output).to(frame.device)
+            output = torch.from_numpy(output).to(frame.device).mul(1 / 255)
             interpQueue.put(output)
 
         self.cacheFrame()

@@ -3,7 +3,7 @@ import torch
 import logging
 
 from spandrel import ModelLoader
-from .downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 
 
 class UnifiedDenoise:
@@ -71,9 +71,8 @@ class UnifiedDenoise:
                 .permute(2, 0, 1)
                 .unsqueeze(0)
                 .to(memory_format=torch.channels_last)
-                .mul(1 / 255)
             )
 
-            frame = self.model(frame).squeeze_(0).permute(1, 2, 0).mul(255)
+            frame = self.model(frame).squeeze_(0).permute(1, 2, 0)
             self.stream.synchronize()
             return frame

@@ -4,7 +4,7 @@ import os
 import torch
 import torch.nn.functional as F
 
-from src.downloadModels import downloadModels, weightsDir, modelsMap
+from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from concurrent.futures import ThreadPoolExecutor
 from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from alive_progress import alive_bar
@@ -116,13 +116,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             h, w = h0, w0 = input_img.shape[:-1]
             h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
             ph, pw = s - h, s - w
-            input_img = (
-                input_img.float()
-                .to(self.device)
-                .mul(1 / 255)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-            )
+            input_img = input_img.float().to(self.device).permute(2, 0, 1).unsqueeze(0)
             img_input = F.interpolate(
                 input_img,
                 size=(h, w),
@@ -137,7 +131,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 F.interpolate(pred, size=(h0, w0), mode="bilinear", align_corners=False)
                 .squeeze_(0)
                 .permute(1, 2, 0)
-                .mul(255)
                 .to(torch.uint8)
             )
             self.inferStream.synchronize()
@@ -350,7 +343,7 @@ class AnimeSegmentTensorRT:
     def normFrame(self, frame):
         with torch.cuda.stream(self.normStream):
             frame = F.pad(
-                frame.float().permute(2, 0, 1).unsqueeze(0).mul(1 / 255),
+                frame.float().permute(2, 0, 1).unsqueeze(0),
                 (0, 0, self.padHeight, self.padWidth),
             )
             self.dummyInput.copy_(frame, non_blocking=True)
@@ -370,7 +363,6 @@ class AnimeSegmentTensorRT:
                 ]
                 .squeeze(0)
                 .permute(1, 2, 0)
-                .mul(255)
             )
             self.outputStream.synchronize()
             return frameWithMask
@@ -536,9 +528,7 @@ class AnimeSegmentDirectML:
 
     def processFrame(self, frame: torch.tensor) -> torch.tensor:
         try:
-            frame = (
-                frame.to(self.device).float().permute(2, 0, 1).unsqueeze(0).mul(1 / 255)
-            )
+            frame = frame.to(self.device).float().permute(2, 0, 1).unsqueeze(0)
             frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
             self.dummyInput.copy_(frame)
 
@@ -558,7 +548,7 @@ class AnimeSegmentDirectML:
                 : frameWithMask.shape[2] - self.padHeight,
                 : frameWithMask.shape[3] - self.padWidth,
             ]
-            self.writeBuffer.write(frameWithMask.squeeze(0).permute(1, 2, 0).mul(255))
+            self.writeBuffer.write(frameWithMask.squeeze(0).permute(1, 2, 0))
 
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")

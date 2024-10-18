@@ -17,9 +17,8 @@
    - [4.10 Resizing](#resizing)
    - [4.11 Presets](#preset-arguments)
 5. [Encoding Settings](#encoding-settings)
-6. [Video Stabilization](#video-stabilization)
-7. [Performance Settings](#performance-settings)
-8. [Usage Examples](#usage-examples)
+6. [Performance Settings](#performance-settings)
+7. [Usage Examples](#usage-examples)
 
 ## 1. Overview
 
@@ -27,14 +26,13 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ## 2. Command-Line Arguments
 
-| Argument        | Type | Default | Description                                                     |
-|-----------------|------|---------|-----------------------------------------------------------------|
-| `--version`     | flag | -       | Outputs the script version                                      |
-| `--benchmark`   | flag | -       | Enable benchmarking (no video output, performance testing only) |
-| `--offline`     | str  | "none"  | Download models based on user selection                         |
-| `--ae`          | flag | False   | Indicates if the script is run from the After Effects interface |
-| `--preview`     | flag | False   | Enable previewing the process                                   |
-| `--hide_banner` | flag | False   | Hide TAS' Banner when processing                                |
+| Argument      | Type | Default | Description                                                     |
+|---------------|------|---------|-----------------------------------------------------------------|
+| `--version`   | flag | -       | Outputs the script version                                      |
+| `--benchmark` | flag | -       | Enable benchmarking (no video output, performance testing only) |
+| `--offline`   | str  | "none"  | Download models based on user selection                         |
+| `--ae`        | flag | False   | Indicates if the script is run from the After Effects interface |
+| `--preview`   | flag | False   | Enable previewing the process                                   |
 
 ### Offline Mode Options
 - `"none"`: Default state, does not download anything
@@ -258,11 +256,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 **Note**: The output pixel format (`-pix_fmt`) can dynamically switch between yuv420p, yuv420p10le, and yuv444p10le based on `--bit_depth` and `--encode_method`.
 
-## Video Stabilization
-
-| Argument      | Type | Default | Description                |
-|---------------|------|---------|----------------------------|
-| `--stabilize` | flag | -       | Enable video stabilization |
 
 ## Performance Settings
 

@@ -476,9 +476,11 @@ class BuildBuffer:
             if self.isCudaAvailable:
                 with torch.cuda.stream(self.normStream):
                     self.readBuffer.put(
-                        dummyTensor.to(device="cuda", non_blocking=True)
+                        dummyTensor.to(device="cuda", non_blocking=True).mul(
+                            1.0 / 255.0
+                        )
                     )
-                    self.normStream.synchronize()
+                self.normStream.synchronize()
 
             else:
                 self.readBuffer.put(dummyTensor)
@@ -935,7 +937,7 @@ class WriteBuffer:
         try:
             if self.isCudaAvailable:
                 dataID = self.writtenFrames % workingFrames
-                self.torchArray[dataID].copy_(frame, non_blocking=False)
+                self.torchArray[dataID].copy_(frame.mul(255), non_blocking=False)
                 self.processQueue.put(dataID)
                 self.writtenFrames += 1
             else:

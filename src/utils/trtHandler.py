@@ -3,7 +3,7 @@ import tensorrt as trt
 import logging
 
 from typing import List, Tuple
-from src.coloredPrints import yellow
+from .coloredPrints import yellow
 
 from polygraphy.backend.trt import (
     engine_from_network,
