@@ -188,7 +188,7 @@ class DepthCuda:
 
     @torch.inference_mode()
     def normFrame(self, frame):
-        frame = frame.to(self.device).mul(1.0 / 255.0).permute(2, 0, 1).unsqueeze(0)
+        frame = frame.to(self.device).permute(2, 0, 1).unsqueeze(0)
         frame = F.interpolate(
             frame.float(),
             (self.newHeight, self.newWidth),
@@ -212,9 +212,7 @@ class DepthCuda:
             align_corners=False,
         ).squeeze(0)
 
-        return ((depth - depth.min()) / (depth.max() - depth.min()) * 255).permute(
-            1, 2, 0
-        )
+        return ((depth - depth.min()) / (depth.max() - depth.min())).permute(1, 2, 0)
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -405,7 +403,7 @@ class DepthDirectMLV2:
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            frame = frame.to(self.device).mul(1.0 / 255.0).permute(2, 0, 1).unsqueeze(0)
+            frame = frame.to(self.device).permute(2, 0, 1).unsqueeze(0)
 
             frame = F.interpolate(
                 frame,
@@ -438,7 +436,7 @@ class DepthDirectMLV2:
                 align_corners=False,
             ).squeeze(0)
 
-            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255
+            depth = (depth - depth.min()) / (depth.max() - depth.min())
             self.writeBuffer.write(depth.permute(1, 2, 0))
 
         except Exception as e:
@@ -643,7 +641,7 @@ class DepthTensorRTV2:
     @torch.inference_mode()
     def normFrame(self, frame):
         with torch.cuda.stream(self.normStream):
-            frame = frame.to(self.device).mul(1.0 / 255.0).permute(2, 0, 1).unsqueeze(0)
+            frame = frame.to(self.device).permute(2, 0, 1).unsqueeze(0)
             frame = F.interpolate(
                 frame.float(),
                 (self.newHeight, self.newWidth),
@@ -665,7 +663,7 @@ class DepthTensorRTV2:
                 mode="bilinear",
                 align_corners=False,
             ).squeeze(0)
-            depth = ((depth - depth.min()) / (depth.max() - depth.min()) * 255).permute(
+            depth = ((depth - depth.min()) / (depth.max() - depth.min())).permute(
                 1, 2, 0
             )
             self.outputNormStream.synchronize()

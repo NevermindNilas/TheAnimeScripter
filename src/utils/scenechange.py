@@ -192,7 +192,6 @@ class SceneChangeTensorRT:
             frame.to(self.device, non_blocking=True, dtype=self.dType)
             .permute(2, 0, 1)
             .unsqueeze(0)
-            .mul(1.0 / 255.0)
         )
         frame = F.interpolate(frame, size=(self.height, self.width), mode="bilinear")
         return frame.contiguous().squeeze(0)
