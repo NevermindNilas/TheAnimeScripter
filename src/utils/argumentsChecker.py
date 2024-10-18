@@ -577,7 +577,9 @@ def processURL(args, outputPath):
 
             outputFolder = os.path.join(outputPath, "output")
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
-            args.output = os.path.join(outputFolder, outputNameGenerator(args))
+            args.output = os.path.join(
+                outputFolder, outputNameGenerator(args, args.input)
+            )
 
         VideoDownloader(
             args.input,
