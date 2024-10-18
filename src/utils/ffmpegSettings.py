@@ -10,7 +10,7 @@ import threading
 from torch.multiprocessing import Process, Queue as MPQueue
 from queue import Queue
 
-workingFrames = 25
+workingFrames = 20
 
 
 if getattr(sys, "frozen", False):
@@ -476,9 +476,11 @@ class BuildBuffer:
             if self.isCudaAvailable:
                 with torch.cuda.stream(self.normStream):
                     self.readBuffer.put(
-                        dummyTensor.to(device="cuda", non_blocking=True)
+                        dummyTensor.to(device="cuda", non_blocking=True).mul(
+                            1.0 / 255.0
+                        )
                     )
-                    self.normStream.synchronize()
+                self.normStream.synchronize()
 
             else:
                 self.readBuffer.put(dummyTensor)
@@ -879,7 +881,7 @@ class WriteBuffer:
         isCudaAvailable: bool = False,
         ffmpegLogPath: str = "",
     ):
-        dummyTensor = torch.zeros(dimsList, dtype=torch.uint8, device="cpu")
+        dummyTensor = torch.zeros(dimsList, dtype=torch.uint8)
 
         if isCudaAvailable:
             dummyTensor = dummyTensor.pin_memory()
@@ -928,24 +930,23 @@ class WriteBuffer:
         except Exception as e:
             logging.exception(f"Error encoding frame: {e}")
 
-    @torch.inference_mode()
     def write(self, frame: torch.Tensor):
         """
         Add a frame to the queue. Must be in RGB format.
         """
-        if self.isCudaAvailable:
-            dataID = self.writtenFrames % workingFrames
-            with torch.cuda.stream(self.normStream):
-                frame = frame.mul(255)
-                self.torchArray[dataID].copy_(frame, non_blocking=False)
-            self.normStream.synchronize()
-            self.processQueue.put(dataID)
-            self.writtenFrames += 1
-        else:
-            dataID = self.writtenFrames % workingFrames
-            self.torchArray[dataID].copy_(frame.mul(255), non_blocking=False)
-            self.processQueue.put(dataID)
-            self.writtenFrames += 1
+        try:
+            if self.isCudaAvailable:
+                dataID = self.writtenFrames % workingFrames
+                self.torchArray[dataID].copy_(frame.mul(255), non_blocking=False)
+                self.processQueue.put(dataID)
+                self.writtenFrames += 1
+            else:
+                dataID = self.writtenFrames % workingFrames
+                self.torchArray[dataID].copy_(frame)
+                self.processQueue.put(dataID)
+                self.writtenFrames += 1
+        except Exception as e:
+            logging.error(f"Error writing frame: {e}")
 
     def close(self):
         """
