@@ -2,9 +2,6 @@ import os
 import random
 import logging
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
-
 
 def outputNameGenerator(args, videoInput):
     argMap = {
