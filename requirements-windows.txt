@@ -1,6 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cu124
-torch==2.4.1
-torchvision==0.19.1
+torch==2.5.0
+torchvision==0.20.0
 opencv-python-headless
 timm
 numpy==1.26.4
@@ -16,7 +16,6 @@ onnxruntime-directml
 pytorch-lightning
 inquirer
 colored
-vidgear
 flask
 rich-argparse
 pymediainfo

@@ -14,17 +14,32 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added `slow_x264`, `slow_x265` & `slow_av1` encode methods.
 
 #### Improvements
-- Increase buffer size for encoder from `10 -> 20`
+- A serious restructure to TAS' backend.
 - Upgraded Github Actions runner from Python `3.12.4` -> `3.12.7`
 - Avoid unnecessary memalocs for decode.
 - `--upscale_skip` will now default to CUDA SSIM or CPU SSIM based on the selected `--upscale_method`
 - `--upscale_skip` should now be significantly more reliable than before.
 - Removed redunant calculations in MSE deduplication improving the performance by `~5%`
 - Improved RIFE TRT reliability.
+- Upgraded Pytorch from `2.4.0` -> `2.5.0`
+- Improved `Input/Output` handling which should result in a much more dynamic encoding selection for batch processes.
+- Slight adjustment to chained processes should yield in a small performance boost.
+- Lazifying TAS has improved start up times by up to `1s` in certain workloads, this should improve the responsiveness of TAS by a margin of `30%` on average.
+
+#### Removals:
+- Vidgear package
+- Video Stabilization.
+- TAS Banner, might be reimplemented back in the future.
+- Command `--hide_banner`
+- PyMediaInfo
 
 #### Fixed
 - `16bit` workflow wouldn't work due to undeclared variable.
 - Fixed an issue where RIFE TRT would produce unwanted results on the 2nd frame of the output video when CPU usage was high.
+- Fixed an issue where RIFE TRT would display duplicated frames past `2x` interpolation.
+
+#### Breaking Changes:
+- If you are updating from `TAS 1.9.8, 1.9.9, 1.9.10`, YOU will have to delete all `RIFE` related Engines and regenerate them.
 
 #### Notes
 - `H266` encoding requires FFMPEG version `7.1`, if you have FFMPEG in System Path make sure the versions matches, otherwise if you downloaded it using TAS, make sure you delete the `ffmpeg` folder located at `%appdata%\Roaming\TheAnimeScripter\` and allow TAS to re-download the latest build.

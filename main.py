@@ -23,18 +23,18 @@ import os
 import sys
 import logging
 import warnings
+
 from platform import system
 from signal import signal, SIGINT, SIG_DFL
 from time import time
-
 from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
-from src.argumentsChecker import createParser
-from src.getVideoMetadata import getVideoMetadata
-from src.initializeModels import initializeModels, Segment, Depth, Stabilize, AutoClip
-from src.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.generateOutput import outputNameGenerator
-from src.coloredPrints import green, blue, red
+from src.utils.argumentsChecker import createParser
+from src.utils.getVideoMetadata import getVideoMetadata
+from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
+from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.utils.coloredPrints import green
+from src.utils.inputOutputHandler import handleInputOutputs
 from queue import Queue
 from torch import multiprocessing as mp
 
@@ -42,9 +42,22 @@ warnings.filterwarnings("ignore")
 
 
 class VideoProcessor:
-    def __init__(self, args):
-        self.input = args.input
-        self.output = args.output
+    def __init__(
+        self,
+        args,
+        results=None,
+        width: int = None,
+        height: int = None,
+        fps: float = None,
+        totalFrames: int = None,
+        audio: bool = None,
+        outputFPS: float = None,
+    ):
+        self.input = results["videoPath"]
+        self.output = results["outputPath"]
+        self.encode_method = results["encodeMethod"]
+        self.custom_encoder = results["customEncoder"]
+
         self.interpolate = args.interpolate
         self.interpolate_factor = args.interpolate_factor
         self.interpolate_method = args.interpolate_method
@@ -64,14 +77,12 @@ class VideoProcessor:
         self.autoclip_sens = args.autoclip_sens
         self.depth = args.depth
         self.depth_method = args.depth_method
-        self.encode_method = args.encode_method
         self.ffmpeg_path = args.ffmpeg_path
         self.ensemble = args.ensemble
         self.resize = args.resize
         self.resize_factor = args.resize_factor
         self.resize_method = args.resize_method
         self.custom_model = args.custom_model
-        self.custom_encoder = args.custom_encoder
         self.buffer_limit = args.buffer_limit
         self.denoise = args.denoise
         self.denoise_method = args.denoise_method
@@ -83,19 +94,18 @@ class VideoProcessor:
         self.scenechange_method = args.scenechange_method
         self.upscale_skip = args.upscale_skip
         self.bit_depth = args.bit_depth
-        self.stabilize = args.stabilize
         self.preview = args.preview
         self.forceStatic = args.static
         self.depth_quality = args.depth_quality
         self.interpolate_skip = args.interpolate_skip
 
-        self.width, self.height, self.fps, self.totalFrames, self.audio = (
-            getVideoMetadata(self.input, self.inpoint, self.outpoint)
-        )
-
-        self.outputFPS = (
-            self.fps * self.interpolate_factor if self.interpolate else self.fps
-        )
+        # Video Metadata
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.totalFrames = totalFrames
+        self.audio = audio
+        self.outputFPS = outputFPS
 
         logging.info("\n============== Processing Outputs ==============")
 
@@ -106,10 +116,6 @@ class VideoProcessor:
             logging.info(
                 f"Resizing to {self.width}x{self.height}, aspect ratio: {aspect_ratio}"
             )
-
-        if self.stabilize:
-            logging.info("Stabilizing video")
-            Stabilize(self)
 
         elif self.autoclip:
             logging.info("Detecting scene changes")
@@ -175,7 +181,7 @@ class VideoProcessor:
             self.writeBuffer.write(frame)
 
         if self.preview:
-            self.preview.add(frame.clamp(0, 255).byte().cpu().numpy())
+            self.preview.add(frame.mul(255).byte().cpu().numpy())
 
     def process(self):
         frameCount = 0
@@ -194,18 +200,16 @@ class VideoProcessor:
                 stats="| {rate}",
                 elapsed="Elapsed Time: {elapsed}",
                 monitor=" {count}/{total} | [{percent:.0%}] | ",
-                # stats_end="{total_time} • {rate:.2f}/s",
                 unit="frames",
                 spinner=None,
             ) as bar:
                 for _ in range(self.totalFrames):
                     frame = self.readBuffer.read()
-                    if frame is None:
-                        self.writeBuffer.close()
-                        break
                     self.processFrame(frame)
                     frameCount += 1
                     bar(increment)
+
+            self.writeBuffer.close()
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
 
@@ -248,7 +252,6 @@ class VideoProcessor:
                 self.buffer_limit,
                 totalFrames=self.totalFrames,
             )
-
             self.writeBuffer = WriteBuffer(
                 mainPath=mainPath,
                 input=self.input,
@@ -270,13 +273,13 @@ class VideoProcessor:
                 outpoint=self.outpoint,
                 preview=self.preview,
             )
+            self.writeBuffer.start()
 
             if self.preview:
                 from src.previewSettings import Preview
 
                 self.preview = Preview()
 
-            self.writeBuffer.start()
             with ThreadPoolExecutor(max_workers=3 if self.preview else 2) as executor:
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
@@ -306,14 +309,10 @@ if __name__ == "__main__":
     mp.freeze_support()
 
     sysUsed = system()
+    mp.set_start_method("spawn", force=True)
     if sysUsed == "Windows":
-        mp.set_start_method("spawn", force=True)
         mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
     else:
-        try:
-            mp.set_start_method("forkserver", force=True)
-        except RuntimeError:
-            mp.set_start_method("spawn", force=True)
         mainPath = os.path.join(
             os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
             "TheAnimeScripter",
@@ -322,12 +321,13 @@ if __name__ == "__main__":
     if not os.path.exists(mainPath):
         os.makedirs(mainPath)
 
-    if getattr(sys, "frozen", False):
-        isFrozen = True
-        outputPath = os.path.dirname(sys.executable)
-    else:
-        isFrozen = False
-        outputPath = os.path.dirname(os.path.abspath(__file__))
+    isFrozen = hasattr(sys, "_MEIPASS")
+
+    outputPath = (
+        os.path.dirname(sys.executable)
+        if isFrozen
+        else os.path.dirname(os.path.abspath(__file__))
+    )
 
     signal(SIGINT, SIG_DFL)
     logging.basicConfig(
@@ -336,86 +336,34 @@ if __name__ == "__main__":
         format="%(message)s",
         level=logging.INFO,
     )
+    logging.info("This should go to the file!")
     logging.info("============== Command Line Arguments ==============")
     logging.info(f"{' '.join(sys.argv)}\n")
 
     args = createParser(isFrozen, mainPath, outputPath, sysUsed)
-
-    if os.path.isfile(args.input) and not args.input.endswith(".txt"):
-        print(green(f"Processing {args.input}"))
-        if args.output is None:
-            outputFolder = os.path.join(outputPath, "output")
-            os.makedirs(os.path.join(outputFolder), exist_ok=True)
-            args.output = os.path.join(outputFolder, outputNameGenerator(args))
-        elif os.path.isdir(args.output):
-            args.output = os.path.join(args.output, outputNameGenerator(args))
-
-        VideoProcessor(args)
-
-    elif os.path.isdir(args.input):
-        videoFiles = [
-            os.path.join(args.input, file)
-            for file in os.listdir(args.input)
-            if file.endswith((".mp4", ".mkv", ".mov", ".avi", ".webm"))
-        ]
-
-        toPrint = f"Processing {len(videoFiles)} files"
-        logging.info(toPrint)
-        print(blue(toPrint))
-        copyArgsOutput = args.output if args.output else None
-        if args.output:
-            os.makedirs(args.output, exist_ok=True)
-
-        for videoFile in videoFiles:
-            args.input = os.path.abspath(videoFile)
-            toPrint = f"Processing {args.input}"
-            logging.info(toPrint)
-            print(green(toPrint))
-
-            if copyArgsOutput is None:
-                outputFolder = os.path.join(outputPath, "output")
-                os.makedirs(outputFolder, exist_ok=True)
-                args.output = os.path.join(outputFolder, outputNameGenerator(args))
-            elif os.path.isdir(copyArgsOutput):
-                args.output = os.path.join(copyArgsOutput, outputNameGenerator(args))
-
-            print(green(f"Output File: {args.output}"))
-            VideoProcessor(args)
-            args.output = copyArgsOutput
-    else:
-        try:
-            if args.input.endswith(".txt"):
-                with open(args.input, "r") as file:
-                    videoFiles = [line.strip().strip('"') for line in file.readlines()]
-            else:
-                videoFiles = args.input.split(";")
-            toPrint = f"Processing {len(videoFiles)} files"
-            logging.info(toPrint)
-            print(blue(toPrint))
-
-            copyArgsOutput = args.output if args.output else None
-            if args.output:
-                os.makedirs(args.output, exist_ok=True)
-
-            for videoFile in videoFiles:
-                args.input = os.path.abspath(videoFile)
-                toPrint = f"Processing {args.input}"
-                logging.info(toPrint)
-                print(green(toPrint))
-
-                if copyArgsOutput is None:
-                    outputFolder = os.path.join(outputPath, "output")
-                    os.makedirs(outputFolder, exist_ok=True)
-                    args.output = os.path.join(outputFolder, outputNameGenerator(args))
-                elif os.path.isdir(copyArgsOutput):
-                    args.output = os.path.join(
-                        copyArgsOutput, outputNameGenerator(args)
-                    )
-
-                print(green(f"Output File: {args.output}"))
-                VideoProcessor(args)
-                args.output = copyArgsOutput
-        except Exception:
-            toPrint = f"File or directory {args.input} does not exist, exiting"
-            print(red(toPrint))
-            logging.info(toPrint)
+    outputPath = os.path.join(
+        (
+            os.path.dirname(sys.executable)
+            if isFrozen
+            else os.path.dirname(os.path.abspath(__file__))
+        ),
+        "output",
+    )
+    results = handleInputOutputs(args, isFrozen, outputPath)
+    for i in results:
+        print(green(f"Processing Video: {results[i]['videoPath']}"))
+        print(green(f"Output Path: {results[i]['outputPath']}"))
+        width, height, fps, totalFrames, audio = getVideoMetadata(
+            results[i]["videoPath"], args.inpoint, args.outpoint
+        )
+        outputFPS = fps * args.interpolate_factor if args.interpolate else fps
+        VideoProcessor(
+            args,
+            results=results[i],
+            width=width,
+            height=height,
+            fps=fps,
+            totalFrames=totalFrames,
+            audio=audio,
+            outputFPS=outputFPS,
+        )

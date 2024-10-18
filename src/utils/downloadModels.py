@@ -1,6 +1,5 @@
 import os
 import logging
-import requests
 from alive_progress import alive_bar
 from .coloredPrints import green
 
@@ -534,6 +533,8 @@ def modelsMap(
 def downloadAndLog(
     model: str, filename: str, download_url: str, folderPath: str, retries: int = 3
 ):
+    import requests
+
     tempFolder = os.path.join(folderPath, "TEMP")
     os.makedirs(tempFolder, exist_ok=True)
 
