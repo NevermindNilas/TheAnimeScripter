@@ -99,14 +99,14 @@ class IFNet(nn.Module):
         self.block2 = IFBlock(8 + 4, c=96)
         self.block3 = IFBlock(8 + 4, c=64)
 
-        self.scale_list=[8/scale, 4/scale, 2/scale, 1/scale]
+        self.scale_list = [8 / scale, 4 / scale, 2 / scale, 1 / scale]
         self.ensemble = ensemble
         self.interpolateFactor = interpolateFactor
         self.blocks = [self.block0, self.block1, self.block2, self.block3]
 
     def cache(self):
         pass
-    
+
     def cacheReset(self, frame):
         pass
 
@@ -168,4 +168,8 @@ class IFNet(nn.Module):
             warped_image1 = warp(image2, flow[:, 2:4])
             merged.append((warped_image0, warped_image1))
         mask_list[3] = torch.sigmoid(mask_list[3])
-        return (merged[3][0] * mask_list[3] + merged[3][1] * (1 - mask_list[3])).mul(255).squeeze(0).permute(1, 2, 0)
+        return (
+            (merged[3][0] * mask_list[3] + merged[3][1] * (1 - mask_list[3]))
+            .squeeze(0)
+            .permute(1, 2, 0)
+        )
