@@ -5,9 +5,9 @@ import argparse
 
 from .checkSpecs import checkSystem
 from .downloadModels import downloadModels, modelsList
-from .coloredPrints import green, red, blue
+from .coloredPrints import green, blue
 from rich_argparse import RichHelpFormatter
-from .version import __version__ as version
+from src.version import __version__ as version
 
 
 def createParser(isFrozen, mainPath, outputPath, sysUsed):
@@ -31,9 +31,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
     generalGroup.add_argument(
         "--preview", action="store_true", help="Preview the video during processing"
     )
-    generalGroup.add_argument(
-        "--hide_banner", action="store_true", help="Hide the TAS banner"
-    )
 
     # Preset Configuration options
     presetGroup = argParser.add_argument_group("Preset Configuration")
@@ -50,6 +47,9 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
 
     # Performance options
     performanceGroup = argParser.add_argument_group("Performance")
+    performanceGroup.add_argument(
+        "--precision", type=str, choices=["fp32", "fp16"], default="fp16"
+    )
     performanceGroup.add_argument(
         "--half", type=bool, help="Use half precision for inference", default=True
     )
@@ -357,12 +357,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         "--custom_encoder", type=str, default="", help="Custom encoder settings"
     )
 
-    # Stabilizer Options
-    stabilizerGroup = argParser.add_argument_group("Stabilizer")
-    stabilizerGroup.add_argument(
-        "--stabilize", action="store_true", help="Stabilize the video using VidStab"
-    )
-
     # Miscellaneous options
     miscGroup = argParser.add_argument_group("Miscellaneous")
     miscGroup.add_argument("--buffer_limit", type=int, default=50, help="Buffer limit")
@@ -395,18 +389,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
 
 
 def argumentsChecker(args, mainPath, outputPath, sysUsed):
-    banner = r"""
-__/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
- _\///////\\\/////____/\\\\\\\\\\\\\____/\\\/////////\\\_
-  _______\/\\\________/\\\/////////\\\__\//\\\______\///__
-   _______\/\\\_______\/\\\_______\/\\\___\////\\\_________
-    _______\/\\\_______\/\\\\\\\\\\\\\\\______\////\\\______
-     _______\/\\\_______\/\\\/////////\\\_________\////\\\___
-      _______\/\\\_______\/\\\_______\/\\\__/\\\______\//\\\__
-       _______\/\\\_______\/\\\_______\/\\\_\///\\\\\\\\\\\/___
-        _______\///________\///________\///____\///////////_____
-"""
-
     if args.list_presets:
         from src.presetLogic import listPresets
 
@@ -417,9 +399,6 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         from src.presetLogic import createPreset
 
         args = createPreset(args, mainPath)
-
-    if not args.benchmark and not args.hide_banner:
-        print(red(banner))
 
     logging.info("============== Version ==============")
     logging.info(f"TAS: {version}\n")
@@ -573,7 +552,6 @@ __/\\\\\\\\\\\\\\\_____/\\\\\\\\\________/\\\\\\\\\\\___
         args.dedup,
         args.depth,
         args.autoclip,
-        args.stabilize,
     ]
     if not any(processingMethods):
         logging.error("No processing methods specified, exiting")
@@ -599,7 +577,9 @@ def processURL(args, outputPath):
 
             outputFolder = os.path.join(outputPath, "output")
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
-            args.output = os.path.join(outputFolder, outputNameGenerator(args))
+            args.output = os.path.join(
+                outputFolder, outputNameGenerator(args, args.input)
+            )
 
         VideoDownloader(
             args.input,

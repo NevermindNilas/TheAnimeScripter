@@ -2,8 +2,7 @@ import os
 import torch
 import logging
 
-from spandrel import ImageModelDescriptor, ModelLoader
-from .downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 
 torch.set_float32_matmul_precision("medium")
 
@@ -46,6 +45,8 @@ class UniversalPytorch:
         """
         Load the desired model
         """
+        from spandrel import ImageModelDescriptor, ModelLoader
+
         if not self.customModel:
             self.filename = modelsMap(
                 self.upscaleMethod, self.upscaleFactor, modelType="pth"
@@ -112,16 +113,18 @@ class UniversalPytorch:
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(
-                frame.to(dtype=torch.float16 if self.half else torch.float32)
+                frame.to(dtype=self.dummyInput.dtype)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
-                .mul(1 / 255),
-                non_blocking=True,
+                .to(memory_format=torch.channels_last),
+                non_blocking=False,
             )
-            self.normStream.synchronize()
+        self.normStream.synchronize()
+        return frame
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
+        self.normStream.wait_stream(torch.cuda.current_stream())
         if self.upscaleSkip is not None:
             if self.upscaleSkip(frame):
                 self.skippedCounter += 1
@@ -129,19 +132,13 @@ class UniversalPytorch:
 
         self.processFrame(frame)
         with torch.cuda.stream(self.stream):
-            output = (
-                self.model(self.dummyInput)
-                .squeeze(0)
-                .clamp(0, 1)
-                .mul(255)
-                .permute(1, 2, 0)
-            )
-            self.stream.synchronize()
+            output = self.model(self.dummyInput).squeeze(0).clamp(0, 1).permute(1, 2, 0)
+        self.stream.synchronize()
 
         if self.upscaleSkip is not None:
             with torch.cuda.stream(self.stream):
                 self.prevFrame.copy_(output, non_blocking=True)
-                self.stream.synchronize()
+            self.stream.synchronize()
 
         return output
 
@@ -266,13 +263,13 @@ class UniversalTensorRT:
             (1, 3, self.height, self.width),
             device=self.device,
             dtype=torch.float16 if self.half else torch.float32,
-        ).contiguous()
+        )
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
             device=self.device,
             dtype=torch.float16 if self.half else torch.float32,
-        ).contiguous()
+        )
 
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
 
@@ -304,26 +301,30 @@ class UniversalTensorRT:
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(
-                frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0).mul(1 / 255),
-                non_blocking=True,
+                frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
+                non_blocking=False,
             )
-            self.normStream.synchronize()
+        self.normStream.synchronize()
 
     @torch.inference_mode()
     def processOutput(self):
         with torch.cuda.stream(self.outputStream):
-            output = self.dummyOutput.squeeze(0).permute(1, 2, 0).clamp(0, 1).mul(255)
-            self.outputStream.synchronize()
+            output = self.dummyOutput.squeeze(0).permute(1, 2, 0).clamp(0, 1)
+        self.outputStream.synchronize()
+
         return output
 
     @torch.inference_mode()
     def __call__(self, frame):
-        if self.upscaleSkip is not None:
-            if self.upscaleSkip(frame):
-                self.skippedCounter += 1
-                return self.prevFrame
+        with torch.cuda.stream(self.normStream):
+            if self.upscaleSkip is not None:
+                if self.upscaleSkip(frame):
+                    self.skippedCounter += 1
+                    return self.prevFrame
 
-        self.processFrame(frame)
+            self.processFrame(frame)
+        self.normStream.synchronize()
+
         self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
         self.stream.synchronize()
 
@@ -332,7 +333,7 @@ class UniversalTensorRT:
         if self.upscaleSkip is not None:
             with torch.cuda.stream(self.stream):
                 self.prevFrame.copy_(output, non_blocking=True)
-                self.stream.synchronize()
+            self.stream.synchronize()
 
         return output
 
@@ -490,14 +491,14 @@ class UniversalDirectML:
         )
 
         if self.half:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).half().mul(1 / 255)
+            frame = frame.permute(2, 0, 1).unsqueeze(0).half()
         else:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).float().mul(1 / 255)
+            frame = frame.permute(2, 0, 1).unsqueeze(0).float()
 
         self.dummyInput.copy_(frame.contiguous())
 
         self.model.run_with_iobinding(self.IoBinding)
-        frame = self.dummyOutput.squeeze(0).permute(1, 2, 0).mul(255).contiguous()
+        frame = self.dummyOutput.squeeze(0).permute(1, 2, 0).contiguous()
 
         if self.upscaleSkip is not None:
             self.prevFrame.copy_(frame, non_blocking=True)

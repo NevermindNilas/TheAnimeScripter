@@ -1,5 +1,5 @@
-torch==2.4.1
-torchvision==0.19.1
+torch==2.5.0
+torchvision==0.20.0
 opencv-python-headless
 timm
 numpy==1.26.4
@@ -14,10 +14,9 @@ scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning
 inquirer
+pymediainfo
 colored
 rich-argparse
-vidgear
-pymediainfo
 flask
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp312-cp312-win_amd64.whl
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/upscale_ncnn_py-1.2.0-cp312-none-win_amd64.whl

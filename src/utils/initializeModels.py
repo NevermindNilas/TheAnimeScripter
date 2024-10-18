@@ -152,27 +152,6 @@ def Depth(self, mainPath):
             )
 
 
-def Stabilize(self):
-    from src.stabilize.stabilize import VideoStabilizer
-
-    VideoStabilizer(
-        self.input,
-        self.output,
-        self.ffmpeg_path,
-        self.width,
-        self.height,
-        self.fps,
-        self.half,
-        self.inpoint,
-        self.outpoint,
-        self.encode_method,
-        self.custom_encoder,
-        self.buffer_limit,
-        self.benchmark,
-        self.totalFrames,
-    )
-
-
 def initializeModels(self):
     outputWidth = self.width
     outputHeight = self.height
@@ -241,7 +220,7 @@ def initializeModels(self):
                 | "aniscale2-directml"
                 | "shufflespan-directml"
             ):
-                from .unifiedUpscale import UniversalDirectML
+                from src.unifiedUpscale import UniversalDirectML
 
                 upscale_process = UniversalDirectML(
                     self.upscale_method,
@@ -254,7 +233,7 @@ def initializeModels(self):
                 )
 
             case "shufflecugan-ncnn" | "span-ncnn":
-                from .unifiedUpscale import UniversalNCNN
+                from src.unifiedUpscale import UniversalNCNN
 
                 upscale_process = UniversalNCNN(
                     self.upscale_method,
@@ -272,7 +251,7 @@ def initializeModels(self):
                 | "aniscale2-tensorrt"
                 | "shufflespan-tensorrt"
             ):
-                from .unifiedUpscale import UniversalTensorRT
+                from src.unifiedUpscale import UniversalTensorRT
 
                 upscale_process = UniversalTensorRT(
                     self.upscale_method,
