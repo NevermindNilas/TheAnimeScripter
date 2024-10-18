@@ -2,7 +2,6 @@ import os
 import torch
 import logging
 
-from spandrel import ImageModelDescriptor, ModelLoader
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 
 torch.set_float32_matmul_precision("medium")
@@ -46,6 +45,8 @@ class UniversalPytorch:
         """
         Load the desired model
         """
+        from spandrel import ImageModelDescriptor, ModelLoader
+
         if not self.customModel:
             self.filename = modelsMap(
                 self.upscaleMethod, self.upscaleFactor, modelType="pth"
