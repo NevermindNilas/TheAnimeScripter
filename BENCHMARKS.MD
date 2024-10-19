@@ -9,6 +9,50 @@ V2 -> V3, Added new options and a different video with more duplicated frames fo
 V1 -> V2, Longer video for more accurate results, More time in between runs to cool of the gpu, more options ( dedup )
 
 #### Testing Methodology V4
+# Benchmark Results
+
+## System Information
+
+- **CPU:** 13th Gen Intel(R) Core(TM) i7-13700K
+- **Total RAM:** 31.77 GB
+- **Graphics Card 0:** Intel(R) UHD Graphics 770
+- **Graphics Card 1:** NVIDIA GeForce RTX 3090
+
+**Version:** 2.0.0 ( Pre-Release )
+**Testing Methodology:** V4.4
+
+## Upscale Results
+
+| Model                      | Time (s) | FPS   |
+|----------------------------|----------|-------|
+| shufflecugan               | 30.65    | 23.49 |
+| compact                    | 50.81    | 14.17 |
+| ultracompact               | 29.01    | 24.82 |
+| superultracompact          | 9.96     | 72.31 |
+| span                       | 57.32    | 12.56 |
+| compact-tensorrt           | 44.26    | 21.69 |
+| ultracompact-tensorrt      | 24.63    | 38.97 |
+| superultracompact-tensorrt | 9.80     | 97.99 |
+| shufflecugan-tensorrt      | 23.42    | 40.98 |
+| span-tensorrt              | 36.82    | 26.08 |
+
+## Interpolate Results
+
+| Model                           | Time (s) | FPS    |
+|---------------------------------|----------|--------|
+| rife4.6                         | 16.46    | 145.78 |
+| rife4.6-ensemble                | 22.20    | 86.50  |
+| rife4.22                        | 23.34    | 102.82 |
+| rife4.22-ensemble               | 18.85    | 101.83 |
+| rife4.22-lite                   | 17.16    | 139.84 |
+| rife4.22-lite-ensemble          | 14.44    | 132.97 |
+| rife4.6-tensorrt                | 8.83     | 271.90 |
+| rife4.6-tensorrt-ensemble       | 12.38    | 155.06 |
+| rife4.22-tensorrt               | 15.50    | 154.86 |
+| rife4.22-tensorrt-ensemble      | 12.72    | 150.94 |
+| rife4.22-lite-tensorrt          | 11.55    | 207.73 |
+| rife4.22-lite-tensorrt-ensemble | 9.54     | 201.18 |
+
 # Toji
 ![benchmarkResults](https://github.com/user-attachments/assets/195e38da-b3d8-45af-868c-def2b3034e7f)
 
