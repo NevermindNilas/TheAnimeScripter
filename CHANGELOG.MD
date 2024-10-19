@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### New
 - Added `H266` encoding support using command `--encode_method h266`.
 - Added `slow_x264`, `slow_x265` & `slow_av1` encode methods.
-- Added `rife_elexor-tensorrt`
+- Added `rife_elexor` and `rife_elexor-tensorrt`
 
 #### Improvements
 - A serious restructure to TAS' backend.
