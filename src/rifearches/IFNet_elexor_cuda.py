@@ -81,11 +81,12 @@ class IFNet(nn.Module):
     def __init__(
         self,
         scale=1,
-        ensemble=False,
+        ensemble: bool = False,
         dtype=torch.float32,
         device="cuda",
-        width=1920,
-        height=1080,
+        width: int = 1920,
+        height: int = 1080,
+        interpolateFactor: int = 2,
     ):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7 + 8, c=192)
@@ -100,6 +101,7 @@ class IFNet(nn.Module):
         self.height = height
         self.device = device
         self.dtype = dtype
+        self.interpolateFactor = interpolateFactor
 
         self.scale_list = [
             32 / scale,
@@ -138,9 +140,32 @@ class IFNet(nn.Module):
             .expand(-1, -1, -1, self.pw)
         ).to(dtype=self.dtype, device=self.device)
         self.backWarp = torch.cat([tenHorizontal, tenVertical], 1)
+        self.f0 = None
+        self.f1 = None
 
-    def forward(self, img0, img1, timestep, f0):
-        f1 = self.encode(img1)
+    def cache(self):
+        self.f0.copy_(self.f1, non_blocking=True)
+
+    def cacheReset(self, frame):
+        self.f0 = self.encode(frame[:, :3])
+
+    def forward(self, img0, img1, timestep):
+        if self.interpolateFactor == 2:
+            if self.f0 is None:
+                self.f0 = self.encode(img0[:, :3])
+            self.f1 = self.encode(img1[:, :3])
+        else:
+            if self.counter == self.interpolateFactor:
+                self.counter = 1
+                if self.f0 is None:
+                    self.f0 = self.encode(img0[:, :3])
+                self.f1 = self.encode(img1[:, :3])
+            else:
+                if self.f0 is None or self.f1 is None:
+                    self.f0 = self.encode(img0[:, :3])
+                    self.f1 = self.encode(img1[:, :3])
+            self.counter += 1
+
         warped_img0 = img0
         warped_img1 = img1
         flow = None
@@ -150,7 +175,7 @@ class IFNet(nn.Module):
         for i in range(6):
             if flow is None:
                 flow, mask = self.blocks[i](
-                    torch.cat((img0, img1, f0, f1, timestep), 1),
+                    torch.cat((img0, img1, self.f0, self.f1, timestep), 1),
                     self.ph,
                     self.pw,
                     None,
@@ -168,8 +193,8 @@ class IFNet(nn.Module):
                     flow = torch.where(mask_large, large_flow, flow)
 
             else:
-                wf0 = warp(f0, flow[:, :2], self.tenFlow, self.backWarp)
-                wf1 = warp(f1, flow[:, 2:4], self.tenFlow, self.backWarp)
+                wf0 = warp(self.f0, flow[:, :2], self.tenFlow, self.backWarp)
+                wf1 = warp(self.f1, flow[:, 2:4], self.tenFlow, self.backWarp)
                 fd, mask = self.blocks[i](
                     torch.cat((warped_img0, warped_img1, wf0, wf1, timestep, mask), 1),
                     self.ph,
@@ -189,4 +214,4 @@ class IFNet(nn.Module):
         mask = torch.sigmoid(mask)
         return (warped_img0 * mask + warped_img1 * (1 - mask))[
             :, :, : self.height, : self.width
-        ][0].permute(1, 2, 0), f1
+        ][0].permute(1, 2, 0)

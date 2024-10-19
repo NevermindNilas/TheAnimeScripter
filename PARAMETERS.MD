@@ -103,6 +103,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `"rife4.22"` / `"rife4.22-tensorrt"` / `"rife4.22-ncnn"`
 - `"rife4.22-lite"` / `"rife4.22-lite-tensorrt"` / `"rife4.22-lite-ncnn"`
 - `"rife4.25"` / `"rife4.25-tensorrt"` / `N/A`
+- `"rife_elexor"` / `"rife_elexor-tensorrt"` / `N/A`
 
 ### Scene Change Detection
 

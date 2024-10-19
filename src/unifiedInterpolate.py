@@ -144,12 +144,23 @@ class RifeCuda:
         else:
             modelPath = os.path.join(weightsDir, "rife", self.filename)
 
-        IFNet = importRifeArch(self.interpolateMethod, "v1")
-
-        self.model = IFNet(self.ensemble, self.scale, self.interpolateFactor)
         self.isCudaAvailable = torch.cuda.is_available()
         self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
         self.dType = torch.float16 if self.half else torch.float32
+
+        IFNet = importRifeArch(self.interpolateMethod, "v1")
+        if self.interpolateMethod in ["rife_elexor"]:
+            self.model = IFNet(
+                self.scale,
+                self.ensemble,
+                self.dType,
+                self.device,
+                self.width,
+                self.height,
+                self.interpolateFactor,
+            )
+        else:
+            self.model = IFNet(self.ensemble, self.scale, self.interpolateFactor)
 
         torch.set_grad_enabled(False)
         if self.isCudaAvailable:
