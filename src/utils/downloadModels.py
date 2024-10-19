@@ -73,6 +73,7 @@ def modelsList() -> list[str]:
         "rife4.22",
         "rife4.22-lite",
         "rife4.25",
+        "rife_elexor",
         "shufflecugan-directml",
         "open-proteus-directml",
         "compact-directml",
@@ -93,6 +94,8 @@ def modelsList() -> list[str]:
         "rife4.21-tensorrt",
         "rife4.22-tensorrt",
         "rife4.22-lite-tensorrt",
+        "rife4.25-tensorrt",
+        "rife_elexor-tensorrt",
         "rife-v4.6-ncnn",
         "rife-v4.15-lite-ncnn",
         "rife-v4.16-lite-ncnn",
@@ -243,6 +246,14 @@ def modelsMap(
 
         case "gmfss":
             return "gmfss-fortuna-union.zip"
+
+        case "rife_elexor" | "rife_elexor-tensorrt" | "rife_elexor-ncnn":
+            if modelType == "pth":
+                return "rife_elexor.pth"
+            elif modelType == "onnx":
+                return "rife_elexor.pth"
+            elif modelType == "ncnn":
+                return "rife-elexor-ncnn.zip"
 
         case "rife4.25" | "rife4.25-tensorrt" | "rife4.25-ncnn":
             if modelType == "pth":
