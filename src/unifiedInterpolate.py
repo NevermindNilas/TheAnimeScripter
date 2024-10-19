@@ -34,6 +34,8 @@ def importRifeArch(interpolateMethod, version):
                     from .rifearches.IFNet_rife416lite import IFNet
                 case "rife4.6":
                     from .rifearches.IFNet_rife46 import IFNet
+                case "rife_elexor":
+                    from .rifearches.IFNet_elexor_cuda import IFNet
             return IFNet
 
         case "v3":
@@ -75,7 +77,7 @@ def importRifeArch(interpolateMethod, version):
 
                     Head = False
                 case "rife_elexor-tensorrt":
-                    from src.rifearches.IFNet_elexor import IFNet
+                    from src.rifearches.IFNet_elexor_tensorrt import IFNet
 
                     Head = True
             return IFNet, Head
@@ -404,6 +406,7 @@ class RifeTensorRT:
             self.norm = self.model.encode
         else:
             self.norm = None
+
         if self.interpolateMethod in [
             "rife_elexor-tensorrt",
             "rife4.25-tensorrt",
@@ -464,7 +467,7 @@ class RifeTensorRT:
                 input_names=inputNames,
                 output_names=outputNames,
                 dynamic_axes=dynamicAxes,
-                opset_version=21,
+                opset_version=20,
             )
 
             inputs = [
@@ -615,7 +618,7 @@ class RifeTensorRT:
                     self.I0.copy_(self.I1, non_blocking=True)
 
                 case "timestep":
-                    self.dummyTimeStep.copy_(frame, non_blocking=False)
+                    self.dummyTimeStep.copy_(frame, non_blocking=True)
 
         self.normStream.synchronize()
 

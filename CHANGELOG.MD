@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Slight adjustment to chained processes should yield in a small performance boost.
 - Lazifying TAS has improved start up times by up to `1s` in certain workloads, this should improve the responsiveness of TAS by a margin of `30%` on average.
 - Improved and streamlined TAS benchmarking.
+- Upgraded ONNX Opset version `19` -> `20`
+- Improved Rife Model / Arch Handling.
 
 #### Removals:
 - Vidgear package
