@@ -17,11 +17,11 @@ else:
 if not os.path.exists(mainPath):
     os.makedirs(mainPath)
 
-ffmpegLogPath = os.path.join(mainPath, "ffmpegLog.txt")
-logTxtPath = os.path.join(mainPath, "log.txt")
+ffmpegLogPath = os.path.join(mainPath, "ffmpeg.log")
+tasLogPath = os.path.join(mainPath, "TAS.log")
 
 
-def runAllBenchmarks(executor, version, inputVideo=None):
+def runAllBenchmarks(executor, version, inputVideo=None, systemInfo=None):
     print(
         "Running all benchmarks. Depending on your system, this may take a while. Please be patient and keep the terminal in focus at all time."
     )
@@ -32,8 +32,6 @@ def runAllBenchmarks(executor, version, inputVideo=None):
         "Upscale": runUpscaleBenchmark(inputVideo, executor),
         "Interpolate": runInterpolateBenchmark(inputVideo, executor),
     }
-
-    systemInfo = parseSystemInfo()
 
     with open("benchmarkResults.json", "w") as f:
         json.dump(
@@ -80,7 +78,9 @@ def getClip(executor):
     outputPath = "output/test.mp4"
     cmd = executor + ["--input", CLIPURL, "--output", outputPath]
     subprocess.Popen(cmd, shell=False).wait()
-    return os.path.abspath(outputPath)
+    systemInfo = parseSystemInfo()
+
+    return os.path.abspath(outputPath), systemInfo
 
 
 def runUpscaleBenchmark(inputVideo, executor):
@@ -94,9 +94,10 @@ def runUpscaleBenchmark(inputVideo, executor):
             "--upscale",
             "--upscale_method",
             method,
+            "--static",
             "--benchmark",
             "--outpoint",
-            "16" if "-tensorrt" in method else "12",
+            "20" if "-tensorrt" in method else "15",
         ]
         print(f"Running command: {' '.join(cmd)}")  # Debugging line
         subprocess.run(cmd, check=True, cwd=os.path.dirname(os.path.abspath(__file__)))
@@ -143,10 +144,13 @@ def runInterpolateBenchmark(inputVideo, executor):
             "--interpolate_method",
             method,
             "--benchmark",
-            "--ensemble",
+            # "--ensemble",
             "--outpoint",
             "20",
         ]
+
+        if method not in ["rife4.22", "rife4.22-lite"]:
+            cmd += ["--ensemble"]
         print(f"Running command: {' '.join(cmd)}")  # Debugging line
         subprocess.run(cmd, cwd=os.path.dirname(os.path.abspath(__file__)))
 
@@ -158,24 +162,24 @@ def runInterpolateBenchmark(inputVideo, executor):
 
 
 def parseFPS():
-    with open(ffmpegLogPath, "r") as file:
-        output = file.read()
-    matches = re.findall(r"fps=\s*([\d.]+)", output)
-    # Filter out fps values that are 0.0 or 0
-    filtered = [float(fps) for fps in matches if float(fps) > 0]
-    if filtered:
-        highestFPS = max(filtered)
-        averageFPS = round(sum(filtered) / len(filtered), 2)
-        print("Highest FPS:", highestFPS, "Average FPS:", averageFPS)
-        return ("Highest FPS:", highestFPS, "Average FPS:", averageFPS)
-    else:
-        print("Couldn't identify FPS value. Skipping...")
-        return None
+    with open(tasLogPath, "r") as file:
+        for line in file:
+            if "Total Execution Time" in line:
+                match = re.search(
+                    r"Total Execution Time: ([\d.]+) seconds - FPS: ([\d.]+)", line
+                )
+                if match:
+                    total_execution_time = float(match.group(1))
+                    fps = float(match.group(2))
+                    print(f"Total Execution Time: {total_execution_time} seconds")
+                    print(f"FPS: {fps}")
+                    return total_execution_time, fps
+    return None, None
 
 
 def parseSystemInfo():
     systemInfo = {}
-    with open(logTxtPath, "r") as file:
+    with open(tasLogPath, "r") as file:
         lines = file.readlines()
         start = lines.index("============== System Checker ==============\n") + 1
         end = lines.index("============== Arguments Checker ==============\n")
@@ -189,7 +193,7 @@ def parseSystemInfo():
 if __name__ == "__main__":
     TIMESLEEP = 2
     CLIPURL = "https://www.youtube.com/watch?v=kpeUMAVJCig"
-    TESTINGVERSION = "V4.3"
+    TESTINGVERSION = "V4.4"
 
     upscaleMethods = [
         "shufflecugan",
@@ -224,7 +228,7 @@ if __name__ == "__main__":
 
     currentTest = 0
     executor, version = getExe()
-    inputVideo = getClip(executor)
+    inputVideo, systemInfo = getClip(executor)
 
     # Define the questions
     questions = [
@@ -274,4 +278,4 @@ if __name__ == "__main__":
     print(f"Using {' '.join(executor)} version {version}")
     print("Current working directory:", os.getcwd())
 
-    runAllBenchmarks(executor, version, inputVideo)
+    runAllBenchmarks(executor, version, inputVideo, systemInfo)
