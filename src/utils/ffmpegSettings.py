@@ -937,7 +937,10 @@ class WriteBuffer:
         try:
             if self.isCudaAvailable:
                 dataID = self.writtenFrames % workingFrames
-                self.torchArray[dataID].copy_(frame.mul(255), non_blocking=False)
+                with torch.cuda.stream(self.normStream):
+                    frame = frame.mul(255)
+                    self.torchArray[dataID].copy_(frame, non_blocking=False)
+                self.normStream.synchronize()
                 self.processQueue.put(dataID)
                 self.writtenFrames += 1
             else:
