@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Improved `Input/Output` handling which should result in a much more dynamic encoding selection for batch processes.
 - Slight adjustment to chained processes should yield in a small performance boost.
 - Lazifying TAS has improved start up times by up to `1s` in certain workloads, this should improve the responsiveness of TAS by a margin of `30%` on average.
+- Improved and streamlined TAS benchmarkig.
 
 #### Removals:
 - Vidgear package
@@ -37,6 +38,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - `16bit` workflow wouldn't work due to undeclared variable.
 - Fixed an issue where RIFE TRT would produce unwanted results on the 2nd frame of the output video when CPU usage was high.
 - Fixed an issue where RIFE TRT would display duplicated frames past `2x` interpolation.
+- Fixed `benchmark.py` issues caused by backend changes.
 
 #### Breaking Changes:
 - If you are updating from `TAS 1.9.8, 1.9.9, 1.9.10`, YOU will have to delete all `RIFE` related Engines and regenerate them.
