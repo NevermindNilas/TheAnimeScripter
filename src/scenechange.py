@@ -4,7 +4,7 @@ import logging
 import cv2
 
 from torch.nn import functional as F
-from .utils.downloadModels import downloadModels, weightsDir, modelsMap
+from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 
 
 class SceneChange:
@@ -69,7 +69,6 @@ class SceneChange:
             if self.half
             else frame.astype(self.np.float32)
         )
-        frame = frame / 255
         frame = frame.transpose((2, 0, 1))
         return frame
 
@@ -230,7 +229,7 @@ class SceneChangeCPU:
     def processFrame(self, frame):
         frame = cv2.resize(frame.cpu().numpy(), (224, 224))
         frame = cv2.cvtColor(frame, self.cv2.COLOR_BGR2GRAY)
-        frame = frame.astype(self.np.float16) / 255.0
+        frame = frame.astype(self.np.float16)
         return frame
 
     def __call__(self, frame):
@@ -262,7 +261,7 @@ class SceneChangeCuda:
                 align_corners=False,
             )
             frame = torch.mean(frame, dim=0, keepdim=True)
-            frame = frame.half() / 255.0
+            frame = frame.half()
         return frame
 
     def __call__(self, frame):
