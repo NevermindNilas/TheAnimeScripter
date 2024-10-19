@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### New
 - Added `H266` encoding support using command `--encode_method h266`.
 - Added `slow_x264`, `slow_x265` & `slow_av1` encode methods.
+- Added `rife_elexor-tensorrt`
 
 #### Improvements
 - A serious restructure to TAS' backend.
@@ -25,7 +26,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Improved `Input/Output` handling which should result in a much more dynamic encoding selection for batch processes.
 - Slight adjustment to chained processes should yield in a small performance boost.
 - Lazifying TAS has improved start up times by up to `1s` in certain workloads, this should improve the responsiveness of TAS by a margin of `30%` on average.
-- Improved and streamlined TAS benchmarkig.
+- Improved and streamlined TAS benchmarking.
 
 #### Removals:
 - Vidgear package
