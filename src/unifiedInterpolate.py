@@ -58,8 +58,20 @@ def importRifeArch(interpolateMethod, version):
                     from src.rifearches.Rife46_v3 import IFNet
 
                     Head = None
+                case "rife_elexor-tensorrt":
+                    from src.rifearches.IFNet_elexor import IFNet
 
-            return IFNet, Head
+                    Head = torch.nn.Sequential(
+                        torch.nn.Conv2d(3, 16, 3, 2, 1),
+                        torch.nn.ConvTranspose2d(16, 4, 4, 2, 1),
+                    )
+
+            if Head is None:
+                return IFNet, None
+            elif isinstance(Head, type):
+                return IFNet, Head()
+            else:
+                return IFNet, Head
 
 
 class RifeCuda:
@@ -180,59 +192,55 @@ class RifeCuda:
 
     @torch.inference_mode()
     def processFrame(self, frame, toNorm):
-        self.normStream.wait_stream(torch.cuda.current_stream())
-        with torch.cuda.stream(self.normStream):
-            match toNorm:
-                case "I0":
-                    self.I0.copy_(
-                        self.padFrame(
-                            frame.to(
-                                device=self.device,
-                                dtype=self.dType,
-                                non_blocking=True,
-                            )
-                            .permute(2, 0, 1)
-                            .unsqueeze(0)
+        match toNorm:
+            case "I0":
+                self.I0.copy_(
+                    self.padFrame(
+                        frame.to(
+                            device=self.device,
+                            dtype=self.dType,
+                            non_blocking=True,
                         )
-                    ).to(memory_format=torch.channels_last)
-
-                case "I1":
-                    self.I1.copy_(
-                        self.padFrame(
-                            frame.to(
-                                device=self.device,
-                                dtype=self.dType,
-                                non_blocking=True,
-                            )
-                            .permute(2, 0, 1)
-                            .unsqueeze(0)
-                        ),
-                        non_blocking=True,
-                    ).to(memory_format=torch.channels_last)
-
-                case "cache":
-                    self.I0.copy_(
-                        self.I1,
-                        non_blocking=True,
+                        .permute(2, 0, 1)
+                        .unsqueeze(0)
                     )
-                    self.model.cache()
+                ).to(memory_format=torch.channels_last)
 
-                case "pad":
-                    output = self.padFrame(frame)
-                    return output
+            case "I1":
+                self.I1.copy_(
+                    self.padFrame(
+                        frame.to(
+                            device=self.device,
+                            dtype=self.dType,
+                            non_blocking=True,
+                        )
+                        .permute(2, 0, 1)
+                        .unsqueeze(0)
+                    ),
+                    non_blocking=True,
+                ).to(memory_format=torch.channels_last)
 
-                case "infer":
-                    with torch.cuda.stream(self.stream):
-                        output = self.model(self.I0, self.I1, frame)[
-                            : self.height, : self.width, :
-                        ]
-                        self.stream.synchronize()
-                    return output
+            case "cache":
+                self.I0.copy_(
+                    self.I1,
+                    non_blocking=True,
+                )
+                self.model.cache()
 
-                case "model":
-                    self.model.cacheReset(frame)
+            case "pad":
+                output = self.padFrame(frame)
+                return output
 
-        self.normStream.synchronize()
+            case "infer":
+                with torch.cuda.stream(self.stream):
+                    output = self.model(self.I0, self.I1, frame)[
+                        : self.height, : self.width, :
+                    ]
+                    self.stream.synchronize()
+                return output
+
+            case "model":
+                self.model.cacheReset(frame)
 
     @torch.inference_mode()
     def padFrame(self, frame):
@@ -245,11 +253,15 @@ class RifeCuda:
     @torch.inference_mode()
     def __call__(self, frame, interpQueue):
         if self.firstRun:
-            self.processFrame(frame, "I0")
+            with torch.cuda.stream(self.normStream):
+                self.processFrame(frame, "I0")
+            self.normStream.synchronize()
             self.firstRun = False
             return
 
-        self.processFrame(frame, "I1")
+        with torch.cuda.stream(self.normStream):
+            self.processFrame(frame, "I1")
+        self.normStream.synchronize()
 
         for i in range(self.interpolateFactor - 1):
             timestep = torch.full(
@@ -356,7 +368,8 @@ class RifeTensorRT:
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
 
         IFNet, Head = importRifeArch(self.interpolateMethod, "v3")
-        self.norm = Head().cuda() if Head is not None else None
+
+        self.norm = Head.cuda() if Head is not None else None
 
         enginePath = self.TensorRTEngineNameHandler(
             modelPath=self.modelPath,
@@ -382,7 +395,11 @@ class RifeTensorRT:
             self.model.float()
         self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
 
-        if self.interpolateMethod in ["rife4.25-tensorrt", "rife4.22-lite-tensorrt"]:
+        if self.interpolateMethod in [
+            "rife_elexor-tensorrt",
+            "rife4.25-tensorrt",
+            "rife4.22-lite-tensorrt",
+        ]:
             channels = 4
         else:
             channels = 8
@@ -549,7 +566,6 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def processFrame(self, frame, name=None):
-        self.normStream.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(self.normStream):
             match name:
                 case "I0":
