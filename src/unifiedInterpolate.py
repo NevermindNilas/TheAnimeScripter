@@ -39,39 +39,46 @@ def importRifeArch(interpolateMethod, version):
         case "v3":
             match interpolateMethod:
                 case "rife4.25-tensorrt":
-                    from src.rifearches.Rife425_v3 import IFNet, Head
+                    from src.rifearches.Rife425_v3 import IFNet
+
+                    Head = True
                 case "rife4.22-tensorrt":
-                    from src.rifearches.Rife422_v3 import IFNet, Head
+                    from src.rifearches.Rife422_v3 import IFNet
+
+                    Head = True
                 case "rife4.22-lite-tensorrt":
-                    from src.rifearches.Rife422_lite_v3 import IFNet, Head
+                    from src.rifearches.Rife422_lite_v3 import IFNet
+
+                    Head = True
                 case "rife4.21-tensorrt":
-                    from src.rifearches.Rife422_v3 import IFNet, Head
+                    from src.rifearches.Rife422_v3 import IFNet
+
+                    Head = True
                 case "rife4.20-tensorrt":
-                    from src.rifearches.Rife420_v3 import IFNet, Head
+                    from src.rifearches.Rife420_v3 import IFNet
+
+                    Head = True
                 case "rife4.18-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet, Head
+                    from src.rifearches.Rife415_v3 import IFNet
+
+                    Head = True
                 case "rife4.17-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet, Head
+                    from src.rifearches.Rife415_v3 import IFNet
+
+                    Head = True
                 case "rife4.15-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet, Head
+                    from src.rifearches.Rife415_v3 import IFNet
+
+                    Head = True
                 case "rife4.6-tensorrt":
                     from src.rifearches.Rife46_v3 import IFNet
 
-                    Head = None
+                    Head = False
                 case "rife_elexor-tensorrt":
                     from src.rifearches.IFNet_elexor import IFNet
 
-                    Head = torch.nn.Sequential(
-                        torch.nn.Conv2d(3, 16, 3, 2, 1),
-                        torch.nn.ConvTranspose2d(16, 4, 4, 2, 1),
-                    )
-
-            if Head is None:
-                return IFNet, None
-            elif isinstance(Head, type):
-                return IFNet, Head()
-            else:
-                return IFNet, Head
+                    Head = True
+            return IFNet, Head
 
 
 class RifeCuda:
@@ -369,8 +376,6 @@ class RifeTensorRT:
 
         IFNet, Head = importRifeArch(self.interpolateMethod, "v3")
 
-        self.norm = Head.cuda() if Head is not None else None
-
         enginePath = self.TensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
@@ -395,6 +400,10 @@ class RifeTensorRT:
             self.model.float()
         self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
 
+        if Head is True:
+            self.norm = self.model.encode
+        else:
+            self.norm = None
         if self.interpolateMethod in [
             "rife_elexor-tensorrt",
             "rife4.25-tensorrt",
@@ -455,7 +464,7 @@ class RifeTensorRT:
                 input_names=inputNames,
                 output_names=outputNames,
                 dynamic_axes=dynamicAxes,
-                opset_version=19,
+                opset_version=21,
             )
 
             inputs = [
