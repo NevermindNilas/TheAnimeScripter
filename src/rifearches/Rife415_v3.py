@@ -154,7 +154,7 @@ class IFNet(nn.Module):
         self.height = height
 
         self.blocks = [self.block0, self.block1, self.block2, self.block3]
-        tmp = max(64, int(64 / 1.0))
+        tmp = max(32, int(32 / 1.0))
         self.pw = math.ceil(self.width / tmp) * tmp
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
