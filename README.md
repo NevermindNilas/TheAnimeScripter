@@ -93,8 +93,8 @@ All available parameters for interacting with the CLI or directly with `main.py`
 - Custom models compatible with [Spandrel](https://github.com/chaiNNer-org/spandrel) can be used via the `--custom_model` parameter.
 
 ### Interpolation Models
-- Rife CUDA (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite, 4.25 )
-- Rife TensorRT (Versions: 4.6, 4.15, 4.15-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite, 4.25 )
+- Rife CUDA (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite, 4.25, Rife_Elexor ( modded 4.7 ) )
+- Rife TensorRT (Versions: 4.6, 4.15, 4.15-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite, 4.25, Rife_Elexor ( modded 4.7 ) )
 - Rife NCNN (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite )
 
 ### Denoise Models
@@ -125,6 +125,7 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 | [Sirosky](https://github.com/Sirosky/Upscale-Hub)                         | Open-Proteus and AniScale 2                     |
 | [Trentonom0r3](https://github.com/Trentonom0r3)                           | Helping with TAS Adobe Edition                  |
 | [Adegerard](https://github.com/adegerard)                                 | Several ideas on how to further improve TAS     |
+| [Elexor](https://github.com/elexor)                                       | Modded Rife Experiment(s)                       |
 
 If we forgot to mention anyone, please email: nilascontact@gmail.com
 
