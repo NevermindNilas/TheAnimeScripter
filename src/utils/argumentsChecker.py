@@ -420,7 +420,7 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         "ffmpeg.exe" if sysUsed == "Windows" else "ffmpeg",
     )
     if not os.path.exists(args.ffmpeg_path):
-        from src.getFFMPEG import getFFMPEG
+        from src.utils.getFFMPEG import getFFMPEG
 
         args.ffmpeg_path = getFFMPEG(mainPath, sysUsed, args.ffmpeg_path)
 
