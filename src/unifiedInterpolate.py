@@ -381,8 +381,28 @@ class RifeTensorRT:
         else:
             self.modelPath = os.path.join(weightsDir, folderName, self.filename)
 
+        if self.interpolateMethod in [
+            "rife_elexor-tensorrt",
+            "rife4.25-tensorrt",
+        ]:
+            channels = 4
+            mul = 64
+        elif self.interpolateMethod in [
+            "rife4.22-lite-tensorrt",
+        ]:
+            channels = 4
+            mul = 32
+        elif self.interpolateMethod in [
+            "rife4.25-lite-tensorrt",
+        ]:
+            channels = 4
+            mul = 128
+        else:
+            channels = 8
+            mul = 32
+
         self.dtype = torch.float16 if self.half else torch.float32
-        tmp = max(64, int(64 / 1.0))
+        tmp = max(mul, int(mul / 1.0))
         self.pw = math.ceil(self.width / tmp) * tmp
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
@@ -417,15 +437,6 @@ class RifeTensorRT:
             self.norm = self.model.encode
         else:
             self.norm = None
-
-        if self.interpolateMethod in [
-            "rife_elexor-tensorrt",
-            "rife4.25-tensorrt",
-            "rife4.22-lite-tensorrt",
-        ]:
-            channels = 4
-        else:
-            channels = 8
 
         self.engine, self.context = self.TensorRTEngineLoader(enginePath)
         if (
