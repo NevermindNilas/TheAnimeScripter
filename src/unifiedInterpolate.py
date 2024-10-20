@@ -450,8 +450,11 @@ class RifeTensorRT:
             dummyInput2 = torch.zeros(
                 1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
             )
-            dummyInput3 = torch.zeros(
-                1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
+            dummyInput3 = torch.full(
+                (1, 1, self.ph, self.pw),
+                0.5,
+                dtype=self.dtype,
+                device=self.device,
             )
 
             if self.norm is not None:
@@ -559,8 +562,11 @@ class RifeTensorRT:
                 device=self.device,
             )
 
-        self.dummyTimeStep = torch.zeros(
-            1, 1, self.ph, self.pw, dtype=self.dtype, device=self.device
+        self.dummyTimeStep = torch.full(
+            (1, 1, self.ph, self.pw),
+            0.5,
+            dtype=self.dtype,
+            device=self.device,
         )
 
         self.dummyOutput = torch.zeros(
@@ -677,7 +683,7 @@ class RifeTensorRT:
             self.processFrame(timestep, "timestep")
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()
-            interpQueue.put(self.dummyOutput)
+            interpQueue.put(self.dummyOutput.clone())
 
         self.processFrame(None, "cache")
         if self.norm is not None:
