@@ -20,8 +20,8 @@ def outputNameGenerator(args, videoInput):
         "sharpen": f"-Sh{getattr(args, 'sharpen_sens', '')}"
         if getattr(args, "sharpen", False)
         else "",
-        "denoise": f"-De{getattr(args, 'denoise_method', '')}"
-        if getattr(args, "denoise", False)
+        "restore": f"-De{getattr(args, 'restore_method', '')}"
+        if getattr(args, "restore", False)
         else "",
         "segment": "-Segment" if getattr(args, "segment", False) else "",
         "depth": "-Depth" if getattr(args, "depth", False) else "",

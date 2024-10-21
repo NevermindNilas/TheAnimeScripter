@@ -84,8 +84,8 @@ class VideoProcessor:
         self.resize_method = args.resize_method
         self.custom_model = args.custom_model
         self.buffer_limit = args.buffer_limit
-        self.denoise = args.denoise
-        self.denoise_method = args.denoise_method
+        self.restore = args.restore
+        self.restore_method = args.restore_method
         self.sample_size = args.sample_size
         self.benchmark = args.benchmark
         self.segment_method = args.segment_method
@@ -117,7 +117,7 @@ class VideoProcessor:
                 f"Resizing to {self.width}x{self.height}, aspect ratio: {aspect_ratio}"
             )
 
-        elif self.autoclip:
+        if self.autoclip:
             logging.info("Detecting scene changes")
             AutoClip(self, mainPath)
 
@@ -145,8 +145,8 @@ class VideoProcessor:
             if self.isSceneChange:
                 self.sceneChangeCounter += 1
 
-        if self.denoise:
-            frame = self.denoise_process(frame)
+        if self.restore:
+            frame = self.restore_process(frame)
 
         if self.interpolate:
             if self.isSceneChange:
@@ -191,7 +191,6 @@ class VideoProcessor:
         increment = 1 if not self.interpolate else self.interpolate_factor
         if self.interpolate:
             self.interpQueue = Queue(maxsize=self.interpolate_factor)
-
         try:
             with alive_bar(
                 total=self.totalFrames * increment,
@@ -231,7 +230,7 @@ class VideoProcessor:
                 self.new_height,
                 self.upscale_process,
                 self.interpolate_process,
-                self.denoise_process,
+                self.restore_process,
                 self.dedup_process,
                 self.scenechange_process,
             ) = initializeModels(self)
