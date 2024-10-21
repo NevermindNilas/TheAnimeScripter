@@ -5,7 +5,7 @@ import numpy as np
 import torch.nn.functional as F
 
 from concurrent.futures import ThreadPoolExecutor
-from src.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from alive_progress import alive_bar
 
