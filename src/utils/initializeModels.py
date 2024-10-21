@@ -157,7 +157,7 @@ def initializeModels(self):
     outputHeight = self.height
     upscale_process = None
     interpolate_process = None
-    denoise_process = None
+    restore_process = None
     dedup_process = None
     scenechange_process = None
     upscaleSkipProcess = None
@@ -363,13 +363,13 @@ def initializeModels(self):
                     self.ensemble,
                 )
 
-    if self.denoise:
-        match self.denoise_method:
-            case "scunet" | "dpir" | "nafnet" | "real-plksr":
-                from src.unifiedDenoise import UnifiedDenoise
+    if self.restore:
+        match self.restore_method:
+            case "scunet" | "dpir" | "nafnet" | "real-plksr" | "anime1080fixer":
+                from src.unifiedRestore import UnifiedRestore
 
-                denoise_process = UnifiedDenoise(
-                    self.denoise_method,
+                restore_process = UnifiedRestore(
+                    self.restore_method,
                     self.half,
                 )
 
@@ -464,7 +464,7 @@ def initializeModels(self):
         outputHeight,
         upscale_process,
         interpolate_process,
-        denoise_process,
+        restore_process,
         dedup_process,
         scenechange_process,
     )
