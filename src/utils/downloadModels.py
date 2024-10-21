@@ -245,8 +245,14 @@ def modelsMap(
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
 
-        case "anime1080fixer":
-            return "1x_Anime1080Fixer_SuperUltraCompact.pth"
+        case "anime1080fixer" | "anime1080fixer-tensorrt":
+            if modelType == "pth":
+                return "1x_Anime1080Fixer_SuperUltraCompact.pth"
+            elif modelType == "onnx":
+                if half:
+                    return "1x_Anime1080Fixer_SuperUltraCompact_op20_fp16_clamp.onnx"
+                else:
+                    return "1x_Anime1080Fixer_SuperUltraCompact_op20_clamp.onnx"
 
         case "gmfss":
             return "gmfss-fortuna-union.zip"

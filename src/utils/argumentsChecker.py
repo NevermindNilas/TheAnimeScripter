@@ -206,7 +206,14 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         "--restore_method",
         type=str,
         default="scunet",
-        choices=["scunet", "nafnet", "dpir", "real-plksr", "anime1080fixer"],
+        choices=[
+            "scunet",
+            "nafnet",
+            "dpir",
+            "real-plksr",
+            "anime1080fixer",
+            "anime1080fixer-tensorrt",
+        ],
         help="Denoising method",
     )
     processingGroup.add_argument(

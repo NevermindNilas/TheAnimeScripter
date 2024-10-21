@@ -316,15 +316,14 @@ class UniversalTensorRT:
 
     @torch.inference_mode()
     def __call__(self, frame):
-        with torch.cuda.stream(self.normStream):
-            if self.upscaleSkip is not None:
+        if self.upscaleSkip is not None:
+            with torch.cuda.stream(self.normStream):
                 if self.upscaleSkip(frame):
                     self.skippedCounter += 1
                     return self.prevFrame
+            self.normStream.synchronize()
 
-            self.processFrame(frame)
-        self.normStream.synchronize()
-
+        self.processFrame(frame)
         self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
         self.stream.synchronize()
 
