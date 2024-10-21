@@ -97,11 +97,12 @@ All available parameters for interacting with the CLI or directly with `main.py`
 - Rife TensorRT (Versions: 4.6, 4.15, 4.15-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite, 4.25, Rife_Elexor ( modded 4.7 ) )
 - Rife NCNN (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite )
 
-### Denoise Models
-- SCUNet
-- NAFNet
-- DPIR
-- Real-Plksr (deJpeg)
+### Restore Models
+- SCUNet ( Denoise )
+- NAFNet ( Denoise )
+- DPIR ( Denoise )
+- Real-Plksr (DeJpeg)
+- Anime1080fixer ( Sharpen + Decompress )
 
 ## 📈 Benchmarks
 Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
