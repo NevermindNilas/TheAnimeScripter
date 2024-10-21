@@ -483,7 +483,7 @@ class BuildBuffer:
                 self.normStream.synchronize()
 
             else:
-                self.readBuffer.put(dummyTensor)
+                self.readBuffer.put(dummyTensor.mul(1.0 / 255.0))
 
             self.decodedFrames += 1
 
