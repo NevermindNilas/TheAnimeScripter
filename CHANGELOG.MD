@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added `rife_elexor` and `rife_elexor-tensorrt`
 - Renamed `--denoise` to `--restore` in order to have a more fitting umbrella term.
 - Added `Anime1080Fixer` by @Zarxrax to `--restore`
-
+- Added early TRT backend to `--restore` including `anime1080fixer-tensorrt`
 
 #### Improvements
 - A serious restructure to TAS' backend.
