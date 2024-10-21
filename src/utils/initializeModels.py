@@ -373,6 +373,17 @@ def initializeModels(self):
                     self.half,
                 )
 
+            case "anime1080fixer-tensorrt":
+                from src.unifiedRestore import UnifiedRestoreTensorRT
+
+                restore_process = UnifiedRestoreTensorRT(
+                    self.restore_method,
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.forceStatic,
+                )
+
     if self.dedup:
         match self.dedup_method:
             case "ssim":
