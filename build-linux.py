@@ -54,7 +54,6 @@ def createExecutable():
     srcPath = baseDir / "src"
     mainPath = baseDir / "main.py"
     iconPath = srcPath / "assets" / "icon.ico"
-    benchmarkPath = baseDir / "benchmark.py"
 
     commonArgs = [
         "--noconfirm",
@@ -101,25 +100,6 @@ def createExecutable():
     runSubprocess([pyinstallerPath] + cliArgs)
     print("Finished creating the CLI executable")
 
-    print("Creating the benchmark executable...")
-    runSubprocess([pyinstallerPath] + commonArgs + [str(benchmarkPath)])
-    print("Finished creating the benchmark executable")
-
-    mainInternalPath = distPath / "main" / "_internal"
-    benchmarkInternalPath = distPath / "benchmark" / "_internal"
-
-    if benchmarkInternalPath.exists():
-        for item in benchmarkInternalPath.iterdir():
-            targetPath = mainInternalPath / item.name
-            if item.is_file():
-                shutil.copy2(item, targetPath)
-            elif item.is_dir():
-                shutil.copytree(item, targetPath, dirs_exist_ok=True)
-
-    benchmarkExePath = distPath / "benchmark" / "benchmark"
-    mainExePath = distPath / "main"
-    shutil.move(benchmarkExePath, mainExePath)
-
 
 def moveExtras():
     mainDir = distPath / "main"
@@ -138,14 +118,6 @@ def compileAll():
     runSubprocess([str(venvBinPath / "python3.12"), "-m", "compileall", str(mainDir)])
 
 
-def cleanUp():
-    benchmarkDir = distPath / "benchmark"
-    try:
-        shutil.rmtree(benchmarkDir)
-    except Exception as e:
-        print(f"Error while removing benchmark directory: {e}")
-
-
 if __name__ == "__main__":
     createVenv()
     installRequirements()
@@ -153,4 +125,3 @@ if __name__ == "__main__":
     createExecutable()
     compileAll()
     moveExtras()
-    cleanUp()
