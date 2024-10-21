@@ -126,6 +126,7 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 | [Trentonom0r3](https://github.com/Trentonom0r3)                           | Helping with TAS Adobe Edition                  |
 | [Adegerard](https://github.com/adegerard)                                 | Several ideas on how to further improve TAS     |
 | [Elexor](https://github.com/elexor)                                       | Modded Rife Experiment(s)                       |
+| [Zarxrax](https://github.com/Zarxrax)                                     | Anime1080Fixer model                            |
 
 If we forgot to mention anyone, please email: nilascontact@gmail.com
 

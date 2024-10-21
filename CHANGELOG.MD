@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added `H266` encoding support using command `--encode_method h266`.
 - Added `slow_x264`, `slow_x265` & `slow_av1` encode methods.
 - Added `rife_elexor` and `rife_elexor-tensorrt`
+- Renamed `--denoise` to `--restore` in order to have a more fitting umbrella term.
+- Added `Anime1080Fixer` by @Zarxrax to `--restore`
+
 
 #### Improvements
 - A serious restructure to TAS' backend.

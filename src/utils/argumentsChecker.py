@@ -200,13 +200,13 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         "--sharpen_sens", type=float, default=50, help="Sharpening sensitivity"
     )
     processingGroup.add_argument(
-        "--denoise", action="store_true", help="Denoise the video"
+        "--restore", action="store_true", help="Restore the video"
     )
     processingGroup.add_argument(
-        "--denoise_method",
+        "--restore_method",
         type=str,
         default="scunet",
-        choices=["scunet", "nafnet", "dpir", "real-plksr"],
+        choices=["scunet", "nafnet", "dpir", "real-plksr", "anime1080fixer"],
         help="Denoising method",
     )
     processingGroup.add_argument(
@@ -548,7 +548,7 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         args.scenechange,
         args.upscale,
         args.segment,
-        args.denoise,
+        args.restore,
         args.sharpen,
         args.resize,
         args.dedup,
