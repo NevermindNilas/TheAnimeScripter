@@ -2,7 +2,6 @@ import os
 import torch
 import logging
 
-from spandrel import ModelLoader
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 
 
@@ -31,6 +30,8 @@ class UnifiedRestoreCuda:
         """
         Load the Model
         """
+        from spandrel import ModelLoader
+
         if self.model in ["nafnet"]:
             self.half = False
             print("NAFNet does not support half precision, using float32 instead")

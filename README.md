@@ -98,11 +98,11 @@ All available parameters for interacting with the CLI or directly with `main.py`
 - Rife NCNN (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite )
 
 ### Restore Models
-- SCUNet ( Denoise )
-- NAFNet ( Denoise )
-- DPIR ( Denoise )
-- Real-Plksr (DeJpeg)
-- Anime1080fixer ( Sharpen + Decompress )
+- SCUNet ( Denoise ) ( Cuda )
+- NAFNet ( Denoise ) ( Cuda )
+- DPIR ( Denoise ) ( Cuda )
+- Real-Plksr (DeJpeg) ( Cuda )
+- Anime1080fixer ( Sharpen + Decompress ) ( Cuda & TensorRT )
 
 ## 📈 Benchmarks
 Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
