@@ -43,7 +43,6 @@ def createExecutable():
     srcPath = baseDir / "src"
     mainPath = baseDir / "main.py"
     iconPath = srcPath / "assets" / "icon.ico"
-    benchmarkPath = baseDir / "benchmark.py"
 
     commonArgs = [
         "--noconfirm",
@@ -83,32 +82,10 @@ def createExecutable():
         str(mainPath),
     ]
 
-    benchmarkArgs = commonArgs + [str(benchmarkPath)]
-
     print("Creating the CLI executable...")
     runSubprocess([str(venvScripts / "pyinstaller")] + cliArgs)
 
     print("Finished creating the CLI executable")
-
-    print("Creating the benchmark executable...")
-    runSubprocess([str(venvScripts / "pyinstaller")] + benchmarkArgs)
-    print("Finished creating the benchmark executable")
-
-    mainInternalPath = distPath / "main" / "_internal"
-    benchmarkInternalPath = distPath / "benchmark" / "_internal"
-
-    if benchmarkInternalPath.exists():
-        for item in benchmarkInternalPath.iterdir():
-            targetPath = mainInternalPath / item.name
-            if item.is_file():
-                shutil.copy2(item, targetPath)
-            elif item.is_dir():
-                shutil.copytree(item, targetPath, dirs_exist_ok=True)
-
-    benchmarkExePath = distPath / "benchmark" / "benchmark.exe"
-    mainExePath = distPath / "main"
-
-    shutil.move(benchmarkExePath, mainExePath)
 
 
 def compileAll():
@@ -128,17 +105,6 @@ def moveExtras():
             print(f"Error while copying {fileName}: {e}")
 
 
-def cleanUp():
-    benchmarkFolder = distPath / "benchmark"
-
-    try:
-        shutil.rmtree(benchmarkFolder)
-    except Exception as e:
-        print(f"Error while removing benchmark folder: {e}")
-
-    print("Done! You can find the built executable in the dist-full folder")
-
-
 if __name__ == "__main__":
     createVenv()
     activateVenv()
@@ -147,4 +113,3 @@ if __name__ == "__main__":
     createExecutable()
     compileAll()
     moveExtras()
-    cleanUp()
