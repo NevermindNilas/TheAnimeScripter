@@ -52,6 +52,7 @@ class VideoProcessor:
         totalFrames: int = None,
         audio: bool = None,
         outputFPS: float = None,
+        pixFmt: str = None,
     ):
         self.input = results["videoPath"]
         self.output = results["outputPath"]
@@ -106,6 +107,7 @@ class VideoProcessor:
         self.totalFrames = totalFrames
         self.audio = audio
         self.outputFPS = outputFPS
+        self.pixFmt = pixFmt
 
         logging.info("\n============== Processing Outputs ==============")
 
@@ -137,8 +139,6 @@ class VideoProcessor:
             if self.dedup_process(frame):
                 self.dedupCount += 1
                 return
-
-        # frame = darkenLines(frame)
 
         if self.scenechange:
             self.isSceneChange = self.scenechange_process(frame)
@@ -250,6 +250,7 @@ class VideoProcessor:
                 self.resize_method,
                 self.buffer_limit,
                 totalFrames=self.totalFrames,
+                pixFmt=self.pixFmt,
             )
             self.writeBuffer = WriteBuffer(
                 mainPath=mainPath,
@@ -352,7 +353,7 @@ if __name__ == "__main__":
     for i in results:
         print(green(f"Processing Video: {results[i]['videoPath']}"))
         print(green(f"Output Path: {results[i]['outputPath']}"))
-        width, height, fps, totalFrames, audio = getVideoMetadata(
+        width, height, fps, totalFrames, audio, pixFmt = getVideoMetadata(
             results[i]["videoPath"], args.inpoint, args.outpoint
         )
         outputFPS = fps * args.interpolate_factor if args.interpolate else fps
@@ -365,4 +366,5 @@ if __name__ == "__main__":
             totalFrames=totalFrames,
             audio=audio,
             outputFPS=outputFPS,
+            pixFmt=pixFmt,
         )
