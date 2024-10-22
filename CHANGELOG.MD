@@ -48,6 +48,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed an issue where RIFE TRT would display duplicated frames past `2x` interpolation.
 - Fixed `benchmark.py` issues caused by backend changes.
 - Models weights wouldn't be properly loaded for flow caching when using Rife TRT
+- Fixed an issue where 16bit workflow would downsample to 8bit then upsample back to 16bit.
 
 #### Breaking Changes:
 - If you are updating from `TAS 1.9.8, 1.9.9, 1.9.10`, YOU will have to delete all `RIFE` related Engines and regenerate them.
