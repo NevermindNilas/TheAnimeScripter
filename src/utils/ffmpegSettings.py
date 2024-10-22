@@ -323,6 +323,7 @@ class BuildBuffer:
         buffSize: int = 10**8,
         queueSize: int = 50,
         totalFrames: int = 0,
+        pixFmt: str = "yuv420p8le",
     ):
         """
         A class meant to Pipe the Output of FFMPEG into a Queue for further processing.
@@ -356,6 +357,7 @@ class BuildBuffer:
         self.buffSize = buffSize
         self.queueSize = queueSize
         self.totalFrames = totalFrames
+        self.pixFmt = pixFmt
 
     def decodeSettings(self) -> list:
         """
@@ -373,8 +375,6 @@ class BuildBuffer:
         """
         command = [
             self.ffmpegPath,
-            "-vsync",
-            "0",
         ]
 
         if self.outpoint != 0:
@@ -401,8 +401,12 @@ class BuildBuffer:
         if filters:
             command.extend(["-vf", ",".join(filters)])
 
-        command.extend(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-"])
-
+        if self.pixFmt in ["unknown", "yuv420p8le"]:
+            command.extend(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-"])
+        elif self.pixFmt == "yuv420p10le":
+            command.extend(["-f", "rawvideo", "-pix_fmt", "yuv420p10le", "-"])
+        else:
+            command.extend(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-"])
         return command
 
     def start(self):
@@ -419,11 +423,19 @@ class BuildBuffer:
 
         self.isCudaAvailable = checkForCudaWorkflow()
 
-        yPlane = self.width * self.height
-        uPlane = (self.width // 2) * (self.height // 2)
-        vPlane = (self.width // 2) * (self.height // 2)
-        reshape = (self.height * 3 // 2, self.width)
-        chunk = yPlane + uPlane + vPlane
+        if self.pixFmt in ["unknown", "yuv420p8le"]:
+            yPlane = self.width * self.height
+            uPlane = (self.width // 2) * (self.height // 2)
+            vPlane = (self.width // 2) * (self.height // 2)
+            reshape = (self.height * 3 // 2, self.width)
+            chunk = yPlane + uPlane + vPlane
+        elif self.pixFmt == "yuv420p10le":
+            yPlane = self.width * self.height * 2
+            uPlane = (self.width // 2) * (self.height // 2) * 2
+            vPlane = (self.width // 2) * (self.height // 2) * 2
+            reshape = (self.height * 3 // 2, self.width)
+            chunk = yPlane + uPlane + vPlane
+
         self.process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
@@ -463,16 +475,29 @@ class BuildBuffer:
             dummyTensor = dummyTensor.pin_memory()
 
         for _ in range(self.totalFrames):
-            dummyTensor.copy_(
-                torch.from_numpy(
-                    cv2.cvtColor(
-                        np.frombuffer(self.chunkQueue.get(), dtype=np.uint8).reshape(
-                            reshape
-                        ),
-                        cv2.COLOR_YUV2RGB_I420,
+            if self.pixFmt in ["unknown", "yuv420p8le"]:
+                dummyTensor.copy_(
+                    torch.from_numpy(
+                        cv2.cvtColor(
+                            np.frombuffer(
+                                self.chunkQueue.get(), dtype=np.uint8
+                            ).reshape(reshape),
+                            cv2.COLOR_YUV2RGB_I420,
+                        )
                     )
                 )
-            )
+            elif self.pixFmt == "yuv420p10le":
+                dummyTensor.copy_(
+                    torch.from_numpy(
+                        cv2.cvtColor(
+                            (np.frombuffer(self.chunkQueue.get(), dtype=np.uint16) >> 2)
+                            .astype(np.uint8)
+                            .reshape(reshape),
+                            cv2.COLOR_YUV2RGB_I420,
+                        )
+                    )
+                )
+
             if self.isCudaAvailable:
                 with torch.cuda.stream(self.normStream):
                     self.readBuffer.put(
@@ -606,9 +631,14 @@ class WriteBuffer:
         )
         dimsList = [self.height, self.width, self.channels]
 
-        self.torchArray = torch.zeros(
-            *dimensions.tolist(), dtype=torch.uint8
-        ).share_memory_()
+        if self.bitDepth == "8bit":
+            self.torchArray = torch.zeros(
+                *dimensions.tolist(), dtype=torch.uint8
+            ).share_memory_()
+        else:
+            self.torchArray = torch.zeros(
+                *dimensions.tolist(), dtype=torch.uint16
+            ).share_memory_()
 
         try:
             self.torchArray = self.torchArray.cuda()
@@ -881,7 +911,10 @@ class WriteBuffer:
         isCudaAvailable: bool = False,
         ffmpegLogPath: str = "",
     ):
-        dummyTensor = torch.zeros(dimsList, dtype=torch.uint8)
+        if bitDepth == "8bit":
+            dummyTensor = torch.zeros(dimsList, dtype=torch.uint8)
+        else:
+            dummyTensor = torch.zeros(dimsList, dtype=torch.uint16)
 
         if isCudaAvailable:
             dummyTensor = dummyTensor.pin_memory()
