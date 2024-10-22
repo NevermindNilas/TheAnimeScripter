@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Renamed `--denoise` to `--restore` in order to have a more fitting umbrella term.
 - Added `Anime1080Fixer` by @Zarxrax to `--restore`
 - Added early TRT backend to `--restore` including `anime1080fixer-tensorrt`
+- Added support for `yuv420ple` inputs.
 
 #### Improvements
 - A serious restructure to TAS' backend.
@@ -32,6 +33,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Improved and streamlined TAS benchmarking.
 - Upgraded ONNX Opset version `19` -> `20`
 - Improved Rife Model / Arch Handling.
+- Removed unneeded code from `decode options`.
 
 #### Removals:
 - Vidgear package

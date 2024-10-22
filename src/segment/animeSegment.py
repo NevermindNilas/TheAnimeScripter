@@ -5,8 +5,8 @@ import torch
 import torch.nn.functional as F
 
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
+from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from concurrent.futures import ThreadPoolExecutor
-from src.ffmpegSettings import BuildBuffer, WriteBuffer
 from alive_progress import alive_bar
 
 
@@ -26,6 +26,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
+        pixFmt: str = "yuva420p",
         mainPath: str = None,
     ):
         self.input = input
@@ -58,6 +59,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 resizeMethod=None,
                 queueSize=self.buffer_limit,
                 totalFrames=self.totalFrames,
+                pixFmt=pixFmt,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -181,6 +183,7 @@ class AnimeSegmentTensorRT:
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
+        pixFmt: str = "yuva420p",
         mainPath: str = None,
     ):
         self.input = input
@@ -225,6 +228,7 @@ class AnimeSegmentTensorRT:
                 resizeMethod=None,
                 queueSize=self.buffer_limit,
                 totalFrames=self.totalFrames,
+                pixFmt=pixFmt,
             )
 
             self.writeBuffer = WriteBuffer(

@@ -12,6 +12,8 @@ from alive_progress import alive_bar
 
 def calculateAspectRatio(width, height, depthQuality="high"):
     if depthQuality == "high":
+        # Whilst this doesn't necessarily allign with the model, it produces
+        # better results than the model's native resolution
         newWidth = ((width + 13) // 14) * 14
         newHeight = ((height + 13) // 14) * 14
     else:
@@ -44,6 +46,7 @@ class DepthCuda:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        pixFmt: str = "yuv420p",
         mainPath: str = "",
     ):
         self.input = input
@@ -63,6 +66,7 @@ class DepthCuda:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.pixFmt = pixFmt
         self.mainPath = mainPath
 
         self.handleModels()
@@ -81,6 +85,7 @@ class DepthCuda:
                 resizeMethod=None,
                 queueSize=self.buffer_limit,
                 totalFrames=self.totalFrames,
+                pixFmt=self.pixFmt,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -264,6 +269,7 @@ class DepthDirectMLV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        pixFmt: str = "yuv420p",
         mainPath: str = "",
     ):
         import onnxruntime as ort
@@ -287,6 +293,7 @@ class DepthDirectMLV2:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.pixFmt = pixFmt
         self.mainPath = mainPath
 
         self.handleModels()
@@ -305,6 +312,7 @@ class DepthDirectMLV2:
                 resizeMethod=None,
                 queueSize=self.buffer_limit,
                 totalFrames=self.totalFrames,
+                pixFmt=self.pixFmt,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -479,6 +487,7 @@ class DepthTensorRTV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        pixFmt: str = "yuv420p",
         mainPath: str = "",
     ):
         self.input = input
@@ -498,6 +507,7 @@ class DepthTensorRTV2:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.pixFmt = pixFmt
         self.mainPath = mainPath
 
         import tensorrt as trt
@@ -528,6 +538,7 @@ class DepthTensorRTV2:
                 resizeMethod=None,
                 queueSize=self.buffer_limit,
                 totalFrames=self.totalFrames,
+                pixFmt=self.pixFmt,
             )
 
             self.writeBuffer = WriteBuffer(

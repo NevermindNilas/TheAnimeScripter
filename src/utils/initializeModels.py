@@ -31,6 +31,7 @@ def Segment(self, mainPath):
             self.buffer_limit,
             self.benchmark,
             self.totalFrames,
+            self.pixFmt,
             mainPath=mainPath,
         )
     elif self.segment_method == "anime-tensorrt":
@@ -50,6 +51,7 @@ def Segment(self, mainPath):
             self.buffer_limit,
             self.benchmark,
             self.totalFrames,
+            self.pixFmt,
             mainPath=mainPath,
         )
 
@@ -100,6 +102,7 @@ def Depth(self, mainPath):
                 self.totalFrames,
                 self.bit_depth,
                 self.depth_quality,
+                self.pixFmt,
                 mainPath=mainPath,
             )
 
@@ -124,6 +127,7 @@ def Depth(self, mainPath):
                 self.totalFrames,
                 self.bit_depth,
                 self.depth_quality,
+                self.pixFmt,
                 mainPath=mainPath,
             )
 
@@ -148,6 +152,7 @@ def Depth(self, mainPath):
                 self.totalFrames,
                 self.bit_depth,
                 self.depth_quality,
+                self.pixFmt,
                 mainPath=mainPath,
             )
 
