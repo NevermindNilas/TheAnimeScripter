@@ -490,14 +490,21 @@ class BuildBuffer:
                 dummyTensor.copy_(
                     torch.from_numpy(
                         cv2.cvtColor(
-                            (np.frombuffer(self.chunkQueue.get(), dtype=np.uint16) >> 2)
+                            (
+                                (
+                                    np.frombuffer(
+                                        self.chunkQueue.get(), dtype=np.uint16
+                                    )
+                                    + 2
+                                )
+                                >> 2
+                            )
                             .astype(np.uint8)
                             .reshape(reshape),
                             cv2.COLOR_YUV2RGB_I420,
                         )
                     )
                 )
-
             if self.isCudaAvailable:
                 with torch.cuda.stream(self.normStream):
                     self.readBuffer.put(
