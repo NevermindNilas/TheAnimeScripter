@@ -59,13 +59,20 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### Adobe Edition
 
 ### New
-- A New Status Indicator that will aid users and give more context on what TAS is doing at any given time.
 - Added new `Slow X264` & `Slow X265` Encoding options.
+- Added `Purge Cache` button in the Extra Tab which will automatically purge all of AE's cache.
+- Added `Open TAS Folder` button which will open TAS' Backend folder for faster debugging purposes.
+- Added `Rife Elexor` and `AnimeFixer` to the option list.
 
 ### Improved
-- Restructured some of the code to be more resource efficient, all relevant calls will now only happen once on UI Mount.
-- Some small UI adjustments in order to be more compact.
+- Restructured some of the code to be more resource efficient, all relevant calls will now only happen once on UI Mount reducing overall CPU usage.
+- Some small UI adjustments.
+- Improved descriptions.
+- Renamed denoise -> restore.
+- `Pre-Render` now dynamically adjusts the cut-off point for the selected layer(s). If the layers extend beyond the bounds of the composition, the part that isn't in the composition will be excluded from processing.
 
+### Fixed
+- 'Unable to set `workareadDuration`. Value x out of range y and z.
 
 ## [1.9.10] - 2024-09-29
 
