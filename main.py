@@ -135,10 +135,10 @@ class VideoProcessor:
             self.start()
 
     def processFrame(self, frame):
-        if self.dedup:
-            if self.dedup_process(frame):
-                self.dedupCount += 1
-                return
+        # if self.dedup:
+        #    if self.dedup_process(frame):
+        #        self.dedupCount += 1
+        #        return
 
         if self.scenechange:
             self.isSceneChange = self.scenechange_process(frame)
@@ -183,6 +183,17 @@ class VideoProcessor:
         if self.preview:
             self.preview.add(frame.mul(255).byte().cpu().numpy())
 
+    def decodeProcess(self):
+        import celux
+
+        celux.set_log_level(celux.LogLevel.off)
+        with celux.VideoReader(
+            self.input,
+            device="cpu",
+        ) as reader:
+            for frame in reader:
+                self.decodeQueue.put(frame.cuda().mul(1 / 255))
+
     def process(self):
         frameCount = 0
         self.dedupCount = 0
@@ -191,20 +202,13 @@ class VideoProcessor:
         increment = 1 if not self.interpolate else self.interpolate_factor
         if self.interpolate:
             self.interpQueue = Queue(maxsize=self.interpolate_factor)
+
         try:
             with alive_bar(
-                total=self.totalFrames * increment,
-                title="Processing Frame: ",
-                length=30,
-                stats="| {rate}",
-                elapsed="Elapsed Time: {elapsed}",
-                monitor=" {count}/{total} | [{percent:.0%}] | ",
-                unit="frames",
-                spinner=None,
+                self.totalFrames,
             ) as bar:
                 for _ in range(self.totalFrames):
-                    frame = self.readBuffer.read()
-                    self.processFrame(frame)
+                    self.processFrame(self.decodeQueue.get())
                     frameCount += 1
                     bar(increment)
 
@@ -236,6 +240,7 @@ class VideoProcessor:
             ) = initializeModels(self)
 
             starTime: float = time()
+            """
             self.readBuffer = BuildBuffer(
                 self.input,
                 self.ffmpeg_path,
@@ -252,6 +257,7 @@ class VideoProcessor:
                 totalFrames=self.totalFrames,
                 pixFmt=self.pixFmt,
             )
+            """
             self.writeBuffer = WriteBuffer(
                 mainPath=mainPath,
                 input=self.input,
@@ -274,6 +280,7 @@ class VideoProcessor:
                 preview=self.preview,
             )
             self.writeBuffer.start()
+            self.decodeQueue = Queue(maxsize=10)
 
             if self.preview:
                 from src.previewSettings import Preview
@@ -281,7 +288,7 @@ class VideoProcessor:
                 self.preview = Preview()
 
             with ThreadPoolExecutor(max_workers=3 if self.preview else 2) as executor:
-                executor.submit(self.readBuffer.start)
+                executor.submit(self.decodeProcess)
                 executor.submit(self.process)
                 if self.preview:
                     executor.submit(self.preview.start)
