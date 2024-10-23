@@ -74,6 +74,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 - 'Unable to set `workareadDuration`. Value x out of range y and z.
+- Some options were not saved.
 
 ## [1.9.10] - 2024-09-29
 
