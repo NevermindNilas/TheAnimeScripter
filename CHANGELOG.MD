@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added `Purge Cache` button in the Extra Tab which will automatically purge all of AE's cache.
 - Added `Open TAS Folder` button which will open TAS' Backend folder for faster debugging purposes.
 - Added `Rife Elexor` and `AnimeFixer` to the option list.
+- Added `Delete Pre-Rendered File` Checkbox.
 
 ### Improved
 - Restructured some of the code to be more resource efficient, all relevant calls will now only happen once on UI Mount reducing overall CPU usage.
