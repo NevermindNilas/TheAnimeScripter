@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Upgraded ONNX Opset version `19` -> `20`
 - Improved Rife Model / Arch Handling.
 - Removed unneeded code from `decode options`.
+- Upgraded TensorRT from `10.3.0` -> `10.5.0`
 
 #### Removals:
 - Vidgear package
@@ -51,7 +52,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed an issue where 16bit workflow would downsample to 8bit then upsample back to 16bit.
 
 #### Breaking Changes:
-- If you are updating from `TAS 1.9.8, 1.9.9, 1.9.10`, YOU will have to delete all `RIFE` related Engines and regenerate them.
+- If you are upgrading from an older version of TAS, all engines will need to be rebuilt due to the TensorRT Upgrade.
 
 #### Notes
 - `H266` encoding requires FFMPEG version `7.1`, if you have FFMPEG in System Path make sure the versions matches, otherwise if you downloaded it using TAS, make sure you delete the `ffmpeg` folder located at `%appdata%\Roaming\TheAnimeScripter\` and allow TAS to re-download the latest build.
