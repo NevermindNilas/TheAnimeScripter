@@ -128,8 +128,9 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 | [Adegerard](https://github.com/adegerard)                                 | Several ideas on how to further improve TAS     |
 | [Elexor](https://github.com/elexor)                                       | Modded Rife Experiment(s)                       |
 | [Zarxrax](https://github.com/Zarxrax)                                     | Anime1080Fixer model                            |
+| [sdaqo](https://github.com/sdaqo)                                         | Anipy-CLI                                       |
 
-If we forgot to mention anyone, please email: nilascontact@gmail.com
+If I forgot to mention anyone, please email: nilascontact@gmail.com
 
 ## 🌟 Star History
 

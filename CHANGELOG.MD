@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added `Anime1080Fixer` by @Zarxrax to `--restore`
 - Added early TRT backend to `--restore` including `anime1080fixer-tensorrt`
 - Added support for `yuv420ple` inputs.
+- Added anipy support, use keyword `--input "anime"`
 
 #### Improvements
 - A serious restructure to TAS' backend.
