@@ -15,6 +15,7 @@ onnxruntime-directml
 pytorch-lightning
 inquirer
 pymediainfo
+anipy-cli
 colored
 rich-argparse
 flask
