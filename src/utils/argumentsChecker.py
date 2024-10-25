@@ -536,6 +536,9 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         sys.exit()
     elif args.input.startswith(("http", "www")):
         processURL(args, outputPath)
+    elif args.input.lower() == "anime":
+        processAniPy(args, outputPath)
+
     elif args.input.lower().endswith((".png", ".jpg", ".jpeg")):
         if args.encode_method not in ["gif", "image"]:
             logging.error(
@@ -600,13 +603,29 @@ def processURL(args, outputPath):
         )
 
         args.input = str(args.output)
-        args.output = None
         logging.info(f"New input path: {args.input}")
     else:
         logging.error(
             "URL is invalid or not a YouTube URL, please check the URL and try again"
         )
         sys.exit()
+
+
+def processAniPy(args, outputPath: str):
+    from .generateOutput import outputNameGenerator
+
+    if args.output is None:
+        outputFolder = os.path.join(outputPath, "output")
+        os.makedirs(os.path.join(outputFolder), exist_ok=True)
+        fullOutput = os.path.join(outputFolder, outputNameGenerator(args, args.input))
+    elif os.path.isdir(args.output):
+        fullOutput = os.path.join(args.output, outputNameGenerator(args, args.input))
+    else:
+        fullOutput = args.output
+    from src.utils.anipyLogic import aniPyHandler
+
+    args.input = aniPyHandler(fullOutput, args.ffmpeg_path)
+    logging.info(f"New input path: {args.input}")
 
 
 def inputChecker(input, encodeMethod, customEncoder):
