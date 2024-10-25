@@ -29,6 +29,12 @@ def outputNameGenerator(args, videoInput):
     }
 
     try:
+        # Special case for input "anime"
+        if videoInput == "anime":
+            name = f"anime-{random.randint(0, 10000)}.mp4"
+            logging.debug(f"Generated name for 'anime' input: {name}")
+            return name
+
         # Check if videoInput is a URL
         if "https://" in videoInput or "http://" in videoInput:
             name = "TAS" + "-YTDLP" + f"-{random.randint(0, 1000)}" + ".mp4"
