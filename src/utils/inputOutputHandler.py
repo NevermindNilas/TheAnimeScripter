@@ -42,8 +42,8 @@ def handleInputOutputs(args, isFrozen, outputPath):
     os.makedirs(outputPath, exist_ok=True)
 
     if output is not None:
-        output = os.path.abspath(output)
-        os.makedirs(output, exist_ok=True)
+        if os.path.isdir(output):
+            os.makedirs(output, exist_ok=True)
 
     def genOutputHandler(video, output):
         if video.endswith((".jpg", ".jpeg", ".png")):
@@ -93,9 +93,21 @@ def handleInputOutputs(args, isFrozen, outputPath):
             index += 1
 
     elif os.path.isfile(videos) and not videos.endswith((".txt")):
+        if output is None:
+            output = os.path.join(outputPath, outputNameGenerator(args, videos))
+        elif output.endswith(tuple(AllowedExtensions)):
+            output = output
+        else:
+            if not output.endswith("\\"):
+                output += "\\"
+            if os.path.isdir(output):
+                output = os.path.join(output, outputNameGenerator(args, videos))
+
+        print(f"Final output: {output}")
+
         result[index] = {
             "videoPath": videos,
-            "outputPath": genOutputHandler(videos, output),
+            "outputPath": output,
             "encodeMethod": encoderChecker(videos, encodeMethod),
             "customEncoder": customEncoder,
         }
