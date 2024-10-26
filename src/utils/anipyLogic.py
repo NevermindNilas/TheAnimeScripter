@@ -31,15 +31,12 @@ def convertToAnimeObjects(provider, results):
 
 def selectAnime(animeList):
     # Filter out dub-only anime cuz dubbed is for losers
-    filteredAnimeList = [anime for anime in animeList if "(S)" in str(anime)]
 
     questions = [
         inquirer.List(
             "anime",
-            message=f"Select the anime [1-{len(filteredAnimeList)}]",
-            choices=[
-                f"{idx + 1}: {anime}" for idx, anime in enumerate(filteredAnimeList)
-            ],
+            message=f"Select the anime [1-{len(animeList)}]",
+            choices=[f"{idx + 1}: {anime}" for idx, anime in enumerate(animeList)],
         ),
     ]
     answers = inquirer.prompt(questions)
@@ -67,7 +64,7 @@ def selectEpisode(episodes):
 def getVideoStream(selectedAnime, episodeSelection):
     return selectedAnime.get_video(
         episode=episodeSelection,
-        lang=LanguageTypeEnum.SUB,
+        lang=LanguageTypeEnum.DUB,
         preferred_quality=1080,
     )
 
