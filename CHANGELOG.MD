@@ -16,11 +16,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Renamed `--denoise` to `--restore` in order to have a more fitting umbrella term.
 - Added `Anime1080Fixer` by @Zarxrax to `--restore`
 - Added early TRT backend to `--restore` including `anime1080fixer-tensorrt`
-- Added support for `yuv420ple` inputs.
+- Added support for `yuv420p10le` inputs.
 - Added anipy support, use keyword `--input "anime"`
+- Added support for `yuv422p8le` inputs.
 
 #### Improvements
-- A serious restructure to TAS' backend.
+- A serious restructure to TAS' backend and I/O handling.
 - Upgraded Github Actions runner from Python `3.12.4` -> `3.12.7`
 - Avoid unnecessary memalocs for decode.
 - `--upscale_skip` will now default to CUDA SSIM or CPU SSIM based on the selected `--upscale_method`
@@ -42,7 +43,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Video Stabilization.
 - TAS Banner, might be reimplemented back in the future.
 - Command `--hide_banner`
-- PyMediaInfo
 
 #### Fixed
 - `16bit` workflow wouldn't work due to undeclared variable.
@@ -51,6 +51,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed `benchmark.py` issues caused by backend changes.
 - Models weights wouldn't be properly loaded for flow caching when using Rife TRT
 - Fixed an issue where 16bit workflow would downsample to 8bit then upsample back to 16bit.
+- Fixed `.mov` input issues
 
 #### Breaking Changes:
 - If you are upgrading from an older version of TAS, all engines will need to be rebuilt due to the TensorRT Upgrade.
@@ -61,11 +62,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 #### Adobe Edition
 
 ### New
-- Added new `Slow X264` & `Slow X265` Encoding options.
+- Added `Slow X264` & `Slow X265` Encoding options.
 - Added `Purge Cache` button in the Extra Tab which will automatically purge all of AE's cache.
 - Added `Open TAS Folder` button which will open TAS' Backend folder for faster debugging purposes.
 - Added `Rife Elexor` and `AnimeFixer` to the option list.
 - Added `Delete Pre-Rendered File` Checkbox.
+- Added `Get Anime Clip` button.
 
 ### Improved
 - Restructured some of the code to be more resource efficient, all relevant calls will now only happen once on UI Mount reducing overall CPU usage.
