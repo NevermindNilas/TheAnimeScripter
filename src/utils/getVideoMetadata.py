@@ -37,9 +37,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     colorSpace = videoTrack.color_space
 
     supportedPixFMTs = ["yuv420p8le", "yuv420p10le", "yuv422p8le"]
-    if colorSpace == "RGB":
-        pixFmt = f"rgb{bitDepth}le" if bitDepth else "rgb8le"
-    elif colorSpace == "YUV":
+    if colorSpace == "YUV":
         if bitDepth == "8":
             pixFmt = f"yuv{chromaSubsampling.replace(':', '')}p"
         else:
