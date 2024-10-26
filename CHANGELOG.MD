@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [UNRELEASED] - YYYY-MM-DD
 
+### New
+
+### Improved
+- Depth Quality `Low` will now produce better quality outputs.
+
+
+## [1.9.11] - 2024-10-26
+
 ### The Anime Scripter
 
 #### New
