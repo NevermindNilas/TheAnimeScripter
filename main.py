@@ -276,7 +276,7 @@ class VideoProcessor:
             self.writeBuffer.start()
 
             if self.preview:
-                from src.previewSettings import Preview
+                from src.utils.previewSettings import Preview
 
                 self.preview = Preview()
 
