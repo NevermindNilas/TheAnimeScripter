@@ -80,6 +80,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - 'Unable to set `workareadDuration`. Value x out of range y and z.
 - Some options were not saved.
 
+### Notes
+- Temporarely disabled " Remove Background " until some fixes take place.
+
 ## [1.9.10] - 2024-09-29
 
 #### Fixed
