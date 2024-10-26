@@ -17,10 +17,8 @@ def calculateAspectRatio(width, height, depthQuality="high"):
         newWidth = ((width + 13) // 14) * 14
         newHeight = ((height + 13) // 14) * 14
     else:
-        # The AI was trained on 518px apparently, so we need to pad the image to 518px
-        aspectRatio = width / height
         newHeight = 518
-        newWidth = round((newHeight * aspectRatio) / 14) * 14
+        newWidth = 518
 
     logging.info(f"Depth Padding: {newWidth}x{newHeight}")
     return newHeight, newWidth
