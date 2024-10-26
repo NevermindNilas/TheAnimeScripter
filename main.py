@@ -336,7 +336,6 @@ if __name__ == "__main__":
         format="%(message)s",
         level=logging.INFO,
     )
-    logging.info("This should go to the file!")
     logging.info("============== Command Line Arguments ==============")
     logging.info(f"{' '.join(sys.argv)}\n")
 
