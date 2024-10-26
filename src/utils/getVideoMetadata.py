@@ -36,15 +36,25 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     bitDepth = videoTrack.bit_depth
     colorSpace = videoTrack.color_space
 
+    supportedPixFMTs = ["yuv420p8le", "yuv420p10le", "yuv422p8le"]
     if colorSpace == "RGB":
-        pixFmt = f"rgb{bitDepth}le"
+        pixFmt = f"rgb{bitDepth}le" if bitDepth else "rgb8le"
     elif colorSpace == "YUV":
         if bitDepth == "8":
             pixFmt = f"yuv{chromaSubsampling.replace(':', '')}p"
         else:
-            pixFmt = f"yuv{chromaSubsampling.replace(':', '')}p{bitDepth}le"
+            pixFmt = (
+                f"yuv{chromaSubsampling.replace(':', '')}p{bitDepth}le"
+                if bitDepth
+                else f"yuv{chromaSubsampling.replace(':', '')}p8le"
+            )
     else:
         pixFmt = "unknown"
+
+    if pixFmt not in supportedPixFMTs:
+        logging.warning(
+            f"Unsupported pixel format. The pixel format {pixFmt} is not officially supported, falling back to yuv420p8le."
+        )
 
     duration = round(nFrames / fps, 2) if fps else 0
     inOutDuration = round((outPoint - inPoint) / fps, 2) if fps else 0

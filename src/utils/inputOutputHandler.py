@@ -58,10 +58,14 @@ def handleInputOutputs(args, isFrozen, outputPath):
         else:
             if output is None:
                 return os.path.join(outputPath, outputNameGenerator(args, video))
-            elif os.path.isdir(output):
-                return os.path.join(output, outputNameGenerator(args, video))
-            elif os.path.isfile(output):
+            elif output.endswith(tuple(AllowedExtensions)):
                 return output
+            elif not output.endswith("\\"):
+                tempOutput = output + "\\"
+                if os.path.isdir(tempOutput):
+                    return os.path.join(tempOutput, outputNameGenerator(args, video))
+            else:
+                raise FileNotFoundError(f"File {output} does not exist")
         return output
 
     def encoderChecker(video, encodeMethod):
@@ -93,21 +97,9 @@ def handleInputOutputs(args, isFrozen, outputPath):
             index += 1
 
     elif os.path.isfile(videos) and not videos.endswith((".txt")):
-        if output is None:
-            output = os.path.join(outputPath, outputNameGenerator(args, videos))
-        elif output.endswith(tuple(AllowedExtensions)):
-            output = output
-        else:
-            if not output.endswith("\\"):
-                output += "\\"
-            if os.path.isdir(output):
-                output = os.path.join(output, outputNameGenerator(args, videos))
-
-        print(f"Final output: {output}")
-
         result[index] = {
             "videoPath": videos,
-            "outputPath": output,
+            "outputPath": genOutputHandler(videos, output),
             "encodeMethod": encoderChecker(videos, encodeMethod),
             "customEncoder": customEncoder,
         }
