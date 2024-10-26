@@ -44,6 +44,21 @@ def checkForCudaWorkflow() -> bool:
     return isCudaAvailable
 
 
+def processChunk(pixFmt, chunkQueue, reshape):
+    if pixFmt in ["unknown", "yuv420p8le", "yuv422p8le"]:
+        return cv2.cvtColor(
+            np.frombuffer(chunkQueue.get(), dtype=np.uint8).reshape(reshape),
+            cv2.COLOR_YUV2RGB_I420,
+        )
+    elif pixFmt == "yuv420p10le":
+        return cv2.cvtColor(
+            ((np.frombuffer(chunkQueue.get(), dtype=np.uint16) + 2) >> 2)
+            .astype(np.uint8)
+            .reshape(reshape),
+            cv2.COLOR_YUV2RGB_I420,
+        )
+
+
 def matchEncoder(encode_method: str):
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
@@ -401,7 +416,7 @@ class BuildBuffer:
         if filters:
             command.extend(["-vf", ",".join(filters)])
 
-        if self.pixFmt in ["unknown", "yuv420p8le"]:
+        if self.pixFmt in ["unknown", "yuv420p8le", "yuv422p8le"]:
             command.extend(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-"])
         elif self.pixFmt == "yuv420p10le":
             command.extend(["-f", "rawvideo", "-pix_fmt", "yuv420p10le", "-"])
@@ -423,12 +438,13 @@ class BuildBuffer:
 
         self.isCudaAvailable = checkForCudaWorkflow()
 
-        if self.pixFmt in ["unknown", "yuv420p8le"]:
+        if self.pixFmt in ["unknown", "yuv420p8le", "yuv422p8le"]:
             yPlane = self.width * self.height
             uPlane = (self.width // 2) * (self.height // 2)
             vPlane = (self.width // 2) * (self.height // 2)
             reshape = (self.height * 3 // 2, self.width)
             chunk = yPlane + uPlane + vPlane
+
         elif self.pixFmt == "yuv420p10le":
             yPlane = self.width * self.height * 2
             uPlane = (self.width // 2) * (self.height // 2) * 2
@@ -475,36 +491,10 @@ class BuildBuffer:
             dummyTensor = dummyTensor.pin_memory()
 
         for _ in range(self.totalFrames):
-            if self.pixFmt in ["unknown", "yuv420p8le"]:
-                dummyTensor.copy_(
-                    torch.from_numpy(
-                        cv2.cvtColor(
-                            np.frombuffer(
-                                self.chunkQueue.get(), dtype=np.uint8
-                            ).reshape(reshape),
-                            cv2.COLOR_YUV2RGB_I420,
-                        )
-                    )
-                )
-            elif self.pixFmt == "yuv420p10le":
-                dummyTensor.copy_(
-                    torch.from_numpy(
-                        cv2.cvtColor(
-                            (
-                                (
-                                    np.frombuffer(
-                                        self.chunkQueue.get(), dtype=np.uint16
-                                    )
-                                    + 2
-                                )
-                                >> 2
-                            )
-                            .astype(np.uint8)
-                            .reshape(reshape),
-                            cv2.COLOR_YUV2RGB_I420,
-                        )
-                    )
-                )
+            dummyTensor.copy_(
+                torch.from_numpy(processChunk(self.pixFmt, self.chunkQueue, reshape))
+            )
+
             if self.isCudaAvailable:
                 with torch.cuda.stream(self.normStream):
                     self.readBuffer.put(
