@@ -5,7 +5,7 @@ import torch
 import sys
 import numpy as np
 import cv2
-import threading
+import celux
 
 from queue import Queue
 
@@ -323,220 +323,38 @@ def matchEncoder(encode_method: str):
 class BuildBuffer:
     def __init__(
         self,
-        input: str = "",
-        ffmpegPath: str = "",
+        videoInput: str = "",
         inpoint: float = 0.0,
         outpoint: float = 0.0,
-        dedup: bool = False,
-        dedupSens: float = 0.0,
-        dedupMethod: str = "ssim",
-        width: int = 1920,
-        height: int = 1080,
-        resize: bool = False,
-        resizeMethod: str = "bilinear",
-        buffSize: int = 10**8,
-        queueSize: int = 50,
         totalFrames: int = 0,
-        pixFmt: str = "yuv420p8le",
+        fps: float = 0,
     ):
-        """
-        A class meant to Pipe the Output of FFMPEG into a Queue for further processing.
-
-        input: str - The path to the input video file.
-        ffmpegPath: str - The path to the FFmpeg executable.
-        inpoint: float - The start time of the segment to decode, in seconds.
-        outpoint: float - The end time of the segment to decode, in seconds.
-        dedup: bool - Whether to apply a deduplication filter to the video.
-        dedupSens: float - The sensitivity of the deduplication filter.
-        width: int - The width of the output video in pixels.
-        height: int - The height of the output video in pixels.
-        resize: bool - Whether to resize the video.
-        resizeMethod: str - The method to use for resizing the video. Options include: "fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos",
-        "spline",
-        buffSize: int - The size of the subprocess buffer in bytes, don't touch unless you are working with some ginormous 8K content.
-        queueSize: int - The size of the queue.
-        totalFrames: int - The total amount of frames to decode.
-        """
-        self.input = os.path.normpath(input)
-        self.ffmpegPath = os.path.normpath(ffmpegPath)
-        self.inpoint = inpoint
-        self.outpoint = outpoint
-        self.dedup = dedup
-        self.dedupSens = dedupSens
-        self.dedupeMethod = dedupMethod
-        self.resize = resize
-        self.width = width
-        self.height = height
-        self.resizeMethod = resizeMethod
-        self.buffSize = buffSize
-        self.queueSize = queueSize
-        self.totalFrames = totalFrames
-        self.pixFmt = pixFmt
-
-    def decodeSettings(self) -> list:
-        """
-        This returns a command for FFMPEG to work with, it will be used inside of the scope of the class.
-
-        input: str - The path to the input video file.
-        inpoint: float - The start time of the segment to decode, in seconds.
-        outpoint: float - The end time of the segment to decode, in seconds.
-        dedup: bool - Whether to apply a deduplication filter to the video.
-        dedup_strenght: float - The strength of the deduplication filter.
-        ffmpegPath: str - The path to the FFmpeg executable.
-        resize: bool - Whether to resize the video.
-        resizeMethod: str - The method to use for resizing the video. Options include: "fast_bilinear", "bilinear", "bicubic", "experimental", "neighbor", "area", "bicublin", "gauss", "sinc", "lanczos",
-        "spline",
-        """
-        command = [
-            self.ffmpegPath,
-        ]
-
-        if self.outpoint != 0:
-            command.extend(["-ss", str(self.inpoint), "-to", str(self.outpoint)])
-
-        command.extend(
-            [
-                "-i",
-                self.input,
-            ]
-        )
-
-        filters = []
-        if self.resize:
-            if self.resizeMethod in ["spline16", "spline36", "point"]:
-                filters.append(
-                    f"zscale={self.width}:{self.height}:filter={self.resizeMethod}"
-                )
-            else:
-                filters.append(
-                    f"scale={self.width}:{self.height}:flags={self.resizeMethod}"
-                )
-
-        if filters:
-            command.extend(["-vf", ",".join(filters)])
-
-        if self.pixFmt in ["unknown", "yuv420p8le", "yuv422p8le"]:
-            command.extend(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-"])
-        elif self.pixFmt == "yuv420p10le":
-            command.extend(["-f", "rawvideo", "-pix_fmt", "yuv420p10le", "-"])
-        else:
-            command.extend(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-"])
-        return command
-
-    def start(self):
-        """
-        The actual underlying logic for decoding, it starts a queue and gets the necessary FFMPEG command from decodeSettings.
-        This is meant to be used in a separate thread for faster processing.
-
-        queue : queue.Queue, optional - The queue to put the frames into. If None, a new queue will be created.
-        """
-        self.readBuffer = Queue(maxsize=self.queueSize)
-        command = self.decodeSettings()
-
-        logging.info(f"Decoding options: {' '.join(map(str, command))}")
-
         self.isCudaAvailable = checkForCudaWorkflow()
+        self.decodeBuffer = Queue(maxsize=50)
 
-        if self.pixFmt in ["unknown", "yuv420p8le", "yuv422p8le"]:
-            yPlane = self.width * self.height
-            uPlane = (self.width // 2) * (self.height // 2)
-            vPlane = (self.width // 2) * (self.height // 2)
-            reshape = (self.height * 3 // 2, self.width)
-            chunk = yPlane + uPlane + vPlane
+        inputFramePoint = round(inpoint * fps)
+        outputFramePoint = round(outpoint * fps) if outpoint != 0.0 else totalFrames
 
-        elif self.pixFmt == "yuv420p10le":
-            yPlane = self.width * self.height * 2
-            uPlane = (self.width // 2) * (self.height // 2) * 2
-            vPlane = (self.width // 2) * (self.height // 2) * 2
-            reshape = (self.height * 3 // 2, self.width)
-            chunk = yPlane + uPlane + vPlane
-
-        self.process = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-        )
-        self.decodedFrames = 0
-        self.readingDone = False
-        self.chunkQueue = Queue(maxsize=self.queueSize)
-        chunkExecutor = threading.Thread(
-            target=self.convertFrames, args=(reshape, self.isCudaAvailable)
-        )
-        readExecutor = threading.Thread(target=self.readSTDOUT, args=(chunk,))
-        chunkExecutor.start()
-        readExecutor.start()
-
-        chunkExecutor.join()
-        readExecutor.join()
-
-        logging.info(f"Built buffer with {self.decodedFrames} frames")
-        self.readingDone = True
-        self.readBuffer.put(None)
-        self.process.stdout.close()
-
-    def readSTDOUT(self, chunk):
-        for _ in range(self.totalFrames):
-            rawFrame = self.process.stdout.read(chunk)
-            self.chunkQueue.put(rawFrame)
-
-    @torch.inference_mode()
-    def convertFrames(self, reshape, isCudaAvailable):
-        dummyTensor = torch.zeros(
-            (self.height, self.width, 3), dtype=torch.uint8, device="cpu"
+        logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
+        self.reader = celux.VideoReader(videoInput, device="cpu")(
+            [inputFramePoint, outputFramePoint]
         )
 
-        if isCudaAvailable:
-            self.normStream = torch.cuda.Stream()
-            dummyTensor = dummyTensor.pin_memory()
-
-        for _ in range(self.totalFrames):
-            dummyTensor.copy_(
-                torch.from_numpy(processChunk(self.pixFmt, self.chunkQueue, reshape))
+    def __call__(self):
+        decodedFrames = 0
+        for frame in self.reader:
+            frame = (
+                frame.cuda().mul(1 / 255)
+                if self.isCudaAvailable
+                else frame.mul(1 / 255)
             )
+            self.decodeBuffer.put(frame)
+            decodedFrames += 1
 
-            if self.isCudaAvailable:
-                with torch.cuda.stream(self.normStream):
-                    self.readBuffer.put(
-                        dummyTensor.to(device="cuda", non_blocking=True).mul(
-                            1.0 / 255.0
-                        )
-                    )
-                self.normStream.synchronize()
-
-            else:
-                self.readBuffer.put(dummyTensor.mul(1.0 / 255.0))
-
-            self.decodedFrames += 1
+        logging.info(f"Decoded {decodedFrames} frames")
 
     def read(self):
-        """
-        Returns a torch array in RGB format.
-        """
-        return self.readBuffer.get()
-
-    def isReadingDone(self):
-        """
-        Check if the reading is done, safelock for the queue environment.
-        """
-        return self.readingDone
-
-    def getDecodedFrames(self):
-        """
-        Get the amount of processed frames.
-        """
-        return self.decodedFrames
-
-    def getSizeOfQueue(self):
-        """
-        Get the size of the queue.
-        """
-        return self.readBuffer.qsize()
-
-    def getTotalFrames(self):
-        """
-        Get the total amount of frames.
-        """
-        return self.totalFrames
+        return self.decodeBuffer.get()
 
 
 class WriteBuffer:

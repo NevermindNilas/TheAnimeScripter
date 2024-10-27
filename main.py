@@ -111,11 +111,11 @@ class VideoProcessor:
         logging.info("\n============== Processing Outputs ==============")
 
         if self.resize:
-            aspect_ratio = self.width / self.height
+            aspectRatio = self.width / self.height
             self.width = round(self.width * self.resize_factor / 2) * 2
-            self.height = round(self.width / aspect_ratio / 2) * 2
+            self.height = round(self.width / aspectRatio / 2) * 2
             logging.info(
-                f"Resizing to {self.width}x{self.height}, aspect ratio: {aspect_ratio}"
+                f"Resizing to {self.width}x{self.height}, aspect ratio: {aspectRatio}"
             )
 
         if self.autoclip:
@@ -190,6 +190,7 @@ class VideoProcessor:
         increment = 1 if not self.interpolate else self.interpolate_factor
         if self.interpolate:
             self.interpQueue = Queue(maxsize=self.interpolate_factor)
+
         try:
             with alive_bar(
                 total=self.totalFrames * increment,
@@ -202,8 +203,7 @@ class VideoProcessor:
                 spinner=None,
             ) as bar:
                 for _ in range(self.totalFrames):
-                    frame = self.readBuffer.read()
-                    self.processFrame(frame)
+                    self.processFrame(self.readBuffer.read())
                     frameCount += 1
                     bar(increment)
 
@@ -235,22 +235,15 @@ class VideoProcessor:
             ) = initializeModels(self)
 
             starTime: float = time()
+
             self.readBuffer = BuildBuffer(
-                self.input,
-                self.ffmpeg_path,
-                self.inpoint,
-                self.outpoint,
-                self.dedup,
-                self.dedup_sens,
-                self.dedup_method,
-                self.width,
-                self.height,
-                self.resize,
-                self.resize_method,
-                self.buffer_limit,
+                videoInput=self.input,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
-                pixFmt=self.pixFmt,
+                fps=self.fps,
             )
+
             self.writeBuffer = WriteBuffer(
                 mainPath=mainPath,
                 input=self.input,
@@ -279,7 +272,7 @@ class VideoProcessor:
                 self.preview = Preview()
 
             with ThreadPoolExecutor(max_workers=4 if self.preview else 3) as executor:
-                executor.submit(self.readBuffer.start)
+                executor.submit(self.readBuffer)
                 executor.submit(self.writeBuffer.start)
                 executor.submit(self.process)
                 if self.preview:

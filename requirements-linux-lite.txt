@@ -16,6 +16,7 @@ inquirer
 rich-argparse
 colored
 anipy-cli
+celux
 pymediainfo
 torch==2.5.0
 torchvision==0.20.0

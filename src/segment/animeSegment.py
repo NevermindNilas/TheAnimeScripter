@@ -47,19 +47,11 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self.handleModel()
         try:
             self.readBuffer = BuildBuffer(
-                input=self.input,
-                ffmpegPath=self.ffmpeg_path,
+                videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                dedup=False,
-                dedupSens=None,
-                width=self.width,
-                height=self.height,
-                resize=False,
-                resizeMethod=None,
-                queueSize=self.buffer_limit,
                 totalFrames=self.totalFrames,
-                pixFmt=pixFmt,
+                fps=self.fps,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -83,7 +75,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer.start)
-                executor.submit(self.readBuffer.start)
+                executor.submit(self.readBuffer)
                 executor.submit(self.process)
 
         except Exception as e:
@@ -216,19 +208,11 @@ class AnimeSegmentTensorRT:
         self.handleModel()
         try:
             self.readBuffer = BuildBuffer(
-                input=self.input,
-                ffmpegPath=self.ffmpeg_path,
+                videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                dedup=False,
-                dedupSens=None,
-                width=self.width,
-                height=self.height,
-                resize=False,
-                resizeMethod=None,
-                queueSize=self.buffer_limit,
                 totalFrames=self.totalFrames,
-                pixFmt=pixFmt,
+                fps=self.fps,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -252,7 +236,7 @@ class AnimeSegmentTensorRT:
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer.start)
-                executor.submit(self.readBuffer.start)
+                executor.submit(self.readBuffer)
                 executor.submit(self.process)
 
         except Exception as e:
@@ -440,18 +424,11 @@ class AnimeSegmentDirectML:
         self.handleModel()
         try:
             self.readBuffer = BuildBuffer(
-                input=self.input,
-                ffmpegPath=self.ffmpeg_path,
+                videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                dedup=False,
-                dedupSens=None,
-                width=self.width,
-                height=self.height,
-                resize=False,
-                resizeMethod=None,
-                queueSize=self.buffer_limit,
                 totalFrames=self.totalFrames,
+                fps=self.fps,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -474,7 +451,7 @@ class AnimeSegmentDirectML:
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.readBuffer.start)
+                executor.submit(self.readBuffer)
                 executor.submit(self.process)
                 executor.submit(self.writeBuffer.start)
 
