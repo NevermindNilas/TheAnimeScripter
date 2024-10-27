@@ -2,7 +2,6 @@ import logging
 import subprocess
 import os
 import torch
-import sys
 import numpy as np
 import cv2
 import celux
@@ -10,27 +9,7 @@ import threading
 
 from queue import Queue
 
-if getattr(sys, "frozen", False):
-    outputPath = os.path.dirname(sys.executable)
-else:
-    outputPath = os.path.dirname(os.path.abspath(__file__))
-
 ISCUDA = torch.cuda.is_available()
-
-
-def processChunk(pixFmt, chunkQueue, reshape):
-    if pixFmt in ["unknown", "yuv420p8le", "yuv422p8le"]:
-        return cv2.cvtColor(
-            np.frombuffer(chunkQueue.get(), dtype=np.uint8).reshape(reshape),
-            cv2.COLOR_YUV2RGB_I420,
-        )
-    elif pixFmt == "yuv420p10le":
-        return cv2.cvtColor(
-            ((np.frombuffer(chunkQueue.get(), dtype=np.uint16) + 2) >> 2)
-            .astype(np.uint8)
-            .reshape(reshape),
-            cv2.COLOR_YUV2RGB_I420,
-        )
 
 
 def matchEncoder(encode_method: str):
