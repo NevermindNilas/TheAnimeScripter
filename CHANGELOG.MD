@@ -8,10 +8,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [UNRELEASED] - YYYY-MM-DD
 
 ### New
-- Reverted back to threaded decode / encode due to extremely high CPU usages. This change will imply significantly improved start up times ( up to 1.5s on my system ), significantly less CPU usage ( seen drops of up to 40% on my 13700k ) at the cost of about 5% in performance.
+- Reverted back to threaded decode / encode due to extremely high CPU usages. This change will imply significantly improved start up times ( up to 1.5s on my system ), significantly less CPU usage ( seen drops of up to 40% on my 13700k ) at the cost of about 5-10% in performance.
+- Switch entire decode backend to Celux-CPU ( soon Celux-Cuda )
 
 ### Improved
 - Depth Quality `Low` will now produce better quality outputs.
+- Multithreadded the Encode.
+
+### Known issues
+- Resizing Doesn't work due to decode changes.
 
 ### Fixed
 - Fix audio copying to and from `.webm` inputs.
