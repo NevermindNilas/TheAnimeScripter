@@ -10,7 +10,7 @@ wmi
 spandrel
 yt-dlp
 requests
-alive-progress
+alive-progress==3.1.5
 scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning

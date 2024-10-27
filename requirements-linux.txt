@@ -9,7 +9,7 @@ GPUtil
 spandrel
 yt-dlp
 requests
-alive-progress
+alive-progress==3.1.5
 tensorrt==10.5.0
 tensorrt_cu12==10.5.0
 tensorrt-cu12-bindings==10.5.0
