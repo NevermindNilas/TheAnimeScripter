@@ -36,7 +36,6 @@ from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.coloredPrints import green
 from src.utils.inputOutputHandler import handleInputOutputs
 from queue import Queue
-from torch import multiprocessing as mp
 
 warnings.filterwarnings("ignore")
 
@@ -135,10 +134,10 @@ class VideoProcessor:
             self.start()
 
     def processFrame(self, frame):
-        if self.dedup:
-            if self.dedup_process(frame):
-                self.dedupCount += 1
-                return
+        # if self.dedup:
+        #    if self.dedup_process(frame):
+        #        self.dedupCount += 1
+        #        return
 
         if self.scenechange:
             self.isSceneChange = self.scenechange_process(frame)
@@ -273,15 +272,15 @@ class VideoProcessor:
                 outpoint=self.outpoint,
                 preview=self.preview,
             )
-            self.writeBuffer.start()
 
             if self.preview:
                 from src.utils.previewSettings import Preview
 
                 self.preview = Preview()
 
-            with ThreadPoolExecutor(max_workers=3 if self.preview else 2) as executor:
+            with ThreadPoolExecutor(max_workers=4 if self.preview else 3) as executor:
                 executor.submit(self.readBuffer.start)
+                executor.submit(self.writeBuffer.start)
                 executor.submit(self.process)
                 if self.preview:
                     executor.submit(self.preview.start)
@@ -306,10 +305,7 @@ class VideoProcessor:
 
 
 if __name__ == "__main__":
-    mp.freeze_support()
-
     sysUsed = system()
-    mp.set_start_method("spawn", force=True)
     if sysUsed == "Windows":
         mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
     else:
