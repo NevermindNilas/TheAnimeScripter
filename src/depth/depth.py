@@ -71,19 +71,11 @@ class DepthCuda:
 
         try:
             self.readBuffer = BuildBuffer(
-                input=self.input,
-                ffmpegPath=self.ffmpeg_path,
+                videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                dedup=False,
-                dedupSens=None,
-                width=self.width,
-                height=self.height,
-                resize=False,
-                resizeMethod=None,
-                queueSize=self.buffer_limit,
                 totalFrames=self.totalFrames,
-                pixFmt=self.pixFmt,
+                fps=self.fps,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -107,7 +99,7 @@ class DepthCuda:
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer.start)
-                executor.submit(self.readBuffer.start)
+                executor.submit(self.readBuffer)
                 executor.submit(self.process)
 
         except Exception as e:
@@ -298,19 +290,11 @@ class DepthDirectMLV2:
 
         try:
             self.readBuffer = BuildBuffer(
-                input=self.input,
-                ffmpegPath=self.ffmpeg_path,
+                videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                dedup=False,
-                dedupSens=None,
-                width=self.width,
-                height=self.height,
-                resize=False,
-                resizeMethod=None,
-                queueSize=self.buffer_limit,
                 totalFrames=self.totalFrames,
-                pixFmt=self.pixFmt,
+                fps=self.fps,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -334,7 +318,7 @@ class DepthDirectMLV2:
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer.start)
-                executor.submit(self.readBuffer.start)
+                executor.submit(self.readBuffer)
                 executor.submit(self.process)
 
         except Exception as e:
@@ -524,19 +508,11 @@ class DepthTensorRTV2:
 
         try:
             self.readBuffer = BuildBuffer(
-                input=self.input,
-                ffmpegPath=self.ffmpeg_path,
+                videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                dedup=False,
-                dedupSens=None,
-                width=self.width,
-                height=self.height,
-                resize=False,
-                resizeMethod=None,
-                queueSize=self.buffer_limit,
                 totalFrames=self.totalFrames,
-                pixFmt=self.pixFmt,
+                fps=self.fps,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -560,7 +536,7 @@ class DepthTensorRTV2:
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer.start)
-                executor.submit(self.readBuffer.start)
+                executor.submit(self.readBuffer)
                 executor.submit(self.process)
 
         except Exception as e:

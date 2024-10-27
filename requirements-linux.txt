@@ -22,6 +22,7 @@ onnx==1.16.0
 rich-argparse
 anipy-cli
 colored
+celux
 torch==2.5.0
 torchvision==0.20.0
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/polygraphy-0.49.13-py2.py3-none-any.whl

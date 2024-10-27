@@ -16,6 +16,7 @@ pytorch-lightning
 inquirer
 pymediainfo
 anipy-cli
+celux
 colored
 rich-argparse
 flask
