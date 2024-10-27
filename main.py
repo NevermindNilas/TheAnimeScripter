@@ -33,7 +33,7 @@ from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
 from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.utils.coloredPrints import green
+from src.utils.coloredPrints import green, yellow
 from src.utils.inputOutputHandler import handleInputOutputs
 from queue import Queue
 
@@ -111,12 +111,13 @@ class VideoProcessor:
         logging.info("\n============== Processing Outputs ==============")
 
         if self.resize:
-            aspectRatio = self.width / self.height
-            self.width = round(self.width * self.resize_factor / 2) * 2
-            self.height = round(self.width / aspectRatio / 2) * 2
-            logging.info(
-                f"Resizing to {self.width}x{self.height}, aspect ratio: {aspectRatio}"
-            )
+            print(yellow("Resizing is being reworked, skipping for now"))
+            # aspectRatio = self.width / self.height
+            # self.width = round(self.width * self.resize_factor / 2) * 2
+            # self.height = round(self.width / aspectRatio / 2) * 2
+            # logging.info(
+            #    f"Resizing to {self.width}x{self.height}, aspect ratio: {aspectRatio}"
+            # )
 
         if self.autoclip:
             logging.info("Detecting scene changes")
@@ -134,10 +135,10 @@ class VideoProcessor:
             self.start()
 
     def processFrame(self, frame):
-        # if self.dedup:
-        #    if self.dedup_process(frame):
-        #        self.dedupCount += 1
-        #        return
+        if self.dedup:
+            if self.dedup_process(frame):
+                self.dedupCount += 1
+                return
 
         if self.scenechange:
             self.isSceneChange = self.scenechange_process(frame)
