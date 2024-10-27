@@ -15,30 +15,7 @@ if getattr(sys, "frozen", False):
 else:
     outputPath = os.path.dirname(os.path.abspath(__file__))
 
-
-def checkForCudaWorkflow() -> bool:
-    try:
-        isCudaAvailable = torch.cuda.is_available()
-        torchVersion = torch.__version__
-        cudaVersion = torch.version.cuda
-    except Exception as e:
-        logging.info(
-            f"Couldn't check for CUDA availability, defaulting to CPU. Error: {e}"
-        )
-        isCudaAvailable = False
-        torchVersion = "Unknown"
-        cudaVersion = "Unknown"
-
-    if isCudaAvailable:
-        logging.info(
-            f"CUDA is available, defaulting to full CUDA workflow. PyTorch version: {torchVersion}, CUDA version: {cudaVersion}"
-        )
-    else:
-        logging.info(
-            f"CUDA is not available, defaulting to CPU workflow. PyTorch version: {torchVersion}"
-        )
-
-    return isCudaAvailable
+ISCUDA = torch.cuda.is_available()
 
 
 def processChunk(pixFmt, chunkQueue, reshape):
@@ -327,7 +304,6 @@ class BuildBuffer:
         totalFrames: int = 0,
         fps: float = 0,
     ):
-        self.isCudaAvailable = checkForCudaWorkflow()
         self.decodeBuffer = Queue(maxsize=50)
 
         inputFramePoint = round(inpoint * fps)
@@ -341,11 +317,7 @@ class BuildBuffer:
     def __call__(self):
         decodedFrames = 0
         for frame in self.reader:
-            frame = (
-                frame.cuda().mul(1 / 255)
-                if self.isCudaAvailable
-                else frame.mul(1 / 255)
-            )
+            frame = frame.cuda().mul(1 / 255) if ISCUDA else frame.mul(1 / 255)
             self.decodeBuffer.put(frame)
             decodedFrames += 1
 
@@ -646,7 +618,6 @@ class WriteBuffer:
         command = self.encodeSettings()
         logging.info(f"Encoding options: {' '.join(map(str, command))}")
         ffmpegLogPath = os.path.join(self.mainPath, "ffmpeg.log")
-        isCudaAvailable = checkForCudaWorkflow()
 
         if self.grayscale:
             self.channels = 1
@@ -691,7 +662,7 @@ class WriteBuffer:
                 )
             try:
                 dummyTensor = dummyTensor.pin_memory()
-                if isCudaAvailable:
+                if ISCUDA:
                     dummyTensor = dummyTensor.cuda()
                     normStream = torch.cuda.Stream()
             except Exception as e:
@@ -701,7 +672,7 @@ class WriteBuffer:
             waiterTread.start()
 
             while True:
-                if isCudaAvailable:
+                if ISCUDA:
                     with torch.cuda.stream(normStream):
                         dummyTensor.copy_(
                             self.writeBuffer.get().mul(255.0).clamp(0, 255),
