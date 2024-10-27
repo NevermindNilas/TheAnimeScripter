@@ -827,46 +827,28 @@ class WriteBuffer:
                 command.extend(customEncoderList)
 
             if self.audio:
+                command.extend(["-map", "1:a"])
+
+                audioCodec = "copy"
+                subCodec = "srt"
+
+                if self.output.endswith(".webm"):
+                    audioCodec = "libopus"
+                    subCodec = "webvtt"
+
                 command.extend(
                     [
-                        "-map",
-                        "1:a",
                         "-c:a",
-                        "copy",
+                        audioCodec,
+                        "-map",
+                        "1:s?",
+                        "-c:s",
+                        subCodec,
+                        "-shortest",
                     ]
                 )
 
-                if self.output.endswith(".mp4"):
-                    command.extend(
-                        [
-                            "-map",
-                            "1:s?",
-                            "-c:s",
-                            "srt",
-                        ]
-                    )
-                elif self.output.endswith(".webm"):
-                    command.extend(
-                        [
-                            "-map",
-                            "1:s?",
-                            "-c:s",
-                            "webvtt",
-                        ]
-                    )
-                else:
-                    command.extend(
-                        [
-                            "-map",
-                            "1:s?",
-                            "-c:s",
-                            "srt",
-                        ]
-                    )
-
-                command.append("-shortest")
-
-            command.extend([self.output])
+            command.append(self.output)
 
         else:
             command = [
