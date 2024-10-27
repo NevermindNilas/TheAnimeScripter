@@ -399,13 +399,13 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
 
 def argumentsChecker(args, mainPath, outputPath, sysUsed):
     if args.list_presets:
-        from src.presetLogic import listPresets
+        from src.utils.presetLogic import listPresets
 
         listPresets(mainPath)
         sys.exit()
 
     if args.preset:
-        from src.presetLogic import createPreset
+        from src.utils.presetLogic import createPreset
 
         args = createPreset(args, mainPath)
 

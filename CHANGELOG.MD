@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Improved
 - Depth Quality `Low` will now produce better quality outputs.
 - Multithreadded the Encode.
+- Simplified some cuda related logs and calls.
 
 ### Known issues
 - Resizing Doesn't work due to decode changes.
