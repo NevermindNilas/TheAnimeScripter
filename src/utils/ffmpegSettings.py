@@ -295,15 +295,19 @@ class BuildBuffer:
 
     def __call__(self):
         decodedFrames = 0
+        self.isFinished = False
         for frame in self.reader:
             frame = frame.cuda().mul(1 / 255) if ISCUDA else frame.mul(1 / 255)
             self.decodeBuffer.put(frame)
             decodedFrames += 1
-
+        self.isFinished = True
         logging.info(f"Decoded {decodedFrames} frames")
 
     def read(self):
         return self.decodeBuffer.get()
+
+    def isFinished(self):
+        return self.isFinished
 
 
 class WriteBuffer:
