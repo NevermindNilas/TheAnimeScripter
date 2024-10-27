@@ -81,8 +81,8 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 outpoint=self.outpoint,
             )
 
-            self.writeBuffer.start()
-            with ThreadPoolExecutor(max_workers=2) as executor:
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.writeBuffer.start)
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
 
@@ -250,8 +250,8 @@ class AnimeSegmentTensorRT:
                 benchmark=self.benchmark,
             )
 
-            self.writeBuffer.start()
             with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.writeBuffer.start)
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
 

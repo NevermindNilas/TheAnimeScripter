@@ -7,7 +7,6 @@ import numpy as np
 import cv2
 import threading
 
-from torch.multiprocessing import Process, Queue as MPQueue
 from queue import Queue
 
 workingFrames = 20
@@ -605,59 +604,11 @@ class WriteBuffer:
         self.inpoint = inpoint
         self.outpoint = outpoint
         self.preview = preview
+        self.mainPath = mainPath
 
         self.writtenFrames = 0
-        self.processQueue = MPQueue(maxsize=(workingFrames - 2))
 
-        self.command = self.encodeSettings()
-
-        self.latestFrame = None
-        ffmpegLogPath = os.path.join(mainPath, "ffmpeg.log")
-
-        if self.grayscale:
-            self.channels = 1
-        elif self.transparent:
-            self.channels = 4
-        else:
-            self.channels = 3
-
-        logging.info(f"Encoding options: {' '.join(map(str, self.command))}")
-
-        dimensions = torch.tensor(
-            [workingFrames, self.height, self.width, self.channels]
-        )
-        dimsList = [self.height, self.width, self.channels]
-
-        if self.bitDepth == "8bit":
-            self.torchArray = torch.zeros(
-                *dimensions.tolist(), dtype=torch.uint8
-            ).share_memory_()
-        else:
-            self.torchArray = torch.zeros(
-                *dimensions.tolist(), dtype=torch.uint16
-            ).share_memory_()
-
-        try:
-            self.torchArray = self.torchArray.cuda()
-            self.isCudaAvailable = True
-            self.normStream = torch.cuda.Stream()
-        except Exception:
-            self.isCudaAvailable = False
-            pass
-
-        self.process = Process(
-            target=self.childProcessEncode,
-            args=(
-                self.torchArray,
-                self.processQueue,
-                dimsList,
-                self.command,
-                self.bitDepth,
-                self.channels,
-                self.isCudaAvailable,
-                ffmpegLogPath,
-            ),
-        )
+        self.writeBuffer = Queue(maxsize=self.queueSize)
 
     def encodeSettings(self) -> list:
         """
@@ -877,97 +828,114 @@ class WriteBuffer:
         return command
 
     def start(self):
-        self.process.start()
+        command = self.encodeSettings()
+        logging.info(f"Encoding options: {' '.join(map(str, command))}")
+        ffmpegLogPath = os.path.join(self.mainPath, "ffmpeg.log")
 
-    @staticmethod
-    def childProcessEncode(
-        sharedTensor,
-        processQueue: MPQueue,
-        dimsList,
-        command,
-        bitDepth: str = "8bit",
-        channels: int = 3,
-        isCudaAvailable: bool = False,
-        ffmpegLogPath: str = "",
-    ):
-        if bitDepth == "8bit":
-            dummyTensor = torch.zeros(dimsList, dtype=torch.uint8)
+        if self.grayscale:
+            self.channels = 1
+        elif self.transparent:
+            self.channels = 4
         else:
-            dummyTensor = torch.zeros(dimsList, dtype=torch.uint16)
-
-        if isCudaAvailable:
-            dummyTensor = dummyTensor.pin_memory()
+            self.channels = 3
 
         try:
-            with open(ffmpegLogPath, "w") as logPath:
+            with open(ffmpegLogPath, "w") as logFile:
                 with subprocess.Popen(
                     command,
                     stdin=subprocess.PIPE,
-                    stderr=logPath,
-                    stdout=logPath,
-                ) as process:
+                    stdout=logFile,
+                    stderr=subprocess.STDOUT,
+                ) as self.process:
+                    writtenFrames = 0
+                    if self.bitDepth == "8bit":
+                        dummyTensor = torch.zeros(
+                            (self.height, self.width, self.channels),
+                            dtype=torch.uint8,
+                            device="cpu",
+                        )
+                    else:
+                        dummyTensor = torch.zeros(
+                            (self.height, self.width, self.channels),
+                            dtype=torch.uint16,
+                            device="cpu",
+                        )
+
+                    try:
+                        dummyTensor = dummyTensor.pin_memory()
+                    except Exception as e:
+                        logging.info(
+                            f"Couldn't pin memory, defaulting to CPU. Error: {e}"
+                        )
+
                     while True:
-                        dataID = processQueue.get()
-                        if dataID is None:
-                            break
+                        dummyTensor.copy_(
+                            self.writeBuffer.get().mul(255.0).clamp(0, 255),
+                            non_blocking=False,
+                        )
 
-                        dummyTensor.copy_(sharedTensor[dataID], non_blocking=False)
-
-                        if channels == 1:
-                            frame = dummyTensor.numpy()
-
-                        if channels == 3:
-                            if bitDepth == "8bit":
-                                frame = cv2.cvtColor(
-                                    dummyTensor.numpy(), cv2.COLOR_RGB2YUV_I420
+                        if self.channels == 1:
+                            if self.bitDepth == "8bit":
+                                frame = (
+                                    dummyTensor.to(torch.uint8).cpu().numpy().tobytes()
                                 )
                             else:
-                                frame = dummyTensor.numpy()
-
-                        elif channels == 4:
-                            frame = dummyTensor.numpy()
-
-                        if bitDepth == "8bit":
-                            frame = frame.tobytes()
-                        else:
-                            frame = np.ascontiguousarray(
-                                (
-                                    (frame.astype(np.float32) * 257)
-                                    .astype(np.uint16)
+                                frame = (
+                                    dummyTensor.to(torch.float32)
+                                    .mul(257)
+                                    .to(torch.uint16)
+                                    .cpu()
+                                    .numpy()
                                     .tobytes()
                                 )
-                            )
 
-                        process.stdin.write(frame)
+                        elif self.channels == 3:
+                            if self.bitDepth == "8bit":
+                                frame = cv2.cvtColor(
+                                    dummyTensor.to(torch.uint8).cpu().numpy(),
+                                    cv2.COLOR_RGB2YUV_I420,
+                                )
+                            else:
+                                frame = (
+                                    dummyTensor.to(torch.float32)
+                                    .mul(257)
+                                    .to(torch.uint16)
+                                    .cpu()
+                                    .numpy()
+                                    .tobytes()
+                                )
+
+                        elif self.channels == 4:
+                            if self.bitDepth == "8bit":
+                                frame = (
+                                    dummyTensor.to(torch.uint8).cpu().numpy().tobytes()
+                                )
+                            else:
+                                raise ValueError(
+                                    "RGBA 10bit encoding is not supported."
+                                )
+
+                        self.process.stdin.write(np.ascontiguousarray(frame))
+                        writtenFrames += 1
+
         except Exception as e:
-            logging.exception(f"Error encoding frame: {e}")
+            logging.info(f"Error during Encoding: {e}")
+
+        except BrokenPipeError:
+            logging.info("Broken pipe, exiting encoding process.")
+
+        logging.info(f"Encoded {writtenFrames} frames")
+        self.process.stdin.close()
+        self.process.wait()
 
     def write(self, frame: torch.Tensor):
         """
         Add a frame to the queue. Must be in RGB format.
         """
-        try:
-            if self.isCudaAvailable:
-                dataID = self.writtenFrames % workingFrames
-                with torch.cuda.stream(self.normStream):
-                    frame = frame.mul(255)
-                    self.torchArray[dataID].copy_(frame, non_blocking=False)
-                self.normStream.synchronize()
-                self.processQueue.put(dataID)
-                self.writtenFrames += 1
-            else:
-                dataID = self.writtenFrames % workingFrames
-                self.torchArray[dataID].copy_(frame)
-                self.processQueue.put(dataID)
-                self.writtenFrames += 1
-        except Exception as e:
-            logging.error(f"Error writing frame: {e}")
+        self.writeBuffer.put(frame)
 
     def close(self):
         """
         Close the queue.
         """
-        self.processQueue.put(None)
-        self.isWritingDone = True
-        self.process.join()
-        logging.info(f"Encoded {self.writtenFrames} frames")
+        self.writeBuffer.put(None)
