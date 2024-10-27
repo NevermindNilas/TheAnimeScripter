@@ -6,11 +6,9 @@ import sys
 import numpy as np
 import cv2
 import celux
+import threading
 
 from queue import Queue
-
-workingFrames = 20
-
 
 if getattr(sys, "frozen", False):
     outputPath = os.path.dirname(sys.executable)
@@ -425,7 +423,6 @@ class WriteBuffer:
         self.mainPath = mainPath
 
         self.writtenFrames = 0
-
         self.writeBuffer = Queue(maxsize=self.queueSize)
 
     def encodeSettings(self) -> list:
@@ -649,6 +646,7 @@ class WriteBuffer:
         command = self.encodeSettings()
         logging.info(f"Encoding options: {' '.join(map(str, command))}")
         ffmpegLogPath = os.path.join(self.mainPath, "ffmpeg.log")
+        isCudaAvailable = checkForCudaWorkflow()
 
         if self.grayscale:
             self.channels = 1
@@ -656,6 +654,14 @@ class WriteBuffer:
             self.channels = 4
         else:
             self.channels = 3
+
+        def writeToStdin(process, frameQueue):
+            while True:
+                frame = frameQueue.get()
+                if frame is None:
+                    break
+                process.stdin.write(np.ascontiguousarray(frame))
+                process.stdin.flush()
 
         try:
             with open(ffmpegLogPath, "w") as logFile:
@@ -681,16 +687,33 @@ class WriteBuffer:
 
                     try:
                         dummyTensor = dummyTensor.pin_memory()
+                        if isCudaAvailable:
+                            dummyTensor = dummyTensor.cuda()
+                            normStream = torch.cuda.Stream()
                     except Exception as e:
                         logging.info(
                             f"Couldn't pin memory, defaulting to CPU. Error: {e}"
                         )
 
+                    frameQueue = Queue()
+                    waiterTread = threading.Thread(
+                        target=writeToStdin, args=(self.process, frameQueue)
+                    )
+                    waiterTread.start()
+
                     while True:
-                        dummyTensor.copy_(
-                            self.writeBuffer.get().mul(255.0).clamp(0, 255),
-                            non_blocking=False,
-                        )
+                        if isCudaAvailable:
+                            with torch.cuda.stream(normStream):
+                                dummyTensor.copy_(
+                                    self.writeBuffer.get().mul(255.0).clamp(0, 255),
+                                    non_blocking=False,
+                                )
+                            torch.cuda.synchronize()
+                        else:
+                            dummyTensor.copy_(
+                                self.writeBuffer.get().mul(255.0).clamp(0, 255),
+                                non_blocking=False,
+                            )
 
                         if self.channels == 1:
                             if self.bitDepth == "8bit":
@@ -733,7 +756,7 @@ class WriteBuffer:
                                     "RGBA 10bit encoding is not supported."
                                 )
 
-                        self.process.stdin.write(np.ascontiguousarray(frame))
+                        frameQueue.put(frame)
                         writtenFrames += 1
 
         except Exception as e:
