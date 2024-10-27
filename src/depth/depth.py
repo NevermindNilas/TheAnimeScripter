@@ -105,8 +105,8 @@ class DepthCuda:
                 bitDepth=self.bitDepth,
             )
 
-            self.writeBuffer.start()
             with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.writeBuffer.start)
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
 
@@ -332,8 +332,8 @@ class DepthDirectMLV2:
                 bitDepth=self.bitDepth,
             )
 
-            self.writeBuffer.start()
             with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.writeBuffer.start)
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
 
@@ -558,8 +558,8 @@ class DepthTensorRTV2:
                 bitDepth=self.bitDepth,
             )
 
-            self.writeBuffer.start()
             with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.writeBuffer.start)
                 executor.submit(self.readBuffer.start)
                 executor.submit(self.process)
 

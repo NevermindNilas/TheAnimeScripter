@@ -3,8 +3,12 @@ import ctypes
 import re
 import os
 
-ssim_dll_path = os.path.split(os.path.realpath(__file__))[0]
 ssim_dll_name = "ssim.dll" if (os.name == "nt") else "libssim.so"
+
+ssim_dll_path = os.path.join(
+    os.path.split(os.path.realpath(__file__))[0],
+    "ssim.dll" if (os.name == "nt") else "libssim.so",
+)
 
 """
 Credits:
