@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Improved
 - Depth Quality `Low` will now produce better quality outputs.
 
+### Fixed
+- Fix audio copying to and from `.webm` inputs.
+- Fixed an issue where Depth TensorRT would cause flickering using `low` depth quality mode.
+
 
 ## [1.9.11] - 2024-10-26
 
