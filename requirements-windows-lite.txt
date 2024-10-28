@@ -21,5 +21,5 @@ rich-argparse
 flask
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp312-cp312-win_amd64.whl
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/upscale_ncnn_py-1.2.0-cp312-none-win_amd64.whl
-https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/celux-0.4.2-py3-none-any.whl
+celux==0.4.2
 

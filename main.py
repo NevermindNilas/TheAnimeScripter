@@ -196,7 +196,7 @@ class VideoProcessor:
             with alive_bar(
                 total=self.totalFrames * increment,
                 title="Processing Frame: ",
-                length=30,
+                length=25,
                 stats="| {rate}",
                 elapsed="Elapsed Time: {elapsed}",
                 monitor=" {count}/{total} | [{percent:.0%}] | ",
