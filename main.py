@@ -202,8 +202,6 @@ class VideoProcessor:
                 spinner=None,
             ) as bar:
                 for _ in range(self.totalFrames):
-                    if self.readBuffer.isFinished:
-                        break
                     self.processFrame(self.readBuffer.read())
                     frameCount += 1
                     bar(increment)
@@ -211,6 +209,12 @@ class VideoProcessor:
             self.writeBuffer.close()
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
+
+        except KeyboardInterrupt:
+            logging.info("Keyboard Interrupt detected, stopping the processes")
+            self.writeBuffer.close()
+            if self.preview:
+                self.preview.close()
 
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
@@ -243,6 +247,7 @@ class VideoProcessor:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
+                half=self.half,
             )
 
             self.writeBuffer = WriteBuffer(
