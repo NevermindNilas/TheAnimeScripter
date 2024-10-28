@@ -14,6 +14,8 @@ def importRifeArch(interpolateMethod, version):
     match version:
         case "v1":
             match interpolateMethod:
+                case "rife4.25-lite":
+                    from .rifearches.IFNet_rife425lite import IFNet
                 case "rife" | "rife4.25":
                     from .rifearches.IFNet_rife425 import IFNet
                 case "rife4.22-lite":
@@ -40,6 +42,10 @@ def importRifeArch(interpolateMethod, version):
 
         case "v3":
             match interpolateMethod:
+                case "rife4.25-lite-tensorrt":
+                    from src.rifearches.Rife425_lite_v3 import IFNet
+
+                    Head = True
                 case "rife4.25-tensorrt":
                     from src.rifearches.Rife425_v3 import IFNet
 

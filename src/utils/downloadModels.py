@@ -74,6 +74,7 @@ def modelsList() -> list[str]:
         "rife4.22",
         "rife4.22-lite",
         "rife4.25",
+        "rife4.25-lite",
         "rife_elexor",
         "shufflecugan-directml",
         "open-proteus-directml",
@@ -96,6 +97,7 @@ def modelsList() -> list[str]:
         "rife4.22-tensorrt",
         "rife4.22-lite-tensorrt",
         "rife4.25-tensorrt",
+        "rife4.25-lite-tensorrt",
         "rife_elexor-tensorrt",
         "rife-v4.6-ncnn",
         "rife-v4.15-lite-ncnn",
@@ -264,6 +266,14 @@ def modelsMap(
                 return "rife_elexor.pth"
             elif modelType == "ncnn":
                 return "rife-elexor-ncnn.zip"
+
+        case "rife4.25-lite" | "rife4.25-lite-tensorrt" | "rife4.25-lite-ncnn":
+            if modelType == "pth":
+                return "rife425_lite.pth"
+            elif modelType == "onnx":
+                pass
+            elif modelType == "ncnn":
+                raise ValueError("NCNN model not found.")
 
         case "rife4.25" | "rife4.25-tensorrt" | "rife4.25-ncnn":
             if modelType == "pth":

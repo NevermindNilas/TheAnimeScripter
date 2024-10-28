@@ -347,14 +347,15 @@ class BuildBuffer:
         if ISCUDA:
             with torch.cuda.stream(normStream):
                 if self.half:
-                    return (
+                    frame = (
                         frame.to(device="cuda", non_blocking=True).half().mul(1 / 255)
                     )
                 else:
-                    return (
+                    frame = (
                         frame.to(device="cuda", non_blocking=True).float().mul(1 / 255)
                     )
-            torch.cuda.synchronize()
+            normStream.synchronize()
+            return frame
         else:
             return frame.mul(1 / 255)
 
