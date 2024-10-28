@@ -282,7 +282,25 @@ class BuildBuffer:
         outpoint: float = 0.0,
         totalFrames: int = 0,
         fps: float = 0,
+        half: bool = True,
     ):
+        """
+        Initializes the BuildBuffer class.
+
+        Args:
+            videoInput (str): Path to the video input file.
+            inpoint (float): The starting point in seconds for decoding.
+            outpoint (float): The ending point in seconds for decoding.
+            totalFrames (int): The total number of frames in the video.
+            fps (float): Frames per second of the video.
+            half (bool): Whether to use half precision for decoding.
+
+        Attributes:
+            half (bool): Whether to use half precision for decoding.
+            decodeBuffer (Queue): A queue to store decoded frames.
+            reader (celux.VideoReader): Video reader object for decoding frames.
+        """
+        self.half = half
         self.decodeBuffer = Queue(maxsize=50)
 
         inputFramePoint = round(inpoint * fps)
@@ -294,20 +312,62 @@ class BuildBuffer:
         )
 
     def __call__(self):
+        """
+        Decodes frames from the video and stores them in the decodeBuffer.
+        """
         decodedFrames = 0
         self.isFinished = False
-        for frame in self.reader:
-            frame = frame.cuda().mul(1 / 255) if ISCUDA else frame.mul(1 / 255)
-            self.decodeBuffer.put(frame)
-            decodedFrames += 1
-        self.isFinished = True
-        logging.info(f"Decoded {decodedFrames} frames")
+
+        try:
+            if ISCUDA:
+                normStream = torch.cuda.Stream()
+
+            for frame in self.reader:
+                frame = self.processFrame(frame, normStream if ISCUDA else None)
+                self.decodeBuffer.put(frame)
+                decodedFrames += 1
+
+            self.isFinished = True
+            logging.info(f"Decoded {decodedFrames} frames")
+        except Exception as e:
+            logging.error(f"Error during frame decoding: {e}")
+            self.isFinished = True
+
+    def processFrame(self, frame, normStream=None):
+        """
+        Processes a single frame.
+
+        Args:
+            frame: The frame to process.
+            normStream: The CUDA stream for normalization (if applicable).
+
+        Returns:
+            The processed frame.
+        """
+        if ISCUDA:
+            with torch.cuda.stream(normStream):
+                if self.half:
+                    frame = (
+                        frame.to(device="cuda", non_blocking=True).half().mul(1 / 255)
+                    )
+                else:
+                    frame = (
+                        frame.to(device="cuda", non_blocking=True).float().mul(1 / 255)
+                    )
+            torch.cuda.synchronize()
+        else:
+            frame = frame.mul(1 / 255)
+
+        return frame
 
     def read(self):
-        return self.decodeBuffer.get()
+        """
+        Reads a frame from the decodeBuffer.
 
-    def isFinished(self):
-        return self.isFinished
+        Returns:
+            The next frame from the decodeBuffer.
+        """
+        return self.decodeBuffer.get()
 
 
 class WriteBuffer:
