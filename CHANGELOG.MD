@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Simplified some cuda related logs and calls.
 - Removed redundant code.
 
+### Removed
+- PyMediaInfo package in favor of Celux.
+
 ### Known issues
 - Resizing Doesn't work due to decode changes.
 
