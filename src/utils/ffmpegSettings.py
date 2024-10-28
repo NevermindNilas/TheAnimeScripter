@@ -341,24 +341,22 @@ class BuildBuffer:
             frame: The frame to process.
             normStream: The CUDA stream for normalization (if applicable).
 
-        Returns:
-            The processed frame.
+            Returns:
+                The processed frame.
         """
         if ISCUDA:
             with torch.cuda.stream(normStream):
                 if self.half:
-                    frame = (
+                    return (
                         frame.to(device="cuda", non_blocking=True).half().mul(1 / 255)
                     )
                 else:
-                    frame = (
+                    return (
                         frame.to(device="cuda", non_blocking=True).float().mul(1 / 255)
                     )
             torch.cuda.synchronize()
         else:
-            frame = frame.mul(1 / 255)
-
-        return frame
+            return frame.mul(1 / 255)
 
     def read(self):
         """
