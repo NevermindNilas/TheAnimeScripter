@@ -20,22 +20,6 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     )
 
 
-class MyPixelShuffle(nn.Module):
-    def __init__(self, upscaleFactor):
-        super(MyPixelShuffle, self).__init__()
-        self.upscaleFactor = upscaleFactor
-
-    def forward(self, input):
-        b, c, hh, hw = input.size()
-        out_channel = c // (self.upscaleFactor**2)
-        h = hh * self.upscaleFactor
-        w = hw * self.upscaleFactor
-        x_view = input.view(
-            b, out_channel, self.upscaleFactor, self.upscaleFactor, hh, hw
-        )
-        return x_view.permute(0, 1, 4, 2, 5, 3).reshape(b, out_channel, h, w)
-
-
 class ResConv(nn.Module):
     def __init__(self, c, dilation=1):
         super(ResConv, self).__init__()
