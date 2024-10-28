@@ -64,7 +64,6 @@ class DepthCuda:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.pixFmt = pixFmt
         self.mainPath = mainPath
 
         self.handleModels()
@@ -283,7 +282,6 @@ class DepthDirectMLV2:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.pixFmt = pixFmt
         self.mainPath = mainPath
 
         self.handleModels()
@@ -489,7 +487,6 @@ class DepthTensorRTV2:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.pixFmt = pixFmt
         self.mainPath = mainPath
 
         import tensorrt as trt
