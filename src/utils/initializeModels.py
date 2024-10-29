@@ -371,6 +371,19 @@ def initializeModels(self):
                     self.ensemble,
                 )
 
+            case "rife4.6-directml":
+                from src.unifiedInterpolate import RifeDirectML
+
+                interpolate_process = RifeDirectML(
+                    self.interpolate_method,
+                    self.interpolate_factor,
+                    self.width,
+                    self.height,
+                    self.half,
+                    self.ensemble,
+                    interpolateSkipProcess,
+                )
+
     if self.restore:
         match self.restore_method:
             case "scunet" | "dpir" | "nafnet" | "real-plksr" | "anime1080fixer":

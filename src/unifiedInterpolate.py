@@ -3,6 +3,7 @@ import torch
 import logging
 import torch.nn.functional as F
 import math
+import numpy as np
 
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .utils.coloredPrints import yellow
@@ -78,7 +79,7 @@ def importRifeArch(interpolateMethod, version):
                     from src.rifearches.Rife415_v3 import IFNet
 
                     Head = True
-                case "rife4.6-tensorrt":
+                case "rife4.6-tensorrt" | "rife4.6-directml":
                     from src.rifearches.Rife46_v3 import IFNet
 
                     Head = False
@@ -792,3 +793,388 @@ class RifeNCNN:
             interpQueue.put(output)
 
         self.cacheFrame()
+
+
+class RifeDirectML:
+    def __init__(
+        self,
+        interpolateMethod: str = "rife4.25-directml",
+        interpolateFactor: int = 2,
+        width: int = 0,
+        height: int = 0,
+        half: bool = True,
+        ensemble: bool = False,
+        interpolateSkip: bool | None = None,
+    ):
+        """
+        Interpolates frames using DirectML
+
+        Arguments:
+            - interpolateMethod (str, optional): Interpolation method. Defaults to "rife415".
+            - interpolateFactor (int, optional): Interpolation factor. Defaults to 2.
+            - width (int, optional): Width of the frame. Defaults to 0.
+            - height (int, optional): Height of the frame. Defaults to 0.
+            - half (bool, optional): Half resolution. Defaults to True.
+            - ensemble (bool, optional): Ensemble. Defaults to False.
+        """
+        import onnxruntime as ort
+
+        self.ort = ort
+
+        self.interpolateMethod = interpolateMethod
+        self.interpolateFactor = interpolateFactor
+        self.width = width
+        self.height = height
+        self.half = half
+        self.ensemble = ensemble
+        self.model = None
+        self.interpolateSkip = interpolateSkip
+
+        if self.half:
+            logging.info(
+                "Half precision is not supported for DirectML, defaulting to fp32"
+            )
+            self.half = False
+
+        if self.width > 1920 and self.height > 1080:
+            if self.half:
+                print(
+                    yellow(
+                        "UHD and fp16 are not compatible with RIFE, defaulting to fp32"
+                    )
+                )
+                logging.info(
+                    "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
+                )
+                self.half = False
+                # self.scale = 1.0
+        else:
+            pass
+            # self.scale = 1.0
+        self.scale = 1.0
+
+        self.handleModel()
+
+    def handleModel(self):
+        self.deviceType = "cpu"
+        self.device = torch.device(self.deviceType)
+
+        if self.half:
+            self.numpyDType = np.float16
+            self.torchDType = torch.float16
+        else:
+            self.numpyDType = np.float32
+            self.torchDType = torch.float32
+
+        if self.half:
+            torch.set_default_dtype(torch.float16)
+        self.filename = modelsMap(
+            self.interpolateMethod.replace("-directml", ""),
+            modelType="pth",
+            half=self.half,
+            ensemble=self.ensemble,
+        )
+
+        folderName = self.interpolateMethod.replace("-directml", "")
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
+            self.modelPath = downloadModels(
+                model=self.interpolateMethod.replace("-directml", ""),
+                modelType="pth",
+                half=self.half,
+                ensemble=self.ensemble,
+            )
+        else:
+            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+
+        if self.interpolateMethod in [
+            "rife_elexor-directml",
+            "rife4.25-directml",
+        ]:
+            channels = 4
+            mul = 64
+        elif self.interpolateMethod in [
+            "rife4.22-lite-directml",
+        ]:
+            channels = 4
+            mul = 32
+        elif self.interpolateMethod in [
+            "rife4.25-lite-directml",
+        ]:
+            channels = 4
+            mul = 128
+        else:
+            channels = 8
+            mul = 32
+
+        self.dtype = torch.float16 if self.half else torch.float32
+        tmp = max(mul, int(mul / 1.0))
+        self.pw = math.ceil(self.width / tmp) * tmp
+        self.ph = math.ceil(self.height / tmp) * tmp
+        self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
+
+        IFNet, Head = importRifeArch(self.interpolateMethod, "v3")
+
+        self.model = IFNet(
+            scale=self.scale,
+            ensemble=self.ensemble,
+            dtype=self.dtype,
+            device=self.device,
+            width=self.width,
+            height=self.height,
+        )
+        if self.half:
+            self.model.half()
+        else:
+            self.model.float()
+        self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
+
+        if Head is True:
+            self.norm = self.model.encode
+        else:
+            self.norm = None
+
+        dummyInput1 = torch.zeros(
+            1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
+        )
+        dummyInput2 = torch.zeros(
+            1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
+        )
+        dummyInput3 = torch.full(
+            (1, 1, self.ph, self.pw),
+            0.5,
+            dtype=self.dtype,
+            device=self.device,
+        )
+
+        if self.norm is not None:
+            dummyInput4 = torch.zeros(
+                1,
+                channels,
+                self.ph,
+                self.pw,
+                dtype=self.dtype,
+                device=self.device,
+            )
+
+        self.modelPath = self.modelPath.replace(".pth", ".onnx")
+
+        inputList = [dummyInput1, dummyInput2, dummyInput3]
+        inputNames = ["img0", "img1", "timestep"]
+        outputNames = ["output"]
+        dynamicAxes = {
+            "img0": {2: "height", 3: "width"},
+            "img1": {2: "height", 3: "width"},
+            "timestep": {2: "height", 3: "width"},
+            "output": {1: "height", 2: "width"},
+        }
+        if self.norm is not None:
+            inputList.append(dummyInput4)
+            inputNames.append("f0")
+            outputNames.append("f1")
+            dynamicAxes["f0"] = {2: "height", 3: "width"}
+        torch.onnx.export(
+            self.model,
+            tuple(inputList),
+            self.modelPath,
+            input_names=inputNames,
+            output_names=outputNames,
+            dynamic_axes=dynamicAxes,
+            opset_version=20,
+        )
+        inputs = [
+            [1, 3, self.ph, self.pw],
+            [1, 3, self.ph, self.pw],
+            [1, 1, self.ph, self.pw],
+        ]
+        if self.norm is not None:
+            inputs.append([1, channels, self.ph, self.pw])
+
+        providers = self.ort.get_available_providers()
+
+        if "DmlExecutionProvider" in providers:
+            logging.info("DirectML provider available. Defaulting to DirectML")
+            self.model = self.ort.InferenceSession(
+                self.modelPath, providers=["DmlExecutionProvider"]
+            )
+        else:
+            logging.info(
+                "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
+            )
+            self.model = self.ort.InferenceSession(
+                self.modelPath, providers=["CPUExecutionProvider"]
+            )
+
+        self.IoBinding = self.model.io_binding()
+        self.I0 = torch.zeros(
+            1,
+            3,
+            self.ph,
+            self.pw,
+            dtype=self.dtype,
+            device=self.device,
+        ).contiguous()
+
+        self.I1 = torch.zeros(
+            1,
+            3,
+            self.ph,
+            self.pw,
+            dtype=self.dtype,
+            device=self.device,
+        ).contiguous()
+
+        if self.norm is not None:
+            self.f0 = torch.zeros(
+                1,
+                channels,
+                self.ph,
+                self.pw,
+                dtype=self.dtype,
+                device=self.device,
+            ).contiguous()
+
+            self.f1 = torch.zeros(
+                1,
+                channels,
+                self.ph,
+                self.pw,
+                dtype=self.dtype,
+                device=self.device,
+            ).contiguous()
+
+        self.dummyTimeStep = torch.full(
+            (1, 1, self.ph, self.pw),
+            0.5,
+            dtype=self.dtype,
+            device=self.device,
+        ).contiguous()
+
+        self.dummyOutput = torch.zeros(
+            (self.height, self.width, 3),
+            device=self.device,
+            dtype=self.dtype,
+        ).contiguous()
+
+        self.IoBinding.bind_output(
+            name="output",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+        if self.norm is not None:
+            self.IoBinding.bind_input(
+                name="f0",
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyDType,
+                shape=self.f0.shape,
+                buffer_ptr=self.f0.data_ptr(),
+            )
+
+        self.firstRun = True
+
+    @torch.inference_mode()
+    def cacheFrameReset(self, frame):
+        self.processFrame(frame, "I0")
+        if self.norm is not None:
+            self.processFrame(frame, "f0")
+        if self.interpolateSkip is not None:
+            self.interpolateSkip.reset()
+
+    @torch.inference_mode()
+    def processFrame(self, frame, name=None):
+        match name:
+            case "I0":
+                self.I0.copy_(
+                    F.pad(
+                        frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
+                        self.padding,
+                    ),
+                    non_blocking=False,
+                )
+
+            case "I1":
+                self.I1.copy_(
+                    F.pad(
+                        frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
+                        self.padding,
+                    ),
+                    non_blocking=False,
+                )
+
+            case "f0":
+                self.f0.copy_(
+                    self.norm(
+                        F.pad(
+                            frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
+                            self.padding,
+                        )
+                    ),
+                    non_blocking=False,
+                )
+
+            case "f0-copy":
+                self.f0.copy_(self.f1, non_blocking=False)
+
+            case "cache":
+                self.I0.copy_(self.I1, non_blocking=False)
+
+            case "timestep":
+                self.dummyTimeStep.copy_(frame, non_blocking=False)
+
+    @torch.inference_mode()
+    def __call__(self, frame: torch.Tensor, interpQueue):
+        if self.firstRun:
+            if self.norm is not None:
+                self.processFrame(frame, "f0")
+
+            self.processFrame(frame, "I0")
+            if self.interpolateSkip is not None:
+                self.interpolateSkip(frame)
+
+            self.firstRun = False
+            return
+
+        self.processFrame(frame, "I1")
+        for i in range(self.interpolateFactor - 1):
+            timestep = torch.full(
+                (1, 1, self.ph, self.pw),
+                (i + 1) * 1 / self.interpolateFactor,
+                dtype=self.dtype,
+                device=self.device,
+            )
+            self.processFrame(timestep, "timestep")
+
+            self.IoBinding.bind_input(
+                name="img0",
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyDType,
+                shape=self.I0.shape,
+                buffer_ptr=self.I0.data_ptr(),
+            )
+
+            self.IoBinding.bind_input(
+                name="img1",
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyDType,
+                shape=self.I1.shape,
+                buffer_ptr=self.I1.data_ptr(),
+            )
+            self.IoBinding.bind_input(
+                name="timestep",
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyDType,
+                shape=self.dummyTimeStep.shape,
+                buffer_ptr=timestep.data_ptr(),
+            )
+
+            self.model.run_with_iobinding(self.IoBinding)
+            interpQueue.put(self.dummyOutput)
+
+        return frame

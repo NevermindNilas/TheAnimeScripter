@@ -115,6 +115,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "gmfss",
             "rife_elexor",
             "rife_elexor-tensorrt",
+            "rife4.6-directml",
         ],
         default="rife",
         help="Interpolation method",
