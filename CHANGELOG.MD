@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added Rife `4.25 Lite` and `4.25 Lite TensorRT`
 - Added variable `--decode_threads` for more granularity.
 - Added `anime1080fixer-directml` support for restoration.
+- Added `slow_nvenc_h264` & `slow_nvenc_h265`
 
 ### Improved
 - Depth Quality `Low` will now produce better quality outputs.
