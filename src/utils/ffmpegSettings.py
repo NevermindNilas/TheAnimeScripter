@@ -790,8 +790,8 @@ class WriteBuffer:
                 if ISCUDA:
                     dummyTensor = dummyTensor.cuda()
                     normStream = torch.cuda.Stream()
-            except Exception as e:
-                logging.info(f"Couldn't pin memory, defaulting to CPU. Error: {e}")
+            except Exception:
+                logging.info("Couldn't pin memory, defaulting to CPU")
 
             waiterTread = threading.Thread(target=writeToStdin)
             waiterTread.start()
@@ -799,14 +799,16 @@ class WriteBuffer:
             while True:
                 if ISCUDA:
                     with torch.cuda.stream(normStream):
+                        frame = self.writeBuffer.get().mul(255.0).clamp(0, 255)
                         dummyTensor.copy_(
-                            self.writeBuffer.get().mul(255.0).clamp(0, 255),
-                            non_blocking=False,
+                            frame,
+                            non_blocking=True,
                         )
-                    torch.cuda.synchronize()
+                    normStream.synchronize()
                 else:
+                    frame = self.writeBuffer.get().mul(255.0).clamp(0, 255)
                     dummyTensor.copy_(
-                        self.writeBuffer.get().mul(255.0).clamp(0, 255),
+                        frame,
                         non_blocking=False,
                     )
                 if self.channels == 1:
