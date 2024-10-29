@@ -5,7 +5,7 @@ import cupy
 
 from src.utils.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
-from src.coloredPrints import yellow, red
+from src.utils.coloredPrints import yellow, red
 
 torch.set_float32_matmul_precision("medium")
 # from: https://github.com/HolyWu/vs-gmfss_fortuna/blob/master/vsgmfss_fortuna/__init__.py

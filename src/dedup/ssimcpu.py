@@ -56,7 +56,7 @@ class Loader:
         c_define="DLL_API float PSNR_Byte(const Byte* pSrcData, int step, int width, int height, OUT Byte* pDstData);",
     ):
         r = re.search(r"(\w+)\s+(\w+)\s*\((.+)\)", c_define)
-        assert r != None
+        assert r is not None
         r = r.groups()
         print(r)
         arg_list = r[2].split(",")
@@ -120,7 +120,7 @@ def PSNR(x, y, max_value=None):
             w * c,
             w,
             h,
-            255 if (max_value == None) else int(max_value),
+            255 if (max_value is None) else int(max_value),
         )
     if DLL.had_function("PSNR_Float") and x.dtype == "float32" and y.dtype == "float32":
         return DLL.PSNR_Float(
@@ -129,7 +129,7 @@ def PSNR(x, y, max_value=None):
             w * c,
             w,
             h,
-            255.0 if (max_value == None) else float(max_value),
+            255.0 if (max_value is None) else float(max_value),
         )
 
 
@@ -145,7 +145,7 @@ def SSIM(x, y, max_value=None, win_size=7):
             w,
             h,
             win_size,
-            255 if (max_value == None) else int(max_value),
+            255 if (max_value is None) else int(max_value),
         )
     if DLL.had_function("SSIM_Float") and x.dtype == "float32" and y.dtype == "float32":
         return DLL.SSIM_Float(
@@ -155,5 +155,5 @@ def SSIM(x, y, max_value=None, win_size=7):
             w,
             h,
             win_size,
-            255.0 if (max_value == None) else float(max_value),
+            255.0 if (max_value is None) else float(max_value),
         )
