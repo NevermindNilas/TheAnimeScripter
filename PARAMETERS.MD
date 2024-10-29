@@ -1,24 +1,43 @@
 # Anime Scripter Parameters
 
 ## Table of Contents
-1. [Overview](#overview)
-2. [Command-Line Arguments](#command-line-arguments)
-3. [Input and Output](#input-and-output)
-4. [Processing Options](#processing-options)
-   - [4.1 Upscaling](#upscaling)
-   - [4.2 Interpolation](#interpolation)
-   - [4.3 Scene Change Detection](#scene-change-detection)
-   - [4.4 Deduplication](#deduplication)
-   - [4.5 Denoising](#denoising)
-   - [4.6 Sharpening](#sharpening)
-   - [4.7 Segmentation](#segmentation)
-   - [4.8 Auto Cut Clips Detection](#auto-cut-clips-detection)
-   - [4.9 Depth Map Generation](#depth-map-generation)
-   - [4.10 Resizing](#resizing)
-   - [4.11 Presets](#preset-arguments)
-5. [Encoding Settings](#encoding-settings)
-6. [Performance Settings](#performance-settings)
-7. [Usage Examples](#usage-examples)
+- [Anime Scripter Parameters](#anime-scripter-parameters)
+  - [Table of Contents](#table-of-contents)
+  - [1. Overview](#1-overview)
+  - [2. Command-Line Arguments](#2-command-line-arguments)
+    - [Offline Mode Options](#offline-mode-options)
+  - [3. Input and Output](#3-input-and-output)
+    - [Examples](#examples)
+      - [Multiple Input Files](#multiple-input-files)
+  - [Processing Options](#processing-options)
+    - [Upscaling](#upscaling)
+      - [Upscale Methods](#upscale-methods)
+    - [Interpolation](#interpolation)
+      - [Interpolate Methods](#interpolate-methods)
+    - [Scene Change Detection](#scene-change-detection)
+      - [Scene Change Methods](#scene-change-methods)
+    - [Deduplication](#deduplication)
+      - [Dedup Methods](#dedup-methods)
+    - [Denoising](#denoising)
+      - [Denoise Methods](#denoise-methods)
+    - [Sharpening](#sharpening)
+    - [Segmentation](#segmentation)
+      - [Segment Methods](#segment-methods)
+    - [Auto Cut Clips Detection](#auto-cut-clips-detection)
+    - [Depth Map Generation](#depth-map-generation)
+      - [Depth Methods](#depth-methods)
+      - [Depth Quality selection](#depth-quality-selection)
+    - [Resizing](#resizing)
+      - [Resize Methods](#resize-methods)
+  - [Preset Arguments](#preset-arguments)
+  - [Encoding Settings](#encoding-settings)
+- [Encode Methods](#encode-methods)
+    - [Standard Encoders](#standard-encoders)
+    - [Hardware Encoders](#hardware-encoders)
+    - [Other Formats](#other-formats)
+    - [High Quality Presets](#high-quality-presets)
+  - [Performance Settings](#performance-settings)
+  - [Usage Examples](#usage-examples)
 
 ## 1. Overview
 
@@ -27,7 +46,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ## 2. Command-Line Arguments
 
 | Argument      | Type | Default | Description                                                     |
-|---------------|------|---------|-----------------------------------------------------------------|
+| ------------- | ---- | ------- | --------------------------------------------------------------- |
 | `--version`   | flag | -       | Outputs the script version                                      |
 | `--benchmark` | flag | -       | Enable benchmarking (no video output, performance testing only) |
 | `--offline`   | str  | "none"  | Download models based on user selection                         |
@@ -44,7 +63,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ## 3. Input and Output
 
 | Argument   | Type | Default | Description                                                                                  |
-|------------|------|---------|----------------------------------------------------------------------------------------------|
+| ---------- | ---- | ------- | -------------------------------------------------------------------------------------------- |
 | `--input`  | str  | -       | Absolute path of the input video(s). Multiple paths should be separated by semicolons (`;`). |
 | `--output` | str  | -       | Output string or absolute path for the processed video                                       |
 
@@ -70,7 +89,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ### Upscaling
 
 | Argument           | Type | Default        | Description                                               |
-|--------------------|------|----------------|-----------------------------------------------------------|
+| ------------------ | ---- | -------------- | --------------------------------------------------------- |
 | `--upscale`        | flag | -              | Enable upscaling                                          |
 | `--upscale_factor` | int  | 2              | Factor for upscaling                                      |
 | `--upscale_method` | str  | "ShuffleCugan" | Upscaling method                                          |
@@ -87,7 +106,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ### Interpolation
 
 | Argument               | Type | Default | Description                                                     |
-|------------------------|------|---------|-----------------------------------------------------------------|
+| ---------------------- | ---- | ------- | --------------------------------------------------------------- |
 | `--interpolate`        | flag | -       | Enable interpolation                                            |
 | `--interpolate_factor` | int  | 2       | Factor for interpolation                                        |
 | `--interpolate_method` | str  | "rife"  | Interpolation method                                            |
@@ -110,7 +129,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ### Scene Change Detection
 
 | Argument               | Type  | Default            | Description                                         |
-|------------------------|-------|--------------------|-----------------------------------------------------|
+| ---------------------- | ----- | ------------------ | --------------------------------------------------- |
 | `--scenechange`        | flag  | False              | Enable scene change detection                       |
 | `--scenechange_sens`   | float | 50                 | Sensitivity of scene change detection (0.80 - 0.90) |
 | `--scenechange_method` | str   | "maxxvit-directml" | Scene change detection method                       |
@@ -122,7 +141,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ### Deduplication
 
 | Argument         | Type  | Default | Description                        |
-|------------------|-------|---------|------------------------------------|
+| ---------------- | ----- | ------- | ---------------------------------- |
 | `--dedup`        | flag  | -       | Enable deduplication               |
 | `--dedup_method` | str   | "ssim"  | Deduplication method               |
 | `--dedup_sens`   | float | 50      | Sensitivity of deduplication       |
@@ -137,7 +156,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ### Denoising
 
 | Argument           | Type | Default  | Description      |
-|--------------------|------|----------|------------------|
+| ------------------ | ---- | -------- | ---------------- |
 | `--denoise`        | flag | -        | Enable denoising |
 | `--denoise_method` | str  | "scunet" | Denoising model  |
 
@@ -150,14 +169,14 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ### Sharpening
 
 | Argument         | Type  | Default | Description               |
-|------------------|-------|---------|---------------------------|
+| ---------------- | ----- | ------- | ------------------------- |
 | `--sharpen`      | flag  | -       | Enable sharpening         |
 | `--sharpen_sens` | float | 50      | Sensitivity of sharpening |
 
 ### Segmentation
 
 | Argument           | Type | Default | Description         |
-|--------------------|------|---------|---------------------|
+| ------------------ | ---- | ------- | ------------------- |
 | `--segment`        | flag | -       | Enable segmentation |
 | `--segment_method` | str  | "anime" | Segmentation method |
 
@@ -168,14 +187,14 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ### Auto Cut Clips Detection
 
 | Argument          | Type  | Default | Description                            |
-|-------------------|-------|---------|----------------------------------------|
+| ----------------- | ----- | ------- | -------------------------------------- |
 | `--autoclip`      | flag  | -       | Enable auto cut clip detection         |
 | `--autoclip_sens` | float | 40      | Sensitivity of auto cut clip detection |
 
 ### Depth Map Generation
 
 | Argument          | Type | Default | Description                  |
-|-------------------|------|---------|------------------------------|
+| ----------------- | ---- | ------- | ---------------------------- |
 | `--depth`         | flag | -       | Generate depth maps          |
 | `--depth_method`  | str  | "small" | Depth map generation method  |
 | `--depth_quality` | str  | "high"  | Depth map generation quality |
@@ -194,7 +213,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ### Resizing
 
 | Argument          | Type  | Default   | Description                                                |
-|-------------------|-------|-----------|------------------------------------------------------------|
+| ----------------- | ----- | --------- | ---------------------------------------------------------- |
 | `--resize`        | flag  | -         | Enable resizing                                            |
 | `--resize_factor` | float | 2         | Factor for resizing (>1 for upscaling, <1 for downscaling) |
 | `--resize_method` | str   | "bicubic" | Resizing method                                            |
@@ -206,7 +225,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ## Preset Arguments
 
 | Argument        | Type   | Default | Description                                                                                           |
-|-----------------|--------|---------|-------------------------------------------------------------------------------------------------------|
+| --------------- | ------ | ------- | ----------------------------------------------------------------------------------------------------- |
 | `--preset`      | string | -       | A new and semi-baked in preset configuration system with reusability in mind.                         |
 | `--preset_list` | flag   | False   | Prints all of the available presets; this comes with a forced full exit of the script after execution |
 
@@ -217,7 +236,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 ## Encoding Settings
 
 | Argument           | Type | Default | Description                       |
-|--------------------|------|---------|-----------------------------------|
+| ------------------ | ---- | ------- | --------------------------------- |
 | `--encode_method`  | str  | "x264"  | Encoding method                   |
 | `--custom_encoder` | str  | ""      | Custom FFmpeg encoding parameters |
 
@@ -262,11 +281,12 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ## Performance Settings
 
-| Argument         | Type | Default | Description                                                                    |
-|------------------|------|---------|--------------------------------------------------------------------------------|
-| `--half`         | flag | True    | Enable FP16 for improved performance                                           |
-| `--buffer_limit` | int  | 50      | Set the limit for decoding and encoding buffers                                |
-| `--static`       | flag | True    | Force static engine generation and bypass the arbitrary set limitations of TAS |
+| Argument           | Type | Default | Description                                                                    |
+| ------------------ | ---- | ------- | ------------------------------------------------------------------------------ |
+| `--half`           | flag | True    | Enable FP16 for improved performance                                           |
+| `--buffer_limit`   | int  | 50      | Set the limit for decoding and encoding buffers                                |
+| `--static`         | flag | True    | Force static engine generation and bypass the arbitrary set limitations of TAS |
+| `--decode_threads` | int  | 4       | The amount of threads utilized for decoding                                    |
 
 **Note**: Interpolation TRT, Depth TRT, Segment TRT all already are set to static engine generation due to set limitations within the models themselves.
 
