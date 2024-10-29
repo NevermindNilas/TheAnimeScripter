@@ -221,6 +221,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "real-plksr",
             "anime1080fixer",
             "anime1080fixer-tensorrt",
+            "anime1080fixer-directml",
         ],
         help="Denoising method",
     )
