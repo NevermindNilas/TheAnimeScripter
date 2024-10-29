@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Fix audio copying to and from `.webm` inputs.
 - Fixed an issue where Depth TensorRT would cause flickering using `low` depth quality mode.
 - Fixed black outputs with Upscale NCNN.
+- Fixed an issue where the first frame was black in DirectML workflows.
 
 
 ## [1.9.11] - 2024-10-26
