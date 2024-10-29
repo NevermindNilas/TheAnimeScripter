@@ -611,6 +611,15 @@ class RifeTensorRT:
         if self.interpolateSkip is not None:
             self.skippedCounter = 0
 
+        self.cudaGraph = torch.cuda.CUDAGraph()
+        self.initTorchCudaGraph()
+
+    @torch.inference_mode()
+    def initTorchCudaGraph(self):
+        with torch.cuda.graph(self.cudaGraph, stream=self.stream):
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+        self.stream.synchronize()
+
     @torch.inference_mode()
     def processFrame(self, frame, name=None):
         with torch.cuda.stream(self.normStream):
@@ -688,8 +697,11 @@ class RifeTensorRT:
             )
 
             self.processFrame(timestep, "timestep")
-            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            with torch.cuda.stream(self.stream):
+                self.cudaGraph.replay()
             self.stream.synchronize()
+            # self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            # self.stream.synchronize()
             interpQueue.put(self.dummyOutput.clone())
 
         self.processFrame(None, "cache")

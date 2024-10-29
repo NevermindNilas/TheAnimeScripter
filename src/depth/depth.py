@@ -622,6 +622,14 @@ class DepthTensorRTV2:
 
         self.normStream = torch.cuda.Stream()
         self.outputNormStream = torch.cuda.Stream()
+        self.cudaGraph = torch.cuda.CUDAGraph()
+        self.initTorchCudaGraph()
+
+    @torch.inference_mode()
+    def initTorchCudaGraph(self):
+        with torch.cuda.graph(self.cudaGraph, stream=self.stream):
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+        self.stream.synchronize()
 
     @torch.inference_mode()
     def normFrame(self, frame):
@@ -637,7 +645,7 @@ class DepthTensorRTV2:
             if self.half:
                 frame = frame.half()
             self.dummyInput.copy_(frame, non_blocking=True)
-            self.normStream.synchronize()
+        self.normStream.synchronize()
 
     @torch.inference_mode()
     def normOutputFrame(self):
@@ -658,8 +666,11 @@ class DepthTensorRTV2:
     def processFrame(self, frame):
         try:
             self.normFrame(frame)
-            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            with torch.cuda.stream(self.stream):
+                self.cudaGraph.replay()
             self.stream.synchronize()
+            # self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            # self.stream.synchronize()
             depth = self.normOutputFrame()
             self.writeBuffer.write(depth)
         except Exception as e:
