@@ -203,6 +203,14 @@ class UnifiedRestoreTensorRT:
 
         self.normStream = torch.cuda.Stream()
         self.outputStream = torch.cuda.Stream()
+        self.cudaGraph = torch.cuda.CUDAGraph()
+        self.initTorchCudaGraph()
+
+    @torch.inference_mode()
+    def initTorchCudaGraph(self):
+        with torch.cuda.graph(self.cudaGraph, stream=self.stream):
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+        self.stream.synchronize()
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -225,7 +233,8 @@ class UnifiedRestoreTensorRT:
     def __call__(self, frame):
         self.processFrame(frame)
 
-        self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+        with torch.cuda.stream(self.stream):
+            self.cudaGraph.replay()
         self.stream.synchronize()
         output = self.processOutput()
         return output
