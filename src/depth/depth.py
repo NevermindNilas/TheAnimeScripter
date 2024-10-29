@@ -44,8 +44,8 @@ class DepthCuda:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        pixFmt: str = "yuv420p",
         mainPath: str = "",
+        decodeThreads: int = 0,
     ):
         self.input = input
         self.output = output
@@ -75,6 +75,7 @@ class DepthCuda:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
+                decodeThreads=decodeThreads,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -258,8 +259,8 @@ class DepthDirectMLV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        pixFmt: str = "yuv420p",
         mainPath: str = "",
+        decodeThreads: int = 0,
     ):
         import onnxruntime as ort
 
@@ -293,6 +294,7 @@ class DepthDirectMLV2:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
+                decodeThreads=decodeThreads,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -467,8 +469,8 @@ class DepthTensorRTV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        pixFmt: str = "yuv420p",
         mainPath: str = "",
+        decodeThreads: int = 0,
     ):
         self.input = input
         self.output = output
@@ -510,6 +512,7 @@ class DepthTensorRTV2:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
+                decodeThreads=decodeThreads,
             )
 
             self.writeBuffer = WriteBuffer(
