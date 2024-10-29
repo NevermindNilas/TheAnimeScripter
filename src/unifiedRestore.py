@@ -330,6 +330,13 @@ class UnifiedRestoreDirectML:
         """
         Run the model on the input frame
         """
+        if self.half:
+            frame = frame.permute(2, 0, 1).unsqueeze(0).half()
+        else:
+            frame = frame.permute(2, 0, 1).unsqueeze(0).float()
+
+        self.dummyInput.copy_(frame.contiguous())
+
         self.IoBinding.bind_input(
             name="input",
             device_type=self.deviceType,
@@ -338,13 +345,6 @@ class UnifiedRestoreDirectML:
             shape=self.dummyInput.shape,
             buffer_ptr=self.dummyInput.data_ptr(),
         )
-
-        if self.half:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).half()
-        else:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).float()
-
-        self.dummyInput.copy_(frame.contiguous())
 
         self.model.run_with_iobinding(self.IoBinding)
         frame = self.dummyOutput.squeeze(0).permute(1, 2, 0).contiguous()
