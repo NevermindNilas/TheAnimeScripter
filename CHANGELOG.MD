@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 - Fix audio copying to and from `.webm` inputs.
 - Fixed an issue where Depth TensorRT would cause flickering using `low` depth quality mode.
+- Fixed black outputs with Upscale NCNN.
 
 
 ## [1.9.11] - 2024-10-26
