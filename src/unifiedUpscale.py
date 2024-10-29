@@ -562,12 +562,12 @@ class UniversalNCNN:
                 self.skippedCounter += 1
                 return self.prevFrame
 
-        frame = self.model.process_torch(frame)
+        frame = self.model.process_torch(frame.cpu().mul(255).byte())
 
         if self.upscaleSkip is not None:
             self.prevFrame = frame
 
-        return frame
+        return frame.mul(1 / 255)
 
     def getSkippedCounter(self):
         return self.skippedCounter
