@@ -21,10 +21,8 @@ class AutoClip:
             end_time = FrameTimecode(self.outPoint, video_manager.get_framerate())
             video_manager.set_duration(start_time=start_time, end_time=end_time)
 
-        # video_manager.set_downscale_factor()
-
         video_manager.start()
-        scene_manager.detect_scenes(frame_source=video_manager)
+        scene_manager.detect_scenes(frame_source=video_manager, show_progress=True)
 
         scene_list = scene_manager.get_scene_list()
 
