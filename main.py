@@ -97,6 +97,7 @@ class VideoProcessor:
         self.forceStatic = args.static
         self.depth_quality = args.depth_quality
         self.interpolate_skip = args.interpolate_skip
+        self.decode_threads = args.decode_threads
 
         # Video Metadata
         self.width = width
@@ -248,6 +249,7 @@ class VideoProcessor:
                 totalFrames=self.totalFrames,
                 fps=self.fps,
                 half=self.half,
+                decodeThreads=self.decode_threads,
             )
 
             self.writeBuffer = WriteBuffer(
