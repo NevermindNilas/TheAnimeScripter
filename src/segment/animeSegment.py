@@ -26,8 +26,8 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
-        pixFmt: str = "yuva420p",
         mainPath: str = None,
+        decodeThreads: int = 0,
     ):
         self.input = input
         self.output = output
@@ -52,6 +52,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
+                decodeThreads=decodeThreads,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -175,8 +176,8 @@ class AnimeSegmentTensorRT:
         buffer_limit=50,
         benchmark=False,
         totalFrames=0,
-        pixFmt: str = "yuva420p",
         mainPath: str = None,
+        decodeThreads: int = 0,
     ):
         self.input = input
         self.output = output
@@ -213,6 +214,7 @@ class AnimeSegmentTensorRT:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
+                decodeThreads=decodeThreads,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -400,6 +402,7 @@ class AnimeSegmentDirectML:
         benchmark=False,
         totalFrames=0,
         mainPath: str = None,
+        decodeThreads: int = 0,
     ):
         self.input = input
         self.output = output
@@ -429,6 +432,7 @@ class AnimeSegmentDirectML:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
+                decodeThreads=decodeThreads,
             )
 
             self.writeBuffer = WriteBuffer(
