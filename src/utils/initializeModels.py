@@ -32,6 +32,7 @@ def Segment(self, mainPath):
             self.benchmark,
             self.totalFrames,
             mainPath=mainPath,
+            decodeThreads=self.decode_threads,
         )
     elif self.segment_method == "anime-tensorrt":
         from src.segment.animeSegment import AnimeSegmentTensorRT
@@ -51,6 +52,7 @@ def Segment(self, mainPath):
             self.benchmark,
             self.totalFrames,
             mainPath=mainPath,
+            decodeThreads=self.decode_threads,
         )
 
     elif self.segment_method == "anime-directml":
@@ -71,6 +73,7 @@ def Segment(self, mainPath):
             self.benchmark,
             self.totalFrames,
             mainPath=mainPath,
+            decodeThreads=self.decode_threads,
         )
 
     elif self.segment_method == "cartoon":
@@ -101,6 +104,7 @@ def Depth(self, mainPath):
                 self.bit_depth,
                 self.depth_quality,
                 mainPath=mainPath,
+                decodeThreads=self.decode_threads,
             )
 
         case "small_v2-tensorrt" | "base_v2-tensorrt" | "large_v2-tensorrt":
@@ -125,6 +129,7 @@ def Depth(self, mainPath):
                 self.bit_depth,
                 self.depth_quality,
                 mainPath=mainPath,
+                decodeThreads=self.decode_threads,
             )
 
         case "small_v2-directml" | "base_v2-directml" | "large_v2-directml":
@@ -149,6 +154,7 @@ def Depth(self, mainPath):
                 self.bit_depth,
                 self.depth_quality,
                 mainPath=mainPath,
+                decodeThreads=self.decode_threads,
             )
 
 
