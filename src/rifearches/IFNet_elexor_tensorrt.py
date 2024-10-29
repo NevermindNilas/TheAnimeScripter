@@ -2,13 +2,8 @@ import torch
 import torch.nn as nn
 import math
 
-try:
-    from .interpolate import interpolate
-    from .warplayer_custom import warp
-except ImportError:
-    from torch.nn.functional import interpolate
-
-    from .warplayer_v2 import warp
+from torch.nn.functional import interpolate
+from .warplayer_v2 import warp
 
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
