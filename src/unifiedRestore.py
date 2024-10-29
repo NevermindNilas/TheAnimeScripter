@@ -229,3 +229,127 @@ class UnifiedRestoreTensorRT:
         self.stream.synchronize()
         output = self.processOutput()
         return output
+
+
+class UnifiedRestoreDirectML:
+    def __init__(
+        self,
+        restoreMethod: str = "anime1080fixer-tensorrt",
+        half: bool = False,
+        width: int = 1920,
+        height: int = 1080,
+    ):
+        """
+        Initialize the upscaler with the desired model
+
+        Args:
+            restoreMethod (str): The method to use for upscaling
+            half (bool): Whether to use half precision
+            width (int): The width of the input frame
+            height (int): The height of the input frame
+        """
+
+        import onnxruntime as ort
+        import numpy as np
+
+        self.ort = ort
+        self.np = np
+        self.ort.set_default_logger_severity(3)
+
+        self.restoreMethod = restoreMethod
+        self.half = half
+        self.width = width
+        self.height = height
+
+        self.handleModel()
+
+    def handleModel(self):
+        """
+        Load the desired model
+        """
+
+        self.filename = modelsMap(self.restoreMethod, modelType="onnx")
+        folderName = self.restoreMethod.replace("directml", "-onnx")
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
+            modelPath = downloadModels(
+                model=self.restoreMethod,
+                modelType="onnx",
+                half=self.half,
+            )
+        else:
+            modelPath = os.path.join(weightsDir, folderName, self.filename)
+
+        providers = self.ort.get_available_providers()
+
+        if "DmlExecutionProvider" in providers:
+            logging.info("DirectML provider available. Defaulting to DirectML")
+            self.model = self.ort.InferenceSession(
+                modelPath, providers=["DmlExecutionProvider"]
+            )
+        else:
+            logging.info(
+                "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
+            )
+            self.model = self.ort.InferenceSession(
+                modelPath, providers=["CPUExecutionProvider"]
+            )
+
+        self.deviceType = "cpu"
+        self.device = torch.device(self.deviceType)
+
+        if self.half:
+            self.numpyDType = self.np.float16
+            self.torchDType = torch.float16
+        else:
+            self.numpyDType = self.np.float32
+            self.torchDType = torch.float32
+
+        self.IoBinding = self.model.io_binding()
+        self.dummyInput = torch.zeros(
+            (1, 3, self.height, self.width),
+            device=self.deviceType,
+            dtype=self.torchDType,
+        ).contiguous()
+
+        self.dummyOutput = torch.zeros(
+            (1, 3, self.height, self.width),
+            device=self.deviceType,
+            dtype=self.torchDType,
+        ).contiguous()
+
+        self.IoBinding.bind_output(
+            name="output",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+    def __call__(self, frame: torch.tensor) -> torch.tensor:
+        """
+        Run the model on the input frame
+        """
+        self.IoBinding.bind_input(
+            name="input",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyInput.shape,
+            buffer_ptr=self.dummyInput.data_ptr(),
+        )
+
+        if self.half:
+            frame = frame.permute(2, 0, 1).unsqueeze(0).half()
+        else:
+            frame = frame.permute(2, 0, 1).unsqueeze(0).float()
+
+        self.dummyInput.copy_(frame.contiguous())
+
+        self.model.run_with_iobinding(self.IoBinding)
+        frame = self.dummyOutput.squeeze(0).permute(1, 2, 0).contiguous()
+
+        return frame
+
+    def getSkippedCounter(self):
+        return self.skippedCounter

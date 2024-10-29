@@ -392,6 +392,16 @@ def initializeModels(self):
                     self.forceStatic,
                 )
 
+            case "anime1080fixer-directml":
+                from src.unifiedRestore import UnifiedRestoreDirectML
+
+                restore_process = UnifiedRestoreDirectML(
+                    self.restore_method,
+                    self.half,
+                    self.width,
+                    self.height,
+                )
+
     if self.dedup:
         match self.dedup_method:
             case "ssim":

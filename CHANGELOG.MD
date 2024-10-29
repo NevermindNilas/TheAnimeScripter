@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Switch entire decode backend to Celux-CPU ( soon Celux-Cuda )
 - Added Rife `4.25 Lite` and `4.25 Lite TensorRT`
 - Added variable `--decode_threads` for more granularity.
+- Added `anime1080fixer-directml` support for restoration.
 
 ### Improved
 - Depth Quality `Low` will now produce better quality outputs.

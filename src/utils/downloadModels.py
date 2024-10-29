@@ -63,6 +63,8 @@ def modelsList() -> list[str]:
         "real-plksr",
         "nafnet",
         "anime1080fixer",
+        "anime1080fixer-tensorrt",
+        "anime1080fixer-directml",
         "rife",
         "rife4.6",
         "rife4.15-lite",
@@ -247,7 +249,7 @@ def modelsMap(
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
 
-        case "anime1080fixer" | "anime1080fixer-tensorrt":
+        case "anime1080fixer" | "anime1080fixer-tensorrt" | "anime1080fixer-directml":
             if modelType == "pth":
                 return "1x_Anime1080Fixer_SuperUltraCompact.pth"
             elif modelType == "onnx":
