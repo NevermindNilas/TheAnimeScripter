@@ -398,6 +398,8 @@ class BuildBuffer:
             commandList = [
                 ("scale", f"{width}:{height}"),
             ]
+        else:
+            commandList = []
 
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
         self.reader = celux.VideoReader(

@@ -186,15 +186,23 @@ class SceneChangeTensorRT:
             (3, self.height, self.width), device=self.device, dtype=self.dType
         )
 
+        self.normStream = torch.cuda.Stream()
+        self.cudaGraph = torch.cuda.CUDAGraph()
+        self.initTorchCudaGraph()
+
+    @torch.inference_mode()
+    def initTorchCudaGraph(self):
+        with torch.cuda.graph(self.cudaGraph, stream=self.stream):
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+        self.stream.synchronize()
+
     @torch.inference_mode()
     def processFrame(self, frame):
-        frame = (
-            frame.to(self.device, non_blocking=True, dtype=self.dType)
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-        )
-        frame = F.interpolate(frame, size=(self.height, self.width), mode="bilinear")
-        return frame.contiguous().squeeze(0)
+        return F.interpolate(
+            frame.to(dtype=self.dType).permute(2, 0, 1).unsqueeze(0),
+            size=(self.height, self.width),
+            mode="bilinear",
+        ).squeeze(0)
 
     @torch.inference_mode()
     def __call__(self, frame):
@@ -210,12 +218,11 @@ class SceneChangeTensorRT:
                 non_blocking=True,
             )
 
-            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            self.cudaGraph.replay()
             self.I0.copy_(self.I1, non_blocking=True)
-            self.stream.synchronize()
             result = self.dummyOutput[0][0].item()
-
-            return result > self.sceneChangeThreshold
+        self.stream.synchronize()
+        return result > self.sceneChangeThreshold
 
 
 class SceneChangeCPU:
