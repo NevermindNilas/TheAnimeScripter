@@ -365,6 +365,9 @@ class BuildBuffer:
         fps: float = 0,
         half: bool = True,
         decodeThreads: int = 0,
+        resize: bool = False,
+        width: int = 1920,
+        height: int = 1080,
     ):
         """
         Initializes the BuildBuffer class.
@@ -377,6 +380,8 @@ class BuildBuffer:
             fps (float): Frames per second of the video.
             half (bool): Whether to use half precision for decoding.
             decodeThreads (int): Amount of threads allocated to decoding.
+            resize (bool): Whether to resize the frames.
+            resizeFactor (float): The factor to resize the frames by.
 
         Attributes:
             half (bool): Whether to use half precision for decoding.
@@ -389,9 +394,14 @@ class BuildBuffer:
         inputFramePoint = round(inpoint * fps)
         outputFramePoint = round(outpoint * fps) if outpoint != 0.0 else totalFrames
 
+        if resize:
+            commandList = [
+                ("scale", f"{width}:{height}"),
+            ]
+
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
         self.reader = celux.VideoReader(
-            videoInput, device="cpu", num_threads=decodeThreads
+            videoInput, device="cpu", num_threads=decodeThreads, filters=commandList
         )([inputFramePoint, outputFramePoint])
 
     def __call__(self):
