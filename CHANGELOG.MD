@@ -21,9 +21,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Multithreadded the Encode.
 - Simplified some cuda related logs and calls.
 - Removed redundant code.
+- Changed resizing logic from ffmpeg to Celux ( ffmpeg )
 
 ### Removed
 - PyMediaInfo package in favor of Celux.
+
+### Known issues
+- Resizing Methods don't work (`--resize_method`).
 
 ### Fixed
 - Fix audio copying to and from `.webm` inputs.
