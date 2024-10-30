@@ -110,13 +110,12 @@ class VideoProcessor:
         logging.info("\n============== Processing Outputs ==============")
 
         if self.resize:
-            print(yellow("Resizing is being reworked, skipping for now"))
-            # aspectRatio = self.width / self.height
-            # self.width = round(self.width * self.resize_factor / 2) * 2
-            # self.height = round(self.width / aspectRatio / 2) * 2
-            # logging.info(
-            #    f"Resizing to {self.width}x{self.height}, aspect ratio: {aspectRatio}"
-            # )
+            aspectRatio = self.width / self.height
+            self.width = round(self.width * self.resize_factor / 2) * 2
+            self.height = round(self.width / aspectRatio / 2) * 2
+            logging.info(
+                f"Resizing to {self.width}x{self.height} using {self.resize_method}"
+            )
 
         if self.autoclip:
             logging.info("Detecting scene changes")
@@ -250,6 +249,9 @@ class VideoProcessor:
                 fps=self.fps,
                 half=self.half,
                 decodeThreads=self.decode_threads,
+                resize=self.resize,
+                width=self.width,
+                height=self.height,
             )
 
             self.writeBuffer = WriteBuffer(
