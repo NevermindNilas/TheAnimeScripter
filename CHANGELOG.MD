@@ -25,9 +25,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ### Removed
 - PyMediaInfo package in favor of Celux.
 
-### Known issues
-- Resizing Doesn't work due to decode changes.
-
 ### Fixed
 - Fix audio copying to and from `.webm` inputs.
 - Fixed an issue where Depth TensorRT would cause flickering using `low` depth quality mode.
