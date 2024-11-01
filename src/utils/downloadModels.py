@@ -77,7 +77,29 @@ def modelsList() -> list[str]:
         "rife4.22-lite",
         "rife4.25",
         "rife4.25-lite",
+        "rife4.25-heavy",
         "rife_elexor",
+        "rife4.6-tensorrt",
+        "rife4.15-lite-tensorrt",
+        "rife4.17-tensorrt",
+        "rife4.18-tensorrt",
+        "rife4.20-tensorrt",
+        "rife4.21-tensorrt",
+        "rife4.22-tensorrt",
+        "rife4.22-lite-tensorrt",
+        "rife4.25-tensorrt",
+        "rife4.25-lite-tensorrt",
+        "rife4.25-heavy-tensorrt",
+        "rife_elexor-tensorrt",
+        "rife-v4.6-ncnn",
+        "rife-v4.15-lite-ncnn",
+        "rife-v4.16-lite-ncnn",
+        "rife-v4.17-ncnn",
+        "rife-v4.18-ncnn",
+        "rife-v4.20-ncnn",
+        "rife-v4.21-ncnn",
+        "rife-v4.22-ncnn",
+        "rife-v4.22-lite-ncnn",
         "shufflecugan-directml",
         "open-proteus-directml",
         "compact-directml",
@@ -90,26 +112,6 @@ def modelsList() -> list[str]:
         "ultracompact-tensorrt",
         "superultracompact-tensorrt",
         "span-tensorrt",
-        "rife4.6-tensorrt",
-        "rife4.15-lite-tensorrt",
-        "rife4.17-tensorrt",
-        "rife4.18-tensorrt",
-        "rife4.20-tensorrt",
-        "rife4.21-tensorrt",
-        "rife4.22-tensorrt",
-        "rife4.22-lite-tensorrt",
-        "rife4.25-tensorrt",
-        "rife4.25-lite-tensorrt",
-        "rife_elexor-tensorrt",
-        "rife-v4.6-ncnn",
-        "rife-v4.15-lite-ncnn",
-        "rife-v4.16-lite-ncnn",
-        "rife-v4.17-ncnn",
-        "rife-v4.18-ncnn",
-        "rife-v4.20-ncnn",
-        "rife-v4.21-ncnn",
-        "rife-v4.22-ncnn",
-        "rife-v4.22-lite-ncnn",
         "span-ncnn",
         "shufflecugan-ncnn",
         "small_v2",
@@ -260,6 +262,14 @@ def modelsMap(
 
         case "gmfss":
             return "gmfss-fortuna-union.zip"
+
+        case "rife4.25-heavy" | "rife4.25-heavy-tensorrt" | "rife4.25-heavy-ncnn":
+            if modelType == "pth":
+                return "rife425_heavy.pth"
+            elif modelType == "onnx":
+                return "rife425_heavy.pth"
+            elif modelType == "ncnn":
+                raise ValueError("NCNN model not found.")
 
         case "rife_elexor" | "rife_elexor-tensorrt" | "rife_elexor-ncnn":
             if modelType == "pth":

@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### New
 - Added Full CUDA Graph Acceleration for all TensorRT workflows, this should bring an uplift of up to `25%` in performance depending on the input resolution.
-- Reverted back to threaded decode / encode due to extremely high CPU usages. This change will imply significantly improved start up times ( up to 1.5s on my system ), significantly less CPU usage ( seen drops of up to 40% on my 13700k ) at the cost of about 5-10% in performance.
+- Reverted back to threaded decode / encode due to extremely high CPU usages. This change will imply significantly improved start up times ( up to 1.5s on my system ), significantly less CPU usage ( seen drops of up to 40% on my 13700k ).
 - Switch entire decode backend to Celux-CPU ( soon Celux-Cuda )
 - Added Rife `4.25 Lite` and `4.25 Lite TensorRT`
+- Added Rife `4.25 Heavy` and `4.25 Heavy TensorRT`
 - Added variable `--decode_threads` for more granularity.
 - Added `anime1080fixer-directml` support for restoration.
 - Added `slow_nvenc_h264` & `slow_nvenc_h265`

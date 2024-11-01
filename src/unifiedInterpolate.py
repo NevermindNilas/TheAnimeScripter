@@ -15,6 +15,9 @@ def importRifeArch(interpolateMethod, version):
     match version:
         case "v1":
             match interpolateMethod:
+                case "rife4.25-heavy":
+                    from .rifearches.IFNet_rife425heavy import IFNet
+
                 case "rife4.25-lite":
                     from .rifearches.IFNet_rife425lite import IFNet
                 case "rife" | "rife4.25":
@@ -43,6 +46,11 @@ def importRifeArch(interpolateMethod, version):
 
         case "v3":
             match interpolateMethod:
+                case "rife4.25-heavy-tensorrt":
+                    from src.rifearches.Rife425_heavy_v3 import IFNet
+
+                    Head = True
+
                 case "rife4.25-lite-tensorrt":
                     from src.rifearches.Rife425_lite_v3 import IFNet
 
@@ -391,6 +399,7 @@ class RifeTensorRT:
         if self.interpolateMethod in [
             "rife_elexor-tensorrt",
             "rife4.25-tensorrt",
+            "rife4.25-heavy-tensorrt",
         ]:
             channels = 4
             mul = 64
