@@ -533,8 +533,6 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
 
     if args.custom_encoder:
         logging.info("Custom encoder specified, use with caution")
-    else:
-        logging.info("No custom encoder specified, using default encoder")
 
     if args.bit_depth == "16bit" and args.segment:
         logging.error(
