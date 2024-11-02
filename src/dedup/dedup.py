@@ -5,8 +5,8 @@ class DedupSSIMCuda:
     def __init__(
         self,
         ssimThreshold=0.9,
-        sampleSize=224,
         half=True,
+        sampleSize=224,
     ):
         self.ssimThreshold = ssimThreshold
         self.sampleSize = sampleSize
@@ -78,7 +78,7 @@ class DedupSSIM:
         frame = self.processFrame(frame)
 
         score = self.ssim(self.prevFrame, frame)
-        self.prevFrame = frame.copy()
+        self.prevFrame = frame
 
         return score > self.ssimThreshold
 

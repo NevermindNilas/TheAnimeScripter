@@ -85,7 +85,6 @@ class VideoProcessor:
         self.buffer_limit = args.buffer_limit
         self.restore = args.restore
         self.restore_method = args.restore_method
-        self.sample_size = args.sample_size
         self.benchmark = args.benchmark
         self.segment_method = args.segment_method
         self.scenechange = args.scenechange

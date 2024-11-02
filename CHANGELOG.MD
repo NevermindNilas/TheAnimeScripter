@@ -25,6 +25,7 @@
 ### Removed
 - PyMediaInfo package in favor of Celux.
 - Polygraphy in favor of built in TensorRT API.
+- `--sample_size` command.
 
 ### Known issues
 - Resizing Methods don't work (`--resize_method`).
@@ -34,6 +35,24 @@
 - Fixed an issue where Depth TensorRT would cause flickering using `low` depth quality mode.
 - Fixed black outputs with Upscale NCNN.
 - Fixed an issue where the first frame was black in DirectML workflows.
+
+#### Adobe Edition
+
+### Notes
+- This version of TAS is now built against AE 2025, with official support provided. The overall UI and feel have been adjusted to match AE 2025. This may cause mismatches with older versions of AE, and some core functionalities may not work as well or at all.
+
+### New
+- Added an auto Update Cheking system which prompts the user if a new version has been released.
+- Added proper `Pre-Comp` support through internal checks in order to avoid user errors.
+- Added new interpolation methods.
+- Added new encoding methods.
+
+### Improved
+- Some naming schemes
+- Improved error handling.
+
+### Removed:
+- Rife 4.18 Cuda and TensorRT.
 
 
 ## [1.9.11] - 2024-10-26

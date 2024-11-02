@@ -424,7 +424,6 @@ def initializeModels(self):
 
                 dedup_process = DedupSSIM(
                     self.dedup_sens,
-                    self.sample_size,
                 )
 
             case "mse":
@@ -432,7 +431,6 @@ def initializeModels(self):
 
                 dedup_process = DedupMSE(
                     self.dedup_sens,
-                    self.sample_size,
                 )
 
             case "ssim-cuda":
@@ -440,7 +438,6 @@ def initializeModels(self):
 
                 dedup_process = DedupSSIMCuda(
                     self.dedup_sens,
-                    self.sample_size,
                     self.half,
                 )
 
@@ -449,7 +446,6 @@ def initializeModels(self):
 
                 dedup_process = DedupMSECuda(
                     self.dedup_sens,
-                    self.sample_size,
                     self.half,
                 )
 
