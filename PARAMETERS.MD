@@ -140,12 +140,11 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ### Deduplication
 
-| Argument         | Type  | Default | Description                        |
-| ---------------- | ----- | ------- | ---------------------------------- |
-| `--dedup`        | flag  | -       | Enable deduplication               |
-| `--dedup_method` | str   | "ssim"  | Deduplication method               |
-| `--dedup_sens`   | float | 50      | Sensitivity of deduplication       |
-| `--sample_size`  | int   | 224     | Sample size for SSIM deduplication |
+| Argument         | Type  | Default | Description                  |
+| ---------------- | ----- | ------- | ---------------------------- |
+| `--dedup`        | flag  | -       | Enable deduplication         |
+| `--dedup_method` | str   | "ssim"  | Deduplication method         |
+| `--dedup_sens`   | float | 50      | Sensitivity of deduplication |
 
 #### Dedup Methods
 - `"ffmpeg"`
