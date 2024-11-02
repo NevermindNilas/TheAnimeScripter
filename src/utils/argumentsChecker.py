@@ -48,7 +48,11 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
     # Performance options
     performanceGroup = argParser.add_argument_group("Performance")
     performanceGroup.add_argument(
-        "--precision", type=str, choices=["fp32", "fp16"], default="fp16"
+        "--precision",
+        type=str,
+        choices=["fp32", "fp16"],
+        default="fp16",
+        help="NOT IMPLEMENTED YET! Precision for inference, default is fp16",
     )
     performanceGroup.add_argument(
         "--half", type=bool, help="Use half precision for inference", default=True
