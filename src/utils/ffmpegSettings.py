@@ -783,90 +783,82 @@ class WriteBuffer:
             process.stdin.close()
             process.wait()
 
-        try:
-            writtenFrames = 0
-            if self.bitDepth == "8bit":
-                dummyTensor = torch.zeros(
-                    (self.height, self.width, self.channels),
-                    dtype=torch.uint8,
-                    device="cpu",
-                )
-            else:
-                dummyTensor = torch.zeros(
-                    (self.height, self.width, self.channels),
-                    dtype=torch.uint16,
-                    device="cpu",
-                )
+        writtenFrames = 0
+        if self.bitDepth == "8bit":
+            dummyTensor = torch.zeros(
+                (self.height, self.width, self.channels),
+                dtype=torch.uint8,
+                device="cpu",
+            )
+        else:
+            dummyTensor = torch.zeros(
+                (self.height, self.width, self.channels),
+                dtype=torch.uint16,
+                device="cpu",
+            )
+        if ISCUDA:
+            dummyTensor = dummyTensor.cuda()
+            normStream = torch.cuda.Stream()
+        else:
             try:
                 dummyTensor = dummyTensor.pin_memory()
-                if ISCUDA:
-                    dummyTensor = dummyTensor.cuda()
-                    normStream = torch.cuda.Stream()
-            except Exception:
-                logging.info("Couldn't pin memory, defaulting to CPU")
+            except Exception as e:
+                logging.error(
+                    f"Error during pinning memory, this is likely due to the lack of CUDA support. Error: {e}"
+                )
 
-            waiterTread = threading.Thread(target=writeToStdin)
-            waiterTread.start()
+        waiterTread = threading.Thread(target=writeToStdin)
+        waiterTread.start()
 
-            while True:
-                if ISCUDA:
-                    with torch.cuda.stream(normStream):
-                        frame = self.writeBuffer.get().mul(255.0).clamp(0, 255)
-                        dummyTensor.copy_(
-                            frame,
-                            non_blocking=True,
-                        )
-                    normStream.synchronize()
-                else:
+        while True:
+            if ISCUDA:
+                with torch.cuda.stream(normStream):
                     frame = self.writeBuffer.get().mul(255.0).clamp(0, 255)
                     dummyTensor.copy_(
                         frame,
-                        non_blocking=False,
+                        non_blocking=True,
                     )
-                if self.channels == 1:
-                    if self.bitDepth == "8bit":
-                        frame = dummyTensor.to(torch.uint8).cpu().numpy().tobytes()
-                    else:
-                        frame = (
-                            dummyTensor.to(torch.float32)
-                            .mul(257)
-                            .to(torch.uint16)
-                            .cpu()
-                            .numpy()
-                            .tobytes()
-                        )
-                elif self.channels == 3:
-                    if self.bitDepth == "8bit":
-                        frame = cv2.cvtColor(
-                            dummyTensor.to(torch.uint8).cpu().numpy(),
-                            cv2.COLOR_RGB2YUV_I420,
-                        )
-                    else:
-                        frame = (
-                            dummyTensor.to(torch.float32)
-                            .mul(257)
-                            .to(torch.uint16)
-                            .cpu()
-                            .numpy()
-                            .tobytes()
-                        )
-                elif self.channels == 4:
-                    if self.bitDepth == "8bit":
-                        frame = dummyTensor.to(torch.uint8).cpu().numpy().tobytes()
-                    else:
-                        raise ValueError("RGBA 10bit encoding is not supported.")
-                self.frameQueue.put(frame)
-                writtenFrames += 1
-
-        except Exception as e:
-            logging.info(f"Error during Encoding: {e}")
-
-        except BrokenPipeError:
-            logging.info("Broken pipe, exiting encoding process.")
-
-        finally:
-            self.frameQueue.put(None)
-            logging.info(f"Encoded {writtenFrames} frames")
+                normStream.synchronize()
+            else:
+                frame = self.writeBuffer.get().mul(255.0).clamp(0, 255)
+                dummyTensor.copy_(
+                    frame,
+                    non_blocking=False,
+                )
+            if self.channels == 1:
+                if self.bitDepth == "8bit":
+                    frame = dummyTensor.to(torch.uint8).cpu().numpy().tobytes()
+                else:
+                    frame = (
+                        dummyTensor.to(torch.float32)
+                        .mul(257)
+                        .to(torch.uint16)
+                        .cpu()
+                        .numpy()
+                        .tobytes()
+                    )
+            elif self.channels == 3:
+                if self.bitDepth == "8bit":
+                    frame = cv2.cvtColor(
+                        dummyTensor.to(torch.uint8).cpu().numpy(),
+                        cv2.COLOR_RGB2YUV_I420,
+                    )
+                else:
+                    frame = (
+                        dummyTensor.to(torch.float32)
+                        .mul(257)
+                        .to(torch.uint16)
+                        .cpu()
+                        .numpy()
+                        .tobytes()
+                    )
+            elif self.channels == 4:
+                if self.bitDepth == "8bit":
+                    frame = dummyTensor.to(torch.uint8).cpu().numpy().tobytes()
+                else:
+                    raise ValueError("RGBA 10bit encoding is not supported.")
+            self.frameQueue.put(frame)
+            writtenFrames += 1
 
     def write(self, frame: torch.Tensor):
         """
