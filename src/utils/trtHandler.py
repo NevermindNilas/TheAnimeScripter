@@ -140,7 +140,7 @@ def tensorRTEngineLoader(
     except Exception as e:
         print(
             yellow(
-                f"Model engine was found but it is outdated due to a TensorRT Update, creating a new engine. Error: {e}"
+                f"Model engine is outdated due to a TensorRT Update, creating a new engine. Error: {e}"
             )
         )
         return None, None
