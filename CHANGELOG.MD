@@ -19,6 +19,9 @@
 - Removed redundant code.
 - Changed resizing logic from ffmpeg to Celux ( ffmpeg )
 
+### Breaking Changes
+- Due to the TensorRT Upgrade, all engines will need to be regenerated.
+
 ### Removed
 - PyMediaInfo package in favor of Celux.
 - Polygraphy in favor of built in TensorRT API.
