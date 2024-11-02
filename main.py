@@ -33,7 +33,7 @@ from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
 from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.utils.coloredPrints import green, yellow
+from src.utils.coloredPrints import green
 from src.utils.inputOutputHandler import handleInputOutputs
 from queue import Queue
 

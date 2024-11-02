@@ -639,7 +639,6 @@ def downloadAndLog(
             toLog = f"Downloaded {model.capitalize()} model to: {os.path.join(folderPath, filename)}"
             logging.info(toLog)
             print(green(toLog))
-            print("\n")
 
             return os.path.join(folderPath, filename)
 

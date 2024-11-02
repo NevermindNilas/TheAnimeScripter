@@ -196,15 +196,15 @@ class AnimeSegmentTensorRT:
 
         import tensorrt as trt
         from src.utils.trtHandler import (
-            TensorRTEngineCreator,
-            TensorRTEngineLoader,
-            TensorRTEngineNameHandler,
+            tensorRTEngineCreator,
+            tensorRTEngineLoader,
+            tensorRTEngineNameHandler,
         )
 
         self.trt = trt
-        self.TensorRTEngineCreator = TensorRTEngineCreator
-        self.TensorRTEngineLoader = TensorRTEngineLoader
-        self.TensorRTEngineNameHandler = TensorRTEngineNameHandler
+        self.tensorRTEngineCreator = tensorRTEngineCreator
+        self.tensorRTEngineLoader = tensorRTEngineLoader
+        self.tensorRTEngineNameHandler = tensorRTEngineNameHandler
 
         self.handleModel()
         try:
@@ -256,7 +256,7 @@ class AnimeSegmentTensorRT:
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
 
-        enginePath = self.TensorRTEngineNameHandler(
+        enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=False,  # Setting this to false cuz fp16 results are really bad compared to fp32
             optInputShape=[
@@ -267,13 +267,13 @@ class AnimeSegmentTensorRT:
             ],
         )
 
-        self.engine, self.context = self.TensorRTEngineLoader(enginePath)
+        self.engine, self.context = self.tensorRTEngineLoader(enginePath)
         if (
             self.engine is None
             or self.context is None
             or not os.path.exists(enginePath)
         ):
-            self.engine, self.context = self.TensorRTEngineCreator(
+            self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
                 fp16=False,  # Setting this to false cuz fp16 results are really bad compared to fp32

@@ -493,15 +493,15 @@ class DepthTensorRTV2:
 
         import tensorrt as trt
         from src.utils.trtHandler import (
-            TensorRTEngineCreator,
-            TensorRTEngineLoader,
-            TensorRTEngineNameHandler,
+            tensorRTEngineCreator,
+            tensorRTEngineLoader,
+            tensorRTEngineNameHandler,
         )
 
         self.trt = trt
-        self.TensorRTEngineCreator = TensorRTEngineCreator
-        self.TensorRTEngineLoader = TensorRTEngineLoader
-        self.TensorRTEngineNameHandler = TensorRTEngineNameHandler
+        self.tensorRTEngineCreator = tensorRTEngineCreator
+        self.tensorRTEngineLoader = tensorRTEngineLoader
+        self.tensorRTEngineNameHandler = tensorRTEngineNameHandler
 
         self.handleModels()
 
@@ -563,19 +563,19 @@ class DepthTensorRTV2:
             self.width, self.height, self.depthQuality
         )
 
-        enginePath = self.TensorRTEngineNameHandler(
+        enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
             optInputShape=[1, 3, self.newHeight, self.newWidth],
         )
 
-        self.engine, self.context = self.TensorRTEngineLoader(enginePath)
+        self.engine, self.context = self.tensorRTEngineLoader(enginePath)
         if (
             self.engine is None
             or self.context is None
             or not os.path.exists(enginePath)
         ):
-            self.engine, self.context = self.TensorRTEngineCreator(
+            self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
                 fp16=self.half,
