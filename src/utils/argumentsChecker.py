@@ -202,9 +202,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
     dedupGroup.add_argument(
         "--dedup_sens", type=float, default=35, help="Deduplication sensitivity"
     )
-    dedupGroup.add_argument(
-        "--sample_size", type=int, default=224, help="Sample size for deduplication"
-    )
 
     # Video processing options
     processingGroup = argParser.add_argument_group("Video Processing")
