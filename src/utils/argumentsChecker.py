@@ -519,7 +519,7 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         "maxxvit-tensorrt": 0.9,
         "maxxvit-directml": 0.9,
     }
-    if args.scenechange_method in sensMap:
+    if args.scenechange_method in sensMap and args.scenechange is True:
         args.scenechange_sens = sensMap[args.scenechange_method] - (
             args.scenechange_sens / 1000
         )
