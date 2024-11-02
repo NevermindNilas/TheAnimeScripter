@@ -336,14 +336,14 @@ class RifeTensorRT:
         """
         import tensorrt as trt
         from .utils.trtHandler import (
-            TensorRTEngineCreator,
-            TensorRTEngineLoader,
-            TensorRTEngineNameHandler,
+            tensorRTEngineCreator,
+            tensorRTEngineLoader,
+            tensorRTEngineNameHandler,
         )
 
-        self.TensorRTEngineCreator = TensorRTEngineCreator
-        self.TensorRTEngineLoader = TensorRTEngineLoader
-        self.TensorRTEngineNameHandler = TensorRTEngineNameHandler
+        self.tensorRTEngineCreator = tensorRTEngineCreator
+        self.tensorRTEngineLoader = tensorRTEngineLoader
+        self.tensorRTEngineNameHandler = tensorRTEngineNameHandler
         self.trt = trt
 
         self.interpolateMethod = interpolateMethod
@@ -425,7 +425,7 @@ class RifeTensorRT:
 
         IFNet, Head = importRifeArch(self.interpolateMethod, "v3")
 
-        enginePath = self.TensorRTEngineNameHandler(
+        enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
             optInputShape=[1, 3, self.height, self.width],
@@ -454,7 +454,7 @@ class RifeTensorRT:
         else:
             self.norm = None
 
-        self.engine, self.context = self.TensorRTEngineLoader(enginePath)
+        self.engine, self.context = self.tensorRTEngineLoader(enginePath)
         if (
             self.engine is None
             or self.context is None
@@ -523,7 +523,7 @@ class RifeTensorRT:
             inputsMin = inputsOpt = inputsMax = inputs
 
             logging.info("Loading engine failed, creating a new one")
-            self.engine, self.context = self.TensorRTEngineCreator(
+            self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
                 fp16=self.half,

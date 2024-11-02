@@ -1,10 +1,3 @@
-
-# Change Log
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](http://keepachangelog.com/)
-and this project adheres to [Semantic Versioning](http://semver.org/).
-
 ## [UNRELEASED] - YYYY-MM-DD
 
 ### New
@@ -18,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 - Added `slow_nvenc_h264` & `slow_nvenc_h265`
 
 ### Improved
+- Refactored `TRT Handler` Backend for more granularity and better prints / logging.
 - Depth Quality `Low` will now produce better quality outputs.
 - Multithreadded the Encode.
 - Simplified some cuda related logs and calls.
@@ -26,6 +20,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Removed
 - PyMediaInfo package in favor of Celux.
+- Polygraphy in favor of built in TensorRT API.
 
 ### Known issues
 - Resizing Methods don't work (`--resize_method`).

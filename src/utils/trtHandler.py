@@ -1,20 +1,58 @@
 import torch
 import tensorrt as trt
 import logging
-
 from typing import List, Tuple
-from .coloredPrints import yellow
-
-from polygraphy.backend.trt import (
-    engine_from_network,
-    network_from_onnx_path,
-    CreateConfig,
-    Profile,
-    SaveEngine,
-)
+from .coloredPrints import yellow, cyan
 
 
-def TensorRTEngineCreator(
+def logAndPrint(message: str, colorFunc):
+    print(colorFunc(message))
+    logging.info(message)
+
+
+def createNetworkAndConfig(
+    builder: trt.Builder, maxWorkspaceSize: int, fp16: bool
+) -> Tuple[trt.INetworkDefinition, trt.IBuilderConfig]:
+    network = builder.create_network(
+        1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+    )
+    config = builder.create_builder_config()
+    config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, maxWorkspaceSize)
+    if fp16:
+        config.set_flag(trt.BuilderFlag.FP16)
+    return network, config
+
+
+def parseModel(parser: trt.OnnxParser, modelPath: str) -> bool:
+    with open(modelPath, "rb") as model:
+        if not parser.parse(model.read()):
+            for error in range(parser.num_errors):
+                print(parser.get_error(error))
+            return False
+    return True
+
+
+def setOptimizationProfile(
+    builder: trt.Builder,
+    config: trt.IBuilderConfig,
+    inputName: List[str],
+    inputsMin: List[torch.Tensor],
+    inputsOpt: List[torch.Tensor],
+    inputsMax: List[torch.Tensor],
+    isMultiInput: bool,
+):
+    profile = builder.create_optimization_profile()
+    if isMultiInput:
+        for name, minShape, optShape, maxShape in zip(
+            inputName, inputsMin, inputsOpt, inputsMax
+        ):
+            profile.set_shape(name, minShape, optShape, maxShape)
+    else:
+        profile.set_shape(inputName[0], inputsMin[0], inputsOpt[0], inputsMax[0])
+    config.add_optimization_profile(profile)
+
+
+def tensorRTEngineCreator(
     modelPath: str = "",
     enginePath: str = "model.engine",
     fp16: bool = False,
@@ -24,7 +62,6 @@ def TensorRTEngineCreator(
     inputName: List[str] = ["input"],
     maxWorkspaceSize: int = (1 << 30),
     optimizationLevel: int = 3,
-    forceRebuild: bool = False,
     forceStatic: bool = False,
     isMultiInput: bool = False,
 ) -> Tuple[trt.ICudaEngine, trt.IExecutionContext]:
@@ -42,53 +79,51 @@ def TensorRTEngineCreator(
         maxWorkspaceSize (int): The maximum GPU memory that the engine will use.
         optimizationLevel (int): The optimization level for the engine.
     """
-    toPrint = f"Model engine not found, creating engine for model: {modelPath}, this may take a while..."
-    print(yellow(toPrint))
-    logging.info(toPrint)
+    logAndPrint(
+        f"Model engine not found, creating engine for model: {modelPath}, this may take a while...",
+        yellow,
+    )
 
     if forceStatic:
         inputsMin = inputsOpt
         inputsMax = inputsOpt
 
-    profiles = []
-    profile = Profile()
-    if isMultiInput:
-        for name, minShape, optShape, maxShape in zip(
-            inputName, inputsMin, inputsOpt, inputsMax
-        ):
-            profile.add(
-                name,
-                min=tuple(minShape),
-                opt=tuple(optShape),
-                max=tuple(maxShape),
+    shapeInfo = "\n".join(
+        [
+            f"  {name:<10}: Min: {str(minShape):<20}, Opt: {str(optShape):<20}, Max: {str(maxShape):<20}".replace(
+                "]  ,", "],"
             )
-    else:
-        profile.add(
-            inputName[0],
-            min=tuple(inputsMin),
-            opt=tuple(inputsOpt),
-            max=tuple(inputsMax),
-        )
-
-    profiles.append(profile)
-
-    engine = engine_from_network(
-        network_from_onnx_path(modelPath),
-        config=CreateConfig(fp16=fp16, profiles=profiles, preview_features=[]),
+            for name, minShape, optShape, maxShape in zip(
+                inputName, inputsMin, inputsOpt, inputsMax
+            )
+        ]
     )
-    engine = SaveEngine(engine, enginePath)
-    engine.__call__()
+    logAndPrint(f"Optimizing for shapes:\n{shapeInfo}", cyan)
 
-    with open(enginePath, "rb") as f, trt.Runtime(
-        trt.Logger(trt.Logger.INFO)
-    ) as runtime:
+    TRTLOGGER = trt.Logger(trt.Logger.INFO)
+    builder = trt.Builder(TRTLOGGER)
+    network, config = createNetworkAndConfig(builder, maxWorkspaceSize, fp16)
+
+    parser = trt.OnnxParser(network, TRTLOGGER)
+    if not parseModel(parser, modelPath):
+        return None, None
+
+    setOptimizationProfile(
+        builder, config, inputName, inputsMin, inputsOpt, inputsMax, isMultiInput
+    )
+
+    serializedEngine = builder.build_serialized_network(network, config)
+    with open(enginePath, "wb") as f:
+        f.write(serializedEngine)
+
+    with open(enginePath, "rb") as f, trt.Runtime(TRTLOGGER) as runtime:
         engine = runtime.deserialize_cuda_engine(f.read())
         context = engine.create_execution_context()
 
     return engine, context
 
 
-def TensorRTEngineLoader(
+def tensorRTEngineLoader(
     enginePath: str,
 ) -> Tuple[trt.ICudaEngine, trt.IExecutionContext]:
     """
@@ -97,7 +132,6 @@ def TensorRTEngineLoader(
     Parameters:
         enginePath (str): The path to the engine file.
     """
-
     try:
         with open(enginePath, "rb") as f, trt.Runtime(
             trt.Logger(trt.Logger.INFO)
@@ -105,20 +139,16 @@ def TensorRTEngineLoader(
             engine = runtime.deserialize_cuda_engine(f.read())
             context = engine.create_execution_context()
             return engine, context
-
     except FileNotFoundError:
         return None, None
-
-    except Exception:
+    except Exception as e:
         print(
-            yellow(
-                "Model engine was found but it is outdated due to a Driver or TensorRT Update, creating a new engine."
-            )
+            f"Model engine was found but it is outdated due to a Driver or TensorRT Update, creating a new engine. Error: {e}"
         )
         return None, None
 
 
-def TensorRTEngineNameHandler(
+def tensorRTEngineNameHandler(
     modelPath: str = "",
     fp16: bool = False,
     optInputShape: List[int] = [],
@@ -144,13 +174,11 @@ def TensorRTEngineNameHandler(
         raise ValueError(
             "Unsupported model file extension. Only .onnx and .pth are supported."
         )
+
+    name = [f"_{enginePrecision}_{height}x{width}"]
     if isRife:
-        name = [
-            f"_{enginePrecision}_{height}x{width}",
-        ]
         if ensemble:
             name.append("_ensemble")
-
         return modelPath.replace(extension, "".join(name) + ".engine")
 
     return modelPath.replace(extension, f"_{enginePrecision}_{height}x{width}.engine")

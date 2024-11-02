@@ -170,20 +170,17 @@ class UniversalTensorRT:
             customModel (str): The path to a custom model file
             nt (int): The number of threads to use
         """
-
-        # Attempt to lazy load for faster startup
-
         import tensorrt as trt
         from .utils.trtHandler import (
-            TensorRTEngineCreator,
-            TensorRTEngineLoader,
-            TensorRTEngineNameHandler,
+            tensorRTEngineCreator,
+            tensorRTEngineLoader,
+            tensorRTEngineNameHandler,
         )
 
         self.trt = trt
-        self.TensorRTEngineCreator = TensorRTEngineCreator
-        self.TensorRTEngineLoader = TensorRTEngineLoader
-        self.TensorRTEngineNameHandler = TensorRTEngineNameHandler
+        self.tensorRTEngineCreator = tensorRTEngineCreator
+        self.tensorRTEngineLoader = tensorRTEngineLoader
+        self.tensorRTEngineNameHandler = tensorRTEngineNameHandler
 
         self.upscaleMethod = upscaleMethod
         self.upscaleFactor = upscaleFactor
@@ -236,19 +233,19 @@ class UniversalTensorRT:
             if self.half:
                 torch.set_default_dtype(torch.float16)
 
-        enginePath = self.TensorRTEngineNameHandler(
+        enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
             optInputShape=[1, 3, self.height, self.width],
         )
 
-        self.engine, self.context = self.TensorRTEngineLoader(enginePath)
+        self.engine, self.context = self.tensorRTEngineLoader(enginePath)
         if (
             self.engine is None
             or self.context is None
             or not os.path.exists(enginePath)
         ):
-            self.engine, self.context = self.TensorRTEngineCreator(
+            self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
                 fp16=self.half,
