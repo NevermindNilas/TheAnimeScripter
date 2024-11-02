@@ -11,6 +11,7 @@
 - Added `slow_nvenc_h264` & `slow_nvenc_h265`
 
 ### Improved
+- Upgraded to TensorRT `10.6.0`
 - Refactored `TRT Handler` Backend for more granularity and better prints / logging.
 - Depth Quality `Low` will now produce better quality outputs.
 - Multithreadded the Encode.
