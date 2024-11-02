@@ -47,8 +47,16 @@ def setOptimizationProfile(
             inputName, inputsMin, inputsOpt, inputsMax
         ):
             profile.set_shape(name, minShape, optShape, maxShape)
+            logAndPrint(
+                f"Input: {name}\n Min: {minShape} Opt: {optShape} Max: {maxShape}",
+                cyan,
+            )
     else:
-        profile.set_shape(inputName[0], inputsMin[0], inputsOpt[0], inputsMax[0])
+        profile.set_shape(inputName[0], inputsMin, inputsOpt, inputsMax)
+        logAndPrint(
+            f"Input: {inputName[0]}\n  Min: {inputsMin}\n  Opt: {inputsOpt}\n  Max: {inputsMax}",
+            cyan,
+        )
     config.add_optimization_profile(profile)
 
 
@@ -87,18 +95,6 @@ def tensorRTEngineCreator(
     if forceStatic:
         inputsMin = inputsOpt
         inputsMax = inputsOpt
-
-    shapeInfo = "\n".join(
-        [
-            f"  {name:<10}: Min: {str(minShape):<20}, Opt: {str(optShape):<20}, Max: {str(maxShape):<20}".replace(
-                "]  ,", "],"
-            )
-            for name, minShape, optShape, maxShape in zip(
-                inputName, inputsMin, inputsOpt, inputsMax
-            )
-        ]
-    )
-    logAndPrint(f"Optimizing for shapes:\n{shapeInfo}", cyan)
 
     TRTLOGGER = trt.Logger(trt.Logger.INFO)
     builder = trt.Builder(TRTLOGGER)
