@@ -209,12 +209,6 @@ class VideoProcessor:
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
 
-        except KeyboardInterrupt:
-            logging.info("Keyboard Interrupt detected, stopping the processes")
-            self.writeBuffer.close()
-            if self.preview:
-                self.preview.close()
-
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
             logging.info(f"Deduplicated {self.dedupCount} frames")
