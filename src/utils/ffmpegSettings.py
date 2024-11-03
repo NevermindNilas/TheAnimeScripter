@@ -4,7 +4,7 @@ import os
 import torch
 import numpy as np
 import cv2
-import celux
+from celux import CreateFilter, FilterType, VideoReader
 import threading
 
 from queue import Queue
@@ -366,6 +366,7 @@ class BuildBuffer:
         half: bool = True,
         decodeThreads: int = 0,
         resize: bool = False,
+        resizeMethod: str = "Bicubic",
         width: int = 1920,
         height: int = 1080,
     ):
@@ -394,16 +395,14 @@ class BuildBuffer:
         inputFramePoint = round(inpoint * fps)
         outputFramePoint = round(outpoint * fps) if outpoint != 0.0 else totalFrames
 
-        if resize:
-            commandList = [
-                ("scale", f"{width}:{height}"),
-            ]
-        else:
-            commandList = []
+        scaleList = CreateFilter(FilterType.Scale)
+        scaleList.setWidth(str(width))
+        scaleList.setHeight(str(height))
+        scaleList.setFlags(str(resizeMethod))
 
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
-        self.reader = celux.VideoReader(
-            videoInput, device="cpu", num_threads=decodeThreads, filters=commandList
+        self.reader = VideoReader(
+            videoInput, device="cpu", num_threads=decodeThreads, filters=[scaleList]
         )([inputFramePoint, outputFramePoint])
 
     def __call__(self):
