@@ -216,7 +216,7 @@ class UnifiedRestoreTensorRT:
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(
-                frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
+                frame.to(dtype=self.dtype),
                 non_blocking=False,
             )
         self.normStream.synchronize()
@@ -224,7 +224,7 @@ class UnifiedRestoreTensorRT:
     @torch.inference_mode()
     def processOutput(self):
         with torch.cuda.stream(self.outputStream):
-            output = self.dummyOutput.squeeze(0).permute(1, 2, 0).clamp(0, 1)
+            output = self.dummyOutput.clamp(0, 1)
         self.outputStream.synchronize()
 
         return output
@@ -340,9 +340,9 @@ class UnifiedRestoreDirectML:
         Run the model on the input frame
         """
         if self.half:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).half()
+            frame = frame.half()
         else:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).float()
+            frame = frame.float()
 
         self.dummyInput.copy_(frame.contiguous())
 
@@ -356,7 +356,7 @@ class UnifiedRestoreDirectML:
         )
 
         self.model.run_with_iobinding(self.IoBinding)
-        frame = self.dummyOutput.squeeze(0).permute(1, 2, 0).contiguous()
+        frame = self.dummyOutput.contiguous()
 
         return frame
 

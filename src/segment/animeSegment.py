@@ -513,7 +513,7 @@ class AnimeSegmentDirectML:
 
     def processFrame(self, frame: torch.tensor) -> torch.tensor:
         try:
-            frame = frame.to(self.device).float().permute(2, 0, 1).unsqueeze(0)
+            frame = frame.to(self.device).float()
             frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
             self.dummyInput.copy_(frame)
 
@@ -533,7 +533,7 @@ class AnimeSegmentDirectML:
                 : frameWithMask.shape[2] - self.padHeight,
                 : frameWithMask.shape[3] - self.padWidth,
             ]
-            self.writeBuffer.write(frameWithMask.squeeze(0).permute(1, 2, 0))
+            self.writeBuffer.write(frameWithMask)
 
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
