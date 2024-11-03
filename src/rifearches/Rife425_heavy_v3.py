@@ -208,4 +208,4 @@ class IFNet(nn.Module):
 
         return (warpedImg0 * mask + warpedImg1 * (1 - mask))[
             :, :, : self.height, : self.width
-        ][0].permute(1, 2, 0), f1
+        ], f1

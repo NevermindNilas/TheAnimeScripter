@@ -586,7 +586,7 @@ class RifeTensorRT:
         )
 
         self.dummyOutput = torch.zeros(
-            (self.height, self.width, 3),
+            (1, 3, self.height, self.width),
             device=self.device,
             dtype=self.dtype,
         )
@@ -636,7 +636,7 @@ class RifeTensorRT:
                 case "I0":
                     self.I0.copy_(
                         F.pad(
-                            frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
+                            frame.to(dtype=self.dtype),
                             self.padding,
                         ),
                         non_blocking=True,
@@ -645,7 +645,7 @@ class RifeTensorRT:
                 case "I1":
                     self.I1.copy_(
                         F.pad(
-                            frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
+                            frame.to(dtype=self.dtype),
                             self.padding,
                         ),
                         non_blocking=True,
@@ -655,9 +655,7 @@ class RifeTensorRT:
                     self.f0.copy_(
                         self.norm(
                             F.pad(
-                                frame.to(dtype=self.dtype)
-                                .permute(2, 0, 1)
-                                .unsqueeze(0),
+                                frame.to(dtype=self.dtype),
                                 self.padding,
                             )
                         ),
@@ -709,8 +707,6 @@ class RifeTensorRT:
             with torch.cuda.stream(self.stream):
                 self.cudaGraph.replay()
             self.stream.synchronize()
-            # self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-            # self.stream.synchronize()
             interpQueue.put(self.dummyOutput.clone())
 
         self.processFrame(None, "cache")

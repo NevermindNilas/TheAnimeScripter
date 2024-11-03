@@ -209,4 +209,4 @@ class IFNet(nn.Module):
         mask = torch.sigmoid(mask)
         return (warped_img0 * mask + warped_img1 * (1 - mask))[
             :, :, : self.height, : self.width
-        ][0].permute(1, 2, 0)
+        ]
