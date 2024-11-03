@@ -438,12 +438,17 @@ class BuildBuffer:
             Returns:
                 The processed frame.
         """
+        if frame.dtype == torch.uint16:
+            mul = 1 / 65535
+        else:
+            mul = 1 / 255
+
         if ISCUDA:
             with torch.cuda.stream(normStream):
                 if self.half:
                     frame = (
                         frame.to(device="cuda", non_blocking=True, dtype=torch.float16)
-                        .mul(1 / 255)
+                        .mul(mul)
                         .clamp(0, 1)
                         .permute(2, 0, 1)
                         .unsqueeze(0)
@@ -451,7 +456,7 @@ class BuildBuffer:
                 else:
                     frame = (
                         frame.to(device="cuda", non_blocking=True, dtype=torch.float32)
-                        .mul(1 / 255)
+                        .mul(mul)
                         .clamp(0, 1)
                         .permute(2, 0, 1)
                         .unsqueeze(0)
