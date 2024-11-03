@@ -62,7 +62,11 @@ class Preview:
         return jsonify({"success": True, "message": "Server is shutting down..."})
 
     def start(self):
-        print(green(f"Starting preview server at http://{self.localHost}:{self.port}"))
+        print(
+            green(
+                f"Starting preview server at http://{self.localHost}:{self.port}/frame"
+            )
+        )
         os.environ["FLASK_ENV"] = "production"
         self.app.logger.disabled = True
         log = logging.getLogger("werkzeug")
