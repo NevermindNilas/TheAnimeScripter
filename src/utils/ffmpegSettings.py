@@ -811,16 +811,19 @@ class WriteBuffer:
         waiterTread.start()
 
         while True:
+            frame = self.writeBuffer.get()
+            if frame is None:
+                break
             if ISCUDA:
                 with torch.cuda.stream(normStream):
-                    frame = self.writeBuffer.get().mul(255.0).clamp(0, 255)
+                    frame = frame.mul(255.0).clamp(0, 255)
                     dummyTensor.copy_(
                         frame,
                         non_blocking=True,
                     )
                 normStream.synchronize()
             else:
-                frame = self.writeBuffer.get().mul(255.0).clamp(0, 255)
+                frame = frame.mul(255.0).clamp(0, 255)
                 dummyTensor.copy_(
                     frame,
                     non_blocking=False,
@@ -859,6 +862,9 @@ class WriteBuffer:
                     raise ValueError("RGBA 10bit encoding is not supported.")
             self.frameQueue.put(frame)
             writtenFrames += 1
+
+        self.frameQueue.put(None)
+        logging.info(f"Encoded {writtenFrames} frames")
 
     def write(self, frame: torch.Tensor):
         """
