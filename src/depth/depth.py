@@ -76,6 +76,9 @@ class DepthCuda:
                 totalFrames=self.totalFrames,
                 fps=self.fps,
                 decodeThreads=decodeThreads,
+                width=self.width,
+                height=self.height,
+                resize=False,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -183,7 +186,6 @@ class DepthCuda:
 
     @torch.inference_mode()
     def normFrame(self, frame):
-        frame = frame.to(self.device).permute(2, 0, 1).unsqueeze(0)
         frame = F.interpolate(
             frame.float(),
             (self.newHeight, self.newWidth),
@@ -205,9 +207,8 @@ class DepthCuda:
             (self.height, self.width),
             mode="bilinear",
             align_corners=False,
-        ).squeeze(0)
-
-        return ((depth - depth.min()) / (depth.max() - depth.min())).permute(1, 2, 0)
+        )
+        return (depth - depth.min()) / (depth.max() - depth.min())
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -295,6 +296,9 @@ class DepthDirectMLV2:
                 totalFrames=self.totalFrames,
                 fps=self.fps,
                 decodeThreads=decodeThreads,
+                resize=False,
+                width=self.width,
+                height=self.height,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -393,7 +397,7 @@ class DepthDirectMLV2:
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            frame = frame.to(self.device).permute(2, 0, 1).unsqueeze(0)
+            frame = frame.to(self.device)
 
             frame = F.interpolate(
                 frame,
@@ -424,10 +428,10 @@ class DepthDirectMLV2:
                 size=(self.height, self.width),
                 mode="bilinear",
                 align_corners=False,
-            ).squeeze(0)
+            )
 
             depth = (depth - depth.min()) / (depth.max() - depth.min())
-            self.writeBuffer.write(depth.permute(1, 2, 0))
+            self.writeBuffer.write(depth)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -513,6 +517,9 @@ class DepthTensorRTV2:
                 totalFrames=self.totalFrames,
                 fps=self.fps,
                 decodeThreads=decodeThreads,
+                resize=False,
+                width=self.width,
+                height=self.height,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -615,11 +622,6 @@ class DepthTensorRTV2:
             if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
 
-        with torch.cuda.stream(self.stream):
-            for _ in range(10):
-                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-                self.stream.synchronize()
-
         self.normStream = torch.cuda.Stream()
         self.outputNormStream = torch.cuda.Stream()
         self.cudaGraph = torch.cuda.CUDAGraph()
@@ -634,7 +636,6 @@ class DepthTensorRTV2:
     @torch.inference_mode()
     def normFrame(self, frame):
         with torch.cuda.stream(self.normStream):
-            frame = frame.to(self.device).permute(2, 0, 1).unsqueeze(0)
             frame = F.interpolate(
                 frame.float(),
                 (self.newHeight, self.newWidth),
@@ -655,12 +656,10 @@ class DepthTensorRTV2:
                 size=[self.height, self.width],
                 mode="bilinear",
                 align_corners=False,
-            ).squeeze(0)
-            depth = ((depth - depth.min()) / (depth.max() - depth.min())).permute(
-                1, 2, 0
             )
-            self.outputNormStream.synchronize()
-            return depth
+            depth = (depth - depth.min()) / (depth.max() - depth.min())
+        self.outputNormStream.synchronize()
+        return depth
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -669,8 +668,6 @@ class DepthTensorRTV2:
             with torch.cuda.stream(self.stream):
                 self.cudaGraph.replay()
             self.stream.synchronize()
-            # self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-            # self.stream.synchronize()
             depth = self.normOutputFrame()
             self.writeBuffer.write(depth)
         except Exception as e:
