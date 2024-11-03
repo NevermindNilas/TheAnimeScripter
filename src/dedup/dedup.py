@@ -41,14 +41,14 @@ class DedupSSIMCuda:
 
     def processFrame(self, frame):
         return (
-            self.interpolate(
-                frame.half().permute(2, 0, 1).unsqueeze(0),
+            F.interpolate(
+                frame.half(),
                 (self.sampleSize, self.sampleSize),
                 mode="nearest",
             )
             if self.half
-            else self.interpolate(
-                frame.float().permute(2, 0, 1).unsqueeze(0),
+            else F.interpolate(
+                frame.float(),
                 (self.sampleSize, self.sampleSize),
                 mode="nearest",
             )

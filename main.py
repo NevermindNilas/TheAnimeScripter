@@ -175,7 +175,7 @@ class VideoProcessor:
                         )
                         self.writeBuffer.write(frameToWrite)
 
-            self.writeBuffer.write(frame)
+            # self.writeBuffer.write(frame)
 
         if self.preview:
             self.preview.add(frame.mul(255).byte().cpu().numpy())
