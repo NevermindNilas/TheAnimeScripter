@@ -199,7 +199,7 @@ class SceneChangeTensorRT:
     @torch.inference_mode()
     def processFrame(self, frame):
         return F.interpolate(
-            frame.to(dtype=self.dType).permute(2, 0, 1).unsqueeze(0),
+            frame.to(dtype=self.dType),
             size=(self.height, self.width),
             mode="bilinear",
         ).squeeze(0)

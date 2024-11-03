@@ -1,4 +1,7 @@
 import numpy as np
+import torch
+
+from torch.functional import F
 
 
 class DedupSSIMCuda:
@@ -14,7 +17,6 @@ class DedupSSIMCuda:
         self.prevFrame = None
 
         from .ssim import SSIM
-        from torch.functional import F
 
         self.interpolate = F.interpolate
         self.ssim = SSIM(data_range=1.0, channel=3).cuda()
@@ -59,13 +61,13 @@ class DedupSSIM:
         ssimThreshold=0.9,
         sampleSize=224,
     ):
+        from torchmetrics import StructuralSimilarityIndexMeasure
+
+        self.device = torch.device("cpu")
         self.ssimThreshold = ssimThreshold
         self.sampleSize = sampleSize
         self.prevFrame = None
-
-        from .ssimcpu import SSIM
-
-        self.ssim = SSIM
+        self.ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(self.device)
 
     def __call__(self, frame):
         """
@@ -77,15 +79,18 @@ class DedupSSIM:
 
         frame = self.processFrame(frame)
 
-        score = self.ssim(self.prevFrame, frame)
+        score = self.ssim(self.prevFrame, frame).item()
         self.prevFrame = frame
 
         return score > self.ssimThreshold
 
     def processFrame(self, frame):
-        return np.resize(
-            frame.mul(255).cpu().numpy(), (self.sampleSize, self.sampleSize, 3)
-        )
+        return torch.nn.functional.interpolate(
+            frame.float(),
+            size=(self.sampleSize, self.sampleSize),
+            mode="bilinear",
+            align_corners=False,
+        ).to(self.device)
 
     def reset(self):
         self.prevFrame = None
