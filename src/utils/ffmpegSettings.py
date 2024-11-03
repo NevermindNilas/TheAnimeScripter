@@ -366,7 +366,7 @@ class BuildBuffer:
         half: bool = True,
         decodeThreads: int = 0,
         resize: bool = False,
-        resizeMethod: str = "Bicubic",
+        resizeMethod: str = "bicubic",
         width: int = 1920,
         height: int = 1080,
     ):
