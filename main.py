@@ -179,7 +179,9 @@ class VideoProcessor:
             self.writeBuffer.write(frame)
 
         if self.preview:
-            self.preview.add(frame.mul(255).byte().cpu().numpy())
+            self.preview.add(
+                frame.squeeze(0).permute(1, 2, 0).mul(255).byte().cpu().numpy()
+            )
 
     def process(self):
         frameCount = 0
@@ -191,13 +193,16 @@ class VideoProcessor:
             self.interpQueue = Queue(maxsize=self.interpolate_factor)
 
         try:
-            with progressBarLogic(self.totalFrames) as bar:
+            with progressBarLogic(self.totalFrames * increment) as bar:
                 for _ in range(self.totalFrames):
                     self.processFrame(self.readBuffer.read())
                     frameCount += 1
                     bar(increment)
 
+            if self.preview:
+                self.preview.close()
             self.writeBuffer.close()
+
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
 
@@ -207,10 +212,6 @@ class VideoProcessor:
 
         if self.scenechange:
             logging.info(f"Detected {self.sceneChangeCounter} scene changes")
-
-        self.writeBuffer.close()
-        if self.preview:
-            self.preview.close()
 
     def start(self):
         try:
