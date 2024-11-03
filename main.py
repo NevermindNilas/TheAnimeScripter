@@ -27,7 +27,6 @@ import warnings
 from platform import system
 from signal import signal, SIGINT, SIG_DFL
 from time import time
-from alive_progress import alive_bar
 from concurrent.futures import ThreadPoolExecutor
 from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
