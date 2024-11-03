@@ -416,6 +416,12 @@ def initializeModels(self):
                     self.width,
                     self.height,
                 )
+            case "fastlinedarken":
+                from src.darken import FastLineDarken
+
+                restore_process = FastLineDarken(
+                    self.half,
+                )
 
     if self.dedup:
         match self.dedup_method:
