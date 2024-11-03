@@ -249,6 +249,7 @@ class VideoProcessor:
                 half=self.half,
                 decodeThreads=self.decode_threads,
                 resize=self.resize,
+                resizeMethod=self.resize_method,
                 width=self.width,
                 height=self.height,
             )

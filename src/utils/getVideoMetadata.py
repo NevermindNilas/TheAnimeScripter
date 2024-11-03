@@ -1,4 +1,4 @@
-from celux import VideoReader
+import celux
 import logging
 import textwrap
 
@@ -15,7 +15,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     Returns:
     tuple: A tuple containing the width, height, fps, total frames to be processed, and a boolean indicating if the video has audio.
     """
-    video = VideoReader(inputPath, device="cpu")
+    video = celux.VideoReader(inputPath, device="cpu")
     properties = video.get_properties()
 
     width = properties["width"]

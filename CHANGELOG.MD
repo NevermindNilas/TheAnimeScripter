@@ -28,9 +28,6 @@
 - Polygraphy in favor of built in TensorRT API.
 - `--sample_size` command.
 
-### Known issues
-- Resizing Methods don't work (`--resize_method`).
-
 ### Fixed
 - Fix audio copying to and from `.webm` inputs.
 - Fixed an issue where Depth TensorRT would cause flickering using `low` depth quality mode.
