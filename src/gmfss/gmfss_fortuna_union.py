@@ -143,7 +143,6 @@ class GMFSS:
                     memory_format=torch.channels_last
                 )
                 output = output[:, :, : self.height, : self.width]
-                output = output.squeeze(0).permute(1, 2, 0)
                 self.stream.synchronize()
                 interpQueue.put(output)
 

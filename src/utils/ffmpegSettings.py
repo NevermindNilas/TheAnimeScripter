@@ -442,11 +442,19 @@ class BuildBuffer:
             with torch.cuda.stream(normStream):
                 if self.half:
                     frame = (
-                        frame.to(device="cuda", non_blocking=True).half().mul(1 / 255)
+                        frame.to(device="cuda", non_blocking=True, dtype=torch.float16)
+                        .mul(1 / 255)
+                        .clamp(0, 1)
+                        .permute(2, 0, 1)
+                        .unsqueeze(0)
                     )
                 else:
                     frame = (
-                        frame.to(device="cuda", non_blocking=True).float().mul(1 / 255)
+                        frame.to(device="cuda", non_blocking=True, dtype=torch.float32)
+                        .mul(1 / 255)
+                        .clamp(0, 1)
+                        .permute(2, 0, 1)
+                        .unsqueeze(0)
                     )
             normStream.synchronize()
             return frame
@@ -815,14 +823,14 @@ class WriteBuffer:
                 break
             if ISCUDA:
                 with torch.cuda.stream(normStream):
-                    frame = frame.mul(255.0).clamp(0, 255)
+                    frame = frame.mul(255.0).clamp(0, 255).squeeze(0).permute(1, 2, 0)
                     dummyTensor.copy_(
                         frame,
                         non_blocking=True,
                     )
                 normStream.synchronize()
             else:
-                frame = frame.mul(255.0).clamp(0, 255)
+                frame = frame.mul(255.0).clamp(0, 255).squeeze(0).permute(1, 2, 0)
                 dummyTensor.copy_(
                     frame,
                     non_blocking=False,
@@ -846,6 +854,12 @@ class WriteBuffer:
                         cv2.COLOR_RGB2YUV_I420,
                     )
                 else:
+                    print(
+                        dummyTensor.min(),
+                        dummyTensor.max(),
+                        dummyTensor.dtype,
+                        dummyTensor.shape,
+                    )
                     frame = (
                         dummyTensor.to(torch.float32)
                         .mul(257)

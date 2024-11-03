@@ -12,6 +12,7 @@
 - New `--restore_method`, `fastlinedarken` which is losely inspired the original Vapoursynth version.
 
 ### Improved
+- Improved norm efficiency through removal of repeated operations.
 - Upgraded to TensorRT `10.6.0`
 - Refactored `TRT Handler` Backend for more granularity and better prints / logging.
 - Depth Quality `Low` will now produce better quality outputs.

@@ -36,6 +36,7 @@ def conv_bn(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=
         nn.LeakyReLU(0.2, True),
     )
 
+
 class Head(nn.Module):
     def __init__(self):
         super(Head, self).__init__()
@@ -282,5 +283,5 @@ class IFNet(nn.Module):
         return (
             (warped_img0 * mask + warped_img1 * (1 - mask))[
                 :, :, : self.height, : self.width
-            ][0].permute(1, 2, 0)
+            ]
         ), f1

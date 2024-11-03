@@ -113,10 +113,9 @@ class UniversalPytorch:
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(
-                frame.to(dtype=self.dummyInput.dtype)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .to(memory_format=torch.channels_last),
+                frame.to(dtype=self.dummyInput.dtype).to(
+                    memory_format=torch.channels_last
+                ),
                 non_blocking=False,
             )
         self.normStream.synchronize()
@@ -132,7 +131,7 @@ class UniversalPytorch:
 
         self.processFrame(frame)
         with torch.cuda.stream(self.stream):
-            output = self.model(self.dummyInput).squeeze(0).clamp(0, 1).permute(1, 2, 0)
+            output = self.model(self.dummyInput).clamp(0, 1)
         self.stream.synchronize()
 
         if self.upscaleSkip is not None:
@@ -307,7 +306,7 @@ class UniversalTensorRT:
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(
-                frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
+                frame.to(dtype=self.dtype),
                 non_blocking=False,
             )
         self.normStream.synchronize()
@@ -315,7 +314,7 @@ class UniversalTensorRT:
     @torch.inference_mode()
     def processOutput(self):
         with torch.cuda.stream(self.outputStream):
-            output = self.dummyOutput.squeeze(0).permute(1, 2, 0).clamp(0, 1)
+            output = self.dummyOutput.clamp(0, 1)
         self.outputStream.synchronize()
 
         return output
@@ -335,9 +334,6 @@ class UniversalTensorRT:
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
         self.stream.synchronize()
-
-        # self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-        # self.stream.synchronize()
 
         output = self.processOutput()
 
@@ -493,9 +489,9 @@ class UniversalDirectML:
                 return self.prevFrame
 
         if self.half:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).half()
+            frame = frame.half()
         else:
-            frame = frame.permute(2, 0, 1).unsqueeze(0).float()
+            frame = frame.float()
 
         self.dummyInput.copy_(frame.contiguous(), non_blocking=False)
 
@@ -509,7 +505,7 @@ class UniversalDirectML:
         )
 
         self.model.run_with_iobinding(self.IoBinding)
-        frame = self.dummyOutput.squeeze(0).permute(1, 2, 0).contiguous()
+        frame = self.dummyOutput.contiguous()
 
         if self.upscaleSkip is not None:
             self.prevFrame.copy_(frame, non_blocking=True)
