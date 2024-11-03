@@ -1,7 +1,7 @@
 import os
 import logging
-from alive_progress import alive_bar
 from .coloredPrints import green
+from src.utils.progressBarLogic import progressBarDownloadLogic
 
 import platform
 
@@ -605,19 +605,9 @@ def downloadAndLog(
 
             tempFilePath = os.path.join(tempFolder, filename)
 
-            with alive_bar(
-                int(total_size_in_mb + 1),  # Hacky but it works
-                title=f"Downloading {model.capitalize()} model",
-                bar="smooth",
-                unit="MB",
-                spinner=True,
-                enrich_print=False,
-                receipt=True,
-                monitor=True,
-                elapsed=True,
-                stats=True,
-                dual_line=False,
-                force_tty=True,
+            with progressBarDownloadLogic(
+                int(total_size_in_mb + 1),
+                title=f"Downloading {model.upper()} model... (Attempt {attempt + 1}/{retries})",
             ) as bar:
                 with open(tempFilePath, "wb") as file:
                     for data in response.iter_content(chunk_size=1024 * 1024):
