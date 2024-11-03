@@ -9,7 +9,7 @@
 - Added variable `--decode_threads` for more granularity.
 - Added `anime1080fixer-directml` support for restoration.
 - Added `slow_nvenc_h264` & `slow_nvenc_h265`
-- New `--restore_method`, `fastlinedarken` which is losely inspired the original Vapoursynth version.
+- New `--restore_method`, `fastlinedarken` which is losely inspired by the original Vapoursynth version.
 
 ### Improved
 - Improved norm efficiency through removal of repeated operations.
