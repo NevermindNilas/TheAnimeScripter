@@ -35,6 +35,7 @@ from src.utils.initializeModels import initializeModels, Segment, Depth, AutoCli
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.coloredPrints import green
 from src.utils.inputOutputHandler import handleInputOutputs
+from src.utils.progressBarLogic import progressBarLogic
 from queue import Queue
 
 warnings.filterwarnings("ignore")
@@ -175,7 +176,7 @@ class VideoProcessor:
                         )
                         self.writeBuffer.write(frameToWrite)
 
-            # self.writeBuffer.write(frame)
+            self.writeBuffer.write(frame)
 
         if self.preview:
             self.preview.add(frame.mul(255).byte().cpu().numpy())
@@ -190,16 +191,7 @@ class VideoProcessor:
             self.interpQueue = Queue(maxsize=self.interpolate_factor)
 
         try:
-            with alive_bar(
-                total=self.totalFrames * increment,
-                title="Processing Frame: ",
-                length=25,
-                stats="| {rate}",
-                elapsed="Elapsed Time: {elapsed}",
-                monitor=" {count}/{total} | [{percent:.0%}] | ",
-                unit="frames",
-                spinner=None,
-            ) as bar:
+            with progressBarLogic(self.totalFrames) as bar:
                 for _ in range(self.totalFrames):
                     self.processFrame(self.readBuffer.read())
                     frameCount += 1

@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from alive_progress import alive_bar
+from src.utils.progressBarLogic import progressBarLogic
 
 
 def calculateAspectRatio(width, height, depthQuality="high"):
@@ -226,12 +227,9 @@ class DepthCuda:
     def process(self):
         frameCount = 0
 
-        with alive_bar(
-            self.totalFrames, title="Processing", bar="smooth", unit="frames"
-        ) as bar:
+        with progressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                self.processFrame(frame)
+                self.processFrame(self.readBuffer.read())
                 frameCount += 1
                 bar(1)
 
@@ -439,9 +437,7 @@ class DepthDirectMLV2:
     def process(self):
         frameCount = 0
 
-        with alive_bar(
-            self.totalFrames, title="Processing", bar="smooth", unit="frames"
-        ) as bar:
+        with progressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()
                 self.processFrame(frame)
@@ -676,9 +672,7 @@ class DepthTensorRTV2:
     def process(self):
         frameCount = 0
 
-        with alive_bar(
-            self.totalFrames, title="Processing", bar="smooth", unit="frames"
-        ) as bar:
+        with progressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
                 self.processFrame(self.readBuffer.read())
                 frameCount += 1
