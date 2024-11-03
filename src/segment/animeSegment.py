@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from concurrent.futures import ThreadPoolExecutor
-from alive_progress import alive_bar
+from src.utils.progressBarLogic import progressBarLogic
 
 
 class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentation but it's fine
@@ -146,9 +146,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
     def process(self):
         frameCount = 0
 
-        with alive_bar(
-            self.totalFrames, title="Processing", bar="smooth", unit="frames"
-        ) as bar:
+        with progressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()
                 self.processFrame(frame)
@@ -371,9 +369,7 @@ class AnimeSegmentTensorRT:
     def process(self):
         frameCount = 0
 
-        with alive_bar(
-            self.totalFrames, title="Processing", bar="smooth", unit="frames"
-        ) as bar:
+        with progressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()
                 self.processFrame(frame)
@@ -541,9 +537,7 @@ class AnimeSegmentDirectML:
     def process(self):
         frameCount = 0
 
-        with alive_bar(
-            self.totalFrames, title="Processing", bar="smooth", unit="frames"
-        ) as bar:
+        with progressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()
                 self.processFrame(frame)
