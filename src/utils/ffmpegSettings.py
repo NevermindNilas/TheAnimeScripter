@@ -4,7 +4,7 @@ import os
 import torch
 import numpy as np
 import cv2
-from celux import CreateFilter, FilterType, VideoReader
+from celux import VideoReader, Scale
 import threading
 
 from queue import Queue
@@ -396,11 +396,7 @@ class BuildBuffer:
         outputFramePoint = round(outpoint * fps) if outpoint != 0.0 else totalFrames
 
         if resize:
-            scaleList = CreateFilter(FilterType.Scale)
-            scaleList.setWidth(str(width))
-            scaleList.setHeight(str(height))
-            scaleList.setFlags(str(resizeMethod))
-            filters = [scaleList]
+            filters = [Scale(width=str(width), height=str(height), flags=resizeMethod)]
         else:
             filters = []
 
