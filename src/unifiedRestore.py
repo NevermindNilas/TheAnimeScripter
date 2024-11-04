@@ -67,15 +67,10 @@ class UnifiedRestoreCuda:
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
         with torch.cuda.stream(self.stream):
-            frame = (
-                self.model(
-                    frame.to(self.device, non_blocking=True, dtype=self.dType)
-                    .permute(2, 0, 1)
-                    .unsqueeze(0)
-                    .to(memory_format=torch.channels_last)
+            frame = self.model(
+                frame.to(self.device, non_blocking=True, dtype=self.dType).to(
+                    memory_format=torch.channels_last
                 )
-                .squeeze_(0)
-                .permute(1, 2, 0)
             )
         self.stream.synchronize()
         return frame
