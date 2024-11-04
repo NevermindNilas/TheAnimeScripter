@@ -395,14 +395,18 @@ class BuildBuffer:
         inputFramePoint = round(inpoint * fps)
         outputFramePoint = round(outpoint * fps) if outpoint != 0.0 else totalFrames
 
-        scaleList = CreateFilter(FilterType.Scale)
-        scaleList.setWidth(str(width))
-        scaleList.setHeight(str(height))
-        scaleList.setFlags(str(resizeMethod))
+        if resize:
+            scaleList = CreateFilter(FilterType.Scale)
+            scaleList.setWidth(str(width))
+            scaleList.setHeight(str(height))
+            scaleList.setFlags(str(resizeMethod))
+            filters = [scaleList]
+        else:
+            filters = []
 
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
         self.reader = VideoReader(
-            videoInput, device="cpu", num_threads=decodeThreads, filters=[scaleList]
+            videoInput, device="cpu", num_threads=decodeThreads, filters=filters
         )([inputFramePoint, outputFramePoint])
 
     def __call__(self):
