@@ -389,9 +389,9 @@ def initializeModels(self):
     if self.restore:
         match self.restore_method:
             case "scunet" | "dpir" | "nafnet" | "real-plksr" | "anime1080fixer":
-                from src.unifiedRestore import UnifiedRestore
+                from src.unifiedRestore import UnifiedRestoreCuda
 
-                restore_process = UnifiedRestore(
+                restore_process = UnifiedRestoreCuda(
                     self.restore_method,
                     self.half,
                 )
