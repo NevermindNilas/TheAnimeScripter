@@ -76,8 +76,6 @@ class FastLineDarken:
         """
         if not isinstance(image, torch.Tensor):
             raise ValueError("Input image must be a torch.Tensor")
-        if image.dim() != 3 or image.size(2) != 3:
-            raise ValueError("Input image must have shape (H, W, C) with 3 channels")
 
         if self.ISCUDA:
             return self._CudaWorkflow(image, thinEdges, Gaussian, darkenStrength)
@@ -87,7 +85,7 @@ class FastLineDarken:
     def _CudaWorkflow(self, image, thinEdges, Gaussian, darkenStrength):
         with torch.cuda.stream(self.normStream):
             image = image.half() if self.half else image.float()
-            image = image.permute(2, 0, 1)
+            image = image.squeeze(0)
 
             grayscale = torch.tensordot(image, self.weightsLocal, dims=([0], [0]))
 
@@ -109,8 +107,8 @@ class FastLineDarken:
             else:
                 softenedEdges = thinnedEdges
 
-            enhancedImage = image.sub_(darkenStrength * softenedEdges.unsqueeze(0))
-            enhancedImage = enhancedImage.permute(1, 2, 0).clamp(0, 1)
+            enhancedImage = image.sub_(darkenStrength * softenedEdges)
+            enhancedImage = enhancedImage.clamp(0, 1)
         self.normStream.synchronize()
         return enhancedImage
 
@@ -138,5 +136,5 @@ class FastLineDarken:
         else:
             softenedEdges = thinnedEdges
 
-        enhancedImage = image.sub_(darkenStrength * softenedEdges.unsqueeze(0))
-        return enhancedImage.permute(1, 2, 0).clamp(0, 1)
+        enhancedImage = image.sub_(darkenStrength * softenedEdges)
+        return enhancedImage.clamp(0, 1)

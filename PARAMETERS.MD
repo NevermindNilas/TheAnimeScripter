@@ -18,8 +18,8 @@
       - [Scene Change Methods](#scene-change-methods)
     - [Deduplication](#deduplication)
       - [Dedup Methods](#dedup-methods)
-    - [Denoising](#denoising)
-      - [Denoise Methods](#denoise-methods)
+    - [Restoring](#restoring)
+      - [Restore Methods](#restore-methods)
     - [Sharpening](#sharpening)
     - [Segmentation](#segmentation)
       - [Segment Methods](#segment-methods)
@@ -147,23 +147,24 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 | `--dedup_sens`   | float | 50      | Sensitivity of deduplication |
 
 #### Dedup Methods
-- `"ffmpeg"`
 - `"ssim"`
 - `"mse"`
 - `"ssim-cuda"`
 
-### Denoising
+### Restoring
 
 | Argument           | Type | Default  | Description      |
 | ------------------ | ---- | -------- | ---------------- |
-| `--denoise`        | flag | -        | Enable denoising |
-| `--denoise_method` | str  | "scunet" | Denoising model  |
+| `--restore`        | flag | -        | Enable denoising |
+| `--restore_method` | str  | "scunet" | Denoising model  |
 
-#### Denoise Methods
+#### Restore Methods
 - `"scunet"`
 - `"nafnet"`
 - `"dpir"`
 - `"real-plksr"`
+- `"anime1080fixer"` / `"anime1080fixer-tensorrt"`
+- `"fastlinedarken"`
 
 ### Sharpening
 
@@ -340,7 +341,7 @@ python .\main.py --input .\input\test.mp4 --upscale --upscale_method superultrac
 <summary>5. Enable denoising using the NAFNet model:</summary>
 
    ```sh
-   python .\main.py --input .\input\test.mp4 --denoise --denoise_method nafnet
+   python .\main.py --input .\input\test.mp4 --restore --restore_method nafnet
    ```
 </details>
 </h3>
