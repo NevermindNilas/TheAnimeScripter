@@ -422,6 +422,14 @@ def initializeModels(self):
                 restore_process = FastLineDarken(
                     self.half,
                 )
+            case "fastlinedarken-tensorrt":
+                from src.darken import FastLineDarkenTRT
+
+                restore_process = FastLineDarkenTRT(
+                    self.half,
+                    self.height,
+                    self.width,
+                )
 
     if self.dedup:
         match self.dedup_method:
