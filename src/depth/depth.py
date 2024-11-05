@@ -217,8 +217,8 @@ class DepthCuda:
                 frame = self.normFrame(frame)
                 depth = self.model(frame)
                 depth = self.outputFrameNorm(depth)
-                self.stream.synchronize()
-                self.writeBuffer.write(depth)
+            self.stream.synchronize()
+            self.writeBuffer.write(depth)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -231,6 +231,9 @@ class DepthCuda:
                 self.processFrame(self.readBuffer.read())
                 frameCount += 1
                 bar(1)
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -442,6 +445,9 @@ class DepthDirectMLV2:
                 self.processFrame(frame)
                 frameCount += 1
                 bar(1)
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -676,6 +682,9 @@ class DepthTensorRTV2:
                 self.processFrame(self.readBuffer.read())
                 frameCount += 1
                 bar(1)
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
