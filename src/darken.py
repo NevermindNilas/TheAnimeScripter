@@ -153,8 +153,12 @@ class FastLineDarkenTRT(FastLineDarken):
         self.model = FastLineDarken(half=self.half)
         self.model.eval()
 
+        folderPath = os.path.join(weightsDir, "fastlinedarken")
+        if not os.path.exists(folderPath):
+            os.makedirs(folderPath)
+
         self.modelPath = os.path.join(
-            weightsDir, f"fastlinedarken{width}x{height}.onnx"
+            folderPath, f"fastlinedarken{width}x{height}.onnx"
         )
 
         if not os.path.exists(self.modelPath):
@@ -189,125 +193,10 @@ class FastLineDarkenTRT(FastLineDarken):
                 forceStatic=forceStatic,
             )
 
-        self.stream = torch.cuda.Stream()
-        self.dummyInput = torch.zeros(
-            (1, 3, self.height, self.width),
-            device=self.device,
-            dtype=torch.float16 if self.half else torch.float32,
-        )
-
-        self.dummyOutput = torch.zeros(
-            (1, 3, self.height, self.width),
-            device=self.device,
-            dtype=torch.float16 if self.half else torch.float32,
-        )
-
-        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
-
-        for i in range(self.engine.num_io_tensors):
-            self.context.set_tensor_address(
-                self.engine.get_tensor_name(i), self.bindings[i]
-            )
-            tensorName = self.engine.get_tensor_name(i)
-            if self.engine.get_tensor_mode(tensorName) == trt.TensorIOMode.INPUT:
-                self.context.set_input_shape(tensorName, self.dummyInput.shape)
-
-        self.normStream = torch.cuda.Stream()
-        self.outputStream = torch.cuda.Stream()
-        self.cudaGraph = torch.cuda.CUDAGraph()
-        self.initTorchCudaGraph()
-
-    @torch.inference_mode()
-    def initTorchCudaGraph(self):
-        with torch.cuda.graph(self.cudaGraph, stream=self.stream):
-            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
-        self.stream.synchronize()
-
-    @torch.inference_mode()
-    def processFrame(self, frame):
-        with torch.cuda.stream(self.normStream):
-            self.dummyInput.copy_(frame, non_blocking=True)
-        self.normStream.synchronize()
-
-    @torch.inference_mode()
-    def processOutput(self):
-        with torch.cuda.stream(self.outputStream):
-            output = self.dummyOutput.clone().detach()
-        self.outputStream.synchronize()
-        return output
-
-    @torch.inference_mode()
-    def __call__(self, frame):
-        self.processFrame(frame)
-
-        with torch.cuda.stream(self.stream):
-            self.cudaGraph.replay()
-        self.stream.synchronize()
-        output = self.processOutput()
-        return output
-
-
-class FastLineDarkenTRT(FastLineDarken):
-    def __init__(
-        self,
-        half: bool = False,
-        height: int = 224,
-        width: int = 224,
-        forceStatic: bool = False,
-    ):
-        super().__init__(half)
-        import tensorrt as trt
-        from .utils.trtHandler import (
-            tensorRTEngineCreator,
-            tensorRTEngineLoader,
-            tensorRTEngineNameHandler,
-        )
-
-        self.height = height
-        self.width = width
-
-        self.dtype = torch.float16 if self.half else torch.float32
-        self.isCudaAvailable = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
-
-        self.model = FastLineDarken(half=self.half)
-        self.model.eval()
-
-        self.modelPath = os.path.join(
-            weightsDir, f"fastlinedarken{width}x{height}.onnx"
-        )
-
-        if not os.path.exists(self.modelPath):
-            torch.onnx.export(
-                self.model,
-                torch.randn(1, 3, height, width, device=self.device, dtype=self.dtype),
-                self.modelPath,
-                input_names=["input"],
-                output_names=["output"],
-                opset_version=20,
-            )
-
-        enginePath = tensorRTEngineNameHandler(
-            modelPath=self.modelPath,
-            fp16=self.half,
-            optInputShape=[1, 3, height, width],
-        )
-
-        self.engine, self.context = tensorRTEngineLoader(enginePath)
-        if (
-            self.engine is None
-            or self.context is None
-            or not os.path.exists(enginePath)
-        ):
-            self.engine, self.context = tensorRTEngineCreator(
-                modelPath=self.modelPath,
-                enginePath=enginePath,
-                fp16=self.half,
-                inputsMin=[1, 3, self.height, self.width],
-                inputsOpt=[1, 3, self.height, self.width],
-                inputsMax=[1, 3, self.height, self.width],
-                forceStatic=forceStatic,
-            )
+        try:
+            os.remove(self.modelPath)
+        except FileNotFoundError:
+            pass
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
