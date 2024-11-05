@@ -12,6 +12,7 @@
 - New `--restore_method`, `fastlinedarken` which is losely inspired by the original Vapoursynth version.
 
 ### Improved
+- Improved error handling when the `totalFrames` count was off.
 - Improved norm efficiency through removal of repeated operations.
 - Upgraded to TensorRT `10.6.0`
 - Refactored `TRT Handler` Backend for more granularity and better prints / logging.

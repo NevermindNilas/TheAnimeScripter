@@ -34,7 +34,7 @@ from src.utils.initializeModels import initializeModels, Segment, Depth, AutoCli
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.coloredPrints import green
 from src.utils.inputOutputHandler import handleInputOutputs
-from src.utils.progressBarLogic import progressBarLogic
+from src.utils.progressBarLogic import ProgressBarLogic
 from queue import Queue
 
 warnings.filterwarnings("ignore")
@@ -192,11 +192,14 @@ class VideoProcessor:
             self.interpQueue = Queue(maxsize=self.interpolate_factor)
 
         try:
-            with progressBarLogic(self.totalFrames * increment) as bar:
+            with ProgressBarLogic(self.totalFrames * increment) as bar:
                 for _ in range(self.totalFrames):
                     self.processFrame(self.readBuffer.read())
                     frameCount += 1
                     bar(increment)
+                    if self.readBuffer.isReadFinished():
+                        if self.readBuffer.isQueueEmpty():
+                            break
 
             if self.preview:
                 self.preview.close()
