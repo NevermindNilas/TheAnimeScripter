@@ -246,4 +246,5 @@ class FastLineDarkenTRT(FastLineDarken):
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
         self.stream.synchronize()
-        return self.processOutput()
+        output = self.processOutput()
+        return output
