@@ -1,16 +1,24 @@
+import os
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 
-"""
-I can't find the original author anymore, but heavily inspired by the Vapoursynth implementation:
-
-https://github.com/search?q=fastlinedarken&type=code
-"""
+from src.utils.downloadModels import weightsDir
 
 
-class FastLineDarken:
-    def __init__(self, half: bool = False):
+class FastLineDarken(nn.Module):
+    def __init__(
+        self,
+        half: bool = False,
+        thinEdges: bool = True,
+        gaussian: bool = True,
+        darkenStrength: float = 0.8,
+    ):
+        super(FastLineDarken, self).__init__()
         self.half = half
+        self.thinEdges = thinEdges
+        self.gaussian = gaussian
+        self.darkenStrength = darkenStrength
 
         # Initialize weights and Sobel kernels
         self.weights = torch.tensor([0.2989, 0.5870, 0.1140])
@@ -22,20 +30,20 @@ class FastLineDarken:
         )
 
         # Check if CUDA is available
-        self.ISCUDA = torch.cuda.is_available()
+        self.isCuda = torch.cuda.is_available()
 
         # Move tensors to appropriate device
-        device = "cuda" if self.ISCUDA else "cpu"
+        device = "cuda" if self.isCuda else "cpu"
         self.weightsLocal = self.weights.to(device)
         self.sobelXLocal = self.sobelX.to(device)
         self.sobelYLocal = self.sobelY.to(device)
 
-        if self.half and self.ISCUDA:
+        if self.half and self.isCuda:
             self.weightsLocal = self.weightsLocal.half()
             self.sobelXLocal = self.sobelXLocal.half()
             self.sobelYLocal = self.sobelYLocal.half()
 
-        if self.ISCUDA:
+        if self.isCuda:
             self.normStream = torch.cuda.Stream()
 
     def gaussianBlur(self, img, kernelSize=5, sigma=1.0):
@@ -55,34 +63,16 @@ class FastLineDarken:
         filteredImg = F.conv2d(img, kernel, padding=1)
         return filteredImg.squeeze(0).squeeze(0)
 
-    def __call__(
-        self,
-        image: torch.Tensor,
-        thinEdges: bool = True,
-        Gaussian: bool = True,
-        darkenStrength: float = 0.8,
-    ) -> torch.Tensor:
-        """
-        Darken the lines of an anime-style image to give it a slight perceived sharpness boost.
-
-        Args:
-            image (torch.Tensor): Input image tensor of shape (H, W, C) with values in the range [0, 1].
-            thinEdges (bool): If True, apply line thinning.
-            Gaussian (bool): If True, apply Gaussian blur to soften the edges.
-            darkenStrength (float): Strength of the darkening effect.
-
-        Returns:
-            torch.Tensor: Image tensor with enhanced lines.
-        """
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
         if not isinstance(image, torch.Tensor):
             raise ValueError("Input image must be a torch.Tensor")
 
-        if self.ISCUDA:
-            return self._CudaWorkflow(image, thinEdges, Gaussian, darkenStrength)
+        if self.isCuda:
+            return self._cudaWorkflow(image)
         else:
-            return self._CPUWorkflow(image, thinEdges, Gaussian, darkenStrength)
+            return self._cpuWorkflow(image)
 
-    def _CudaWorkflow(self, image, thinEdges, Gaussian, darkenStrength):
+    def _cudaWorkflow(self, image):
         with torch.cuda.stream(self.normStream):
             image = image.half() if self.half else image.float()
             image = image.squeeze(0)
@@ -95,24 +85,24 @@ class FastLineDarken:
 
             edges = (edges - edges.min()) / (edges.max() - edges.min())
 
-            if thinEdges:
+            if self.thinEdges:
                 edges = edges.unsqueeze(0).unsqueeze(0)
                 thinnedEdges = -F.max_pool2d(-edges, kernel_size=3, stride=1, padding=1)
                 thinnedEdges = thinnedEdges.squeeze(0).squeeze(0)
             else:
                 thinnedEdges = edges
 
-            if Gaussian:
+            if self.gaussian:
                 softenedEdges = self.gaussianBlur(thinnedEdges.unsqueeze(0)).squeeze(0)
             else:
                 softenedEdges = thinnedEdges
 
-            enhancedImage = image.sub_(darkenStrength * softenedEdges)
+            enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
             enhancedImage = enhancedImage.clamp(0, 1)
         self.normStream.synchronize()
         return enhancedImage
 
-    def _CPUWorkflow(self, image, thinEdges, Gaussian, darkenStrength):
+    def _cpuWorkflow(self, image):
         image = image.half() if self.half else image.float()
         image = image.permute(2, 0, 1)
 
@@ -124,17 +114,136 @@ class FastLineDarken:
 
         edges = (edges - edges.min()) / (edges.max() - edges.min())
 
-        if thinEdges:
+        if self.thinEdges:
             edges = edges.unsqueeze(0).unsqueeze(0)
             thinnedEdges = -F.max_pool2d(-edges, kernel_size=3, stride=1, padding=1)
             thinnedEdges = thinnedEdges.squeeze(0).squeeze(0)
         else:
             thinnedEdges = edges
 
-        if Gaussian:
+        if self.gaussian:
             softenedEdges = self.gaussianBlur(thinnedEdges.unsqueeze(0)).squeeze(0)
         else:
             softenedEdges = thinnedEdges
 
-        enhancedImage = image.sub_(darkenStrength * softenedEdges)
+        enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
         return enhancedImage.clamp(0, 1)
+
+
+class FastLineDarkenTRT(FastLineDarken):
+    def __init__(
+        self,
+        half: bool = False,
+        height: int = 224,
+        width: int = 224,
+        forceStatic: bool = False,
+    ):
+        super().__init__(half)
+        import tensorrt as trt
+        from .utils.trtHandler import (
+            tensorRTEngineCreator,
+            tensorRTEngineLoader,
+            tensorRTEngineNameHandler,
+        )
+
+        self.height = height
+        self.width = width
+
+        self.dtype = torch.float16 if self.half else torch.float32
+        self.isCudaAvailable = torch.cuda.is_available()
+        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
+
+        self.model = FastLineDarken(half=self.half)
+        self.model.eval()
+
+        self.modelPath = os.path.join(
+            weightsDir, f"fastlinedarken{width}x{height}.onnx"
+        )
+
+        if not os.path.exists(self.modelPath):
+            torch.onnx.export(
+                self.model,
+                torch.randn(1, 3, height, width, device=self.device, dtype=self.dtype),
+                self.modelPath,
+                input_names=["input"],
+                output_names=["output"],
+                opset_version=20,
+            )
+
+        enginePath = tensorRTEngineNameHandler(
+            modelPath=self.modelPath,
+            fp16=self.half,
+            optInputShape=[1, 3, height, width],
+        )
+
+        self.engine, self.context = tensorRTEngineLoader(enginePath)
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
+            self.engine, self.context = tensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
+                fp16=self.half,
+                inputsMin=[1, 3, self.height, self.width],
+                inputsOpt=[1, 3, self.height, self.width],
+                inputsMax=[1, 3, self.height, self.width],
+                forceStatic=forceStatic,
+            )
+
+        self.stream = torch.cuda.Stream()
+        self.dummyInput = torch.zeros(
+            (1, 3, self.height, self.width),
+            device=self.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        self.dummyOutput = torch.zeros(
+            (1, 3, self.height, self.width),
+            device=self.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
+
+        for i in range(self.engine.num_io_tensors):
+            self.context.set_tensor_address(
+                self.engine.get_tensor_name(i), self.bindings[i]
+            )
+            tensorName = self.engine.get_tensor_name(i)
+            if self.engine.get_tensor_mode(tensorName) == trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(tensorName, self.dummyInput.shape)
+
+        self.normStream = torch.cuda.Stream()
+        self.outputStream = torch.cuda.Stream()
+        self.cudaGraph = torch.cuda.CUDAGraph()
+        self.initTorchCudaGraph()
+
+    @torch.inference_mode()
+    def initTorchCudaGraph(self):
+        with torch.cuda.graph(self.cudaGraph, stream=self.stream):
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+        self.stream.synchronize()
+
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        with torch.cuda.stream(self.normStream):
+            self.dummyInput.copy_(frame, non_blocking=True)
+        self.normStream.synchronize()
+
+    @torch.inference_mode()
+    def processOutput(self):
+        with torch.cuda.stream(self.outputStream):
+            output = self.dummyOutput.clone().detach()
+        self.outputStream.synchronize()
+        return output
+
+    @torch.inference_mode()
+    def __call__(self, frame):
+        self.processFrame(frame)
+
+        with torch.cuda.stream(self.stream):
+            self.cudaGraph.replay()
+        self.stream.synchronize()
+        return self.processOutput()

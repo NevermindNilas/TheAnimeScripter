@@ -164,7 +164,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `"dpir"`
 - `"real-plksr"`
 - `"anime1080fixer"` / `"anime1080fixer-tensorrt"`
-- `"fastlinedarken"`
+- `"fastlinedarken"` / `"fastlinedarken-tensorrt"`
 
 ### Sharpening
 
