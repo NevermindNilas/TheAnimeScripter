@@ -798,15 +798,25 @@ class RifeNCNN:
 
     def __call__(self, frame, interpQueue):
         if self.frame1 is None:
-            self.frame1 = frame.mul(255).cpu().numpy().astype("uint8")
+            self.frame1 = (
+                frame.mul(255).squeeze(0).permute(1, 2, 0).cpu().numpy().astype("uint8")
+            )
             return False
 
-        self.frame2 = frame.mul(255).cpu().numpy().astype("uint8")
+        self.frame2 = (
+            frame.mul(255).squeeze(0).permute(1, 2, 0).cpu().numpy().astype("uint8")
+        )
 
         for i in range(self.interpolateFactor - 1):
             timestep = (i + 1) * 1 / self.interpolateFactor
             output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
-            output = torch.from_numpy(output).to(frame.device).mul(1 / 255)
+            output = (
+                torch.from_numpy(output)
+                .to(frame.device)
+                .mul(1 / 255)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+            )
             interpQueue.put(output)
 
         self.cacheFrame()
