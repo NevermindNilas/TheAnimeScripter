@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from concurrent.futures import ThreadPoolExecutor
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
-from src.utils.progressBarLogic import progressBarLogic
+from src.utils.progressBarLogic import ProgressBarLogic
 
 
 def calculateAspectRatio(width, height, depthQuality="high"):
@@ -226,7 +226,7 @@ class DepthCuda:
     def process(self):
         frameCount = 0
 
-        with progressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
                 self.processFrame(self.readBuffer.read())
                 frameCount += 1
@@ -436,7 +436,7 @@ class DepthDirectMLV2:
     def process(self):
         frameCount = 0
 
-        with progressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()
                 self.processFrame(frame)
@@ -671,7 +671,7 @@ class DepthTensorRTV2:
     def process(self):
         frameCount = 0
 
-        with progressBarLogic(self.totalFrames) as bar:
+        with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
                 self.processFrame(self.readBuffer.read())
                 frameCount += 1

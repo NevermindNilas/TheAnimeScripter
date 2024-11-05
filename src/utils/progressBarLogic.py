@@ -1,50 +1,67 @@
 from alive_progress import alive_bar
 
 
-def progressBarLogic(totalFrames: int) -> alive_bar:
-    """
-    This function creates a progress bar for the given range of frames.
-    The scope of this is to be less repetitive and more modular.
+class ProgressBarLogic:
+    def __init__(self, totalFrames: int):
+        """
+        Initializes the progress bar for the given range of frames.
 
-    Args:
-        totalFrames (int): The total number of frames to process
+        Args:
+            totalFrames (int): The total number of frames to process
+        """
+        self.totalFrames = totalFrames
 
-    Returns:
-        alive_bar: The progress bar
+    def __enter__(self):
+        self.bar = alive_bar(
+            total=self.totalFrames,
+            title="Processing:",
+            length=30,
+            stats="| {rate} | ETA: {eta}",
+            elapsed="Elapsed Time: {elapsed}",
+            monitor=" {count}/{total} | [{percent:.0%}] | ",
+            unit="frames",
+            spinner=None,
+        )
+        return self.bar.__enter__()
 
-    """
-    return alive_bar(
-        total=totalFrames,
-        title="Processing Frame: ",
-        length=30,
-        stats="| {rate} | ETA: {eta}",
-        elapsed="Elapsed Time: {elapsed}",
-        monitor=" {count}/{total} | [{percent:.0%}] | ",
-        unit="frames",
-        spinner=None,
-    )
+    def __exit__(self, exc_type, exc_value, traceback):
+        return self.bar.__exit__(exc_type, exc_value, traceback)
 
 
-def progressBarDownloadLogic(totalData: int, title: str) -> alive_bar:
-    """
-    This function creates a progress bar for the given range of frames.
-    The scope of this is to be less repetitive and more modular.
+class ProgressBarDownloadLogic:
+    def __init__(self, totalData: int, title: str):
+        """
+        Initializes the progress bar for the given range of data.
 
-    Args:
-        totalData (int): The total number of frames to process
-        title (str): The title of the progress bar
+        Args:
+            totalData (int): The total amount of data to process
+            title (str): The title of the progress bar
+        """
+        self.totalData = totalData
+        self.title = title
 
-    Returns:
-        alive_bar: The progress bar
+    def __enter__(self):
+        self.bar = alive_bar(
+            total=self.totalData,
+            title=self.title,
+            length=30,
+            stats="| {rate} | ETA: {eta}",
+            elapsed="Elapsed Time: {elapsed}",
+            monitor=" {count}/{total} | [{percent:.0%}] | ",
+            unit="MB",
+            spinner=None,
+        )
+        return self.bar.__enter__()
 
-    """
-    return alive_bar(
-        total=totalData,
-        title=title,
-        length=30,
-        stats="| {rate} | ETA: {eta}",
-        elapsed="Elapsed Time: {elapsed}",
-        monitor=" {count}/{total} | [{percent:.0%}] | ",
-        unit="MB",
-        spinner=None,
-    )
+    def __exit__(self, exc_type, exc_value, traceback):
+        return self.bar.__exit__(exc_type, exc_value, traceback)
+
+    def setTotal(self, newTotal: int):
+        """
+        Updates the total value of the progress bar.
+
+        Args:
+            newTotal (int): The new total value
+        """
+        self.totalData = newTotal
+        self.bar.set_total(newTotal)

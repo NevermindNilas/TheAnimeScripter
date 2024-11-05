@@ -475,6 +475,20 @@ class BuildBuffer:
         """
         return self.decodeBuffer.get()
 
+    def isReadFinished(self) -> bool:
+        """
+        Returns:
+            Whether the decoding process is finished.
+        """
+        return self.isFinished
+
+    def isQueueEmpty(self) -> bool:
+        """
+        Returns:
+            Whether the decoding buffer is empty.
+        """
+        return self.decodeBuffer.empty()
+
 
 class WriteBuffer:
     def __init__(
@@ -796,31 +810,25 @@ class WriteBuffer:
             process.wait()
 
         writtenFrames = 0
-        if self.bitDepth == "8bit":
-            dummyTensor = torch.zeros(
-                (self.height, self.width, self.channels),
-                dtype=torch.uint8,
-                device="cpu",
-            )
-        else:
-            dummyTensor = torch.zeros(
-                (self.height, self.width, self.channels),
-                dtype=torch.uint16,
-                device="cpu",
-            )
+        dtype = torch.uint8 if self.bitDepth == "8bit" else torch.uint16
+        mul = 255 if self.bitDepth == "8bit" else 65535
+
+        dummyTensor = torch.zeros(
+            (self.height, self.width, self.channels),
+            dtype=dtype,
+            device="cuda" if ISCUDA else "cpu",
+        )
+
         if ISCUDA:
-            dummyTensor = dummyTensor.cuda()
             normStream = torch.cuda.Stream()
         else:
             try:
                 dummyTensor = dummyTensor.pin_memory()
             except Exception as e:
-                logging.error(
-                    f"Error during pinning memory, this is likely due to the lack of CUDA support. Error: {e}"
-                )
+                logging.error(f"Error during pinning memory: {e}")
 
-        waiterTread = threading.Thread(target=writeToStdin)
-        waiterTread.start()
+        waiterThread = threading.Thread(target=writeToStdin)
+        waiterThread.start()
 
         while True:
             frame = self.writeBuffer.get()
@@ -828,54 +836,28 @@ class WriteBuffer:
                 break
             if ISCUDA:
                 with torch.cuda.stream(normStream):
-                    frame = frame.mul(255.0).clamp(0, 255).squeeze(0).permute(1, 2, 0)
-                    dummyTensor.copy_(
-                        frame,
-                        non_blocking=True,
-                    )
+                    frame = frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0)
+                    dummyTensor.copy_(frame, non_blocking=True)
                 normStream.synchronize()
             else:
-                frame = frame.mul(255.0).clamp(0, 255).squeeze(0).permute(1, 2, 0)
-                dummyTensor.copy_(
-                    frame,
-                    non_blocking=False,
-                )
+                frame = frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0)
+                dummyTensor.copy_(frame, non_blocking=False)
+
             if self.channels == 1:
-                if self.bitDepth == "8bit":
-                    frame = dummyTensor.to(torch.uint8).cpu().numpy().tobytes()
-                else:
-                    frame = (
-                        dummyTensor.to(torch.float32)
-                        .mul(257)
-                        .to(torch.uint16)
-                        .cpu()
-                        .numpy()
-                        .tobytes()
-                    )
+                frame = (
+                    dummyTensor.cpu().numpy().tobytes()
+                    if self.bitDepth == "8bit"
+                    else (dummyTensor.cpu().numpy().tobytes())
+                )
             elif self.channels == 3:
-                if self.bitDepth == "8bit":
-                    frame = cv2.cvtColor(
-                        dummyTensor.to(torch.uint8).cpu().numpy(),
-                        cv2.COLOR_RGB2YUV_I420,
-                    )
-                else:
-                    print(
-                        dummyTensor.min(),
-                        dummyTensor.max(),
-                        dummyTensor.dtype,
-                        dummyTensor.shape,
-                    )
-                    frame = (
-                        dummyTensor.to(torch.float32)
-                        .mul(257)
-                        .to(torch.uint16)
-                        .cpu()
-                        .numpy()
-                        .tobytes()
-                    )
+                frame = (
+                    cv2.cvtColor(dummyTensor.cpu().numpy(), cv2.COLOR_RGB2YUV_I420)
+                    if self.bitDepth == "8bit"
+                    else dummyTensor.cpu().numpy().tobytes()
+                )
             elif self.channels == 4:
                 if self.bitDepth == "8bit":
-                    frame = dummyTensor.to(torch.uint8).cpu().numpy().tobytes()
+                    frame = dummyTensor.cpu().numpy().tobytes()
                 else:
                     raise ValueError("RGBA 10bit encoding is not supported.")
             self.frameQueue.put(frame)

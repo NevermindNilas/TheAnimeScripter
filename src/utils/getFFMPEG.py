@@ -3,7 +3,7 @@ import requests
 import logging
 import os
 
-from src.utils.progressBarLogic import progressBarDownloadLogic
+from src.utils.progressBarLogic import ProgressBarDownloadLogic
 
 
 def getFFMPEG(mainPath, sysUsed, path):
@@ -36,7 +36,7 @@ def downloadAndExtractFfmpeg(ffmpegPath, sysUsed):
         totalSizeInBytes = int(response.headers.get("content-length", 0))
         totalSizeInMB = totalSizeInBytes // (1024 * 1024)
 
-        with progressBarDownloadLogic(
+        with ProgressBarDownloadLogic(
             totalSizeInMB + 1, "Downloading FFmpeg"
         ) as bar, open(ffmpegArchivePath, "wb") as file:
             for data in response.iter_content(chunk_size=1024 * 1024):

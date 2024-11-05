@@ -48,13 +48,23 @@ def setOptimizationProfile(
         ):
             profile.set_shape(name, minShape, optShape, maxShape)
             logAndPrint(
-                f"Input: {name}\n Min: {minShape} Opt: {optShape} Max: {maxShape}",
+                f"┌{'-'*30}\n"
+                f"│ Input: {name}\n"
+                f"│   Min: {minShape}\n"
+                f"│   Opt: {optShape}\n"
+                f"│   Max: {maxShape}\n"
+                f"└{'-'*30}",
                 cyan,
             )
     else:
         profile.set_shape(inputName[0], inputsMin, inputsOpt, inputsMax)
         logAndPrint(
-            f"Input: {inputName[0]}\n  Min: {inputsMin}\n  Opt: {inputsOpt}\n  Max: {inputsMax}",
+            f"┌{'-'*30}\n"
+            f"│ Input: {inputName[0]}\n"
+            f"│   Min: {inputsMin}\n"
+            f"│   Opt: {inputsOpt}\n"
+            f"│   Max: {inputsMax}\n"
+            f"└{'-'*30}",
             cyan,
         )
     config.add_optimization_profile(profile)

@@ -1,7 +1,7 @@
 import os
 import logging
 from .coloredPrints import green
-from src.utils.progressBarLogic import progressBarDownloadLogic
+from src.utils.progressBarLogic import ProgressBarDownloadLogic
 
 import platform
 
@@ -605,7 +605,7 @@ def downloadAndLog(
 
             tempFilePath = os.path.join(tempFolder, filename)
 
-            with progressBarDownloadLogic(
+            with ProgressBarDownloadLogic(
                 int(total_size_in_mb + 1),
                 title=f"Downloading {model.upper()} model... (Attempt {attempt + 1}/{retries})",
             ) as bar:
