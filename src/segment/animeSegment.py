@@ -152,6 +152,9 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 self.processFrame(frame)
                 frameCount += 1
                 bar(1)
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -375,6 +378,9 @@ class AnimeSegmentTensorRT:
                 self.processFrame(frame)
                 frameCount += 1
                 bar(1)
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -543,6 +549,9 @@ class AnimeSegmentDirectML:
                 self.processFrame(frame)
                 frameCount += 1
                 bar(1)
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
 
         logging.info(f"Processed {frameCount} frames")
 
