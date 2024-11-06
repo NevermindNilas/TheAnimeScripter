@@ -22,26 +22,29 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     height = properties["height"]
     fps = properties["fps"]
     nFrames = properties["total_frames"]
-    codec = properties["codec"]
     hasAudio = properties["has_audio"]
-    aspectRatio = properties["aspect_ratio"]
 
     duration = round(nFrames / fps, 2) if fps else 0
 
-    # Calculate total frames from inPoint to outPoint
     if outPoint != 0:
         totalFramesToBeProcessed = int((outPoint - inPoint) * fps)
     else:
         totalFramesToBeProcessed = nFrames
+
+    try:
+        del video
+    except Exception as e:
+        logging.error(f"Error while deleting video object: {e}")
 
     logging.info(
         textwrap.dedent(f"""
     ============== Video Metadata ==============
     Width: {width}
     Height: {height}
-    AspectRatio: {aspectRatio:.2f}
-    FPS: {round(fps, 2)}
-    Codec: {codec}
+    AspectRatio: {properties["aspect_ratio"]:0.2f}
+    MinFPS: {properties["min_fps"]:0.2f}
+    MaxFPS: {properties["max_fps"]:0.2f}
+    Codec: {properties["codec"]}
     Video Lenght: {duration} seconds
     Inpoint: {inPoint}
     Outpoint: {outPoint}
