@@ -26,7 +26,6 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     hasAudio = properties["has_audio"]
 
     duration = round(nFrames / fps, 2) if fps else 0
-    inOutDuration = round((outPoint - inPoint) / fps, 2) if fps else 0
 
     # Calculate total frames from inPoint to outPoint
     if outPoint != 0:
@@ -42,8 +41,9 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     AspectRatio: {round(width/height, 2)}
     FPS: {round(fps, 2)}
     Codec: {codec}
-    Duration: {duration} seconds
-    In-Out Duration: {inOutDuration} seconds
+    Video Lenght: {duration} seconds
+    Inpoint: {inPoint}
+    Outpoint: {outPoint}
     Number of total frames: {nFrames}
     Total frames to be processed: {totalFramesToBeProcessed}
     Has Audio: {hasAudio}""")
