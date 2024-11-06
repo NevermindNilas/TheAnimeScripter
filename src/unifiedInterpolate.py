@@ -707,7 +707,7 @@ class RifeTensorRT:
             with torch.cuda.stream(self.stream):
                 self.cudaGraph.replay()
             self.stream.synchronize()
-            interpQueue.put(self.dummyOutput.clone())
+            interpQueue.put(self.dummyOutput.clone().detach())
 
         self.processFrame(None, "cache")
         if self.norm is not None:

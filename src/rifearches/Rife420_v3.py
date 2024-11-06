@@ -165,10 +165,10 @@ class IFNet(nn.Module):
 
     def forward(self, img0, img1, timestep, f0):
         imgs = torch.cat([img0, img1], dim=1)
-        imgs_2 = torch.reshape(imgs, (2, 3, self.paddedHeight, self.paddedWidth))
+        imgs_2 = torch.reshape(imgs, (2, 3, self.ph, self.pw))
         f1 = self.encode(img1[:, :3])
         fs = torch.cat([f0, f1], dim=1)
-        fs_2 = torch.reshape(fs, (2, 8, self.paddedHeight, self.paddedWidth))
+        fs_2 = torch.reshape(fs, (2, 8, self.ph, self.pw))
         if self.ensemble:
             fs_rev = torch.cat(torch.split(fs, [8, 8], dim=1)[::-1], dim=1)
             imgs_rev = torch.cat([img1, img0], dim=1)
@@ -245,11 +245,7 @@ class IFNet(nn.Module):
                         torch.split(flows, [2, 2], dim=1)[::-1], dim=1
                     )
             precomp = (
-                (
-                    self.backWarp
-                    + flows.reshape((2, 2, self.paddedHeight, self.paddedWidth))
-                    * self.tenFlow
-                )
+                (self.backWarp + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlow)
                 .permute(0, 2, 3, 1)
                 .to(dtype=self.dtype)
             )
@@ -272,8 +268,8 @@ class IFNet(nn.Module):
                     align_corners=True,
                 )
                 wimg, wf = torch.split(warps, [3, 8], dim=1)
-                wimg = torch.reshape(wimg, (1, 6, self.paddedHeight, self.paddedWidth))
-                wf = torch.reshape(wf, (1, 16, self.paddedHeight, self.paddedWidth))
+                wimg = torch.reshape(wimg, (1, 6, self.ph, self.pw))
+                wf = torch.reshape(wf, (1, 16, self.ph, self.pw))
                 if self.ensemble:
                     wimg_rev = torch.cat(torch.split(wimg, [3, 3], dim=1)[::-1], dim=1)  # noqa
                     wf_rev = torch.cat(torch.split(wf, [8, 8], dim=1)[::-1], dim=1)  # noqa
