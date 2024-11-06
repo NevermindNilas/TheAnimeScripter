@@ -616,6 +616,7 @@ class RifeTensorRT:
 
         self.firstRun = True
         self.normStream = torch.cuda.Stream()
+        self.outputStream = torch.cuda.Stream()
 
         if self.interpolateSkip is not None:
             self.skippedCounter = 0
@@ -707,7 +708,10 @@ class RifeTensorRT:
             with torch.cuda.stream(self.stream):
                 self.cudaGraph.replay()
             self.stream.synchronize()
-            interpQueue.put(self.dummyOutput.clone().detach())
+            with torch.cuda.stream(self.outputStream):
+                output = self.dummyOutput.clone()
+            self.outputStream.synchronize()
+            interpQueue.put(output)
 
         self.processFrame(None, "cache")
         if self.norm is not None:
