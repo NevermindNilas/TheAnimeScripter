@@ -29,6 +29,7 @@
 - PyMediaInfo package in favor of Celux.
 - Polygraphy in favor of built in TensorRT API.
 - `--sample_size` command.
+- `pre-compilation` of TAS' bytecode.
 
 ### Fixed
 - Fix audio copying to and from `.webm` inputs.
