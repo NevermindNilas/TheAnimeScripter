@@ -419,7 +419,6 @@ class BuildBuffer:
                 frame = self.processFrame(frame, normStream if ISCUDA else None)
                 self.decodeBuffer.put(frame)
                 decodedFrames += 1
-                print(f"Decoded {decodedFrames} frames", end="\r")
 
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
