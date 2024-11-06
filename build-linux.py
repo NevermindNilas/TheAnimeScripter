@@ -112,16 +112,9 @@ def moveExtras():
             print(f"Error while copying {fileName}: {e}")
 
 
-def compileAll():
-    print("Compiling all the files...")
-    mainDir = distPath / "main"
-    runSubprocess([str(venvBinPath / "python3.12"), "-m", "compileall", str(mainDir)])
-
-
 if __name__ == "__main__":
     createVenv()
     installRequirements()
     installPyinstaller()
     createExecutable()
-    compileAll()
     moveExtras()
