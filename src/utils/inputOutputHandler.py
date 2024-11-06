@@ -1,7 +1,7 @@
 import os
 from src.utils.generateOutput import outputNameGenerator
 
-ALLOWED_EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
+EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
 
 
 def genOutputHandler(video, output, outputPath, args):
@@ -11,7 +11,7 @@ def genOutputHandler(video, output, outputPath, args):
     else:
         if output is None:
             return os.path.join(outputPath, outputNameGenerator(args, video))
-        elif output.endswith(tuple(ALLOWED_EXTENSIONS)):
+        elif output.endswith(tuple(EXTENSIONS)):
             return output
         elif not output.endswith("\\"):
             tempOutput = output + "\\"
@@ -53,7 +53,7 @@ def handleInputOutputs(args, isFrozen, outputPath):
 
     os.makedirs(outputPath, exist_ok=True)
 
-    if output and not output.endswith(tuple(ALLOWED_EXTENSIONS)):
+    if output and not output.endswith(tuple(EXTENSIONS)):
         if not output.endswith("\\"):
             output += "\\"
         os.makedirs(output, exist_ok=True)
@@ -65,7 +65,7 @@ def handleInputOutputs(args, isFrozen, outputPath):
         video_files = [
             os.path.join(videos, f)
             for f in os.listdir(videos)
-            if os.path.splitext(f)[1] in ALLOWED_EXTENSIONS
+            if os.path.splitext(f)[1] in EXTENSIONS
         ]
     elif os.path.isfile(videos) and not videos.endswith(".txt"):
         video_files = [videos]

@@ -5,7 +5,7 @@ import argparse
 
 from .checkSpecs import checkSystem
 from .downloadModels import downloadModels, modelsList
-from .coloredPrints import green, blue
+from .coloredPrints import green
 from rich_argparse import RichHelpFormatter
 from src.version import __version__ as version
 
