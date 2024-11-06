@@ -371,7 +371,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "prores",
             "prores_segment",
             "gif",
-            "image",
             "vp9",
             "qsv_vp9",
             "h266",
@@ -564,12 +563,15 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         processAniPy(args, outputPath)
 
     elif args.input.lower().endswith((".png", ".jpg", ".jpeg")):
-        if args.encode_method not in ["gif", "image"]:
+        raise Exception(
+            "Image input is not supported, use Chainner for image processing"
+        )
+    elif args.input.lower().endswith((".gif")):
+        if args.encode_method != "gif":
             logging.error(
-                "Image input detected but encoding method not set to GIF or Image, defaulting to Image encoding"
+                "GIF input detected but encoding method is not set to GIF, defaulting to GIF encoding"
             )
-            args.encode_method = "image"
-            args.isImage = True
+            args.encode_method = "gif"
     else:
         try:
             args.input = os.path.abspath(args.input)
@@ -650,21 +652,3 @@ def processAniPy(args, outputPath: str):
 
     args.input = aniPyHandler(fullOutput, args.ffmpeg_path)
     logging.info(f"New input path: {args.input}")
-
-
-def inputChecker(input, encodeMethod, customEncoder):
-    """
-    In order to prevent issues with webm inputs and certain encoders, we need to check the input and the encoder
-    """
-    if not customEncoder:
-        if input.endswith(".webm"):
-            if encodeMethod not in ["vp9", "qsv_vp9", "av1"]:
-                toPrint = "WebM input detected, defaulting to VP9 encoding"
-                logging.error(toPrint)
-                print(blue(toPrint))
-        elif input.endswith((".png", ".jpg", ".jpeg")):
-            if encodeMethod not in [".gif", "image"]:
-                logging.error(
-                    "Image input detected but encoding method is not set to GIF or Image, defaulting to Image encoding"
-                )
-                encodeMethod = "image"

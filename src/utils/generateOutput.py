@@ -8,7 +8,7 @@ def outputNameGenerator(args, videoInput):
         "resize": f"-Re{getattr(args, 'resize_factor', '')}"
         if getattr(args, "resize", False)
         else "",
-        "dedup": f"-De{getattr(args, 'dedup_sens', '')}"
+        "dedup": f"-Dedup{getattr(args, 'dedup_sens', '')}"
         if getattr(args, "dedup", False)
         else "",
         "interpolate": f"-Int{getattr(args, 'interpolate_factor', '')}"
@@ -20,7 +20,7 @@ def outputNameGenerator(args, videoInput):
         "sharpen": f"-Sh{getattr(args, 'sharpen_sens', '')}"
         if getattr(args, "sharpen", False)
         else "",
-        "restore": f"-De{getattr(args, 'restore_method', '')}"
+        "restore": f"-Re{getattr(args, 'restore_method', '')}"
         if getattr(args, "restore", False)
         else "",
         "segment": "-Segment" if getattr(args, "segment", False) else "",

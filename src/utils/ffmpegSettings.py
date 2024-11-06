@@ -342,8 +342,6 @@ def matchEncoder(encode_method: str):
             command.extend(["-c:v", "prores_ks", "-profile:v", "4", "-qscale:v", "15"])
         case "gif":
             command.extend(["-c:v", "gif", "-qscale:v", "1", "-loop", "0"])
-        case "image":
-            command.extend(["-c:v", "png", "-q:v", "1"])
         case "vp9":
             command.extend(["-c:v", "libvpx-vp9", "-crf", "15", "-preset", "veryfast"])
         case "qsv_vp9":
