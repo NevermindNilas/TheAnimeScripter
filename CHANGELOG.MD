@@ -30,6 +30,7 @@
 - Polygraphy in favor of built in TensorRT API.
 - `--sample_size` command.
 - `pre-compilation` of TAS' bytecode.
+- removed image support because f this
 
 ### Fixed
 - Fix audio copying to and from `.webm` inputs.
