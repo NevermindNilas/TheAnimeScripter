@@ -394,7 +394,6 @@ class BuildBuffer:
 
         inputFramePoint = round(inpoint * fps)
         outputFramePoint = round(outpoint * fps) if outpoint != 0.0 else totalFrames
-
         if resize:
             filters = [Scale(width=str(width), height=str(height), flags=resizeMethod)]
         else:
@@ -403,7 +402,7 @@ class BuildBuffer:
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
         self.reader = VideoReader(
             videoInput, device="cpu", num_threads=decodeThreads, filters=filters
-        )([inpoint, outpoint])
+        )([inputFramePoint, outputFramePoint])
 
     def __call__(self):
         """
@@ -420,6 +419,7 @@ class BuildBuffer:
                 frame = self.processFrame(frame, normStream if ISCUDA else None)
                 self.decodeBuffer.put(frame)
                 decodedFrames += 1
+                print(f"Decoded {decodedFrames} frames", end="\r")
 
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
