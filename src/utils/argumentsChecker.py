@@ -8,6 +8,7 @@ from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green
 from rich_argparse import RichHelpFormatter
 from src.version import __version__ as version
+from .generateOutput import outputNameGenerator
 
 
 def createParser(isFrozen, mainPath, outputPath, sysUsed):
@@ -611,24 +612,27 @@ def processURL(args, outputPath):
         logging.info("URL is valid and will be used for processing")
 
         if args.output is None:
-            from .generateOutput import outputNameGenerator
-
             outputFolder = os.path.join(outputPath, "output")
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
             args.output = os.path.join(
                 outputFolder, outputNameGenerator(args, args.input)
             )
+        else:
+            outputFolder = os.path.dirname(args.output)
+            os.makedirs(os.path.join(outputFolder), exist_ok=True)
+
+        tempOutput = os.path.join(outputFolder, outputNameGenerator(args, args.input))
 
         VideoDownloader(
             args.input,
-            args.output,
+            tempOutput,
             args.encode_method,
             args.custom_encoder,
             args.ffmpeg_path,
             args.ae,
         )
 
-        args.input = str(args.output)
+        args.input = str(tempOutput)
         logging.info(f"New input path: {args.input}")
     else:
         logging.error(
