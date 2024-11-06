@@ -88,12 +88,6 @@ def createExecutable():
     print("Finished creating the CLI executable")
 
 
-def compileAll():
-    print("Compiling all the files...")
-    mainDir = distPath / "main"
-    runSubprocess([str(venvScripts / "python"), "-O", "-m", "compileall", str(mainDir)])
-
-
 def moveExtras():
     mainDir = distPath / "main"
     filesToCopy = ["LICENSE", "README.md", "README.txt"]
@@ -111,5 +105,4 @@ if __name__ == "__main__":
     installRequirements()
     installPyinstaller()
     createExecutable()
-    compileAll()
     moveExtras()
