@@ -24,6 +24,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     nFrames = properties["total_frames"]
     codec = properties["codec"]
     hasAudio = properties["has_audio"]
+    aspectRatio = properties["aspect_ratio"]
 
     duration = round(nFrames / fps, 2) if fps else 0
 
@@ -38,7 +39,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     ============== Video Metadata ==============
     Width: {width}
     Height: {height}
-    AspectRatio: {round(width/height, 2)}
+    AspectRatio: {aspectRatio:.2f}
     FPS: {round(fps, 2)}
     Codec: {codec}
     Video Lenght: {duration} seconds
