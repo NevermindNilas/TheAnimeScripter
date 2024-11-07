@@ -22,7 +22,7 @@
 - Removed redundant code.
 - Changed resizing logic from ffmpeg to Celux ( ffmpeg )
 
-### Breaking Changes
+### Notes
 - Due to the TensorRT Upgrade, all engines will need to be regenerated.
 
 ### Removed
@@ -33,6 +33,7 @@
 - removed image support because f this
 
 ### Fixed
+- Fixed Cuda Race Conditions when interpolating with TRT at higher than `2x` factor.
 - Fix audio copying to and from `.webm` inputs.
 - Fixed an issue where Depth TensorRT would cause flickering using `low` depth quality mode.
 - Fixed black outputs with Upscale NCNN.
