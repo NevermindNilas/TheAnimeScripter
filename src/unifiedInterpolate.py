@@ -17,15 +17,14 @@ def importRifeArch(interpolateMethod, version):
             match interpolateMethod:
                 case "rife4.25-heavy":
                     from .rifearches.IFNet_rife425heavy import IFNet
-
                 case "rife4.25-lite":
                     from .rifearches.IFNet_rife425lite import IFNet
                 case "rife" | "rife4.25":
                     from .rifearches.IFNet_rife425 import IFNet
                 case "rife4.22-lite":
-                    from .rifearches.IFNET_rife422lite import IFNet
+                    from .rifearches.IFNet_rife422lite import IFNet
                 case "rife4.22":
-                    from .rifearches.IFNET_rife422 import IFNet
+                    from .rifearches.IFNet_rife422 import IFNet
                 case "rife4.21":
                     from .rifearches.IFNet_rife421 import IFNet
                 case "rife4.20":
@@ -265,7 +264,7 @@ class RifeCuda:
             case "infer":
                 with torch.cuda.stream(self.stream):
                     output = self.model(self.I0, self.I1, frame)[
-                        : self.height, : self.width, :
+                        :, :, : self.height, : self.width
                     ]
                 self.stream.synchronize()
                 return output
