@@ -236,8 +236,6 @@ class RifeCuda:
                             dtype=self.dType,
                             non_blocking=True,
                         )
-                        .permute(2, 0, 1)
-                        .unsqueeze(0)
                     )
                 ).to(memory_format=torch.channels_last)
 
@@ -249,8 +247,6 @@ class RifeCuda:
                             dtype=self.dType,
                             non_blocking=True,
                         )
-                        .permute(2, 0, 1)
-                        .unsqueeze(0)
                     ),
                     non_blocking=True,
                 ).to(memory_format=torch.channels_last)
@@ -271,7 +267,7 @@ class RifeCuda:
                     output = self.model(self.I0, self.I1, frame)[
                         : self.height, : self.width, :
                     ]
-                    self.stream.synchronize()
+                self.stream.synchronize()
                 return output
 
             case "model":
