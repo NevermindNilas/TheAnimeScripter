@@ -180,7 +180,7 @@ class IFNet(nn.Module):
                     flowss, masks = block(
                         torch.cat(
                             (
-                                temp,  # noqa
+                                torch.cat((imgs, fs, timestep), 1),  # noqa
                                 temp_,
                             ),
                             0,

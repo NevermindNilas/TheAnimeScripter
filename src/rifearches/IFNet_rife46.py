@@ -15,7 +15,7 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
             dilation=dilation,
             bias=True,
         ),
-        nn.LeakyReLU(0.2, True),
+        nn.LeakyReLU(0.2, inplace=True),
     )
 
 
@@ -31,7 +31,7 @@ def conv_bn(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=
             bias=False,
         ),
         nn.BatchNorm2d(out_planes),
-        nn.LeakyReLU(0.2, True),
+        nn.LeakyReLU(0.2, inplace=True),
     )
 
 
@@ -40,7 +40,7 @@ class ResConv(nn.Module):
         super(ResConv, self).__init__()
         self.conv = nn.Conv2d(c, c, 3, 1, dilation, dilation=dilation, groups=1)
         self.beta = nn.Parameter(torch.ones((1, c, 1, 1)), requires_grad=True)
-        self.relu = nn.LeakyReLU(0.2, True)
+        self.relu = nn.LeakyReLU(0.2, inplace=True)
 
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
@@ -72,13 +72,9 @@ class IFBlock(nn.Module):
             x, scale_factor=1.0 / scale, mode="bilinear", align_corners=False
         )
         if flow is not None:
-            flow = (
-                F.interpolate(
-                    flow, scale_factor=1.0 / scale, mode="bilinear", align_corners=False
-                )
-                * 1.0
-                / scale
-            )
+            flow = F.interpolate(
+                flow, scale_factor=1.0 / scale, mode="bilinear", align_corners=False
+            ) * (1.0 / scale)
             x = torch.cat((x, flow), 1)
         feat = self.conv0(x)
         feat = self.convblock(feat)
@@ -110,12 +106,7 @@ class IFNet(nn.Module):
     def cacheReset(self, frame):
         pass
 
-    def forward(
-        self,
-        image1,
-        image2,
-        timestep,
-    ):
+    def forward(self, image1, image2, timestep):
         merged = []
         mask_list = []
         warped_image0 = image1
@@ -161,15 +152,11 @@ class IFNet(nn.Module):
                     )
                     f0 = (f0 + torch.cat((f1[:, 2:4], f1[:, :2]), 1)) / 2
                     m0 = (m0 + (-m1)) / 2
-                flow += f0
-                mask += m0
+                flow = flow + f0
+                mask = mask + m0
             mask_list.append(mask)
             warped_image0 = warp(image1, flow[:, :2])
             warped_image1 = warp(image2, flow[:, 2:4])
             merged.append((warped_image0, warped_image1))
         mask_list[3] = torch.sigmoid(mask_list[3])
-        return (
-            (merged[3][0] * mask_list[3] + merged[3][1] * (1 - mask_list[3]))
-            .squeeze(0)
-            .permute(1, 2, 0)
-        )
+        return merged[3][0] * mask_list[3] + merged[3][1] * (1 - mask_list[3])
