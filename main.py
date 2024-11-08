@@ -278,17 +278,17 @@ class VideoProcessor:
                     executor.submit(self.preview.start)
 
             elapsedTime: float = time() - starTime
-            fps = (
+            totalTime: float = (
                 self.totalFrames
                 / elapsedTime
                 * (1 if not self.interpolate else self.interpolate_factor)
             )
             logging.info(
-                f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {fps:.2f}"
+                f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalTime:.2f}"
             )
             print(
                 green(
-                    f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {fps:.2f}"
+                    f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalTime:.2f}"
                 )
             )
 
