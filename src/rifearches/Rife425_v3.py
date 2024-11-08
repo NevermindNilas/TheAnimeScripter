@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from torch.nn.functional import interpolate
-
 import math
 
 
@@ -60,16 +59,7 @@ class IFBlock(nn.Module):
             conv(in_planes, out_planes=c // 2, kernel_size=3, stride=2, padding=1),
             conv(c // 2, out_planes=c, kernel_size=3, stride=2, padding=1),
         )
-        self.convblock = nn.Sequential(
-            ResConv(c),
-            ResConv(c),
-            ResConv(c),
-            ResConv(c),
-            ResConv(c),
-            ResConv(c),
-            ResConv(c),
-            ResConv(c),
-        )
+        self.convblock = nn.Sequential(*[ResConv(c) for _ in range(8)])
         self.lastconv = nn.Sequential(
             nn.ConvTranspose2d(
                 in_channels=c, out_channels=4 * 13, kernel_size=4, stride=2, padding=1
