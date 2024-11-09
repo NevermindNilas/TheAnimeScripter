@@ -155,7 +155,7 @@ class VideoProcessor:
             if self.interpolate:
                 if self.isSceneChange:
                     frame = self.upscale_process(frame)
-                    for _ in range(self.interpolate_factor):
+                    for _ in range(self.interpolate_factor - 1):
                         self.writeBuffer.write(frame)
                 else:
                     while not self.interpQueue.empty():

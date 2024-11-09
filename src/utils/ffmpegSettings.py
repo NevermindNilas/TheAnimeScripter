@@ -398,9 +398,14 @@ class BuildBuffer:
             filters = []
 
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
-        self.reader = VideoReader(
-            videoInput, device="cpu", num_threads=decodeThreads, filters=filters
-        )([inputFramePoint, outputFramePoint])
+        if outpoint != 0.0:
+            self.reader = VideoReader(
+                videoInput, device="cpu", num_threads=decodeThreads, filters=filters
+            )([float(inpoint), float(outpoint)])
+        else:
+            self.reader = VideoReader(
+                videoInput, device="cpu", num_threads=decodeThreads, filters=filters
+            )
 
     def __call__(self):
         """
