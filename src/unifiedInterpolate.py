@@ -805,16 +805,15 @@ class RifeNCNN:
         self.frame2 = (
             frame.mul(255).squeeze(0).permute(1, 2, 0).cpu().numpy().astype("uint8")
         )
-
         for i in range(self.interpolateFactor - 1):
             timestep = (i + 1) * 1 / self.interpolateFactor
             output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
             output = (
                 torch.from_numpy(output)
-                .to(frame.device)
-                .mul(1 / 255)
+                .float()
                 .permute(2, 0, 1)
                 .unsqueeze(0)
+                .mul(1 / 255)
             )
             interpQueue.put(output)
 
