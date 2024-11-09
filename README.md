@@ -10,14 +10,26 @@
 # The Anime Scripter  ( TAS )
 
 ## Table of Contents
-- [Key Features](#-key-features)
-- [Getting Started](#-getting-started)
-- [Available Inputs](#-available-inputs)
-- [Available Models](#-available-models)
-- [Benchmarks](#-benchmarks)
-- [Acknowledgements](#-acknowledgements)
-- [Star History](#-star-history)
-- [Promo Video](#-promo-video)
+- [The Anime Scripter  ( TAS )](#the-anime-scripter---tas-)
+  - [Table of Contents](#table-of-contents)
+  - [🚀 Key Features](#-key-features)
+  - [🖥️ Graphical User Interfaces](#️-graphical-user-interfaces)
+  - [🛠️ Getting Started](#️-getting-started)
+    - [Adobe After Effects Integration](#adobe-after-effects-integration)
+    - [Standalone / GUI:](#standalone--gui)
+      - [Windows](#windows)
+      - [Linux](#linux)
+    - [CLI Interface:](#cli-interface)
+      - [Windows / Linux](#windows--linux)
+  - [📚 Available Inputs](#-available-inputs)
+  - [📁 Available Models](#-available-models)
+    - [Upscaling Models](#upscaling-models)
+    - [Interpolation Models](#interpolation-models)
+    - [Restore Models](#restore-models)
+  - [📈 Benchmarks](#-benchmarks)
+  - [🙏 Acknowledgements](#-acknowledgements)
+  - [🌟 Star History](#-star-history)
+  - [🎥 Promo Video](#-promo-video)
 
 ## 🚀 Key Features
 
@@ -110,7 +122,7 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 ## 🙏 Acknowledgements
 
 | Name                                                                      | For                                             |
-|---------------------------------------------------------------------------|-------------------------------------------------|
+| ------------------------------------------------------------------------- | ----------------------------------------------- |
 | [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)           | Shufflecugan and many more ONNX models          |
 | [HZWER](https://github.com/hzwer/Practical-RIFE)                          | Rife                                            |
 | [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai) | Compact, UltraCompact, SuperUltraCompact models |
@@ -124,7 +136,7 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 | [TNTWise](https://github.com/TNTwise)                                     | Rife ONNX / NCNN and Spanimation                |
 | [Hyperbrew](https://github.com/hyperbrew/bolt-cep)                        | Bolt CEP                                        |
 | [Sirosky](https://github.com/Sirosky/Upscale-Hub)                         | Open-Proteus and AniScale 2                     |
-| [Trentonom0r3](https://github.com/Trentonom0r3)                           | Helping with TAS Adobe Edition                  |
+| [Trentonom0r3](https://github.com/Trentonom0r3)                           | Helping with TAS Adobe Edition and Celux        |
 | [Adegerard](https://github.com/adegerard)                                 | Several ideas on how to further improve TAS     |
 | [Elexor](https://github.com/elexor)                                       | Modded Rife Experiment(s)                       |
 | [Zarxrax](https://github.com/Zarxrax)                                     | Anime1080Fixer model                            |
