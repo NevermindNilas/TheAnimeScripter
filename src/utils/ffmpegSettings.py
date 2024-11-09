@@ -837,19 +837,19 @@ class WriteBuffer:
 
             if self.channels == 1:
                 frame = (
-                    dummyTensor.cpu().numpy().tobytes()
+                    dummyTensor.cpu().numpy()
                     if self.bitDepth == "8bit"
-                    else (dummyTensor.cpu().numpy().tobytes())
+                    else (dummyTensor.cpu().numpy())
                 )
             elif self.channels == 3:
                 frame = (
                     cv2.cvtColor(dummyTensor.cpu().numpy(), cv2.COLOR_RGB2YUV_I420)
                     if self.bitDepth == "8bit"
-                    else dummyTensor.cpu().numpy().tobytes()
+                    else dummyTensor.cpu().numpy()
                 )
             elif self.channels == 4:
                 if self.bitDepth == "8bit":
-                    frame = dummyTensor.cpu().numpy().tobytes()
+                    frame = dummyTensor.cpu().numpy()
                 else:
                     raise ValueError("RGBA 10bit encoding is not supported.")
             self.frameQueue.put(frame)
