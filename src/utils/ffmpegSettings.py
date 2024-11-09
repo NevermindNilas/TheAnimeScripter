@@ -816,8 +816,8 @@ class WriteBuffer:
         else:
             try:
                 dummyTensor = dummyTensor.pin_memory()
-            except Exception as e:
-                logging.error(f"Error during pinning memory: {e}")
+            except Exception:
+                pass
 
         waiterThread = threading.Thread(target=writeToStdin)
         waiterThread.start()
