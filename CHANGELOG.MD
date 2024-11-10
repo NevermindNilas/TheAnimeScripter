@@ -12,6 +12,7 @@
 - New `--restore_method`, `fastlinedarken` and `fastlinedarken-tensorrt` which is losely inspired by the original Vapoursynth version.
 
 ### Improved
+- Improved inferrence speed for `16bit` specific workloads by up to 50%
 - Improved error handling when the `totalFrames` count was off.
 - Improved norm efficiency through removal of repeated operations.
 - Upgraded to TensorRT `10.6.0`
@@ -33,6 +34,7 @@
 - removed image support because f this
 
 ### Fixed
+- Fixed Issues with Rife NCNN.
 - Fixed Cuda Race Conditions when interpolating with TRT at higher than `2x` factor.
 - Fix audio copying to and from `.webm` inputs.
 - Fixed an issue where Depth TensorRT would cause flickering using `low` depth quality mode.
