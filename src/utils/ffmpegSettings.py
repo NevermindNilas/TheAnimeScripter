@@ -836,12 +836,11 @@ class WriteBuffer:
                 dummyTensor.copy_(frame, non_blocking=False)
 
             if self.channels == 1:
-                frame = (
-                    dummyTensor.cpu().numpy()
-                    if self.bitDepth == "8bit"
-                    else (dummyTensor.cpu().numpy())
-                )
+                # Should work for both 8bit and 16bit
+                frame = dummyTensor.cpu().numpy()
+
             elif self.channels == 3:
+                # for 8 bit, gotta convert the rgb24 -> yuv420p to save time on the subprocess write call.
                 frame = (
                     cv2.cvtColor(dummyTensor.cpu().numpy(), cv2.COLOR_RGB2YUV_I420)
                     if self.bitDepth == "8bit"
