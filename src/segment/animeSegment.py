@@ -75,7 +75,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.writeBuffer.start)
+                executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
                 executor.submit(self.process)
 
@@ -238,7 +238,7 @@ class AnimeSegmentTensorRT:
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.writeBuffer.start)
+                executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
                 executor.submit(self.process)
 
@@ -459,7 +459,7 @@ class AnimeSegmentDirectML:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
                 executor.submit(self.process)
-                executor.submit(self.writeBuffer.start)
+                executor.submit(self.writeBuffer)
 
         except Exception as e:
             logging.error(f"An error occurred while processing the video: {e}")
