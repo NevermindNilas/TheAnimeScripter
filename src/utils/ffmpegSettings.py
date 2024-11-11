@@ -4,10 +4,11 @@ import os
 import torch
 import numpy as np
 import cv2
-from celux import VideoReader, Scale
 import threading
 
 from queue import Queue
+from celux import VideoReader, Scale
+from torch.nn import functional as F
 
 ISCUDA = torch.cuda.is_available()
 
@@ -822,16 +823,33 @@ class WriteBuffer:
         waiterThread = threading.Thread(target=writeToStdin)
         waiterThread.start()
 
+        HAVEICHECKED: bool = False
+
         while True:
             frame = self.writeBuffer.get()
             if frame is None:
                 break
             if ISCUDA:
                 with torch.cuda.stream(normStream):
+                    if HAVEICHECKED is False:
+                        if (
+                            frame.shape[1] != self.width
+                            or frame.shape[0] != self.height
+                        ):
+                            logging.info(
+                                "The frame size does not match the output size, resizing the frame."
+                            )
+                            HAVEICHECKED = True
                     frame = frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0)
                     dummyTensor.copy_(frame, non_blocking=True)
                 normStream.synchronize()
             else:
+                if HAVEICHECKED is False:
+                    if frame.shape[1] != self.width or frame.shape[0] != self.height:
+                        logging.info(
+                            "The frame size does not match the output size, resizing the frame."
+                        )
+                        HAVEICHECKED = True
                 frame = frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0)
                 dummyTensor.copy_(frame, non_blocking=False)
 
