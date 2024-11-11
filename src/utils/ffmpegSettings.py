@@ -814,7 +814,6 @@ class WriteBuffer:
 
         if ISCUDA:
             normStream = torch.cuda.Stream()
-        else:
             try:
                 dummyTensor = dummyTensor.pin_memory()
             except Exception:
