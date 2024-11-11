@@ -108,7 +108,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "rife4.22-lite-ncnn",
             "rife4.6-tensorrt",
             "rife4.15-tensorrt",
-            "rife4.15-lite-tensorrt",
             "rife4.17-tensorrt",
             "rife4.18-tensorrt",
             "rife4.20-tensorrt",
