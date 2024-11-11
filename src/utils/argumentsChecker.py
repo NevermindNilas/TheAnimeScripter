@@ -144,7 +144,11 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         "--upscale", action="store_true", help="Upscale the video"
     )
     upscaleGroup.add_argument(
-        "--upscale_factor", type=int, choices=[2], default=2, help="Upscaling factor"
+        "--upscale_factor",
+        type=int,
+        choices=[1, 2, 3, 4],
+        default=2,
+        help="Upscaling factor",
     )
     upscaleGroup.add_argument(
         "--upscale_method",
