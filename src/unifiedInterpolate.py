@@ -738,18 +738,6 @@ class RifeNCNN:
 
         from rife_ncnn_vulkan_python import Rife
 
-        match interpolateMethod:
-            case "rife4.6-ncnn":
-                self.interpolateMethod = "rife-v4.6-ncnn"
-            case "rife4.15-lite-ncnn":
-                self.interpolateMethod = "rife-v4.15-lite-ncnn"
-            case "rife4.16-lite-ncnn":
-                self.interpolateMethod = "rife-v4.16-lite-ncnn"
-            case "rife4.17-ncnn":
-                self.interpolateMethod = "rife-v4.17-ncnn"
-            case "rife4.18-ncnn":
-                self.interpolateMethod = "rife-v4.18-ncnn"
-
         self.filename = modelsMap(
             self.interpolateMethod,
             ensemble=self.ensemble,
