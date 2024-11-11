@@ -10,6 +10,7 @@
 - Added `anime1080fixer-directml` support for restoration.
 - Added `slow_nvenc_h264` & `slow_nvenc_h265`
 - New `--restore_method`, `fastlinedarken` and `fastlinedarken-tensorrt` which is losely inspired by the original Vapoursynth version.
+- Added support for dynamic `upscale_factor`, only works with CUDA workflows.
 
 ### Improved
 - Improved inferrence speed for `16bit` specific workloads by up to 50%
