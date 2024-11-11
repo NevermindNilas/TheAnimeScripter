@@ -101,7 +101,7 @@ class DepthCuda:
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.writeBuffer.start)
+                executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
                 executor.submit(self.process)
 
@@ -321,7 +321,7 @@ class DepthDirectMLV2:
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.writeBuffer.start)
+                executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
                 executor.submit(self.process)
 
@@ -543,7 +543,7 @@ class DepthTensorRTV2:
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.writeBuffer.start)
+                executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
                 executor.submit(self.process)
 
