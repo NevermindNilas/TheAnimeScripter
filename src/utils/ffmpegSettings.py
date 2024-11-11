@@ -823,7 +823,18 @@ class WriteBuffer:
         waiterThread = threading.Thread(target=writeToStdin)
         waiterThread.start()
 
-        HAVEICHECKED: bool = False
+        while self.writeBuffer.empty():
+            pass
+
+        initialFrame = self.writeBuffer.queue[0]
+
+        NEEDSRESIZE: bool = (
+            initialFrame.shape[2] != self.height or initialFrame.shape[3] != self.width
+        )
+        if NEEDSRESIZE:
+            logging.info(
+                f"The frame size does not match the output size, resizing the frame. Frame size: {initialFrame.shape[3]}x{initialFrame.shape[2]}, Output size: {self.width}x{self.height}"
+            )
 
         while True:
             frame = self.writeBuffer.get()
@@ -831,25 +842,24 @@ class WriteBuffer:
                 break
             if ISCUDA:
                 with torch.cuda.stream(normStream):
-                    if HAVEICHECKED is False:
-                        if (
-                            frame.shape[1] != self.width
-                            or frame.shape[0] != self.height
-                        ):
-                            logging.info(
-                                "The frame size does not match the output size, resizing the frame."
-                            )
-                            HAVEICHECKED = True
+                    if NEEDSRESIZE:
+                        frame = F.interpolate(
+                            frame,
+                            size=(self.height, self.width),
+                            mode="bicubic",
+                            align_corners=False,
+                        )
                     frame = frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0)
                     dummyTensor.copy_(frame, non_blocking=True)
                 normStream.synchronize()
             else:
-                if HAVEICHECKED is False:
-                    if frame.shape[1] != self.width or frame.shape[0] != self.height:
-                        logging.info(
-                            "The frame size does not match the output size, resizing the frame."
-                        )
-                        HAVEICHECKED = True
+                if NEEDSRESIZE:
+                    frame = F.interpolate(
+                        frame,
+                        size=(self.height, self.width),
+                        mode="bicubic",
+                        align_corners=False,
+                    )
                 frame = frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0)
                 dummyTensor.copy_(frame, non_blocking=False)
 
