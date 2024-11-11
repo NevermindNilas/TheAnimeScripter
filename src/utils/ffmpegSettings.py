@@ -13,6 +13,32 @@ from torch.nn import functional as F
 ISCUDA = torch.cuda.is_available()
 
 
+def writeToSTDIN(command: list, frameQueue: Queue, mainPath: str):
+    """
+    command: list - The command to use for encoding the video.
+    frameQueue: Queue - A queue to store frames.
+    ffmpegPath: str - The path to the FFmpeg executable.
+    mainPath: str - The path to the main directory.
+    """
+    ffmpegLogPath = os.path.join(mainPath, "ffmpeg.log")
+
+    with open(ffmpegLogPath, "w") as logFile:
+        with subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=logFile,
+            stderr=subprocess.STDOUT,
+        ) as process:
+            while True:
+                frame = frameQueue.get()
+                if frame is None:
+                    break
+                process.stdin.write(np.ascontiguousarray(frame))
+                process.stdin.flush()
+    process.stdin.close()
+    process.wait()
+
+
 def matchEncoder(encode_method: str):
     """
     encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
@@ -410,20 +436,16 @@ class BuildBuffer:
         decodedFrames = 0
         self.isFinished = False
 
-        try:
-            if ISCUDA:
-                normStream = torch.cuda.Stream()
+        if ISCUDA:
+            normStream = torch.cuda.Stream()
 
-            for frame in self.reader:
-                frame = self.processFrame(frame, normStream if ISCUDA else None)
-                self.decodeBuffer.put(frame)
-                decodedFrames += 1
+        for frame in self.reader:
+            frame = self.processFrame(frame, normStream if ISCUDA else None)
+            self.decodeBuffer.put(frame)
+            decodedFrames += 1
 
-            self.isFinished = True
-            logging.info(f"Decoded {decodedFrames} frames")
-        except Exception as e:
-            logging.error(f"Error during frame decoding: {e}")
-            self.isFinished = True
+        self.isFinished = True
+        logging.info(f"Decoded {decodedFrames} frames")
 
     def processFrame(self, frame, normStream=None):
         """
@@ -770,10 +792,9 @@ class WriteBuffer:
 
         return command
 
-    def start(self):
+    def __call__(self):
         command = self.encodeSettings()
         logging.info(f"Encoding options: {' '.join(map(str, command))}")
-        ffmpegLogPath = os.path.join(self.mainPath, "ffmpeg.log")
 
         if self.grayscale:
             self.channels = 1
@@ -783,24 +804,6 @@ class WriteBuffer:
             self.channels = 3
 
         self.frameQueue = Queue(maxsize=self.queueSize)
-
-        def writeToStdin():
-            with open(ffmpegLogPath, "w") as logFile:
-                with subprocess.Popen(
-                    command,
-                    stdin=subprocess.PIPE,
-                    stdout=logFile,
-                    stderr=subprocess.STDOUT,
-                ) as process:
-                    while True:
-                        frame = self.frameQueue.get()
-                        if frame is None:
-                            break
-                        process.stdin.write(np.ascontiguousarray(frame))
-                        process.stdin.flush()
-
-            process.stdin.close()
-            process.wait()
 
         writtenFrames = 0
         dtype = torch.uint8 if self.bitDepth == "8bit" else torch.uint16
@@ -819,7 +822,9 @@ class WriteBuffer:
             except Exception:
                 pass
 
-        waiterThread = threading.Thread(target=writeToStdin)
+        waiterThread = threading.Thread(
+            target=writeToSTDIN, args=(command, self.frameQueue, self.mainPath)
+        )
         waiterThread.start()
 
         while self.writeBuffer.empty():
