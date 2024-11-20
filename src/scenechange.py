@@ -39,8 +39,6 @@ class SceneChange:
         else:
             modelPath = os.path.join(weightsDir, "maxxvit-directml", filename)
 
-        logging.info(f"Loading scenechange detection model from {modelPath}")
-
         providers = self.ort.get_available_providers()
         if "DmlExecutionProvider" in providers:
             logging.info(
