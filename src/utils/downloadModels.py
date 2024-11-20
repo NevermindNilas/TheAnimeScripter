@@ -1,6 +1,6 @@
 import os
 import logging
-from .coloredPrints import green
+from .coloredPrints import green, yellow
 from src.utils.progressBarLogic import ProgressBarDownloadLogic
 
 import platform
@@ -332,7 +332,9 @@ def modelsMap(
             elif modelType == "ncnn":
                 if ensemble:
                     print(
-                        "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        yellow(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        )
                     )
                     return "rife-v4.22-lite-ensemble-ncnn.zip"
                 else:
@@ -365,7 +367,9 @@ def modelsMap(
                 if half:
                     if ensemble:
                         print(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                            yellow(
+                                "Starting rife 4.21 Ensemble is no longer going to be supported."
+                            )
                         )
                         return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
@@ -373,7 +377,9 @@ def modelsMap(
                 else:
                     if ensemble:
                         print(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                            yellow(
+                                "Starting rife 4.21 Ensemble is no longer going to be supported."
+                            )
                         )
                         return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
                     else:
@@ -381,7 +387,9 @@ def modelsMap(
             elif modelType == "ncnn":
                 if ensemble:
                     print(
-                        "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        yellow(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        )
                     )
                     return "rife-v4.22-ncnn.zip"
                 else:
@@ -394,7 +402,9 @@ def modelsMap(
                 if half:
                     if ensemble:
                         print(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                            yellow(
+                                "Starting rife 4.21 Ensemble is no longer going to be supported."
+                            )
                         )
                         return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
@@ -402,7 +412,9 @@ def modelsMap(
                 else:
                     if ensemble:
                         print(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                            yellow(
+                                "Starting rife 4.21 Ensemble is no longer going to be supported."
+                            )
                         )
                         return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
@@ -410,7 +422,9 @@ def modelsMap(
             elif modelType == "ncnn":
                 if ensemble:
                     print(
-                        "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        yellow(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        )
                     )
                     return "rife-v4.21-ncnn.zip"
                 else:

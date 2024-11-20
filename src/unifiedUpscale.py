@@ -84,9 +84,13 @@ class UniversalPytorch:
         if self.isCudaAvailable:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
-            if self.half:
-                torch.set_default_dtype(torch.float16)
-                self.model.half()
+
+        if self.half and self.isCudaAvailable:
+            try:
+                self.model = self.model.half()
+            except Exception as e:
+                logging.error(f"Error converting model to half precision: {e}")
+                self.model = self.model.float()
 
         self.stream = torch.cuda.Stream()
         if self.upscaleSkip is not None:
