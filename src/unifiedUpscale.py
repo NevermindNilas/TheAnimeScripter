@@ -46,6 +46,7 @@ class UniversalPytorch:
         Load the desired model
         """
         from spandrel import ImageModelDescriptor, ModelLoader
+        from spandrel.__helpers.model_descriptor import UnsupportedDtypeError
 
         if not self.customModel:
             self.filename = modelsMap(
@@ -88,9 +89,14 @@ class UniversalPytorch:
         if self.half and self.isCudaAvailable:
             try:
                 self.model = self.model.half()
+            except UnsupportedDtypeError as e:
+                logging.error(f"Model does not support half precision: {e}")
+                self.model = self.model.float()
+                self.half = False
             except Exception as e:
                 logging.error(f"Error converting model to half precision: {e}")
                 self.model = self.model.float()
+                self.half = False
 
         self.stream = torch.cuda.Stream()
         if self.upscaleSkip is not None:
