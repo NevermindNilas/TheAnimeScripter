@@ -23,6 +23,7 @@
 - Simplified some cuda related logs and calls.
 - Removed redundant code.
 - Changed resizing logic from ffmpeg to Celux ( ffmpeg )
+- Improved robustness of `--half` argument and converted it from boolean to str using the default True; choices [True, False]
 
 ### Notes
 - Due to the TensorRT Upgrade, all engines will need to be regenerated.
