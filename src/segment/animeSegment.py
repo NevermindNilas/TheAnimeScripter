@@ -125,7 +125,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             pred = F.interpolate(
                 pred, size=(h0, w0), mode="bilinear", align_corners=False
             )
-            pred = torch.cat(input_img, pred, dim=1)
+            pred = torch.cat((input_img, pred), dim=1)
         self.inferStream.synchronize()
         return pred
 
