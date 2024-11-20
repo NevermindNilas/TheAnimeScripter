@@ -11,6 +11,20 @@ from src.version import __version__ as version
 from .generateOutput import outputNameGenerator
 
 
+def str2bool(arg):
+    """
+    No clue if this is the right approach. But it works.
+    """
+    if isinstance(arg, bool):
+        return arg
+    if arg.lower() in ("yes", "true", "t", "y", "1"):
+        return True
+    elif arg.lower() in ("no", "false", "f", "n", "0"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
 def createParser(isFrozen, mainPath, outputPath, sysUsed):
     argParser = argparse.ArgumentParser(
         description="The Anime Scripter CLI Tool",
@@ -56,7 +70,12 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         help="NOT IMPLEMENTED YET! Precision for inference, default is fp16",
     )
     performanceGroup.add_argument(
-        "--half", type=bool, help="Use half precision for inference", default=True
+        "--half",
+        type=str2bool,
+        nargs="?",
+        const=True,
+        default=True,
+        help="Use half precision for inference (default: True)",
     )
     performanceGroup.add_argument(
         "--static",
