@@ -26,9 +26,8 @@ class GMFSS:
         self.interpolation_factor = interpolation_factor
         self.ensemble = ensemble
 
-        ph = ((self.height - 1) // 32 + 1) * 32
-        pw = ((self.width - 1) // 32 + 1) * 32
-        self.padding = (0, pw - self.width, 0, ph - self.height)
+        self.ph = ((self.height - 1) // 32 + 1) * 32
+        self.pw = ((self.width - 1) // 32 + 1) * 32
 
         if self.width > 1920 or self.height > 1080:
             print(
@@ -79,8 +78,8 @@ class GMFSS:
         self.I0 = torch.zeros(
             1,
             3,
-            self.height + self.padding[3],
-            self.width + self.padding[1],
+            self.ph,
+            self.pw,
             dtype=torch.float16 if self.half else torch.float32,
             device=self.device,
         )
@@ -88,8 +87,8 @@ class GMFSS:
         self.I1 = torch.zeros(
             1,
             3,
-            self.height + self.padding[3],
-            self.width + self.padding[1],
+            self.ph,
+            self.pw,
             dtype=torch.float16 if self.half else torch.float32,
             device=self.device,
         )
@@ -104,22 +103,17 @@ class GMFSS:
 
     @torch.inference_mode()
     def processFrame(self, frame):
-        return (
-            frame.to(
-                self.device,
-                non_blocking=True,
-                dtype=torch.float16 if self.half else torch.float32,
-            )
-            .permute(2, 0, 1)
-            .unsqueeze(0)
-            .to(memory_format=torch.channels_last)
-        )
+        return frame.to(
+            self.device,
+            non_blocking=True,
+            dtype=torch.float16 if self.half else torch.float32,
+        ).to(memory_format=torch.channels_last)
 
     @torch.inference_mode()
     def padFrame(self, frame):
         return (
-            F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
-            if self.padding != (0, 0, 0, 0)
+            F.pad(frame, [0, self.pw - self.width, 0, self.ph - self.height])
+            if (self.pw != self.width or self.ph != self.height)
             else frame
         )
 
@@ -133,9 +127,12 @@ class GMFSS:
 
             self.I1 = self.padFrame(self.processFrame(frame))
 
-            for i in range(2 - 1):
-                timestep = torch.tensor(
-                    (i + 1) * 1.0 / self.interpolation_factor,
+            for i in range(self.interpolation_factor - 1):
+                print(self.I0.shape)
+                print(self.I1.shape)
+                timestep = torch.full(
+                    (1, 1, self.ph, self.pw),
+                    (i + 1) * 1 / self.interpolation_factor,
                     dtype=self.dtype,
                     device=self.device,
                 )
