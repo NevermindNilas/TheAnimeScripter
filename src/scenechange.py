@@ -81,7 +81,7 @@ class SceneChange:
 
         self.I0 = self.I1
 
-        result = self.model.run(None, {"input": inputs})[0][0][0]
+        result = self.model.run(None, {"input": inputs})[0][0][0] * 255
 
         return result > self.sceneChangeThreshold
 
