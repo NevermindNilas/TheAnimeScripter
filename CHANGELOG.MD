@@ -25,6 +25,7 @@
 - Changed resizing logic from ffmpeg to Celux ( ffmpeg )
 - Improved robustness of `--half` argument and converted it from boolean to str using the default True; choices [True, False]
 - Segmentation ( CUDA ) is now 50% more efficient than before.
+- Bump Pytorch `2.5.0` -> `2.5.1`
 
 ### Notes
 - Due to the TensorRT Upgrade, all engines will need to be regenerated.
