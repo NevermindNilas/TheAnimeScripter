@@ -102,11 +102,10 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self.model.eval()
         self.model.to(self.device)
         self.stream = torch.cuda.Stream()
-        self.inferStream = torch.cuda.Stream()
 
     @torch.inference_mode()
     def getMask(self, input_img: torch.Tensor) -> torch.Tensor:
-        with torch.cuda.stream(self.inferStream):
+        with torch.cuda.stream(self.stream):
             input_img = input_img.to(self.device).float()
             s = 1024
             h, w = h0, w0 = input_img.shape[2], input_img.shape[3]
@@ -126,7 +125,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 pred, size=(h0, w0), mode="bilinear", align_corners=False
             )
             pred = torch.cat((input_img, pred), dim=1)
-        self.inferStream.synchronize()
+        self.stream.synchronize()
         return pred
 
     @torch.inference_mode()
