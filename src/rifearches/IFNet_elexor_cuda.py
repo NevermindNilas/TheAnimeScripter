@@ -137,6 +137,7 @@ class IFNet(nn.Module):
         self.backWarp = torch.cat([tenHorizontal, tenVertical], 1)
         self.f0 = None
         self.f1 = None
+        self.counter = 1
 
     def cache(self):
         self.f0.copy_(self.f1, non_blocking=True)
