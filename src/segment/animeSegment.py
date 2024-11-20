@@ -107,11 +107,11 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
     @torch.inference_mode()
     def getMask(self, input_img: torch.Tensor) -> torch.Tensor:
         with torch.cuda.stream(self.inferStream):
+            input_img = input_img.to(self.device).float()
             s = 1024
-            h, w = h0, w0 = input_img.shape[:-1]
+            h, w = h0, w0 = input_img.shape[2], input_img.shape[3]
             h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
             ph, pw = s - h, s - w
-            input_img = input_img.float().to(self.device).permute(2, 0, 1).unsqueeze(0)
             img_input = F.interpolate(
                 input_img,
                 size=(h, w),
@@ -122,23 +122,18 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 F.pad(img_input, (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2))
             )
             pred = pred[:, :, ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w]
-            pred = (
-                F.interpolate(pred, size=(h0, w0), mode="bilinear", align_corners=False)
-                .squeeze_(0)
-                .permute(1, 2, 0)
-                .to(torch.uint8)
+            pred = F.interpolate(
+                pred, size=(h0, w0), mode="bilinear", align_corners=False
             )
-            self.inferStream.synchronize()
-            return pred
+            pred = torch.cat(input_img, pred, dim=1)
+        self.inferStream.synchronize()
+        return pred
 
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            mask = torch.squeeze(self.getMask(frame), dim=2)
-            with torch.cuda.stream(self.stream):
-                frameWithmask = torch.cat((frame, mask.unsqueeze(2)), dim=2)
-                self.stream.synchronize()
-                self.writeBuffer.write(frameWithmask)
+            mask = self.getMask(frame)
+            self.writeBuffer.write(mask)
 
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
