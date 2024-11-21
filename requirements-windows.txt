@@ -10,7 +10,6 @@ wmi
 spandrel
 yt-dlp
 requests
-alive-progress==3.1.5
 scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning
@@ -18,6 +17,7 @@ inquirer
 colored
 anipy-cli
 flask
+rich
 rich-argparse
 onnx
 tensorrt==10.6.0

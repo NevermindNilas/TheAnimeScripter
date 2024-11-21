@@ -9,10 +9,10 @@ GPUtil
 spandrel
 yt-dlp
 requests
-alive-progress==3.1.5
 scenedetect[opencv]
 pytorch-lightning
 inquirer
+rich
 rich-argparse
 colored
 anipy-cli

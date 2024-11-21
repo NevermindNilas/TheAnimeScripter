@@ -13,6 +13,7 @@
 - Added support for dynamic `upscale_factor`, only works with CUDA workflows.
 
 ### Improved
+- Replaced the existing progress bar with Rich Progress for faster start-up times and more accurate FPS, closer to the ground truth.
 - Improved inferrence speed for `16bit` specific workloads by up to 50%
 - Improved error handling when the `totalFrames` count was off.
 - Improved norm efficiency through removal of repeated operations.
@@ -36,6 +37,7 @@
 - `--sample_size` command.
 - `pre-compilation` of TAS' bytecode.
 - removed image support because f this
+- `Alive-Progress` in favor of Rich-Progress.
 
 ### Fixed
 - Fixed Issues with Rife NCNN.
