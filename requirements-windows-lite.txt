@@ -7,13 +7,13 @@ wmi
 spandrel
 yt-dlp
 requests
-alive-progress==3.1.5
 scenedetect[opencv]
 onnxruntime-directml
 pytorch-lightning
 inquirer
 anipy-cli
 colored
+rich
 rich-argparse
 flask
 torchmetrics

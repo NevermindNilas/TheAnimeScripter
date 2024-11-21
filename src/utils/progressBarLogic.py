@@ -1,4 +1,25 @@
-from alive_progress import alive_bar
+from rich.progress import (
+    Progress,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+    BarColumn,
+    TextColumn,
+)
+from rich.progress import ProgressColumn
+from time import time
+
+
+class FPSColumn(ProgressColumn):
+    def __init__(self):
+        super().__init__()
+        self.start_time = None
+
+    def render(self, task):
+        if self.start_time is None:
+            self.start_time = time()
+        elapsed = time() - self.start_time
+        fps = task.completed / elapsed if elapsed > 0 else 0
+        return f"FPS: [magenta]{fps:.2f}[/magenta]"
 
 
 class ProgressBarLogic:
@@ -12,20 +33,33 @@ class ProgressBarLogic:
         self.totalFrames = totalFrames
 
     def __enter__(self):
-        self.bar = alive_bar(
-            total=self.totalFrames,
-            title="Processing:",
-            length=30,
-            stats="| {rate} | ETA: {eta}",
-            elapsed="Elapsed Time: {elapsed}",
-            monitor=" {count}/{total} | [{percent:.0%}] | ",
-            unit="frames",
-            spinner=None,
+        self.progress = Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            "•",
+            TextColumn("Elapsed Time:"),
+            TimeElapsedColumn(),
+            "•",
+            TextColumn("ETA:"),
+            TimeRemainingColumn(),
+            "•",
+            FPSColumn(),
+            "•",
+            TextColumn("Frames: [green]{task.completed}/{task.total}[/green]"),
         )
-        return self.bar.__enter__()
+        self.task = self.progress.add_task("Processing:", total=self.totalFrames)
+        self.progress.start()
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        return self.bar.__exit__(exc_type, exc_value, traceback)
+        self.progress.stop()
+
+    def advance(self, advance_by=1):
+        self.progress.update(self.task, advance=advance_by)
+
+    def __call__(self, advance_by=1):
+        self.advance(advance_by)
 
 
 class ProgressBarDownloadLogic:
@@ -37,24 +71,31 @@ class ProgressBarDownloadLogic:
             totalData (int): The total amount of data to process
             title (str): The title of the progress bar
         """
-        self.totalData = totalData
+        self.totalData = totalData - 1
         self.title = title
 
     def __enter__(self):
-        self.bar = alive_bar(
-            total=self.totalData,
-            title=self.title,
-            length=30,
-            stats="| {rate} | ETA: {eta}",
-            elapsed="Elapsed Time: {elapsed}",
-            monitor=" {count}/{total} | [{percent:.0%}] | ",
-            unit="MB",
-            spinner=None,
+        self.progress = Progress(
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+            "•",
+            TextColumn("Elapsed Time:"),
+            TimeElapsedColumn(),
+            "•",
+            TextColumn("ETA:"),
+            TimeRemainingColumn(),
+            "•",
+            TextColumn("Speed: [magenta]{task.fields[mbps]:.2f} MB/s[/magenta]"),
+            "•",
+            TextColumn("Data: [cyan]{task.completed}/{task.total} MB[/cyan]"),
         )
-        return self.bar.__enter__()
+        self.task = self.progress.add_task(self.title, total=self.totalData, mbps=0.0)
+        self.progress.start()
+        return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        return self.bar.__exit__(exc_type, exc_value, traceback)
+        self.progress.stop()
 
     def setTotal(self, newTotal: int):
         """
@@ -64,4 +105,14 @@ class ProgressBarDownloadLogic:
             newTotal (int): The new total value
         """
         self.totalData = newTotal
-        self.bar.set_total(newTotal)
+        self.progress.update(self.task, total=newTotal)
+
+    def advance(self, advance_by=1):
+        elapsed = time() - self.progress.tasks[self.task].start_time
+        mbps = (
+            (self.progress.tasks[self.task].completed / elapsed) if elapsed > 0 else 0
+        )
+        self.progress.update(self.task, advance=advance_by, mbps=mbps)
+
+    def __call__(self, advance_by=1):
+        self.advance(advance_by)
