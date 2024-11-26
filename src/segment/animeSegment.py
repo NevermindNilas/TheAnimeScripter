@@ -8,6 +8,9 @@ from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from concurrent.futures import ThreadPoolExecutor
 from src.utils.progressBarLogic import ProgressBarLogic
+from src.utils.isCudaInit import CudaChecker
+
+checker = CudaChecker()
 
 
 class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentation but it's fine
@@ -89,24 +92,19 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         else:
             modelPath = os.path.join(weightsDir, "segment", filename)
 
-        if torch.cuda.is_available():
-            self.device = "cuda:0"
-        else:
-            self.device = "cpu"
-
         from .train import AnimeSegmentation
 
         self.model = AnimeSegmentation.try_load(
-            "isnet_is", modelPath, self.device, img_size=1024
+            "isnet_is", modelPath, checker.device, img_size=1024
         )
         self.model.eval()
-        self.model.to(self.device)
+        self.model.to(checker.device)
         self.stream = torch.cuda.Stream()
 
     @torch.inference_mode()
     def getMask(self, input_img: torch.Tensor) -> torch.Tensor:
         with torch.cuda.stream(self.stream):
-            input_img = input_img.to(self.device).float()
+            input_img = input_img.to(checker.device).float()
             s = 1024
             h, w = h0, w0 = input_img.shape[2], input_img.shape[3]
             h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
@@ -247,7 +245,6 @@ class AnimeSegmentTensorRT:
         else:
             self.modelPath = os.path.join(weightsDir, folderName, filename)
 
-        self.device = torch.device("cuda")
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
 
@@ -296,13 +293,13 @@ class AnimeSegmentTensorRT:
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
             (1, 3, self.height + self.padHeight, self.width + self.padWidth),
-            device=self.device,
+            device=checker.device,
             dtype=torch.float32,
         )
 
         self.dummyOutput = torch.zeros(
             (1, 1, self.height + self.padHeight, self.width + self.padWidth),
-            device=self.device,
+            device=checker.device,
             dtype=torch.float32,
         )
 

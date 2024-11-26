@@ -3,6 +3,9 @@ import torch
 import logging
 
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.isCudaInit import CudaChecker
+
+checker = CudaChecker()
 
 torch.set_float32_matmul_precision("medium")
 
@@ -76,17 +79,11 @@ class UniversalPytorch:
         if self.customModel:
             assert isinstance(self.model, ImageModelDescriptor)
 
-        self.isCudaAvailable = torch.cuda.is_available()
         self.model = (
-            self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()
+            self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
         )
 
-        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
-        if self.isCudaAvailable:
-            torch.backends.cudnn.enabled = True
-            torch.backends.cudnn.benchmark = True
-
-        if self.half and self.isCudaAvailable:
+        if self.half and checker.cudaAvailable:
             try:
                 self.model = self.model.half()
             except UnsupportedDtypeError as e:
@@ -103,7 +100,7 @@ class UniversalPytorch:
             self.skippedCounter = 0
             self.prevFrame = torch.zeros(
                 (self.height * self.upscaleFactor, self.width * self.upscaleFactor, 3),
-                device=self.device,
+                device=checker.device,
                 dtype=torch.float16 if self.half else torch.float32,
             )
 
@@ -112,7 +109,7 @@ class UniversalPytorch:
         self.dummyInput = (
             torch.zeros(
                 (1, 3, self.height, self.width),
-                device=self.device,
+                device=checker.device,
                 dtype=torch.float16 if self.half else torch.float32,
             )
             .contiguous()
@@ -206,7 +203,7 @@ class UniversalTensorRT:
         if self.width > 1920 and self.height > 1080:
             self.forceStatic = True
             logging.info(
-                "Forcing static engine due to resolution higher than 1080p, wtf are you upscaling?"
+                "Forcing static engine due to resolution higher than 1920x1080p"
             )
 
         if not self.customModel:
@@ -234,14 +231,6 @@ class UniversalTensorRT:
                 )
 
         self.dtype = torch.float16 if self.half else torch.float32
-        self.isCudaAvailable = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
-        if self.isCudaAvailable:
-            torch.backends.cudnn.enabled = True
-            torch.backends.cudnn.benchmark = True
-            if self.half:
-                torch.set_default_dtype(torch.float16)
-
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
@@ -267,13 +256,13 @@ class UniversalTensorRT:
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
             (1, 3, self.height, self.width),
-            device=self.device,
+            device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
-            device=self.device,
+            device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
 
@@ -296,7 +285,7 @@ class UniversalTensorRT:
             self.skippedCounter = 0
             self.prevFrame = torch.zeros(
                 (self.height * self.upscaleFactor, self.width * self.upscaleFactor, 3),
-                device=self.device,
+                device=checker.device,
                 dtype=torch.float16 if self.half else torch.float32,
             )
 
@@ -317,7 +306,7 @@ class UniversalTensorRT:
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(
                 frame.to(dtype=self.dtype),
-                non_blocking=False,
+                non_blocking=True,
             )
         self.normStream.synchronize()
 

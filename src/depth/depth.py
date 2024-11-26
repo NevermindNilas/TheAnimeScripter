@@ -8,6 +8,9 @@ from concurrent.futures import ThreadPoolExecutor
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from src.utils.progressBarLogic import ProgressBarLogic
+from src.utils.isCudaInit import CudaChecker
+
+checker = CudaChecker()
 
 
 def calculateAspectRatio(width, height, depthQuality="high"):
@@ -136,9 +139,6 @@ class DepthCuda:
                 raise NotImplementedError("Giant model not available yet")
                 # method = "vitg"
 
-        self.isCudaAvailable = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
-
         model_configs = {
             "vits": {
                 "encoder": "vits",
@@ -164,16 +164,16 @@ class DepthCuda:
 
         self.model = DepthAnythingV2(**model_configs[method])
         self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
-        self.model = self.model.to(self.device).eval()
+        self.model = self.model.to(checker.device).eval()
 
-        if self.half and self.isCudaAvailable:
+        if self.half and checker.cudaAvailable:
             self.model = self.model.half()
 
         self.mean_tensor = (
-            torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(self.device)
+            torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(checker.device)
         )
         self.std_tensor = (
-            torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(self.device)
+            torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(checker.device)
         )
 
         self.newHeight, self.newWidth = calculateAspectRatio(
@@ -195,7 +195,7 @@ class DepthCuda:
 
         frame = (frame - self.mean_tensor) / self.std_tensor
 
-        if self.half and self.isCudaAvailable:
+        if self.half and checker.cudaAvailable:
             frame = frame.half()
 
         return frame
@@ -551,8 +551,6 @@ class DepthTensorRTV2:
             logging.exception(f"Something went wrong, {e}")
 
     def handleModels(self):
-        self.isCudaAvailable = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
         self.filename = modelsMap(
             model=self.depth_method, modelType="onnx", half=self.half
         )
@@ -596,21 +594,29 @@ class DepthTensorRTV2:
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
             (1, 3, self.newHeight, self.newWidth),
-            device=self.device,
+            device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
 
         self.dummyOutput = torch.zeros(
             (1, 1, self.newHeight, self.newWidth),
-            device=self.device,
+            device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
 
         self.mean_tensor = (
-            torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(self.device)
+            torch.tensor([0.485, 0.456, 0.406])
+            .view(3, 1, 1)
+            .to(
+                checker.device,
+            )
         )
         self.std_tensor = (
-            torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(self.device)
+            torch.tensor([0.229, 0.224, 0.225])
+            .view(3, 1, 1)
+            .to(
+                checker.device,
+            )
         )
 
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
