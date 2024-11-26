@@ -18,7 +18,7 @@ def warp(tenInput, tenFlow):
             .view(1, 1, H, 1)
             .expand(N, -1, -1, W)
         )
-        tenGrid = torch.cat([tenHorizontal, tenVertical], 1)
+        tenGrid = torch.cat([tenHorizontal, tenVertical], 1).to(tenFlow.dtype)
 
     tenFlow = torch.cat(
         [
