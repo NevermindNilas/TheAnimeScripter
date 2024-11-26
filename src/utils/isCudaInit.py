@@ -1,5 +1,4 @@
 import torch
-import logging
 
 
 class CudaChecker:
@@ -12,9 +11,6 @@ class CudaChecker:
 
         if self._cuda_available:
             self.enableCudaOptimizations()
-            logging.info("CUDA is available, using GPU workflow.")
-        else:
-            logging.info("CUDA is not available, using CPU workflow.")
 
     @property
     def cudaAvailable(self):
