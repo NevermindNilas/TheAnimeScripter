@@ -3,6 +3,9 @@ import torch
 import logging
 
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.isCudaInit import CudaChecker
+
+checker = CudaChecker()
 
 
 class UnifiedRestoreCuda:
@@ -48,9 +51,8 @@ class UnifiedRestoreCuda:
         except Exception as e:
             logging.error(f"Error loading model: {e}")
 
-        self.isCudaAvailable = torch.cuda.is_available()
         self.model = (
-            self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()
+            self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
         )
 
         if self.half:
@@ -58,8 +60,6 @@ class UnifiedRestoreCuda:
             self.dType = torch.float16
         else:
             self.dType = torch.float32
-
-        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
         self.stream = torch.cuda.Stream()
 
         self.model.model.to(memory_format=torch.channels_last)
@@ -68,7 +68,7 @@ class UnifiedRestoreCuda:
     def __call__(self, frame: torch.tensor) -> torch.tensor:
         with torch.cuda.stream(self.stream):
             frame = self.model(
-                frame.to(self.device, non_blocking=True, dtype=self.dType).to(
+                frame.to(checker.device, non_blocking=True, dtype=self.dType).to(
                     memory_format=torch.channels_last
                 )
             )
@@ -143,13 +143,6 @@ class UnifiedRestoreTensorRT:
             self.modelPath = os.path.join(weightsDir, folderName, self.filename)
 
         self.dtype = torch.float16 if self.half else torch.float32
-        self.isCudaAvailable = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
-        if self.isCudaAvailable:
-            torch.backends.cudnn.enabled = True
-            torch.backends.cudnn.benchmark = True
-            if self.half:
-                torch.set_default_dtype(torch.float16)
 
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
@@ -176,13 +169,13 @@ class UnifiedRestoreTensorRT:
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
             (1, 3, self.height, self.width),
-            device=self.device,
+            device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height, self.width),
-            device=self.device,
+            device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
 

@@ -9,8 +9,9 @@ import threading
 from queue import Queue
 from celux import VideoReader, Scale
 from torch.nn import functional as F
+from .isCudaInit import CudaChecker
 
-ISCUDA = torch.cuda.is_available()
+checker = CudaChecker()
 
 
 def writeToSTDIN(command: list, frameQueue: Queue, mainPath: str):
@@ -425,9 +426,15 @@ class BuildBuffer:
             filters = []
 
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
-        self.reader = VideoReader(
-            videoInput, device="cpu", num_threads=decodeThreads, filters=filters
-        )([inputFramePoint, outputFramePoint])
+
+        if outpoint != 0.0:
+            self.reader = VideoReader(
+                videoInput, device="cpu", num_threads=decodeThreads, filters=filters
+            )([float(inpoint), float(outpoint)])
+        else:
+            self.reader = VideoReader(
+                videoInput, device="cpu", num_threads=decodeThreads, filters=filters
+            )
 
     def __call__(self):
         """
@@ -436,11 +443,13 @@ class BuildBuffer:
         decodedFrames = 0
         self.isFinished = False
 
-        if ISCUDA:
+        if checker.cudaAvailable:
             normStream = torch.cuda.Stream()
 
         for frame in self.reader:
-            frame = self.processFrame(frame, normStream if ISCUDA else None)
+            frame = self.processFrame(
+                frame, normStream if checker.cudaAvailable else None
+            )
             self.decodeBuffer.put(frame)
             decodedFrames += 1
 
@@ -460,7 +469,7 @@ class BuildBuffer:
         """
         mul = 1 / 255 if frame.dtype == torch.uint8 else 1 / 65535
 
-        if ISCUDA:
+        if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
                 if self.half:
                     frame = (
@@ -812,10 +821,10 @@ class WriteBuffer:
         dummyTensor = torch.zeros(
             (self.height, self.width, self.channels),
             dtype=dtype,
-            device="cuda" if ISCUDA else "cpu",
+            device="cuda" if checker.cudaAvailable else "cpu",
         )
 
-        if ISCUDA:
+        if checker.cudaAvailable:
             normStream = torch.cuda.Stream()
             try:
                 dummyTensor = dummyTensor.pin_memory()
@@ -844,7 +853,7 @@ class WriteBuffer:
             frame = self.writeBuffer.get()
             if frame is None:
                 break
-            if ISCUDA:
+            if checker.cudaAvailable:
                 with torch.cuda.stream(normStream):
                     if NEEDSRESIZE:
                         frame = F.interpolate(

@@ -7,6 +7,9 @@ import numpy as np
 
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .utils.coloredPrints import yellow
+from .utils.isCudaInit import CudaChecker
+
+checker = CudaChecker()
 
 torch.set_float32_matmul_precision("medium")
 
@@ -158,8 +161,6 @@ class RifeCuda:
         else:
             modelPath = os.path.join(weightsDir, "rife", self.filename)
 
-        self.isCudaAvailable = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
         self.dType = torch.float16 if self.half else torch.float32
 
         IFNet = importRifeArch(self.interpolateMethod, "v1")
@@ -168,7 +169,7 @@ class RifeCuda:
                 self.scale,
                 self.ensemble,
                 self.dType,
-                self.device,
+                checker.device,
                 self.width,
                 self.height,
                 self.interpolateFactor,
@@ -177,21 +178,15 @@ class RifeCuda:
             self.model = IFNet(self.ensemble, self.scale, self.interpolateFactor)
 
         torch.set_grad_enabled(False)
-        if self.isCudaAvailable:
-            torch.backends.cudnn.enabled = True
-            torch.backends.cudnn.benchmark = True
-            if self.half:
-                torch.set_default_dtype(torch.float16)
-
-        if self.isCudaAvailable and self.half:
+        if checker.cudaAvailable and self.half:
             self.model.half()
         else:
             self.half = False
             self.model.float()
 
-        self.model.load_state_dict(torch.load(modelPath, map_location=self.device))
-        self.model.eval().cuda() if self.isCudaAvailable else self.model.eval()
-        self.model.to(self.device).to(memory_format=torch.channels_last)
+        self.model.load_state_dict(torch.load(modelPath, map_location=checker.device))
+        self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
+        self.model.to(checker.device).to(memory_format=torch.channels_last)
 
         ph = ((self.height - 1) // 64 + 1) * 64
         pw = ((self.width - 1) // 64 + 1) * 64
@@ -203,7 +198,7 @@ class RifeCuda:
             self.height + self.padding[3],
             self.width + self.padding[1],
             dtype=self.dType,
-            device=self.device,
+            device=checker.device,
         ).to(memory_format=torch.channels_last)
 
         self.I1 = torch.zeros(
@@ -212,7 +207,7 @@ class RifeCuda:
             self.height + self.padding[3],
             self.width + self.padding[1],
             dtype=self.dType,
-            device=self.device,
+            device=checker.device,
         ).to(memory_format=torch.channels_last)
 
         self.firstRun = True
@@ -231,7 +226,7 @@ class RifeCuda:
                 self.I0.copy_(
                     self.padFrame(
                         frame.to(
-                            device=self.device,
+                            device=checker.device,
                             dtype=self.dType,
                             non_blocking=True,
                         )
@@ -242,7 +237,7 @@ class RifeCuda:
                 self.I1.copy_(
                     self.padFrame(
                         frame.to(
-                            device=self.device,
+                            device=checker.device,
                             dtype=self.dType,
                             non_blocking=True,
                         )
@@ -298,7 +293,7 @@ class RifeCuda:
                 (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
                 (i + 1) * 1 / self.interpolateFactor,
                 dtype=self.dType,
-                device=self.device,
+                device=checker.device,
             )
             output = self.processFrame(timestep, "infer")
             interpQueue.put(output)
@@ -368,9 +363,6 @@ class RifeTensorRT:
         self.handleModel()
 
     def handleModel(self):
-        self.device = torch.device("cuda")
-        torch.backends.cudnn.enabled = True
-        torch.backends.cudnn.benchmark = True
         if self.half:
             torch.set_default_dtype(torch.float16)
         self.filename = modelsMap(
@@ -432,12 +424,12 @@ class RifeTensorRT:
             scale=self.scale,
             ensemble=self.ensemble,
             dtype=self.dtype,
-            device=self.device,
+            device=checker.device,
             width=self.width,
             height=self.height,
         )
 
-        self.model.to(self.device)
+        self.model.to(checker.device)
         if self.half:
             self.model.half()
         else:
@@ -456,16 +448,16 @@ class RifeTensorRT:
             or not os.path.exists(enginePath)
         ):
             dummyInput1 = torch.zeros(
-                1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
+                1, 3, self.ph, self.pw, dtype=self.dtype, device=checker.device
             )
             dummyInput2 = torch.zeros(
-                1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
+                1, 3, self.ph, self.pw, dtype=self.dtype, device=checker.device
             )
             dummyInput3 = torch.full(
                 (1, 1, self.ph, self.pw),
                 0.5,
                 dtype=self.dtype,
-                device=self.device,
+                device=checker.device,
             )
 
             if self.norm is not None:
@@ -475,7 +467,7 @@ class RifeTensorRT:
                     self.ph,
                     self.pw,
                     dtype=self.dtype,
-                    device=self.device,
+                    device=checker.device,
                 )
 
             self.modelPath = self.modelPath.replace(".pth", ".onnx")
@@ -542,7 +534,7 @@ class RifeTensorRT:
             self.ph,
             self.pw,
             dtype=self.dtype,
-            device=self.device,
+            device=checker.device,
         )
 
         self.I1 = torch.zeros(
@@ -551,7 +543,7 @@ class RifeTensorRT:
             self.ph,
             self.pw,
             dtype=self.dtype,
-            device=self.device,
+            device=checker.device,
         )
 
         if self.norm is not None:
@@ -561,7 +553,7 @@ class RifeTensorRT:
                 self.ph,
                 self.pw,
                 dtype=self.dtype,
-                device=self.device,
+                device=checker.device,
             )
 
             self.f1 = torch.zeros(
@@ -570,19 +562,19 @@ class RifeTensorRT:
                 self.ph,
                 self.pw,
                 dtype=self.dtype,
-                device=self.device,
+                device=checker.device,
             )
 
         self.dummyTimeStep = torch.full(
             (1, 1, self.ph, self.pw),
             0.5,
             dtype=self.dtype,
-            device=self.device,
+            device=checker.device,
         )
 
         self.dummyOutput = torch.zeros(
             (1, 3, self.height, self.width),
-            device=self.device,
+            device=checker.device,
             dtype=self.dtype,
         )
 
@@ -696,7 +688,7 @@ class RifeTensorRT:
                 (1, 1, self.ph, self.pw),
                 (i + 1) * 1 / self.interpolateFactor,
                 dtype=self.dtype,
-                device=self.device,
+                device=checker.device,
             )
 
             self.processFrame(timestep, "timestep")
