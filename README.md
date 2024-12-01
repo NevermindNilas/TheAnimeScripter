@@ -58,9 +58,10 @@
 ## 🖥️ Graphical User Interfaces
 
 - **Windows and After Effects:** Actively being reworked and improved!
+  
+  *Adobe GUI*
+  ![Adobe GUI](https://github.com/user-attachments/assets/b2ebe67a-b9a2-4361-8bf5-be5d9ee37a12)
 
-  ![Adobe GUI](https://github.com/user-attachments/assets/406a29b8-072c-4083-9ae7-da45a8f2d0ea)
-  *Adobe GUI in action*
 
 ## 🛠️ Getting Started
 
