@@ -27,6 +27,7 @@
 - Improved robustness of `--half` argument and converted it from boolean to str using the default True; choices [True, False]
 - Segmentation ( CUDA ) is now 50% more efficient than before.
 - Bump Pytorch `2.5.0` -> `2.5.1`
+- Error handling for Spandrel.
 
 ### Notes
 - Due to the TensorRT Upgrade, all engines will need to be regenerated.
@@ -46,25 +47,37 @@
 - Fixed an issue where Depth TensorRT would cause flickering using `low` depth quality mode.
 - Fixed black outputs with Upscale NCNN.
 - Fixed an issue where the first frame was black in DirectML workflows.
+- Fixed Rife Elexor issues.
+- Couple of import issues for `--restore`
 
 #### Adobe Edition
 
 ### Notes
 - This version of TAS is now built against AE 2025, with official support provided. The overall UI and feel have been adjusted to match AE 2025. This may cause mismatches with older versions of AE, and some core functionalities may not work as well or at all.
+- The new update checking system does not automatically download TAS Adobe Edition, the end user will still have to manually download it but eventually a fully automated process is planned.
 
 ### New
 - Added an auto Update Cheking system which prompts the user if a new version has been released.
 - Added proper `Pre-Comp` support through internal checks in order to avoid user errors.
 - Added new interpolation methods.
 - Added new encoding methods.
+- Added quick action buttons for `Add adjustment layer` & `Add Solid Layer`
+- Added `Arrange Layers` function to quickly sort layers based on user requirements.
+- A bunch of tooltips for the end user.
+- Added an indicator where the TAS backend will be downloaded.
 
 ### Improved
 - Some naming schemes
 - Improved error handling.
+- Improved the look and feel of the UI.
+- Overall performance and snappiness.
+- Upgraded some backend dependencies for extra goodies.
 
 ### Removed:
 - Rife 4.18 Cuda and TensorRT.
 
+### Fixed:
+- An issue where TAS would delete files if `delete pre-rendered` file was turned on but `pre-render` was not.
 
 ## [1.9.11] - 2024-10-26
 
