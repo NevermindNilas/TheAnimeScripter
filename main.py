@@ -97,6 +97,7 @@ class VideoProcessor:
         self.depth_quality = args.depth_quality
         self.interpolate_skip = args.interpolate_skip
         self.decode_threads = args.decode_threads
+        self.realtime = args.realtime
 
         # Video Metadata
         self.width = width
@@ -262,7 +263,7 @@ class VideoProcessor:
                 bitDepth=self.bit_depth,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                preview=self.preview,
+                realtime=self.realtime,
             )
 
             if self.preview:
