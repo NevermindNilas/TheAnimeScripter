@@ -466,7 +466,10 @@ class BuildBuffer:
             Returns:
                 The processed frame.
         """
-        mul = 1 / 255 if frame.dtype == torch.uint8 else 1 / 65535
+        if frame.dtype == torch.uint8:
+            mul = 1 / 255
+        elif frame.dtype == torch.uint16:
+            mul = 1 / 65535
 
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
@@ -476,6 +479,7 @@ class BuildBuffer:
                         .mul(mul)
                         .permute(2, 0, 1)
                         .unsqueeze(0)
+                        .clamp(0, 1)
                     )
                 else:
                     frame = (
@@ -483,11 +487,12 @@ class BuildBuffer:
                         .mul(mul)
                         .permute(2, 0, 1)
                         .unsqueeze(0)
+                        .clamp(0, 1)
                     )
             normStream.synchronize()
             return frame
         else:
-            return frame.mul(mul).permute(2, 0, 1).unsqueeze(0)
+            return frame.mul(mul).permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
 
     def read(self):
         """
@@ -792,10 +797,6 @@ class WriteBuffer:
                         "-loglevel",
                         "quiet",
                         "-nostats",
-                        "-probesize",
-                        "50000000",
-                        "-analyzeduration",
-                        "100000000",
                     ]
                 )
         else:
