@@ -6,16 +6,19 @@ import os
 from src.utils.progressBarLogic import ProgressBarDownloadLogic
 
 
-def getFFMPEG(mainPath, sysUsed, path):
+def getFFMPEG(sysUsed, path, realtime: bool = False):
     ffmpegPath = shutil.which("ffmpeg")
-    if ffmpegPath is None:
-        ffmpegPath = downloadAndExtractFfmpeg(path, sysUsed)
+    ffplayPath = shutil.which("ffplay") if realtime else None
+    if ffmpegPath is None or (realtime and ffplayPath is None):
+        ffmpegPath, ffplayPath = downloadAndExtractFfmpeg(path, sysUsed, realtime)
     else:
         logging.info(f"FFMPEG found in System Path: {ffmpegPath}")
-    return str(ffmpegPath)
+        if realtime:
+            logging.info(f"FFPLAY found in System Path: {ffplayPath}")
+    return ffmpegPath, ffplayPath
 
 
-def downloadAndExtractFfmpeg(ffmpegPath, sysUsed):
+def downloadAndExtractFfmpeg(ffmpegPath, sysUsed, realtime):
     logging.info("Downloading FFMPEG")
     extractFunc = extractFfmpegZip if sysUsed == "Windows" else extractFfmpegTar
     ffmpegDir = os.path.dirname(ffmpegPath)
@@ -47,22 +50,31 @@ def downloadAndExtractFfmpeg(ffmpegPath, sysUsed):
         logging.error(f"Failed to download FFMPEG: {e}")
         raise
 
-    extractFunc(ffmpegArchivePath, ffmpegDir)
-    return str(ffmpegPath)
+    extractFunc(ffmpegArchivePath, ffmpegDir, realtime)
+    return str(ffmpegPath), str(ffmpegPath).replace(
+        "ffmpeg", "ffplay"
+    ) if realtime else None
 
 
-def extractFfmpegZip(ffmpegZipPath, ffmpegDir):
+def extractFfmpegZip(ffmpegZipPath, ffmpegDir, realtime):
     import zipfile
 
     try:
         with zipfile.ZipFile(ffmpegZipPath, "r") as zipRef:
             zipRef.extractall(ffmpegDir)
-        os.rename(
-            os.path.join(
-                ffmpegDir, "ffmpeg-master-latest-win64-gpl", "bin", "ffmpeg.exe"
-            ),
-            os.path.join(ffmpegDir, "ffmpeg.exe"),
+        ffmpeg_src = os.path.join(
+            ffmpegDir, "ffmpeg-master-latest-win64-gpl", "bin", "ffmpeg.exe"
         )
+        ffmpeg_dst = os.path.join(ffmpegDir, "ffmpeg.exe")
+        if not os.path.exists(ffmpeg_dst):
+            os.rename(ffmpeg_src, ffmpeg_dst)
+        if realtime:
+            ffplay_src = os.path.join(
+                ffmpegDir, "ffmpeg-master-latest-win64-gpl", "bin", "ffplay.exe"
+            )
+            ffplay_dst = os.path.join(ffmpegDir, "ffplay.exe")
+            if not os.path.exists(ffplay_dst):
+                os.rename(ffplay_src, ffplay_dst)
     except zipfile.BadZipFile as e:
         logging.error(f"Failed to extract ZIP: {e}")
         raise
@@ -71,7 +83,7 @@ def extractFfmpegZip(ffmpegZipPath, ffmpegDir):
         shutil.rmtree(os.path.join(ffmpegDir, "ffmpeg-master-latest-win64-gpl"))
 
 
-def extractFfmpegTar(ffmpegTarPath, ffmpegDir):
+def extractFfmpegTar(ffmpegTarPath, ffmpegDir, realtime):
     import tarfile
 
     try:
@@ -84,10 +96,15 @@ def extractFfmpegTar(ffmpegTarPath, ffmpegDir):
                 and item.startswith("ffmpeg-")
                 and item.endswith("-static")
             ):
-                os.rename(
-                    os.path.join(fullPath, "ffmpeg"),
-                    os.path.join(ffmpegDir, "ffmpeg"),
-                )
+                ffmpeg_src = os.path.join(fullPath, "ffmpeg")
+                ffmpeg_dst = os.path.join(ffmpegDir, "ffmpeg")
+                if not os.path.exists(ffmpeg_dst):
+                    os.rename(ffmpeg_src, ffmpeg_dst)
+                if realtime:
+                    ffplay_src = os.path.join(fullPath, "ffplay")
+                    ffplay_dst = os.path.join(ffmpegDir, "ffplay")
+                    if not os.path.exists(ffplay_dst):
+                        os.rename(ffplay_src, ffplay_dst)
                 shutil.rmtree(fullPath)
     except tarfile.TarError as e:
         logging.error(f"Failed to extract TAR: {e}")
