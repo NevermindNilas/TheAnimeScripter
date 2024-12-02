@@ -21,21 +21,20 @@ def writeToSTDIN(command: list, frameQueue: Queue, mainPath: str):
     ffmpegPath: str - The path to the FFmpeg executable.
     mainPath: str - The path to the main directory.
     """
-    ffmpegLogPath = os.path.join(mainPath, "ffmpeg.log")
 
-    with open(ffmpegLogPath, "w") as logFile:
-        with subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            stdout=logFile,
-            stderr=subprocess.STDOUT,
-        ) as process:
-            while True:
-                frame = frameQueue.get()
-                if frame is None:
-                    break
-                process.stdin.write(np.ascontiguousarray(frame))
-                process.stdin.flush()
+    with subprocess.Popen(
+        command,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        cwd=mainPath,
+        shell=True,
+    ) as process:
+        while True:
+            frame = frameQueue.get()
+            if frame is None:
+                break
+            process.stdin.write(np.ascontiguousarray(frame))
+            process.stdin.flush()
     process.stdin.close()
     process.wait()
 
@@ -536,7 +535,7 @@ class WriteBuffer:
         bitDepth: str = "8bit",
         inpoint: float = 0.0,
         outpoint: float = 0.0,
-        preview: bool = False,
+        realtime: bool = False,
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -558,7 +557,7 @@ class WriteBuffer:
         bitDepth: str - The bit depth of the output video. Options include "8bit" and "10bit".
         inpoint: float - The start time of the segment to encode, in seconds.
         outpoint: float - The end time of the segment to encode, in seconds.
-        preview: bool - Whether to preview the video.
+        realtime: bool - Whether to preview the video in real-time using FFPLAY.
         """
         self.input = input
         self.output = os.path.normpath(output)
@@ -578,8 +577,10 @@ class WriteBuffer:
         self.bitDepth = bitDepth
         self.inpoint = inpoint
         self.outpoint = outpoint
-        self.preview = preview
         self.mainPath = mainPath
+        self.realtime = realtime
+        # ffmpeg path "C:\Users\User\AppData\Roaming\TheAnimeScripter\ffmpeg\ffmpeg.exe"
+        self.ffplayPath = os.path.join(os.path.dirname(self.ffmpegPath), "ffplay.exe")
 
         self.writtenFrames = 0
         self.writeBuffer = Queue(maxsize=self.queueSize)
@@ -587,8 +588,9 @@ class WriteBuffer:
     def encodeSettings(self) -> list:
         """
         This will return the command for FFMPEG to work with, it will be used inside of the scope of the class.
-
         """
+        os.environ["FFREPORT"] = "file=ffmpeg.log:level=32"
+
         if self.bitDepth == "8bit":
             inputPixFormat = "yuv420p"
             outputPixFormat = "yuv420p"
@@ -644,10 +646,11 @@ class WriteBuffer:
             command = [
                 self.ffmpegPath,
                 "-y",
+                "-report",
                 "-hide_banner",
                 "-loglevel",
-                "verbose",
-                "-stats",
+                "quiet",
+                "-nostats",
                 "-f",
                 "rawvideo",
                 "-pixel_format",
@@ -775,6 +778,26 @@ class WriteBuffer:
 
             command.append(self.output)
 
+            if self.realtime:
+                command.extend(
+                    [
+                        "-f",
+                        "matroska",
+                        "-",
+                        "|",
+                        self.ffplayPath,
+                        "-",
+                        "-autoexit",
+                        "-hide_banner",
+                        "-loglevel",
+                        "quiet",
+                        "-nostats",
+                        "-probesize",
+                        "50000000",
+                        "-analyzeduration",
+                        "100000000",
+                    ]
+                )
         else:
             command = [
                 self.ffmpegPath,

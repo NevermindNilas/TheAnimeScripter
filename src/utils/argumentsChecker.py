@@ -2,6 +2,7 @@ import os
 import logging
 import sys
 import argparse
+import shutil
 
 from .checkSpecs import checkSystem
 from .downloadModels import downloadModels, modelsList
@@ -45,6 +46,11 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
     )
     generalGroup.add_argument(
         "--preview", action="store_true", help="Preview the video during processing"
+    )
+    generalGroup.add_argument(
+        "--realtime",
+        action="store_true",
+        help="Realtime Preview the video during processing, this downloads FFPLAY if not found",
     )
 
     # Preset Configuration options
@@ -465,10 +471,21 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         "ffmpeg",
         "ffmpeg.exe" if sysUsed == "Windows" else "ffmpeg",
     )
-    if not os.path.exists(args.ffmpeg_path):
+
+    args.ffplay_path = os.path.join(
+        mainPath,
+        "ffmpeg",
+        "ffplay.exe" if sysUsed == "Windows" else "ffplay",
+    )
+
+    if not os.path.exists(args.ffmpeg_path) or (
+        args.realtime and not os.path.exists(args.ffplay_path)
+    ):
         from src.utils.getFFMPEG import getFFMPEG
 
-        args.ffmpeg_path = getFFMPEG(mainPath, sysUsed, args.ffmpeg_path)
+        args.ffmpeg_path, args.ffplay_path = getFFMPEG(
+            sysUsed, args.ffmpeg_path, args.realtime
+        )
 
     def adjustFeature(
         feature,
@@ -513,6 +530,10 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         "Interpolate skip and dedup cannot be used together...",
         "Interpolate skip is enabled but interpolation is not...",
     )
+
+    if args.benchmark and args.realtime:
+        logging.error("Realtime preview is not supported in benchmark mode")
+        args.realtime = False
 
     if args.offline != "none":
         logging.info(f"Offline mode enabled, downloading {args.offline} model(s)...")
