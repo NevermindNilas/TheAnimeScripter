@@ -22,21 +22,25 @@ def writeToSTDIN(command: list, frameQueue: Queue, mainPath: str):
     mainPath: str - The path to the main directory.
     """
 
-    with subprocess.Popen(
-        command,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        cwd=mainPath,
-        shell=True,
-    ) as process:
-        while True:
-            frame = frameQueue.get()
-            if frame is None:
-                break
-            process.stdin.write(np.ascontiguousarray(frame))
-            process.stdin.flush()
-    process.stdin.close()
-    process.wait()
+    try:
+        with subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            cwd=mainPath,
+            shell=False,
+        ) as process:
+            while True:
+                frame = frameQueue.get()
+                if frame is None:
+                    break
+                process.stdin.write(np.ascontiguousarray(frame))
+                process.stdin.flush()
+    except Exception as e:
+        logging.error(f"Error while encoding: {e}")
+    finally:
+        process.stdin.close()
+        process.wait()
 
 
 def matchEncoder(encode_method: str):
@@ -806,7 +810,7 @@ class WriteBuffer:
                 "-hide_banner",
                 "-v",
                 "warning",
-                "-stats",
+                "-nostats",
                 "-f",
                 "rawvideo",
                 "-video_size",

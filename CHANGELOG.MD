@@ -11,6 +11,7 @@
 - Added `slow_nvenc_h264` & `slow_nvenc_h265`
 - New `--restore_method`, `fastlinedarken` and `fastlinedarken-tensorrt` which is losely inspired by the original Vapoursynth version.
 - Added support for dynamic `upscale_factor`, only works with CUDA workflows.
+- Experimental new feature `--realtime` which will allow real time playback of the output, this is a superset of `--preview`.
 
 ### Improved
 - Replaced the existing progress bar with Rich Progress for faster start-up times and more accurate FPS, closer to the ground truth.
