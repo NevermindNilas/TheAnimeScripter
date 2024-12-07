@@ -144,6 +144,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "rife4.25-heavy-tensorrt",
             "rife-tensorrt",
             "gmfss",
+            "gmfss-tensorrt",
             "rife_elexor",
             "rife_elexor-tensorrt",
             "rife4.6-directml",
