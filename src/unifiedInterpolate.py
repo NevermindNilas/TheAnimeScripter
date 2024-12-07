@@ -322,7 +322,7 @@ class RifeTensorRT:
             height (int, optional): Height of the frame. Defaults to 0.
             half (bool, optional): Half resolution. Defaults to True.
             ensemble (bool, optional): Ensemble. Defaults to False.
-            nt (int, optional): Number of threads. Defaults to 1.
+            interpolateSkip (bool, optional): Skip interpolation on duplicates. Defaults to None.
         """
         import tensorrt as trt
         from .utils.trtHandler import (
