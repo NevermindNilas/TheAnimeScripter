@@ -373,6 +373,17 @@ def initializeModels(self):
                     self.ensemble,
                 )
 
+            case "gmfss-tensorrt":
+                from src.gmfss.gmfss import GMFSSTensorRT
+
+                interpolate_process = GMFSSTensorRT(
+                    int(self.interpolate_factor),
+                    outputWidth,
+                    outputHeight,
+                    self.half,
+                    self.ensemble,
+                )
+
             case "rife4.6-directml":
                 from src.unifiedInterpolate import RifeDirectML
 
