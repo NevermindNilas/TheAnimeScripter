@@ -26,8 +26,8 @@ class GMFSS:
         self.interpolation_factor = interpolation_factor
         self.ensemble = ensemble
 
-        self.ph = ((self.height - 1) // 32 + 1) * 32
-        self.pw = ((self.width - 1) // 32 + 1) * 32
+        self.ph = ((self.height - 1) // 64 + 1) * 64
+        self.pw = ((self.width - 1) // 64 + 1) * 64
 
         if self.width > 1920 or self.height > 1080:
             print(
@@ -128,8 +128,6 @@ class GMFSS:
             self.I1 = self.padFrame(self.processFrame(frame))
 
             for i in range(self.interpolation_factor - 1):
-                print(self.I0.shape)
-                print(self.I1.shape)
                 timestep = torch.full(
                     (1, 1, self.ph, self.pw),
                     (i + 1) * 1 / self.interpolation_factor,
