@@ -363,7 +363,7 @@ def initializeModels(self):
                 )
 
             case "gmfss":
-                from gmfss.gmfss import GMFSS
+                from src.gmfss.gmfss import GMFSS
 
                 interpolate_process = GMFSS(
                     int(self.interpolate_factor),

@@ -128,12 +128,12 @@ class GMFSS:
             self.I1 = self.padFrame(self.processFrame(frame))
 
             for i in range(self.interpolation_factor - 1):
-                timestep = torch.full(
-                    (1, 1, self.ph, self.pw),
-                    (i + 1) * 1 / self.interpolation_factor,
+                timestep = torch.tensor(
+                    (i + 1) * 1.0 / (self.interpolation_factor + 1),
                     dtype=self.dtype,
                     device=self.device,
                 )
+
                 output = self.model(self.I0, self.I1, timestep).to(
                     memory_format=torch.channels_last
                 )
