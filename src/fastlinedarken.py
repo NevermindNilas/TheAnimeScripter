@@ -4,9 +4,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from src.utils.downloadModels import weightsDir
+from src.utils.isCudaInit import CudaChecker
+
+checker = CudaChecker()
 
 
-class FastLineDarken(nn.Module):
+# TRT throws a fit with internal Streams so I duplicated the class
+class FastLineDarkenWithStreams(nn.Module):
     def __init__(
         self,
         half: bool = False,
@@ -14,7 +18,7 @@ class FastLineDarken(nn.Module):
         gaussian: bool = True,
         darkenStrength: float = 0.8,
     ):
-        super(FastLineDarken, self).__init__()
+        super(FastLineDarkenWithStreams, self).__init__()
         self.half = half
         self.thinEdges = thinEdges
         self.gaussian = gaussian
@@ -28,20 +32,17 @@ class FastLineDarken(nn.Module):
             torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]]).unsqueeze(0).unsqueeze(0)
         )
 
-        self.isCuda = torch.cuda.is_available()
+        self.weightsLocal = self.weights.to(checker.device)
+        self.sobelXLocal = self.sobelX.to(checker.device)
+        self.sobelYLocal = self.sobelY.to(checker.device)
 
-        device = "cuda" if self.isCuda else "cpu"
-        self.weightsLocal = self.weights.to(device)
-        self.sobelXLocal = self.sobelX.to(device)
-        self.sobelYLocal = self.sobelY.to(device)
-
-        if self.half and self.isCuda:
+        if self.half and checker.cudaAvailable:
             self.weightsLocal = self.weightsLocal.half()
             self.sobelXLocal = self.sobelXLocal.half()
             self.sobelYLocal = self.sobelYLocal.half()
 
-        if self.isCuda:
-            self.normStream = torch.cuda.Stream()
+        if checker.cudaAvailable:
+            self.stream = torch.cuda.Stream()
 
     def gaussianBlur(self, img, kernelSize=3, sigma=1.0):
         channels, _, _ = img.shape
@@ -64,39 +65,34 @@ class FastLineDarken(nn.Module):
         if not isinstance(image, torch.Tensor):
             raise ValueError("Input image must be a torch.Tensor")
 
-        if self.isCuda:
+        if checker.cudaAvailable:
             return self._cudaWorkflow(image)
         else:
             return self._cpuWorkflow(image)
 
     def _cudaWorkflow(self, image):
-        with torch.cuda.stream(self.normStream):
+        with torch.cuda.stream(self.stream):
             image = image.half() if self.half else image.float()
             image = image.squeeze(0)
-
             grayscale = torch.tensordot(image, self.weightsLocal, dims=([0], [0]))
-
             edgesX = self.applyFilter(grayscale, self.sobelXLocal)
             edgesY = self.applyFilter(grayscale, self.sobelYLocal)
             edges = torch.sqrt(edgesX**2 + edgesY**2)
-
             edges = (edges - edges.min()) / (edges.max() - edges.min())
-
             if self.thinEdges:
                 edges = edges.unsqueeze(0).unsqueeze(0)
                 thinnedEdges = -F.max_pool2d(-edges, kernel_size=3, stride=1, padding=1)
                 thinnedEdges = thinnedEdges.squeeze(0).squeeze(0)
             else:
                 thinnedEdges = edges
-
             if self.gaussian:
                 softenedEdges = self.gaussianBlur(thinnedEdges.unsqueeze(0)).squeeze(0)
             else:
                 softenedEdges = thinnedEdges
-
             enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
             enhancedImage = enhancedImage.clamp(0, 1)
-        self.normStream.synchronize()
+            enhancedImage = enhancedImage.unsqueeze(0)
+        self.stream.synchronize()
         return enhancedImage
 
     def _cpuWorkflow(self, image):
@@ -124,7 +120,116 @@ class FastLineDarken(nn.Module):
             softenedEdges = thinnedEdges
 
         enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
-        return enhancedImage.clamp(0, 1)
+        return enhancedImage.clamp(0, 1).unsqueeze(0)
+
+
+# This is the original code from the FastLineDarken class
+class FastLineDarken(nn.Module):
+    def __init__(
+        self,
+        half: bool = False,
+        thinEdges: bool = True,
+        gaussian: bool = True,
+        darkenStrength: float = 0.8,
+    ):
+        super(FastLineDarken, self).__init__()
+        self.half = half
+        self.thinEdges = thinEdges
+        self.gaussian = gaussian
+        self.darkenStrength = darkenStrength
+
+        self.weights = torch.tensor([0.2989, 0.5870, 0.1140])
+        self.sobelX = (
+            torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]).unsqueeze(0).unsqueeze(0)
+        )
+        self.sobelY = (
+            torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]]).unsqueeze(0).unsqueeze(0)
+        )
+
+        self.weightsLocal = self.weights.to(checker.device)
+        self.sobelXLocal = self.sobelX.to(checker.device)
+        self.sobelYLocal = self.sobelY.to(checker.device)
+
+        if self.half and checker.cudaAvailable:
+            self.weightsLocal = self.weightsLocal.half()
+            self.sobelXLocal = self.sobelXLocal.half()
+            self.sobelYLocal = self.sobelYLocal.half()
+
+    def gaussianBlur(self, img, kernelSize=3, sigma=1.0):
+        channels, _, _ = img.shape
+        x = torch.arange(-kernelSize // 2 + 1.0, kernelSize // 2 + 1.0)
+        x = torch.exp(-(x**2) / (2 * sigma**2))
+        kernel1d = x / x.sum()
+        kernel2d = kernel1d[:, None] * kernel1d[None, :]
+        kernel2d = kernel2d.to(img.device, dtype=img.dtype)
+        kernel2d = kernel2d.expand(channels, 1, kernelSize, kernelSize)
+        img = img.unsqueeze(0)
+        blurredImg = F.conv2d(img, kernel2d, padding=kernelSize // 2, groups=channels)
+        return blurredImg.squeeze(0)
+
+    def applyFilter(self, img, kernel):
+        img = img.unsqueeze(0).unsqueeze(0)
+        filteredImg = F.conv2d(img, kernel, padding=1)
+        return filteredImg.squeeze(0).squeeze(0)
+
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
+        if not isinstance(image, torch.Tensor):
+            raise ValueError("Input image must be a torch.Tensor")
+
+        if checker.cudaAvailable:
+            return self._cudaWorkflow(image)
+        else:
+            return self._cpuWorkflow(image)
+
+    def _cudaWorkflow(self, image):
+        image = image.half() if self.half else image.float()
+        image = image.squeeze(0)
+        grayscale = torch.tensordot(image, self.weightsLocal, dims=([0], [0]))
+        edgesX = self.applyFilter(grayscale, self.sobelXLocal)
+        edgesY = self.applyFilter(grayscale, self.sobelYLocal)
+        edges = torch.sqrt(edgesX**2 + edgesY**2)
+        edges = (edges - edges.min()) / (edges.max() - edges.min())
+        if self.thinEdges:
+            edges = edges.unsqueeze(0).unsqueeze(0)
+            thinnedEdges = -F.max_pool2d(-edges, kernel_size=3, stride=1, padding=1)
+            thinnedEdges = thinnedEdges.squeeze(0).squeeze(0)
+        else:
+            thinnedEdges = edges
+        if self.gaussian:
+            softenedEdges = self.gaussianBlur(thinnedEdges.unsqueeze(0)).squeeze(0)
+        else:
+            softenedEdges = thinnedEdges
+        enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
+        enhancedImage = enhancedImage.clamp(0, 1)
+        enhancedImage = enhancedImage.unsqueeze(0)
+        return enhancedImage
+
+    def _cpuWorkflow(self, image):
+        image = image.half() if self.half else image.float()
+        image = image.permute(2, 0, 1)
+
+        grayscale = torch.tensordot(image, self.weightsLocal, dims=([0], [0]))
+
+        edgesX = self.applyFilter(grayscale, self.sobelXLocal)
+        edgesY = self.applyFilter(grayscale, self.sobelYLocal)
+        edges = torch.sqrt(edgesX**2 + edgesY**2)
+
+        edges = (edges - edges.min()) / (edges.max() - edges.min())
+
+        if self.thinEdges:
+            edges = edges.unsqueeze(0).unsqueeze(0)
+            thinnedEdges = -F.max_pool2d(-edges, kernel_size=3, stride=1, padding=1)
+            thinnedEdges = thinnedEdges.squeeze(0).squeeze(0)
+        else:
+            thinnedEdges = edges
+
+        if self.gaussian:
+            softenedEdges = self.gaussianBlur(thinnedEdges.unsqueeze(0)).squeeze(0)
+        else:
+            softenedEdges = thinnedEdges
+
+        enhancedImage = image.sub_(self.darkenStrength * softenedEdges)
+        return enhancedImage.clamp(0, 1).unsqueeze(0)
 
 
 class FastLineDarkenTRT(FastLineDarken):
@@ -147,8 +252,7 @@ class FastLineDarkenTRT(FastLineDarken):
         self.width = width
 
         self.dtype = torch.float16 if self.half else torch.float32
-        self.isCudaAvailable = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.isCudaAvailable else "cpu")
+        self.device = torch.device("cuda" if checker.cudaAvailable else "cpu")
 
         self.model = FastLineDarken(half=self.half)
         self.model.eval()
@@ -252,5 +356,4 @@ class FastLineDarkenTRT(FastLineDarken):
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
         self.stream.synchronize()
-        output = self.processOutput()
-        return output
+        return self.processOutput()

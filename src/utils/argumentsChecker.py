@@ -2,7 +2,6 @@ import os
 import logging
 import sys
 import argparse
-import shutil
 
 from .checkSpecs import checkSystem
 from .downloadModels import downloadModels, modelsList

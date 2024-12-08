@@ -428,13 +428,13 @@ def initializeModels(self):
                     self.height,
                 )
             case "fastlinedarken":
-                from src.darken import FastLineDarken
+                from src.fastlinedarken import FastLineDarkenWithStreams
 
-                restore_process = FastLineDarken(
+                restore_process = FastLineDarkenWithStreams(
                     self.half,
                 )
             case "fastlinedarken-tensorrt":
-                from src.darken import FastLineDarkenTRT
+                from src.fastlinedarken import FastLineDarkenTRT
 
                 restore_process = FastLineDarkenTRT(
                     self.half,
