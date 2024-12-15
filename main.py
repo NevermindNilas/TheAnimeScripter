@@ -98,6 +98,7 @@ class VideoProcessor:
         self.interpolate_skip = args.interpolate_skip
         self.decode_threads = args.decode_threads
         self.realtime = args.realtime
+        self.dynamic_scale = args.dynamic_scale
 
         # Video Metadata
         self.width = width

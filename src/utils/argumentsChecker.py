@@ -5,7 +5,7 @@ import argparse
 
 from .checkSpecs import checkSystem
 from .downloadModels import downloadModels, modelsList
-from .coloredPrints import green
+from .coloredPrints import green, yellow
 from rich_argparse import RichHelpFormatter
 from src.version import __version__ as version
 from .generateOutput import outputNameGenerator
@@ -155,6 +155,11 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         "--ensemble",
         action="store_true",
         help="Use the ensemble model for interpolation",
+    )
+    interpolationGroup.add_argument(
+        "--dynamic_scale",
+        action="store_true",
+        help="Use dynamic scaling for interpolation, this can improve the quality of the interpolation at the cost of performance, this is experimental and only works with Rife CUDA",
     )
     interpolationGroup.add_argument(
         "--interpolate_skip",
@@ -486,6 +491,9 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         args.ffmpeg_path, args.ffplay_path = getFFMPEG(
             sysUsed, args.ffmpeg_path, args.realtime
         )
+
+    if args.realtime:
+        print(yellow("Realtime preview enabled, this is experimental!"))
 
     def adjustFeature(
         feature,

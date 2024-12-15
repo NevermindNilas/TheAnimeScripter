@@ -109,21 +109,21 @@ class RifeCuda:
         interpolateMethod,
         ensemble=False,
         interpolateFactor=2,
-        inputFPS=30,
+        dynamicScale=False,
         interpolateSkip=False,
     ):
         """
         Initialize the RIFE model
 
         Args:
-            half (bool): Whether to use half precision.
-            width (int): The width of the input frame.
-            height (int): The height of the input frame.
-            UHD (bool): Whether to use UHD mode.
-            interpolateMethod (str): The method to use for interpolation.
-            ensemble (bool): Whether to use ensemble mode.
-            nt (int): The number of streams to use, not available for now.
-            interpolateFactor (int): The interpolation factor.
+            half (bool): Half resolution
+            width (int): Width of the frame
+            height (int): Height of the frame
+            interpolateMethod (str): Interpolation method
+            ensemble (bool, optional): Ensemble. Defaults to False.
+            interpolateFactor (int, optional): Interpolation factor. Defaults to 2.
+            dynamicScale (bool, optional): Use Dynamic scale. Defaults to False.
+            interpolateSkip (bool, optional): Skip interpolation on duplicates. Defaults to False.
         """
         self.half = half
         self.scale = 1.0
@@ -132,7 +132,7 @@ class RifeCuda:
         self.interpolateMethod = interpolateMethod
         self.ensemble = ensemble
         self.interpolateFactor = interpolateFactor
-        self.inputFPS = inputFPS
+        self.dynamicScale = dynamicScale
         self.interpolateSkip = interpolateSkip
 
         if self.width > 1920 and self.height > 1080:
@@ -175,7 +175,9 @@ class RifeCuda:
                 self.interpolateFactor,
             )
         else:
-            self.model = IFNet(self.ensemble, self.scale, self.interpolateFactor)
+            self.model = IFNet(
+                self.ensemble, self.dynamicScale, self.scale, self.interpolateFactor
+            )
 
         torch.set_grad_enabled(False)
         if checker.cudaAvailable and self.half:
