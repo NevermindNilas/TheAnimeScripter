@@ -33,6 +33,7 @@
 - Error handling for Spandrel.
 - `Total Frames` will now dynamically adjust based on the total amount of decoded items on forced exit.
 - Changed logging from Python Based stdout to FFMPEG based stdout.
+- Updated Python from `3.12.7` -> `3.12.8`
 
 ### Notes
 - Due to the TensorRT Upgrade, all engines will need to be regenerated.
