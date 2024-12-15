@@ -31,6 +31,8 @@
 - Segmentation ( CUDA ) is now 50% more efficient than before.
 - Bump Pytorch `2.5.0` -> `2.5.1`
 - Error handling for Spandrel.
+- `Total Frames` will now dynamically adjust based on the total amount of decoded items on forced exit.
+- Changed logging from Python Based stdout to FFMPEG based stdout.
 
 ### Notes
 - Due to the TensorRT Upgrade, all engines will need to be regenerated.
