@@ -117,7 +117,9 @@ class IFBlock(nn.Module):
 
 
 class IFNet(nn.Module):
-    def __init__(self, ensemble=False, scale=1, interpolateFactor=2):
+    def __init__(
+        self, ensemble=False, dynamicScale=False, scale=1, interpolateFactor=2
+    ):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7 + 8, c=192 * 2)
         self.block1 = IFBlock(8 + 4 + 8 + 8, c=128 * 2)
@@ -130,6 +132,7 @@ class IFNet(nn.Module):
         self.f1 = None
         self.scale_list = [16 / scale, 8 / scale, 4 / scale, 2 / scale, 1 / scale]
         self.counter = 1
+        self.dynamicScale = dynamicScale
         self.interpolateFactor = interpolateFactor
         self.blocks = [self.block0, self.block1, self.block2, self.block3, self.block4]
 
@@ -164,6 +167,10 @@ class IFNet(nn.Module):
         merged = []
         warped_img0 = img0
         warped_img1 = img1
+        if self.dynamicScale:
+            scale = dynamicScale(img0, img1)
+            self.scale_list = [16 / scale, 8 / scale, 4 / scale, 2 / scale, 1 / scale]
+
         flow = None
         mask = None
         block = [self.block0, self.block1, self.block2, self.block3, self.block4]
