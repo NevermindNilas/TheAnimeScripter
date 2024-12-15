@@ -23,19 +23,19 @@ import os
 import sys
 import logging
 import warnings
-
 from platform import system
 from signal import signal, SIGINT, SIG_DFL
 from time import time
 from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
+
+from src.utils.coloredPrints import green
 from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
-from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.utils.coloredPrints import green
-from src.utils.inputOutputHandler import handleInputOutputs
 from src.utils.progressBarLogic import ProgressBarLogic
-from queue import Queue
+from src.utils.inputOutputHandler import handleInputOutputs
+from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
 
 warnings.filterwarnings("ignore")
 
@@ -301,16 +301,16 @@ class VideoProcessor:
 
 if __name__ == "__main__":
     sysUsed = system()
-    if sysUsed == "Windows":
-        mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
-    else:
-        mainPath = os.path.join(
+    mainPath = (
+        os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
+        if sysUsed == "Windows"
+        else os.path.join(
             os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
             "TheAnimeScripter",
         )
+    )
 
-    if not os.path.exists(mainPath):
-        os.makedirs(mainPath)
+    os.makedirs(mainPath, exist_ok=True)
 
     isFrozen = hasattr(sys, "_MEIPASS")
 
