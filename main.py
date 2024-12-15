@@ -201,6 +201,7 @@ class VideoProcessor:
                     bar(increment)
                     if self.readBuffer.isReadFinished():
                         if self.readBuffer.isQueueEmpty():
+                            bar.updateTotal(newTotal=frameCount * increment)
                             break
 
             if self.preview:

@@ -61,6 +61,16 @@ class ProgressBarLogic:
     def __call__(self, advance_by=1):
         self.advance(advance_by)
 
+    def updateTotal(self, newTotal: int):
+        """
+        Updates the total value of the progress bar.
+
+        Args:
+            newTotal (int): The new total value
+        """
+        self.totalFrames = newTotal
+        self.progress.update(self.task, total=newTotal)
+
 
 class ProgressBarDownloadLogic:
     def __init__(self, totalData: int, title: str):
