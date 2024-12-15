@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .warplayer import warp
 
+from .dynamic_scale import dynamicScale
+
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
@@ -115,7 +117,9 @@ class IFBlock(nn.Module):
 
 
 class IFNet(nn.Module):
-    def __init__(self, ensemble=False, scale=1, interpolateFactor=2):
+    def __init__(
+        self, ensemble=False, dynamicScale=False, scale=1, interpolateFactor=2
+    ):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7 + 8, c=192)
         self.block1 = IFBlock(8 + 4 + 8 + 8, c=128)
@@ -127,6 +131,7 @@ class IFNet(nn.Module):
         self.f0 = None
         self.f1 = None
         self.scale_list = [16 / scale, 8 / scale, 4 / scale, 2 / scale, 1 / scale]
+        self.dynamicScale = dynamicScale
         self.counter = 1
         self.interpolateFactor = interpolateFactor
         self.blocks = [self.block0, self.block1, self.block2, self.block3, self.block4]
@@ -162,6 +167,10 @@ class IFNet(nn.Module):
         merged = []
         warped_img0 = img0
         warped_img1 = img1
+        if self.dynamicScale:
+            scale = dynamicScale(img0, img1)
+            self.scale_list = [16 / scale, 8 / scale, 4 / scale, 2 / scale, 1 / scale]
+
         flow = None
         for i in range(5):
             if flow is None:
