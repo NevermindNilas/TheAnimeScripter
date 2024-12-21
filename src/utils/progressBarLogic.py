@@ -55,11 +55,11 @@ class ProgressBarLogic:
     def __exit__(self, exc_type, exc_value, traceback):
         self.progress.stop()
 
-    def advance(self, advance_by=1):
-        self.progress.update(self.task, advance=advance_by)
+    def advance(self, advance=1):
+        self.progress.update(self.task, advance=advance)
 
-    def __call__(self, advance_by=1):
-        self.advance(advance_by)
+    def __call__(self, advance=1):
+        self.advance(advance)
 
     def updateTotal(self, newTotal: int):
         """
@@ -117,12 +117,12 @@ class ProgressBarDownloadLogic:
         self.totalData = newTotal
         self.progress.update(self.task, total=newTotal)
 
-    def advance(self, advance_by=1):
+    def advance(self, advance=1):
         elapsed = time() - self.progress.tasks[self.task].start_time
         mbps = (
             (self.progress.tasks[self.task].completed / elapsed) if elapsed > 0 else 0
         )
-        self.progress.update(self.task, advance=advance_by, mbps=mbps)
+        self.progress.update(self.task, advance=advance, mbps=mbps)
 
-    def __call__(self, advance_by=1):
-        self.advance(advance_by)
+    def __call__(self, advance=1):
+        self.advance(advance)

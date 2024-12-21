@@ -384,6 +384,7 @@ def matchEncoder(encode_method: str):
     return command
 
 
+
 class BuildBuffer:
     def __init__(
         self,
@@ -416,10 +417,11 @@ class BuildBuffer:
         Attributes:
             half (bool): Whether to use half precision for decoding.
             decodeBuffer (Queue): A queue to store decoded frames.
-            reader (celux.VideoReader): Video reader object for decoding frames.
+            reader (celux.VideoReader or cv2.VideoCapture): Video reader object for decoding frames.
         """
         self.half = half
         self.decodeBuffer = Queue(maxsize=50)
+        self.useOpenCV = False
 
         inputFramePoint = round(inpoint * fps)
         outputFramePoint = round(outpoint * fps) if outpoint != 0.0 else totalFrames
@@ -430,14 +432,22 @@ class BuildBuffer:
 
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
 
-        if outpoint != 0.0:
-            self.reader = VideoReader(
-                videoInput, device="cpu", num_threads=decodeThreads, filters=filters
-            )([float(inpoint), float(outpoint)])
-        else:
-            self.reader = VideoReader(
-                videoInput, device="cpu", num_threads=decodeThreads, filters=filters
-            )
+        try:
+            if outpoint != 0.0:
+                self.reader = VideoReader(
+                    videoInput, device="cpu", num_threads=decodeThreads, filters=filters
+                )([float(inpoint), float(outpoint)])
+            else:
+                self.reader = VideoReader(
+                    videoInput, device="cpu", num_threads=decodeThreads, filters=filters
+                )
+        except Exception as e:
+            logging.error(f"Failed to initialize celux.VideoReader: {e}")
+            logging.info("Falling back to OpenCV for video decoding")
+            self.useOpenCV = True
+            self.reader = cv2.VideoCapture(videoInput)
+            self.reader.set(cv2.CAP_PROP_POS_FRAMES, inputFramePoint)
+            self.outputFramePoint = outputFramePoint
 
     def __call__(self):
         """
@@ -449,12 +459,25 @@ class BuildBuffer:
         if checker.cudaAvailable:
             normStream = torch.cuda.Stream()
 
-        for frame in self.reader:
-            frame = self.processFrame(
-                frame, normStream if checker.cudaAvailable else None
-            )
-            self.decodeBuffer.put(frame)
-            decodedFrames += 1
+        if self.useOpenCV:
+            while self.reader.isOpened():
+                ret, frame = self.reader.read()
+                if not ret or decodedFrames >= self.outputFramePoint:
+                    break
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = self.processFrame(
+                    frame, normStream if checker.cudaAvailable else None
+                )
+                self.decodeBuffer.put(frame)
+                decodedFrames += 1
+            self.reader.release()
+        else:
+            for frame in self.reader:
+                frame = self.processFrame(
+                    frame, normStream if checker.cudaAvailable else None
+                )
+                self.decodeBuffer.put(frame)
+                decodedFrames += 1
 
         self.isFinished = True
         logging.info(f"Decoded {decodedFrames} frames")
@@ -470,6 +493,9 @@ class BuildBuffer:
             Returns:
                 The processed frame.
         """
+        if self.useOpenCV:
+            frame = torch.from_numpy(frame)
+
         if frame.dtype == torch.uint8:
             mul = 1 / 255
         elif frame.dtype == torch.uint16:
@@ -520,8 +546,6 @@ class BuildBuffer:
             Whether the decoding buffer is empty.
         """
         return self.decodeBuffer.empty()
-
-
 class WriteBuffer:
     def __init__(
         self,
