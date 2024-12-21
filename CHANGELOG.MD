@@ -34,12 +34,13 @@
 - `Total Frames` will now dynamically adjust based on the total amount of decoded items on forced exit.
 - Changed logging from Python Based stdout to FFMPEG based stdout.
 - Updated Python from `3.12.7` -> `3.12.8`
+- Added PyMediaInfo fallback if Celux can't detect the metadata.
+- Added OpenCV fallback if Celux can't decode.
 
 ### Notes
 - Due to the TensorRT Upgrade, all engines will need to be regenerated.
 
 ### Removed
-- PyMediaInfo package in favor of Celux.
 - Polygraphy in favor of built in TensorRT API.
 - `--sample_size` command.
 - `pre-compilation` of TAS' bytecode.
