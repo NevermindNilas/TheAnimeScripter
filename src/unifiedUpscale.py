@@ -2,6 +2,7 @@ import os
 import torch
 import logging
 
+from src.utils.modelOptimizer import ModelOptimizer
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .utils.isCudaInit import CudaChecker
 
@@ -95,7 +96,8 @@ class UniversalPytorch:
                 self.model = self.model.float()
                 self.half = False
 
-        self.stream = torch.cuda.Stream()
+        self.model = ModelOptimizer(self.model.model, torch.float16 if self.half else torch.float32, memoryFormat=torch.channels_last).optimizeModel()
+
         if self.upscaleSkip is not None:
             self.skippedCounter = 0
             self.prevFrame = torch.zeros(
@@ -104,8 +106,6 @@ class UniversalPytorch:
                 dtype=torch.float16 if self.half else torch.float32,
             )
 
-        self.model = self.model.model.to(memory_format=torch.channels_last)
-        self.normStream = torch.cuda.Stream()
         self.dummyInput = (
             torch.zeros(
                 (1, 3, self.height, self.width),
@@ -115,6 +115,35 @@ class UniversalPytorch:
             .contiguous()
             .to(memory_format=torch.channels_last)
         )
+
+        self.dummyOutput = (
+            torch.zeros(
+                (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
+                device=checker.device,
+                dtype=torch.float16 if self.half else torch.float32,
+            )
+            .contiguous()
+            .to(memory_format=torch.channels_last)
+        )
+
+        self.stream = torch.cuda.Stream()
+
+        with torch.cuda.stream(self.stream):
+            for _ in range(5):
+                self.model(self.dummyInput)
+                self.stream.synchronize()
+                
+        self.normStream = torch.cuda.Stream()
+        self.outputStream = torch.cuda.Stream()
+
+        self.cudaGraph = torch.cuda.CUDAGraph()
+        self.initTorchCudaGraph()
+
+    @torch.inference_mode()
+    def initTorchCudaGraph(self):
+        with torch.cuda.graph(self.cudaGraph, stream=self.stream):
+            self.dummyOutput = self.model(self.dummyInput)
+        self.stream.synchronize()
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -138,8 +167,12 @@ class UniversalPytorch:
 
         self.processFrame(frame)
         with torch.cuda.stream(self.stream):
-            output = self.model(self.dummyInput).clamp(0, 1)
+            self.cudaGraph.replay()
         self.stream.synchronize()
+
+        with torch.cuda.stream(self.outputStream):
+            output = self.dummyOutput.clone()
+        self.outputStream.synchronize()
 
         if self.upscaleSkip is not None:
             with torch.cuda.stream(self.stream):
@@ -229,7 +262,7 @@ class UniversalTensorRT:
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
                 )
-
+            
         self.dtype = torch.float16 if self.half else torch.float32
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
