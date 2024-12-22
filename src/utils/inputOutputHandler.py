@@ -1,5 +1,6 @@
 import os
 from src.utils.generateOutput import outputNameGenerator
+from src.utils.coloredPrints import yellow
 
 EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
 
@@ -27,9 +28,14 @@ def genOutputHandler(video, output, outputPath, args):
 def encoderChecker(video, encodeMethod, customEncoder):
     if (
         video.endswith(".webm")
-        and customEncoder is None
+        and not customEncoder
         and encodeMethod not in ["vp9", "qsv_vp9", "av1"]
     ):
+        print(
+            yellow(
+                f"Video {video} is a Webm file, encode method was not set to ['vp9', 'qsv_vp9', 'av1'] and `--custom_encoder` is None, defaulting to 'vp9'."
+            )
+        )
         return "vp9"
     return encodeMethod
 
