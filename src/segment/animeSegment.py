@@ -56,6 +56,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 totalFrames=self.totalFrames,
                 fps=self.fps,
                 decodeThreads=decodeThreads,
+                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -208,6 +209,7 @@ class AnimeSegmentTensorRT:
                 totalFrames=self.totalFrames,
                 fps=self.fps,
                 decodeThreads=decodeThreads,
+                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -426,6 +428,7 @@ class AnimeSegmentDirectML:
                 totalFrames=self.totalFrames,
                 fps=self.fps,
                 decodeThreads=decodeThreads,
+                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
