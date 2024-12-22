@@ -57,6 +57,7 @@
 - Fixed an issue where the first frame was black in DirectML workflows.
 - Fixed Rife Elexor issues.
 - Couple of import issues for `--restore`
+- Fixed an issue where the script would attempt to use an incompatible `--encode_method` with the `.webm` container.
 
 #### Adobe Edition
 
