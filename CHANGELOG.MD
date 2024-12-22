@@ -36,6 +36,7 @@
 - Updated Python from `3.12.7` -> `3.12.8`
 - Added PyMediaInfo fallback if Celux can't detect the metadata.
 - Added OpenCV fallback if Celux can't decode.
+- Robustness of the I/O handler.
 
 ### Notes
 - Due to the TensorRT Upgrade, all engines will need to be regenerated.
