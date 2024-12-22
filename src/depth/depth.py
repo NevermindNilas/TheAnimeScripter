@@ -82,6 +82,7 @@ class DepthCuda:
                 width=self.width,
                 height=self.height,
                 resize=False,
+                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -299,6 +300,7 @@ class DepthDirectMLV2:
                 resize=False,
                 width=self.width,
                 height=self.height,
+                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -521,6 +523,7 @@ class DepthTensorRTV2:
                 resize=False,
                 width=self.width,
                 height=self.height,
+                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
