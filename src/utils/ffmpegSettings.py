@@ -5,6 +5,7 @@ import torch
 import numpy as np
 import cv2
 import threading
+import json
 
 from queue import Queue
 from celux import VideoReader, Scale
@@ -399,6 +400,7 @@ class BuildBuffer:
         resizeMethod: str = "bicubic",
         width: int = 1920,
         height: int = 1080,
+        mainPath: str = ""
     ):
         """
         Initializes the BuildBuffer class.
@@ -431,21 +433,36 @@ class BuildBuffer:
             filters = []
 
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
+        jsonMetadata = json.load(open(os.path.join(mainPath, "metadata.json"), "r"))
 
-        try:
-            if outpoint != 0.0:
-                self.reader = VideoReader(
-                    videoInput, device="cpu", num_threads=decodeThreads, filters=filters
-                )([float(inpoint), float(outpoint)])
-            else:
-                self.reader = VideoReader(
-                    videoInput, device="cpu", num_threads=decodeThreads, filters=filters
-                )
-        except Exception as e:
-            logging.error(f"Failed to initialize celux.VideoReader: {e}")
-            logging.info("Falling back to OpenCV for video decoding")
+        if jsonMetadata["Codec"] is None or jsonMetadata["Codec"] == "av1":
+            logging.info(
+                "The video codec is AV1, falling back to OpenCV for video decoding"
+            )
             self.useOpenCV = True
-            self.reader = cv2.VideoCapture(videoInput)
+            self.initializeOpenCV(videoInput, inputFramePoint, outputFramePoint)
+        else:
+            try:
+                if outpoint != 0.0:
+                    self.reader = VideoReader(
+                        videoInput, device="cpu", num_threads=decodeThreads, filters=filters
+                    )([float(inpoint), float(outpoint)])
+                else:
+                    self.reader = VideoReader(
+                        videoInput, device="cpu", num_threads=decodeThreads, filters=filters
+                    )
+            except Exception as e:
+                logging.error(f"Failed to initialize celux.VideoReader: {e}")
+                logging.info("Falling back to OpenCV for video decoding")
+                self.useOpenCV = True
+                self.initializeOpenCV(videoInput, inputFramePoint, outputFramePoint)
+
+    def initializeOpenCV(self, videoInput: str, inputFramePoint: int = 0, outputFramePoint: int = 0):
+        """
+        Initializes the OpenCV video reader.
+        """
+        self.reader = cv2.VideoCapture(videoInput)
+        if inputFramePoint != 0.0 or outputFramePoint != 0.0:
             self.reader.set(cv2.CAP_PROP_POS_FRAMES, inputFramePoint)
             self.outputFramePoint = outputFramePoint
 
@@ -459,6 +476,7 @@ class BuildBuffer:
         if checker.cudaAvailable:
             normStream = torch.cuda.Stream()
 
+        # OpenCV fallback in case of issues
         if self.useOpenCV:
             while self.reader.isOpened():
                 ret, frame = self.reader.read()

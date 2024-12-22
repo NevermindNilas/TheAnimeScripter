@@ -244,6 +244,7 @@ class VideoProcessor:
                 resizeMethod=self.resize_method,
                 width=self.width,
                 height=self.height,
+                mainPath=mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -344,7 +345,7 @@ if __name__ == "__main__":
         print(green(f"Processing Video: {results[i]['videoPath']}"))
         print(green(f"Output Path: {results[i]['outputPath']}"))
         width, height, fps, totalFrames, audio = getVideoMetadata(
-            results[i]["videoPath"], args.inpoint, args.outpoint
+            results[i]["videoPath"], args.inpoint, args.outpoint, mainPath
         )
         outputFPS = fps * args.interpolate_factor if args.interpolate else fps
         VideoProcessor(
