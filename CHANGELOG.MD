@@ -1,7 +1,7 @@
 ## [UNRELEASED] - YYYY-MM-DD
 
 ### New
-- Added Full CUDA Graph Acceleration for all TensorRT workflows, this should bring an uplift of up to `25%` in performance depending on the input resolution.
+- Added Full CUDA Graph Acceleration for all TensorRT workflows and some CUDA workflows, this should bring an uplift of up to `25%` in performance depending on the input resolution.
 - Reverted back to threaded decode / encode due to extremely high CPU usages. This change will imply significantly improved start up times ( up to 1.5s on my system ), significantly less CPU usage ( seen drops of up to 40% on my 13700k ).
 - Switch entire decode backend to Celux-CPU ( soon Celux-Cuda )
 - Added Rife `4.25 Lite` and `4.25 Lite TensorRT`
@@ -38,6 +38,7 @@
 - Added PyMediaInfo fallback if Celux can't detect the metadata.
 - Added OpenCV fallback if Celux can't decode.
 - Robustness of the I/O handler.
+- Added a `torch.fx` model optimization backend which should improve CUDA inference speeds by up to `20%` in certain workloads.
 
 ### Notes
 - Due to the TensorRT Upgrade, all engines will need to be regenerated.

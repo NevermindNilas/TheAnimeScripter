@@ -188,7 +188,8 @@ class RifeCuda:
 
         self.model.load_state_dict(torch.load(modelPath, map_location=checker.device))
         self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
-        self.model.to(checker.device).to(memory_format=torch.channels_last)
+        self.model = self.model.to(checker.device)
+        self.model = self.model.to(memory_format=torch.channels_last)  
 
         ph = ((self.height - 1) // 64 + 1) * 64
         pw = ((self.width - 1) // 64 + 1) * 64
@@ -430,6 +431,7 @@ class RifeTensorRT:
             width=self.width,
             height=self.height,
         )
+
 
         self.model.to(checker.device)
         if self.half:
