@@ -21,7 +21,7 @@ rich
 rich-argparse
 anipy-cli
 colored
-torch==2.5.1
+torch==2.5.1+cu124
 torchvision==0.20.1
 pymediainfo
 torchmetrics
