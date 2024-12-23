@@ -23,7 +23,7 @@ onnx
 tensorrt==10.6.0
 tensorrt_cu12==10.6.0
 tensorrt-cu12-bindings==10.6.0
-tensorrt-cu12_libs==10.6.0
+tensorrt-cu12_libs==10.7.0
 torchmetrics
 pymediainfo
 celux==0.5.3
