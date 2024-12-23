@@ -7,16 +7,3 @@ updates:
     commit-message:
       prefix: "deps"
     open-pull-requests-limit: 10
-    # Specify the requirements files
-    ignore:
-      - dependency-name: "*"
-        versions: ["*"]
-    allow:
-      - dependency-name: "*"
-        versions: ["*"]
-    # Add the requirements files
-    requirements:
-      - file: "requirements-linux-lite.txt"
-      - file: "requirements-linux.txt"
-      - file: "requirements-windows-lite.txt"
-      - file: "requirements-windows.txt"
