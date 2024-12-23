@@ -1,6 +1,6 @@
 opencv-python-headless
 timm
-numpy==1.26.4
+numpy==2.2.1
 kornia
 scipy
 wmi
