@@ -21,7 +21,7 @@
 - Improved inferrence speed for `16bit` specific workloads by up to 50%
 - Improved error handling when the `totalFrames` count was off.
 - Improved norm efficiency through removal of repeated operations.
-- Upgraded to TensorRT `10.6.0`
+- Upgraded to TensorRT `10.7.0`
 - Refactored `TRT Handler` Backend for more granularity and better prints / logging.
 - Depth Quality `Low` will now produce better quality outputs.
 - Multithreadded the Encode.
@@ -39,6 +39,7 @@
 - Added OpenCV fallback if Celux can't decode.
 - Robustness of the I/O handler.
 - Added a `torch.fx` model optimization backend which should improve CUDA inference speeds by up to `20%` in certain workloads.
+- Upgraded numpy version to `2.2.1`
 
 ### Notes
 - Due to the TensorRT Upgrade, all engines will need to be regenerated.
