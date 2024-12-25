@@ -61,6 +61,7 @@
 - Fixed Rife Elexor issues.
 - Couple of import issues for `--restore`
 - Fixed an issue where the script would attempt to use an incompatible `--encode_method` with the `.webm` container.
+- Fixed a bug where if `--output` was declared and no other processing method was declared tas would only output the temp file.
 
 #### Adobe Edition
 
