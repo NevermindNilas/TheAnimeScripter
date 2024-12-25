@@ -2,6 +2,7 @@ import os
 import logging
 import sys
 import argparse
+import shutil
 
 from .checkSpecs import checkSystem
 from .downloadModels import downloadModels, modelsList
@@ -10,6 +11,21 @@ from rich_argparse import RichHelpFormatter
 from src.version import __version__ as version
 from .generateOutput import outputNameGenerator
 
+def isAnyOtherProcessingMethodEnabled(args):
+    proccessingMethods = [
+        args.interpolate,
+        args.scenechange,
+        args.upscale,
+        args.segment,
+        args.restore,
+        args.sharpen,
+        args.resize,
+        args.dedup,
+        args.depth,
+        args.autoclip,
+    ]
+
+    return any(proccessingMethods)
 
 def str2bool(arg):
     """
@@ -631,22 +647,10 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
             logging.error("Error processing input")
             sys.exit()
 
-    processingMethods = [
-        args.interpolate,
-        args.scenechange,
-        args.upscale,
-        args.segment,
-        args.restore,
-        args.sharpen,
-        args.resize,
-        args.dedup,
-        args.depth,
-        args.autoclip,
-    ]
-    if not any(processingMethods):
+    if not isAnyOtherProcessingMethodEnabled(args):
         logging.error("No processing methods specified, exiting")
         sys.exit()
-
+    
     return args
 
 
@@ -668,6 +672,9 @@ def processURL(args, outputPath):
             args.output = os.path.join(
                 outputFolder, outputNameGenerator(args, args.input)
             )
+        elif os.path.isdir(args.output):
+            outputFolder = args.output
+            os.makedirs(os.path.join(outputFolder), exist_ok=True)
         else:
             outputFolder = os.path.dirname(args.output)
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
@@ -682,9 +689,16 @@ def processURL(args, outputPath):
             args.ffmpeg_path,
             args.ae,
         )
+        print(green(f"Video downloaded to: {tempOutput}"))
+
+        if not isAnyOtherProcessingMethodEnabled(args):
+            shutil.move(tempOutput, args.output)
+            sys.exit()
 
         args.input = str(tempOutput)
         logging.info(f"New input path: {args.input}")
+
+
     else:
         logging.error(
             "URL is invalid or not a YouTube URL, please check the URL and try again"
