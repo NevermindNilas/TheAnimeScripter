@@ -189,7 +189,7 @@ class DedupMSSSIMCuda:
         )
 
 
-class FlownetSDedup:
+class DedupFlownetS:
     def __init__(
         self,
         half: bool = True,
@@ -293,8 +293,7 @@ class FlownetSDedup:
     def __call__(self, frame):
         if self.prevFrame is None:
             with torch.cuda.stream(self.normStream):
-                self.prevFrame = frame
-                self.prevFrame = self.prepareFrame(self.prevFrame)
+                self.prevFrame = self.prepareFrame(frame)
             self.normStream.synchronize()
             return False
 
