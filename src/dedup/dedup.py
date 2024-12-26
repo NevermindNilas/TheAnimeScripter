@@ -263,7 +263,7 @@ class FlownetSDedup:
 
         self.stream = torch.cuda.Stream()
         with torch.cuda.stream(self.stream):
-            for _ in range(5):
+            for _ in range(3):
                 output = self.model(self.dummyInput)
                 self.stream.synchronize()
 
