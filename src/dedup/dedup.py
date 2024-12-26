@@ -1,7 +1,13 @@
 import numpy as np
 import torch
+import os
 
 from torch.functional import F
+from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
+from src.utils.coloredPrints import yellow
+from src.utils.isCudaInit import CudaChecker
+
+checker = CudaChecker()
 
 
 class DedupSSIMCuda:
@@ -180,3 +186,60 @@ class DedupMSSSIMCuda:
                 mode="nearest",
             )
         )
+
+
+class FlownetSDedup:
+    def __init__(
+        self,
+        half: bool = True,
+        dedupSens: float = 0.9,
+    ):
+        print(yellow("This feature is experimental and may not work as expected."))
+        import src.dedup.flownet as flownet
+
+        self.dedupSens = dedupSens
+        self.half = half
+
+        self.filename = modelsMap("flownets", modelType="pth")
+
+        if not os.path.exists(os.path.join(weightsDir, "flownets", self.filename)):
+            modelPath = downloadModels(
+                model="flownets",
+            )
+        else:
+            modelPath = os.path.join(weightsDir, "flownets", self.filename)
+
+        self.model = torch.load(modelPath)
+        self.model = flownet.__dict__[self.model["arch"]](self.model).to(checker.device)
+        self.model.eval()
+
+        if half:
+            self.model.half()
+        else:
+            self.model.float()
+
+        self.prevFrame = None
+        self.mean = torch.tensor(
+            [0.411, 0.432, 0.45],
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        ).view(1, 3, 1, 1)
+        self.std = torch.tensor(
+            [1, 1, 1],
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        ).view(1, 3, 1, 1)
+
+    def __call__(self, frame):
+        if self.prevFrame is None:
+            self.prevFrame = frame
+            self.prevFrame = (self.prevFrame - self.mean) / self.std
+            return False
+
+        frame = (frame - self.mean) / self.std
+
+        flow = self.model(torch.cat((self.prevFrame, frame), 1))
+
+        self.prevFrame = frame
+
+        return flow.mean() > self.dedupSens
