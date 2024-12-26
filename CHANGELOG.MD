@@ -68,6 +68,7 @@
 ### Notes
 - This version of TAS is now built against AE 2025, with official support provided. The overall UI and feel have been adjusted to match AE 2025. This may cause mismatches with older versions of AE, and some core functionalities may not work as well or at all.
 - The new update checking system does not automatically download TAS Adobe Edition, the end user will still have to manually download it but eventually a fully automated process is planned.
+- `Toasts` do not fully replace alerts, they just replace some of the previous easy to detect errors.
 
 ### New
 - Added an auto Update Cheking system which prompts the user if a new version has been released.
@@ -78,6 +79,8 @@
 - Added `Arrange Layers` function to quickly sort layers based on user requirements.
 - A bunch of tooltips for the end user.
 - Added an indicator where the TAS backend will be downloaded.
+- Added `Toasts` as an alternative to `alerts`, this should be less intrusive and less annoying than alerts.
+- Added `Open Changelogs` button.
 
 ### Improved
 - Some naming schemes
