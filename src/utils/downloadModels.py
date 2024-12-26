@@ -129,6 +129,7 @@ def modelsList() -> list[str]:
         "shift_lpips-directml",
         "differential-tensorrt",
         "gmfss",
+        "flownets",
     ]
 
 
@@ -150,6 +151,9 @@ def modelsMap(
     """
 
     match model:
+        case "flownets":
+            return "flownets.pth"
+
         case "shufflespan" | "shufflespan-directml" | "shufflespan-tensorrt":
             if modelType == "pth":
                 return "sudo_shuffle_span_10.5m.pth"

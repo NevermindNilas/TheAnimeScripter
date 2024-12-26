@@ -456,6 +456,9 @@ class BuildBuffer:
                 logging.info("Falling back to OpenCV for video decoding")
                 self.useOpenCV = True
                 self.initializeOpenCV(videoInput, inputFramePoint, outputFramePoint)
+        
+        # Delete from memory, can't trust the garbage collector
+        del jsonMetadata
 
     def initializeOpenCV(self, videoInput: str, inputFramePoint: int = 0, outputFramePoint: int = 0):
         """

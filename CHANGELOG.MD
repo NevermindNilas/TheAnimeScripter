@@ -15,6 +15,7 @@
 - Thanks to TNTWise, `GMFSS` has been added back to TAS.
 - Added `Dynamic Flow Scale`, use the command `--dynamic_scale`, this only works with CUDA for now and is experimental.
 - Added temporary metadata collection of the video input.
+- Added Flow based deduplication with `FlownetS` ( experimental )
 
 ### Improved
 - Replaced the existing progress bar with Rich Progress for faster start-up times and more accurate FPS, closer to the ground truth.
