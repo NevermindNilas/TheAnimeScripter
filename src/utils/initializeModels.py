@@ -475,9 +475,9 @@ def initializeModels(self):
                 )
 
             case "flownets":
-                from src.dedup.dedup import FlownetSDedup
+                from src.dedup.dedup import DedupFlownetS
 
-                dedup_process = FlownetSDedup(
+                dedup_process = DedupFlownetS(
                     half=self.half,
                     dedupSens=self.dedup_sens,
                     height=self.height,
