@@ -194,6 +194,8 @@ class FlownetSDedup:
         self,
         half: bool = True,
         dedupSens: float = 0.9,
+        height: int = 224,
+        width: int = 224,
     ):
         print(
             yellow(
@@ -204,6 +206,8 @@ class FlownetSDedup:
 
         self.dedupSens = dedupSens
         self.half = half
+        self.height = height
+        self.width = width
 
         self.filename = modelsMap("flownets", modelType="pth")
 
@@ -251,18 +255,61 @@ class FlownetSDedup:
             .to(memory_format=torch.channels_last)
         )
 
+        self.dummyInput = torch.zeros(
+            (1, 6, self.height, self.width),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        ).to(memory_format=torch.channels_last)
+
+        self.stream = torch.cuda.Stream()
+        with torch.cuda.stream(self.stream):
+            for _ in range(5):
+                output = self.model(self.dummyInput)
+                self.stream.synchronize()
+
+        self.dummyOutput = torch.zeros(
+            (1, 2, output.size(2), output.size(3)),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        ).to(memory_format=torch.channels_last)
+
+        self.normStream = torch.cuda.Stream()
+        self.outputStream = torch.cuda.Stream()
+
+        self.cudaGraph = torch.cuda.CUDAGraph()
+        self.initTorchCudaGraph()
+
+    @torch.inference_mode()
+    def initTorchCudaGraph(self):
+        with torch.cuda.graph(self.cudaGraph, stream=self.stream):
+            self.dummyOutput = self.model(self.dummyInput)
+        self.stream.synchronize()
+
+    @torch.inference_mode()
     def prepareFrame(self, frame):
         return ((frame - self.mean) / self.std).to(memory_format=torch.channels_last)
 
+    @torch.inference_mode()
     def __call__(self, frame):
         if self.prevFrame is None:
-            self.prevFrame = frame
-            self.prevFrame = self.prepareFrame(self.prevFrame)
+            with torch.cuda.stream(self.normStream):
+                self.prevFrame = frame
+                self.prevFrame = self.prepareFrame(self.prevFrame)
+            self.normStream.synchronize()
             return False
 
-        frame = self.prepareFrame(frame)
-        flow = self.model(torch.cat((self.prevFrame, frame), 1))
+        with torch.cuda.stream(self.normStream):
+            frame = self.prepareFrame(frame)
+            self.dummyInput.copy_(torch.cat((self.prevFrame, frame), dim=1))
+        self.normStream.synchronize()
 
-        self.prevFrame = frame
+        with torch.cuda.stream(self.stream):
+            self.cudaGraph.replay()
+        self.stream.synchronize()
+
+        with torch.cuda.stream(self.outputStream):
+            flow = self.dummyOutput
+            self.prevFrame.copy_(frame, non_blocking=True)
+        self.outputStream.synchronize()
 
         return flow.mean() > self.dedupSens
