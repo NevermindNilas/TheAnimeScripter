@@ -152,6 +152,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `"ssim"`
 - `"mse"`
 - `"ssim-cuda"`
+- `"flownets"`
 
 ### Restoring
 

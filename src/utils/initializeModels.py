@@ -473,6 +473,14 @@ def initializeModels(self):
                     self.dedup_sens,
                     self.half,
                 )
+            
+            case "flownets":
+                from src.dedup.dedup import FlownetSDedup
+
+                dedup_process = FlownetSDedup(
+                    half=self.half,
+                    dedupSens=self.dedup_sens,
+                )
 
     if self.scenechange:
         match self.scenechange_method:

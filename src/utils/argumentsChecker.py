@@ -246,7 +246,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         "--dedup_method",
         type=str,
         default="ssim",
-        choices=["ssim", "mse", "ssim-cuda", "mse-cuda"],
+        choices=["ssim", "mse", "ssim-cuda", "mse-cuda", "flownets"],
         help="Deduplication method",
     )
     dedupGroup.add_argument(
@@ -577,9 +577,13 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
     if args.dedup:
         if args.dedup_method in ["ssim", "ssim-cuda"]:
             args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
-            logging.info(
-                f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
-            )
+
+        elif args.dedup_method in ["flownets"]:
+            args.dedup_sens = args.dedup_sens / 100
+
+        logging.info(
+            f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
+        )
 
     sensMap = {
         "differential": 0.75,
