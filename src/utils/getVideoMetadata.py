@@ -25,7 +25,7 @@ def getVideoMetadata(inputPath: str, inPoint: float, outPoint: float, mainPath: 
         video = celux.VideoReader(inputPath, device="cpu")
         properties = video.get_properties()
     except ValueError as ve:
-        if "Unknown pixel format for bit depth inference: gbrp" in str(ve):
+        if "Unknown pixel format for bit depth inference:" in str(ve):
             logging.info(f"ValueError encountered: {ve}. Switching to PyMediaInfo.")
             return videoMetadataPyMedia(inputPath, inPoint, outPoint, mainPath)
         else:
