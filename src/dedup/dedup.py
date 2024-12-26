@@ -6,6 +6,7 @@ from torch.functional import F
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from src.utils.coloredPrints import yellow
 from src.utils.isCudaInit import CudaChecker
+from src.utils.modelOptimizer import ModelOptimizer
 
 checker = CudaChecker()
 
@@ -213,22 +214,38 @@ class FlownetSDedup:
         self.model = flownet.__dict__[self.model["arch"]](self.model).to(checker.device)
         self.model.eval()
 
+        self.model = ModelOptimizer(
+            model=self.model,
+            dtype=torch.float16 if half else torch.float32,
+            memoryFormat=torch.channels_last,
+        ).optimizeModel()
+
         if half:
             self.model.half()
         else:
             self.model.float()
 
         self.prevFrame = None
-        self.mean = torch.tensor(
-            [0.411, 0.432, 0.45],
-            device=checker.device,
-            dtype=torch.float16 if self.half else torch.float32,
-        ).view(1, 3, 1, 1)
-        self.std = torch.tensor(
-            [1, 1, 1],
-            device=checker.device,
-            dtype=torch.float16 if self.half else torch.float32,
-        ).view(1, 3, 1, 1)
+        self.mean = (
+            torch.tensor(
+                [0.411, 0.432, 0.45],
+                device=checker.device,
+                dtype=torch.float16 if self.half else torch.float32,
+            )
+            .view(1, 3, 1, 1)
+            .to(checker.device)
+            .to(memory_format=torch.channels_last)
+        )
+        self.std = (
+            torch.tensor(
+                [1, 1, 1],
+                device=checker.device,
+                dtype=torch.float16 if self.half else torch.float32,
+            )
+            .view(1, 3, 1, 1)
+            .to(checker.device)
+            .to(memory_format=torch.channels_last)
+        )
 
     def __call__(self, frame):
         if self.prevFrame is None:
@@ -236,7 +253,7 @@ class FlownetSDedup:
             self.prevFrame = (self.prevFrame - self.mean) / self.std
             return False
 
-        frame = (frame - self.mean) / self.std
+        frame = ((frame - self.mean) / self.std).to(memory_format=torch.channels_last)
 
         flow = self.model(torch.cat((self.prevFrame, frame), 1))
 
