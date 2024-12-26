@@ -195,7 +195,11 @@ class FlownetSDedup:
         half: bool = True,
         dedupSens: float = 0.9,
     ):
-        print(yellow("This feature is experimental and may not work as expected."))
+        print(
+            yellow(
+                "Flownet deduplication is experimental and may not work as expected."
+            )
+        )
         import src.dedup.flownet as flownet
 
         self.dedupSens = dedupSens
@@ -247,14 +251,16 @@ class FlownetSDedup:
             .to(memory_format=torch.channels_last)
         )
 
+    def prepareFrame(self, frame):
+        return ((frame - self.mean) / self.std).to(memory_format=torch.channels_last)
+
     def __call__(self, frame):
         if self.prevFrame is None:
             self.prevFrame = frame
-            self.prevFrame = (self.prevFrame - self.mean) / self.std
+            self.prevFrame = self.prepareFrame(self.prevFrame)
             return False
 
-        frame = ((frame - self.mean) / self.std).to(memory_format=torch.channels_last)
-
+        frame = self.prepareFrame(frame)
         flow = self.model(torch.cat((self.prevFrame, frame), 1))
 
         self.prevFrame = frame
