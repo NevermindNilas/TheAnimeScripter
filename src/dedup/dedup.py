@@ -299,7 +299,9 @@ class DedupFlownetS:
 
         with torch.cuda.stream(self.normStream):
             frame = self.prepareFrame(frame)
-            self.dummyInput.copy_(torch.cat((self.prevFrame, frame), dim=1))
+            self.dummyInput.copy_(
+                torch.cat((self.prevFrame, frame), dim=1), non_blocking=True
+            )
         self.normStream.synchronize()
 
         with torch.cuda.stream(self.stream):
