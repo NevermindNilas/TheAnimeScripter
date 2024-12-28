@@ -385,7 +385,6 @@ def matchEncoder(encode_method: str):
     return command
 
 
-
 class BuildBuffer:
     def __init__(
         self,
@@ -400,7 +399,7 @@ class BuildBuffer:
         resizeMethod: str = "bicubic",
         width: int = 1920,
         height: int = 1080,
-        mainPath: str = ""
+        mainPath: str = "",
     ):
         """
         Initializes the BuildBuffer class.
@@ -445,22 +444,31 @@ class BuildBuffer:
             try:
                 if outpoint != 0.0:
                     self.reader = VideoReader(
-                        videoInput, device="cpu", num_threads=decodeThreads, filters=filters
+                        videoInput,
+                        device="cpu",
+                        num_threads=decodeThreads,
+                        filters=filters,
                     )([float(inpoint), float(outpoint)])
                 else:
                     self.reader = VideoReader(
-                        videoInput, device="cpu", num_threads=decodeThreads, filters=filters
+                        videoInput,
+                        device="cpu",
+                        num_threads=decodeThreads,
+                        filters=filters,
                     )
+                logging.info("Using celux.VideoReader for video decoding")
             except Exception as e:
                 logging.error(f"Failed to initialize celux.VideoReader: {e}")
                 logging.info("Falling back to OpenCV for video decoding")
                 self.useOpenCV = True
                 self.initializeOpenCV(videoInput, inputFramePoint, outputFramePoint)
-        
+
         # Delete from memory, can't trust the garbage collector
         del jsonMetadata
 
-    def initializeOpenCV(self, videoInput: str, inputFramePoint: int = 0, outputFramePoint: int = 0):
+    def initializeOpenCV(
+        self, videoInput: str, inputFramePoint: int = 0, outputFramePoint: int = 0
+    ):
         """
         Initializes the OpenCV video reader.
         """
@@ -567,6 +575,8 @@ class BuildBuffer:
             Whether the decoding buffer is empty.
         """
         return self.decodeBuffer.empty()
+
+
 class WriteBuffer:
     def __init__(
         self,
