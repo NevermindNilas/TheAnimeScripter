@@ -17,7 +17,7 @@ rich
 rich-argparse
 flask
 torchmetrics
-celux==0.5.3
+celux==0.5.4
 torch==2.5.1
 pymediainfo
 torchvision==0.20.1
