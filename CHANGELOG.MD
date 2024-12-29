@@ -1,3 +1,25 @@
+## [UNRELEASED] - yyyy-mm-dd
+
+#The Anime Scripter:
+## New
+- N/A
+
+## Fixed
+- Shape issues with Anime TensorRT
+
+Adobe Edition
+## New
+- Fully baked in auto updating to the latest release of TAS through a click of a button. ( Experimental )
+
+## Improved
+- Improved the `Extracting TAS...` indicator, the `...` should now 'progress' just so that users know it's not actually stuck.
+- Slight adjustment to the backend for ease of reusability, more work needs to be done in order to make TAS slightly more manageable.
+
+## Fixed
+- The `Remove Background` segment would not update upon selection of different elements.
+- Fixed a repeated unncessary task which will now happen only on the initial mount of the UI.
+
+
 ## [2.0.0] - 2024-12-29
 ### New
 - Partially ported TAS to Adobe Premiere and some of the core functionality should now take place.
