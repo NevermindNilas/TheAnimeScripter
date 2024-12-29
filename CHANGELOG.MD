@@ -1,13 +1,13 @@
 ## [UNRELEASED] - yyyy-mm-dd
 
-#The Anime Scripter:
+# The Anime Scripter:
 ## New
 - N/A
 
 ## Fixed
 - Shape issues with Segment Anime TensorRT
 
-Adobe Edition
+# Adobe Edition
 ## New
 - Fully baked in auto updating to the latest release of TAS through a click of a button. ( Experimental )
 
