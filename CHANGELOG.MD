@@ -5,7 +5,7 @@
 - N/A
 
 ## Fixed
-- Shape issues with Anime TensorRT
+- Shape issues with Segment Anime TensorRT
 
 Adobe Edition
 ## New
