@@ -1,6 +1,6 @@
-## [UNRELEASED] - YYYY-MM-DD
-
+## [2.0.0] - 2024-12-29
 ### New
+- Partially ported TAS to Adobe Premiere and some of the core functionality should now take place.
 - Added Full CUDA Graph Acceleration for all TensorRT workflows and some CUDA workflows, this should bring an uplift of up to `25%` in performance depending on the input resolution.
 - Reverted back to threaded decode / encode due to extremely high CPU usages. This change will imply significantly improved start up times ( up to 1.5s on my system ), significantly less CPU usage ( seen drops of up to 40% on my 13700k ).
 - Switch entire decode backend to Celux-CPU ( soon Celux-Cuda )
@@ -49,7 +49,7 @@
 - Polygraphy in favor of built in TensorRT API.
 - `--sample_size` command.
 - `pre-compilation` of TAS' bytecode.
-- removed image support because f this
+- removed image support.
 - `Alive-Progress` in favor of Rich-Progress.
 
 ### Fixed
@@ -69,7 +69,7 @@
 ### Notes
 - This version of TAS is now built against AE 2025, with official support provided. The overall UI and feel have been adjusted to match AE 2025. This may cause mismatches with older versions of AE, and some core functionalities may not work as well or at all.
 - The new update checking system does not automatically download TAS Adobe Edition, the end user will still have to manually download it but eventually a fully automated process is planned.
-- `Toasts` do not fully replace alerts, they just replace some of the previous easy to detect errors.
+- `Toasts` do not fully replace alerts, they just serve as a partial replacement to the annoying alerts.
 
 ### New
 - Added an auto Update Cheking system which prompts the user if a new version has been released.
@@ -79,7 +79,7 @@
 - Added quick action buttons for `Add adjustment layer` & `Add Solid Layer`
 - Added `Arrange Layers` function to quickly sort layers based on user requirements.
 - A bunch of tooltips for the end user.
-- Added an indicator where the TAS backend will be downloaded.
+- Added an full path indicators where TAS' backend will be downloaded.
 - Added `Toasts` as an alternative to `alerts`, this should be less intrusive and less annoying than alerts.
 - Added `Open Changelogs` button.
 
@@ -89,12 +89,15 @@
 - Improved the look and feel of the UI.
 - Overall performance and snappiness.
 - Upgraded some backend dependencies for extra goodies.
+- Improved the `preview windows` responsiveness.
+- Added the new AI options into the dropdowns.
 
 ### Removed:
 - Rife 4.18 Cuda and TensorRT.
 
 ### Fixed:
 - An issue where TAS would delete files if `delete pre-rendered` file was turned on but `pre-render` was not.
+- Fixed a bug where there was a 404 image not found error when using `preview window`
 
 ## [1.9.11] - 2024-10-26
 
