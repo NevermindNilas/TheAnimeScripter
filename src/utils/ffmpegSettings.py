@@ -4,7 +4,6 @@ import os
 import torch
 import numpy as np
 import cv2
-import math
 import threading
 import json
 
@@ -425,10 +424,8 @@ class BuildBuffer:
         self.decodeBuffer = Queue(maxsize=50)
         self.useOpenCV = False
 
-        inputFramePoint = math.floor(inpoint * fps)
-        outputFramePoint = (
-            math.floor(outpoint * fps) if outpoint != 0.0 else totalFrames
-        )
+        inputFramePoint = round(inpoint * fps)
+        outputFramePoint = round(outpoint * fps) if outpoint != 0.0 else totalFrames
         if resize:
             filters = [Scale(width=str(width), height=str(height), flags=resizeMethod)]
         else:
@@ -442,7 +439,7 @@ class BuildBuffer:
                 "The video codec is AV1, falling back to OpenCV for video decoding"
             )
             self.useOpenCV = True
-            self.initializeOpenCV(videoInput, inpoint, outpoint)
+            self.initializeOpenCV(videoInput, inputFramePoint, outputFramePoint)
         else:
             try:
                 if outpoint != 0.0:
@@ -461,22 +458,24 @@ class BuildBuffer:
                     )
                 logging.info("Using Celux pipeline for video decoding")
             except Exception as e:
-                logging.error(f"Failed to initialize celux pipeline: {e}")
+                logging.error(f"Failed to initialize Celux pipeline: {e}")
                 logging.info("Falling back to OpenCV for video decoding")
                 self.useOpenCV = True
-                self.initializeOpenCV(videoInput, inpoint, outpoint)
+                self.initializeOpenCV(videoInput, inputFramePoint, outputFramePoint)
 
         # Delete from memory, can't trust the garbage collector
         del jsonMetadata
 
-    def initializeOpenCV(self, videoInput: str, inpoint: int = 0, outpoint: int = 0):
+    def initializeOpenCV(
+        self, videoInput: str, inputFramePoint: int = 0, outputFramePoint: int = 0
+    ):
         """
         Initializes the OpenCV video reader.
         """
         self.reader = cv2.VideoCapture(videoInput)
-        if inpoint != 0.0 or outpoint != 0.0:
-            self.reader.set(cv2.CAP_PROP_POS_FRAMES, inpoint)
-            self.outputFramePoint = outpoint
+        if inputFramePoint != 0.0 or outputFramePoint != 0.0:
+            self.reader.set(cv2.CAP_PROP_POS_FRAMES, inputFramePoint)
+            self.outputFramePoint = outputFramePoint
 
     def __call__(self):
         """
