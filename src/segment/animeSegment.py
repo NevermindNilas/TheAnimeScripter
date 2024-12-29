@@ -213,22 +213,22 @@ class AnimeSegmentTensorRT:
             )
 
             self.writeBuffer = WriteBuffer(
-                self.mainPath,
-                self.input,
-                self.output,
-                self.ffmpeg_path,
-                self.encode_method,
-                self.custom_encoder,
-                self.width,
-                self.height,
-                self.fps,
-                self.buffer_limit,
-                sharpen=False,
-                sharpen_sens=None,
+                mainPath=self.mainPath,
+                input=self.input,
+                output=self.output,
+                ffmpegPath=self.ffmpeg_path,
+                encode_method=self.encode_method,
+                custom_encoder=self.custom_encoder,
                 grayscale=False,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
+                sharpen=False,
                 transparent=True,
                 audio=False,
                 benchmark=self.benchmark,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
@@ -327,7 +327,7 @@ class AnimeSegmentTensorRT:
     def normFrame(self, frame):
         with torch.cuda.stream(self.normStream):
             frame = F.pad(
-                frame.float().permute(2, 0, 1).unsqueeze(0),
+                frame.float(),
                 (0, 0, self.padHeight, self.padWidth),
             )
             self.dummyInput.copy_(frame, non_blocking=True)
@@ -338,16 +338,12 @@ class AnimeSegmentTensorRT:
     def outputNorm(self, frame):
         with torch.cuda.stream(self.outputStream):
             frameWithMask = torch.cat((frame, self.dummyOutput), dim=1)
-            frameWithMask = (
-                frameWithMask[
-                    :,
-                    :,
-                    : frameWithMask.shape[2] - self.padHeight,
-                    : frameWithMask.shape[3] - self.padWidth,
-                ]
-                .squeeze(0)
-                .permute(1, 2, 0)
-            )
+            frameWithMask = frameWithMask[
+                :,
+                :,
+                : frameWithMask.shape[2] - self.padHeight,
+                : frameWithMask.shape[3] - self.padWidth,
+            ]
             self.outputStream.synchronize()
             return frameWithMask
 
