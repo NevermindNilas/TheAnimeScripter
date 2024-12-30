@@ -6,6 +6,7 @@
 
 ## Fixed
 - Shape issues with Segment Anime TensorRT
+- Issues with `rawvideo` and `celux`
 
 # Adobe Edition
 ## New

@@ -434,7 +434,10 @@ class BuildBuffer:
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
         jsonMetadata = json.load(open(os.path.join(mainPath, "metadata.json"), "r"))
 
-        if jsonMetadata["Codec"] is None or jsonMetadata["Codec"] == "av1":
+        if jsonMetadata["Codec"] is None or jsonMetadata["Codec"] in [
+            "av1",
+            "rawvideo",
+        ]:
             logging.info(
                 "The video codec is AV1, falling back to OpenCV for video decoding"
             )
