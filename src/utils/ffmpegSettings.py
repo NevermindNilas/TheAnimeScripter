@@ -453,6 +453,7 @@ class BuildBuffer:
                         device="cpu",
                         num_threads=decodeThreads,
                         filters=filters,
+                        tensor_shape="HWC",
                     )([float(inpoint), float(outpoint)])
                 else:
                     self.reader = VideoReader(
@@ -460,6 +461,7 @@ class BuildBuffer:
                         device="cpu",
                         num_threads=decodeThreads,
                         filters=filters,
+                        tensor_shape="HWC",
                     )
                 logging.info("Using Celux pipeline for video decoding")
             except Exception as e:
