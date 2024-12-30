@@ -10,6 +10,8 @@ import json
 from queue import Queue
 from celux import VideoReader, Scale
 from torch.nn import functional as F
+from src.utils.coloredPrints import yellow
+
 from .isCudaInit import CudaChecker
 
 checker = CudaChecker()
@@ -688,6 +690,19 @@ class WriteBuffer:
             else:
                 inputPixFormat = "rgb48le"
                 outputPixFormat = "yuv420p10le"
+
+        elif self.encode_method in ["nvenc_h264"]:
+            if self.bitDepth == "8bit":
+                inputPixFormat = "yuv420p"
+                outputPixFormat = "yuv420p"
+            else:
+                print(
+                    yellow(
+                        "NVENC H264 does not support 10bit encoding, falling back to 8bit encoding."
+                    )
+                )
+                inputPixFormat = "rgb48le"
+                outputPixFormat = "yuv420p"
 
         elif self.encode_method in [
             "nvenc_h265_10bit",
