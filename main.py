@@ -115,7 +115,7 @@ class VideoProcessor:
             self.width = round(self.width * self.resize_factor / 2) * 2
             self.height = round(self.width / aspectRatio / 2) * 2
             logging.info(
-                f"Resizing to {self.width}x{self.height} using {self.resize_method}"
+                f"Resizing to {self.width}x{self.height} using {self.resize_factor} factor and {self.resize_method}"
             )
 
         if self.autoclip:
