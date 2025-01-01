@@ -142,6 +142,7 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 | [Elexor](https://github.com/elexor)                                       | Modded Rife Experiment(s)                       |
 | [Zarxrax](https://github.com/Zarxrax)                                     | Anime1080Fixer model                            |
 | [sdaqo](https://github.com/sdaqo)                                         | Anipy-CLI                                       |
+| [umzi](https://github.com/umzi2)                                          | RTMOSR                                          |
 
 If I forgot to mention anyone, please email: nilascontact@gmail.com
 

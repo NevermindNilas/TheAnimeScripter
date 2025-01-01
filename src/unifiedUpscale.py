@@ -96,7 +96,11 @@ class UniversalPytorch:
                 self.model = self.model.float()
                 self.half = False
 
-        self.model = ModelOptimizer(self.model.model, torch.float16 if self.half else torch.float32, memoryFormat=torch.channels_last).optimizeModel()
+        self.model = ModelOptimizer(
+            self.model.model,
+            torch.float16 if self.half else torch.float32,
+            memoryFormat=torch.channels_last,
+        ).optimizeModel()
 
         if self.upscaleSkip is not None:
             self.skippedCounter = 0
@@ -118,7 +122,12 @@ class UniversalPytorch:
 
         self.dummyOutput = (
             torch.zeros(
-                (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
+                (
+                    1,
+                    3,
+                    self.height * self.upscaleFactor,
+                    self.width * self.upscaleFactor,
+                ),
                 device=checker.device,
                 dtype=torch.float16 if self.half else torch.float32,
             )
@@ -132,7 +141,7 @@ class UniversalPytorch:
             for _ in range(5):
                 self.model(self.dummyInput)
                 self.stream.synchronize()
-                
+
         self.normStream = torch.cuda.Stream()
         self.outputStream = torch.cuda.Stream()
 
@@ -262,7 +271,7 @@ class UniversalTensorRT:
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
                 )
-            
+
         self.dtype = torch.float16 if self.half else torch.float32
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
