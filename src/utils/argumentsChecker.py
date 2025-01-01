@@ -11,6 +11,7 @@ from rich_argparse import RichHelpFormatter
 from src.version import __version__ as version
 from .generateOutput import outputNameGenerator
 
+
 def isAnyOtherProcessingMethodEnabled(args):
     proccessingMethods = [
         args.interpolate,
@@ -26,6 +27,7 @@ def isAnyOtherProcessingMethodEnabled(args):
     ]
 
     return any(proccessingMethods)
+
 
 def str2bool(arg):
     """
@@ -224,6 +226,8 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "aniscale2",
             "aniscale2-tensorrt",
             "aniscale2-directml",
+            "rtmosr-tensorrt",
+            "rtmosr-directml",
         ],
         default="shufflecugan",
         help="Upscaling method",
@@ -654,7 +658,7 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
     if not isAnyOtherProcessingMethodEnabled(args):
         logging.error("No processing methods specified, exiting")
         sys.exit()
-    
+
     return args
 
 
@@ -701,7 +705,6 @@ def processURL(args, outputPath):
 
         args.input = str(tempOutput)
         logging.info(f"New input path: {args.input}")
-
 
     else:
         logging.error(

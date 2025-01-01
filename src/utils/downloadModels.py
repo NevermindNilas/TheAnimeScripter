@@ -50,6 +50,8 @@ def modelsList() -> list[str]:
         "aniscale2-directml",
         "aniscale2-tensorrt",
         "open-proteus",
+        "rtmosr-directml",
+        "rtmosr-tensorrt",
         "compact",
         "ultracompact",
         "superultracompact",
@@ -180,6 +182,17 @@ def modelsMap(
                     return "2x_OpenProteus_Compact_i2_70K-fp16.onnx"
                 else:
                     return "2x_OpenProteus_Compact_i2_70K-fp32.onnx"
+
+        case "rtmosr-directml" | "rtmosr-tensorrt":
+            if modelType == "pth":
+                return NotImplementedError(
+                    "rtmosr models are not available in PyTorch format."
+                )
+            else:
+                if half:
+                    return "2x_umzi_mahou_rtmosr_fp16_op17.onnx"
+                else:
+                    return "2x_umzi_mahou_rtmosr_fp32_op17.onnx"
 
         case "compact" | "compact-directml" | "compact-tensorrt":
             if modelType == "pth":

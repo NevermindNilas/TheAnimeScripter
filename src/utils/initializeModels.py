@@ -225,6 +225,7 @@ def initializeModels(self):
                 | "open-proteus-directml"
                 | "aniscale2-directml"
                 | "shufflespan-directml"
+                | "rtmosr-directml"
             ):
                 from src.unifiedUpscale import UniversalDirectML
 
@@ -256,6 +257,7 @@ def initializeModels(self):
                 | "open-proteus-tensorrt"
                 | "aniscale2-tensorrt"
                 | "shufflespan-tensorrt"
+                | "rtmosr-tensorrt"
             ):
                 from src.unifiedUpscale import UniversalTensorRT
 

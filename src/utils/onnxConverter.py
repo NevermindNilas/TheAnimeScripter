@@ -12,7 +12,7 @@ except ImportError:
     isOnnxSlim = False
 
 OPSET = 21
-modelList = [r"C:\Users\nilas\Downloads\2x_ModernSpanimationV2 (1)-opset17.onnx"]
+modelList = [r"C:\Users\nilas\Downloads\2x_umzi_mahou_rtmosr_fp32_op17.onnx"]
 
 
 def convertAndSaveModel(model, modelPath, precision, opset):
