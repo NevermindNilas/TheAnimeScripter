@@ -190,7 +190,7 @@ class DepthCuda:
         frame = F.interpolate(
             frame.float(),
             (self.newHeight, self.newWidth),
-            mode="bilinear",
+            mode="bicubic",
             align_corners=False,
         )
 
@@ -206,7 +206,7 @@ class DepthCuda:
         depth = F.interpolate(
             depth,
             (self.height, self.width),
-            mode="bilinear",
+            mode="bicubic",
             align_corners=False,
         )
         return (depth - depth.min()) / (depth.max() - depth.min())
@@ -404,7 +404,7 @@ class DepthDirectMLV2:
             frame = F.interpolate(
                 frame,
                 size=(self.newHeight, self.newWidth),
-                mode="bilinear",
+                mode="bicubic",
                 align_corners=False,
             )
 
@@ -428,7 +428,7 @@ class DepthDirectMLV2:
             depth = F.interpolate(
                 self.dummyOutput.float(),
                 size=(self.height, self.width),
-                mode="bilinear",
+                mode="bicubic",
                 align_corners=False,
             )
 
@@ -649,7 +649,7 @@ class DepthTensorRTV2:
             frame = F.interpolate(
                 frame.float(),
                 (self.newHeight, self.newWidth),
-                mode="bilinear",
+                mode="bicubic",
                 align_corners=False,
             )
             frame = (frame - self.mean_tensor) / self.std_tensor
@@ -664,7 +664,7 @@ class DepthTensorRTV2:
             depth = F.interpolate(
                 self.dummyOutput,
                 size=[self.height, self.width],
-                mode="bilinear",
+                mode="bicubic",
                 align_corners=False,
             )
             depth = (depth - depth.min()) / (depth.max() - depth.min())
@@ -679,6 +679,7 @@ class DepthTensorRTV2:
                 self.cudaGraph.replay()
             self.stream.synchronize()
             depth = self.normOutputFrame()
+
             self.writeBuffer.write(depth)
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")

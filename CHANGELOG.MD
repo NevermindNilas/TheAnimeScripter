@@ -12,15 +12,18 @@
 # Adobe Edition
 ## New
 - Fully baked in auto updating to the latest release of TAS through a click of a button. ( Experimental )
+- Added `Take a Screenshot` to the Toolbox.
 
 ## Improved
 - Improved the `Extracting TAS...` indicator, the `...` should now 'progress' just so that users know it's not actually stuck.
 - Slight adjustment to the backend for ease of reusability, more work needs to be done in order to make TAS slightly more manageable.
+- Defaulted depth quality to `low`
+- Added error handling when the desired input was an image, TAS should now generate a toast alert letting the user know that it only works with images.
+- More tweaks to how UI elements get generated.
 
 ## Fixed
 - The `Remove Background` segment would not update upon selection of different elements.
 - Fixed a repeated unncessary task which will now happen only on the initial mount of the UI.
-
 
 ## [2.0.0] - 2024-12-29
 ### New
