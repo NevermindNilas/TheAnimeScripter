@@ -2,7 +2,7 @@
 
 # The Anime Scripter:
 ## New
-- N/A
+- Added `rtmosr-directml` and `rtmosr-tensorrt` upscaling method by @umzi.
 
 ## Fixed
 - Shape issues with Segment Anime TensorRT
