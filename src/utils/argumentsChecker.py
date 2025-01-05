@@ -390,8 +390,8 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         "--depth_quality",
         type=str,
         choices=["low", "high"],
-        default="high",
-        help="This will determine the quality of the depth map, low is significantly faster but lower quality",
+        default="low",
+        help="[DEPRECATED]This will determine the quality of the depth map, low is significantly faster but lower quality",
     )
 
     # Encoding options
@@ -558,6 +558,20 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         "Interpolate skip and dedup cannot be used together...",
         "Interpolate skip is enabled but interpolation is not...",
     )
+    # ["tensorrt", "directml"] in args.depth_method:
+    if args.depth_quality != "low" and args.depth_method.split("-")[-1] in [
+        "tensorrt",
+        "directml",
+    ]:
+        logging.error(
+            "High quality depth estimation is deprecated for tensorrt and directml, defaulting to low quality"
+        )
+        print(
+            yellow(
+                "High quality depth estimation is deprecated for tensorrt and directml, defaulting to low quality"
+            )
+        )
+        args.depth_quality = "low"
 
     if args.benchmark and args.realtime:
         logging.error("Realtime preview is not supported in benchmark mode")

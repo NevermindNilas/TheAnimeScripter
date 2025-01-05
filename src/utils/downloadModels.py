@@ -575,21 +575,21 @@ def modelsMap(
 
         case "small_v2-directml" | "small_v2-tensorrt":
             if half:
-                return "depth_anything_v2_vits14_float16_slim.onnx"
+                return "depth_anything_v2_vits_fp16.onnx"
             else:
-                return "depth_anything_v2_vits14_float32_slim.onnx"
+                return "depth_anything_v2_vits_fp32.onnx"
 
         case "base_v2-directml" | "base_v2-tensorrt":
             if half:
-                return "depth_anything_v2_vitb14_float16_slim.onnx"
+                return "depth_anything_v2_vitb_fp16.onnx"
             else:
-                return "depth_anything_v2_vitb14_float32_slim.onnx"
+                return "depth_anything_v2_vitb_fp32.onnx"
 
         case "large_v2-directml" | "large_v2-tensorrt":
             if half:
-                return "depth_anything_v2_vitl14_float16_slim.onnx"
+                return "depth_anything_v2_vitl_fp16.onnx"
             else:
-                return "depth_anything_v2_vitl14_float32_slim.onnx"
+                return "depth_anything_v2_vitl_fp32.onnx"
 
         case _:
             raise ValueError(f"Model {model} not found.")

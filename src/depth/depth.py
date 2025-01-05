@@ -382,13 +382,13 @@ class DepthDirectMLV2:
         ).contiguous()
 
         self.dummyOutput = torch.zeros(
-            (1, 1, self.newHeight, self.newWidth),
+            (1, self.newHeight, self.newWidth),
             device=self.deviceType,
             dtype=self.torchDType,
         ).contiguous()
 
         self.IoBinding.bind_output(
-            name="depth",
+            name="output",
             device_type=self.deviceType,
             device_id=0,
             element_type=self.numpyDType,
@@ -415,7 +415,7 @@ class DepthDirectMLV2:
 
             self.dummyInput.copy_(frame)
             self.IoBinding.bind_input(
-                name="image",
+                name="input",
                 device_type=self.deviceType,
                 device_id=0,
                 element_type=self.numpyDType,
@@ -426,7 +426,7 @@ class DepthDirectMLV2:
             self.model.run_with_iobinding(self.IoBinding)
 
             depth = F.interpolate(
-                self.dummyOutput.float(),
+                self.dummyOutput.float().unsqueeze(0),
                 size=(self.height, self.width),
                 mode="bicubic",
                 align_corners=False,

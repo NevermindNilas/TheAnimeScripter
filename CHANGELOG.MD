@@ -4,6 +4,12 @@
 ## New
 - Added `rtmosr-directml` and `rtmosr-tensorrt` upscaling method by @umzi.
 
+## Improved
+- TensorRT and DirectML based depth maps have been significantly improved.
+
+## Removed
+- `--depth_quality` has been deprecated for directml and tensorrt, now all models will run internally at 518x518 to better match the model resolution and quality.
+
 ## Fixed
 - Shape issues with Segment Anime TensorRT
 - Issues with `rawvideo` and `celux`
