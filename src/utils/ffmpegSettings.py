@@ -716,7 +716,7 @@ class WriteBuffer:
         """
         This will return the command for FFMPEG to work with, it will be used inside of the scope of the class.
         """
-        os.environ["FFREPORT"] = "file=ffmpeg.log:level=32"
+        os.environ["FFREPORT"] = "file=FFmpeg-Log.log:level=32"
 
         if self.bitDepth == "8bit":
             inputPixFormat = "yuv420p"
