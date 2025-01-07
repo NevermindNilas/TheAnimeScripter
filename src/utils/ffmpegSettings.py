@@ -311,6 +311,47 @@ def matchEncoder(encode_method: str):
             )
         case "nvenc_av1":
             command.extend(["-c:v", "av1_nvenc", "-preset", "p1", "-cq", "15"])
+
+        case "slow_nvenc_av1":
+            command.extend(
+                [
+                    "-c:v",
+                    "av1_nvenc",
+                    "-preset",
+                    "p7",
+                    "-cq",
+                    "15",
+                    "-rc",
+                    "vbr_hq",
+                    "-b:v",
+                    "0",
+                    "-maxrate",
+                    "5000k",
+                    "-bufsize",
+                    "10000k",
+                    "-g",
+                    "240",
+                    "-keyint_min",
+                    "23",
+                    "-sc_threshold",
+                    "40",
+                    "-spatial_aq",
+                    "1",
+                    "-temporal_aq",
+                    "1",
+                    "-aq-strength",
+                    "15",
+                    "-rc-lookahead",
+                    "60",
+                    "-surfaces",
+                    "64",
+                    "-gpu",
+                    "all",
+                    "-movflags",
+                    "+faststart",
+                ]
+            )
+
         case "av1":
             command.extend(["-c:v", "libsvtav1", "-preset", "8", "-crf", "15"])
 

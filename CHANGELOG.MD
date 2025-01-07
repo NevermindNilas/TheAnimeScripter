@@ -3,6 +3,7 @@
 # The Anime Scripter:
 ## New
 - Added `rtmosr-directml` and `rtmosr-tensorrt` upscaling method by @umzi.
+- Added `slow_nvenc_av1` encoding preset.
 
 ## Improved
 - TensorRT and DirectML based depth maps have been significantly improved.

@@ -414,6 +414,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "slow_nvenc_h265",
             "nvenc_h265_10bit",
             "nvenc_av1",
+            "slow_nvenc_av1",
             "qsv_h264",
             "qsv_h265",
             "qsv_h265_10bit",
