@@ -2,7 +2,7 @@ import torch
 import tensorrt as trt
 import logging
 from typing import List, Tuple
-from .coloredPrints import yellow, cyan
+from .coloredPrints import yellow, cyan, green
 
 
 def logAndPrint(message: str, colorFunc):
@@ -98,7 +98,7 @@ def tensorRTEngineCreator(
         optimizationLevel (int): The optimization level for the engine.
     """
     logAndPrint(
-        f"Model engine not found, creating engine for model: {modelPath}, this may take a while...",
+        f"Model engine not found, creating engine for model: {modelPath}",
         yellow,
     )
 
@@ -118,13 +118,18 @@ def tensorRTEngineCreator(
         builder, config, inputName, inputsMin, inputsOpt, inputsMax, isMultiInput
     )
 
+    logAndPrint("Building serialized engine...this may take a moment", green)
     serializedEngine = builder.build_serialized_network(network, config)
+    logAndPrint("Serialized engine built successfully!", yellow)
+
     with open(enginePath, "wb") as f:
         f.write(serializedEngine)
 
     with open(enginePath, "rb") as f, trt.Runtime(TRTLOGGER) as runtime:
         engine = runtime.deserialize_cuda_engine(f.read())
         context = engine.create_execution_context()
+
+    logAndPrint(f"Engine saved to {enginePath}", yellow)
 
     return engine, context
 
@@ -139,9 +144,10 @@ def tensorRTEngineLoader(
         enginePath (str): The path to the engine file.
     """
     try:
-        with open(enginePath, "rb") as f, trt.Runtime(
-            trt.Logger(trt.Logger.INFO)
-        ) as runtime:
+        with (
+            open(enginePath, "rb") as f,
+            trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime,
+        ):
             engine = runtime.deserialize_cuda_engine(f.read())
             context = engine.create_execution_context()
             return engine, context
