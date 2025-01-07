@@ -136,7 +136,18 @@ def matchEncoder(encode_method: str):
                 ]
             )
         case "x265":
-            command.extend(["-c:v", "libx265", "-preset", "veryfast", "-crf", "15"])
+            command.extend(
+                [
+                    "-c:v",
+                    "libx265",
+                    "-preset",
+                    "veryfast",
+                    "-crf",
+                    "15",
+                    "-x265-params",
+                    "log-level=0",
+                ]
+            )
 
         case "slow_x265":
             command.extend(
@@ -175,6 +186,8 @@ def matchEncoder(encode_method: str):
                     "10000k",
                     "-movflags",
                     "+faststart",
+                    "-x265-params",
+                    "log-level=0",
                 ]
             )
         case "x265_10bit":
@@ -188,6 +201,8 @@ def matchEncoder(encode_method: str):
                     "15",
                     "-profile:v",
                     "main10",
+                    "-x265-params",
+                    "log-level=0",
                 ]
             )
         case "nvenc_h264":
