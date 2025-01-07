@@ -323,7 +323,7 @@ if __name__ == "__main__":
 
     signal(SIGINT, SIG_DFL)
     logging.basicConfig(
-        filename=os.path.join(mainPath, "TAS.log"),
+        filename=os.path.join(mainPath, "TAS-Log.log"),
         filemode="w",
         format="%(message)s",
         level=logging.INFO,
