@@ -7,6 +7,8 @@
 
 ## Improved
 - TensorRT and DirectML based depth maps have been significantly improved.
+- Changed `TAS.log` -> `TAS-Log.log` for easier debugging.
+- Generalized some logs.
 
 ## Removed
 - `--depth_quality` has been deprecated for directml and tensorrt, now all models will run internally at 518x518 to better match the model resolution and quality.

@@ -482,7 +482,7 @@ class BuildBuffer:
             "rawvideo",
         ]:
             logging.info(
-                "The video codec is AV1, falling back to OpenCV for video decoding"
+                "The video codec is unsupported by Celux, falling back to OpenCV for video decoding"
             )
             self.useOpenCV = True
             self.initializeOpenCV(videoInput, inputFramePoint, outputFramePoint)
