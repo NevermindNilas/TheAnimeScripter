@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 import threading
 import json
+import sys
 
 from queue import Queue
 from celux import VideoReader, Scale
@@ -52,7 +53,7 @@ def writeToSTDIN(
                     "--no-terminal",
                     "--force-window=yes",
                     "--keep-open=no",
-                    "--title=" + os.path.basename(input),
+                    "--title=" + input,
                     "--no-config",
                 ],
                 stdin=ffmpegSubprocess.stdout,
@@ -69,6 +70,7 @@ def writeToSTDIN(
 
     except Exception as e:
         logging.error(f"Error while encoding/playing: {e}")
+        sys.exit(1)
     finally:
         ffmpegSubprocess.stdin.close()
         ffmpegSubprocess.wait()
@@ -473,6 +475,73 @@ def matchEncoder(encode_method: str):
     return command
 
 
+def getPixFMT(encode_method, bitDepth, grayscale, transparent):
+    """
+    Return (inputPixFormat, outputPixFormat, encode_method) based on settings.
+    """
+    if bitDepth == "8bit":
+        defaultInPixFMT = "yuv420p"
+        defaultOutPixFMT = "yuv420p"
+    else:
+        defaultInPixFMT = "rgb48le"
+        defaultOutPixFMT = "yuv444p10le"
+
+    inPixFmt = defaultInPixFMT
+    outPixFmt = defaultOutPixFMT
+    enc = encode_method
+
+    if transparent and encode_method not in ["prores_segment"]:
+        enc = "prores_segment"
+        inPixFmt = "rgba"
+        outPixFmt = "yuva444p10le"
+    elif grayscale:
+        if bitDepth == "8bit":
+            inPixFmt = "gray"
+            outPixFmt = "yuv420p"
+        else:
+            inPixFmt = "gray16le"
+            outPixFmt = "yuv444p10le"
+    elif encode_method in ["x264_10bit", "x265_10bit", "x264_animation_10bit"]:
+        if bitDepth == "8bit":
+            inPixFmt = "yuv420p"
+            outPixFmt = "yuv420p10le"
+        else:
+            inPixFmt = "rgb48le"
+            outPixFmt = "yuv420p10le"
+    elif encode_method in ["nvenc_h264"]:
+        if bitDepth == "8bit":
+            inPixFmt = "yuv420p"
+            outPixFmt = "yuv420p"
+        else:
+            print(
+                yellow(
+                    "NVENC H264 does not support 10bit encoding, falling back to 8bit."
+                )
+            )
+            inPixFmt = "rgb48le"
+            outPixFmt = "yuv420p"
+    elif encode_method in [
+        "nvenc_h265_10bit",
+        "hevc_amf_10bit",
+        "qsv_h265_10bit",
+    ]:
+        if bitDepth == "8bit":
+            inPixFmt = "yuv420p"
+            outPixFmt = "p010le"
+        else:
+            inPixFmt = "rgb48le"
+            outPixFmt = "p010le"
+    elif encode_method in ["prores"]:
+        if bitDepth == "8bit":
+            inPixFmt = "yuv420p"
+            outPixFmt = "yuv444p10le"
+        else:
+            inPixFmt = "rgb48le"
+            outPixFmt = "yuv444p10le"
+
+    return inPixFmt, outPixFmt, enc
+
+
 class BuildBuffer:
     def __init__(
         self,
@@ -744,75 +813,43 @@ class WriteBuffer:
 
     def encodeSettings(self) -> list:
         """
-        This will return the command for FFMPEG to work with, it will be used inside of the scope of the class.
+        Simplified structure for setting input/output pix formats
+        and building FFMPEG command.
         """
+        import os
+
         os.environ["FFREPORT"] = "file=FFmpeg-Log.log:level=32"
 
-        if self.bitDepth == "8bit":
-            inputPixFormat = "yuv420p"
-            outputPixFormat = "yuv420p"
+        inputPixFormat, outputPixFormat, self.encode_method = getPixFMT(
+            self.encode_method, self.bitDepth, self.grayscale, self.transparent
+        )
+
+        if self.benchmark:
+            # if benchmarking is enabled, we skip all the shenaningans and just measure the fps.
+            command = [
+                self.ffmpegPath,
+                "-y",
+                "-hide_banner",
+                "-v",
+                "warning",
+                "-nostats",
+                "-f",
+                "rawvideo",
+                "-video_size",
+                f"{self.width}x{self.height}",
+                "-pix_fmt",
+                inputPixFormat,
+                "-r",
+                str(self.fps),
+                "-i",
+                "-",
+                "-benchmark",
+                "-f",
+                "null",
+                "-",
+            ]
+
         else:
-            inputPixFormat = "rgb48le"
-            outputPixFormat = "yuv444p10le"
-
-        if self.transparent:
-            if self.encode_method not in ["prores_segment"]:
-                logging.info("Switching internally to prores for transparency support")
-                self.encode_method = "prores_segment"
-
-                inputPixFormat = "rgba"
-                outputPixFormat = "yuva444p10le"
-
-        elif self.grayscale:
-            if self.bitDepth == "8bit":
-                inputPixFormat = "gray"
-                outputPixFormat = "yuv420p"
-            else:
-                inputPixFormat = "gray16le"
-                outputPixFormat = "yuv444p10le"
-
-        elif self.encode_method in ["x264_10bit", "x265_10bit", "x264_animation_10bit"]:
-            if self.bitDepth == "8bit":
-                inputPixFormat = "yuv420p"
-                outputPixFormat = "yuv420p10le"
-            else:
-                inputPixFormat = "rgb48le"
-                outputPixFormat = "yuv420p10le"
-
-        elif self.encode_method in ["nvenc_h264"]:
-            if self.bitDepth == "8bit":
-                inputPixFormat = "yuv420p"
-                outputPixFormat = "yuv420p"
-            else:
-                print(
-                    yellow(
-                        "NVENC H264 does not support 10bit encoding, falling back to 8bit encoding."
-                    )
-                )
-                inputPixFormat = "rgb48le"
-                outputPixFormat = "yuv420p"
-
-        elif self.encode_method in [
-            "nvenc_h265_10bit",
-            "hevc_amf_10bit",
-            "qsv_h265_10bit",
-        ]:
-            if self.bitDepth == "8bit":
-                inputPixFormat = "yuv420p"
-                outputPixFormat = "p010le"
-            else:
-                inputPixFormat = "rgb48le"
-                outputPixFormat = "p010le"
-
-        elif self.encode_method in ["prores"]:
-            if self.bitDepth == "8bit":
-                inputPixFormat = "yuv420p"
-                outputPixFormat = "yuv444p10le"
-            else:
-                inputPixFormat = "rgb48le"
-                outputPixFormat = "yuv444p10le"
-
-        if not self.benchmark:
             command = [
                 self.ffmpegPath,
                 "-y",
@@ -824,13 +861,12 @@ class WriteBuffer:
                 "-f",
                 "rawvideo",
                 "-pixel_format",
-                f"{inputPixFormat}",
+                inputPixFormat,
                 "-video_size",
                 f"{self.width}x{self.height}",
                 "-r",
                 str(self.fps),
             ]
-
             if self.outpoint != 0:
                 command.extend(
                     [
@@ -845,140 +881,77 @@ class WriteBuffer:
                     ]
                 )
             else:
-                command.extend(
-                    [
-                        "-i",
-                        "pipe:0",
-                    ]
-                )
+                command.extend(["-i", "pipe:0"])
 
             if self.audio:
-                command.extend(
-                    [
-                        "-i",
-                        self.input,
-                    ]
-                )
+                command.extend(["-i", self.input])
+            command.extend(["-map", "0:v"])
 
-            command.extend(
-                [
-                    "-map",
-                    "0:v",
-                ]
-            )
-
-            if not self.custom_encoder:
-                command.extend(matchEncoder(self.encode_method))
-
-                filters = []
-                if self.sharpen:
-                    filters.append("cas={}".format(self.sharpen_sens))
-                if self.grayscale:
-                    filters.append("format=gray")
-                if self.transparent:
-                    filters.append("format=yuva420p")
-                if filters:
-                    command.extend(["-vf", ",".join(filters)])
-
-                command.extend(["-pix_fmt", outputPixFormat])
-            else:
-                customEncoderList = self.custom_encoder.split()
-
-                if "-vf" in customEncoderList:
-                    vfIndex = customEncoderList.index("-vf")
-
-                    if self.sharpen:
-                        customEncoderList[vfIndex + 1] += ",cas={}".format(
-                            self.sharpen_sens
-                        )
-
-                    if self.grayscale:
-                        customEncoderList[vfIndex + 1] += (
-                            ",format=gray"
-                            if self.bitDepth == "8bit"
-                            else ",format=gray16be"
-                        )
-
-                    if self.transparent:
-                        customEncoderList[vfIndex + 1] += ",format=yuva420p"
-                else:
+            if not self.realtime:
+                if not self.custom_encoder:
+                    command.extend(matchEncoder(self.encode_method))
                     filters = []
                     if self.sharpen:
-                        filters.append("cas={}".format(self.sharpen_sens))
+                        filters.append(f"cas={self.sharpen_sens}")
                     if self.grayscale:
-                        customEncoderList[vfIndex + 1] += (
-                            ",format=gray"
-                            if self.bitDepth == "8bit"
-                            else ",format=gray16be"
-                        )
+                        filters.append("format=gray")
                     if self.transparent:
                         filters.append("format=yuva420p")
                     if filters:
-                        customEncoderList.extend(["-vf", ",".join(filters)])
-
-                if "-pix_fmt" not in customEncoderList:
-                    logging.info(
-                        f"-pix_fmt was not found in the custom encoder list, adding {outputPixFormat}, for future reference, it is recommended to add it."
-                    )
-                    customEncoderList.extend(["-pix_fmt", outputPixFormat])
-
-                command.extend(customEncoderList)
+                        command.extend(["-vf", ",".join(filters)])
+                    command.extend(["-pix_fmt", outputPixFormat])
+                else:
+                    customEncoderList = self.custom_encoder.split()
+                    if "-vf" in customEncoderList:
+                        vfIndex = customEncoderList.index("-vf")
+                        if self.sharpen:
+                            customEncoderList[vfIndex + 1] += (
+                                f",cas={self.sharpen_sens}"
+                            )
+                        if self.grayscale:
+                            customEncoderList[vfIndex + 1] += (
+                                ",format=gray"
+                                if self.bitDepth == "8bit"
+                                else ",format=gray16be"
+                            )
+                        if self.transparent:
+                            customEncoderList[vfIndex + 1] += ",format=yuva420p"
+                    else:
+                        filters = []
+                        if self.sharpen:
+                            filters.append(f"cas={self.sharpen_sens}")
+                        if self.grayscale:
+                            filters.append(
+                                "format=gray"
+                                if self.bitDepth == "8bit"
+                                else "format=gray16be"
+                            )
+                        if self.transparent:
+                            filters.append("format=yuva420p")
+                        if filters:
+                            customEncoderList.extend(["-vf", ",".join(filters)])
+                    if "-pix_fmt" not in customEncoderList:
+                        logging.info(
+                            f"-pix_fmt was not found, adding {outputPixFormat}."
+                        )
+                        customEncoderList.extend(["-pix_fmt", outputPixFormat])
+                    command.extend(customEncoderList)
 
             if self.audio:
                 command.extend(["-map", "1:a"])
-
                 audioCodec = "copy"
                 subCodec = "srt"
-
                 if self.output.endswith(".webm"):
                     audioCodec = "libopus"
                     subCodec = "webvtt"
-
                 command.extend(
-                    [
-                        "-c:a",
-                        audioCodec,
-                        "-map",
-                        "1:s?",
-                        "-c:s",
-                        subCodec,
-                        "-shortest",
-                    ]
+                    ["-c:a", audioCodec, "-map", "1:s?", "-c:s", subCodec, "-shortest"]
                 )
-
-            command.append(self.output)
 
             if self.realtime:
-                command.extend(
-                    [
-                        "-f",
-                        "matroska",
-                        "-",
-                    ]
-                )
-        else:
-            command = [
-                self.ffmpegPath,
-                "-y",
-                "-hide_banner",
-                "-v",
-                "warning",
-                "-nostats",
-                "-f",
-                "rawvideo",
-                "-video_size",
-                f"{self.width}x{self.height}",
-                "-pix_fmt",
-                f"{inputPixFormat}",
-                "-r",
-                str(self.fps),
-                "-i",
-                "-",
-                "-benchmark",
-                "-f",
-                "null",
-                "-",
-            ]
+                command.extend(["-f", "matroska", "-"])
+            else:
+                command.append(self.output)
 
         return command
 
