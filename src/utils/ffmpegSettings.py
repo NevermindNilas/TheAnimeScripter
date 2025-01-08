@@ -29,9 +29,9 @@ def writeToSTDIN(
     Pipes FFmpeg output to FFplay for real-time preview if realtime is True,
     otherwise just processes frames through FFmpeg
 
-    self.command: list - The command to use for encoding the video.
-    self.frameQueue: Queue - The queue to store frames.
-    self.realtime: bool - Whether to preview the video in real-time using FFPLAY.
+    command: list - The command to use for encoding the video.
+    frameQueue: Queue - The queue to store frames.
+    realtime: bool - Whether to preview the video in real-time using FFPLAY.
     input: str - The path to the input video file.
     mpvPath: str - The path to the FFplay executable.
     """
