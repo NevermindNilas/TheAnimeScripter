@@ -1,13 +1,9 @@
 import torch
 import tensorrt as trt
-import logging
+
 from typing import List, Tuple
 from .coloredPrints import yellow, cyan, green
-
-
-def logAndPrint(message: str, colorFunc):
-    print(colorFunc(message))
-    logging.info(message)
+from src.utils.logAndPrint import logAndPrint
 
 
 def createNetworkAndConfig(
@@ -48,23 +44,19 @@ def setOptimizationProfile(
         ):
             profile.set_shape(name, minShape, optShape, maxShape)
             logAndPrint(
-                f"┌{'-'*30}\n"
-                f"│ Input: {name}\n"
-                f"│   Min: {minShape}\n"
-                f"│   Opt: {optShape}\n"
-                f"│   Max: {maxShape}\n"
-                f"└{'-'*30}",
+                f"╭─ Input: {name}\n"
+                f"├─ Min: {minShape}\n"
+                f"├─ Opt: {optShape}\n"
+                f"╰─ Max: {maxShape}",
                 cyan,
             )
     else:
         profile.set_shape(inputName[0], inputsMin, inputsOpt, inputsMax)
         logAndPrint(
-            f"┌{'-'*30}\n"
-            f"│ Input: {inputName[0]}\n"
-            f"│   Min: {inputsMin}\n"
-            f"│   Opt: {inputsOpt}\n"
-            f"│   Max: {inputsMax}\n"
-            f"└{'-'*30}",
+            f"╭─ Input: {inputName[0]}\n"
+            f"├─ Min: {inputsMin}\n"
+            f"├─ Opt: {inputsOpt}\n"
+            f"╰─ Max: {inputsMax}",
             cyan,
         )
     config.add_optimization_profile(profile)
