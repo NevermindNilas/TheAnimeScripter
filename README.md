@@ -68,7 +68,7 @@
 ### Adobe After Effects Integration
 
 1. Download the latest `-AdobeEdition` release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases/).
-2. Extract the file.
+2. Extract the `.zip` file.
 3. Follow this step-by-step [tutorial](https://www.goodboy.ninja/help/install/extensions)
 > If installation fails, refer to the [manual installation guide](https://www.goodboy.ninja/help/install/extensions-manually).
 
