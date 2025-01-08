@@ -1,5 +1,4 @@
 from colored import fg, attr
-from random import randint
 
 
 def green(text):
@@ -41,15 +40,3 @@ def rainbow(text):
 
 def bold(text):
     return "%s%s%s" % (attr("bold"), text, attr("reset"))
-
-
-def gradient(text):
-    colors = ["white", "light_red", "red"]
-    coloredText = ""
-    for i, char in enumerate(text):
-        baseIndex = int((i / len(text)) * (len(colors) - 1))
-        randomOffset = randint(-1, 1)
-        colorIndex = min(max(baseIndex + randomOffset, 0), len(colors) - 1)
-        color = colors[colorIndex]
-        coloredText += "%s%s%s" % (fg(color), char, attr("reset"))
-    return coloredText
