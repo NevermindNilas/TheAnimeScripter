@@ -498,18 +498,18 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         "ffmpeg.exe" if sysUsed == "Windows" else "ffmpeg",
     )
 
-    args.ffplay_path = os.path.join(
+    args.mpv_path = os.path.join(
         mainPath,
         "ffmpeg",
-        "ffplay.exe" if sysUsed == "Windows" else "ffplay",
+        "mpv.exe" if sysUsed == "Windows" else "mpv",
     )
 
     if not os.path.exists(args.ffmpeg_path) or (
-        args.realtime and not os.path.exists(args.ffplay_path)
+        args.realtime and not os.path.exists(args.mpv_path)
     ):
         from src.utils.getFFMPEG import getFFMPEG
 
-        args.ffmpeg_path, args.ffplay_path = getFFMPEG(
+        args.ffmpeg_path, args.mpv_path = getFFMPEG(
             sysUsed, args.ffmpeg_path, args.realtime
         )
 

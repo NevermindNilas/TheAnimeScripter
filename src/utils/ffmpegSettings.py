@@ -17,33 +17,63 @@ from .isCudaInit import CudaChecker
 checker = CudaChecker()
 
 
-def writeToSTDIN(command: list, frameQueue: Queue, mainPath: str):
+def writeToSTDIN(
+    command: list,
+    frameQueue: Queue,
+    mainPath: str,
+    realtime: bool,
+    input: str = "",
+    mpvPath: str = "",
+):
     """
-    command: list - The command to use for encoding the video.
-    frameQueue: Queue - A queue to store frames.
-    ffmpegPath: str - The path to the FFmpeg executable.
-    mainPath: str - The path to the main directory.
-    """
+    Pipes FFmpeg output to FFplay for real-time preview if realtime is True,
+    otherwise just processes frames through FFmpeg
 
+    self.command: list - The command to use for encoding the video.
+    self.frameQueue: Queue - The queue to store frames.
+    self.realtime: bool - Whether to preview the video in real-time using FFPLAY.
+    input: str - The path to the input video file.
+    mpvPath: str - The path to the FFplay executable.
+    """
     try:
-        with subprocess.Popen(
+        ffmpegSubprocess = subprocess.Popen(
             command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             cwd=mainPath,
             shell=False,
-        ) as process:
-            while True:
-                frame = frameQueue.get()
-                if frame is None:
-                    break
-                process.stdin.write(np.ascontiguousarray(frame))
-                process.stdin.flush()
+        )
+
+        if realtime:
+            mpvSubprocess = subprocess.Popen(
+                [
+                    mpvPath,
+                    "-",
+                    "--no-terminal",
+                    "--force-window=yes",
+                    "--keep-open=no",
+                    "--title=" + os.path.basename(input),
+                    "--no-config",
+                ],
+                stdin=ffmpegSubprocess.stdout,
+                shell=False,
+            )
+            ffmpegSubprocess.stdout.close()
+
+        while True:
+            frame = frameQueue.get()
+            if frame is None:
+                break
+            ffmpegSubprocess.stdin.write(np.ascontiguousarray(frame))
+            ffmpegSubprocess.stdin.flush()
+
     except Exception as e:
-        logging.error(f"Error while encoding: {e}")
+        logging.error(f"Error while encoding/playing: {e}")
     finally:
-        process.stdin.close()
-        process.wait()
+        ffmpegSubprocess.stdin.close()
+        ffmpegSubprocess.wait()
+        if realtime:
+            mpvSubprocess.wait()
 
 
 def matchEncoder(encode_method: str):
@@ -707,7 +737,7 @@ class WriteBuffer:
         self.mainPath = mainPath
         self.realtime = realtime
         # ffmpeg path "C:\Users\User\AppData\Roaming\TheAnimeScripter\ffmpeg\ffmpeg.exe"
-        self.ffplayPath = os.path.join(os.path.dirname(self.ffmpegPath), "ffplay.exe")
+        self.mpvPath = os.path.join(os.path.dirname(self.ffmpegPath), "mpv.exe")
 
         self.writtenFrames = 0
         self.writeBuffer = Queue(maxsize=self.queueSize)
@@ -924,14 +954,6 @@ class WriteBuffer:
                         "-f",
                         "matroska",
                         "-",
-                        "|",
-                        self.ffplayPath,
-                        "-",
-                        "-autoexit",
-                        "-hide_banner",
-                        "-loglevel",
-                        "quiet",
-                        "-nostats",
                     ]
                 )
         else:
@@ -991,7 +1013,15 @@ class WriteBuffer:
                 pass
 
         waiterThread = threading.Thread(
-            target=writeToSTDIN, args=(command, self.frameQueue, self.mainPath)
+            target=writeToSTDIN,
+            args=(
+                command,
+                self.frameQueue,
+                self.mainPath,
+                self.realtime,
+                self.input,
+                self.mpvPath,
+            ),
         )
         waiterThread.start()
 
