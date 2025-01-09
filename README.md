@@ -65,11 +65,12 @@
 
 ## 🛠️ Getting Started
 
-### Adobe After Effects Integration ( After Effects 2020 v17.5+ )
+### Adobe After Effects Integration
 
-1. Download the latest `-AdobeEdition` release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases/).
-2. Extract the `.zip` file.
-3. Follow this step-by-step [tutorial](https://www.goodboy.ninja/help/install/extensions)
+1. You must have After Effects 2020 v17.5 or higher!
+2. Download the latest `-AdobeEdition` release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases/).
+3. Extract the `.zip` file.
+4. Follow this step-by-step [tutorial](https://www.goodboy.ninja/help/install/extensions)
 > If installation fails, refer to the [manual installation guide](https://www.goodboy.ninja/help/install/extensions-manually).
 
 > Video tutorial: https://youtu.be/JAdZ3z-os_A?si=fZQPmhMLtHfAktwn
