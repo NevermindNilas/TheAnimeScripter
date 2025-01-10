@@ -940,7 +940,7 @@ class WriteBuffer:
             if self.audio:
                 command.extend(["-map", "1:a"])
                 audioCodec = "copy"
-                subCodec = "srt"
+                subCodec = "copy"
                 if self.output.endswith(".webm"):
                     audioCodec = "libopus"
                     subCodec = "webvtt"
