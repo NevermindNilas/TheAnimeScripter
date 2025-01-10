@@ -2,7 +2,6 @@ import torch
 import tensorrt as trt
 
 from typing import List, Tuple
-from .coloredPrints import yellow, cyan, green
 from src.utils.logAndPrint import logAndPrint
 
 
@@ -48,7 +47,7 @@ def setOptimizationProfile(
                 f"├─ Min: {minShape}\n"
                 f"├─ Opt: {optShape}\n"
                 f"╰─ Max: {maxShape}",
-                cyan,
+                "cyan",
             )
     else:
         profile.set_shape(inputName[0], inputsMin, inputsOpt, inputsMax)
@@ -57,7 +56,7 @@ def setOptimizationProfile(
             f"├─ Min: {inputsMin}\n"
             f"├─ Opt: {inputsOpt}\n"
             f"╰─ Max: {inputsMax}",
-            cyan,
+            "cyan",
         )
     config.add_optimization_profile(profile)
 
@@ -91,7 +90,7 @@ def tensorRTEngineCreator(
     """
     logAndPrint(
         f"Model engine not found, creating engine for model: {modelPath}",
-        yellow,
+        "yellow",
     )
 
     if forceStatic:
@@ -110,9 +109,9 @@ def tensorRTEngineCreator(
         builder, config, inputName, inputsMin, inputsOpt, inputsMax, isMultiInput
     )
 
-    logAndPrint("Building serialized engine...this may take a moment", green)
+    logAndPrint("Building serialized engine...this may take a moment", "green")
     serializedEngine = builder.build_serialized_network(network, config)
-    logAndPrint("Serialized engine built successfully!", yellow)
+    logAndPrint("Serialized engine built successfully!", "green")
 
     with open(enginePath, "wb") as f:
         f.write(serializedEngine)
@@ -121,7 +120,7 @@ def tensorRTEngineCreator(
         engine = runtime.deserialize_cuda_engine(f.read())
         context = engine.create_execution_context()
 
-    logAndPrint(f"Engine saved to {enginePath}", yellow)
+    logAndPrint(f"Engine saved to {enginePath}", "yellow")
 
     return engine, context
 
@@ -147,7 +146,7 @@ def tensorRTEngineLoader(
         return None, None
     except Exception as e:
         print(
-            yellow(
+            "yellow"(
                 f"Model engine is outdated due to a TensorRT Update, creating a new engine. Error: {e}"
             )
         )

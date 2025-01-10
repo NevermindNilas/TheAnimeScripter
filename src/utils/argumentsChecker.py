@@ -10,6 +10,7 @@ from .coloredPrints import green, yellow
 from rich_argparse import RichHelpFormatter
 from src.version import __version__ as version
 from .generateOutput import outputNameGenerator
+from src.utils.logAndPrint import logAndPrint
 
 
 def isAnyOtherProcessingMethodEnabled(args):
@@ -671,7 +672,11 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
             sys.exit()
 
     if not isAnyOtherProcessingMethodEnabled(args):
-        logging.error("No processing methods specified, exiting")
+        logAndPrint(
+            "No processing methods specified, make sure to use enabler arguments like --upscale, --interpolate, etc.",
+            "red",
+        )
+        # logging.error("No processing methods specified, exiting")
         sys.exit()
 
     return args
