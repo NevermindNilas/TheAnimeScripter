@@ -55,6 +55,8 @@ def writeToSTDIN(
                     "--keep-open=no",
                     "--title=" + input,
                     "--no-config",
+                    "--cache=yes",
+                    "--demuxer-max-bytes=100M",
                 ],
                 stdin=ffmpegSubprocess.stdout,
                 shell=False,

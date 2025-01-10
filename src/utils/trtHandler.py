@@ -1,5 +1,6 @@
 import torch
 import tensorrt as trt
+import os
 
 from typing import List, Tuple
 from src.utils.logAndPrint import logAndPrint
@@ -109,7 +110,10 @@ def tensorRTEngineCreator(
         builder, config, inputName, inputsMin, inputsOpt, inputsMax, isMultiInput
     )
 
-    logAndPrint("Building serialized engine...this may take a moment", "green")
+    logAndPrint(
+        f"Building a serialized engine for {os.path.basename(modelPath)}. This may take a moment",
+        "green",
+    )
     serializedEngine = builder.build_serialized_network(network, config)
     logAndPrint("Serialized engine built successfully!", "green")
 
