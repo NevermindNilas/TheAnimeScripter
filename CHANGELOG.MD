@@ -18,6 +18,7 @@
 - Improved the handling of the ffmpeg encode command.
 - Improved reusability of repeated calls, specifically logging and printing.
 - Added a forced `sys.exit()` if FFMPEG crashes during encoding for any reason in order to avoid deadlocks.
+- Changed sub from `srt` -> `copy`, which should retain metadata from the base input.
 
 ## Removed
 - `--depth_quality` has been deprecated for directml and tensorrt, now all models will run internally at 518x518 to better match the model resolution and quality.
