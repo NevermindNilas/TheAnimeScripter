@@ -44,6 +44,8 @@
 - Significant improvements to the UI/UX, adding labels, icons and descriptions.
 - Added direct credits to the `Anipy-CLI` team in the `download an anime` section.
 - Added direct credits to the `ytdlp` team in the `youtube downloader` section.
+- Changed the update functionality from a dialog to a `toast`.
+- Refactored even more code.
 
 ## Fixed
 - The `Remove Background` segment would not update upon selection of different elements.
