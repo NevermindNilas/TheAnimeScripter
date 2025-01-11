@@ -31,6 +31,8 @@
 # Adobe Edition
 ## New
 - Added `Take a Screenshot` to the Toolbox.
+- Added an `About` Panel which replaces the previous dialog on the top right with more info regarding TAS.
+- Added `System Requirements` in the About panel.
 
 ## Improved
 - Improved the `Extracting TAS...` indicator, the `...` should now 'progress' just so that users know it's not actually stuck.
@@ -38,6 +40,10 @@
 - Defaulted depth quality to `low`
 - Added error handling when the desired input was an image, TAS should now generate a toast alert letting the user know that it only works with images.
 - More tweaks to how UI elements get generated.
+- Improved descriptions of many features available in TAS.
+- Significant improvements to the UI/UX, adding labels, icons and descriptions.
+- Added direct credits to the `Anipy-CLI` team in the `download an anime` section.
+- Added direct credits to the `ytdlp` team in the `youtube downloader` section.
 
 ## Fixed
 - The `Remove Background` segment would not update upon selection of different elements.
