@@ -6,7 +6,7 @@
 
 ## Fixed
 - A bug within `TRT Handler.py`.
-
+- SVT AV1 geeneratted unneeded login.
 
 ## [2.0.1] - 2025-01-12
 
