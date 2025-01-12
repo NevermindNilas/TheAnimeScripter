@@ -4,6 +4,9 @@
 ## New
 - N/A
 
+## Improved
+- Refactored some of the ffmpeg code.
+
 ## Fixed
 - A bug within `TRT Handler.py`.
 - SVT AV1 geeneratted unneeded login.
