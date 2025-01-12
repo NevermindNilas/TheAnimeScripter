@@ -104,13 +104,14 @@ All available parameters for interacting with the CLI or directly with `main.py`
 - SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective TensorRT and DirectML versions)
 - OpenProteus ( Cuda, TensorRT and DirectML )
 - AniScale 2 ( Cuda, TensorRT and DirectML )
+- RTMOSR ( TensorRT and DirectML )
 
 **Unofficially Supported:**
 - Custom models compatible with [Spandrel](https://github.com/chaiNNer-org/spandrel) can be used via the `--custom_model` parameter.
 
 ### Interpolation Models
-- Rife CUDA (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite, 4.25, Rife_Elexor ( modded 4.7 ) )
-- Rife TensorRT (Versions: 4.6, 4.15, 4.15-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite, 4.25, Rife_Elexor ( modded 4.7 ) )
+- Rife CUDA (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite, 4.25, 4.25-heavy, Rife_Elexor ( modded 4.7 ) )
+- Rife TensorRT (Versions: 4.6, 4.15, 4.15-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite, 4.25, 4.25-heavy, Rife_Elexor ( modded 4.7 ) )
 - Rife NCNN (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite )
 
 ### Restore Models
@@ -119,6 +120,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 - DPIR ( Denoise ) ( Cuda )
 - Real-Plksr (DeJpeg) ( Cuda )
 - Anime1080fixer ( Sharpen + Decompress ) ( Cuda & TensorRT )
+- FastLineDarken ( Line darkening )
 
 ## 📈 Benchmarks
 Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
