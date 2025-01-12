@@ -1,3 +1,13 @@
+## [Untitled] - yyyy-mm-dd
+
+# The ANime Scripter:
+## New
+- N/A
+
+## Fixed
+- A bug within `TRT Handler.py`.
+
+
 ## [2.0.1] - 2025-01-12
 
 # The Anime Scripter:

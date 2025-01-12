@@ -149,10 +149,9 @@ def tensorRTEngineLoader(
     except FileNotFoundError:
         return None, None
     except Exception as e:
-        print(
-            "yellow"(
-                f"Model engine is outdated due to a TensorRT Update, creating a new engine. Error: {e}"
-            )
+        logAndPrint(
+            f"Model engine is outdated due to a TensorRT Update, creating a new engine. Error: {e}",
+            "yellow",
         )
         return None, None
 
