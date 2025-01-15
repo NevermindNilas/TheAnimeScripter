@@ -96,11 +96,9 @@ class ProgressBarDownloadLogic:
             TextColumn("ETA:"),
             TimeRemainingColumn(),
             "•",
-            TextColumn("Speed: [magenta]{task.fields[mbps]:.2f} MB/s[/magenta]"),
-            "•",
             TextColumn("Data: [cyan]{task.completed}/{task.total} MB[/cyan]"),
         )
-        self.task = self.progress.add_task(self.title, total=self.totalData, mbps=0.0)
+        self.task = self.progress.add_task(self.title, total=self.totalData)
         self.progress.start()
         return self
 
@@ -118,11 +116,10 @@ class ProgressBarDownloadLogic:
         self.progress.update(self.task, total=newTotal)
 
     def advance(self, advance=1):
-        elapsed = time() - self.progress.tasks[self.task].start_time
-        mbps = (
-            (self.progress.tasks[self.task].completed / elapsed) if elapsed > 0 else 0
-        )
-        self.progress.update(self.task, advance=advance, mbps=mbps)
+        task = self.progress.tasks[self.task]
+        if not hasattr(task, "start_time") or task.start_time is None:
+            task.start_time = time()
+        self.progress.update(self.task, advance=advance)
 
     def __call__(self, advance=1):
         self.advance(advance)
