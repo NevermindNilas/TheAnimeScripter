@@ -10,6 +10,7 @@
 ## Fixed
 - A bug within `TRT Handler.py`.
 - SVT AV1 geeneratted unneeded login.
+- Fixed a cuda race condition caused by near 0 values.
 
 ## [2.0.1] - 2025-01-12
 
