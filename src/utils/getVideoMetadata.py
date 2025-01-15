@@ -34,22 +34,23 @@ def getVideoMetadata(inputPath, inPoint, outPoint, mainPath, ffprobePath):
             "-show_format",
             "-show_streams",
             "-count_packets",
-            "-select_streams",
-            "v:0",
             inputPath,
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
         probeData = json.loads(result.stdout)
 
+        # Get video stream
         videoStream = next(
             stream for stream in probeData["streams"] if stream["codec_type"] == "video"
         )
 
+        # Check for audio streams
         hasAudio = any(
             stream["codec_type"] == "audio" for stream in probeData["streams"]
         )
 
+        # Extract metadata
         width = int(videoStream["width"])
         height = int(videoStream["height"])
         fpsParts = videoStream["r_frame_rate"].split("/")
