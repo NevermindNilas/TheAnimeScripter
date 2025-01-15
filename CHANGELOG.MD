@@ -15,6 +15,7 @@
 
 ## Removals
 - `PyMediaInfo` again, for not being 100% accurate.
+- Removed the `mbps` meter from the download progress bar, no idea how to fix it.
 
 ## [2.0.1] - 2025-01-12
 
