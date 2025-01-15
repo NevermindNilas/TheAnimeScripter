@@ -8,14 +8,16 @@ from src.utils.progressBarLogic import ProgressBarDownloadLogic
 
 def getFFMPEG(sysUsed, path, realtime: bool = False):
     ffmpegPath = shutil.which("ffmpeg")
+    ffprobePath = shutil.which("ffprobe")
     mpvPath = shutil.which("mpv") if realtime else None
-    if ffmpegPath is None or (realtime and mpvPath is None):
+    if ffmpegPath is None or (realtime and mpvPath is None) or ffprobePath is None:
         ffmpegPath, mpvPath = downloadAndExtractFfmpeg(path, sysUsed, realtime)
     else:
         logging.info(f"FFMPEG found in System Path: {ffmpegPath}")
         if realtime:
             logging.info(f"FFPLAY found in System Path: {mpvPath}")
-    return ffmpegPath, mpvPath
+        logging.info(f"FFPROBE found in System Path: {ffprobePath}")
+    return ffmpegPath, mpvPath, ffprobePath
 
 
 def downloadAndExtractFfmpeg(ffmpegPath, sysUsed, realtime):
@@ -91,6 +93,13 @@ def extractFfmpegZip(ffmpegZipPath, ffmpegDir):
         ffmpeg_dst = os.path.join(ffmpegDir, "ffmpeg.exe")
         if not os.path.exists(ffmpeg_dst):
             os.rename(ffmpeg_src, ffmpeg_dst)
+
+        ffprobe_src = os.path.join(
+            ffmpegDir, "ffmpeg-master-latest-win64-gpl", "bin", "ffprobe.exe"
+        )
+        ffprobe_dst = os.path.join(ffmpegDir, "ffprobe.exe")
+        if not os.path.exists(ffprobe_dst):
+            os.rename(ffprobe_src, ffprobe_dst)
 
     except zipfile.BadZipFile as e:
         logging.error(f"Failed to extract ZIP: {e}")
