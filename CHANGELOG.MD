@@ -1,8 +1,8 @@
 ## [Untitled] - yyyy-mm-dd
 
-# The ANime Scripter:
+# The Anime Scripter:
 ## New
-- N/A
+- Added `ffprobe` for more accurate metadata seeking.
 
 ## Improved
 - Refactored some of the ffmpeg code.
@@ -10,8 +10,11 @@
 
 ## Fixed
 - A bug within `TRT Handler.py`.
-- SVT AV1 geeneratted unneeded login.
-- Fixed a cuda race condition caused by near 0 values.
+- SVT AV1 generated unneeded login.
+- Fixed subtitle issues.
+
+## Removals
+- `PyMediaInfo` again, for not being 100% accurate.
 
 ## [2.0.1] - 2025-01-12
 

@@ -345,7 +345,11 @@ if __name__ == "__main__":
         print(green(f"Processing Video: {results[i]['videoPath']}"))
         print(green(f"Output Path: {results[i]['outputPath']}"))
         width, height, fps, totalFrames, audio = getVideoMetadata(
-            results[i]["videoPath"], args.inpoint, args.outpoint, mainPath
+            results[i]["videoPath"],
+            args.inpoint,
+            args.outpoint,
+            mainPath,
+            args.ffprobe_path,
         )
         outputFPS = fps * args.interpolate_factor if args.interpolate else fps
         VideoProcessor(
