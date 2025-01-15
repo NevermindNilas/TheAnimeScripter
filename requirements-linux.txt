@@ -23,7 +23,6 @@ anipy-cli
 colored
 torch==2.5.1
 torchvision==0.20.1
-pymediainfo
 torchmetrics
 celux==0.5.4
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/upscale_ncnn_py-1.2.0-cp312-none-manylinux1_x86_64.whl
