@@ -10,67 +10,69 @@ def saveMetadata(metadata, mainPath):
         json.dump(metadata, jsonFile, indent=4)
 
 
-def getVideoMetadata(
-    inputPath: str, inPoint: float, outPoint: float, mainPath: str, ffprobePath: str
-):
+def getVideoMetadata(inputPath, inPoint, outPoint, mainPath, ffprobePath):
+    """
+    Get metadata from a video file using ffprobe.
+
+    Parameters:
+    inputPath (str): The path to the video file
+    inPoint (float): Start time of clip
+    outPoint (float): End time of clip
+    mainPath (str): Path to save metadata
+    ffprobePath (str): Path to ffprobe executable
+
+    Returns:
+    tuple: (width, height, fps, totalFramesToProcess, hasAudio)
+    """
     try:
         cmd = [
             ffprobePath,
             "-v",
-            "error",
+            "quiet",
             "-print_format",
             "json",
+            "-show_format",
             "-show_streams",
+            "-count_packets",
+            "-select_streams",
+            "v:0",
             inputPath,
         ]
-        result = subprocess.run(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
-        metadataJson = json.loads(result.stdout)
 
-        if "streams" not in metadataJson or not metadataJson["streams"]:
-            logging.error(f"No streams found: {result.stderr}")
-            raise KeyError("streams")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        probeData = json.loads(result.stdout)
 
         videoStream = next(
-            (s for s in metadataJson["streams"] if s["codec_type"] == "video"), None
-        )
-        audioStream = next(
-            (s for s in metadataJson["streams"] if s["codec_type"] == "audio"), None
+            stream for stream in probeData["streams"] if stream["codec_type"] == "video"
         )
 
-        if not videoStream:
-            logging.error("No video stream found.")
-            raise KeyError("videoStream")
-
-        width = videoStream["width"]
-        height = videoStream["height"]
-        fps = eval(videoStream["r_frame_rate"])
-        nFrames = int(videoStream.get("nb_frames", 0))
-        duration = float(videoStream.get("duration", 0))
-        if nFrames == 0 and fps != 0:
-            nFrames = int(duration * fps)
-        codec = videoStream["codec_name"]
-        pixFmt = videoStream["pix_fmt"]
-        hasAudio = audioStream is not None
-
-        duration = round(nFrames / fps, 2) if fps else 0
-        totalFramesToBeProcessed = (
-            int((outPoint - inPoint) * fps) if outPoint != 0 else nFrames
+        hasAudio = any(
+            stream["codec_type"] == "audio" for stream in probeData["streams"]
         )
+
+        width = int(videoStream["width"])
+        height = int(videoStream["height"])
+        fpsParts = videoStream["r_frame_rate"].split("/")
+        fps = float(fpsParts[0]) / float(fpsParts[1])
+        duration = float(probeData["format"]["duration"])
+        totalFrames = int(videoStream.get("nb_read_packets", 0))
+
+        if outPoint != 0:
+            totalFramesToProcess = int((outPoint - inPoint) * fps)
+        else:
+            totalFramesToProcess = totalFrames
 
         metadata = {
             "Width": width,
             "Height": height,
             "AspectRatio": round(width / height, 2),
             "FPS": round(fps, 2),
-            "NumberOfTotalFrames": nFrames,
-            "Codec": codec,
+            "Codec": videoStream["codec_name"],
             "Duration": duration,
             "Inpoint": inPoint,
             "Outpoint": outPoint,
-            "TotalFramesToBeProcessed": totalFramesToBeProcessed,
-            "PixelFormat": pixFmt,
+            "NumberOfTotalFrames": totalFrames,
+            "TotalFramesToBeProcessed": totalFramesToProcess,
             "HasAudio": hasAudio,
         }
 
@@ -79,21 +81,20 @@ def getVideoMetadata(
         ============== Video Metadata ==============
         Width: {width}
         Height: {height}
-        AspectRatio: {round(width / height, 2)}
+        AspectRatio: {metadata["AspectRatio"]}
         FPS: {round(fps, 2)}
-        Number of total frames: {nFrames}
-        Codec: {codec}
+        Codec: {metadata["Codec"]}
         Duration: {duration} seconds
         Inpoint: {inPoint}
         Outpoint: {outPoint}
-        Total frames to be processed: {totalFramesToBeProcessed}
-        Pixel Format: {pixFmt}
+        Number of total frames: {totalFrames}
+        Total frames to be processed: {totalFramesToProcess}
         Has Audio: {hasAudio}""")
         )
 
         saveMetadata(metadata, mainPath)
-        return width, height, fps, totalFramesToBeProcessed, hasAudio
+        return width, height, fps, totalFramesToProcess, hasAudio
 
     except Exception as e:
-        logging.error(f"ffprobe failed: {e}")
+        logging.error(f"Error getting metadata with ffprobe: {e}")
         raise
