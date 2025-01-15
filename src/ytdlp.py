@@ -22,7 +22,11 @@ class VideoDownloader:
         self.ffmpegPath = ffmpegPath
         self.ae = ae
 
-        resolutions = self.listResolutions()
+        try:
+            resolutions = self.listResolutions()
+        except Exception as e:
+            logging.error(f"Error while fetching video resolutions: {e}")
+            exit(1)
 
         questions = [
             List(
@@ -70,8 +74,12 @@ class VideoDownloader:
 
     def downloadVideo(self):
         options = self.getOptions()
-        with YoutubeDL(options) as ydl:
-            ydl.download([self.link])
+        try:
+            with YoutubeDL(options) as ydl:
+                ydl.download([self.link])
+        except Exception as e:
+            logging.error(f"Failed to download video: {e}")
+            raise
 
     def getOptions(self):
         if self.height > 1080 and self.ae:
