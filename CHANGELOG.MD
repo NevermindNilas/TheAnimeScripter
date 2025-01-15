@@ -6,6 +6,7 @@
 
 ## Improved
 - Refactored some of the ffmpeg code.
+- Improved error handling for yt-dlp
 
 ## Fixed
 - A bug within `TRT Handler.py`.
