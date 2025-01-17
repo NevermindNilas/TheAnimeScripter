@@ -30,8 +30,6 @@ def convertToAnimeObjects(provider, results):
 
 
 def selectAnime(animeList):
-    # Filter out dub-only anime cuz dubbed is for losers
-
     questions = [
         inquirer.List(
             "anime",
@@ -98,6 +96,11 @@ def aniPyHandler(
     outputPath: str = "~/Downloads",
     ffmpegPath: str = None,
 ):
+    print(
+        yellow(
+            "This feature is in Beta, any and all bug reports will be ignored. Use it at your own risk, please read the license for more info."
+        )
+    )
     provider = initializeProvider()
     downloadSuccessful = False
 
