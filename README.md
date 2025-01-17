@@ -120,7 +120,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 - DPIR ( Denoise ) ( Cuda )
 - Real-Plksr (DeJpeg) ( Cuda )
 - Anime1080fixer ( Sharpen + Decompress ) ( Cuda & TensorRT )
-- FastLineDarken ( Line darkening )
+- FastLineDarken ( Line darkening ) ( Cuda & TensorRT )
 
 ## 📈 Benchmarks
 Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
