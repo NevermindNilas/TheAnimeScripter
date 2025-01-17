@@ -6,7 +6,8 @@
 
 ## Improved
 - Refactored some of the ffmpeg code.
-- Improved error handling for yt-dlp
+- Improved error handling for yt-dlp.
+- Added a warning sign when using anipycli.
 
 ## Fixed
 - A bug within `TRT Handler.py`.
