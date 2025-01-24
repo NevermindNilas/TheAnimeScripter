@@ -145,7 +145,6 @@ class BuildBuffer:
                 if outpoint != 0.0:
                     self.reader = VideoReader(
                         videoInput,
-                        device="cpu",
                         num_threads=decodeThreads,
                         filters=filters,
                         tensor_shape="HWC",
@@ -153,7 +152,6 @@ class BuildBuffer:
                 else:
                     self.reader = VideoReader(
                         videoInput,
-                        device="cpu",
                         num_threads=decodeThreads,
                         filters=filters,
                         tensor_shape="HWC",
