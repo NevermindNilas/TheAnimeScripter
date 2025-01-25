@@ -15,6 +15,7 @@
 - A bug within `TRT Handler.py`.
 - SVT AV1 generated unneeded login.
 - Fixed subtitle issues.
+- Fixed some padding issues with `rife4.25`
 
 ## Removals
 - `PyMediaInfo` again, for not being 100% accurate.
