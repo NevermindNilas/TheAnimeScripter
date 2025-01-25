@@ -110,7 +110,6 @@ class RifeCuda:
         ensemble=False,
         interpolateFactor=2,
         dynamicScale=False,
-        interpolateSkip=False,
     ):
         """
         Initialize the RIFE model
@@ -123,7 +122,6 @@ class RifeCuda:
             ensemble (bool, optional): Ensemble. Defaults to False.
             interpolateFactor (int, optional): Interpolation factor. Defaults to 2.
             dynamicScale (bool, optional): Use Dynamic scale. Defaults to False.
-            interpolateSkip (bool, optional): Skip interpolation on duplicates. Defaults to False.
         """
         self.half = half
         self.scale = 1.0
@@ -133,7 +131,6 @@ class RifeCuda:
         self.ensemble = ensemble
         self.interpolateFactor = interpolateFactor
         self.dynamicScale = dynamicScale
-        self.interpolateSkip = interpolateSkip
 
         if self.width > 1920 and self.height > 1080:
             self.scale = 0.5
@@ -189,7 +186,7 @@ class RifeCuda:
         self.model.load_state_dict(torch.load(modelPath, map_location=checker.device))
         self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
         self.model = self.model.to(checker.device)
-        self.model = self.model.to(memory_format=torch.channels_last)  
+        self.model = self.model.to(memory_format=torch.channels_last)
 
         ph = ((self.height - 1) // 64 + 1) * 64
         pw = ((self.width - 1) // 64 + 1) * 64
@@ -313,7 +310,6 @@ class RifeTensorRT:
         height: int = 0,
         half: bool = True,
         ensemble: bool = False,
-        interpolateSkip: bool | None = None,
     ):
         """
         Interpolates frames using TensorRT
@@ -325,7 +321,6 @@ class RifeTensorRT:
             height (int, optional): Height of the frame. Defaults to 0.
             half (bool, optional): Half resolution. Defaults to True.
             ensemble (bool, optional): Ensemble. Defaults to False.
-            interpolateSkip (bool, optional): Skip interpolation on duplicates. Defaults to None.
         """
         import tensorrt as trt
         from .utils.trtHandler import (
@@ -346,7 +341,6 @@ class RifeTensorRT:
         self.half = half
         self.ensemble = ensemble
         self.model = None
-        self.interpolateSkip = interpolateSkip
         if self.width > 1920 and self.height > 1080:
             if self.half:
                 print(
@@ -431,7 +425,6 @@ class RifeTensorRT:
             width=self.width,
             height=self.height,
         )
-
 
         self.model.to(checker.device)
         if self.half:
@@ -609,9 +602,6 @@ class RifeTensorRT:
         self.normStream = torch.cuda.Stream()
         self.outputStream = torch.cuda.Stream()
 
-        if self.interpolateSkip is not None:
-            self.skippedCounter = 0
-
         self.cudaGraph = torch.cuda.CUDAGraph()
         self.initTorchCudaGraph()
 
@@ -670,8 +660,6 @@ class RifeTensorRT:
         self.processFrame(frame, "I0")
         if self.norm is not None:
             self.processFrame(frame, "f0")
-        if self.interpolateSkip is not None:
-            self.interpolateSkip.reset()
 
     @torch.inference_mode()
     def __call__(self, frame, interpQueue):
@@ -680,8 +668,6 @@ class RifeTensorRT:
                 self.processFrame(frame, "f0")
 
             self.processFrame(frame, "I0")
-            if self.interpolateSkip is not None:
-                self.interpolateSkip(frame)
 
             self.firstRun = False
             return
@@ -707,9 +693,6 @@ class RifeTensorRT:
         self.processFrame(None, "cache")
         if self.norm is not None:
             self.processFrame(None, "f0-copy")
-
-    def getSkippedCounter(self):
-        return self.skippedCounter
 
 
 class RifeNCNN:
@@ -813,7 +796,6 @@ class RifeDirectML:
         height: int = 0,
         half: bool = True,
         ensemble: bool = False,
-        interpolateSkip: bool | None = None,
     ):
         """
         Interpolates frames using DirectML
@@ -837,7 +819,6 @@ class RifeDirectML:
         self.half = half
         self.ensemble = ensemble
         self.model = None
-        self.interpolateSkip = interpolateSkip
 
         if self.half:
             logging.info(
@@ -1090,8 +1071,6 @@ class RifeDirectML:
         self.processFrame(frame, "I0")
         if self.norm is not None:
             self.processFrame(frame, "f0")
-        if self.interpolateSkip is not None:
-            self.interpolateSkip.reset()
 
     @torch.inference_mode()
     def processFrame(self, frame, name=None):
@@ -1141,8 +1120,6 @@ class RifeDirectML:
                 self.processFrame(frame, "f0")
 
             self.processFrame(frame, "I0")
-            if self.interpolateSkip is not None:
-                self.interpolateSkip(frame)
 
             self.firstRun = False
             return
