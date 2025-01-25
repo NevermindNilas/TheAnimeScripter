@@ -560,7 +560,7 @@ class WriteBuffer:
                     mode="bicubic",
                     align_corners=False,
                 )
-            frame = frame.mul(mul).squeeze(0).permute(1, 2, 0)
+            frame = frame.squeeze(0).permute(1, 2, 0).mul(mul).clamp(0, mul)
             dummyTensor.copy_(frame, non_blocking=False)
 
             if self.channels == 1:
