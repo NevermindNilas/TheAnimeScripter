@@ -6,7 +6,7 @@
 
 ## Improved
 - Increased bitrate for `slow_nvenc_h265`
-- Bumped celux `0.5.4` -> `0.5.8`
+- Bumped celux `0.5.4` -> `0.6.0`
 - Refactored some of the ffmpeg code.
 - Improved error handling for yt-dlp.
 - Added a warning sign when using anipycli.
