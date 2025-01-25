@@ -168,7 +168,6 @@ class UniversalPytorch:
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
-        self.normStream.wait_stream(torch.cuda.current_stream())
         if self.upscaleSkip is not None:
             if self.upscaleSkip(frame):
                 self.skippedCounter += 1
