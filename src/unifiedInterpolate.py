@@ -188,8 +188,12 @@ class RifeCuda:
         self.model = self.model.to(checker.device)
         self.model = self.model.to(memory_format=torch.channels_last)
 
-        ph = ((self.height - 1) // 64 + 1) * 64
-        pw = ((self.width - 1) // 64 + 1) * 64
+        if self.interpolateMethod in ["rife4.25", "rife4.25-heavy"]:
+            ph = ((self.height - 1) // 128 + 1) * 128
+            pw = ((self.width - 1) // 128 + 1) * 128
+        else:
+            ph = ((self.height - 1) // 64 + 1) * 64
+            pw = ((self.width - 1) // 64 + 1) * 64
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
         self.I0 = torch.zeros(
@@ -384,6 +388,7 @@ class RifeTensorRT:
             "rife_elexor-tensorrt",
             "rife4.25-tensorrt",
             "rife4.25-heavy-tensorrt",
+            "rife4.25-lite-tensorrt",
         ]:
             channels = 4
             mul = 64
