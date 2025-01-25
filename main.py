@@ -90,12 +90,10 @@ class VideoProcessor:
         self.scenechange = args.scenechange
         self.scenechange_sens = args.scenechange_sens
         self.scenechange_method = args.scenechange_method
-        self.upscale_skip = args.upscale_skip
         self.bit_depth = args.bit_depth
         self.preview = args.preview
         self.forceStatic = args.static
         self.depth_quality = args.depth_quality
-        self.interpolate_skip = args.interpolate_skip
         self.decode_threads = args.decode_threads
         self.realtime = args.realtime
         self.dynamic_scale = args.dynamic_scale

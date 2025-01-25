@@ -180,11 +180,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         action="store_true",
         help="Use dynamic scaling for interpolation, this can improve the quality of the interpolation at the cost of performance, this is experimental and only works with Rife CUDA",
     )
-    interpolationGroup.add_argument(
-        "--interpolate_skip",
-        action="store_true",
-        help="Use SSIM to skip duplicate frames when interpolating",
-    )
 
     # Upscaling options
     upscaleGroup = argParser.add_argument_group("Upscaling")
@@ -235,11 +230,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
     )
     upscaleGroup.add_argument(
         "--custom_model", type=str, default="", help="Path to custom upscaling model"
-    )
-    upscaleGroup.add_argument(
-        "--upscale_skip",
-        action="store_true",
-        help="Use SSIM to skip duplicate frames when upscaling",
     )
 
     # Deduplication options
@@ -551,23 +541,6 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
                 )
                 setattr(args, feature, False)
 
-    adjustFeature(
-        "upscale_skip",
-        "upscale",
-        "dedup",
-        "Upscale skip enabled...",
-        "Upscale skip and dedup cannot be used together...",
-        "Upscale skip is enabled but upscaling is not...",
-    )
-
-    adjustFeature(
-        "interpolate_skip",
-        "interpolate",
-        "dedup",
-        "Interpolate skip enabled...",
-        "Interpolate skip and dedup cannot be used together...",
-        "Interpolate skip is enabled but interpolation is not...",
-    )
     # ["tensorrt", "directml"] in args.depth_method:
     if args.depth_quality != "low" and args.depth_method.split("-")[-1] in [
         "tensorrt",

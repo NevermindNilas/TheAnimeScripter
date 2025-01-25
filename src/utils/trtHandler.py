@@ -111,7 +111,7 @@ def tensorRTEngineCreator(
     )
 
     logAndPrint(
-        f"Building a serialized engine for {os.path.basename(modelPath)}. This may take a moment",
+        f"Building a serialized engine for {os.path.basename(modelPath)}. This may take a moment.",
         "green",
     )
     serializedEngine = builder.build_serialized_network(network, config)

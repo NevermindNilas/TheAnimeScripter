@@ -166,30 +166,9 @@ def initializeModels(self):
     restore_process = None
     dedup_process = None
     scenechange_process = None
-    upscaleSkipProcess = None
     interpolateSkipProcess = None
 
     if self.upscale:
-        if self.upscale_skip:
-            if not "ncnn" or "directml" in self.upscale_method:
-                from src.dedup.dedup import DedupSSIMCuda
-
-                upscaleSkipProcess = DedupSSIMCuda(
-                    0.999,
-                    1080
-                    if max(self.width, self.height) >= 1080
-                    else max(self.width, self.height),
-                    half=self.half,
-                )
-            else:
-                from src.dedup.dedup import DedupSSIM
-
-                upscaleSkipProcess = DedupSSIM(
-                    0.999,
-                    1080
-                    if max(self.width, self.height) >= 1080
-                    else max(self.width, self.height),
-                )
         from src.unifiedUpscale import UniversalPytorch
 
         outputWidth *= self.upscale_factor
@@ -213,7 +192,6 @@ def initializeModels(self):
                     self.width,
                     self.height,
                     self.custom_model,
-                    upscaleSkipProcess,
                 )
 
             case (
@@ -236,7 +214,6 @@ def initializeModels(self):
                     self.width,
                     self.height,
                     self.custom_model,
-                    upscaleSkipProcess,
                 )
 
             case "shufflecugan-ncnn" | "span-ncnn":
@@ -245,7 +222,6 @@ def initializeModels(self):
                 upscale_process = UniversalNCNN(
                     self.upscale_method,
                     self.upscale_factor,
-                    upscaleSkipProcess,
                 )
 
             case (
@@ -268,21 +244,12 @@ def initializeModels(self):
                     self.width,
                     self.height,
                     self.custom_model,
-                    upscaleSkipProcess,
                     self.forceStatic,
                 )
     if self.interpolate:
         logging.info(
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolate_factor, '.3f')}fps"
         )
-
-        if self.interpolate_skip:
-            from src.dedup.dedup import DedupSSIM
-
-            interpolateSkipProcess = DedupSSIM(
-                0.999,
-            )
-
         match self.interpolate_method:
             case (
                 "rife"
@@ -310,7 +277,6 @@ def initializeModels(self):
                     self.ensemble,
                     self.interpolate_factor,
                     self.dynamic_scale,
-                    interpolateSkipProcess,
                 )
 
             case (
@@ -361,7 +327,6 @@ def initializeModels(self):
                     self.height,
                     self.half,
                     self.ensemble,
-                    interpolateSkipProcess,
                 )
 
             case "gmfss":
@@ -396,7 +361,6 @@ def initializeModels(self):
                     self.height,
                     self.half,
                     self.ensemble,
-                    interpolateSkipProcess,
                 )
 
     if self.restore:
