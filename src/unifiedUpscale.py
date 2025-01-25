@@ -20,7 +20,6 @@ class UniversalPytorch:
         width: int = 1920,
         height: int = 1080,
         customModel: str = None,
-        upscaleSkip: bool | None = None,
     ):
         """
         Initialize the upscaler with the desired model
@@ -41,7 +40,6 @@ class UniversalPytorch:
         self.width = width
         self.height = height
         self.customModel = customModel
-        self.upscaleSkip = upscaleSkip
 
         self.handleModel()
 
@@ -102,14 +100,6 @@ class UniversalPytorch:
             memoryFormat=torch.channels_last,
         ).optimizeModel()
 
-        if self.upscaleSkip is not None:
-            self.skippedCounter = 0
-            self.prevFrame = torch.zeros(
-                (self.height * self.upscaleFactor, self.width * self.upscaleFactor, 3),
-                device=checker.device,
-                dtype=torch.float16 if self.half else torch.float32,
-            )
-
         self.dummyInput = (
             torch.zeros(
                 (1, 3, self.height, self.width),
@@ -168,11 +158,6 @@ class UniversalPytorch:
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
-        if self.upscaleSkip is not None:
-            if self.upscaleSkip(frame):
-                self.skippedCounter += 1
-                return self.prevFrame
-
         self.processFrame(frame)
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
@@ -182,15 +167,7 @@ class UniversalPytorch:
             output = self.dummyOutput.clone()
         self.outputStream.synchronize()
 
-        if self.upscaleSkip is not None:
-            with torch.cuda.stream(self.stream):
-                self.prevFrame.copy_(output, non_blocking=True)
-            self.stream.synchronize()
-
         return output
-
-    def getSkippedCounter(self):
-        return self.skippedCounter
 
 
 class UniversalTensorRT:
@@ -202,7 +179,6 @@ class UniversalTensorRT:
         width: int = 1920,
         height: int = 1080,
         customModel: str = None,
-        upscaleSkip: bool | None = None,
         forceStatic: bool = False,
     ):
         """
@@ -235,7 +211,6 @@ class UniversalTensorRT:
         self.width = width
         self.height = height
         self.customModel = customModel
-        self.upscaleSkip = upscaleSkip
         self.forceStatic = forceStatic
 
         self.handleModel()
@@ -322,14 +297,6 @@ class UniversalTensorRT:
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
 
-        if self.upscaleSkip is not None:
-            self.skippedCounter = 0
-            self.prevFrame = torch.zeros(
-                (self.height * self.upscaleFactor, self.width * self.upscaleFactor, 3),
-                device=checker.device,
-                dtype=torch.float16 if self.half else torch.float32,
-            )
-
         self.normStream = torch.cuda.Stream()
         self.outputStream = torch.cuda.Stream()
 
@@ -353,13 +320,6 @@ class UniversalTensorRT:
 
     @torch.inference_mode()
     def __call__(self, frame):
-        if self.upscaleSkip is not None:
-            with torch.cuda.stream(self.normStream):
-                if self.upscaleSkip(frame):
-                    self.skippedCounter += 1
-                    return self.prevFrame
-            self.normStream.synchronize()
-
         self.processFrame(frame)
 
         # Experimental feature, may not work as expected
@@ -371,15 +331,7 @@ class UniversalTensorRT:
             output = self.dummyOutput.clone().clamp(0, 1)
         self.outputStream.synchronize()
 
-        if self.upscaleSkip is not None:
-            with torch.cuda.stream(self.stream):
-                self.prevFrame.copy_(output, non_blocking=True)
-            self.stream.synchronize()
-
         return output
-
-    def getSkippedCounter(self):
-        return self.skippedCounter
 
 
 class UniversalDirectML:
@@ -391,7 +343,6 @@ class UniversalDirectML:
         width: int,
         height: int,
         customModel: str,
-        upscaleSkip: bool | None = None,
     ):
         """
         Initialize the upscaler with the desired model
@@ -419,7 +370,6 @@ class UniversalDirectML:
         self.width = width
         self.height = height
         self.customModel = customModel
-        self.upscaleSkip = upscaleSkip
 
         self.handleModel()
 
@@ -505,22 +455,10 @@ class UniversalDirectML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
-        if self.upscaleSkip is not None:
-            self.prevFrame = torch.zeros(
-                (self.height * self.upscaleFactor, self.width * self.upscaleFactor, 3),
-                device=self.device,
-                dtype=self.torchDType,
-            )
-            self.skippedCounter = 0
-
     def __call__(self, frame: torch.tensor) -> torch.tensor:
         """
         Run the model on the input frame
         """
-        if self.upscaleSkip is not None:
-            if self.upscaleSkip.run(frame):
-                self.skippedCounter += 1
-                return self.prevFrame
 
         if self.half:
             frame = frame.half()
@@ -541,20 +479,13 @@ class UniversalDirectML:
         self.model.run_with_iobinding(self.IoBinding)
         frame = self.dummyOutput.contiguous()
 
-        if self.upscaleSkip is not None:
-            self.prevFrame.copy_(frame, non_blocking=True)
-
         return frame
-
-    def getSkippedCounter(self):
-        return self.skippedCounter
 
 
 class UniversalNCNN:
-    def __init__(self, upscaleMethod, upscaleFactor, upscaleSkip):
+    def __init__(self, upscaleMethod, upscaleFactor):
         self.upscaleMethod = upscaleMethod
         self.upscaleFactor = upscaleFactor
-        self.upscaleSkip = upscaleSkip
 
         from upscale_ncnn_py import UPSCALE
 
@@ -594,26 +525,11 @@ class UniversalNCNN:
             num_threads=2,
         )
 
-        if self.upscaleSkip is not None:
-            self.skippedCounter = 0
-            self.prevFrame = None
-
     def __call__(self, frame):
-        if self.upscaleSkip is not None:
-            if self.upscaleSkip.run(frame):
-                self.skippedCounter += 1
-                return self.prevFrame
-
         iniFrameDtype = frame.dtype
         frame = self.model.process_torch(
             frame.mul(255).to(torch.uint8).squeeze(0).permute(1, 2, 0).cpu()
         )
 
-        if self.upscaleSkip is not None:
-            self.prevFrame = frame
-
         frame = frame.to(iniFrameDtype).mul(1 / 255).permute(2, 0, 1).unsqueeze(0)
         return frame
-
-    def getSkippedCounter(self):
-        return self.skippedCounter
