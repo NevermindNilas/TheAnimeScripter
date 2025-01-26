@@ -22,6 +22,17 @@
 - Removed the `mbps` meter from the download progress bar, no idea how to fix it.
 - `upscale_skip` and `interpolate_skip` commands.
 
+# Adobe Edition
+## New
+- Added `TensorRT Static Engine Generation` button in the upscaling settings.
+
+## Improved
+- More Error handling.
+- Changed some variables names in the UI.
+
+## Fixed
+- Toasts wouldn't generate for some options within TAS, now all options should generate a toast if TAS can't find a project.
+
 ## [2.0.1] - 2025-01-12
 
 # The Anime Scripter:
