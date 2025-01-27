@@ -22,7 +22,7 @@ rich-argparse
 onnx
 tensorrt==10.7.0
 tensorrt_cu12==10.7.0
-tensorrt-cu12-bindings==10.7.0
+tensorrt-cu12-bindings==10.8.0.43
 tensorrt-cu12_libs==10.7.0
 torchmetrics
 celux==0.6.0
