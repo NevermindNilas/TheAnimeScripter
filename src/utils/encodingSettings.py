@@ -407,6 +407,30 @@ def matchEncoder(encode_method: str):
         case "h266":
             # Placeholder QP until I figure what the actual fuck is going on
             command.extend(["-c:v", "libvvenc", "-qp", "24", "-preset", "0"])
+        case "lossless":
+            command.extend(
+                [
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "ultrafast",
+                    "-crf",
+                    "0",
+                ]
+            )
+        case "lossless_nvenc_h264":
+            command.extend(
+                [
+                    "-c:v",
+                    "h264_nvenc",
+                    "-preset",
+                    "p1",
+                    "-qp",
+                    "0",
+                    "-b:v",
+                    "0",
+                ]
+            )
 
     return command
 

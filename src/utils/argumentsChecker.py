@@ -180,6 +180,11 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         action="store_true",
         help="Use dynamic scaling for interpolation, this can improve the quality of the interpolation at the cost of performance, this is experimental and only works with Rife CUDA",
     )
+    interpolationGroup.add_argument(
+        "--static_step",
+        action="store_true",
+        help="Force Static Timestep generation for Rife CUDA",
+    )
 
     # Upscaling options
     upscaleGroup = argParser.add_argument_group("Upscaling")
@@ -382,7 +387,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         type=str,
         choices=["low", "high"],
         default="low",
-        help="[DEPRECATED]This will determine the quality of the depth map, low is significantly faster but lower quality",
+        help="This will determine the quality of the depth map, low is significantly faster but lower quality, only works with CUDA Depth Maps",
     )
 
     # Encoding options
@@ -420,6 +425,8 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "vp9",
             "qsv_vp9",
             "h266",
+            "lossless",
+            "lossless_nvenc",
         ],
         default="x264",
         help="Encoding method",

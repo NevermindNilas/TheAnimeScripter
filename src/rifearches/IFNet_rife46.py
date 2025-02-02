@@ -92,7 +92,12 @@ class IFBlock(nn.Module):
 
 class IFNet(nn.Module):
     def __init__(
-        self, ensemble=False, dynamicScale=False, scale=1, interpolateFactor=2
+        self,
+        ensemble=False,
+        dynamicScale=False,
+        scale=1,
+        interpolateFactor=2,
+        staticStep=False,
     ):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7, c=192)
@@ -105,6 +110,9 @@ class IFNet(nn.Module):
         self.dynamicScale = dynamicScale
         self.interpolateFactor = interpolateFactor
         self.blocks = [self.block0, self.block1, self.block2, self.block3]
+        self.staticStep = staticStep
+        if self.staticStep:
+            self.timesteps = None
 
     def cache(self):
         pass
@@ -112,7 +120,81 @@ class IFNet(nn.Module):
     def cacheReset(self, frame):
         pass
 
+    def bakedTimestep(self, img0, img1):
+        warped_img0 = img0
+        warped_img1 = img1
+        outputs = []
+
+        if self.timesteps is None:
+            timesteps = []
+            for i in range(1, self.interpolateFactor):
+                t = i / self.interpolateFactor
+                ts = torch.full(
+                    (1, 1, img0.size(2), img0.size(3)),
+                    t,
+                    dtype=img0.dtype,
+                    device=img0.device,
+                )
+                timesteps.append(ts)
+            timesteps = torch.stack(timesteps, dim=0)
+        else:
+            timesteps = self.timesteps
+
+        if self.dynamicScale:
+            scale = dynamicScale(img0, img1)
+            self.scale_list = [8 / scale, 4 / scale, 2 / scale, 1 / scale]
+
+        for t in timesteps:
+            warped_img0 = img0
+            warped_img1 = img1
+
+            flow, mask = self.blocks[0](
+                torch.cat((img0[:, :3], img1[:, :3], t), 1),
+                None,
+                scale=self.scale_list[0],
+            )
+            if self.ensemble:
+                f1, m1 = self.blocks[0](
+                    torch.cat((img1[:, :3], img0[:, :3], 1 - t), 1),
+                    None,
+                    scale=self.scale_list[0],
+                )
+                flow = (flow + torch.cat((f1[:, 2:4], f1[:, :2]), 1)) / 2
+                mask = (mask + (-m1)) / 2
+
+            warped_img0 = warp(img0, flow[:, :2])
+            warped_img1 = warp(img1, flow[:, 2:4])
+
+            for j, block in enumerate(self.blocks[1:], start=1):
+                f, m = block(
+                    torch.cat((warped_img0[:, :3], warped_img1[:, :3], t, mask), 1),
+                    flow,
+                    scale=self.scale_list[j],
+                )
+                if self.ensemble:
+                    f1, m1 = block(
+                        torch.cat(
+                            (warped_img1[:, :3], warped_img0[:, :3], 1 - t, -mask), 1
+                        ),
+                        torch.cat((flow[:, 2:4], flow[:, :2]), 1),
+                        scale=self.scale_list[j],
+                    )
+                    f = (f + torch.cat((f1[:, 2:4], f1[:, :2]), 1)) / 2
+                    m = (m + (-m1)) / 2
+                flow = flow + f
+                mask = mask + m
+
+                warped_img0 = warp(img0, flow[:, :2])
+                warped_img1 = warp(img1, flow[:, 2:4])
+            mask = torch.sigmoid(mask)
+            outputs.append(warped_img0 * mask + warped_img1 * (1 - mask))
+
+        return outputs
+
     def forward(self, img0, img1, timestep):
+        if self.staticStep:
+            return self.bakedTimestep(img0, img1)
+
         merged = []
         mask_list = []
         warped_img0 = img0
