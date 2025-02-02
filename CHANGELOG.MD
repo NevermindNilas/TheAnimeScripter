@@ -3,6 +3,7 @@
 # The Anime Scripter:
 ## New
 - Added `ffprobe` for more accurate metadata seeking.
+- Added experimental `--static_step` command which will improve inference speed for Rife CUDA, currently only available for models `rife4.6` and `rife4.15-lite`.
 
 ## Improved
 - Increased bitrate for `slow_nvenc_h265`

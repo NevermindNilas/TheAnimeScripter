@@ -8,6 +8,7 @@ import numpy as np
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .utils.coloredPrints import yellow
 from .utils.isCudaInit import CudaChecker
+from .utils.logAndPrint import logAndPrint
 
 checker = CudaChecker()
 
@@ -110,6 +111,7 @@ class RifeCuda:
         ensemble=False,
         interpolateFactor=2,
         dynamicScale=False,
+        staticStep=False,
     ):
         """
         Initialize the RIFE model
@@ -122,6 +124,7 @@ class RifeCuda:
             ensemble (bool, optional): Ensemble. Defaults to False.
             interpolateFactor (int, optional): Interpolation factor. Defaults to 2.
             dynamicScale (bool, optional): Use Dynamic scale. Defaults to False.
+            staticStep (bool, optional): Use static timestep. Defaults to False.
         """
         self.half = half
         self.scale = 1.0
@@ -131,6 +134,7 @@ class RifeCuda:
         self.ensemble = ensemble
         self.interpolateFactor = interpolateFactor
         self.dynamicScale = dynamicScale
+        self.staticStep = staticStep
 
         if self.width > 1920 and self.height > 1080:
             self.scale = 0.5
@@ -161,6 +165,21 @@ class RifeCuda:
         self.dType = torch.float16 if self.half else torch.float32
 
         IFNet = importRifeArch(self.interpolateMethod, "v1")
+        if self.interpolateMethod in ["rife_elexor"] and self.staticStep:
+            self.staticStep = False
+            logAndPrint(
+                "Static step is not supported for rife_elexor, automatically disabling it",
+                "yellow",
+            )
+        if (
+            self.interpolateMethod not in ["rife4.6", "rife4.15", "rife4.15-lite"]
+            and self.staticStep
+        ):
+            self.staticStep = False
+            logAndPrint(
+                "Static step is not supported for this interpolation model yet, automatically disabling it",
+                "yellow",
+            )
         if self.interpolateMethod in ["rife_elexor"]:
             self.model = IFNet(
                 self.scale,
@@ -173,7 +192,11 @@ class RifeCuda:
             )
         else:
             self.model = IFNet(
-                self.ensemble, self.dynamicScale, self.scale, self.interpolateFactor
+                self.ensemble,
+                self.dynamicScale,
+                self.scale,
+                self.interpolateFactor,
+                self.staticStep,
             )
 
         torch.set_grad_enabled(False)
@@ -262,9 +285,12 @@ class RifeCuda:
 
             case "infer":
                 with torch.cuda.stream(self.stream):
-                    output = self.model(self.I0, self.I1, frame)[
-                        :, :, : self.height, : self.width
-                    ]
+                    if self.staticStep:
+                        output = self.model(self.I0, self.I1, frame)
+                    else:
+                        output = self.model(self.I0, self.I1, frame)[
+                            :, :, : self.height, : self.width
+                        ]
                 self.stream.synchronize()
                 return output
 
@@ -292,15 +318,22 @@ class RifeCuda:
             self.processFrame(frame, "I1")
         self.normStream.synchronize()
 
-        for i in range(self.interpolateFactor - 1):
-            timestep = torch.full(
-                (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
-                (i + 1) * 1 / self.interpolateFactor,
-                dtype=self.dType,
-                device=checker.device,
-            )
-            output = self.processFrame(timestep, "infer")
-            interpQueue.put(output)
+        if self.staticStep:
+            outputs = self.processFrame(None, "infer")
+            for output in outputs:
+                output = output[:, :, : self.height, : self.width]
+                interpQueue.put(output)
+
+        else:
+            for i in range(self.interpolateFactor - 1):
+                timestep = torch.full(
+                    (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
+                    (i + 1) * 1 / self.interpolateFactor,
+                    dtype=self.dType,
+                    device=checker.device,
+                )
+                output = self.processFrame(timestep, "infer")
+                interpQueue.put(output)
 
         self.processFrame(None, "cache")
 
