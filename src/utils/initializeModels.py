@@ -166,7 +166,6 @@ def initializeModels(self):
     restore_process = None
     dedup_process = None
     scenechange_process = None
-    interpolateSkipProcess = None
 
     if self.upscale:
         from src.unifiedUpscale import UniversalPytorch
@@ -277,6 +276,7 @@ def initializeModels(self):
                     self.ensemble,
                     self.interpolate_factor,
                     self.dynamic_scale,
+                    self.static_step,
                 )
 
             case (

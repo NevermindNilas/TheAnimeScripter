@@ -97,6 +97,7 @@ class VideoProcessor:
         self.decode_threads = args.decode_threads
         self.realtime = args.realtime
         self.dynamic_scale = args.dynamic_scale
+        self.static_step = args.static_step
 
         # Video Metadata
         self.width = width
