@@ -21,7 +21,7 @@ rich
 rich-argparse
 anipy-cli
 colored
-torch==2.6.0
+torch==2.6.0+cu124
 torchvision==0.21.0
 torchmetrics
 celux==0.6.0
