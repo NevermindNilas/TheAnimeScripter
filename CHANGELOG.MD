@@ -5,13 +5,10 @@
 - N/a
 
 ## Improved
-- Bumped PyTorch to `2.6.0`
-- Bumped Torchvision to `0.21.0`
+- N/a
 
 ## Fixed
 - An issue where static step would still be parsed even if the current interpolation method didn't support it.
-
-
 
 ## [2.0.2] - 2025-02-02
 
