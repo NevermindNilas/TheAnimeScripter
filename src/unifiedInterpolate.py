@@ -191,13 +191,21 @@ class RifeCuda:
                 self.interpolateFactor,
             )
         else:
-            self.model = IFNet(
-                self.ensemble,
-                self.dynamicScale,
-                self.scale,
-                self.interpolateFactor,
-                self.staticStep,
-            )
+            if self.interpolateMethod in ["rife4.6", "rife4.15", "rife4.15-lite"]:
+                self.model = IFNet(
+                    self.ensemble,
+                    self.dynamicScale,
+                    self.scale,
+                    self.interpolateFactor,
+                    self.staticStep,
+                )
+            else:
+                self.model = IFNet(
+                    self.ensemble,
+                    self.dynamicScale,
+                    self.scale,
+                    self.interpolateFactor,
+                )
 
         torch.set_grad_enabled(False)
         if checker.cudaAvailable and self.half:
