@@ -45,9 +45,13 @@
 ## Improved
 - More Error handling.
 - Changed some variables names in the UI.
+- Changed some UI elements to be more distinctive.
 
 ## Fixed
 - Toasts wouldn't generate for some options within TAS, now all options should generate a toast if TAS can't find a project.
+
+## Removed
+- `Check For updates` button
 
 ## [2.0.1] - 2025-01-12
 
