@@ -20,10 +20,10 @@ flask
 rich
 rich-argparse
 onnx
-tensorrt==10.8.0.43
-tensorrt_cu12==10.8.0.43
-tensorrt-cu12-bindings==10.8.0.43
-tensorrt-cu12_libs==10.8.0.43
+tensorrt==10.7.0
+tensorrt_cu12==10.7.0
+tensorrt-cu12-bindings==10.7.0
+tensorrt-cu12_libs==10.7.0
 torchmetrics
 celux==0.6.0
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp312-cp312-win_amd64.whl

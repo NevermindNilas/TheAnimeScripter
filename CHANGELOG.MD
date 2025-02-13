@@ -5,7 +5,6 @@
 - N/a
 
 ## Improved
-- Bumped TensorRT to `10.8.0.43`
 - Bumped Python to `3.12.9`
 
 ## Fixed
