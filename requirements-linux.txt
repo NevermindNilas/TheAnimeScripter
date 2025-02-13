@@ -9,10 +9,10 @@ GPUtil
 spandrel
 yt-dlp
 requests
-tensorrt==10.8.0.43
-tensorrt_cu12==10.8.0.43
-tensorrt-cu12-bindings==10.8.0.43
-tensorrt-cu12_libs==10.8.0.43
+tensorrt==10.7.0
+tensorrt_cu12==10.7.0
+tensorrt-cu12-bindings==10.7.0
+tensorrt-cu12_libs==10.7.0
 scenedetect[opencv]
 pytorch-lightning
 inquirer
