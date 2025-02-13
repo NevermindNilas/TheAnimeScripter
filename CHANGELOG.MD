@@ -8,6 +8,19 @@
 - N/a
 
 ## Fixed
+- N/a
+
+
+## [2.0.3] - 2025-02-03
+# The Anime Scripter:
+
+## New
+- N/a
+
+## Improved
+- N/a
+
+## Fixed
 - An issue where static step would still be parsed even if the current interpolation method didn't support it.
 
 ## [2.0.2] - 2025-02-02
