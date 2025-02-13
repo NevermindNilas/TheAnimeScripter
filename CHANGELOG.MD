@@ -5,10 +5,29 @@
 - N/a
 
 ## Improved
-- N/a
+- Bumped TensorRT to `10.8.0.43`
 
 ## Fixed
 - N/a
+
+# Adobe Edition
+## New
+- Added `lossless` encode method.
+- Added tip(s).
+- `Pre-Render` will now be forced procedure in order to avoid potential bugs and ease debugging.
+- The `Render Queue` panel will now automatically close after rendering a video.
+
+## Improved
+- Moved all `Pre-Render` related options to the `Encode Settings` dialog.
+- More, better, and improved toats.
+- More error handling
+- Simplified some backend logic, specifically centered around `pre-render`
+
+## Fixed
+- Some visual anomalies. 
+
+## Removed
+- `Pre-Render` button(s)
 
 
 ## [2.0.3] - 2025-02-03
