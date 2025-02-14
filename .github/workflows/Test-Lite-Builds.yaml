@@ -42,6 +42,7 @@ jobs:
         with:
           tag_name: TAS-${{ env.version }}
           release_name: TAS-${{ env.version }}
+          draft: true
 
   build_lite_windows:
     needs: create_release
