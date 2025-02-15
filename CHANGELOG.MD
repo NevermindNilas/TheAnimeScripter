@@ -35,6 +35,7 @@
 - Simplified some backend logic, specifically centered around `pre-render` 
 - More details about each model and options.
 - Renamed `rtmosr` to `rtmosr v2`
+- Added an example to Depth Maps, more to come for other options as well.
 
 ## Fixed
 - Some visual anomalies with the tooltips.
