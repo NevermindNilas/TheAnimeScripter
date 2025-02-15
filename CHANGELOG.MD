@@ -6,6 +6,14 @@
 
 ## Improved
 - Bumped Python to `3.12.9`
+- Improved the compression logic for better compression.
+  TAS FULL is now down to 1.7GB from 1.82GB
+  TAS LITE is now down to 155MB from 186MB
+  Overall extracted filesizes will also be lower by ~100MB.
+- WIth python 3.12.9 subprocesses have been improved, this slightly speeds up the import time for subprocess, give or take 0.25s on average.
+- 
+## Removals
+- Removed unneeded files and libraries from TAS.
 
 ## Fixed
 - N/a
@@ -16,15 +24,20 @@
 - Added tip(s).
 - `Pre-Render` will now be a forced step in order to avoid potential bugs and ease debugging.
 - The `Render Queue` panel will now automatically close after rendering a video.
+- Added `Add Null Layer` button.
+- Added a new visual indicator for inference speed.
+- Added dropdowns in the `About` Tab for `System Requirements` and `GPU Compatibility`
 
 ## Improved
 - Moved all `Pre-Render` related options to the `Encode Settings` dialog.
 - More, better, and improved toats.
 - More error handling
-- Simplified some backend logic, specifically centered around `pre-render`
+- Simplified some backend logic, specifically centered around `pre-render` 
+- More details about each model and options.
+- Renamed `rtmosr` to `rtmosr v2`
 
 ## Fixed
-- Some visual anomalies. 
+- Some visual anomalies with the tooltips.
 
 ## Removed
 - `Pre-Render` button(s)
