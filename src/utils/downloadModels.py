@@ -190,9 +190,9 @@ def modelsMap(
                 )
             else:
                 if half:
-                    return "2x_umzi_mahou_rtmosr_fp16_op17.onnx"
+                    return "2x_umzi_anime_rtmosr_fp16_op18.onnx"
                 else:
-                    return "2x_umzi_mahou_rtmosr_fp32_op17.onnx"
+                    return "2x_umzi_anime_rtmosr_fp32_op18.onnx"
 
         case "compact" | "compact-directml" | "compact-tensorrt":
             if modelType == "pth":
