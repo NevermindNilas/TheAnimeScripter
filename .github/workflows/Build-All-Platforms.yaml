@@ -64,7 +64,7 @@ jobs:
       - name: Compress full directory
         run: |
           cd ${{ github.workspace }}/dist-full/main/
-          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS-${{ needs.create_release.outputs.version }}-Full-Windows.7z *
+          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=1024m ../../TAS-${{ needs.create_release.outputs.version }}-Full-Windows.7z *
 
       - name: Upload Release Asset
         id: upload-release-asset
@@ -97,7 +97,7 @@ jobs:
       - name: Compress lite directory
         run: |
           cd ${{ github.workspace }}/dist-lite/main/
-          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS-${{ needs.create_release.outputs.version }}-Lite-Windows.7z *
+          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=1024m ../../TAS-${{ needs.create_release.outputs.version }}-Lite-Windows.7z *
 
       - name: Upload Release Asset
         id: upload-release-asset
@@ -130,7 +130,7 @@ jobs:
       - name: Compress lite directory
         run: |
           cd ${{ github.workspace }}/dist-lite/main/
-          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=273m ../../TAS-${{ needs.create_release.outputs.version }}-Lite-Linux.7z *
+          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=1024m ../../TAS-${{ needs.create_release.outputs.version }}-Lite-Linux.7z *
 
       - name: Upload Release Asset
         id: upload-release-asset
