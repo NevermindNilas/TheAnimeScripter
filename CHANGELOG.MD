@@ -2,7 +2,7 @@
 # The Anime Scripter:
 
 ## New
-- N/a
+- Updated `rtmosr` models to @umzi2 's "v2" models.
 
 ## Improved
 - Bumped Python to `3.12.9`
@@ -14,7 +14,7 @@
 ## New
 - Added `lossless` encode method.
 - Added tip(s).
-- `Pre-Render` will now be forced procedure in order to avoid potential bugs and ease debugging.
+- `Pre-Render` will now be a forced step in order to avoid potential bugs and ease debugging.
 - The `Render Queue` panel will now automatically close after rendering a video.
 
 ## Improved
