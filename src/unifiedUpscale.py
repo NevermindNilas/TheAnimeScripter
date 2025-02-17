@@ -5,6 +5,7 @@ import logging
 from src.utils.modelOptimizer import ModelOptimizer
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .utils.isCudaInit import CudaChecker
+from src.utils.logAndPrint import logAndPrint
 
 checker = CudaChecker()
 
@@ -216,10 +217,11 @@ class UniversalTensorRT:
         self.handleModel()
 
     def handleModel(self):
-        if self.width > 1920 and self.height > 1080:
+        if self.width > 1920 or self.height > 1080:
             self.forceStatic = True
-            logging.info(
-                "Forcing static engine due to resolution higher than 1920x1080p"
+            logAndPrint(
+                message="Forcing static engine due to resolution higher than 1920x1080p",
+                colorFunc="yellow",
             )
 
         if not self.customModel:
