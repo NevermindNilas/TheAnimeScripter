@@ -3,7 +3,7 @@ torch==2.5.1
 torchvision==0.20.1
 opencv-python-headless
 timm
-numpy==2.2.2
+numpy==2.2.3
 wmi
 spandrel
 yt-dlp
