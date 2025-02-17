@@ -16,7 +16,7 @@
 - N/a
 
 ## Improved
-- N/a
+- Added a fallback to lossless when quicktime isn't available
 
 ## Fixed
 - N/a
