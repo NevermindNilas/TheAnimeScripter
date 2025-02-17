@@ -2,6 +2,30 @@
 # The Anime Scripter:
 
 ## New
+- N/a
+
+## Improved
+- bumped numpy version
+
+## Fixed
+- Fixed a bug in TensorRT shape parsing when resolution is above 1920x1080
+
+# Adobe Edition
+
+## New
+- N/a
+
+## Improved
+- N/a
+
+## Fixed
+- N/a
+
+
+## [2.0.4] - 2025-02-16
+# The Anime Scripter:
+
+## New
 - Updated `rtmosr` models to @umzi2 's "v2" models.
 
 ## Improved
