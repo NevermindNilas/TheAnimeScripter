@@ -1,4 +1,4 @@
-## [Untitled] - yyyy-mm-dd
+## [2.0.5] - 2025-02-17
 # The Anime Scripter:
 
 ## New
