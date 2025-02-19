@@ -252,7 +252,7 @@ class BuildBuffer:
             normStream.synchronize()
             return frame
         else:
-            return frame.mul(mul).permute(2, 0, 1).unsqueeze(0).clamp(0, 1)
+            return frame.mul(mul).permute(2, 0, 1).unsqueeze(0)
 
     def read(self):
         """
