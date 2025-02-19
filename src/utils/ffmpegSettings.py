@@ -145,6 +145,7 @@ class BuildBuffer:
                 if outpoint != 0.0:
                     self.reader = VideoReader(
                         videoInput,
+                        device="cpu",
                         num_threads=decodeThreads,
                         filters=filters,
                         tensor_shape="HWC",
@@ -152,6 +153,7 @@ class BuildBuffer:
                 else:
                     self.reader = VideoReader(
                         videoInput,
+                        device="cpu",
                         num_threads=decodeThreads,
                         filters=filters,
                         tensor_shape="HWC",
@@ -189,6 +191,7 @@ class BuildBuffer:
 
         # OpenCV fallback in case of issues
         if self.useOpenCV:
+            print("Using OpenCV for video decoding")
             while self.reader.isOpened():
                 ret, frame = self.reader.read()
                 if not ret or decodedFrames >= self.outputFramePoint:
@@ -238,7 +241,6 @@ class BuildBuffer:
                         .mul(mul)
                         .permute(2, 0, 1)
                         .unsqueeze(0)
-                        .clamp(0, 1)
                     )
                 else:
                     frame = (
@@ -246,7 +248,6 @@ class BuildBuffer:
                         .mul(mul)
                         .permute(2, 0, 1)
                         .unsqueeze(0)
-                        .clamp(0, 1)
                     )
             normStream.synchronize()
             return frame
