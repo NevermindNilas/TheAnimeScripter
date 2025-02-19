@@ -519,8 +519,15 @@ class WriteBuffer:
         dummyTensor = torch.zeros(
             (self.height, self.width, self.channels),
             dtype=dtype,
-            device="cpu",
+            device="cuda" if checker.cudaAvailable else "cpu",
         )
+
+        if checker.cudaAvailable:
+            normStream = torch.cuda.Stream()
+            try:
+                dummyTensor = dummyTensor.pin_memory()
+            except Exception:
+                pass
 
         waiterThread = threading.Thread(
             target=writeToSTDIN,
@@ -552,32 +559,44 @@ class WriteBuffer:
             frame = self.writeBuffer.get()
             if frame is None:
                 break
-            frame = frame.cpu()
 
-            if NEEDSRESIZE:
-                frame = F.interpolate(
-                    frame,
-                    size=(self.height, self.width),
-                    mode="bicubic",
-                    align_corners=False,
-                )
-            frame = frame.squeeze(0).permute(1, 2, 0).mul(mul).clamp(0, mul)
-            dummyTensor.copy_(frame, non_blocking=False)
+            if checker.cudaAvailable:
+                with torch.cuda.stream(normStream):
+                    if NEEDSRESIZE:
+                        frame = F.interpolate(
+                            frame,
+                            size=(self.height, self.width),
+                            mode="bicubic",
+                            align_corners=False,
+                        )
+                    frame = frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0)
+                    dummyTensor.copy_(frame, non_blocking=True)
+                normStream.synchronize()
+            else:
+                if NEEDSRESIZE:
+                    frame = F.interpolate(
+                        frame,
+                        size=(self.height, self.width),
+                        mode="bicubic",
+                        align_corners=False,
+                    )
+                frame = frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0)
+                dummyTensor.copy_(frame, non_blocking=False)
 
             if self.channels == 1:
                 # Should work for both 8bit and 16bit
-                frame = dummyTensor.numpy()
+                frame = dummyTensor.cpu().numpy()
 
             elif self.channels == 3:
                 # for 8 bit, gotta convert the rgb24 -> yuv420p to save time on the subprocess write call.
                 frame = (
-                    cv2.cvtColor(dummyTensor.numpy(), cv2.COLOR_RGB2YUV_I420)
+                    cv2.cvtColor(dummyTensor.cpu().numpy(), cv2.COLOR_RGB2YUV_I420)
                     if self.bitDepth == "8bit"
-                    else dummyTensor.numpy()
+                    else dummyTensor.cpu().numpy()
                 )
             elif self.channels == 4:
                 if self.bitDepth == "8bit":
-                    frame = dummyTensor.numpy()
+                    frame = dummyTensor.cpu().numpy()
                 else:
                     raise ValueError("RGBA 10bit encoding is not supported.")
             self.frameQueue.put(frame)
