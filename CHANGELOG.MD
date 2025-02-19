@@ -20,7 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - N/a
 
 #### Changed
-- Huge chunks of UI generations are now dynamically imported and loaded to make maintaining easier and potentially performance.
+- Huge chunks of UI generations are now dynamically imported and loaded to make maintaining easier and potentially improve performance.
+- Fully rewrote the Toast generation from the ground up to be more maintainable.
 
 #### Fixed
 - Some 
