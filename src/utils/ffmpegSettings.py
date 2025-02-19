@@ -607,7 +607,7 @@ class WriteBuffer:
 
     def write(self, frame: torch.Tensor):
         """
-        Add a frame to the queue. Must be in RGB format.
+        Add a frame to the queue. Must be in [B, C, H, W] format.
         """
         self.writeBuffer.put(frame)
 
