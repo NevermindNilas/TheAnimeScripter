@@ -489,6 +489,13 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
     if not args.benchmark:
         checkSystem(sysUsed)
 
+    if args.ae:
+        # Enables logging of performance inside a .json file for later use with AE.
+        logging.info("After Effects interface detected")
+        from .progressBarLogic import setADOBE
+
+        setADOBE(args.ae, mainPath)
+
     logging.info("\n============== Arguments Checker ==============")
     args.ffmpeg_path = os.path.join(
         mainPath,
@@ -521,32 +528,6 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
 
     if args.realtime:
         print(yellow("Realtime preview enabled, this is experimental!"))
-
-    def adjustFeature(
-        feature,
-        dependsOn,
-        imcompatibleWith,
-        enabledMessage,
-        imcompatibleMessage,
-        missingDependencyMessage,
-    ):
-        if getattr(args, feature):
-            logging.info(
-                enabledMessage,
-            )
-            if getattr(
-                args,
-                imcompatibleWith,
-            ):
-                logging.error(
-                    imcompatibleMessage,
-                )
-                setattr(args, feature, False)
-            elif not getattr(args, dependsOn):
-                logging.error(
-                    missingDependencyMessage,
-                )
-                setattr(args, feature, False)
 
     # ["tensorrt", "directml"] in args.depth_method:
     if args.depth_quality != "low" and args.depth_method.split("-")[-1] in [
