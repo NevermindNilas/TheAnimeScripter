@@ -5,12 +5,15 @@ import argparse
 import shutil
 
 from .checkSpecs import checkSystem
+from .isCudaInit import CudaChecker
 from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, yellow
 from rich_argparse import RichHelpFormatter
 from src.version import __version__ as version
 from .generateOutput import outputNameGenerator
 from src.utils.logAndPrint import logAndPrint
+
+ISCUDA = CudaChecker()
 
 
 def isAnyOtherProcessingMethodEnabled(args):
@@ -573,6 +576,36 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         logging.info(
             f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
         )
+
+    def adjustMethod(method, modelsList):
+        base = method.lower().split("-")[0]
+        directML = f"{base}-directml"
+        if directML in modelsList:
+            return directML
+        newMethod = f"{base}-ncnn"
+        if newMethod in modelsList:
+            return newMethod
+        return method
+
+    if not ISCUDA.cudaAvailable:
+        availableModels = modelsList()
+        for attr in [
+            "interpolate_method",
+            "upscale_method",
+            "segment_method",
+            "scenechange_method",
+            "depth_method",
+            "restore_method",
+        ]:
+            currentMethod = getattr(args, attr)
+            newMethod = adjustMethod(currentMethod, availableModels)
+            if newMethod != currentMethod:
+                logging.info(f"Adjusted {attr} from {currentMethod} to {newMethod}")
+                setattr(args, attr, newMethod)
+            else:
+                logging.info(
+                    f"No adjustment for {attr} ({currentMethod} remains unchanged)"
+                )
 
     sensMap = {
         "differential": 0.75,

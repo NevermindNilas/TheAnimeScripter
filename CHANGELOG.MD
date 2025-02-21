@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased]
 #### Added
-- N/a
+- An automated error handler for when the user wants to use a model which does not work on their system ( WIP ).
 
 ### Changed
 - Removed unnecessary clamping functionality on decode
@@ -16,14 +16,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Adobe Edition
 #### Added
-- N/a
+- Added a progress bar during inference.
+- Added a `Logs` panel for easier debugging.
 
 #### Changed
 - Huge chunks of UI generations are now dynamically imported and loaded to make maintaining easier and potentially improve performance.
 - Fully rewrote the Toast generation from the ground up to be more maintainable.
+- The command prompt will no longer show up when processing.
 
 #### Fixed
-- Some 
+- N/a
 ---
 
 ## [2.0.5] - 2025-02-17
