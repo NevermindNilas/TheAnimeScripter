@@ -55,7 +55,7 @@ def writeToSTDIN(
                     "-",
                     "--no-terminal",
                     "--force-window=yes",
-                    "--keep-open=no",
+                    "--keep-open=yes",
                     "--title=" + input,
                     "--cache=yes",
                     "--demuxer-max-bytes=5M",
