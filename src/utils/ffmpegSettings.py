@@ -46,6 +46,9 @@ def writeToSTDIN(
         )
 
         if realtime:
+            # glslPath = (
+            #    r"C:\Users\nilas\AppData\Roaming\TheAnimeScripter\ffmpeg\FSR.glsl"
+            # )
             mpvSubprocess = subprocess.Popen(
                 [
                     mpvPath,
@@ -54,9 +57,17 @@ def writeToSTDIN(
                     "--force-window=yes",
                     "--keep-open=no",
                     "--title=" + input,
-                    "--no-config",
                     "--cache=yes",
                     "--demuxer-max-bytes=5M",
+                    "--demuxer-readahead-secs=5",
+                    "--demuxer-seekable-cache=yes",
+                    "--hr-seek-framedrop=no",
+                    "--hwdec=auto",
+                    "--border=no",
+                    "--profile=high-quality",
+                    "--vo=gpu-next",
+                    # "--profile=gpu-hq",
+                    # "--glsl-shader=" + glslPath,
                 ],
                 stdin=ffmpegSubprocess.stdout,
                 shell=False,
