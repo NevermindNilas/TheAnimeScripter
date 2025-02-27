@@ -14,16 +14,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Fixed
 - Performance regression when encoding
+- Fixed some padding issues with `rife4.25-lite`
 
 ### Adobe Edition
 #### Added
 - Added a progress bar during inference.
 - Added a `Logs` panel for easier debugging.
+- Added a progress circle when TAS is processing.
 
 #### Changed
 - Huge chunks of UI generations are now dynamically imported and loaded to make maintaining easier and potentially improve performance.
 - Fully rewrote the Toast generation from the ground up to be more maintainable.
 - The command prompt will no longer show up when processing.
+- Fully redesigned the `About` Tab.
 
 #### Fixed
 - N/a
