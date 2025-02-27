@@ -207,7 +207,6 @@ class RifeCuda:
                     self.interpolateFactor,
                 )
 
-        torch.set_grad_enabled(False)
         if checker.cudaAvailable and self.half:
             self.model.half()
         else:
@@ -219,7 +218,7 @@ class RifeCuda:
         self.model = self.model.to(checker.device)
         self.model = self.model.to(memory_format=torch.channels_last)
 
-        if self.interpolateMethod in ["rife4.25", "rife4.25-heavy"]:
+        if self.interpolateMethod in ["rife4.25", "rife4.25-heavy", "rife4.25-lite"]:
             ph = ((self.height - 1) // 128 + 1) * 128
             pw = ((self.width - 1) // 128 + 1) * 128
         else:
