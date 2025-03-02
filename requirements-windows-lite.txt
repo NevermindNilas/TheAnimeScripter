@@ -2,9 +2,10 @@ opencv-python-headless
 timm
 numpy==2.2.3
 kornia
-wmi
 spandrel
 yt-dlp
+psutil
+GPUtil
 requests
 scenedetect[opencv]
 onnxruntime-directml
