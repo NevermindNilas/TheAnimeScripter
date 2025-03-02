@@ -1,31 +1,37 @@
 import logging
+import psutil
+import GPUtil
+import platform
 
 
 def getWindowsInfo():
-    import wmi
+    osName = platform.system()
+    osVersion = platform.release()
 
-    computer = wmi.WMI()
-    procInfo = computer.Win32_Processor()[0]
-    gpuInfo = computer.Win32_VideoController()
-    osInfo = computer.Win32_OperatingSystem()[0]
-    totalRam = float(osInfo.TotalVisibleMemorySize) / 1048576  # Convert KB to GB
+    ramInfo = psutil.virtual_memory()
+    totalRam = round(ramInfo.total / (1024.0**3), 2)
 
-    logging.info(f"CPU: {procInfo.Name}")
+    cpuInfo = platform.processor()
+    gpus = GPUtil.getGPUs()
+
+    logging.info(f"OS: {osName} {osVersion}")
+    logging.info(f"CPU: {cpuInfo}")
     logging.info(f"Total RAM: {totalRam:.2f} GB")
-    for i, gpu in enumerate(gpuInfo):
-        logging.info(f"Graphics Card {i}: {gpu.Name}")
+    for i, gpu in enumerate(gpus):
+        logging.info(f"Graphics Card {i}: {gpu.name}")
 
 
 def getLinuxInfo():
-    import psutil
-    import GPUtil
+    osName = platform.system()
+    osVersion = platform.release()
 
-    cpuInfo = psutil.cpu_info()
+    cpuInfo = platform.processor()
     ramInfo = psutil.virtual_memory()
-    totalRam = round(ramInfo.total / (1024.0**3), 2)  # Convert Bytes to GB
+    totalRam = round(ramInfo.total / (1024.0**3), 2)
     gpus = GPUtil.getGPUs()
 
-    logging.info(f"CPU: {cpuInfo.brand_raw}")
+    logging.info(f"OS: {osName} {osVersion}")
+    logging.info(f"CPU: {cpuInfo}")
     logging.info(f"Total RAM: {totalRam} GB")
     for i, gpu in enumerate(gpus):
         logging.info(f"Graphics Card {i}: {gpu.name}")
