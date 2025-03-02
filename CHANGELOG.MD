@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Changed
 - Removed unnecessary clamping functionality on decode
 - Updated the mpv configs.
+- Lowered the base strenght of `fastlinedarken`.
 
 ### Fixed
 - Performance regression when encoding
@@ -27,6 +28,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Fully rewrote the Toast generation from the ground up to be more maintainable.
 - The command prompt will no longer show up when processing.
 - Fully redesigned the `About` Tab.
+- Many minor UI Tweaks.
+- Added an example for segmentation.
+- Changed the run button from only having a logo to an actual text `Run Chain` which is also slightly separated from the rest of the UI elements.
 
 #### Fixed
 - N/a
