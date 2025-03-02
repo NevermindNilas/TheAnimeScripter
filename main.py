@@ -340,6 +340,10 @@ if __name__ == "__main__":
         "output",
     )
     results = handleInputOutputs(args, isFrozen, outputPath)
+
+    if len(results) > 1:
+        print(green(f"Total Videos found: {len(results)}"))
+
     for i in results:
         print(green(f"Processing Video: {results[i]['videoPath']}"))
         print(green(f"Output Path: {results[i]['outputPath']}"))
