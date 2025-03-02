@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Removed unnecessary clamping functionality on decode
 - Updated the mpv configs.
 - Lowered the base strenght of `fastlinedarken`.
+- Added a print statement for how many videos were detected if the input is a directory
 
 ### Fixed
 - Performance regression when encoding
