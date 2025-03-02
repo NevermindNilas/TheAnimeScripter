@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Updated the mpv configs.
 - Lowered the base strenght of `fastlinedarken`.
 - Added a print statement for how many videos were detected if the input is a directory
+- `psutil` and `gputil` as an temporary alternative to `wmi`.
 
 ### Fixed
 - Performance regression when encoding
