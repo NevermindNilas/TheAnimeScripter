@@ -4,8 +4,9 @@ torchvision==0.20.1
 opencv-python-headless
 timm
 numpy==2.2.3
-wmi
 spandrel
+psutil
+GPUtil
 yt-dlp
 requests
 scenedetect[opencv]
