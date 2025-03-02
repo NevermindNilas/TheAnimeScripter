@@ -16,7 +16,7 @@ class FastLineDarkenWithStreams(nn.Module):
         half: bool = False,
         thinEdges: bool = True,
         gaussian: bool = True,
-        darkenStrength: float = 0.8,
+        darkenStrength: float = 0.7,
     ):
         super(FastLineDarkenWithStreams, self).__init__()
         self.half = half
@@ -63,7 +63,7 @@ class FastLineDarkenWithStreams(nn.Module):
 
     def forward(self, image: torch.Tensor) -> torch.Tensor:
         if not isinstance(image, torch.Tensor):
-            raise ValueError("Input image must be a torch.Tensor")
+            raise ValueError("Input must be a torch.Tensor")
 
         if checker.cudaAvailable:
             return self._cudaWorkflow(image)
