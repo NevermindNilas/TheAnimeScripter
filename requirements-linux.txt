@@ -9,7 +9,7 @@ yt-dlp
 requests
 tensorrt==10.7.0
 tensorrt_cu12==10.7.0
-tensorrt-cu12-bindings==10.7.0
+tensorrt-cu12-bindings==10.9.0.34
 tensorrt-cu12_libs==10.7.0
 scenedetect[opencv]
 pytorch-lightning
