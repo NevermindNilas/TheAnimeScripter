@@ -388,7 +388,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
     depthGroup.add_argument(
         "--depth_quality",
         type=str,
-        choices=["low", "high"],
+        choices=["low", "medium", "high"],
         default="low",
         help="This will determine the quality of the depth map, low is significantly faster but lower quality, only works with CUDA Depth Maps",
     )
@@ -533,17 +533,13 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         print(yellow("Realtime preview enabled, this is experimental!"))
 
     # ["tensorrt", "directml"] in args.depth_method:
-    if args.depth_quality != "low" and args.depth_method.split("-")[-1] in [
+    if args.depth_quality != ["low", "medium"] and args.depth_method.split("-")[-1] in [
         "tensorrt",
         "directml",
     ]:
-        logging.error(
-            "High quality depth estimation is deprecated for tensorrt and directml, defaulting to low quality"
-        )
-        print(
-            yellow(
-                "High quality depth estimation is deprecated for tensorrt and directml, defaulting to low quality"
-            )
+        logAndPrint(
+            "High quality depth estimation is deprecated  tensorrt and directml, defaulting to low quality",
+            "yellow",
         )
         args.depth_quality = "low"
 
