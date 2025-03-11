@@ -4,16 +4,11 @@ import sys
 import argparse
 import shutil
 
-from .checkSpecs import checkSystem
-from .isCudaInit import CudaChecker
-from .downloadModels import downloadModels, modelsList
 from .coloredPrints import green, yellow
 from rich_argparse import RichHelpFormatter
-from src.version import __version__ as version
+from src.version import __version__
 from .generateOutput import outputNameGenerator
 from src.utils.logAndPrint import logAndPrint
-
-ISCUDA = CudaChecker()
 
 
 def isAnyOtherProcessingMethodEnabled(args):
@@ -56,7 +51,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
 
     # Basic options
     generalGroup = argParser.add_argument_group("General")
-    generalGroup.add_argument("--version", action="version", version=version)
+    generalGroup.add_argument("--version", action="version", version=__version__)
     generalGroup.add_argument("--input", type=str, help="Input video file")
     generalGroup.add_argument("--output", type=str, help="Output video file")
     generalGroup.add_argument(
@@ -481,7 +476,7 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         args = createPreset(args, mainPath)
 
     logging.info("============== Version ==============")
-    logging.info(f"TAS: {version}\n")
+    logging.info(f"TAS: {__version__}\n")
 
     logging.info("============== Arguments ==============")
     for arg, value in vars(args).items():
@@ -489,6 +484,8 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
             logging.info(f"{arg.upper()}: {value}")
 
     if not args.benchmark:
+        from .checkSpecs import checkSystem
+
         checkSystem(sysUsed)
 
     if args.ae:
@@ -547,6 +544,8 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         args.realtime = False
 
     if args.offline != "none":
+        from .downloadModels import downloadModels, modelsList
+
         logging.info(f"Offline mode enabled, downloading {args.offline} model(s)...")
         print(green(f"Offline mode enabled, downloading {args.offline} model(s)..."))
         options = modelsList() if args.offline == ["all"] else args.offline
@@ -582,6 +581,9 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
             return newMethod
         return method
 
+    from src.utils.isCudaInit import CudaChecker
+
+    ISCUDA = CudaChecker()
     if not ISCUDA.cudaAvailable:
         availableModels = modelsList()
         for attr in [

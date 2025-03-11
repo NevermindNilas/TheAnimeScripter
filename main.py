@@ -34,7 +34,6 @@ from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
 from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.inputOutputHandler import handleInputOutputs
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
 from src.utils.logAndPrint import logAndPrint
 
@@ -130,10 +129,9 @@ class VideoProcessor:
             self.start()
 
     def processFrame(self, frame):
-        if self.dedup:
-            if self.dedup_process(frame):
-                self.dedupCount += 1
-                return
+        if self.dedup and self.dedup_process(frame):
+            self.dedupCount += 1
+            return
 
         if self.scenechange:
             self.isSceneChange = self.scenechange_process(frame)
@@ -187,7 +185,7 @@ class VideoProcessor:
         self.sceneChangeCounter = 0
         increment = 1 if not self.interpolate else self.interpolate_factor
         if self.interpolate:
-            self.interpQueue = Queue(maxsize=self.interpolate_factor)
+            self.interpQueue = Queue(maxsize=self.interpolate_factor - 1)
 
         try:
             with ProgressBarLogic(self.totalFrames * increment) as bar:
@@ -215,6 +213,8 @@ class VideoProcessor:
             logging.info(f"Detected {self.sceneChangeCounter} scene changes")
 
     def start(self):
+        from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
+
         try:
             (
                 self.new_width,
