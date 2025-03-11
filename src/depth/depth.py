@@ -42,7 +42,6 @@ class DepthCuda:
         encode_method="x264",
         depth_method="small",
         custom_encoder="",
-        buffer_limit=50,
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
@@ -62,7 +61,6 @@ class DepthCuda:
         self.encode_method = encode_method
         self.depth_method = depth_method
         self.custom_encoder = custom_encoder
-        self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
@@ -95,7 +93,6 @@ class DepthCuda:
                 self.width,
                 self.height,
                 self.fps,
-                self.buffer_limit,
                 sharpen=False,
                 sharpen_sens=None,
                 grayscale=True,
@@ -256,7 +253,6 @@ class DepthDirectMLV2:
         encode_method="x264",
         depth_method="small",
         custom_encoder="",
-        buffer_limit=50,
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
@@ -280,7 +276,6 @@ class DepthDirectMLV2:
         self.encode_method = encode_method
         self.depth_method = depth_method
         self.custom_encoder = custom_encoder
-        self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
@@ -313,7 +308,6 @@ class DepthDirectMLV2:
                 self.width,
                 self.height,
                 self.fps,
-                self.buffer_limit,
                 sharpen=False,
                 sharpen_sens=None,
                 grayscale=True,
@@ -471,7 +465,6 @@ class DepthTensorRTV2:
         encode_method="x264",
         depth_method="small",
         custom_encoder="",
-        buffer_limit=50,
         benchmark=False,
         totalFrames=0,
         bitDepth: str = "16bit",
@@ -491,7 +484,6 @@ class DepthTensorRTV2:
         self.encode_method = encode_method
         self.depth_method = depth_method
         self.custom_encoder = custom_encoder
-        self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
@@ -536,7 +528,6 @@ class DepthTensorRTV2:
                 self.width,
                 self.height,
                 self.fps,
-                self.buffer_limit,
                 sharpen=False,
                 sharpen_sens=None,
                 grayscale=True,

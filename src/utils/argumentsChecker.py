@@ -440,7 +440,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
 
     # Miscellaneous options
     miscGroup = argParser.add_argument_group("Miscellaneous")
-    miscGroup.add_argument("--buffer_limit", type=int, default=50, help="Buffer limit")
 
     miscGroup.add_argument(
         "--benchmark", action="store_true", help="Benchmark the script"
