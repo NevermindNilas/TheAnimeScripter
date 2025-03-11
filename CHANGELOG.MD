@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Lowered the base strenght of `fastlinedarken`.
 - Added a print statement for how many videos were detected if the input is a directory
 - `psutil` and `gputil` as an temporary alternative to `wmi`.
+- Upgraded TensorRT to `10.9.0` adding Nvidia Blackwell ( RTX 5000 ) support.
+- Slightly simplified `main.py`
 
 ### Fixed
 - Performance regression when encoding
@@ -33,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Many minor UI Tweaks.
 - Added an example for segmentation.
 - Changed the run button from only having a logo to an actual text `Run Chain` which is also slightly separated from the rest of the UI elements.
+- Run Chain will now be disabled during processing.
 
 #### Fixed
 - N/a
