@@ -36,6 +36,7 @@ from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.inputOutputHandler import handleInputOutputs
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
+from src.utils.logAndPrint import logAndPrint
 
 warnings.filterwarnings("ignore")
 
@@ -45,12 +46,7 @@ class VideoProcessor:
         self,
         args,
         results=None,
-        width: int = None,
-        height: int = None,
-        fps: float = None,
-        totalFrames: int = None,
-        audio: bool = None,
-        outputFPS: float = None,
+        videoMetadata: dict = None,
     ):
         self.input = results["videoPath"]
         self.output = results["outputPath"]
@@ -100,12 +96,14 @@ class VideoProcessor:
         self.static_step = args.static_step
 
         # Video Metadata
-        self.width = width
-        self.height = height
-        self.fps = fps
-        self.totalFrames = totalFrames
-        self.audio = audio
-        self.outputFPS = outputFPS
+        self.width = videoMetadata["Width"]
+        self.height = videoMetadata["Height"]
+        self.fps = videoMetadata["FPS"]
+        self.totalFrames = videoMetadata["TotalFramesToBeProcessed"]
+        self.audio = videoMetadata["HasAudio"]
+        self.outputFPS = (
+            self.fps * args.interpolate_factor if args.interpolate else self.fps
+        )
 
         logging.info("\n============== Processing Outputs ==============")
 
@@ -300,68 +298,102 @@ class VideoProcessor:
 
 
 if __name__ == "__main__":
-    sysUsed = system()
-    mainPath = (
-        os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
-        if sysUsed == "Windows"
-        else os.path.join(
-            os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
-            "TheAnimeScripter",
+    try:
+        sysUsed = system()
+        mainPath = (
+            os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
+            if sysUsed == "Windows"
+            else os.path.join(
+                os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+                "TheAnimeScripter",
+            )
         )
-    )
+        os.makedirs(mainPath, exist_ok=True)
 
-    os.makedirs(mainPath, exist_ok=True)
-
-    isFrozen = hasattr(sys, "_MEIPASS")
-
-    outputPath = (
-        os.path.dirname(sys.executable)
-        if isFrozen
-        else os.path.dirname(os.path.abspath(__file__))
-    )
-
-    signal(SIGINT, SIG_DFL)
-    logging.basicConfig(
-        filename=os.path.join(mainPath, "TAS-Log.log"),
-        filemode="w",
-        format="%(message)s",
-        level=logging.INFO,
-    )
-    logging.info("============== Command Line Arguments ==============")
-    logging.info(f"{' '.join(sys.argv)}\n")
-
-    args = createParser(isFrozen, mainPath, outputPath, sysUsed)
-    outputPath = os.path.join(
-        (
+        isFrozen = hasattr(sys, "_MEIPASS")
+        baseOutputPath = (
             os.path.dirname(sys.executable)
             if isFrozen
             else os.path.dirname(os.path.abspath(__file__))
-        ),
-        "output",
-    )
-    results = handleInputOutputs(args, isFrozen, outputPath)
-
-    if len(results) > 1:
-        print(green(f"Total Videos found: {len(results)}"))
-
-    for i in results:
-        print(green(f"Processing Video: {results[i]['videoPath']}"))
-        print(green(f"Output Path: {results[i]['outputPath']}"))
-        width, height, fps, totalFrames, audio = getVideoMetadata(
-            results[i]["videoPath"],
-            args.inpoint,
-            args.outpoint,
-            mainPath,
-            args.ffprobe_path,
         )
-        outputFPS = fps * args.interpolate_factor if args.interpolate else fps
-        VideoProcessor(
-            args,
-            results=results[i],
-            width=width,
-            height=height,
-            fps=fps,
-            totalFrames=totalFrames,
-            audio=audio,
-            outputFPS=outputFPS,
+
+        # Setup logging
+        signal(SIGINT, SIG_DFL)
+        logging.basicConfig(
+            filename=os.path.join(mainPath, "TAS-Log.log"),
+            filemode="w",
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            level=logging.INFO,
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
+        logging.info("============== Command Line Arguments ==============")
+        logging.info(f"{' '.join(sys.argv)}\n")
+
+        args = createParser(isFrozen, mainPath, baseOutputPath, sysUsed)
+        outputPath = os.path.join(baseOutputPath, "output")
+        results = handleInputOutputs(args, isFrozen, outputPath)
+
+        totalVideos = len(results)
+        if totalVideos == 0:
+            logAndPrint("No videos found to process", colorFunc="red")
+            sys.exit(1)
+
+        if totalVideos > 1:
+            logAndPrint(f"Total Videos found: {totalVideos}", colorFunc="green")
+            folderTimer = time()
+
+        for idx, i in enumerate(results, 1):
+            try:
+                logAndPrint(
+                    f"Processing Video {idx}/{totalVideos}: {results[i]['videoPath']}",
+                    colorFunc="green",
+                )
+                logAndPrint(
+                    f"Output Path: {results[i]['outputPath']}", colorFunc="green"
+                )
+
+                # Get video metadata
+                videoMetadata = getVideoMetadata(
+                    results[i]["videoPath"],
+                    args.inpoint,
+                    args.outpoint,
+                    mainPath,
+                    args.ffprobe_path,
+                )
+
+                if totalVideos > 1:
+                    videoTimer = time()
+
+                VideoProcessor(
+                    args,
+                    results=results[i],
+                    videoMetadata=videoMetadata,
+                )
+
+                if totalVideos > 1:
+                    logAndPrint(
+                        f"Video {idx}/{totalVideos} processed in {time() - videoTimer:.2f} seconds",
+                        colorFunc="green",
+                    )
+            except Exception as e:
+                logAndPrint(
+                    f"Error processing video {results[i]['videoPath']}: {str(e)}",
+                    colorFunc="red",
+                )
+                logging.exception(f"Error processing video {results[i]['videoPath']}")
+
+        if totalVideos > 1:
+            totalTime = time() - folderTimer
+            logAndPrint(
+                f"Total Execution Time: {totalTime:.2f} seconds | "
+                f"Average per video: {totalTime / totalVideos:.2f} seconds",
+                colorFunc="green",
+            )
+
+    except KeyboardInterrupt:
+        logAndPrint("Process interrupted by user", colorFunc="yellow")
+        sys.exit(0)
+    except Exception as e:
+        logAndPrint(f"An unexpected error occurred: {str(e)}", colorFunc="red")
+        logging.exception("Fatal error in main execution")
+        sys.exit(1)
