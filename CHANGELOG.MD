@@ -12,10 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Removed unnecessary clamping functionality on decode
 - Updated the mpv configs.
 - Lowered the base strenght of `fastlinedarken`.
-- Added a print statement for how many videos were detected if the input is a directory
 - `psutil` and `gputil` as an temporary alternative to `wmi`.
 - Upgraded TensorRT to `10.9.0` adding Nvidia Blackwell ( RTX 5000 ) support.
 - Slightly simplified `main.py`
+- Added more logging for when the user processes a directory rather than a simple file.
 
 ### Fixed
 - Performance regression when encoding
