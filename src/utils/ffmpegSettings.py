@@ -129,8 +129,10 @@ class BuildBuffer:
             reader (celux.VideoReader or cv2.VideoCapture): Video reader object for decoding frames.
         """
         self.half = half
-        self.decodeBuffer = Queue(maxsize=50)
+        self.decodeBuffer = Queue(maxsize=10)
         self.useOpenCV = False
+        self.width = width
+        self.height = height
 
         inputFramePoint = round(inpoint * fps)
         outputFramePoint = round(outpoint * fps) if outpoint != 0.0 else totalFrames
@@ -205,7 +207,7 @@ class BuildBuffer:
                 ret, frame = self.reader.read()
                 if not ret or decodedFrames >= self.outputFramePoint:
                     break
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = torch.from_numpy(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 frame = self.processFrame(
                     frame, normStream if checker.cudaAvailable else None
                 )
@@ -234,29 +236,25 @@ class BuildBuffer:
             Returns:
                 The processed frame.
         """
-        if self.useOpenCV:
-            frame = torch.from_numpy(frame)
-
-        if frame.dtype == torch.uint8:
-            mul = 1 / 255
-        elif frame.dtype == torch.uint16:
-            mul = 1 / 65535
+        mul = 1 / 255 if frame.dtype == torch.uint8 else 1 / 65535
 
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
                 if self.half:
                     frame = (
-                        frame.to(device="cuda", non_blocking=True, dtype=torch.float16)
+                        frame.to(device="cuda", non_blocking=True)
                         .mul(mul)
                         .permute(2, 0, 1)
                         .unsqueeze(0)
+                        .half()
                     )
                 else:
                     frame = (
-                        frame.to(device="cuda", non_blocking=True, dtype=torch.float32)
+                        frame.to(device="cuda", non_blocking=True)
                         .mul(mul)
                         .permute(2, 0, 1)
                         .unsqueeze(0)
+                        .float()
                     )
             normStream.synchronize()
             return frame
@@ -299,7 +297,6 @@ class WriteBuffer:
         width: int = 1920,
         height: int = 1080,
         fps: float = 60.0,
-        queueSize: int = 50,
         sharpen: bool = False,
         sharpen_sens: float = 0.0,
         grayscale: bool = False,
@@ -324,7 +321,6 @@ class WriteBuffer:
         fps: float - The frames per second of the output video.
         sharpen: bool - Whether to apply a sharpening filter to the video.
         sharpen_sens: float - The sensitivity of the sharpening filter.
-        queueSize: int - The size of the queue.
         transparent: bool - Whether to encode the video with transparency.
         audio: bool - Whether to include audio in the output video.
         benchmark: bool - Whether to benchmark the encoding process, this will not output any video.
@@ -344,7 +340,6 @@ class WriteBuffer:
         self.fps = fps
         self.sharpen = sharpen
         self.sharpen_sens = sharpen_sens
-        self.queueSize = queueSize
         self.transparent = transparent
         self.audio = audio
         self.benchmark = benchmark
@@ -357,7 +352,7 @@ class WriteBuffer:
         self.mpvPath = os.path.join(os.path.dirname(self.ffmpegPath), "mpv.exe")
 
         self.writtenFrames = 0
-        self.writeBuffer = Queue(maxsize=self.queueSize)
+        self.writeBuffer = Queue(maxsize=10)
 
     def encodeSettings(self) -> list:
         """
@@ -509,7 +504,7 @@ class WriteBuffer:
         return command
 
     def __call__(self):
-        self.frameQueue = Queue(maxsize=self.queueSize)
+        self.frameQueue = Queue(maxsize=10)
         writtenFrames = 0
 
         command = self.encodeSettings()
