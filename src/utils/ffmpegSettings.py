@@ -573,8 +573,11 @@ class WriteBuffer:
                             mode="bicubic",
                             align_corners=False,
                         )
-                    frame = frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0)
-                    dummyTensor.copy_(frame, non_blocking=True)
+
+                    dummyTensor.copy_(
+                        frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0),
+                        non_blocking=True,
+                    )
                 normStream.synchronize()
             else:
                 if NEEDSRESIZE:
@@ -584,8 +587,10 @@ class WriteBuffer:
                         mode="bicubic",
                         align_corners=False,
                     )
-                frame = frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0)
-                dummyTensor.copy_(frame, non_blocking=False)
+                dummyTensor.copy_(
+                    frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0),
+                    non_blocking=False,
+                )
 
             if self.channels == 1:
                 # Should work for both 8bit and 16bit
