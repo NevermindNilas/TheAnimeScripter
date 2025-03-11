@@ -361,20 +361,12 @@ if __name__ == "__main__":
                     args.ffprobe_path,
                 )
 
-                if totalVideos > 1:
-                    videoTimer = time()
-
                 VideoProcessor(
                     args,
                     results=results[i],
                     videoMetadata=videoMetadata,
                 )
 
-                if totalVideos > 1:
-                    logAndPrint(
-                        f"Video {idx}/{totalVideos} processed in {time() - videoTimer:.2f} seconds",
-                        colorFunc="green",
-                    )
             except Exception as e:
                 logAndPrint(
                     f"Error processing video {results[i]['videoPath']}: {str(e)}",
