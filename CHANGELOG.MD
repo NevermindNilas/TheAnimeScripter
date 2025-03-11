@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Upgraded TensorRT to `10.9.0` adding Nvidia Blackwell ( RTX 5000 ) support.
 - Slightly simplified `main.py`
 - Added more logging for when the user processes a directory rather than a simple file.
+- Slight adjustments to the code to be more resource efficient.
+- Minor improvements to initial launch time ( ~150ms )
 
 ### Fixed
 - Performance regression when encoding
