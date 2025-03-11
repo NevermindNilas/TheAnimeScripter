@@ -26,7 +26,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         outpoint=0,
         encode_method="x264",
         custom_encoder="",
-        buffer_limit=50,
         benchmark=False,
         totalFrames=0,
         mainPath: str = None,
@@ -42,7 +41,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self.outpoint = outpoint
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
-        self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.mainPath = mainPath
@@ -167,7 +165,6 @@ class AnimeSegmentTensorRT:
         outpoint=0,
         encode_method="x264",
         custom_encoder="",
-        buffer_limit=50,
         benchmark=False,
         totalFrames=0,
         mainPath: str = None,
@@ -183,7 +180,6 @@ class AnimeSegmentTensorRT:
         self.outpoint = outpoint
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
-        self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.mainPath = mainPath
@@ -389,7 +385,6 @@ class AnimeSegmentDirectML:
         outpoint=0,
         encode_method="x264",
         custom_encoder="",
-        buffer_limit=50,
         benchmark=False,
         totalFrames=0,
         mainPath: str = None,
@@ -405,7 +400,6 @@ class AnimeSegmentDirectML:
         self.outpoint = outpoint
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
-        self.buffer_limit = buffer_limit
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.mainPath = mainPath
@@ -437,7 +431,6 @@ class AnimeSegmentDirectML:
                 self.width,
                 self.height,
                 self.fps,
-                self.buffer_limit,
                 sharpen=False,
                 sharpen_sens=None,
                 grayscale=False,

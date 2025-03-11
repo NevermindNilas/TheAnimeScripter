@@ -78,7 +78,6 @@ class VideoProcessor:
         self.resize_factor = args.resize_factor
         self.resize_method = args.resize_method
         self.custom_model = args.custom_model
-        self.buffer_limit = args.buffer_limit
         self.restore = args.restore
         self.restore_method = args.restore_method
         self.benchmark = args.benchmark
@@ -322,9 +321,8 @@ if __name__ == "__main__":
         logging.basicConfig(
             filename=os.path.join(mainPath, "TAS-Log.log"),
             filemode="w",
-            format="%(asctime)s - %(levelname)s - %(message)s",
+            format="%(message)s",
             level=logging.INFO,
-            datefmt="%Y-%m-%d %H:%M:%S",
         )
         logging.info("============== Command Line Arguments ==============")
         logging.info(f"{' '.join(sys.argv)}\n")

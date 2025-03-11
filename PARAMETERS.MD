@@ -286,7 +286,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 | Argument           | Type   | Default | Description                                                                    | Choices     |
 |--------------------|--------|---------|--------------------------------------------------------------------------------|-------------|
 | `--half`           | string | True    | Enable FP16 for improved performance                                           | True, False |
-| `--buffer_limit`   | int    | 50      | Set the limit for decoding and encoding buffers                                |             |
 | `--static`         | flag   | True    | Force static engine generation and bypass the arbitrary set limitations of TAS |             |
 | `--decode_threads` | int    | 4       | The amount of threads utilized for decoding                                    |             |
 
