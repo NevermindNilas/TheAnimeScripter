@@ -1,5 +1,4 @@
 import logging
-from src.utils.coloredPrints import *  # noqa
 from src.utils.coloredPrints import cyan, red, yellow, green
 
 

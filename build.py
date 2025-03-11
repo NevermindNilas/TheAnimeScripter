@@ -77,8 +77,6 @@ def createExecutable():
         "inquirer",
         "--collect-all",
         "readchar",
-        "--collect-all",
-        "grapheme",
         str(mainPath),
     ]
 

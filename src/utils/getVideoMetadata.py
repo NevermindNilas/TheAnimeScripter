@@ -94,7 +94,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint, mainPath, ffprobePath):
         )
 
         saveMetadata(metadata, mainPath)
-        return width, height, fps, totalFramesToProcess, hasAudio
+        return metadata
 
     except Exception as e:
         logging.error(f"Error getting metadata with ffprobe: {e}")
