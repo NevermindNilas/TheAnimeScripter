@@ -377,6 +377,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "base_v2-directml",
             "large_v2-directml",
             "distill_small_v2",
+            "distill_base_v2",
         ],
         default="small_v2",
         help="Depth estimation method",
@@ -535,7 +536,7 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         "directml",
     ]:
         logAndPrint(
-            f"{args.depth_quality.upper()} depth estimation quality is deprecated for tensorrt and directml, defaulting to low quality",
+            f"{args.depth_quality.upper()} depth estimation quality is incomaptible with tensorrt and directml, defaulting to low quality",
             "yellow",
         )
         args.depth_quality = "low"
