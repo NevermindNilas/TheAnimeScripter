@@ -19,6 +19,9 @@ def calculateAspectRatio(width, height, depthQuality="high"):
         # better results than the model's native resolution
         newWidth = ((width + 13) // 14) * 14
         newHeight = ((height + 13) // 14) * 14
+    elif depthQuality == "medium":
+        newHeight = 700
+        newWidth = 700
     else:
         newHeight = 518
         newWidth = 518
@@ -142,7 +145,7 @@ class DepthCuda:
         else:
             modelPath = os.path.join(weightsDir, self.filename, self.filename)
 
-        model_configs = {
+        modelConfigs = {
             "vits": {
                 "encoder": "vits",
                 "features": 64,
@@ -165,7 +168,7 @@ class DepthCuda:
             },
         }
 
-        self.model = DepthAnythingV2(**model_configs[method])
+        self.model = DepthAnythingV2(**modelConfigs[method])
 
         if "distill" in self.depth_method:
             from safetensors.torch import load_file

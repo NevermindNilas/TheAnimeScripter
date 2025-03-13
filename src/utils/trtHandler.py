@@ -4,7 +4,7 @@ import os
 import logging
 
 from typing import List, Tuple
-from src.utils.logAndPrint import logAndPrint
+from src.utils.logAndPrint import logAndPrint, coloredPrint
 from src.utils.coloredPrints import cyan
 
 
@@ -45,7 +45,7 @@ def setOptimizationProfile(
             inputName, inputsMin, inputsOpt, inputsMax
         ):
             profile.set_shape(name, minShape, optShape, maxShape)
-            cyan(
+            coloredPrint(
                 f"╭─ Input: {name}\n"
                 f"├─ Min: {minShape}\n"
                 f"├─ Opt: {optShape}\n"
@@ -56,7 +56,7 @@ def setOptimizationProfile(
             )
     else:
         profile.set_shape(inputName[0], inputsMin, inputsOpt, inputsMax)
-        cyan(
+        coloredPrint(
             f"╭─ Input: {inputName[0]}\n"
             f"├─ Min: {inputsMin}\n"
             f"├─ Opt: {inputsOpt}\n"
