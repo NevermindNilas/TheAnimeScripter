@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- A bug within the download models importing
+
+
+## [2.1.0] - 2025-03-12
 #### Added
 - An automated error handler for when the user wants to use a model which does not work on their system ( WIP ).
 
