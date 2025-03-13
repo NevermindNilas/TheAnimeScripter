@@ -585,6 +585,8 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
 
     ISCUDA = CudaChecker()
     if not ISCUDA.cudaAvailable:
+        from .downloadModels import downloadModels, modelsList
+
         availableModels = modelsList()
         for attr in [
             "interpolate_method",
