@@ -23,9 +23,7 @@ else:
     weightsDir = os.path.join(mainPath, "weights")
 
 TASURL = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
-DEPTHURL = (
-    "https://huggingface.co/spaces/LiheYoung/Depth-Anything/resolve/main/checkpoints/"
-)
+
 SUDOURL = (
     "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
 )
@@ -132,6 +130,7 @@ def modelsList() -> list[str]:
         "differential-tensorrt",
         "gmfss",
         "flownets",
+        "distill_small_v2",
     ]
 
 
@@ -590,6 +589,9 @@ def modelsMap(
                 return "depth_anything_v2_vitl_fp16.onnx"
             else:
                 return "depth_anything_v2_vitl_fp32.onnx"
+
+        case "distill_small_v2":
+            return "distill_small_v2.safetensors"
 
         case _:
             raise ValueError(f"Model {model} not found.")
