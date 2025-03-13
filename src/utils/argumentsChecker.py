@@ -530,12 +530,12 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         print(yellow("Realtime preview enabled, this is experimental!"))
 
     # ["tensorrt", "directml"] in args.depth_method:
-    if args.depth_quality != ["low", "medium"] and args.depth_method.split("-")[-1] in [
+    if args.depth_quality not in ["low"] and args.depth_method.split("-")[-1] in [
         "tensorrt",
         "directml",
     ]:
         logAndPrint(
-            "High quality depth estimation is deprecated  tensorrt and directml, defaulting to low quality",
+            f"{args.depth_quality.upper()} depth estimation quality is deprecated for tensorrt and directml, defaulting to low quality",
             "yellow",
         )
         args.depth_quality = "low"
