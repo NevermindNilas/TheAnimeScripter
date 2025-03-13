@@ -416,7 +416,7 @@ class DepthDirectMLV2:
                 frame,
                 size=(self.newHeight, self.newWidth),
                 mode="bicubic",
-                align_corners=False,
+                align_corners=True,
             )
 
             if self.half:
@@ -440,7 +440,7 @@ class DepthDirectMLV2:
                 self.dummyOutput.float().unsqueeze(0),
                 size=(self.height, self.width),
                 mode="bicubic",
-                align_corners=False,
+                align_corners=True,
             )
 
             depth = (depth - depth.min()) / (depth.max() - depth.min())
@@ -658,7 +658,7 @@ class DepthTensorRTV2:
                 frame.float(),
                 (self.newHeight, self.newWidth),
                 mode="bicubic",
-                align_corners=False,
+                align_corners=True,
             )
             frame = (frame - self.mean_tensor) / self.std_tensor
             if self.half:
@@ -673,7 +673,7 @@ class DepthTensorRTV2:
                 self.dummyOutput,
                 size=[self.height, self.width],
                 mode="bicubic",
-                align_corners=False,
+                align_corners=True,
             )
             depth = (depth - depth.min()) / (depth.max() - depth.min())
         self.outputNormStream.synchronize()
