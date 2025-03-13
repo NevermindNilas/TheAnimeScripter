@@ -112,6 +112,22 @@ class DepthCuda:
     def handleModels(self):
         from .dpt_v2 import DepthAnythingV2
 
+        match self.depth_method:
+            case "small_v2" | "distill_small_v2":
+                method = "vits"
+            case "base_v2" | "distill_base_v2":
+                method = "vitb"
+            case "large_v2":
+                method = "vitl"
+            case "giant_v2":
+                raise NotImplementedError("Giant model not available yet")
+                # method = "vitg"
+
+        if "distill" in self.depth_method:
+            modelType = "safetensors"
+        else:
+            modelType = "pth"
+
         self.filename = modelsMap(
             model=self.depth_method, modelType="pth", half=self.half
         )
@@ -120,22 +136,11 @@ class DepthCuda:
             modelPath = downloadModels(
                 model=self.depth_method,
                 half=self.half,
-                modelType="pth",
+                modelType=modelType,
             )
 
         else:
             modelPath = os.path.join(weightsDir, self.filename, self.filename)
-
-        match self.depth_method:
-            case "small_v2":
-                method = "vits"
-            case "base_v2":
-                method = "vitb"
-            case "large_v2":
-                method = "vitl"
-            case "giant_v2":
-                raise NotImplementedError("Giant model not available yet")
-                # method = "vitg"
 
         model_configs = {
             "vits": {
@@ -161,7 +166,16 @@ class DepthCuda:
         }
 
         self.model = DepthAnythingV2(**model_configs[method])
-        self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
+
+        if "distill" in self.depth_method:
+            from safetensors.torch import load_file
+
+            model_weights = load_file(modelPath)
+            self.model.load_state_dict(model_weights)
+            del model_weights
+            torch.cuda.empty_cache()
+        else:
+            self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
         self.model = self.model.to(checker.device).eval()
 
         if self.half and checker.cudaAvailable:
@@ -185,10 +199,10 @@ class DepthCuda:
     @torch.inference_mode()
     def normFrame(self, frame):
         frame = F.interpolate(
-            frame.float(),
+            frame,
             (self.newHeight, self.newWidth),
             mode="bicubic",
-            align_corners=False,
+            align_corners=True,
         )
 
         frame = (frame - self.mean_tensor) / self.std_tensor
@@ -204,7 +218,7 @@ class DepthCuda:
             depth,
             (self.height, self.width),
             mode="bicubic",
-            align_corners=False,
+            align_corners=True,
         )
         return (depth - depth.min()) / (depth.max() - depth.min())
 

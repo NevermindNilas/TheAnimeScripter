@@ -376,6 +376,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "small_v2-directml",
             "base_v2-directml",
             "large_v2-directml",
+            "distill_small_v2",
         ],
         default="small_v2",
         help="Depth estimation method",

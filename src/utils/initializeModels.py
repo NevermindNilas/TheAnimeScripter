@@ -79,7 +79,14 @@ def Segment(self, mainPath):
 
 def Depth(self, mainPath):
     match self.depth_method:
-        case "small_v2" | "base_v2" | "large_v2":
+        case (
+            "small_v2"
+            | "base_v2"
+            | "large_v2"
+            | "distill_small_v2"
+            | "distill_base_v2"
+            | "distill_large_v2"
+        ):
             from src.depth.depth import DepthCuda
 
             DepthCuda(
