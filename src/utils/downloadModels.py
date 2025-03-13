@@ -131,6 +131,7 @@ def modelsList() -> list[str]:
         "gmfss",
         "flownets",
         "distill_small_v2",
+        "distill_base_v2",
     ]
 
 
@@ -592,6 +593,9 @@ def modelsMap(
 
         case "distill_small_v2":
             return "distill_small_v2.safetensors"
+
+        case "distill_base_v2":
+            return "distill_base_v2.safetensors"
 
         case _:
             raise ValueError(f"Model {model} not found.")
