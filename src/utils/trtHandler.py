@@ -5,6 +5,7 @@ import logging
 
 from typing import List, Tuple
 from src.utils.logAndPrint import logAndPrint, coloredPrint
+from .progressBarLogic import ADOBE
 
 
 def createNetworkAndConfig(
@@ -44,23 +45,27 @@ def setOptimizationProfile(
             inputName, inputsMin, inputsOpt, inputsMax
         ):
             profile.set_shape(name, minShape, optShape, maxShape)
-            coloredPrint(
-                f"|- Input: {name}\n"
-                f"|- Min: {minShape}\n"
-                f"|- Opt: {optShape}\n"
-                f"|- Max: {maxShape}",
-            )
+            if not ADOBE:
+                # this screws with Adobe's console
+                coloredPrint(
+                    f"╭─ Input: {name}\n"
+                    f"├─ Min: {minShape}\n"
+                    f"├─ Opt: {optShape}\n"
+                    f"╰─ Max: {maxShape}",
+                )
             logging.info(
                 f"Input: {name}\nMin: {minShape}\nOpt: {optShape}\nMax: {maxShape}",
             )
     else:
         profile.set_shape(inputName[0], inputsMin, inputsOpt, inputsMax)
-        coloredPrint(
-            f"|- Input: {inputName[0]}\n"
-            f"|- Min: {inputsMin}\n"
-            f"|- Opt: {inputsOpt}\n"
-            f"|- Max: {inputsMax}",
-        )
+        if not ADOBE:
+            # this screws with Adobe's console
+            coloredPrint(
+                f"╭─ Input: {inputName[0]}\n"
+                f"├─ Min: {inputsMin}\n"
+                f"├─ Opt: {inputsOpt}\n"
+                f"╰─ Max: {inputsMax}",
+            )
         logging.info(
             f"Input: {inputName[0]}\n"
             f"Min: {inputsMin}\n"
