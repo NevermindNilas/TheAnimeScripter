@@ -46,10 +46,10 @@ def setOptimizationProfile(
         ):
             profile.set_shape(name, minShape, optShape, maxShape)
             coloredPrint(
-                f"╭─ Input: {name}\n"
-                f"├─ Min: {minShape}\n"
-                f"├─ Opt: {optShape}\n"
-                f"╰─ Max: {maxShape}",
+                f"|- Input: {name}\n"
+                f"|- Min: {minShape}\n"
+                f"|- Opt: {optShape}\n"
+                f"|- Max: {maxShape}",
             )
             logging.info(
                 f"Input: {name}\nMin: {minShape}\nOpt: {optShape}\nMax: {maxShape}",
@@ -57,10 +57,10 @@ def setOptimizationProfile(
     else:
         profile.set_shape(inputName[0], inputsMin, inputsOpt, inputsMax)
         coloredPrint(
-            f"╭─ Input: {inputName[0]}\n"
-            f"├─ Min: {inputsMin}\n"
-            f"├─ Opt: {inputsOpt}\n"
-            f"╰─ Max: {inputsMax}",
+            f"|- Input: {inputName[0]}\n"
+            f"|- Min: {inputsMin}\n"
+            f"|- Opt: {inputsOpt}\n"
+            f"|- Max: {inputsMax}",
         )
         logging.info(
             f"Input: {inputName[0]}\n"
