@@ -5,7 +5,6 @@ import logging
 
 from typing import List, Tuple
 from src.utils.logAndPrint import logAndPrint, coloredPrint
-from src.utils.coloredPrints import cyan
 
 
 def createNetworkAndConfig(
