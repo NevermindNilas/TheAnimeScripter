@@ -4,7 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.2] - 2025-03-14
+#### Added
+- N/A
+
+#### Changed
+- More error handlers for easier debugging
+
+#### Fixed
+- An issue where utf-8 decoding would break Adobe Edition.
+
+
+
+## [2.1.1] - 2025-03-13
 #### Added
 - 2 New Depth Models, `distill_small_v2` and `distill_base_v2` which provide better quality with better performance.
 - `medium` depth quality for better output results for marginal performance loss.
