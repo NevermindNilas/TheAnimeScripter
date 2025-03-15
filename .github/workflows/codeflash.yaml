@@ -18,7 +18,7 @@ jobs:
     name: Optimize new Python code in this PR
     # Don't run codeflash on codeflash-ai[bot] commits, prevent duplicate optimizations
     if: ${{ github.actor != 'codeflash-ai[bot]' }}
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     env:
       CODEFLASH_API_KEY: ${{ secrets.CODEFLASH_API_KEY }}
       CODEFLASH_PR_NUMBER: ${{ github.event.number }}
