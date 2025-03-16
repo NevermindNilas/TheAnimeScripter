@@ -253,7 +253,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `"x264_animation_10bit"`: libx264, preset veryfast, tune animation, CRF 15, high10 profile
 - `"x265"`: libx265, preset veryfast, CRF 15
 - `"x265_10bit"`: libx265, preset veryfast, CRF 15, main10 profile
-- `"h266"`: libvvenc, QP 24, preset 0
 
 ### Hardware Encoders
 - `"nvenc_h264"`: h264_nvenc, preset p1, CQ 15
