@@ -424,7 +424,6 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
             "gif",
             "vp9",
             "qsv_vp9",
-            "h266",
             "lossless",
             "lossless_nvenc",
         ],

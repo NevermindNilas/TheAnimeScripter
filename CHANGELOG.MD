@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - YYYY-MM-DD
+#### Added
+- Test(s)
+
+#### Changed
+- Removed `h266`
+
+#### Fixed
+- N/A
+
+### Adobe Edition
+#### Added
+- N/A
+
+#### Changed
+- Small UI redesign for `Extra` and `Toolbox`
+
+#### Fixed
+- Precomp didn't inherit the framerate of the composition above it.
+
 ## [2.1.2] - 2025-03-14
 #### Added
 - N/A
