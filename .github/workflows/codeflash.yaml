@@ -12,7 +12,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-
 jobs:
   optimize:
     name: Optimize new Python code in this PR
@@ -22,6 +21,7 @@ jobs:
     env:
       CODEFLASH_API_KEY: ${{ secrets.CODEFLASH_API_KEY }}
       CODEFLASH_PR_NUMBER: ${{ github.event.number }}
+      PYTHONIOENCODING: "utf8"
     
     steps:
       - uses: actions/checkout@v4
