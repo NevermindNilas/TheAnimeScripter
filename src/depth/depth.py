@@ -13,6 +13,14 @@ from src.utils.isCudaInit import CudaChecker
 checker = CudaChecker()
 
 
+MEANTENSOR = (
+    torch.tensor([0.485, 0.456, 0.406]).contiguous().view(3, 1, 1).to(checker.device)
+)
+STDTENSOR = (
+    torch.tensor([0.229, 0.224, 0.225]).contiguous().view(3, 1, 1).to(checker.device)
+)
+
+
 def calculateAspectRatio(width, height, depthQuality="high"):
     if depthQuality == "high":
         # Whilst this doesn't necessarily allign with the model, it produces
@@ -184,13 +192,6 @@ class DepthCuda:
         if self.half and checker.cudaAvailable:
             self.model = self.model.half()
 
-        self.mean_tensor = (
-            torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1).to(checker.device)
-        )
-        self.std_tensor = (
-            torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1).to(checker.device)
-        )
-
         self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality
         )
@@ -208,7 +209,7 @@ class DepthCuda:
             align_corners=True,
         )
 
-        frame = (frame - self.mean_tensor) / self.std_tensor
+        frame = (frame - MEANTENSOR) / STDTENSOR
 
         if self.half and checker.cudaAvailable:
             frame = frame.half()
@@ -615,21 +616,6 @@ class DepthTensorRTV2:
             dtype=torch.float16 if self.half else torch.float32,
         )
 
-        self.mean_tensor = (
-            torch.tensor([0.485, 0.456, 0.406])
-            .view(3, 1, 1)
-            .to(
-                checker.device,
-            )
-        )
-        self.std_tensor = (
-            torch.tensor([0.229, 0.224, 0.225])
-            .view(3, 1, 1)
-            .to(
-                checker.device,
-            )
-        )
-
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
 
         for i in range(self.engine.num_io_tensors):
@@ -660,7 +646,7 @@ class DepthTensorRTV2:
                 mode="bicubic",
                 align_corners=True,
             )
-            frame = (frame - self.mean_tensor) / self.std_tensor
+            frame = (frame - MEANTENSOR) / STDTENSOR
             if self.half:
                 frame = frame.half()
             self.dummyInput.copy_(frame, non_blocking=True)
