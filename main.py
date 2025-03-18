@@ -52,54 +52,55 @@ class VideoProcessor:
         self.encode_method = results["encodeMethod"]
         self.custom_encoder = results["customEncoder"]
 
-        self.interpolate = args.interpolate
-        self.interpolate_factor = args.interpolate_factor
-        self.interpolate_method = args.interpolate_method
-        self.upscale = args.upscale
-        self.upscale_factor = args.upscale_factor
-        self.upscale_method = args.upscale_method
-        self.dedup = args.dedup
-        self.dedup_method = args.dedup_method
-        self.dedup_sens = args.dedup_sens
-        self.half = args.half
-        self.inpoint = args.inpoint
-        self.outpoint = args.outpoint
-        self.sharpen = args.sharpen
-        self.sharpen_sens = args.sharpen_sens
-        self.segment = args.segment
-        self.autoclip = args.autoclip
-        self.autoclip_sens = args.autoclip_sens
-        self.depth = args.depth
-        self.depth_method = args.depth_method
-        self.ffmpeg_path = args.ffmpeg_path
-        self.ensemble = args.ensemble
-        self.resize = args.resize
-        self.resize_factor = args.resize_factor
-        self.resize_method = args.resize_method
-        self.custom_model = args.custom_model
-        self.restore = args.restore
-        self.restore_method = args.restore_method
-        self.benchmark = args.benchmark
-        self.segment_method = args.segment_method
-        self.scenechange = args.scenechange
-        self.scenechange_sens = args.scenechange_sens
-        self.scenechange_method = args.scenechange_method
-        self.bit_depth = args.bit_depth
-        self.preview = args.preview
-        self.forceStatic = args.static
-        self.depth_quality = args.depth_quality
-        self.decode_threads = args.decode_threads
-        self.realtime = args.realtime
-        self.dynamic_scale = args.dynamic_scale
-        self.static_step = args.static_step
-        self.slowmo = args.slowmo
+        self.interpolate: bool = args.interpolate
+        self.interpolate_factor: int = args.interpolate_factor
+        self.interpolate_method: str = args.interpolate_method
+        self.upscale: bool = args.upscale
+        self.upscale_factor: int = args.upscale_factor
+        self.upscale_method: str = args.upscale_method
+        self.dedup: bool = args.dedup
+        self.dedup_method: str = args.dedup_method
+        self.dedup_sens: float = args.dedup_sens
+        self.half: bool = args.half
+        self.inpoint: float = args.inpoint
+        self.outpoint: float = args.outpoint
+        self.sharpen: bool = args.sharpen
+        self.sharpen_sens: float = args.sharpen_sens
+        self.autoclip: bool = args.autoclip
+        self.autoclip_sens: float = args.autoclip_sens
+        self.depth: bool = args.depth
+        self.depth_method: str = args.depth_method
+        self.ffmpeg_path: str = args.ffmpeg_path
+        self.ensemble: bool = args.ensemble
+        self.resize: bool = args.resize
+        self.resize_factor: float = args.resize_factor
+        self.resize_method: str = args.resize_method
+        self.custom_model: str = args.custom_model
+        self.restore: bool = args.restore
+        self.restore_method: str = args.restore_method
+        self.benchmark: bool = args.benchmark
+        self.segment: bool = args.segment
+        self.segment_method: str = args.segment_method
+        self.scenechange: bool = args.scenechange
+        self.scenechange_sens: float = args.scenechange_sens
+        self.scenechange_method: str = args.scenechange_method
+        self.bit_depth: str = args.bit_depth
+        self.preview: bool = args.preview
+        self.forceStatic: bool = args.static
+        self.depth_quality: str = args.depth_quality
+        self.decode_threads: int = args.decode_threads
+        self.realtime: bool = args.realtime
+        self.dynamic_scale: bool = args.dynamic_scale
+        self.static_step: bool = args.static_step
+        self.slowmo: bool = args.slowmo
+        self.interpolate_first: bool = args.interpolate_first
 
         # Video Metadata
-        self.width = videoMetadata["Width"]
-        self.height = videoMetadata["Height"]
-        self.fps = videoMetadata["FPS"]
-        self.totalFrames = videoMetadata["TotalFramesToBeProcessed"]
-        self.audio = videoMetadata["HasAudio"]
+        self.width: int = videoMetadata["Width"]
+        self.height: int = videoMetadata["Height"]
+        self.fps: float = videoMetadata["FPS"]
+        self.totalFrames: int = videoMetadata["TotalFramesToBeProcessed"]
+        self.audio: bool = videoMetadata["HasAudio"]
         if self.slowmo:
             self.outputFPS = self.fps
             if self.audio:
@@ -138,7 +139,7 @@ class VideoProcessor:
         else:
             self.start()
 
-    def processFrame(self, frame):
+    def processFrame(self, frame: any) -> None:
         if self.dedup and self.dedup_process(frame):
             self.dedupCount += 1
             return
@@ -151,35 +152,50 @@ class VideoProcessor:
         if self.restore:
             frame = self.restore_process(frame)
 
-        if self.interpolate:
-            if self.isSceneChange:
-                self.interpolate_process.cacheFrameReset(frame)
-            else:
-                self.interpolate_process(frame, self.interpQueue)
-
-        if self.upscale:
+        if self.interpolate_first:
             if self.interpolate:
                 if self.isSceneChange:
-                    frame = self.upscale_process(frame)
-                    for _ in range(self.interpolate_factor - 1):
-                        self.writeBuffer.write(frame)
+                    self.interpolate_process.cacheFrameReset(frame)
                 else:
-                    while not self.interpQueue.empty():
-                        self.writeBuffer.write(
-                            self.upscale_process(self.interpQueue.get())
-                        )
+                    self.interpolate_process(frame, self.interpQueue)
+
+            if self.upscale:
+                if self.interpolate:
+                    if self.isSceneChange:
+                        frame = self.upscale_process(frame)
+                        for _ in range(self.interpolate_factor - 1):
+                            self.writeBuffer.write(frame)
+                    else:
+                        while not self.interpQueue.empty():
+                            self.writeBuffer.write(
+                                self.upscale_process(self.interpQueue.get())
+                            )
+                        self.writeBuffer.write(self.upscale_process(frame))
+                else:
                     self.writeBuffer.write(self.upscale_process(frame))
+
             else:
-                self.writeBuffer.write(self.upscale_process(frame))
+                if self.interpolate:
+                    if self.isSceneChange or not self.interpQueue.empty():
+                        for _ in range(self.interpolate_factor - 1):
+                            frameToWrite = (
+                                frame if self.isSceneChange else self.interpQueue.get()
+                            )
+                            self.writeBuffer.write(frameToWrite)
+
+                self.writeBuffer.write(frame)
 
         else:
+            if self.upscale:
+                frame = self.upscale_process(frame)
+
             if self.interpolate:
-                if self.isSceneChange or not self.interpQueue.empty():
+                if self.isSceneChange:
                     for _ in range(self.interpolate_factor - 1):
-                        frameToWrite = (
-                            frame if self.isSceneChange else self.interpQueue.get()
-                        )
-                        self.writeBuffer.write(frameToWrite)
+                        self.writeBuffer.write(frame)
+                    self.interpolate_process.cacheFrameReset(frame)
+                else:
+                    self.interpolate_process(frame, self.writeBuffer)
 
             self.writeBuffer.write(frame)
 
@@ -194,7 +210,7 @@ class VideoProcessor:
         self.isSceneChange = False
         self.sceneChangeCounter = 0
         increment = 1 if not self.interpolate else self.interpolate_factor
-        if self.interpolate:
+        if self.interpolate and self.interpolate_first:
             self.interpQueue = Queue(maxsize=self.interpolate_factor - 1)
 
         try:
@@ -307,9 +323,10 @@ class VideoProcessor:
             logging.exception(f"Something went wrong while starting the processes, {e}")
 
 
-if __name__ == "__main__":
+def main():
     try:
         sysUsed = system()
+        global mainPath
         mainPath = (
             os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
             if sysUsed == "Windows"
@@ -398,3 +415,7 @@ if __name__ == "__main__":
         logAndPrint(f"An unexpected error occurred: {str(e)}", colorFunc="red")
         logging.exception("Fatal error in main execution")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

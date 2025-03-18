@@ -188,6 +188,16 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         action="store_true",
         help="Force Static Timestep generation for Rife CUDA",
     )
+    interpolationGroup.add_argument(
+        "--interpolate_first",
+        type=str2bool,
+        nargs="?",
+        const=True,
+        default=False,
+        help="[NOT IMPLEMENTED YET] "
+        "Switch back to the old approach where interpolated frames would instantly be written to the write queue "
+        "increasing performance when only interpolation was desired.",
+    )
 
     # Upscaling options
     upscaleGroup = argParser.add_argument_group("Upscaling")

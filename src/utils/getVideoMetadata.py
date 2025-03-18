@@ -45,6 +45,10 @@ def getVideoMetadata(inputPath, inPoint, outPoint, mainPath, ffprobePath):
         ]
 
         result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            logging.error(f"ffprobe failed: {result.stderr}")
+            raise Exception(f"ffprobe failed: {result.stderr}")
+
         probeData = json.loads(result.stdout)
 
         # Get video stream
