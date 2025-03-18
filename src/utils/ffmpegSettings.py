@@ -311,6 +311,7 @@ class WriteBuffer:
         inpoint: float = 0.0,
         outpoint: float = 0.0,
         realtime: bool = False,
+        slowmo: bool = False,
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -352,6 +353,7 @@ class WriteBuffer:
         self.outpoint = outpoint
         self.mainPath = mainPath
         self.realtime = realtime
+        self.slowmo = slowmo
         # ffmpeg path "C:\Users\User\AppData\Roaming\TheAnimeScripter\ffmpeg\ffmpeg.exe"
         self.mpvPath = os.path.join(os.path.dirname(self.ffmpegPath), "mpv.exe")
 
@@ -416,7 +418,7 @@ class WriteBuffer:
                 "-r",
                 str(self.fps),
             ]
-            if self.outpoint != 0:
+            if self.outpoint != 0 and not self.slowmo:
                 command.extend(
                     [
                         "-itsoffset",
