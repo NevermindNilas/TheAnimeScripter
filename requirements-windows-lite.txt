@@ -1,6 +1,6 @@
 opencv-python-headless
 timm
-numpy==2.2.3
+numpy==2.2.4
 kornia
 spandrel
 yt-dlp
