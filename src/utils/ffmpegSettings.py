@@ -261,9 +261,15 @@ class BuildBuffer:
                         .clamp(0, 1)
                     )
             normStream.synchronize()
-            return frame
+            return frame.contiguous()
         else:
-            return frame.mul(multiply).clamp(0, 1).permute(2, 0, 1).unsqueeze(0)
+            return (
+                frame.mul(multiply)
+                .clamp(0, 1)
+                .permute(2, 0, 1)
+                .unsqueeze(0)
+                .contiguous()
+            )
 
     def read(self):
         """
