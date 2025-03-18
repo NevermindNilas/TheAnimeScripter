@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Removed `h266`
 
 #### Fixed
-- N/A
+- Fixed more issues with non `utf-8` compliant paths. [Thanks Sergio]
 
 ### Adobe Edition
 #### Added
