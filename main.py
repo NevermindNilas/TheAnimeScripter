@@ -92,6 +92,7 @@ class VideoProcessor:
         self.realtime = args.realtime
         self.dynamic_scale = args.dynamic_scale
         self.static_step = args.static_step
+        self.slowmo = args.slowmo
 
         # Video Metadata
         self.width = videoMetadata["Width"]
@@ -99,9 +100,18 @@ class VideoProcessor:
         self.fps = videoMetadata["FPS"]
         self.totalFrames = videoMetadata["TotalFramesToBeProcessed"]
         self.audio = videoMetadata["HasAudio"]
-        self.outputFPS = (
-            self.fps * args.interpolate_factor if args.interpolate else self.fps
-        )
+        if self.slowmo:
+            self.outputFPS = self.fps
+            if self.audio:
+                logAndPrint(
+                    "Slowmo is enabled, audio will be disabled",
+                    colorFunc="yellow",
+                )
+                self.audio = False
+        else:
+            self.outputFPS = (
+                self.fps * args.interpolate_factor if args.interpolate else self.fps
+            )
 
         logging.info("\n============== Processing Outputs ==============")
 
@@ -263,6 +273,7 @@ class VideoProcessor:
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
                 realtime=self.realtime,
+                slowmo=self.slowmo,
             )
 
             if self.preview:
