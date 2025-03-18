@@ -358,7 +358,7 @@ class WriteBuffer:
         self.mpvPath = os.path.join(os.path.dirname(self.ffmpegPath), "mpv.exe")
 
         self.writtenFrames = 0
-        self.writeBuffer = Queue(maxsize=20)
+        self.writeBuffer = Queue(maxsize=10)
 
     def encodeSettings(self) -> list:
         """
