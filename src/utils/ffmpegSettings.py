@@ -358,7 +358,7 @@ class WriteBuffer:
         self.mpvPath = os.path.join(os.path.dirname(self.ffmpegPath), "mpv.exe")
 
         self.writtenFrames = 0
-        self.writeBuffer = Queue(maxsize=10)
+        self.writeBuffer = Queue(maxsize=20)
 
     def encodeSettings(self) -> list:
         """
@@ -624,6 +624,14 @@ class WriteBuffer:
         """
         Add a frame to the queue. Must be in [B, C, H, W] format.
         """
+        self.writeBuffer.put(frame)
+
+    def put(self, frame: torch.Tensor):
+        """
+        Equivalent to write()
+        Add a frame to the queue. Must be in [B, C, H, W] format.
+        """
+
         self.writeBuffer.put(frame)
 
     def close(self):

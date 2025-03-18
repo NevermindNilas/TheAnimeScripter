@@ -21,9 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 #### Changed
 - Small UI redesign for `Extra` and `Toolbox`
+- "Path Errors" will now result in toasts rather than annoying alerts.
+- Added `slowmo` button to the interpolation tab.
 
 #### Fixed
-- Precomp didn't inherit the framerate of the composition above it.
+- 
 
 ## [2.1.2] - 2025-03-14
 #### Added
