@@ -169,6 +169,11 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         help="Interpolation method",
     )
     interpolationGroup.add_argument(
+        "--slowmo",
+        action="store_true",
+        help="Enable slow motion interpolation, this will slow down the video instead of increasing the frame rate",
+    )
+    interpolationGroup.add_argument(
         "--ensemble",
         action="store_true",
         help="Use the ensemble model for interpolation",
@@ -528,6 +533,13 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
 
     if args.realtime:
         print(yellow("Realtime preview enabled, this is experimental!"))
+
+    if args.slowmo and not args.interpolate:
+        logAndPrint(
+            "Slow motion is enabled but interpolation is not, disabling slowmo",
+            "yellow",
+        )
+        args.slowmo = False
 
     # ["tensorrt", "directml"] in args.depth_method:
     if args.depth_quality not in ["low"] and args.depth_method.split("-")[-1] in [
