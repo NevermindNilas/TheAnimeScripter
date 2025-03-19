@@ -194,6 +194,7 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
         nargs="?",
         const=True,
         default=True,
+        choices=[True, False],
         help="[NOT IMPLEMENTED YET] "
         "Switch back to the old approach where interpolated frames would instantly be written to the write queue, "
         "this can improve performance in cpu or ram bound scenarios.",
