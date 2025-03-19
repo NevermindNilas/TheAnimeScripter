@@ -236,30 +236,18 @@ class BuildBuffer:
             Returns:
                 The processed frame.
         """
-        if frame.dtype == torch.uint8:
-            multiply = 1 / 255
-        elif frame.dtype == torch.uint16:
-            multiply = 1 / 65535
+        multiply = 1 / 255 if frame.dtype == torch.uint8 else 1 / 65535
+        dtype = torch.float16 if self.half else torch.float32
 
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
-                if self.half:
-                    frame = (
-                        frame.to(device="cuda", non_blocking=True, dtype=torch.float16)
-                        .mul(multiply)
-                        .permute(2, 0, 1)
-                        .unsqueeze(0)
-                        .clamp(0, 1)
-                    )
-
-                else:
-                    frame = (
-                        frame.to(device="cuda", non_blocking=True, dtype=torch.float32)
-                        .mul(multiply)
-                        .permute(2, 0, 1)
-                        .unsqueeze(0)
-                        .clamp(0, 1)
-                    )
+                frame = (
+                    frame.to(device="cuda", non_blocking=True, dtype=dtype)
+                    .mul(multiply)
+                    .clamp(0, 1)
+                    .permute(2, 0, 1)
+                    .unsqueeze(0)
+                )
             normStream.synchronize()
             return frame.contiguous()
         else:

@@ -155,7 +155,6 @@ class UniversalPytorch:
                 non_blocking=False,
             )
         self.normStream.synchronize()
-        return frame
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
