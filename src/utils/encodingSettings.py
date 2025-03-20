@@ -292,7 +292,7 @@ def matchEncoder(encode_method: str):
                     "-cq",
                     "15",
                     "-rc",
-                    "vbr_hq",
+                    "vbr",
                     "-b:v",
                     "0",
                     "-maxrate",
