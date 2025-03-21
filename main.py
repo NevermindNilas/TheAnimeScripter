@@ -45,7 +45,6 @@ class VideoProcessor:
         self,
         args,
         results=None,
-        videoMetadata: dict = None,
     ):
         self.input = results["videoPath"]
         self.output = results["outputPath"]
@@ -95,12 +94,23 @@ class VideoProcessor:
         self.slowmo: bool = args.slowmo
         self.interpolate_first: bool = args.interpolate_first
 
-        # Video Metadata
+        # Get video metadata
+        videoMetadata = getVideoMetadata(
+            self.input,
+            args.inpoint,
+            args.outpoint,
+            mainPath,
+            args.ffprobe_path,
+        )
+
         self.width: int = videoMetadata["Width"]
         self.height: int = videoMetadata["Height"]
         self.fps: float = videoMetadata["FPS"]
         self.totalFrames: int = videoMetadata["TotalFramesToBeProcessed"]
         self.audio: bool = videoMetadata["HasAudio"]
+
+        logging.info("\n============== Processing Outputs ==============")
+
         if self.slowmo:
             self.outputFPS = self.fps
             if self.audio:
@@ -113,8 +123,6 @@ class VideoProcessor:
             self.outputFPS = (
                 self.fps * args.interpolate_factor if args.interpolate else self.fps
             )
-
-        logging.info("\n============== Processing Outputs ==============")
 
         if self.resize:
             aspectRatio = self.width / self.height
@@ -305,17 +313,17 @@ class VideoProcessor:
                     executor.submit(self.preview.start)
 
             elapsedTime: float = time() - starTime
-            totalTime: float = (
+            totalFPS: float = (
                 self.totalFrames
                 / elapsedTime
                 * (1 if not self.interpolate else self.interpolate_factor)
             )
             logging.info(
-                f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalTime:.2f}"
+                f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}"
             )
             print(
                 green(
-                    f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalTime:.2f}"
+                    f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}"
                 )
             )
 
@@ -377,20 +385,9 @@ def main():
                 logAndPrint(
                     f"Output Path: {results[i]['outputPath']}", colorFunc="green"
                 )
-
-                # Get video metadata
-                videoMetadata = getVideoMetadata(
-                    results[i]["videoPath"],
-                    args.inpoint,
-                    args.outpoint,
-                    mainPath,
-                    args.ffprobe_path,
-                )
-
                 VideoProcessor(
                     args,
                     results=results[i],
-                    videoMetadata=videoMetadata,
                 )
 
             except Exception as e:

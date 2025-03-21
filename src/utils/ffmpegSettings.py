@@ -282,6 +282,32 @@ class BuildBuffer:
         """
         return self.decodeBuffer.empty()
 
+    def peekNext(self, length: int):
+        """
+        Takes a peek at decodeBuffer.
+
+        Args:
+            length: The length of the peek.
+
+        Returns:
+            The next frame(s) from the decodeBuffer without removing.
+        """
+
+        if length > len(self.decodeBuffer.queue):
+            return None
+        else:
+            return self.decodeBuffer.queue[:length]
+
+    def removeNext(self, length: int):
+        """
+        Removes the next frame(s) from the decodeBuffer.
+
+        Args:
+            length: The length of the frames to remove.
+        """
+        for _ in range(length):
+            self.decodeBuffer.get()
+
 
 class WriteBuffer:
     def __init__(

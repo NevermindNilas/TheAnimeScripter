@@ -1209,3 +1209,240 @@ class RifeDirectML:
             interpQueue.put(self.dummyOutput)
 
         return frame
+
+
+class MultiPassDedup:
+    def __init__(
+        self,
+        half,
+        width,
+        height,
+        interpolateMethod,
+        ensemble=False,
+        interpolateFactor=2,
+        dynamicScale=False,
+        staticStep=False,
+    ):
+        """
+        Initialize the RIFE model
+
+        Args:
+            half (bool): Half resolution
+            width (int): Width of the frame
+            height (int): Height of the frame
+            interpolateMethod (str): Interpolation method
+            ensemble (bool, optional): Ensemble. Defaults to False.
+            interpolateFactor (int, optional): Interpolation factor. Defaults to 2.
+            dynamicScale (bool, optional): Use Dynamic scale. Defaults to False.
+            staticStep (bool, optional): Use static timestep. Defaults to False.
+        """
+        self.half = half
+        self.scale = 1.0
+        self.width = width
+        self.height = height
+        self.interpolateMethod = interpolateMethod
+        self.ensemble = ensemble
+        self.interpolateFactor = interpolateFactor
+        self.dynamicScale = dynamicScale
+        self.staticStep = staticStep
+
+        if self.width > 1920 and self.height > 1080:
+            self.scale = 0.5
+            if self.half:
+                print(
+                    yellow(
+                        "UHD and fp16 are not compatible with RIFE, defaulting to fp32"
+                    )
+                )
+                logging.info(
+                    "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
+                )
+                self.half = False
+
+        self.handleModel()
+
+    def handleModel(self):
+        """
+        Load the desired model
+        """
+        from src.multipassdedup.utils.tools import TMapper
+
+        self.TMAPPER = TMapper()
+
+        self.filename = modelsMap(self.interpolateMethod)
+        if not os.path.exists(os.path.join(weightsDir, "rife", self.filename)):
+            modelPath = downloadModels(model=self.interpolateMethod)
+        else:
+            modelPath = os.path.join(weightsDir, "rife", self.filename)
+
+        self.dType = torch.float16 if self.half else torch.float32
+
+        IFNet = importRifeArch(self.interpolateMethod, "v1")
+        if self.interpolateMethod in ["rife_elexor"] and self.staticStep:
+            self.staticStep = False
+            logAndPrint(
+                "Static step is not supported for rife_elexor, automatically disabling it",
+                "yellow",
+            )
+        if (
+            self.interpolateMethod not in ["rife4.6", "rife4.15", "rife4.15-lite"]
+            and self.staticStep
+        ):
+            self.staticStep = False
+            logAndPrint(
+                "Static step is not supported for this interpolation model yet, automatically disabling it",
+                "yellow",
+            )
+        if self.interpolateMethod in ["rife_elexor"]:
+            self.model = IFNet(
+                self.scale,
+                self.ensemble,
+                self.dType,
+                checker.device,
+                self.width,
+                self.height,
+                self.interpolateFactor,
+            )
+        else:
+            if self.interpolateMethod in ["rife4.6", "rife4.15", "rife4.15-lite"]:
+                self.model = IFNet(
+                    self.ensemble,
+                    self.dynamicScale,
+                    self.scale,
+                    self.interpolateFactor,
+                    self.staticStep,
+                )
+            else:
+                self.model = IFNet(
+                    self.ensemble,
+                    self.dynamicScale,
+                    self.scale,
+                    self.interpolateFactor,
+                )
+
+        if checker.cudaAvailable and self.half:
+            self.model.half()
+        else:
+            self.half = False
+            self.model.float()
+
+        self.model.load_state_dict(torch.load(modelPath, map_location=checker.device))
+        self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
+        self.model = self.model.to(checker.device)
+        self.model = self.model.to(memory_format=torch.channels_last)
+
+        if self.interpolateMethod in ["rife4.25", "rife4.25-heavy", "rife4.25-lite"]:
+            ph = ((self.height - 1) // 128 + 1) * 128
+            pw = ((self.width - 1) // 128 + 1) * 128
+        else:
+            ph = ((self.height - 1) // 64 + 1) * 64
+            pw = ((self.width - 1) // 64 + 1) * 64
+        self.padding = (0, pw - self.width, 0, ph - self.height)
+
+        self.I0 = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=self.dType,
+            device=checker.device,
+        ).to(memory_format=torch.channels_last)
+
+        self.I1 = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=self.dType,
+            device=checker.device,
+        ).to(memory_format=torch.channels_last)
+
+        self.firstRun = True
+        self.stream = torch.cuda.Stream()
+        self.normStream = torch.cuda.Stream()
+
+    @torch.inference_mode()
+    def cacheFrameReset(self, frame):
+        self.processFrame(frame, "cache")
+        self.processFrame(self.I0, "model")
+
+    @torch.inference_mode()
+    def processFrame(self, frame, toNorm):
+        match toNorm:
+            case "I0":
+                self.I0.copy_(
+                    self.padFrame(
+                        frame.to(
+                            device=checker.device,
+                            dtype=self.dType,
+                            non_blocking=True,
+                        )
+                    )
+                ).to(memory_format=torch.channels_last)
+
+            case "I1":
+                self.I1.copy_(
+                    self.padFrame(
+                        frame.to(
+                            device=checker.device,
+                            dtype=self.dType,
+                            non_blocking=True,
+                        )
+                    ),
+                    non_blocking=True,
+                ).to(memory_format=torch.channels_last)
+
+            case "cache":
+                self.I0.copy_(
+                    self.I1,
+                    non_blocking=True,
+                )
+                self.model.cache()
+
+            case "pad":
+                output = self.padFrame(frame)
+                return output
+
+            case "infer":
+                with torch.cuda.stream(self.stream):
+                    if self.staticStep:
+                        output = self.model(self.I0, self.I1, frame)
+                    else:
+                        output = self.model(self.I0, self.I1, frame)[
+                            :, :, : self.height, : self.width
+                        ]
+                self.stream.synchronize()
+                return output
+
+            case "model":
+                self.model.cacheReset(frame)
+
+    @torch.inference_mode()
+    def padFrame(self, frame):
+        return (
+            F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
+            if self.padding != (0, 0, 0, 0)
+            else frame
+        )
+
+    # A bit tired of understanding this,
+    # TO:DO, postponed to a later date
+    @torch.inference_mode()
+    def __call__(self, frame, interpQueue, writeBuffer=None):
+        if self.firstRun:
+            with torch.cuda.stream(self.normStream):
+                self.processFrame(frame, "I0")
+            self.normStream.synchronize()
+            self.firstRun = False
+            return
+
+        with torch.cuda.stream(self.normStream):
+            self.processFrame(frame, "I1")
+        self.normStream.synchronize()
+
+        for i in range(self.interpolateFactor - 1):
+            ts = [0.5]
+            # output = self.processFrame(timestep, "infer")
+            interpQueue.put(output)
+
+        self.processFrame(None, "cache")
