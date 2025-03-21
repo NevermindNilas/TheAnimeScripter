@@ -10,15 +10,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Slowmotion support through `--slowmo`
 
 #### Changed
+- Linux support will be indefinitely postponed and will no longer be in any shape or form a priority of TAS.
 - Removed `h266`
 - Cleaned up the code.
+- Some small adjustments to `main.py`
 
 #### Fixed
 - Fixed more issues with non `utf-8` compliant paths. [Thanks Sergio]
+- Fixed an issue with `slow_nvenc_av1` [Thanks Sergio]
 
 ### Adobe Edition
 #### Added
-- N/A
+- Added a `copy to clipboard` button to the `logs` tab.
 
 #### Changed
 - Small UI redesign for `Extra` and `Toolbox`
