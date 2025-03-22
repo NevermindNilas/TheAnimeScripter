@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Removed `h266`
 - Cleaned up the code.
 - Some small adjustments to `main.py`
+- Increased the performance and accuracy of all dedup methods.
 
 #### Fixed
 - Fixed more issues with non `utf-8` compliant paths. [Thanks Sergio]

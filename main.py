@@ -111,6 +111,9 @@ class VideoProcessor:
 
         logging.info("\n============== Processing Outputs ==============")
 
+        if self.dedup:
+            self.audio = False
+
         if self.slowmo:
             self.outputFPS = self.fps
             if self.audio:
@@ -161,51 +164,61 @@ class VideoProcessor:
             frame = self.restore_process(frame)
 
         if self.interpolate_first:
-            if self.interpolate:
-                if self.isSceneChange:
-                    self.interpolate_process.cacheFrameReset(frame)
-                else:
-                    self.interpolate_process(frame, self.interpQueue)
-
-            if self.upscale:
-                if self.interpolate:
-                    if self.isSceneChange:
-                        frame = self.upscale_process(frame)
-                        for _ in range(self.interpolate_factor - 1):
-                            self.writeBuffer.write(frame)
-                    else:
-                        while not self.interpQueue.empty():
-                            self.writeBuffer.write(
-                                self.upscale_process(self.interpQueue.get())
-                            )
-                        self.writeBuffer.write(self.upscale_process(frame))
-                else:
-                    self.writeBuffer.write(self.upscale_process(frame))
-
-            else:
-                if self.interpolate:
-                    if self.isSceneChange or not self.interpQueue.empty():
-                        for _ in range(self.interpolate_factor - 1):
-                            frameToWrite = (
-                                frame if self.isSceneChange else self.interpQueue.get()
-                            )
-                            self.writeBuffer.write(frameToWrite)
-
-                self.writeBuffer.write(frame)
-
+            self.ifInterpolateFirst(frame)
         else:
-            if self.upscale:
-                frame = self.upscale_process(frame)
+            self.ifInterpolateLast(frame)
 
+        if self.preview:
+            self.preview.add(
+                frame.squeeze(0).permute(1, 2, 0).mul(255).byte().cpu().numpy()
+            )
+
+    def ifInterpolateFirst(self, frame: any) -> None:
+        if self.interpolate:
+            if self.isSceneChange:
+                self.interpolate_process.cacheFrameReset(frame)
+            else:
+                self.interpolate_process(frame, self.interpQueue)
+
+        if self.upscale:
             if self.interpolate:
                 if self.isSceneChange:
+                    frame = self.upscale_process(frame)
                     for _ in range(self.interpolate_factor - 1):
                         self.writeBuffer.write(frame)
-                    self.interpolate_process.cacheFrameReset(frame)
                 else:
-                    self.interpolate_process(frame, self.writeBuffer)
+                    while not self.interpQueue.empty():
+                        self.writeBuffer.write(
+                            self.upscale_process(self.interpQueue.get())
+                        )
+                    self.writeBuffer.write(self.upscale_process(frame))
+            else:
+                self.writeBuffer.write(self.upscale_process(frame))
+
+        else:
+            if self.interpolate:
+                if self.isSceneChange or not self.interpQueue.empty():
+                    for _ in range(self.interpolate_factor - 1):
+                        frameToWrite = (
+                            frame if self.isSceneChange else self.interpQueue.get()
+                        )
+                        self.writeBuffer.write(frameToWrite)
 
             self.writeBuffer.write(frame)
+
+    def ifInterpolateLast(self, frame: any) -> None:
+        if self.upscale:
+            frame = self.upscale_process(frame)
+
+        if self.interpolate:
+            if self.isSceneChange:
+                for _ in range(self.interpolate_factor - 1):
+                    self.writeBuffer.write(frame)
+                self.interpolate_process.cacheFrameReset(frame)
+            else:
+                self.interpolate_process(frame, self.writeBuffer)
+
+        self.writeBuffer.write(frame)
 
         if self.preview:
             self.preview.add(
@@ -378,10 +391,17 @@ def main():
 
         for idx, i in enumerate(results, 1):
             try:
-                logAndPrint(
-                    f"Processing Video {idx}/{totalVideos}: {results[i]['videoPath']}",
-                    colorFunc="green",
-                )
+                if totalVideos > 1:
+                    logAndPrint(
+                        f"Processing Video {idx}/{totalVideos}: {results[i]['videoPath']}",
+                        colorFunc="green",
+                    )
+                else:
+                    logAndPrint(
+                        f"Processing Video: {results[i]['videoPath']}",
+                        colorFunc="green",
+                    )
+
                 logAndPrint(
                     f"Output Path: {results[i]['outputPath']}", colorFunc="green"
                 )
