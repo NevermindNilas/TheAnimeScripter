@@ -2,25 +2,12 @@ import os
 import logging
 from .coloredPrints import green, yellow
 from src.utils.progressBarLogic import ProgressBarDownloadLogic
+import src.constants as cs
 
-import platform
-
-if platform.system() == "Windows":
-    appdata = os.getenv("APPDATA")
-    mainPath = os.path.join(appdata, "TheAnimeScripter")
-
-    if not os.path.exists(mainPath):
-        os.makedirs(mainPath)
-
-    weightsDir = os.path.join(mainPath, "weights")
+if cs.SYSTEM == "Windows":
+    weightsDir = os.path.join(cs.MAINPATH, "weights")
 else:
-    xdg_config_home = os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
-    mainPath = os.path.join(xdg_config_home, "TheAnimeScripter")
-
-    if not os.path.exists(mainPath):
-        os.makedirs(mainPath)
-
-    weightsDir = os.path.join(mainPath, "weights")
+    weightsDir = os.path.join(cs.MAINPATH, "weights")
 
 TASURL = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
 

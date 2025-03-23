@@ -2,6 +2,7 @@ import logging
 import psutil
 import GPUtil
 import platform
+from src.constants import SYSTEM
 
 
 def getWindowsInfo():
@@ -37,15 +38,15 @@ def getLinuxInfo():
         logging.info(f"Graphics Card {i}: {gpu.name}")
 
 
-def checkSystem(sysUsed):
+def checkSystem():
     logging.info("\n============== System Checker ==============")
     try:
-        if sysUsed == "Windows":
+        if SYSTEM == "Windows":
             getWindowsInfo()
-        elif sysUsed == "Linux":
+        elif SYSTEM == "Linux":
             getLinuxInfo()
         else:
-            logging.error("Unsupported operating system")
+            logging.error("Unsupported OS")
     except Exception as e:
         logging.error(f"An error occurred while checking the system: {e}")
     except ImportError as e:

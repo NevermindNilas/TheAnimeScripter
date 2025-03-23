@@ -6,13 +6,13 @@ import numpy as np
 import cv2
 import threading
 import json
+import src.constants as cs
 
 from queue import Queue
 from celux import VideoReader, Scale
 from torch.nn import functional as F
 from src.utils.logAndPrint import logAndPrint
 from src.utils.encodingSettings import matchEncoder, getPixFMT
-
 from .isCudaInit import CudaChecker
 
 checker = CudaChecker()
@@ -21,7 +21,6 @@ checker = CudaChecker()
 def writeToSTDIN(
     command: list,
     frameQueue: Queue,
-    mainPath: str,
     realtime: bool,
     input: str = "",
     mpvPath: str = "",
@@ -41,7 +40,6 @@ def writeToSTDIN(
             command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            cwd=mainPath,
             shell=False,
         )
 
@@ -107,7 +105,6 @@ class BuildBuffer:
         resizeMethod: str = "bicubic",
         width: int = 1920,
         height: int = 1080,
-        mainPath: str = "",
     ):
         """
         Initializes the BuildBuffer class.
@@ -142,7 +139,7 @@ class BuildBuffer:
             filters = []
 
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
-        jsonMetadata = json.load(open(os.path.join(mainPath, "metadata.json"), "r"))
+        jsonMetadata = json.load(open(os.path.join(cs.MAINPATH, "metadata.json"), "r"))
 
         if jsonMetadata["Codec"] is None or jsonMetadata["Codec"] in [
             "av1",
@@ -286,7 +283,6 @@ class BuildBuffer:
 class WriteBuffer:
     def __init__(
         self,
-        mainPath: str = "",
         input: str = "",
         output: str = "",
         ffmpegPath: str = "",
@@ -340,12 +336,10 @@ class WriteBuffer:
         self.sharpen = sharpen
         self.sharpen_sens = sharpen_sens
         self.transparent = transparent
-        self.audio = audio
         self.benchmark = benchmark
         self.bitDepth = bitDepth
         self.inpoint = inpoint
         self.outpoint = outpoint
-        self.mainPath = mainPath
         self.realtime = realtime
         self.slowmo = slowmo
         # ffmpeg path "C:\Users\User\AppData\Roaming\TheAnimeScripter\ffmpeg\ffmpeg.exe"
@@ -428,7 +422,7 @@ class WriteBuffer:
             else:
                 command.extend(["-i", "pipe:0"])
 
-            if self.audio:
+            if cs.AUDIO:
                 command.extend(["-i", self.input])
             command.extend(["-map", "0:v"])
 
@@ -482,7 +476,7 @@ class WriteBuffer:
                         customEncoderList.extend(["-pix_fmt", outputPixFormat])
                     command.extend(customEncoderList)
 
-            if self.audio:
+            if cs.AUDIO:
                 command.extend(["-map", "1:a"])
                 audioCodec = "copy"
                 subCodec = "copy"
@@ -538,7 +532,6 @@ class WriteBuffer:
             args=(
                 command,
                 self.frameQueue,
-                self.mainPath,
                 self.realtime,
                 self.input,
                 self.mpvPath,
