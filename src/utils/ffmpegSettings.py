@@ -353,9 +353,8 @@ class WriteBuffer:
         Simplified structure for setting input/output pix formats
         and building FFMPEG command.
         """
-
+        # Set environment variables
         os.environ["FFREPORT"] = "file=FFmpeg-Log.log:level=32"
-
         if "av1" in [self.encode_method, self.custom_encoder]:
             os.environ["SVT_LOG"] = "0"
 
@@ -364,138 +363,144 @@ class WriteBuffer:
         )
 
         if self.benchmark:
-            # if benchmarking is enabled, we skip all the shenaningans and just measure the fps.
-            command = [
-                self.ffmpegPath,
-                "-y",
-                "-hide_banner",
-                "-v",
-                "warning",
-                "-nostats",
-                "-f",
-                "rawvideo",
-                "-video_size",
-                f"{self.width}x{self.height}",
-                "-pix_fmt",
-                inputPixFormat,
-                "-r",
-                str(self.fps),
-                "-i",
-                "-",
-                "-benchmark",
-                "-f",
-                "null",
-                "-",
-            ]
-
+            return self._buildBenchmarkCommand(inputPixFormat)
         else:
-            command = [
-                self.ffmpegPath,
-                "-y",
-                "-report",
-                "-hide_banner",
-                "-loglevel",
-                "quiet",
-                "-nostats",
-                "-f",
-                "rawvideo",
-                "-pixel_format",
-                inputPixFormat,
-                "-video_size",
-                f"{self.width}x{self.height}",
-                "-r",
-                str(self.fps),
-            ]
-            if self.outpoint != 0 and not self.slowmo:
-                command.extend(
-                    [
-                        "-itsoffset",
-                        str(self.inpoint),
-                        "-i",
-                        "pipe:0",
-                        "-ss",
-                        str(self.inpoint),
-                        "-to",
-                        str(self.outpoint),
-                    ]
-                )
+            return self._buildEncodingCommand(inputPixFormat, outputPixFormat)
+
+    def _buildBenchmarkCommand(self, inputPixFormat):
+        """Build FFmpeg command for benchmarking"""
+        return [
+            self.ffmpegPath,
+            "-y",
+            "-hide_banner",
+            "-v",
+            "warning",
+            "-nostats",
+            "-f",
+            "rawvideo",
+            "-video_size",
+            f"{self.width}x{self.height}",
+            "-pix_fmt",
+            inputPixFormat,
+            "-r",
+            str(self.fps),
+            "-i",
+            "-",
+            "-benchmark",
+            "-f",
+            "null",
+            "-",
+        ]
+
+    def _buildEncodingCommand(self, inputPixFormat, outputPixFormat):
+        """Build FFmpeg command for encoding"""
+        command = [
+            self.ffmpegPath,
+            "-y",
+            "-report",
+            "-hide_banner",
+            "-loglevel",
+            "quiet",
+            "-nostats",
+            "-f",
+            "rawvideo",
+            "-pixel_format",
+            inputPixFormat,
+            "-s",
+            f"{self.width}x{self.height}",
+            "-r",
+            str(self.fps),
+        ]
+
+        if self.outpoint != 0 and not self.slowmo:
+            command.extend(
+                [
+                    "-itsoffset",
+                    str(self.inpoint),
+                    "-i",
+                    "pipe:0",
+                    "-ss",
+                    str(self.inpoint),
+                    "-to",
+                    str(self.outpoint),
+                ]
+            )
+        else:
+            command.extend(["-i", "pipe:0"])
+
+        if cs.AUDIO:
+            command.extend(["-i", self.input])
+
+        command.extend(["-map", "0:v"])
+
+        if not self.realtime:
+            filters = self._buildFilterList()
+
+            if not self.custom_encoder:
+                command.extend(matchEncoder(self.encode_method))
+                if filters:
+                    command.extend(["-vf", ",".join(filters)])
+                command.extend(["-pix_fmt", outputPixFormat])
             else:
-                command.extend(["-i", "pipe:0"])
+                command.extend(self._buildCustomEncoder(filters, outputPixFormat))
 
-            if cs.AUDIO:
-                command.extend(["-i", self.input])
-            command.extend(["-map", "0:v"])
+        if cs.AUDIO:
+            command.extend(self._buildAudioSettings())
 
-            if not self.realtime:
-                if not self.custom_encoder:
-                    command.extend(matchEncoder(self.encode_method))
-                    filters = []
-                    if self.sharpen:
-                        filters.append(f"cas={self.sharpen_sens}")
-                    if self.grayscale:
-                        filters.append("format=gray")
-                    if self.transparent:
-                        filters.append("format=yuva420p")
-                    if filters:
-                        command.extend(["-vf", ",".join(filters)])
-                    command.extend(["-pix_fmt", outputPixFormat])
-                else:
-                    customEncoderList = self.custom_encoder.split()
-                    if "-vf" in customEncoderList:
-                        vfIndex = customEncoderList.index("-vf")
-                        if self.sharpen:
-                            customEncoderList[vfIndex + 1] += (
-                                f",cas={self.sharpen_sens}"
-                            )
-                        if self.grayscale:
-                            customEncoderList[vfIndex + 1] += (
-                                ",format=gray"
-                                if self.bitDepth == "8bit"
-                                else ",format=gray16be"
-                            )
-                        if self.transparent:
-                            customEncoderList[vfIndex + 1] += ",format=yuva420p"
-                    else:
-                        filters = []
-                        if self.sharpen:
-                            filters.append(f"cas={self.sharpen_sens}")
-                        if self.grayscale:
-                            filters.append(
-                                "format=gray"
-                                if self.bitDepth == "8bit"
-                                else "format=gray16be"
-                            )
-                        if self.transparent:
-                            filters.append("format=yuva420p")
-                        if filters:
-                            customEncoderList.extend(["-vf", ",".join(filters)])
-                    if "-pix_fmt" not in customEncoderList:
-                        logging.info(
-                            f"-pix_fmt was not found, adding {outputPixFormat}."
-                        )
-                        customEncoderList.extend(["-pix_fmt", outputPixFormat])
-                    command.extend(customEncoderList)
-
-            if cs.AUDIO:
-                command.extend(["-map", "1:a"])
-                audioCodec = "copy"
-                subCodec = "copy"
-                if self.output.endswith(".webm"):
-                    audioCodec = "libopus"
-                    subCodec = "webvtt"
-                command.extend(["-c:a", audioCodec, "-map", "1:s?", "-c:s", subCodec])
-
-                if self.outpoint != 0:
-                    command.extend(
-                        ["-ss", str(self.inpoint), "-to", str(self.outpoint)]
-                    )
-
-            if self.realtime:
-                command.extend(["-f", "matroska", "-"])
-            else:
-                command.append(self.output)
+        if self.realtime:
+            command.extend(["-f", "matroska", "-"])
+        else:
+            command.append(self.output)
 
         return command
+
+    def _buildFilterList(self):
+        """Build list of video filters based on settings"""
+        filters = []
+        if self.sharpen:
+            filters.append(f"cas={self.sharpen_sens}")
+        if self.grayscale:
+            filters.append(
+                "format=gray" if self.bitDepth == "8bit" else "format=gray16be"
+            )
+        if self.transparent:
+            filters.append("format=yuva420p")
+        return filters
+
+    def _buildCustomEncoder(self, filters, outputPixFormat):
+        """Apply custom encoder settings with filters"""
+        customEncoderList = self.custom_encoder.split()
+
+        if "-vf" in customEncoderList:
+            vfIndex = customEncoderList.index("-vf")
+            filterString = customEncoderList[vfIndex + 1]
+            for filter_item in filters:
+                filterString += f",{filter_item}"
+            customEncoderList[vfIndex + 1] = filterString
+        elif filters:
+            customEncoderList.extend(["-vf", ",".join(filters)])
+
+        if "-pix_fmt" not in customEncoderList:
+            logging.info(f"-pix_fmt was not found, adding {outputPixFormat}.")
+            customEncoderList.extend(["-pix_fmt", outputPixFormat])
+
+        return customEncoderList
+
+    def _buildAudioSettings(self):
+        """Build audio encoding settings"""
+        audioSettings = ["-map", "1:a"]
+
+        audioCodec = "copy"
+        subCodec = "copy"
+        if self.output.endswith(".webm"):
+            audioCodec = "libopus"
+            subCodec = "webvtt"
+        audioSettings.extend(["-c:a", audioCodec, "-map", "1:s?", "-c:s", subCodec])
+
+        if self.outpoint != 0:
+            audioSettings.extend(["-ss", str(self.inpoint), "-to", str(self.outpoint)])
+
+        return audioSettings
 
     def __call__(self):
         self.frameQueue = Queue(maxsize=10)

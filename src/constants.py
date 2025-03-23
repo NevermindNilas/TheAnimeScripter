@@ -14,5 +14,5 @@ FFMPEGPATH: str = ""  # The path to the FFmpeg executable (default: 'C:\Users\ni
 # Feature flags
 ADOBE: bool = False  # Enables Adobe compatibility (logs progress, frame data to JSON)
 AUDIO: bool = (
-    False  # Enables audio processing, also acts as a "is there any audio?" flag
+    True  # Enables audio processing, also acts as a "is there any audio?" flag
 )
