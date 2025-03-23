@@ -57,7 +57,6 @@ class DepthCuda:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        mainPath: str = "",
         decodeThreads: int = 0,
     ):
         self.input = input
@@ -76,7 +75,6 @@ class DepthCuda:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.mainPath = mainPath
 
         self.handleModels()
 
@@ -91,11 +89,9 @@ class DepthCuda:
                 width=self.width,
                 height=self.height,
                 resize=False,
-                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
-                self.mainPath,
                 self.input,
                 self.output,
                 self.ffmpeg_path,
@@ -275,7 +271,6 @@ class DepthDirectMLV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        mainPath: str = "",
         decodeThreads: int = 0,
     ):
         import onnxruntime as ort
@@ -298,7 +293,6 @@ class DepthDirectMLV2:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.mainPath = mainPath
 
         self.handleModels()
 
@@ -313,11 +307,9 @@ class DepthDirectMLV2:
                 resize=False,
                 width=self.width,
                 height=self.height,
-                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
-                self.mainPath,
                 self.input,
                 self.output,
                 self.ffmpeg_path,
@@ -487,7 +479,6 @@ class DepthTensorRTV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        mainPath: str = "",
         decodeThreads: int = 0,
     ):
         self.input = input
@@ -506,7 +497,6 @@ class DepthTensorRTV2:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.mainPath = mainPath
 
         import tensorrt as trt
         from src.utils.trtHandler import (
@@ -533,11 +523,9 @@ class DepthTensorRTV2:
                 resize=False,
                 width=self.width,
                 height=self.height,
-                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
-                self.mainPath,
                 self.input,
                 self.output,
                 self.ffmpeg_path,

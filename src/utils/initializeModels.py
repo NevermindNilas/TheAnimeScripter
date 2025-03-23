@@ -1,19 +1,18 @@
 import logging
 
 
-def AutoClip(self, mainPath):
+def AutoClip(self):
     from src.autoclip.autoclip import AutoClip
 
     AutoClip(
         self.input,
         self.autoclip_sens,
-        mainPath,
         self.inpoint,
         self.outpoint,
     )
 
 
-def Segment(self, mainPath):
+def Segment(self):
     if self.segment_method == "anime":
         from src.segment.animeSegment import AnimeSegment
 
@@ -30,7 +29,6 @@ def Segment(self, mainPath):
             self.custom_encoder,
             self.benchmark,
             self.totalFrames,
-            mainPath=mainPath,
             decodeThreads=self.decode_threads,
         )
     elif self.segment_method == "anime-tensorrt":
@@ -49,7 +47,6 @@ def Segment(self, mainPath):
             self.custom_encoder,
             self.benchmark,
             self.totalFrames,
-            mainPath=mainPath,
             decodeThreads=self.decode_threads,
         )
 
@@ -69,7 +66,6 @@ def Segment(self, mainPath):
             self.custom_encoder,
             self.benchmark,
             self.totalFrames,
-            mainPath=mainPath,
             decodeThreads=self.decode_threads,
         )
 
@@ -77,7 +73,7 @@ def Segment(self, mainPath):
         raise NotImplementedError("Cartoon segment is not implemented yet")
 
 
-def Depth(self, mainPath):
+def Depth(self):
     match self.depth_method:
         case (
             "small_v2"
@@ -106,7 +102,6 @@ def Depth(self, mainPath):
                 self.totalFrames,
                 self.bit_depth,
                 self.depth_quality,
-                mainPath=mainPath,
                 decodeThreads=self.decode_threads,
             )
 
@@ -130,7 +125,6 @@ def Depth(self, mainPath):
                 self.totalFrames,
                 self.bit_depth,
                 self.depth_quality,
-                mainPath=mainPath,
                 decodeThreads=self.decode_threads,
             )
 
@@ -154,7 +148,6 @@ def Depth(self, mainPath):
                 self.totalFrames,
                 self.bit_depth,
                 self.depth_quality,
-                mainPath=mainPath,
                 decodeThreads=self.decode_threads,
             )
 

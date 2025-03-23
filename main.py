@@ -28,6 +28,7 @@ from signal import signal, SIGINT, SIG_DFL
 from time import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
+import src.constants as cs
 
 from src.utils.coloredPrints import green
 from src.utils.argumentsChecker import createParser
@@ -106,7 +107,6 @@ class VideoProcessor:
             self.input,
             args.inpoint,
             args.outpoint,
-            mainPath,
             args.ffprobe_path,
         )
 
@@ -114,22 +114,12 @@ class VideoProcessor:
         self.height: int = videoMetadata["Height"]
         self.fps: float = videoMetadata["FPS"]
         self.totalFrames: int = videoMetadata["TotalFramesToBeProcessed"]
-        self.audio: bool = videoMetadata["HasAudio"]
 
     def _configureProcessingOptions(self, args) -> None:
         logging.info("\n============== Processing Outputs ==============")
 
-        if self.dedup:
-            self.audio = False
-
         if self.slowmo:
             self.outputFPS = self.fps
-            if self.audio:
-                logAndPrint(
-                    "Slowmo is enabled, audio will be disabled",
-                    colorFunc="yellow",
-                )
-                self.audio = False
         else:
             self.outputFPS = (
                 self.fps * args.interpolate_factor if args.interpolate else self.fps
@@ -146,15 +136,15 @@ class VideoProcessor:
     def _selectProcessingMethod(self) -> None:
         if self.autoclip:
             logging.info("Detecting scene changes")
-            AutoClip(self, mainPath)
+            AutoClip(self)
 
         elif self.depth:
             logging.info("Depth Estimation")
-            Depth(self, mainPath)
+            Depth(self)
 
         elif self.segment:
             logging.info("Segmenting video")
-            Segment(self, mainPath)
+            Segment(self)
 
         else:
             self.start()
@@ -297,11 +287,9 @@ class VideoProcessor:
                 resizeMethod=self.resize_method,
                 width=self.width,
                 height=self.height,
-                mainPath=mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
-                mainPath=mainPath,
                 input=self.input,
                 output=self.output,
                 ffmpegPath=self.ffmpeg_path,
@@ -314,7 +302,6 @@ class VideoProcessor:
                 sharpen_sens=self.sharpen_sens,
                 grayscale=False,
                 transparent=False,
-                audio=self.audio,
                 benchmark=self.benchmark,
                 bitDepth=self.bit_depth,
                 inpoint=self.inpoint,
@@ -356,17 +343,16 @@ class VideoProcessor:
 
 def main():
     try:
-        sysUsed = system()
-        global mainPath
-        mainPath = (
+        cs.SYSTEM = system()
+        cs.MAINPATH = (
             os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
-            if sysUsed == "Windows"
+            if cs.SYSTEM == "Windows"
             else os.path.join(
                 os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
                 "TheAnimeScripter",
             )
         )
-        os.makedirs(mainPath, exist_ok=True)
+        os.makedirs(cs.MAINPATH, exist_ok=True)
 
         isFrozen = hasattr(sys, "_MEIPASS")
         baseOutputPath = (
@@ -378,7 +364,7 @@ def main():
         # Setup logging
         signal(SIGINT, SIG_DFL)
         logging.basicConfig(
-            filename=os.path.join(mainPath, "TAS-Log.log"),
+            filename=os.path.join(cs.MAINPATH, "TAS-Log.log"),
             filemode="w",
             format="%(message)s",
             level=logging.INFO,
@@ -386,7 +372,7 @@ def main():
         logging.info("============== Command Line Arguments ==============")
         logging.info(f"{' '.join(sys.argv)}\n")
 
-        args = createParser(isFrozen, mainPath, baseOutputPath, sysUsed)
+        args = createParser(isFrozen, baseOutputPath, cs.SYSTEM)
         outputPath = os.path.join(baseOutputPath, "output")
         results = handleInputOutputs(args, isFrozen, outputPath)
 

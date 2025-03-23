@@ -1,11 +1,12 @@
 import json
 import os
 from .coloredPrints import green, bold
+from src.constants import MAINPATH
 
 
-def createPreset(args, mainPath: str):
+def createPreset(args):
     ignoreList = ["input", "output", "inpoint", "outpoint"]
-    presetsPath = os.path.join(mainPath, "presets.json")
+    presetsPath = os.path.join(MAINPATH, "presets.json")
 
     if not os.path.exists(presetsPath):
         with open(presetsPath, "w") as file:
@@ -36,8 +37,8 @@ def createPreset(args, mainPath: str):
     return args
 
 
-def listPresets(mainPath: str):
-    presetsPath = os.path.join(mainPath, "presets.json")
+def listPresets():
+    presetsPath = os.path.join(MAINPATH, "presets.json")
 
     if not os.path.exists(presetsPath):
         print("No presets found")
