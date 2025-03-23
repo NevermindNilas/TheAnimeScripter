@@ -4,7 +4,6 @@ import sys
 import argparse
 import shutil
 import src.constants as cs
-from src.constants import SYSTEM
 
 from .coloredPrints import green, yellow
 from rich_argparse import RichHelpFormatter
@@ -516,19 +515,19 @@ def argumentsChecker(args, outputPath):
     args.ffmpeg_path = os.path.join(
         cs.MAINPATH,
         "ffmpeg",
-        "ffmpeg.exe" if SYSTEM == "Windows" else "ffmpeg",
+        "ffmpeg.exe" if cs.SYSTEM == "Windows" else "ffmpeg",
     )
 
     args.ffprobe_path = os.path.join(
         cs.MAINPATH,
         "ffmpeg",
-        "ffprobe.exe" if SYSTEM == "Windows" else "ffprobe",
+        "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe",
     )
 
     args.mpv_path = os.path.join(
         cs.MAINPATH,
         "ffmpeg",
-        "mpv.exe" if SYSTEM == "Windows" else "mpv",
+        "mpv.exe" if cs.SYSTEM == "Windows" else "mpv",
     )
 
     if not os.path.exists(args.ffmpeg_path) or (
