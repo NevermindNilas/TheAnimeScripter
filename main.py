@@ -51,6 +51,12 @@ class VideoProcessor:
         self.encode_method = results["encodeMethod"]
         self.custom_encoder = results["customEncoder"]
 
+        self._initProcessingParams(args)
+        self._initVideoMetadata(args)
+        self._configureProcessingOptions(args)
+        self._selectProcessingMethod()
+
+    def _initProcessingParams(self, args):
         self.interpolate: bool = args.interpolate
         self.interpolate_factor: int = args.interpolate_factor
         self.interpolate_method: str = args.interpolate_method
@@ -93,8 +99,9 @@ class VideoProcessor:
         self.static_step: bool = args.static_step
         self.slowmo: bool = args.slowmo
         self.interpolate_first: bool = args.interpolate_first
-
         # Get video metadata
+
+    def _initVideoMetadata(self, args) -> None:
         videoMetadata = getVideoMetadata(
             self.input,
             args.inpoint,
@@ -109,6 +116,7 @@ class VideoProcessor:
         self.totalFrames: int = videoMetadata["TotalFramesToBeProcessed"]
         self.audio: bool = videoMetadata["HasAudio"]
 
+    def _configureProcessingOptions(self, args) -> None:
         logging.info("\n============== Processing Outputs ==============")
 
         if self.dedup:
@@ -135,6 +143,7 @@ class VideoProcessor:
                 f"Resizing to {self.width}x{self.height} using {self.resize_factor} factor and {self.resize_method}"
             )
 
+    def _selectProcessingMethod(self) -> None:
         if self.autoclip:
             logging.info("Detecting scene changes")
             AutoClip(self, mainPath)
@@ -237,7 +246,8 @@ class VideoProcessor:
         try:
             with ProgressBarLogic(self.totalFrames * increment) as bar:
                 for _ in range(self.totalFrames):
-                    self.processFrame(self.readBuffer.read())
+                    frame = self.readBuffer.read()
+                    self.processFrame(frame)
                     frameCount += 1
                     bar(increment)
                     if self.readBuffer.isReadFinished():
