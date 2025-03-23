@@ -3,11 +3,13 @@ import logging
 import sys
 import argparse
 import shutil
+import src.constants as cs
+from src.constants import SYSTEM
 
 from .coloredPrints import green, yellow
 from rich_argparse import RichHelpFormatter
 from src.version import __version__
-from .generateOutput import outputNameGenerator
+from .inputOutputHandler import outputNameGenerator
 from src.utils.logAndPrint import logAndPrint
 
 
@@ -42,7 +44,7 @@ def str2bool(arg):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
-def createParser(isFrozen, mainPath, outputPath, sysUsed):
+def createParser(isFrozen, outputPath, sysUsed):
     argParser = argparse.ArgumentParser(
         description="The Anime Scripter CLI Tool",
         usage="main.py [options]" if not isFrozen else "main.exe [options]",
@@ -477,20 +479,20 @@ def createParser(isFrozen, mainPath, outputPath, sysUsed):
     )
 
     args = argParser.parse_args()
-    return argumentsChecker(args, mainPath, outputPath, sysUsed)
+    return argumentsChecker(args, outputPath)
 
 
-def argumentsChecker(args, mainPath, outputPath, sysUsed):
+def argumentsChecker(args, outputPath):
     if args.list_presets:
         from src.utils.presetLogic import listPresets
 
-        listPresets(mainPath)
+        listPresets()
         sys.exit()
 
     if args.preset:
         from src.utils.presetLogic import createPreset
 
-        args = createPreset(args, mainPath)
+        args = createPreset(args)
 
     logging.info("============== Version ==============")
     logging.info(f"TAS: {__version__}\n")
@@ -503,32 +505,30 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
     if not args.benchmark:
         from .checkSpecs import checkSystem
 
-        checkSystem(sysUsed)
+        checkSystem()
 
     if args.ae:
         # Enables logging of performance inside a .json file for later use with AE.
         logging.info("After Effects interface detected")
-        from .progressBarLogic import setADOBE
-
-        setADOBE(args.ae, mainPath)
+        cs.ADOBE = True
 
     logging.info("\n============== Arguments Checker ==============")
     args.ffmpeg_path = os.path.join(
-        mainPath,
+        cs.MAINPATH,
         "ffmpeg",
-        "ffmpeg.exe" if sysUsed == "Windows" else "ffmpeg",
+        "ffmpeg.exe" if SYSTEM == "Windows" else "ffmpeg",
     )
 
     args.ffprobe_path = os.path.join(
-        mainPath,
+        cs.MAINPATH,
         "ffmpeg",
-        "ffprobe.exe" if sysUsed == "Windows" else "ffprobe",
+        "ffprobe.exe" if SYSTEM == "Windows" else "ffprobe",
     )
 
     args.mpv_path = os.path.join(
-        mainPath,
+        cs.MAINPATH,
         "ffmpeg",
-        "mpv.exe" if sysUsed == "Windows" else "mpv",
+        "mpv.exe" if SYSTEM == "Windows" else "mpv",
     )
 
     if not os.path.exists(args.ffmpeg_path) or (
@@ -539,7 +539,7 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         from src.utils.getFFMPEG import getFFMPEG
 
         args.ffmpeg_path, args.mpv_path, args.ffprobe_path = getFFMPEG(
-            sysUsed, args.ffmpeg_path, args.realtime
+            args.ffmpeg_path, args.realtime
         )
 
     if args.realtime:
@@ -584,7 +584,16 @@ def argumentsChecker(args, mainPath, outputPath, sysUsed):
         logging.info("All model(s) downloaded!")
         print(green("All model(s) downloaded!"))
 
+    if args.slowmo:
+        # If slowmo is enabled, audio will no longer be processed due to frame missmatch
+        cs.AUDIO = False
+        logging.info("Slow motion enabled, audio processing disabled")
+
     if args.dedup:
+        # If dedup true, audio will no longer be processed due to frame missmatch
+        cs.AUDIO = False
+        logging.info("Deduplication enabled, audio processing disabled")
+
         if args.dedup_method in ["ssim", "ssim-cuda"]:
             args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
 

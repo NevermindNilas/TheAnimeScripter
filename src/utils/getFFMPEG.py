@@ -3,15 +3,16 @@ import requests
 import logging
 import os
 
+from src.constants import SYSTEM
 from src.utils.progressBarLogic import ProgressBarDownloadLogic
 
 
-def getFFMPEG(sysUsed, path, realtime: bool = False):
+def getFFMPEG(path, realtime: bool = False):
     ffmpegPath = shutil.which("ffmpeg")
     ffprobePath = shutil.which("ffprobe")
     mpvPath = shutil.which("mpv") if realtime else None
     if ffmpegPath is None or (realtime and mpvPath is None) or ffprobePath is None:
-        ffmpegPath, mpvPath = downloadAndExtractFfmpeg(path, sysUsed, realtime)
+        ffmpegPath, mpvPath = downloadAndExtractFfmpeg(path, SYSTEM, realtime)
     else:
         logging.info(f"FFMPEG found in System Path: {ffmpegPath}")
         if realtime:
@@ -20,18 +21,18 @@ def getFFMPEG(sysUsed, path, realtime: bool = False):
     return ffmpegPath, mpvPath, ffprobePath
 
 
-def downloadAndExtractFfmpeg(ffmpegPath, sysUsed, realtime):
+def downloadAndExtractFfmpeg(ffmpegPath, realtime):
     logging.info("Downloading FFMPEG")
-    extractFunc = extractFfmpegZip if sysUsed == "Windows" else extractFfmpegTar
+    extractFunc = extractFfmpegZip if SYSTEM == "Windows" else extractFfmpegTar
     ffmpegDir = os.path.dirname(ffmpegPath)
-    archiveExtension = "ffmpeg.zip" if sysUsed == "Windows" else "ffmpeg.tar.xz"
+    archiveExtension = "ffmpeg.zip" if SYSTEM == "Windows" else "ffmpeg.tar.xz"
     ffmpegArchivePath = os.path.join(ffmpegDir, archiveExtension)
 
     os.makedirs(ffmpegDir, exist_ok=True)
 
     ffmpegUrl = (
         "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
-        if sysUsed == "Windows"
+        if SYSTEM == "Windows"
         else "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
     )
 

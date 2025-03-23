@@ -28,7 +28,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         custom_encoder="",
         benchmark=False,
         totalFrames=0,
-        mainPath: str = None,
         decodeThreads: int = 0,
     ):
         self.input = input
@@ -43,7 +42,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
-        self.mainPath = mainPath
 
         self.handleModel()
         try:
@@ -54,11 +52,9 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 totalFrames=self.totalFrames,
                 fps=self.fps,
                 decodeThreads=decodeThreads,
-                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
-                mainPath=self.mainPath,
                 input=self.input,
                 output=self.output,
                 ffmpegPath=self.ffmpeg_path,
@@ -167,7 +163,6 @@ class AnimeSegmentTensorRT:
         custom_encoder="",
         benchmark=False,
         totalFrames=0,
-        mainPath: str = None,
         decodeThreads: int = 0,
     ):
         self.input = input
@@ -182,7 +177,6 @@ class AnimeSegmentTensorRT:
         self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
-        self.mainPath = mainPath
 
         import tensorrt as trt
         from src.utils.trtHandler import (
@@ -205,11 +199,9 @@ class AnimeSegmentTensorRT:
                 totalFrames=self.totalFrames,
                 fps=self.fps,
                 decodeThreads=decodeThreads,
-                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
-                mainPath=self.mainPath,
                 input=self.input,
                 output=self.output,
                 ffmpegPath=self.ffmpeg_path,
@@ -387,7 +379,6 @@ class AnimeSegmentDirectML:
         custom_encoder="",
         benchmark=False,
         totalFrames=0,
-        mainPath: str = None,
         decodeThreads: int = 0,
     ):
         self.input = input
@@ -402,7 +393,6 @@ class AnimeSegmentDirectML:
         self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
-        self.mainPath = mainPath
 
         import onnxruntime as ort
 
@@ -418,11 +408,9 @@ class AnimeSegmentDirectML:
                 totalFrames=self.totalFrames,
                 fps=self.fps,
                 decodeThreads=decodeThreads,
-                mainPath=self.mainPath,
             )
 
             self.writeBuffer = WriteBuffer(
-                self.mainPath,
                 self.input,
                 self.output,
                 self.ffmpeg_path,

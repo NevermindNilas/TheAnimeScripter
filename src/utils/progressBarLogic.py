@@ -5,22 +5,12 @@ from rich.progress import (
     BarColumn,
     TextColumn,
 )
+import src.constants as cs
 from rich.progress import ProgressColumn
 from time import time
 import os
 import json
 import logging
-
-ADOBE = False
-MAINPATH = ""
-
-
-# set global variable
-def setADOBE(isTrue: bool, path: str):
-    # This doesn't exactly align with TAS' linear architecture, but it's easier than passing the variable around
-    global ADOBE, MAINPATH
-    ADOBE = isTrue
-    MAINPATH = path
 
 
 class FPSColumn(ProgressColumn):
@@ -50,25 +40,7 @@ class ProgressBarLogic:
         self.totalFrames = totalFrames
 
     def __enter__(self):
-        self.progress = Progress(
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            "•",
-            TextColumn("Elapsed Time:"),
-            TimeElapsedColumn(),
-            "•",
-            TextColumn("ETA:"),
-            TimeRemainingColumn(),
-            "•",
-            FPSColumn(),
-            "•",
-            TextColumn("Frames: [green]{task.completed}/{task.total}[/green]"),
-        )
-        self.task = self.progress.add_task("Processing:", total=self.totalFrames)
-        self.progress.start()
-
-        if ADOBE:
+        if cs.ADOBE:
             self.advanceCount = 0
             self.updateInterval = max(
                 1, self.totalFrames // 100
@@ -80,27 +52,50 @@ class ProgressBarLogic:
                 "totalFrames": self.totalFrames,
             }
             # Write to a JSON file under a 'logs' folder in the project directory
-            self.logFile = os.path.join(MAINPATH, "progressLog.json")
+            self.logFile = os.path.join(cs.MAINPATH, "progressLog.json")
             with open(self.logFile, "w") as f:
                 json.dump(data, f, indent=4)
+        else:
+            self.progress = Progress(
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                "•",
+                TextColumn("Elapsed Time:"),
+                TimeElapsedColumn(),
+                "•",
+                TextColumn("ETA:"),
+                TimeRemainingColumn(),
+                "•",
+                FPSColumn(),
+                "•",
+                TextColumn("Frames: [green]{task.completed}/{task.total}[/green]"),
+            )
+            self.task = self.progress.add_task("Processing:", total=self.totalFrames)
+            self.progress.start()
 
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.progress.stop()
+        if not cs.ADOBE:
+            self.progress.stop()
 
     def advance(self, advance=1):
-        self.progress.update(self.task, advance=advance)
+        if not cs.ADOBE:
+            self.progress.update(self.task, advance=advance)
 
-        if ADOBE:
+        if cs.ADOBE:
             self.advanceCount += 1
             if self.advanceCount % self.updateInterval == 0:
-                taskData = self.progress.tasks[self.task]
-                currentFrame = taskData.completed
-                totalFrame = taskData.total
+                # For Adobe, we track progress ourselves
+                if hasattr(self, "_completed"):
+                    self._completed += advance
+                else:
+                    self._completed = advance
+
                 data = {
-                    "currentFrame": currentFrame,
-                    "totalFrames": totalFrame,
+                    "currentFrame": self._completed,
+                    "totalFrames": self.totalFrames,
                 }
                 with open(self.logFile, "w") as f:
                     json.dump(data, f, indent=4)
@@ -116,7 +111,8 @@ class ProgressBarLogic:
             newTotal (int): The new total value
         """
         self.totalFrames = newTotal
-        self.progress.update(self.task, total=newTotal)
+        if not cs.ADOBE:
+            self.progress.update(self.task, total=newTotal)
 
 
 class ProgressBarDownloadLogic:

@@ -3,14 +3,15 @@ import textwrap
 import json
 import os
 import subprocess
+import src.constants as cs
 
 
-def saveMetadata(metadata, mainPath):
-    with open(os.path.join(mainPath, "metadata.json"), "w") as jsonFile:
+def saveMetadata(metadata):
+    with open(os.path.join(cs.MAINPATH, "metadata.json"), "w") as jsonFile:
         json.dump(metadata, jsonFile, indent=4)
 
 
-def getVideoMetadata(inputPath, inPoint, outPoint, mainPath, ffprobePath):
+def getVideoMetadata(inputPath, inPoint, outPoint, ffprobePath):
     """
     Get metadata from a video file using ffprobe.
 
@@ -18,7 +19,6 @@ def getVideoMetadata(inputPath, inPoint, outPoint, mainPath, ffprobePath):
     inputPath (str): The path to the video file
     inPoint (float): Start time of clip
     outPoint (float): End time of clip
-    mainPath (str): Path to save metadata
     ffprobePath (str): Path to ffprobe executable
 
     Returns:
@@ -63,9 +63,16 @@ def getVideoMetadata(inputPath, inPoint, outPoint, mainPath, ffprobePath):
         )
 
         # Check for audio streams
-        hasAudio = any(
-            stream["codec_type"] == "audio" for stream in probeData["streams"]
-        )
+        # If the condition is true, then we can check for audio streams, otherwise we can skip this step
+        if cs.AUDIO:
+            hasAudio = any(
+                stream["codec_type"] == "audio" for stream in probeData["streams"]
+            )
+            # Is there any audio stream in the video to begin with?
+            # If yes, then set the global variable accordingly
+            cs.AUDIO = hasAudio
+        else:
+            hasAudio = False
 
         # Extract metadata
         width = int(videoStream["width"])
@@ -110,7 +117,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint, mainPath, ffprobePath):
         Has Audio: {hasAudio}""")
         )
 
-        saveMetadata(metadata, mainPath)
+        saveMetadata(metadata)
         return metadata
 
     except Exception as e:
