@@ -5,7 +5,7 @@ import logging
 
 from typing import List, Tuple
 from src.utils.logAndPrint import logAndPrint, coloredPrint
-from .progressBarLogic import ADOBE
+from src.constants import ADOBE
 
 
 def createNetworkAndConfig(
