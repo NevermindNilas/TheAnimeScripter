@@ -12,7 +12,7 @@ def getFFMPEG(path, realtime: bool = False):
     ffprobePath = shutil.which("ffprobe")
     mpvPath = shutil.which("mpv") if realtime else None
     if ffmpegPath is None or (realtime and mpvPath is None) or ffprobePath is None:
-        ffmpegPath, mpvPath = downloadAndExtractFfmpeg(path, SYSTEM, realtime)
+        ffmpegPath, mpvPath = downloadAndExtractFfmpeg(path, realtime)
     else:
         logging.info(f"FFMPEG found in System Path: {ffmpegPath}")
         if realtime:
