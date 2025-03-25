@@ -3,10 +3,8 @@ import numpy as np
 import os
 import logging
 import threading
-from queue import Queue, Full, Empty
 from flask import Flask, Response, jsonify
 from PIL import Image
-from concurrent.futures import ThreadPoolExecutor
 from werkzeug.serving import make_server
 from .coloredPrints import green
 
@@ -16,57 +14,55 @@ class Preview:
         self.local_host = local_host
         self.port = port
         self.app = Flask(__name__)
-        self.read_queue: Queue = Queue(maxsize=1)
         self.app.add_url_rule("/frame", "getFrame", self.getFrame)
         self.app.add_url_rule(
             "/stopServer", "stopServer", self.stopServer, methods=["GET"]
         )
 
-        self.executor = ThreadPoolExecutor(max_workers=1)
-        self.frame: np.ndarray = None
-        self.lastFrame: np.ndarray = None
+        self.frame = None
+        self.lastFrame = None
+        self.frameLock = threading.Lock()
         self.exit = False
         self.server = None
-        self.server_thread = None
+        self.serverThread = None
 
     def add(self, frame: np.ndarray) -> None:
-        try:
-            self.read_queue.put(frame, block=False)
-        except Full:
-            pass
+        with self.frameLock:
+            self.frame = frame
+            if frame is not None:
+                self.lastFrame = frame
 
     def getFrame(self) -> Response:
         try:
-            self.frame = self.read_queue.get_nowait()
-            if self.frame is not None:
-                self.lastFrame = self.frame
-
-            frameToUse = self.frame if self.frame is not None else self.lastFrame
+            with self.frameLock:
+                frameToUse = self.frame if self.frame is not None else self.lastFrame
+                self.frame = None  # Reset current frame after serving
 
             if frameToUse is None:
                 return Response("No frame available", status=500)
 
-            imgMode = "L" if frameToUse.shape[2] == 1 else "RGB"
+            # Handle both grayscale and RGB images
+            if len(frameToUse.shape) == 2 or (
+                len(frameToUse.shape) == 3 and frameToUse.shape[2] == 1
+            ):
+                imgMode = "L"
+                if (
+                    len(frameToUse.shape) == 3
+                ):  # Convert to 2D if it's a 3D array with 1 channel
+                    frameToUse = frameToUse.squeeze(2)
+            else:
+                imgMode = "RGB"
+
             img = Image.fromarray(frameToUse, imgMode)
             buf = io.BytesIO()
             img.save(buf, format="JPEG")
             buf.seek(0)
             return Response(buf, mimetype="image/jpeg")
-        except Empty:
-            if self.lastFrame is not None:
-                imgMode = "L" if self.lastFrame.shape[2] == 1 else "RGB"
-                img = Image.fromarray(self.lastFrame, imgMode)
-                buf = io.BytesIO()
-                img.save(buf, format="JPEG")
-                buf.seek(0)
-                return Response(buf, mimetype="image/jpeg")
-            return Response("No frame available", status=500)
         except Exception as e:
             logging.error(f"Error in getFrame: {e}")
-            return Response("Error while converting frame", status=500)
+            return Response(f"Error while converting frame: {e}", status=500)
 
     def stopServer(self) -> Response:
-        self.exit = True
         threading.Thread(target=self.close).start()
         return jsonify({"success": True, "message": "Server is shutting down..."})
 
@@ -83,14 +79,14 @@ class Preview:
         log.disabled = True
 
         self.server = make_server(self.local_host, self.port, self.app)
-        self.server_thread = threading.Thread(target=self.server.serve_forever)
-        self.server_thread.start()
+        self.serverThread = threading.Thread(target=self.server.serve_forever)
+        self.serverThread.daemon = True  # Exit when main thread exits
+        self.serverThread.start()
 
     def close(self) -> None:
         self.exit = True
         if self.server:
             self.server.shutdown()
-        if self.server_thread:
-            self.server_thread.join()
-        self.executor.shutdown(wait=True)
+        if self.serverThread and self.serverThread.is_alive():
+            self.serverThread.join(timeout=5)  # Wait up to 5 seconds
         print(green("Preview server has been shut down."))
