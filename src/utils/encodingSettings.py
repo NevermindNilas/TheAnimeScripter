@@ -8,7 +8,16 @@ def matchEncoder(encode_method: str):
     command = []
     match encode_method:
         case "x264":
-            command.extend(["-c:v", "libx264", "-preset", "veryfast", "-crf", "15"])
+            command.extend(
+                [
+                    "-c:v",
+                    "libx264",
+                    "-preset",
+                    "veryfast",
+                    "-crf",
+                    "15",
+                ]
+            )
         case "slow_x264":
             command.extend(
                 [

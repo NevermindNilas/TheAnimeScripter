@@ -4,91 +4,16 @@ import os
 import torch
 import numpy as np
 import cv2
-import threading
 import json
 import src.constants as cs
 
 from queue import Queue
 from celux import VideoReader, Scale
 from torch.nn import functional as F
-from src.utils.logAndPrint import logAndPrint
 from src.utils.encodingSettings import matchEncoder, getPixFMT
 from .isCudaInit import CudaChecker
 
 checker = CudaChecker()
-
-
-def writeToSTDIN(
-    command: list,
-    frameQueue: Queue,
-    realtime: bool,
-    input: str = "",
-    mpvPath: str = "",
-):
-    """
-    Pipes FFmpeg output to FFplay for real-time preview if realtime is True,
-    otherwise just processes frames through FFmpeg
-
-    command: list - The command to use for encoding the video.
-    frameQueue: Queue - The queue to store frames.
-    realtime: bool - Whether to preview the video in real-time using FFPLAY.
-    input: str - The path to the input video file.
-    mpvPath: str - The path to the FFplay executable.
-    """
-    try:
-        ffmpegSubprocess = subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            shell=False,
-        )
-
-        if realtime:
-            # glslPath = (
-            #    r"C:\Users\nilas\AppData\Roaming\TheAnimeScripter\ffmpeg\FSR.glsl"
-            # )
-            mpvSubprocess = subprocess.Popen(
-                [
-                    mpvPath,
-                    "-",
-                    "--no-terminal",
-                    "--force-window=yes",
-                    "--keep-open=yes",
-                    "--title=" + input,
-                    "--cache=yes",
-                    "--demuxer-max-bytes=5M",
-                    "--demuxer-readahead-secs=5",
-                    "--demuxer-seekable-cache=yes",
-                    "--hr-seek-framedrop=no",
-                    "--hwdec=auto",
-                    "--border=no",
-                    "--profile=high-quality",
-                    "--vo=gpu-next",
-                    # "--profile=gpu-hq",
-                    # "--glsl-shader=" + glslPath,
-                ],
-                stdin=ffmpegSubprocess.stdout,
-                shell=False,
-            )
-            ffmpegSubprocess.stdout.close()
-
-        while True:
-            frame = frameQueue.get()
-            if frame is None:
-                break
-            ffmpegSubprocess.stdin.write(np.ascontiguousarray(frame))
-            ffmpegSubprocess.stdin.flush()
-
-    except Exception as e:
-        logAndPrint(f"Error during encoding / playback: {e}", "red")
-        return
-    finally:
-        if ffmpegSubprocess and ffmpegSubprocess.stdin:
-            ffmpegSubprocess.stdin.close()
-        if ffmpegSubprocess:
-            ffmpegSubprocess.wait()
-        if realtime and mpvSubprocess:
-            mpvSubprocess.wait()
 
 
 class BuildBuffer:
@@ -465,6 +390,7 @@ class WriteBuffer:
             )
         if self.transparent:
             filters.append("format=yuva420p")
+
         return filters
 
     def _buildCustomEncoder(self, filters, outputPixFormat):
@@ -532,18 +458,6 @@ class WriteBuffer:
             except Exception:
                 pass
 
-        waiterThread = threading.Thread(
-            target=writeToSTDIN,
-            args=(
-                command,
-                self.frameQueue,
-                self.realtime,
-                self.input,
-                self.mpvPath,
-            ),
-        )
-        waiterThread.start()
-
         while self.writeBuffer.empty():
             pass
 
@@ -556,6 +470,42 @@ class WriteBuffer:
             logging.info(
                 f"The frame size does not match the output size, resizing the frame. Frame size: {initialFrame.shape[3]}x{initialFrame.shape[2]}, Output size: {self.width}x{self.height}"
             )
+
+        ffmpegSubprocess = subprocess.Popen(
+            command,
+            stdin=subprocess.PIPE,
+            shell=False,
+            cwd=cs.MAINPATH,
+        )
+
+        if self.realtime:
+            # glslPath = (
+            #    r"C:\Users\nilas\AppData\Roaming\TheAnimeScripter\ffmpeg\FSR.glsl"
+            # )
+            mpvSubprocess = subprocess.Popen(
+                [
+                    self.mpvPath,
+                    "-",
+                    "--no-terminal",
+                    "--force-window=yes",
+                    "--keep-open=yes",
+                    "--title=" + input,
+                    "--cache=yes",
+                    "--demuxer-max-bytes=5M",
+                    "--demuxer-readahead-secs=5",
+                    "--demuxer-seekable-cache=yes",
+                    "--hr-seek-framedrop=no",
+                    "--hwdec=auto",
+                    "--border=no",
+                    "--profile=high-quality",
+                    "--vo=gpu-next",
+                    # "--profile=gpu-hq",
+                    # "--glsl-shader=" + glslPath,
+                ],
+                stdin=ffmpegSubprocess.stdout,
+                shell=False,
+            )
+            ffmpegSubprocess.stdout.close()
 
         while True:
             frame = self.writeBuffer.get()
@@ -606,11 +556,19 @@ class WriteBuffer:
                     frame = dummyTensor.cpu().numpy()
                 else:
                     raise ValueError("RGBA 10bit encoding is not supported.")
-            self.frameQueue.put(frame)
+            ffmpegSubprocess.stdin.write(np.ascontiguousarray(frame))
+            # ffmpegSubprocess.stdin.flush()
             writtenFrames += 1
 
         self.frameQueue.put(None)
         logging.info(f"Encoded {writtenFrames} frames")
+
+        if ffmpegSubprocess and ffmpegSubprocess.stdin:
+            ffmpegSubprocess.stdin.close()
+        if ffmpegSubprocess:
+            ffmpegSubprocess.wait()
+        if self.realtime and mpvSubprocess:
+            mpvSubprocess.wait()
 
     def write(self, frame: torch.Tensor):
         """
