@@ -322,7 +322,7 @@ class UniversalTensorRT:
     @torch.inference_mode()
     def processOutput(self):
         with torch.cuda.stream(self.outputStream):
-            output = self.dummyOutput.clamp(0, 1)
+            output = self.dummyOutput
         self.outputStream.synchronize()
 
         return output
@@ -336,9 +336,7 @@ class UniversalTensorRT:
             self.cudaGraph.replay()
         self.stream.synchronize()
 
-        output = self.processOutput()
-
-        return output
+        return self.processOutput()
 
 
 class UniversalDirectML:

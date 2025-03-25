@@ -224,8 +224,7 @@ class UnifiedRestoreTensorRT:
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
         self.stream.synchronize()
-        output = self.processOutput()
-        return output
+        return self.processOutput()
 
 
 class UnifiedRestoreDirectML:

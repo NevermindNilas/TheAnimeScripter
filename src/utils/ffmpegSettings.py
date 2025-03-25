@@ -169,9 +169,10 @@ class BuildBuffer:
                     .clamp(0, 1)
                     .permute(2, 0, 1)
                     .unsqueeze(0)
+                    .contiguous()
                 )
             normStream.synchronize()
-            return frame.contiguous()
+            return frame
         else:
             return (
                 frame.mul(multiply)
