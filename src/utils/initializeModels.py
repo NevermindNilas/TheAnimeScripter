@@ -1,6 +1,27 @@
 import logging
 
 
+def ObjectDetection(self):
+    from src.objectDetection.objectDetection import ObjectDetection
+
+    ObjectDetection(
+        self.input,
+        self.output,
+        self.ffmpeg_path,
+        self.width,
+        self.height,
+        self.fps,
+        self.inpoint,
+        self.outpoint,
+        self.encode_method,
+        self.custom_encoder,
+        self.benchmark,
+        self.totalFrames,
+        self.half,
+        decodeThreads=self.decode_threads,
+    )
+
+
 def AutoClip(self):
     from src.autoclip.autoclip import AutoClip
 

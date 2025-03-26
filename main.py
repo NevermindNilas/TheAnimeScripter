@@ -35,7 +35,13 @@ from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
 from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.inputOutputHandler import handleInputOutputs
-from src.utils.initializeModels import initializeModels, Segment, Depth, AutoClip
+from src.utils.initializeModels import (
+    initializeModels,
+    Segment,
+    Depth,
+    AutoClip,
+    ObjectDetection,
+)
 from src.utils.logAndPrint import logAndPrint
 
 warnings.filterwarnings("ignore")
@@ -100,6 +106,7 @@ class VideoProcessor:
         self.static_step: bool = args.static_step
         self.slowmo: bool = args.slowmo
         self.interpolate_first: bool = args.interpolate_first
+        self.obj_detect: bool = args.obj_detect
         # Get video metadata
 
     def _initVideoMetadata(self, args) -> None:
@@ -145,6 +152,10 @@ class VideoProcessor:
         elif self.segment:
             logging.info("Segmenting video")
             Segment(self)
+
+        elif self.obj_detect:
+            logging.info("Object Detection")
+            ObjectDetection(self)
 
         else:
             self.start()
