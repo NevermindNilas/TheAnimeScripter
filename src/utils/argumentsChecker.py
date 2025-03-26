@@ -24,6 +24,7 @@ def isAnyOtherProcessingMethodEnabled(args):
         args.dedup,
         args.depth,
         args.autoclip,
+        args.obj_detect,
     ]
 
     return any(proccessingMethods)
@@ -449,6 +450,13 @@ def createParser(isFrozen, outputPath, sysUsed):
     )
     encodingGroup.add_argument(
         "--custom_encoder", type=str, default="", help="Custom encoder settings"
+    )
+
+    # Object Detection options
+    # Todo: Implement more models
+    objectGroup = argParser.add_argument_group("Object Detection")
+    objectGroup.add_argument(
+        "--obj_detect", action="store_true", help="Detect objects in the video"
     )
 
     # Miscellaneous options
