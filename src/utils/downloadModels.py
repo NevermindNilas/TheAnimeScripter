@@ -28,6 +28,7 @@ DEPTHV2URLLARGE = (
 
 def modelsList() -> list[str]:
     return [
+        "yolo11n",
         "shufflespan",
         "shufflespan-directml",
         "shufflespan-tensorrt",
@@ -583,6 +584,9 @@ def modelsMap(
 
         case "distill_base_v2":
             return "distill_base_v2.safetensors"
+
+        case "yolo11n":
+            return "yolo11n.pt"
 
         case _:
             raise ValueError(f"Model {model} not found.")
