@@ -3,6 +3,7 @@ import logging
 
 from inquirer import List, prompt
 from yt_dlp import YoutubeDL
+from src.constants import ADOBE
 
 
 class VideoDownloader:
@@ -13,14 +14,12 @@ class VideoDownloader:
         encodeMethod,
         customEncoder,
         ffmpegPath: str = None,
-        ae: bool = False,
     ):
         self.link = video_link
         self.output = output
         self.encodeMethod = encodeMethod
         self.customEncoder = customEncoder
         self.ffmpegPath = ffmpegPath
-        self.ae = ae
 
         try:
             resolutions = self.listResolutions()
@@ -44,7 +43,7 @@ class VideoDownloader:
         self.resolution = answers["resolution"]
         self.width, self.height = map(int, self.resolution.split("x"))
 
-        if self.height > 1080 and self.ae:
+        if self.height > 1080 and ADOBE:
             toPrint = f"The selected resolution {self.resolution} is higher than 1080p, this will require an additional step of encoding the video for compatibility with After Effects"
             logging.warning(toPrint)
             print(toPrint)
@@ -82,7 +81,7 @@ class VideoDownloader:
             raise
 
     def getOptions(self):
-        if self.height > 1080 and self.ae:
+        if self.height > 1080 and ADOBE:
             return {
                 "format": f"bestvideo[height<={self.height}][width<={self.width}]+bestaudio[ext=m4a]/best[ext=mp4]",
                 "outtmpl": os.path.splitext(self.output)[0],
