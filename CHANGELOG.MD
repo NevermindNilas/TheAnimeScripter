@@ -26,14 +26,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Adobe Edition
 #### Added
 - Added a `copy to clipboard` button to the `logs` tab.
-
-#### Changed
-- Small UI redesign for `Extra` and `Toolbox`
-- "Path Errors" will now result in toasts rather than annoying alerts.
 - Added `slowmo` button to the interpolation tab.
 
+#### Changed
+- Signifant UI redesign for `Chain`, `Extra` and `Toolbox`
+- "Path Errors" will now result in toasts rather than annoying alerts.
+- Removed a couple of unnecessary alerts, there should only now be one or two left for critical pieces. Down the line these will also be Toasts.
+
 #### Fixed
-- 
+- N/A 
 
 ## [2.1.2] - 2025-03-14
 #### Added

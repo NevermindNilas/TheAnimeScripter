@@ -756,7 +756,6 @@ def processURL(args, outputPath):
             args.encode_method,
             args.custom_encoder,
             args.ffmpeg_path,
-            args.ae,
         )
         print(green(f"Video downloaded to: {tempOutput}"))
 
