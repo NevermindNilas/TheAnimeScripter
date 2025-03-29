@@ -82,7 +82,6 @@ class VideoProcessor:
         self.autoclip_sens: float = args.autoclip_sens
         self.depth: bool = args.depth
         self.depth_method: str = args.depth_method
-        self.ffmpeg_path: str = args.ffmpeg_path
         self.ensemble: bool = args.ensemble
         self.resize: bool = args.resize
         self.resize_factor: float = args.resize_factor
@@ -107,14 +106,12 @@ class VideoProcessor:
         self.slowmo: bool = args.slowmo
         self.interpolate_first: bool = args.interpolate_first
         self.obj_detect: bool = args.obj_detect
-        # Get video metadata
 
     def _initVideoMetadata(self, args) -> None:
         videoMetadata = getVideoMetadata(
             self.input,
             args.inpoint,
             args.outpoint,
-            args.ffprobe_path,
         )
 
         self.width: int = videoMetadata["Width"]
@@ -303,7 +300,6 @@ class VideoProcessor:
             self.writeBuffer = WriteBuffer(
                 input=self.input,
                 output=self.output,
-                ffmpegPath=self.ffmpeg_path,
                 encode_method=self.encode_method,
                 custom_encoder=self.custom_encoder,
                 width=self.new_width,

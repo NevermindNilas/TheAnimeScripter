@@ -43,7 +43,6 @@ class DepthCuda:
         self,
         input,
         output,
-        ffmpeg_path,
         width,
         height,
         fps,
@@ -61,7 +60,6 @@ class DepthCuda:
     ):
         self.input = input
         self.output = output
-        self.ffmpeg_path = ffmpeg_path
         self.width = width
         self.height = height
         self.fps = fps
@@ -94,7 +92,6 @@ class DepthCuda:
             self.writeBuffer = WriteBuffer(
                 self.input,
                 self.output,
-                self.ffmpeg_path,
                 self.encode_method,
                 self.custom_encoder,
                 self.width,
@@ -257,7 +254,6 @@ class DepthDirectMLV2:
         self,
         input,
         output,
-        ffmpeg_path,
         width,
         height,
         fps,
@@ -279,7 +275,6 @@ class DepthDirectMLV2:
 
         self.input = input
         self.output = output
-        self.ffmpeg_path = ffmpeg_path
         self.width = width
         self.height = height
         self.fps = fps
@@ -312,7 +307,6 @@ class DepthDirectMLV2:
             self.writeBuffer = WriteBuffer(
                 self.input,
                 self.output,
-                self.ffmpeg_path,
                 self.encode_method,
                 self.custom_encoder,
                 self.width,
@@ -465,7 +459,6 @@ class DepthTensorRTV2:
         self,
         input,
         output,
-        ffmpeg_path,
         width,
         height,
         fps,
@@ -483,7 +476,6 @@ class DepthTensorRTV2:
     ):
         self.input = input
         self.output = output
-        self.ffmpeg_path = ffmpeg_path
         self.width = width
         self.height = height
         self.fps = fps
@@ -528,7 +520,6 @@ class DepthTensorRTV2:
             self.writeBuffer = WriteBuffer(
                 self.input,
                 self.output,
-                self.ffmpeg_path,
                 self.encode_method,
                 self.custom_encoder,
                 self.width,
