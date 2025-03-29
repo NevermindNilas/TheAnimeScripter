@@ -3,7 +3,7 @@ import logging
 
 from inquirer import List, prompt
 from yt_dlp import YoutubeDL
-from src.constants import ADOBE
+from src.constants import ADOBE, FFMPEGPATH
 
 
 class VideoDownloader:
@@ -13,13 +13,11 @@ class VideoDownloader:
         output,
         encodeMethod,
         customEncoder,
-        ffmpegPath: str = None,
     ):
         self.link = video_link
         self.output = output
         self.encodeMethod = encodeMethod
         self.customEncoder = customEncoder
-        self.ffmpegPath = ffmpegPath
 
         try:
             resolutions = self.listResolutions()
@@ -85,7 +83,7 @@ class VideoDownloader:
             return {
                 "format": f"bestvideo[height<={self.height}][width<={self.width}]+bestaudio[ext=m4a]/best[ext=mp4]",
                 "outtmpl": os.path.splitext(self.output)[0],
-                "ffmpeg_location": os.path.dirname(self.ffmpegPath),
+                "ffmpeg_location": os.path.dirname(FFMPEGPATH),
                 "quiet": True,
                 "noplaylist": True,
                 "no_warnings": True,
@@ -102,7 +100,7 @@ class VideoDownloader:
             return {
                 "format": f"bestvideo[height<={self.height}][width<={self.width}][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]",
                 "outtmpl": self.output,
-                "ffmpeg_location": os.path.dirname(self.ffmpegPath),
+                "ffmpeg_location": os.path.dirname(FFMPEGPATH),
                 "quiet": True,
                 "noplaylist": True,
                 "no_warnings": True,

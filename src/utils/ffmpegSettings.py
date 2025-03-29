@@ -211,7 +211,6 @@ class WriteBuffer:
         self,
         input: str = "",
         output: str = "",
-        ffmpegPath: str = "",
         encode_method: str = "x264",
         custom_encoder: str = "",
         width: int = 1920,
@@ -221,7 +220,6 @@ class WriteBuffer:
         sharpen_sens: float = 0.0,
         grayscale: bool = False,
         transparent: bool = False,
-        audio: bool = True,
         benchmark: bool = False,
         bitDepth: str = "8bit",
         inpoint: float = 0.0,
@@ -233,7 +231,6 @@ class WriteBuffer:
         A class meant to Pipe the input to FFMPEG from a queue.
 
         output: str - The path to the output video file.
-        ffmpegPath: str - The path to the FFmpeg executable.
         encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
         custom_encoder: str - A custom encoder string to use for encoding the video.
         grayscale: bool - Whether to encode the video in grayscale.
@@ -252,7 +249,6 @@ class WriteBuffer:
         """
         self.input = input
         self.output = os.path.normpath(output)
-        self.ffmpegPath = os.path.normpath(ffmpegPath)
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
         self.grayscale = grayscale
@@ -268,8 +264,6 @@ class WriteBuffer:
         self.outpoint = outpoint
         self.realtime = realtime
         self.slowmo = slowmo
-        # ffmpeg path "C:\Users\User\AppData\Roaming\TheAnimeScripter\ffmpeg\ffmpeg.exe"
-        self.mpvPath = os.path.join(os.path.dirname(self.ffmpegPath), "mpv.exe")
 
         self.writtenFrames = 0
         self.writeBuffer = Queue(maxsize=10)
@@ -296,7 +290,7 @@ class WriteBuffer:
     def _buildBenchmarkCommand(self, inputPixFormat):
         """Build FFmpeg command for benchmarking"""
         return [
-            self.ffmpegPath,
+            cs.FFMPEGPATH,
             "-y",
             "-hide_banner",
             "-v",
@@ -321,7 +315,7 @@ class WriteBuffer:
     def _buildEncodingCommand(self, inputPixFormat, outputPixFormat):
         """Build FFmpeg command for encoding"""
         command = [
-            self.ffmpegPath,
+            cs.FFMPEGPATH,
             "-y",
             "-report",
             "-hide_banner",

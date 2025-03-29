@@ -8,6 +8,7 @@ from anipy_api.anime import Anime
 from anipy_api.provider import LanguageTypeEnum
 from anipy_api.download import Downloader
 from src.utils.coloredPrints import yellow
+from src.constants import FFMPEGPATH
 
 
 def initializeProvider():
@@ -94,7 +95,6 @@ def downloadEpisode(episodeStream, outputPath: str = "~/Downloads"):
 
 def aniPyHandler(
     outputPath: str = "~/Downloads",
-    ffmpegPath: str = None,
 ):
     print(
         yellow(
@@ -128,14 +128,12 @@ def aniPyHandler(
 
     downloadPath = str(downloadPath)
     if not downloadPath.endswith(".mp4"):
-        downloadPath = handleConversion(downloadPath, ffmpegPath, outputPath)
+        downloadPath = handleConversion(downloadPath, outputPath)
 
     return downloadPath
 
 
-def handleConversion(
-    downloadPath: str, ffmpegPath: str, outputPath: str = "~/Downloads"
-):
+def handleConversion(downloadPath: str, outputPath: str = "~/Downloads"):
     print(
         yellow(
             f"Due to limitations in TAS' backend, we are converting {downloadPath} to mp4..."
@@ -148,7 +146,7 @@ def handleConversion(
         desiredPath = outputPath
 
     command = [
-        ffmpegPath,
+        FFMPEGPATH,
         "-i",
         downloadPath,
         "-c",

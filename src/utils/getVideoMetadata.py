@@ -11,7 +11,7 @@ def saveMetadata(metadata):
         json.dump(metadata, jsonFile, indent=4)
 
 
-def getVideoMetadata(inputPath, inPoint, outPoint, ffprobePath):
+def getVideoMetadata(inputPath, inPoint, outPoint):
     """
     Get metadata from a video file using ffprobe.
 
@@ -25,7 +25,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint, ffprobePath):
     tuple: (width, height, fps, totalFramesToProcess, hasAudio)
     """
     try:
-        if not os.path.exists(ffprobePath):
+        if not os.path.exists(cs.FFMPEGPATH):
             logging.error("ffprobe not found")
             raise FileNotFoundError("ffprobe path not found")
         if not os.path.exists(inputPath):
@@ -33,7 +33,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint, ffprobePath):
             raise FileNotFoundError("Video file not found")
 
         cmd = [
-            ffprobePath,
+            cs.FFPROBEPATH,
             "-v",
             "quiet",
             "-print_format",
