@@ -119,7 +119,7 @@ def createParser(isFrozen, outputPath, sysUsed):
         "--interpolate", action="store_true", help="Interpolate the video"
     )
     interpolationGroup.add_argument(
-        "--interpolate_factor", type=int, default=2, help="Interpolation factor"
+        "--interpolate_factor", type=float, default=2, help="Interpolation factor"
     )
 
     interpolationGroup.add_argument(
@@ -593,6 +593,11 @@ def argumentsChecker(args, outputPath):
         # If slowmo is enabled, audio will no longer be processed due to frame missmatch
         cs.AUDIO = False
         logging.info("Slow motion enabled, audio processing disabled")
+
+    if args.static_step:
+        if isinstance(args.interpolate_factor, float):
+            logging.info("Interpolate Factor is a float, static step will be disabled")
+            args.static_step = False
 
     if args.dedup:
         # If dedup true, audio will no longer be processed due to frame missmatch
