@@ -313,7 +313,7 @@ class RifeCuda:
         )
 
     @torch.inference_mode()
-    def __call__(self, frame, interpQueue):
+    def __call__(self, frame, interpQueue, interpolationFactor=2):
         if self.firstRun:
             with torch.cuda.stream(self.normStream):
                 self.processFrame(frame, "I0")
@@ -332,10 +332,10 @@ class RifeCuda:
                 interpQueue.put(output)
 
         else:
-            for i in range(self.interpolateFactor - 1):
+            for i in range(interpolationFactor):
                 timestep = torch.full(
                     (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
-                    (i + 1) * 1 / self.interpolateFactor,
+                    (i + 1) * 1 / interpolationFactor,
                     dtype=self.dType,
                     device=checker.device,
                 )
@@ -707,7 +707,7 @@ class RifeTensorRT:
             self.processFrame(frame, "f0")
 
     @torch.inference_mode()
-    def __call__(self, frame, interpQueue):
+    def __call__(self, frame, interpQueue, interpolationFactor=2):
         if self.firstRun:
             if self.norm is not None:
                 self.processFrame(frame, "f0")
@@ -718,7 +718,7 @@ class RifeTensorRT:
             return
 
         self.processFrame(frame, "I1")
-        for i in range(self.interpolateFactor - 1):
+        for i in range(interpolationFactor):
             timestep = torch.full(
                 (1, 1, self.ph, self.pw),
                 (i + 1) * 1 / self.interpolateFactor,
@@ -807,7 +807,7 @@ class RifeNCNN:
     def cacheFrameReset(self, frame):
         self.frame1 = frame.cpu().numpy().astype("uint8")
 
-    def __call__(self, frame, interpQueue):
+    def __call__(self, frame, interpQueue, interpolationFactor=2):
         if self.frame1 is None:
             self.frame1 = (
                 frame.mul(255).squeeze(0).permute(1, 2, 0).cpu().numpy().astype("uint8")
@@ -817,7 +817,7 @@ class RifeNCNN:
         self.frame2 = (
             frame.mul(255).squeeze(0).permute(1, 2, 0).cpu().numpy().astype("uint8")
         )
-        for i in range(self.interpolateFactor - 1):
+        for i in range(interpolationFactor):
             timestep = (i + 1) * 1 / self.interpolateFactor
             output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
             output = (
@@ -1159,7 +1159,7 @@ class RifeDirectML:
                 self.dummyTimeStep.copy_(frame, non_blocking=False)
 
     @torch.inference_mode()
-    def __call__(self, frame: torch.Tensor, interpQueue):
+    def __call__(self, frame: torch.Tensor, interpQueue, interpolationFactor):
         if self.firstRun:
             if self.norm is not None:
                 self.processFrame(frame, "f0")
@@ -1170,7 +1170,7 @@ class RifeDirectML:
             return
 
         self.processFrame(frame, "I1")
-        for i in range(self.interpolateFactor - 1):
+        for i in range(interpolationFactor):
             timestep = torch.full(
                 (1, 1, self.ph, self.pw),
                 (i + 1) * 1 / self.interpolateFactor,

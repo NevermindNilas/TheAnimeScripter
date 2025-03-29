@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Test(s)
 - Slowmotion support through `--slowmo`
 - `constants.py` to more easily maintain the code and to avoid excessive imports and declarations.
+- Experimental fractional interpolation support.
 
 #### Changed
 - Linux support will be indefinitely postponed and will no longer be in any shape or form a priority of TAS.
