@@ -18,7 +18,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self,
         input,
         output,
-        ffmpeg_path,
         width,
         height,
         fps,
@@ -32,7 +31,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
     ):
         self.input = input
         self.output = output
-        self.ffmpeg_path = ffmpeg_path
         self.width = width
         self.height = height
         self.fps = fps
@@ -57,7 +55,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             self.writeBuffer = WriteBuffer(
                 input=self.input,
                 output=self.output,
-                ffmpegPath=self.ffmpeg_path,
                 encode_method=self.encode_method,
                 custom_encoder=self.custom_encoder,
                 grayscale=False,
@@ -153,7 +150,6 @@ class AnimeSegmentTensorRT:
         self,
         input,
         output,
-        ffmpeg_path,
         width,
         height,
         fps,
@@ -167,7 +163,6 @@ class AnimeSegmentTensorRT:
     ):
         self.input = input
         self.output = output
-        self.ffmpeg_path = ffmpeg_path
         self.width = width
         self.height = height
         self.fps = fps
@@ -204,7 +199,6 @@ class AnimeSegmentTensorRT:
             self.writeBuffer = WriteBuffer(
                 input=self.input,
                 output=self.output,
-                ffmpegPath=self.ffmpeg_path,
                 encode_method=self.encode_method,
                 custom_encoder=self.custom_encoder,
                 grayscale=False,
@@ -369,7 +363,6 @@ class AnimeSegmentDirectML:
         self,
         input,
         output,
-        ffmpeg_path,
         width,
         height,
         fps,
@@ -383,7 +376,6 @@ class AnimeSegmentDirectML:
     ):
         self.input = input
         self.output = output
-        self.ffmpeg_path = ffmpeg_path
         self.width = width
         self.height = height
         self.fps = fps
@@ -413,7 +405,6 @@ class AnimeSegmentDirectML:
             self.writeBuffer = WriteBuffer(
                 self.input,
                 self.output,
-                self.ffmpeg_path,
                 self.encode_method,
                 self.custom_encoder,
                 self.width,

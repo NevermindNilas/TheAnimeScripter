@@ -7,7 +7,6 @@ def ObjectDetection(self):
     ObjectDetection(
         self.input,
         self.output,
-        self.ffmpeg_path,
         self.width,
         self.height,
         self.fps,
@@ -40,7 +39,6 @@ def Segment(self):
         AnimeSegment(
             self.input,
             self.output,
-            self.ffmpeg_path,
             self.width,
             self.height,
             self.outputFPS,
@@ -58,7 +56,6 @@ def Segment(self):
         AnimeSegmentTensorRT(
             self.input,
             self.output,
-            self.ffmpeg_path,
             self.width,
             self.height,
             self.outputFPS,
@@ -77,7 +74,6 @@ def Segment(self):
         AnimeSegmentDirectML(
             self.input,
             self.output,
-            self.ffmpeg_path,
             self.width,
             self.height,
             self.outputFPS,
@@ -109,7 +105,6 @@ def Depth(self):
             DepthCuda(
                 self.input,
                 self.output,
-                self.ffmpeg_path,
                 self.width,
                 self.height,
                 self.fps,
@@ -132,7 +127,6 @@ def Depth(self):
             DepthTensorRTV2(
                 self.input,
                 self.output,
-                self.ffmpeg_path,
                 self.width,
                 self.height,
                 self.fps,
@@ -155,7 +149,6 @@ def Depth(self):
             DepthDirectMLV2(
                 self.input,
                 self.output,
-                self.ffmpeg_path,
                 self.width,
                 self.height,
                 self.fps,

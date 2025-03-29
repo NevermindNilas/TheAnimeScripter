@@ -520,34 +520,32 @@ def argumentsChecker(args, outputPath):
         cs.ADOBE = True
 
     logging.info("\n============== Arguments Checker ==============")
-    args.ffmpeg_path = os.path.join(
+    cs.FFMPEGPATH = os.path.join(
         cs.MAINPATH,
         "ffmpeg",
         "ffmpeg.exe" if cs.SYSTEM == "Windows" else "ffmpeg",
     )
 
-    args.ffprobe_path = os.path.join(
+    cs.FFPROBEPATH = os.path.join(
         cs.MAINPATH,
         "ffmpeg",
         "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe",
     )
 
-    args.mpv_path = os.path.join(
+    cs.MPVPATH = os.path.join(
         cs.MAINPATH,
         "ffmpeg",
         "mpv.exe" if cs.SYSTEM == "Windows" else "mpv",
     )
 
-    if not os.path.exists(args.ffmpeg_path) or (
+    if not os.path.exists(cs.FFMPEGPATH) or (
         args.realtime
-        and not os.path.exists(args.mpv_path)
-        or not os.path.exists(args.ffprobe_path)
+        and not os.path.exists(cs.MPVPATH)
+        or not os.path.exists(cs.FFPROBEPATH)
     ):
         from src.utils.getFFMPEG import getFFMPEG
 
-        args.ffmpeg_path, args.mpv_path, args.ffprobe_path = getFFMPEG(
-            args.ffmpeg_path, args.realtime
-        )
+        getFFMPEG(args.realtime)
 
     if args.realtime:
         print(yellow("Realtime preview enabled, this is experimental!"))
@@ -755,7 +753,6 @@ def processURL(args, outputPath):
             tempOutput,
             args.encode_method,
             args.custom_encoder,
-            args.ffmpeg_path,
         )
         print(green(f"Video downloaded to: {tempOutput}"))
 
@@ -786,5 +783,5 @@ def processAniPy(args, outputPath: str):
         fullOutput = args.output
     from src.utils.anipyLogic import aniPyHandler
 
-    args.input = aniPyHandler(fullOutput, args.ffmpeg_path)
+    args.input = aniPyHandler(fullOutput)
     logging.info(f"New input path: {args.input}")

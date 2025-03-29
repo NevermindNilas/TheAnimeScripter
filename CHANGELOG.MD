@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Signifant UI redesign for `Chain`, `Extra` and `Toolbox`
 - "Path Errors" will now result in toasts rather than annoying alerts.
 - Removed a couple of unnecessary alerts, there should only now be one or two left for critical pieces. Down the line these will also be Toasts.
+- Added a `latest version` indicator the update toast generator.
 
 #### Fixed
 - N/A 
