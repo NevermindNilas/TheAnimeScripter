@@ -170,6 +170,21 @@ class VideoProcessor:
         if self.restore:
             frame = self.restore_process(frame)
 
+        if self.interpolate:
+            if isinstance(self.interpolate_factor, float):
+                intFactor = int(self.interpolate_factor)
+                fracPart = self.interpolate_factor - intFactor
+                self.frameCounter += fracPart
+                framesToInsert = intFactor - 1
+
+                if self.frameCounter >= 1.0:
+                    framesToInsert += 1
+                    self.frameCounter -= 1.0
+
+                self.framesToInsert = framesToInsert
+            else:
+                self.framesToInsert = int(self.interpolate_factor) - 1
+
         if self.interpolate_first:
             self.ifInterpolateFirst(frame)
         else:
@@ -185,13 +200,13 @@ class VideoProcessor:
             if self.isSceneChange:
                 self.interpolate_process.cacheFrameReset(frame)
             else:
-                self.interpolate_process(frame, self.interpQueue)
+                self.interpolate_process(frame, self.interpQueue, self.framesToInsert)
 
         if self.upscale:
             if self.interpolate:
                 if self.isSceneChange:
                     frame = self.upscale_process(frame)
-                    for _ in range(self.interpolate_factor - 1):
+                    for _ in range(self.framesToInsert):
                         self.writeBuffer.write(frame)
                 else:
                     while not self.interpQueue.empty():
@@ -205,7 +220,7 @@ class VideoProcessor:
         else:
             if self.interpolate:
                 if self.isSceneChange or not self.interpQueue.empty():
-                    for _ in range(self.interpolate_factor - 1):
+                    for _ in range(self.framesToInsert):
                         frameToWrite = (
                             frame if self.isSceneChange else self.interpQueue.get()
                         )
@@ -219,7 +234,7 @@ class VideoProcessor:
 
         if self.interpolate:
             if self.isSceneChange:
-                for _ in range(self.interpolate_factor - 1):
+                for _ in range(self.framesToInsert):
                     self.writeBuffer.write(frame)
                 self.interpolate_process.cacheFrameReset(frame)
             else:
@@ -227,19 +242,20 @@ class VideoProcessor:
 
         self.writeBuffer.write(frame)
 
-        if self.preview:
-            self.preview.add(
-                frame.squeeze(0).permute(1, 2, 0).mul(255).byte().cpu().numpy()
-            )
-
     def process(self):
         frameCount = 0
         self.dedupCount = 0
         self.isSceneChange = False
         self.sceneChangeCounter = 0
+        self.frameCounter = 0
+
+        self.framesToInsert = self.interpolate_factor - 1
+
         increment = 1 if not self.interpolate else self.interpolate_factor
         if self.interpolate and self.interpolate_first:
-            self.interpQueue = Queue(maxsize=self.interpolate_factor - 1)
+            self.interpQueue = Queue(
+                maxsize=max(3, self.interpolate_factor)
+            )  # Larger max size for safety
 
         try:
             with ProgressBarLogic(self.totalFrames * increment) as bar:
