@@ -396,6 +396,11 @@ def createParser(isFrozen, outputPath, sysUsed):
             "large_v2-directml",
             "distill_small_v2",
             "distill_base_v2",
+            "og_small_v2",
+            "og_base_v2",
+            "og_large_v2",
+            "og_distill_small_v2",
+            "og_distill_base_v2",
         ],
         default="small_v2",
         help="Depth estimation method",
@@ -557,6 +562,9 @@ def argumentsChecker(args, outputPath):
         )
         args.slowmo = False
 
+    if args.depth:
+        logging.info("Depth enabled, audio processing will be disabled")
+        cs.AUDIO = False
     # ["tensorrt", "directml"] in args.depth_method:
     if args.depth_quality not in ["low"] and args.depth_method.split("-")[-1] in [
         "tensorrt",
