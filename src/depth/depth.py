@@ -3,6 +3,7 @@ import torch
 import logging
 import numpy as np
 import torch.nn.functional as F
+import cv2
 
 from concurrent.futures import ThreadPoolExecutor
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
@@ -100,7 +101,6 @@ class DepthCuda:
                 sharpen=False,
                 sharpen_sens=None,
                 grayscale=True,
-                audio=False,
                 benchmark=self.benchmark,
                 bitDepth=self.bitDepth,
             )
@@ -133,7 +133,7 @@ class DepthCuda:
             modelType = "pth"
 
         self.filename = modelsMap(
-            model=self.depth_method, modelType="pth", half=self.half
+            model=self.depth_method, modelType=modelType, half=self.half
         )
 
         if not os.path.exists(os.path.join(weightsDir, self.filename, self.filename)):
@@ -174,9 +174,9 @@ class DepthCuda:
         if "distill" in self.depth_method:
             from safetensors.torch import load_file
 
-            model_weights = load_file(modelPath)
-            self.model.load_state_dict(model_weights)
-            del model_weights
+            modelWeights = load_file(modelPath)
+            self.model.load_state_dict(modelWeights)
+            del modelWeights
             torch.cuda.empty_cache()
         else:
             self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
@@ -315,7 +315,6 @@ class DepthDirectMLV2:
                 sharpen=False,
                 sharpen_sens=None,
                 grayscale=True,
-                audio=False,
                 benchmark=self.benchmark,
                 bitDepth=self.bitDepth,
             )
@@ -528,7 +527,6 @@ class DepthTensorRTV2:
                 sharpen=False,
                 sharpen_sens=None,
                 grayscale=True,
-                audio=False,
                 benchmark=self.benchmark,
                 bitDepth=self.bitDepth,
             )
@@ -671,3 +669,166 @@ class DepthTensorRTV2:
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
+
+
+class OGDepthV2CUDA:
+    def __init__(
+        self,
+        input,
+        output,
+        width,
+        height,
+        fps,
+        half,
+        inpoint=0,
+        outpoint=0,
+        encode_method="x264",
+        depth_method="small",
+        custom_encoder="",
+        benchmark=False,
+        totalFrames=0,
+        bitDepth: str = "16bit",
+        depthQuality: str = "high",
+        decodeThreads: int = 0,
+    ):
+        self.input = input
+        self.output = output
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.half = half
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.encode_method = encode_method
+        self.depth_method = depth_method
+        self.custom_encoder = custom_encoder
+        self.benchmark = benchmark
+        self.totalFrames = totalFrames
+        self.bitDepth = bitDepth
+        self.depthQuality = depthQuality
+
+        self.handleModels()
+
+        self.newHeight, self.newWidth = calculateAspectRatio(
+            self.width, self.height, self.depthQuality
+        )
+        try:
+            self.video = cv2.VideoCapture(self.input)
+            self.output = cv2.VideoWriter(
+                self.output,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                self.fps,
+                (self.width, self.height),
+            )
+
+            self.process()
+        except Exception as e:
+            logging.exception(f"Something went wrong, {e}")
+
+    def handleModels(self):
+        from .og_dpt_v2 import DepthAnythingV2
+
+        match self.depth_method:
+            case "og_small_v2" | "og_distill_small_v2":
+                method = "vits"
+                toDownload = "small_v2"
+            case "og_base_v2" | "og_distill_base_v2":
+                method = "vitb"
+            case "og_large_v2":
+                method = "vitl"
+                toDownload = "large_v2"
+            case "giant_v2":
+                raise NotImplementedError("Giant model not available yet")
+                # method = "vitg"
+
+        if "distill" in self.depth_method:
+            modelType = "safetensors"
+            toDownload = "distill_" + toDownload
+        else:
+            modelType = "pth"
+
+        self.filename = modelsMap(model=toDownload, modelType=modelType, half=self.half)
+
+        if not os.path.exists(os.path.join(weightsDir, self.filename, self.filename)):
+            modelPath = downloadModels(
+                model=toDownload,
+                half=self.half,
+                modelType=modelType,
+            )
+
+        else:
+            modelPath = os.path.join(weightsDir, self.filename, self.filename)
+
+        modelConfigs = {
+            "vits": {
+                "encoder": "vits",
+                "features": 64,
+                "out_channels": [48, 96, 192, 384],
+            },
+            "vitb": {
+                "encoder": "vitb",
+                "features": 128,
+                "out_channels": [96, 192, 384, 768],
+            },
+            "vitl": {
+                "encoder": "vitl",
+                "features": 256,
+                "out_channels": [256, 512, 1024, 1024],
+            },
+            "vitg": {
+                "encoder": "vitg",
+                "features": 384,
+                "out_channels": [1536, 1536, 1536, 1536],
+            },
+        }
+
+        self.model = DepthAnythingV2(**modelConfigs[method])
+
+        if "distill" in self.depth_method:
+            from safetensors.torch import load_file
+
+            modelWeights = load_file(modelPath)
+            self.model.load_state_dict(modelWeights)
+            del modelWeights
+            torch.cuda.empty_cache()
+        else:
+            self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
+        self.model = self.model.to(checker.device).eval()
+
+        self.newHeight, self.newWidth = calculateAspectRatio(
+            self.width, self.height, self.depthQuality
+        )
+
+        if self.half and checker.cudaAvailable:
+            self.model = self.model.half()
+        else:
+            self.model = self.model.float()
+
+        self.normStream = torch.cuda.Stream()
+        self.stream = torch.cuda.Stream()
+
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        try:
+            depth = self.model.infer_image(frame, self.newHeight, self.half)
+            self.output.write(depth)
+
+        except Exception as e:
+            logging.exception(f"Something went wrong while processing the frame, {e}")
+
+    def process(self):
+        frameCount = 0
+
+        with ProgressBarLogic(self.totalFrames) as bar:
+            for _ in range(self.totalFrames):
+                ret, frame = self.video.read()
+                if not ret:
+                    break
+                self.processFrame(frame)
+                frameCount += 1
+                bar(1)
+
+        logging.info(f"Processed {frameCount} frames")
+
+        self.video.release()
+        self.output.release()

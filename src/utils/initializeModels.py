@@ -164,6 +164,34 @@ def Depth(self):
                 self.depth_quality,
                 decodeThreads=self.decode_threads,
             )
+        case (
+            "og_small_v2"
+            | "og_base_v2"
+            | "og_large_v2"
+            | "og_distill_small_v2"
+            | "og_distill_base_v2"
+            | "og_distill_large_v2"
+        ):
+            from src.depth.depth import OGDepthV2CUDA
+
+            OGDepthV2CUDA(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encode_method,
+                self.depth_method,
+                self.custom_encoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bit_depth,
+                self.depth_quality,
+                decodeThreads=self.decode_threads,
+            )
 
 
 def initializeModels(self):

@@ -11,6 +11,7 @@ from time import time
 import os
 import json
 import logging
+import psutil
 
 
 class FPSColumn(ProgressColumn):
@@ -24,6 +25,46 @@ class FPSColumn(ProgressColumn):
         elapsed = time() - self.startTime
         fps = task.completed / elapsed if elapsed > 0 else 0
         return f"FPS: [magenta]{fps:.2f}[/magenta]"
+
+
+class MemoryColumn(ProgressColumn):
+    def __init__(self, totalFrames: int):
+        super().__init__()
+        self.advanceCount = 0
+        self.updateInterval = max(1, totalFrames // 1000)
+        self.cachedMem = 0
+
+    def render(self, task):
+        if self.advanceCount % self.updateInterval == 0:
+            process = psutil.Process(os.getpid())
+            mem = process.memory_info().rss / (1024 * 1024)
+            if mem > self.cachedMem:
+                self.cachedMem = mem
+            else:
+                self.cachedMem = (self.cachedMem + mem) / 2
+        self.advanceCount += 1
+        return f"Mem: [yellow]{self.cachedMem:.1f}MB[/yellow]"
+
+
+class CPUColumn(ProgressColumn):
+    def __init__(self, totalFrames: int):
+        super().__init__()
+        self.advanceCount = 0
+        self.updateInterval = max(1, totalFrames // 1000)
+        self.cachedCPU = 0
+        self.process = psutil.Process(os.getpid())
+        self.cpuCount = psutil.cpu_count() or 1
+        self.process.cpu_percent()
+
+    def render(self, task):
+        if self.advanceCount % self.updateInterval == 0:
+            cpu = self.process.cpu_percent() / self.cpuCount
+            if cpu > self.cachedCPU:
+                self.cachedCPU = cpu
+            else:
+                self.cachedCPU = (self.cachedCPU + cpu) / 2
+        self.advanceCount += 1
+        return f"CPU: [cyan]{self.cachedCPU:.1f}%[/cyan]"
 
 
 class ProgressBarLogic:
@@ -68,6 +109,10 @@ class ProgressBarLogic:
                 TimeRemainingColumn(),
                 "•",
                 FPSColumn(),
+                "•",
+                MemoryColumn(self.totalFrames),
+                "•",
+                CPUColumn(self.totalFrames),
                 "•",
                 TextColumn("Frames: [green]{task.completed}/{task.total}[/green]"),
             )

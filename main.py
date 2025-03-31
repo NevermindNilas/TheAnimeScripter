@@ -251,11 +251,15 @@ class VideoProcessor:
 
         self.framesToInsert = self.interpolate_factor - 1
 
-        increment = 1 if not self.interpolate else self.interpolate_factor
+        if self.interpolate:
+            if isinstance(self.interpolate_factor, float):
+                increment = self.interpolate_factor
+            else:
+                increment = int(self.interpolate_factor)
+        else:
+            increment = 1
         if self.interpolate and self.interpolate_first:
-            self.interpQueue = Queue(
-                maxsize=max(3, self.interpolate_factor)
-            )  # Larger max size for safety
+            self.interpQueue = Queue(maxsize=round(self.interpolate_factor))
 
         try:
             with ProgressBarLogic(self.totalFrames * increment) as bar:
