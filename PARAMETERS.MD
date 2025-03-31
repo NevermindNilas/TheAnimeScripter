@@ -207,6 +207,8 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 - `"large_v2"` / `"large_v2-tensorrt"` / `"large_v2-directml"`
 - `"distill_small_v2"`
 - `"distill_base_v2"`
+- `"og_small_v2"` / `"og_base_v2"` / `"og_large_v2"`
+- `"og_distill_small_v2"` /  `"og_distill_base_v2"`  
 
 #### Depth Quality selection
 - `"low"` / `"medium"` / `"high"`
