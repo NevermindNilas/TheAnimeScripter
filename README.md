@@ -78,7 +78,7 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 ### <img src="https://img.icons8.com/color/24/000000/adobe-after-effects--v1.png" width="20"/> Adobe After Effects Integration
 > *Currently being enhanced with new features and optimizations*
 
-Our Adobe plugin provides seamless integration directly within your AE workflow, enabling AI-powered video enhancement without leaving your editing environment.
+Adobe plugin provides seamless integration directly within your AE workflow, enabling AI-powered video enhancement without leaving your editing environment.
 
 ![Adobe GUI](https://github.com/user-attachments/assets/b2ebe67a-b9a2-4361-8bf5-be5d9ee37a12)
 
@@ -91,30 +91,49 @@ The native Windows application will provide a dedicated environment optimized fo
 
 ## 🛠️ Getting Started
 
-### Adobe After Effects Integration
+<div class="setup-container">
 
-1. You must have After Effects 2020 v17.5 or higher!
-2. Download the latest `-AdobeEdition` release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases/).
-3. Extract the `.zip` file.
-4. Follow this step-by-step [tutorial](https://www.goodboy.ninja/help/install/extensions)
-> If installation fails, refer to the [manual installation guide](https://www.goodboy.ninja/help/install/extensions-manually).
+### <img src="https://img.icons8.com/color/24/000000/adobe-after-effects--v1.png" width="20"/> Adobe After Effects Plugin
 
-> Video tutorial: https://youtu.be/JAdZ3z-os_A?si=fZQPmhMLtHfAktwn
+<div class="requirements-box">
 
-### Standalone / GUI:
+**System Requirements:**
+- After Effects 2020 (v17.5) or higher
+- Compatible GPU recommended
 
-#### Windows
-- N/A - Under active development.
+</div>
 
-#### Linux
-- N/A - Under active development.
+#### Installation Steps:
+1. Download the [**TAS-AdobeEdition**](https://github.com/NevermindNilas/TheAnimeScripter/releases/) from our releases page
+2. Extract the `.zip` file to a location of your choice
+3. Follow the [**installation tutorial**](https://www.goodboy.ninja/help/install/extensions) to add TAS to After Effects
 
-### CLI Interface:
+<div class="help-box">
 
-#### Windows / Linux
-- **Stable:** Download the latest release from [here](https://github.com/NevermindNilas/TheAnimeScripter/releases)
-- **Nightly:** Download nightly versions from [here](https://github.com/NevermindNilas/TAS-Nightly/releases)
+> **Need help?** Watch the [video tutorial](https://youtu.be/JAdZ3z-os_A?si=fZQPmhMLtHfAktwn)
 
+</div>
+
+### <img src="https://img.icons8.com/fluency/24/000000/windows-client.png" width="20"/> Standalone Application
+
+<div class="dev-status">
+
+> **Development Status:** Currently in active development. Join our [Discord](https://discord.gg/hwGHXga8ck) for early access and development updates.
+
+</div>
+
+### <img src="https://img.icons8.com/color/24/000000/console.png" width="20"/> Command Line Interface
+
+Get the most powerful and flexible version of TAS with the command-line interface:
+
+<div class="download-options">
+
+- **[⬇️ Stable Release](https://github.com/NevermindNilas/TheAnimeScripter/releases)** — Recommended for production work
+- **[⬇️ Nightly Builds](https://github.com/NevermindNilas/TAS-Nightly/releases)** — Latest features (may contain bugs)
+
+</div>
+
+</div>
 
 ## 📚 Available Inputs
 
