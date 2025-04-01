@@ -71,13 +71,23 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 </tr>
 </table>
 
-## 🖥️ Graphical User Interfaces
+## 🖥️ User Interfaces
 
-- **Windows and After Effects:** Actively being reworked and improved!
-  
-  *Adobe GUI*
-  ![Adobe GUI](https://github.com/user-attachments/assets/b2ebe67a-b9a2-4361-8bf5-be5d9ee37a12)
+<div class="interface-container">
 
+### <img src="https://img.icons8.com/color/24/000000/adobe-after-effects--v1.png" width="20"/> Adobe After Effects Integration
+> *Currently being enhanced with new features and optimizations*
+
+Our Adobe plugin provides seamless integration directly within your AE workflow, enabling AI-powered video enhancement without leaving your editing environment.
+
+![Adobe GUI](https://github.com/user-attachments/assets/b2ebe67a-b9a2-4361-8bf5-be5d9ee37a12)
+
+### <img src="https://img.icons8.com/color/24/000000/windows-10.png" width="20"/> Windows Standalone
+> *Under active development - coming soon*
+
+The native Windows application will provide a dedicated environment optimized for batch processing and advanced customization options.
+
+</div>
 
 ## 🛠️ Getting Started
 
@@ -112,7 +122,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 ## 📁 Available Models
 
-### � Upscaling Models
+### 🆙 Upscaling Models
 
 | Model                 | CUDA | TensorRT | DirectML | NCNN |
 |-----------------------|:----:|:--------:|:--------:|:----:|
