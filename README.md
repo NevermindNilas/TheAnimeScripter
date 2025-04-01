@@ -104,7 +104,7 @@ The native Windows application will provide a dedicated environment optimized fo
 </div>
 
 #### Installation Steps:
-1. Download the [**TAS-AdobeEdition**](https://github.com/NevermindNilas/TheAnimeScripter/releases/) from our releases page
+1. Download the [**TAS-AdobeEdition**](https://github.com/NevermindNilas/TheAnimeScripter/releases/) from the releases page
 2. Extract the `.zip` file to a location of your choice
 3. Follow the [**installation tutorial**](https://www.goodboy.ninja/help/install/extensions) to add TAS to After Effects
 
@@ -118,7 +118,7 @@ The native Windows application will provide a dedicated environment optimized fo
 
 <div class="dev-status">
 
-> **Development Status:** Currently in active development. Join our [Discord](https://discord.gg/hwGHXga8ck) for early access and development updates.
+> **Development Status:** Currently in active development. Join the [Discord](https://discord.gg/hwGHXga8ck) for development updates.
 
 </div>
 
@@ -184,37 +184,65 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | Anime1080fixer      |  ✅   |    ✅     |    ❌     |  ❌   |
 | FastLineDarken      |  ✅   |    ✅     |    ❌     |  ❌   |
 
-### Depth Models
+### 🌊 Depth Map Models
 
+| Model                        | CUDA | TensorRT | DirectML | NCNN |
+|------------------------------|:----:|:--------:|:--------:|:----:|
+| **"Faster" Depth-Anything v2 Models** |      |          |          |      |
+| Small v2                     |  ✅   |    ✅     |    ✅     |  ❌   |
+| Base v2                      |  ✅   |    ✅     |    ✅     |  ❌   |
+| Large v2                     |  ✅   |    ✅     |    ✅     |  ❌   |
+| **Distilled Models**         |      |          |          |      |
+| Distill Small v2             |  ✅   |    ❌     |    ❌     |  ❌   |
+| Distill Base v2              |  ✅   |    ❌     |    ❌     |  ❌   |
+| **Original Implementation Models**          |      |          |          |      |
+| OG Small v2                  |  ✅   |    ❌     |    ❌     |  ❌   |
+| OG Base v2                   |  ✅   |    ❌     |    ❌     |  ❌   |
+| OG Large v2                  |  ✅   |    ❌     |    ❌     |  ❌   |
+| OG Distill Small v2          |  ✅   |    ❌     |    ❌     |  ❌   |
+| OG Distill Base v2           |  ✅   |    ❌     |    ❌     |  ❌   |
 
-## 📈 Benchmarks
-Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
+## 🙏 Project Contributors
 
-## 🙏 Acknowledgements
+<div class="contributors-container">
 
-| Name                                                                      | For                                             |
-|---------------------------------------------------------------------------|-------------------------------------------------|
-| [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)           | Shufflecugan and many more ONNX models          |
-| [HZWER](https://github.com/hzwer/Practical-RIFE)                          | Rife                                            |
-| [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai) | Compact, UltraCompact, SuperUltraCompact models |
-| [SkyTNT](https://github.com/SkyTNT/anime-segmentation)                    | Anime Segmentation                              |
-| [DepthAnything](https://github.com/DepthAnything/Depth-Anything-V2)       | Depth Anything V2                               |
-| [FFmpeg Group](https://github.com/FFmpeg/FFmpeg)                          | FFmpeg                                          |
-| [YT-DLP](https://github.com/yt-dlp/yt-dlp)                                | YT-DLP                                          |
-| [Hongyuanyu](https://github.com/hongyuanyu/span)                          | SPAN                                            |
-| [Breakthrough](https://github.com/Breakthrough/PySceneDetect)             | Automated Scene Detection                       |
-| [Chainner-org](https://github.com/chaiNNer-org/spandrel)                  | Spandrel, easy to use arch implementations      |
-| [TNTWise](https://github.com/TNTwise)                                     | Rife ONNX / NCNN and Spanimation                |
-| [Hyperbrew](https://github.com/hyperbrew/bolt-cep)                        | Bolt CEP                                        |
-| [Sirosky](https://github.com/Sirosky/Upscale-Hub)                         | Open-Proteus and AniScale 2                     |
-| [Trentonom0r3](https://github.com/Trentonom0r3)                           | Helping with TAS Adobe Edition and Celux        |
-| [Adegerard](https://github.com/adegerard)                                 | Several ideas on how to further improve TAS     |
-| [Elexor](https://github.com/elexor)                                       | Modded Rife Experiment(s)                       |
-| [Zarxrax](https://github.com/Zarxrax)                                     | Anime1080Fixer model                            |
-| [sdaqo](https://github.com/sdaqo)                                         | Anipy-CLI                                       |
-| [umzi](https://github.com/umzi2)                                          | RTMOSR                                          |
+### 🧠 Model & Algorithm Contributors
+| Contributor                                       | Contribution                 | Repository                                                                             |
+|---------------------------------------------------|------------------------------|----------------------------------------------------------------------------------------|
+| [SUDO](https://github.com/styler00dollar)         | ShuffleCugan & ONNX models   | [VSGAN-tensorrt-docker](https://github.com/styler00dollar/VSGAN-tensorrt-docker)       |
+| [HZWER](https://github.com/hzwer)                 | RIFE interpolation framework | [Practical-RIFE](https://github.com/hzwer/Practical-RIFE)                              |
+| [the-database](https://github.com/the-database)   | SRVGGNet model variants      | [mpv-upscale-2x_animejanai](https://github.com/the-database/mpv-upscale-2x_animejanai) |
+| [SkyTNT](https://github.com/SkyTNT)               | Anime segmentation models    | [anime-segmentation](https://github.com/SkyTNT/anime-segmentation)                     |
+| [DepthAnything](https://github.com/DepthAnything) | Depth map generation         | [Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2)                |
+| [Hongyuanyu](https://github.com/hongyuanyu)       | SPAN upscaling technology    | [span](https://github.com/hongyuanyu/span)                                             |
+| [Sirosky](https://github.com/Sirosky)             | Open-Proteus & AniScale 2    | [Upscale-Hub](https://github.com/Sirosky/Upscale-Hub)                                  |
+| [Elexor](https://github.com/elexor)               | Custom RIFE modifications    | [Modded Rife Experiment(s)](https://github.com/elexor)                                 |
+| [Zarxrax](https://github.com/Zarxrax)             | Anime1080Fixer restoration   | [GitHub](https://github.com/Zarxrax)                                                   |
+| [umzi](https://github.com/umzi2)                  | RTMOSR implementation        | [GitHub](https://github.com/umzi2)                                                     |
 
-If I forgot to mention anyone, please email: nilascontact@gmail.com
+### 🛠️ Framework & Tool Contributors
+| Contributor                                     | Contribution                 | Repository                                                     |
+|-------------------------------------------------|------------------------------|----------------------------------------------------------------|
+| [FFmpeg Group](https://github.com/FFmpeg)       | Video processing framework   | [FFmpeg](https://github.com/FFmpeg/FFmpeg)                     |
+| [YT-DLP Team](https://github.com/yt-dlp)        | Media download capabilities  | [yt-dlp](https://github.com/yt-dlp/yt-dlp)                     |
+| [Breakthrough](https://github.com/Breakthrough) | Scene detection algorithms   | [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) |
+| [Chainner-org](https://github.com/chaiNNer-org) | Neural network architecture  | [spandrel](https://github.com/chaiNNer-org/spandrel)           |
+| [TNTWise](https://github.com/TNTwise)           | RIFE ONNX/NCNN optimizations | [GitHub](https://github.com/TNTwise)                           |
+| [Hyperbrew](https://github.com/hyperbrew)       | Adobe integration framework  | [bolt-cep](https://github.com/hyperbrew/bolt-cep)              |
+| [sdaqo](https://github.com/sdaqo)               | CLI inspiration from Anipy   | [Anipy-CLI](https://github.com/sdaqo)                          |
+
+### 🌟 TAS Collaborators
+| Contributor                                     | Contribution                                    |
+|-------------------------------------------------|-------------------------------------------------|
+| [Trentonom0r3](https://github.com/Trentonom0r3) | TAS Adobe Edition & Celux development           |
+| [Adegerard](https://github.com/adegerard)       | Project architecture & optimization suggestions |
+
+<div class="contact-info">
+
+> 📧 **Missing contributor?** Please contact me at [nilascontact@gmail.com](mailto:nilascontact@gmail.com)
+
+</div>
+</div>
 
 ## 🌟 Star History
 
