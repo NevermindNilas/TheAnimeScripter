@@ -1,59 +1,75 @@
-<p align="center">
-    <a href="https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F"><img src="https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F&labelColor=%23697689&countColor=%23ff8a65&style=plastic&labelStyle=none" /></a>
-    <a href="https://github.com/NevermindNilas/TheAnimeScripter/releases"><img alt="GitHub release" src="https://img.shields.io/github/release/NevermindNilas/TheAnimeScripter.svg?style=flat-square" /></a>
-    <a href="https://github.com/NevermindNilas/TheAnimeScripter/releases"><img alt="GitHub All Releases" src="https://img.shields.io/github/downloads/NevermindNilas/TheAnimeScripter/total.svg?style=flat-square&color=%2364ff82" /></a>
-    <a href="https://github.com/NevermindNilas/TheAnimeScripter/commits"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/NevermindNilas/TheAnimeScripter.svg?style=flat-square" /></a>
-    <a href="https://discord.gg/hwGHXga8ck">
-      <img src="https://img.shields.io/discord/1041502781808328704?label=Discord" alt="Discord Shield"/></a>
-</p>
+<div align="center">
 
-# The Anime Scripter  ( TAS )
+# 🎬 The Anime Scripter (TAS)
 
-## Table of Contents
-- [The Anime Scripter  ( TAS )](#the-anime-scripter---tas-)
-  - [Table of Contents](#table-of-contents)
-  - [🚀 Key Features](#-key-features)
-  - [🖥️ Graphical User Interfaces](#️-graphical-user-interfaces)
-  - [🛠️ Getting Started](#️-getting-started)
-    - [Adobe After Effects Integration](#adobe-after-effects-integration)
-    - [Standalone / GUI:](#standalone--gui)
-      - [Windows](#windows)
-      - [Linux](#linux)
-    - [CLI Interface:](#cli-interface)
-      - [Windows / Linux](#windows--linux)
-  - [📚 Available Inputs](#-available-inputs)
-  - [📁 Available Models](#-available-models)
-    - [Upscaling Models](#upscaling-models)
-    - [Interpolation Models](#interpolation-models)
-    - [Restore Models](#restore-models)
-  - [📈 Benchmarks](#-benchmarks)
-  - [🙏 Acknowledgements](#-acknowledgements)
-  - [🌟 Star History](#-star-history)
-  - [🎥 Promo Video](#-promo-video)
+#### _High-performance AI video enhancement toolkit for creators_
+
+[![Visitors](https://api.visitorbadge.io/api/visitors?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F&labelColor=%23697689&countColor=%23ff8a65&style=flat-square&labelStyle=none)](https://visitorbadge.io/status?path=https%3A%2F%2Fgithub.com%2FNevermindNilas%2FTheAnimeScripter%2F)
+[![Release](https://img.shields.io/github/release/NevermindNilas/TheAnimeScripter.svg?style=flat-square&color=blue)](https://github.com/NevermindNilas/TheAnimeScripter/releases)
+[![Downloads](https://img.shields.io/github/downloads/NevermindNilas/TheAnimeScripter/total.svg?style=flat-square&color=%2364ff82)](https://github.com/NevermindNilas/TheAnimeScripter/releases)
+[![Last Commit](https://img.shields.io/github/last-commit/NevermindNilas/TheAnimeScripter.svg?style=flat-square)](https://github.com/NevermindNilas/TheAnimeScripter/commits)
+[![Discord](https://img.shields.io/discord/1041502781808328704?style=flat-square&logo=discord&logoColor=white&label=Discord&color=5865F2)](https://discord.gg/hwGHXga8ck)
+[![License](https://img.shields.io/github/license/NevermindNilas/TheAnimeScripter?style=flat-square&color=orange)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/NevermindNilas/TheAnimeScripter?style=flat-square&color=yellow)](https://github.com/NevermindNilas/TheAnimeScripter/stargazers)
+
+</div>
+
+## 📋 Overview
+
+TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit specialized for anime and general video content. It seamlessly integrates with Adobe After Effects while also offering standalone functionality, bringing professional-grade AI upscaling, interpolation, and restoration to creators.
+
+##  Table of Contents
+
+- [ Key Features](#-key-features)
+- [🖥️ User Interfaces](#️-user-interfaces)
+- [🛠️ Installation Guide](#️-installation-guide)
+- [📚 Command Reference](#-command-reference)
+- [📁 Supported Models](#-supported-models)
+- [📈 Performance Benchmarks](#-performance-benchmarks)
+- [👨‍ Contributors](#-contributors)
+- [⭐ Project Growth](#-project-growth)
+- [🎥 Demo & Examples](#-demo--examples)
 
 ## 🚀 Key Features
 
-1. **Smooth Motion Interpolation:** Elevate video quality with seamless frame interpolation for fluid motion.
+<table>
+<tr>
+<td width="50%">
 
-2. **Crystal-Clear Upscaling:** Immerse audiences in enhanced resolution, delivering sharper, more detailed visuals.
+### 🎞️ Video Enhancement
+- **Motion Interpolation:** Create buttery-smooth animation with advanced frame interpolation
+- **AI Upscaling:** Enhance resolution with AI-powered upscaling (2x, 4x)
+- **Smart Deduplication:** Optimize file size by removing redundant frames
 
-3. **Optimal Video Size Deduplication:** Streamline videos by intelligently removing redundant frames, optimizing file size.
+</td>
+<td width="50%">
 
-4. **Effortless Background-Foreground Segmentation:** Simplify rotobrushing tasks with precision and ease.
+### 🎭 Advanced Editing
+- **Background-Foreground Segmentation:** Precise automatic rotobrushing
+- **Depth Map Generation:** 3D-ready depth maps for creative effects
+- **Automatic Scene Detection:** Intelligent clip splitting at scene changes
 
-5. **3D Wizardry - Depth Map Generation:** Unlock advanced editing possibilities with detailed depth maps for immersive 3D effects.
+</td>
+</tr>
+<tr>
+<td>
 
-6. **Auto Clip Cutting with Scene Change Filter:** Boost productivity by automatically cutting clips with a Scene Change Filter.
+### 🔧 Workflow Optimization
+- **After Effects Integration:** Seamless plugin for AE workflow
+- **Model Chaining:** Combine multiple effects in a single processing pass
+- **In-Memory Processing:** Efficient frame handling without redundant disk operations
 
-7. **Seamless After Effects Integration:** Enhance After Effects projects effortlessly with our seamless integration.
+</td>
+<td>
 
-8. **Multi-Effect Magic - Model Chaining:** Combine features seamlessly within After Effects, running Deduplication, Upscaling, and Interpolation in one go.
+### 🧠 AI Flexibility
+- **Multi-Backend Support:** CUDA, TensorRT, DirectML, and NCNN acceleration
+- **Custom Model Support:** Import your own trained models
+- **Restoration Options:** Denoise, dejpeg, sharpen, and line enhancement
 
-9. **Efficient In-Memory Processing:** Experience swift transformations without additional frame extraction cycles.
-
-10. **Custom Model Support for Creativity:** Unleash your creativity by incorporating your own trained models effortlessly.
-
-11. **Graphical User Interface:** Navigate through our user-friendly interface designed for both beginners and professionals, ensuring a smooth editing workflow from start to finish.
+</td>
+</tr>
+</table>
 
 ## 🖥️ Graphical User Interfaces
 
@@ -96,31 +112,78 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 ## 📁 Available Models
 
-### Upscaling Models
+## 📁 Available Models
 
-**Officially Supported:**
-- ShuffleCugan (CUDA, TensorRT, and NCNN)
-- Span (CUDA, TensorRT, DirectML and NCNN versions)
-- SRVGGNet (Available in Compact, UltraCompact, SuperUltraCompact, and their respective TensorRT and DirectML versions)
-- OpenProteus ( Cuda, TensorRT and DirectML )
-- AniScale 2 ( Cuda, TensorRT and DirectML )
-- RTMOSR ( TensorRT and DirectML )
+# Terminal output:
+# -------------------------------------------
 
-**Unofficially Supported:**
-- Custom models compatible with [Spandrel](https://github.com/chaiNNer-org/spandrel) can be used via the `--custom_model` parameter.
+## 📁 Available Models
 
-### Interpolation Models
-- Rife CUDA (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite, 4.25, 4.25-heavy, Rife_Elexor ( modded 4.7 ) )
-- Rife TensorRT (Versions: 4.6, 4.15, 4.15-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite, 4.25, 4.25-heavy, Rife_Elexor ( modded 4.7 ) )
-- Rife NCNN (Versions: 4.6, 4.15, 4.15-lite, 4.16-lite, 4.17, 4.18, 4.20, 4.21, 4.22, 4.22-lite )
+# Terminal output:
+# -------------------------------------------
 
-### Restore Models
-- SCUNet ( Denoise ) ( Cuda )
-- NAFNet ( Denoise ) ( Cuda )
-- DPIR ( Denoise ) ( Cuda )
-- Real-Plksr (DeJpeg) ( Cuda )
-- Anime1080fixer ( Sharpen + Decompress ) ( Cuda & TensorRT )
-- FastLineDarken ( Line darkening ) ( Cuda & TensorRT )
+## � Available Models
+
+<table>
+<tr>
+<td width="50%">
+
+### �🔍 Upscaling Models
+
+| Model                | CUDA | TensorRT | DirectML | NCNN |
+|----------------------|:----:|:--------:|:--------:|:----:|
+| ShuffleCugan         |  ✅  |    ✅    |    ❌    |  ✅  |
+| Span                 |  ✅  |    ✅    |    ✅    |  ✅  |
+| SRVGGNet (Compact)   |  ✅  |    ✅    |    ✅    |  ❌  |
+| SRVGGNet (Ultra)     |  ✅  |    ✅    |    ✅    |  ❌  |
+| SRVGGNet (SuperUltra)|  ✅  |    ✅    |    ✅    |  ❌  |
+| OpenProteus          |  ✅  |    ✅    |    ✅    |  ❌  |
+| AniScale 2           |  ✅  |    ✅    |    ✅    |  ❌  |
+| RTMOSR               |  ❌  |    ✅    |    ✅    |  ❌  |
+| Custom (Spandrel)    |  ✅  |    ❌    |    ❌    |  ❌  |
+
+</td>
+<td width="50%">
+
+### ⏱️ Interpolation Models (RIFE)
+
+| Version              | CUDA | TensorRT | DirectML | NCNN |
+|----------------------|:----:|:--------:|:--------:|:----:|
+| 4.6                  |  ✅  |    ✅    |    ❌    |  ✅  |
+| 4.15/lite            |  ✅  |    ✅    |    ❌    |  ✅  |
+| 4.16-lite            |  ✅  |    ❌    |    ❌    |  ✅  |
+| 4.17                 |  ✅  |    ✅    |    ❌    |  ✅  |
+| 4.18                 |  ✅  |    ✅    |    ❌    |  ✅  |
+| 4.20                 |  ✅  |    ✅    |    ❌    |  ✅  |
+| 4.21                 |  ✅  |    ✅    |    ❌    |  ✅  |
+| 4.22/lite            |  ✅  |    ✅    |    ❌    |  ✅  |
+| 4.25/heavy           |  ✅  |    ✅    |    ❌    |  ❌  |
+| Rife_Elexor (mod 4.7)|  ✅  |    ✅    |    ❌    |  ❌  |
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🔧 Restoration Models
+
+| Model                | CUDA | TensorRT | DirectML | NCNN |
+|----------------------|:----:|:--------:|:--------:|:----:|
+| SCUNet (Denoise)     |  ✅  |    ❌    |    ❌    |  ❌  |
+| NAFNet (Denoise)     |  ✅  |    ❌    |    ❌    |  ❌  |
+| DPIR (Denoise)       |  ✅  |    ❌    |    ❌    |  ❌  |
+| Real-Plksr (DeJpeg)  |  ✅  |    ❌    |    ❌    |  ❌  |
+| Anime1080fixer       |  ✅  |    ✅    |    ❌    |  ❌  |
+| FastLineDarken       |  ✅  |    ✅    |    ❌    |  ❌  |
+
+</td>
+<td width="50%">
+
+</td>
+</tr>
+</table>
+
+
 
 ## 📈 Benchmarks
 Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
@@ -128,7 +191,7 @@ Both internal and user-generated benchmarks can be found [here](BENCHMARKS.MD).
 ## 🙏 Acknowledgements
 
 | Name                                                                      | For                                             |
-| ------------------------------------------------------------------------- | ----------------------------------------------- |
+|---------------------------------------------------------------------------|-------------------------------------------------|
 | [SUDO](https://github.com/styler00dollar/VSGAN-tensorrt-docker)           | Shufflecugan and many more ONNX models          |
 | [HZWER](https://github.com/hzwer/Practical-RIFE)                          | Rife                                            |
 | [the-database](https://github.com/the-database/mpv-upscale-2x_animejanai) | Compact, UltraCompact, SuperUltraCompact models |
