@@ -112,77 +112,50 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 ## 📁 Available Models
 
-## 📁 Available Models
+### � Upscaling Models
 
-# Terminal output:
-# -------------------------------------------
-
-## 📁 Available Models
-
-# Terminal output:
-# -------------------------------------------
-
-## � Available Models
-
-<table>
-<tr>
-<td width="50%">
-
-### �🔍 Upscaling Models
-
-| Model                | CUDA | TensorRT | DirectML | NCNN |
-|----------------------|:----:|:--------:|:--------:|:----:|
-| ShuffleCugan         |  ✅  |    ✅    |    ❌    |  ✅  |
-| Span                 |  ✅  |    ✅    |    ✅    |  ✅  |
-| SRVGGNet (Compact)   |  ✅  |    ✅    |    ✅    |  ❌  |
-| SRVGGNet (Ultra)     |  ✅  |    ✅    |    ✅    |  ❌  |
-| SRVGGNet (SuperUltra)|  ✅  |    ✅    |    ✅    |  ❌  |
-| OpenProteus          |  ✅  |    ✅    |    ✅    |  ❌  |
-| AniScale 2           |  ✅  |    ✅    |    ✅    |  ❌  |
-| RTMOSR               |  ❌  |    ✅    |    ✅    |  ❌  |
-| Custom (Spandrel)    |  ✅  |    ❌    |    ❌    |  ❌  |
-
-</td>
-<td width="50%">
+| Model                 | CUDA | TensorRT | DirectML | NCNN |
+|-----------------------|:----:|:--------:|:--------:|:----:|
+| ShuffleCugan          |  ✅   |    ✅     |    ❌     |  ✅   |
+| Span                  |  ✅   |    ✅     |    ✅     |  ✅   |
+| SRVGGNet (Compact)    |  ✅   |    ✅     |    ✅     |  ❌   |
+| SRVGGNet (Ultra)      |  ✅   |    ✅     |    ✅     |  ❌   |
+| SRVGGNet (SuperUltra) |  ✅   |    ✅     |    ✅     |  ❌   |
+| OpenProteus           |  ✅   |    ✅     |    ✅     |  ❌   |
+| AniScale 2            |  ✅   |    ✅     |    ✅     |  ❌   |
+| RTMOSR                |  ❌   |    ✅     |    ✅     |  ❌   |
+| Custom (Spandrel)     |  ✅   |    ❌     |    ❌     |  ❌   |
 
 ### ⏱️ Interpolation Models (RIFE)
 
-| Version              | CUDA | TensorRT | DirectML | NCNN |
-|----------------------|:----:|:--------:|:--------:|:----:|
-| 4.6                  |  ✅  |    ✅    |    ❌    |  ✅  |
-| 4.15/lite            |  ✅  |    ✅    |    ❌    |  ✅  |
-| 4.16-lite            |  ✅  |    ❌    |    ❌    |  ✅  |
-| 4.17                 |  ✅  |    ✅    |    ❌    |  ✅  |
-| 4.18                 |  ✅  |    ✅    |    ❌    |  ✅  |
-| 4.20                 |  ✅  |    ✅    |    ❌    |  ✅  |
-| 4.21                 |  ✅  |    ✅    |    ❌    |  ✅  |
-| 4.22/lite            |  ✅  |    ✅    |    ❌    |  ✅  |
-| 4.25/heavy           |  ✅  |    ✅    |    ❌    |  ❌  |
-| Rife_Elexor (mod 4.7)|  ✅  |    ✅    |    ❌    |  ❌  |
-
-</td>
-</tr>
-<tr>
-<td width="50%">
+| Version               | CUDA | TensorRT | DirectML | NCNN |
+|-----------------------|:----:|:--------:|:--------:|:----:|
+| 4.6                   |  ✅   |    ✅     |    ❌     |  ✅   |
+| 4.15                  |  ✅   |    ✅     |    ❌     |  ✅   |
+| 4.15-lite             |  ✅   |    ✅     |    ❌     |  ✅   |
+| 4.16-lite             |  ✅   |    ❌     |    ❌     |  ✅   |
+| 4.17                  |  ✅   |    ✅     |    ❌     |  ✅   |
+| 4.18                  |  ✅   |    ✅     |    ❌     |  ✅   |
+| 4.20                  |  ✅   |    ✅     |    ❌     |  ✅   |
+| 4.21                  |  ✅   |    ✅     |    ❌     |  ✅   |
+| 4.22                  |  ✅   |    ✅     |    ❌     |  ✅   |
+| 4.22-lite             |  ✅   |    ✅     |    ❌     |  ✅   |
+| 4.25                  |  ✅   |    ✅     |    ❌     |  ❌   |
+| 4.25-heavy            |  ✅   |    ✅     |    ❌     |  ❌   |
+| Rife_Elexor (mod 4.7) |  ✅   |    ✅     |    ❌     |  ❌   |
 
 ### 🔧 Restoration Models
 
-| Model                | CUDA | TensorRT | DirectML | NCNN |
-|----------------------|:----:|:--------:|:--------:|:----:|
-| SCUNet (Denoise)     |  ✅  |    ❌    |    ❌    |  ❌  |
-| NAFNet (Denoise)     |  ✅  |    ❌    |    ❌    |  ❌  |
-| DPIR (Denoise)       |  ✅  |    ❌    |    ❌    |  ❌  |
-| Real-Plksr (DeJpeg)  |  ✅  |    ❌    |    ❌    |  ❌  |
-| Anime1080fixer       |  ✅  |    ✅    |    ❌    |  ❌  |
-| FastLineDarken       |  ✅  |    ✅    |    ❌    |  ❌  |
+| Model               | CUDA | TensorRT | DirectML | NCNN |
+|---------------------|:----:|:--------:|:--------:|:----:|
+| SCUNet (Denoise)    |  ✅   |    ❌     |    ❌     |  ❌   |
+| NAFNet (Denoise)    |  ✅   |    ❌     |    ❌     |  ❌   |
+| DPIR (Denoise)      |  ✅   |    ❌     |    ❌     |  ❌   |
+| Real-Plksr (DeJpeg) |  ✅   |    ❌     |    ❌     |  ❌   |
+| Anime1080fixer      |  ✅   |    ✅     |    ❌     |  ❌   |
+| FastLineDarken      |  ✅   |    ✅     |    ❌     |  ❌   |
 
-</td>
-<td width="50%">
-
-</td>
-</tr>
-</table>
-
+### Depth Models
 
 
 ## 📈 Benchmarks
