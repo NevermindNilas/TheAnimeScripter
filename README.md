@@ -38,8 +38,8 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 
 ### 🎞️ Video Enhancement
 - **Motion Interpolation:** Create buttery-smooth animation with advanced frame interpolation
-- **AI Upscaling:** Enhance resolution with AI-powered upscaling (2x, 4x)
-- **Smart Deduplication:** Optimize file size by removing redundant frames
+- **AI Upscaling:** Enhance resolution with AI-powered upscaling (2x)
+- **Smart Deduplication:** Optimize file size and interpolation by removing redundant frames
 
 </td>
 <td width="50%">
