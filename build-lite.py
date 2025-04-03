@@ -71,6 +71,8 @@ def createExecutable():
         "inquirer",
         "--collect-all",
         "readchar",
+        "--collect-all",
+        "colored",
         str(mainPath),
     ]
 
