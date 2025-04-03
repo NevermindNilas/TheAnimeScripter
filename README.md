@@ -192,7 +192,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | Small v2                     |  ✅   |    ✅     |    ✅     |  ❌   |
 | Base v2                      |  ✅   |    ✅     |    ✅     |  ❌   |
 | Large v2                     |  ✅   |    ✅     |    ✅     |  ❌   |
-| **Distilled Models**         |      |          |          |      |
+| **"Faster" Distilled Models**         |      |          |          |      |
 | Distill Small v2             |  ✅   |    ❌     |    ❌     |  ❌   |
 | Distill Base v2              |  ✅   |    ❌     |    ❌     |  ❌   |
 | **Original Implementation Models**          |      |          |          |      |
