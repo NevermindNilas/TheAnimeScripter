@@ -80,7 +80,7 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 
 Adobe plugin provides seamless integration directly within your AE workflow, enabling AI-powered video enhancement without leaving your editing environment.
 
-![Adobe GUI](https://github.com/user-attachments/assets/b2ebe67a-b9a2-4361-8bf5-be5d9ee37a12)
+![Adobe GUI](https://github.com/user-attachments/assets/eb906836-cfd5-4f10-a004-cd4d0551b75e)
 
 ### <img src="https://img.icons8.com/color/24/000000/windows-10.png" width="20"/> Windows Standalone
 > *Under active development - coming soon*
@@ -181,7 +181,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | NAFNet (Denoise)    |  ✅   |    ❌     |    ❌     |  ❌   |
 | DPIR (Denoise)      |  ✅   |    ❌     |    ❌     |  ❌   |
 | Real-Plksr (DeJpeg) |  ✅   |    ❌     |    ❌     |  ❌   |
-| Anime1080fixer      |  ✅   |    ✅     |    ✅     |  ❌   |
+| Anime1080fixer      |  ✅   |    ✅     |    ❌     |  ❌   |
 | FastLineDarken      |  ✅   |    ✅     |    ❌     |  ❌   |
 
 ### 🌊 Depth Map Models
