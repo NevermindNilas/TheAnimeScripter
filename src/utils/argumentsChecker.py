@@ -294,6 +294,7 @@ def createParser(isFrozen, outputPath, sysUsed):
             "anime1080fixer-directml",
             "fastlinedarken",
             "fastlinedarken-tensorrt",
+            "anime1080fixer-directml",
         ],
         help="Denoising method",
     )
