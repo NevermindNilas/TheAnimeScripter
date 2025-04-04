@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added a `latest version` indicator the update toast generator.
 - Changed the `Interpolation Factor` dropdown to an editable area + dropdown with support for custom values and fractional factors.
 - Updated some descriptions and icons.
+- Added a `twitter` button to the socials.
 
 #### Fixed
 - N/A 
