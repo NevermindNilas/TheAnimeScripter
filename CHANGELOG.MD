@@ -35,9 +35,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 #### Changed
 - Signifant UI redesign for `Chain`, `Extra` and `Toolbox`
+- Updating the layout of `Logs`.
 - "Path Errors" will now result in toasts rather than annoying alerts.
 - Removed a couple of unnecessary alerts, there should only now be one or two left for critical pieces. Down the line these will also be Toasts.
 - Added a `latest version` indicator the update toast generator.
+- Changed the `Interpolation Factor` dropdown to an editable area + dropdown with support for custom values and fractional factors.
+- Updated some descriptions and icons.
 
 #### Fixed
 - N/A 
