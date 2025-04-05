@@ -32,16 +32,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 #### Added
 - Added a `copy to clipboard` button to the `logs` tab.
 - Added `slowmo` button to the interpolation tab.
+- Added `Force destroy all TAS processes` button which kills any lingering tasks in the background, just in case.
 
 #### Changed
-- Signifant UI redesign for `Chain`, `Extra` and `Toolbox`
-- Updating the layout of `Logs`.
+- Significant UI refresh across the board.
 - "Path Errors" will now result in toasts rather than annoying alerts.
 - Removed a couple of unnecessary alerts, there should only now be one or two left for critical pieces. Down the line these will also be Toasts.
 - Added a `latest version` indicator the update toast generator.
 - Changed the `Interpolation Factor` dropdown to an editable area + dropdown with support for custom values and fractional factors.
 - Updated some descriptions and icons.
 - Added a `twitter` button to the socials.
+- Removed some unnecessary logs
 
 #### Fixed
 - N/A 
