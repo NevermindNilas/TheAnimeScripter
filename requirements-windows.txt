@@ -25,6 +25,6 @@ tensorrt_cu12==10.9.0.34
 tensorrt-cu12-bindings==10.9.0.34
 tensorrt-cu12_libs==10.9.0.34
 torchmetrics
-celux==0.6.0
+av
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp312-cp312-win_amd64.whl
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/upscale_ncnn_py-1.2.0-cp312-none-win_amd64.whl
