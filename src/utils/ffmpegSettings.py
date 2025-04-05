@@ -4,11 +4,10 @@ import os
 import torch
 import numpy as np
 import cv2
-import json
 import src.constants as cs
+import av
 
 from queue import Queue
-from celux import VideoReader, Scale
 from torch.nn import functional as F
 from src.utils.encodingSettings import matchEncoder, getPixFMT
 from .isCudaInit import CudaChecker
@@ -55,62 +54,14 @@ class BuildBuffer:
         self.useOpenCV = False
         self.width = width
         self.height = height
+        self.resize = resize
 
         inputFramePoint = round(inpoint * fps)
         outputFramePoint = round(outpoint * fps) if outpoint != 0.0 else totalFrames
-        if resize:
-            filters = [Scale(width=str(width), height=str(height), flags=resizeMethod)]
-        else:
-            filters = []
 
         logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
-        jsonMetadata = json.load(open(os.path.join(cs.MAINPATH, "metadata.json"), "r"))
 
-        if jsonMetadata["Codec"] is None or jsonMetadata["Codec"] in [
-            "av1",
-            "rawvideo",
-        ]:
-            logging.info(
-                "The video codec is unsupported by Celux, falling back to OpenCV for video decoding"
-            )
-            self.useOpenCV = True
-            self.initializeOpenCV(videoInput, inputFramePoint, outputFramePoint)
-        else:
-            try:
-                if outpoint != 0.0:
-                    self.reader = VideoReader(
-                        videoInput,
-                        num_threads=decodeThreads,
-                        filters=filters,
-                        tensor_shape="HWC",
-                    )([float(inpoint), float(outpoint)])
-                else:
-                    self.reader = VideoReader(
-                        videoInput,
-                        num_threads=decodeThreads,
-                        filters=filters,
-                        tensor_shape="HWC",
-                    )
-                logging.info("Using Celux pipeline for video decoding")
-            except Exception as e:
-                logging.error(f"Failed to initialize Celux pipeline: {e}")
-                logging.info("Falling back to OpenCV for video decoding")
-                self.useOpenCV = True
-                self.initializeOpenCV(videoInput, inputFramePoint, outputFramePoint)
-
-        # Delete from memory, can't trust the garbage collector
-        del jsonMetadata
-
-    def initializeOpenCV(
-        self, videoInput: str, inputFramePoint: int = 0, outputFramePoint: int = 0
-    ):
-        """
-        Initializes the OpenCV video reader.
-        """
-        self.reader = cv2.VideoCapture(videoInput)
-        if inputFramePoint != 0.0 or outputFramePoint != 0.0:
-            self.reader.set(cv2.CAP_PROP_POS_FRAMES, inputFramePoint)
-            self.outputFramePoint = outputFramePoint
+        self.reader = av.open(videoInput)
 
     def __call__(self):
         """
@@ -122,27 +73,16 @@ class BuildBuffer:
         if checker.cudaAvailable:
             normStream = torch.cuda.Stream()
 
-        # OpenCV fallback in case of issues
-        if self.useOpenCV:
-            print("Using OpenCV for video decoding")
-            while self.reader.isOpened():
-                ret, frame = self.reader.read()
-                if not ret or decodedFrames >= self.outputFramePoint:
-                    break
-                frame = torch.from_numpy(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                frame = self.processFrame(
-                    frame, normStream if checker.cudaAvailable else None
-                )
-                self.decodeBuffer.put(frame)
-                decodedFrames += 1
-            self.reader.release()
-        else:
-            for frame in self.reader:
-                frame = self.processFrame(
-                    frame, normStream if checker.cudaAvailable else None
-                )
-                self.decodeBuffer.put(frame)
-                decodedFrames += 1
+        for frame in self.reader.decode(video=0):
+            if self.resize:
+                frame = frame.reformat(self.width, self.height)
+
+            frame = self.processFrame(frame.to_ndarray(format="rgb24"), normStream)
+            self.decodeBuffer.put(frame)
+            decodedFrames += 1
+
+        self.decodeBuffer.put(None)
+        self.reader.close()
 
         self.isFinished = True
         logging.info(f"Decoded {decodedFrames} frames")
@@ -158,6 +98,7 @@ class BuildBuffer:
             Returns:
                 The processed frame.
         """
+        frame = torch.from_numpy(frame)
         multiply = 1 / 255 if frame.dtype == torch.uint8 else 1 / 65535
         dtype = torch.float16 if self.half else torch.float32
 
