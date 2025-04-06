@@ -23,6 +23,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Increased the performance and accuracy of all dedup methods.
 - Lowered CPU usage by `~5%` on my system, this should be more significant for lower end cpus.
 - Significant improvements to `--preview` with better performance and lower overhead than before.
+- Switched from `celux` to `pyav` due to lack of development.
+- Bumped Pytorch to `2.6.0`
 
 #### Fixed
 - Fixed more issues with non `utf-8` compliant paths. [Thanks Sergio]
