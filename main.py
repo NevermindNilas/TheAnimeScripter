@@ -254,10 +254,13 @@ class VideoProcessor:
         if self.interpolate:
             if isinstance(self.interpolate_factor, float):
                 increment = self.interpolate_factor
+                if increment.is_integer():
+                    increment = int(increment)
             else:
                 increment = int(self.interpolate_factor)
         else:
             increment = 1
+
         if self.interpolate and self.interpolate_first:
             self.interpQueue = Queue(maxsize=round(self.interpolate_factor))
 

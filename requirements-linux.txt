@@ -1,4 +1,4 @@
---extra-index-url https://download.pytorch.org/whl/cu124
+--extra-index-url https://download.pytorch.org/whl/cu126
 opencv-python-headless
 timm
 numpy==2.2.4
@@ -20,8 +20,8 @@ rich-argparse
 anipy-cli
 safetensors
 colored
-torch==2.5.1
-torchvision==0.20.1
+torch==2.6.0
+torchvision==0.21.0
 torchmetrics
 av
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/upscale_ncnn_py-1.2.0-cp312-none-manylinux1_x86_64.whl
