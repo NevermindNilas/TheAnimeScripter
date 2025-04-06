@@ -106,12 +106,6 @@ def createParser(isFrozen, outputPath, sysUsed):
         action="store_true",
         help="Force Static Mode engine generation for TensorRT",
     )
-    performanceGroup.add_argument(
-        "--decode_threads",
-        type=int,
-        default=4,
-        help="Number of threads to use for decoding",
-    )
 
     # Interpolation options
     interpolationGroup = argParser.add_argument_group("Interpolation")
@@ -306,28 +300,6 @@ def createParser(isFrozen, outputPath, sysUsed):
         type=float,
         default=2,
         help="Resize factor (can be between 0 and 1 for downscaling)",
-    )
-    processingGroup.add_argument(
-        "--resize_method",
-        type=str,
-        choices=[
-            "fast_bilinear",
-            "bilinear",
-            "bicubic",
-            "experimental",
-            "neighbor",
-            "area",
-            "bicublin",
-            "gauss",
-            "sinc",
-            "lanczos",
-            "point",
-            "spline",
-            "spline16",
-            "spline36",
-        ],
-        default="bicubic",
-        help="Resize method",
     )
 
     # Segmentation options
@@ -686,15 +658,6 @@ def argumentsChecker(args, outputPath):
             "16bit input is not supported with segmentation, defaulting to 8bit"
         )
         args.bit_depth = "8bit"
-
-    if args.decode_threads < 1:
-        logging.error("Invalid decode threads, defaulting to 2")
-        args.decode_threads = 2
-    elif args.decode_threads > os.cpu_count():
-        logging.error(
-            f"Decode threads higher than available CPU threads, defaulting to {os.cpu_count()}"
-        )
-        args.decode_threads = os.cpu_count()
 
     if args.output and not os.path.exists(os.path.dirname(args.output)):
         os.makedirs(os.path.dirname(args.output), exist_ok=True)

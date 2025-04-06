@@ -29,7 +29,6 @@ class ObjectDetection:
         benchmark: bool,
         totalFrames: int,
         half: bool,
-        decodeThreads: int,
     ):
         self.input = input
         self.output = output
@@ -44,7 +43,6 @@ class ObjectDetection:
         self.benchmark = benchmark
         self.totalFrames = totalFrames
         self.half = half
-        self.decodeThreads = decodeThreads
 
         self._handleModel()
 
@@ -73,7 +71,6 @@ class ObjectDetection:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.outputFPS,
-                decodeThreads=self.decodeThreads,
             )
 
             self.writeBuffer = WriteBuffer(

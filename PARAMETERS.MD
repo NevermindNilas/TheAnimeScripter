@@ -28,7 +28,6 @@
       - [Depth Methods](#depth-methods)
       - [Depth Quality selection](#depth-quality-selection)
     - [Resizing](#resizing)
-      - [Resize Methods](#resize-methods)
   - [Preset Arguments](#preset-arguments)
   - [Encoding Settings](#encoding-settings)
 - [Encode Methods](#encode-methods)
@@ -222,11 +221,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 |-------------------|-------|-----------|------------------------------------------------------------|
 | `--resize`        | flag  | -         | Enable resizing                                            |
 | `--resize_factor` | float | 2         | Factor for resizing (>1 for upscaling, <1 for downscaling) |
-| `--resize_method` | str   | "bicubic" | Resizing method                                            |
-
-#### Resize Methods
-- `"fast_bilinear"`, `"bilinear"`, `"bicubic"`, `"experimental"`, `"neighbor"`, `"area"`
-- `"bicublin"`, `"gauss"`, `"sinc"`, `"lanczos"`, `"spline"`, `"spline16"`, `"spline36"`, `"point"`
 
 ## Preset Arguments
 
@@ -290,7 +284,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 |--------------------|--------|---------|--------------------------------------------------------------------------------|-------------|
 | `--half`           | string | True    | Enable FP16 for improved performance                                           | True, False |
 | `--static`         | flag   | True    | Force static engine generation and bypass the arbitrary set limitations of TAS |             |
-| `--decode_threads` | int    | 4       | The amount of threads utilized for decoding                                    |             |
 
 **Note**: Interpolation TRT, Depth TRT, Segment TRT all already are set to static engine generation due to set limitations within the models themselves.
 

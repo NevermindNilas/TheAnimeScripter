@@ -85,7 +85,6 @@ class VideoProcessor:
         self.ensemble: bool = args.ensemble
         self.resize: bool = args.resize
         self.resize_factor: float = args.resize_factor
-        self.resize_method: str = args.resize_method
         self.custom_model: str = args.custom_model
         self.restore: bool = args.restore
         self.restore_method: str = args.restore_method
@@ -99,7 +98,6 @@ class VideoProcessor:
         self.preview: bool = args.preview
         self.forceStatic: bool = args.static
         self.depth_quality: str = args.depth_quality
-        self.decode_threads: int = args.decode_threads
         self.realtime: bool = args.realtime
         self.dynamic_scale: bool = args.dynamic_scale
         self.static_step: bool = args.static_step
@@ -134,7 +132,7 @@ class VideoProcessor:
             self.width = round(self.width * self.resize_factor / 2) * 2
             self.height = round(self.width / aspectRatio / 2) * 2
             logging.info(
-                f"Resizing to {self.width}x{self.height} using {self.resize_factor} factor and {self.resize_method}"
+                f"Resizing to {self.width}x{self.height} using {self.resize_factor} factor."
             )
 
     def _selectProcessingMethod(self) -> None:
@@ -313,9 +311,7 @@ class VideoProcessor:
                 totalFrames=self.totalFrames,
                 fps=self.fps,
                 half=self.half,
-                decodeThreads=self.decode_threads,
                 resize=self.resize,
-                resizeMethod=self.resize_method,
                 width=self.width,
                 height=self.height,
             )
