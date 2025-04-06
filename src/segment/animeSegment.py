@@ -27,7 +27,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         custom_encoder="",
         benchmark=False,
         totalFrames=0,
-        decodeThreads: int = 0,
     ):
         self.input = input
         self.output = output
@@ -49,7 +48,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
-                decodeThreads=decodeThreads,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -159,7 +157,6 @@ class AnimeSegmentTensorRT:
         custom_encoder="",
         benchmark=False,
         totalFrames=0,
-        decodeThreads: int = 0,
     ):
         self.input = input
         self.output = output
@@ -193,7 +190,6 @@ class AnimeSegmentTensorRT:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
-                decodeThreads=decodeThreads,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -372,7 +368,6 @@ class AnimeSegmentDirectML:
         custom_encoder="",
         benchmark=False,
         totalFrames=0,
-        decodeThreads: int = 0,
     ):
         self.input = input
         self.output = output
@@ -399,7 +394,6 @@ class AnimeSegmentDirectML:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
-                decodeThreads=decodeThreads,
             )
 
             self.writeBuffer = WriteBuffer(
