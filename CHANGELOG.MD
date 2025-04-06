@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Significant improvements to `--preview` with better performance and lower overhead than before.
 - Switched from `celux` to `pyav` due to lack of development.
 - Bumped Pytorch to `2.6.0`
+- Deprecated: `--resize_method` and `--decode_threads`, in the future these well be readed with a better design, for now use `--custom_encoder`.
 
 #### Fixed
 - Fixed more issues with non `utf-8` compliant paths. [Thanks Sergio]

@@ -57,7 +57,6 @@ class DepthCuda:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        decodeThreads: int = 0,
     ):
         self.input = input
         self.output = output
@@ -84,7 +83,6 @@ class DepthCuda:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
-                decodeThreads=decodeThreads,
                 width=self.width,
                 height=self.height,
                 resize=False,
@@ -267,7 +265,6 @@ class DepthDirectMLV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        decodeThreads: int = 0,
     ):
         import onnxruntime as ort
 
@@ -298,7 +295,6 @@ class DepthDirectMLV2:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
-                decodeThreads=decodeThreads,
                 resize=False,
                 width=self.width,
                 height=self.height,
@@ -471,7 +467,6 @@ class DepthTensorRTV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        decodeThreads: int = 0,
     ):
         self.input = input
         self.output = output
@@ -510,7 +505,6 @@ class DepthTensorRTV2:
                 outpoint=self.outpoint,
                 totalFrames=self.totalFrames,
                 fps=self.fps,
-                decodeThreads=decodeThreads,
                 resize=False,
                 width=self.width,
                 height=self.height,
@@ -689,7 +683,6 @@ class OGDepthV2CUDA:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
-        decodeThreads: int = 0,
     ):
         self.input = input
         self.output = output

@@ -24,9 +24,7 @@ class BuildBuffer:
         totalFrames: int = 0,
         fps: float = 0,
         half: bool = True,
-        decodeThreads: int = 0,
         resize: bool = False,
-        resizeMethod: str = "bicubic",
         width: int = 1920,
         height: int = 1080,
     ):
@@ -40,7 +38,6 @@ class BuildBuffer:
             totalFrames (int): The total number of frames in the video.
             fps (float): Frames per second of the video.
             half (bool): Whether to use half precision for decoding.
-            decodeThreads (int): Amount of threads allocated to decoding.
             resize (bool): Whether to resize the frames.
             resizeFactor (float): The factor to resize the frames by.
 

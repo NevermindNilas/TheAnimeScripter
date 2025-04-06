@@ -95,7 +95,6 @@ class UnifiedRestoreTensorRT:
             width (int): The width of the input frame
             height (int): The height of the input frame
             customModel (str): The path to a custom model file
-            nt (int): The number of threads to use
         """
 
         # Attempt to lazy load for faster startup
