@@ -54,6 +54,8 @@ def createExecutable():
         str(iconPath),
         "--distpath",
         str(distPath),
+        "--name",
+        "TheAnimeScripter",
     ]
 
     cliArgs = commonArgs + [
