@@ -141,7 +141,12 @@ class BuildBuffer:
         Returns:
             Whether the decoding buffer is empty.
         """
-        return self.decodeBuffer.empty()
+        isClosed = False
+        if self.decodeBuffer.empty() and self.isFinished:
+            self.decodeBuffer.shutdown()  # new method to close the queue introduced with python 3.13.
+            isClosed = True
+
+        return isClosed
 
 
 class WriteBuffer:

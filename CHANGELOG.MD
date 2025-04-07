@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `anime1080fixer-directml` restore method.
 
 #### Changed
+- Upgraded to `python 3.13` including most dependencies.
+- Added an automated memdealloc in `buildbuffer`
+- Migrated to `onnx-weekly` until `onnx v18.0` gets released.
 - Linux support will be indefinitely postponed and will no longer be in any shape or form a priority of TAS.
 - Disabled audio when running `--depth`
 - Removed `h266`
@@ -26,6 +29,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Switched from `celux` to `pyav` due to lack of development.
 - Bumped Pytorch to `2.6.0`
 - Deprecated: `--resize_method` and `--decode_threads`, in the future these well be readed with a better design, for now use `--custom_encoder`.
+
+#### Known Issues:
+- `--inpoint` and `--outpoint` are not functional due to the migration from `celux` to `pyav`, I will need to see how to set interest points based on them.
 
 #### Fixed
 - Fixed more issues with non `utf-8` compliant paths. [Thanks Sergio]
