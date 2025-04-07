@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Slowmotion support through `--slowmo`
 - `constants.py` to more easily maintain the code and to avoid excessive imports and declarations.
 - Experimental fractional interpolation support.
-- Added `memory usage` and `cpu usage` to the progress bar for more info.
+- Added `memory usage` to the progress bar for more info.
 - Added `"og_small_v2"` / `"og_base_v2"` / `"og_large_v2"` / `"og_distill_small_v2"` /  `"og_distill_base_v2"` which as the name implies are a near original paper implementation of Depth Anything V2 and Distill Depth Anything V2. These are roughly 10-20% faster than the original paper whilst retaining, visually, the same quality.
 - Added `anime1080fixer-directml` restore method.
 
