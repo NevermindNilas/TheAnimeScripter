@@ -61,7 +61,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 fps=self.fps,
                 sharpen=False,
                 transparent=True,
-                audio=False,
                 benchmark=self.benchmark,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
@@ -203,7 +202,6 @@ class AnimeSegmentTensorRT:
                 fps=self.fps,
                 sharpen=False,
                 transparent=True,
-                audio=False,
                 benchmark=self.benchmark,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
@@ -408,7 +406,6 @@ class AnimeSegmentDirectML:
                 sharpen_sens=None,
                 grayscale=False,
                 transparent=True,
-                audio=False,
                 benchmark=self.benchmark,
             )
 
