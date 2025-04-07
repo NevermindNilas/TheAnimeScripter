@@ -17,7 +17,7 @@ rich
 rich-argparse
 flask
 torchmetrics
-torch==2.6.0
+torch==2.6.0+cu126
 torchvision==0.21.0
 av
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python-1.2.1-cp312-cp312-win_amd64.whl
