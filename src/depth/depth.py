@@ -727,6 +727,7 @@ class OGDepthV2CUDA:
                 toDownload = "small_v2"
             case "og_base_v2" | "og_distill_base_v2":
                 method = "vitb"
+                toDownload = "base_v2"
             case "og_large_v2":
                 method = "vitl"
                 toDownload = "large_v2"
