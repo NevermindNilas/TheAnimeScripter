@@ -66,6 +66,8 @@ def createExecutable():
         "--hidden-import",
         "upscale_ncnn_py.upscale_ncnn_py_wrapper",
         "--collect-all",
+        "pytorch",
+        "--collect-all",
         "tensorrt",
         "--collect-all",
         "tensorrt-cu12-bindings",
