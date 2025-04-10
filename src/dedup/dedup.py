@@ -71,13 +71,14 @@ class DedupSSIM:
         ssimThreshold=0.9,
         sampleSize=224,
     ):
-        from torchmetrics import StructuralSimilarityIndexMeasure
+        from .ssim import SSIM
 
         self.device = torch.device("cpu")
         self.ssimThreshold = ssimThreshold
         self.sampleSize = sampleSize
         self.prevFrame = None
-        self.ssim = StructuralSimilarityIndexMeasure(data_range=1.0).to(self.device)
+        self.ssim = SSIM(data_range=1.0, channel=3).to(self.device)
+        self.ssim.eval()
 
     def __call__(self, frame):
         """
