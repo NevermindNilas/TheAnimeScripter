@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 #### Added
+- N/A
+
+#### Changed
+- Removed `torchmetrics` & replaced all SSIM relevant functions with a custom SSIM.
+
+#### Fixed
+- Potential import errors caused by `signal.windows` missing in the bootstrapper of pyinstaller(?).
+
+## [2.1.3] - 2025-04-08
+#### Added
 - Test(s)
 - Slowmotion support through `--slowmo`
 - `constants.py` to more easily maintain the code and to avoid excessive imports and declarations.

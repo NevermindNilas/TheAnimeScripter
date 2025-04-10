@@ -1,5 +1,7 @@
 import torch
-from torchmetrics.functional import structural_similarity_index_measure as ssim
+from src.dedup.ssim import SSIM
+
+SSIMFUNCTION = None
 
 
 def dynamicScale(
@@ -15,6 +17,14 @@ def dynamicScale(
     then clamped between minScale (largest) and maxScale (smallest),
     and rounded to the nearest 0.5.
     """
+    global SSIMFUNCTION
+    if SSIMFUNCTION is None:
+        SSIMFUNCTION = SSIM(data_range=1.0, channel=3)
+        if img1.is_cuda:
+            SSIMFUNCTION = SSIMFUNCTION.cuda()
+        if img1.dtype == torch.float16:
+            SSIMFUNCTION = SSIMFUNCTION.half()
+
     if img1.shape != img2.shape:
         raise ValueError(
             f"Input images must have the same shape, got {img1.shape} and {img2.shape}"
@@ -25,7 +35,7 @@ def dynamicScale(
             f"Both images must be on the same device, got {img1.device} and {img2.device}"
         )
 
-    ssim_value = ssim(img1, img2, data_range=img2.max() - img2.min()).item()
+    ssim_value = SSIMFUNCTION(img1, img2).mean().item()
 
     scale = minScale + (maxScale - minScale) * (1 - (ssim_value**2))
     scale = max(minScale, min(maxScale, scale))
