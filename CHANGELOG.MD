@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 #### Added
-- N/A
+- Improved model download progress tracking with percentage-based milestones (20%, 40%, 60%, 80%, 100%) and file size reporting in logs
 
 #### Changed
 - Removed `torchmetrics` & replaced all SSIM relevant functions with a custom SSIM.
