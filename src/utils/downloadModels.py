@@ -614,24 +614,43 @@ def downloadAndLog(
             response.raise_for_status()
 
             try:
-                total_size_in_bytes = int(response.headers.get("content-length", 0))
-                total_size_in_mb = total_size_in_bytes / (
-                    1024 * 1024
-                )  # Convert bytes to MB
+                totalSizeInBytes = int(response.headers.get("content-length", 0))
+                totalSizeInMb = totalSizeInBytes / (1024 * 1024)  # Convert bytes to MB
             except Exception as e:
-                total_size_in_mb = 0  # If there's an error, default to 0 MB
+                totalSizeInBytes = 0  # If there's an error, default to 0 MB
+                totalSizeInMb = 0
                 logging.error(e)
 
             tempFilePath = os.path.join(tempFolder, filename)
 
+            downloadedBytes = 0
+            loggedPercentages = set()
+
             with ProgressBarDownloadLogic(
-                int(total_size_in_mb + 1),
+                int(totalSizeInMb + 1),
                 title=f"Downloading {model.upper()} model... (Attempt {attempt + 1}/{retries})",
             ) as bar:
                 with open(tempFilePath, "wb") as file:
                     for data in response.iter_content(chunk_size=1024 * 1024):
                         file.write(data)
+                        downloadedBytes += len(data)
                         bar(int(len(data) / (1024 * 1024)))
+
+                        if totalSizeInBytes > 0:
+                            currentMb = downloadedBytes / (1024 * 1024)
+                            currentPercentage = int(
+                                (downloadedBytes / totalSizeInBytes) * 100
+                            )
+
+                            for milestone in [20, 40, 60, 80, 100]:
+                                if (
+                                    currentPercentage >= milestone
+                                    and milestone not in loggedPercentages
+                                ):
+                                    logging.info(
+                                        f"Downloaded {milestone}% of {model.upper()} - {currentMb:.2f}/{totalSizeInMb:.2f} MB"
+                                    )
+                                    loggedPercentages.add(milestone)
 
             if filename.endswith(".zip"):
                 import zipfile
