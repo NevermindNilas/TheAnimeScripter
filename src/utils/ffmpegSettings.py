@@ -79,7 +79,7 @@ class BuildBuffer:
         if checker.cudaAvailable:
             self.deviceType = "cuda"
             self.normStream = torch.cuda.Stream()
-            self.prealloc_frame = None
+            self.preAllocFrame = None
         else:
             self.deviceType = "cpu"
 
@@ -127,10 +127,10 @@ class BuildBuffer:
 
                 if (
                     checker.cudaAvailable
-                    and hasattr(self, "prealloc_frame")
-                    and self.prealloc_frame is not None
+                    and hasattr(self, "preAllocFrame")
+                    and self.preAllocFrame is not None
                 ):
-                    del self.prealloc_frame
+                    del self.preAllocFrame
                     torch.cuda.empty_cache()
             except Exception as e:
                 logging.warning(f"Cleanup error: {e}")
@@ -158,10 +158,10 @@ class BuildBuffer:
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
                 if (
-                    self.prealloc_frame is None
-                    or self.prealloc_frame.shape[1:] != frameTensor.shape[:2]
+                    self.preAllocFrame is None
+                    or self.preAllocFrame.shape[1:] != frameTensor.shape[:2]
                 ):
-                    self.prealloc_frame = torch.zeros(
+                    self.preAllocFrame = torch.zeros(
                         (1, 3, frameTensor.shape[0], frameTensor.shape[1]),
                         dtype=dtype,
                         device="cuda",
@@ -173,11 +173,11 @@ class BuildBuffer:
                     .clamp_(0, 1)
                 )
 
-                self.prealloc_frame[0].copy_(
+                self.preAllocFrame[0].copy_(
                     processedFrame.permute(2, 0, 1), non_blocking=True
                 )
 
-                result = self.prealloc_frame.clone()
+                result = self.preAllocFrame.clone()
 
             # Ensure operations are complete
             normStream.synchronize()
