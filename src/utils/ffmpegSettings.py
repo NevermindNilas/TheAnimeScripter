@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 import src.constants as cs
 import av
+import time
 
 from queue import Queue
 from torch.nn import functional as F
@@ -210,6 +211,14 @@ class WriteBuffer:
 
         self.writtenFrames = 0
         self.writeBuffer = Queue(maxsize=10)
+        self.mpvPath = (
+            os.path.join(cs.MAINPATH, "ffmpeg", "mpv.exe") if self.realtime else None
+        )
+        if self.realtime and not os.path.exists(self.mpvPath):
+            logging.warning(
+                f"MPV not found at {self.mpvPath}. Disabling realtime preview."
+            )
+            self.realtime = False
 
     def encodeSettings(self) -> list:
         """
@@ -221,16 +230,16 @@ class WriteBuffer:
         if "av1" in [self.encode_method, self.custom_encoder]:
             os.environ["SVT_LOG"] = "0"
 
-        inputPixFormat, outputPixFormat, self.encode_method = getPixFMT(
+        inputPixFmt, outputPixFmt, self.encode_method = getPixFMT(
             self.encode_method, self.bitDepth, self.grayscale, self.transparent
         )
 
         if self.benchmark:
-            return self._buildBenchmarkCommand(inputPixFormat)
+            return self._buildBenchmarkCommand(inputPixFmt)
         else:
-            return self._buildEncodingCommand(inputPixFormat, outputPixFormat)
+            return self._buildEncodingCommand(inputPixFmt, outputPixFmt)
 
-    def _buildBenchmarkCommand(self, inputPixFormat):
+    def _buildBenchmarkCommand(self, inputPixFmt):
         """Build FFmpeg command for benchmarking"""
         return [
             cs.FFMPEGPATH,
@@ -244,7 +253,7 @@ class WriteBuffer:
             "-video_size",
             f"{self.width}x{self.height}",
             "-pix_fmt",
-            inputPixFormat,
+            inputPixFmt,
             "-r",
             str(self.fps),
             "-i",
@@ -255,7 +264,7 @@ class WriteBuffer:
             "-",
         ]
 
-    def _buildEncodingCommand(self, inputPixFormat, outputPixFormat):
+    def _buildEncodingCommand(self, inputPixFmt, outputPixFmt):
         """Build FFmpeg command for encoding"""
         command = [
             cs.FFMPEGPATH,
@@ -268,7 +277,7 @@ class WriteBuffer:
             "-f",
             "rawvideo",
             "-pixel_format",
-            inputPixFormat,
+            inputPixFmt,
             "-s",
             f"{self.width}x{self.height}",
             "-r",
@@ -297,15 +306,15 @@ class WriteBuffer:
         command.extend(["-map", "0:v"])
 
         if not self.realtime:
-            filters = self._buildFilterList()
+            filterList = self._buildFilterList()
 
             if not self.custom_encoder:
                 command.extend(matchEncoder(self.encode_method))
-                if filters:
-                    command.extend(["-vf", ",".join(filters)])
-                command.extend(["-pix_fmt", outputPixFormat])
+                if filterList:
+                    command.extend(["-vf", ",".join(filterList)])
+                command.extend(["-pix_fmt", outputPixFmt])
             else:
-                command.extend(self._buildCustomEncoder(filters, outputPixFormat))
+                command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
 
         if cs.AUDIO:
             command.extend(self._buildAudioSettings())
@@ -319,36 +328,36 @@ class WriteBuffer:
 
     def _buildFilterList(self):
         """Build list of video filters based on settings"""
-        filters = []
+        filterList = []
         if self.sharpen:
-            filters.append(f"cas={self.sharpen_sens}")
+            filterList.append(f"cas={self.sharpen_sens}")
         if self.grayscale:
-            filters.append(
+            filterList.append(
                 "format=gray" if self.bitDepth == "8bit" else "format=gray16be"
             )
         if self.transparent:
-            filters.append("format=yuva420p")
+            filterList.append("format=yuva420p")
 
-        return filters
+        return filterList
 
-    def _buildCustomEncoder(self, filters, outputPixFormat):
+    def _buildCustomEncoder(self, filterList, outputPixFmt):
         """Apply custom encoder settings with filters"""
-        customEncoderList = self.custom_encoder.split()
+        customEncoderArgs = self.custom_encoder.split()
 
-        if "-vf" in customEncoderList:
-            vfIndex = customEncoderList.index("-vf")
-            filterString = customEncoderList[vfIndex + 1]
-            for filter_item in filters:
-                filterString += f",{filter_item}"
-            customEncoderList[vfIndex + 1] = filterString
-        elif filters:
-            customEncoderList.extend(["-vf", ",".join(filters)])
+        if "-vf" in customEncoderArgs:
+            vfIndex = customEncoderArgs.index("-vf")
+            filterString = customEncoderArgs[vfIndex + 1]
+            for filterItem in filterList:
+                filterString += f",{filterItem}"
+            customEncoderArgs[vfIndex + 1] = filterString
+        elif filterList:
+            customEncoderArgs.extend(["-vf", ",".join(filterList)])
 
-        if "-pix_fmt" not in customEncoderList:
-            logging.info(f"-pix_fmt was not found, adding {outputPixFormat}.")
-            customEncoderList.extend(["-pix_fmt", outputPixFormat])
+        if "-pix_fmt" not in customEncoderArgs:
+            logging.info(f"-pix_fmt was not found, adding {outputPixFmt}.")
+            customEncoderArgs.extend(["-pix_fmt", outputPixFmt])
 
-        return customEncoderList
+        return customEncoderArgs
 
     def _buildAudioSettings(self):
         """Build audio encoding settings"""
@@ -370,143 +379,144 @@ class WriteBuffer:
         self.frameQueue = Queue(maxsize=10)
         writtenFrames = 0
 
-        command = self.encodeSettings()
-        logging.info(f"Encoding options: {' '.join(map(str, command))}")
-
-        if self.grayscale:
-            self.channels = 1
-        elif self.transparent:
-            self.channels = 4
-        else:
-            self.channels = 3
-
-        dtype = torch.uint8 if self.bitDepth == "8bit" else torch.uint16
-        mul = 255 if self.bitDepth == "8bit" else 65535
-
-        dummyTensor = torch.zeros(
-            (self.height, self.width, self.channels),
-            dtype=dtype,
-            device="cuda" if checker.cudaAvailable else "cpu",
-        )
-
-        if checker.cudaAvailable:
-            normStream = torch.cuda.Stream()
-            try:
-                dummyTensor = dummyTensor.pin_memory()
-            except Exception:
-                pass
-
+        # Wait for at least one frame to be queued before starting encoding
         while self.writeBuffer.empty():
-            pass
+            try:
+                # Brief sleep to prevent CPU spinning
+                time.sleep(0.01)
+            except KeyboardInterrupt:
+                logging.warning("Encoding interrupted by user")
+                return
 
-        initialFrame = self.writeBuffer.queue[0]
+        try:
+            initialFrame = self.writeBuffer.queue[0]
 
-        NEEDSRESIZE: bool = (
-            initialFrame.shape[2] != self.height or initialFrame.shape[3] != self.width
-        )
-        if NEEDSRESIZE:
-            logging.info(
-                f"The frame size does not match the output size, resizing the frame. Frame size: {initialFrame.shape[3]}x{initialFrame.shape[2]}, Output size: {self.width}x{self.height}"
+            self.channels = 1 if self.grayscale else 4 if self.transparent else 3
+
+            isEightBit = self.bitDepth == "8bit"
+            multiplier = 255 if isEightBit else 65535
+            dtype = torch.uint8 if isEightBit else torch.uint16
+
+            needsResize = (
+                initialFrame.shape[2] != self.height
+                or initialFrame.shape[3] != self.width
             )
 
-        ffmpegSubprocess = subprocess.Popen(
-            command,
-            stdin=subprocess.PIPE,
-            shell=False,
-            cwd=cs.MAINPATH,
-        )
+            if needsResize:
+                logging.info(
+                    f"Frame size mismatch. Frame: {initialFrame.shape[3]}x{initialFrame.shape[2]}, Output: {self.width}x{self.height}"
+                )
 
-        if self.realtime:
-            # glslPath = (
-            #    r"C:\Users\nilas\AppData\Roaming\TheAnimeScripter\ffmpeg\FSR.glsl"
-            # )
-            mpvSubprocess = subprocess.Popen(
-                [
-                    self.mpvPath,
-                    "-",
-                    "--no-terminal",
-                    "--force-window=yes",
-                    "--keep-open=yes",
-                    "--title=" + input,
-                    "--cache=yes",
-                    "--demuxer-max-bytes=5M",
-                    "--demuxer-readahead-secs=5",
-                    "--demuxer-seekable-cache=yes",
-                    "--hr-seek-framedrop=no",
-                    "--hwdec=auto",
-                    "--border=no",
-                    "--profile=high-quality",
-                    "--vo=gpu-next",
-                    # "--profile=gpu-hq",
-                    # "--glsl-shader=" + glslPath,
-                ],
-                stdin=ffmpegSubprocess.stdout,
-                shell=False,
+            command = self.encodeSettings()
+            logging.info(f"Encoding with: {' '.join(map(str, command))}")
+
+            device = "cuda" if checker.cudaAvailable else "cpu"
+
+            dummyTensor = torch.zeros(
+                (self.height, self.width, self.channels), dtype=dtype, device=device
             )
-            ffmpegSubprocess.stdout.close()
-
-        while True:
-            frame = self.writeBuffer.get()
-            if frame is None:
-                break
 
             if checker.cudaAvailable:
-                with torch.cuda.stream(normStream):
-                    if NEEDSRESIZE:
+                normStream = torch.cuda.Stream()
+
+            # Start FFmpeg subprocess
+            ffmpegProc = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE if self.realtime else None,
+                stderr=subprocess.PIPE,
+                shell=False,
+                cwd=cs.MAINPATH,
+            )
+
+            mpvProc = None
+            if self.realtime and ffmpegProc.stdout:
+                mpvProc = subprocess.Popen(
+                    [
+                        self.mpvPath,
+                        "-",
+                        "--no-terminal",
+                        "--force-window=yes",
+                        "--keep-open=yes",
+                        "--title=" + self.input,
+                        "--cache=yes",
+                        "--demuxer-max-bytes=5M",
+                        "--demuxer-readahead-secs=5",
+                        "--demuxer-seekable-cache=yes",
+                        "--hr-seek-framedrop=no",
+                        "--hwdec=auto",
+                        "--border=no",
+                        "--profile=high-quality",
+                        "--vo=gpu-next",
+                    ],
+                    stdin=ffmpegProc.stdout,
+                    shell=False,
+                )
+                ffmpegProc.stdout.close()
+
+            while True:
+                frame = self.writeBuffer.get()
+                if frame is None:
+                    break
+
+                if checker.cudaAvailable:
+                    with torch.cuda.stream(normStream):
+                        if needsResize:
+                            frame = F.interpolate(
+                                frame,
+                                size=(self.height, self.width),
+                                mode="bicubic",
+                                align_corners=False,
+                            )
+
+                        dummyTensor.copy_(
+                            frame.mul(multiplier)
+                            .clamp(0, multiplier)
+                            .squeeze(0)
+                            .permute(1, 2, 0),
+                            non_blocking=True,
+                        )
+                    normStream.synchronize()
+                else:
+                    if needsResize:
                         frame = F.interpolate(
                             frame,
                             size=(self.height, self.width),
                             mode="bicubic",
                             align_corners=False,
                         )
-
                     dummyTensor.copy_(
-                        frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0),
-                        non_blocking=True,
+                        frame.mul(multiplier)
+                        .clamp(0, multiplier)
+                        .squeeze(0)
+                        .permute(1, 2, 0),
+                        non_blocking=False,
                     )
-                normStream.synchronize()
-            else:
-                if NEEDSRESIZE:
-                    frame = F.interpolate(
-                        frame,
-                        size=(self.height, self.width),
-                        mode="bicubic",
-                        align_corners=False,
-                    )
-                dummyTensor.copy_(
-                    frame.mul(mul).clamp(0, mul).squeeze(0).permute(1, 2, 0),
-                    non_blocking=False,
-                )
 
-            if self.channels == 1:
-                # Should work for both 8bit and 16bit
-                frame = dummyTensor.cpu().numpy()
-
-            elif self.channels == 3:
-                # for 8 bit, gotta convert the rgb24 -> yuv420p to save time on the subprocess write call.
-                frame = (
-                    cv2.cvtColor(dummyTensor.cpu().numpy(), cv2.COLOR_RGB2YUV_I420)
-                    if self.bitDepth == "8bit"
-                    else dummyTensor.cpu().numpy()
-                )
-            elif self.channels == 4:
-                if self.bitDepth == "8bit":
-                    frame = dummyTensor.cpu().numpy()
-                else:
+                frameData = dummyTensor.cpu().numpy()
+                if self.channels == 3 and isEightBit:
+                    frameData = cv2.cvtColor(frameData, cv2.COLOR_RGB2YUV_I420)
+                elif self.channels == 4 and not isEightBit:
                     raise ValueError("RGBA 10bit encoding is not supported.")
-            ffmpegSubprocess.stdin.write(np.ascontiguousarray(frame))
-            # ffmpegSubprocess.stdin.flush()
-            writtenFrames += 1
 
-        self.frameQueue.put(None)
-        logging.info(f"Encoded {writtenFrames} frames")
+                ffmpegProc.stdin.write(np.ascontiguousarray(frameData))
+                writtenFrames += 1
 
-        if ffmpegSubprocess and ffmpegSubprocess.stdin:
-            ffmpegSubprocess.stdin.close()
-        if ffmpegSubprocess:
-            ffmpegSubprocess.wait()
-        if self.realtime and mpvSubprocess:
-            mpvSubprocess.wait()
+            self.frameQueue.put(None)
+            logging.info(f"Encoded {writtenFrames} frames")
+
+        except Exception as e:
+            logging.error(f"Encoding error: {e}")
+        finally:
+            try:
+                if "ffmpegProc" in locals() and ffmpegProc.stdin:
+                    ffmpegProc.stdin.close()
+                if "ffmpegProc" in locals() and ffmpegProc.poll() is None:
+                    ffmpegProc.wait(timeout=5)
+                if "mpvProc" in locals() and mpvProc and mpvProc.poll() is None:
+                    mpvProc.wait(timeout=5)
+            except Exception as e:
+                logging.warning(f"Cleanup error: {e}")
 
     def write(self, frame: torch.Tensor):
         """
@@ -519,7 +529,6 @@ class WriteBuffer:
         Equivalent to write()
         Add a frame to the queue. Must be in [B, C, H, W] format.
         """
-
         self.writeBuffer.put(frame)
 
     def close(self):
