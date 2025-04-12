@@ -40,84 +40,156 @@ class BuildBuffer:
             fps (float): Frames per second of the video.
             half (bool): Whether to use half precision for decoding.
             resize (bool): Whether to resize the frames.
-            resizeFactor (float): The factor to resize the frames by.
-
-        Attributes:
-            half (bool): Whether to use half precision for decoding.
-            decodeBuffer (Queue): A queue to store decoded frames.
-            reader (celux.VideoReader or cv2.VideoCapture): Video reader object for decoding frames.
+            width (int): Width to resize frames to.
+            height (int): Height to resize frames to.
         """
         self.half = half
-        self.decodeBuffer = Queue(maxsize=10)
+        self.decodeBuffer = Queue(maxsize=20)
         self.useOpenCV = False
         self.width = width
         self.height = height
         self.resize = resize
+        self.isFinished = False
 
-        inputFramePoint = round(inpoint * fps)
-        outputFramePoint = round(outpoint * fps) if outpoint != 0.0 else totalFrames
+        self.inputFramePoint = round(inpoint * fps)
+        self.outputFramePoint = round(outpoint * fps) if outpoint > 0.0 else totalFrames
 
-        logging.info(f"Decoding frames from {inputFramePoint} to {outputFramePoint}")
+        if not os.path.exists(videoInput):
+            raise FileNotFoundError(f"Video file not found: {videoInput}")
 
-        self.reader = av.open(videoInput)
+        logging.info(
+            f"Decoding frames from {self.inputFramePoint} to {self.outputFramePoint}"
+        )
+
+        try:
+            self.reader = av.open(
+                videoInput,
+            )
+
+            if self.inputFramePoint > 0:
+                self.reader.seek(
+                    int(self.inputFramePoint * 1000000),
+                    stream=self.reader.streams.video[0],
+                )
+
+        except Exception as e:
+            logging.error(f"Failed to open video: {e}")
+            raise
+
+        if checker.cudaAvailable:
+            self.deviceType = "cuda"
+            self.normStream = torch.cuda.Stream()
+            self.prealloc_frame = None
+        else:
+            self.deviceType = "cpu"
 
     def __call__(self):
         """
         Decodes frames from the video and stores them in the decodeBuffer.
         """
         decodedFrames = 0
-        self.isFinished = False
+        framesRemaining = self.outputFramePoint - self.inputFramePoint
 
-        if checker.cudaAvailable:
-            normStream = torch.cuda.Stream()
+        try:
+            stream = self.reader.streams.video[0]
+            stream.thread_type = "AUTO"
 
-        for frame in self.reader.decode(video=0):
-            if self.resize:
-                frame = frame.reformat(self.width, self.height)
+            frameGen = self.reader.decode(video=0)
 
-            frame = self.processFrame(frame.to_ndarray(format="rgb24"), normStream)
-            self.decodeBuffer.put(frame)
-            decodedFrames += 1
+            for frameIdx, frame in enumerate(frameGen):
+                if framesRemaining > 0 and decodedFrames >= framesRemaining:
+                    break
 
-        self.decodeBuffer.put(None)
-        self.reader.close()
+                try:
+                    if self.resize:
+                        frame = frame.reformat(self.width, self.height)
 
-        self.isFinished = True
-        logging.info(f"Decoded {decodedFrames} frames")
+                    frameArray = frame.to_ndarray(format="rgb24")
+
+                    processedFrame = self.processFrame(
+                        frameArray, self.normStream if checker.cudaAvailable else None
+                    )
+
+                    self.decodeBuffer.put(processedFrame)
+                    decodedFrames += 1
+
+                except Exception as e:
+                    logging.warning(f"Error processing frame {decodedFrames}: {e}")
+
+        except Exception as e:
+            logging.error(f"Decoding error: {e}")
+        finally:
+            self.decodeBuffer.put(None)
+
+            try:
+                if hasattr(self, "reader") and self.reader:
+                    self.reader.close()
+
+                if (
+                    checker.cudaAvailable
+                    and hasattr(self, "prealloc_frame")
+                    and self.prealloc_frame is not None
+                ):
+                    del self.prealloc_frame
+                    torch.cuda.empty_cache()
+            except Exception as e:
+                logging.warning(f"Cleanup error: {e}")
+
+            self.isFinished = True
+            logging.info(f"Decoded {decodedFrames} frames")
 
     def processFrame(self, frame, normStream=None):
         """
-        Processes a single frame.
+        Processes a single frame with optimized memory handling.
 
         Args:
-            frame: The frame to process.
+            frame: The frame to process as numpy array.
             normStream: The CUDA stream for normalization (if applicable).
 
-            Returns:
-                The processed frame.
+        Returns:
+            The processed frame as a torch tensor.
         """
-        frame = torch.from_numpy(frame)
-        multiply = 1 / 255 if frame.dtype == torch.uint8 else 1 / 65535
+        frameTensor = torch.from_numpy(frame)
+
+        multiply = 1 / 255.0 if frameTensor.dtype == torch.uint8 else 1 / 65535.0
+
         dtype = torch.float16 if self.half else torch.float32
 
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
-                frame = (
-                    frame.to(device="cuda", non_blocking=True, dtype=dtype)
-                    .mul(multiply)
-                    .clamp(0, 1)
-                    .permute(2, 0, 1)
-                    .unsqueeze(0)
-                    .contiguous()
+                if (
+                    self.prealloc_frame is None
+                    or self.prealloc_frame.shape[1:] != frameTensor.shape[:2]
+                ):
+                    self.prealloc_frame = torch.zeros(
+                        (1, 3, frameTensor.shape[0], frameTensor.shape[1]),
+                        dtype=dtype,
+                        device="cuda",
+                    )
+
+                processedFrame = (
+                    frameTensor.to(device="cuda", non_blocking=True, dtype=dtype)
+                    .mul_(multiply)
+                    .clamp_(0, 1)
                 )
+
+                self.prealloc_frame[0].copy_(
+                    processedFrame.permute(2, 0, 1), non_blocking=True
+                )
+
+                result = self.prealloc_frame.clone()
+
+            # Ensure operations are complete
             normStream.synchronize()
-            return frame
+            return result
         else:
+            # CPU path - optimize by chaining operations
             return (
-                frame.mul(multiply)
+                frameTensor.mul(multiply)
                 .clamp(0, 1)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
+                .to(dtype=dtype)
                 .contiguous()
             )
 
@@ -144,8 +216,14 @@ class BuildBuffer:
         """
         isClosed = False
         if self.decodeBuffer.empty() and self.isFinished:
-            self.decodeBuffer.shutdown()  # new method to close the queue introduced with python 3.13.
-            isClosed = True
+            try:
+                # Safely handle queue shutdown
+                self.decodeBuffer.shutdown()  # new method to close the queue introduced with python 3.13.
+                isClosed = True
+            except (AttributeError, Exception) as e:
+                # Handle older Python versions or errors
+                logging.debug(f"Queue shutdown failed: {e}")
+                isClosed = True
 
         return isClosed
 
