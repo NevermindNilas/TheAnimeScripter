@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 #### Changed
 - Removed `torchmetrics` & replaced all SSIM relevant functions with a custom SSIM.
+- A major redesign of the video encoding pipeline resulting in lower CPU usage, lower memory consumption and better encoding performance across the board.
 
 #### Fixed
 - Potential import errors caused by `signal.windows` missing in the bootstrapper of pyinstaller(?).
