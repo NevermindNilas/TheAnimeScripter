@@ -7,7 +7,11 @@ class CudaChecker:
         A dumb class to check if CUDA is available and to get the device name.
         Just to avoid writing the same code over and over again.
         """
-        self._cuda_available = torch.cuda.is_available()
+        try:
+            self._cuda_available = torch.cuda.is_available()
+        except Exception as e:
+            self._cuda_available = False
+            print(f"CUDA is not available: {e}")
 
         if self._cuda_available:
             self.enableCudaOptimizations()
