@@ -107,14 +107,13 @@ class ProgressBarLogic:
             self.progress.update(self.task, advance=advance)
 
         if cs.ADOBE:
-            self.advanceCount += 1
-            if self.advanceCount % self.updateInterval == 0:
-                # For Adobe, we track progress ourselves
-                if hasattr(self, "_completed"):
-                    self._completed += advance
-                else:
-                    self._completed = advance
+            if not hasattr(self, "_completed"):
+                self._completed = 0
 
+            self._completed += advance
+            self.advanceCount += 1
+
+            if self.advanceCount % self.updateInterval == 0:
                 data = {
                     "currentFrame": self._completed,
                     "totalFrames": self.totalFrames,
