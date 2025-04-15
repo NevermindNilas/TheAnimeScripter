@@ -88,7 +88,6 @@ def modelsList() -> list[str]:
         "rife4.21-ncnn",
         "rife4.22-ncnn",
         "rife4.22-lite-ncnn",
-        "shufflecugan-directml",
         "open-proteus-directml",
         "compact-directml",
         "ultracompact-directml",
@@ -225,12 +224,7 @@ def modelsMap(
             elif modelType == "ncnn":
                 return "2x_modernspanimationv1.5-ncnn.zip"
 
-        case (
-            "shufflecugan"
-            | "shufflecugan-directml"
-            | "shufflecugan-tensorrt"
-            | "shufflecugan-ncnn"
-        ):
+        case "shufflecugan" | "shufflecugan-tensorrt" | "shufflecugan-ncnn":
             if modelType == "pth":
                 return "sudo_shuffle_cugan_9.584.969.pth"
             elif modelType == "onnx":

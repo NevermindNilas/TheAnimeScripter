@@ -226,7 +226,6 @@ def initializeModels(self):
                 | "ultracompact-directml"
                 | "superultracompact-directml"
                 | "span-directml"
-                | "shufflecugan-directml"
                 | "open-proteus-directml"
                 | "aniscale2-directml"
                 | "shufflespan-directml"
