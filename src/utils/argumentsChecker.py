@@ -13,27 +13,24 @@ from src.utils.logAndPrint import logAndPrint
 
 
 def isAnyOtherProcessingMethodEnabled(args):
-    proccessingMethods = [
-        args.interpolate,
-        args.scenechange,
-        args.upscale,
-        args.segment,
-        args.restore,
-        args.sharpen,
-        args.resize,
-        args.dedup,
-        args.depth,
-        args.autoclip,
-        args.obj_detect,
-    ]
-
-    return any(proccessingMethods)
+    return any(
+        [
+            args.interpolate,
+            args.scenechange,
+            args.upscale,
+            args.segment,
+            args.restore,
+            args.sharpen,
+            args.resize,
+            args.dedup,
+            args.depth,
+            args.autoclip,
+            args.obj_detect,
+        ]
+    )
 
 
 def str2bool(arg):
-    """
-    No clue if this is the right approach. But it works.
-    """
     if isinstance(arg, bool):
         return arg
     if arg.lower() in ("yes", "true", "t", "y", "1"):
@@ -44,10 +41,11 @@ def str2bool(arg):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
-def createParser(isFrozen, outputPath, sysUsed):
+def createParser(isFrozen, outputPath):
+    usageStr = "main.exe [options]" if isFrozen else "main.py [options]"
     argParser = argparse.ArgumentParser(
         description="The Anime Scripter CLI Tool",
-        usage="main.py [options]" if not isFrozen else "main.exe [options]",
+        usage=usageStr,
         formatter_class=RichHelpFormatter,
     )
 
@@ -79,9 +77,7 @@ def createParser(isFrozen, outputPath, sysUsed):
         help="Create and use a preset configuration file based on the current arguments",
     )
     presetGroup.add_argument(
-        "--list_presets",
-        action="store_true",
-        help="List all available presets",
+        "--list_presets", action="store_true", help="List all available presets"
     )
 
     # Performance options
@@ -108,6 +104,43 @@ def createParser(isFrozen, outputPath, sysUsed):
     )
 
     # Interpolation options
+    _addInterpolationOptions(argParser)
+
+    # Upscaling options
+    _addUpscalingOptions(argParser)
+
+    # Deduplication options
+    _addDedupOptions(argParser)
+
+    # Video processing options
+    _addVideoProcessingOptions(argParser)
+
+    # Segmentation options
+    _addSegmentationOptions(argParser)
+
+    # Scene detection options
+    _addSceneDetectionOptions(argParser)
+
+    # Depth estimation options
+    _addDepthOptions(argParser)
+
+    # Encoding options
+    _addEncodingOptions(argParser)
+
+    # Object Detection options
+    objectGroup = argParser.add_argument_group("Object Detection")
+    objectGroup.add_argument(
+        "--obj_detect", action="store_true", help="Detect objects in the video"
+    )
+
+    # Miscellaneous options
+    _addMiscOptions(argParser)
+
+    args = argParser.parse_args()
+    return argumentsChecker(args, outputPath)
+
+
+def _addInterpolationOptions(argParser):
     interpolationGroup = argParser.add_argument_group("Interpolation")
     interpolationGroup.add_argument(
         "--interpolate", action="store_true", help="Interpolate the video"
@@ -116,51 +149,53 @@ def createParser(isFrozen, outputPath, sysUsed):
         "--interpolate_factor", type=float, default=2, help="Interpolation factor"
     )
 
+    interpolationMethods = [
+        "rife",
+        "rife4.6",
+        "rife4.15-lite",
+        "rife4.16-lite",
+        "rife4.17",
+        "rife4.18",
+        "rife4.20",
+        "rife4.21",
+        "rife4.22",
+        "rife4.22-lite",
+        "rife4.25",
+        "rife4.25-lite",
+        "rife4.25-heavy",
+        "rife-ncnn",
+        "rife4.6-ncnn",
+        "rife4.15-lite-ncnn",
+        "rife4.16-lite-ncnn",
+        "rife4.17-ncnn",
+        "rife4.18-ncnn",
+        "rife4.20-ncnn",
+        "rife4.21-ncnn",
+        "rife4.22-ncnn",
+        "rife4.22-lite-ncnn",
+        "rife4.6-tensorrt",
+        "rife4.15-tensorrt",
+        "rife4.17-tensorrt",
+        "rife4.18-tensorrt",
+        "rife4.20-tensorrt",
+        "rife4.21-tensorrt",
+        "rife4.22-tensorrt",
+        "rife4.22-lite-tensorrt",
+        "rife4.25-tensorrt",
+        "rife4.25-lite-tensorrt",
+        "rife4.25-heavy-tensorrt",
+        "rife-tensorrt",
+        "gmfss",
+        "gmfss-tensorrt",
+        "rife_elexor",
+        "rife_elexor-tensorrt",
+        "rife4.6-directml",
+    ]
+
     interpolationGroup.add_argument(
         "--interpolate_method",
         type=str,
-        choices=[
-            "rife",
-            "rife4.6",
-            "rife4.15-lite",
-            "rife4.16-lite",
-            "rife4.17",
-            "rife4.18",
-            "rife4.20",
-            "rife4.21",
-            "rife4.22",
-            "rife4.22-lite",
-            "rife4.25",
-            "rife4.25-lite",
-            "rife4.25-heavy",
-            "rife-ncnn",
-            "rife4.6-ncnn",
-            "rife4.15-lite-ncnn",
-            "rife4.16-lite-ncnn",
-            "rife4.17-ncnn",
-            "rife4.18-ncnn",
-            "rife4.20-ncnn",
-            "rife4.21-ncnn",
-            "rife4.22-ncnn",
-            "rife4.22-lite-ncnn",
-            "rife4.6-tensorrt",
-            "rife4.15-tensorrt",
-            "rife4.17-tensorrt",
-            "rife4.18-tensorrt",
-            "rife4.20-tensorrt",
-            "rife4.21-tensorrt",
-            "rife4.22-tensorrt",
-            "rife4.22-lite-tensorrt",
-            "rife4.25-tensorrt",
-            "rife4.25-lite-tensorrt",
-            "rife4.25-heavy-tensorrt",
-            "rife-tensorrt",
-            "gmfss",
-            "gmfss-tensorrt",
-            "rife_elexor",
-            "rife_elexor-tensorrt",
-            "rife4.6-directml",
-        ],
+        choices=interpolationMethods,
         default="rife",
         help="Interpolation method",
     )
@@ -191,12 +226,11 @@ def createParser(isFrozen, outputPath, sysUsed):
         const=True,
         default=True,
         choices=[True, False],
-        help="[NOT IMPLEMENTED YET] "
-        "Switch back to the old approach where interpolated frames would instantly be written to the write queue, "
-        "this can improve performance in cpu or ram bound scenarios.",
+        help="Switch back to the old approach where interpolated frames would instantly be written to the write queue",
     )
 
-    # Upscaling options
+
+def _addUpscalingOptions(argParser):
     upscaleGroup = argParser.add_argument_group("Upscaling")
     upscaleGroup.add_argument(
         "--upscale", action="store_true", help="Upscale the video"
@@ -208,38 +242,41 @@ def createParser(isFrozen, outputPath, sysUsed):
         default=2,
         help="Upscaling factor",
     )
+
+    upscaleMethods = [
+        "shufflespan",
+        "shufflecugan",
+        "compact",
+        "ultracompact",
+        "superultracompact",
+        "span",
+        "compact-directml",
+        "ultracompact-directml",
+        "superultracompact-directml",
+        "shufflespan-directml",
+        "span-directml",
+        "shufflecugan-ncnn",
+        "span-ncnn",
+        "compact-tensorrt",
+        "ultracompact-tensorrt",
+        "superultracompact-tensorrt",
+        "span-tensorrt",
+        "shufflecugan-tensorrt",
+        "shufflespan-tensorrt",
+        "open-proteus",
+        "open-proteus-tensorrt",
+        "open-proteus-directml",
+        "aniscale2",
+        "aniscale2-tensorrt",
+        "aniscale2-directml",
+        "rtmosr-tensorrt",
+        "rtmosr-directml",
+    ]
+
     upscaleGroup.add_argument(
         "--upscale_method",
         type=str,
-        choices=[
-            "shufflespan",
-            "shufflecugan",
-            "compact",
-            "ultracompact",
-            "superultracompact",
-            "span",
-            "compact-directml",
-            "ultracompact-directml",
-            "superultracompact-directml",
-            "shufflespan-directml",
-            "span-directml",
-            "shufflecugan-ncnn",
-            "span-ncnn",
-            "compact-tensorrt",
-            "ultracompact-tensorrt",
-            "superultracompact-tensorrt",
-            "span-tensorrt",
-            "shufflecugan-tensorrt",
-            "shufflespan-tensorrt",
-            "open-proteus",
-            "open-proteus-tensorrt",
-            "open-proteus-directml",
-            "aniscale2",
-            "aniscale2-tensorrt",
-            "aniscale2-directml",
-            "rtmosr-tensorrt",
-            "rtmosr-directml",
-        ],
+        choices=upscaleMethods,
         default="shufflecugan",
         help="Upscaling method",
     )
@@ -247,7 +284,8 @@ def createParser(isFrozen, outputPath, sysUsed):
         "--custom_model", type=str, default="", help="Path to custom upscaling model"
     )
 
-    # Deduplication options
+
+def _addDedupOptions(argParser):
     dedupGroup = argParser.add_argument_group("Deduplication")
     dedupGroup.add_argument(
         "--dedup", action="store_true", help="Deduplicate the video"
@@ -263,7 +301,8 @@ def createParser(isFrozen, outputPath, sysUsed):
         "--dedup_sens", type=float, default=35, help="Deduplication sensitivity"
     )
 
-    # Video processing options
+
+def _addVideoProcessingOptions(argParser):
     processingGroup = argParser.add_argument_group("Video Processing")
     processingGroup.add_argument(
         "--sharpen", action="store_true", help="Sharpen the video"
@@ -274,22 +313,24 @@ def createParser(isFrozen, outputPath, sysUsed):
     processingGroup.add_argument(
         "--restore", action="store_true", help="Restore the video"
     )
+
+    restoreMethods = [
+        "scunet",
+        "nafnet",
+        "dpir",
+        "real-plksr",
+        "anime1080fixer",
+        "anime1080fixer-tensorrt",
+        "anime1080fixer-directml",
+        "fastlinedarken",
+        "fastlinedarken-tensorrt",
+    ]
+
     processingGroup.add_argument(
         "--restore_method",
         type=str,
         default="scunet",
-        choices=[
-            "scunet",
-            "nafnet",
-            "dpir",
-            "real-plksr",
-            "anime1080fixer",
-            "anime1080fixer-tensorrt",
-            "anime1080fixer-directml",
-            "fastlinedarken",
-            "fastlinedarken-tensorrt",
-            "anime1080fixer-directml",
-        ],
+        choices=restoreMethods,
         help="Denoising method",
     )
     processingGroup.add_argument(
@@ -302,7 +343,8 @@ def createParser(isFrozen, outputPath, sysUsed):
         help="Resize factor (can be between 0 and 1 for downscaling)",
     )
 
-    # Segmentation options
+
+def _addSegmentationOptions(argParser):
     segmentationGroup = argParser.add_argument_group(
         "Segmentation / Background Removal"
     )
@@ -317,7 +359,8 @@ def createParser(isFrozen, outputPath, sysUsed):
         help="Segmentation method",
     )
 
-    # Scene detection options
+
+def _addSceneDetectionOptions(argParser):
     sceneGroup = argParser.add_argument_group("Scene Detection")
     sceneGroup.add_argument(
         "--autoclip", action="store_true", help="Detect scene changes"
@@ -328,18 +371,21 @@ def createParser(isFrozen, outputPath, sysUsed):
     sceneGroup.add_argument(
         "--scenechange", action="store_true", help="Detect scene changes"
     )
+
+    scenechangeMethods = [
+        "maxxvit-tensorrt",
+        "maxxvit-directml",
+        "differential",
+        "differential-tensorrt",
+        "shift_lpips-tensorrt",
+        "shift_lpips-directml",
+    ]
+
     sceneGroup.add_argument(
         "--scenechange_method",
         type=str,
         default="maxxvit-directml",
-        choices=[
-            "maxxvit-tensorrt",
-            "maxxvit-directml",
-            "differential",
-            "differential-tensorrt",
-            "shift_lpips-tensorrt",
-            "shift_lpips-directml",
-        ],
+        choices=scenechangeMethods,
         help="Scene change detection method",
     )
     sceneGroup.add_argument(
@@ -349,32 +395,36 @@ def createParser(isFrozen, outputPath, sysUsed):
         help="Scene change detection sensitivity (0-100)",
     )
 
-    # Depth estimation options
+
+def _addDepthOptions(argParser):
     depthGroup = argParser.add_argument_group("Depth Estimation")
     depthGroup.add_argument(
         "--depth", action="store_true", help="Estimate the depth of the video"
     )
+
+    depthMethods = [
+        "small_v2",
+        "base_v2",
+        "large_v2",
+        "small_v2-tensorrt",
+        "base_v2-tensorrt",
+        "large_v2-tensorrt",
+        "small_v2-directml",
+        "base_v2-directml",
+        "large_v2-directml",
+        "distill_small_v2",
+        "distill_base_v2",
+        "og_small_v2",
+        "og_base_v2",
+        "og_large_v2",
+        "og_distill_small_v2",
+        "og_distill_base_v2",
+    ]
+
     depthGroup.add_argument(
         "--depth_method",
         type=str,
-        choices=[
-            "small_v2",
-            "base_v2",
-            "large_v2",
-            "small_v2-tensorrt",
-            "base_v2-tensorrt",
-            "large_v2-tensorrt",
-            "small_v2-directml",
-            "base_v2-directml",
-            "large_v2-directml",
-            "distill_small_v2",
-            "distill_base_v2",
-            "og_small_v2",
-            "og_base_v2",
-            "og_large_v2",
-            "og_distill_small_v2",
-            "og_distill_base_v2",
-        ],
+        choices=depthMethods,
         default="small_v2",
         help="Depth estimation method",
     )
@@ -386,43 +436,47 @@ def createParser(isFrozen, outputPath, sysUsed):
         help="This will determine the quality of the depth map, low is significantly faster but lower quality, only works with CUDA Depth Maps",
     )
 
-    # Encoding options
+
+def _addEncodingOptions(argParser):
     encodingGroup = argParser.add_argument_group("Encoding")
+
+    encodeMethods = [
+        "x264",
+        "slow_x264",
+        "x264_10bit",
+        "x264_animation",
+        "x264_animation_10bit",
+        "x265",
+        "slow_x265",
+        "x265_10bit",
+        "nvenc_h264",
+        "slow_nvenc_h264",
+        "nvenc_h265",
+        "slow_nvenc_h265",
+        "nvenc_h265_10bit",
+        "nvenc_av1",
+        "slow_nvenc_av1",
+        "qsv_h264",
+        "qsv_h265",
+        "qsv_h265_10bit",
+        "av1",
+        "slow_av1",
+        "h264_amf",
+        "hevc_amf",
+        "hevc_amf_10bit",
+        "prores",
+        "prores_segment",
+        "gif",
+        "vp9",
+        "qsv_vp9",
+        "lossless",
+        "lossless_nvenc",
+    ]
+
     encodingGroup.add_argument(
         "--encode_method",
         type=str,
-        choices=[
-            "x264",
-            "slow_x264",
-            "x264_10bit",
-            "x264_animation",
-            "x264_animation_10bit",
-            "x265",
-            "slow_x265",
-            "x265_10bit",
-            "nvenc_h264",
-            "slow_nvenc_h264",
-            "nvenc_h265",
-            "slow_nvenc_h265",
-            "nvenc_h265_10bit",
-            "nvenc_av1",
-            "slow_nvenc_av1",
-            "qsv_h264",
-            "qsv_h265",
-            "qsv_h265_10bit",
-            "av1",
-            "slow_av1",
-            "h264_amf",
-            "hevc_amf",
-            "hevc_amf_10bit",
-            "prores",
-            "prores_segment",
-            "gif",
-            "vp9",
-            "qsv_vp9",
-            "lossless",
-            "lossless_nvenc",
-        ],
+        choices=encodeMethods,
         default="x264",
         help="Encoding method",
     )
@@ -430,16 +484,9 @@ def createParser(isFrozen, outputPath, sysUsed):
         "--custom_encoder", type=str, default="", help="Custom encoder settings"
     )
 
-    # Object Detection options
-    # Todo: Implement more models
-    objectGroup = argParser.add_argument_group("Object Detection")
-    objectGroup.add_argument(
-        "--obj_detect", action="store_true", help="Detect objects in the video"
-    )
 
-    # Miscellaneous options
+def _addMiscOptions(argParser):
     miscGroup = argParser.add_argument_group("Miscellaneous")
-
     miscGroup.add_argument(
         "--benchmark", action="store_true", help="Benchmark the script"
     )
@@ -459,12 +506,9 @@ def createParser(isFrozen, outputPath, sysUsed):
         "--bit_depth",
         type=str,
         default="8bit",
-        help="Bit Depth of the raw pipe input to FFMPEG. Useful if you want the highest quality possible - this doesn't have anything to do with --pix_fmt of the encoded ffmpeg.",
         choices=["8bit", "16bit"],
+        help="Bit Depth of the raw pipe input to FFMPEG",
     )
-
-    args = argParser.parse_args()
-    return argumentsChecker(args, outputPath)
 
 
 def argumentsChecker(args, outputPath):
@@ -493,28 +537,11 @@ def argumentsChecker(args, outputPath):
         checkSystem()
 
     if args.ae:
-        # Enables logging of performance inside a .json file for later use with AE.
         logging.info("After Effects interface detected")
         cs.ADOBE = True
 
     logging.info("\n============== Arguments Checker ==============")
-    cs.FFMPEGPATH = os.path.join(
-        cs.MAINPATH,
-        "ffmpeg",
-        "ffmpeg.exe" if cs.SYSTEM == "Windows" else "ffmpeg",
-    )
-
-    cs.FFPROBEPATH = os.path.join(
-        cs.MAINPATH,
-        "ffmpeg",
-        "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe",
-    )
-
-    cs.MPVPATH = os.path.join(
-        cs.MAINPATH,
-        "ffmpeg",
-        "mpv.exe" if cs.SYSTEM == "Windows" else "mpv",
-    )
+    _setupFfmpegPaths()
 
     if not os.path.exists(cs.FFMPEGPATH) or (
         args.realtime
@@ -535,120 +562,19 @@ def argumentsChecker(args, outputPath):
         )
         args.slowmo = False
 
-    if args.depth:
-        logging.info("Depth enabled, audio processing will be disabled")
-        cs.AUDIO = False
-    # ["tensorrt", "directml"] in args.depth_method:
-    if args.depth_quality not in ["low"] and args.depth_method.split("-")[-1] in [
-        "tensorrt",
-        "directml",
-    ]:
-        logAndPrint(
-            f"{args.depth_quality.upper()} depth estimation quality is incomaptible with tensorrt and directml, defaulting to low quality",
-            "yellow",
-        )
-        args.depth_quality = "low"
+    _handleDepthSettings(args)
 
     if args.benchmark and args.realtime:
         logging.error("Realtime preview is not supported in benchmark mode")
         args.realtime = False
 
     if args.offline != "none":
-        from .downloadModels import downloadModels, modelsList
+        _downloadOfflineModels(args)
 
-        logging.info(f"Offline mode enabled, downloading {args.offline} model(s)...")
-        print(green(f"Offline mode enabled, downloading {args.offline} model(s)..."))
-        options = modelsList() if args.offline == ["all"] else args.offline
-        for option in options:
-            for precision in [True, False]:
-                try:
-                    downloadModels(option.lower(), half=precision)
-                except Exception:
-                    logging.error(
-                        f"Failed to download model: {option} with precision: {'fp16' if precision else 'fp32'}"
-                    )
-        logging.info("All model(s) downloaded!")
-        print(green("All model(s) downloaded!"))
+    _configureProcessingSettings(args)
 
-    if args.slowmo:
-        # If slowmo is enabled, audio will no longer be processed due to frame missmatch
-        cs.AUDIO = False
-        logging.info("Slow motion enabled, audio processing disabled")
-
-    if args.static_step:
-        if isinstance(args.interpolate_factor, float):
-            logging.info("Interpolate Factor is a float, static step will be disabled")
-            args.static_step = False
-
-    if args.dedup:
-        # If dedup true, audio will no longer be processed due to frame missmatch
-        cs.AUDIO = False
-        logging.info("Deduplication enabled, audio processing disabled")
-
-        if args.dedup_method in ["ssim", "ssim-cuda"]:
-            args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
-
-        elif args.dedup_method in ["flownets"]:
-            args.dedup_sens = args.dedup_sens / 100
-
-        logging.info(
-            f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
-        )
-
-    def adjustMethod(method, modelsList):
-        base = method.lower().split("-")[0]
-        directML = f"{base}-directml"
-        if directML in modelsList:
-            return directML
-        newMethod = f"{base}-ncnn"
-        if newMethod in modelsList:
-            return newMethod
-        return method
-
-    from src.utils.isCudaInit import CudaChecker
-
-    ISCUDA = CudaChecker()
-    if not ISCUDA.cudaAvailable:
-        from .downloadModels import downloadModels, modelsList
-
-        availableModels = modelsList()
-        for attr in [
-            "interpolate_method",
-            "upscale_method",
-            "segment_method",
-            "scenechange_method",
-            "depth_method",
-            "restore_method",
-        ]:
-            currentMethod = getattr(args, attr)
-            newMethod = adjustMethod(currentMethod, availableModels)
-            if newMethod != currentMethod:
-                logging.info(f"Adjusted {attr} from {currentMethod} to {newMethod}")
-                setattr(args, attr, newMethod)
-            else:
-                logging.info(
-                    f"No adjustment for {attr} ({currentMethod} remains unchanged)"
-                )
-
-    sensMap = {
-        "differential": 0.75,
-        "differential-tensorrt": 0.75,
-        "shift_lpips": 0.50,
-        "maxxvit": 0.9,
-        "maxxvit-tensorrt": 0.9,
-        "maxxvit-directml": 0.9,
-    }
-    if args.scenechange_method in sensMap and args.scenechange is True:
-        args.scenechange_sens = sensMap[args.scenechange_method] - (
-            args.scenechange_sens / 1000
-        )
-        logging.info(
-            f"New scenechange sensitivity for {args.scenechange_method} is: {args.scenechange_sens}"
-        )
-
-    if args.sharpen:
-        args.sharpen_sens = args.sharpen_sens / 100
-        logging.info(f"New sharpen sensitivity is: {args.sharpen_sens}")
+    # Check CUDA availability and adjust methods if needed
+    _adjustMethodsBasedOnCuda(args)
 
     if args.custom_encoder:
         logging.info("Custom encoder specified, use with caution")
@@ -669,7 +595,6 @@ def argumentsChecker(args, outputPath):
         processURL(args, outputPath)
     elif args.input.lower() == "anime":
         processAniPy(args, outputPath)
-
     elif args.input.lower().endswith((".png", ".jpg", ".jpeg")):
         raise Exception(
             "Image input is not supported, use Chainner for image processing"
@@ -692,16 +617,152 @@ def argumentsChecker(args, outputPath):
             "No processing methods specified, make sure to use enabler arguments like --upscale, --interpolate, etc.",
             "red",
         )
-        # logging.error("No processing methods specified, exiting")
         sys.exit()
 
     return args
 
 
+def _setupFfmpegPaths():
+    cs.FFMPEGPATH = os.path.join(
+        cs.MAINPATH,
+        "ffmpeg",
+        "ffmpeg.exe" if cs.SYSTEM == "Windows" else "ffmpeg",
+    )
+
+    cs.FFPROBEPATH = os.path.join(
+        cs.MAINPATH,
+        "ffmpeg",
+        "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe",
+    )
+
+    cs.MPVPATH = os.path.join(
+        cs.MAINPATH,
+        "ffmpeg",
+        "mpv.exe" if cs.SYSTEM == "Windows" else "mpv",
+    )
+
+
+def _handleDepthSettings(args):
+    if args.depth:
+        logging.info("Depth enabled, audio processing will be disabled")
+        cs.AUDIO = False
+
+    if args.depth_quality not in ["low"] and args.depth_method.split("-")[-1] in [
+        "tensorrt",
+        "directml",
+    ]:
+        logAndPrint(
+            f"{args.depth_quality.upper()} depth estimation quality is incomaptible with tensorrt and directml, defaulting to low quality",
+            "yellow",
+        )
+        args.depth_quality = "low"
+
+
+def _downloadOfflineModels(args):
+    from .downloadModels import downloadModels, modelsList
+
+    logging.info(f"Offline mode enabled, downloading {args.offline} model(s)...")
+    print(green(f"Offline mode enabled, downloading {args.offline} model(s)..."))
+
+    options = modelsList() if args.offline == ["all"] else args.offline
+    for option in options:
+        for precision in [True, False]:
+            try:
+                downloadModels(option.lower(), half=precision)
+            except Exception:
+                logging.error(
+                    f"Failed to download model: {option} with precision: {'fp16' if precision else 'fp32'}"
+                )
+
+    logging.info("All model(s) downloaded!")
+    print(green("All model(s) downloaded!"))
+
+
+def _configureProcessingSettings(args):
+    if args.slowmo:
+        cs.AUDIO = False
+        logging.info("Slow motion enabled, audio processing disabled")
+
+    if args.static_step and isinstance(args.interpolate_factor, float):
+        logging.info("Interpolate Factor is a float, static step will be disabled")
+        args.static_step = False
+
+    if args.dedup:
+        cs.AUDIO = False
+        logging.info("Deduplication enabled, audio processing disabled")
+
+        if args.dedup_method in ["ssim", "ssim-cuda"]:
+            args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
+        elif args.dedup_method in ["flownets"]:
+            args.dedup_sens = args.dedup_sens / 100
+
+        logging.info(
+            f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
+        )
+
+    # Map of scene change methods to their sensitivity adjustment values
+    sensMap = {
+        "differential": 0.75,
+        "differential-tensorrt": 0.75,
+        "shift_lpips": 0.50,
+        "maxxvit": 0.9,
+        "maxxvit-tensorrt": 0.9,
+        "maxxvit-directml": 0.9,
+    }
+
+    if args.scenechange_method in sensMap and args.scenechange is True:
+        args.scenechange_sens = sensMap[args.scenechange_method] - (
+            args.scenechange_sens / 1000
+        )
+        logging.info(
+            f"New scenechange sensitivity for {args.scenechange_method} is: {args.scenechange_sens}"
+        )
+
+    if args.sharpen:
+        args.sharpen_sens = args.sharpen_sens / 100
+        logging.info(f"New sharpen sensitivity is: {args.sharpen_sens}")
+
+
+def _adjustMethodsBasedOnCuda(args):
+    def adjustMethod(method, modelsList):
+        base = method.lower().split("-")[0]
+        directML = f"{base}-directml"
+        if directML in modelsList:
+            return directML
+        newMethod = f"{base}-ncnn"
+        if newMethod in modelsList:
+            return newMethod
+        return method
+
+    from src.utils.isCudaInit import CudaChecker
+
+    isCuda = CudaChecker()
+    if not isCuda.cudaAvailable:
+        from .downloadModels import modelsList
+
+        availableModels = modelsList()
+        methodAttributes = [
+            "interpolate_method",
+            "upscale_method",
+            "segment_method",
+            "scenechange_method",
+            "depth_method",
+            "restore_method",
+        ]
+
+        for attr in methodAttributes:
+            currentMethod = getattr(args, attr)
+            newMethod = adjustMethod(currentMethod, availableModels)
+            if newMethod != currentMethod:
+                logging.info(f"Adjusted {attr} from {currentMethod} to {newMethod}")
+                setattr(args, attr, newMethod)
+            else:
+                logging.info(
+                    f"No adjustment for {attr} ({currentMethod} remains unchanged)"
+                )
+
+
 def processURL(args, outputPath):
-    """
-    Check if the input is a URL, if it is, download the video and set the input to the downloaded video
-    """
     from urllib.parse import urlparse
     from src.ytdlp import VideoDownloader
 
@@ -725,12 +786,7 @@ def processURL(args, outputPath):
 
         tempOutput = os.path.join(outputFolder, outputNameGenerator(args, args.input))
 
-        VideoDownloader(
-            args.input,
-            tempOutput,
-            args.encode_method,
-            args.custom_encoder,
-        )
+        VideoDownloader(args.input, tempOutput, args.encode_method, args.custom_encoder)
         print(green(f"Video downloaded to: {tempOutput}"))
 
         if not isAnyOtherProcessingMethodEnabled(args):
@@ -739,7 +795,6 @@ def processURL(args, outputPath):
 
         args.input = str(tempOutput)
         logging.info(f"New input path: {args.input}")
-
     else:
         logging.error(
             "URL is invalid or not a YouTube URL, please check the URL and try again"
@@ -747,9 +802,7 @@ def processURL(args, outputPath):
         sys.exit()
 
 
-def processAniPy(args, outputPath: str):
-    from .generateOutput import outputNameGenerator
-
+def processAniPy(args, outputPath):
     if args.output is None:
         outputFolder = os.path.join(outputPath, "output")
         os.makedirs(os.path.join(outputFolder), exist_ok=True)
@@ -758,6 +811,7 @@ def processAniPy(args, outputPath: str):
         fullOutput = os.path.join(args.output, outputNameGenerator(args, args.input))
     else:
         fullOutput = args.output
+
     from src.utils.anipyLogic import aniPyHandler
 
     args.input = aniPyHandler(fullOutput)

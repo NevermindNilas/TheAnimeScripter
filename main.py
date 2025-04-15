@@ -398,7 +398,7 @@ def main():
         logging.info("============== Command Line Arguments ==============")
         logging.info(f"{' '.join(sys.argv)}\n")
 
-        args = createParser(isFrozen, baseOutputPath, cs.SYSTEM)
+        args = createParser(isFrozen, baseOutputPath)
         outputPath = os.path.join(baseOutputPath, "output")
         results = handleInputOutputs(args, isFrozen, outputPath)
 
