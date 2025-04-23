@@ -41,11 +41,10 @@ def str2bool(arg):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
-def createParser(isFrozen, outputPath):
-    usageStr = "main.exe [options]" if isFrozen else "main.py [options]"
+def createParser(outputPath):
     argParser = argparse.ArgumentParser(
         description="The Anime Scripter CLI Tool",
-        usage=usageStr,
+        usage="main.py [options]",
         formatter_class=RichHelpFormatter,
     )
 
@@ -541,7 +540,7 @@ def argumentsChecker(args, outputPath):
         cs.ADOBE = True
 
     logging.info("\n============== Arguments Checker ==============")
-    _setupFfmpegPaths()
+    _handleDependencies()
 
     if not os.path.exists(cs.FFMPEGPATH) or (
         args.realtime
@@ -593,8 +592,6 @@ def argumentsChecker(args, outputPath):
         sys.exit()
     elif args.input.startswith(("http", "www")):
         processURL(args, outputPath)
-    elif args.input.lower() == "anime":
-        processAniPy(args, outputPath)
     elif args.input.lower().endswith((".png", ".jpg", ".jpeg")):
         raise Exception(
             "Image input is not supported, use Chainner for image processing"
@@ -622,7 +619,7 @@ def argumentsChecker(args, outputPath):
     return args
 
 
-def _setupFfmpegPaths():
+def _handleDependencies():
     cs.FFMPEGPATH = os.path.join(
         cs.MAINPATH,
         "ffmpeg",
@@ -640,6 +637,39 @@ def _setupFfmpegPaths():
         "ffmpeg",
         "mpv.exe" if cs.SYSTEM == "Windows" else "mpv",
     )
+
+    # Handling isNvidia present and what dependencies to install
+    # First try import torch just to avoid doing this over and over again
+    try:
+        import torch
+    except ImportError:
+        logging.info("Torch not found, handling dependency installation")
+        from src.utils.isCudaInit import detectNVidiaGPU
+        from src.utils.dependencyHandler import installDependencies
+
+        isNvidia, gpuName = detectNVidiaGPU()
+        if isNvidia:
+            logAndPrint(
+                f"NVIDIA GPU detected: {gpuName}, installing dependencies for NVIDIA",
+                "green",
+            )
+        else:
+            logAndPrint(
+                "No NVIDIA GPU detected, installing dependencies for CPU",
+                "yellow",
+            )
+
+        success, message = installDependencies(isNvidia)
+
+        if not success:
+            logAndPrint(f"Failed to install dependencies: {message}", "red")
+
+            sys.exit()
+        else:
+            logAndPrint(
+                "Dependencies installed successfully",
+                "green",
+            )
 
 
 def _handleDepthSettings(args):
@@ -800,19 +830,3 @@ def processURL(args, outputPath):
             "URL is invalid or not a YouTube URL, please check the URL and try again"
         )
         sys.exit()
-
-
-def processAniPy(args, outputPath):
-    if args.output is None:
-        outputFolder = os.path.join(outputPath, "output")
-        os.makedirs(os.path.join(outputFolder), exist_ok=True)
-        fullOutput = os.path.join(outputFolder, outputNameGenerator(args, args.input))
-    elif os.path.isdir(args.output):
-        fullOutput = os.path.join(args.output, outputNameGenerator(args, args.input))
-    else:
-        fullOutput = args.output
-
-    from src.utils.anipyLogic import aniPyHandler
-
-    args.input = aniPyHandler(fullOutput)
-    logging.info(f"New input path: {args.input}")

@@ -68,7 +68,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 | `--output` | str  | -       | Output string or absolute path for the processed video                                       |
 
 - **NOTE:** `--input` supports `(".mp4", ".mkv", ".mov", ".avi", ".webm")` containers as well as `.txt`, inputs in `.txt` should be separated by a new line.
-- In order to download and process anime episodes, make sure to use the keyword "anime".
 
 ### Examples
 
