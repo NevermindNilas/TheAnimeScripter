@@ -3,6 +3,7 @@ import sys
 import os
 import logging
 from typing import Tuple
+import src.constants as cs
 
 
 def getPythonExecutable() -> str:
@@ -27,16 +28,17 @@ def installDependencies(isNvidia: bool = True) -> Tuple[bool, str]:
         return False, "Failed to detect Python executable path"
 
     if isNvidia:
-        requirementsPath = os.path.join(
-            os.path.dirname(pythonPath), "extra-requirements-windows.txt"
-        )
+        extension = "extra-requirements-windows.txt"
     else:
-        requirementsPath = os.path.join(
-            os.path.dirname(pythonPath), "extra-requirements-windows-lite.txt"
-        )
+        extension = "extra-requirements-windows-lite.txt"
 
+    requirementsPath = os.path.join(os.path.dirname(pythonPath), extension)
     if not os.path.exists(requirementsPath):
-        return False, f"Requirements file not found: {requirementsPath}"
+        # get base path of the current script
+
+        requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, extension)
+        if not os.path.exists(requirementsPath):
+            return False, f"Requirements file not found: {requirementsPath}"
 
     logMessage = f"Using Python executable: {pythonPath}"
     logging.info(logMessage)

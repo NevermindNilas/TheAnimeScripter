@@ -378,6 +378,8 @@ def main():
                 "TheAnimeScripter",
             )
         )
+        # path to where the script is ran from
+        cs.WHEREAMIRUNFROM = os.path.dirname(os.path.abspath(__file__))
         os.makedirs(cs.MAINPATH, exist_ok=True)
 
         isFrozen = hasattr(sys, "_MEIPASS")

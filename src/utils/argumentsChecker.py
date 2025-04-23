@@ -662,12 +662,12 @@ def _handleDependencies():
         success, message = installDependencies(isNvidia)
 
         if not success:
-            logAndPrint(f"Failed to install dependencies: {message}", "red")
+            logAndPrint(message, "red")
 
             sys.exit()
         else:
             logAndPrint(
-                "Dependencies installed successfully",
+                message,
                 "green",
             )
 
