@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 #### Changed
 - Reworked `argumentsChecker.py` for better maintainabillity
+- Upgraded pytorch to 2.7.0 adding BlackWell support.
   
 #### Fixed
 - `shufflecugan-ncnn` defaulting to non-existent `directml` backend when not available.
