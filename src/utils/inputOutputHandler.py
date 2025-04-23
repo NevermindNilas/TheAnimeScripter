@@ -42,7 +42,7 @@ def encoderChecker(video, encodeMethod, customEncoder):
     return encodeMethod
 
 
-def handleInputOutputs(args, isFrozen, outputPath):
+def handleInputOutputs(args, outputPath):
     """
     Handles input and output paths for video processing.
 
