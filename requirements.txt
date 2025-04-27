@@ -1,6 +1,5 @@
 setuptools
 psutil
-GPUtil
 requests
 inquirer
 colored

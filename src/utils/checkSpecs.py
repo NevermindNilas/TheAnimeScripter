@@ -1,6 +1,5 @@
 import logging
 import psutil
-import GPUtil
 import platform
 from src.constants import SYSTEM
 
@@ -13,13 +12,10 @@ def getWindowsInfo():
     totalRam = round(ramInfo.total / (1024.0**3), 2)
 
     cpuInfo = platform.processor()
-    gpus = GPUtil.getGPUs()
 
     logging.info(f"OS: {osName} {osVersion}")
     logging.info(f"CPU: {cpuInfo}")
     logging.info(f"Total RAM: {totalRam:.2f} GB")
-    for i, gpu in enumerate(gpus):
-        logging.info(f"Graphics Card {i}: {gpu.name}")
 
 
 def getLinuxInfo():
@@ -29,13 +25,10 @@ def getLinuxInfo():
     cpuInfo = platform.processor()
     ramInfo = psutil.virtual_memory()
     totalRam = round(ramInfo.total / (1024.0**3), 2)
-    gpus = GPUtil.getGPUs()
 
     logging.info(f"OS: {osName} {osVersion}")
     logging.info(f"CPU: {cpuInfo}")
     logging.info(f"Total RAM: {totalRam} GB")
-    for i, gpu in enumerate(gpus):
-        logging.info(f"Graphics Card {i}: {gpu.name}")
 
 
 def checkSystem():
