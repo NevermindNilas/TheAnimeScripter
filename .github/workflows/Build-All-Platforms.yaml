@@ -44,7 +44,7 @@ jobs:
           release_name: TAS-${{ env.version }}
           draft: true
 
-  build_full_windows:
+  build_windows:
     needs: create_release
     runs-on: windows-latest
     steps:
