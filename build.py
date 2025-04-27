@@ -7,7 +7,13 @@ import zipfile
 
 baseDir = Path(__file__).resolve().parent
 distPath = baseDir / "dist-portable"
-requirementsPath = baseDir / "requirements.txt"
+# requirementsPath = baseDir / "requirements.txt"
+reqFile = list(baseDir.glob("requirements*.txt"))
+if reqFile:
+    requirementsPath = reqFile[0]
+else:
+    raise FileNotFoundError("No requirements file found in the base directory.")
+
 portablePythonDir = baseDir / "portable-python"
 pythonVersion = "3.13.3"  # Hardcoded version
 
