@@ -121,7 +121,7 @@ def bundleFiles():
 
 
 def moveExtras():
-    bundleDir = distPath / "TAS-Portable"
+    bundleDir = distPath / "main"
     filesToCopy = [
         "LICENSE",
         "README.md",
@@ -135,6 +135,23 @@ def moveExtras():
             shutil.copy(baseDir / fileName, bundleDir)
         except Exception as e:
             print(f"Error while copying {fileName}: {e}")
+
+
+def cleanupTempFiles():
+    """Remove temporary files created during the build process"""
+    print("Cleaning up temporary files...")
+    bundleDir = distPath / "main"
+    tempFiles = [
+        bundleDir / "python.zip",
+        bundleDir / "get-pip.py",
+        bundleDir / "python313.zip",
+    ]
+    for tempFile in tempFiles:
+        if tempFile.exists():
+            os.remove(tempFile)
+            print(f"Removed {tempFile}")
+        else:
+            print(f"{tempFile} does not exist, skipping removal.")
 
 
 def removePortablePython():
@@ -155,5 +172,6 @@ if __name__ == "__main__":
     installRequirements()
     bundleFiles()
     moveExtras()
+    cleanupTempFiles()
     removePortablePython()
     print("Bundle process completed successfully!")
