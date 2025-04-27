@@ -144,7 +144,7 @@ def cleanupTempFiles():
     tempFiles = [
         "python.zip",
         "get-pip.py",
-        "python313.zip",
+        "license.txt",
     ]
     for tempFile in tempFiles:
         tempFile = bundleDir / tempFile
