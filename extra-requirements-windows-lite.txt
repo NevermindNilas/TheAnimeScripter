@@ -1,7 +1,6 @@
 torch==2.7.0
 torchvision==0.22.0
 onnx-weekly
-av
 opencv-python-headless
 timm
 numpy==2.2.4
