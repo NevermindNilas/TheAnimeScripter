@@ -7,7 +7,7 @@ import zipfile
 
 baseDir = Path(__file__).resolve().parent
 distPath = baseDir / "dist-portable"
-requirementsPath = baseDir / "requirements-windows.txt"
+requirementsPath = baseDir / "requirements.txt"
 portablePythonDir = baseDir / "portable-python"
 pythonVersion = "3.13.3"  # Hardcoded version
 
@@ -74,7 +74,7 @@ def installRequirements():
 def bundleFiles():
     print("Creating portable bundle...")
 
-    bundleDir = distPath / "TAS-Portable"
+    bundleDir = distPath / "main"
     os.makedirs(bundleDir, exist_ok=True)
 
     print("Copying Python installation...")
