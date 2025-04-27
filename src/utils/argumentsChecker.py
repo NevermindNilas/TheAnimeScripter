@@ -10,6 +10,7 @@ from rich_argparse import RichHelpFormatter
 from src.version import __version__
 from .inputOutputHandler import outputNameGenerator
 from src.utils.logAndPrint import logAndPrint
+from src.utils.dependencyHandler import installDependencies
 
 
 def isAnyOtherProcessingMethodEnabled(args):
@@ -640,34 +641,52 @@ def _handleDependencies():
 
     # Handling isNvidia present and what dependencies to install
     # First try import torch just to avoid doing this over and over again
+
     try:
+        from src.utils.isCudaInit import detectNVidiaGPU
+
+        isNvidia, gpuName = detectNVidiaGPU()
+        extension = (
+            "extra-requirements-windows.txt"
+            if isNvidia
+            else "extra-requirements-windows-lite.txt"
+        )
+        # Trying to see if torch is installed and if other dependencies are installed
+        # If not, install them
         import torch
         # if torch is installed, check current version vs the one in requirements
         # if they are different, install the new one
 
-        print(torch.__version__)
+        torchVersion = torch.__version__
+        logging.info(f"Current torch version: {torchVersion}")
+        requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, extension)
+        with open(requirementsPath, "r") as f:
+            content = f.read()
+            # if the installed version of torch is not in the requirements, install it
+            if f"torch=={torchVersion}" not in content:
+                logAndPrint(
+                    f"Installed torch version {torchVersion} is not in requirements, installing it",
+                    "yellow",
+                )
+                success, message = installDependencies(extension)
+                if not success:
+                    logAndPrint(message, "red")
+                    sys.exit()
+                else:
+                    logAndPrint(
+                        message,
+                        "green",
+                    )
+            else:
+                logging.info(
+                    f"Installed torch version {torchVersion} is in requirements, no need to install it"
+                )
 
     except ImportError:
-        from src.utils.isCudaInit import detectNVidiaGPU
-        from src.utils.dependencyHandler import installDependencies
-
-        isNvidia, gpuName = detectNVidiaGPU()
-        if isNvidia:
-            logAndPrint(
-                f"NVIDIA GPU detected: {gpuName}, installing dependencies for NVIDIA",
-                "green",
-            )
-        else:
-            logAndPrint(
-                "No NVIDIA GPU detected, installing dependencies for CPU",
-                "yellow",
-            )
-
-        success, message = installDependencies(isNvidia)
-
+        # If torch is not installed, install it and the other dependencies
+        success, message = installDependencies(extension)
         if not success:
             logAndPrint(message, "red")
-
             sys.exit()
         else:
             logAndPrint(

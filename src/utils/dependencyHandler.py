@@ -16,7 +16,7 @@ def getPythonExecutable() -> str:
     return sys.executable
 
 
-def installDependencies(isNvidia: bool = True) -> Tuple[bool, str]:
+def installDependencies(extension: str = "") -> Tuple[bool, str]:
     """
     Install dependencies from extra-requirements-windows.txt if it exists
 
@@ -27,22 +27,14 @@ def installDependencies(isNvidia: bool = True) -> Tuple[bool, str]:
     if not pythonPath:
         return False, "Failed to detect Python executable path"
 
-    if isNvidia:
-        extension = "extra-requirements-windows.txt"
-    else:
-        extension = "extra-requirements-windows-lite.txt"
-
     requirementsPath = os.path.join(os.path.dirname(pythonPath), extension)
     if not os.path.exists(requirementsPath):
-        # get base path of the current script
-
         requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, extension)
         if not os.path.exists(requirementsPath):
             return False, f"Requirements file not found: {requirementsPath}"
 
     logMessage = f"Using Python executable: {pythonPath}"
     logging.info(logMessage)
-    print(logMessage)
 
     cmd = f'"{pythonPath}" -I -m pip install -U -r "{requirementsPath}" --no-warn-script-location'
 
