@@ -645,24 +645,20 @@ def _handleDependencies():
     try:
         from src.utils.isCudaInit import detectNVidiaGPU
 
-        isNvidia, gpuName = detectNVidiaGPU()
+        isNvidia = detectNVidiaGPU()
         extension = (
             "extra-requirements-windows.txt"
             if isNvidia
             else "extra-requirements-windows-lite.txt"
         )
-        # Trying to see if torch is installed and if other dependencies are installed
-        # If not, install them
+
         import torch
-        # if torch is installed, check current version vs the one in requirements
-        # if they are different, install the new one
 
         torchVersion = torch.__version__
         logging.info(f"Current torch version: {torchVersion}")
         requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, extension)
         with open(requirementsPath, "r") as f:
             content = f.read()
-            # if the installed version of torch is not in the requirements, install it
             if f"torch=={torchVersion}" not in content:
                 logAndPrint(
                     f"Installed torch version {torchVersion} is not in requirements, installing it",
@@ -677,10 +673,6 @@ def _handleDependencies():
                         message,
                         "green",
                     )
-            else:
-                logging.info(
-                    f"Installed torch version {torchVersion} is in requirements, no need to install it"
-                )
 
     except ImportError:
         # If torch is not installed, install it and the other dependencies
@@ -774,6 +766,12 @@ def _configureProcessingSettings(args):
     if args.sharpen:
         args.sharpen_sens = args.sharpen_sens / 100
         logging.info(f"New sharpen sensitivity is: {args.sharpen_sens}")
+
+    if args.autoclip:
+        # For some reason, the sensitivity is inverted in the autoclip method, could be some hard math that I don't understand
+        # but for now, we will just invert it to make it work as expected
+        args.autoclip_sens = float(100 - args.autoclip_sens)
+        logging.info(f"New autoclip sensitivity is: {args.autoclip_sens}")
 
 
 def _adjustMethodsBasedOnCuda(args):

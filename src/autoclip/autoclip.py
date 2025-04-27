@@ -1,7 +1,7 @@
 import os
 
 from scenedetect import VideoManager, FrameTimecode, SceneManager
-from scenedetect.detectors import ContentDetector
+from scenedetect.detectors import AdaptiveDetector
 from src.constants import MAINPATH
 
 
@@ -14,7 +14,9 @@ class AutoClip:
 
         video_manager = VideoManager([self.input])
         scene_manager = SceneManager()
-        scene_manager.add_detector(ContentDetector(threshold=self.autoclip_sens))
+        scene_manager.add_detector(
+            AdaptiveDetector(adaptive_threshold=self.autoclip_sens)
+        )
 
         if self.outPoint != 0:
             start_time = FrameTimecode(self.inPoint, video_manager.get_framerate())
