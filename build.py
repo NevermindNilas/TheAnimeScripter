@@ -141,6 +141,10 @@ def removePortablePython():
 
 
 if __name__ == "__main__":
+    if distPath.exists():
+        print(f"Removing existing dist directory: {distPath}")
+        shutil.rmtree(distPath)
+    os.makedirs(distPath, exist_ok=True)
     pythonExe = downloadPortablePython()
     installRequirements()
     bundleFiles()
