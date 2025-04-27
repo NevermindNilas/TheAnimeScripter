@@ -71,11 +71,11 @@ def detectNVidiaGPU():
             gpuInfo = result.stdout.strip().split("\n")[0]
             gpuName = gpuInfo.split(":")[1].strip() if ":" in gpuInfo else "NVIDIA GPU"
             logging.info(f"NVIDIA GPU detected: {gpuName}")
-            return True, gpuName
+            return True
         else:
             logging.info("No NVIDIA GPU detected")
-            return False, None
+            return False
 
     except (subprocess.SubprocessError, FileNotFoundError):
         logging.info("nvidia-smi not found or failed to run")
-        return False, None
+        return False

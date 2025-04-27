@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Reworked `argumentsChecker.py` for better maintainabillity
 - Upgraded pytorch to 2.7.0 adding BlackWell support.
 - New usage method in the CLI will be `.\python main.py` based.
+- Changed the detection method for `autoclip` to `AdaptiveDetector` for the higher performance and accuracy.
 
 #### Deprecations
 - Fully removed `anipy-cli` from TAS.
@@ -20,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   
 #### Fixed
 - `shufflecugan-ncnn` defaulting to non-existent `directml` backend when not available.
+- Fixed an inversion issue regarding `--autoclip_sens`
 
 ### Adobe Edition
 N/A
