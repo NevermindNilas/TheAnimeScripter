@@ -5,7 +5,6 @@ tensorrt==10.9.0.34
 tensorrt_cu12==10.9.0.34
 tensorrt-cu12-bindings==10.9.0.34
 tensorrt-cu12_libs==10.9.0.34
-av
 opencv-python-headless
 timm
 numpy==2.2.4
