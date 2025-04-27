@@ -642,8 +642,12 @@ def _handleDependencies():
     # First try import torch just to avoid doing this over and over again
     try:
         import torch
+        # if torch is installed, check current version vs the one in requirements
+        # if they are different, install the new one
+
+        print(torch.__version__)
+
     except ImportError:
-        logging.info("Torch not found, handling dependency installation")
         from src.utils.isCudaInit import detectNVidiaGPU
         from src.utils.dependencyHandler import installDependencies
 
