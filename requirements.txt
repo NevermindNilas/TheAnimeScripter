@@ -7,4 +7,4 @@ flask
 rich
 rich-argparse
 av
-wheel-stubs
+wheel-stub
