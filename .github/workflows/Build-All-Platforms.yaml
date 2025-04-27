@@ -58,6 +58,10 @@ jobs:
         with:
           python-version: "3.13.3"
 
+      - name: Set up setuptools and pip
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+
       - name: Run full build script
         run: python build.py
 
