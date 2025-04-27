@@ -73,11 +73,7 @@ def installDependencies(isNvidia: bool = True) -> Tuple[bool, str]:
             print(errorMsg)
             return False, errorMsg
 
-        successMsg = "Successfully installed dependencies from requirements file"
-        logging.info(successMsg)
-        print(successMsg)
-
-        return True, successMsg
+        return True, "Successfully installed dependencies from requirements file"
 
     except Exception as e:
         errorMsg = f"Error installing requirements: {str(e)}"
