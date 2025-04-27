@@ -181,8 +181,8 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | NAFNet (Denoise)    |  ✅   |    ❌     |    ❌     |  ❌   |
 | DPIR (Denoise)      |  ✅   |    ❌     |    ❌     |  ❌   |
 | Real-Plksr (DeJpeg) |  ✅   |    ❌     |    ❌     |  ❌   |
-| Anime1080fixer      |  ✅   |    ✅     |    ❌     |  ❌   |
-| FastLineDarken      |  ✅   |    ✅     |    ❌     |  ❌   |
+| Anime1080fixer      |  ✅   |    ✅     |    ✅     |  ❌   |
+| FastLineDarken      |  ✅   |    ✅     |    ✅     |  ❌   |
 
 ### 🌊 Depth Map Models
 
