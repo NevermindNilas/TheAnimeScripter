@@ -290,8 +290,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 **Note**: Replace `.\input\test.mp4` with a full or relative path to a video file or folder. The `--output` argument is optional, as the script can automatically generate a file name based on the input.
 
-When using the packaged `main.exe` file, replace `python .\main.py` with `main.exe` in the following examples.
-
 <h3>
 <details>
 <summary> 1. Enable upscaling </summary>
