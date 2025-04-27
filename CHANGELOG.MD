@@ -9,12 +9,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - A fully redesigned and naive build method.
 
 #### Changed
-- With the recent changes to Pytorch and TensorRT and the ever increasing wheel sizes, I was forced to adapt a more dynamic approach to dependency handling, TAS will now dynamically download most of the libraries and only ship core needed libraries or very small ones, this lowers initial download sizes from 2.5GB ( compressed ) all the way to +- 100MB ( uncompressed ), obviously this implies a major rework but down the line it will be easier to update TAS since dependencies don't change as often as the underlying code of TAS. WIP!!!!!!!!!
+- With the recent changes to Pytorch and TensorRT and the ever increasing wheel sizes, I was forced to adapt a more dynamic approach to dependency handling, TAS will now dynamically download most of the libraries and only ship core needed libraries or very small ones, this lowers initial download sizes from 2.5GB ( compressed ) all the way to +- 45MB ( uncompressed ), obviously this implies a major rework but down the line it will be easier to update TAS since dependencies don't change as often as the underlying code of TAS. WIP!!!!!!!!!
 - Reworked `argumentsChecker.py` for better maintainabillity
 - Upgraded pytorch to 2.7.0 adding BlackWell support.
 
 #### Deprecations
 - Fully removed `anipy-cli` from TAS.
+- Temporarely removed `gputil` until I find a better solution.
   
 #### Fixed
 - `shufflecugan-ncnn` defaulting to non-existent `directml` backend when not available.
