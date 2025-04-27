@@ -1,3 +1,4 @@
+setuptools
 psutil
 GPUtil
 requests
@@ -6,5 +7,4 @@ colored
 flask
 rich
 rich-argparse
-setuptools
 av
