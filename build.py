@@ -142,11 +142,12 @@ def cleanupTempFiles():
     print("Cleaning up temporary files...")
     bundleDir = distPath / "main"
     tempFiles = [
-        bundleDir / "python.zip",
-        bundleDir / "get-pip.py",
-        bundleDir / "python313.zip",
+        "python.zip",
+        "get-pip.py",
+        "python313.zip",
     ]
     for tempFile in tempFiles:
+        tempFile = bundleDir / tempFile
         if tempFile.exists():
             os.remove(tempFile)
             print(f"Removed {tempFile}")
