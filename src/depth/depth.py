@@ -235,7 +235,10 @@ class DepthCuda:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                self.processFrame(self.readBuffer.read())
+                frame = self.readBuffer.read()
+                if frame is None:
+                    break
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
                 if self.readBuffer.isReadFinished():
@@ -437,6 +440,8 @@ class DepthDirectMLV2:
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()
+                if frame is None:
+                    break
                 self.processFrame(frame)
                 frameCount += 1
                 bar(1)
@@ -654,7 +659,10 @@ class DepthTensorRTV2:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                self.processFrame(self.readBuffer.read())
+                frame = self.readBuffer.read()
+                if frame is None:
+                    break
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
                 if self.readBuffer.isReadFinished():

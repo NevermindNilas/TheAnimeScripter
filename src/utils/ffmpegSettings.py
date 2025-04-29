@@ -88,7 +88,6 @@ class BuildBuffer:
         Decodes frames from the video and stores them in the decodeBuffer.
         """
         decodedFrames = 0
-        framesRemaining = self.outputFramePoint - self.inputFramePoint
 
         try:
             stream = self.reader.streams.video[0]
@@ -97,24 +96,17 @@ class BuildBuffer:
             frameGen = self.reader.decode(video=0)
 
             for frameIdx, frame in enumerate(frameGen):
-                if framesRemaining > 0 and decodedFrames >= framesRemaining:
-                    break
+                if self.resize:
+                    frame = frame.reformat(self.width, self.height)
 
-                try:
-                    if self.resize:
-                        frame = frame.reformat(self.width, self.height)
+                frameArray = frame.to_ndarray(format="rgb24")
 
-                    frameArray = frame.to_ndarray(format="rgb24")
+                processedFrame = self.processFrame(
+                    frameArray, self.normStream if checker.cudaAvailable else None
+                )
 
-                    processedFrame = self.processFrame(
-                        frameArray, self.normStream if checker.cudaAvailable else None
-                    )
-
-                    self.decodeBuffer.put(processedFrame)
-                    decodedFrames += 1
-
-                except Exception as e:
-                    logging.warning(f"Error processing frame {decodedFrames}: {e}")
+                self.decodeBuffer.put(processedFrame)
+                decodedFrames += 1
 
         except Exception as e:
             logging.error(f"Decoding error: {e}")
