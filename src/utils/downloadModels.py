@@ -579,9 +579,6 @@ def modelsMap(
         case "distill_base_v2":
             return "distill_base_v2.safetensors"
 
-        case "yolo11n":
-            return "yolo11n.pt"
-
         case _:
             raise ValueError(f"Model {model} not found.")
 

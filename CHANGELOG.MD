@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Upgraded pytorch to 2.7.0 adding BlackWell support.
 - New usage method in the CLI will be `.\python main.py` based.
 - Changed the detection method for `autoclip` to `AdaptiveDetector` for the higher performance and accuracy.
+- Added a forced break even if `frame` is `None`.
 
 #### Deprecations
 - Fully removed `anipy-cli` from TAS.
