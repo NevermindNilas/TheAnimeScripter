@@ -318,14 +318,6 @@ class UniversalTensorRT:
         self.normStream.synchronize()
 
     @torch.inference_mode()
-    def processOutput(self):
-        with torch.cuda.stream(self.outputStream):
-            output = self.dummyOutput
-        self.outputStream.synchronize()
-
-        return output
-
-    @torch.inference_mode()
     def __call__(self, frame):
         self.processFrame(frame)
 
@@ -334,7 +326,11 @@ class UniversalTensorRT:
             self.cudaGraph.replay()
         self.stream.synchronize()
 
-        return self.processOutput()
+        with torch.cuda.stream(self.outputStream):
+            output = self.dummyOutput.clone()
+        self.outputStream.synchronize()
+
+        return output
 
 
 class UniversalDirectML:
