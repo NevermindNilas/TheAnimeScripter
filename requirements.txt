@@ -1,6 +1,6 @@
-setuptools==60.2.0
+setuptools==70.0.0
 psutil==7.0.0
-requests==2.28.2
+requests==2.32.2
 inquirer==3.4.0
 colored==2.3.0
 flask==3.1.0
