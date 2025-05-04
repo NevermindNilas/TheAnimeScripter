@@ -5,7 +5,7 @@ import torch
 import numpy as np
 import cv2
 import src.constants as cs
-import av
+import bv
 import time
 
 from queue import Queue
@@ -62,7 +62,7 @@ class BuildBuffer:
         )
 
         try:
-            self.reader = av.open(
+            self.reader = bv.open(
                 videoInput,
             )
 

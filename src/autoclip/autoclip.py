@@ -12,25 +12,25 @@ class AutoClip:
         self.inPoint = inPoint
         self.outPoint = outPoint
 
-        video_manager = VideoManager([self.input])
-        scene_manager = SceneManager()
-        scene_manager.add_detector(
+        videoManager = VideoManager([self.input])
+        sceneManger = SceneManager()
+        sceneManger.add_detector(
             AdaptiveDetector(adaptive_threshold=self.autoclip_sens)
         )
 
         if self.outPoint != 0:
-            start_time = FrameTimecode(self.inPoint, video_manager.get_framerate())
-            end_time = FrameTimecode(self.outPoint, video_manager.get_framerate())
-            video_manager.set_duration(start_time=start_time, end_time=end_time)
+            startTime = FrameTimecode(self.inPoint, videoManager.get_framerate())
+            endTime = FrameTimecode(self.outPoint, videoManager.get_framerate())
+            videoManager.set_duration(start_time=startTime, end_time=endTime)
 
-        video_manager.start()
-        scene_manager.detect_scenes(frame_source=video_manager, show_progress=True)
+        videoManager.start()
+        sceneManger.detect_scenes(frame_source=videoManager, show_progress=True)
 
-        scene_list = scene_manager.get_scene_list()
+        sceneList = sceneManger.get_scene_list()
 
         with open(os.path.join(MAINPATH, "autoclipresults.txt"), "w") as f:
-            for i, scene in enumerate(scene_list):
-                start_time = scene[0].get_seconds()
-                end_time = scene[1].get_seconds()
-                print(f"Scene {i + 1}: Start Time {start_time} - End Time {end_time}")
-                f.write(f"{end_time}\n")
+            for i, scene in enumerate(sceneList):
+                startTime = scene[0].get_seconds()
+                endTime = scene[1].get_seconds()
+                print(f"Scene {i + 1}: Start Time {startTime} - End Time {endTime}")
+                f.write(f"{endTime}\n")
