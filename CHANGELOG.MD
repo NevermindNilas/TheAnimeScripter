@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - New usage method in the CLI will be `.\python main.py` based.
 - Changed the detection method for `autoclip` to `AdaptiveDetector` for the higher performance and accuracy.
 - Added a forced break even if `frame` is `None`.
+- Switched from `pyav` to `basswood-av`
 
 #### Deprecations
 - Fully removed `anipy-cli` from TAS.
