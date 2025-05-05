@@ -1,7 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu128
 torch==2.7.0+cu128
 torchvision==0.22.0+cu128
-tensorrt==10.9.0.34
+tensorrt==10.10.0.31
 tensorrt_cu12==10.10.0.31
 tensorrt-cu12-bindings==10.10.0.31
 tensorrt-cu12_libs==10.9.0.34
