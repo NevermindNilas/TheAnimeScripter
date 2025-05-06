@@ -509,6 +509,11 @@ def _addMiscOptions(argParser):
         choices=["8bit", "16bit"],
         help="Bit Depth of the raw pipe input to FFMPEG",
     )
+    miscGroup.add_argument(
+        "--download_requirements",
+        action="store_true",
+        help="Download all required libraries for the script, only used for Adobe Edition",
+    )
 
 
 def argumentsChecker(args, outputPath):
@@ -522,6 +527,13 @@ def argumentsChecker(args, outputPath):
         from src.utils.presetLogic import createPreset
 
         args = createPreset(args)
+
+    if args.download_requirements:
+        from src.utils.initializeAFullDownload import initializeAFullDownload
+
+        initializeAFullDownload()
+        print(green("All libraries downloaded!"))
+        sys.exit()
 
     logging.info("============== Version ==============")
     logging.info(f"TAS: {__version__}\n")
