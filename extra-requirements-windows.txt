@@ -1,10 +1,10 @@
 --extra-index-url https://download.pytorch.org/whl/cu128
 torch==2.7.0+cu128
 torchvision==0.22.0+cu128
-tensorrt==10.9.0.34
-tensorrt_cu12==10.9.0.34
-tensorrt-cu12-bindings==10.9.0.34
-tensorrt-cu12_libs==10.9.0.34
+tensorrt==10.10.0.31
+tensorrt_cu12==10.10.0.31
+tensorrt-cu12-bindings==10.10.0.31
+tensorrt-cu12_libs==10.10.0.31
 opencv-python-headless==4.11.0.86
 timm==1.0.15
 numpy==2.2.4
@@ -13,7 +13,7 @@ onnxruntime-directml==1.21.1
 pytorch-lightning==2.5.1.post0
 safetensors==0.5.3
 scenedetect[opencv]
-yt-dlp==2025.3.31
+yt-dlp==2025.4.30
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python_tntwise-1.4.5-cp313-cp313-win_amd64.whl
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/upscale_ncnn_py-1.2.0-cp313-none-win_amd64.whl
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/onnx_weekly-1.19.0.dev20250425-cp313-cp313-win_amd64.whl

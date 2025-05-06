@@ -1,10 +1,10 @@
-setuptools==70.0.0
+setuptools==80.3.1
 psutil==7.0.0
-requests==2.32.2
+requests==2.32.3
 inquirer==3.4.0
 colored==2.3.0
 flask==3.1.0
-rich==13.4.2
+rich==14.0.0
 rich-argparse==1.7.0
 basswood-av==15.1.1
 wheel-stub==0.4.2
