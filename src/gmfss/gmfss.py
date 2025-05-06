@@ -42,9 +42,9 @@ class GMFSS:
         else:
             self.scale = 1
 
-        self.handle_model()
+        self.handleModel()
 
-    def handle_model(self):
+    def handleModel(self):
         if not os.path.exists(os.path.join(weightsDir, "gmfss")):
             modelDir = os.path.dirname(downloadModels("gmfss"))
         else:
@@ -114,7 +114,7 @@ class GMFSS:
         )
 
     @torch.inference_mode()
-    def __call__(self, frame, interpQueue):
+    def __call__(self, frame, interpQueue, interpolationFactor=2):
         with torch.cuda.stream(self.stream):
             if self.firstRun is True:
                 self.I0 = self.padFrame(self.processFrame(frame))
@@ -123,7 +123,7 @@ class GMFSS:
 
             self.I1 = self.padFrame(self.processFrame(frame))
 
-            for i in range(self.interpolation_factor - 1):
+            for i in range(interpolationFactor):
                 timestep = torch.tensor(
                     [(i + 1) * 1.0 / (self.interpolation_factor + 1)],
                     dtype=self.dtype,
