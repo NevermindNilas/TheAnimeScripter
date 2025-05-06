@@ -229,7 +229,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [Chainner-org](https://github.com/chaiNNer-org) | Neural network architecture  | [spandrel](https://github.com/chaiNNer-org/spandrel)           |
 | [TNTWise](https://github.com/TNTwise)           | RIFE ONNX/NCNN optimizations | [GitHub](https://github.com/TNTwise)                           |
 | [Hyperbrew](https://github.com/hyperbrew)       | Adobe integration framework  | [bolt-cep](https://github.com/hyperbrew/bolt-cep)              |
-| [sdaqo](https://github.com/sdaqo)               | CLI inspiration from Anipy   | [Anipy-CLI](https://github.com/sdaqo)                          |
+
 
 ### 🌟 TAS Collaborators
 | Contributor                                     | Contribution                                    |

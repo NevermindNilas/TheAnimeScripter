@@ -147,35 +147,29 @@ class BuildBuffer:
 
         dtype = torch.float16 if self.half else torch.float32
 
+        self.preAllocFrame = torch.zeros(
+            (1, 3, frameTensor.shape[0], frameTensor.shape[1]),
+            dtype=dtype,
+            device="cuda" if checker.cudaAvailable else "cpu",
+        )
+
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
-                if (
-                    self.preAllocFrame is None
-                    or self.preAllocFrame.shape[1:] != frameTensor.shape[:2]
-                ):
-                    self.preAllocFrame = torch.zeros(
-                        (1, 3, frameTensor.shape[0], frameTensor.shape[1]),
-                        dtype=dtype,
-                        device="cuda",
-                    )
-
                 processedFrame = (
                     frameTensor.to(device="cuda", non_blocking=True, dtype=dtype)
-                    .mul_(multiply)
-                    .clamp_(0, 1)
+                    .mul(multiply)
+                    .clamp(0, 1)
                 )
 
                 self.preAllocFrame[0].copy_(
                     processedFrame.permute(2, 0, 1), non_blocking=True
                 )
 
-                result = self.preAllocFrame.clone()
+                result = self.preAllocFrame.clone().contiguous()
 
-            # Ensure operations are complete
             normStream.synchronize()
             return result
         else:
-            # CPU path - optimize by chaining operations
             return (
                 frameTensor.mul(multiply)
                 .clamp(0, 1)
@@ -452,7 +446,6 @@ class WriteBuffer:
         # Wait for at least one frame to be queued before starting encoding
         while self.writeBuffer.empty():
             try:
-                # Brief sleep to prevent CPU spinning
                 time.sleep(0.01)
             except KeyboardInterrupt:
                 logging.warning("Encoding interrupted by user")

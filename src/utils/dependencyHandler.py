@@ -2,8 +2,9 @@ import subprocess
 import sys
 import os
 import logging
-from typing import Tuple
 import src.constants as cs
+
+from typing import Tuple
 
 
 def getPythonExecutable() -> str:

@@ -44,14 +44,15 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ## 2. Command-Line Arguments
 
-| Argument      | Type | Default | Description                                                     |
-|---------------|------|---------|-----------------------------------------------------------------|
-| `--version`   | flag | -       | Outputs the script version                                      |
-| `--benchmark` | flag | -       | Enable benchmarking (no video output, performance testing only) |
-| `--offline`   | str  | "none"  | Download models based on user selection                         |
-| `--ae`        | flag | False   | Indicates if the script is run from the After Effects interface |
-| `--preview`   | flag | False   | Open localhost and request a preview frame from TAS             |
-| `--realtime`  | flag | False   | Open FFPLAY and watch the encoded video in real time            |
+| Argument                  | Type | Default | Description                                                                  |
+|---------------------------|------|---------|------------------------------------------------------------------------------|
+| `--version`               | flag | -       | Outputs the script version                                                   |
+| `--benchmark`             | flag | -       | Enable benchmarking (no video output, performance testing only)              |
+| `--offline`               | str  | "none"  | Download models based on user selection                                      |
+| `--ae`                    | flag | False   | Indicates if the script is run from the After Effects interface              |
+| `--preview`               | flag | False   | Open localhost and request a preview frame from TAS                          |
+| `--realtime`              | flag | False   | Open FFPLAY and watch the encoded video in real time                         |
+| `--download_requirements` | flag | False   | Download all requirements then force exit, only used for Adobe Compatibility |
 
 ### Offline Mode Options
 - `"none"`: Default state, does not download anything
@@ -216,10 +217,10 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ### Resizing
 
-| Argument          | Type  | Default   | Description                                                |
-|-------------------|-------|-----------|------------------------------------------------------------|
-| `--resize`        | flag  | -         | Enable resizing                                            |
-| `--resize_factor` | float | 2         | Factor for resizing (>1 for upscaling, <1 for downscaling) |
+| Argument          | Type  | Default | Description                                                |
+|-------------------|-------|---------|------------------------------------------------------------|
+| `--resize`        | flag  | -       | Enable resizing                                            |
+| `--resize_factor` | float | 2       | Factor for resizing (>1 for upscaling, <1 for downscaling) |
 
 ## Preset Arguments
 
@@ -279,10 +280,10 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 
 ## Performance Settings
 
-| Argument           | Type   | Default | Description                                                                    | Choices     |
-|--------------------|--------|---------|--------------------------------------------------------------------------------|-------------|
-| `--half`           | string | True    | Enable FP16 for improved performance                                           | True, False |
-| `--static`         | flag   | True    | Force static engine generation and bypass the arbitrary set limitations of TAS |             |
+| Argument   | Type   | Default | Description                                                                    | Choices     |
+|------------|--------|---------|--------------------------------------------------------------------------------|-------------|
+| `--half`   | string | True    | Enable FP16 for improved performance                                           | True, False |
+| `--static` | flag   | True    | Force static engine generation and bypass the arbitrary set limitations of TAS |             |
 
 **Note**: Interpolation TRT, Depth TRT, Segment TRT all already are set to static engine generation due to set limitations within the models themselves.
 
