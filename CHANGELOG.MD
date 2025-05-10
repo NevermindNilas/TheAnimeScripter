@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 #### Added
 - A fully redesigned and naive build method.
 - Added `--download_requirements` file to download the requirements as a helper functionality for Adobe After Effects.
+- Added `png` output support with `--encode_method png`
 
 #### Changed
 - With the recent changes to Pytorch and TensorRT and the ever increasing wheel sizes, I was forced to adapt a more dynamic approach to dependency handling, TAS will now dynamically download most of the libraries and only ship core needed libraries or very small ones, this lowers initial download sizes from 2.5GB ( compressed ) all the way to +-30MB ( compressed ), obviously this implies a major rework but down the line it will be easier to update TAS since dependencies don't change as often as the underlying code of TAS.
@@ -27,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `shufflecugan-ncnn` defaulting to non-existent `directml` backend when not available.
 - Fixed an inversion issue regarding `--autoclip_sens`
 - Fixed a cuda race condition when chaining upscale trt models with other cuda / trt workflows.
+- Fixed a bug in gmfss
 
 ### Adobe Edition
 N/A

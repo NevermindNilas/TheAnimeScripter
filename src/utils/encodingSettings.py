@@ -438,6 +438,15 @@ def matchEncoder(encode_method: str):
                     "0",
                 ]
             )
+        case "png":
+            command.extend(
+                [
+                    "-c:v",
+                    "png",
+                    "-q:v",
+                    "0",
+                ]
+            )
 
     return command
 
@@ -505,5 +514,13 @@ def getPixFMT(encode_method, bitDepth, grayscale, transparent):
         else:
             inPixFmt = "rgb48le"
             outPixFmt = "yuv444p10le"
+
+    elif encode_method in "png":
+        if bitDepth == "8bit":
+            inPixFmt = "yuv420p"
+            outPixFmt = "rgb24"
+        else:
+            inPixFmt = "rgb48le"
+            outPixFmt = "rgb48le"
 
     return inPixFmt, outPixFmt, enc

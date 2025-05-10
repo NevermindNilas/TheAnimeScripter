@@ -34,7 +34,7 @@ from src.utils.coloredPrints import green
 from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
 from src.utils.progressBarLogic import ProgressBarLogic
-from src.utils.inputOutputHandler import handleInputOutputs
+from src.utils.inputOutputHandler import processInputOutputPaths
 from src.utils.initializeModels import (
     initializeModels,
     Segment,
@@ -404,7 +404,7 @@ def main():
 
         args = createParser(baseOutputPath)
         outputPath = os.path.join(baseOutputPath, "output")
-        results = handleInputOutputs(args, outputPath)
+        results = processInputOutputPaths(args, outputPath)
 
         totalVideos = len(results)
         if totalVideos == 0:
