@@ -234,7 +234,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 ### 🌟 TAS Collaborators
 | Contributor                                     | Contribution                                    |
 | ----------------------------------------------- | ----------------------------------------------- |
-| [Trentonom0r3](https://github.com/Trentonom0r3) | TAS Adobe Edition & Celux development           |
+| [Trentonom0r3](https://github.com/Trentonom0r3) | TAS Adobe Edition       |
 | [Adegerard](https://github.com/adegerard)       | Project architecture & optimization suggestions |
 
 <div class="contact-info">
