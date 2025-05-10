@@ -8,7 +8,7 @@ import src.constants as cs
 from .coloredPrints import green, yellow
 from rich_argparse import RichHelpFormatter
 from src.version import __version__
-from .inputOutputHandler import outputNameGenerator
+from .inputOutputHandler import generateOutputName
 from src.utils.logAndPrint import logAndPrint
 from src.utils.dependencyHandler import installDependencies
 
@@ -471,6 +471,7 @@ def _addEncodingOptions(argParser):
         "qsv_vp9",
         "lossless",
         "lossless_nvenc",
+        "png",
     ]
 
     encodingGroup.add_argument(
@@ -599,6 +600,12 @@ def argumentsChecker(args, outputPath):
 
     if args.output and not os.path.exists(os.path.dirname(args.output)):
         os.makedirs(os.path.dirname(args.output), exist_ok=True)
+
+    if args.encode_method in ["gif", "png"]:
+        logging.info(
+            f"Encoding method is set to {args.encode_method}, disabling audio processing"
+        )
+        cs.AUDIO = False
 
     if not args.input:
         logging.error("No input specified")
@@ -838,7 +845,7 @@ def processURL(args, outputPath):
             outputFolder = os.path.join(outputPath, "output")
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
             args.output = os.path.join(
-                outputFolder, outputNameGenerator(args, args.input)
+                outputFolder, generateOutputName(args, args.input)
             )
         elif os.path.isdir(args.output):
             outputFolder = args.output
@@ -847,7 +854,7 @@ def processURL(args, outputPath):
             outputFolder = os.path.dirname(args.output)
             os.makedirs(os.path.join(outputFolder), exist_ok=True)
 
-        tempOutput = os.path.join(outputFolder, outputNameGenerator(args, args.input))
+        tempOutput = os.path.join(outputFolder, generateOutputName(args, args.input))
 
         VideoDownloader(args.input, tempOutput, args.encode_method, args.custom_encoder)
         print(green(f"Video downloaded to: {tempOutput}"))
