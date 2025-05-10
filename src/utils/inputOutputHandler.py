@@ -7,27 +7,48 @@ from src.utils.coloredPrints import yellow
 EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
 
 
-def genOutputHandler(video, output, outputPath, args):
+def generateOutputPath(video, output, outputPath, args):
+    """Generates appropriate output path based on input parameters."""
+    # Handle GIF files
     if video.endswith(".gif"):
         if output is None or os.path.isdir(output):
-            return os.path.join(output or outputPath, outputNameGenerator(args, video))
-    else:
-        if output is None:
-            return os.path.join(outputPath, outputNameGenerator(args, video))
-        elif output.endswith(tuple(EXTENSIONS)):
-            return output
-        elif not output.endswith("\\"):
-            tempOutput = output + "\\"
-            if os.path.isdir(tempOutput):
-                return os.path.join(tempOutput, outputNameGenerator(args, video))
-        elif os.path.isdir(output):
-            return os.path.join(output, outputNameGenerator(args, video))
-        else:
-            raise FileNotFoundError(f"File {output} does not exist")
-    return output
+            return os.path.join(output or outputPath, generateOutputName(args, video))
+        return output
+
+    # Handle output not specified
+    if output is None:
+        if args.encode_method == "png":
+            return handlePngOutput(args, video, outputPath)
+        return os.path.join(outputPath, generateOutputName(args, video))
+
+    # Handle direct file output
+    if output.endswith(tuple(EXTENSIONS)):
+        return output
+
+    # Handle directory output
+    outputDir = output
+    if not outputDir.endswith(os.path.sep):
+        outputDir += os.path.sep
+
+    if os.path.isdir(outputDir):
+        if args.encode_method == "png":
+            return handlePngOutput(args, video, outputDir)
+        return os.path.join(outputDir, generateOutputName(args, video))
+
+    raise FileNotFoundError(f"Output directory {output} does not exist")
 
 
-def encoderChecker(video, encodeMethod, customEncoder):
+def handlePngOutput(args, video, outputPath):
+    """Handles PNG output for video processing."""
+    outputName = generateOutputName(args, video)
+    outputFolder = os.path.join(outputPath, outputName)
+    os.makedirs(outputFolder, exist_ok=True)
+
+    return os.path.join(outputFolder, "frames_%05d.png")
+
+
+def validateEncoder(video, encodeMethod, customEncoder):
+    """Validates and potentially adjusts the encoder method based on file type."""
     if (
         video.endswith(".webm")
         and not customEncoder
@@ -42,18 +63,8 @@ def encoderChecker(video, encodeMethod, customEncoder):
     return encodeMethod
 
 
-def handleInputOutputs(args, outputPath):
-    """
-    Handles input and output paths for video processing.
-
-    Args:
-        outputPath (str): The path to the output directory
-        isFrozen (bool): The frozen state of the application, Pyinstaller or Python
-        args (argparse.Namespace): The arguments passed to the application
-
-    Returns:
-        dict: A dictionary containing videoPath, outputPath, encodeMethod, and customEncoder.
-    """
+def processInputOutputPaths(args, outputPath):
+    """Processes input and output paths for video processing."""
     videos = os.path.abspath(args.input)
     output = args.output
     encodeMethod = args.encode_method
@@ -62,43 +73,46 @@ def handleInputOutputs(args, outputPath):
     os.makedirs(outputPath, exist_ok=True)
 
     if output and not output.endswith(tuple(EXTENSIONS)):
-        if not output.endswith("\\"):
-            output += "\\"
+        if not output.endswith(os.path.sep):
+            output += os.path.sep
         os.makedirs(output, exist_ok=True)
 
+    videoFiles = getVideoFiles(videos)
+
     result = {}
-    index = 1
-
-    if os.path.isdir(videos):
-        videoFiles = [
-            os.path.join(videos, f)
-            for f in os.listdir(videos)
-            if os.path.splitext(f)[1] in EXTENSIONS
-        ]
-    elif os.path.isfile(videos) and not videos.endswith(".txt"):
-        videoFiles = [videos]
-    else:
-        if videos.endswith(".txt"):
-            with open(videos, "r") as file:
-                videoFiles = [line.strip().strip('"') for line in file.readlines()]
-        else:
-            videoFiles = videos.split(";")
-
-    for video in videoFiles:
+    for index, video in enumerate(videoFiles, 1):
         if not os.path.exists(video):
             raise FileNotFoundError(f"File {video} does not exist")
+
         result[index] = {
             "videoPath": video,
-            "outputPath": genOutputHandler(video, output, outputPath, args),
-            "encodeMethod": encoderChecker(video, encodeMethod, customEncoder),
+            "outputPath": generateOutputPath(video, output, outputPath, args),
+            "encodeMethod": validateEncoder(video, encodeMethod, customEncoder),
             "customEncoder": customEncoder,
         }
-        index += 1
 
     return result
 
 
-def outputNameGenerator(args, videoInput):
+def getVideoFiles(videosInput):
+    """Extract list of video files from input specification."""
+    if os.path.isdir(videosInput):
+        return [
+            os.path.join(videosInput, f)
+            for f in os.listdir(videosInput)
+            if os.path.splitext(f)[1].lower() in EXTENSIONS
+        ]
+    elif os.path.isfile(videosInput):
+        if videosInput.endswith(".txt"):
+            with open(videosInput, "r") as file:
+                return [line.strip().strip('"') for line in file.readlines()]
+        return [videosInput]
+    else:
+        return videosInput.split(";")
+
+
+def generateOutputName(args, videoInput):
+    """Generates output filename based on input and processing arguments."""
     argMap = {
         "resize": f"-Resize{getattr(args, 'resize_factor', '')}"
         if getattr(args, "resize", False)
@@ -124,47 +138,39 @@ def outputNameGenerator(args, videoInput):
     }
 
     try:
-        # Special case for input "anime"
-        if videoInput == "anime":
-            name = f"anime-{random.randint(0, 10000)}.mp4"
-            logging.debug(f"Generated name for 'anime' input: {name}")
-            return name
-
-        # Check if videoInput is a URL
+        # Handle URL input
         if "https://" in videoInput or "http://" in videoInput:
-            name = "TAS" + "-YTDLP" + f"-{random.randint(0, 1000)}" + ".mp4"
-            logging.debug(f"Generated name for URL input: {name}")
-            return name
-        else:
-            parts = [
-                os.path.splitext(os.path.basename(videoInput))[0]
-                if videoInput
-                else "TAS"
-            ]
+            return f"TAS-YTDLP-{random.randint(0, 1000)}.mp4"
 
-        for arg, formatStr in argMap.items():
-            if formatStr:
-                parts.append(formatStr)
+        # Start with base name
+        baseName = (
+            os.path.splitext(os.path.basename(videoInput))[0] if videoInput else "TAS"
+        )
 
-        parts.append(f"-{random.randint(0, 1000)}")
+        # Add processing indicators
+        suffixes = [suffix for suffix in argMap.values() if suffix]
 
-        if getattr(args, "segment", False) or getattr(args, "encode_method", "") in [
-            "prores"
-        ]:
+        # Add random number to prevent overwrites
+        suffixes.append(f"-{random.randint(0, 1000)}")
+
+        # Determine extension
+        if (
+            getattr(args, "segment", False)
+            or getattr(args, "encode_method", "") == "prores"
+        ):
             extension = ".mov"
+        elif args.encode_method == "png":
+            extension = ""
         elif videoInput:
             extension = os.path.splitext(videoInput)[1]
         else:
             extension = ".mp4"
 
-        outputName = "".join(parts) + extension
-        logging.debug(f"Generated output name: {outputName}")
-
-        return outputName
+        return baseName + "".join(suffixes) + extension
 
     except AttributeError as e:
-        logging.error(f"AttributeError: {e}")
+        logging.error(f"AttributeError in generateOutputName: {e}")
         raise
     except Exception as e:
-        logging.error(f"An unexpected error occurred: {e}")
+        logging.error(f"Unexpected error in generateOutputName: {e}")
         raise
