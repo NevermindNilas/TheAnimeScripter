@@ -31,6 +31,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Fixed a bug in gmfss
 
 ### Adobe Edition
+#### New
+- PNG output support.
+- The UI comes in 1 more new flavor with larger scale, specifically for 4k/5k monitors.
+
+#### Changed
+- Moved encoder / outputs related settings to `Application Settings` in the `Extra` Tab.
+- Simplified the about tab
+- Disclosure panels have been changed to `Accordion` for better spacing and the autoclosing feature.
+- Precompose will no longer create alerts and will instead use `Toasts`
+- Simplified Toast generation in order to not stack the UI with toasts.
+- `Enhanced Error Handling:`
+  - Added comprehensive try/catch blocks around critical file operations
+  - Ensured all errors are properly logged and presented to the user
+- `Improved Folder Management:`
+  - Added proper parent directory validation and creation
+  - More reliable cleanup of legacy TAS folders
+  - Better handling of empty installation folders
+- `Robust Version Checking:`
+  - Better error handling for version detection failures
+  - Improved version comparison logic
+  - Added specific error messages for version check failures
+- `Code Structure Improvements:`
+  - Reorganized logical flow for better readability
+  - Added more descriptive variable names
+  - Used finally block to ensure initialization state is always updated
+- `Enhanced Debugging Support:`
+  - Added more detailed console logging
+  - Better status reporting during dependency checks
+
+### Adobe Edition
 N/A
 
 
