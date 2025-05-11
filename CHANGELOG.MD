@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Disclosure panels have been changed to `Accordion` for better spacing and the autoclosing feature.
 - Precompose will no longer create alerts and will instead use `Toasts`
 - Simplified Toast generation in order to not stack the UI with toasts.
+- Updated all react-spectrum dependencies.
 - `Enhanced Error Handling:`
   - Added comprehensive try/catch blocks around critical file operations
   - Ensured all errors are properly logged and presented to the user
