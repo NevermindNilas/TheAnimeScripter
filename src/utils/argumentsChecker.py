@@ -51,7 +51,7 @@ def createParser(outputPath):
 
     # Basic options
     generalGroup = argParser.add_argument_group("General")
-    generalGroup.add_argument("--version", action="version", version=__version__)
+    generalGroup.add_argument("-v", "--version", action="version", version=__version__)
     generalGroup.add_argument("--input", type=str, help="Input video file")
     generalGroup.add_argument("--output", type=str, help="Output video file")
     generalGroup.add_argument(
