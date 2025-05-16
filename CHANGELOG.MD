@@ -23,12 +23,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 #### Deprecations
 - Fully removed `anipy-cli` from TAS.
 - Temporarely removed `gputil` until I find a better solution.
-  
+
 #### Fixed
 - `shufflecugan-ncnn` defaulting to non-existent `directml` backend when not available.
 - Fixed an inversion issue regarding `--autoclip_sens`
 - Fixed a cuda race condition when chaining upscale trt models with other cuda / trt workflows.
 - Fixed a bug in gmfss
+- Fixed an issue where Rife TensorRT would use double the necessary VRAM to generate an engine.
 
 ### Adobe Edition
 #### New

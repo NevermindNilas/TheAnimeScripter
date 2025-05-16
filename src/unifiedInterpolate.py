@@ -549,6 +549,13 @@ class RifeTensorRT:
             if self.norm is not None:
                 inputs.append([1, channels, self.ph, self.pw])
 
+            if hasattr(self, "model") and self.model is not None:
+                del self.model
+                import gc
+
+                gc.collect()
+                torch.cuda.empty_cache()
+
             inputsMin = inputsOpt = inputsMax = inputs
 
             logging.info("Loading engine failed, creating a new one")
@@ -565,6 +572,7 @@ class RifeTensorRT:
 
             try:
                 os.remove(self.modelPath)
+
             except Exception as e:
                 logging.error(f"Error removing onnx model: {e}")
 
