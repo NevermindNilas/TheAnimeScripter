@@ -38,6 +38,18 @@ class CudaChecker:
     def deviceName(self):
         return self.torch.cuda.get_device_name(0) if self.cudaAvailable else "cpu"
 
+    @property
+    def deviceCount(self):
+        """Get the number of available CUDA devices."""
+        return self.torch.cuda.device_count() if self.cudaAvailable else 0
+
+    @property
+    def allDeviceNames(self):
+        """Get the names of all available CUDA devices."""
+        if not self.cudaAvailable:
+            return ["cpu"]
+        return [self.torch.cuda.get_device_name(i) for i in range(self.deviceCount)]
+
 
 def detectNVidiaGPU():
     import subprocess
@@ -45,10 +57,10 @@ def detectNVidiaGPU():
     import logging
 
     """
-    Detects if an NVIDIA GPU is present on the system.
+    Detects all NVIDIA GPUs present on the system.
     
     Returns:
-        Tuple[bool, Optional[str]]: (GPU detected, GPU name if detected)
+        Tuple[bool, list[str]]: (GPUs detected, List of GPU names if detected)
     """
     try:
         system = platform.system()
@@ -68,14 +80,25 @@ def detectNVidiaGPU():
             )
 
         if result.returncode == 0 and result.stdout:
-            gpuInfo = result.stdout.strip().split("\n")[0]
-            gpuName = gpuInfo.split(":")[1].strip() if ":" in gpuInfo else "NVIDIA GPU"
-            logging.info(f"NVIDIA GPU detected: {gpuName}")
-            return True
+            gpuLines = result.stdout.strip().split("\n")
+            gpuNames = []
+
+            for line in gpuLines:
+                if ":" in line:
+                    # Format is typically: "GPU 0: NVIDIA GeForce RTX 3080 (UUID: GPU-...)"
+                    gpu_name = line.split(":")[1].strip().split("(")[0].strip()
+                    gpuNames.append(gpu_name)
+
+            if gpuNames:
+                logging.info(f"NVIDIA GPUs detected: {', '.join(gpuNames)}")
+                return True, gpuNames
+            else:
+                logging.info("No NVIDIA GPU detected")
+                return False, []
         else:
             logging.info("No NVIDIA GPU detected")
-            return False
+            return False, []
 
     except (subprocess.SubprocessError, FileNotFoundError):
         logging.info("nvidia-smi not found or failed to run")
-        return False
+        return False, []

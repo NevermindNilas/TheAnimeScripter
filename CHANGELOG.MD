@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added a forced break even if `frame` is `None`.
 - Switched from `pyav` to `basswood-av`
 - Upgraded to TensorRT v10.10
+- Logging all currently available torch.cuda devices.
 
 #### Deprecations
 - Fully removed `anipy-cli` from TAS.
