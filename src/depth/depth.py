@@ -25,7 +25,7 @@ STDTENSOR = (
 def calculateAspectRatio(width, height, depthQuality="high"):
     if depthQuality == "high":
         # Whilst this doesn't necessarily allign with the model, it produces
-        # better results than the model's native resolution
+        # sharper results at the cost of performance and some accuracy loss.
         newWidth = ((width + 13) // 14) * 14
         newHeight = ((height + 13) // 14) * 14
     elif depthQuality == "medium":
