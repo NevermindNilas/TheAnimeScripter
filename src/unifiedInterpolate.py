@@ -255,54 +255,51 @@ class RifeCuda:
 
     @torch.inference_mode()
     def processFrame(self, frame, toNorm):
-        match toNorm:
-            case "I0":
-                self.I0.copy_(
-                    self.padFrame(
-                        frame.to(
-                            device=checker.device,
-                            dtype=self.dType,
-                            non_blocking=True,
+        with torch.cuda.stream(self.normStream):
+            match toNorm:
+                case "I0":
+                    self.I0.copy_(
+                        self.padFrame(
+                            frame.to(
+                                device=checker.device,
+                                dtype=self.dType,
+                                non_blocking=True,
+                            )
                         )
+                    ).to(memory_format=torch.channels_last)
+
+                case "I1":
+                    self.I1.copy_(
+                        self.padFrame(
+                            frame.to(
+                                device=checker.device,
+                                dtype=self.dType,
+                                non_blocking=True,
+                            )
+                        ),
+                        non_blocking=True,
+                    ).to(memory_format=torch.channels_last)
+
+                case "cache":
+                    self.I0.copy_(
+                        self.I1,
+                        non_blocking=True,
                     )
-                ).to(memory_format=torch.channels_last)
+                    self.model.cache()
 
-            case "I1":
-                self.I1.copy_(
-                    self.padFrame(
-                        frame.to(
-                            device=checker.device,
-                            dtype=self.dType,
-                            non_blocking=True,
-                        )
-                    ),
-                    non_blocking=True,
-                ).to(memory_format=torch.channels_last)
-
-            case "cache":
-                self.I0.copy_(
-                    self.I1,
-                    non_blocking=True,
-                )
-                self.model.cache()
-
-            case "pad":
-                output = self.padFrame(frame)
-                return output
-
-            case "infer":
-                with torch.cuda.stream(self.stream):
+                case "infer":
                     if self.staticStep:
                         output = self.model(self.I0, self.I1, frame)
                     else:
                         output = self.model(self.I0, self.I1, frame)[
                             :, :, : self.height, : self.width
                         ]
-                self.stream.synchronize()
-                return output
+                    return output
 
-            case "model":
-                self.model.cacheReset(frame)
+                case "model":
+                    self.model.cacheReset(frame)
+
+        self.normStream.synchronize()
 
     @torch.inference_mode()
     def padFrame(self, frame):
@@ -315,16 +312,11 @@ class RifeCuda:
     @torch.inference_mode()
     def __call__(self, frame, interpQueue, interpolationFactor=2):
         if self.firstRun:
-            with torch.cuda.stream(self.normStream):
-                self.processFrame(frame, "I0")
-            self.normStream.synchronize()
+            self.processFrame(frame, "I0")
             self.firstRun = False
             return
 
-        with torch.cuda.stream(self.normStream):
-            self.processFrame(frame, "I1")
-        self.normStream.synchronize()
-
+        self.processFrame(frame, "I1")
         if self.staticStep:
             outputs = self.processFrame(None, "infer")
             for output in outputs:
