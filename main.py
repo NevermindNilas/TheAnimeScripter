@@ -332,6 +332,7 @@ class VideoProcessor:
                 resize=self.resize,
                 width=self.width,
                 height=self.height,
+                bitDepth=self.bit_depth,
             )
 
             self.writeBuffer = WriteBuffer(
