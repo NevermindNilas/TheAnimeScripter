@@ -28,6 +28,7 @@ class BuildBuffer:
         resize: bool = False,
         width: int = 1920,
         height: int = 1080,
+        bitDepth: str = "8bit",
     ):
         """
         Initializes the BuildBuffer class.
@@ -42,6 +43,7 @@ class BuildBuffer:
             resize (bool): Whether to resize the frames.
             width (int): Width to resize frames to.
             height (int): Height to resize frames to.
+            bitDepth (str): Bit depth of the video. Options are "8bit" or "16bit".
         """
         self.half = half
         self.decodeBuffer = Queue(maxsize=20)
@@ -50,26 +52,29 @@ class BuildBuffer:
         self.height = height
         self.resize = resize
         self.isFinished = False
+        self.bitDepth = bitDepth
 
         self.inputFramePoint = round(inpoint * fps)
-        self.outputFramePoint = round(outpoint * fps) if outpoint > 0.0 else totalFrames
+        self.outputFramePoint = round(outpoint * fps)
 
         if not os.path.exists(videoInput):
             raise FileNotFoundError(f"Video file not found: {videoInput}")
 
-        logging.info(
-            f"Decoding frames from {self.inputFramePoint} to {self.outputFramePoint}"
-        )
-
+        if self.inputFramePoint != 0 and self.outputFramePoint != 0:
+            logging.info(
+                f"Decoding frames from {self.inputFramePoint} to {self.outputFramePoint}"
+            )
         try:
             self.reader = bv.open(
                 videoInput,
             )
 
-            if self.inputFramePoint > 0:
+            if inpoint > 0 and outpoint != 0:
                 self.reader.seek(
-                    int(self.inputFramePoint * 1000000),
+                    int(inpoint * 1000000),
                     stream=self.reader.streams.video[0],
+                    backward=True,
+                    any_frame=False,
                 )
 
         except Exception as e:
@@ -96,9 +101,17 @@ class BuildBuffer:
             frameGen = self.reader.decode(video=0)
 
             for frameIdx, frame in enumerate(frameGen):
+                if self.inputFramePoint != 0 or self.outputFramePoint != 0:
+                    if self.inputFramePoint + frameIdx >= self.outputFramePoint:
+                        break
+
                 if self.resize:
                     frame = frame.reformat(self.width, self.height)
 
+                # if self.bitDepth == "8bit":
+                #    frameArray = frame.to_ndarray(format="rgb24")
+                # elif self.bitDepth == "16bit":
+                #    frameArray = frame.to_ndarray(format="rgb48")
                 frameArray = frame.to_ndarray(format="rgb24")
 
                 processedFrame = self.processFrame(
@@ -142,30 +155,19 @@ class BuildBuffer:
             The processed frame as a torch tensor.
         """
         frameTensor = torch.from_numpy(frame)
-
         multiply = 1 / 255.0 if frameTensor.dtype == torch.uint8 else 1 / 65535.0
-
         dtype = torch.float16 if self.half else torch.float32
-
-        self.preAllocFrame = torch.zeros(
-            (1, 3, frameTensor.shape[0], frameTensor.shape[1]),
-            dtype=dtype,
-            device="cuda" if checker.cudaAvailable else "cpu",
-        )
 
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
-                processedFrame = (
+                result = (
                     frameTensor.to(device="cuda", non_blocking=True, dtype=dtype)
                     .mul(multiply)
                     .clamp(0, 1)
+                    .permute(2, 0, 1)
+                    .unsqueeze(0)
+                    .contiguous()
                 )
-
-                self.preAllocFrame[0].copy_(
-                    processedFrame.permute(2, 0, 1), non_blocking=True
-                )
-
-                result = self.preAllocFrame.clone().contiguous()
 
             normStream.synchronize()
             return result
