@@ -2,7 +2,7 @@
 torch==2.7.0+cu128
 torchvision==0.22.0+cu128
 tensorrt==10.10.0.31
-tensorrt_cu12==10.10.0.31
+tensorrt_cu12==10.11.0.33
 tensorrt-cu12-bindings==10.10.0.31
 tensorrt-cu12_libs==10.10.0.31
 opencv-python-headless==4.11.0.86
