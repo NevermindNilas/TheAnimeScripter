@@ -23,12 +23,14 @@ import os
 import sys
 import logging
 import warnings
+import src.constants as cs
+
 from platform import system
 from signal import signal, SIGINT, SIG_DFL
 from time import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
-import src.constants as cs
+from fractions import Fraction
 
 from src.utils.coloredPrints import green
 from src.utils.argumentsChecker import createParser
@@ -170,18 +172,24 @@ class VideoProcessor:
 
         if self.interpolate:
             if isinstance(self.interpolate_factor, float):
-                intFactor = int(self.interpolate_factor)
-                fracPart = self.interpolate_factor - intFactor
-                self.frameCounter += fracPart
-                framesToInsert = intFactor - 1
+                currentIDX = self.frameCounter
+                nextIDX = currentIDX + 1
 
-                if self.frameCounter >= 1.0:
-                    framesToInsert += 1
-                    self.frameCounter -= 1.0
+                outputStart = (currentIDX * self.factorNum) // self.factorDen
+                outputEnd = (nextIDX * self.factorNum) // self.factorDen
 
-                self.framesToInsert = framesToInsert
+                self.framesToInsert = outputEnd - outputStart - 1
+
+                self.timesteps = []
+                for i in range(1, self.framesToInsert + 1):
+                    outputIDX = outputStart + i
+                    t = (outputIDX * self.factorDen % self.factorNum) / self.factorNum
+                    self.timesteps.append(t)
+
+                self.frameCounter += 1
             else:
                 self.framesToInsert = int(self.interpolate_factor) - 1
+                self.timesteps = None
 
         if self.interpolate_first:
             self.ifInterpolateFirst(frame)
@@ -198,7 +206,9 @@ class VideoProcessor:
             if self.isSceneChange:
                 self.interpolate_process.cacheFrameReset(frame)
             else:
-                self.interpolate_process(frame, self.interpQueue, self.framesToInsert)
+                self.interpolate_process(
+                    frame, self.interpQueue, self.framesToInsert, self.timesteps
+                )
 
         if self.upscale:
             if self.interpolate:
@@ -236,8 +246,9 @@ class VideoProcessor:
                     self.writeBuffer.write(frame)
                 self.interpolate_process.cacheFrameReset(frame)
             else:
-                self.interpolate_process(frame, self.writeBuffer)
-
+                self.interpolate_process(
+                    frame, self.writeBuffer, self.framesToInsert, self.timesteps
+                )
         self.writeBuffer.write(frame)
 
     def process(self):
@@ -247,17 +258,22 @@ class VideoProcessor:
         self.sceneChangeCounter = 0
         self.frameCounter = 0
 
-        self.framesToInsert = self.interpolate_factor - 1
+        if self.interpolate and isinstance(self.interpolate_factor, float):
+            factor = Fraction(self.interpolate_factor).limit_denominator(100)
+            self.factorNum = factor.numerator
+            self.factorDen = factor.denominator
 
-        if self.interpolate:
-            if isinstance(self.interpolate_factor, float):
-                increment = self.interpolate_factor
-                if increment.is_integer():
-                    increment = int(increment)
-            else:
-                increment = int(self.interpolate_factor)
+            increment = self.factorNum / self.factorDen
+            if increment.is_integer():
+                increment = int(increment)
         else:
-            increment = 1
+            self.factorNum = self.interpolate_factor if self.interpolate else 1
+            self.factorDen = 1
+            increment = int(self.interpolate_factor) if self.interpolate else 1
+
+        self.timesteps = None
+
+        self.framesToInsert = self.interpolate_factor - 1 if self.interpolate else 0
 
         if self.interpolate and self.interpolate_first:
             self.interpQueue = Queue(maxsize=round(self.interpolate_factor))

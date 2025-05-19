@@ -258,32 +258,33 @@ class RifeCuda:
         with torch.cuda.stream(self.normStream):
             match toNorm:
                 case "I0":
+                    frame = frame.to(
+                        device=checker.device,
+                        dtype=self.dType,
+                        non_blocking=False,
+                    )
+                    frame = self.padFrame(frame)
                     self.I0.copy_(
-                        self.padFrame(
-                            frame.to(
-                                device=checker.device,
-                                dtype=self.dType,
-                                non_blocking=True,
-                            )
-                        )
+                        frame,
+                        non_blocking=False,
                     ).to(memory_format=torch.channels_last)
 
                 case "I1":
+                    frame = frame.to(
+                        device=checker.device,
+                        dtype=self.dType,
+                        non_blocking=False,
+                    )
+                    frame = self.padFrame(frame)
                     self.I1.copy_(
-                        self.padFrame(
-                            frame.to(
-                                device=checker.device,
-                                dtype=self.dType,
-                                non_blocking=True,
-                            )
-                        ),
-                        non_blocking=True,
+                        frame,
+                        non_blocking=False,
                     ).to(memory_format=torch.channels_last)
 
                 case "cache":
                     self.I0.copy_(
                         self.I1,
-                        non_blocking=True,
+                        non_blocking=False,
                     )
                     self.model.cache()
 
@@ -294,6 +295,7 @@ class RifeCuda:
                         output = self.model(self.I0, self.I1, frame)[
                             :, :, : self.height, : self.width
                         ]
+                    output = output.clone()
                     return output
 
                 case "model":
@@ -310,29 +312,27 @@ class RifeCuda:
         )
 
     @torch.inference_mode()
-    def __call__(self, frame, interpQueue, interpolationFactor=2):
+    def __call__(self, frame, interpQueue, framesToInsert: int = 2, timesteps=None):
         if self.firstRun:
             self.processFrame(frame, "I0")
             self.firstRun = False
             return
-
         self.processFrame(frame, "I1")
-        if self.staticStep:
-            outputs = self.processFrame(None, "infer")
-            for output in outputs:
-                output = output[:, :, : self.height, : self.width]
-                interpQueue.put(output)
 
-        else:
-            for i in range(interpolationFactor):
-                timestep = torch.full(
-                    (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
-                    (i + 1) * 1 / interpolationFactor,
-                    dtype=self.dType,
-                    device=checker.device,
-                )
-                output = self.processFrame(timestep, "infer")
-                interpQueue.put(output)
+        for i in range(framesToInsert):
+            if timesteps is not None and i < len(timesteps):
+                t = timesteps[i]
+            else:
+                t = (i + 1) * 1 / (framesToInsert + 1)
+
+            timestep = torch.full(
+                (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
+                t,
+                dtype=self.dType,
+                device=checker.device,
+            )
+            output = self.processFrame(timestep, "infer")
+            interpQueue.put(output)
 
         self.processFrame(None, "cache")
 
@@ -707,7 +707,7 @@ class RifeTensorRT:
             self.processFrame(frame, "f0")
 
     @torch.inference_mode()
-    def __call__(self, frame, interpQueue, interpolationFactor=2):
+    def __call__(self, frame, interpQueue, framesToInsert=1, timesteps=None):
         if self.firstRun:
             if self.norm is not None:
                 self.processFrame(frame, "f0")
@@ -718,10 +718,15 @@ class RifeTensorRT:
             return
 
         self.processFrame(frame, "I1")
-        for i in range(interpolationFactor):
+        for i in range(framesToInsert):
+            if timesteps is not None and i < len(timesteps):
+                t = timesteps[i]
+            else:
+                t = (i + 1) * 1 / (framesToInsert + 1)
+
             timestep = torch.full(
                 (1, 1, self.ph, self.pw),
-                (i + 1) * 1 / self.interpolateFactor,
+                t,
                 dtype=self.dtype,
                 device=checker.device,
             )
@@ -807,7 +812,7 @@ class RifeNCNN:
     def cacheFrameReset(self, frame):
         self.frame1 = frame.cpu().numpy().astype("uint8")
 
-    def __call__(self, frame, interpQueue, interpolationFactor=2):
+    def __call__(self, frame, interpQueue, framesToInsert=1, timesteps=None):
         if self.frame1 is None:
             self.frame1 = (
                 frame.mul(255).squeeze(0).permute(1, 2, 0).cpu().numpy().astype("uint8")
@@ -817,9 +822,13 @@ class RifeNCNN:
         self.frame2 = (
             frame.mul(255).squeeze(0).permute(1, 2, 0).cpu().numpy().astype("uint8")
         )
-        for i in range(interpolationFactor):
-            timestep = (i + 1) * 1 / self.interpolateFactor
-            output = self.rife.process_cv2(self.frame1, self.frame2, timestep=timestep)
+        for i in range(framesToInsert):
+            if timesteps is not None and i < len(timesteps):
+                t = timesteps[i]
+            else:
+                t = (i + 1) * 1 / (framesToInsert + 1)
+
+            output = self.rife.process_cv2(self.frame1, self.frame2, timestep=t)
             output = (
                 torch.from_numpy(output)
                 .float()
@@ -1159,7 +1168,9 @@ class RifeDirectML:
                 self.dummyTimeStep.copy_(frame, non_blocking=False)
 
     @torch.inference_mode()
-    def __call__(self, frame: torch.Tensor, interpQueue, interpolationFactor):
+    def __call__(
+        self, frame: torch.Tensor, interpQueue, framesToInsert=1, timesteps=None
+    ):
         if self.firstRun:
             if self.norm is not None:
                 self.processFrame(frame, "f0")
@@ -1170,10 +1181,15 @@ class RifeDirectML:
             return
 
         self.processFrame(frame, "I1")
-        for i in range(interpolationFactor):
+        for i in range(framesToInsert):
+            if timesteps is not None and i < len(timesteps):
+                t = timesteps[i]
+            else:
+                t = (i + 1) * 1 / (framesToInsert + 1)
+
             timestep = torch.full(
                 (1, 1, self.ph, self.pw),
-                (i + 1) * 1 / self.interpolateFactor,
+                t,
                 dtype=self.dtype,
                 device=self.device,
             )

@@ -31,6 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Fixed a cuda race condition when chaining upscale trt models with other cuda / trt workflows.
 - Fixed a bug in gmfss
 - Fixed an issue where Rife TensorRT would use double the necessary VRAM to generate an engine.
+- Fixed an issue where Rife CUDA's timestep generation would overshoot and create artifacts.
+- Fixed an issue where Fractional Interpolation wouldn't evenly distribute across the video, special thanks to @HolyWU for the base implementation idea. ( Hopefully I was able to translate it well enough )
 
 ### Adobe Edition
 #### New
