@@ -102,6 +102,8 @@ def bundleFiles():
         # Copy main.py
         print("Copying main.py...")
         shutil.copy(baseDir / "main.py", bundleDir / "main.py")
+        print("Copying flaskServer.py...")
+        shutil.copy(baseDir / "flaskServer.py", bundleDir / "flaskServer.py")
     except FileExistsError:
         print(f"File {bundleDir / 'main.py'} already exists. Skipping copy.")
     except Exception as e:

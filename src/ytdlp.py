@@ -81,7 +81,7 @@ class VideoDownloader:
     def getOptions(self):
         if self.height > 1080 and ADOBE:
             return {
-                "format": f"bestvideo[height<={self.height}][width<={self.width}]+bestaudio[ext=m4a]/best[ext=mp4]",
+                "format": f"bestvideo[height<={self.height}]+bestaudio/best[height<={self.height}]/best",
                 "outtmpl": os.path.splitext(self.output)[0],
                 "ffmpeg_location": os.path.dirname(FFMPEGPATH),
                 "quiet": True,
@@ -98,7 +98,7 @@ class VideoDownloader:
             }
         else:
             return {
-                "format": f"bestvideo[height<={self.height}][width<={self.width}][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4]",
+                "format": f"bestvideo[height<={self.height}]+bestaudio/best[height<={self.height}]/best",
                 "outtmpl": self.output,
                 "ffmpeg_location": os.path.dirname(FFMPEGPATH),
                 "quiet": True,
