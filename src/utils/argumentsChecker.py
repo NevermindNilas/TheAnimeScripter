@@ -515,6 +515,11 @@ def _addMiscOptions(argParser):
         action="store_true",
         help="Download all required libraries for the script, only used for Adobe Edition",
     )
+    miscGroup.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Remove unused libraries from the script, in case if there were migrations or changes in the script",
+    )
 
 
 def argumentsChecker(args, outputPath):
@@ -530,11 +535,39 @@ def argumentsChecker(args, outputPath):
         args = createPreset(args)
 
     if args.download_requirements:
-        from src.utils.initializeAFullDownload import initializeAFullDownload
+        _handleDependencies(args)
 
-        initializeAFullDownload()
-        print(green("All libraries downloaded!"))
-        sys.exit()
+        sys.exit(
+            "All required libraries have been downloaded, you can now run the script without the --download_requirements argument"
+        )
+
+    if args.cleanup:
+        from src.utils.dependencyHandler import uninstallDependencies
+        from src.utils.isCudaInit import detectNVidiaGPU
+
+        isNvidia = detectNVidiaGPU()
+        extension = (
+            "extra-requirements-windows.txt"
+            if isNvidia
+            else "extra-requirements-windows-lite.txt"
+        )
+        success, message = uninstallDependencies(extension=extension)
+
+        logging.info(message)
+
+        if success:
+            logAndPrint(
+                "Unused libraries have been removed, you can now run the script without the --cleanup argument",
+                "green",
+            )
+            sys.exit()
+        else:
+            logAndPrint(
+                "Failed to remove unused libraries, please check the logs for more details",
+                "red",
+            )
+            logging.error("Failed to remove unused libraries")
+            print(message)
 
     logging.info("============== Version ==============")
     logging.info(f"TAS: {__version__}\n")
@@ -554,16 +587,7 @@ def argumentsChecker(args, outputPath):
         cs.ADOBE = True
 
     logging.info("\n============== Arguments Checker ==============")
-    _handleDependencies()
-
-    if not os.path.exists(cs.FFMPEGPATH) or (
-        args.realtime
-        and not os.path.exists(cs.MPVPATH)
-        or not os.path.exists(cs.FFPROBEPATH)
-    ):
-        from src.utils.getFFMPEG import getFFMPEG
-
-        getFFMPEG(args.realtime)
+    _handleDependencies(args)
 
     if args.realtime:
         print(yellow("Realtime preview enabled, this is experimental!"))
@@ -639,7 +663,7 @@ def argumentsChecker(args, outputPath):
     return args
 
 
-def _handleDependencies():
+def _handleDependencies(args):
     cs.FFMPEGPATH = os.path.join(
         cs.MAINPATH,
         "ffmpeg",
@@ -658,11 +682,18 @@ def _handleDependencies():
         "mpv.exe" if cs.SYSTEM == "Windows" else "mpv",
     )
 
-    # Handling isNvidia present and what dependencies to install
-    # First try import torch just to avoid doing this over and over again
+    if not os.path.exists(cs.FFMPEGPATH) or (
+        args.realtime
+        and not os.path.exists(cs.MPVPATH)
+        or not os.path.exists(cs.FFPROBEPATH)
+    ):
+        from src.utils.getFFMPEG import getFFMPEG
+
+        getFFMPEG(args.realtime)
 
     try:
         from src.utils.isCudaInit import detectNVidiaGPU
+        from src.utils.dependencyHandler import DependencyChecker
 
         isNvidia = detectNVidiaGPU()
         extension = (
@@ -671,39 +702,30 @@ def _handleDependencies():
             else "extra-requirements-windows-lite.txt"
         )
 
-        import torch
-
-        torchVersion = torch.__version__
-        logging.info(f"Current torch version: {torchVersion}")
         requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, extension)
-        with open(requirementsPath, "r") as f:
-            content = f.read()
-            if f"torch=={torchVersion}" not in content:
-                logAndPrint(
-                    f"Installed torch version {torchVersion} is not in requirements, installing it",
-                    "yellow",
-                )
-                success, message = installDependencies(extension)
-                if not success:
-                    logAndPrint(message, "red")
-                    sys.exit()
-                else:
-                    logAndPrint(
-                        message,
-                        "green",
-                    )
+        checker = DependencyChecker()
+
+        if checker.needsUpdate(requirementsPath):
+            logAndPrint("Dependencies need updating...", "yellow")
+            success, message = installDependencies(extension)
+            if not success:
+                logAndPrint(message, "red")
+                sys.exit()
+            else:
+                logAndPrint(message, "green")
+                checker.updateCache(requirementsPath)
+        else:
+            logging.info("Dependencies are up to date")
 
     except ImportError:
-        # If torch is not installed, install it and the other dependencies
         success, message = installDependencies(extension)
         if not success:
             logAndPrint(message, "red")
             sys.exit()
         else:
-            logAndPrint(
-                message,
-                "green",
-            )
+            logAndPrint(message, "green")
+            checker = DependencyChecker()
+            checker.updateCache(requirementsPath)
 
 
 def _handleDepthSettings(args):

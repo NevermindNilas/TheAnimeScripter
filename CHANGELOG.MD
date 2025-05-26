@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 #### Added
 - A fully redesigned and naive build method.
 - Added `--download_requirements` file to download the requirements as a helper functionality for Adobe After Effects.
+- Added `--cleanup` to uninstall unused dependencies or migrated ones ( e.g PyAV -> BassWood-AV )
 - Added `png` output support with `--encode_method png`
 
 #### Changed
