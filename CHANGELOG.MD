@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 #### Added
 - A fully redesigned and naive build method.
 - Added `--download_requirements` file to download the requirements as a helper functionality for Adobe After Effects.
-- Added `--cleanup` to uninstall unused dependencies or migrated ones ( e.g PyAV -> BassWood-AV )
+- Added `--cleanup` to uninstall unused dependencies or migrated ones ( e.g. PyAV -> BassWood-AV )
 - Added `png` output support with `--encode_method png`
 
 #### Changed
@@ -34,15 +34,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Fixed an issue where Rife TensorRT would use double the necessary VRAM to generate an engine.
 - Fixed an issue where Rife CUDA's timestep generation would overshoot and create artifacts.
 - Fixed an issue where Fractional Interpolation wouldn't evenly distribute across the video, special thanks to @HolyWU for the base implementation idea. ( Hopefully I was able to translate it well enough )
+- Fixed an issue with yt-dlp where it would not be able to find .mp4 queries.
 
 ### Adobe Edition
 #### New
-- PNG output support.
 - The UI comes in 1 more new flavor with larger scale, specifically for 4k/5k monitors.
 
 #### Changed
 - Moved encoder / outputs related settings to `Application Settings` in the `Extra` Tab.
 - Simplified the about tab
+- Added a visual warning if the Youtube URL is not in the correct format.
 - Disclosure panels have been changed to `Accordion` for better spacing and the autoclosing feature.
 - Precompose will no longer create alerts and will instead use `Toasts`
 - Simplified Toast generation in order to not stack the UI with toasts.
@@ -66,9 +67,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   - Added more detailed console logging
   - Better status reporting during dependency checks
 
-### Adobe Edition
-N/A
-
+#### Fixed
+- Few minor bugfixes.
 
 ## [2.1.5] - 2025-04-14
 ### The Anime Scripter
