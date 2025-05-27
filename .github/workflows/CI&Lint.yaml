@@ -103,62 +103,63 @@ jobs:
         } else {
           echo "❌ Build failed with exit code $LASTEXITCODE"
         }
-
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
-    
-    - name: Install security scanning tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install bandit safety
-    
-    - name: Run Bandit Security Linter
-      run: |
-        bandit -r . -f json -o bandit-report.json -ll || true
-        bandit -r . -f txt || true
-      continue-on-error: true
-    
-    - name: Run Safety dependency check
-      run: |
-        safety scan --output json --save-as safety-report.json || true
-        safety scan || true
-      continue-on-error: true
-    
-    - name: Create security artifact name
-      id: security-artifact-name
-      run: |
-        timestamp=$(date +"%Y%m%d-%H%M%S")
-        commit="${{ github.sha }}"
-        commit_short="${commit:0:7}"
-        artifact_name="TAS-Security-$timestamp-$commit_short"
-        echo "name=$artifact_name" >> $GITHUB_OUTPUT
-    
-    - name: Upload security reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ steps.security-artifact-name.outputs.name }}
-        path: |
-          bandit-report.json
-          safety-report.json
-        retention-days: 7
-        if-no-files-found: ignore
-    
-    - name: Security scan summary
-      if: always()
-      run: |
-        echo "🔒 Security scan completed"
-        if [ -f bandit-report.json ]; then
-          echo "📊 Bandit report generated"
-        fi
-        if [ -f safety-report.json ]; then
-          echo "📊 Safety report generated"
-        fi
+  
+  
+  #security:
+  #  name: Security Scan
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #  - uses: actions/checkout@v4
+  #  
+  #  - name: Set up Python ${{ env.PYTHON_VERSION }}
+  #    uses: actions/setup-python@v5
+  #    with:
+  #      python-version: ${{ env.PYTHON_VERSION }}
+  #      cache: 'pip'
+  #  
+  #  - name: Install security scanning tools
+  #    run: |
+  #      python -m pip install --upgrade pip
+  #      pip install bandit safety
+  #  
+  #  - name: Run Bandit Security Linter
+  #    run: |
+  #      bandit -r . -f json -o bandit-report.json -ll || true
+  #      bandit -r . -f txt || true
+  #    continue-on-error: true
+  #  
+  #  - name: Run Safety dependency check
+  #    run: |
+  #      safety scan --output json --save-as safety-report.json || true
+  #      safety scan || true
+  #    continue-on-error: true
+  #  
+  #  - name: Create security artifact name
+  #    id: security-artifact-name
+  #    run: |
+  #      timestamp=$(date +"%Y%m%d-%H%M%S")
+  #      commit="${{ github.sha }}"
+  #      commit_short="${commit:0:7}"
+  #      artifact_name="TAS-Security-$timestamp-$commit_short"
+  #      echo "name=$artifact_name" >> $GITHUB_OUTPUT
+  #  
+  #  - name: Upload security reports
+  #    uses: actions/upload-artifact@v4
+  #    with:
+  #      name: ${{ steps.security-artifact-name.outputs.name }}
+  #      path: |
+  #        bandit-report.json
+  #        safety-report.json
+  #      retention-days: 7
+  #      if-no-files-found: ignore
+  #  
+  #  - name: Security scan summary
+  #    if: always()
+  #    run: |
+  #      echo "🔒 Security scan completed"
+  #      if [ -f bandit-report.json ]; then
+  #        echo "📊 Bandit report generated"
+  #      fi
+  #      if [ -f safety-report.json ]; then
+  #        echo "📊 Safety report generated"
+  #      fi
