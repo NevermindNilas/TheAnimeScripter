@@ -139,8 +139,8 @@ jobs:
     
     - name: Run Safety dependency check
       run: |
-        safety check --json --output safety-report.json || true
-        safety check || true
+        safety scan --output json --save-as safety-report.json || true
+        safety scan || true
       continue-on-error: true
     
     - name: Create security artifact name
