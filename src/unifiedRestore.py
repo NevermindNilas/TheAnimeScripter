@@ -27,6 +27,7 @@ class UnifiedRestoreCuda:
 
         self.model = model
         self.half = half
+        self.CHANNELSLAST = True
         self.handleModel()
 
     def handleModel(self):
@@ -45,24 +46,47 @@ class UnifiedRestoreCuda:
         else:
             modelPath = os.path.join(weightsDir, self.model, self.filename)
 
-        try:
-            self.model = ModelLoader().load_from_file(path=modelPath)
+        if self.model not in ["gater3"]:
+            try:
+                self.model = ModelLoader().load_from_file(path=modelPath)
 
-        except Exception as e:
-            logging.error(f"Error loading model: {e}")
+            except Exception as e:
+                logging.error(f"Error loading model: {e}")
+        else:
+            from safetensors.torch import load_file
+
+            if self.model == "gater3":
+                from src.extraArches.gaterv3 import GateRV3
+
+                self.CHANNELSLAST = False
+
+                self.model = GateRV3()
+
+                stateDict = load_file(modelPath)
+                self.model.load_state_dict(stateDict)
+
+        try:
+            # Weird spandrel hack to bypass ModelDecriptor
+            self.model = self.model.model
+        except Exception:
+            pass
 
         self.model = (
             self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
         )
 
         if self.half:
-            self.model.model.half()
+            self.model.half()
             self.dType = torch.float16
         else:
+            self.model.float()  # Sanity check, should not be needed
             self.dType = torch.float32
         self.stream = torch.cuda.Stream()
 
-        self.model.model.to(memory_format=torch.channels_last)
+        if self.CHANNELSLAST:
+            self.model.to(memory_format=torch.channels_last)
+        else:
+            self.model.to(memory_format=torch.contiguous_format)
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
@@ -71,6 +95,8 @@ class UnifiedRestoreCuda:
                 frame.to(checker.device, non_blocking=True, dtype=self.dType).to(
                     memory_format=torch.channels_last
                 )
+                if self.CHANNELSLAST
+                else frame.to(checker.device, non_blocking=True, dtype=self.dType)
             )
         self.stream.synchronize()
         return frame
