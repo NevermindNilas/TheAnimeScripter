@@ -70,13 +70,26 @@ class UniversalPytorch:
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
                 )
-        try:
-            self.model = ModelLoader().load_from_file(modelPath)
-        except Exception as e:
-            logging.error(f"Error loading model: {e}")
+        if self.upscaleMethod not in ["rtmosr"]:  # using  a list for future expansion
+            try:
+                self.model = ModelLoader().load_from_file(modelPath)
+            except Exception as e:
+                logging.error(f"Error loading model: {e}")
+        else:
+            if self.upscaleMethod == "rtmosr":
+                from src.extraArches.RTMoSR import RTMoSR
+
+                self.model = RTMoSR(unshuffle_mod=True)
+            self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
 
         if self.customModel:
             assert isinstance(self.model, ImageModelDescriptor)
+
+        try:
+            # If the model is wrapped in a ModelDescriptor, extract the underlying model
+            self.model = self.model.model
+        except Exception:
+            pass
 
         self.model = (
             self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
@@ -95,7 +108,7 @@ class UniversalPytorch:
                 self.half = False
 
         self.model = ModelOptimizer(
-            self.model.model,
+            self.model,
             torch.float16 if self.half else torch.float32,
             memoryFormat=torch.channels_last,
         ).optimizeModel()

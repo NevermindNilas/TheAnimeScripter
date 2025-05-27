@@ -244,7 +244,6 @@ def _addUpscalingOptions(argParser):
     )
 
     upscaleMethods = [
-        "shufflespan",
         "shufflecugan",
         "compact",
         "ultracompact",
@@ -269,6 +268,7 @@ def _addUpscalingOptions(argParser):
         "aniscale2",
         "aniscale2-tensorrt",
         "aniscale2-directml",
+        "rtmosr",
         "rtmosr-tensorrt",
         "rtmosr-directml",
     ]
@@ -316,6 +316,8 @@ def _addVideoProcessingOptions(argParser):
 
     restoreMethods = [
         "scunet",
+        "scunet-tensorrt",
+        "scunet-directml",
         "nafnet",
         "dpir",
         "real-plksr",
@@ -324,12 +326,15 @@ def _addVideoProcessingOptions(argParser):
         "anime1080fixer-directml",
         "fastlinedarken",
         "fastlinedarken-tensorrt",
+        "gater3",
+        "gater3-directml",
+        # "gater3-tensorrt",
     ]
 
     processingGroup.add_argument(
         "--restore_method",
         type=str,
-        default="scunet",
+        default="anime1080fixer",
         choices=restoreMethods,
         help="Denoising method",
     )

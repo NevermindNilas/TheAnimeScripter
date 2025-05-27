@@ -11,8 +11,8 @@ except ImportError:
     print("onnxslim not found. Please install onnx-slim using: pip install onnxslim")
     isOnnxSlim = False
 
-OPSET = 21
-modelList = [r"C:\Users\nilas\Downloads\2x_umzi_mahou_rtmosr_fp32_op17.onnx"]
+OPSET = 17
+modelList = [r"D:\SCUNet-PSNR.onnx"]
 
 
 def convertAndSaveModel(model, modelPath, precision, opset):

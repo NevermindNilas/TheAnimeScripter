@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 #### Added
+- Restore method `gater3-directml`, special thanks to @umzi2 ( tensorrt and cuda under investigation )
+
+#### Changed
+- Small tweaks to the upscale cuda pipeline and cuda model optimizer.
+
+
+## [2.2.0] - 2025-05-26
+#### Added
 - A fully redesigned and naive build method.
 - Added `--download_requirements` file to download the requirements as a helper functionality for Adobe After Effects.
 - Added `--cleanup` to uninstall unused dependencies or migrated ones ( e.g. PyAV -> BassWood-AV )
