@@ -177,12 +177,13 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 | Model               | CUDA  | TensorRT | DirectML | NCNN  |
 | ------------------- | :---: | :------: | :------: | :---: |
-| SCUNet (Denoise)    |   ✅   |    ❌     |    ❌     |   ❌   |
+| SCUNet (Denoise)    |   ✅   |    ✅     |    ❌     |   ❌   |
 | NAFNet (Denoise)    |   ✅   |    ❌     |    ❌     |   ❌   |
 | DPIR (Denoise)      |   ✅   |    ❌     |    ❌     |   ❌   |
 | Real-Plksr (DeJpeg) |   ✅   |    ❌     |    ❌     |   ❌   |
 | Anime1080fixer      |   ✅   |    ✅     |    ✅     |   ❌   |
 | FastLineDarken      |   ✅   |    ✅     |    ❌     |   ❌   |
+| GaterV3             |   ✅   |    ❌     |    ✅     |   ❌   |
 
 ### 🌊 Depth Map Models
 
@@ -218,8 +219,8 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [Sirosky](https://github.com/Sirosky)             | Open-Proteus & AniScale 2    | [Upscale-Hub](https://github.com/Sirosky/Upscale-Hub)                                  |
 | [Elexor](https://github.com/elexor)               | Custom RIFE modifications    | [Modded Rife Experiment(s)](https://github.com/elexor)                                 |
 | [Zarxrax](https://github.com/Zarxrax)             | Anime1080Fixer restoration   | [GitHub](https://github.com/Zarxrax)                                                   |
-| [umzi](https://github.com/umzi2)                  | RTMOSR & GaterV3 Models       | [GitHub](https://github.com/umzi2)                                                     |
-
+| [umzi](https://github.com/umzi2)                  | RTMOSR & GaterV3 Models      | [GitHub](https://github.com/umzi2)                                                     |
+****
 ### 🛠️ Framework & Tool Contributors
 | Contributor                                     | Contribution                 | Repository                                                     |
 | ----------------------------------------------- | ---------------------------- | -------------------------------------------------------------- |
@@ -234,7 +235,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 ### 🌟 TAS Collaborators
 | Contributor                                     | Contribution                                    |
 | ----------------------------------------------- | ----------------------------------------------- |
-| [Trentonom0r3](https://github.com/Trentonom0r3) | TAS Adobe Edition       |
+| [Trentonom0r3](https://github.com/Trentonom0r3) | TAS Adobe Edition                               |
 | [Adegerard](https://github.com/adegerard)       | Project architecture & optimization suggestions |
 
 <div class="contact-info">
