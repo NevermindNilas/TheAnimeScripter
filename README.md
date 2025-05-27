@@ -218,7 +218,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [Sirosky](https://github.com/Sirosky)             | Open-Proteus & AniScale 2    | [Upscale-Hub](https://github.com/Sirosky/Upscale-Hub)                                  |
 | [Elexor](https://github.com/elexor)               | Custom RIFE modifications    | [Modded Rife Experiment(s)](https://github.com/elexor)                                 |
 | [Zarxrax](https://github.com/Zarxrax)             | Anime1080Fixer restoration   | [GitHub](https://github.com/Zarxrax)                                                   |
-| [umzi](https://github.com/umzi2)                  | RTMOSR implementation        | [GitHub](https://github.com/umzi2)                                                     |
+| [umzi](https://github.com/umzi2)                  | RTMOSR & GaterV3 Models       | [GitHub](https://github.com/umzi2)                                                     |
 
 ### 🛠️ Framework & Tool Contributors
 | Contributor                                     | Contribution                 | Repository                                                     |
@@ -239,7 +239,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 <div class="contact-info">
 
-> 📧 **Missing contributor?** Please contact me at [nilascontact@gmail.com](mailto:nilascontact@gmail.com)
+> 📧 **Missing contributor?** Please contact me at [nilascontact@gmail.com](mailto:nilascontact@gmail.com) or open a Github Issue!
 
 </div>
 </div>
