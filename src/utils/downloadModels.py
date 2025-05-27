@@ -47,6 +47,7 @@ def modelsList() -> list[str]:
         "segment-tensorrt",
         "segment-directml",
         "scunet",
+        "gater3",
         "gater3-tensorrt",
         "gater3-directml",
         "dpir",
@@ -259,9 +260,9 @@ def modelsMap(
                 else:
                     return "1x_Anime1080Fixer_SuperUltraCompact_op20_clamp.onnx"
 
-        case "gater3-tensorrt" | "gater3-directml":
+        case "gater3" | "gater3-tensorrt" | "gater3-directml":
             if modelType == "pth":
-                raise ValueError("Gater3 models are not available in PyTorch format.")
+                return "1x_umzi_adc_gater3_v1.safetensors"
             elif modelType == "onnx":
                 if half:
                     return "1x_umzi_adc_gater3_v1_fp16_op17.onnx"
