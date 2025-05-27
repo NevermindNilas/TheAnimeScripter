@@ -95,16 +95,6 @@ jobs:
         retention-days: 7
         if-no-files-found: warn
     
-    - name: Upload build logs
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-logs-${{ steps.artifact-name.outputs.name }}
-        path: |
-          *.log
-          build.log
-        retention-days: 7
-        if-no-files-found: ignore
-    
     - name: Report build status
       if: always()
       run: |
