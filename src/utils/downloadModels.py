@@ -28,7 +28,6 @@ DEPTHV2URLLARGE = (
 
 def modelsList() -> list[str]:
     return [
-        "yolo11n",
         "shufflespan",
         "shufflespan-directml",
         "shufflespan-tensorrt",
@@ -36,6 +35,7 @@ def modelsList() -> list[str]:
         "aniscale2-directml",
         "aniscale2-tensorrt",
         "open-proteus",
+        "rtmosr",
         "rtmosr-directml",
         "rtmosr-tensorrt",
         "compact",
@@ -47,6 +47,8 @@ def modelsList() -> list[str]:
         "segment-tensorrt",
         "segment-directml",
         "scunet",
+        "gater3-tensorrt",
+        "gater3-directml",
         "dpir",
         "real-plksr",
         "nafnet",
@@ -170,11 +172,9 @@ def modelsMap(
                 else:
                     return "2x_OpenProteus_Compact_i2_70K-fp32.onnx"
 
-        case "rtmosr-directml" | "rtmosr-tensorrt":
+        case "rtmosr" | "rtmosr-directml" | "rtmosr-tensorrt":
             if modelType == "pth":
-                return NotImplementedError(
-                    "rtmosr models are not available in PyTorch format."
-                )
+                return "2x_umzi_anime_rtmosr.pth"
             else:
                 if half:
                     return "2x_umzi_anime_rtmosr_fp16_op18.onnx"
@@ -258,6 +258,15 @@ def modelsMap(
                     return "1x_Anime1080Fixer_SuperUltraCompact_op20_fp16_clamp.onnx"
                 else:
                     return "1x_Anime1080Fixer_SuperUltraCompact_op20_clamp.onnx"
+
+        case "gater3-tensorrt" | "gater3-directml":
+            if modelType == "pth":
+                raise ValueError("Gater3 models are not available in PyTorch format.")
+            elif modelType == "onnx":
+                if half:
+                    return "1x_umzi_adc_gater3_v1_fp16_op17.onnx"
+                else:
+                    return "1x_umzi_adc_gater3_v1_fp32_op17.onnx"
 
         case "gmfss":
             return "gmfss-fortuna-union.zip"

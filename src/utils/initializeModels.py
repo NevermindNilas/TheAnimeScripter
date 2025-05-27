@@ -211,6 +211,7 @@ def initializeModels(self):
                 | "open-proteus"
                 | "aniscale2"
                 | "shufflespan"
+                | "rtmosr"
             ):
                 upscale_process = UniversalPytorch(
                     self.upscale_method,
@@ -400,7 +401,7 @@ def initializeModels(self):
                     self.half,
                 )
 
-            case "anime1080fixer-tensorrt":
+            case "anime1080fixer-tensorrt" | "gater3-tensorrt" | "scunet-tensorrt":
                 from src.unifiedRestore import UnifiedRestoreTensorRT
 
                 restore_process = UnifiedRestoreTensorRT(
@@ -411,7 +412,7 @@ def initializeModels(self):
                     self.forceStatic,
                 )
 
-            case "anime1080fixer-directml":
+            case "anime1080fixer-directml" | "gater3-directml" | "scunet-directml":
                 from src.unifiedRestore import UnifiedRestoreDirectML
 
                 restore_process = UnifiedRestoreDirectML(
