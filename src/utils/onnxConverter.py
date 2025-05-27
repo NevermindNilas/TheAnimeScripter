@@ -12,13 +12,13 @@ except ImportError:
     isOnnxSlim = False
 
 OPSET = 17
-modelList = [r"D:\SCUNet-PSNR.onnx"]
+modelList = [r"D:\scunet_color_real_psnr.onnx"]
 
 
 def convertAndSaveModel(model, modelPath, precision, opset):
     if precision == "fp16":
         model = float16.convert_float_to_float16(model)
-    model = version_converter.convert_version(model, opset)
+    # model = version_converter.convert_version(model, opset)
     newModelPath = modelPath.replace(".onnx", f"_{precision}_op{opset}.onnx")
     onnx.save(model, newModelPath)
     savedModel = onnx.load(newModelPath)
