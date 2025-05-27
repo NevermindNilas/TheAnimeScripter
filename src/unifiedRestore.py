@@ -4,6 +4,7 @@ import logging
 
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .utils.isCudaInit import CudaChecker
+from .utils.logAndPrint import logAndPrint
 
 checker = CudaChecker()
 
@@ -146,11 +147,32 @@ class UnifiedRestoreTensorRT:
         self.handleModel()
 
     def handleModel(self):
-        if self.width > 1920 and self.height > 1080:
-            self.forceStatic = True
-            logging.info(
-                "Forcing static engine due to resolution higher than 1080p, wtf are you restoring?"
-            )
+        self.originalHeight = self.height
+        self.originalWidth = self.width
+
+        if self.restoreMethod in ["scunet-tensorrt"]:
+            if self.forceStatic is not True:
+                self.forceStatic = True
+                logAndPrint(
+                    "Forcing static engine due to SCUNET limitations.",
+                    "yellow",
+                )
+            # padding to 64x64
+            self.height = (self.height + 63) // 64 * 64
+            self.width = (self.width + 63) // 64 * 64
+
+        if self.width >= 1920 and self.height >= 1080:
+            if self.forceStatic is not True:
+                self.forceStatic = True
+                logAndPrint(
+                    "Forcing static engine due to resolution being higher than 1080p.",
+                    "yellow",
+                )
+            if self.restoreMethod in ["scunet-tensorrt"]:
+                logAndPrint(
+                    "!WARNING:! SCUNET requires more than 24GB of VRAM for 1920x1080 resolutions or higher.",
+                    "red",
+                )
 
         self.filename = modelsMap(
             self.restoreMethod,
@@ -187,7 +209,7 @@ class UnifiedRestoreTensorRT:
                 fp16=self.half,
                 inputsMin=[1, 3, 8, 8],
                 inputsOpt=[1, 3, self.height, self.width],
-                inputsMax=[1, 3, 1080, 1920],
+                inputsMax=[1, 3, self.height, self.width],
                 forceStatic=self.forceStatic,
             )
 
@@ -228,6 +250,13 @@ class UnifiedRestoreTensorRT:
     @torch.inference_mode()
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
+            if self.originalHeight != self.height or self.originalWidth != self.width:
+                frame = torch.nn.functional.interpolate(
+                    frame,
+                    size=(self.height, self.width),
+                    mode="bilinear",
+                    align_corners=False,
+                )
             self.dummyInput.copy_(
                 frame.to(dtype=self.dtype),
                 non_blocking=False,
@@ -237,7 +266,9 @@ class UnifiedRestoreTensorRT:
     @torch.inference_mode()
     def processOutput(self):
         with torch.cuda.stream(self.outputStream):
-            output = self.dummyOutput.clamp(0, 1)
+            output = self.dummyOutput[
+                :, :, : self.originalHeight, : self.originalWidth
+            ].clamp(0, 1)
         self.outputStream.synchronize()
 
         return output

@@ -47,6 +47,8 @@ def modelsList() -> list[str]:
         "segment-tensorrt",
         "segment-directml",
         "scunet",
+        "scunet-tensorrt",
+        "scunet-directml",
         "gater3",
         "gater3-tensorrt",
         "gater3-directml",
@@ -239,8 +241,17 @@ def modelsMap(
         case "segment":
             return "isnetis.ckpt"
 
-        case "scunet":
-            return "scunet_color_real_psnr.pth"
+        case "scunet" | "scunet-tensorrt" | "scunet-directml":
+            if modelType == "pth":
+                return "scunet_color_real_psnr.pth"
+            elif modelType == "onnx":
+                if half:
+                    # return "scunet_color_real_psnr_fp16_op17_slim.onnx"
+                    raise ValueError(
+                        "SCUNET is not compatible with half precision ONNX models yet."
+                    )
+                else:
+                    return "scunet_color_real_psnr_fp32_op17_slim.onnx"
 
         case "dpir":
             return "drunet_deblocking_color.pth"

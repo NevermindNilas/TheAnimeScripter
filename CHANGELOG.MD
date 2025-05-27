@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - YYYY-MM-DD
 #### Added
 - Restore method `gater3` | `gater3-directml`, special thanks to @umzi2 ( tensorrt and cuda under investigation )
+- Added experimental `scunet-tensorrt` backend ( VERY VRAM HUNGRY! )
 
 #### Changed
 - Small tweaks to the upscale cuda pipeline and cuda model optimizer.
