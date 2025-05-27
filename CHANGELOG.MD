@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 #### Changed
 - Small tweaks to the upscale cuda pipeline and cuda model optimizer.
+- Improvements to the restore cuda and trt pipelines.
 
 
 ## [2.2.0] - 2025-05-26
