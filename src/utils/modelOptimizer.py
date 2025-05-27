@@ -2,8 +2,14 @@ from torch.fx import GraphModule
 import torch
 import logging
 
+
 class ModelOptimizer:
-    def __init__(self, model: torch.nn.Module, dtype: torch.dtype = torch.float32, memoryFormat: torch.memory_format = torch.contiguous_format) -> None:
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        dtype: torch.dtype = torch.float32,
+        memoryFormat: torch.memory_format = torch.contiguous_format,
+    ) -> None:
         self.model = model
         self.dtype = dtype
         self.memoryFormat = memoryFormat
@@ -29,19 +35,22 @@ class ModelOptimizer:
         except Exception as e:
             logging.error(f"Error tracing model: {e}")
             return self.toMemoryFormat(self.model)
-        
+
         # I only tested this so far, I will need to test other optimizations
         class ReplaceReLU(torch.fx.Transformer):
             def call_module(self, target, args, kwargs):
-                if target == 'relu':
+                if target == "relu":
                     return torch.nn.functional.leaky_relu(*args, **kwargs)
                 return super().call_module(target, args, kwargs)
 
-        transformer = ReplaceReLU(symbolicTraced)
-        optimizedModel = transformer.transform()
+        try:
+            transformer = ReplaceReLU(symbolicTraced)
+            optimizedModel = transformer.transform()
+        except Exception:
+            optimizedModel = symbolicTraced
 
         optimizedModel = self.toMemoryFormat(optimizedModel)
         return optimizedModel
-    
+
     def toMemoryFormat(self, model) -> torch.nn.Module:
         return model.to(memory_format=self.memoryFormat)
