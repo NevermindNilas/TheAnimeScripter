@@ -17,6 +17,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 #### Fixed
 - A regression to start-up times caused by overengineering the dependencyHandler.py
 
+### Adobe Edition
+#### New
+- Added `Gater3 | Gater3DirectML | SCUNet-TensorRT` to the main UI
+- Added `Remove Dead Frames` option to ToolBox, this works all on the AE side and is based on SSIM.
+
+#### Changes
+- Added a `debouncer` to the settings savings logic. 
+- Created a helper function for the `contextualHelper(s)` in order to make the UI more consistent.
+- Defaulted to a `8px` gap size basically everywhere. ( more work needed )
+- Improved the robustness of the Automated backend download handler as well as improved its logging efficiency.
+
+#### Fixed
+- Fixed an issue where the automated download functionality would freeze upon completion locking the user out of TAS ( whoopsies )
 
 ## [2.2.0] - 2025-05-26
 #### Added
