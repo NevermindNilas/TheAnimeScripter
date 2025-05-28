@@ -542,9 +542,11 @@ def argumentsChecker(args, outputPath):
     if args.download_requirements:
         _handleDependencies(args)
 
-        sys.exit(
-            "All required libraries have been downloaded, you can now run the script without the --download_requirements argument"
+        logAndPrint(
+            "All required libraries have been downloaded, you can now run the script without the --download_requirements argument",
+            "green",
         )
+        sys.exit()
 
     if args.cleanup:
         from src.utils.dependencyHandler import uninstallDependencies
