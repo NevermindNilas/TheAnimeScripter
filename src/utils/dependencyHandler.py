@@ -8,7 +8,7 @@ import time
 import hashlib
 
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Dict, Optional
 from src.utils.logAndPrint import logAndPrint
 
 
@@ -137,35 +137,28 @@ def installDependencies(extension: str = "") -> Tuple[bool, str]:
 class DependencyChecker:
     def __init__(self):
         self.cachePath = Path(cs.MAINPATH) / ".dependencyCache.json"
-        self.cacheExpiry = 2592000  # every 30 days or so
+        self._cache = None
+        self._requirementsHash = {}
 
     def needsUpdate(self, requirementsPath):
-        """Check if dependencies need updating"""
+        """Check if dependencies need updating - only hash comparison"""
         cache = self._loadCache()
 
-        if time.time() - cache.get("timestamp", 0) > self.cacheExpiry:
-            return True
-
-        currentHash = self._getFileHash(requirementsPath)
-        if currentHash != cache.get("requirements_hash"):
-            return True
-
-        return self._criticalPackagesChanged(cache.get("versions", {}))
+        currentHash = self._getFileHashCached(requirementsPath)
+        return currentHash != cache.get("requirements_hash")
 
     def updateCache(self, requirementsPath):
         """Update cache after successful installation"""
-        versions = self._getCurrentVersions()
         cache = {
-            "timestamp": time.time(),
-            "requirements_hash": self._getFileHash(requirementsPath),
-            "versions": versions,
+            "requirements_hash": self._getFileHashCached(requirementsPath),
         }
 
         try:
             with open(self.cachePath, "w") as f:
                 json.dump(cache, f)
-        except:
-            pass
+            self._cache = cache
+        except Exception as e:
+            logging.warning(f"Failed to update dependency cache: {e}")
 
     def forceFullDownload(self, requirementsFile=None):
         """
@@ -196,42 +189,40 @@ class DependencyChecker:
             return True
 
     def _loadCache(self):
-        """Load cache from file"""
+        """Load cache from file - with in-memory caching"""
+        if self._cache is not None:
+            return self._cache
+
         if not self.cachePath.exists():
-            return {}
+            self._cache = {}
+            return self._cache
+
         try:
             with open(self.cachePath, "r") as f:
-                return json.load(f)
-        except:
-            return {}
+                self._cache = json.load(f)
+            return self._cache
+        except Exception as e:
+            logging.warning(f"Failed to load dependency cache: {e}")
+            self._cache = {}
+            return self._cache
+
+    def _getFileHashCached(self, filepath):
+        """Get MD5 hash of file with caching"""
+        if filepath in self._requirementsHash:
+            return self._requirementsHash[filepath]
+
+        file_hash = self._getFileHash(filepath)
+        self._requirementsHash[filepath] = file_hash
+        return file_hash
 
     def _getFileHash(self, filepath):
         """Get MD5 hash of file"""
         try:
+            hash_md5 = hashlib.md5()
             with open(filepath, "rb") as f:
-                return hashlib.md5(f.read()).hexdigest()
-        except:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hash_md5.update(chunk)
+            return hash_md5.hexdigest()
+        except Exception as e:
+            logging.warning(f"Failed to hash file {filepath}: {e}")
             return None
-
-    def _getCurrentVersions(self):
-        """Get versions of critical packages"""
-        versions = {}
-        criticalPackages = {
-            "torch": lambda: __import__("torch").__version__,
-            "torchvision": lambda: __import__("torchvision").__version__,
-            "numpy": lambda: __import__("numpy").__version__,
-            "basswood-av": lambda: __import__("bv").__version__,
-        }
-
-        for pkg, getter in criticalPackages.items():
-            try:
-                versions[pkg] = getter()
-            except ImportError:
-                versions[pkg] = None
-
-        return versions
-
-    def _criticalPackagesChanged(self, cachedVersions):
-        """Check if critical packages have different versions"""
-        currentVersions = self._getCurrentVersions()
-        return currentVersions != cachedVersions
