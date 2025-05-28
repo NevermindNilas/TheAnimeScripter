@@ -141,11 +141,23 @@ class DependencyChecker:
         self._requirementsHash = {}
 
     def needsUpdate(self, requirementsPath):
-        """Check if dependencies need updating - only hash comparison"""
+        """Check if dependencies need updating - hash + torch import check"""
         cache = self._loadCache()
 
         currentHash = self._getFileHashCached(requirementsPath)
-        return currentHash != cache.get("requirements_hash")
+
+        # If hash differs, definitely need update
+        if currentHash != cache.get("requirements_hash"):
+            return True
+
+        # Hash matches, but verify torch actually works
+        try:
+            import torch
+
+            return False  # Should imply that dependencies are up-to-date, if not broken
+        except ImportError:
+            logging.info("Hash matches but torch import failed, triggering pip install")
+            return True  # Torch broken or not present, need to install dependencies
 
     def updateCache(self, requirementsPath):
         """Update cache after successful installation"""
