@@ -214,7 +214,7 @@ class VideoProcessor:
             if self.interpolate:
                 if self.isSceneChange:
                     frame = self.upscale_process(frame)
-                    for _ in range(self.framesToInsert):
+                    for _ in range(self.framesToInsert + 1):
                         self.writeBuffer.write(frame)
                 else:
                     while not self.interpQueue.empty():
@@ -242,7 +242,7 @@ class VideoProcessor:
 
         if self.interpolate:
             if self.isSceneChange:
-                for _ in range(self.framesToInsert):
+                for _ in range(self.framesToInsert + 1):
                     self.writeBuffer.write(frame)
                 self.interpolate_process.cacheFrameReset(frame)
             else:
