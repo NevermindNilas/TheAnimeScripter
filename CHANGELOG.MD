@@ -4,7 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - YYYY-MM-DD
+## [2.2.2] - 2025-05-30
+### Adobe Edition
+#### Fixed
+- Double render issues with precomps
+- WorkArea wasn't properly set if the work area was out of boundaries
+- No warning if no layer is selected with ' Extract Depth Map ' and ' Remove Background '
+
+
+## [2.2.1] - 2025-05-28
 #### Added
 - Restore method `gater3` | `gater3-directml`, special thanks to @umzi2 ( tensorrt and cuda under investigation )
 - Added experimental `scunet-tensorrt` backend ( VERY VRAM HUNGRY! )
