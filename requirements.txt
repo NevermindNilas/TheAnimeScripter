@@ -5,6 +5,6 @@ inquirer==3.4.0
 colored==2.3.0
 flask==3.1.1
 rich==14.0.0
-rich-argparse==1.7.0
+rich-argparse==1.7.1
 basswood-av==15.1.2
 wheel-stub==0.4.2
