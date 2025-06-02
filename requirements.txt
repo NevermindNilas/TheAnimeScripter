@@ -1,4 +1,4 @@
-setuptools==80.7.1
+setuptools==80.9.0
 psutil==7.0.0
 requests==2.32.3
 inquirer==3.4.0
