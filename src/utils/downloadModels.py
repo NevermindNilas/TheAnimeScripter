@@ -4,10 +4,7 @@ from .coloredPrints import green, yellow
 from src.utils.progressBarLogic import ProgressBarDownloadLogic
 import src.constants as cs
 
-if cs.SYSTEM == "Windows":
-    weightsDir = os.path.join(cs.MAINPATH, "weights")
-else:
-    weightsDir = os.path.join(cs.MAINPATH, "weights")
+weightsDir = os.path.join(cs.MAINPATH, "weights")
 
 TASURL = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
 
