@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [Unreleased] - yyyy-mm-dd
+#### Added
+- N/A
+
+#### Changed
+- Switched from yuv420p encoding to rgb24 in order to further minimize CPU usage across the board. This change should imply about a 20% lower CPU usage for a less than 1% performance loss ( peak performance will also be a tiny bit lower )
 
 ## [2.2.2] - 2025-05-30
 ### Adobe Edition
