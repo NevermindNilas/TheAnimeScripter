@@ -158,9 +158,9 @@ class VideoProcessor:
             self.start()
 
     def processFrame(self, frame: any) -> None:
-        # if self.dedup and self.dedup_process(frame):
-        #    self.dedupCount += 1
-        #    return
+        if self.dedup and self.dedup_process(frame):
+            self.dedupCount += 1
+            return
 
         if self.scenechange:
             self.isSceneChange = self.scenechange_process(frame)
