@@ -114,7 +114,7 @@ class GMFSS:
         )
 
     @torch.inference_mode()
-    def __call__(self, frame, interpQueue, interpolationFactor=2):
+    def __call__(self, frame, interpQueue, framesToInsert: int = 2, timesteps=None):
         with torch.cuda.stream(self.stream):
             if self.firstRun is True:
                 self.I0 = self.padFrame(self.processFrame(frame))
@@ -123,13 +123,16 @@ class GMFSS:
 
             self.I1 = self.padFrame(self.processFrame(frame))
 
-            for i in range(interpolationFactor):
+            for i in range(framesToInsert):
+                if timesteps is not None and i < len(timesteps):
+                    t = timesteps[i]
+                else:
+                    t = (i + 1) * 1 / (framesToInsert + 1)
                 timestep = torch.tensor(
-                    [(i + 1) * 1.0 / (self.interpolation_factor + 1)],
+                    [t],
                     dtype=self.dtype,
-                    device=self.device,
+                    device=checker.device,
                 )
-
                 output = self.model(self.I0, self.I1, timestep).to(
                     memory_format=torch.channels_last
                 )
@@ -383,7 +386,7 @@ class GMFSSTensorRT:
         self.processFrame(frame, "I0")
 
     @torch.inference_mode()
-    def __call__(self, frame, interpQueue):
+    def __call__(self, frame, interpQueue, framesToInsert: int = 2, timesteps=None):
         if self.firstRun:
             if self.norm is not None:
                 self.processFrame(frame, "f0")
@@ -393,12 +396,17 @@ class GMFSSTensorRT:
             self.firstRun = False
             return
 
-        self.processFrame(frame, "I1")
-        for i in range(self.interpolateFactor - 1):
-            timestep = torch.tensor(
-                (i + 1) * 1.0 / (self.interpolateFactor + 1),
-                dtype=self.dtype,
-                device=self.device,
+        for i in range(framesToInsert):
+            if timesteps is not None and i < len(timesteps):
+                t = timesteps[i]
+            else:
+                t = (i + 1) * 1 / (framesToInsert + 1)
+
+            timestep = torch.full(
+                (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
+                t,
+                dtype=self.dType,
+                device=checker.device,
             )
 
             self.processFrame(timestep, "timestep")
