@@ -6,9 +6,13 @@ import subprocess
 import src.constants as cs
 
 
-def saveMetadata(metadata):
+def saveMetadata(metadata, videoDataDump=None):
     with open(os.path.join(cs.MAINPATH, "metadata.json"), "w") as jsonFile:
-        json.dump(metadata, jsonFile, indent=4)
+        data = {
+            "metadata": metadata,
+            "FFPROBE DUMP": videoDataDump if videoDataDump else None,
+        }
+        json.dump(data, jsonFile, indent=4)
 
 
 def getVideoMetadata(inputPath, inPoint, outPoint):
@@ -81,6 +85,11 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         fps = float(fpsParts[0]) / float(fpsParts[1])
         duration = float(probeData["format"]["duration"])
         totalFrames = int(videoStream.get("nb_read_packets", 0))
+        # color format and pixel format
+        colorFormat = videoStream.get("pix_fmt", "unknown")
+        pixelFormat = videoStream.get("color_space", "unknown")
+        colorSpace = videoStream.get("color_primaries", "unknown")
+        ColorTRT = videoStream.get("color_trc", "unknown")
 
         if outPoint != 0:
             totalFramesToProcess = int((outPoint - inPoint) * fps)
@@ -93,6 +102,10 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
             "AspectRatio": round(width / height, 2),
             "FPS": round(fps, 2),
             "Codec": videoStream["codec_name"],
+            "ColorFormat": colorFormat,
+            "ColorSpace": colorSpace,
+            "ColorTRT": ColorTRT,
+            "PixelFormat": pixelFormat,
             "Duration": duration,
             "Inpoint": inPoint,
             "Outpoint": outPoint,
@@ -109,6 +122,9 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         AspectRatio: {metadata["AspectRatio"]}
         FPS: {round(fps, 2)}
         Codec: {metadata["Codec"]}
+        ColorFormat: {colorFormat},
+        ColorSpace: {colorSpace},
+        ColorTRTR: {ColorTRT},
         Duration: {duration} seconds
         Inpoint: {inPoint}
         Outpoint: {outPoint}
@@ -117,7 +133,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         Has Audio: {hasAudio}""")
         )
 
-        saveMetadata(metadata)
+        saveMetadata(metadata, videoStream)
         return metadata
 
     except Exception as e:
