@@ -3,7 +3,6 @@ import subprocess
 import os
 import torch
 import numpy as np
-import cv2
 import src.constants as cs
 import bv
 import time
@@ -379,8 +378,14 @@ class WriteBuffer:
                 if filterList:
                     command.extend(["-vf", ",".join(filterList)])
                 command.extend(["-pix_fmt", outputPixFmt])
+                # colorspaceParams = self._buildColorspaceParams()
+                # if colorspaceParams:
+                #    command.extend(colorspaceParams)
             else:
                 command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
+                # colorspaceParams = self._buildColorspaceParams()
+                # if colorspaceParams:
+                #    command.extend(colorspaceParams)
 
         if cs.AUDIO:
             command.extend(self._buildAudioSettings())
@@ -391,6 +396,35 @@ class WriteBuffer:
             command.append(self.output)
 
         return command
+
+    def _buildColorspaceParams(self):
+        """Build colorspace parameters from input metadata"""
+        colorspaceParams = []
+        if not cs.METADATAPATH:
+            return colorspaceParams
+
+        import json
+
+        metadata = json.loads(open(cs.METADATAPATH, "r", encoding="utf-8").read())
+        if not self.grayscale and not self.transparent:
+            colorPrimaries = metadata["metadata"].get("ColorSpace", "unknown")
+            colorTrc = metadata["metadata"].get("ColorTRT", "unknown")
+            colorSpace = metadata["metadata"].get("PixelFormat", "unknown")
+            colorRange = metadata["metadata"].get("ColorRange", "unknown")
+
+            if colorPrimaries != "unknown" and colorPrimaries != "":
+                colorspaceParams.extend(["-color_primaries", colorPrimaries])
+
+            if colorTrc != "unknown" and colorTrc != "":
+                colorspaceParams.extend(["-color_trc", colorTrc])
+
+            if colorSpace != "unknown" and colorSpace != "":
+                colorspaceParams.extend(["-colorspace", colorSpace])
+
+            if colorRange and colorRange != "unknown":
+                colorspaceParams.extend(["-color_range", colorRange])
+
+        return colorspaceParams
 
     def _buildFilterList(self):
         """Build list of video filters based on settings"""
