@@ -13,6 +13,7 @@ SYSTEM: str = ""  # The operating system (default: 'Windows')
 FFMPEGPATH: str = ""  # The path to the FFmpeg executable (default: 'C:\Users\nilas\AppData\Roaming\TheAnimeScripter\ffmpeg.exe')
 FFPROBEPATH: str = ""  # The path to the FFprobe executable (default: 'C:\Users\nilas\AppData\Roaming\TheAnimeScripter\ffprobe.exe')
 MPVPATH: str = ""  # The path to the MPV executable (default: 'C:\Users\nilas\AppData\Roaming\TheAnimeScripter\mpv.exe')
+METADATAPATH: str = ""  # The path to the metadata file (default: 'C:\Users\nilas\AppData\Roaming\TheAnimeScripter\metadata.json')
 
 # Feature flags
 ADOBE: bool = False  # Enables Adobe compatibility (logs progress, frame data to JSON)
