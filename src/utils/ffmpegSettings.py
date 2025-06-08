@@ -559,11 +559,6 @@ class WriteBuffer:
                     )
 
                 frameData = dummyTensor.cpu().numpy()
-                if self.channels == 3 and isEightBit:
-                    frameData = cv2.cvtColor(frameData, cv2.COLOR_RGB2YUV_I420)
-                elif self.channels == 4 and not isEightBit:
-                    raise ValueError("RGBA 10bit encoding is not supported.")
-
                 ffmpegProc.stdin.write(np.ascontiguousarray(frameData))
                 writtenFrames += 1
 

@@ -456,7 +456,7 @@ def getPixFMT(encode_method, bitDepth, grayscale, transparent):
     Return (inputPixFormat, outputPixFormat, encode_method) based on settings.
     """
     if bitDepth == "8bit":
-        defaultInPixFMT = "yuv420p"
+        defaultInPixFMT = "rgb24"
         defaultOutPixFMT = "yuv420p"
     else:
         defaultInPixFMT = "rgb48le"
@@ -479,14 +479,14 @@ def getPixFMT(encode_method, bitDepth, grayscale, transparent):
             outPixFmt = "yuv444p10le"
     elif encode_method in ["x264_10bit", "x265_10bit", "x264_animation_10bit"]:
         if bitDepth == "8bit":
-            inPixFmt = "yuv420p"
+            inPixFmt = "rgb24"
             outPixFmt = "yuv420p10le"
         else:
             inPixFmt = "rgb48le"
             outPixFmt = "yuv420p10le"
     elif encode_method in ["nvenc_h264"]:
         if bitDepth == "8bit":
-            inPixFmt = "yuv420p"
+            inPixFmt = "rgb24"
             outPixFmt = "yuv420p"
         else:
             logAndPrint(
@@ -502,14 +502,14 @@ def getPixFMT(encode_method, bitDepth, grayscale, transparent):
         "qsv_h265_10bit",
     ]:
         if bitDepth == "8bit":
-            inPixFmt = "yuv420p"
+            inPixFmt = "rgb24"
             outPixFmt = "p010le"
         else:
             inPixFmt = "rgb48le"
             outPixFmt = "p010le"
     elif encode_method in ["prores"]:
         if bitDepth == "8bit":
-            inPixFmt = "yuv420p"
+            inPixFmt = "rgb24"
             outPixFmt = "yuv444p10le"
         else:
             inPixFmt = "rgb48le"
@@ -517,7 +517,7 @@ def getPixFMT(encode_method, bitDepth, grayscale, transparent):
 
     elif encode_method in "png":
         if bitDepth == "8bit":
-            inPixFmt = "yuv420p"
+            inPixFmt = "rgb24"
             outPixFmt = "rgb24"
         else:
             inPixFmt = "rgb48le"
