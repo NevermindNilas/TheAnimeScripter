@@ -7,12 +7,15 @@ import src.constants as cs
 
 
 def saveMetadata(metadata, videoDataDump=None):
-    with open(os.path.join(cs.MAINPATH, "metadata.json"), "w") as jsonFile:
+    metadataPath = os.path.join(cs.MAINPATH, "metadata.json")
+    with open(metadataPath, "w") as jsonFile:
         data = {
             "metadata": metadata,
             "FFPROBE DUMP": videoDataDump if videoDataDump else None,
         }
         json.dump(data, jsonFile, indent=4)
+
+    cs.METADATAPATH = metadataPath
 
 
 def getVideoMetadata(inputPath, inPoint, outPoint):
@@ -85,11 +88,11 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         fps = float(fpsParts[0]) / float(fpsParts[1])
         duration = float(probeData["format"]["duration"])
         totalFrames = int(videoStream.get("nb_read_packets", 0))
-        # color format and pixel format
         colorFormat = videoStream.get("pix_fmt", "unknown")
         pixelFormat = videoStream.get("color_space", "unknown")
         colorSpace = videoStream.get("color_primaries", "unknown")
-        ColorTRT = videoStream.get("color_trc", "unknown")
+        ColorTRT = videoStream.get("color_transfer", "unknown")
+        ColorRange = videoStream.get("color_range", "unknown")
 
         if outPoint != 0:
             totalFramesToProcess = int((outPoint - inPoint) * fps)
@@ -102,6 +105,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
             "AspectRatio": round(width / height, 2),
             "FPS": round(fps, 2),
             "Codec": videoStream["codec_name"],
+            "ColorRange": ColorRange,
             "ColorFormat": colorFormat,
             "ColorSpace": colorSpace,
             "ColorTRT": ColorTRT,
@@ -122,6 +126,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         AspectRatio: {metadata["AspectRatio"]}
         FPS: {round(fps, 2)}
         Codec: {metadata["Codec"]}
+        ColorRange: {ColorRange}
         ColorFormat: {colorFormat},
         ColorSpace: {colorSpace},
         ColorTRTR: {ColorTRT},
