@@ -149,32 +149,32 @@ def installVapourSynthPlugins():
     except Exception as e:
         print(f"Error updating vsrepo: {e}")
 
-    print("Installing ffms2 plugin...")
+    print("Installing bestsource plugin...")
     try:
         result = subprocess.run(
-            [str(pythonExe), str(vsrepoScript), "install", "ffms2"],
+            [str(pythonExe), str(vsrepoScript), "install", "bestsource"],
             cwd=portablePythonDir,
             env=env,
             capture_output=True,
             text=True,
         )
         if result.returncode == 0:
-            print("ffms2 plugin installed successfully!")
+            print("bestsource plugin installed successfully!")
         else:
-            print(f"ffms2 installation failed: {result.stderr}")
+            print(f"bestsource installation failed: {result.stderr}")
             print("Trying alternative installation method...")
             try:
                 subprocess.run(
-                    [str(pythonExe), str(vsrepoScript), "install", "-f", "ffms2"],
+                    [str(pythonExe), str(vsrepoScript), "install", "-f", "bestsource"],
                     cwd=portablePythonDir,
                     env=env,
                     check=True,
                 )
-                print("ffms2 plugin installed successfully with force flag!")
+                print("bestsource plugin installed successfully with force flag!")
             except Exception as e2:
                 print(f"Alternative installation also failed: {e2}")
     except Exception as e:
-        print(f"Error installing ffms2 plugin: {e}")
+        print(f"Error installing bestsource plugin: {e}")
 
     print("VapourSynth plugins installation complete!")
 
