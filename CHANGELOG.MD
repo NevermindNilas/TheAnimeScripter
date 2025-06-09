@@ -10,7 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 #### Changed
 - Switched from yuv420p encoding to rgb24 in order to further minimize CPU usage across the board. This change should imply about a 20% lower CPU usage for a less than 1% performance loss ( peak performance will also be a tiny bit lower ).
 - Upgraded TensorRT to `10.11`
-
+- Upgraded Pytorch to `2.7.1`
+- Upgraded Torchvision to `0.22.1`
+  
 #### Fixed
 - Fixed issues with GMFSS.
 
