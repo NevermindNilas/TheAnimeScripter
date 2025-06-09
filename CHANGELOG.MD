@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   
 #### Fixed
 - Fixed issues with GMFSS.
+- Fixed issues with Scunet-TensorRT
 
 ## [2.2.2] - 2025-05-30
 ### Adobe Edition
