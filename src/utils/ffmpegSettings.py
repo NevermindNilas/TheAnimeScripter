@@ -2,15 +2,20 @@ import logging
 import subprocess
 import os
 import torch
-import numpy as np
 import src.constants as cs
-import bv
+import numpy as np
 import time
 
 from queue import Queue
 from torch.nn import functional as F
 from src.utils.encodingSettings import matchEncoder, getPixFMT
 from .isCudaInit import CudaChecker
+
+import vapoursynth as vs
+
+vsCore = vs.core
+# threads
+vsCore.num_threads = 4
 
 checker = CudaChecker()
 
@@ -52,6 +57,7 @@ class BuildBuffer:
         self.resize = resize
         self.isFinished = False
         self.bitDepth = bitDepth
+        self.videoInput = os.path.normpath(videoInput)
 
         self.inputFramePoint = round(inpoint * fps)
         self.outputFramePoint = round(outpoint * fps)
@@ -63,22 +69,6 @@ class BuildBuffer:
             logging.info(
                 f"Decoding frames from {self.inputFramePoint} to {self.outputFramePoint}"
             )
-        try:
-            self.reader = bv.open(
-                videoInput,
-            )
-
-            if inpoint > 0 and outpoint != 0:
-                self.reader.seek(
-                    int(inpoint * 1000000),
-                    stream=self.reader.streams.video[0],
-                    backward=True,
-                    any_frame=False,
-                )
-
-        except Exception as e:
-            logging.error(f"Failed to open video: {e}")
-            raise
 
         if checker.cudaAvailable:
             self.deviceType = "cuda"
@@ -94,30 +84,17 @@ class BuildBuffer:
         decodedFrames = 0
 
         try:
-            stream = self.reader.streams.video[0]
-            stream.thread_type = "AUTO"
+            clip = vsCore.bs.VideoSource(
+                self.videoInput,
+            )
 
-            frameGen = self.reader.decode(video=0)
+            clip = vs.core.resize.Bicubic(clip, format=vs.RGBH, matrix_in_s="709")
 
-            for frameIdx, frame in enumerate(frameGen):
-                if self.inputFramePoint != 0 or self.outputFramePoint != 0:
-                    if self.inputFramePoint + frameIdx >= self.outputFramePoint:
-                        break
-
-                if self.resize:
-                    frame = frame.reformat(self.width, self.height)
-
-                # if self.bitDepth == "8bit":
-                #    frameArray = frame.to_ndarray(format="rgb24")
-                # elif self.bitDepth == "16bit":
-                #    frameArray = frame.to_ndarray(format="rgb48")
-                frameArray = frame.to_ndarray(format="rgb24")
-
-                processedFrame = self.processFrame(
-                    frameArray, self.normStream if checker.cudaAvailable else None
+            for frame in clip.frames():
+                frame = self.processFrame(
+                    frame, self.normStream if checker.cudaAvailable else None
                 )
-
-                self.decodeBuffer.put(processedFrame)
+                self.decodeBuffer.put(frame)
                 decodedFrames += 1
 
         except Exception as e:
@@ -147,23 +124,26 @@ class BuildBuffer:
         Processes a single frame with optimized memory handling.
 
         Args:
-            frame: The frame to process as numpy array.
+            frame: The frame to process as VapourSynth frame.
             normStream: The CUDA stream for normalization (if applicable).
 
         Returns:
             The processed frame as a torch tensor.
         """
-        frameTensor = torch.from_numpy(frame)
-        multiply = 1 / 255.0 if frameTensor.dtype == torch.uint8 else 1 / 65535.0
+        frame = torch.stack(
+            [
+                torch.from_numpy(np.array(frame[plane]))
+                for plane in range(frame.format.num_planes)
+            ]
+        )
+        # multiply = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
         dtype = torch.float16 if self.half else torch.float32
-
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
                 result = (
-                    frameTensor.to(device="cuda", non_blocking=True, dtype=dtype)
-                    .mul(multiply)
+                    frame.to(device="cuda", non_blocking=True, dtype=dtype)
+                    # .mul(multiply)
                     .clamp(0, 1)
-                    .permute(2, 0, 1)
                     .unsqueeze(0)
                     .contiguous()
                 )
@@ -171,14 +151,7 @@ class BuildBuffer:
             normStream.synchronize()
             return result
         else:
-            return (
-                frameTensor.mul(multiply)
-                .clamp(0, 1)
-                .permute(2, 0, 1)
-                .unsqueeze(0)
-                .to(dtype=dtype)
-                .contiguous()
-            )
+            return frame.clamp(0, 1).unsqueeze(0).to(dtype=dtype).contiguous()
 
     def read(self):
         """
