@@ -15,7 +15,8 @@ else:
     raise FileNotFoundError("No requirements file found in the base directory.")
 
 portablePythonDir = baseDir / "portable-python"
-pythonVersion = "3.13.3"  # Hardcoded version
+pythonVersion = "3.13.3"
+vapourSynthVersion = "R72"
 
 
 def runSubprocess(command, shell=False, cwd=None):
@@ -68,6 +69,114 @@ def downloadPortablePython():
 
     print("Portable Python installation complete!")
     return portablePythonDir / "python.exe"
+
+
+def downloadAndInstallVapourSynth():
+    """Download and install VapourSynth into the portable Python"""
+    print(f"Downloading VapourSynth {vapourSynthVersion}...")
+
+    vapourSynthUrl = f"https://github.com/vapoursynth/vapoursynth/releases/download/{vapourSynthVersion}/VapourSynth64-Portable-{vapourSynthVersion}.zip"
+    vapourSynthZip = portablePythonDir / "vapoursynth.zip"
+
+    if not vapourSynthZip.exists():
+        print("Downloading VapourSynth portable package...")
+        urllib.request.urlretrieve(vapourSynthUrl, vapourSynthZip)
+
+    print("Extracting VapourSynth into Python directory...")
+    with zipfile.ZipFile(vapourSynthZip, "r") as zipRef:
+        zipRef.extractall(portablePythonDir)
+
+    print("Installing VapourSynth wheel...")
+    pipExe = portablePythonDir / "Scripts" / "pip.exe"
+    wheelDir = portablePythonDir / "wheel"
+
+    python313Wheels = list(wheelDir.glob("*cp313*.whl"))
+    if python313Wheels:
+        wheelFile = python313Wheels[0]
+        print(f"Installing wheel: {wheelFile.name}")
+        runSubprocess([str(pipExe), "install", str(wheelFile)])
+    else:
+        print("Warning: No Python 3.13 wheel found in the wheel directory")
+
+    if vapourSynthZip.exists():
+        os.remove(vapourSynthZip)
+        print("Removed VapourSynth zip file")
+
+    print("VapourSynth installation complete!")
+
+
+def installVapourSynthPlugins():
+    """Install VapourSynth plugins using vsrepo"""
+    print("Installing VapourSynth plugins...")
+
+    pythonExe = portablePythonDir / "python.exe"
+    vsrepoScript = portablePythonDir / "vsrepo.py"
+
+    if not vsrepoScript.exists():
+        print("Warning: vsrepo.py not found, skipping plugin installation")
+        return
+
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(portablePythonDir / "Lib" / "site-packages")
+
+    print("Testing VapourSynth installation...")
+    try:
+        runSubprocess(
+            [
+                str(pythonExe),
+                "-c",
+                "import vapoursynth; print('VapourSynth detected successfully')",
+            ],
+            cwd=portablePythonDir,
+        )
+    except Exception as e:
+        print(f"Warning: VapourSynth module test failed: {e}")
+        print("Attempting to continue with plugin installation...")
+
+    print("Updating vsrepo...")
+    try:
+        result = subprocess.run(
+            [str(pythonExe), str(vsrepoScript), "update"],
+            cwd=portablePythonDir,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            print("vsrepo updated successfully!")
+        else:
+            print(f"vsrepo update failed: {result.stderr}")
+    except Exception as e:
+        print(f"Error updating vsrepo: {e}")
+
+    print("Installing bestsource plugin...")
+    try:
+        result = subprocess.run(
+            [str(pythonExe), str(vsrepoScript), "install", "bestsource"],
+            cwd=portablePythonDir,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            print("bestsource plugin installed successfully!")
+        else:
+            print(f"bestsource installation failed: {result.stderr}")
+            print("Trying alternative installation method...")
+            try:
+                subprocess.run(
+                    [str(pythonExe), str(vsrepoScript), "install", "-f", "bestsource"],
+                    cwd=portablePythonDir,
+                    env=env,
+                    check=True,
+                )
+                print("bestsource plugin installed successfully with force flag!")
+            except Exception as e2:
+                print(f"Alternative installation also failed: {e2}")
+    except Exception as e:
+        print(f"Error installing bestsource plugin: {e}")
+
+    print("VapourSynth plugins installation complete!")
 
 
 def installRequirements():
@@ -147,14 +256,19 @@ def cleanupTempFiles():
         "python.zip",
         "get-pip.py",
         "license.txt",
+        "wheel",
     ]
     for tempFile in tempFiles:
-        tempFile = bundleDir / tempFile
-        if tempFile.exists():
-            os.remove(tempFile)
-            print(f"Removed {tempFile}")
+        tempFilePath = bundleDir / tempFile
+        if tempFilePath.exists():
+            if tempFilePath.is_dir():
+                shutil.rmtree(tempFilePath)
+                print(f"Removed directory {tempFilePath}")
+            else:
+                os.remove(tempFilePath)
+                print(f"Removed {tempFilePath}")
         else:
-            print(f"{tempFile} does not exist, skipping removal.")
+            print(f"{tempFilePath} does not exist, skipping removal.")
 
 
 def removePortablePython():
@@ -172,9 +286,12 @@ if __name__ == "__main__":
         shutil.rmtree(distPath)
     os.makedirs(distPath, exist_ok=True)
     pythonExe = downloadPortablePython()
+    downloadAndInstallVapourSynth()
     installRequirements()
+    installVapourSynthPlugins()
     bundleFiles()
     moveExtras()
     cleanupTempFiles()
     removePortablePython()
     print("Bundle process completed successfully!")
+    print(f"Portable bundle is ready at {distPath / 'main'}")
