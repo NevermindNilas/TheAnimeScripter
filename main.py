@@ -326,8 +326,6 @@ class VideoProcessor:
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                totalFrames=self.totalFrames,
-                fps=self.fps,
                 half=self.half,
                 resize=self.resize,
                 width=self.width,

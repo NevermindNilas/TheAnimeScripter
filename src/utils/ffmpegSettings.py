@@ -26,28 +26,27 @@ class BuildBuffer:
         videoInput: str = "",
         inpoint: float = 0.0,
         outpoint: float = 0.0,
-        totalFrames: int = 0,
-        fps: float = 0,
         half: bool = True,
         resize: bool = False,
         width: int = 1920,
         height: int = 1080,
         bitDepth: str = "8bit",
+        toTorch: bool = True,
     ):
         """
         Initializes the BuildBuffer class.
 
         Args:
-            videoInput (str): Path to the video input file.
-            inpoint (float): The starting point in seconds for decoding.
-            outpoint (float): The ending point in seconds for decoding.
-            totalFrames (int): The total number of frames in the video.
-            fps (float): Frames per second of the video.
-            half (bool): Whether to use half precision for decoding.
+            videoInput (str): Path to the input video file.
+            inpoint (float): Start time of the segment to decode, in seconds.
+            outpoint (float): End time of the segment to decode, in seconds.
+            half (bool): Whether to use half precision (float16) for tensors.
             resize (bool): Whether to resize the frames.
-            width (int): Width to resize frames to.
-            height (int): Height to resize frames to.
-            bitDepth (str): Bit depth of the video. Options are "8bit" or "16bit".
+            width (int): Width of the output frames.
+            height (int): Height of the output frames.
+            bitDepth (str): Bit depth of the output frames, e.g., "8bit" or "10bit".
+            toTorch (bool): Whether to convert frames to torch tensors.
+
         """
         self.half = half
         self.decodeBuffer = Queue(maxsize=20)
@@ -58,17 +57,10 @@ class BuildBuffer:
         self.isFinished = False
         self.bitDepth = bitDepth
         self.videoInput = os.path.normpath(videoInput)
-
-        self.inputFramePoint = round(inpoint * fps)
-        self.outputFramePoint = round(outpoint * fps)
+        self.toTorch = toTorch
 
         if not os.path.exists(videoInput):
             raise FileNotFoundError(f"Video file not found: {videoInput}")
-
-        if self.inputFramePoint != 0 and self.outputFramePoint != 0:
-            logging.info(
-                f"Decoding frames from {self.inputFramePoint} to {self.outputFramePoint}"
-            )
 
         if checker.cudaAvailable:
             self.deviceType = "cuda"
@@ -88,12 +80,31 @@ class BuildBuffer:
                 self.videoInput,
             )
 
-            clip = vs.core.resize.Bicubic(clip, format=vs.RGBH, matrix_in_s="709")
+            if self.half:
+                clip = vs.core.resize.Bicubic(
+                    clip,
+                    width=self.width,
+                    height=self.height,
+                    format=vs.RGBH,
+                    matrix_in_s="709",
+                )
+            else:
+                clip = vs.core.resize.Bicubic(
+                    clip,
+                    width=self.width,
+                    height=self.height,
+                    format=vs.RGBS,
+                    matrix_in_s="709",
+                )
 
             for frame in clip.frames():
-                frame = self.processFrame(
-                    frame, self.normStream if checker.cudaAvailable else None
-                )
+                if self.toTorch:
+                    frame = self.processFrameToTorch(
+                        frame, self.normStream if checker.cudaAvailable else None
+                    )
+                else:
+                    frame = self.processFrameToNumpy(frame)
+
                 self.decodeBuffer.put(frame)
                 decodedFrames += 1
 
@@ -119,7 +130,24 @@ class BuildBuffer:
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
 
-    def processFrame(self, frame, normStream=None):
+    def processFrameToNumpy(self, frame):
+        """
+        Processes a single frame and converts it to a numpy array.
+
+        Args:
+            frame: The frame to process as VapourSynth frame.
+
+        Returns:
+            The processed frame as a numpy array.
+        """
+        planes = [
+            np.array(frame[plane], copy=False)
+            for plane in range(frame.format.num_planes)
+        ]
+
+        return np.stack(planes, axis=-1).astype(np.float32)
+
+    def processFrameToTorch(self, frame, normStream=None):
         """
         Processes a single frame with optimized memory handling.
 
@@ -136,13 +164,11 @@ class BuildBuffer:
                 for plane in range(frame.format.num_planes)
             ]
         )
-        # multiply = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
         dtype = torch.float16 if self.half else torch.float32
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
                 result = (
                     frame.to(device="cuda", non_blocking=True, dtype=dtype)
-                    # .mul(multiply)
                     .clamp(0, 1)
                     .unsqueeze(0)
                     .contiguous()
