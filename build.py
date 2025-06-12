@@ -227,6 +227,10 @@ def bundleFiles():
         baseDir / "extra-requirements-windows-lite.txt",
         bundleDir / "extra-requirements-windows-lite.txt",
     )
+    shutil.copy(
+        baseDir / "deprecated-requirements.txt",
+        bundleDir / "deprecated-requirements.txt",
+    )
 
     print(f"Portable bundle created at {bundleDir}")
 

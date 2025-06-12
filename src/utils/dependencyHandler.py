@@ -4,11 +4,10 @@ import os
 import logging
 import src.constants as cs
 import json
-import time
 import hashlib
 
 from pathlib import Path
-from typing import Tuple, Dict, Optional
+from typing import Tuple
 from src.utils.logAndPrint import logAndPrint
 
 
@@ -76,7 +75,7 @@ def uninstallDependencies(extension: str = "") -> Tuple[bool, str]:
         return False, errorMsg
 
 
-def installDependencies(extension: str = "") -> Tuple[bool, str]:
+def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[bool, str]:
     """
     Install dependencies from extra-requirements-windows.txt if it exists
 
@@ -124,6 +123,14 @@ def installDependencies(extension: str = "") -> Tuple[bool, str]:
             logging.error(errorMsg)
             print(errorMsg)
             return False, errorMsg
+
+        """
+        if isNvidia:
+            success, message = _installTensorRTRTX()
+            if not success:
+                logAndPrint(message, "red")
+                raise RuntimeError(f"Failed to install TensorRT/RTX: {message}")
+        """
 
         return True, "Successfully installed dependencies from requirements file"
 
@@ -189,8 +196,10 @@ class DependencyChecker:
 
         requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, requirementsFile)
 
+        self.uninstallDeprecatedDependencies()
+
         logAndPrint("Forcing full dependency download...", "yellow")
-        success, message = installDependencies(requirementsFile)
+        success, message = installDependencies(requirementsFile, isNvidia=isNvidia)
 
         if not success:
             logAndPrint(message, "red")
@@ -238,3 +247,74 @@ class DependencyChecker:
         except Exception as e:
             logging.warning(f"Failed to hash file {filepath}: {e}")
             return None
+
+    def uninstallDeprecatedDependencies(self):
+        """
+        Uninstall deprecated dependencies from deprecated-requirements.txt
+        """
+        deprecatedRequirementsFile = "deprecated-requirements.txt"
+        deprecatedRequirementsPath = os.path.join(
+            cs.WHEREAMIRUNFROM, deprecatedRequirementsFile
+        )
+
+        if not os.path.exists(deprecatedRequirementsPath):
+            logAndPrint(
+                f"Deprecated requirements file not found: {deprecatedRequirementsPath}",
+                "yellow",
+            )
+            return True  # Not an error if file doesn't exist
+
+        logAndPrint("Uninstalling deprecated dependencies...", "yellow")
+        success, message = uninstallDependencies(deprecatedRequirementsFile)
+
+        if not success:
+            logAndPrint(
+                f"Failed to uninstall deprecated dependencies: {message}", "red"
+            )
+            return False
+        else:
+            logAndPrint("Successfully uninstalled deprecated dependencies", "green")
+            return True
+
+
+def uninstallDeprecatedDependenciesStandalone() -> Tuple[bool, str]:
+    """
+    Standalone function to uninstall deprecated dependencies from deprecated-requirements.txt
+
+    Returns:
+        Tuple[bool, str]: Success status and message
+    """
+    checker = DependencyChecker()
+    try:
+        success = checker.uninstallDeprecatedDependencies()
+        if success:
+            return True, "Successfully uninstalled deprecated dependencies"
+        else:
+            return False, "Failed to uninstall deprecated dependencies"
+    except Exception as e:
+        errorMsg = f"Error during deprecated dependencies uninstall: {str(e)}"
+        logging.error(errorMsg)
+        return False, errorMsg
+
+
+def _installTensorRTRTX() -> Tuple[bool, str]:
+    """Install TensorRT and RTX dependencies if not already installed.
+    Returns:
+        Tuple[bool, str]: Success status and message
+    """
+    from src.utils.downloadModels import downloadTensorRTRTX
+
+    logAndPrint("Installing TensorRT and RTX dependencies...", "yellow")
+    try:
+        success = downloadTensorRTRTX()
+        if not success:
+            logAndPrint("Failed to install TensorRT/RTX:", "red")
+            return False, "Failed to install TensorRT/RTX"
+        else:
+            logAndPrint("Successfully installed TensorRT/RTX", "green")
+            return True, "Successfully installed TensorRT/RTX"
+    except Exception as e:
+        errorMsg = f"Error installing TensorRT/RTX: {str(e)}"
+        logging.error(errorMsg)
+        logAndPrint(errorMsg, "red")
+        return False, errorMsg

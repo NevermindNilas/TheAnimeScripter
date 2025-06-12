@@ -714,7 +714,7 @@ def _handleDependencies(args):
 
         if checker.needsUpdate(requirementsPath):
             logAndPrint("Dependencies need updating...", "yellow")
-            success, message = installDependencies(extension)
+            success, message = installDependencies(extension, isNvidia=isNvidia)
             if not success:
                 logAndPrint(message, "red")
                 sys.exit()
@@ -725,7 +725,7 @@ def _handleDependencies(args):
             logging.info("Dependencies are up to date")
 
     except ImportError:
-        success, message = installDependencies(extension)
+        success, message = installDependencies(extension, isNvidia=isNvidia)
         if not success:
             logAndPrint(message, "red")
             sys.exit()

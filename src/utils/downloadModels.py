@@ -740,3 +740,139 @@ def downloadModels(
         fullUrl = f"{TASURL}{filename}"
 
     return downloadAndLog(model, filename, fullUrl, folderPath)
+
+
+def downloadTensorRTRTX(retries: int = 3) -> bool:
+    """
+    Downloads tensorrt_rtx.zip from GitHub, extracts it to WHEREAMIRUNFROM directory,
+    and adds include/lib directories to PATH if they exist.
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    import requests
+    import zipfile
+
+    tensorrt_url = f"{TASURL}tensorrt_rtx.zip"
+    extract_path = cs.WHEREAMIRUNFROM
+
+    if not extract_path:
+        logging.error("WHEREAMIRUNFROM constant is not set")
+        return False
+
+    tensorrt_dir = os.path.join(extract_path, "TensorRT-RTX")
+
+    if os.path.exists(tensorrt_dir) and os.listdir(tensorrt_dir):
+        toLog = f"TensorRT RTX already exists at: {tensorrt_dir}"
+        logging.info(toLog)
+        print(green(toLog))
+
+        include_dir = None
+        lib_dir = None
+
+        for root, dirs, files in os.walk(tensorrt_dir):
+            if "include" in dirs and include_dir is None:
+                include_dir = os.path.join(root, "include")
+            if "lib" in dirs and lib_dir is None:
+                lib_dir = os.path.join(root, "lib")
+
+        dirs_to_add = [d for d in [include_dir, lib_dir] if d and os.path.exists(d)]
+
+        for dir_path in dirs_to_add:
+            current_path = os.environ.get("PATH", "")
+            if dir_path not in current_path:
+                os.environ["PATH"] = dir_path + os.pathsep + current_path
+                logging.info(f"Added {dir_path} to PATH")
+
+        return True
+
+    temp_folder = os.path.join(extract_path, "TEMP")
+    os.makedirs(temp_folder, exist_ok=True)
+
+    for attempt in range(retries):
+        try:
+            toLog = f"Downloading TensorRT RTX... (Attempt {attempt + 1}/{retries})"
+            logging.info(toLog)
+            print(yellow(toLog))
+
+            response = requests.get(tensorrt_url, stream=True)
+            response.raise_for_status()
+
+            try:
+                total_size_in_bytes = int(response.headers.get("content-length", 0))
+                total_size_in_mb = total_size_in_bytes / (1024 * 1024)
+            except Exception as e:
+                total_size_in_bytes = 0
+                total_size_in_mb = 0
+                logging.error(e)
+
+            temp_file_path = os.path.join(temp_folder, "tensorrt_rtx.zip")
+
+            downloaded_bytes = 0
+            logged_percentages = set()
+
+            with ProgressBarDownloadLogic(
+                int(total_size_in_mb + 1),
+                title=f"Downloading TensorRT RTX... (Attempt {attempt + 1}/{retries})",
+            ) as bar:
+                with open(temp_file_path, "wb") as file:
+                    for data in response.iter_content(chunk_size=1024 * 1024):
+                        file.write(data)
+                        downloaded_bytes += len(data)
+                        bar(int(len(data) / (1024 * 1024)))
+
+                        if total_size_in_bytes > 0:
+                            current_mb = downloaded_bytes / (1024 * 1024)
+                            current_percentage = int(
+                                (downloaded_bytes / total_size_in_bytes) * 100
+                            )
+
+                            for milestone in [20, 40, 60, 80, 100]:
+                                if (
+                                    current_percentage >= milestone
+                                    and milestone not in logged_percentages
+                                ):
+                                    logging.info(
+                                        f"Downloaded {milestone}% of TensorRT RTX - {current_mb:.2f}/{total_size_in_mb:.2f} MB"
+                                    )
+                                    logged_percentages.add(milestone)
+
+            with zipfile.ZipFile(temp_file_path, "r") as zip_ref:
+                zip_ref.extractall(extract_path)
+
+            os.remove(temp_file_path)
+
+            try:
+                os.rmdir(temp_folder)
+            except OSError:
+                pass
+
+            toLog = f"Downloaded and extracted TensorRT RTX to: {extract_path}"
+            logging.info(toLog)
+            print(green(toLog))
+
+            lib_dir = None
+
+            for root, dirs, files in os.walk(extract_path):
+                if "lib" in dirs and lib_dir is None:
+                    lib_dir = os.path.join(root, "lib")
+
+            dirs_to_add = [d for d in [lib_dir] if d and os.path.exists(d)]
+
+            for dir_path in dirs_to_add:
+                current_path = os.environ.get("PATH", "")
+                if dir_path not in current_path:
+                    os.environ["PATH"] = dir_path + os.pathsep + current_path
+                    logging.info(f"Added {dir_path} to PATH")
+
+            return True
+
+        except (requests.exceptions.RequestException, zipfile.BadZipFile) as e:
+            logging.error(f"Error during TensorRT RTX download: {e}")
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            if attempt == retries - 1:
+                logging.error("Failed to download TensorRT RTX after all retries")
+                return False
+
+    return False
