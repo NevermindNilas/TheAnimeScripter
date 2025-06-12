@@ -22,6 +22,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Fixed a bug where AMD / Intel GPU users would default to full dependencies esentially downloading more than they actually needed.
 
 ### Adobe Edition
+#### New
+- Added dynamic output examples to the `Upscale` and `Depth` Settings.
+
+#### Changed
+- Renamed `NVIDIA GTX GPUs` sections to simply `NVIDIA GPUs`
+- Added `CUDA` extension wherever approapiate.
+
+#### Fixed
 - N/A
 
 ## [2.2.2] - 2025-05-30
