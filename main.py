@@ -386,16 +386,6 @@ class VideoProcessor:
 
 def main():
     try:
-        dirs = [
-            r"C:\Users\nilas\Downloads\TensorRT-RTX-1.0.0.21.Windows.win10.cuda-12.9\TensorRT-RTX-1.0.0.21\include",
-            r"C:\Users\nilas\Downloads\TensorRT-RTX-1.0.0.21.Windows.win10.cuda-12.9\TensorRT-RTX-1.0.0.21\lib",
-        ]
-        for dir in dirs:
-            if os.path.exists(dir):
-                currentPath = os.environ.get("PATH", "")
-                if dir not in currentPath:
-                    os.environ["PATH"] = dir + os.pathsep + currentPath
-
         cs.SYSTEM = system()
         cs.MAINPATH = (
             os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
