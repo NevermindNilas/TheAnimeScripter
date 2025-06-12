@@ -6,16 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - yyyy-mm-dd
 #### Added
 - A whole decoding backend migration to `Vapoursynth` including better I/O Support (WIP!!!)
+- Added support for automatic deprecated dependencies removal, see more in `deprecated-requirements.txt` & `src.utils.DependencyHandler`
 
 #### Changed
-- Switched from yuv420p encoding to rgb24 in order to further minimize CPU usage across the board. This change should imply about a 5% lower CPU usage across the board.e
+- Switched from yuv420p encoding to rgb24 in order to further minimize CPU usage across the board. This change should imply about a 5% lower CPU usage across the board with minal loss to performance.
 - Upgraded TensorRT to `10.11`
 - Upgraded Pytorch to `2.7.1`
 - Upgraded Torchvision to `0.22.1`
+- More error handling around handle dependencies
+- Migrated from `Basswood-AV` -> `Vapoursynth`, this should bring with it faster performance and better I/O handling. I am entertaining the idea of using a full Vapoursynth workflow ( through `vspipe` ) although personal benchmarks show up to `2x` lower performance in upscaling - cuda.
   
 #### Fixed
 - Fixed issues with GMFSS.
 - Fixed issues with Scunet-TensorRT
+- Fixed a bug where AMD / Intel GPU users would default to full dependencies esentially downloading more than they actually needed.
+
+### Adobe Edition
+- N/A
 
 ## [2.2.2] - 2025-05-30
 ### Adobe Edition

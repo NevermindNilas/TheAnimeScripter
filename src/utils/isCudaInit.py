@@ -6,14 +6,22 @@ class CudaChecker:
         """
         # Lazify the import
         import torch
+        import logging
 
         self.torch = torch
+        self.logging = logging
 
         try:
             self._cuda_available = self.torch.cuda.is_available()
+            if self._cuda_available:
+                self.logging.info(
+                    f"CUDA is available with {self.deviceCount} device(s)"
+                )
+            else:
+                self.logging.info("CUDA is not available")
         except Exception as e:
             self._cuda_available = False
-            print(f"CUDA is not available: {e}")
+            self.logging.warning(f"CUDA is not available: {e}")
 
         if self._cuda_available:
             self.enableCudaOptimizations()
@@ -36,7 +44,13 @@ class CudaChecker:
 
     @property
     def deviceName(self):
-        return self.torch.cuda.get_device_name(0) if self.cudaAvailable else "cpu"
+        if not self.cudaAvailable:
+            return "cpu"
+        try:
+            return self.torch.cuda.get_device_name(0)
+        except (RuntimeError, AssertionError) as e:
+            self.logging.warning(f"Could not get CUDA device name: {e}")
+            return "cuda_device_unknown"
 
     @property
     def deviceCount(self):
@@ -48,12 +62,15 @@ class CudaChecker:
         """Get the names of all available CUDA devices."""
         if not self.cudaAvailable:
             return ["cpu"]
-        return [self.torch.cuda.get_device_name(i) for i in range(self.deviceCount)]
+        try:
+            return [self.torch.cuda.get_device_name(i) for i in range(self.deviceCount)]
+        except (RuntimeError, AssertionError) as e:
+            self.logging.warning(f"Could not get all CUDA device names: {e}")
+            return ["cuda_device_unknown"]
 
 
 def detectNVidiaGPU():
     import subprocess
-    import platform
     import logging
 
     """
@@ -61,23 +78,14 @@ def detectNVidiaGPU():
     
     Returns:
         Tuple[bool, list[str]]: (GPUs detected, List of GPU names if detected)
+    
+    Note: This function specifically detects NVIDIA GPUs using nvidia-smi.
+    It will return False for AMD (ROCm) or Intel GPUs even if they support CUDA-like operations.
     """
     try:
-        system = platform.system()
-        if system == "Windows":
-            subprocess.run(
-                ["where", "nvidia-smi"],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            result = subprocess.run(
-                ["nvidia-smi", "-L"], capture_output=True, text=True, check=False
-            )
-        else:
-            result = subprocess.run(
-                ["nvidia-smi", "-L"], capture_output=True, text=True, check=False
-            )
+        result = subprocess.run(
+            ["nvidia-smi", "-L"], capture_output=True, text=True, check=False
+        )
 
         if result.returncode == 0 and result.stdout:
             gpuLines = result.stdout.strip().split("\n")
