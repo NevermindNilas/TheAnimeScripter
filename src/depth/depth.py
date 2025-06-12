@@ -508,8 +508,6 @@ class DepthTensorRTV2:
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                totalFrames=self.totalFrames,
-                fps=self.fps,
                 resize=False,
                 width=self.width,
                 height=self.height,
