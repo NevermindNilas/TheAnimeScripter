@@ -104,12 +104,34 @@ class BuildBuffer:
             if self.inpoint > 0 or self.outpoint > 0:
                 # Convert inpoint and outpoint to frame numbers
                 fps = clip.fps_num / clip.fps_den
-                inpointFrame = timestampToFrame(self.inpoint, fps)
+
+                # Some Generic error checking
+                if self.inpoint < 0:
+                    raise ValueError("Inpoint must be non-negative.")
+
+                if self.outpoint < 0:
+                    raise ValueError("Outpoint must be non-negative.")
+
+                if self.inpoint > clip.num_frames / fps:
+                    raise ValueError(
+                        f"Inpoint {self.inpoint} exceeds video duration {clip.num_frames / fps} seconds."
+                    )
+
+                if self.outpoint > clip.num_frames / fps:
+                    raise ValueError(
+                        f"Outpoint {self.outpoint} exceeds video duration {clip.num_frames / fps} seconds."
+                    )
+
+                if self.outpoint < self.inpoint:
+                    raise ValueError(
+                        f"Outpoint {self.outpoint} is less than inpoint {self.inpoint}."
+                    )
 
                 # edge case: if outpoint is 0 and inpoint is not 0, use the total number of frames
                 if self.outpoint == 0:
                     self.outpoint = clip.num_frames / fps
 
+                inpointFrame = timestampToFrame(self.inpoint, fps)
                 outpointFrame = timestampToFrame(self.outpoint, fps)
 
                 clip = clip[inpointFrame:outpointFrame]
