@@ -5,13 +5,32 @@ import torch
 import src.constants as cs
 import numpy as np
 import time
+import vapoursynth as vs
 
 from queue import Queue
 from torch.nn import functional as F
 from src.utils.encodingSettings import matchEncoder, getPixFMT
 from .isCudaInit import CudaChecker
+from video_timestamps import FPSTimestamps, TimeType, RoundingMethod
+from fractions import Fraction
 
-import vapoursynth as vs
+
+def timestampToFrame(timestampInSeconds, fps):
+    """
+    Convert a timestamp in seconds to a frame number.
+
+    Args:
+        timestampInSeconds (float): The timestamp in seconds (e.g., 2.3123198)
+        fps (float): The frames per second of the video (e.g., 23.976)
+
+    Returns:
+        int: The frame number corresponding to the timestamp
+
+    """
+    timestamps = FPSTimestamps(RoundingMethod.ROUND, Fraction(1000), fps)
+    timestamp_fraction = Fraction(timestampInSeconds).limit_denominator(1000000)
+    return timestamps.time_to_frame(timestamp_fraction, TimeType.START)
+
 
 vsCore = vs.core
 # threads
@@ -58,6 +77,8 @@ class BuildBuffer:
         self.bitDepth = bitDepth
         self.videoInput = os.path.normpath(videoInput)
         self.toTorch = toTorch
+        self.inpoint = inpoint
+        self.outpoint = outpoint
 
         if not os.path.exists(videoInput):
             raise FileNotFoundError(f"Video file not found: {videoInput}")
@@ -79,6 +100,19 @@ class BuildBuffer:
             clip = vsCore.bs.VideoSource(
                 self.videoInput,
             )
+
+            if self.inpoint > 0 or self.outpoint > 0:
+                # Convert inpoint and outpoint to frame numbers
+                fps = clip.fps_num / clip.fps_den
+                inpointFrame = timestampToFrame(self.inpoint, fps)
+
+                # edge case: if outpoint is 0 and inpoint is not 0, use the total number of frames
+                if self.outpoint == 0:
+                    self.outpoint = clip.num_frames / fps
+
+                outpointFrame = timestampToFrame(self.outpoint, fps)
+
+                clip = clip[inpointFrame:outpointFrame]
 
             if self.half:
                 clip = vs.core.resize.Bicubic(
