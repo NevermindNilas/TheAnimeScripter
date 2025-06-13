@@ -683,6 +683,10 @@ def _handleDependencies(args):
         "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe",
     )
 
+    if cs.SYSTEM == "Windows":
+        if "ffprobe.exe" not in os.environ["PATH"]:
+            os.environ["PATH"] += os.pathsep + os.path.dirname(cs.FFPROBEPATH)
+
     cs.MPVPATH = os.path.join(
         cs.MAINPATH,
         "ffmpeg",

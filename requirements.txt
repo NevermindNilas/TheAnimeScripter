@@ -8,3 +8,4 @@ rich==14.0.0
 rich-argparse==1.7.1
 wheel-stub==0.4.2
 vapoursynth==72
+VideoTimestamps==0.2.0
