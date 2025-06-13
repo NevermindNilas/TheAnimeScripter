@@ -8,17 +8,12 @@ class CudaChecker:
         import torch
         import logging
 
+        global LOGGEDALREADY
         self.torch = torch
         self.logging = logging
 
         try:
             self._cuda_available = self.torch.cuda.is_available()
-            if self._cuda_available:
-                self.logging.info(
-                    f"CUDA is available with {self.deviceCount} device(s)"
-                )
-            else:
-                self.logging.info("CUDA is not available")
         except Exception as e:
             self._cuda_available = False
             self.logging.warning(f"CUDA is not available: {e}")

@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 #### Added
 - A whole decoding backend migration to `Vapoursynth` including better I/O Support (WIP!!!)
 - Added support for automatic deprecated dependencies removal, see more in `deprecated-requirements.txt` & `src.utils.DependencyHandler`
+- Added `VideoTimeStamps` library by @moi15moi for accurate `--inpoint` and `--outpoint` handling.
 
 #### Changed
 - Switched from yuv420p encoding to rgb24 in order to further minimize CPU usage across the board. This change should imply about a 5% lower CPU usage across the board with minal loss to performance.
@@ -20,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Fixed issues with GMFSS.
 - Fixed issues with Scunet-TensorRT
 - Fixed a bug where AMD / Intel GPU users would default to full dependencies esentially downloading more than they actually needed.
+- Fixed issues with `--inpoint` and `--outpoint`
 
 ### Adobe Edition
 #### New
