@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Fixed issues with Scunet-TensorRT
 - Fixed a bug where AMD / Intel GPU users would default to full dependencies esentially downloading more than they actually needed.
 - Fixed issues with `--inpoint` and `--outpoint`
+- Fixed issues regarding `bt709` & `yuv420p` formats, this further extends to anything compatible with `yuv420p` such as `rgb24` and `bgr24`. Special thanks to [@JET](https://github.com/Jaded-Encoding-Thaumaturgy) community for the help in debugging.
 
 ### Adobe Edition
 #### New
