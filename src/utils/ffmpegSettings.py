@@ -432,6 +432,7 @@ class WriteBuffer:
                 command.extend(matchEncoder(self.encode_method))
                 if filterList:
                     command.extend(["-vf", ",".join(filterList)])
+
                 command.extend(["-pix_fmt", outputPixFmt])
                 # colorspaceParams = self._buildColorspaceParams()
                 # if colorspaceParams:
@@ -492,6 +493,27 @@ class WriteBuffer:
             )
         if self.transparent:
             filterList.append("format=yuva420p")
+
+        """
+                "-vf",
+            "zscale=matrix=709:dither=error_diffusion,format=yuv420p",
+            """
+
+        import json
+
+        metadata = json.loads(open(cs.METADATAPATH, "r", encoding="utf-8").read())
+        if not self.grayscale and not self.transparent:
+            # if bt709 in colorformat or space or trt add this
+            if (
+                metadata["metadata"].get("ColorSpace", "unknown") == "bt709"
+                or metadata["metadata"].get("PixelFormat", "unknown") == "bt709"
+                or metadata["metadata"].get("ColorTRT", "unknown") == "bt709"
+            ):
+                # Fixes sws_cale rounding errors when converting from RGB to YUV
+                # MORE WORK NEEDED
+                filterList.append(
+                    "zscale=matrix=709:dither=error_diffusion,format=yuv420p"
+                )
 
         return filterList
 
