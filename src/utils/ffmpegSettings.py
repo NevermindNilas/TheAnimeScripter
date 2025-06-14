@@ -514,6 +514,14 @@ class WriteBuffer:
                 filterList.append(
                     "zscale=matrix=709:dither=error_diffusion,format=yuv420p"
                 )
+            elif (
+                metadata["metadata"].get("ColorSpace", "unknown") == "bt2020"
+                or metadata["metadata"].get("PixelFormat", "unknown") == "bt2020"
+                or metadata["metadata"].get("ColorTRT", "unknown") == "bt2020"
+            ):
+                filterList.append(
+                    "zscale=matrix=bt2020:norm=bt2020:dither=error_diffusion,format=yuv420p"
+                )
 
         return filterList
 
