@@ -503,25 +503,23 @@ class WriteBuffer:
 
         metadata = json.loads(open(cs.METADATAPATH, "r", encoding="utf-8").read())
         if not self.grayscale and not self.transparent:
-            # if bt709 in colorformat or space or trt add this
-            if (
-                metadata["metadata"].get("ColorSpace", "unknown") == "bt709"
-                or metadata["metadata"].get("PixelFormat", "unknown") == "bt709"
-                or metadata["metadata"].get("ColorTRT", "unknown") == "bt709"
-            ):
-                # Fixes sws_cale rounding errors when converting from RGB to YUV
-                # MORE WORK NEEDED
-                filterList.append(
-                    "zscale=matrix=709:dither=error_diffusion,format=yuv420p"
-                )
-            elif (
-                metadata["metadata"].get("ColorSpace", "unknown") == "bt2020"
-                or metadata["metadata"].get("PixelFormat", "unknown") == "bt2020"
-                or metadata["metadata"].get("ColorTRT", "unknown") == "bt2020"
-            ):
-                filterList.append(
-                    "zscale=matrix=bt2020:norm=bt2020:dither=error_diffusion,format=yuv420p"
-                )
+            colorSPaceFilter = {
+                "bt709": "zscale=matrix=709:dither=error_diffusion",
+                "bt2020": "zscale=matrix=bt2020:norm=bt2020:dither=error_diffusion,format=yuv420p",
+            }
+
+            metadataFields = ["ColorSpace", "PixelFormat", "ColorTRT"]
+            detectedColorSpace = None
+
+            for field in metadataFields:
+                colorValue = metadata["metadata"].get(field, "unknown")
+                if colorValue in colorSPaceFilter:
+                    detectedColorSpace = colorValue
+                    break
+
+            filterList.append(
+                colorSPaceFilter.get(detectedColorSpace, colorSPaceFilter["bt709"])
+            )
 
         return filterList
 
