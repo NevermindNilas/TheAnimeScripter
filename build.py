@@ -15,7 +15,7 @@ else:
     raise FileNotFoundError("No requirements file found in the base directory.")
 
 portablePythonDir = baseDir / "portable-python"
-pythonVersion = "3.13.3"
+pythonVersion = "3.13.5"
 vapourSynthVersion = "R72"
 
 
