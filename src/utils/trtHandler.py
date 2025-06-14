@@ -13,13 +13,15 @@ def createNetworkAndConfig(
     builder: trt.Builder, maxWorkspaceSize: int, fp16: bool
 ) -> Tuple[trt.INetworkDefinition, trt.IBuilderConfig]:
     """Create TensorRT network and builder configuration."""
-    network = builder.create_network(
-        1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
-    )
+    networkFlags = 0
+    networkFlags |= 1 << int(trt.NetworkDefinitionCreationFlag.STRONGLY_TYPED)
+
+    network = builder.create_network(networkFlags)
+
     config = builder.create_builder_config()
     config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, maxWorkspaceSize)
-    if fp16:
-        config.set_flag(trt.BuilderFlag.FP16)
+    # if fp16:
+    #    config.set_flag(trt.BuilderFlag.FP16)
     return network, config
 
 
