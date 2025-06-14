@@ -46,7 +46,6 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                totalFrames=self.totalFrames,
                 fps=self.fps,
             )
 
