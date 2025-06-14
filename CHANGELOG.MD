@@ -10,19 +10,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `VideoTimeStamps` library by @moi15moi for accurate `--inpoint` and `--outpoint` handling.
 
 #### Changed
-- Switched from yuv420p encoding to rgb24 in order to further minimize CPU usage across the board. This change should imply about a 5% lower CPU usage across the board with minal loss to performance.
-- Upgraded TensorRT to `10.11`
+- Switched from yuv420p encoding to rgb24 in order to further minimize CPU usage across the board. This change should imply about a 5% lower CPU usage with minal loss to performance.
+- Upgraded TensorRT to `10.12` , this brings a series of goodies with it, I am seeing an up to 10% performance lift in non encode / decode bottlenecked workflows as well as significantly faster engine generation times ( 30s -> 8s for SUC-TensorRT )
 - Upgraded Pytorch to `2.7.1`
 - Upgraded Torchvision to `0.22.1`
 - More error handling around handle dependencies
 - Migrated from `Basswood-AV` -> `Vapoursynth`, this should bring with it faster performance and better I/O handling. I am entertaining the idea of using a full Vapoursynth workflow ( through `vspipe` ) although personal benchmarks show up to `2x` lower performance in upscaling - cuda.
-  
+- Removed `explicit batch` from TRT and added `strongly typed`. 
+
 #### Fixed
 - Fixed issues with GMFSS.
 - Fixed issues with Scunet-TensorRT
 - Fixed a bug where AMD / Intel GPU users would default to full dependencies esentially downloading more than they actually needed.
 - Fixed issues with `--inpoint` and `--outpoint`
 - Fixed issues regarding `bt709` & `yuv420p` formats, this further extends to anything compatible with `yuv420p` such as `rgb24` and `bgr24`. Special thanks to [@JET](https://github.com/Jaded-Encoding-Thaumaturgy) community for the help in debugging.
+
+#### Known issues
+- `--resize_method` is currently not implemented, due to the new decoding approach.
+- I/O support is wonky until I will be able to test more color ranges and inputs, please report any issues.
 
 ### Adobe Edition
 #### New
