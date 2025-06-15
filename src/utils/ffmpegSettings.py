@@ -434,14 +434,8 @@ class WriteBuffer:
                     command.extend(["-vf", ",".join(filterList)])
 
                 command.extend(["-pix_fmt", outputPixFmt])
-                # colorspaceParams = self._buildColorspaceParams()
-                # if colorspaceParams:
-                #    command.extend(colorspaceParams)
             else:
                 command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
-                # colorspaceParams = self._buildColorspaceParams()
-                # if colorspaceParams:
-                #    command.extend(colorspaceParams)
 
         if cs.AUDIO:
             command.extend(self._buildAudioSettings())
@@ -452,35 +446,6 @@ class WriteBuffer:
             command.append(self.output)
 
         return command
-
-    def _buildColorspaceParams(self):
-        """Build colorspace parameters from input metadata"""
-        colorspaceParams = []
-        if not cs.METADATAPATH:
-            return colorspaceParams
-
-        import json
-
-        metadata = json.loads(open(cs.METADATAPATH, "r", encoding="utf-8").read())
-        if not self.grayscale and not self.transparent:
-            colorPrimaries = metadata["metadata"].get("ColorSpace", "unknown")
-            colorTrc = metadata["metadata"].get("ColorTRT", "unknown")
-            colorSpace = metadata["metadata"].get("PixelFormat", "unknown")
-            colorRange = metadata["metadata"].get("ColorRange", "unknown")
-
-            if colorPrimaries != "unknown" and colorPrimaries != "":
-                colorspaceParams.extend(["-color_primaries", colorPrimaries])
-
-            if colorTrc != "unknown" and colorTrc != "":
-                colorspaceParams.extend(["-color_trc", colorTrc])
-
-            if colorSpace != "unknown" and colorSpace != "":
-                colorspaceParams.extend(["-colorspace", colorSpace])
-
-            if colorRange and colorRange != "unknown":
-                colorspaceParams.extend(["-color_range", colorRange])
-
-        return colorspaceParams
 
     def _buildFilterList(self):
         """Build list of video filters based on settings"""
@@ -559,7 +524,6 @@ class WriteBuffer:
         return audioSettings
 
     def __call__(self):
-        self.frameQueue = Queue(maxsize=10)
         writtenFrames = 0
 
         # Wait for at least one frame to be queued before starting encoding
@@ -679,19 +643,16 @@ class WriteBuffer:
                 ffmpegProc.stdin.write(np.ascontiguousarray(frameData))
                 writtenFrames += 1
 
-            self.frameQueue.put(None)
             logging.info(f"Encoded {writtenFrames} frames")
 
         except Exception as e:
             logging.error(f"Encoding error: {e}")
         finally:
             try:
-                if "ffmpegProc" in locals() and ffmpegProc.stdin:
-                    ffmpegProc.stdin.close()
-                if "ffmpegProc" in locals() and ffmpegProc.poll() is None:
-                    ffmpegProc.wait(timeout=5)
-                if "mpvProc" in locals() and mpvProc and mpvProc.poll() is None:
-                    mpvProc.wait(timeout=5)
+                ffmpegProc.stdin.close()
+                ffmpegProc.wait(timeout=3)
+                if self.realtime and mpvProc:
+                    mpvProc.stdin.close()
             except Exception as e:
                 logging.warning(f"Cleanup error: {e}")
 
