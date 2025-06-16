@@ -20,8 +20,6 @@ def createNetworkAndConfig(
 
     config = builder.create_builder_config()
     config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, maxWorkspaceSize)
-    # if fp16:
-    #    config.set_flag(trt.BuilderFlag.FP16)
     return network, config
 
 
