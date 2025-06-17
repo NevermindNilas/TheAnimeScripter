@@ -295,8 +295,7 @@ class RifeCuda:
                         output = self.model(self.I0, self.I1, frame)[
                             :, :, : self.height, : self.width
                         ]
-                    output = output.clone()
-                    return output
+                    return output.clone()
 
                 case "model":
                     self.model.cacheReset(frame)
@@ -545,6 +544,14 @@ class RifeTensorRT:
                 del self.model
                 import gc
 
+                del (
+                    dummyInput1,
+                    dummyInput2,
+                    dummyInput3,
+                )  # No need to keep these in memory
+
+                if self.norm is not None:
+                    del dummyInput4
                 gc.collect()
                 torch.cuda.empty_cache()
 
@@ -862,6 +869,11 @@ class RifeDirectML:
             - half (bool, optional): Half resolution. Defaults to True.
             - ensemble (bool, optional): Ensemble. Defaults to False.
         """
+
+        raise NotImplementedError(
+            "DirectML is not supported yet, please use RIFE-NCNN instead."
+        )
+
         import onnxruntime as ort
 
         self.ort = ort
@@ -1094,7 +1106,7 @@ class RifeDirectML:
         ).contiguous()
 
         self.dummyOutput = torch.zeros(
-            (self.height, self.width, 3),
+            (1, 3, self.height, self.width),
             device=self.device,
             dtype=self.dtype,
         ).contiguous()
@@ -1132,7 +1144,7 @@ class RifeDirectML:
             case "I0":
                 self.I0.copy_(
                     F.pad(
-                        frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
+                        frame.to(dtype=self.dtype),
                         self.padding,
                     ),
                     non_blocking=False,
@@ -1141,7 +1153,7 @@ class RifeDirectML:
             case "I1":
                 self.I1.copy_(
                     F.pad(
-                        frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
+                        frame.to(dtype=self.dtype),
                         self.padding,
                     ),
                     non_blocking=False,
@@ -1151,7 +1163,7 @@ class RifeDirectML:
                 self.f0.copy_(
                     self.norm(
                         F.pad(
-                            frame.to(dtype=self.dtype).permute(2, 0, 1).unsqueeze(0),
+                            frame.to(dtype=self.dtype),
                             self.padding,
                         )
                     ),
@@ -1252,6 +1264,9 @@ class MultiPassDedup:
             dynamicScale (bool, optional): Use Dynamic scale. Defaults to False.
             staticStep (bool, optional): Use static timestep. Defaults to False.
         """
+        raise NotImplementedError(
+            "MultiPassDedup is not implemented yet. Please use Rife or VFI-Mamba."
+        )
         self.half = half
         self.scale = 1.0
         self.width = width
@@ -1462,3 +1477,174 @@ class MultiPassDedup:
             interpQueue.put(output)
 
         self.processFrame(None, "cache")
+
+
+class VFIMamba:
+    def __init__(
+        self,
+        half,
+        width,
+        height,
+        interpolateMethod,
+        ensemble=False,
+        interpolateFactor=2,
+        dynamicScale=False,
+        staticStep=False,
+    ):
+        """
+        Initialize the RIFE model
+
+        Args:
+            half (bool): Half resolution
+            width (int): Width of the frame
+            height (int): Height of the frame
+            interpolateMethod (str): Interpolation method
+            ensemble (bool, optional): Ensemble. Defaults to False.
+            interpolateFactor (int, optional): Interpolation factor. Defaults to 2.
+            dynamicScale (bool, optional): Use Dynamic scale. Defaults to False.
+            staticStep (bool, optional): Use static timestep. Defaults to False.
+        """
+        self.half = half
+        self.scale = 1.0
+        self.width = width
+        self.height = height
+        self.interpolateMethod = interpolateMethod
+        self.ensemble = ensemble
+        self.interpolateFactor = interpolateFactor
+        self.dynamicScale = dynamicScale
+        self.staticStep = staticStep
+
+        self.handleModel()
+
+    def handleModel(self):
+        import src.vfimamba.config as cfg  # Some config stuff, TO:DO Implement them directly into the code
+        from src.vfimamba.Trainer_finetune import Model
+
+        self.filename = modelsMap(self.interpolateMethod)
+        if not os.path.exists(os.path.join(weightsDir, "VFIMamba", self.filename)):
+            modelPath = downloadModels(model=self.interpolateMethod)
+        else:
+            modelPath = os.path.join(weightsDir, "VFIMamba", self.filename)
+
+        self.dType = torch.float16 if self.half else torch.float32
+
+        if self.model == "VFIMamba":
+            # I assume TTA === self.ensemble in this case.
+            self.ensemble = True
+            cfg.MODEL_CONFIG["LOGNAME"] = "VFIMamba"
+            cfg.MODEL_CONFIG["MODEL_ARCH"] = cfg.init_model_config(
+                F=32, depth=[2, 2, 2, 3, 3]
+            )
+
+        # TO:DO Replace this with a more elegant solution
+        self.model = Model(-1)
+        self.model.load_model(name=self.filename, rank=0)
+        self.model.eval()
+        self.model.device()
+        self.model.memory_format()  # Does torch.channels_last for free perf, typically.
+
+        # PADDING IS 32x based
+        self.padding = (0, 32 - (self.width % 32), 0, 32 - (self.height % 32))
+        self.I0 = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=self.dType,
+            device=checker.device,
+        ).to(memory_format=torch.channels_last)
+
+        self.I1 = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=self.dType,
+            device=checker.device,
+        ).to(memory_format=torch.channels_last)
+
+        self.firstRun = True
+        self.stream = torch.cuda.Stream()
+        self.normStream = torch.cuda.Stream()
+
+    @torch.inference_mode()
+    def cacheFrameReset(self, frame):
+        self.processFrame(frame, "cache")
+        self.processFrame(self.I0, "model")
+
+    @torch.inference_mode()
+    def processFrame(self, frame, toNorm):
+        with torch.cuda.stream(self.normStream):
+            match toNorm:
+                case "I0":
+                    frame = frame.to(
+                        device=checker.device,
+                        dtype=self.dType,
+                        non_blocking=False,
+                    )
+                    frame = self.padFrame(frame)
+                    self.I0.copy_(
+                        frame,
+                        non_blocking=False,
+                    ).to(memory_format=torch.channels_last)
+
+                case "I1":
+                    frame = frame.to(
+                        device=checker.device,
+                        dtype=self.dType,
+                        non_blocking=False,
+                    )
+                    frame = self.padFrame(frame)
+                    self.I1.copy_(
+                        frame,
+                        non_blocking=False,
+                    ).to(memory_format=torch.channels_last)
+
+                case "cache":
+                    self.I0.copy_(
+                        self.I1,
+                        non_blocking=False,
+                    )
+                    self.model.cache()
+
+                case "infer":
+                    # if self.staticStep:
+                    #    output = self.model(self.I0, self.I1, frame)
+                    # else:
+                    output = self.model.inference(self.I0, self.I1, frame)[
+                        :, :, : self.height, : self.width
+                    ]
+                    return output.clone()
+
+                case "model":
+                    self.model.cacheReset(frame)
+
+    @torch.inference_mode()
+    def PadFrame(self, frame):
+        return (
+            F.pad(frame, [0, self.padding[1], 0, self.padding[3]])
+            if self.padding != (0, 0, 0, 0)
+            else frame
+        )
+
+    def __call__(self, frame, interpQueue, framesToInsert: int = 2, timestepts=None):
+        if self.firstRun:
+            self.processFrame(frame, "I0")
+            self.firstRun = False
+            return
+        self.processFrame(frame, "I1")
+
+        for i in range(framesToInsert - 1):
+            if timestepts is not None and i < len(timestepts):
+                t = timestepts[i]
+            else:
+                t = (i + 1) * 1 / (framesToInsert + 1)
+
+            timestep = torch.full(
+                (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
+                t,
+                dtype=self.dType,
+                device=checker.device,
+            )
+            output = self.processFrame(timestep, "infer")
+            interpQueue.put(output)
