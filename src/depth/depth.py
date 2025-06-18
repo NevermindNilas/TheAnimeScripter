@@ -785,17 +785,23 @@ class OGDepthV2CUDA:
                 "features": 128,
                 "out_channels": [96, 192, 384, 768],
             },
-            "vitl": dict(
-                encoder="vitl",
-                features=256,
-                out_channels=[256, 512, 1024, 1024],
-                use_bn=False,
-                use_clstoken=False,
-                max_depth=150.0,
-                mode="disparity",
-                pretrain_type="dinov2",
-                del_mask_token=False,
-            ),
+            "vitl": {
+                "encoder": "vitl",
+                "features": 256,
+                "out_channels": [256, 512, 1024, 1024],
+            }
+            if "distill" not in self.depth_method
+            else {
+                "encoder": "vitl",
+                "features": 256,
+                "out_channels": [256, 512, 1024, 1024],
+                "use_bn": False,
+                "use_clstoken": False,
+                "max_depth": 150.0,
+                "mode": "disparity",
+                "pretrain_type": "dinov2",
+                "del_mask_token": False,
+            },
             "vitg": {
                 "encoder": "vitg",
                 "features": 384,
