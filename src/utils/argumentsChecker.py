@@ -419,11 +419,13 @@ def _addDepthOptions(argParser):
         "large_v2-directml",
         "distill_small_v2",
         "distill_base_v2",
+        "distill_large_v2",
         "og_small_v2",
         "og_base_v2",
         "og_large_v2",
         "og_distill_small_v2",
         "og_distill_base_v2",
+        "og_distill_large_v2",
     ]
 
     depthGroup.add_argument(

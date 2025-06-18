@@ -8,10 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - A whole decoding backend migration to `Vapoursynth` including better I/O Support (WIP!!!)
 - Added support for automatic deprecated dependencies removal, see more in `deprecated-requirements.txt` & `src.utils.DependencyHandler`
 - Added `VideoTimeStamps` library by @moi15moi for accurate `--inpoint` and `--outpoint` handling.
+- New depth methods, `distill_large_v2` and `og_distill_large_v2`
 
 #### Changed
 - Switched from yuv420p encoding to rgb24 in order to further minimize CPU usage across the board. This change should imply about a 5% lower CPU usage with minal loss to performance.
-- Upgraded TensorRT to `10.12` , this brings a series of goodies with it, I am seeing an up to 10% performance lift in non encode / decode bottlenecked workflows as well as significantly faster engine generation times ( 30s -> 8s for SUC-TensorRT )
+- Upgraded TensorRT to `10.12` , this brings a series of goodies with it, I am seeing an up to 10% performance lift in non encode / decode bottlenecked workflows as well as significantly faster engine generation times ( 30s -> 8s for SUC-TensorRT, 30s -> 20s for Rife4.6-TensorRT )
 - Upgraded Pytorch to `2.7.1`
 - Upgraded Torchvision to `0.22.1`
 - More error handling around handle dependencies
