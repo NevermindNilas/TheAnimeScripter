@@ -29,9 +29,11 @@ def calculateAspectRatio(width, height, depthQuality="high"):
         newWidth = ((width + 13) // 14) * 14
         newHeight = ((height + 13) // 14) * 14
     elif depthQuality == "medium":
+        # Should be preferred through and through
         newHeight = 700
         newWidth = 700
     else:
+        # Depth quality low
         newHeight = 518
         newWidth = 518
 
@@ -117,7 +119,7 @@ class DepthCuda:
                 method = "vits"
             case "base_v2" | "distill_base_v2":
                 method = "vitb"
-            case "large_v2":
+            case "large_v2" | "distill_large_v2":
                 method = "vitl"
             case "giant_v2":
                 raise NotImplementedError("Giant model not available yet")
@@ -157,6 +159,18 @@ class DepthCuda:
                 "encoder": "vitl",
                 "features": 256,
                 "out_channels": [256, 512, 1024, 1024],
+            }
+            if "distill" not in self.depth_method
+            else {
+                "encoder": "vitl",
+                "features": 256,
+                "out_channels": [256, 512, 1024, 1024],
+                "use_bn": False,
+                "use_clstoken": False,
+                "max_depth": 150.0,
+                "mode": "disparity",
+                "pretrain_type": "dinov2",
+                "del_mask_token": False,
             },
             "vitg": {
                 "encoder": "vitg",
@@ -165,7 +179,12 @@ class DepthCuda:
             },
         }
 
-        self.model = DepthAnythingV2(**modelConfigs[method])
+        if "distill" in self.depth_method and "large" in self.depth_method:
+            from src.depth.distillanydepth.modeling.archs.dam.dam import DepthAnything
+
+            self.model = DepthAnything(**modelConfigs[method])
+        else:
+            self.model = DepthAnythingV2(**modelConfigs[method])
 
         if "distill" in self.depth_method:
             from safetensors.torch import load_file
@@ -730,7 +749,7 @@ class OGDepthV2CUDA:
             case "og_base_v2" | "og_distill_base_v2":
                 method = "vitb"
                 toDownload = "base_v2"
-            case "og_large_v2":
+            case "og_large_v2" | "og_distill_large_v2":
                 method = "vitl"
                 toDownload = "large_v2"
             case "giant_v2":
@@ -766,11 +785,17 @@ class OGDepthV2CUDA:
                 "features": 128,
                 "out_channels": [96, 192, 384, 768],
             },
-            "vitl": {
-                "encoder": "vitl",
-                "features": 256,
-                "out_channels": [256, 512, 1024, 1024],
-            },
+            "vitl": dict(
+                encoder="vitl",
+                features=256,
+                out_channels=[256, 512, 1024, 1024],
+                use_bn=False,
+                use_clstoken=False,
+                max_depth=150.0,
+                mode="disparity",
+                pretrain_type="dinov2",
+                del_mask_token=False,
+            ),
             "vitg": {
                 "encoder": "vitg",
                 "features": 384,
@@ -778,7 +803,12 @@ class OGDepthV2CUDA:
             },
         }
 
-        self.model = DepthAnythingV2(**modelConfigs[method])
+        if "distill" in self.depth_method and "large" in self.depth_method:
+            from src.depth.distillanydepth.modeling.archs.dam.dam import DepthAnything
+
+            self.model = DepthAnything(**modelConfigs[method])
+        else:
+            self.model = DepthAnythingV2(**modelConfigs[method])
 
         if "distill" in self.depth_method:
             from safetensors.torch import load_file
