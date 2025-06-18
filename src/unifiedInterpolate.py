@@ -771,8 +771,9 @@ class RifeNCNN:
 
         UHD = True if width >= 3840 or height >= 2160 else False
         scale = 2 if UHD else 1
+        from rife_ncnn_vulkan_python import wrapped
 
-        from rife_ncnn_vulkan_python import Rife
+        self.wrapped = wrapped
 
         self.filename = modelsMap(
             self.interpolateMethod,
@@ -801,47 +802,71 @@ class RifeNCNN:
         elif modelPath.endswith("-ncnn"):
             modelPath = modelPath[:-5]
 
-        self.rife = Rife(
-            gpuid=0,
-            model=modelPath,
-            scale=scale,
-            tta_mode=False,
-            tta_temporal_mode=False,
-            uhd_mode=UHD,
+        padding = 32  # ADD 64 once 4.25-ncnn is added
+
+        self.Rife = self.wrapped.RifeWrapped(
+            0,
+            self.ensemble,
+            False,
+            UHD,
+            2,
+            False,
+            True,
+            padding,
         )
 
-        self.frame1 = None
+        modelDir = self.wrapped.StringType()
+        modelDir.wstr = self.wrapped.new_wstr_p()
+        self.wrapped.wstr_p_assign(modelDir.wstr, str(modelPath))
+        self.Rife.load(modelDir)
+
+        self.outputBytes = bytearray(width * height * 3)
+        self.output = self.wrapped.Image(self.outputBytes, self.width, self.height, 3)
+        self.frame0 = None
         self.shape = (self.height, self.width)
 
     def cacheFrame(self):
-        self.frame1 = self.frame2
+        self.frame0Bytes = self.frame1Bytes
+        self.frame0 = self.frame1
 
     def cacheFrameReset(self, frame):
-        self.frame1 = frame.cpu().numpy().astype("uint8")
+        self.frame0 = frame.cpu().numpy().astype("uint8")
+        self.frame0Bytes = bytearray(self.frame0.tobytes())
+        self.frame0 = self.wrapped.Image(self.frame0Bytes, self.width, self.height, 3)
 
     def __call__(self, frame, interpQueue, framesToInsert=1, timesteps=None):
-        if self.frame1 is None:
-            self.frame1 = (
+        if self.frame0 is None:
+            self.frame0 = (
                 frame.mul(255).squeeze(0).permute(1, 2, 0).cpu().numpy().astype("uint8")
             )
+            self.frame0Bytes = bytearray(self.frame0.tobytes())
+            self.frame0 = self.wrapped.Image(
+                self.frame0Bytes, self.width, self.height, 3
+            )
+
             return False
 
-        self.frame2 = (
+        self.frame1 = (
             frame.mul(255).squeeze(0).permute(1, 2, 0).cpu().numpy().astype("uint8")
         )
+        self.frame1Bytes = bytearray(self.frame1.tobytes())
+        self.frame1 = self.wrapped.Image(self.frame1Bytes, self.width, self.height, 3)
+
         for i in range(framesToInsert):
             if timesteps is not None and i < len(timesteps):
                 t = timesteps[i]
             else:
                 t = (i + 1) * 1 / (framesToInsert + 1)
 
-            output = self.rife.process_cv2(self.frame1, self.frame2, timestep=t)
+            self.Rife.process(self.frame0, self.frame1, t, self.output)
+
             output = (
-                torch.from_numpy(output)
-                .float()
+                torch.frombuffer(self.outputBytes, dtype=torch.uint8)
+                .reshape(self.height, self.width, 3)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
-                .mul(1 / 255)
+                .to(dtype=torch.float32 if self.half else torch.float16)
+                .mul(1 / 255.0)
             )
             interpQueue.put(output)
 

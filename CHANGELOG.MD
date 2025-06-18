@@ -17,7 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - More error handling around handle dependencies
 - Migrated from `Basswood-AV` -> `Vapoursynth`, this should bring with it faster performance and better I/O handling. I am entertaining the idea of using a full Vapoursynth workflow ( through `vspipe` ) although personal benchmarks show up to `2x` lower performance in upscaling - cuda.
 - Removed `explicit batch` from TRT and added `strongly typed`. 
-- Upgraded the packaged python from `3.13.3` to `3.13.5`
+- Upgraded the packaged python from `3.13.3` to `3.13.5`.
+- Up to `50%` faster inference speeds with `rife-ncnn`.
 
 #### Fixed
 - Fixed issues with GMFSS.
