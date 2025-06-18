@@ -1290,7 +1290,7 @@ class MultiPassDedup:
             staticStep (bool, optional): Use static timestep. Defaults to False.
         """
         raise NotImplementedError(
-            "MultiPassDedup is not implemented yet. Please use Rife or VFI-Mamba."
+            "MultiPassDedup is not implemented yet. Please use Rife."
         )
         self.half = half
         self.scale = 1.0

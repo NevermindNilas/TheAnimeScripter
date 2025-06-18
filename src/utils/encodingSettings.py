@@ -354,8 +354,6 @@ def matchEncoder(encode_method: str):
                     "4",
                     "-crf",
                     "30",
-                    "-pix_fmt",
-                    "yuv420p",
                     "-g",
                     "240",
                     "-keyint_min",

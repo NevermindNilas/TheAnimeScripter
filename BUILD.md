@@ -2,46 +2,41 @@
 
 ## Prerequisites
 
-- Python 3.12
+- Python 3.13 installed and accessible from PATH
+- Windows 10 or Windows 11
 
-## Installation
+## Build Process
 
-### Build Scripts
-
-- For Windows:
-  - Full: `G:\TheAnimeScripter\build.py`
-  - Lite: `G:\TheAnimeScripter\build-lite.py`
-- For Linux:
-  - Full: `G:\TheAnimeScripter\build-linux.py`
-  - Lite: `G:\TheAnimeScripter\build-linux-lite.py`
-
-### Instructions
-
-1. Ensure Python 3.12 is installed.
-2. Run the appropriate build script based on your operating system and desired installation type (full or lite).
-
-#### Example Commands
-NOTE:
-Use `FULL` if you have a `NVIDIA` GPU, otherwise use `LITE`
-
-For Windows Full Installation:
+### Quick Start
+To build the project on Windows, run:
 ```sh
-python G:\TheAnimeScripter\build.py
+python build.py
 ```
 
-For Windows Lite Installation:
-```sh
-python G:\TheAnimeScripter\build-lite.py
+### Output Location
+After successful compilation, the executable files will be located in:
+```
+\dist-portable\main\
 ```
 
-For Linux Full Installation:
+## Runtime Dependencies
+
+TAS automatically downloads and installs additional dependencies as needed:
+- See `extra-requirements-windows.txt` for full version dependencies
+- See `extra-requirements-windows-lite.txt` for minimal version dependencies
+
+All downloaded dependencies are placed in the same directory as the executable.
+
+## Usage
+
+For detailed usage instructions, refer to:
+- [PARAMETERS.MD](PARAMETERS.MD) for comprehensive parameter documentation
+- Or run the help command:
 ```sh
-python G:\TheAnimeScripter\build-linux.py
+.\python.exe .\main.py -h
 ```
 
-For Linux Lite Installation:
-```sh
-python G:\TheAnimeScripter\build-linux-lite.py
-```
+## Troubleshooting
 
-### The executables can be found in the `dist` folder after the build process completes.
+- Ensure Python 3.13 is properly installed and added to your system PATH
+- Verify you have sufficient disk space for the build process
