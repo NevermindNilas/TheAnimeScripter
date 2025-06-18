@@ -1,8 +1,0 @@
-To keep things short and to comply with the Apache 2.0 License
-
-by @NevermindNilas :D
-
-- inference optimizations.
-- removed training related code.
-- removed anything related to loading the model in .pkl and changed it to .pth
-- simplified the code.
