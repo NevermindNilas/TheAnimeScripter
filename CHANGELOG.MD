@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Removed `explicit batch` from TRT and added `strongly typed`. 
 - Upgraded the packaged python from `3.13.3` to `3.13.5`.
 - Up to `50%` faster inference speeds with `rife-ncnn`.
+- Updated build instructions.
+- Updated the `slow_av1` encode-method.
 
 #### Fixed
 - Fixed issues with GMFSS.
