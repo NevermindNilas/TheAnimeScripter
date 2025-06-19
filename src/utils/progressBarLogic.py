@@ -33,16 +33,21 @@ class MemoryColumn(ProgressColumn):
         self.advanceCount = 0
         self.updateInterval = max(1, totalFrames // 1000)
         self.cachedMem = 0
+        self.process = psutil.Process(os.getpid())
+        self.lastUpdate = 0
 
     def render(self, task):
-        if self.advanceCount % self.updateInterval == 0:
-            process = psutil.Process(os.getpid())
-            mem = process.memory_info().rss / (1024 * 1024)
-            if mem > self.cachedMem:
-                self.cachedMem = mem
-            else:
-                self.cachedMem = (self.cachedMem + mem) / 2
         self.advanceCount += 1
+        if self.advanceCount - self.lastUpdate >= self.updateInterval:
+            self.lastUpdate = self.advanceCount
+            try:
+                mem = self.process.memory_info().rss / (1024 * 1024)
+                if mem > self.cachedMem:
+                    self.cachedMem = mem
+                else:
+                    self.cachedMem = (self.cachedMem + mem) / 2
+            except psutil.NoSuchProcess:
+                self.process = psutil.Process(os.getpid())
         return f"Mem: [yellow]{self.cachedMem:.1f}MB[/yellow]"
 
 
@@ -55,26 +60,32 @@ class ProgressBarLogic:
         Initializes the progress bar for the given range of frames.
 
         Args:
-            totalFrames (int): The total number of frames to process
-        """
+            totalFrames (int): The total number of frames to process"""
         self.totalFrames = totalFrames
+        self.completed = 0
 
     def __enter__(self):
         if cs.ADOBE:
             self.advanceCount = 0
-            self.updateInterval = max(
-                1, self.totalFrames // 100
-            )  # 1 update per 1% of total frames
+            self.updateInterval = max(1, self.totalFrames // 100)
             logging.info(f"Update interval: {self.updateInterval} frames")
 
-            data = {
+            # Initialize timing for FPS and ETA calculations
+            self.startTime = time()
+
+            self.jsonData = {
                 "currentFrame": 0,
                 "totalFrames": self.totalFrames,
+                "fps": 0.0,
+                "eta": 0.0,
+                "elapsedTime": 0.0,
             }
-            # Write to a JSON file under a 'logs' folder in the project directory
             self.logFile = os.path.join(cs.MAINPATH, "progressLog.json")
             with open(self.logFile, "w") as f:
-                json.dump(data, f, indent=4)
+                json.dump(self.jsonData, f, separators=(",", ":"))
+
+            self.lastWriteTime = time()
+            self.writeThrottle = 0.1
         else:
             self.progress = Progress(
                 TextColumn("[progress.description]{task.description}"),
@@ -99,27 +110,58 @@ class ProgressBarLogic:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if not cs.ADOBE:
+        if cs.ADOBE:
+            currentTime = time()
+            elapsedTime = currentTime - self.startTime
+            fps = self.completed / elapsedTime if elapsedTime > 0 else 0
+
+            self.jsonData.update(
+                {
+                    "currentFrame": self.completed,
+                    "fps": round(fps, 2),
+                    "eta": 0.0,
+                    "elapsedTime": round(elapsedTime, 1),
+                }
+            )
+
+            with open(self.logFile, "w") as f:
+                json.dump(self.jsonData, f, separators=(",", ":"))
+        else:
             self.progress.stop()
 
     def advance(self, advance=1):
-        if not cs.ADOBE:
-            self.progress.update(self.task, advance=advance)
-
         if cs.ADOBE:
-            if not hasattr(self, "_completed"):
-                self._completed = 0
-
-            self._completed += advance
+            self.completed += advance
             self.advanceCount += 1
 
-            if self.advanceCount % self.updateInterval == 0:
-                data = {
-                    "currentFrame": self._completed,
-                    "totalFrames": self.totalFrames,
-                }
+            currentTime = time()
+            if (
+                self.advanceCount % self.updateInterval == 0
+                and currentTime - self.lastWriteTime >= self.writeThrottle
+            ):
+                elapsedTime = currentTime - self.startTime
+                fps = self.completed / elapsedTime if elapsedTime > 0 else 0
+
+                if fps > 0 and self.completed < self.totalFrames:
+                    remainingFrames = self.totalFrames - self.completed
+                    eta = remainingFrames / fps
+                else:
+                    eta = 0
+
+                self.jsonData.update(
+                    {
+                        "currentFrame": self.completed,
+                        "fps": round(fps, 2),
+                        "eta": round(eta, 1),
+                        "elapsedTime": round(elapsedTime, 1),
+                    }
+                )
+
                 with open(self.logFile, "w") as f:
-                    json.dump(data, f, indent=4)
+                    json.dump(self.jsonData, f, separators=(",", ":"))
+                self.lastWriteTime = currentTime
+        else:
+            self.progress.update(self.task, advance=advance)
 
     def __call__(self, advance=1):
         self.advance(advance)
@@ -174,14 +216,13 @@ class ProgressBarDownloadLogic:
         Updates the total value of the progress bar.
 
         Args:
-            newTotal (int): The new total value
-        """
+            newTotal (int): The new total value"""
         self.totalData = newTotal
         self.progress.update(self.task, total=newTotal)
 
     def advance(self, advance=1):
         task = self.progress.tasks[self.task]
-        if not hasattr(task, "start_time") or task.start_time is None:
+        if task.start_time is None:
             task.start_time = time()
         self.progress.update(self.task, advance=advance)
 
