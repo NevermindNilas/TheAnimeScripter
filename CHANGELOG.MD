@@ -48,9 +48,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Simplified and memoized some logic.
 - The progress bar will now properly update once every 1s cycle ( assuming an update did happen on the backend side )
 - Better text formatting for the progress bar.
+- TAS will now use `Chain` & `Depth` and `RmvBackground` as the generic keyword for each process output.
+- Added logic to use the layer name when pre-rendering if only 1 layer is selected. 
+
+#### Notes: 
+- INTERNALIZATION HAS YET TO BE ADDED, non English characters may or may not break TAS' workflow.
 
 #### Fixed
-- N/A
+- Potentially fixed issues for AMD/Intel users when downloading the backend.
 
 ## [2.2.2] - 2025-05-30
 ### Adobe Edition
