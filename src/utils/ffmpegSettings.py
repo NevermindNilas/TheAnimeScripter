@@ -350,16 +350,16 @@ class WriteBuffer:
         if "av1" in [self.encode_method, self.custom_encoder]:
             os.environ["SVT_LOG"] = "0"
 
-        inputPixFmt, outputPixFmt, self.encode_method = getPixFMT(
+        self.inputPixFmt, outputPixFmt, self.encode_method = getPixFMT(
             self.encode_method, self.bitDepth, self.grayscale, self.transparent
         )
 
         if self.benchmark:
-            return self._buildBenchmarkCommand(inputPixFmt)
+            return self._buildBenchmarkCommand()
         else:
-            return self._buildEncodingCommand(inputPixFmt, outputPixFmt)
+            return self._buildEncodingCommand(outputPixFmt)
 
-    def _buildBenchmarkCommand(self, inputPixFmt):
+    def _buildBenchmarkCommand(self):
         """Build FFmpeg command for benchmarking"""
         return [
             cs.FFMPEGPATH,
@@ -373,7 +373,7 @@ class WriteBuffer:
             "-video_size",
             f"{self.width}x{self.height}",
             "-pix_fmt",
-            inputPixFmt,
+            self.inputPixFmt,
             "-r",
             str(self.fps),
             "-i",
@@ -384,7 +384,7 @@ class WriteBuffer:
             "-",
         ]
 
-    def _buildEncodingCommand(self, inputPixFmt, outputPixFmt):
+    def _buildEncodingCommand(self, outputPixFmt):
         """Build FFmpeg command for encoding"""
         command = [
             cs.FFMPEGPATH,
@@ -397,7 +397,7 @@ class WriteBuffer:
             "-f",
             "rawvideo",
             "-pixel_format",
-            inputPixFmt,
+            self.inputPixFmt,
             "-s",
             f"{self.width}x{self.height}",
             "-r",
@@ -469,7 +469,7 @@ class WriteBuffer:
         metadata = json.loads(open(cs.METADATAPATH, "r", encoding="utf-8").read())
         if not self.grayscale and not self.transparent:
             colorSPaceFilter = {
-                "bt709": "zscale=matrix=709:dither=error_diffusion",
+                "bt709": f"zscale=matrix=709:dither=error_diffusion,format={self.inputPixFmt}",
                 "bt2020": "zscale=matrix=bt2020:norm=bt2020:dither=error_diffusion,format=yuv420p",
             }
 
