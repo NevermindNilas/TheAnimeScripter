@@ -67,7 +67,8 @@ class ProgressBarLogic:
     def __enter__(self):
         if cs.ADOBE:
             self.advanceCount = 0
-            self.updateInterval = max(1, self.totalFrames // 100)
+            # More frequent updates - every 0.5% or at least every 10 frames
+            self.updateInterval = max(10, self.totalFrames // 200)
             logging.info(f"Update interval: {self.updateInterval} frames")
 
             # Initialize timing for FPS and ETA calculations
@@ -83,9 +84,6 @@ class ProgressBarLogic:
             self.logFile = os.path.join(cs.MAINPATH, "progressLog.json")
             with open(self.logFile, "w") as f:
                 json.dump(self.jsonData, f, separators=(",", ":"))
-
-            self.lastWriteTime = time()
-            self.writeThrottle = 0.1
         else:
             self.progress = Progress(
                 TextColumn("[progress.description]{task.description}"),
@@ -132,13 +130,20 @@ class ProgressBarLogic:
     def advance(self, advance=1):
         if cs.ADOBE:
             self.completed += advance
-            self.advanceCount += 1
+            self.advanceCount += advance  # This should match the actual frame advancement
+            
+            # Debug logging to understand the calling pattern (remove in production)
+            if advance > 1:
+                logging.debug(f"Large advance detected: {advance} frames, total: {self.completed}")            # Write to file at specified frame intervals OR when completed
+            # Check based on actual frame count, not call count
+            framesSinceLastUpdate = self.completed % self.updateInterval
+            shouldUpdate = (
+                framesSinceLastUpdate < advance  # Crossed an update boundary
+                or self.completed >= self.totalFrames
+            )
 
-            currentTime = time()
-            if (
-                self.advanceCount % self.updateInterval == 0
-                and currentTime - self.lastWriteTime >= self.writeThrottle
-            ):
+            if shouldUpdate:
+                currentTime = time()
                 elapsedTime = currentTime - self.startTime
                 fps = self.completed / elapsedTime if elapsedTime > 0 else 0
 
@@ -159,7 +164,9 @@ class ProgressBarLogic:
 
                 with open(self.logFile, "w") as f:
                     json.dump(self.jsonData, f, separators=(",", ":"))
-                self.lastWriteTime = currentTime
+                    
+                # Debug logging for updates
+                logging.debug(f"Progress updated: {self.completed}/{self.totalFrames} frames")
         else:
             self.progress.update(self.task, advance=advance)
 

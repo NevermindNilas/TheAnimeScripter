@@ -22,7 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Up to `50%` faster inference speeds with `rife-ncnn`.
 - Updated build instructions.
 - Updated the `slow_av1` encode-method.
-- Optimized the logic behind the progress bar, I/O writes will only happen once every second at most.
+- Optimized the logic behind the progress bar. Adobe updates should now be nearly instantaneous. 
 - The progress bar will now also log `fps` and `eta` for AdobeEdition.
 
 #### Fixed
