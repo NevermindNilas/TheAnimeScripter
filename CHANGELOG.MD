@@ -39,10 +39,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Adobe Edition
 #### New
 - Added dynamic output examples to the `Upscale` and `Depth` Settings.
+- Added `distill large` to the depth extraction methods.
+- Added a dynamic ETA and FPS to the progress bar.
 
 #### Changed
 - Renamed `NVIDIA GTX GPUs` sections to simply `NVIDIA GPUs`
 - Added `CUDA` extension wherever approapiate.
+- Simplified and memoized some logic.
+- The progress bar will now properly update once every 1s cycle ( assuming an update did happen on the backend side )
+- Better text formatting for the progress bar.
 
 #### Fixed
 - N/A
