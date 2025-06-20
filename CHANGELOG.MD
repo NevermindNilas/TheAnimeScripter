@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Updated some vite-cep dependencies.
 
 #### Fixed
-- A potential deadlock when reading streaming the logs to the logsTab.
+- A potential deadlock when streaming the logs to the logsTab.
 
 
 ## [2.2.5] - 2025-06-20
