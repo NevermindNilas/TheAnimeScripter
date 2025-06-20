@@ -95,7 +95,7 @@ def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[boo
     logMessage = f"Using Python executable: {pythonPath}"
     logging.info(logMessage)
 
-    cmd = f'"{pythonPath}" -I -m pip install -U -r "{requirementsPath}" --no-warn-script-location'
+    cmd = f'"{pythonPath}" -I -m pip install -r "{requirementsPath}" --no-warn-script-location --no-cache'
 
     try:
         logMessage = f"Installing requirements from: {requirementsPath}"
