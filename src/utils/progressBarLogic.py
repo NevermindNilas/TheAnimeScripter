@@ -130,16 +130,11 @@ class ProgressBarLogic:
     def advance(self, advance=1):
         if cs.ADOBE:
             self.completed += advance
-            self.advanceCount += advance  # This should match the actual frame advancement
-            
-            # Debug logging to understand the calling pattern (remove in production)
-            if advance > 1:
-                logging.debug(f"Large advance detected: {advance} frames, total: {self.completed}")            # Write to file at specified frame intervals OR when completed
-            # Check based on actual frame count, not call count
+            self.advanceCount += advance
+
             framesSinceLastUpdate = self.completed % self.updateInterval
             shouldUpdate = (
-                framesSinceLastUpdate < advance  # Crossed an update boundary
-                or self.completed >= self.totalFrames
+                framesSinceLastUpdate < advance or self.completed >= self.totalFrames
             )
 
             if shouldUpdate:
@@ -164,9 +159,7 @@ class ProgressBarLogic:
 
                 with open(self.logFile, "w") as f:
                     json.dump(self.jsonData, f, separators=(",", ":"))
-                    
-                # Debug logging for updates
-                logging.debug(f"Progress updated: {self.completed}/{self.totalFrames} frames")
+
         else:
             self.progress.update(self.task, advance=advance)
 
