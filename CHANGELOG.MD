@@ -3,7 +3,31 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [Unreleased] - yyyy-mm-dd
+## [2.2.7] - 2025-06-21
+#### Added
+- N/A
+
+#### Changed
+- Removed some unused debugging code from progressbarLogic.py
+
+#### Fixed
+- A mishap on my side when dependencies were being downloaded resulting in unnecessary checks, upgrades and caches. Please run a `.\python.exe -m pip cache purge` if you are upgrading from a previous version.
+
+### Adobe Edition
+#### New
+- Thanks to the community behind Motion, I was able to add a fully custom animation styling to TAS. Tabs will now `swipe` from the left to right, the progress bar will have a cool little animation both when appearing and disappearing ( and more in the future )
+- Added a selective `fp16` or `fp32` precision to the `Extra Tab`, primarily focused on helping users with lower end systems who were running into black frame outputs.
+
+#### Changed
+- Removed the preview image primarily because it wasn't really useful for much and it only added extra logic to worry about.
+- Small tweaks around `useEffects`.
+- Updated some vite-cep dependencies.
+
+#### Fixed
+- A potential deadlock when reading streaming the logs to the logsTab.
+
+
+## [2.2.5] - 2025-06-20
 #### Added
 - A whole decoding backend migration to `Vapoursynth` including better I/O Support (WIP!!!)
 - Added support for automatic deprecated dependencies removal, see more in `deprecated-requirements.txt` & `src.utils.DependencyHandler`
