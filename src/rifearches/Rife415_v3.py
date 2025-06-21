@@ -121,8 +121,6 @@ class IFNet(nn.Module):
         device="cuda",
         width=1920,
         height=1080,
-        backWarp=None,
-        tenFlow=None,
     ):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7 + 16, c=192)
@@ -142,26 +140,16 @@ class IFNet(nn.Module):
         self.pw = math.ceil(self.width / tmp) * tmp
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
-        hMul = 2 / (self.pw - 1)
-        vMul = 2 / (self.ph - 1)
-        self.tenFlow = (
-            torch.Tensor([hMul, vMul])
-            .to(device=self.device, dtype=self.dtype)
-            .reshape(1, 2, 1, 1)
-        )
-        self.backWarp = torch.cat(
-            (
-                (torch.arange(self.pw) * hMul - 1)
-                .reshape(1, 1, 1, -1)
-                .expand(-1, -1, self.ph, -1),
-                (torch.arange(self.ph) * vMul - 1)
-                .reshape(1, 1, -1, 1)
-                .expand(-1, -1, -1, self.pw),
-            ),
-            dim=1,
-        ).to(device=self.device, dtype=self.dtype)
 
-    def forward(self, img0, img1, timestep, f0):
+    def forward(
+        self,
+        img0,
+        img1,
+        timestep,
+        f0,
+        backWarp: torch.Tensor = None,
+        tenFlow: torch.Tensor = None,
+    ):
         imgs = torch.cat([img0, img1], dim=1)
         imgs_2 = torch.reshape(imgs, (2, 3, self.ph, self.pw))
         f1 = self.encode(img1[:, :3])
@@ -250,7 +238,7 @@ class IFNet(nn.Module):
                         torch.split(flows, [2, 2], dim=1)[::-1], dim=1
                     )
             precomp = (
-                (self.backWarp + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlow)
+                (backWarp + flows.reshape((2, 2, self.ph, self.pw)) * tenFlow)
                 .permute(0, 2, 3, 1)
                 .to(dtype=self.dtype)
             )

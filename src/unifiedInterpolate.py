@@ -443,6 +443,26 @@ class RifeTensorRT:
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
 
+        hMul = 2 / (self.pw - 1)
+        vMul = 2 / (self.ph - 1)
+
+        self.tenFlow = (
+            torch.Tensor([hMul, vMul])
+            .to(device=checker.device, dtype=self.dtype)
+            .reshape(1, 2, 1, 1)
+        )
+        self.backWarp = torch.cat(
+            (
+                (torch.arange(self.pw) * hMul - 1)
+                .reshape(1, 1, 1, -1)
+                .expand(-1, -1, self.ph, -1),
+                (torch.arange(self.ph) * vMul - 1)
+                .reshape(1, 1, -1, 1)
+                .expand(-1, -1, -1, self.pw),
+            ),
+            dim=1,
+        ).to(device=checker.device, dtype=self.dtype)
+
         IFNet, Head = importRifeArch(self.interpolateMethod, "v3")
 
         enginePath = self.tensorRTEngineNameHandler(
@@ -502,6 +522,22 @@ class RifeTensorRT:
                     dtype=self.dtype,
                     device=checker.device,
                 )
+                dummyBackWarp = torch.zeros(
+                    1,
+                    2,
+                    self.ph,
+                    self.pw,
+                    dtype=self.dtype,
+                    device=checker.device,
+                )
+                dummyTenFlow = torch.zeros(
+                    1,
+                    2,
+                    1,
+                    1,
+                    dtype=self.dtype,
+                    device=checker.device,
+                )
 
             self.modelPath = self.modelPath.replace(".pth", ".onnx")
 
@@ -516,10 +552,11 @@ class RifeTensorRT:
             }
 
             if self.norm is not None:
-                inputList.append(dummyInput4)
-                inputNames.append("f0")
+                inputList.extend([dummyInput4, dummyBackWarp, dummyTenFlow])
+                inputNames.extend(["f0", "backWarp", "tenFlow"])
                 outputNames.append("f1")
                 dynamicAxes["f0"] = {2: "height", 3: "width"}
+                dynamicAxes["backWarp"] = {2: "height", 3: "width"}
 
             torch.onnx.export(
                 self.model,
@@ -538,7 +575,13 @@ class RifeTensorRT:
             ]
 
             if self.norm is not None:
-                inputs.append([1, channels, self.ph, self.pw])
+                inputs.extend(
+                    [
+                        [1, channels, self.ph, self.pw],
+                        [1, 2, self.ph, self.pw],  # backWarp
+                        [1, 2, 1, 1],  # tenFlow
+                    ]
+                )
 
             if hasattr(self, "model") and self.model is not None:
                 del self.model
@@ -548,10 +591,10 @@ class RifeTensorRT:
                     dummyInput1,
                     dummyInput2,
                     dummyInput3,
-                )  # No need to keep these in memory
+                )
 
                 if self.norm is not None:
-                    del dummyInput4
+                    del dummyInput4, dummyBackWarp, dummyTenFlow
                 gc.collect()
                 torch.cuda.empty_cache()
 
@@ -634,7 +677,7 @@ class RifeTensorRT:
         ]
 
         if self.norm is not None:
-            self.tensors.extend([self.f0])
+            self.tensors.extend([self.f0, self.backWarp, self.tenFlow])
 
         self.tensors.extend([self.dummyOutput])
 
