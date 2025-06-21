@@ -319,5 +319,19 @@ def tensorRTEngineNameHandler(
     if isRife and ensemble:
         nameParts.append("_ensemble")
 
+    # REMOVE OLD ENGINE DUE TO MIGRATION IN RIFE, I should also use a v1 # extension for the old engine, but I don't want to break existing setups.
+    if isRife:
+        extension = "".join(nameParts) + ".engine"
+        fullPath = str(modelPath.with_suffix("")) + extension
+        if os.path.exists(fullPath):
+            logAndPrint(
+                f"Removing old RIFE engine file: {fullPath} due to migration in backend.",
+                "yellow",
+            )
+            os.remove(fullPath)
+
+    if isRife:
+        nameParts.append("_v2")
+
     engineName = "".join(nameParts) + ".engine"
     return str(modelPath.with_suffix("")) + engineName
