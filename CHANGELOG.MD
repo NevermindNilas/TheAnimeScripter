@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [UNRELEASED] - YYYY-MM-DD
+#### Added
+- N/A
+
+#### Changed
+- Added precision to the printed tensor shapes when building an engine.
+
+
 ## [2.2.7] - 2025-06-21
 #### Added
 - N/A
