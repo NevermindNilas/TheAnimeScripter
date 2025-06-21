@@ -10,7 +10,9 @@ from src.constants import ADOBE
 
 
 def createNetworkAndConfig(
-    builder: trt.Builder, maxWorkspaceSize: int, fp16: bool
+    builder: trt.Builder,
+    maxWorkspaceSize: int,
+    fp16: bool,
 ) -> Tuple[trt.INetworkDefinition, trt.IBuilderConfig]:
     """Create TensorRT network and builder configuration."""
     networkFlags = 0
@@ -58,6 +60,7 @@ def setOptimizationProfile(
     inputsOpt: Union[List[torch.Tensor], torch.Tensor],
     inputsMax: Union[List[torch.Tensor], torch.Tensor],
     isMultiInput: bool,
+    fp16: bool = False,
 ) -> bool:
     """Set optimization profile with improved error handling and validation."""
     try:
@@ -80,7 +83,7 @@ def setOptimizationProfile(
                 profile.set_shape(
                     name, tuple(minShape), tuple(optShape), tuple(maxShape)
                 )
-                _logInputShapes(name, minShape, optShape, maxShape)
+                _logInputShapes(name, minShape, optShape, maxShape, fp16)
         else:
             if len(inputName) == 0:
                 logAndPrint("Input name list cannot be empty", "red")
@@ -89,7 +92,7 @@ def setOptimizationProfile(
             profile.set_shape(
                 inputName[0], tuple(inputsMin), tuple(inputsOpt), tuple(inputsMax)
             )
-            _logInputShapes(inputName[0], inputsMin, inputsOpt, inputsMax)
+            _logInputShapes(inputName[0], inputsMin, inputsOpt, inputsMax, fp16)
 
         config.add_optimization_profile(profile)
         return True
@@ -100,12 +103,13 @@ def setOptimizationProfile(
         return False
 
 
-def _logInputShapes(name: str, minShape, optShape, maxShape) -> None:
+def _logInputShapes(name: str, minShape, optShape, maxShape, fp16) -> None:
     """Helper function to log input shapes consistently."""
     if not ADOBE:
         # UTF8 Parsing of those lines sucks
+        precision = "FP16" if fp16 else "FP32"
         coloredPrint(
-            f"╭─ Input: {name}\n"
+            f"╭─ Input: {name} | {precision} \n"
             f"├─ Min: {minShape}\n"
             f"├─ Opt: {optShape}\n"
             f"╰─ Max: {maxShape}",
@@ -125,6 +129,7 @@ def tensorRTEngineCreator(
     optimizationLevel: int = 3,
     forceStatic: bool = False,
     isMultiInput: bool = False,
+    isRife: bool = False,
 ) -> Tuple[Optional[trt.ICudaEngine], Optional[trt.IExecutionContext]]:
     """
     Create a TensorRT engine from an ONNX model with enhanced validation and error handling.
@@ -141,6 +146,7 @@ def tensorRTEngineCreator(
         optimizationLevel (int): The optimization level for the engine.
         forceStatic (bool): Force static shapes for all inputs.
         isMultiInput (bool): Whether the model has multiple inputs.
+        isRife (bool): Whether the model is a RIFE model.
 
     Returns:
         Tuple of (engine, context) or (None, None) on failure.
@@ -180,7 +186,14 @@ def tensorRTEngineCreator(
             return None, None
 
         if not setOptimizationProfile(
-            builder, config, inputName, inputsMin, inputsOpt, inputsMax, isMultiInput
+            builder,
+            config,
+            inputName,
+            inputsMin,
+            inputsOpt,
+            inputsMax,
+            isMultiInput,
+            fp16,
         ):
             return None, None
 
