@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 #### Changed
 - Added precision to the printed tensor shapes when building an engine.
+- Moved backWarp and tenFlow calculations outside of TRT Engines in order to slowly shift towards dynamic engines for rife.
 
 
 ## [2.2.7] - 2025-06-21
