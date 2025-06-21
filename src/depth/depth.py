@@ -5,6 +5,7 @@ import numpy as np
 import torch.nn.functional as F
 import cv2
 
+from src.utils.logAndPrint import logAndPrint
 from concurrent.futures import ThreadPoolExecutor
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
@@ -59,6 +60,7 @@ class DepthCuda:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        compileMode: str = "default",
     ):
         self.input = input
         self.output = output
@@ -75,6 +77,7 @@ class DepthCuda:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.compileMode = compileMode
 
         self.handleModels()
 
@@ -203,6 +206,25 @@ class DepthCuda:
         self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality
         )
+
+        if self.compileMode != "default":
+            try:
+                if self.compileMode == "max":
+                    self.model.compile(mode="max-autotune-no-cudagraphs")
+                elif self.compileMode == "max-graphs":
+                    self.model.compile(
+                        mode="max-autotune-no-cudagraphs", fullgraph=True
+                    )
+            except Exception as e:
+                logging.error(
+                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}"
+                )
+                logAndPrint(
+                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}",
+                    "red",
+                )
+
+            self.compileMode = "default"
 
         self.normStream = torch.cuda.Stream()
         self.outputNormStream = torch.cuda.Stream()
@@ -704,6 +726,7 @@ class OGDepthV2CUDA:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        compileMode: str = "default",
     ):
         self.input = input
         self.output = output
@@ -720,6 +743,7 @@ class OGDepthV2CUDA:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.compileMode = compileMode
 
         self.handleModels()
 
@@ -838,6 +862,25 @@ class OGDepthV2CUDA:
 
         self.normStream = torch.cuda.Stream()
         self.stream = torch.cuda.Stream()
+
+        if self.compileMode != "default":
+            try:
+                if self.compileMode == "max":
+                    self.model.compile(mode="max-autotune-no-cudagraphs")
+                elif self.compileMode == "max-graphs":
+                    self.model.compile(
+                        mode="max-autotune-no-cudagraphs", fullgraph=True
+                    )
+            except Exception as e:
+                logging.error(
+                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}"
+                )
+                logAndPrint(
+                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}",
+                    "red",
+                )
+
+            self.compileMode = "default"
 
     @torch.inference_mode()
     def processFrame(self, frame):

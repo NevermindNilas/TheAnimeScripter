@@ -114,6 +114,7 @@ def Depth(self):
                 self.totalFrames,
                 self.bit_depth,
                 self.depth_quality,
+                compileMode=self.compileMode,
             )
 
         case "small_v2-tensorrt" | "base_v2-tensorrt" | "large_v2-tensorrt":
@@ -183,6 +184,7 @@ def Depth(self):
                 self.totalFrames,
                 self.bit_depth,
                 self.depth_quality,
+                compileMode=self.compileMode,
             )
 
 
@@ -220,6 +222,7 @@ def initializeModels(self):
                     self.width,
                     self.height,
                     self.custom_model,
+                    self.compileMode,
                 )
 
             case (
@@ -305,6 +308,7 @@ def initializeModels(self):
                     self.interpolate_factor,
                     self.dynamic_scale,
                     self.static_step,
+                    compileMode=self.compileMode,
                 )
 
             case (
@@ -366,6 +370,7 @@ def initializeModels(self):
                     outputWidth,
                     outputHeight,
                     self.ensemble,
+                    compileMode=self.compileMode,
                 )
 
             case "gmfss-tensorrt":

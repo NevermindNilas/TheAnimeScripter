@@ -102,6 +102,19 @@ def createParser(outputPath):
         action="store_true",
         help="Force Static Mode engine generation for TensorRT",
     )
+    performanceGroup.add_argument(
+        "--compile_mode",
+        type=str,
+        choices=["default", "max", "max-graphs"],
+        default="default",
+        help="[EXPERIMENTAL] Enable PyTorch compilation for CUDA models to improve performance. "
+        "Note: Only compatible with CUDA workflows and may cause compatibility issues with some models. "
+        "Increases startup time and memory usage. "
+        "'default' uses standard CudaGraph workflow without compilation, "
+        "'max' uses 'max-autotune-no-cudagraphs' mode, "
+        "'max-graphs' uses 'max-autotune-no-cudagraphs' with fullGraph=True. "
+        "Both 'max' options disable CudaGraphs, which may reduce performance at lower resolutions.",
+    )
 
     # Interpolation options
     _addInterpolationOptions(argParser)
@@ -826,6 +839,11 @@ def _configureProcessingSettings(args):
         # but for now, we will just invert it to make it work as expected
         args.autoclip_sens = float(100 - args.autoclip_sens)
         logging.info(f"New autoclip sensitivity is: {args.autoclip_sens}")
+
+    if args.compile_mode != "default":
+        logging.info(
+            f"Pytorch Compile mode is set to {args.compile_mode}, this will increase startup time and memory usage and may lead to instability with some models"
+        )
 
 
 def _adjustMethodsBasedOnCuda(args):

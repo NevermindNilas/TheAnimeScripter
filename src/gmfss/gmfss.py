@@ -7,6 +7,7 @@ from src.utils.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
 from src.utils.coloredPrints import yellow, red
 from src.utils.isCudaInit import CudaChecker
+from src.utils.logAndPrint import logAndPrint
 
 checker = CudaChecker()
 
@@ -22,12 +23,14 @@ class GMFSS:
         width,
         height,
         ensemble=False,
+        compileMode: str = "default",
     ):
         self.width = width
         self.height = height
         self.half = half
         self.interpolation_factor = interpolation_factor
         self.ensemble = ensemble
+        self.compileMode: str = compileMode
 
         self.ph = ((self.height - 1) // 64 + 1) * 64
         self.pw = ((self.width - 1) // 64 + 1) * 64
@@ -70,6 +73,25 @@ class GMFSS:
         if checker.cudaAvailable and self.half:
             self.model.half()
             self.dtype = torch.half
+
+        if self.compileMode != "default":
+            try:
+                if self.compileMode == "max":
+                    self.model.compile(mode="max-autotune-no-cudagraphs")
+                elif self.compileMode == "max-graphs":
+                    self.model.compile(
+                        mode="max-autotune-no-cudagraphs", fullgraph=True
+                    )
+            except Exception as e:
+                logging.error(
+                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}"
+                )
+                logAndPrint(
+                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}",
+                    "red",
+                )
+
+            self.compileMode = "default"
 
         self.I0 = torch.zeros(
             1,
@@ -133,10 +155,9 @@ class GMFSS:
                     dtype=self.dtype,
                     device=checker.device,
                 )
-                output = self.model(self.I0, self.I1, timestep).to(
-                    memory_format=torch.channels_last
-                )
-                output = output[:, :, : self.height, : self.width]
+                output = self.model(self.I0, self.I1, timestep)[
+                    :, :, : self.height, : self.width
+                ]
                 self.stream.synchronize()
                 interpQueue.put(output)
 
