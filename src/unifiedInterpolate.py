@@ -112,6 +112,7 @@ class RifeCuda:
         interpolateFactor=2,
         dynamicScale=False,
         staticStep=False,
+        compileMode: str = "default",
     ):
         """
         Initialize the RIFE model
@@ -125,6 +126,7 @@ class RifeCuda:
             interpolateFactor (int, optional): Interpolation factor. Defaults to 2.
             dynamicScale (bool, optional): Use Dynamic scale. Defaults to False.
             staticStep (bool, optional): Use static timestep. Defaults to False.
+            compileMode (str, optional): The compile mode to use for the model. Defaults to "default".
         """
         self.half = half
         self.scale = 1.0
@@ -135,6 +137,7 @@ class RifeCuda:
         self.interpolateFactor = interpolateFactor
         self.dynamicScale = dynamicScale
         self.staticStep = staticStep
+        self.compileMode: str = compileMode
 
         if self.width > 1920 and self.height > 1080:
             self.scale = 0.5
@@ -218,6 +221,25 @@ class RifeCuda:
         self.model = self.model.to(checker.device)
         self.model = self.model.to(memory_format=torch.channels_last)
 
+        if self.compileMode != "default":
+            try:
+                if self.compileMode == "max":
+                    self.model.compile(mode="max-autotune-no-cudagraphs")
+                elif self.compileMode == "max-graphs":
+                    self.model.compile(
+                        mode="max-autotune-no-cudagraphs", fullgraph=True
+                    )
+            except Exception as e:
+                logging.error(
+                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}"
+                )
+                logAndPrint(
+                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}",
+                    "red",
+                )
+
+            self.compileMode = "default"
+
         if self.interpolateMethod in ["rife4.25", "rife4.25-heavy", "rife4.25-lite"]:
             ph = ((self.height - 1) // 128 + 1) * 128
             pw = ((self.width - 1) // 128 + 1) * 128
@@ -255,9 +277,9 @@ class RifeCuda:
 
     @torch.inference_mode()
     def processFrame(self, frame, toNorm):
-        with torch.cuda.stream(self.normStream):
-            match toNorm:
-                case "I0":
+        match toNorm:
+            case "I0":
+                with torch.cuda.stream(self.normStream):
                     frame = frame.to(
                         device=checker.device,
                         dtype=self.dType,
@@ -268,8 +290,10 @@ class RifeCuda:
                         frame,
                         non_blocking=False,
                     ).to(memory_format=torch.channels_last)
+                self.normStream.synchronize()
 
-                case "I1":
+            case "I1":
+                with torch.cuda.stream(self.normStream):
                     frame = frame.to(
                         device=checker.device,
                         dtype=self.dType,
@@ -280,27 +304,30 @@ class RifeCuda:
                         frame,
                         non_blocking=False,
                     ).to(memory_format=torch.channels_last)
-
-                case "cache":
+                self.normStream.synchronize()
+            case "cache":
+                with torch.cuda.stream(self.normStream):
                     self.I0.copy_(
                         self.I1,
                         non_blocking=False,
                     )
                     self.model.cache()
-
-                case "infer":
+                self.normStream.synchronize()
+            case "infer":
+                with torch.cuda.stream(self.normStream):
                     if self.staticStep:
-                        output = self.model(self.I0, self.I1, frame)
+                        output = self.model(self.I0, self.I1, frame).clone()
                     else:
                         output = self.model(self.I0, self.I1, frame)[
                             :, :, : self.height, : self.width
-                        ]
-                    return output.clone()
+                        ].clone()
+                self.normStream.synchronize()
+                return output
 
-                case "model":
+            case "model":
+                with torch.cuda.stream(self.normStream):
                     self.model.cacheReset(frame)
-
-        self.normStream.synchronize()
+                self.normStream.synchronize()
 
     @torch.inference_mode()
     def padFrame(self, frame):
@@ -1540,8 +1567,13 @@ class MultiPassDedup:
         self.normStream.synchronize()
 
         for i in range(self.interpolateFactor - 1):
-            ts = [0.5]
-            # output = self.processFrame(timestep, "infer")
+            timestep = torch.full(
+                (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
+                0.5,
+                dtype=self.dType,
+                device=checker.device,
+            )
+            output = self.processFrame(timestep, "infer")
             interpQueue.put(output)
 
         self.processFrame(None, "cache")

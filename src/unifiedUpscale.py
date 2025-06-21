@@ -21,6 +21,7 @@ class UniversalPytorch:
         width: int = 1920,
         height: int = 1080,
         customModel: str = None,
+        compileMode: str = "default",
     ):
         """
         Initialize the upscaler with the desired model
@@ -33,6 +34,7 @@ class UniversalPytorch:
             height (int): The height of the input frame
             customModel (str): The path to a custom model file
             trt (bool): Whether to use tensorRT
+            compileMode: (str): The compile mode to use for the model
         """
         self.upscaleMethod = upscaleMethod
         self.upscaleFactor = upscaleFactor
@@ -40,6 +42,7 @@ class UniversalPytorch:
         self.width = width
         self.height = height
         self.customModel = customModel
+        self.compileMode: str = compileMode
 
         self.handleModel()
 
@@ -113,6 +116,25 @@ class UniversalPytorch:
             memoryFormat=torch.channels_last,
         ).optimizeModel()
 
+        if self.compileMode != "default":
+            try:
+                if self.compileMode == "max":
+                    self.model.compile(mode="max-autotune-no-cudagraphs")
+                elif self.compileMode == "max-graphs":
+                    self.model.compile(
+                        mode="max-autotune-no-cudagraphs", fullgraph=True
+                    )
+            except Exception as e:
+                logging.error(
+                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}"
+                )
+                logAndPrint(
+                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}",
+                    "red",
+                )
+
+            self.compileMode = "default"
+
         self.dummyInput = (
             torch.zeros(
                 (1, 3, self.height, self.width),
@@ -148,8 +170,9 @@ class UniversalPytorch:
         self.normStream = torch.cuda.Stream()
         self.outputStream = torch.cuda.Stream()
 
-        self.cudaGraph = torch.cuda.CUDAGraph()
-        self.initTorchCudaGraph()
+        if not self.compileMode != "default":
+            self.cudaGraph = torch.cuda.CUDAGraph()
+            self.initTorchCudaGraph()
 
     @torch.inference_mode()
     def initTorchCudaGraph(self):
@@ -171,9 +194,17 @@ class UniversalPytorch:
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
         self.processFrame(frame)
-        with torch.cuda.stream(self.stream):
-            self.cudaGraph.replay()
-        self.stream.synchronize()
+        if not self.compileMode != "default":
+            with torch.cuda.stream(self.stream):
+                self.cudaGraph.replay()
+            self.stream.synchronize()
+        else:
+            with torch.cuda.stream(self.stream):
+                self.dummyOutput.copy_(
+                    self.model(self.dummyInput),
+                    non_blocking=True,
+                )
+            self.stream.synchronize()
 
         with torch.cuda.stream(self.outputStream):
             output = self.dummyOutput.clone()

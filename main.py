@@ -37,7 +37,7 @@ from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
 from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.inputOutputHandler import processInputOutputPaths
-from src.utils.initializeModels import (
+from src.initializeModels import (
     initializeModels,
     Segment,
     Depth,
@@ -106,6 +106,7 @@ class VideoProcessor:
         self.slowmo: bool = args.slowmo
         self.interpolate_first: bool = args.interpolate_first
         self.obj_detect: bool = args.obj_detect
+        self.compileMode: str = args.compile_mode
 
     def _initVideoMetadata(self, args) -> None:
         videoMetadata = getVideoMetadata(

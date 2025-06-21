@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [UNRELEASED] - YYYY-MM-DD
 #### Added
-- N/A
+- Added `triton-windows` as well as support for `torch.compile()` using command `--compile_mode` with options `["default", "max", "max-graphs"]`. Initial benchmarks show impressive gains for CUDA specific workflows. Tested with a 1080p video on a 13700k with a 3090 and `--benchmark` mode on and a 1 frame warm-up period. Results:
+  - **SuperUltraCompact:** 80.80fps → 92.07fps - Mode: Max-Graphs
+  - **Rife 4.6:** 140.48fps → 151.07fps - Mode: Max-Graphs
+  - **Small Depth Anything V2:** 108.74fps → 131.19fps - Mode: Max-Graphs
+  - **GMFSS:** 6.05fps → 9.51fps - Mode: Max
+  - **OG Small Depth Anything V2:** 15.72fps → 16.02fps (likely OpenCV bottlenecked) - Mode: Max-Graphs
+  - DO NOTE THAT THIS IS STILL UNDER DEVELOPMENT AND IT ONLY WORKS ON RTX GPUs.
 
 #### Changed
 - Added precision to the printed tensor shapes when building an engine.

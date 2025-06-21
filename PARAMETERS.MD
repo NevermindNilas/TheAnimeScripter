@@ -284,6 +284,7 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 |------------|--------|---------|--------------------------------------------------------------------------------|-------------|
 | `--half`   | string | True    | Enable FP16 for improved performance                                           | True, False |
 | `--static` | flag   | True    | Force static engine generation and bypass the arbitrary set limitations of TAS |             |
+| `--compile_mode` | string | default | [EXPERIMENTAL] Enable PyTorch compilation for CUDA models to improve performance. Only compatible with CUDA workflows and may cause compatibility issues with some models. Increases startup time and memory usage. Choices: `default`, `max`, `max-graphs`. `default` uses standard CudaGraph workflow without compilation, `max` uses 'max-autotune-no-cudagraphs' mode, `max-graphs` uses 'max-autotune-no-cudagraphs' with fullGraph=True. Both 'max' options disable CudaGraphs, which may reduce performance at lower resolutions. |
 
 **Note**: Interpolation TRT, Depth TRT, Segment TRT all already are set to static engine generation due to set limitations within the models themselves.
 
