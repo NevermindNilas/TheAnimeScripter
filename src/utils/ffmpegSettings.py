@@ -142,7 +142,6 @@ class BuildBuffer:
                     width=self.width,
                     height=self.height,
                     format=vs.RGBH,
-                    matrix_in_s="709",
                 )
             else:
                 clip = vs.core.resize.Bicubic(
@@ -150,7 +149,6 @@ class BuildBuffer:
                     width=self.width,
                     height=self.height,
                     format=vs.RGBS,
-                    matrix_in_s="709",
                 )
 
             for frame in clip.frames():
