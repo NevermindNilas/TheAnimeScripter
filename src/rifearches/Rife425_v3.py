@@ -120,16 +120,26 @@ class IFNet(nn.Module):
         self.pw = math.ceil(self.width / tmp) * tmp
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
+        hMul = 2 / (self.pw - 1)
+        vMul = 2 / (self.ph - 1)
+        self.tenFlow = (
+            torch.Tensor([hMul, vMul])
+            .to(device=self.device, dtype=self.dtype)
+            .reshape(1, 2, 1, 1)
+        )
+        self.backWarp = torch.cat(
+            (
+                (torch.arange(self.pw) * hMul - 1)
+                .reshape(1, 1, 1, -1)
+                .expand(-1, -1, self.ph, -1),
+                (torch.arange(self.ph) * vMul - 1)
+                .reshape(1, 1, -1, 1)
+                .expand(-1, -1, -1, self.pw),
+            ),
+            dim=1,
+        ).to(device=self.device, dtype=self.dtype)
 
-    def forward(
-        self,
-        img0,
-        img1,
-        timeStep,
-        f0,
-        backWarp: torch.Tensor = None,
-        tenFlow: torch.Tensor = None,
-    ):
+    def forward(self, img0, img1, timeStep, f0):
         warpedImg0, warpedImg1 = img0, img1
         imgs = torch.cat([img0, img1], dim=1)
         imgs2 = imgs.view(2, 3, self.ph, self.pw)
@@ -161,7 +171,8 @@ class IFNet(nn.Module):
                 warpedImgs = torch.nn.functional.grid_sample(
                     imgs2,
                     (
-                        backWarp + flows.reshape((2, 2, self.ph, self.pw)) * tenFlow
+                        self.backWarp
+                        + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlow
                     ).permute(0, 2, 3, 1),
                     mode="bilinear",
                     padding_mode="border",
@@ -171,7 +182,8 @@ class IFNet(nn.Module):
                 warps = torch.nn.functional.grid_sample(
                     torch.cat((imgs2, fs2), 1),
                     (
-                        backWarp + flows.reshape((2, 2, self.ph, self.pw)) * tenFlow
+                        self.backWarp
+                        + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlow
                     ).permute(0, 2, 3, 1),
                     mode="bilinear",
                     padding_mode="border",

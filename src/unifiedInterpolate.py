@@ -126,7 +126,6 @@ class RifeCuda:
             interpolateFactor (int, optional): Interpolation factor. Defaults to 2.
             dynamicScale (bool, optional): Use Dynamic scale. Defaults to False.
             staticStep (bool, optional): Use static timestep. Defaults to False.
-            compileMode (str, optional): The compile mode to use for the model. Defaults to "default".
         """
         self.half = half
         self.scale = 1.0
@@ -137,7 +136,7 @@ class RifeCuda:
         self.interpolateFactor = interpolateFactor
         self.dynamicScale = dynamicScale
         self.staticStep = staticStep
-        self.compileMode: str = compileMode
+        self.compileMode = compileMode
 
         if self.width > 1920 and self.height > 1080:
             self.scale = 0.5
@@ -470,26 +469,6 @@ class RifeTensorRT:
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
 
-        hMul = 2 / (self.pw - 1)
-        vMul = 2 / (self.ph - 1)
-
-        self.tenFlow = (
-            torch.Tensor([hMul, vMul])
-            .to(device=checker.device, dtype=self.dtype)
-            .reshape(1, 2, 1, 1)
-        )
-        self.backWarp = torch.cat(
-            (
-                (torch.arange(self.pw) * hMul - 1)
-                .reshape(1, 1, 1, -1)
-                .expand(-1, -1, self.ph, -1),
-                (torch.arange(self.ph) * vMul - 1)
-                .reshape(1, 1, -1, 1)
-                .expand(-1, -1, -1, self.pw),
-            ),
-            dim=1,
-        ).to(device=checker.device, dtype=self.dtype)
-
         IFNet, Head = importRifeArch(self.interpolateMethod, "v3")
 
         enginePath = self.tensorRTEngineNameHandler(
@@ -549,22 +528,6 @@ class RifeTensorRT:
                     dtype=self.dtype,
                     device=checker.device,
                 )
-                dummyBackWarp = torch.zeros(
-                    1,
-                    2,
-                    self.ph,
-                    self.pw,
-                    dtype=self.dtype,
-                    device=checker.device,
-                )
-                dummyTenFlow = torch.zeros(
-                    1,
-                    2,
-                    1,
-                    1,
-                    dtype=self.dtype,
-                    device=checker.device,
-                )
 
             self.modelPath = self.modelPath.replace(".pth", ".onnx")
 
@@ -579,11 +542,10 @@ class RifeTensorRT:
             }
 
             if self.norm is not None:
-                inputList.extend([dummyInput4, dummyBackWarp, dummyTenFlow])
-                inputNames.extend(["f0", "backWarp", "tenFlow"])
+                inputList.append(dummyInput4)
+                inputNames.append("f0")
                 outputNames.append("f1")
                 dynamicAxes["f0"] = {2: "height", 3: "width"}
-                dynamicAxes["backWarp"] = {2: "height", 3: "width"}
 
             torch.onnx.export(
                 self.model,
@@ -602,13 +564,7 @@ class RifeTensorRT:
             ]
 
             if self.norm is not None:
-                inputs.extend(
-                    [
-                        [1, channels, self.ph, self.pw],
-                        [1, 2, self.ph, self.pw],  # backWarp
-                        [1, 2, 1, 1],  # tenFlow
-                    ]
-                )
+                inputs.append([1, channels, self.ph, self.pw])
 
             if hasattr(self, "model") and self.model is not None:
                 del self.model
@@ -618,10 +574,10 @@ class RifeTensorRT:
                     dummyInput1,
                     dummyInput2,
                     dummyInput3,
-                )
+                )  # No need to keep these in memory
 
                 if self.norm is not None:
-                    del dummyInput4, dummyBackWarp, dummyTenFlow
+                    del dummyInput4
                 gc.collect()
                 torch.cuda.empty_cache()
 
@@ -704,7 +660,7 @@ class RifeTensorRT:
         ]
 
         if self.norm is not None:
-            self.tensors.extend([self.f0, self.backWarp, self.tenFlow])
+            self.tensors.extend([self.f0])
 
         self.tensors.extend([self.dummyOutput])
 
@@ -1567,13 +1523,8 @@ class MultiPassDedup:
         self.normStream.synchronize()
 
         for i in range(self.interpolateFactor - 1):
-            timestep = torch.full(
-                (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
-                0.5,
-                dtype=self.dType,
-                device=checker.device,
-            )
-            output = self.processFrame(timestep, "infer")
+            ts = [0.5]
+            # output = self.processFrame(timestep, "infer")
             interpQueue.put(output)
 
         self.processFrame(None, "cache")
