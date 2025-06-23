@@ -555,6 +555,7 @@ class RifeTensorRT:
                 output_names=outputNames,
                 dynamic_axes=dynamicAxes,
                 opset_version=20,
+                optimize=True,
             )
 
             inputs = [
@@ -796,7 +797,7 @@ class RifeNCNN:
         self.interpolateFactor = interpolateFactor
 
         UHD = True if width >= 3840 or height >= 2160 else False
-        scale = 2 if UHD else 1
+        # scale = 2 if UHD else 1
         from rife_ncnn_vulkan_python import wrapped
 
         self.wrapped = wrapped
