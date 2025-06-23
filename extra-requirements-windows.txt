@@ -8,7 +8,7 @@ numpy==2.2.4
 triton-windows==3.3.1.post19
 spandrel==0.4.1
 onnxruntime-directml==1.21.1
-pytorch-lightning==2.5.1.post0
+pytorch-lightning==2.5.2
 safetensors==0.5.3
 scenedetect[opencv]
 yt-dlp==2025.6.9
