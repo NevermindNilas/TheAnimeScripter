@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added precision to the printed tensor shapes when building an engine.
 - Updated the bugreport.md
 
+#### Fixed
+- Fixed an issue where Adobe Edition would not work due to missmatch in input pix formats.
+
 ## [2.2.7] - 2025-06-21
 #### Added
 - N/A
