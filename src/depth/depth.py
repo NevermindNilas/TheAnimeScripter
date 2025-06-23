@@ -11,6 +11,7 @@ from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.isCudaInit import CudaChecker
+from queue import Queue
 
 checker = CudaChecker()
 
@@ -744,6 +745,8 @@ class OGDepthV2CUDA:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
+        self.decodeBuffer = Queue(maxsize=10)
+        self.encodeBuffer = Queue(maxsize=10)
 
         self.handleModels()
 
@@ -758,8 +761,11 @@ class OGDepthV2CUDA:
                 self.fps,
                 (self.width, self.height),
             )
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.decodeThread)
+                executor.submit(self.encodeThread)
+                executor.submit(self.process)
 
-            self.process()
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
 
@@ -886,8 +892,7 @@ class OGDepthV2CUDA:
     def processFrame(self, frame):
         try:
             depth = self.model.infer_image(frame, self.newHeight, self.half)
-            self.output.write(depth)
-
+            self.encodeBuffer.put(depth)
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
@@ -896,14 +901,30 @@ class OGDepthV2CUDA:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                ret, frame = self.video.read()
-                if not ret:
+                frame = self.decodeBuffer.get()
+                if frame is None:
                     break
                 self.processFrame(frame)
                 frameCount += 1
                 bar(1)
 
         logging.info(f"Processed {frameCount} frames")
+        self.encodeBuffer.put(None)
 
+    def decodeThread(self):
+        while True:
+            ret, frame = self.video.read()
+            if not ret:
+                break
+            self.decodeBuffer.put(frame)
+        self.decodeBuffer.put(None)
         self.video.release()
+
+    def encodeThread(self):
+        while True:
+            frame = self.encodeBuffer.get()
+            if frame is None:
+                break
+            self.output.write(frame)
+
         self.output.release()
