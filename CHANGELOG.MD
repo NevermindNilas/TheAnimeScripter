@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [UNRELEASED] - YYYY-MM-DD
+#### New
+- N/A
+
+#### Changed
+- Up to `50%` faster inference speeds with `og_small_v2`, `og_base_v2`, `og_large_v2`, `og_distill_small_v2`, and `og_distill_base_v2` depth models with absolutely 0 quality loss.
+
+## [2.2.8] - 2025-06-23
 #### Added
 - Added `triton-windows` as well as support for `torch.compile()` using command `--compile_mode` with options `["default", "max", "max-graphs"]`. Initial benchmarks show impressive gains for CUDA specific workflows. Tested with a 1080p video on a 13700k with a 3090 and `--benchmark` mode on and a 1 frame warm-up period. Results:
   - **SuperUltraCompact:** 80.80fps → 92.07fps - Mode: Max-Graphs

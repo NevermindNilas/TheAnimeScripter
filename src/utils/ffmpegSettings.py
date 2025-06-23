@@ -86,7 +86,6 @@ class BuildBuffer:
         if checker.cudaAvailable:
             self.deviceType = "cuda"
             self.normStream = torch.cuda.Stream()
-            self.preAllocFrame = None
         else:
             self.deviceType = "cpu"
 
@@ -168,16 +167,7 @@ class BuildBuffer:
             self.decodeBuffer.put(None)
 
             try:
-                if hasattr(self, "reader") and self.reader:
-                    self.reader.close()
-
-                if (
-                    checker.cudaAvailable
-                    and hasattr(self, "preAllocFrame")
-                    and self.preAllocFrame is not None
-                ):
-                    del self.preAllocFrame
-                    torch.cuda.empty_cache()
+                self.reader.close()
             except Exception as e:
                 logging.warning(f"Cleanup error: {e}")
 
@@ -194,12 +184,15 @@ class BuildBuffer:
         Returns:
             The processed frame as a numpy array.
         """
-        planes = [
-            np.array(frame[plane], copy=False)
-            for plane in range(frame.format.num_planes)
-        ]
+        frame = np.stack(
+            [np.asarray(frame[plane]) for plane in range(frame.format.num_planes)]
+        )
+        if self.half:
+            frame = frame.astype(np.float16)
+        else:
+            frame = frame.astype(np.float32)
 
-        return np.stack(planes, axis=-1).astype(np.float32)
+        return frame.clip(0, 1).transpose(1, 2, 0)  # HWC format
 
     def processFrameToTorch(self, frame, normStream=None):
         """
