@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [UNRELEASED] - YYYY-MM-DD
 #### New
-- N/A
+- Added new SocketIO based approach to the progress bar, this should result in a more responsive and faster parsing between TAS and AE.
 
 #### Changed
 - Up to `50%` faster inference speeds with `og_small_v2`, `og_base_v2`, `og_large_v2`, `og_distill_small_v2`, and `og_distill_base_v2` depth models with absolutely 0 quality loss.
