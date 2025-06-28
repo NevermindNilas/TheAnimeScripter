@@ -3,7 +3,9 @@ psutil==7.0.0
 requests==2.32.4
 inquirer==3.4.0
 colored==2.3.0
-flask==3.1.1
+Flask==3.1.1
+Flask-Cors==4.0.1
+python-socketio==5.13.0
 rich==14.0.0
 rich-argparse==1.7.1
 wheel-stub==0.4.2

@@ -8,8 +8,9 @@ from rich.progress import (
 import src.constants as cs
 from rich.progress import ProgressColumn
 from time import time
+from src.utils.aeComms import progressState
+
 import os
-import json
 import logging
 import psutil
 
@@ -74,16 +75,6 @@ class ProgressBarLogic:
             # Initialize timing for FPS and ETA calculations
             self.startTime = time()
 
-            self.jsonData = {
-                "currentFrame": 0,
-                "totalFrames": self.totalFrames,
-                "fps": 0.0,
-                "eta": 0.0,
-                "elapsedTime": 0.0,
-            }
-            self.logFile = os.path.join(cs.MAINPATH, "progressLog.json")
-            with open(self.logFile, "w") as f:
-                json.dump(self.jsonData, f, separators=(",", ":"))
         else:
             self.progress = Progress(
                 TextColumn("[progress.description]{task.description}"),
@@ -113,17 +104,16 @@ class ProgressBarLogic:
             elapsedTime = currentTime - self.startTime
             fps = self.completed / elapsedTime if elapsedTime > 0 else 0
 
-            self.jsonData.update(
+            progressState.update(
                 {
                     "currentFrame": self.completed,
+                    "totalFrames": self.totalFrames,
                     "fps": round(fps, 2),
                     "eta": 0.0,
-                    "elapsedTime": round(elapsedTime, 1),
+                    "elapsedTime": elapsedTime,
+                    "status": "Finishing...",
                 }
             )
-
-            with open(self.logFile, "w") as f:
-                json.dump(self.jsonData, f, separators=(",", ":"))
         else:
             self.progress.stop()
 
@@ -148,17 +138,16 @@ class ProgressBarLogic:
                 else:
                     eta = 0
 
-                self.jsonData.update(
+                progressState.update(
                     {
                         "currentFrame": self.completed,
+                        "totalFrames": self.totalFrames,
                         "fps": round(fps, 2),
-                        "eta": round(eta, 1),
-                        "elapsedTime": round(elapsedTime, 1),
+                        "eta": eta,
+                        "elapsedTime": elapsedTime,
+                        "status": "Processing...",
                     }
                 )
-
-                with open(self.logFile, "w") as f:
-                    json.dump(self.jsonData, f, separators=(",", ":"))
 
         else:
             self.progress.update(self.task, advance=advance)
