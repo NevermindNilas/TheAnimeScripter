@@ -521,6 +521,7 @@ def _addMiscOptions(argParser):
     miscGroup.add_argument(
         "--ae",
         action="store_true",
+        default=False,
         help="Notify if script is run from After Effects interface",
     )
     miscGroup.add_argument(
@@ -607,6 +608,19 @@ def argumentsChecker(args, outputPath):
     if args.ae:
         logging.info("After Effects interface detected")
         cs.ADOBE = True
+        from src.utils.aeComms import startServerInThread
+
+        try:
+            startServerInThread(
+                host="127.0.0.1",
+                port=8080,
+            )
+        except Exception as e:
+            logging.error(f"Failed to start AE comms server: {e}")
+            logAndPrint(
+                "Failed to start AE comms server, please check the logs for more details",
+                "red",
+            )
 
     logging.info("\n============== Arguments Checker ==============")
     _handleDependencies(args)
