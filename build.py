@@ -4,13 +4,14 @@ import os
 from pathlib import Path
 import urllib.request
 import zipfile
+import argparse
 
 baseDir = Path(__file__).resolve().parent
 distPath = baseDir / "dist-portable"
 # requirementsPath = baseDir / "requirements.txt"
-reqFile = list(baseDir.glob("requirements*.txt"))
-if reqFile:
-    requirementsPath = reqFile[0]
+reqFiles = list(baseDir.glob("requirements*.txt"))
+if reqFiles:
+    requirementsPath = reqFiles[0]
 else:
     raise FileNotFoundError("No requirements file found in the base directory.")
 
@@ -34,7 +35,7 @@ def downloadPortablePython():
     os.makedirs(portablePythonDir, exist_ok=True)
 
     pythonUrl = f"https://www.python.org/ftp/python/{pythonVersion}/python-{pythonVersion}-embed-amd64.zip"
-    getPipUrl = "https://bootstrap.pypa.io/get-pip.py"
+    getPiPUrl = "https://bootstrap.pypa.io/get-pip.py"
 
     pythonZip = portablePythonDir / "python.zip"
     if not pythonZip.exists():
@@ -46,10 +47,10 @@ def downloadPortablePython():
         with zipfile.ZipFile(pythonZip, "r") as zipRef:
             zipRef.extractall(portablePythonDir)
 
-    getPipPath = portablePythonDir / "get-pip.py"
-    if not getPipPath.exists():
+    getPiPPath = portablePythonDir / "get-pip.py"
+    if not getPiPPath.exists():
         print("Downloading get-pip.py...")
-        urllib.request.urlretrieve(getPipUrl, getPipPath)
+        urllib.request.urlretrieve(getPiPUrl, getPiPPath)
 
     pthFiles = list(portablePythonDir.glob("python*._pth"))
     if pthFiles:
@@ -186,48 +187,34 @@ def installRequirements():
     print("Requirements installation complete!")
 
 
-def bundleFiles():
+def bundleFiles(targetDir):
     print("Creating portable bundle...")
 
-    bundleDir = distPath / "main"
-    os.makedirs(bundleDir, exist_ok=True)
+    bundleDir = targetDir
 
     print("Copying Python installation...")
-    pythonDir = bundleDir
-    if pythonDir.exists():
-        shutil.rmtree(pythonDir)
-    shutil.copytree(portablePythonDir, pythonDir)
+    for item in portablePythonDir.iterdir():
+        if item.is_dir():
+            shutil.copytree(item, bundleDir / item.name, dirs_exist_ok=True)
+        else:
+            shutil.copy2(item, bundleDir / item.name)
 
     print("Copying source code...")
     srcDir = baseDir / "src"
-    try:
-        shutil.copytree(srcDir, bundleDir / "src")
-    except FileExistsError:
-        print(f"Directory {bundleDir / 'src'} already exists. Skipping copy.")
-    except Exception as e:
-        print(f"Error while copying {srcDir}: {e}")
+    shutil.copytree(srcDir, bundleDir / "src", dirs_exist_ok=True)
 
-    try:
-        # Copy main.py
-        print("Copying main.py...")
-        shutil.copy(baseDir / "main.py", bundleDir / "main.py")
-        print("Copying flaskServer.py...")
-        shutil.copy(baseDir / "flaskServer.py", bundleDir / "flaskServer.py")
-    except FileExistsError:
-        print(f"File {bundleDir / 'main.py'} already exists. Skipping copy.")
-    except Exception as e:
-        print(f"Error while copying {baseDir / 'main.py'}: {e}")
+    shutil.copy2(baseDir / "main.py", bundleDir / "main.py")
 
     print("Copying requirements files...")
-    shutil.copy(
+    shutil.copy2(
         baseDir / "extra-requirements-windows.txt",
         bundleDir / "extra-requirements-windows.txt",
     )
-    shutil.copy(
+    shutil.copy2(
         baseDir / "extra-requirements-windows-lite.txt",
         bundleDir / "extra-requirements-windows-lite.txt",
     )
-    shutil.copy(
+    shutil.copy2(
         baseDir / "deprecated-requirements.txt",
         bundleDir / "deprecated-requirements.txt",
     )
@@ -235,8 +222,8 @@ def bundleFiles():
     print(f"Portable bundle created at {bundleDir}")
 
 
-def moveExtras():
-    bundleDir = distPath / "main"
+def moveExtras(targetDir):
+    bundleDir = targetDir
     filesToCopy = [
         "LICENSE",
         "README.md",
@@ -252,10 +239,10 @@ def moveExtras():
             print(f"Error while copying {fileName}: {e}")
 
 
-def cleanupTempFiles():
+def cleanupTempFiles(targetDir):
     """Remove temporary files created during the build process"""
     print("Cleaning up temporary files...")
-    bundleDir = distPath / "main"
+    bundleDir = targetDir
     tempFiles = [
         "python.zip",
         "get-pip.py",
@@ -285,17 +272,38 @@ def removePortablePython():
 
 
 if __name__ == "__main__":
-    if distPath.exists():
-        print(f"Removing existing dist directory: {distPath}")
-        shutil.rmtree(distPath)
-    os.makedirs(distPath, exist_ok=True)
+    parser = argparse.ArgumentParser(
+        description="Build script for The Anime Scripter portable version."
+    )
+    parser.add_argument(
+        "--develop",
+        action="store_true",
+        help="If active, it will overwrite the contents of F:\\TheAnimeScripter\\dist-portable\\main with the newly generated build. ONLY USE IN DEVELOPMENT!",
+    )
+    args = parser.parse_args()
+
+    if args.develop:
+        finalOutputDir = Path(
+            "C:/Users/nilas/AppData/Roaming/TheAnimeScripter/TAS-Portable"
+        )
+    else:
+        finalOutputDir = distPath / "main"
+
+    if finalOutputDir.exists() and not args.develop:
+        # Just so it doesn't randomly delete TAS-Portable
+        print(f"Removing existing build directory: {finalOutputDir}")
+        shutil.rmtree(finalOutputDir)
+
+    os.makedirs(finalOutputDir.parent, exist_ok=True)
+    os.makedirs(finalOutputDir, exist_ok=True)
+
     pythonExe = downloadPortablePython()
     downloadAndInstallVapourSynth()
     installRequirements()
     installVapourSynthPlugins()
-    bundleFiles()
-    moveExtras()
-    cleanupTempFiles()
+    bundleFiles(finalOutputDir)
+    moveExtras(finalOutputDir)
+    cleanupTempFiles(finalOutputDir)
     removePortablePython()
     print("Bundle process completed successfully!")
-    print(f"Portable bundle is ready at {distPath / 'main'}")
+    print(f"Portable bundle is ready at {finalOutputDir}")
