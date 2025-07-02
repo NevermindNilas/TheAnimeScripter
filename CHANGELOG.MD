@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 #### New
 - Added new SocketIO based approach to the progress bar, this should result in a more responsive and faster parsing between TAS and AE.
 - Switched to @TNTWise's spandrel fork and removed spandrel from the dependencies.
+- Added a new option to `build.py` through argparse, `--develop` this is primarily used for development purposes and will not be documented.
 
 #### Changed
 - Up to `50%` faster inference speeds with `og_small_v2`, `og_base_v2`, `og_large_v2`, `og_distill_small_v2`, and `og_distill_base_v2` depth models with absolutely 0 quality loss.
