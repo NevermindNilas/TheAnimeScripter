@@ -50,8 +50,8 @@ class UniversalPytorch:
         """
         Load the desired model
         """
-        from spandrel import ImageModelDescriptor, ModelLoader
-        from spandrel.__helpers.model_descriptor import UnsupportedDtypeError
+        from src.spandrel import ImageModelDescriptor, ModelLoader
+        from src.spandrel.__helpers.model_descriptor import UnsupportedDtypeError
 
         if not self.customModel:
             self.filename = modelsMap(
@@ -73,17 +73,8 @@ class UniversalPytorch:
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
                 )
-        if self.upscaleMethod not in ["rtmosr"]:  # using  a list for future expansion
-            try:
-                self.model = ModelLoader().load_from_file(modelPath)
-            except Exception as e:
-                logging.error(f"Error loading model: {e}")
-        else:
-            if self.upscaleMethod == "rtmosr":
-                from src.extraArches.RTMoSR import RTMoSR
 
-                self.model = RTMoSR(unshuffle_mod=True)
-            self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
+        self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
 
         if self.customModel:
             assert isinstance(self.model, ImageModelDescriptor)
