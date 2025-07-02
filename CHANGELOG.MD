@@ -6,9 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [UNRELEASED] - YYYY-MM-DD
 #### New
 - Added new SocketIO based approach to the progress bar, this should result in a more responsive and faster parsing between TAS and AE.
+- Switched to @TNTWise's spandrel fork and removed spandrel from the dependencies.
 
 #### Changed
 - Up to `50%` faster inference speeds with `og_small_v2`, `og_base_v2`, `og_large_v2`, `og_distill_small_v2`, and `og_distill_base_v2` depth models with absolutely 0 quality loss.
+
+### Adobe Edition
+
+#### New
+- Added a new `Progress Bar` which is now based on SocketIO and should be more responsive and faster.
+
+#### Changed
+- Switch animations from a sliding animation to a fade-in animation, also decreased the animation duration to 0.2s.
+
+
 
 ## [2.2.8] - 2025-06-23
 #### Added
