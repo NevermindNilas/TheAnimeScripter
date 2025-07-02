@@ -1,0 +1,3 @@
+[submodule "src/spandrel"]
+	path = src/spandrel
+	url = https://github.com/TNTwise/spandrel
