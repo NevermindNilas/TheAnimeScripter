@@ -166,11 +166,6 @@ class BuildBuffer:
         finally:
             self.decodeBuffer.put(None)
 
-            try:
-                self.reader.close()
-            except Exception as e:
-                logging.warning(f"Cleanup error: {e}")
-
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
 

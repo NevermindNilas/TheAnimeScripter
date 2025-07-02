@@ -1,8 +1,15 @@
 import logging
+import os
 from threading import Thread, Lock
 import socketio
 from flask import Flask
 from flask_cors import CORS
+
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
+logging.getLogger("socketio").setLevel(logging.ERROR)
+logging.getLogger("engineio").setLevel(logging.ERROR)
+
+os.environ["FLASK_ENV"] = "production"
 
 
 class ProgressState:
@@ -20,7 +27,7 @@ class ProgressState:
     def update(self, new_data):
         with self._lock:
             self.data.update(new_data)
-        sio.emit("progress_update", self.data)  # Emit update to all connected clients
+        sio.emit("progress_update", self.data)
 
     def get(self):
         with self._lock:
@@ -36,16 +43,6 @@ CORS(app)
 
 
 @sio.event
-def connect(sid, environ):
-    logging.info(f"Client connected: {sid}")
-
-
-@sio.event
-def disconnect(sid):
-    logging.info(f"Client disconnected: {sid}")
-
-
-@sio.event
 def getProgress(sid):
     sio.emit("progress_update", progressState.get(), room=sid)
 
@@ -58,7 +55,16 @@ def shutdown(sid):
 
 def runServer(host, port):
     logging.info(f"Starting AE comms server on http://{host}:{port}")
-    app.run(host=host, port=port, debug=False)
+    import sys
+    from io import StringIO
+
+    originalSTDERR = sys.stderr
+    sys.stderr = StringIO()
+
+    try:
+        app.run(host=host, port=port, debug=False, threaded=True, use_reloader=False)
+    finally:
+        sys.stderr = originalSTDERR
 
 
 def startServerInThread(host, port):
