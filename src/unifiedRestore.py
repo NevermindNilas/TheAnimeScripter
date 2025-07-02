@@ -35,7 +35,7 @@ class UnifiedRestoreCuda:
         """
         Load the Model
         """
-        from spandrel import ModelLoader
+        from src.spandrel import ModelLoader
 
         if self.model in ["nafnet"]:
             self.half = False
