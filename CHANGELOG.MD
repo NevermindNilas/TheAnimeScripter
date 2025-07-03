@@ -16,11 +16,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 #### New
 - Added a new `Progress Bar` which is now based on SocketIO and should be more responsive and faster.
+- The status bar will now show the current status of TensorRT workflows, this is primarily used for the `engine generation` step for now but will be further expanded in the future.
 
 #### Changed
 - Switch animations from a sliding animation to a fade-in animation, also decreased the animation duration to 0.2s.
+- Small tweaks to the Progress Bar.
 
+#### Fixed
+- Layer sorting was using the workarea start and end points rather than the actual layer start and end points.
 
+#### Known Issues
+- ProRes encoding is not currently working.
+- AutoCutClip is not currently working.
+- DPIR is not currently working.
 
 ## [2.2.8] - 2025-06-23
 #### Added
