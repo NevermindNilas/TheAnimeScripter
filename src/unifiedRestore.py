@@ -50,7 +50,8 @@ class UnifiedRestoreCuda:
         if self.model not in ["gater3"]:
             try:
                 self.model = ModelLoader().load_from_file(path=modelPath)
-
+                if isinstance(self.model, dict):
+                    self.model = ModelLoader().load_from_state_dict(self.model)
             except Exception as e:
                 logging.error(f"Error loading model: {e}")
         else:

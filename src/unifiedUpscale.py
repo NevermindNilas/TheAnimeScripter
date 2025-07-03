@@ -50,8 +50,11 @@ class UniversalPytorch:
         """
         Load the desired model
         """
-        from src.spandrel import ImageModelDescriptor, ModelLoader
-        from src.spandrel.__helpers.model_descriptor import UnsupportedDtypeError
+        from src.spandrel import (
+            ImageModelDescriptor,
+            ModelLoader,
+            UnsupportedDtypeError,
+        )
 
         if not self.customModel:
             self.filename = modelsMap(
@@ -76,11 +79,14 @@ class UniversalPytorch:
 
         self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
 
+        if isinstance(self.model, dict):
+            self.model = ModelLoader().load_from_state_dict(self.model)
+
         if self.customModel:
             assert isinstance(self.model, ImageModelDescriptor)
 
         try:
-            # If the model is wrapped in a ModelDescriptor, extract the underlying model
+            # SPANDREL HAXX
             self.model = self.model.model
         except Exception:
             pass
