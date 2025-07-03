@@ -8,6 +8,9 @@ from typing import List, Tuple, Optional, Union
 from src.utils.logAndPrint import logAndPrint, coloredPrint
 from src.constants import ADOBE
 
+if ADOBE:
+    from src.utils.aeComms import progressState
+
 
 def createNetworkAndConfig(
     builder: trt.Builder,
@@ -171,6 +174,13 @@ def tensorRTEngineCreator(
         f"Model engine not found, creating engine for model: {modelPath}",
         "yellow",
     )
+
+    if ADOBE:
+        progressState.update(
+            {
+                "status": f"Creating a TensorRT engine for {os.path.basename(modelPath)}.",
+            }
+        )
 
     if forceStatic:
         inputsMin = inputsOpt
