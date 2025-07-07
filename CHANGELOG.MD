@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [UNRELEASED] - YYYY-MM-DD
+### Adobe Edition
+
+#### Added 
+- Autoscroll to the bottom for the log tab.
+- Memoization and caching to the logging logic making it faster and less resource heavy ( probably min maxing but it should be significantly better now ).
+- Added Report Issue Button to the Log Tab which copies the logs and opens the Github Issues page.
+- Added support for shortened youtube links ( youtu.be )
+
+#### Changed
+- Better copy feature for the logs with proper newline handling.
+- Added smooth autoscrolling in the logTab.
+- Renamed application settings to advanced settings
+- Renamed GTX (CUDA) to CUDA models
+
+#### Fixed
+- FFMPEG Encoding command becoming red.
+
+
+## [2.2.9] - 2025-07-04
 #### New
 - Added new SocketIO based approach to the progress bar, this should result in a more responsive and faster parsing between TAS and AE.
 - Switched to @TNTWise's spandrel fork and removed spandrel from the dependencies.
