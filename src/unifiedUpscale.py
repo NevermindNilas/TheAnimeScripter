@@ -123,10 +123,10 @@ class UniversalPytorch:
                     )
             except Exception as e:
                 logging.error(
-                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}"
+                    f"Error compiling model {self.upscaleMethod} with mode {self.compileMode}: {e}"
                 )
                 logAndPrint(
-                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}",
+                    f"Error compiling model {self.upscaleMethod} with mode {self.compileMode}: {e}",
                     "red",
                 )
 
