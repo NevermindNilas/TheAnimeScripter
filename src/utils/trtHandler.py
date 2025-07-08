@@ -1,4 +1,3 @@
-import torch
 import tensorrt as trt
 import os
 import logging
@@ -59,9 +58,9 @@ def setOptimizationProfile(
     builder: trt.Builder,
     config: trt.IBuilderConfig,
     inputName: List[str],
-    inputsMin: Union[List[torch.Tensor], torch.Tensor],
-    inputsOpt: Union[List[torch.Tensor], torch.Tensor],
-    inputsMax: Union[List[torch.Tensor], torch.Tensor],
+    inputsMin: Union[List[Tuple[int, ...]], Tuple[int, ...]],
+    inputsOpt: Union[List[Tuple[int, ...]], Tuple[int, ...]],
+    inputsMax: Union[List[Tuple[int, ...]], Tuple[int, ...]],
     isMultiInput: bool,
     fp16: bool = False,
 ) -> bool:
@@ -124,10 +123,10 @@ def tensorRTEngineCreator(
     modelPath: str = "",
     enginePath: str = "model.engine",
     fp16: bool = False,
-    inputsMin: Union[List[torch.Tensor], torch.Tensor] = [],
-    inputsOpt: Union[List[torch.Tensor], torch.Tensor] = [],
-    inputsMax: Union[List[torch.Tensor], torch.Tensor] = [],
-    inputName: List[str] = None,
+    inputsMin: Union[List[Tuple[int, ...]], Tuple[int, ...]] = [],
+    inputsOpt: Union[List[Tuple[int, ...]], Tuple[int, ...]] = [],
+    inputsMax: Union[List[Tuple[int, ...]], Tuple[int, ...]] = [],
+    inputName: Optional[List[str]] = None,
     maxWorkspaceSize: int = (1 << 30),
     optimizationLevel: int = 3,
     forceStatic: bool = False,
@@ -219,7 +218,9 @@ def tensorRTEngineCreator(
 
         logAndPrint("Serialized engine built successfully!", "green")
 
-        os.makedirs(os.path.dirname(enginePath), exist_ok=True)
+        engineDir = os.path.dirname(enginePath)
+        if engineDir:
+            os.makedirs(engineDir, exist_ok=True)
 
         with open(enginePath, "wb") as f:
             f.write(serializedEngine)
