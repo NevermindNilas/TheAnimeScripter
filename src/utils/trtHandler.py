@@ -259,12 +259,12 @@ def tensorRTEngineLoader(
             open(enginePath, "rb") as f,
             trt.Runtime(trt.Logger(trt.Logger.INFO)) as runtime,
         ):
-            engine_data = f.read()
-            if not engine_data:
+            engineData = f.read()
+            if not engineData:
                 logAndPrint(f"Empty engine file: {enginePath}", "red")
                 return None, None
 
-            engine = runtime.deserialize_cuda_engine(engine_data)
+            engine = runtime.deserialize_cuda_engine(engineData)
             if not engine:
                 logAndPrint(f"Failed to deserialize engine: {enginePath}", "red")
                 return None, None
