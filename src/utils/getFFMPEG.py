@@ -7,24 +7,20 @@ import src.constants as cs
 from src.utils.progressBarLogic import ProgressBarDownloadLogic
 
 
-def getFFMPEG(realtime: bool = False):
+def getFFMPEG():
     ffmpegPath = None
     ffprobePath = None
-    mpvPath = shutil.which("mpv") if realtime else None
-    if ffmpegPath is None or (realtime and mpvPath is None) or ffprobePath is None:
-        ffmpegPath, mpvPath = downloadAndExtractFfmpeg(cs.FFMPEGPATH, realtime)
+    if ffmpegPath is None or ffprobePath is None:
+        ffmpegPath = downloadAndExtractFfmpeg(cs.FFMPEGPATH)
     else:
         logging.info(f"FFMPEG found in System Path: {ffmpegPath}")
-        if realtime:
-            logging.info(f"FFPLAY found in System Path: {mpvPath}")
         logging.info(f"FFPROBE found in System Path: {ffprobePath}")
 
     cs.FFMPEGPATH = ffmpegPath
     cs.FFPROBEPATH = os.path.join(os.path.dirname(ffmpegPath), "ffprobe.exe")
-    cs.MPVPATH = mpvPath if realtime else None
 
 
-def downloadAndExtractFfmpeg(ffmpegPath, realtime):
+def downloadAndExtractFfmpeg(ffmpegPath):
     logging.info("Downloading FFMPEG")
     extractFunc = extractFfmpegZip if cs.SYSTEM == "Windows" else extractFfmpegTar
     ffmpegDir = os.path.dirname(ffmpegPath)
@@ -38,8 +34,6 @@ def downloadAndExtractFfmpeg(ffmpegPath, realtime):
         if cs.SYSTEM == "Windows"
         else "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
     )
-
-    mpvURL = r"https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/mpv.exe"
 
     try:
         response = requests.get(ffmpegUrl, stream=True)
@@ -59,30 +53,8 @@ def downloadAndExtractFfmpeg(ffmpegPath, realtime):
         logging.error(f"Failed to download FFMPEG: {e}")
         raise
 
-    if realtime:
-        try:
-            response = requests.get(mpvURL, stream=True)
-            response.raise_for_status()
-            totalSizeInBytes = int(response.headers.get("content-length", 0))
-            totalSizeInMB = totalSizeInBytes // (1024 * 1024)
-
-            mpvPath = os.path.join(ffmpegDir, "mpv.exe")
-            with (
-                ProgressBarDownloadLogic(totalSizeInMB + 1, "Downloading MPV") as bar,
-                open(mpvPath, "wb") as file,
-            ):
-                for data in response.iter_content(chunk_size=1024 * 1024):
-                    if data:
-                        file.write(data)
-                        bar(len(data) // (1024 * 1024))
-        except requests.RequestException as e:
-            logging.error(f"Failed to download MPV: {e}")
-            raise
-
     extractFunc(ffmpegArchivePath, ffmpegDir)
-    return str(ffmpegPath), str(ffmpegPath).replace(
-        "ffmpeg", "mpv"
-    ) if realtime else None
+    return str(ffmpegPath)
 
 
 def extractFfmpegZip(ffmpegZipPath, ffmpegDir):
@@ -113,7 +85,7 @@ def extractFfmpegZip(ffmpegZipPath, ffmpegDir):
         shutil.rmtree(os.path.join(ffmpegDir, "ffmpeg-master-latest-win64-gpl"))
 
 
-def extractFfmpegTar(ffmpegTarPath, ffmpegDir, realtime):
+def extractFfmpegTar(ffmpegTarPath, ffmpegDir):
     import tarfile
 
     try:
@@ -130,11 +102,6 @@ def extractFfmpegTar(ffmpegTarPath, ffmpegDir, realtime):
                 ffmpeg_dst = os.path.join(ffmpegDir, "ffmpeg")
                 if not os.path.exists(ffmpeg_dst):
                     os.rename(ffmpeg_src, ffmpeg_dst)
-                if realtime:
-                    ffplay_src = os.path.join(fullPath, "ffplay")
-                    ffplay_dst = os.path.join(ffmpegDir, "ffplay")
-                    if not os.path.exists(ffplay_dst):
-                        os.rename(ffplay_src, ffplay_dst)
                 shutil.rmtree(fullPath)
     except tarfile.TarError as e:
         logging.error(f"Failed to extract TAR: {e}")

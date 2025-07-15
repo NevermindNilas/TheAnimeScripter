@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Minor tweaks to the progress bar logic.
 - Turned `--ae` into a string argument rather than a boolean and it will now require a url to be parsed for more flexibility.
 - Added some more logging to `aecomms.py` for better debugging.
+- Removed `--realtime` argument and related logic.
 
 #### Fixed
 - Fixed a typo when using compile mode and upscale.

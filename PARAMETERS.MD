@@ -51,7 +51,6 @@ The Anime Scripter is a powerful tool for enhancing and manipulating videos with
 | `--offline`               | str  | "none"  | Download models based on user selection                                      |
 | `--ae`                    | flag | False   | Indicates if the script is run from the After Effects interface              |
 | `--preview`               | flag | False   | Open localhost and request a preview frame from TAS                          |
-| `--realtime`              | flag | False   | Open FFPLAY and watch the encoded video in real time                         |
 | `--download_requirements` | flag | False   | Download all requirements then force exit, only used for Adobe Compatibility |
 
 ### Offline Mode Options
