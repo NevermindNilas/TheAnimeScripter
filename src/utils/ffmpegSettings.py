@@ -274,7 +274,6 @@ class WriteBuffer:
         bitDepth: str = "8bit",
         inpoint: float = 0.0,
         outpoint: float = 0.0,
-        realtime: bool = False,
         slowmo: bool = False,
     ):
         """
@@ -295,7 +294,6 @@ class WriteBuffer:
         bitDepth: str - The bit depth of the output video. Options include "8bit" and "10bit".
         inpoint: float - The start time of the segment to encode, in seconds.
         outpoint: float - The end time of the segment to encode, in seconds.
-        realtime: bool - Whether to preview the video in real-time using FFPLAY.
         """
         self.input = input
         self.output = os.path.normpath(output)
@@ -312,19 +310,10 @@ class WriteBuffer:
         self.bitDepth = bitDepth
         self.inpoint = inpoint
         self.outpoint = outpoint
-        self.realtime = realtime
         self.slowmo = slowmo
 
         self.writtenFrames = 0
         self.writeBuffer = Queue(maxsize=10)
-        self.mpvPath = (
-            os.path.join(cs.MAINPATH, "ffmpeg", "mpv.exe") if self.realtime else None
-        )
-        if self.realtime and not os.path.exists(self.mpvPath):
-            logging.warning(
-                f"MPV not found at {self.mpvPath}. Disabling realtime preview."
-            )
-            self.realtime = False
 
     def encodeSettings(self) -> list:
         """
@@ -411,26 +400,19 @@ class WriteBuffer:
 
         command.extend(["-map", "0:v"])
 
-        if not self.realtime:
-            filterList = self._buildFilterList()
-
-            if not self.custom_encoder:
-                command.extend(matchEncoder(self.encode_method))
-                if filterList:
-                    command.extend(["-vf", ",".join(filterList)])
-
-                command.extend(["-pix_fmt", outputPixFmt])
-            else:
-                command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
+        filterList = self._buildFilterList()
+        if not self.custom_encoder:
+            command.extend(matchEncoder(self.encode_method))
+            if filterList:
+                command.extend(["-vf", ",".join(filterList)])
+            command.extend(["-pix_fmt", outputPixFmt])
+        else:
+            command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
 
         if cs.AUDIO:
             command.extend(self._buildAudioSettings())
 
-        if self.realtime:
-            command.extend(["-f", "matroska", "-"])
-        else:
-            command.append(self.output)
-
+        command.append(self.output)
         return command
 
     def _buildFilterList(self):
@@ -551,40 +533,14 @@ class WriteBuffer:
             if checker.cudaAvailable:
                 normStream = torch.cuda.Stream()
 
-            # Start FFmpeg subprocess
             ffmpegProc = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE if self.realtime else None,
+                stdout=None,
                 stderr=subprocess.PIPE,
                 shell=False,
                 cwd=cs.MAINPATH,
             )
-
-            mpvProc = None
-            if self.realtime and ffmpegProc.stdout:
-                mpvProc = subprocess.Popen(
-                    [
-                        self.mpvPath,
-                        "-",
-                        "--no-terminal",
-                        "--force-window=yes",
-                        "--keep-open=yes",
-                        "--title=" + self.input,
-                        "--cache=yes",
-                        "--demuxer-max-bytes=5M",
-                        "--demuxer-readahead-secs=5",
-                        "--demuxer-seekable-cache=yes",
-                        "--hr-seek-framedrop=no",
-                        "--hwdec=auto",
-                        "--border=no",
-                        "--profile=high-quality",
-                        "--vo=gpu-next",
-                    ],
-                    stdin=ffmpegProc.stdout,
-                    shell=False,
-                )
-                ffmpegProc.stdout.close()
 
             while True:
                 frame = self.writeBuffer.get()
@@ -637,8 +593,7 @@ class WriteBuffer:
             try:
                 ffmpegProc.stdin.close()
                 ffmpegProc.wait(timeout=3)
-                if self.realtime and mpvProc:
-                    mpvProc.stdin.close()
+
             except Exception as e:
                 logging.warning(f"Cleanup error: {e}")
 

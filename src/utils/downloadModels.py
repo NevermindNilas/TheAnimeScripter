@@ -122,6 +122,7 @@ def modelsList() -> list[str]:
         "distill_small_v2",
         "distill_base_v2",
         "distill_large_v2",
+        "yolov9_small_mit",
     ]
 
 
@@ -600,6 +601,17 @@ def modelsMap(
 
         case "distill_large_v2":
             return "distill_large_v2.safetensors"
+
+        case "yolov9_small-directml":
+            if modelType == "pth":
+                return "yolov9_small_mit.pth"
+            elif modelType == "onnx":
+                if half:
+                    return "yolov9_small_mit.onnx"
+                else:
+                    return "yolov9_small_mit.onnx"
+            elif modelType == "ncnn":
+                raise ValueError("NCNN backend is not supported for YOLOv9 models.")
 
         case _:
             raise ValueError(f"Model {model} not found.")

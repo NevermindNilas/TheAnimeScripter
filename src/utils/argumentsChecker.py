@@ -63,11 +63,6 @@ def createParser(outputPath):
     generalGroup.add_argument(
         "--preview", action="store_true", help="Preview the video during processing"
     )
-    generalGroup.add_argument(
-        "--realtime",
-        action="store_true",
-        help="Realtime Preview the video during processing, this downloads FFPLAY if not found",
-    )
 
     # Preset Configuration options
     presetGroup = argParser.add_argument_group("Preset Configuration")
@@ -144,6 +139,18 @@ def createParser(outputPath):
     objectGroup = argParser.add_argument_group("Object Detection")
     objectGroup.add_argument(
         "--obj_detect", action="store_true", help="Detect objects in the video"
+    )
+
+    objectGroup.add_argument(
+        "--obj_detect_method",
+        type=str,
+        default="yolov9_small-directml",
+        choices=[
+            "yolov9_small-directml",
+            "yolov9_medium-directml",
+            "yolov9_large-directml",
+            # TO:DO: ADD TENSORRT Backend
+        ],
     )
 
     # Miscellaneous options
@@ -624,9 +631,6 @@ def argumentsChecker(args, outputPath):
     logging.info("\n============== Arguments Checker ==============")
     _handleDependencies(args)
 
-    if args.realtime:
-        print(yellow("Realtime preview enabled, this is experimental!"))
-
     if args.slowmo and not args.interpolate:
         logAndPrint(
             "Slow motion is enabled but interpolation is not, disabling slowmo",
@@ -635,10 +639,6 @@ def argumentsChecker(args, outputPath):
         args.slowmo = False
 
     _handleDepthSettings(args)
-
-    if args.benchmark and args.realtime:
-        logging.error("Realtime preview is not supported in benchmark mode")
-        args.realtime = False
 
     if args.offline != "none":
         _downloadOfflineModels(args)
@@ -715,20 +715,10 @@ def _handleDependencies(args):
         if "ffprobe.exe" not in os.environ["PATH"]:
             os.environ["PATH"] += os.pathsep + os.path.dirname(cs.FFPROBEPATH)
 
-    cs.MPVPATH = os.path.join(
-        cs.MAINPATH,
-        "ffmpeg",
-        "mpv.exe" if cs.SYSTEM == "Windows" else "mpv",
-    )
-
-    if not os.path.exists(cs.FFMPEGPATH) or (
-        args.realtime
-        and not os.path.exists(cs.MPVPATH)
-        or not os.path.exists(cs.FFPROBEPATH)
-    ):
+    if not os.path.exists(cs.FFMPEGPATH) or not os.path.exists(cs.FFPROBEPATH):
         from src.utils.getFFMPEG import getFFMPEG
 
-        getFFMPEG(args.realtime)
+        getFFMPEG()
 
     try:
         from src.utils.isCudaInit import detectNVidiaGPU
@@ -884,6 +874,8 @@ def _adjustMethodsBasedOnCuda(args):
             "scenechange_method",
             "depth_method",
             "restore_method",
+            "dedup_method",
+            "obj_detect_method",
         ]
 
         for attr in methodAttributes:

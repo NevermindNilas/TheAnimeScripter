@@ -1,38 +1,72 @@
 import logging
 
 
-def ObjectDetection(self):
-    from src.objectDetection.objectDetection import ObjectDetection
+def objectDetection(self):
+    if "directml" in self.objDetectMethod:
+        from src.objectDetection.objectDetection import ObjectDetectionDML
 
-    ObjectDetection(
-        self.input,
-        self.output,
-        self.width,
-        self.height,
-        self.fps,
-        self.inpoint,
-        self.outpoint,
-        self.encode_method,
-        self.custom_encoder,
-        self.benchmark,
-        self.totalFrames,
-        self.half,
-    )
+        ObjectDetectionDML(
+            self.input,
+            self.output,
+            self.width,
+            self.height,
+            self.fps,
+            self.inpoint,
+            self.outpoint,
+            self.encodeMethod,
+            self.customEncoder,
+            self.benchmark,
+            self.half,
+            self.objDetectMethod,
+            self.totalFrames,
+        )
+    elif "tensorrt" in self.objDetectMethod:
+        from src.objectDetection.objectDetection import ObjectDetectionTensorRT
+
+        ObjectDetectionTensorRT(
+            self.input,
+            self.output,
+            self.width,
+            self.height,
+            self.fps,
+            self.inpoint,
+            self.outpoint,
+            self.encodeMethod,
+            self.customEncoder,
+            self.benchmark,
+            self.half,
+            self.objDetectMethod,
+            self.totalFrames,
+        )
+    else:
+        ObjectDetection(
+            self.input,
+            self.output,
+            self.width,
+            self.height,
+            self.fps,
+            self.inpoint,
+            self.outpoint,
+            self.encodeMethod,
+            self.customEncoder,
+            self.benchmark,
+            self.half,
+        )
 
 
-def AutoClip(self):
+def autoClip(self):
     from src.autoclip.autoclip import AutoClip
 
     AutoClip(
         self.input,
-        self.autoclip_sens,
+        self.autoclipSens,
         self.inpoint,
         self.outpoint,
     )
 
 
-def Segment(self):
-    if self.segment_method == "anime":
+def segment(self):
+    if self.segmentMethod == "anime":
         from src.segment.animeSegment import AnimeSegment
 
         AnimeSegment(
@@ -43,12 +77,12 @@ def Segment(self):
             self.outputFPS,
             self.inpoint,
             self.outpoint,
-            self.encode_method,
-            self.custom_encoder,
+            self.encodeMethod,
+            self.customEncoder,
             self.benchmark,
             self.totalFrames,
         )
-    elif self.segment_method == "anime-tensorrt":
+    elif self.segmentMethod == "anime-tensorrt":
         from src.segment.animeSegment import AnimeSegmentTensorRT
 
         AnimeSegmentTensorRT(
@@ -59,13 +93,13 @@ def Segment(self):
             self.outputFPS,
             self.inpoint,
             self.outpoint,
-            self.encode_method,
-            self.custom_encoder,
+            self.encodeMethod,
+            self.customEncoder,
             self.benchmark,
             self.totalFrames,
         )
 
-    elif self.segment_method == "anime-directml":
+    elif self.segmentMethod == "anime-directml":
         from src.segment.animeSegment import AnimeSegmentDirectML
 
         AnimeSegmentDirectML(
@@ -76,18 +110,18 @@ def Segment(self):
             self.outputFPS,
             self.inpoint,
             self.outpoint,
-            self.encode_method,
-            self.custom_encoder,
+            self.encodeMethod,
+            self.customEncoder,
             self.benchmark,
             self.totalFrames,
         )
 
-    elif self.segment_method == "cartoon":
+    elif self.segmentMethod == "cartoon":
         raise NotImplementedError("Cartoon segment is not implemented yet")
 
 
-def Depth(self):
-    match self.depth_method:
+def depth(self):
+    match self.depthMethod:
         case (
             "small_v2"
             | "base_v2"
@@ -107,13 +141,13 @@ def Depth(self):
                 self.half,
                 self.inpoint,
                 self.outpoint,
-                self.encode_method,
-                self.depth_method,
-                self.custom_encoder,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
                 self.benchmark,
                 self.totalFrames,
-                self.bit_depth,
-                self.depth_quality,
+                self.bitDepth,
+                self.depthQuality,
                 compileMode=self.compileMode,
             )
 
@@ -129,13 +163,13 @@ def Depth(self):
                 self.half,
                 self.inpoint,
                 self.outpoint,
-                self.encode_method,
-                self.depth_method,
-                self.custom_encoder,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
                 self.benchmark,
                 self.totalFrames,
-                self.bit_depth,
-                self.depth_quality,
+                self.bitDepth,
+                self.depthQuality,
             )
 
         case "small_v2-directml" | "base_v2-directml" | "large_v2-directml":
@@ -150,13 +184,13 @@ def Depth(self):
                 self.half,
                 self.inpoint,
                 self.outpoint,
-                self.encode_method,
-                self.depth_method,
-                self.custom_encoder,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
                 self.benchmark,
                 self.totalFrames,
-                self.bit_depth,
-                self.depth_quality,
+                self.bitDepth,
+                self.depthQuality,
             )
         case (
             "og_small_v2"
@@ -177,13 +211,13 @@ def Depth(self):
                 self.half,
                 self.inpoint,
                 self.outpoint,
-                self.encode_method,
-                self.depth_method,
-                self.custom_encoder,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
                 self.benchmark,
                 self.totalFrames,
-                self.bit_depth,
-                self.depth_quality,
+                self.bitDepth,
+                self.depthQuality,
                 compileMode=self.compileMode,
             )
 
@@ -191,19 +225,19 @@ def Depth(self):
 def initializeModels(self):
     outputWidth = self.width
     outputHeight = self.height
-    upscale_process = None
-    interpolate_process = None
-    restore_process = None
-    dedup_process = None
-    scenechange_process = None
+    upscaleProcess = None
+    interpolateProcess = None
+    restoreProcess = None
+    dedupProcess = None
+    scenechangeProcess = None
 
     if self.upscale:
         from src.unifiedUpscale import UniversalPytorch
 
-        outputWidth *= self.upscale_factor
-        outputHeight *= self.upscale_factor
+        outputWidth *= self.upscaleFactor
+        outputHeight *= self.upscaleFactor
         logging.info(f"Upscaling to {outputWidth}x{outputHeight}")
-        match self.upscale_method:
+        match self.upscaleMethod:
             case (
                 "shufflecugan"
                 | "compact"
@@ -215,13 +249,13 @@ def initializeModels(self):
                 | "shufflespan"
                 | "rtmosr"
             ):
-                upscale_process = UniversalPytorch(
-                    self.upscale_method,
-                    self.upscale_factor,
+                upscaleProcess = UniversalPytorch(
+                    self.upscaleMethod,
+                    self.upscaleFactor,
                     self.half,
                     self.width,
                     self.height,
-                    self.custom_model,
+                    self.customModel,
                     self.compileMode,
                 )
 
@@ -237,21 +271,21 @@ def initializeModels(self):
             ):
                 from src.unifiedUpscale import UniversalDirectML
 
-                upscale_process = UniversalDirectML(
-                    self.upscale_method,
-                    self.upscale_factor,
+                upscaleProcess = UniversalDirectML(
+                    self.upscaleMethod,
+                    self.upscaleFactor,
                     self.half,
                     self.width,
                     self.height,
-                    self.custom_model,
+                    self.customModel,
                 )
 
             case "shufflecugan-ncnn" | "span-ncnn":
                 from src.unifiedUpscale import UniversalNCNN
 
-                upscale_process = UniversalNCNN(
-                    self.upscale_method,
-                    self.upscale_factor,
+                upscaleProcess = UniversalNCNN(
+                    self.upscaleMethod,
+                    self.upscaleFactor,
                 )
 
             case (
@@ -267,20 +301,20 @@ def initializeModels(self):
             ):
                 from src.unifiedUpscale import UniversalTensorRT
 
-                upscale_process = UniversalTensorRT(
-                    self.upscale_method,
-                    self.upscale_factor,
+                upscaleProcess = UniversalTensorRT(
+                    self.upscaleMethod,
+                    self.upscaleFactor,
                     self.half,
                     self.width,
                     self.height,
-                    self.custom_model,
+                    self.customModel,
                     self.forceStatic,
                 )
     if self.interpolate:
         logging.info(
-            f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolate_factor, '.3f')}fps"
+            f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolateFactor, '.3f')}fps"
         )
-        match self.interpolate_method:
+        match self.interpolateMethod:
             case (
                 "rife"
                 | "rife4.6"
@@ -299,15 +333,15 @@ def initializeModels(self):
             ):
                 from src.unifiedInterpolate import RifeCuda
 
-                interpolate_process = RifeCuda(
+                interpolateProcess = RifeCuda(
                     self.half,
                     self.width,
                     self.height,
-                    self.interpolate_method,
+                    self.interpolateMethod,
                     self.ensemble,
-                    self.interpolate_factor,
-                    self.dynamic_scale,
-                    self.static_step,
+                    self.interpolateFactor,
+                    self.dynamicScale,
+                    self.staticStep,
                     compileMode=self.compileMode,
                 )
 
@@ -325,13 +359,13 @@ def initializeModels(self):
             ):
                 from src.unifiedInterpolate import RifeNCNN
 
-                interpolate_process = RifeNCNN(
-                    self.interpolate_method,
+                interpolateProcess = RifeNCNN(
+                    self.interpolateMethod,
                     self.ensemble,
                     self.width,
                     self.height,
                     self.half,
-                    self.interpolate_factor,
+                    self.interpolateFactor,
                 )
 
             case (
@@ -352,9 +386,9 @@ def initializeModels(self):
             ):
                 from src.unifiedInterpolate import RifeTensorRT
 
-                interpolate_process = RifeTensorRT(
-                    self.interpolate_method,
-                    self.interpolate_factor,
+                interpolateProcess = RifeTensorRT(
+                    self.interpolateMethod,
+                    self.interpolateFactor,
                     self.width,
                     self.height,
                     self.half,
@@ -364,8 +398,8 @@ def initializeModels(self):
             case "gmfss":
                 from src.gmfss.gmfss import GMFSS
 
-                interpolate_process = GMFSS(
-                    int(self.interpolate_factor),
+                interpolateProcess = GMFSS(
+                    int(self.interpolateFactor),
                     self.half,
                     outputWidth,
                     outputHeight,
@@ -376,8 +410,8 @@ def initializeModels(self):
             case "gmfss-tensorrt":
                 from src.gmfss.gmfss import GMFSSTensorRT
 
-                interpolate_process = GMFSSTensorRT(
-                    int(self.interpolate_factor),
+                interpolateProcess = GMFSSTensorRT(
+                    int(self.interpolateFactor),
                     outputWidth,
                     outputHeight,
                     self.half,
@@ -387,9 +421,9 @@ def initializeModels(self):
             case "rife4.6-directml":
                 from src.unifiedInterpolate import RifeDirectML
 
-                interpolate_process = RifeDirectML(
-                    self.interpolate_method,
-                    self.interpolate_factor,
+                interpolateProcess = RifeDirectML(
+                    self.interpolateMethod,
+                    self.interpolateFactor,
                     self.width,
                     self.height,
                     self.half,
@@ -397,7 +431,7 @@ def initializeModels(self):
                 )
 
     if self.restore:
-        match self.restore_method:
+        match self.restoreMethod:
             case (
                 "scunet"
                 | "dpir"
@@ -408,16 +442,16 @@ def initializeModels(self):
             ):
                 from src.unifiedRestore import UnifiedRestoreCuda
 
-                restore_process = UnifiedRestoreCuda(
-                    self.restore_method,
+                restoreProcess = UnifiedRestoreCuda(
+                    self.restoreMethod,
                     self.half,
                 )
 
             case "anime1080fixer-tensorrt" | "gater3-tensorrt" | "scunet-tensorrt":
                 from src.unifiedRestore import UnifiedRestoreTensorRT
 
-                restore_process = UnifiedRestoreTensorRT(
-                    self.restore_method,
+                restoreProcess = UnifiedRestoreTensorRT(
+                    self.restoreMethod,
                     self.half,
                     self.width,
                     self.height,
@@ -427,8 +461,8 @@ def initializeModels(self):
             case "anime1080fixer-directml" | "gater3-directml" | "scunet-directml":
                 from src.unifiedRestore import UnifiedRestoreDirectML
 
-                restore_process = UnifiedRestoreDirectML(
-                    self.restore_method,
+                restoreProcess = UnifiedRestoreDirectML(
+                    self.restoreMethod,
                     self.half,
                     self.width,
                     self.height,
@@ -436,116 +470,116 @@ def initializeModels(self):
             case "fastlinedarken":
                 from src.fastlinedarken import FastLineDarkenWithStreams
 
-                restore_process = FastLineDarkenWithStreams(
+                restoreProcess = FastLineDarkenWithStreams(
                     self.half,
                 )
             case "fastlinedarken-tensorrt":
                 from src.fastlinedarken import FastLineDarkenTRT
 
-                restore_process = FastLineDarkenTRT(
+                restoreProcess = FastLineDarkenTRT(
                     self.half,
                     self.height,
                     self.width,
                 )
 
     if self.dedup:
-        match self.dedup_method:
+        match self.dedupMethod:
             case "ssim":
                 from src.dedup.dedup import DedupSSIM
 
-                dedup_process = DedupSSIM(
-                    self.dedup_sens,
+                dedupProcess = DedupSSIM(
+                    self.dedupSens,
                 )
 
             case "mse":
                 from src.dedup.dedup import DedupMSE
 
-                dedup_process = DedupMSE(
-                    self.dedup_sens,
+                dedupProcess = DedupMSE(
+                    self.dedupSens,
                 )
 
             case "ssim-cuda":
                 from src.dedup.dedup import DedupSSIMCuda
 
-                dedup_process = DedupSSIMCuda(
-                    self.dedup_sens,
+                dedupProcess = DedupSSIMCuda(
+                    self.dedupSens,
                     self.half,
                 )
 
             case "mse-cuda":
                 from src.dedup.dedup import DedupMSECuda
 
-                dedup_process = DedupMSECuda(
-                    self.dedup_sens,
+                dedupProcess = DedupMSECuda(
+                    self.dedupSens,
                     self.half,
                 )
 
             case "flownets":
                 from src.dedup.dedup import DedupFlownetS
 
-                dedup_process = DedupFlownetS(
+                dedupProcess = DedupFlownetS(
                     half=self.half,
-                    dedupSens=self.dedup_sens,
+                    dedupSens=self.dedupSens,
                     height=self.height,
                     width=self.width,
                 )
 
     if self.scenechange:
-        match self.scenechange_method:
+        match self.scenechangeMethod:
             case "maxxvit-tensorrt" | "shift_lpips-tensorrt":
                 from src.scenechange import SceneChangeTensorRT
 
-                scenechange_process = SceneChangeTensorRT(
+                scenechangeProcess = SceneChangeTensorRT(
                     self.half,
-                    self.scenechange_sens,
-                    self.scenechange_method,
+                    self.scenechangeSens,
+                    self.scenechangeMethod,
                 )
             case "maxxvit-directml":
                 from src.scenechange import SceneChange
 
-                scenechange_process = SceneChange(
+                scenechangeProcess = SceneChange(
                     self.half,
-                    self.scenechange_sens,
+                    self.scenechangeSens,
                 )
             case "differential":
                 from src.scenechange import SceneChangeCPU
 
-                scenechange_process = SceneChangeCPU(
-                    self.scenechange_sens,
+                scenechangeProcess = SceneChangeCPU(
+                    self.scenechangeSens,
                 )
             case "differential-cuda":
                 from src.scenechange import SceneChangeCuda
 
-                scenechange_process = SceneChangeCuda(
-                    self.scenechange_sens,
+                scenechangeProcess = SceneChangeCuda(
+                    self.scenechangeSens,
                 )
             case "differential-tensorrt":
                 from src.scenechange import DifferentialTensorRT
 
-                scenechange_process = DifferentialTensorRT(
-                    self.scenechange_sens,
+                scenechangeProcess = DifferentialTensorRT(
+                    self.scenechangeSens,
                     self.height,
                     self.width,
                 )
             case "differential-directml":
                 # from src.scenechange import DifferentialDirectML
-                # scenechange_process = DifferentialDirectML(
-                #     self.scenechange_sens,
+                # scenechangeProcess = DifferentialDirectML(
+                #     self.scenechangeSens,
                 # )
                 raise NotImplementedError(
                     "Differential DirectML is not implemented yet"
                 )
             case _:
                 raise ValueError(
-                    f"Unknown scenechange method: {self.scenechange_method}"
+                    f"Unknown scenechange method: {self.scenechangeMethod}"
                 )
 
     return (
         outputWidth,
         outputHeight,
-        upscale_process,
-        interpolate_process,
-        restore_process,
-        dedup_process,
-        scenechange_process,
+        upscaleProcess,
+        interpolateProcess,
+        restoreProcess,
+        dedupProcess,
+        scenechangeProcess,
     )
