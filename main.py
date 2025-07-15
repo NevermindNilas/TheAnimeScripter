@@ -25,6 +25,7 @@ import logging
 import warnings
 import src.constants as cs
 
+
 from platform import system
 from signal import signal, SIGINT, SIG_DFL
 from time import time
@@ -39,10 +40,10 @@ from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.inputOutputHandler import processInputOutputPaths
 from src.initializeModels import (
     initializeModels,
-    Segment,
-    Depth,
-    AutoClip,
-    ObjectDetection,
+    segment,
+    depth,
+    autoClip,
+    objectDetection,
 )
 from src.utils.logAndPrint import logAndPrint
 
@@ -57,8 +58,8 @@ class VideoProcessor:
     ):
         self.input = results["videoPath"]
         self.output = results["outputPath"]
-        self.encode_method = results["encodeMethod"]
-        self.custom_encoder = results["customEncoder"]
+        self.encodeMethod = results["encodeMethod"]
+        self.customEncoder = results["customEncoder"]
 
         self._initProcessingParams(args)
         self._initVideoMetadata(args)
@@ -67,45 +68,45 @@ class VideoProcessor:
 
     def _initProcessingParams(self, args):
         self.interpolate: bool = args.interpolate
-        self.interpolate_factor: int = args.interpolate_factor
-        self.interpolate_method: str = args.interpolate_method
+        self.interpolateFactor: int = args.interpolate_factor
+        self.interpolateMethod: str = args.interpolate_method
         self.upscale: bool = args.upscale
-        self.upscale_factor: int = args.upscale_factor
-        self.upscale_method: str = args.upscale_method
+        self.upscaleFactor: int = args.upscale_factor
+        self.upscaleMethod: str = args.upscale_method
         self.dedup: bool = args.dedup
-        self.dedup_method: str = args.dedup_method
-        self.dedup_sens: float = args.dedup_sens
+        self.dedupMethod: str = args.dedup_method
+        self.dedupSens: float = args.dedup_sens
         self.half: bool = args.half
         self.inpoint: float = args.inpoint
         self.outpoint: float = args.outpoint
         self.sharpen: bool = args.sharpen
-        self.sharpen_sens: float = args.sharpen_sens
+        self.sharpenSens: float = args.sharpen_sens
         self.autoclip: bool = args.autoclip
-        self.autoclip_sens: float = args.autoclip_sens
+        self.autoclipSens: float = args.autoclip_sens
         self.depth: bool = args.depth
-        self.depth_method: str = args.depth_method
+        self.depthMethod: str = args.depth_method
         self.ensemble: bool = args.ensemble
         self.resize: bool = args.resize
-        self.resize_factor: float = args.resize_factor
-        self.custom_model: str = args.custom_model
+        self.resizeFactor: float = args.resize_factor
+        self.customModel: str = args.custom_model
         self.restore: bool = args.restore
-        self.restore_method: str = args.restore_method
+        self.restoreMethod: str = args.restore_method
         self.benchmark: bool = args.benchmark
         self.segment: bool = args.segment
-        self.segment_method: str = args.segment_method
+        self.segmentMethod: str = args.segment_method
         self.scenechange: bool = args.scenechange
-        self.scenechange_sens: float = args.scenechange_sens
-        self.scenechange_method: str = args.scenechange_method
-        self.bit_depth: str = args.bit_depth
+        self.scenechangeSens: float = args.scenechange_sens
+        self.scenechangeMethod: str = args.scenechange_method
+        self.bitDepth: str = args.bit_depth
         self.preview: bool = args.preview
         self.forceStatic: bool = args.static
-        self.depth_quality: str = args.depth_quality
-        self.realtime: bool = args.realtime
-        self.dynamic_scale: bool = args.dynamic_scale
-        self.static_step: bool = args.static_step
+        self.depthQuality: str = args.depth_quality
+        self.dynamicScale: bool = args.dynamic_scale
+        self.staticStep: bool = args.static_step
         self.slowmo: bool = args.slowmo
-        self.interpolate_first: bool = args.interpolate_first
-        self.obj_detect: bool = args.obj_detect
+        self.interpolateFirst: bool = args.interpolate_first
+        self.objDetect: bool = args.obj_detect
+        self.objDetectMethod: str = args.obj_detect_method
         self.compileMode: str = args.compile_mode
 
     def _initVideoMetadata(self, args) -> None:
@@ -127,33 +128,33 @@ class VideoProcessor:
             self.outputFPS = self.fps
         else:
             self.outputFPS = (
-                self.fps * args.interpolate_factor if args.interpolate else self.fps
+                self.fps * self.interpolateFactor if self.interpolate else self.fps
             )
 
         if self.resize:
             aspectRatio = self.width / self.height
-            self.width = round(self.width * self.resize_factor / 2) * 2
+            self.width = round(self.width * self.resizeFactor / 2) * 2
             self.height = round(self.width / aspectRatio / 2) * 2
             logging.info(
-                f"Resizing to {self.width}x{self.height} using {self.resize_factor} factor."
+                f"Resizing to {self.width}x{self.height} using {self.resizeFactor} factor."
             )
 
     def _selectProcessingMethod(self) -> None:
         if self.autoclip:
             logging.info("Detecting scene changes")
-            AutoClip(self)
+            autoClip(self)
 
         elif self.depth:
             logging.info("Depth Estimation")
-            Depth(self)
+            depth(self)
 
         elif self.segment:
             logging.info("Segmenting video")
-            Segment(self)
+            segment(self)
 
-        elif self.obj_detect:
+        elif self.objDetect:
             logging.info("Object Detection")
-            ObjectDetection(self)
+            objectDetection(self)
 
         else:
             self.start()
@@ -172,7 +173,7 @@ class VideoProcessor:
             frame = self.restore_process(frame)
 
         if self.interpolate:
-            if isinstance(self.interpolate_factor, float):
+            if isinstance(self.interpolateFactor, float):
                 currentIDX = self.frameCounter
                 nextIDX = currentIDX + 1
 
@@ -189,10 +190,10 @@ class VideoProcessor:
 
                 self.frameCounter += 1
             else:
-                self.framesToInsert = int(self.interpolate_factor) - 1
+                self.framesToInsert = int(self.interpolateFactor) - 1
                 self.timesteps = None
 
-        if self.interpolate_first:
+        if self.interpolateFirst:
             self.ifInterpolateFirst(frame)
         else:
             self.ifInterpolateLast(frame)
@@ -259,8 +260,8 @@ class VideoProcessor:
         self.sceneChangeCounter = 0
         self.frameCounter = 0
 
-        if self.interpolate and isinstance(self.interpolate_factor, float):
-            factor = Fraction(self.interpolate_factor).limit_denominator(100)
+        if self.interpolate and isinstance(self.interpolateFactor, float):
+            factor = Fraction(self.interpolateFactor).limit_denominator(100)
             self.factorNum = factor.numerator
             self.factorDen = factor.denominator
 
@@ -268,16 +269,16 @@ class VideoProcessor:
             if increment.is_integer():
                 increment = int(increment)
         else:
-            self.factorNum = self.interpolate_factor if self.interpolate else 1
+            self.factorNum = self.interpolateFactor if self.interpolate else 1
             self.factorDen = 1
-            increment = int(self.interpolate_factor) if self.interpolate else 1
+            increment = int(self.interpolateFactor) if self.interpolate else 1
 
         self.timesteps = None
 
-        self.framesToInsert = self.interpolate_factor - 1 if self.interpolate else 0
+        self.framesToInsert = self.interpolateFactor - 1 if self.interpolate else 0
 
-        if self.interpolate and self.interpolate_first:
-            self.interpQueue = Queue(maxsize=round(self.interpolate_factor))
+        if self.interpolate and self.interpolateFirst:
+            self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
 
         try:
             with ProgressBarLogic(self.totalFrames * increment) as bar:
@@ -331,26 +332,25 @@ class VideoProcessor:
                 resize=self.resize,
                 width=self.width,
                 height=self.height,
-                bitDepth=self.bit_depth,
+                bitDepth=self.bitDepth,
             )
 
             self.writeBuffer = WriteBuffer(
                 input=self.input,
                 output=self.output,
-                encode_method=self.encode_method,
-                custom_encoder=self.custom_encoder,
+                encode_method=self.encodeMethod,
+                custom_encoder=self.customEncoder,
                 width=self.new_width,
                 height=self.new_height,
                 fps=self.outputFPS,
                 sharpen=self.sharpen,
-                sharpen_sens=self.sharpen_sens,
+                sharpen_sens=self.sharpenSens,
                 grayscale=False,
                 transparent=False,
                 benchmark=self.benchmark,
-                bitDepth=self.bit_depth,
+                bitDepth=self.bitDepth,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                realtime=self.realtime,
                 slowmo=self.slowmo,
             )
 
@@ -370,7 +370,7 @@ class VideoProcessor:
             totalFPS: float = (
                 self.totalFrames
                 / elapsedTime
-                * (1 if not self.interpolate else self.interpolate_factor)
+                * (1 if not self.interpolate else self.interpolateFactor)
             )
             logging.info(
                 f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}"
@@ -420,6 +420,7 @@ def main():
 
         args = createParser(baseOutputPath)
         outputPath = os.path.join(baseOutputPath, "output")
+
         results = processInputOutputPaths(args, outputPath)
 
         totalVideos = len(results)
