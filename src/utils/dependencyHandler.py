@@ -7,7 +7,7 @@ import json
 import hashlib
 
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Iterable
 from src.utils.logAndPrint import logAndPrint
 
 
@@ -19,6 +19,13 @@ def getPythonExecutable() -> str:
         str: Path to the Python executable
     """
     return sys.executable
+
+
+# https://github.com/pypa/hatch/blob/4ebce0e1fe8bf0fcdef587a704c207a063d72575/src/hatch/utils/platform.py#L176-L180
+def streamProcessOutput(process) -> Iterable[str]:
+    # To avoid blocking never use a pipe's file descriptor iterator. See https://bugs.python.org/issue3907
+    for line in iter(process.stdout.readline, b""):
+        yield line.decode("utf-8")
 
 
 def uninstallDependencies(extension: str = "") -> Tuple[bool, str]:
@@ -50,11 +57,9 @@ def uninstallDependencies(extension: str = "") -> Tuple[bool, str]:
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
         )
 
-        for line in iter(process.stdout.readline, ""):
+        for line in streamProcessOutput(process):
             print(line, end="")
             logging.info(line.strip())
 
@@ -107,11 +112,9 @@ def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[boo
             shell=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
         )
 
-        for line in iter(process.stdout.readline, ""):
+        for line in streamProcessOutput(process):
             print(line, end="")
             logging.info(line.strip())
 

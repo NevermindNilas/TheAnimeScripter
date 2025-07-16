@@ -16,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 #### Fixed
 - Fixed a typo when using compile mode and upscale.
-
+- Potential fix for deadlocks when installing dependencies.
 
 ## [2.2.9] - 2025-07-07
 ### Adobe Edition

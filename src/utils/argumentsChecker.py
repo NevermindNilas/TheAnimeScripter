@@ -5,7 +5,7 @@ import argparse
 import shutil
 import src.constants as cs
 
-from .coloredPrints import green, yellow
+from .coloredPrints import green
 from rich_argparse import RichHelpFormatter
 from src.version import __version__
 from .inputOutputHandler import generateOutputName
