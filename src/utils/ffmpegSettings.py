@@ -135,20 +135,7 @@ class BuildBuffer:
 
                 clip = clip[inpointFrame:outpointFrame]
 
-            if self.half:
-                clip = vs.core.resize.Bicubic(
-                    clip,
-                    width=self.width,
-                    height=self.height,
-                    format=vs.RGBH,
-                )
-            else:
-                clip = vs.core.resize.Bicubic(
-                    clip,
-                    width=self.width,
-                    height=self.height,
-                    format=vs.RGBS,
-                )
+            clip = self.initializeClipForFloatRGB(clip, half=self.half, clampTV=True)
 
             for frame in clip.frames():
                 if self.toTorch:
@@ -168,6 +155,84 @@ class BuildBuffer:
 
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
+
+    """
+    Loosely based on:
+        https://github.com/Jaded-Encoding-Thaumaturgy/vs-jetpack/blob/8bbac7c6f13937c89a6765cd506fa233b5c63237/vstools/utils/clips.py
+    """
+
+    def initializeClipForFloatRGB(self, clip, half=True, clampTV=True):
+        width = clip.width
+        height = clip.height
+
+        colorFamily = (
+            getattr(clip.format, "color_family", None)
+            if hasattr(clip, "format")
+            else None
+        )
+        sampleType = (
+            getattr(clip.format, "sample_type", None)
+            if hasattr(clip, "format")
+            else None
+        )
+
+        # Fast path for RGB
+        if colorFamily == vs.RGB:
+            clip = vs.core.resize.Bicubic(
+                clip,
+                format=vs.RGBH if half else vs.RGBS,
+                width=self.width,
+                height=self.height,
+            )
+            return clip
+
+        # Detect matrix/transfer/primaries for YUV
+        isHD = width >= 1280 or height >= 720
+        matrix = getattr(clip, "matrix", None)
+        transfer = getattr(clip, "transfer", None)
+        primaries = getattr(clip, "primaries", None)
+        chromaLocation = getattr(clip, "chroma_location", None)
+        colorRange = getattr(clip, "color_range", None)
+        fieldBased = getattr(clip, "field_based", None)
+
+        matrix = matrix if isinstance(matrix, int) else (1 if isHD else 2)
+        transfer = transfer if isinstance(transfer, int) else (1 if isHD else 2)
+        primaries = primaries if isinstance(primaries, int) else (1 if isHD else 2)
+        chromaLocation = chromaLocation if isinstance(chromaLocation, int) else 0
+        colorRange = colorRange if isinstance(colorRange, int) else 0
+        fieldBased = fieldBased if isinstance(fieldBased, int) else 0
+
+        clip = clip.std.SetFrameProps(
+            matrix=matrix,
+            transfer=transfer,
+            primaries=primaries,
+            chromaloc=chromaLocation,
+            color_range=colorRange,
+            field_based=fieldBased,
+        )
+
+        # Clamp to TV range if needed
+        if clampTV and sampleType == 0:
+            clip = clip.std.Limiter()
+
+        # Handle YUV420, YUV422, YUV444, ProRes, rawvideo, etc.
+        # Use correct matrix_in for SD/HD, and always set transfer_in/primaries_in
+        # matrix: 1=bt709, 2=bt601, 9=bt2020
+        # transfer: 1=bt709, 2=bt601, 14=bt2020
+        # primaries: 1=bt709, 2=bt601, 9=bt2020
+
+        # If input is YUV and matrix/transfer/primaries are set, convert to RGB
+        clip = vs.core.resize.Bicubic(
+            clip,
+            format=vs.RGBH if half else vs.RGBS,
+            matrix_in=matrix,
+            transfer_in=transfer,
+            primaries_in=primaries,
+            width=self.width,
+            height=self.height,
+        )
+
+        return clip
 
     def processFrameToNumpy(self, frame):
         """
