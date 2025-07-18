@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [2.3.1] - 2025-07-18
+#### Added
+- Added support for more color formats / pix formats.
+
+#### Changed
+- Updated the `aeComms.py` to use a more efficient event stream logic.
+- Deprecated 'socketio' in favor of a less headachey approach.
+
+#### Fixed
+- Issues such as: `Decoding error: Resize error: Resize error 3074: no path between colorspaces (2/2/2 => 0/2/2). May need to specify additional colorspace parameters` with https://github.com/NevermindNilas/TheAnimeScripter/issues/128
+
+
 ## [2.3.0] - 2025-07-16
 #### Added
 - N/A
