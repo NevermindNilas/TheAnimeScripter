@@ -1,2 +1,4 @@
 basswood-av
 spandrel
+python-socketio
+Flask-Cors
