@@ -1,14 +1,14 @@
 import logging
 import os
-from threading import Thread, Lock
-import socketio
+from threading import Thread, Lock, Event
 from flask import Flask
 from flask_cors import CORS
 from urllib.parse import urlparse
+from flask import jsonify
+from flask import Response, stream_with_context
+import json
 
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
-logging.getLogger("socketio").setLevel(logging.ERROR)
-logging.getLogger("engineio").setLevel(logging.ERROR)
 
 os.environ["FLASK_ENV"] = "production"
 
@@ -16,6 +16,7 @@ os.environ["FLASK_ENV"] = "production"
 class ProgressState:
     def __init__(self):
         self._lock = Lock()
+        self._event = Event()
         self.data = {
             "currentFrame": 0,
             "totalFrames": 1,
@@ -28,44 +29,44 @@ class ProgressState:
     def update(self, new_data):
         with self._lock:
             self.data.update(new_data)
-        sio.emit("progress_update", self.data)
+        self._event.set()
 
     def get(self):
         with self._lock:
             return self.data.copy()
 
+    def wait_for_update(self, timeout=None):
+        self._event.wait(timeout)
+        self._event.clear()
+
 
 progressState = ProgressState()
 
-sio = socketio.Server(cors_allowed_origins="*", async_mode="threading")
 app = Flask(__name__)
-app.wsgi_app = socketio.WSGIApp(sio, app.wsgi_app)
 CORS(app)
 
 
-@sio.event
-def getProgress(sid):
-    sio.emit("progress_update", progressState.get(), room=sid)
+@app.route("/progress", methods=["GET"])
+def get_progress():
+    return jsonify(progressState.get())
 
 
-@sio.event
-def shutdown(sid):
-    logging.info("Received shutdown request.")
-    sio.emit("server_shutdown", {"message": "Server is shutting down."}, room=sid)
+@app.route("/progress/stream")
+def progress_stream():
+    def eventStream():
+        lastData = None
+        while True:
+            progressState.wait_for_update()
+            data = progressState.get()
+            if data != lastData:
+                yield f"data: {json.dumps(data)}\n\n"
+                lastData = data.copy()
 
-
-@sio.event
-def connect(sid, environ):
-    logging.info(f"Client connected: {sid}")
+    return Response(stream_with_context(eventStream()), mimetype="text/event-stream")
 
 
 def runServer(host):
     logging.info(f"Starting AE comms server on {host}...")
-    import sys
-    from io import StringIO
-
-    originalSTDERR = sys.stderr
-    sys.stderr = StringIO()
 
     parsed = urlparse(host if "://" in host else f"//{host}", scheme="http")
     hostname = parsed.hostname or "0.0.0.0"
@@ -73,12 +74,7 @@ def runServer(host):
 
     logging.info(f"AE Comms Server running on {hostname}:{port}")
 
-    try:
-        app.run(
-            host=hostname, port=port, debug=False, threaded=True, use_reloader=False
-        )
-    finally:
-        sys.stderr = originalSTDERR
+    app.run(host=hostname, port=port, debug=False, threaded=True, use_reloader=False)
 
 
 def startServerInThread(host):
