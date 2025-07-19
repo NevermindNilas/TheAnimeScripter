@@ -103,7 +103,7 @@
 <td width="50%">
 
 **📦 Software**
-- **Python:** 3.13
+- **Python:** 3.13 ( automatically bundled by TAS )
 - **FFmpeg:** Latest version ( automatically installed by TAS )
 - **GPU Drivers:** Latest NVIDIA/AMD drivers
 
