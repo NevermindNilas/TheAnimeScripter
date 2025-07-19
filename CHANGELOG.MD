@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYY-MM-DD
-### New
+#### New
 - Added the following depth methods:
   - `distill_small_v2-tensorrt`
   - `distill_base_v2-tensorrt`
@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   Benchmark: Encoding + Decoding with `og_small_v2-tensorrt`, fp16, 1080p video, 13700k + 3090:
   Elapsed Time: 0:00:12 • ETA: 0:00:00 • FPS: 119.36 • Mem: 954.6MB • Frames: 1495/1495
 
+#### Changed
+- Fully rewrote `parameters.md` to reflect the new changes and to better explain the usage of TAS.
 
 
 ## [2.3.2] - 2025-07-19
