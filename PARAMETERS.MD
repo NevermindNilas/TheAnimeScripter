@@ -148,11 +148,10 @@
 ```bash
 # Comprehensive restoration
 ./python.exe ./main.py --input old_anime.mp4 \
-  --upscale --upscale_method span-tensorrt \
-  --restore --restore_method nafnet \
+  --upscale --upscale_method compact-tensorrt \
+  --restore --restore_method anime1080fixer-tensorrt \
   --sharpen --sharpen_sens 30 \
   --interpolate --interpolate_method rife4.25 \
-  --dedup --dedup_method ssim-cuda
 ```
 **What it does:** Restores quality, removes noise, enhances details, smooths motion
 </details>
@@ -167,6 +166,7 @@
 ./python.exe ./main.py --input gameplay.mp4 \
   --upscale --upscale_method openproteus-tensorrt \
   --interpolate --interpolate_method rife4.20-tensorrt \
+  --sharpen --sharpen_sens 30 \
   --scenechange --scenechange_sens 70
 ```
 **What it does:** Handles rapid scene changes common in gaming
