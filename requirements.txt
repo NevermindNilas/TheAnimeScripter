@@ -4,6 +4,7 @@ requests==2.32.4
 inquirer==3.4.0
 colored==2.3.0
 Flask==3.1.1
+Flask-Cors==6.0.1
 rich==14.0.0
 rich-argparse==1.7.1
 wheel-stub==0.4.2
