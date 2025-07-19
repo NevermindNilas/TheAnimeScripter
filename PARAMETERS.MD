@@ -1,393 +1,905 @@
-# Anime Scripter Parameters
+<div align="center">
 
-## Table of Contents
-- [Anime Scripter Parameters](#anime-scripter-parameters)
-  - [Table of Contents](#table-of-contents)
-  - [1. Overview](#1-overview)
-  - [2. Command-Line Arguments](#2-command-line-arguments)
-    - [Offline Mode Options](#offline-mode-options)
-  - [3. Input and Output](#3-input-and-output)
-    - [Examples](#examples)
-      - [Multiple Input Files](#multiple-input-files)
-  - [Processing Options](#processing-options)
-    - [Upscaling](#upscaling)
-      - [Upscale Methods](#upscale-methods)
-    - [Interpolation](#interpolation)
-      - [Interpolate Methods](#interpolate-methods)
-    - [Scene Change Detection](#scene-change-detection)
-      - [Scene Change Methods](#scene-change-methods)
-    - [Deduplication](#deduplication)
-      - [Dedup Methods](#dedup-methods)
-    - [Restoring](#restoring)
-      - [Restore Methods](#restore-methods)
-    - [Sharpening](#sharpening)
-    - [Segmentation](#segmentation)
-      - [Segment Methods](#segment-methods)
-    - [Auto Cut Clips Detection](#auto-cut-clips-detection)
-    - [Depth Map Generation](#depth-map-generation)
-      - [Depth Methods](#depth-methods)
-      - [Depth Quality selection](#depth-quality-selection)
-    - [Resizing](#resizing)
-  - [Preset Arguments](#preset-arguments)
-  - [Encoding Settings](#encoding-settings)
-- [Encode Methods](#encode-methods)
-    - [Standard Encoders](#standard-encoders)
-    - [Hardware Encoders](#hardware-encoders)
-    - [Other Formats](#other-formats)
-    - [High Quality Presets](#high-quality-presets)
-  - [Performance Settings](#performance-settings)
-  - [Usage Examples](#usage-examples)
+# 📋 TheAnimeScripter Parameters Guide
 
-## 1. Overview
+#### _Complete reference for AI video enhancement parameters_
 
-The Anime Scripter is a powerful tool for enhancing and manipulating videos with a wide range of options. It supports functionalities such as interpolation, upscaling, deduplication, denoising, sharpening, scene change detection, depth map generation, and more. Users can customize the processing pipeline to meet their specific requirements using a comprehensive set of parameters.
+[![Parameters](https://img.shields.io/badge/Parameters-Complete%20Guide-blue?style=flat-square)](PARAMETERS.md)
+[![Examples](https://img.shields.io/badge/Examples-Ready%20to%20Use-green?style=flat-square)](#usage-examples)
+[![Troubleshooting](https://img.shields.io/badge/Help-FAQ%20Available-orange?style=flat-square)](#troubleshooting--faq)
 
-## 2. Command-Line Arguments
+</div>
 
-| Argument                  | Type | Default | Description                                                                  |
-|---------------------------|------|---------|------------------------------------------------------------------------------|
-| `--version`               | flag | -       | Outputs the script version                                                   |
-| `--benchmark`             | flag | -       | Enable benchmarking (no video output, performance testing only)              |
-| `--offline`               | str  | "none"  | Download models based on user selection                                      |
-| `--ae`                    | flag | False   | Indicates if the script is run from the After Effects interface              |
-| `--preview`               | flag | False   | Open localhost and request a preview frame from TAS                          |
-| `--download_requirements` | flag | False   | Download all requirements then force exit, only used for Adobe Compatibility |
+---
 
-### Offline Mode Options
-- `"none"`: Default state, does not download anything
-- `"all"`: Downloads all available models
-- Single Option (e.g., `"rife4.20"`): Downloads the specified model
-- Multiple Options (e.g., `"rife4.20 rife4.18 shufflecugan-tensorrt"`): Downloads the specified models
+## 📖 Table of Contents
 
+- [🚀 Quick Start Guide](#-quick-start-guide)
+- [⚙️ Prerequisites & System Requirements](#️-prerequisites--system-requirements)
+- [🎯 Core Workflow Examples](#-core-workflow-examples)
+- [📋 Parameter Reference](#-parameter-reference)
+  - [📁 Input & Output Configuration](#-input--output-configuration)
+  - [🎬 Video Processing Options](#-video-processing-options)
+  - [🤖 AI Enhancement Features](#-ai-enhancement-features)
+  - [⚡ Performance & Hardware Settings](#-performance--hardware-settings)
+  - [🔧 Advanced Configuration](#-advanced-configuration)
+- [🎯 Model Selection Guide](#-model-selection-guide)
+- [🎞️ Encoding & Output Options](#️-encoding--output-options)
+- [📝 Preset System](#-preset-system)
+- [❓ Troubleshooting & FAQ](#-troubleshooting--faq)
+- [💡 Complete Usage Examples](#-complete-usage-examples)
 
-## 3. Input and Output
+---
 
-| Argument   | Type | Default | Description                                                                                  |
-|------------|------|---------|----------------------------------------------------------------------------------------------|
-| `--input`  | str  | -       | Absolute path of the input video(s). Multiple paths should be separated by semicolons (`;`). |
-| `--output` | str  | -       | Output string or absolute path for the processed video                                       |
+## 🚀 Quick Start Guide
 
-- **NOTE:** `--input` supports `(".mp4", ".mkv", ".mov", ".avi", ".webm")` containers as well as `.txt`, inputs in `.txt` should be separated by a new line.
+> **New to TAS?** Start here for the fastest path to enhancing your videos!
 
-### Examples
+### 🎬 Common Workflows
 
-#### Multiple Input Files
-```sh
---input "G:\TheAnimeScripter\input.mp4;G:\TheAnimeScripter\test.mp4"
+<table>
+<tr>
+<td width="50%">
 
-# Or if the input is a txt, this is how the process should look like
---input "G:\TheAnimeScripter\test.txt"
+**🎯 Basic Anime Upscaling**
+```bash
+./python.exe ./main.py --input video.mp4 --upscale
+```
+*Enhances resolution 2x with anime-optimized AI*
 
-# Contents of TXT:
-"G:\TheAnimeScripter\test1.mp4" # separate by a new line here
-"G:\TheAnimeScripter\test2.mp4"
+**⚡ Smooth Motion Enhancement**
+```bash
+./python.exe ./main.py --input video.mp4 --interpolate
+```
+*Creates buttery-smooth 60fps from 30fps*
+
+</td>
+<td width="50%">
+
+**🎨 Complete Enhancement**
+```bash
+./python.exe ./main.py --input video.mp4 \
+  --upscale --interpolate --scenechange
+```
+*Full AI enhancement with smart scene detection*
+
+**🔧 Custom Quality**
+```bash
+./python.exe ./main.py --input video.mp4 \
+  --upscale --upscale_method span-tensorrt \
+  --interpolate --interpolate_method rife4.25
+```
+*High-end processing with latest models*
+
+</td>
+</tr>
+</table>
+
+### 📊 Feature Difficulty Levels
+
+| Level | Features | Use Case |
+|-------|----------|----------|
+| 🟢 **Beginner** | `--upscale`, `--interpolate` | Basic enhancement, anime upscaling |
+| 🟡 **Intermediate** | `--restore`, `--dedup`, `--scenechange` | Quality optimization, batch processing |
+| 🔴 **Advanced** | TensorRT models, custom encoders, model chaining | Professional workflows, maximum performance |
+
+---
+
+## ⚙️ Prerequisites & System Requirements
+
+### 🖥️ Minimum Requirements
+
+<table>
+<tr>
+<td width="50%">
+
+**🔧 Hardware**
+- **GPU:** GTX 1060 6GB / RX 580 8GB
+- **RAM:** 8GB+ (16GB recommended)
+- **Storage:** 2GB free space for models
+- **OS:** Windows 10/11
+
+</td>
+<td width="50%">
+
+**📦 Software**
+- **Python:** 3.13
+- **FFmpeg:** Latest version ( automatically installed by TAS )
+- **GPU Drivers:** Latest NVIDIA/AMD drivers
+
+</td>
+</tr>
+</table>
+
+### 🚀 Recommended Hardware by Use Case
+
+| Use Case | GPU | RAM | Notes |
+|----------|-----|-----|-------|
+| **1080p Anime** | RTX 3060 | 16GB | Good balance of speed/quality |
+| **4K Processing** | RTX 4070+ | 32GB | High-end workflows |
+| **Batch Processing** | RTX 4080+ | 32GB+ | Maximum throughput |
+| **TensorRT Optimization** | RTX Series | 16GB+ | Best performance gains |
+
+> **💡 Performance Tip:** TensorRT models offer 2-3x speed improvements but require RTX GPUs
+
+---
+
+## 🎯 Core Workflow Examples
+
+### 🎬 Anime Enhancement Workflows
+
+<details>
+<summary><b>📺 TV Anime → Theatrical Quality</b></summary>
+
+```bash
+# Standard anime enhancement
+./python.exe ./main.py --input anime_episode.mp4 \
+  --upscale --upscale_method shufflecugan-tensorrt \
+  --interpolate --interpolate_method rife4.22-tensorrt \
+  --scenechange --scenechange_method maxxvit-tensorrt \
+  --encode_method x264_animation_10bit
+```
+**What it does:** Upscales, smooths motion, detects scene changes, optimizes for anime
+</details>
+
+<details>
+<summary><b>🎥 Old Anime Restoration</b></summary>
+
+```bash
+# Comprehensive restoration
+./python.exe ./main.py --input old_anime.mp4 \
+  --upscale --upscale_method span-tensorrt \
+  --restore --restore_method nafnet \
+  --sharpen --sharpen_sens 30 \
+  --interpolate --interpolate_method rife4.25 \
+  --dedup --dedup_method ssim-cuda
+```
+**What it does:** Restores quality, removes noise, enhances details, smooths motion
+</details>
+
+### 🎮 Gaming & Live Action
+
+<details>
+<summary><b>🎮 Gaming Footage Enhancement</b></summary>
+
+```bash
+# Gaming content optimization
+./python.exe ./main.py --input gameplay.mp4 \
+  --upscale --upscale_method openproteus-tensorrt \
+  --interpolate --interpolate_method rife4.20-tensorrt \
+  --scenechange --scenechange_sens 70
+```
+**What it does:** Handles rapid scene changes common in gaming
+</details>
+
+---
+
+## 📋 Parameter Reference
+
+### 📁 Input & Output Configuration
+
+#### Core I/O Parameters
+
+| Parameter | Type | Default | Description | Example |
+|-----------|------|---------|-------------|---------|
+| `--input` | str | - | **Input video path(s)** - Supports multiple files separated by `;` | `video.mp4` or `vid1.mp4;vid2.mp4` |
+| `--output` | str | auto | **Output path** - Auto-generates if not specified | `enhanced_video.mp4` |
+
+#### Supported Input Formats
+```
+Video: .mp4, .mkv, .mov, .avi, .webm, .m4v, .flv
+Batch: .txt (one file path per line)
+URLs: YouTube, direct video links
 ```
 
-## Processing Options
+#### Input Examples
 
-### Upscaling
-
-| Argument           | Type | Default        | Description                                 |
-|--------------------|------|----------------|---------------------------------------------|
-| `--upscale`        | flag | -              | Enable upscaling                            |
-| `--upscale_factor` | int  | 2              | Factor for upscaling                        |
-| `--upscale_method` | str  | "ShuffleCugan" | Upscaling method                            |
-| `--custom_model`   | str  | ""             | Path to a custom model file (.pth or .onnx) |
-
-#### Upscale Methods
-- `"shufflecugan"` / `"shufflecugan-tensorrt"`
-- `"compact"` / `"ultracompact"` / `"superultracompact"` (with `-directml` or `-tensorrt` variants)
-- `"span"` / `"span-directml"` / `"span-tensorrt"`
-- `"open-proteus"` / `"open-proteus-tensorrt"` / `"open-proteus-directml"`
-- `"aniscale2"` / `"aniscale2-tensorrt"` / `"aniscale2-directml"`
-- `"rtmosr-tensorrt"` / `"rtmosr-directml"`
-
-### Interpolation
-
-| Argument               | Type | Default | Description                                                                                                                |
-|------------------------|------|---------|----------------------------------------------------------------------------------------------------------------------------|
-| `--interpolate`        | flag | -       | Enable interpolation                                                                                                       |
-| `--interpolate_factor` | int  | 2       | Factor for interpolation                                                                                                   |
-| `--interpolate_method` | str  | "rife"  | Interpolation method                                                                                                       |
-| `--ensemble`           | flag | -       | Activate Ensemble for higher quality Rife outputs                                                                          |
-| `--dynamic_scale`      | flag | -       | Enable Dynamic Flow Scaling, which can enhance output quality with a significant performance trade-off. CUDA support only. |
-
-#### Interpolate Methods
-- `"rife4.6"` / `"rife4.6-ncnn"` / `"rife4.6-tensorrt"`
-- `"rife4.15-lite"` / `"rife4.15-lite-ncnn"` / `"rife4.15-lite-tensorrt"`
-- `"rife4.16-lite"` / `"rife4.16-lite-ncnn"`
-- `"rife4.17"` / `"rife4.17-tensorrt"` / `"rife4.17-ncnn"`
-- `"rife4.18"` / `"rife4.18-tensorrt"` / `"rife4.18-ncnn"`
-- `"rife4.20"` / `"rife4.20-tensorrt"` / `"rife4.20-ncnn"`
-- `"rife4.21"` / `"rife4.21-tensorrt"` / `"rife4.21-ncnn"`
-- `"rife4.22"` / `"rife4.22-tensorrt"` / `"rife4.22-ncnn"`
-- `"rife4.22-lite"` / `"rife4.22-lite-tensorrt"` / `"rife4.22-lite-ncnn"`
-- `"rife4.25"` / `"rife4.25-tensorrt"` / `N/A`
-- `"rife_elexor"` / `"rife_elexor-tensorrt"` / `N/A`
-
-### Scene Change Detection
-
-| Argument               | Type  | Default            | Description                                         |
-|------------------------|-------|--------------------|-----------------------------------------------------|
-| `--scenechange`        | flag  | False              | Enable scene change detection                       |
-| `--scenechange_sens`   | float | 50                 | Sensitivity of scene change detection (0.80 - 0.90) |
-| `--scenechange_method` | str   | "maxxvit-directml" | Scene change detection method                       |
-
-#### Scene Change Methods
-- `"maxxvit-directml"`
-- `"maxxvit-tensorrt"`
-
-### Deduplication
-
-| Argument         | Type  | Default | Description                  |
-|------------------|-------|---------|------------------------------|
-| `--dedup`        | flag  | -       | Enable deduplication         |
-| `--dedup_method` | str   | "ssim"  | Deduplication method         |
-| `--dedup_sens`   | float | 50      | Sensitivity of deduplication |
-
-#### Dedup Methods
-- `"ssim"`
-- `"mse"`
-- `"ssim-cuda"`
-- `"flownets"`
-
-### Restoring
-
-| Argument           | Type | Default  | Description      |
-|--------------------|------|----------|------------------|
-| `--restore`        | flag | -        | Enable denoising |
-| `--restore_method` | str  | "scunet" | Denoising model  |
-
-#### Restore Methods
-- `"scunet"`
-- `"nafnet"`
-- `"dpir"`
-- `"real-plksr"`
-- `"anime1080fixer"` / `"anime1080fixer-tensorrt"` / `"anime1080fixer-directml"`
-- `"fastlinedarken"` / `"fastlinedarken-tensorrt"`
-
-### Sharpening
-
-| Argument         | Type  | Default | Description               |
-|------------------|-------|---------|---------------------------|
-| `--sharpen`      | flag  | -       | Enable sharpening         |
-| `--sharpen_sens` | float | 50      | Sensitivity of sharpening |
-
-### Segmentation
-
-| Argument           | Type | Default | Description         |
-|--------------------|------|---------|---------------------|
-| `--segment`        | flag | -       | Enable segmentation |
-| `--segment_method` | str  | "anime" | Segmentation method |
-
-#### Segment Methods
-- `"anime"`
-- `"anime-tensorrt"`
-
-### Auto Cut Clips Detection
-
-| Argument          | Type  | Default | Description                            |
-|-------------------|-------|---------|----------------------------------------|
-| `--autoclip`      | flag  | -       | Enable auto cut clip detection         |
-| `--autoclip_sens` | float | 40      | Sensitivity of auto cut clip detection |
-
-### Depth Map Generation
-
-| Argument          | Type | Default | Description                  |
-|-------------------|------|---------|------------------------------|
-| `--depth`         | flag | -       | Generate depth maps          |
-| `--depth_method`  | str  | "small" | Depth map generation method  |
-| `--depth_quality` | str  | "high"  | Depth map generation quality |
-
-#### Depth Methods
-- `"small_v2"` / `"small_v2-tensorrt"` / `"small_v2-directml"`
-- `"base_v2"` / `"base_v2-tensorrt"` / `"base_v2-directml"`
-- `"large_v2"` / `"large_v2-tensorrt"` / `"large_v2-directml"`
-- `"distill_small_v2"`
-- `"distill_base_v2"`
-- `"og_small_v2"` / `"og_base_v2"` / `"og_large_v2"`
-- `"og_distill_small_v2"` /  `"og_distill_base_v2"`  
-
-#### Depth Quality selection
-- `"low"` / `"medium"` / `"high"`
-- Additional Notes: This is not reliable with TensorRT and should only be preferred if you own a low end GPU.
-
-
-
-### Resizing
-
-| Argument          | Type  | Default | Description                                                |
-|-------------------|-------|---------|------------------------------------------------------------|
-| `--resize`        | flag  | -       | Enable resizing                                            |
-| `--resize_factor` | float | 2       | Factor for resizing (>1 for upscaling, <1 for downscaling) |
-
-## Preset Arguments
-
-| Argument        | Type   | Default | Description                                                                                           |
-|-----------------|--------|---------|-------------------------------------------------------------------------------------------------------|
-| `--preset`      | string | -       | A new and semi-baked in preset configuration system with reusability in mind.                         |
-| `--preset_list` | flag   | False   | Prints all of the available presets; this comes with a forced full exit of the script after execution |
-
-**Usage:** `--preset {name}` will allow for all of the arguments declared within the initial system arguments to be saved inside a JSON file and then reused.
-
-**Note:** This lacks an updating/removal system for now, so it's a one-off.
-
-## Encoding Settings
-
-| Argument           | Type | Default | Description                       |
-|--------------------|------|---------|-----------------------------------|
-| `--encode_method`  | str  | "x264"  | Encoding method                   |
-| `--custom_encoder` | str  | ""      | Custom FFmpeg encoding parameters |
-
-# Encode Methods
-
-### Standard Encoders
-- `"x264"`: libx264, preset veryfast, CRF 15
-- `"x264_10bit"`: libx264, preset veryfast, CRF 15, high10 profile
-- `"x264_animation"`: libx264, preset veryfast, tune animation, CRF 15
-- `"x264_animation_10bit"`: libx264, preset veryfast, tune animation, CRF 15, high10 profile
-- `"x265"`: libx265, preset veryfast, CRF 15
-- `"x265_10bit"`: libx265, preset veryfast, CRF 15, main10 profile
-
-### Hardware Encoders
-- `"nvenc_h264"`: h264_nvenc, preset p1, CQ 15
-- `"nvenc_h265"`: hevc_nvenc, preset p1, CQ 15
-- `"nvenc_h265_10bit"`: hevc_nvenc, preset p1, CQ 15, main10 profile
-- `"nvenc_av1"`: av1_nvenc, preset p1, CQ 15
-- `"qsv_h264"`: h264_qsv, preset veryfast, global quality 15
-- `"qsv_h265"`: hevc_qsv, preset veryfast, global quality 15
-- `"qsv_h265_10bit"`: hevc_qsv, preset veryfast, global quality 15, main10 profile
-- `"qsv_vp9"`: vp9_qsv, preset veryfast, global quality 15
-- `"h264_amf"`: h264_amf, quality speed, RC CQP, QP 15
-- `"hevc_amf"`: hevc_amf, quality speed, RC CQP, QP 15
-- `"hevc_amf_10bit"`: hevc_amf, quality speed, RC CQP, QP 15, main10 profile
-
-### Other Formats
-- `"av1"`: libsvtav1, preset 8, CRF 15
-- `"prores"`: prores_ks, profile 4, qscale 15
-- `"gif"`: gif, qscale 1, loop 0
-- `"image"`: png, quality 1
-- `"vp9"`: libvpx-vp9, preset veryfast, CRF 15
-
-### High Quality Presets
-- `"slow_x264"`: libx264, preset slow, CRF 18, high profile, level 4.1, tune animation, x264-params ref=4:bframes=8:b-adapt=2:direct=auto:me=umh:subme=10:merange=24:trellis=2:deblock=-1,-1:psy-rd=1.00,0.15:aq-strength=1.0:rc-lookahead=60, bf 3, g 250, keyint_min 25, sc_threshold 40, qcomp 0.6, qmin 10, qmax 51, maxrate 5000k, bufsize 10000k, movflags +faststart
-- `"slow_x265"`: libx265, preset slow, CRF 18, profile main, level 5.1, tune ssim, x265-params ref=6:bframes=8:b-adapt=2:direct=auto:me=umh:subme=7:merange=57:rd=6:psy-rd=2.0:aq-mode=3:aq-strength=0.8:rc-lookahead=60, bf 4, g 250, keyint_min 25, sc_threshold 40, qcomp 0.7, qmin 10, qmax 51, maxrate 5000k, bufsize 10000k, movflags +faststart
-- `"slow_av1"`: libsvtav1, preset 4, CRF 30, VBR, maxrate 5000k, bufsize 10000k, tile-columns 2, tile-rows 2, row-mt 1, movflags +faststart
-
-**Note**: The output pixel format (`-pix_fmt`) can dynamically switch between yuv420p, yuv420p10le, and yuv444p10le based on `--bit_depth` and `--encode_method`.
-
-
-## Performance Settings
-
-| Argument   | Type   | Default | Description                                                                    | Choices     |
-|------------|--------|---------|--------------------------------------------------------------------------------|-------------|
-| `--half`   | string | True    | Enable FP16 for improved performance                                           | True, False |
-| `--static` | flag   | True    | Force static engine generation and bypass the arbitrary set limitations of TAS |             |
-| `--compile_mode` | string | default | [EXPERIMENTAL] Enable PyTorch compilation for CUDA models to improve performance. Only compatible with CUDA workflows and may cause compatibility issues with some models. Increases startup time and memory usage. Choices: `default`, `max`, `max-graphs`. `default` uses standard CudaGraph workflow without compilation, `max` uses 'max-autotune-no-cudagraphs' mode, `max-graphs` uses 'max-autotune-no-cudagraphs' with fullGraph=True. Both 'max' options disable CudaGraphs, which may reduce performance at lower resolutions. |
-
-**Note**: Interpolation TRT, Depth TRT, Segment TRT all already are set to static engine generation due to set limitations within the models themselves.
-
-## Usage Examples
-
-**Note**: Replace `.\input\test.mp4` with a full or relative path to a video file or folder. The `--output` argument is optional, as the script can automatically generate a file name based on the input.
-
-<h3>
 <details>
-<summary> 1. Enable upscaling </summary>
+<summary><b>📁 Multiple Files Processing</b></summary>
 
-   ```sh
-   python .\main.py --input .\input\test.mp4 --upscale
-   ```
-</details>
-</h3>
+```bash
+# Method 1: Semicolon separated
+--input "C:\Videos\anime1.mp4;C:\Videos\anime2.mp4"
 
-<h3>
-<details>
-<summary> 2. Enable interpolation with Rife 4.6:</summary>
+# Method 2: Text file batch
+--input "C:\batch_list.txt"
 
-   ```sh
-   python .\main.py --input .\input\test.mp4 --interpolate --interpolate_method rife4.6
-   ```
-</details>
-</h3>
-
-<h3>
-<details>
-<summary> 3. Enable upscaling and interpolation with custom models:</summary>
-
-```sh
-python .\main.py --input .\input\test.mp4 --upscale --upscale_method superultracompact --interpolate --interpolate_method rife4.20
+# Contents of batch_list.txt:
+C:\Videos\episode1.mp4
+C:\Videos\episode2.mp4
+C:\Videos\episode3.mp4
 ```
 </details>
-</h3>
 
-<h3>
 <details>
-<summary>4. Enable deduplication with custom sensitivity and method: </summary>
+<summary><b>🌐 YouTube Processing</b></summary>
 
-   ```sh
-   python .\main.py --input .\input\test.mp4 --dedup --dedup_sens 60 --dedup_method ssim
-   ```
+```bash
+# Direct YouTube URL
+--input "https://www.youtube.com/watch?v=VIDEO_ID"
+
+# With quality selection (handled automatically)
+./python.exe ./main.py --input "https://youtu.be/VIDEO_ID" --upscale
+```
 </details>
-<h3>
 
-<h3>
+---
+
+### 🎬 Video Processing Options
+
+#### Time Range Control
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `--inpoint` | float | 0 | 0+ | **Start time** in seconds |
+| `--outpoint` | float | end | 0+ | **End time** in seconds |
+
+```bash
+# Process 30 seconds starting from 1 minute
+--inpoint 60 --outpoint 90
+```
+
+#### Basic Processing Flags
+
+| Parameter | Type | Description | Performance Impact |
+|-----------|------|-------------|-------------------|
+| `--benchmark` | flag | **Performance testing** - No output, measures speed | None (testing only) |
+| `--preview` | flag | **Preview mode** - Opens localhost preview | Low |
+| `--ae` | flag | **After Effects mode** - Integration flag | None |
+
+---
+
+### 🤖 AI Enhancement Features
+
+### 🆙 Upscaling Parameters
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `--upscale` | flag | False | - | **Enable AI upscaling** |
+| `--upscale_factor` | int | 2 | 2, 4 | **Upscale multiplier** |
+| `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** |
+| `--custom_model` | str | "" | path | **Custom model file** (.pth/.onnx) |
+
+#### 🎯 Upscaling Models
+
+| Model | Speed | Quality | VRAM | Best For | Acceleration |
+|-------|-------|---------|------|----------|--------------|
+| **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | General anime | CUDA, TRT, NCNN |
+| **span** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality anime | CUDA, TRT, DML |
+| **compact** | ⚡⚡⚡ | ⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML |
+| **open-proteus** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT, DML |
+| **aniscale2** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | Modern anime | CUDA, TRT, DML |
+
+> **💡 Recommendation:** Use `shufflecugan-tensorrt` for balanced speed/quality, `span-tensorrt` for best quality
+
+### ⏱️ Interpolation Parameters
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `--interpolate` | flag | False | - | **Enable frame interpolation** |
+| `--interpolate_factor` | int | 2 | 2-8 | **Frame multiplication** (2 = 30→60fps) |
+| `--interpolate_method` | str | "rife" | [see table](#interpolation-models) | **Interpolation model** |
+| `--ensemble` | flag | False | - | **Higher quality** (slower, RIFE only) |
+| `--dynamic_scale` | flag | False | - | **Dynamic scaling** (CUDA only) |
+
+#### 🎯 Interpolation Models
+
+| Model | Speed | Quality | VRAM | Best For | Latest Version |
+|-------|-------|---------|------|----------|----------------|
+| **rife4.22** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | General use | ✅ Recommended |
+| **rife4.25** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality | ✅ Latest |
+| **rife4.22-lite** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | ✅ |
+| **rife_elexor** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Maximum quality | Custom mod |
+
+> **💡 Performance Tip:** Use `--ensemble` for final renders, disable for previews
+
+### 🔍 Scene Change Detection
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `--scenechange` | flag | False | - | **Enable scene detection** |
+| `--scenechange_sens` | float | 50 | 0-100 | **Detection sensitivity** |
+| `--scenechange_method` | str | "maxxvit-directml" | maxxvit variants | **Detection model** |
+
+**Sensitivity Guide:**
+- **20-40:** Conservative (fewer cuts, may miss quick cuts)
+- **50-70:** Balanced (recommended for most content)
+- **80-100:** Aggressive (more cuts, may over-segment)
+
+### 🔄 Deduplication
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `--dedup` | flag | False | - | **Remove duplicate frames** |
+| `--dedup_method` | str | "ssim" | ssim, mse, ssim-cuda, flownets | **Detection algorithm** |
+| `--dedup_sens` | float | 50 | 0-100 | **Similarity threshold** |
+
+**Method Comparison:**
+- **ssim:** Standard, good balance
+- **ssim-cuda:** GPU accelerated SSIM
+- **mse:** Fast, less accurate
+- **flownets:** Slow, most accurate
+
+### 🔧 Restoration & Enhancement
+
+| Parameter | Type | Default | Options | Description |
+|-----------|------|---------|---------|-------------|
+| `--restore` | flag | False | - | **Enable denoising/restoration** |
+| `--restore_method` | str | "scunet" | [see table](#restoration-models) | **Restoration model** |
+| `--sharpen` | flag | False | - | **Enable sharpening** |
+| `--sharpen_sens` | float | 50 | 0-100 | **Sharpening intensity** |
+
+#### 🎯 Restoration Models
+
+| Model | Speed | Noise Removal | Detail Recovery | Best For |
+|-------|-------|---------------|-----------------|----------|
+| **scunet** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | General denoising |
+| **nafnet** | ⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | High-quality denoising |
+| **real-plksr** | ⚡⚡ | ⭐⭐ | ⭐⭐⭐⭐ | JPEG artifact removal |
+| **anime1080fixer** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Anime line enhancement |
+
+### 🎭 Segmentation & Depth
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `--segment` | flag | False | **Background/foreground separation** |
+| `--segment_method` | str | "anime" | **Segmentation model** (anime, anime-tensorrt) |
+| `--depth` | flag | False | **Generate depth maps** |
+| `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) |
+| `--depth_quality` | str | "high" | **Processing quality** (low/medium/high) |
+
+### 🔍 Auto Clip Detection
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `--autoclip` | flag | False | - | **Automatic clip detection** |
+| `--autoclip_sens` | float | 40 | 0-100 | **Detection sensitivity** |
+
+### 📏 Resizing
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `--resize` | flag | False | - | **Enable resizing** |
+| `--resize_factor` | float | 2.0 | 0.1-10.0 | **Resize multiplier** (>1 = larger, <1 = smaller) |
+
+---
+
+### ⚡ Performance & Hardware Settings
+
+#### Performance Optimization
+
+| Parameter | Type | Default | Options | Description |
+|-----------|------|---------|---------|-------------|
+| `--half` | str | "True" | True/False | **FP16 precision** (faster, less VRAM) |
+| `--static` | flag | True | - | **Static engine** (bypass TAS limitations) |
+| `--compile_mode` | str | "default" | default/max/max-graphs | **PyTorch compilation** (CUDA only) |
+
+#### Compilation Modes Explained
+
+| Mode | Performance | Startup Time | Memory | Compatibility |
+|------|-------------|--------------|---------|---------------|
+| **default** | Baseline | Fast | Low | High |
+| **max** | +20-40% | Slow | Medium | Medium |
+| **max-graphs** | +40-60% | Very Slow | High | Low |
+
+> **⚠️ Warning:** Compilation modes are experimental and may cause issues with some models
+
+#### Hardware Acceleration
+
+**TensorRT (NVIDIA RTX):**
+```bash
+# Maximum performance
+--upscale_method shufflecugan-tensorrt \
+--interpolate_method rife4.22-tensorrt \
+--compile_mode max
+```
+
+**DirectML (AMD/Intel):**
+```bash
+# Cross-platform acceleration
+--upscale_method span-directml \
+--depth_method small_v2-directml
+```
+
+**NCNN (Mobile/Low-power):**
+```bash
+# Lightweight processing
+--interpolate_method rife4.22-ncnn
+```
+
+---
+
+### 🔧 Advanced Configuration
+
+#### Model Management
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `--offline` | str | "none" | **Model download mode** |
+| `--download_requirements` | flag | False | **Download dependencies** (Adobe compatibility) |
+
+**Offline Mode Options:**
+```bash
+# Download specific models
+--offline "rife4.22 shufflecugan-tensorrt"
+
+# Download all models
+--offline "all"
+
+# No downloads (default)
+--offline "none"
+```
+
+#### Bit Depth Configuration
+
+| Parameter | Type | Default | Options | Description |
+|-----------|------|---------|---------|-------------|
+| `--bit_depth` | str | "8bit" | 8bit/10bit/16bit | **Color bit depth** |
+
+**Bit Depth Impact:**
+- **8bit:** Standard, fastest, smallest files
+- **10bit:** Better gradients, HDR support
+- **16bit:** Maximum quality, largest files
+
+---
+
+## 🎯 Model Selection Guide
+
+### 📊 Performance vs Quality Matrix
+
+<table>
+<tr>
+<td width="33%">
+
+**🚀 Speed Priority**
+```bash
+# Fastest processing
+--upscale_method compact-tensorrt
+--interpolate_method rife4.22-lite-tensorrt
+--half True
+--compile_mode max
+```
+
+</td>
+<td width="33%">
+
+**⚖️ Balanced**
+```bash
+# Good speed + quality
+--upscale_method shufflecugan-tensorrt
+--interpolate_method rife4.22-tensorrt
+--scenechange
+--half True
+```
+
+</td>
+<td width="33%">
+
+**🎨 Quality Priority**
+```bash
+# Maximum quality
+--upscale_method span-tensorrt
+--interpolate_method rife4.25
+--ensemble
+--restore_method nafnet
+--half False
+```
+
+</td>
+</tr>
+</table>
+
+### 🎬 Content-Specific Recommendations
+
+| Content Type | Upscaling | Interpolation | Additional |
+|--------------|-----------|---------------|------------|
+| **TV Anime** | shufflecugan-tensorrt | rife4.22-tensorrt | scenechange |
+| **Movie Anime** | span-tensorrt | rife4.25 | ensemble, restore |
+| **Gaming** | openproteus-tensorrt | rife4.20-tensorrt | scenechange_sens 70 |
+| **Live Action** | open-proteus-tensorrt | rife4.22-tensorrt | restore_method nafnet |
+| **Old Content** | span-tensorrt | rife4.25 | restore, sharpen |
+
+---
+
+## 🎞️ Encoding & Output Options
+
+### Core Encoding Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `--encode_method` | str | "x264" | **Encoder selection** |
+| `--custom_encoder` | str | "" | **Custom FFmpeg parameters** |
+
+### 📊 Encoder Comparison
+
+#### Standard Encoders
+
+| Encoder | Speed | Quality | File Size | Best For |
+|---------|-------|---------|-----------|----------|
+| **x264** | ⚡⚡⚡ | ⭐⭐⭐ | Medium | General use, compatibility |
+| **x264_animation** | ⚡⚡⚡ | ⭐⭐⭐⭐ | Small | Anime content |
+| **x264_10bit** | ⚡⚡ | ⭐⭐⭐⭐ | Medium | HDR, gradients |
+| **x265** | ⚡⚡ | ⭐⭐⭐⭐ | Small | Modern devices |
+| **av1** | ⚡ | ⭐⭐⭐⭐⭐ | Smallest | Future-proof |
+
+#### Hardware Encoders
+
+| Encoder | Speed | Quality | Requirements | Notes |
+|---------|-------|---------|--------------|-------|
+| **nvenc_h265** | ⚡⚡⚡⚡ | ⭐⭐⭐ | NVIDIA GPU | Fast, good quality |
+| **qsv_h265** | ⚡⚡⚡⚡ | ⭐⭐⭐ | Intel CPU | Intel Quick Sync |
+| **hevc_amf** | ⚡⚡⚡⚡ | ⭐⭐⭐ | AMD GPU | AMD hardware |
+
+#### High-Quality Presets
+
+| Preset | Encoding Time | Quality | File Size | Use Case |
+|--------|---------------|---------|-----------|----------|
+| **slow_x264** | ⚡ | ⭐⭐⭐⭐⭐ | Large | Archival quality |
+| **slow_x265** | ⚡ | ⭐⭐⭐⭐⭐ | Medium | Best compression |
+| **slow_av1** | ⚡ | ⭐⭐⭐⭐⭐ | Small | Future standard |
+
+### 🎯 Encoder Recommendations
+
+**For Anime Content:**
+```bash
+--encode_method x264_animation_10bit  # Best anime encoding
+```
+
+**For Speed:**
+```bash
+--encode_method nvenc_h265  # Hardware acceleration
+```
+
+**For File Size:**
+```bash
+--encode_method x265  # Best compression
+```
+
+**For Maximum Quality:**
+```bash
+--encode_method slow_x265  # Slow but excellent
+```
+
+---
+
+## 📝 Preset System
+
+### Understanding Presets
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `--preset` | str | - | **Load saved preset** |
+| `--preset_list` | flag | False | **Show available presets** |
+
+### Creating Presets
+
+```bash
+# Run command with desired settings
+./python.exe ./main.py --input video.mp4 \
+  --upscale --upscale_method span-tensorrt \
+  --interpolate --interpolate_method rife4.25 \
+  --preset "high_quality_anime"
+
+# Preset is automatically saved and can be reused
+./python.exe ./main.py --input video2.mp4 --preset "high_quality_anime"
+```
+
+### 📋 Recommended Preset Configurations
+
 <details>
-<summary>5. Enable denoising using the NAFNet model:</summary>
+<summary><b>🎬 Anime Enhancement Presets</b></summary>
 
-   ```sh
-   python .\main.py --input .\input\test.mp4 --restore --restore_method nafnet
-   ```
+**Fast Anime Processing:**
+```bash
+./python.exe ./main.py --input anime.mp4 \
+  --upscale --upscale_method shufflecugan-tensorrt \
+  --interpolate --interpolate_method rife4.22-lite-tensorrt \
+  --scenechange \
+  --encode_method x264_animation \
+  --preset "fast_anime"
+```
+
+**Quality Anime Processing:**
+```bash
+./python.exe ./main.py --input anime.mp4 \
+  --upscale --upscale_method span-tensorrt \
+  --interpolate --interpolate_method rife4.25 \
+  --ensemble \
+  --scenechange \
+  --restore --restore_method scunet \
+  --encode_method x264_animation_10bit \
+  --preset "quality_anime"
+```
 </details>
-</h3>
 
-<h3>
+---
+
+## ❓ Troubleshooting & FAQ
+
+### 🔧 Common Issues
+
 <details>
-<summary>6. Enable interpolation with scene change detection: </summary>
+<summary><b>💾 Out of Memory Errors</b></summary>
 
-   ```sh
-   python .\main.py --input .\input\test.mp4 --interpolate --scenechange
-   ```
+**Symptoms:** CUDA/GPU memory errors during processing
+
+**Solutions:**
+1. **Reduce resolution:** Use `--resize_factor 0.5` before upscaling
+2. **Enable FP16:** Use `--half True` (default)
+3. **Switch models:** Try "lite" variants (e.g., `rife4.22-lite`)
+4. **Process shorter clips:** Use `--inpoint` and `--outpoint`
+
+**Model Memory Requirements:**
+- Lite models: 2-4GB VRAM
+- Standard models: 4-8GB VRAM  
+- Large models: 8-12GB VRAM
 </details>
-</h3>
 
-<h3>
 <details>
-<summary>7. Generate depth maps using the "large" method and 16-bit workflow:</summary>
+<summary><b>🐌 Slow Processing Speed</b></summary>
 
-   ```sh
-   python .\main.py --input .\input\test.mp4 --depth --depth_method large_v2 --bit_depth 16bit
-   ```
+**Symptoms:** Very slow processing, low GPU utilization
+
+**Solutions:**
+1. **Use TensorRT:** Add `-tensorrt` to model names
+2. **Enable compilation:** Use `--compile_mode max`
+3. **Check GPU drivers:** Update to latest
+4. **Verify CUDA:** Ensure CUDA 11.8+ installed
+5. **Close other apps:** Free up GPU memory
+
+**Performance Optimization:**
+```bash
+# Maximum speed configuration
+--half True --static --compile_mode max
+--upscale_method compact-tensorrt
+--interpolate_method rife4.22-lite-tensorrt
+```
 </details>
-</h3>
 
-<h3>
 <details>
-<summary>8. Download a YouTube video, upscale with Span-TensorRT, interpolate with Rife 4.17-TensorRT, and use scene change detection:</summary>
+<summary><b>❌ Model Loading Failures</b></summary>
 
-   ```sh
-   python .\main.py --input https://www.youtube.com/watch?v=dQw4w9WgXcQ --upscale --upscale_method span-tensorrt --interpolate --interpolate_method rife4.17-tensorrt --scenechange
-   ```
-   (Replace the YouTube URL with the actual video URL you want to download)
+**Symptoms:** "Model not found" or loading errors
+
+**Solutions:**
+1. **Download models:** Use `--offline "model_name"`
+2. **Check internet:** Ensure stable connection
+3. **Clear cache:** Delete model cache and re-download
+4. **Check disk space:** Ensure adequate free space (5GB+)
+
+**Model Download:**
+```bash
+# Download specific models
+./python.exe ./main.py --offline "rife4.22 shufflecugan-tensorrt"
+
+# Download all models (large download)
+./python.exe ./main.py --offline "all"
+```
 </details>
-</h3>
 
-<h3>
 <details>
-<summary>9. Process video from second 8 to 17 with custom settings:</summary>
+<summary><b>🎨 Quality Issues</b></summary>
 
-   ```sh
-   python .\main.py --input .\input\test.mp4 --inpoint 8 --outpoint 17 --upscale --upscale_method superultracompact-tensorrt --interpolate --interpolate_method rife4.20 --scenechange --scenechange_method maxxvit-tensorrt --custom_encoder "-c:v libsvtav1 -preset 8 -crf 30 -vf hqdn3d=1.5:1.5:6:6 -pix_fmt yuv420p"
-   ```
+**Symptoms:** Artifacts, blurriness, or poor quality
+
+**Solutions:**
+1. **Adjust encoding:** Try `--encode_method x264_animation_10bit`
+2. **Disable compression:** Use higher CRF values in custom encoder
+3. **Try different models:** Test `span-tensorrt` for upscaling
+4. **Add restoration:** Use `--restore --restore_method nafnet`
+5. **Check input quality:** Ensure source isn't heavily compressed
+
+**Quality Settings:**
+```bash
+# Maximum quality processing
+--upscale_method span-tensorrt
+--interpolate_method rife4.25 --ensemble
+--restore --restore_method nafnet
+--encode_method slow_x265
+--half False
+```
 </details>
-</h3>
 
-<h3>
+### 💡 Performance Tips
+
+**🚀 Speed Optimization:**
+- Use TensorRT models on RTX GPUs
+- Enable `--compile_mode max` for CUDA
+- Process shorter segments for testing
+- Use "lite" model variants for low-end hardware
+
+**🎨 Quality Optimization:**
+- Disable `--half` for maximum precision
+- Use `--ensemble` for interpolation
+- Add `--restore` for old or compressed content
+- Use 10-bit encoding for better gradients
+
+**💾 Memory Management:**
+- Monitor GPU memory usage
+- Use `--resize_factor` to reduce memory load
+- Process in segments for long videos
+- Close unnecessary applications
+
+### 🔍 Debug Information
+
+**Check System Compatibility:**
+```bash
+./python.exe ./main.py --benchmark  # Test performance without output
+```
+
+**Verify Model Installation:**
+```bash
+./python.exe ./main.py --preset_list  # Shows available models
+```
+
+**Monitor Resource Usage:**
+- Use Task Manager (Windows) or htop (Linux)
+- Check GPU memory with nvidia-smi (NVIDIA)
+- Monitor disk space during processing
+
+---
+
+## 💡 Complete Usage Examples
+
+### 🎬 Workflow Examples
+
 <details>
-<summary>10. Upscale, Interpolate, Scenechange, x264_animation_10bit and 16bit workflow example:</summary>
+<summary><b>📺 Basic Anime Enhancement</b></summary>
 
-   ```sh
-   python .\main.py --input https://www.youtube.com/watch?v=YRL74JmhVgk --upscale --upscale_method shufflecugan-tensorrt --interpolate --interpolate_method rife4.22-tensorrt --scenechange --scenechange_method maxxvit-tensorrt --encode_method x264_animation_10bit --bit_depth 16bit
-   ```
+```bash
+# Simple 2x upscaling with motion smoothing
+./python.exe ./main.py --input "anime_episode.mp4" \
+  --upscale \
+  --interpolate \
+  --output "enhanced_anime.mp4"
+```
+**Processing:** 1080p → 2160p, 24fps → 48fps  
+**Time:** ~2x video length  
+**Quality:** Good for most anime content
 </details>
-</h3>
+
+<details>
+<summary><b>🎨 High-Quality Anime Processing</b></summary>
+
+```bash
+# Professional-grade enhancement
+./python.exe ./main.py --input "anime_movie.mkv" \
+  --upscale --upscale_method span-tensorrt \
+  --interpolate --interpolate_method rife4.25 --ensemble \
+  --scenechange --scenechange_method maxxvit-tensorrt \
+  --restore --restore_method nafnet \
+  --encode_method x264_animation_10bit \
+  --bit_depth 10bit
+```
+**Processing:** Maximum quality with all enhancements  
+**Time:** ~5x video length  
+**Quality:** Theatrical quality output
+</details>
+
+<details>
+<summary><b>⚡ Fast Batch Processing</b></summary>
+
+```bash
+# Speed-optimized for multiple files
+./python.exe ./main.py --input "batch_list.txt" \
+  --upscale --upscale_method compact-tensorrt \
+  --interpolate --interpolate_method rife4.22-lite-tensorrt \
+  --scenechange \
+  --encode_method nvenc_h265 \
+  --half True --compile_mode max
+```
+**Processing:** Fast hardware encoding  
+**Time:** ~1x video length  
+**Quality:** Good with maximum speed
+</details>
+
+<details>
+<summary><b>🎮 Gaming Content Enhancement</b></summary>
+
+```bash
+# Optimized for gaming footage
+./python.exe ./main.py --input "gameplay.mp4" \
+  --upscale --upscale_method openproteus-tensorrt \
+  --interpolate --interpolate_method rife4.20-tensorrt \
+  --scenechange --scenechange_sens 70 \
+  --dedup --dedup_method ssim-cuda \
+  --encode_method nvenc_h264
+```
+**Processing:** Handles rapid scene changes  
+**Time:** ~1.5x video length  
+**Quality:** Optimized for gaming content
+</details>
+
+<details>
+<summary><b>🎞️ Old Content Restoration</b></summary>
+
+```bash
+# Comprehensive restoration workflow
+./python.exe ./main.py --input "old_video.avi" \
+  --upscale --upscale_method span-tensorrt \
+  --interpolate --interpolate_method rife4.25 \
+  --restore --restore_method nafnet \
+  --sharpen --sharpen_sens 40 \
+  --dedup --dedup_method ssim \
+  --encode_method slow_x265 \
+  --bit_depth 10bit
+```
+**Processing:** Maximum restoration and enhancement  
+**Time:** ~6x video length  
+**Quality:** Restored vintage content
+</details>
+
+<details>
+<summary><b>🌐 YouTube Processing</b></summary>
+
+```bash
+# Direct YouTube enhancement
+./python.exe ./main.py --input "https://youtube.com/watch?v=VIDEO_ID" \
+  --upscale --upscale_method shufflecugan-tensorrt \
+  --interpolate --interpolate_method rife4.22-tensorrt \
+  --scenechange \
+  --inpoint 30 --outpoint 180 \
+  --encode_method x264_animation
+```
+**Processing:** Downloads and enhances YouTube content  
+**Time:** Download time + 2x clip length  
+**Quality:** Good for YouTube source material
+</details>
+
+<details>
+<summary><b>🎭 Segmentation & Depth</b></summary>
+
+```bash
+# Generate segmentation and depth maps
+./python.exe ./main.py --input "anime_scene.mp4" \
+  --upscale --upscale_method span-tensorrt \
+  --segment --segment_method anime-tensorrt \
+  --depth --depth_method large_v2-tensorrt --depth_quality high \
+  --encode_method prores
+```
+**Processing:** Creates segmentation masks and depth maps  
+**Time:** ~4x video length  
+**Output:** Video + segmentation + depth data
+</details>
+
+### 🎯 Parameter Combinations
+
+**Memory-Constrained Systems:**
+```bash
+--upscale_method superultracompact-tensorrt \  # Lightweight model  
+--interpolate_method rife4.22-lite-tensorrt \  # Lite variant
+--half True  # FP16 precision
+```
+
+**Maximum Quality (Slow):**
+```bash
+--upscale_method compact-tensorrt \
+--interpolate_method rife4.25 --ensemble \
+--restore --restore_method anime1080fixer-tensorrt \
+--encode_method slow_x265 \
+```
+
+**Balanced Performance:**
+```bash
+--upscale_method shufflecugan-tensorrt \
+--interpolate_method rife4.22-tensorrt \
+--scenechange \
+--encode_method x264_animation_10bit \
+```
+
+---
+
+<div align="center">
+
+### 🎯 Ready to enhance your videos?
+
+[![Discord](https://img.shields.io/discord/1041502781808328704?style=for-the-badge&logo=discord&logoColor=white&label=Join%20Discord&color=5865F2)](https://discord.gg/hwGHXga8ck)
+[![GitHub](https://img.shields.io/github/stars/NevermindNilas/TheAnimeScripter?style=for-the-badge&logo=github&label=Star%20on%20GitHub&color=yellow)](https://github.com/NevermindNilas/TheAnimeScripter)
+
+</div>
+
+---
+
+> **📚 Need more help?** Join our [Discord community](https://discord.gg/hwGHXga8ck) for real-time support and examples!
+
+*Last updated: January 2025 | TAS Version: Latest*
