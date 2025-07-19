@@ -208,6 +208,9 @@ URLs: YouTube, direct video links
 C:\Videos\episode1.mp4
 C:\Videos\episode2.mp4
 C:\Videos\episode3.mp4
+
+# Method 3: Directory processing
+--input "C:\Videos\"
 ```
 </details>
 
