@@ -268,10 +268,14 @@ C:\Videos\episode3.mp4
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
 | **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | General anime | CUDA, TRT, NCNN |
-| **span** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality anime | CUDA, TRT, DML |
+| **span** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality anime | CUDA, TRT, DML, NCNN |
 | **compact** | ⚡⚡⚡ | ⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML |
-| **open-proteus** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT, DML |
+| **ultracompact** | ⚡⚡⚡⚡ | ⭐⭐ | 1GB | Very fast | CUDA, TRT, DML |
+| **superultracompact** | ⚡⚡⚡⚡⚡ | ⭐⭐ | 1GB | Fastest | CUDA, TRT, DML |
+| **open-proteus** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT, DML |
 | **aniscale2** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | Modern anime | CUDA, TRT, DML |
+| **shufflespan** | ⚡⚡ | ⭐⭐⭐⭐ | 5GB | Hybrid approach | DML, TRT |
+| **rtmosr** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Real-time focus | TRT, DML |
 
 > **💡 Recommendation:** Use `shufflecugan-tensorrt` for balanced speed/quality, `span-tensorrt` for best quality
 
@@ -287,14 +291,33 @@ C:\Videos\episode3.mp4
 
 #### 🎯 Interpolation Models
 
-| Model | Speed | Quality | VRAM | Best For | Latest Version |
-|-------|-------|---------|------|----------|----------------|
-| **rife4.22** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | General use | ✅ Recommended |
-| **rife4.25** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality | ✅ Latest |
-| **rife4.22-lite** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | ✅ |
-| **rife_elexor** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Maximum quality | Custom mod |
+| Model | Speed | Quality | VRAM | Best For | Acceleration |
+|-------|-------|---------|------|----------|--------------|
+| **rife4.22** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | General use | CUDA, TRT, NCNN |
+| **rife4.25** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality | CUDA, TRT |
+| **rife4.25-lite** | ⚡⚡⚡ | ⭐⭐⭐ | 3GB | Balanced performance | CUDA, TRT |
+| **rife4.25-heavy** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
+| **rife4.22-lite** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, TRT, NCNN |
+| **rife4.6** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Stable choice | CUDA, TRT, NCNN, DML |
+| **rife4.15-lite** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, TRT, NCNN |
+| **rife4.15** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
+| **rife4.16-lite** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, NCNN |
+| **rife4.17** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
+| **rife4.18** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
+| **rife4.20** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
+| **rife4.21** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
+| **gmfss** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | Alternative method | CUDA, TRT |
+| **rife_elexor** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
 
 > **💡 Performance Tip:** Use `--ensemble` for final renders, disable for previews
+
+#### Additional Interpolation Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `--slowmo` | flag | False | **Slow motion mode** - Slows video instead of increasing frame rate |
+| `--static_step` | flag | False | **Static timestep** - Force static timestep for RIFE CUDA |
+| `--interpolate_first` | bool | True | **Processing order** - Write interpolated frames to queue immediately |
 
 ### 🔍 Scene Change Detection
 
@@ -302,7 +325,18 @@ C:\Videos\episode3.mp4
 |-----------|------|---------|-------|-------------|
 | `--scenechange` | flag | False | - | **Enable scene detection** |
 | `--scenechange_sens` | float | 50 | 0-100 | **Detection sensitivity** |
-| `--scenechange_method` | str | "maxxvit-directml" | maxxvit variants | **Detection model** |
+| `--scenechange_method` | str | "maxxvit-directml" | [see table](#scene-change-methods) | **Detection model** |
+
+#### 🎯 Scene Change Methods
+
+| Method | Speed | Accuracy | VRAM | Best For | Acceleration |
+|--------|-------|----------|------|----------|--------------|
+| **maxxvit-tensorrt** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 4GB | High accuracy | TensorRT |
+| **maxxvit-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Cross-platform | DirectML |
+| **differential** | ⚡⚡⚡⚡ | ⭐⭐ | Low | Fast processing | CPU |
+| **differential-tensorrt** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | GPU accelerated | TensorRT |
+| **shift_lpips-tensorrt** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 6GB | Maximum accuracy | TensorRT |
+| **shift_lpips-directml** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Cross-platform accurate | DirectML |
 
 **Sensitivity Guide:**
 - **20-40:** Conservative (fewer cuts, may miss quick cuts)
@@ -314,14 +348,18 @@ C:\Videos\episode3.mp4
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--dedup` | flag | False | - | **Remove duplicate frames** |
-| `--dedup_method` | str | "ssim" | ssim, mse, ssim-cuda, flownets | **Detection algorithm** |
-| `--dedup_sens` | float | 50 | 0-100 | **Similarity threshold** |
+| `--dedup_method` | str | "ssim" | [see table](#deduplication-methods) | **Detection algorithm** |
+| `--dedup_sens` | float | 35 | 0-100 | **Similarity threshold** |
 
-**Method Comparison:**
-- **ssim:** Standard, good balance
-- **ssim-cuda:** GPU accelerated SSIM
-- **mse:** Fast, less accurate
-- **flownets:** Slow, most accurate
+#### 🎯 Deduplication Methods
+
+| Method | Speed | Accuracy | VRAM | Best For | Acceleration |
+|--------|-------|----------|------|----------|--------------|
+| **ssim** | ⚡⚡⚡ | ⭐⭐⭐ | Low | General use | CPU |
+| **ssim-cuda** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | GPU accelerated | CUDA |
+| **mse** | ⚡⚡⚡⚡⚡ | ⭐⭐ | Low | Fast processing | CPU |
+| **mse-cuda** | ⚡⚡⚡⚡⚡ | ⭐⭐ | 1GB | Fast GPU processing | CUDA |
+| **flownets** | ⚡ | ⭐⭐⭐⭐⭐ | 4GB | Maximum accuracy | CUDA |
 
 ### 🔧 Restoration & Enhancement
 
@@ -334,22 +372,63 @@ C:\Videos\episode3.mp4
 
 #### 🎯 Restoration Models
 
-| Model | Speed | Noise Removal | Detail Recovery | Best For |
-|-------|-------|---------------|-----------------|----------|
-| **scunet** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | General denoising |
-| **nafnet** | ⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | High-quality denoising |
-| **real-plksr** | ⚡⚡ | ⭐⭐ | ⭐⭐⭐⭐ | JPEG artifact removal |
-| **anime1080fixer** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Anime line enhancement |
+| Model | Speed | Noise Removal | Detail Recovery | Best For | Acceleration |
+|-------|-------|---------------|-----------------|----------|--------------|
+| **scunet** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | General denoising | CUDA, TRT, DML |
+| **nafnet** | ⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | High-quality denoising | CUDA |
+| **dpir** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | JPEG denoising | CUDA |
+| **real-plksr** | ⚡⚡ | ⭐⭐ | ⭐⭐⭐⭐ | JPEG artifact removal | CUDA |
+| **anime1080fixer** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Anime line enhancement | CUDA, TRT, DML |
+| **fastlinedarken** | ⚡⚡⚡ | ⭐⭐ | ⭐⭐⭐⭐⭐ | Line darkening | CUDA, TRT |
+| **gater3** | ⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐ | Advanced denoising | CUDA, DML |
 
 ### 🎭 Segmentation & Depth
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `--segment` | flag | False | **Background/foreground separation** |
-| `--segment_method` | str | "anime" | **Segmentation model** (anime, anime-tensorrt) |
+| `--segment_method` | str | "anime" | **Segmentation model** [see table](#segmentation-methods) |
 | `--depth` | flag | False | **Generate depth maps** |
 | `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) |
 | `--depth_quality` | str | "high" | **Processing quality** (low/medium/high) |
+
+#### 🎯 Segmentation Methods
+
+| Method | Speed | Quality | VRAM | Best For | Acceleration |
+|--------|-------|---------|------|----------|--------------|
+| **anime** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Anime content | CUDA |
+| **anime-tensorrt** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Fast anime processing | TensorRT |
+| **anime-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 3GB | Cross-platform anime | DirectML |
+| **cartoon** | ⚡⚡⚡ | ⭐⭐⭐ | 3GB | Cartoon/animation | CUDA |
+
+#### 🎯 Depth Models
+
+| Model | Speed | Quality | VRAM | Best For | Acceleration |
+|-------|-------|---------|------|----------|--------------|
+| **small_v2** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General use | CUDA, TRT, DML |
+| **base_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Better quality | CUDA, TRT, DML |
+| **large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Maximum quality | CUDA, TRT, DML |
+| **distill_small_v2** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML |
+| **distill_base_v2** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Balanced | CUDA, TRT, DML |
+| **distill_large_v2** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 5GB | High quality | CUDA, TRT, DML |
+| **og_small_v2** | ⚡⚡ | ⭐⭐⭐ | 3GB | Original implementation | CUDA, TRT |
+| **og_base_v2** | ⚡ | ⭐⭐⭐⭐ | 5GB | Original quality | CUDA, TRT |
+| **og_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Original maximum | CUDA, TRT |
+
+### 🎯 Object Detection
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `--obj_detect` | flag | False | **Detect objects in video** |
+| `--obj_detect_method` | str | "yolov9_small-directml" | **Object detection model** [see table](#object-detection-methods) |
+
+#### 🎯 Object Detection Methods
+
+| Method | Speed | Accuracy | VRAM | Best For | Acceleration |
+|--------|-------|----------|------|----------|--------------|
+| **yolov9_small-directml** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | Fast detection | DirectML |
+| **yolov9_medium-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Balanced performance | DirectML |
+| **yolov9_large-directml** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Maximum accuracy | DirectML |
 
 ### 🔍 Auto Clip Detection
 
@@ -521,25 +600,50 @@ C:\Videos\episode3.mp4
 |---------|-------|---------|-----------|----------|
 | **x264** | ⚡⚡⚡ | ⭐⭐⭐ | Medium | General use, compatibility |
 | **x264_animation** | ⚡⚡⚡ | ⭐⭐⭐⭐ | Small | Anime content |
+| **x264_animation_10bit** | ⚡⚡ | ⭐⭐⭐⭐⭐ | Small | Best anime quality |
 | **x264_10bit** | ⚡⚡ | ⭐⭐⭐⭐ | Medium | HDR, gradients |
 | **x265** | ⚡⚡ | ⭐⭐⭐⭐ | Small | Modern devices |
+| **x265_10bit** | ⚡ | ⭐⭐⭐⭐⭐ | Small | High quality HEVC |
 | **av1** | ⚡ | ⭐⭐⭐⭐⭐ | Smallest | Future-proof |
 
 #### Hardware Encoders
 
 | Encoder | Speed | Quality | Requirements | Notes |
 |---------|-------|---------|--------------|-------|
+| **nvenc_h264** | ⚡⚡⚡⚡⚡ | ⭐⭐ | NVIDIA GPU | Fast H.264 |
 | **nvenc_h265** | ⚡⚡⚡⚡ | ⭐⭐⭐ | NVIDIA GPU | Fast, good quality |
-| **qsv_h265** | ⚡⚡⚡⚡ | ⭐⭐⭐ | Intel CPU | Intel Quick Sync |
-| **hevc_amf** | ⚡⚡⚡⚡ | ⭐⭐⭐ | AMD GPU | AMD hardware |
+| **nvenc_h265_10bit** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | NVIDIA RTX | 10-bit HEVC |
+| **nvenc_av1** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | NVIDIA RTX 40+ | Latest AV1 |
+| **qsv_h264** | ⚡⚡⚡⚡ | ⭐⭐ | Intel CPU | Intel Quick Sync H.264 |
+| **qsv_h265** | ⚡⚡⚡⚡ | ⭐⭐⭐ | Intel CPU | Intel Quick Sync HEVC |
+| **qsv_h265_10bit** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | Intel CPU | 10-bit Quick Sync |
+| **qsv_vp9** | ⚡⚡⚡ | ⭐⭐⭐ | Intel CPU | VP9 hardware |
+| **h264_amf** | ⚡⚡⚡⚡ | ⭐⭐ | AMD GPU | AMD H.264 |
+| **hevc_amf** | ⚡⚡⚡⚡ | ⭐⭐⭐ | AMD GPU | AMD HEVC |
+| **hevc_amf_10bit** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | AMD GPU | 10-bit AMD HEVC |
 
 #### High-Quality Presets
 
 | Preset | Encoding Time | Quality | File Size | Use Case |
 |--------|---------------|---------|-----------|----------|
 | **slow_x264** | ⚡ | ⭐⭐⭐⭐⭐ | Large | Archival quality |
+| **slow_nvenc_h264** | ⚡⚡ | ⭐⭐⭐⭐ | Medium | Quality NVIDIA H.264 |
 | **slow_x265** | ⚡ | ⭐⭐⭐⭐⭐ | Medium | Best compression |
+| **slow_nvenc_h265** | ⚡⚡ | ⭐⭐⭐⭐ | Medium | Quality NVIDIA HEVC |
 | **slow_av1** | ⚡ | ⭐⭐⭐⭐⭐ | Small | Future standard |
+| **slow_nvenc_av1** | ⚡⚡ | ⭐⭐⭐⭐⭐ | Small | Quality NVIDIA AV1 |
+
+#### Special Output Formats
+
+| Format | Speed | Quality | Use Case | Notes |
+|--------|-------|---------|----------|-------|
+| **prores** | ⚡⚡ | ⭐⭐⭐⭐⭐ | Professional editing | Large files |
+| **prores_segment** | ⚡⚡ | ⭐⭐⭐⭐⭐ | Segmentation output | With alpha channel |
+| **gif** | ⚡⚡⚡ | ⭐⭐ | Web/social media | Animated GIF |
+| **png** | ⚡⚡⚡ | ⭐⭐⭐⭐⭐ | Image sequence | Lossless frames |
+| **vp9** | ⚡⚡ | ⭐⭐⭐⭐ | Web delivery | Open codec |
+| **lossless** | ⚡ | ⭐⭐⭐⭐⭐ | Archival | No compression |
+| **lossless_nvenc** | ⚡⚡ | ⭐⭐⭐⭐⭐ | Fast lossless | Hardware lossless |
 
 ### 🎯 Encoder Recommendations
 
@@ -572,7 +676,7 @@ C:\Videos\episode3.mp4
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `--preset` | str | - | **Load saved preset** |
-| `--preset_list` | flag | False | **Show available presets** |
+| `--list_presets` | flag | False | **Show available presets** |
 
 ### Creating Presets
 
