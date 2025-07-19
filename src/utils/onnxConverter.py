@@ -12,7 +12,11 @@ except ImportError:
     isOnnxSlim = False
 
 OPSET = 17
-modelList = [r"D:\scunet_color_real_psnr.onnx"]
+modelList = [
+    r"C:\Users\nilas\Downloads\Distill-Any-Depth-Multi-Teacher-Large.onnx",
+    r"C:\Users\nilas\Downloads\Distill-Any-Depth-Multi-Teacher-Base.onnx",
+    r"C:\Users\nilas\Downloads\Distill-Any-Depth-Multi-Teacher-Small.onnx",
+]
 
 
 def convertAndSaveModel(model, modelPath, precision, opset):

@@ -122,6 +122,12 @@ def modelsList() -> list[str]:
         "distill_small_v2",
         "distill_base_v2",
         "distill_large_v2",
+        "distill_small_v2-tensorrt",
+        "distill_base_v2-tensorrt",
+        "distill_large_v2-tensorrt",
+        "distill_small_v2-directml",
+        "distill_base_v2-directml",
+        "distill_large_v2-directml",
         "yolov9_small_mit",
     ]
 
@@ -593,14 +599,42 @@ def modelsMap(
             else:
                 return "depth_anything_v2_vitl_fp32.onnx"
 
-        case "distill_small_v2":
-            return "distill_small_v2.safetensors"
+        case (
+            "distill_small_v2"
+            | "distill_small_v2-tensorrt"
+            | "distill_small_v2-directml"
+        ):
+            if modelType == "pth":
+                return "distill_small_v2.safetensors"
+            elif modelType == "onnx":
+                if half:
+                    return "Distill-Any-Depth-Multi-Teacher-Small_fp16_op17_slim.onnx"
+                else:
+                    return "Distill-Any-Depth-Multi-Teacher-Small_fp32_op17_slim.onnx"
 
-        case "distill_base_v2":
-            return "distill_base_v2.safetensors"
+        case (
+            "distill_base_v2" | "distill_base_v2-tensorrt" | "distill_base_v2-directml"
+        ):
+            if modelType == "pth":
+                return "distill_base_v2.safetensors"
+            elif modelType == "onnx":
+                if half:
+                    return "Distill-Any-Depth-Multi-Teacher-Base_fp16_op17_slim.onnx"
+                else:
+                    return "Distill-Any-Depth-Multi-Teacher-Base_fp32_op17_slim.onnx"
 
-        case "distill_large_v2":
-            return "distill_large_v2.safetensors"
+        case (
+            "distill_large_v2"
+            | "distill_large_v2-tensorrt"
+            | "distill_large_v2-directml"
+        ):
+            if modelType == "pth":
+                return "distill_large_v2.safetensors"
+            elif modelType == "onnx":
+                if half:
+                    return "Distill-Any-Depth-Multi-Teacher-Large_fp16_op17_slim.onnx"
+                else:
+                    return "Distill-Any-Depth-Multi-Teacher-Large_fp32_op17_slim.onnx"
 
         case "yolov9_small-directml":
             if modelType == "pth":
