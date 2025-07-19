@@ -151,7 +151,14 @@ def depth(self):
                 compileMode=self.compileMode,
             )
 
-        case "small_v2-tensorrt" | "base_v2-tensorrt" | "large_v2-tensorrt":
+        case (
+            "small_v2-tensorrt"
+            | "base_v2-tensorrt"
+            | "large_v2-tensorrt"
+            | "distill_small_v2-tensorrt"
+            | "distill_base_v2-tensorrt"
+            | "distill_large_v2-tensorrt"
+        ):
             from src.depth.depth import DepthTensorRTV2
 
             DepthTensorRTV2(
@@ -172,7 +179,14 @@ def depth(self):
                 self.depthQuality,
             )
 
-        case "small_v2-directml" | "base_v2-directml" | "large_v2-directml":
+        case (
+            "small_v2-directml"
+            | "base_v2-directml"
+            | "large_v2-directml"
+            | "distill_small_v2-directml"
+            | "distill_base_v2-directml"
+            | "distill_large_v2-directml"
+        ):
             from src.depth.depth import DepthDirectMLV2
 
             DepthDirectMLV2(
@@ -219,6 +233,34 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
+            )
+
+        case (
+            "og_small_v2-tensorrt"
+            | "og_base_v2-tensorrt"
+            | "og_large_v2-tensorrt"
+            | "og_distill_small_v2-tensorrt"
+            | "og_distill_base_v2-tensorrt"
+            | "og_distill_large_v2-tensorrt"
+        ):
+            from src.depth.depth import OGDepthV2TensorRT
+
+            OGDepthV2TensorRT(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
             )
 
 
