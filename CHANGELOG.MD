@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [2.3.2] - 2025-07-19
+#### Fixed
+- Fixed a misshap in the `requirements.txt` file where `Flask-Cors` was not included, causing issues with CORS handling in the Adobe Edition.
+
 ## [2.3.1] - 2025-07-18
 #### Added
 - Added support for more color formats / pix formats.
