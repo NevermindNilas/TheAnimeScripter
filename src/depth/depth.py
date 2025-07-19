@@ -236,7 +236,7 @@ class DepthCuda:
         frame = F.interpolate(
             frame,
             (self.newHeight, self.newWidth),
-            mode="bicubic",
+            mode="bilinear",
             align_corners=True,
         )
 
@@ -252,7 +252,7 @@ class DepthCuda:
         depth = F.interpolate(
             depth,
             (self.height, self.width),
-            mode="bicubic",
+            mode="bilinear",
             align_corners=True,
         )
         return (depth - depth.min()) / (depth.max() - depth.min())
@@ -438,7 +438,7 @@ class DepthDirectMLV2:
             frame = F.interpolate(
                 frame,
                 size=(self.newHeight, self.newWidth),
-                mode="bicubic",
+                mode="bilinear",
                 align_corners=True,
             )
 
@@ -462,7 +462,7 @@ class DepthDirectMLV2:
             depth = F.interpolate(
                 self.dummyOutput.float().unsqueeze(0),
                 size=(self.height, self.width),
-                mode="bicubic",
+                mode="bilinear",
                 align_corners=True,
             )
 
@@ -605,6 +605,7 @@ class DepthTensorRTV2:
             or self.context is None
             or not os.path.exists(enginePath)
         ):
+            inputName = "image" if "distill" not in self.depth_method else "input"
             self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -612,7 +613,7 @@ class DepthTensorRTV2:
                 inputsMin=[1, 3, self.newHeight, self.newWidth],
                 inputsOpt=[1, 3, self.newHeight, self.newWidth],
                 inputsMax=[1, 3, self.newHeight, self.newWidth],
-                inputName=["image"],
+                inputName=[inputName],
             )
 
         self.stream = torch.cuda.Stream()
@@ -628,7 +629,17 @@ class DepthTensorRTV2:
             dtype=torch.float16 if self.half else torch.float32,
         )
 
+        if "distill" in self.depth_method:
+            self.dummyConst = torch.zeros(
+                (1, 1, self.newHeight, self.newWidth),
+                device=checker.device,
+                dtype=torch.float16 if self.half else torch.float32,
+            )
+
         self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
+
+        if "distill" in self.depth_method:
+            self.bindings.append(self.dummyConst.data_ptr())
 
         for i in range(self.engine.num_io_tensors):
             self.context.set_tensor_address(
@@ -655,7 +666,7 @@ class DepthTensorRTV2:
             frame = F.interpolate(
                 frame.float(),
                 (self.newHeight, self.newWidth),
-                mode="bicubic",
+                mode="bilinear",
                 align_corners=True,
             )
             frame = (frame - MEANTENSOR) / STDTENSOR
@@ -670,7 +681,7 @@ class DepthTensorRTV2:
             depth = F.interpolate(
                 self.dummyOutput,
                 size=[self.height, self.width],
-                mode="bicubic",
+                mode="bilinear",
                 align_corners=True,
             )
             depth = (depth - depth.min()) / (depth.max() - depth.min())
@@ -786,12 +797,7 @@ class OGDepthV2CUDA:
                 raise NotImplementedError("Giant model not available yet")
                 # method = "vitg"
 
-        if "distill" in self.depth_method:
-            modelType = "safetensors"
-            toDownload = "distill_" + toDownload
-        else:
-            modelType = "pth"
-
+        modelType = "pth"
         self.filename = modelsMap(model=toDownload, modelType=modelType, half=self.half)
 
         if not os.path.exists(os.path.join(weightsDir, self.filename, self.filename)):
@@ -928,3 +934,242 @@ class OGDepthV2CUDA:
             self.output.write(frame)
 
         self.output.release()
+
+
+class OGDepthV2TensorRT:
+    def __init__(
+        self,
+        input,
+        output,
+        width,
+        height,
+        fps,
+        half,
+        inpoint=0,
+        outpoint=0,
+        encode_method="x264",
+        depth_method="og_small_v2",
+        custom_encoder="",
+        benchmark=False,
+        totalFrames=0,
+        bitDepth: str = "16bit",
+        depthQuality: str = "high",
+    ):
+        self.input = input
+        self.output = output
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.half = half
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.encode_method = encode_method
+        self.depth_method = depth_method
+        self.custom_encoder = custom_encoder
+        self.benchmark = benchmark
+        self.totalFrames = totalFrames
+        self.bitDepth = bitDepth
+        self.depthQuality = depthQuality
+        self.decodeBuffer = Queue(maxsize=10)
+        self.encodeBuffer = Queue(maxsize=10)
+
+        import tensorrt as trt
+        from src.utils.trtHandler import (
+            tensorRTEngineCreator,
+            tensorRTEngineLoader,
+            tensorRTEngineNameHandler,
+        )
+
+        self.trt = trt
+        self.tensorRTEngineCreator = tensorRTEngineCreator
+        self.tensorRTEngineLoader = tensorRTEngineLoader
+        self.tensorRTEngineNameHandler = tensorRTEngineNameHandler
+
+        self.handleModels()
+
+        self.newHeight, self.newWidth = calculateAspectRatio(
+            self.width, self.height, self.depthQuality
+        )
+        try:
+            self.video = cv2.VideoCapture(self.input)
+            self.outputWriter = cv2.VideoWriter(
+                self.output,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                self.fps,
+                (self.width, self.height),
+            )
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.decodeThread)
+                executor.submit(self.encodeThread)
+                executor.submit(self.process)
+        except Exception as e:
+            logging.exception(f"Something went wrong, {e}")
+
+    def handleModels(self):
+        if "og_" in self.depth_method:
+            self.depth_method = self.depth_method.replace("og_", "")
+
+        self.filename = modelsMap(
+            model=self.depth_method, modelType="onnx", half=self.half
+        )
+
+        folderName = self.depth_method.replace("-tensorrt", "-onnx")
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
+            self.modelPath = downloadModels(
+                model=self.depth_method,
+                half=self.half,
+                modelType="onnx",
+            )
+        else:
+            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+
+        self.newHeight, self.newWidth = calculateAspectRatio(
+            self.width, self.height, self.depthQuality
+        )
+
+        enginePath = self.tensorRTEngineNameHandler(
+            modelPath=self.modelPath,
+            fp16=self.half,
+            optInputShape=[1, 3, self.newHeight, self.newWidth],
+        )
+
+        self.engine, self.context = self.tensorRTEngineLoader(enginePath)
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
+            inputName = "image" if "distill" not in self.depth_method else "input"
+            self.engine, self.context = self.tensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
+                fp16=self.half,
+                inputsMin=[1, 3, self.newHeight, self.newWidth],
+                inputsOpt=[1, 3, self.newHeight, self.newWidth],
+                inputsMax=[1, 3, self.newHeight, self.newWidth],
+                inputName=[inputName],
+            )
+
+        self.stream = torch.cuda.Stream()
+        self.dummyInput = torch.zeros(
+            (1, 3, self.newHeight, self.newWidth),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        self.dummyOutput = torch.zeros(
+            (1, 1, self.newHeight, self.newWidth),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        if "distill" in self.depth_method:
+            self.dummyConst = torch.zeros(
+                (1, 1, self.newHeight, self.newWidth),
+                device=checker.device,
+                dtype=torch.float16 if self.half else torch.float32,
+            )
+
+        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
+
+        if "distill" in self.depth_method:
+            self.bindings.append(self.dummyConst.data_ptr())
+
+        for i in range(self.engine.num_io_tensors):
+            self.context.set_tensor_address(
+                self.engine.get_tensor_name(i), self.bindings[i]
+            )
+            tensor_name = self.engine.get_tensor_name(i)
+            if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+
+        self.normStream = torch.cuda.Stream()
+        self.outputNormStream = torch.cuda.Stream()
+        self.cudaGraph = torch.cuda.CUDAGraph()
+        self.initTorchCudaGraph()
+
+    @torch.inference_mode()
+    def initTorchCudaGraph(self):
+        with torch.cuda.graph(self.cudaGraph, stream=self.stream):
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+        self.stream.synchronize()
+
+    @torch.inference_mode()
+    def normFrame(self, frame):
+        with torch.cuda.stream(self.normStream):
+            frame = torch.from_numpy(frame).to(checker.device)
+            frame = frame.permute(2, 0, 1).unsqueeze(0)
+            if self.half:
+                frame = frame.half()
+            else:
+                frame = frame.float()
+
+            frame = frame.mul(1 / 255)
+            frame = F.interpolate(
+                frame.float(),
+                (self.newHeight, self.newWidth),
+                mode="bilinear",
+                align_corners=True,
+            )
+            frame = (frame - MEANTENSOR) / STDTENSOR
+            if self.half:
+                frame = frame.half()
+            self.dummyInput.copy_(frame, non_blocking=True)
+        self.normStream.synchronize()
+
+    @torch.inference_mode()
+    def normOutputFrame(self):
+        depth = self.dummyOutput.cpu().numpy()
+        depth = np.reshape(depth, (518, 518))
+        depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
+        depth = depth.astype(np.uint8)
+
+        return depth
+
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        try:
+            self.normFrame(frame)
+            with torch.cuda.stream(self.stream):
+                self.cudaGraph.replay()
+            self.stream.synchronize()
+            depth = self.normOutputFrame()
+            self.encodeBuffer.put(depth)
+        except Exception as e:
+            logging.exception(f"Something went wrong while processing the frame, {e}")
+
+    def process(self):
+        frameCount = 0
+        with ProgressBarLogic(self.totalFrames) as bar:
+            for _ in range(self.totalFrames):
+                frame = self.decodeBuffer.get()
+                if frame is None:
+                    break
+                self.processFrame(frame)
+                frameCount += 1
+                bar(1)
+        logging.info(f"Processed {frameCount} frames")
+        self.encodeBuffer.put(None)
+
+    def decodeThread(self):
+        while True:
+            ret, frame = self.video.read()
+            if not ret:
+                break
+
+            self.decodeBuffer.put(frame)
+        self.decodeBuffer.put(None)
+        self.video.release()
+
+    def encodeThread(self):
+        while True:
+            frame = self.encodeBuffer.get()
+            if frame is None:
+                break
+            if frame.ndim == 2:
+                frame = np.stack([frame] * 3, axis=-1)
+            frame = cv2.resize(
+                frame, (self.width, self.height), interpolation=cv2.INTER_LINEAR
+            )
+            self.outputWriter.write(frame)
+        self.outputWriter.release()

@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [Unreleased] - YYY-MM-DD
+### New
+- Added the following depth methods:
+  - `distill_small_v2-tensorrt`
+  - `distill_base_v2-tensorrt`
+  - `distill_large_v2-tensorrt`
+  - `distill_small_v2-directml`
+  - `distill_base_v2-directml`
+  - `distill_large_v2-directml`
+  - `og_small_v2-tensorrt`
+  - `og_base_v2-tensorrt`
+  - `og_large_v2-tensorrt`
+  - `og_distill_small_v2-tensorrt`
+  - `og_distill_base_v2-tensorrt`
+  Benchmark: Encoding + Decoding with `og_small_v2-tensorrt`, fp16, 1080p video, 13700k + 3090:
+  Elapsed Time: 0:00:12 • ETA: 0:00:00 • FPS: 119.36 • Mem: 954.6MB • Frames: 1495/1495
+
+
+
 ## [2.3.2] - 2025-07-19
 #### Fixed
 - Fixed a misshap in the `requirements.txt` file where `Flask-Cors` was not included, causing issues with CORS handling in the Adobe Edition.
