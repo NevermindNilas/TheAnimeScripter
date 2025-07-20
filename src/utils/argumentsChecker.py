@@ -2,7 +2,6 @@ import os
 import logging
 import sys
 import argparse
-import shutil
 import src.constants as cs
 
 from .coloredPrints import green

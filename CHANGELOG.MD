@@ -17,7 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   - `og_large_v2-tensorrt`
   - `og_distill_small_v2-tensorrt`
   - `og_distill_base_v2-tensorrt`
-  Benchmark: Encoding + Decoding with `og_small_v2-tensorrt`, fp16, 1080p video, 13700k + 3090:
+  - Benchmark: Encoding + Decoding with `og_small_v2-tensorrt`, fp16, 1080p video, 13700k + 3090:
   Elapsed Time: 0:00:12 • ETA: 0:00:00 • FPS: 119.36 • Mem: 954.6MB • Frames: 1495/1495
 
 #### Changed
