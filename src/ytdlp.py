@@ -70,19 +70,29 @@ class VideoDownloader:
             return sorted(set(resolutions), key=lambda x: x[1], reverse=True)
 
     def downloadVideo(self):
+        self.downloaded_file = None
+
+        def hook(d):
+            if d.get("status") == "finished":
+                self.downloaded_file = d.get("filename")
+
         options = self.getOptions()
+        # Add progress_hooks to options
+        options["progress_hooks"] = [hook]
         try:
             with YoutubeDL(options) as ydl:
                 ydl.download([self.link])
         except Exception as e:
             logging.error(f"Failed to download video: {e}")
-            raise
+            raise (f"Error downloading video: {e}")
 
     def getOptions(self):
         if self.height > 1080 and ADOBE:
+            # Always ensure .mp4 extension is present
+            outtmpl = self.output
             return {
                 "format": f"bestvideo[height<={self.height}]+bestaudio/best[height<={self.height}]/best",
-                "outtmpl": os.path.splitext(self.output)[0],
+                "outtmpl": outtmpl,
                 "ffmpeg_location": os.path.dirname(FFMPEGPATH),
                 "quiet": True,
                 "noplaylist": True,
@@ -94,15 +104,18 @@ class VideoDownloader:
                         # self.customEncoder if self.customEncoder else matchEncoder(self.encodeMethod),
                     }
                 ],
+                "merge_output_format": "mp4",
                 "nocookies": True,
             }
         else:
+            outtmpl = self.output
             return {
                 "format": f"bestvideo[height<={self.height}]+bestaudio/best[height<={self.height}]/best",
-                "outtmpl": self.output,
+                "outtmpl": outtmpl,
                 "ffmpeg_location": os.path.dirname(FFMPEGPATH),
                 "quiet": True,
                 "noplaylist": True,
                 "no_warnings": True,
+                "merge_output_format": "mp4",
                 "nocookies": True,
             }
