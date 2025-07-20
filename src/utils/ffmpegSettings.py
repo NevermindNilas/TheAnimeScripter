@@ -28,8 +28,8 @@ def timestampToFrame(timestampInSeconds, fps):
 
     """
     timestamps = FPSTimestamps(RoundingMethod.ROUND, Fraction(1000), fps)
-    timestamp_fraction = Fraction(timestampInSeconds).limit_denominator(1000000)
-    return timestamps.time_to_frame(timestamp_fraction, TimeType.START)
+    timestampsFraction = Fraction(timestampInSeconds).limit_denominator(1000000)
+    return timestamps.time_to_frame(timestampsFraction, TimeType.START)
 
 
 vsCore = vs.core
@@ -202,6 +202,10 @@ class BuildBuffer:
         colorRange = colorRange if isinstance(colorRange, int) else 0
         fieldBased = fieldBased if isinstance(fieldBased, int) else 0
 
+        logging.info(
+            f"Initializing clip for float RGB: matrix={matrix}, transfer={transfer}, primaries={primaries}, chromaLocation={chromaLocation}, colorRange={colorRange}, fieldBased={fieldBased}"
+        )
+
         clip = clip.std.SetFrameProps(
             matrix=matrix,
             transfer=transfer,
@@ -274,15 +278,12 @@ class BuildBuffer:
         dtype = torch.float16 if self.half else torch.float32
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
-                result = (
-                    frame.to(device="cuda", non_blocking=True, dtype=dtype)
-                    .clamp(0, 1)
-                    .unsqueeze(0)
-                    .contiguous()
+                frame = (
+                    frame.to(device="cuda", non_blocking=True).clamp(0, 1).unsqueeze(0)
                 )
 
             normStream.synchronize()
-            return result
+            return frame
         else:
             return frame.clamp(0, 1).unsqueeze(0).to(dtype=dtype).contiguous()
 
