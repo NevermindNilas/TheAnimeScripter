@@ -129,20 +129,15 @@ class DepthCuda:
                 raise NotImplementedError("Giant model not available yet")
                 # method = "vitg"
 
-        if "distill" in self.depth_method:
-            modelType = "safetensors"
-        else:
-            modelType = "pth"
-
         self.filename = modelsMap(
-            model=self.depth_method, modelType=modelType, half=self.half
+            model=self.depth_method, modelType="pth", half=self.half
         )
 
         if not os.path.exists(os.path.join(weightsDir, self.filename, self.filename)):
             modelPath = downloadModels(
                 model=self.depth_method,
                 half=self.half,
-                modelType=modelType,
+                modelType="pth",
             )
 
         else:
@@ -852,15 +847,7 @@ class OGDepthV2CUDA:
         else:
             self.model = DepthAnythingV2(**modelConfigs[method])
 
-        if "distill" in self.depth_method:
-            from safetensors.torch import load_file
-
-            modelWeights = load_file(modelPath)
-            self.model.load_state_dict(modelWeights)
-            del modelWeights
-            torch.cuda.empty_cache()
-        else:
-            self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
+        self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
         self.model = self.model.to(checker.device).eval()
 
         self.newHeight, self.newWidth = calculateAspectRatio(
