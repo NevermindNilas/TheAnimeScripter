@@ -930,8 +930,10 @@ def processURL(args, outputPath):
         print(green(f"Video downloaded to: {tempOutput}"))
 
         if not isAnyOtherProcessingMethodEnabled(args):
-            shutil.move(tempOutput, args.output)
-            sys.exit()
+            if tempOutput != args.output:
+                os.rename(tempOutput, args.output)
+                logging.info(f"Renamed output to: {args.output}")
+                sys.exit()
 
         args.input = str(tempOutput)
         logging.info(f"New input path: {args.input}")
