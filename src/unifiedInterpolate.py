@@ -445,7 +445,6 @@ class RifeTensorRT:
             "rife_elexor-tensorrt",
             "rife4.25-tensorrt",
             "rife4.25-heavy-tensorrt",
-            "rife4.25-lite-tensorrt",
         ]:
             channels = 4
             mul = 64
