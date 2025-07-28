@@ -36,7 +36,6 @@ from fractions import Fraction
 from src.utils.coloredPrints import green
 from src.utils.argumentsChecker import createParser
 from src.utils.getVideoMetadata import getVideoMetadata
-from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.inputOutputHandler import processInputOutputPaths
 from src.initializeModels import (
     initializeModels,
@@ -160,9 +159,9 @@ class VideoProcessor:
             self.start()
 
     def processFrame(self, frame: any) -> None:
-        if self.dedup and self.dedup_process(frame):
-            self.dedupCount += 1
-            return
+        # if self.dedup and self.dedup_process(frame):
+        #    self.dedupCount += 1
+        #    return
 
         if self.scenechange:
             self.isSceneChange = self.scenechange_process(frame)
@@ -281,7 +280,7 @@ class VideoProcessor:
             self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
 
         try:
-            with ProgressBarLogic(self.totalFrames * increment) as bar:
+            with self.ProgressBarLogic(self.totalFrames * increment) as bar:
                 for _ in range(self.totalFrames):
                     frame = self.readBuffer.read()
                     if frame is None:
@@ -310,6 +309,9 @@ class VideoProcessor:
 
     def start(self):
         from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
+        from src.utils.progressBarLogic import ProgressBarLogic
+
+        self.ProgressBarLogic = ProgressBarLogic
 
         try:
             (
