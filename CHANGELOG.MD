@@ -27,6 +27,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 #### Fixed
 - Issues with yt-dlp where it would add extra container extensions to the output file, causing a discrepancy between the expected and actual output file format.
 
+## TAS Adobe Edition
+### New
+- Added resolution preview in upscale settings dialog - now you can see input dimensions (like 1920×1080) and output dimensions (3840×2160) before processing
+- Added FPS preview in interpolation settings dialog - shows current composition FPS and what FPS you will get after interpolation (example: 24.000 FPS → 48.000 FPS for 2x)
+- New functions getCompDimensions() and getCompFPS() in After Effects script to get composition information
+Viewport zoom slider was added to `ToolBox`
+- Added a brand new Graph Editor ( Alpha )
+- Added a function to dynamically fetch the available space in C drive and display it in the download tas dependencies dialog.
+- Migrated from `yarn/npm` to `bun` for package management, improving build performance and dependency management.
+
+### Changed
+- Made big performance improvements to main interface - now it renders much faster and uses less memory
+- Converted many functions to use useCallback and useMemo for better React performance
+- Moved progress bar display to separate component file for cleaner code organization
+- Resolution and FPS previews automatically fetch data when you open the settings dialogs
+- Slight refactor to the dependencies dialog to improve readability.
+- Removed Motion and fade in/out effects in order to retain snappiness. 
+- Migrated from using `exec` to `spawn` for process execution, improving performance and reliability.
+- A complete overhaul to `logTab` to make it more performant and user-friendly.
+- Updated the `executeProcess` function to handle errors more gracefully and provide better user feedback.
+
+### Fixed
+- Fixed issue where executeProcess function was used before it was declared (TypeScript error)
+- Loading states now show properly when fetching composition information
+
 
 ## [2.3.2] - 2025-07-19
 #### Fixed
