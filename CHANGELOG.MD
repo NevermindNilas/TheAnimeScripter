@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 #### Changed
 - Fully rewrote `parameters.md` to reflect the new changes and to better explain the usage of TAS.
+- Better lazy importing of the `ProgressBarLogic` in `main.py` have improved the startup time of TAS by ~100ms.
 
 #### Fixed
 - Issues with yt-dlp where it would add extra container extensions to the output file, causing a discrepancy between the expected and actual output file format.
