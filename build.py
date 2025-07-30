@@ -10,12 +10,10 @@ import argparse
 
 baseDir = Path(__file__).resolve().parent
 distPath = baseDir / "dist-portable"
-# requirementsPath = baseDir / "requirements.txt"
-reqFiles = list(baseDir.glob("requirements*.txt"))
-if reqFiles:
-    requirementsPath = reqFiles[0]
-else:
-    raise FileNotFoundError("No requirements file found in the base directory.")
+requirementsPath = baseDir / "requirements.txt"
+
+if not requirementsPath.exists():
+    raise FileNotFoundError(f"Requirements file not found: {requirementsPath}")
 
 portablePythonDir = baseDir / "portable-python"
 pythonVersion = "3.13.5"
@@ -310,6 +308,16 @@ if [ ! -f "$PYTHON_EXE" ]; then
     echo "Error: Python executable not found at $PYTHON_EXE"
     echo "Please run the build script first: python build.py"
     exit 1
+fi
+
+# Set up VapourSynth environment variables if system installation exists
+if [ -d "/usr/local/lib" ]; then
+    export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
+fi
+
+PYTHON_VERSION=$("$PYTHON_EXE" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+if [ -d "/usr/local/lib/python$PYTHON_VERSION/site-packages" ]; then
+    export PYTHONPATH="/usr/local/lib/python$PYTHON_VERSION/site-packages:$PYTHONPATH"
 fi
 
 # Run the main application
