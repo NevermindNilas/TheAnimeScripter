@@ -1,3 +1,10 @@
+"""
+Command Line Argument Parser
+
+Handles parsing and validation of command line arguments for The Anime Scripter.
+Provides comprehensive argument definitions and validation logic.
+"""
+
 import os
 import logging
 import sys
@@ -13,24 +20,43 @@ from src.utils.dependencyHandler import installDependencies
 
 
 def isAnyOtherProcessingMethodEnabled(args):
-    return any(
-        [
-            args.interpolate,
-            args.scenechange,
-            args.upscale,
-            args.segment,
-            args.restore,
-            args.sharpen,
-            args.resize,
-            args.dedup,
-            args.depth,
-            args.autoclip,
-            args.obj_detect,
-        ]
-    )
+    """
+    Check if any video processing operations are enabled.
+    
+    Args:
+        args: Parsed command line arguments
+        
+    Returns:
+        bool: True if any processing method is enabled
+    """
+    return any([
+        args.interpolate,
+        args.scenechange,
+        args.upscale,
+        args.segment,
+        args.restore,
+        args.sharpen,
+        args.resize,
+        args.dedup,
+        args.depth,
+        args.autoclip,
+        args.obj_detect,
+    ])
 
 
 def str2bool(arg):
+    """
+    Convert string argument to boolean value.
+    
+    Args:
+        arg: String or boolean argument
+        
+    Returns:
+        bool: Converted boolean value
+        
+    Raises:
+        argparse.ArgumentTypeError: If argument cannot be converted to boolean
+    """
     if isinstance(arg, bool):
         return arg
     if arg.lower() in ("yes", "true", "t", "y", "1"):
@@ -42,6 +68,15 @@ def str2bool(arg):
 
 
 def createParser(outputPath):
+    """
+    Create and configure the command line argument parser.
+    
+    Args:
+        outputPath (str): Default output directory path
+        
+    Returns:
+        argparse.Namespace: Parsed command line arguments
+    """
     argParser = argparse.ArgumentParser(
         description="The Anime Scripter CLI Tool",
         usage="main.py [options]",

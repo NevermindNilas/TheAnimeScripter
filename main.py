@@ -1,6 +1,9 @@
 """
-The Anime Scripter is a tool that allows you to automate the process of
-Video Upscaling, Interpolating and many more all inside of the Adobe Suite
+The Anime Scripter - AI Video Enhancement Toolkit
+
+A high-performance AI video enhancement toolkit specialized for anime and general video content.
+Provides professional-grade AI upscaling, interpolation, and restoration capabilities.
+
 Copyright (C) 2023-present Nilas Tiago
 
 This program is free software: you can redistribute it and/or modify
@@ -50,11 +53,21 @@ warnings.filterwarnings("ignore")
 
 
 class VideoProcessor:
-    def __init__(
-        self,
-        args,
-        results=None,
-    ):
+    """
+    Main video processing class that handles AI-powered video enhancement operations.
+    
+    Supports upscaling, interpolation, restoration, deduplication, and various other
+    video processing operations using different AI models and hardware backends.
+    """
+    
+    def __init__(self, args, results=None):
+        """
+        Initialize the VideoProcessor with command line arguments and processing results.
+        
+        Args:
+            args: Parsed command line arguments containing processing options
+            results: Dictionary containing video path, output path, and encoding settings
+        """
         self.input = results["videoPath"]
         self.output = results["outputPath"]
         self.encodeMethod = results["encodeMethod"]
@@ -66,49 +79,72 @@ class VideoProcessor:
         self._selectProcessingMethod()
 
     def _initProcessingParams(self, args):
+        """
+        Initialize processing parameters from command line arguments.
+        
+        Args:
+            args: Parsed command line arguments
+        """
+        # Core processing flags
         self.interpolate: bool = args.interpolate
+        self.upscale: bool = args.upscale
+        self.restore: bool = args.restore
+        self.dedup: bool = args.dedup
+        self.sharpen: bool = args.sharpen
+        self.autoclip: bool = args.autoclip
+        self.depth: bool = args.depth
+        self.segment: bool = args.segment
+        self.scenechange: bool = args.scenechange
+        self.objDetect: bool = args.obj_detect
+        
+        # Processing parameters
         self.interpolateFactor: int = args.interpolate_factor
         self.interpolateMethod: str = args.interpolate_method
-        self.upscale: bool = args.upscale
         self.upscaleFactor: int = args.upscale_factor
         self.upscaleMethod: str = args.upscale_method
-        self.dedup: bool = args.dedup
         self.dedupMethod: str = args.dedup_method
         self.dedupSens: float = args.dedup_sens
-        self.half: bool = args.half
-        self.inpoint: float = args.inpoint
-        self.outpoint: float = args.outpoint
-        self.sharpen: bool = args.sharpen
-        self.sharpenSens: float = args.sharpen_sens
-        self.autoclip: bool = args.autoclip
-        self.autoclipSens: float = args.autoclip_sens
-        self.depth: bool = args.depth
-        self.depthMethod: str = args.depth_method
-        self.ensemble: bool = args.ensemble
-        self.resize: bool = args.resize
-        self.resizeFactor: float = args.resize_factor
-        self.customModel: str = args.custom_model
-        self.restore: bool = args.restore
         self.restoreMethod: str = args.restore_method
-        self.benchmark: bool = args.benchmark
-        self.segment: bool = args.segment
+        self.depthMethod: str = args.depth_method
         self.segmentMethod: str = args.segment_method
-        self.scenechange: bool = args.scenechange
-        self.scenechangeSens: float = args.scenechange_sens
         self.scenechangeMethod: str = args.scenechange_method
-        self.bitDepth: str = args.bit_depth
-        self.preview: bool = args.preview
+        self.objDetectMethod: str = args.obj_detect_method
+        
+        # Quality and performance settings
+        self.half: bool = args.half
+        self.ensemble: bool = args.ensemble
         self.forceStatic: bool = args.static
-        self.depthQuality: str = args.depth_quality
         self.dynamicScale: bool = args.dynamic_scale
         self.staticStep: bool = args.static_step
+        self.compileMode: str = args.compile_mode
+        
+        # Video processing settings
+        self.inpoint: float = args.inpoint
+        self.outpoint: float = args.outpoint
+        self.resize: bool = args.resize
+        self.resizeFactor: float = args.resize_factor
+        self.bitDepth: str = args.bit_depth
         self.slowmo: bool = args.slowmo
         self.interpolateFirst: bool = args.interpolate_first
-        self.objDetect: bool = args.obj_detect
-        self.objDetectMethod: str = args.obj_detect_method
-        self.compileMode: str = args.compile_mode
+        
+        # Enhancement settings
+        self.sharpenSens: float = args.sharpen_sens
+        self.autoclipSens: float = args.autoclip_sens
+        self.scenechangeSens: float = args.scenechange_sens
+        self.depthQuality: str = args.depth_quality
+        
+        # Utility settings
+        self.customModel: str = args.custom_model
+        self.benchmark: bool = args.benchmark
+        self.preview: bool = args.preview
 
     def _initVideoMetadata(self, args) -> None:
+        """
+        Initialize video metadata by analyzing the input video file.
+        
+        Args:
+            args: Command line arguments containing inpoint and outpoint
+        """
         videoMetadata = getVideoMetadata(
             self.input,
             args.inpoint,
@@ -121,8 +157,15 @@ class VideoProcessor:
         self.totalFrames: int = videoMetadata["TotalFramesToBeProcessed"]
 
     def _configureProcessingOptions(self, args) -> None:
+        """
+        Configure processing options based on the selected operations.
+        
+        Args:
+            args: Command line arguments
+        """
         logging.info("\n============== Processing Outputs ==============")
 
+        # Calculate output FPS based on interpolation settings
         if self.slowmo:
             self.outputFPS = self.fps
         else:
@@ -130,6 +173,7 @@ class VideoProcessor:
                 self.fps * self.interpolateFactor if self.interpolate else self.fps
             )
 
+        # Handle video resizing if requested
         if self.resize:
             aspectRatio = self.width / self.height
             self.width = round(self.width * self.resizeFactor / 2) * 2
@@ -139,29 +183,37 @@ class VideoProcessor:
             )
 
     def _selectProcessingMethod(self) -> None:
+        """
+        Select and execute the appropriate processing method based on user options.
+        
+        Prioritizes specialized operations (autoclip, depth, segment, object detection)
+        over standard video processing.
+        """
         if self.autoclip:
             logging.info("Detecting scene changes")
             autoClip(self)
-
         elif self.depth:
             logging.info("Depth Estimation")
             depth(self)
-
         elif self.segment:
             logging.info("Segmenting video")
             segment(self)
-
         elif self.objDetect:
             logging.info("Object Detection")
             objectDetection(self)
-
         else:
             self.start()
 
     def processFrame(self, frame: any) -> None:
-        # if self.dedup and self.dedup_process(frame):
-        #    self.dedupCount += 1
-        #    return
+        """
+        Process a single video frame through the configured enhancement pipeline.
+        
+        Args:
+            frame: Input video frame tensor
+        """
+        if self.dedup and self.dedup_process(frame):
+           self.dedupCount += 1
+           return
 
         if self.scenechange:
             self.isSceneChange = self.scenechange_process(frame)
@@ -203,6 +255,12 @@ class VideoProcessor:
             )
 
     def ifInterpolateFirst(self, frame: any) -> None:
+        """
+        Process frame with interpolation-first pipeline order.
+        
+        Args:
+            frame: Input video frame tensor
+        """
         if self.interpolate:
             if self.isSceneChange:
                 self.interpolate_process.cacheFrameReset(frame)
@@ -225,7 +283,6 @@ class VideoProcessor:
                     self.writeBuffer.write(self.upscale_process(frame))
             else:
                 self.writeBuffer.write(self.upscale_process(frame))
-
         else:
             if self.interpolate:
                 if self.isSceneChange or not self.interpQueue.empty():
@@ -234,10 +291,15 @@ class VideoProcessor:
                             frame if self.isSceneChange else self.interpQueue.get()
                         )
                         self.writeBuffer.write(frameToWrite)
-
             self.writeBuffer.write(frame)
 
     def ifInterpolateLast(self, frame: any) -> None:
+        """
+        Process frame with interpolation-last pipeline order.
+        
+        Args:
+            frame: Input video frame tensor
+        """
         if self.upscale:
             frame = self.upscale_process(frame)
 
@@ -253,12 +315,19 @@ class VideoProcessor:
         self.writeBuffer.write(frame)
 
     def process(self):
+        """
+        Main processing loop that handles frame-by-frame video processing.
+        
+        Processes all frames through the configured enhancement pipeline and
+        tracks processing statistics.
+        """
         frameCount = 0
         self.dedupCount = 0
         self.isSceneChange = False
         self.sceneChangeCounter = 0
         self.frameCounter = 0
 
+        # Configure interpolation factors for fractional interpolation
         if self.interpolate and isinstance(self.interpolateFactor, float):
             factor = Fraction(self.interpolateFactor).limit_denominator(100)
             self.factorNum = factor.numerator
@@ -273,9 +342,9 @@ class VideoProcessor:
             increment = int(self.interpolateFactor) if self.interpolate else 1
 
         self.timesteps = None
-
         self.framesToInsert = self.interpolateFactor - 1 if self.interpolate else 0
 
+        # Initialize interpolation queue if needed
         if self.interpolate and self.interpolateFirst:
             self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
 
@@ -300,20 +369,27 @@ class VideoProcessor:
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
 
+        # Log processing statistics
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
             logging.info(f"Deduplicated {self.dedupCount} frames")
-
         if self.scenechange:
             logging.info(f"Detected {self.sceneChangeCounter} scene changes")
 
     def start(self):
+        """
+        Initialize and start the video processing pipeline.
+        
+        Sets up input/output buffers, initializes AI models, and coordinates
+        the multi-threaded processing workflow.
+        """
         from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
         from src.utils.progressBarLogic import ProgressBarLogic
 
         self.ProgressBarLogic = ProgressBarLogic
 
         try:
+            # Initialize AI models and get processing functions
             (
                 self.new_width,
                 self.new_height,
@@ -326,6 +402,7 @@ class VideoProcessor:
 
             starTime: float = time()
 
+            # Setup input buffer for reading video frames
             self.readBuffer = BuildBuffer(
                 videoInput=self.input,
                 inpoint=self.inpoint,
@@ -337,6 +414,7 @@ class VideoProcessor:
                 bitDepth=self.bitDepth,
             )
 
+            # Setup output buffer for writing processed frames
             self.writeBuffer = WriteBuffer(
                 input=self.input,
                 output=self.output,
@@ -356,11 +434,12 @@ class VideoProcessor:
                 slowmo=self.slowmo,
             )
 
+            # Initialize preview if enabled
             if self.preview:
                 from src.utils.previewSettings import Preview
-
                 self.preview = Preview()
 
+            # Execute processing pipeline with thread pool
             with ThreadPoolExecutor(max_workers=4 if self.preview else 3) as executor:
                 executor.submit(self.readBuffer)
                 executor.submit(self.writeBuffer)
@@ -368,6 +447,7 @@ class VideoProcessor:
                 if self.preview:
                     executor.submit(self.preview.start)
 
+            # Calculate and log performance metrics
             elapsedTime: float = time() - starTime
             totalFPS: float = (
                 self.totalFrames
@@ -388,7 +468,14 @@ class VideoProcessor:
 
 
 def main():
+    """
+    Main entry point for The Anime Scripter application.
+    
+    Handles initialization, argument parsing, and coordinates video processing
+    for single or multiple input files.
+    """
     try:
+        # Initialize system constants
         cs.SYSTEM = system()
         cs.MAINPATH = (
             os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
@@ -398,10 +485,10 @@ def main():
                 "TheAnimeScripter",
             )
         )
-        # path to where the script is ran from
         cs.WHEREAMIRUNFROM = os.path.dirname(os.path.abspath(__file__))
         os.makedirs(cs.MAINPATH, exist_ok=True)
 
+        # Determine if running from frozen executable
         isFrozen = hasattr(sys, "_MEIPASS")
         baseOutputPath = (
             os.path.dirname(sys.executable)
@@ -409,7 +496,7 @@ def main():
             else os.path.dirname(os.path.abspath(__file__))
         )
 
-        # Setup logging
+        # Configure logging system
         signal(SIGINT, SIG_DFL)
         logging.basicConfig(
             filename=os.path.join(cs.MAINPATH, "TAS-Log.log"),
@@ -420,20 +507,23 @@ def main():
         logging.info("============== Command Line Arguments ==============")
         logging.info(f"{' '.join(sys.argv)}\n")
 
+        # Parse command line arguments and process input/output paths
         args = createParser(baseOutputPath)
         outputPath = os.path.join(baseOutputPath, "output")
-
         results = processInputOutputPaths(args, outputPath)
 
+        # Validate that videos were found
         totalVideos = len(results)
         if totalVideos == 0:
             logAndPrint("No videos found to process", colorFunc="red")
             sys.exit(1)
 
+        # Initialize batch processing timer if multiple videos
         if totalVideos > 1:
             logAndPrint(f"Total Videos found: {totalVideos}", colorFunc="green")
             folderTimer = time()
 
+        # Process each video
         for idx, i in enumerate(results, 1):
             try:
                 if totalVideos > 1:
@@ -450,10 +540,7 @@ def main():
                 logAndPrint(
                     f"Output Path: {results[i]['outputPath']}", colorFunc="green"
                 )
-                VideoProcessor(
-                    args,
-                    results=results[i],
-                )
+                VideoProcessor(args, results=results[i])
 
             except Exception as e:
                 logAndPrint(
@@ -462,6 +549,7 @@ def main():
                 )
                 logging.exception(f"Error processing video {results[i]['videoPath']}")
 
+        # Log batch processing statistics
         if totalVideos > 1:
             totalTime = time() - folderTimer
             logAndPrint(
