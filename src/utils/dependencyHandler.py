@@ -191,11 +191,18 @@ class DependencyChecker:
             from src.utils.isCudaInit import detectNVidiaGPU
 
             isNvidia = detectNVidiaGPU()
-            requirementsFile = (
-                "extra-requirements-windows.txt"
-                if isNvidia
-                else "extra-requirements-windows-lite.txt"
-            )
+            if cs.SYSTEM == "Windows":
+                requirementsFile = (
+                    "extra-requirements-windows.txt"
+                    if isNvidia
+                    else "extra-requirements-windows-lite.txt"
+                )
+            else:  # Linux and other systems
+                requirementsFile = (
+                    "extra-requirements-linux.txt"
+                    if isNvidia
+                    else "extra-requirements-linux-lite.txt"
+                )
 
         requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, requirementsFile)
 

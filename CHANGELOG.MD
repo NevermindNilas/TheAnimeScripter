@@ -3,7 +3,17 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [Unreleased] - YYY-MM-DD
+## [Unreleased] - YYYY-MM-DD
+### Added
+
+
+## [2.3.6] - 2025-07-28
+### AdobeEdition
+#### Fixed
+- String handling for output generation.
+- Graph tab would crash the UI ( WIP fix, not 100%
+
+## [2.3.5] - 2025-07-28
 #### New
 - Added the following depth methods:
   - `distill_small_v2-tensorrt`

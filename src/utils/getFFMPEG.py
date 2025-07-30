@@ -17,7 +17,8 @@ def getFFMPEG():
         logging.info(f"FFPROBE found in System Path: {ffprobePath}")
 
     cs.FFMPEGPATH = ffmpegPath
-    cs.FFPROBEPATH = os.path.join(os.path.dirname(ffmpegPath), "ffprobe.exe")
+    ffProbeExe = "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe"
+    cs.FFPROBEPATH = os.path.join(os.path.dirname(ffmpegPath), ffProbeExe)
 
 
 def downloadAndExtractFfmpeg(ffmpegPath):
@@ -87,10 +88,14 @@ def extractFfmpegZip(ffmpegZipPath, ffmpegDir):
 
 def extractFfmpegTar(ffmpegTarPath, ffmpegDir):
     import tarfile
+    import stat
 
     try:
         with tarfile.open(ffmpegTarPath, "r:xz") as tarRef:
             tarRef.extractall(ffmpegDir)
+        
+        # Find the extracted directory
+        extracted_dir = None
         for item in os.listdir(ffmpegDir):
             fullPath = os.path.join(ffmpegDir, item)
             if (
@@ -98,13 +103,32 @@ def extractFfmpegTar(ffmpegTarPath, ffmpegDir):
                 and item.startswith("ffmpeg-")
                 and item.endswith("-static")
             ):
-                ffmpeg_src = os.path.join(fullPath, "ffmpeg")
-                ffmpeg_dst = os.path.join(ffmpegDir, "ffmpeg")
-                if not os.path.exists(ffmpeg_dst):
-                    os.rename(ffmpeg_src, ffmpeg_dst)
-                shutil.rmtree(fullPath)
+                extracted_dir = fullPath
+                break
+        
+        if extracted_dir:
+            # Move ffmpeg binary
+            ffmpeg_src = os.path.join(extracted_dir, "ffmpeg")
+            ffmpeg_dst = os.path.join(ffmpegDir, "ffmpeg")
+            if os.path.exists(ffmpeg_src) and not os.path.exists(ffmpeg_dst):
+                os.rename(ffmpeg_src, ffmpeg_dst)
+                # Make executable
+                os.chmod(ffmpeg_dst, os.stat(ffmpeg_dst).st_mode | stat.S_IEXEC)
+            
+            # Move ffprobe binary
+            ffprobe_src = os.path.join(extracted_dir, "ffprobe")
+            ffprobe_dst = os.path.join(ffmpegDir, "ffprobe")
+            if os.path.exists(ffprobe_src) and not os.path.exists(ffprobe_dst):
+                os.rename(ffprobe_src, ffprobe_dst)
+                # Make executable
+                os.chmod(ffprobe_dst, os.stat(ffprobe_dst).st_mode | stat.S_IEXEC)
+            
+            # Clean up extracted directory
+            shutil.rmtree(extracted_dir)
+        
     except tarfile.TarError as e:
         logging.error(f"Failed to extract TAR: {e}")
         raise
     finally:
-        os.remove(ffmpegTarPath)
+        if os.path.exists(ffmpegTarPath):
+            os.remove(ffmpegTarPath)
