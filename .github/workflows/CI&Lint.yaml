@@ -36,23 +36,37 @@ jobs:
 
   build:
     name: Build
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     needs: lint
     if: always()
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
     
     - name: Set up Python ${{ env.PYTHON_VERSION }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
+
+    - name: Install Linux system dependencies
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential python3-dev
+        sudo apt-get install -y libavcodec-dev libavformat-dev libavutil-dev libswscale-dev
+        sudo apt-get install -y vapoursynth-dev python3-vapoursynth || echo "VapourSynth not available in repos"
     
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        if (Test-Path requirements.txt) { pip install -r requirements.txt }
+        python -m pip install --upgrade pip setuptools wheel
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      shell: bash
     
     - name: Cache build artifacts
       uses: actions/cache@v4
@@ -61,6 +75,7 @@ jobs:
           dist-*
           build
           *.spec
+          portable-python
         key: ${{ runner.os }}-build-${{ hashFiles('build.py', 'requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-build-
@@ -68,21 +83,41 @@ jobs:
     - name: Run build
       run: python build.py
     
-    - name: Validate build outputs
+    - name: Validate build outputs (Windows)
+      if: runner.os == 'Windows'
       run: |
         if (!(Test-Path "dist-*")) {
           Write-Error "No distribution files found"
           exit 1
         }
         Get-ChildItem dist-* -Recurse | Measure-Object -Property Length -Sum
+
+    - name: Validate build outputs (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        if [ ! -d "dist-portable" ]; then
+          echo "No distribution files found"
+          exit 1
+        fi
+        du -sh dist-portable/
+        ls -la dist-portable/main/ | head -10
     
     - name: Create artifact name
       id: artifact-name
       run: |
-        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-        $commit = "${{ github.sha }}".Substring(0,7)
-        $artifact_name = "TAS-Build-$timestamp-$commit"
-        echo "name=$artifact_name" >> $env:GITHUB_OUTPUT
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          timestamp=$(powershell -Command "Get-Date -Format 'yyyyMMdd-HHmmss'")
+          commit="${{ github.sha }}"
+          commit_short="${commit:0:7}"
+          artifact_name="TAS-Build-Windows-$timestamp-$commit_short"
+        else
+          timestamp=$(date +"%Y%m%d-%H%M%S")
+          commit="${{ github.sha }}"
+          commit_short="${commit:0:7}"
+          artifact_name="TAS-Build-Linux-$timestamp-$commit_short"
+        fi
+        echo "name=$artifact_name" >> $GITHUB_OUTPUT
+      shell: bash
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -98,11 +133,12 @@ jobs:
     - name: Report build status
       if: always()
       run: |
-        if ($LASTEXITCODE -eq 0) {
-          echo "✅ Build completed successfully"
-        } else {
-          echo "❌ Build failed with exit code $LASTEXITCODE"
-        }
+        if [ $? -eq 0 ]; then
+          echo "✅ Build completed successfully on ${{ runner.os }}"
+        else
+          echo "❌ Build failed on ${{ runner.os }}"
+        fi
+      shell: bash
   
   
   #security:
