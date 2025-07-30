@@ -622,11 +622,18 @@ def argumentsChecker(args, outputPath):
         from src.utils.isCudaInit import detectNVidiaGPU
 
         isNvidia = detectNVidiaGPU()
-        extension = (
-            "extra-requirements-windows.txt"
-            if isNvidia
-            else "extra-requirements-windows-lite.txt"
-        )
+        if cs.SYSTEM == "Windows":
+            extension = (
+                "extra-requirements-windows.txt"
+                if isNvidia
+                else "extra-requirements-windows-lite.txt"
+            )
+        else:  # Linux and other systems
+            extension = (
+                "extra-requirements-linux.txt"
+                if isNvidia
+                else "extra-requirements-linux-lite.txt"
+            )
         success, message = uninstallDependencies(extension=extension)
 
         logging.info(message)
@@ -760,6 +767,9 @@ def _handleDependencies(args):
     if cs.SYSTEM == "Windows":
         if "ffprobe.exe" not in os.environ["PATH"]:
             os.environ["PATH"] += os.pathsep + os.path.dirname(cs.FFPROBEPATH)
+    else:  # Linux and other systems
+        if "ffprobe" not in os.environ["PATH"]:
+            os.environ["PATH"] += os.pathsep + os.path.dirname(cs.FFPROBEPATH)
 
     if not os.path.exists(cs.FFMPEGPATH) or not os.path.exists(cs.FFPROBEPATH):
         from src.utils.getFFMPEG import getFFMPEG
@@ -771,11 +781,18 @@ def _handleDependencies(args):
         from src.utils.dependencyHandler import DependencyChecker
 
         isNvidia = detectNVidiaGPU()
-        extension = (
-            "extra-requirements-windows.txt"
-            if isNvidia
-            else "extra-requirements-windows-lite.txt"
-        )
+        if cs.SYSTEM == "Windows":
+            extension = (
+                "extra-requirements-windows.txt"
+                if isNvidia
+                else "extra-requirements-windows-lite.txt"
+            )
+        else:  # Linux and other systems
+            extension = (
+                "extra-requirements-linux.txt"
+                if isNvidia
+                else "extra-requirements-linux-lite.txt"
+            )
 
         requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, extension)
         checker = DependencyChecker()
