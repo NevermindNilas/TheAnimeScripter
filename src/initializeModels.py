@@ -1,7 +1,21 @@
+"""
+Model Initialization and Processing Functions
+
+This module handles the initialization and execution of various AI models
+for video processing operations including object detection, auto-clipping,
+segmentation, depth estimation, and the main processing pipeline.
+"""
+
 import logging
 
 
 def objectDetection(self):
+    """
+    Initialize and execute object detection processing.
+    
+    Args:
+        self: VideoProcessor instance containing processing parameters
+    """
     if "directml" in self.objDetectMethod:
         from src.objectDetection.objectDetection import ObjectDetectionDML
 
@@ -39,6 +53,8 @@ def objectDetection(self):
             self.totalFrames,
         )
     else:
+        from src.objectDetection.objectDetection import ObjectDetection
+        
         ObjectDetection(
             self.input,
             self.output,
@@ -55,6 +71,12 @@ def objectDetection(self):
 
 
 def autoClip(self):
+    """
+    Initialize and execute automatic scene detection and clipping.
+    
+    Args:
+        self: VideoProcessor instance containing processing parameters
+    """
     from src.autoclip.autoclip import AutoClip
 
     AutoClip(
@@ -66,6 +88,15 @@ def autoClip(self):
 
 
 def segment(self):
+    """
+    Initialize and execute video segmentation processing.
+    
+    Args:
+        self: VideoProcessor instance containing processing parameters
+        
+    Raises:
+        NotImplementedError: If cartoon segmentation method is selected
+    """
     if self.segmentMethod == "anime":
         from src.segment.animeSegment import AnimeSegment
 
@@ -98,7 +129,6 @@ def segment(self):
             self.benchmark,
             self.totalFrames,
         )
-
     elif self.segmentMethod == "anime-directml":
         from src.segment.animeSegment import AnimeSegmentDirectML
 
@@ -115,12 +145,17 @@ def segment(self):
             self.benchmark,
             self.totalFrames,
         )
-
     elif self.segmentMethod == "cartoon":
         raise NotImplementedError("Cartoon segment is not implemented yet")
 
 
 def depth(self):
+    """
+    Initialize and execute depth estimation processing.
+    
+    Args:
+        self: VideoProcessor instance containing processing parameters
+    """
     match self.depthMethod:
         case (
             "small_v2"
@@ -265,6 +300,22 @@ def depth(self):
 
 
 def initializeModels(self):
+    """
+    Initialize all AI models for the video processing pipeline.
+    
+    Args:
+        self: VideoProcessor instance containing processing parameters
+        
+    Returns:
+        tuple: Contains output dimensions and initialized processing functions
+            - outputWidth (int): Final output video width
+            - outputHeight (int): Final output video height  
+            - upscaleProcess: Upscaling model function or None
+            - interpolateProcess: Interpolation model function or None
+            - restoreProcess: Restoration model function or None
+            - dedupProcess: Deduplication function or None
+            - scenechangeProcess: Scene change detection function or None
+    """
     outputWidth = self.width
     outputHeight = self.height
     upscaleProcess = None

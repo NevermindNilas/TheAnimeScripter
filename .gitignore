@@ -5,6 +5,9 @@ __pycache__/
 
 installer.cfg
 
+#kiro
+.kiro
+
 # C extensions
 *.so
 
