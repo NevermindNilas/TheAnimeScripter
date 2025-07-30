@@ -6,16 +6,16 @@ They're defined here to avoid populating the code with excessive arguments
 and to improve code readability.
 """
 
-# Core settings
-WHEREAMIRUNFROM: str = ""  # The path to the main script (default: 'Wherever TAS is ran from without main.py!')
-MAINPATH: str = ""  # The path to logging and debugging (default: 'C:\Users\nilas\AppData\Roaming\TheAnimeScripter')
-SYSTEM: str = ""  # The operating system (default: 'Windows')
-FFMPEGPATH: str = ""  # The path to the FFmpeg executable (default: 'C:\Users\nilas\AppData\Roaming\TheAnimeScripter\ffmpeg.exe')
-FFPROBEPATH: str = ""  # The path to the FFprobe executable (default: 'C:\Users\nilas\AppData\Roaming\TheAnimeScripter\ffprobe.exe')
-METADATAPATH: str = ""  # The path to the metadata file (default: 'C:\Users\nilas\AppData\Roaming\TheAnimeScripter\metadata.json')
+# Core system paths
+WHEREAMIRUNFROM: str = ""  # Path to the main script directory
+MAINPATH: str = ""  # Path for logging and application data storage
+SYSTEM: str = ""  # Operating system identifier (Windows/Linux/macOS)
+
+# FFmpeg executable paths
+FFMPEGPATH: str = ""  # Path to FFmpeg executable
+FFPROBEPATH: str = ""  # Path to FFprobe executable
+METADATAPATH: str = ""  # Path to metadata configuration file
 
 # Feature flags
-ADOBE: bool = False  # Enables Adobe compatibility (logs progress, frame data to JSON)
-AUDIO: bool = (
-    True  # Enables audio processing, also acts as a "is there any audio?" flag
-)
+ADOBE: bool = False  # Enable Adobe After Effects compatibility mode
+AUDIO: bool = True  # Enable audio processing and detection
