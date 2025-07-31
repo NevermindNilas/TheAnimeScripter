@@ -152,10 +152,18 @@ jobs:
         run: |
           python -m pip install --upgrade pip setuptools wheel
 
+      - name: Create requirements without VapourSynth for CI
+        run: |
+          # Create a temporary requirements file without VapourSynth since we compiled it from source
+          grep -v "vapoursynth" requirements.txt > requirements-ci.txt
+          echo "Created requirements-ci.txt without VapourSynth"
+          cat requirements-ci.txt
+
       - name: Run Linux build script
         run: |
           export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
           export PYTHONPATH=/usr/local/lib/python$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")/site-packages:$PYTHONPATH
+          export SKIP_VAPOURSYNTH_INSTALL=1
           python build.py
 
       - name: Verify build output
@@ -174,14 +182,26 @@ jobs:
         run: |
           export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
           export PYTHONPATH=/usr/local/lib/python$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")/site-packages:$PYTHONPATH
+          
+          # Test VapourSynth availability first
+          echo "Testing VapourSynth availability..."
+          python3 -c "import vapoursynth; print('System VapourSynth version:', vapoursynth.__version__)" || echo "VapourSynth test failed"
+          
           cd dist-portable/main/
           if [ -f "run.sh" ]; then
             chmod +x run.sh
+            echo "Testing with launcher script..."
             ./run.sh --version || echo "Version check failed, but build may still be valid"
           else
             echo "No run.sh found, testing direct Python execution"
+            export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+            export PYTHONPATH=/usr/local/lib/python$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")/site-packages:$PYTHONPATH
             ./bin/python3 main.py --version || echo "Direct execution failed"
           fi
+
+      - name: Cleanup temporary files
+        run: |
+          rm -f requirements-ci.txt
 
       - name: Compress Linux build
         run: |

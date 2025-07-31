@@ -10,7 +10,12 @@ import argparse
 
 baseDir = Path(__file__).resolve().parent
 distPath = baseDir / "dist-portable"
-requirementsPath = baseDir / "requirements.txt"
+# Select requirements file - use CI version if available (excludes VapourSynth)
+if (baseDir / "requirements-ci.txt").exists():
+    requirementsPath = baseDir / "requirements-ci.txt"
+    print("Using CI requirements file (VapourSynth excluded)")
+else:
+    requirementsPath = baseDir / "requirements.txt"
 
 if not requirementsPath.exists():
     raise FileNotFoundError(f"Requirements file not found: {requirementsPath}")
@@ -116,6 +121,11 @@ def downloadPortablePythonLinux():
 
 def downloadAndInstallVapourSynth():
     """Download and install VapourSynth into the portable Python"""
+    # Skip VapourSynth installation if environment variable is set (for CI builds)
+    if os.getenv("SKIP_VAPOURSYNTH_INSTALL"):
+        print("Skipping VapourSynth installation (SKIP_VAPOURSYNTH_INSTALL is set)")
+        return
+
     print(f"Installing VapourSynth {vapourSynthVersion} for {system}...")
 
     if system == "Windows":
@@ -178,6 +188,13 @@ def downloadAndInstallVapourSynthLinux():
 
 def installVapourSynthPlugins():
     """Install VapourSynth plugins using vsrepo"""
+    # Skip plugin installation if VapourSynth was skipped
+    if os.getenv("SKIP_VAPOURSYNTH_INSTALL"):
+        print(
+            "Skipping VapourSynth plugins installation (SKIP_VAPOURSYNTH_INSTALL is set)"
+        )
+        return
+
     print("Installing VapourSynth plugins...")
 
     if system == "Windows":
@@ -284,6 +301,29 @@ def bundleFiles(targetDir):
         else:
             shutil.copy2(item, bundleDir / item.name)
 
+    # If VapourSynth was installed system-wide, create a note for users
+    if os.getenv("SKIP_VAPOURSYNTH_INSTALL") and system == "Linux":
+        print("Creating VapourSynth system installation note...")
+        vsNote = bundleDir / "VAPOURSYNTH_SYSTEM_INSTALL.txt"
+        with open(vsNote, "w") as f:
+            f.write("""VapourSynth System Installation Notice
+
+This build uses a system-wide VapourSynth installation.
+The launcher script (run.sh) automatically sets up the required
+environment variables (LD_LIBRARY_PATH and PYTHONPATH).
+
+If you encounter VapourSynth-related errors, ensure that:
+1. VapourSynth is installed system-wide
+2. The library paths are correctly set
+3. You have the required permissions
+
+For manual installation:
+sudo apt-get install vapoursynth-dev python3-vapoursynth
+
+Or compile from source:
+https://github.com/vapoursynth/vapoursynth
+""")
+
     print("Copying source code...")
     srcDir = baseDir / "src"
     shutil.copytree(srcDir, bundleDir / "src", dirs_exist_ok=True)
@@ -310,15 +350,16 @@ if [ ! -f "$PYTHON_EXE" ]; then
     exit 1
 fi
 
-# Set up VapourSynth environment variables if system installation exists
-if [ -d "/usr/local/lib" ]; then
-    export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
-fi
+# Set up VapourSynth environment variables for system installation
+export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
 
-PYTHON_VERSION=$("$PYTHON_EXE" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-if [ -d "/usr/local/lib/python$PYTHON_VERSION/site-packages" ]; then
-    export PYTHONPATH="/usr/local/lib/python$PYTHON_VERSION/site-packages:$PYTHONPATH"
-fi
+# Detect Python version and set PYTHONPATH for VapourSynth
+PYTHON_VERSION=$("$PYTHON_EXE" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "3.13")
+export PYTHONPATH="/usr/local/lib/python$PYTHON_VERSION/site-packages:$PYTHONPATH"
+
+# Also check for system Python site-packages (fallback)
+SYSTEM_PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "3.13")
+export PYTHONPATH="/usr/local/lib/python$SYSTEM_PYTHON_VERSION/site-packages:$PYTHONPATH"
 
 # Run the main application
 exec "$PYTHON_EXE" "$SCRIPT_DIR/main.py" "$@"
