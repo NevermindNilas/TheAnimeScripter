@@ -4,6 +4,12 @@ from .coloredPrints import green, yellow
 from src.utils.progressBarLogic import ProgressBarDownloadLogic
 import src.constants as cs
 
+from src.constants import ADOBE
+
+if ADOBE:
+    from src.utils.aeComms import progressState
+
+
 weightsDir = os.path.join(cs.MAINPATH, "weights")
 
 TASURL = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
@@ -658,6 +664,13 @@ def downloadAndLog(
 
     tempFolder = os.path.join(folderPath, "TEMP")
     os.makedirs(tempFolder, exist_ok=True)
+
+    if ADOBE:
+        progressState.update(
+            {
+                "status": f"Downloading model {os.path.basename(filename)}.",
+            }
+        )
 
     for attempt in range(retries):
         try:

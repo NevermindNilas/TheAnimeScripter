@@ -4,7 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
-### Added
+#### Added
+- Download update to the AdobeEdition progress bar.
+  
+#### Changed
+- N/A
+
+### Adobe Edition
+
+#### Fixed
+- Fixed an issue where the copy logs button would not work properly in the Adobe Edition.
 
 
 ## [2.3.6] - 2025-07-28
