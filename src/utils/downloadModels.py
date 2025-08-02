@@ -664,7 +664,6 @@ def downloadAndLog(
 
     tempFolder = os.path.join(folderPath, "TEMP")
     os.makedirs(tempFolder, exist_ok=True)
-
     if ADOBE:
         progressState.update(
             {
