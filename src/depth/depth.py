@@ -132,8 +132,9 @@ class DepthCuda:
         self.filename = modelsMap(
             model=self.depth_method, modelType="pth", half=self.half
         )
-
-        if not os.path.exists(os.path.join(weightsDir, self.filename, self.filename)):
+        if not os.path.exists(
+            os.path.join(weightsDir, self.depth_method, self.filename)
+        ):
             modelPath = downloadModels(
                 model=self.depth_method,
                 half=self.half,
@@ -141,7 +142,7 @@ class DepthCuda:
             )
 
         else:
-            modelPath = os.path.join(weightsDir, self.filename, self.filename)
+            modelPath = os.path.join(weightsDir, self.depth_method, self.filename)
 
         modelConfigs = {
             "vits": {
@@ -795,7 +796,7 @@ class OGDepthV2CUDA:
         modelType = "pth"
         self.filename = modelsMap(model=toDownload, modelType=modelType, half=self.half)
 
-        if not os.path.exists(os.path.join(weightsDir, self.filename, self.filename)):
+        if not os.path.exists(os.path.join(weightsDir, toDownload, self.filename)):
             modelPath = downloadModels(
                 model=toDownload,
                 half=self.half,
@@ -803,7 +804,7 @@ class OGDepthV2CUDA:
             )
 
         else:
-            modelPath = os.path.join(weightsDir, self.filename, self.filename)
+            modelPath = os.path.join(weightsDir, toDownload, self.filename)
 
         modelConfigs = {
             "vits": {
