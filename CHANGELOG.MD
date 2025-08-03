@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [Unreleased] - YYY-MM-DD
+
+## [2.3.8] - 2025-08-03
+#### Changed
+- Updated some of the imports in the depth methods to be more efficient 
+
+#### Fixed
+- Missing `einops` dependency.
+
+### Adobe Edition
+
+#### Changed
+- Update the UI, making it more responsive, compact and easier to use.
+- Added UTF-8 encoding to the Adobe Edition to prevent issues with non-ASCII characters in paths ( WIP fix, not 100% yet ).
+- Added an Error Toast when the composition width or height is non divisible by 2.
+
+#### Fixed
+- Fixed an issue where the progress bar would not update properly when using the Adobe Edition.
+
 ## [2.3.7] - 2025-07-30
 #### Added
 - Download update to the AdobeEdition progress bar.
