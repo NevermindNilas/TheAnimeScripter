@@ -9,7 +9,7 @@ psutil==7.0.0
 requests==2.32.4
 
 # User interface and CLI
-inquirer==3.4.0
+inquirer==3.4.1
 colored==2.3.0
 rich==14.1.0
 rich-argparse==1.7.1
