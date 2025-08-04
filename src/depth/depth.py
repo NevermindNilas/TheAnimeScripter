@@ -411,11 +411,18 @@ class DepthDirectMLV2:
             dtype=self.torchDType,
         ).contiguous()
 
-        self.dummyOutput = torch.zeros(
-            (1, self.newHeight, self.newWidth),
-            device=self.deviceType,
-            dtype=self.torchDType,
-        ).contiguous()
+        if "distill" not in self.depth_method:
+            self.dummyOutput = torch.zeros(
+                (1, self.newHeight, self.newWidth),
+                device=self.deviceType,
+                dtype=self.torchDType,
+            ).contiguous()
+        else:
+            self.dummyOutput = torch.zeros(
+                (1, 1, self.newHeight, self.newWidth),
+                device=self.deviceType,
+                dtype=self.torchDType,
+            ).contiguous()
 
         self.IoBinding.bind_output(
             name="output",
@@ -455,12 +462,20 @@ class DepthDirectMLV2:
 
             self.model.run_with_iobinding(self.IoBinding)
 
-            depth = F.interpolate(
-                self.dummyOutput.float().unsqueeze(0),
-                size=(self.height, self.width),
-                mode="bilinear",
-                align_corners=True,
-            )
+            if "distill" not in self.depth_method:
+                depth = F.interpolate(
+                    self.dummyOutput.float().unsqueeze(0),
+                    size=(self.height, self.width),
+                    mode="bilinear",
+                    align_corners=True,
+                )
+            else:
+                depth = F.interpolate(
+                    self.dummyOutput.float(),
+                    size=(self.height, self.width),
+                    mode="bilinear",
+                    align_corners=True,
+                )
 
             depth = (depth - depth.min()) / (depth.max() - depth.min())
             self.writeBuffer.write(depth)
