@@ -268,14 +268,13 @@ C:\Videos\episode3.mp4
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
 | **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | General anime | CUDA, TRT, NCNN |
-| **span** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality anime | CUDA, TRT, DML, NCNN |
-| **compact** | ⚡⚡⚡ | ⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML |
-| **ultracompact** | ⚡⚡⚡⚡ | ⭐⭐ | 1GB | Very fast | CUDA, TRT, DML |
-| **superultracompact** | ⚡⚡⚡⚡⚡ | ⭐⭐ | 1GB | Fastest | CUDA, TRT, DML |
+| **span** | ⚡⚡ | ⭐⭐⭐ | 6GB | High quality anime | CUDA, TRT, DML, NCNN |
+| **compact** | ⚡ | ⭐⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML |
+| **ultracompact** | ⚡⚡ | ⭐⭐⭐ | 1GB | Very fast | CUDA, TRT, DML |
+| **superultracompact** | ⚡⚡⚡⚡ | ⭐⭐ | 1GB | Fastest | CUDA, TRT, DML |
 | **open-proteus** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT, DML |
-| **aniscale2** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | Modern anime | CUDA, TRT, DML |
-| **shufflespan** | ⚡⚡ | ⭐⭐⭐⭐ | 5GB | Hybrid approach | DML, TRT |
-| **rtmosr** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Real-time focus | TRT, DML |
+| **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 6GB | Modern anime | CUDA, TRT, DML |
+| **rtmosr** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Real-time focus | TRT, DML |
 
 > **💡 Recommendation:** Use `shufflecugan-tensorrt` for balanced speed/quality, `span-tensorrt` for best quality
 
@@ -293,21 +292,21 @@ C:\Videos\episode3.mp4
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **rife4.22** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | General use | CUDA, TRT, NCNN |
+| **rife4.22** | ⚡⚡ | ⭐⭐⭐ | 4GB | General use | CUDA, TRT, NCNN |
 | **rife4.25** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality | CUDA, TRT |
-| **rife4.25-lite** | ⚡⚡⚡ | ⭐⭐⭐ | 3GB | Balanced performance | CUDA, TRT |
-| **rife4.25-heavy** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
-| **rife4.22-lite** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, TRT, NCNN |
-| **rife4.6** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Stable choice | CUDA, TRT, NCNN, DML |
-| **rife4.15-lite** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, TRT, NCNN |
+| **rife4.25-lite** | ⚡⚡⚡ | ⭐⭐ | 3GB | Balanced performance | CUDA, TRT |
+| **rife4.25-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
+| **rife4.22-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, TRT, NCNN |
+| **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice | CUDA, TRT, NCNN, DML |
+| **rife4.15-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, TRT, NCNN |
 | **rife4.15** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
-| **rife4.16-lite** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, NCNN |
-| **rife4.17** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
-| **rife4.18** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
-| **rife4.20** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
+| **rife4.16-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, NCNN |
+| **rife4.17** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
+| **rife4.18** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
+| **rife4.20** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
 | **rife4.21** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
-| **gmfss** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | Alternative method | CUDA, TRT |
-| **rife_elexor** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
+| **gmfss** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Alternative method | CUDA, TRT |
+| **rife_elexor** | ⚡ | ⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
 
 > **💡 Performance Tip:** Use `--ensemble` for final renders, disable for previews
 
@@ -331,9 +330,9 @@ C:\Videos\episode3.mp4
 
 | Method | Speed | Accuracy | VRAM | Best For | Acceleration |
 |--------|-------|----------|------|----------|--------------|
-| **maxxvit-tensorrt** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 4GB | High accuracy | TensorRT |
-| **maxxvit-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Cross-platform | DirectML |
-| **differential** | ⚡⚡⚡⚡ | ⭐⭐ | Low | Fast processing | CPU |
+| **maxxvit-tensorrt** | ⚡ | ⭐⭐⭐⭐ | 4GB | High accuracy | TensorRT |
+| **maxxvit-directml** | ⚡ | ⭐⭐⭐⭐ | 4GB | Cross-platform | DirectML |
+| **differential** | ⚡⚡⚡ | ⭐⭐ | Low | Fast processing | CPU |
 | **differential-tensorrt** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | GPU accelerated | TensorRT |
 | **shift_lpips-tensorrt** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 6GB | Maximum accuracy | TensorRT |
 | **shift_lpips-directml** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Cross-platform accurate | DirectML |
@@ -374,12 +373,12 @@ C:\Videos\episode3.mp4
 
 | Model | Speed | Noise Removal | Detail Recovery | Best For | Acceleration |
 |-------|-------|---------------|-----------------|----------|--------------|
-| **scunet** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | General denoising | CUDA, TRT, DML |
-| **nafnet** | ⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | High-quality denoising | CUDA |
-| **dpir** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | JPEG denoising | CUDA |
-| **real-plksr** | ⚡⚡ | ⭐⭐ | ⭐⭐⭐⭐ | JPEG artifact removal | CUDA |
+| **scunet** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | General denoising | CUDA, TRT, DML |
+| **nafnet** | ⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | High-quality denoising | CUDA |
+| **dpir** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐ | JPEG denoising | CUDA |
+| **real-plksr** | ⚡ | ⭐⭐ | ⭐⭐⭐⭐ | JPEG artifact removal | CUDA |
 | **anime1080fixer** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Anime line enhancement | CUDA, TRT, DML |
-| **fastlinedarken** | ⚡⚡⚡ | ⭐⭐ | ⭐⭐⭐⭐⭐ | Line darkening | CUDA, TRT |
+| **fastlinedarken** | ⚡⚡⚡⚡⚡ | ⭐⭐| ⭐⭐ | Line darkening | CUDA, TRT |
 | **gater3** | ⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐ | Advanced denoising | CUDA, DML |
 
 ### 🎭 Segmentation & Depth
@@ -398,21 +397,19 @@ C:\Videos\episode3.mp4
 |--------|-------|---------|------|----------|--------------|
 | **anime** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Anime content | CUDA |
 | **anime-tensorrt** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Fast anime processing | TensorRT |
-| **anime-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 3GB | Cross-platform anime | DirectML |
-| **cartoon** | ⚡⚡⚡ | ⭐⭐⭐ | 3GB | Cartoon/animation | CUDA |
 
 #### 🎯 Depth Models
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **small_v2** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General use | CUDA, TRT, DML |
-| **base_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Better quality | CUDA, TRT, DML |
-| **large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Maximum quality | CUDA, TRT, DML |
+| **small_v2** | ⚡⚡⚡⚡ | ⭐ | 2GB | General use | CUDA, TRT, DML |
+| **base_v2** | ⚡⚡⚡ | ⭐⭐ | 4GB | Better quality | CUDA, TRT, DML |
+| **large_v2** | ⚡⚡ | ⭐⭐⭐ | 6GB | Maximum quality | CUDA, TRT, DML |
 | **distill_small_v2** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML |
 | **distill_base_v2** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Balanced | CUDA, TRT, DML |
 | **distill_large_v2** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 5GB | High quality | CUDA, TRT, DML |
-| **og_small_v2** | ⚡⚡ | ⭐⭐⭐ | 3GB | Original implementation | CUDA, TRT |
-| **og_base_v2** | ⚡ | ⭐⭐⭐⭐ | 5GB | Original quality | CUDA, TRT |
+| **og_small_v2** | ⚡ | ⭐⭐⭐⭐ | 3GB | Original implementation | CUDA, TRT |
+| **og_base_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 5GB | Original quality | CUDA, TRT |
 | **og_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Original maximum | CUDA, TRT |
 
 ### 🎯 Object Detection
