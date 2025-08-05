@@ -74,7 +74,6 @@ class BuildBuffer:
 
         try:
             if self.inpoint > 0 or self.outpoint > 0:
-                print("hi")
                 clip = celux.VideoReader(
                     self.videoInput,
                 )[self.inpoint : self.outpoint]
@@ -121,6 +120,16 @@ class BuildBuffer:
         frame = frame.permute(2, 0, 1)
         frame = frame.mul(norm)
         frame = frame.clamp(0, 1)
+        if self.resize:
+            frame = F.interpolate(
+                frame.unsqueeze(0),
+                size=(self.height, self.width),
+                mode="bicubic",
+                align_corners=False,
+            ).squeeze(0)
+        else:
+            frame = frame.unsqueeze(0)
+
         frame = frame.half() if self.half else frame.float()
         frame = frame.cpu().numpy()
 
@@ -149,13 +158,22 @@ class BuildBuffer:
                     .permute(2, 0, 1)
                     .mul(norm)
                     .clamp(0, 1)
-                    .unsqueeze(0)
                 )
+
+                if self.resize:
+                    frame = F.interpolate(
+                        frame.unsqueeze(0),
+                        size=(self.height, self.width),
+                        mode="bicubic",
+                        align_corners=False,
+                    )
+                else:
+                    frame = frame.unsqueeze(0)
 
             normStream.synchronize()
             return frame
         else:
-            return (
+            frame = (
                 frame.to(
                     device="cpu",
                     non_blocking=False,
@@ -164,8 +182,19 @@ class BuildBuffer:
                 .permute(2, 0, 1)
                 .mul(norm)
                 .clamp(0, 1)
-                .unsqueeze(0)
             )
+
+            if self.resize:
+                frame = F.interpolate(
+                    frame.unsqueeze(0),
+                    size=(self.height, self.width),
+                    mode="bicubic",
+                    align_corners=False,
+                )
+            else:
+                frame = frame.unsqueeze(0)
+
+            return frame
 
     def read(self):
         """
