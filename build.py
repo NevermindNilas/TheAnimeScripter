@@ -10,19 +10,13 @@ import argparse
 
 baseDir = Path(__file__).resolve().parent
 distPath = baseDir / "dist-portable"
-# Select requirements file - use CI version if available (excludes VapourSynth)
-if (baseDir / "requirements-ci.txt").exists():
-    requirementsPath = baseDir / "requirements-ci.txt"
-    print("Using CI requirements file (VapourSynth excluded)")
-else:
-    requirementsPath = baseDir / "requirements.txt"
+requirementsPath = baseDir / "requirements.txt"
 
 if not requirementsPath.exists():
     raise FileNotFoundError(f"Requirements file not found: {requirementsPath}")
 
 portablePythonDir = baseDir / "portable-python"
 pythonVersion = "3.13.5"
-vapourSynthVersion = "R72"
 system = platform.system()
 
 
@@ -119,162 +113,6 @@ def downloadPortablePythonLinux():
     return pythonExe
 
 
-def downloadAndInstallVapourSynth():
-    """Download and install VapourSynth into the portable Python"""
-    # Skip VapourSynth installation if environment variable is set (for CI builds)
-    if os.getenv("SKIP_VAPOURSYNTH_INSTALL"):
-        print("Skipping VapourSynth installation (SKIP_VAPOURSYNTH_INSTALL is set)")
-        return
-
-    print(f"Installing VapourSynth {vapourSynthVersion} for {system}...")
-
-    if system == "Windows":
-        downloadAndInstallVapourSynthWindows()
-    else:
-        downloadAndInstallVapourSynthLinux()
-
-
-def downloadAndInstallVapourSynthWindows():
-    """Download and install VapourSynth for Windows"""
-    vapourSynthUrl = f"https://github.com/vapoursynth/vapoursynth/releases/download/{vapourSynthVersion}/VapourSynth64-Portable-{vapourSynthVersion}.zip"
-    vapourSynthZip = portablePythonDir / "vapoursynth.zip"
-
-    if not vapourSynthZip.exists():
-        print("Downloading VapourSynth portable package...")
-        urllib.request.urlretrieve(vapourSynthUrl, vapourSynthZip)
-
-    print("Extracting VapourSynth into Python directory...")
-    with zipfile.ZipFile(vapourSynthZip, "r") as zipRef:
-        zipRef.extractall(portablePythonDir)
-
-    print("Installing VapourSynth wheel...")
-    pipExe = portablePythonDir / "Scripts" / "pip.exe"
-    wheelDir = portablePythonDir / "wheel"
-
-    python313Wheels = list(wheelDir.glob("*cp313*.whl"))
-    if python313Wheels:
-        wheelFile = python313Wheels[0]
-        print(f"Installing wheel: {wheelFile.name}")
-        runSubprocess([str(pipExe), "install", str(wheelFile)])
-    else:
-        print("Warning: No Python 3.13 wheel found in the wheel directory")
-
-    if vapourSynthZip.exists():
-        os.remove(vapourSynthZip)
-        print("Removed VapourSynth zip file")
-
-    print("VapourSynth installation complete!")
-
-
-def downloadAndInstallVapourSynthLinux():
-    """Install VapourSynth for Linux using pip"""
-    print("Installing VapourSynth via pip for Linux...")
-
-    pipExe = portablePythonDir / "bin" / "pip3"
-    if not pipExe.exists():
-        pipExe = portablePythonDir / "bin" / "pip"
-
-    try:
-        # Install VapourSynth from PyPI
-        runSubprocess([str(pipExe), "install", "vapoursynth==72"])
-        print("VapourSynth installed successfully via pip!")
-    except Exception as e:
-        print(f"Failed to install VapourSynth via pip: {e}")
-        print("You may need to install VapourSynth system-wide on Linux")
-        print("Try: sudo apt-get install vapoursynth-dev python3-vapoursynth")
-
-    print("VapourSynth installation complete!")
-
-
-def installVapourSynthPlugins():
-    """Install VapourSynth plugins using vsrepo"""
-    # Skip plugin installation if VapourSynth was skipped
-    if os.getenv("SKIP_VAPOURSYNTH_INSTALL"):
-        print(
-            "Skipping VapourSynth plugins installation (SKIP_VAPOURSYNTH_INSTALL is set)"
-        )
-        return
-
-    print("Installing VapourSynth plugins...")
-
-    if system == "Windows":
-        pythonExe = portablePythonDir / "python.exe"
-        vsrepoScript = portablePythonDir / "vsrepo.py"
-        sitePackagesDir = portablePythonDir / "Lib" / "site-packages"
-    else:
-        pythonExe = portablePythonDir / "bin" / "python3"
-        vsrepoScript = portablePythonDir / "vsrepo.py"
-        sitePackagesDir = (
-            portablePythonDir / "lib" / f"python{pythonVersion[:3]}" / "site-packages"
-        )
-
-    if not vsrepoScript.exists():
-        print("Warning: vsrepo.py not found, skipping plugin installation")
-        return
-
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(sitePackagesDir)
-
-    print("Testing VapourSynth installation...")
-    try:
-        runSubprocess(
-            [
-                str(pythonExe),
-                "-c",
-                "import vapoursynth; print('VapourSynth detected successfully')",
-            ],
-            cwd=portablePythonDir,
-        )
-    except Exception as e:
-        print(f"Warning: VapourSynth module test failed: {e}")
-        print("Attempting to continue with plugin installation...")
-
-    print("Updating vsrepo...")
-    try:
-        result = subprocess.run(
-            [str(pythonExe), str(vsrepoScript), "update"],
-            cwd=portablePythonDir,
-            env=env,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            print("vsrepo updated successfully!")
-        else:
-            print(f"vsrepo update failed: {result.stderr}")
-    except Exception as e:
-        print(f"Error updating vsrepo: {e}")
-
-    print("Installing bestsource plugin...")
-    try:
-        result = subprocess.run(
-            [str(pythonExe), str(vsrepoScript), "install", "bestsource"],
-            cwd=portablePythonDir,
-            env=env,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            print("bestsource plugin installed successfully!")
-        else:
-            print(f"bestsource installation failed: {result.stderr}")
-            print("Trying alternative installation method...")
-            try:
-                subprocess.run(
-                    [str(pythonExe), str(vsrepoScript), "install", "-f", "bestsource"],
-                    cwd=portablePythonDir,
-                    env=env,
-                    check=True,
-                )
-                print("bestsource plugin installed successfully with force flag!")
-            except Exception as e2:
-                print(f"Alternative installation also failed: {e2}")
-    except Exception as e:
-        print(f"Error installing bestsource plugin: {e}")
-
-    print("VapourSynth plugins installation complete!")
-
-
 def installRequirements():
     print("Installing the requirements...")
 
@@ -301,29 +139,6 @@ def bundleFiles(targetDir):
         else:
             shutil.copy2(item, bundleDir / item.name)
 
-    # If VapourSynth was installed system-wide, create a note for users
-    if os.getenv("SKIP_VAPOURSYNTH_INSTALL") and system == "Linux":
-        print("Creating VapourSynth system installation note...")
-        vsNote = bundleDir / "VAPOURSYNTH_SYSTEM_INSTALL.txt"
-        with open(vsNote, "w") as f:
-            f.write("""VapourSynth System Installation Notice
-
-This build uses a system-wide VapourSynth installation.
-The launcher script (run.sh) automatically sets up the required
-environment variables (LD_LIBRARY_PATH and PYTHONPATH).
-
-If you encounter VapourSynth-related errors, ensure that:
-1. VapourSynth is installed system-wide
-2. The library paths are correctly set
-3. You have the required permissions
-
-For manual installation:
-sudo apt-get install vapoursynth-dev python3-vapoursynth
-
-Or compile from source:
-https://github.com/vapoursynth/vapoursynth
-""")
-
     print("Copying source code...")
     srcDir = baseDir / "src"
     shutil.copytree(srcDir, bundleDir / "src", dirs_exist_ok=True)
@@ -349,17 +164,6 @@ if [ ! -f "$PYTHON_EXE" ]; then
     echo "Please run the build script first: python build.py"
     exit 1
 fi
-
-# Set up VapourSynth environment variables for system installation
-export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
-
-# Detect Python version and set PYTHONPATH for VapourSynth
-PYTHON_VERSION=$("$PYTHON_EXE" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "3.13")
-export PYTHONPATH="/usr/local/lib/python$PYTHON_VERSION/site-packages:$PYTHONPATH"
-
-# Also check for system Python site-packages (fallback)
-SYSTEM_PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "3.13")
-export PYTHONPATH="/usr/local/lib/python$SYSTEM_PYTHON_VERSION/site-packages:$PYTHONPATH"
 
 # Run the main application
 exec "$PYTHON_EXE" "$SCRIPT_DIR/main.py" "$@"
@@ -495,9 +299,7 @@ if __name__ == "__main__":
     os.makedirs(finalOutputDir, exist_ok=True)
 
     pythonExe = downloadPortablePython()
-    downloadAndInstallVapourSynth()
     installRequirements()
-    installVapourSynthPlugins()
     bundleFiles(finalOutputDir)
     moveExtras(finalOutputDir)
     cleanupTempFiles(finalOutputDir)

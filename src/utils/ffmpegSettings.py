@@ -5,36 +5,13 @@ import torch
 import src.constants as cs
 import numpy as np
 import time
-import vapoursynth as vs
+import celux
 
 from queue import Queue
 from torch.nn import functional as F
 from src.utils.encodingSettings import matchEncoder, getPixFMT
 from .isCudaInit import CudaChecker
-from video_timestamps import FPSTimestamps, TimeType, RoundingMethod
-from fractions import Fraction
 
-
-def timestampToFrame(timestampInSeconds, fps):
-    """
-    Convert a timestamp in seconds to a frame number.
-
-    Args:
-        timestampInSeconds (float): The timestamp in seconds (e.g., 2.3123198)
-        fps (float): The frames per second of the video (e.g., 23.976)
-
-    Returns:
-        int: The frame number corresponding to the timestamp
-
-    """
-    timestamps = FPSTimestamps(RoundingMethod.ROUND, Fraction(1000), fps)
-    timestampsFraction = Fraction(timestampInSeconds).limit_denominator(1000000)
-    return timestamps.time_to_frame(timestampsFraction, TimeType.START)
-
-
-vsCore = vs.core
-# threads
-vsCore.num_threads = 4
 
 checker = CudaChecker()
 
@@ -96,48 +73,17 @@ class BuildBuffer:
         decodedFrames = 0
 
         try:
-            clip = vsCore.bs.VideoSource(
-                self.videoInput,
-            )
-
             if self.inpoint > 0 or self.outpoint > 0:
-                # Convert inpoint and outpoint to frame numbers
-                fps = clip.fps_num / clip.fps_den
+                print("hi")
+                clip = celux.VideoReader(
+                    self.videoInput,
+                )[self.inpoint : self.outpoint]
+            else:
+                clip = celux.VideoReader(
+                    self.videoInput,
+                )
 
-                # Some Generic error checking
-                if self.inpoint < 0:
-                    raise ValueError("Inpoint must be non-negative.")
-
-                if self.outpoint < 0:
-                    raise ValueError("Outpoint must be non-negative.")
-
-                if self.inpoint > clip.num_frames / fps:
-                    raise ValueError(
-                        f"Inpoint {self.inpoint} exceeds video duration {clip.num_frames / fps} seconds."
-                    )
-
-                if self.outpoint > clip.num_frames / fps:
-                    raise ValueError(
-                        f"Outpoint {self.outpoint} exceeds video duration {clip.num_frames / fps} seconds."
-                    )
-
-                if self.outpoint < self.inpoint:
-                    raise ValueError(
-                        f"Outpoint {self.outpoint} is less than inpoint {self.inpoint}."
-                    )
-
-                # edge case: if outpoint is 0 and inpoint is not 0, use the total number of frames
-                if self.outpoint == 0:
-                    self.outpoint = clip.num_frames / fps
-
-                inpointFrame = timestampToFrame(self.inpoint, fps)
-                outpointFrame = timestampToFrame(self.outpoint, fps)
-
-                clip = clip[inpointFrame:outpointFrame]
-
-            clip = self.initializeClipForFloatRGB(clip, half=self.half, clampTV=True)
-
-            for frame in clip.frames():
+            for frame in clip:
                 if self.toTorch:
                     frame = self.processFrameToTorch(
                         frame, self.normStream if checker.cudaAvailable else None
@@ -161,131 +107,65 @@ class BuildBuffer:
         https://github.com/Jaded-Encoding-Thaumaturgy/vs-jetpack/blob/8bbac7c6f13937c89a6765cd506fa233b5c63237/vstools/utils/clips.py
     """
 
-    def initializeClipForFloatRGB(self, clip, half=True, clampTV=True):
-        width = clip.width
-        height = clip.height
-
-        colorFamily = (
-            getattr(clip.format, "color_family", None)
-            if hasattr(clip, "format")
-            else None
-        )
-        sampleType = (
-            getattr(clip.format, "sample_type", None)
-            if hasattr(clip, "format")
-            else None
-        )
-
-        # Fast path for RGB
-        if colorFamily == vs.RGB:
-            clip = vs.core.resize.Bicubic(
-                clip,
-                format=vs.RGBH if half else vs.RGBS,
-                width=self.width,
-                height=self.height,
-            )
-            return clip
-
-        # Detect matrix/transfer/primaries for YUV
-        isHD = width >= 1280 or height >= 720
-        matrix = getattr(clip, "matrix", None)
-        transfer = getattr(clip, "transfer", None)
-        primaries = getattr(clip, "primaries", None)
-        chromaLocation = getattr(clip, "chroma_location", None)
-        colorRange = getattr(clip, "color_range", None)
-        fieldBased = getattr(clip, "field_based", None)
-
-        matrix = matrix if isinstance(matrix, int) else (1 if isHD else 2)
-        transfer = transfer if isinstance(transfer, int) else (1 if isHD else 2)
-        primaries = primaries if isinstance(primaries, int) else (1 if isHD else 2)
-        chromaLocation = chromaLocation if isinstance(chromaLocation, int) else 0
-        colorRange = colorRange if isinstance(colorRange, int) else 0
-        fieldBased = fieldBased if isinstance(fieldBased, int) else 0
-
-        logging.info(
-            f"Initializing clip for float RGB: matrix={matrix}, transfer={transfer}, primaries={primaries}, chromaLocation={chromaLocation}, colorRange={colorRange}, fieldBased={fieldBased}"
-        )
-
-        clip = clip.std.SetFrameProps(
-            matrix=matrix,
-            transfer=transfer,
-            primaries=primaries,
-            chromaloc=chromaLocation,
-            color_range=colorRange,
-            field_based=fieldBased,
-        )
-
-        # Clamp to TV range if needed
-        if clampTV and sampleType == 0:
-            clip = clip.std.Limiter()
-
-        # Handle YUV420, YUV422, YUV444, ProRes, rawvideo, etc.
-        # Use correct matrix_in for SD/HD, and always set transfer_in/primaries_in
-        # matrix: 1=bt709, 2=bt601, 9=bt2020
-        # transfer: 1=bt709, 2=bt601, 14=bt2020
-        # primaries: 1=bt709, 2=bt601, 9=bt2020
-
-        # If input is YUV and matrix/transfer/primaries are set, convert to RGB
-        clip = vs.core.resize.Bicubic(
-            clip,
-            format=vs.RGBH if half else vs.RGBS,
-            matrix_in=matrix,
-            transfer_in=transfer,
-            primaries_in=primaries,
-            width=self.width,
-            height=self.height,
-        )
-
-        return clip
-
     def processFrameToNumpy(self, frame):
         """
         Processes a single frame and converts it to a numpy array.
 
         Args:
-            frame: The frame to process as VapourSynth frame.
+            frame: The frame to process as Celux frame.
 
         Returns:
             The processed frame as a numpy array.
         """
-        frame = np.stack(
-            [np.asarray(frame[plane]) for plane in range(frame.format.num_planes)]
-        )
-        if self.half:
-            frame = frame.astype(np.float16)
-        else:
-            frame = frame.astype(np.float32)
+        norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
+        frame = frame.permute(2, 0, 1)
+        frame = frame.mul(norm)
+        frame = frame.clamp(0, 1)
+        frame = frame.half() if self.half else frame.float()
+        frame = frame.cpu().numpy()
 
-        return frame.clip(0, 1).transpose(1, 2, 0)  # HWC format
+        return frame
 
     def processFrameToTorch(self, frame, normStream=None):
         """
         Processes a single frame with optimized memory handling.
 
         Args:
-            frame: The frame to process as VapourSynth frame.
+            frame: The frame to process as Celux frame.
             normStream: The CUDA stream for normalization (if applicable).
 
         Returns:
             The processed frame as a torch tensor.
         """
-        frame = torch.stack(
-            [
-                torch.from_numpy(np.array(frame[plane]))
-                for plane in range(frame.format.num_planes)
-            ]
-        )
-        dtype = torch.float16 if self.half else torch.float32
+        norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
                 frame = (
-                    frame.to(device="cuda", non_blocking=True).clamp(0, 1).unsqueeze(0)
+                    frame.to(
+                        device="cuda",
+                        non_blocking=True,
+                        dtype=torch.float16 if self.half else torch.float32,
+                    )
+                    .permute(2, 0, 1)
+                    .mul(norm)
+                    .clamp(0, 1)
+                    .unsqueeze(0)
                 )
 
             normStream.synchronize()
             return frame
         else:
-            return frame.clamp(0, 1).unsqueeze(0).to(dtype=dtype).contiguous()
+            return (
+                frame.to(
+                    device="cpu",
+                    non_blocking=False,
+                    dtype=torch.float16 if self.half else torch.float32,
+                )
+                .permute(2, 0, 1)
+                .mul(norm)
+                .clamp(0, 1)
+                .unsqueeze(0)
+            )
 
     def read(self):
         """
