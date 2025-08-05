@@ -28,7 +28,6 @@ import logging
 import warnings
 import src.constants as cs
 
-
 from platform import system
 from signal import signal, SIGINT, SIG_DFL
 from time import time
@@ -55,15 +54,15 @@ warnings.filterwarnings("ignore")
 class VideoProcessor:
     """
     Main video processing class that handles AI-powered video enhancement operations.
-    
+
     Supports upscaling, interpolation, restoration, deduplication, and various other
     video processing operations using different AI models and hardware backends.
     """
-    
+
     def __init__(self, args, results=None):
         """
         Initialize the VideoProcessor with command line arguments and processing results.
-        
+
         Args:
             args: Parsed command line arguments containing processing options
             results: Dictionary containing video path, output path, and encoding settings
@@ -81,7 +80,7 @@ class VideoProcessor:
     def _initProcessingParams(self, args):
         """
         Initialize processing parameters from command line arguments.
-        
+
         Args:
             args: Parsed command line arguments
         """
@@ -96,7 +95,7 @@ class VideoProcessor:
         self.segment: bool = args.segment
         self.scenechange: bool = args.scenechange
         self.objDetect: bool = args.obj_detect
-        
+
         # Processing parameters
         self.interpolateFactor: int = args.interpolate_factor
         self.interpolateMethod: str = args.interpolate_method
@@ -109,7 +108,7 @@ class VideoProcessor:
         self.segmentMethod: str = args.segment_method
         self.scenechangeMethod: str = args.scenechange_method
         self.objDetectMethod: str = args.obj_detect_method
-        
+
         # Quality and performance settings
         self.half: bool = args.half
         self.ensemble: bool = args.ensemble
@@ -117,7 +116,7 @@ class VideoProcessor:
         self.dynamicScale: bool = args.dynamic_scale
         self.staticStep: bool = args.static_step
         self.compileMode: str = args.compile_mode
-        
+
         # Video processing settings
         self.inpoint: float = args.inpoint
         self.outpoint: float = args.outpoint
@@ -126,13 +125,13 @@ class VideoProcessor:
         self.bitDepth: str = args.bit_depth
         self.slowmo: bool = args.slowmo
         self.interpolateFirst: bool = args.interpolate_first
-        
+
         # Enhancement settings
         self.sharpenSens: float = args.sharpen_sens
         self.autoclipSens: float = args.autoclip_sens
         self.scenechangeSens: float = args.scenechange_sens
         self.depthQuality: str = args.depth_quality
-        
+
         # Utility settings
         self.customModel: str = args.custom_model
         self.benchmark: bool = args.benchmark
@@ -141,7 +140,7 @@ class VideoProcessor:
     def _initVideoMetadata(self, args) -> None:
         """
         Initialize video metadata by analyzing the input video file.
-        
+
         Args:
             args: Command line arguments containing inpoint and outpoint
         """
@@ -159,7 +158,7 @@ class VideoProcessor:
     def _configureProcessingOptions(self, args) -> None:
         """
         Configure processing options based on the selected operations.
-        
+
         Args:
             args: Command line arguments
         """
@@ -185,7 +184,7 @@ class VideoProcessor:
     def _selectProcessingMethod(self) -> None:
         """
         Select and execute the appropriate processing method based on user options.
-        
+
         Prioritizes specialized operations (autoclip, depth, segment, object detection)
         over standard video processing.
         """
@@ -207,13 +206,13 @@ class VideoProcessor:
     def processFrame(self, frame: any) -> None:
         """
         Process a single video frame through the configured enhancement pipeline.
-        
+
         Args:
             frame: Input video frame tensor
         """
         if self.dedup and self.dedup_process(frame):
-           self.dedupCount += 1
-           return
+            self.dedupCount += 1
+            return
 
         if self.scenechange:
             self.isSceneChange = self.scenechange_process(frame)
@@ -257,7 +256,7 @@ class VideoProcessor:
     def ifInterpolateFirst(self, frame: any) -> None:
         """
         Process frame with interpolation-first pipeline order.
-        
+
         Args:
             frame: Input video frame tensor
         """
@@ -296,7 +295,7 @@ class VideoProcessor:
     def ifInterpolateLast(self, frame: any) -> None:
         """
         Process frame with interpolation-last pipeline order.
-        
+
         Args:
             frame: Input video frame tensor
         """
@@ -317,7 +316,7 @@ class VideoProcessor:
     def process(self):
         """
         Main processing loop that handles frame-by-frame video processing.
-        
+
         Processes all frames through the configured enhancement pipeline and
         tracks processing statistics.
         """
@@ -379,7 +378,7 @@ class VideoProcessor:
     def start(self):
         """
         Initialize and start the video processing pipeline.
-        
+
         Sets up input/output buffers, initializes AI models, and coordinates
         the multi-threaded processing workflow.
         """
@@ -437,6 +436,7 @@ class VideoProcessor:
             # Initialize preview if enabled
             if self.preview:
                 from src.utils.previewSettings import Preview
+
                 self.preview = Preview()
 
             # Execute processing pipeline with thread pool
@@ -470,7 +470,7 @@ class VideoProcessor:
 def main():
     """
     Main entry point for The Anime Scripter application.
-    
+
     Handles initialization, argument parsing, and coordinates video processing
     for single or multiple input files.
     """
