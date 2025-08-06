@@ -401,6 +401,12 @@ def _addVideoProcessingOptions(argParser):
         default=2,
         help="Resize factor (can be between 0 and 1 for downscaling)",
     )
+    processingGroup.add_argument(
+        "--output_scale",
+        type=str,
+        default="",
+        help="Output resolution in WIDTHxHEIGHT format (e.g., 2560x1440)",
+    )
 
 
 def _addSegmentationOptions(argParser):
@@ -740,6 +746,21 @@ def argumentsChecker(args, outputPath):
         except Exception:
             logging.error("Error processing input")
             sys.exit()
+
+    if args.output_scale:
+        try:
+            width, height = args.output_scale.split('x')
+            args.output_scale_width = int(width)
+            args.output_scale_height = int(height)
+            if args.output_scale_width <= 0 or args.output_scale_height <= 0:
+                raise ValueError("Width and height must be positive integers")
+            logging.info(f"Output scale set to {args.output_scale_width}x{args.output_scale_height}")
+        except (ValueError, AttributeError) as e:
+            logAndPrint(f"Invalid output_scale format: {args.output_scale}. Expected format: WIDTHxHEIGHT (e.g., 2560x1440)")
+            sys.exit()
+    else:
+        args.output_scale_width = None
+        args.output_scale_height = None
 
     if not isAnyOtherProcessingMethodEnabled(args):
         logAndPrint(

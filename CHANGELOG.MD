@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - YYY-MM-DD
 ### New
 - Migrated, yet again, from Vapoursynth to `celux` for decoding, this should result in better performance and lower CPU usage.
+- Added `--output_scale` parameter for custom output resolution scaling (e.g., `--output_scale 2560x1440`)
+  - Supports any resolution in WIDTHxHEIGHT format (e.g., 2560x1440, 3840x2160, 1920x1080)
+  - Uses bilinear scaling for minimal artifacts
+  - Applied during FFmpeg encoding for optimal performance
+  - Works with all processing methods (upscaling, interpolation, etc.)
 
 #### Changed
 - N/A

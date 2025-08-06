@@ -250,6 +250,8 @@ class WriteBuffer:
         inpoint: float = 0.0,
         outpoint: float = 0.0,
         slowmo: bool = False,
+        output_scale_width: int = None,
+        output_scale_height: int = None,
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -269,6 +271,8 @@ class WriteBuffer:
         bitDepth: str - The bit depth of the output video. Options include "8bit" and "10bit".
         inpoint: float - The start time of the segment to encode, in seconds.
         outpoint: float - The end time of the segment to encode, in seconds.
+        output_scale_width: int - The target width for output scaling (optional).
+        output_scale_height: int - The target height for output scaling (optional).
         """
         self.input = input
         self.output = os.path.normpath(output)
@@ -286,6 +290,8 @@ class WriteBuffer:
         self.inpoint = inpoint
         self.outpoint = outpoint
         self.slowmo = slowmo
+        self.output_scale_width = output_scale_width
+        self.output_scale_height = output_scale_height
 
         self.writtenFrames = 0
         self.writeBuffer = Queue(maxsize=10)
@@ -393,6 +399,12 @@ class WriteBuffer:
     def _buildFilterList(self):
         """Build list of video filters based on settings"""
         filterList = []
+
+        if self.output_scale_width and self.output_scale_height:
+            filterList.append(
+                f"scale={self.output_scale_width}:{self.output_scale_height}:flags=bilinear"
+            )
+
         if self.sharpen:
             filterList.append(f"cas={self.sharpen_sens}")
         if self.grayscale:
