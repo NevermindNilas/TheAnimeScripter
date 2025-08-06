@@ -125,6 +125,8 @@ class VideoProcessor:
         self.bitDepth: str = args.bit_depth
         self.slowmo: bool = args.slowmo
         self.interpolateFirst: bool = args.interpolate_first
+        self.outputScaleWidth: int = args.output_scale_width
+        self.outputScaleHeight: int = args.output_scale_height
 
         # Enhancement settings
         self.sharpenSens: float = args.sharpen_sens
@@ -431,6 +433,8 @@ class VideoProcessor:
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
                 slowmo=self.slowmo,
+                output_scale_width=self.outputScaleWidth,
+                output_scale_height=self.outputScaleHeight,
             )
 
             # Initialize preview if enabled

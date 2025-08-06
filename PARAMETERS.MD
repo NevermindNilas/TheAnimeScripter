@@ -59,17 +59,19 @@
 **🎨 Complete Enhancement**
 ```bash
 ./python.exe ./main.py --input video.mp4 \
-  --upscale --interpolate --scenechange
+  --upscale --interpolate --scenechange \
+  --output_scale 3840x2160
 ```
-*Full AI enhancement with smart scene detection*
+*Full AI enhancement with smart scene detection and 4K output*
 
 **🔧 Custom Quality**
 ```bash
 ./python.exe ./main.py --input video.mp4 \
   --upscale --upscale_method span-tensorrt \
-  --interpolate --interpolate_method rife4.25
+  --interpolate --interpolate_method rife4.25 \
+  --output_scale 2560x1440
 ```
-*High-end processing with latest models*
+*High-end processing with latest models and custom resolution*
 
 </td>
 </tr>
@@ -434,12 +436,42 @@ C:\Videos\episode3.mp4
 | `--autoclip` | flag | False | - | **Automatic clip detection** |
 | `--autoclip_sens` | float | 40 | 0-100 | **Detection sensitivity** |
 
-### 📏 Resizing
+### 📏 Resizing & Output Scaling
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--resize` | flag | False | - | **Enable resizing** |
 | `--resize_factor` | float | 2.0 | 0.1-10.0 | **Resize multiplier** (>1 = larger, <1 = smaller) |
+| `--output_scale` | str | "" | WIDTHxHEIGHT | **Output resolution** (e.g., 2560x1440, 1920x1080) |
+
+#### 🎯 Output Scaling Examples
+
+**Common Resolutions:**
+```bash
+# 1440p output
+--output_scale 2560x1440
+
+# 4K output  
+--output_scale 3840x2160
+
+# 1080p output
+--output_scale 1920x1080
+```
+
+**Combined with AI Enhancement:**
+```bash
+# Upscale anime to 4K
+./python.exe ./main.py --input anime.mp4 \
+  --upscale --upscale_method span-tensorrt \
+  --output_scale 3840x2160
+
+# Create smooth 1440p output
+./python.exe ./main.py --input video.mp4 \
+  --interpolate --interpolate_method rife4.22-tensorrt \
+  --output_scale 2560x1440
+```
+
+> **💡 Note:** `--output_scale` uses bilinear scaling for minimal artifacts and is applied during encoding for optimal performance.
 
 ---
 
