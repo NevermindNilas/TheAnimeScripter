@@ -5,7 +5,6 @@ import math
 
 from src.utils.downloadModels import downloadModels, weightsDir
 from torch.nn import functional as F
-from src.utils.coloredPrints import yellow, red
 from src.utils.isCudaInit import CudaChecker
 from src.utils.logAndPrint import logAndPrint
 
@@ -36,11 +35,6 @@ class GMFSS:
         self.pw = ((self.width - 1) // 64 + 1) * 64
 
         if self.width > 1920 or self.height > 1080:
-            print(
-                yellow(
-                    "Warning: Output Resolution is higher than 1080p. Expect significant slowdowns or no functionality at all due to VRAM Constraints when using GMFSS, in case of issues consider switching to RIFE."
-                )
-            )
             self.scale = 0.5
         else:
             self.scale = 1
@@ -173,11 +167,6 @@ class GMFSSTensorRT:
         half: bool = True,
         ensemble: bool = False,
     ):
-        print(
-            red(
-                "TensorRT is not supported for GMFSS, use the default GMFSS implementation"
-            )
-        )
         raise NotImplementedError(
             "TensorRT is not supported for GMFSS, use the default GMFSS implementation"
         )
@@ -211,11 +200,6 @@ class GMFSSTensorRT:
         self.model = None
         if self.width > 1920 and self.height > 1080:
             if self.half:
-                print(
-                    yellow(
-                        "UHD and fp16 are not compatible with RIFE, defaulting to fp32"
-                    )
-                )
                 logging.info(
                     "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
                 )

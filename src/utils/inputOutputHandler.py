@@ -1,8 +1,7 @@
 import os
 import logging
 import random
-
-from src.utils.coloredPrints import yellow
+from src.utils.logAndPrint import logAndPrint
 
 EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
 
@@ -54,10 +53,9 @@ def validateEncoder(video, encodeMethod, customEncoder):
         and not customEncoder
         and encodeMethod not in ["vp9", "qsv_vp9", "av1"]
     ):
-        print(
-            yellow(
-                f"Video {video} is a Webm file, encode method was not set to ['vp9', 'qsv_vp9', 'av1'] and `--custom_encoder` is None, defaulting to 'vp9'."
-            )
+        logAndPrint(
+            f"Video {video} is a Webm file, encode method was not set to ['vp9', 'qsv_vp9', 'av1'] and `--custom_encoder` is None, defaulting to 'vp9'.",
+            colorFunc="yellow",
         )
         return "vp9"
     return encodeMethod
