@@ -389,46 +389,58 @@ class DepthDirectMLV2:
             self.model = self.ort.InferenceSession(
                 modelPath, providers=["CPUExecutionProvider"]
             )
-
+        # Bind on CPU memory; ORT will handle copies for DML provider
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
 
-        if self.half:
-            self.numpyDType = np.float16
-            self.torchDType = torch.float16
-        else:
-            self.numpyDType = np.float32
-            self.torchDType = torch.float32
-
-        self.newWidth, self.newHeight = calculateAspectRatio(
+        # Calculate padded model resolution (height, width)
+        self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality
         )
 
+        # Discover actual I/O names and dtypes from the ONNX model
+        onnxInputs = self.model.get_inputs()
+        onnxOutputs = self.model.get_outputs()
+        self.inputName = onnxInputs[0].name
+        self.outputName = onnxOutputs[0].name
+
+        def onnxTypeToNumpy(typ: str):
+            return np.float16 if "float16" in typ else np.float32
+
+        def onnxTypeToTorch(typ: str):
+            return torch.float16 if "float16" in typ else torch.float32
+
+        self.numpyInDType = onnxTypeToNumpy(onnxInputs[0].type)
+        self.torchInDType = onnxTypeToTorch(onnxInputs[0].type)
+        self.numpyOutDType = onnxTypeToNumpy(onnxOutputs[0].type)
+        self.torchOutDType = onnxTypeToTorch(onnxOutputs[0].type)
+
+        # Allocate input/output buffers with correct shapes and dtypes
         self.IoBinding = self.model.io_binding()
         self.dummyInput = torch.zeros(
             (1, 3, self.newHeight, self.newWidth),
             device=self.deviceType,
-            dtype=self.torchDType,
+            dtype=self.torchInDType,
         ).contiguous()
 
-        if "distill" not in self.depth_method:
-            self.dummyOutput = torch.zeros(
-                (1, self.newHeight, self.newWidth),
-                device=self.deviceType,
-                dtype=self.torchDType,
-            ).contiguous()
+        out_rank = len(onnxOutputs[0].shape) if hasattr(onnxOutputs[0], "shape") else 4
+        if out_rank == 3:
+            out_shape = (1, self.newHeight, self.newWidth)
         else:
-            self.dummyOutput = torch.zeros(
-                (1, 1, self.newHeight, self.newWidth),
-                device=self.deviceType,
-                dtype=self.torchDType,
-            ).contiguous()
+            # Default to NCHW with C=1 when unknown or 4D
+            out_shape = (1, 1, self.newHeight, self.newWidth)
+
+        self.dummyOutput = torch.zeros(
+            out_shape,
+            device=self.deviceType,
+            dtype=self.torchOutDType,
+        ).contiguous()
 
         self.IoBinding.bind_output(
-            name="output",
+            name=self.outputName,
             device_type=self.deviceType,
             device_id=0,
-            element_type=self.numpyDType,
+            element_type=self.numpyOutDType,
             shape=self.dummyOutput.shape,
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
@@ -445,39 +457,34 @@ class DepthDirectMLV2:
                 align_corners=True,
             )
 
-            if self.half:
-                frame = frame.half()
-            else:
-                frame = frame.float()
+            # Cast to model's expected input dtype
+            frame = frame.to(dtype=self.torchInDType)
 
             self.dummyInput.copy_(frame)
             self.IoBinding.bind_input(
-                name="input",
+                name=self.inputName,
                 device_type=self.deviceType,
                 device_id=0,
-                element_type=self.numpyDType,
+                element_type=self.numpyInDType,
                 shape=self.dummyInput.shape,
                 buffer_ptr=self.dummyInput.data_ptr(),
             )
 
             self.model.run_with_iobinding(self.IoBinding)
 
-            if "distill" not in self.depth_method:
-                depth = F.interpolate(
-                    self.dummyOutput.float().unsqueeze(0),
-                    size=(self.height, self.width),
-                    mode="bilinear",
-                    align_corners=True,
-                )
-            else:
-                depth = F.interpolate(
-                    self.dummyOutput.float(),
-                    size=(self.height, self.width),
-                    mode="bilinear",
-                    align_corners=True,
-                )
+            # Bring output to float for normalization and resize to target resolution
+            out_tensor = self.dummyOutput.float()
+            if out_tensor.ndim == 3:
+                out_tensor = out_tensor.unsqueeze(0)
+            depth = F.interpolate(
+                out_tensor,
+                size=(self.height, self.width),
+                mode="bilinear",
+                align_corners=True,
+            )
 
-            depth = (depth - depth.min()) / (depth.max() - depth.min())
+            # Normalize to 0-1 range
+            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
             self.writeBuffer.write(depth)
 
         except Exception as e:
