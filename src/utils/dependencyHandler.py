@@ -5,10 +5,13 @@ import logging
 import src.constants as cs
 import json
 import hashlib
+import re
 
 from pathlib import Path
 from typing import Tuple, Iterable
 from src.utils.logAndPrint import logAndPrint
+from importlib.metadata import version, PackageNotFoundError
+from importlib.util import find_spec
 
 
 def getPythonExecutable() -> str:
@@ -46,7 +49,7 @@ def uninstallDependencies(extension: str = "") -> Tuple[bool, str]:
             return False, f"Requirements file not found: {requirementsPath}"
     logMessage = f"Using Python executable: {pythonPath}"
     logging.info(logMessage)
-    cmd = f'"{pythonPath}" -I -m pip uninstall -y -r "{requirementsPath}"'
+    cmd = f'"{pythonPath}" -I -m pip uninstall -y -r "{requirementsPath}" --disable-pip-version-check'
     try:
         logMessage = f"Uninstalling requirements from: {requirementsPath}"
         logging.info(logMessage)
@@ -100,7 +103,7 @@ def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[boo
     logMessage = f"Using Python executable: {pythonPath}"
     logging.info(logMessage)
 
-    cmd = f'"{pythonPath}" -I -m pip install -r "{requirementsPath}" --no-warn-script-location --no-cache'
+    cmd = f'"{pythonPath}" -I -m pip install -r "{requirementsPath}" --no-warn-script-location --no-cache --disable-pip-version-check'
 
     try:
         logMessage = f"Installing requirements from: {requirementsPath}"
@@ -149,9 +152,23 @@ class DependencyChecker:
         self.cachePath = Path(cs.MAINPATH) / ".dependencyCache.json"
         self._cache = None
         self._requirementsHash = {}
+        self.knownAliases = {
+            "opencv-python": "cv2",
+            "Pillow": "PIL",
+            "PyYAML": "yaml",
+            "scikit-image": "skimage",
+            "scikit-learn": "sklearn",
+            "onnxruntime-gpu": "onnxruntime",
+            "onnxruntime-directml": "onnxruntime",
+            "imageio-ffmpeg": "imageio_ffmpeg",
+            "tensorrt": "tensorrt",
+            "torch": "torch",
+            "torchvision": "torchvision",
+            "torchaudio": "torchaudio",
+        }
 
     def needsUpdate(self, requirementsPath):
-        """Check if dependencies need updating - hash + torch import check"""
+        """Check if dependencies need updating using hash + no-import presence checks"""
         cache = self._loadCache()
 
         currentHash = self._getFileHashCached(requirementsPath)
@@ -160,14 +177,27 @@ class DependencyChecker:
         if currentHash != cache.get("requirements_hash"):
             return True
 
-        # Hash matches, but verify torch actually works
-        try:
-            import torch
+        # Hash matches: verify required distributions are present (and optionally importable)
+        missing, wrongVersion, notImportable = self.checkRequirementsInstalled(
+            requirementsPath,
+            moduleAliases=self.knownAliases,
+            enforceVersions=False,
+        )
 
-            return False  # Should imply that dependencies are up-to-date, if not broken
-        except ImportError:
-            logging.info("Hash matches but torch import failed, triggering pip install")
-            return True  # Torch broken or not present, need to install dependencies
+        if missing:
+            logging.info(f"Missing distributions detected: {missing}")
+            return True
+
+        if wrongVersion:
+            logging.info(f"Version mismatches detected: {wrongVersion}")
+            return True
+
+        if notImportable:
+            logging.debug(
+                f"Distributions present but modules not importable via expected names: {notImportable}"
+            )
+
+        return False
 
     def updateCache(self, requirementsPath):
         """Update cache after successful installation"""
@@ -209,7 +239,16 @@ class DependencyChecker:
         self.uninstallDeprecatedDependencies()
 
         logAndPrint("Forcing full dependency download...", "yellow")
-        success, message = installDependencies(requirementsFile, isNvidia=isNvidia)
+        # If requirementsFile is provided explicitly, avoid referencing undefined isNvidia
+        try:
+            success, message = (
+                installDependencies(requirementsFile, isNvidia=isNvidia)
+                if "isNvidia" in locals()
+                else installDependencies(requirementsFile)
+            )
+        except Exception as e:
+            logAndPrint(str(e), "red")
+            raise
 
         if not success:
             logAndPrint(message, "red")
@@ -218,6 +257,84 @@ class DependencyChecker:
             logAndPrint(message, "green")
             self.updateCache(requirementsPath)
             return True
+
+    def iterRequirements(self, requirementsPath: str):
+        """Yield (name, rawSpecifier) pairs from a requirements.txt, ignoring comments, includes, and URLs."""
+        try:
+            with open(requirementsPath, "r", encoding="utf-8") as f:
+                for raw in f:
+                    line = raw.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if line.startswith(("-r ", "--", "-c ")):
+                        continue
+                    if line.startswith(("-e ", "git+", "http://", "https://", "file:")):
+                        continue
+                    if ";" in line:
+                        line = line.split(";", 1)[0].strip()
+                    m = re.match(r"^([A-Za-z0-9._-]+)", line)
+                    if not m:
+                        continue
+                    name = m.group(1)
+                    spec = line[len(name) :].strip()
+                    yield name, spec
+        except FileNotFoundError:
+            logging.warning(
+                f"Requirements file not found for check: {requirementsPath}"
+            )
+            return
+        except Exception as e:
+            logging.warning(f"Failed to parse requirements at {requirementsPath}: {e}")
+            return
+
+    def checkRequirementsInstalled(
+        self,
+        requirementsPath: str,
+        moduleAliases: dict | None = None,
+        enforceVersions: bool = False,
+    ):
+        """Return (missing, wrongVersion, notImportable) without importing packages.
+
+        - missing: list[str] of distributions not installed
+        - wrongVersion: list[tuple[name, installedVersion, requiredSpecifier]] when enforceVersions True
+        - notImportable: list[str] of expected top-level modules not discoverable via find_spec
+        """
+        moduleAliases = moduleAliases or {}
+        missing: list[str] = []
+        wrongVersion: list[tuple[str, str, str]] = []
+        notImportable: list[str] = []
+
+        try:
+            from packaging.requirements import Requirement
+
+            havePackaging = True
+        except Exception:
+            havePackaging = False
+
+        for name, rawSpec in self.iterRequirements(requirementsPath):
+            try:
+                installedVer = version(name)
+            except PackageNotFoundError:
+                missing.append(name)
+                continue
+
+            if enforceVersions and havePackaging:
+                try:
+                    req = Requirement(f"{name}{rawSpec}")
+                    if req.specifier and not req.specifier.contains(
+                        installedVer, prereleases=True
+                    ):
+                        wrongVersion.append((name, installedVer, str(req.specifier)))
+                except Exception:
+                    # Ignore unparsable spec lines gracefully
+                    pass
+
+            # Optional: module importability check without importing heavy libs
+            modName = moduleAliases.get(name, name.replace("-", "_"))
+            if modName and find_spec(modName) is None:
+                notImportable.append(modName)
+
+        return missing, wrongVersion, notImportable
 
     def _loadCache(self):
         """Load cache from file - with in-memory caching"""
