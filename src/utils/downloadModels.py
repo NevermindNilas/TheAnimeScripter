@@ -1,6 +1,6 @@
 import os
 import logging
-from .coloredPrints import green, yellow
+from src.utils.logAndPrint import logAndPrint
 from src.utils.progressBarLogic import ProgressBarDownloadLogic
 import src.constants as cs
 
@@ -324,15 +324,17 @@ def modelsMap(
             elif modelType == "onnx":
                 if half:
                     if ensemble:
-                        print(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        logAndPrint(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                            colorFunc="yellow",
                         )
                     else:
                         return "rife425_fp16_op21_slim.onnx"
                 else:
                     if ensemble:
-                        print(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        logAndPrint(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                            colorFunc="yellow",
                         )
                     else:
                         return "rife425_fp32_op21_slim.onnx"
@@ -346,26 +348,27 @@ def modelsMap(
             elif modelType == "onnx":
                 if half:
                     if ensemble:
-                        print(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        logAndPrint(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                            colorFunc="yellow",
                         )
                         return "rife4.22_lite_fp16_op21_slim.onnx"
                     else:
                         return "rife4.22_lite_fp16_op21_slim.onnx"
                 else:
                     if ensemble:
-                        print(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported."
+                        logAndPrint(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                            colorFunc="yellow",
                         )
                         return "rife4.22_lite_fp32_op21_slim.onnx"
                     else:
                         return "rife4.22_lite_fp32_op21_slim.onnx"
             elif modelType == "ncnn":
                 if ensemble:
-                    print(
-                        yellow(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported."
-                        )
+                    logAndPrint(
+                        "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                        colorFunc="yellow",
                     )
                     return "rife-v4.22-lite-ensemble-ncnn.zip"
                 else:
@@ -397,30 +400,27 @@ def modelsMap(
             elif modelType == "onnx":
                 if half:
                     if ensemble:
-                        print(
-                            yellow(
-                                "Starting rife 4.21 Ensemble is no longer going to be supported."
-                            )
+                        logAndPrint(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                            colorFunc="yellow",
                         )
                         return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
                         return "rife422_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                 else:
                     if ensemble:
-                        print(
-                            yellow(
-                                "Starting rife 4.21 Ensemble is no longer going to be supported."
-                            )
+                        logAndPrint(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                            colorFunc="yellow",
                         )
                         return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
                     else:
                         return "rife422_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
             elif modelType == "ncnn":
                 if ensemble:
-                    print(
-                        yellow(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported."
-                        )
+                    logAndPrint(
+                        "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                        colorFunc="yellow",
                     )
                     return "rife-v4.22-ncnn.zip"
                 else:
@@ -432,30 +432,27 @@ def modelsMap(
             elif modelType == "onnx":
                 if half:
                     if ensemble:
-                        print(
-                            yellow(
-                                "Starting rife 4.21 Ensemble is no longer going to be supported."
-                            )
+                        logAndPrint(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                            colorFunc="yellow",
                         )
                         return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
                         return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                 else:
                     if ensemble:
-                        print(
-                            yellow(
-                                "Starting rife 4.21 Ensemble is no longer going to be supported."
-                            )
+                        logAndPrint(
+                            "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                            colorFunc="yellow",
                         )
                         return "rife421_v2_ensembleFalse_op20_fp16_clamp_onnxslim.onnx"
                     else:
                         return "rife421_v2_ensembleFalse_op20_clamp_onnxslim.onnx"
             elif modelType == "ncnn":
                 if ensemble:
-                    print(
-                        yellow(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported."
-                        )
+                    logAndPrint(
+                        "Starting rife 4.21 Ensemble is no longer going to be supported.",
+                        colorFunc="yellow",
                     )
                     return "rife-v4.21-ncnn.zip"
                 else:
@@ -737,7 +734,7 @@ def downloadAndLog(
 
             toLog = f"Downloaded {model.capitalize()} model to: {os.path.join(folderPath, filename)}"
             logging.info(toLog)
-            print(green(toLog))
+            logAndPrint(toLog, colorFunc="green")
 
             return os.path.join(folderPath, filename)
 
@@ -827,7 +824,7 @@ def downloadTensorRTRTX(retries: int = 3) -> bool:
     if os.path.exists(tensorrt_dir) and os.listdir(tensorrt_dir):
         toLog = f"TensorRT RTX already exists at: {tensorrt_dir}"
         logging.info(toLog)
-        print(green(toLog))
+        logAndPrint(toLog, colorFunc="green")
 
         include_dir = None
         lib_dir = None
@@ -855,7 +852,7 @@ def downloadTensorRTRTX(retries: int = 3) -> bool:
         try:
             toLog = f"Downloading TensorRT RTX... (Attempt {attempt + 1}/{retries})"
             logging.info(toLog)
-            print(yellow(toLog))
+            logAndPrint(toLog, colorFunc="yellow")
 
             response = requests.get(tensorrt_url, stream=True)
             response.raise_for_status()
@@ -911,7 +908,7 @@ def downloadTensorRTRTX(retries: int = 3) -> bool:
 
             toLog = f"Downloaded and extracted TensorRT RTX to: {extract_path}"
             logging.info(toLog)
-            print(green(toLog))
+            logAndPrint(toLog, colorFunc="green")
 
             lib_dir = None
 

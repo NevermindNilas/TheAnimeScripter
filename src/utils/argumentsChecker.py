@@ -11,7 +11,6 @@ import sys
 import argparse
 import src.constants as cs
 
-from .coloredPrints import green
 from rich_argparse import RichHelpFormatter
 from src.version import __version__
 from .inputOutputHandler import generateOutputName
@@ -22,38 +21,40 @@ from src.utils.dependencyHandler import installDependencies
 def isAnyOtherProcessingMethodEnabled(args):
     """
     Check if any video processing operations are enabled.
-    
+
     Args:
         args: Parsed command line arguments
-        
+
     Returns:
         bool: True if any processing method is enabled
     """
-    return any([
-        args.interpolate,
-        args.scenechange,
-        args.upscale,
-        args.segment,
-        args.restore,
-        args.sharpen,
-        args.resize,
-        args.dedup,
-        args.depth,
-        args.autoclip,
-        args.obj_detect,
-    ])
+    return any(
+        [
+            args.interpolate,
+            args.scenechange,
+            args.upscale,
+            args.segment,
+            args.restore,
+            args.sharpen,
+            args.resize,
+            args.dedup,
+            args.depth,
+            args.autoclip,
+            args.obj_detect,
+        ]
+    )
 
 
 def str2bool(arg):
     """
     Convert string argument to boolean value.
-    
+
     Args:
         arg: String or boolean argument
-        
+
     Returns:
         bool: Converted boolean value
-        
+
     Raises:
         argparse.ArgumentTypeError: If argument cannot be converted to boolean
     """
@@ -70,10 +71,10 @@ def str2bool(arg):
 def createParser(outputPath):
     """
     Create and configure the command line argument parser.
-    
+
     Args:
         outputPath (str): Default output directory path
-        
+
     Returns:
         argparse.Namespace: Parsed command line arguments
     """
@@ -749,14 +750,18 @@ def argumentsChecker(args, outputPath):
 
     if args.output_scale:
         try:
-            width, height = args.output_scale.split('x')
+            width, height = args.output_scale.split("x")
             args.output_scale_width = int(width)
             args.output_scale_height = int(height)
             if args.output_scale_width <= 0 or args.output_scale_height <= 0:
                 raise ValueError("Width and height must be positive integers")
-            logging.info(f"Output scale set to {args.output_scale_width}x{args.output_scale_height}")
+            logging.info(
+                f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
+            )
         except (ValueError, AttributeError) as e:
-            logAndPrint(f"Invalid output_scale format: {args.output_scale}. Expected format: WIDTHxHEIGHT (e.g., 2560x1440)")
+            logAndPrint(
+                f"Invalid output_scale format: {args.output_scale}. Expected format: WIDTHxHEIGHT (e.g., 2560x1440)"
+            )
             sys.exit()
     else:
         args.output_scale_width = None
@@ -860,8 +865,9 @@ def _handleDepthSettings(args):
 def _downloadOfflineModels(args):
     from .downloadModels import downloadModels, modelsList
 
-    logging.info(f"Offline mode enabled, downloading {args.offline} model(s)...")
-    print(green(f"Offline mode enabled, downloading {args.offline} model(s)..."))
+    logAndPrint(
+        f"Offline mode enabled, downloading {args.offline} model(s)...", "green"
+    )
 
     options = modelsList() if args.offline == ["all"] else args.offline
     for option in options:
@@ -872,9 +878,9 @@ def _downloadOfflineModels(args):
                 logging.error(
                     f"Failed to download model: {option} with precision: {'fp16' if precision else 'fp32'}"
                 )
-
-    logging.info("All model(s) downloaded!")
-    print(green("All model(s) downloaded!"))
+    logAndPrint(
+        f"Offline model(s) {', '.join(options)} downloaded successfully!", "green"
+    )
 
 
 def _configureProcessingSettings(args):
@@ -999,7 +1005,10 @@ def processURL(args, outputPath):
         tempOutput = os.path.join(outputFolder, generateOutputName(args, args.input))
 
         VideoDownloader(args.input, tempOutput, args.encode_method, args.custom_encoder)
-        print(green(f"Video downloaded to: {tempOutput}"))
+        logAndPrint(
+            f"Video downloaded successfully to {tempOutput}",
+            "green",
+        )
 
         if not isAnyOtherProcessingMethodEnabled(args):
             if tempOutput != args.output:
