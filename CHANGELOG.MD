@@ -13,10 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   - Works with all processing methods (upscaling, interpolation, etc.)
 
 #### Changed
-- N/A
+- Improvements of up to 25% in encoding bottlenecked workflows.
 
 #### Fixed
 - Fixed an issue with distill-directml depth methods where the output was not being properly handled.
+- Fixed an issue with distill-directml depth methods where fp32 would crash.
 
 ## [2.3.8] - 2025-08-03
 #### Changed

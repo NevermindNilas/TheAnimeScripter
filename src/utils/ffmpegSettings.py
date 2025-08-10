@@ -73,9 +73,9 @@ class BuildBuffer:
 
         try:
             if self.inpoint > 0 or self.outpoint > 0:
-                reader = celux.VideoReader(
-                    self.videoInput,
-                )([float(self.inpoint), float(self.outpoint)])
+                reader = celux.VideoReader(self.videoInput)(
+                    [float(self.inpoint), float(self.outpoint)]
+                )
             else:
                 reader = celux.VideoReader(
                     self.videoInput,
