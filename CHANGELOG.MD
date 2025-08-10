@@ -11,9 +11,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   - Uses bilinear scaling for minimal artifacts
   - Applied during FFmpeg encoding for optimal performance
   - Works with all processing methods (upscaling, interpolation, etc.)
+- Added a lightweight dependency check that doesn’t import heavy libraries
+  - Uses `importlib.metadata.version` to see if a package is installed
+  - Uses `importlib.util.find_spec` to see if the module is discoverable
+  - Prints a simple list like `Missing distributions detected: ['tensorrt']` before installing
+- Added a small map for common package→module name differences
+  - Example: `opencv-python` → `cv2`, `onnxruntime-gpu` → `onnxruntime`
 
 #### Changed
 - Improvements of up to 25% in encoding bottlenecked workflows.
+- Dependency check flow is faster and simpler
+  - Instead of importing `torch` just to “test it”, we now check presence via metadata
+  - Only runs `pip install` when something is actually missing or mismatched
+- Speed up `pip` calls
+  - Added `--disable-pip-version-check` to `pip install`/`pip uninstall` to shave startup time
+- Made the forced download helper more robust
+  - Avoids referencing `isNvidia` when a specific requirements file is provided
 
 #### Fixed
 - Fixed an issue with distill-directml depth methods where the output was not being properly handled.
