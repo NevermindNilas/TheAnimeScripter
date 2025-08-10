@@ -6,7 +6,7 @@ import threading
 from flask import Flask, Response, jsonify
 from PIL import Image
 from werkzeug.serving import make_server
-from .coloredPrints import green
+from src.utils.logAndPrint import logAndPrint
 
 
 class Preview:
@@ -67,10 +67,9 @@ class Preview:
         return jsonify({"success": True, "message": "Server is shutting down..."})
 
     def start(self) -> None:
-        print(
-            green(
-                f"Starting preview server at: http://{self.local_host}:{self.port}/frame"
-            )
+        logAndPrint(
+            f"Starting preview server at: http://{self.local_host}:{self.port}/frame",
+            "green",
         )
         os.environ["FLASK_ENV"] = "production"
         self.app.logger.disabled = True
@@ -89,4 +88,5 @@ class Preview:
             self.server.shutdown()
         if self.serverThread and self.serverThread.is_alive():
             self.serverThread.join(timeout=5)  # Wait up to 5 seconds
-        print(green("Preview server has been shut down."))
+
+        logAndPrint("Preview server stopped", "green")

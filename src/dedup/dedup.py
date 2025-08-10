@@ -4,7 +4,6 @@ import os
 
 from torch.functional import F
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
-from src.utils.coloredPrints import yellow
 from src.utils.isCudaInit import CudaChecker
 from src.utils.modelOptimizer import ModelOptimizer
 
@@ -206,11 +205,6 @@ class DedupFlownetS:
         height: int = 224,
         width: int = 224,
     ):
-        print(
-            yellow(
-                "Flownet deduplication is experimental and may not work as expected."
-            )
-        )
         import src.dedup.flownet as flownet
 
         self.dedupSens = dedupSens

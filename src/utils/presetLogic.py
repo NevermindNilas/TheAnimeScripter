@@ -1,6 +1,6 @@
 import json
 import os
-from .coloredPrints import green, bold
+from src.utils.logAndPrint import logAndPrint
 from src.constants import MAINPATH
 
 
@@ -32,7 +32,7 @@ def createPreset(args):
             file.seek(0)
             json.dump(data, file, indent=4)
             file.truncate()
-            print(green(f"Preset {args.preset} created successfully"))
+            logAndPrint(f"Preset {args.preset} created successfully", "green")
 
     return args
 
@@ -53,7 +53,7 @@ def listPresets():
             return
 
         for presetName, presetValues in presets.items():
-            print(bold(green(f"{presetName}:")))
+            logAndPrint(f"Preset: {presetName}", "cyan")
             trueValues = [
                 key
                 for key, value in presetValues.items()

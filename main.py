@@ -26,7 +26,7 @@ import os
 import sys
 import logging
 import warnings
-import src.constants as cs
+from src.utils.logAndPrint import logAndPrint
 
 from platform import system
 from signal import signal, SIGINT, SIG_DFL
@@ -34,19 +34,6 @@ from time import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 from fractions import Fraction
-
-from src.utils.coloredPrints import green
-from src.utils.argumentsChecker import createParser
-from src.utils.getVideoMetadata import getVideoMetadata
-from src.utils.inputOutputHandler import processInputOutputPaths
-from src.initializeModels import (
-    initializeModels,
-    segment,
-    depth,
-    autoClip,
-    objectDetection,
-)
-from src.utils.logAndPrint import logAndPrint
 
 warnings.filterwarnings("ignore")
 
@@ -146,6 +133,9 @@ class VideoProcessor:
         Args:
             args: Command line arguments containing inpoint and outpoint
         """
+        # Lazy import to speed up startup for non-processing paths
+        from src.utils.getVideoMetadata import getVideoMetadata
+
         videoMetadata = getVideoMetadata(
             self.input,
             args.inpoint,
@@ -192,15 +182,24 @@ class VideoProcessor:
         """
         if self.autoclip:
             logging.info("Detecting scene changes")
+            # Lazy import
+            from src.initializeModels import autoClip
+
             autoClip(self)
         elif self.depth:
             logging.info("Depth Estimation")
+            from src.initializeModels import depth
+
             depth(self)
         elif self.segment:
             logging.info("Segmenting video")
+            from src.initializeModels import segment
+
             segment(self)
         elif self.objDetect:
             logging.info("Object Detection")
+            from src.initializeModels import objectDetection
+
             objectDetection(self)
         else:
             self.start()
@@ -391,6 +390,8 @@ class VideoProcessor:
 
         try:
             # Initialize AI models and get processing functions
+            from src.initializeModels import initializeModels
+
             (
                 self.new_width,
                 self.new_height,
@@ -458,15 +459,10 @@ class VideoProcessor:
                 / elapsedTime
                 * (1 if not self.interpolate else self.interpolateFactor)
             )
-            logging.info(
-                f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}"
+            logAndPrint(
+                f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}",
+                colorFunc="green",
             )
-            print(
-                green(
-                    f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}"
-                )
-            )
-
         except Exception as e:
             logging.exception(f"Something went wrong while starting the processes, {e}")
 
@@ -479,7 +475,19 @@ def main():
     for single or multiple input files.
     """
     try:
+        # Ultra-fast path for help/version: avoid logging setup and heavy imports
+        if any(flag in sys.argv for flag in ("-h", "--help", "-v", "--version")):
+            from src.utils.argumentsChecker import createParser
+
+            try:
+                # createParser will invoke argparse and exit for -h/-v
+                createParser(outputPath=os.getcwd())
+            except SystemExit:
+                return
+
         # Initialize system constants
+        import src.constants as cs
+
         cs.SYSTEM = system()
         cs.MAINPATH = (
             os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
@@ -512,8 +520,13 @@ def main():
         logging.info(f"{' '.join(sys.argv)}\n")
 
         # Parse command line arguments and process input/output paths
+        from src.utils.argumentsChecker import createParser
+
         args = createParser(baseOutputPath)
         outputPath = os.path.join(baseOutputPath, "output")
+        # Lazy import to avoid import cost for help/early exit
+        from src.utils.inputOutputHandler import processInputOutputPaths
+
         results = processInputOutputPaths(args, outputPath)
 
         # Validate that videos were found
@@ -526,6 +539,8 @@ def main():
         if totalVideos > 1:
             logAndPrint(f"Total Videos found: {totalVideos}", colorFunc="green")
             folderTimer = time()
+        else:
+            folderTimer = None
 
         # Process each video
         for idx, i in enumerate(results, 1):
@@ -554,8 +569,9 @@ def main():
                 logging.exception(f"Error processing video {results[i]['videoPath']}")
 
         # Log batch processing statistics
-        if totalVideos > 1:
+        if totalVideos > 1 and folderTimer is not None:
             totalTime = time() - folderTimer
+
             logAndPrint(
                 f"Total Execution Time: {totalTime:.2f} seconds | "
                 f"Average per video: {totalTime / totalVideos:.2f} seconds",
