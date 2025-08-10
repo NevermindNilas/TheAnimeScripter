@@ -3,7 +3,6 @@ import subprocess
 import os
 import torch
 import src.constants as cs
-import numpy as np
 import time
 import celux
 
@@ -74,15 +73,15 @@ class BuildBuffer:
 
         try:
             if self.inpoint > 0 or self.outpoint > 0:
-                clip = celux.VideoReader(
+                reader = celux.VideoReader(
                     self.videoInput,
-                )[self.inpoint : self.outpoint]
+                )([float(self.inpoint), float(self.outpoint)])
             else:
-                clip = celux.VideoReader(
+                reader = celux.VideoReader(
                     self.videoInput,
                 )
 
-            for frame in clip:
+            for frame in reader:
                 if self.toTorch:
                     frame = self.processFrameToTorch(
                         frame, self.normStream if checker.cudaAvailable else None
@@ -149,6 +148,10 @@ class BuildBuffer:
         norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
         if checker.cudaAvailable:
             with torch.cuda.stream(normStream):
+                try:
+                    frame = frame.pin_memory()
+                except Exception:
+                    pass
                 frame = (
                     frame.to(
                         device="cuda",
@@ -173,6 +176,11 @@ class BuildBuffer:
             normStream.synchronize()
             return frame
         else:
+            try:
+                frame = frame.pin_memory()
+            except Exception:
+                pass
+
             frame = (
                 frame.to(
                     device="cpu",
@@ -217,18 +225,7 @@ class BuildBuffer:
         Returns:
             Whether the decoding buffer is empty.
         """
-        isClosed = False
-        if self.decodeBuffer.empty() and self.isFinished:
-            try:
-                # Safely handle queue shutdown
-                self.decodeBuffer.shutdown()  # new method to close the queue introduced with python 3.13.
-                isClosed = True
-            except (AttributeError, Exception) as e:
-                # Handle older Python versions or errors
-                logging.debug(f"Queue shutdown failed: {e}")
-                isClosed = True
-
-        return isClosed
+        return self.decodeBuffer.empty() and self.isFinished
 
 
 class WriteBuffer:
@@ -345,14 +342,13 @@ class WriteBuffer:
         command = [
             cs.FFMPEGPATH,
             "-y",
-            "-report",
             "-hide_banner",
             "-loglevel",
             "quiet",
             "-nostats",
             "-f",
             "rawvideo",
-            "-pixel_format",
+            "-pix_fmt",
             self.inputPixFmt,
             "-s",
             f"{self.width}x{self.height}",
@@ -511,23 +507,35 @@ class WriteBuffer:
             command = self.encodeSettings()
             logging.info(f"Encoding with: {' '.join(map(str, command))}")
 
-            device = "cuda" if checker.cudaAvailable else "cpu"
-
-            dummyTensor = torch.zeros(
-                (self.height, self.width, self.channels), dtype=dtype, device=device
-            )
+            hostBuffers = [
+                torch.empty(
+                    (self.height, self.width, self.channels),
+                    dtype=dtype,
+                    pin_memory=True,
+                )
+                for _ in range(2)
+            ]
 
             if checker.cudaAvailable:
                 normStream = torch.cuda.Stream()
+                events = [
+                    torch.cuda.Event(enable_timing=False),
+                    torch.cuda.Event(enable_timing=False),
+                ]
+            else:
+                normStream = None
 
             ffmpegProc = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
                 stdout=None,
-                stderr=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
                 shell=False,
                 cwd=cs.MAINPATH,
             )
+
+            bufIdx = 0
+            prevIDX = None
 
             while True:
                 frame = self.writeBuffer.get()
@@ -544,14 +552,25 @@ class WriteBuffer:
                                 align_corners=False,
                             )
 
-                        dummyTensor.copy_(
+                        GpuHWCInt = (
                             frame.mul(multiplier)
                             .clamp(0, multiplier)
                             .squeeze(0)
-                            .permute(1, 2, 0),
-                            non_blocking=True,
+                            .permute(1, 2, 0)
+                            .to(dtype)
                         )
-                    normStream.synchronize()
+                        hostBuffers[bufIdx].copy_(GpuHWCInt, non_blocking=True)
+                        events[bufIdx].record(normStream)
+
+                    if prevIDX is not None:
+                        events[prevIDX].synchronize()
+                        arr = hostBuffers[prevIDX].numpy()
+                        ffmpegProc.stdin.write(memoryview(arr))
+                        writtenFrames += 1
+
+                    prevIDX = bufIdx
+                    bufIdx ^= 1
+
                 else:
                     if needsResize:
                         frame = F.interpolate(
@@ -560,16 +579,22 @@ class WriteBuffer:
                             mode="bicubic",
                             align_corners=False,
                         )
-                    dummyTensor.copy_(
+                    CpuHWCInt = (
                         frame.mul(multiplier)
                         .clamp(0, multiplier)
                         .squeeze(0)
-                        .permute(1, 2, 0),
-                        non_blocking=False,
+                        .permute(1, 2, 0)
+                        .to(dtype)
                     )
+                    hostBuffers[0].copy_(CpuHWCInt, non_blocking=False)
+                    arr = hostBuffers[0].numpy()
+                    ffmpegProc.stdin.write(memoryview(arr))
+                    writtenFrames += 1
 
-                frameData = dummyTensor.cpu().numpy()
-                ffmpegProc.stdin.write(np.ascontiguousarray(frameData))
+            if checker.cudaAvailable and prevIDX is not None:
+                events[prevIDX].synchronize()
+                arr = hostBuffers[prevIDX].numpy()
+                ffmpegProc.stdin.write(memoryview(arr))
                 writtenFrames += 1
 
             logging.info(f"Encoded {writtenFrames} frames")
