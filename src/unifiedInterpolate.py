@@ -6,7 +6,6 @@ import math
 import numpy as np
 
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
-from .utils.coloredPrints import yellow
 from .utils.isCudaInit import CudaChecker
 from .utils.logAndPrint import logAndPrint
 
@@ -141,13 +140,9 @@ class RifeCuda:
         if self.width > 1920 and self.height > 1080:
             self.scale = 0.5
             if self.half:
-                print(
-                    yellow(
-                        "UHD and fp16 are not compatible with RIFE, defaulting to fp32"
-                    )
-                )
-                logging.info(
-                    "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
+                logAndPrint(
+                    "UHD and fp16 are not compatible with RIFE, defaulting to fp32",
+                    "yellow",
                 )
                 self.half = False
 
@@ -404,10 +399,9 @@ class RifeTensorRT:
         self.model = None
         if self.width > 1920 and self.height > 1080:
             if self.half:
-                print(
-                    yellow(
-                        "UHD and fp16 are not compatible with RIFE, defaulting to fp32"
-                    )
+                logAndPrint(
+                    "UHD and fp16 are not compatible with RIFE, defaulting to fp32",
+                    "yellow",
                 )
                 logging.info(
                     "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
@@ -945,10 +939,9 @@ class RifeDirectML:
 
         if self.width > 1920 and self.height > 1080:
             if self.half:
-                print(
-                    yellow(
-                        "UHD and fp16 are not compatible with RIFE, defaulting to fp32"
-                    )
+                logAndPrint(
+                    "UHD and fp16 are not compatible with RIFE, defaulting to fp32",
+                    "yellow",
                 )
                 logging.info(
                     "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
@@ -1523,8 +1516,14 @@ class MultiPassDedup:
         self.normStream.synchronize()
 
         for i in range(self.interpolateFactor - 1):
-            ts = [0.5]
-            # output = self.processFrame(timestep, "infer")
+            t = 0.5
+            timestep = torch.full(
+                (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
+                t,
+                dtype=self.dType,
+                device=checker.device,
+            )
+            output = self.processFrame(timestep, "infer")
             interpQueue.put(output)
 
         self.processFrame(None, "cache")
