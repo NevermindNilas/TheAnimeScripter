@@ -23,7 +23,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   - Example: `opencv-python` → `cv2`, `onnxruntime-gpu` → `onnxruntime`
 
 #### Changed
-- Improvements of up to 25% in encoding bottlenecked workflows.
+- Improvements of up to `25%` in encoding bottlenecked workflows.
+- Improvements of up to `10%` in Cuda/TensorRT workflows, partly due to the new torch/tensorrt updates.
 - Dependency check flow is faster and simpler
   - Instead of importing `torch` just to “test it”, we now check presence via metadata
   - Only runs `pip install` when something is actually missing or mismatched
