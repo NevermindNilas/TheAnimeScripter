@@ -1,3 +1,4 @@
 basswood-av
 spandrel
 python-socketio
+vapoursynth
