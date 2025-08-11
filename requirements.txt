@@ -19,4 +19,4 @@ Flask==3.1.1
 Flask-Cors==6.0.1
 
 # Video processing
-celux == 0.7.0
+celux == 0.7.1
