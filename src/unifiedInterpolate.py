@@ -1324,13 +1324,9 @@ class MultiPassDedup:
         if self.width > 1920 and self.height > 1080:
             self.scale = 0.5
             if self.half:
-                print(
-                    yellow(
-                        "UHD and fp16 are not compatible with RIFE, defaulting to fp32"
-                    )
-                )
-                logging.info(
-                    "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
+                logAndPrint(
+                    "UHD and fp16 are not compatible with RIFE, defaulting to fp32",
+                    "yellow",
                 )
                 self.half = False
 
