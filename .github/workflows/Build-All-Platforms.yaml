@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13.5"
+          python-version: "3.13.6"
 
       - name: Extract version
         id: get_version
@@ -56,7 +56,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: "3.13.5"
+          python-version: "3.13.6"
 
       - name: Set up setuptools and pip
         run: |
