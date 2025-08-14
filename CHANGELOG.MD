@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - YYY-MM-DD
 ### WARNING
 - TAS is now using pytorch 2.8.0 + cuda 12.9, this means that older GPUs ( Maxwell, Pascal, and Volta ) with capabilities <= sm 70 have been fully deprecated and will no longer be supported. This means that TAS will no longer work on these GPUs, if you are using a GPU with sm 70 or lower, please stick to TAS 2.3.8 or earlier.
-
+- With the migration from Celux, I strongly recommend deleting previous installations of TAS and reinstalling the latest version to avoid any potential issues with the new decoding backend.
 
 ### New
 - Migrated, yet again, from Vapoursynth to `celux` for decoding, this should result in better performance and lower CPU usage.
