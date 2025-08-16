@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   - Avoids referencing `isNvidia` when a specific requirements file is provided
 - Slight modifications to imports to further tune start-up times.
 - Upgraded to python `3.13.6`
+- Up to `10%` faster GMFSS performance.
 
 #### Fixed
 - Fixed an issue with distill-directml depth methods where the output was not being properly handled.
