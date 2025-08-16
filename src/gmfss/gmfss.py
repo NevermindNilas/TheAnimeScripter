@@ -55,8 +55,6 @@ class GMFSS:
         if checker.cudaAvailable:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
-            if self.half:
-                torch.set_default_tensor_type(torch.cuda.HalfTensor)
 
         from .model.GMFSS import GMFSS as Model
 
@@ -225,8 +223,6 @@ class GMFSSTensorRT:
         if checker.cudaAvailable:
             torch.backends.cudnn.enabled = True
             torch.backends.cudnn.benchmark = True
-            if self.half:
-                torch.set_default_tensor_type(torch.cuda.HalfTensor)
 
         from .model.GMFSS import GMFSS as Model
 

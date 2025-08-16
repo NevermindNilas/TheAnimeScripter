@@ -28,6 +28,16 @@ def softsplat(
     if mode_main in ["linear", "soft"]:
         assert tenMetric is not None
 
+    # Sanity: for 'linear'/'soft' we require matching spatial shapes
+    if mode_main in ["linear", "soft"]:
+        if tenIn.shape[2:] != tenMetric.shape[2:]:
+            raise ValueError(
+                f"softsplat: mismatched spatial sizes between input {tenIn.shape} and metric {tenMetric.shape}"
+            )
+
+    # Precompute exp once (bitwise identical vs computing twice)
+    metric_exp = tenMetric.exp() if mode_main == "soft" else None
+
     mode_to_operation = {
         "avg": lambda: torch.cat(
             [
@@ -37,7 +47,7 @@ def softsplat(
             1,
         ),
         "linear": lambda: torch.cat([tenIn * tenMetric, tenMetric], 1),
-        "soft": lambda: torch.cat([tenIn * tenMetric.exp(), tenMetric.exp()], 1),
+        "soft": lambda: torch.cat([tenIn * metric_exp, metric_exp], 1),
     }
 
     if mode_main in mode_to_operation:
@@ -66,122 +76,101 @@ def softsplat(
 
 
 class softsplat_func(torch.autograd.Function):
+    """Custom autograd function implementing soft forward splatting.
+
+    This version keeps the exact mathematical behaviour of the original
+    implementation while:
+      * Removing the Python loop over the 4 bilinear neighbour contributions.
+      * Using a single vectorised index_add_ call to accumulate all weights.
+      * Fixing a subtle caching bug where grids were reused across different batch sizes (N).
+      * Reducing tensor permutations / reshapes and unnecessary temporaries.
+    """
+
     @staticmethod
     @torch.inference_mode()
     @torch.amp.custom_fwd(device_type=device)
-    def forward(ctx, tenIn, tenFlow):
-        """
-        Forward pass of the Softsplat function.
-
-        Parameters:
-            tenIn (torch.Tensor): Input tensor of shape [N, C, H, W]
-            tenFlow (torch.Tensor): Flow tensor of shape [N, 2, H, W]
-
-        Returns:
-            torch.Tensor: Output tensor of shape [N, C, H, W]
-        """
-        N, C, H, W = tenIn.size()
-        device = tenIn.device
+    def forward(ctx, tenIn: torch.Tensor, tenFlow: torch.Tensor):  # noqa: D401
+        # Shapes / device
+        N, C, H, W = tenIn.shape
+        dev = tenIn.device
         origdtype = tenIn.dtype
 
-        # Initialize output tensor
-        tenOut = torch.zeros_like(tenIn)
-
-        key = (H, W, device, origdtype)
+        # Grid cache (independent of N to allow varying batch sizes)
+        key = (H, W, dev, origdtype)
         if key not in grid_cache:
-            # Create meshgrid of pixel coordinates
-            gridY, gridX = torch.meshgrid(
-                torch.arange(H, device=device, dtype=origdtype),
-                torch.arange(W, device=device, dtype=origdtype),
+            gy, gx = torch.meshgrid(
+                torch.arange(H, device=dev, dtype=origdtype),
+                torch.arange(W, device=dev, dtype=origdtype),
                 indexing="ij",
-            )  # [H, W]
-            # Cache the grids
-            grid_cache[key] = (
-                gridY.unsqueeze(0).unsqueeze(0).expand(N, 1, H, W),
-                gridX.unsqueeze(0).unsqueeze(0).expand(N, 1, H, W),
             )
+            grid_cache[key] = (gy[None, None], gx[None, None])  # (1,1,H,W)
+        gy, gx = grid_cache[key]
+        gy = gy.expand(N, 1, H, W)
+        gx = gx.expand(N, 1, H, W)
 
-        if key not in batch_cache:
-            batch_cache[key] = (
-                torch.arange(N, device=device).view(N, 1, 1).expand(N, H, W).reshape(-1)
-            )
+        # Target coords
+        fltX = gx + tenFlow[:, 0:1]
+        fltY = gy + tenFlow[:, 1:2]
 
-        gridY, gridX = grid_cache[key]
-        batch_indices = batch_cache[key]
-
-        # Compute fltX and fltY
-        fltX = gridX + tenFlow[:, 0:1, :, :]
-        fltY = gridY + tenFlow[:, 1:2, :, :]
-
-        # Flatten variables
+        # Flatten
         fltX_flat = fltX.reshape(-1)
         fltY_flat = fltY.reshape(-1)
-        tenIn_flat = tenIn.permute(0, 2, 3, 1).reshape(-1, C)
+        feats_flat = tenIn.permute(0, 2, 3, 1).reshape(-1, C)
 
         # Finite mask
-        finite_mask = torch.isfinite(fltX_flat) & torch.isfinite(fltY_flat)
-        if not finite_mask.any():
-            return tenOut
+        mask = torch.isfinite(fltX_flat) & torch.isfinite(fltY_flat)
+        if not mask.any():
+            return torch.zeros_like(tenIn)
+        fltX_flat = fltX_flat[mask]
+        fltY_flat = fltY_flat[mask]
+        feats_flat = feats_flat[mask]
 
-        fltX_flat = fltX_flat[finite_mask]
-        fltY_flat = fltY_flat[finite_mask]
-        tenIn_flat = tenIn_flat[finite_mask]
-        batch_indices = batch_indices[finite_mask]
+        # Batch index for each surviving pixel
+        linear_full = torch.arange(N * H * W, device=dev)
+        batch_idx = (linear_full[mask]) // (H * W)
 
-        # Compute integer positions
-        intNW_X = torch.floor(fltX_flat).to(dtype=torch.int32)
-        intNW_Y = torch.floor(fltY_flat).to(dtype=torch.int32)
-        intNE_X = intNW_X + 1
-        intNE_Y = intNW_Y
-        intSW_X = intNW_X
-        intSW_Y = intNW_Y + 1
-        intSE_X = intNW_X + 1
-        intSE_Y = intNW_Y + 1
+        # Corner integer coords
+        x0 = torch.floor(fltX_flat)
+        y0 = torch.floor(fltY_flat)
+        x1 = x0 + 1
+        y1 = y0 + 1
+        x0l = x0.to(torch.int64)
+        y0l = y0.to(torch.int64)
+        x1l = x1.to(torch.int64)
+        y1l = y1.to(torch.int64)
 
-        # Compute weights
-        fltNW = (intSE_X - fltX_flat) * (intSE_Y - fltY_flat)
-        fltNE = (fltX_flat - intSW_X) * (intSW_Y - fltY_flat)
-        fltSW = (intNE_X - fltX_flat) * (fltY_flat - intNE_Y)
-        fltSE = (fltX_flat - intNW_X) * (fltY_flat - intNW_Y)
+        # Weights
+        w00 = (x1 - fltX_flat) * (y1 - fltY_flat)
+        w10 = (fltX_flat - x0) * (y1 - fltY_flat)
+        w01 = (x1 - fltX_flat) * (fltY_flat - y0)
+        w11 = (fltX_flat - x0) * (fltY_flat - y0)
 
-        # Prepare output tensor flat
-        tenOut_flat = tenOut.permute(0, 2, 3, 1).reshape(-1, C)
+        # Bounds masks
+        m00 = (x0l >= 0) & (x0l < W) & (y0l >= 0) & (y0l < H)
+        m10 = (x1l >= 0) & (x1l < W) & (y0l >= 0) & (y0l < H)
+        m01 = (x0l >= 0) & (x0l < W) & (y1l >= 0) & (y1l < H)
+        m11 = (x1l >= 0) & (x1l < W) & (y1l >= 0) & (y1l < H)
 
-        # Define positions and weights
-        positions = [
-            (intNW_X, intNW_Y, fltNW),
-            (intNE_X, intNE_Y, fltNE),
-            (intSW_X, intSW_Y, fltSW),
-            (intSE_X, intSE_Y, fltSE),
-        ]
+        # Base batch offsets
+        base = batch_idx * (H * W)
+        idx00 = base + y0l * W + x0l
+        idx10 = base + y0l * W + x1l
+        idx01 = base + y1l * W + x0l
+        idx11 = base + y1l * W + x1l
 
-        H, W = int(H), int(W)
+        indices = torch.cat([idx00[m00], idx10[m10], idx01[m01], idx11[m11]], 0)
+        values = torch.cat(
+            [
+                feats_flat[m00] * w00[m00].unsqueeze(1),
+                feats_flat[m10] * w10[m10].unsqueeze(1),
+                feats_flat[m01] * w01[m01].unsqueeze(1),
+                feats_flat[m11] * w11[m11].unsqueeze(1),
+            ],
+            0,
+        )
 
-        for intX, intY, weight in positions:
-            # Valid indices within image bounds
-            valid_mask = (intX >= 0) & (intX < W) & (intY >= 0) & (intY < H)
-            if not valid_mask.any():
-                continue
+        out = torch.zeros(N * H * W, C, device=dev, dtype=origdtype)
+        out.index_add_(0, indices, values)
+        return out.view(N, H, W, C).permute(0, 3, 1, 2)
 
-            idx_b = batch_indices[valid_mask]
-            idx_x = intX[valid_mask]
-            idx_y = intY[valid_mask]
-            w = weight[valid_mask]
-            vals = tenIn_flat[valid_mask] * w.unsqueeze(1)
-
-            # Compute linear indices
-            idx_NHW = idx_b * H * W + idx_y * W + idx_x
-
-            # Accumulate values using index_add_
-            tenOut_flat.index_add_(0, idx_NHW, vals)
-
-        # Reshape tenOut back to [N, C, H, W]
-        tenOut = tenOut_flat.view(N, H, W, C).permute(0, 3, 1, 2)
-
-        return tenOut.to(origdtype)
-
-    # end
-
-    # end
-
-    # end
+    # Note: backward not implemented (function is inference-only by design).
