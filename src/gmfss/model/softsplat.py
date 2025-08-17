@@ -7,7 +7,8 @@ import torch
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 grid_cache = {}
-batch_cache = {}
+out_cache = {}
+linear_cache = {}
 torch.set_float32_matmul_precision("medium")
 torch.set_grad_enabled(False)
 
@@ -126,7 +127,11 @@ class softsplat_func(torch.autograd.Function):
         feats_flat = feats_flat[mask]
 
         # Batch index for each surviving pixel
-        linear_full = torch.arange(N * H * W, device=dev)
+        linear_key = (N, H, W, dev)
+        linear_full = linear_cache.get(linear_key)
+        if linear_full is None or linear_full.numel() != N * H * W:
+            linear_full = torch.arange(N * H * W, device=dev, dtype=torch.int64)
+            linear_cache[linear_key] = linear_full
         batch_idx = (linear_full[mask]) // (H * W)
 
         # Corner integer coords
@@ -134,24 +139,21 @@ class softsplat_func(torch.autograd.Function):
         y0 = torch.floor(fltY_flat)
         x1 = x0 + 1
         y1 = y0 + 1
-        x0l = x0.to(torch.int64)
-        y0l = y0.to(torch.int64)
-        x1l = x1.to(torch.int64)
-        y1l = y1.to(torch.int64)
+        x0l = x0.long()
+        y0l = y0.long()
+        x1l = x1.long()
+        y1l = y1.long()
 
-        # Weights
         w00 = (x1 - fltX_flat) * (y1 - fltY_flat)
         w10 = (fltX_flat - x0) * (y1 - fltY_flat)
         w01 = (x1 - fltX_flat) * (fltY_flat - y0)
         w11 = (fltX_flat - x0) * (fltY_flat - y0)
 
-        # Bounds masks
         m00 = (x0l >= 0) & (x0l < W) & (y0l >= 0) & (y0l < H)
         m10 = (x1l >= 0) & (x1l < W) & (y0l >= 0) & (y0l < H)
         m01 = (x0l >= 0) & (x0l < W) & (y1l >= 0) & (y1l < H)
         m11 = (x1l >= 0) & (x1l < W) & (y1l >= 0) & (y1l < H)
 
-        # Base batch offsets
         base = batch_idx * (H * W)
         idx00 = base + y0l * W + x0l
         idx10 = base + y0l * W + x1l
@@ -169,7 +171,13 @@ class softsplat_func(torch.autograd.Function):
             0,
         )
 
-        out = torch.zeros(N * H * W, C, device=dev, dtype=origdtype)
+        cache_key = (N, C, H, W, dev, origdtype)
+        out = out_cache.get(cache_key)
+        if out is None or out.numel() != N * H * W * C:
+            out = torch.zeros(N * H * W, C, device=dev, dtype=origdtype)
+            out_cache[cache_key] = out
+        else:
+            out.zero_()
         out.index_add_(0, indices, values)
         return out.view(N, H, W, C).permute(0, 3, 1, 2)
 
