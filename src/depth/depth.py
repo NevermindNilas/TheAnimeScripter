@@ -1223,15 +1223,6 @@ class VideoDepthAnythingCUDA:
         self.compileMode = compileMode
 
         try:
-            self.readBuffer = BuildBuffer(
-                videoInput=self.input,
-                inpoint=self.inpoint,
-                outpoint=self.outpoint,
-                width=self.width,
-                height=self.height,
-                resize=False,
-            )
-
             self.writeBuffer = WriteBuffer(
                 self.input,
                 self.output,
@@ -1249,9 +1240,8 @@ class VideoDepthAnythingCUDA:
 
             self.handleModels()
 
-            with ThreadPoolExecutor(max_workers=3) as executor:
+            with ThreadPoolExecutor(max_workers=2) as executor:
                 executor.submit(self.writeBuffer)
-                executor.submit(self.readBuffer)
                 executor.submit(self.process)
 
         except Exception as e:
@@ -1283,6 +1273,7 @@ class VideoDepthAnythingCUDA:
 
     def process(self):
         from .video_depth_utils import read_video_frames, save_video
+        import matplotlib.cm as cm
 
         frames, target_fps = read_video_frames(self.input, -1, self.fps, 1280)
         
@@ -1294,15 +1285,20 @@ class VideoDepthAnythingCUDA:
             fp32=(not self.half)
         )
 
-        for depth in depths:
-            depth_normalized = ((depth - depth.min()) / (depth.max() - depth.min()) * 255).astype(np.uint8)
-            depth_colored = cv2.applyColorMap(depth_normalized, cv2.COLORMAP_INFERNO)
-            depth_resized = cv2.resize(depth_colored, (self.width, self.height))
+        colormap = np.array(cm.get_cmap("inferno").colors)
+        d_min, d_max = depths.min(), depths.max()
+        
+        for i, depth in enumerate(depths):
+            depth_norm = ((depth - d_min) / (d_max - d_min) * 255).astype(np.uint8)
+            depth_vis = (colormap[depth_norm] * 255).astype(np.uint8)
+            depth_resized = cv2.resize(depth_vis, (self.width, self.height))
+            
+            depth_tensor = torch.from_numpy(depth_resized).permute(2, 0, 1).unsqueeze(0).float() / 255.0
             
             if self.writeBuffer.writeBuffer.full():
                 self.writeBuffer.writeBuffer.get()
             
-            self.writeBuffer.writeBuffer.put(torch.from_numpy(depth_resized).permute(2, 0, 1).unsqueeze(0).float() / 255.0)
+            self.writeBuffer.writeBuffer.put(depth_tensor)
 
         self.writeBuffer.writeBuffer.put(None)
         logging.info(f"Processed {len(depths)} frames with Video-Depth-Anything")

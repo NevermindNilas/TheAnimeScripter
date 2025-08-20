@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-from .dpt import DPTHead
+from .dpt_v2 import DPTHead
 try:
     from easydict import EasyDict
 except ImportError:
