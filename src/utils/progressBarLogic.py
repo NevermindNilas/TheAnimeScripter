@@ -15,6 +15,15 @@ import logging
 import psutil
 
 
+class SpeedColumn(ProgressColumn):
+    """Displays the current download speed in MB/s."""
+
+    def render(self, task):
+        elapsed = task.elapsed or 0
+        speed = task.completed / elapsed if elapsed > 0 else 0
+        return f"Speed: [magenta]{speed:.2f} MB/s[/magenta]"
+
+
 class FPSColumn(ProgressColumn):
     def __init__(self):
         super().__init__()
@@ -190,6 +199,8 @@ class ProgressBarDownloadLogic:
             "•",
             TextColumn("ETA:"),
             TimeRemainingColumn(),
+            "•",
+            SpeedColumn(),
             "•",
             TextColumn("Data: [cyan]{task.completed}/{task.total} MB[/cyan]"),
         )
