@@ -349,7 +349,9 @@ class VideoProcessor:
             self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
 
         try:
-            with self.ProgressBarLogic(self.totalFrames * increment) as bar:
+            with self.ProgressBarLogic(
+                self.totalFrames * increment, title=self.input
+            ) as bar:
                 for _ in range(self.totalFrames):
                     frame = self.readBuffer.read()
                     if frame is None:
@@ -529,37 +531,23 @@ def main():
 
         results = processInputOutputPaths(args, outputPath)
 
-        # Validate that videos were found
         totalVideos = len(results)
         if totalVideos == 0:
             logAndPrint("No videos found to process", colorFunc="red")
             sys.exit(1)
 
-        # Initialize batch processing timer if multiple videos
         if totalVideos > 1:
             logAndPrint(f"Total Videos found: {totalVideos}", colorFunc="green")
             folderTimer = time()
         else:
             folderTimer = None
 
-        # Process each video
         for idx, i in enumerate(results, 1):
             try:
-                if totalVideos > 1:
-                    logAndPrint(
-                        f"Processing Video {idx}/{totalVideos}: {results[i]['videoPath']}",
-                        colorFunc="green",
-                    )
-                else:
-                    logAndPrint(
-                        f"Processing Video: {results[i]['videoPath']}",
-                        colorFunc="green",
-                    )
-
-                logAndPrint(
-                    f"Output Path: {results[i]['outputPath']}", colorFunc="green"
+                VideoProcessor(
+                    args,
+                    results=results[i],
                 )
-                VideoProcessor(args, results=results[i])
 
             except Exception as e:
                 logAndPrint(
