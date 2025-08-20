@@ -1,3 +1,16 @@
+# Copyright (2025) Bytedance Ltd. and/or its affiliates
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
@@ -9,8 +22,11 @@ import gc
 
 from .dinov2 import DINOv2
 from .dpt_temporal import DPTHeadTemporal
-from .video_depth_utils import Resize, NormalizeImage, PrepareForNet, compute_scale_and_shift, get_interpolate_frames
+from .util.transform import Resize, NormalizeImage, PrepareForNet
 
+from utils.util import compute_scale_and_shift, get_interpolate_frames
+
+# infer settings, do not change
 INFER_LEN = 32
 OVERLAP = 10
 KEYFRAMES = [0,12,24,25,26,27,28,29,30,31]
@@ -46,12 +62,12 @@ class VideoDepthAnything(nn.Module):
         depth = self.head(features, patch_h, patch_w, T)[0]
         depth = F.interpolate(depth, size=(H, W), mode="bilinear", align_corners=True)
         depth = F.relu(depth)
-        return depth.squeeze(1).unflatten(0, (B, T))
+        return depth.squeeze(1).unflatten(0, (B, T)) # return shape [B, T, H, W]
 
     def infer_video_depth(self, frames, target_fps, input_size=518, device='cuda', fp32=False):
         frame_height, frame_width = frames[0].shape[:2]
         ratio = max(frame_height, frame_width) / min(frame_height, frame_width)
-        if ratio > 1.78:
+        if ratio > 1.78:  # we recommend to process video with ratio smaller than 16:9 due to memory limitation
             input_size = int(input_size * 1.777 / ratio)
             input_size = round(input_size / 14) * 14
 
@@ -87,7 +103,7 @@ class VideoDepthAnything(nn.Module):
 
             with torch.no_grad():
                 with torch.autocast(device_type=device, enabled=(not fp32)):
-                    depth = self.forward(cur_input)
+                    depth = self.forward(cur_input) # depth shape: [1, T, H, W]
 
             depth = depth.to(cur_input.dtype)
             depth = F.interpolate(depth.flatten(0,1).unsqueeze(1), size=(frame_height, frame_width), mode='bilinear', align_corners=True)
@@ -137,3 +153,4 @@ class VideoDepthAnything(nn.Module):
         depth_list = depth_list_aligned
 
         return np.stack(depth_list[:org_video_len], axis=0), target_fps
+
