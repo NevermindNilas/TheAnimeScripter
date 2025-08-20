@@ -481,6 +481,7 @@ def _addDepthOptions(argParser):
         "og_distill_small_v2",
         "og_distill_base_v2",
         "og_distill_large_v2",
+        "og_video_small_v2",
         "small_v2-tensorrt",
         "base_v2-tensorrt",
         "large_v2-tensorrt",
