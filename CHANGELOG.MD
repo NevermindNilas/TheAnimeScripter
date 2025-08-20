@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   - Prints a simple list like `Missing distributions detected: ['tensorrt']` before installing
 - Added a small map for common package→module name differences
   - Example: `opencv-python` → `cv2`, `onnxruntime-gpu` → `onnxruntime`
+- Added report of download speed to the progress bar.
 
 #### Changed
 - Improvements of up to `25%` in encoding bottlenecked workflows.
