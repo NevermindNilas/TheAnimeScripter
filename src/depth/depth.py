@@ -1183,3 +1183,122 @@ class OGDepthV2TensorRT:
             )
             self.outputWriter.write(frame)
         self.outputWriter.release()
+
+
+class VideoDepthAnythingCUDA:
+    def __init__(
+        self,
+        input,
+        output,
+        width,
+        height,
+        fps,
+        half,
+        inpoint=0,
+        outpoint=0,
+        encode_method="x264",
+        depth_method="og_video_small_v2",
+        custom_encoder="",
+        benchmark=False,
+        totalFrames=0,
+        bitDepth: str = "16bit",
+        depthQuality: str = "high",
+        compileMode: str = "default",
+    ):
+        self.input = input
+        self.output = output
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.half = half
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.encode_method = encode_method
+        self.depth_method = depth_method
+        self.custom_encoder = custom_encoder
+        self.benchmark = benchmark
+        self.totalFrames = totalFrames
+        self.bitDepth = bitDepth
+        self.depthQuality = depthQuality
+        self.compileMode = compileMode
+
+        try:
+            self.writeBuffer = WriteBuffer(
+                self.input,
+                self.output,
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
+                self.fps,
+                sharpen=False,
+                sharpen_sens=None,
+                grayscale=True,
+                benchmark=self.benchmark,
+                bitDepth=self.bitDepth,
+            )
+
+            self.handleModels()
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                executor.submit(self.writeBuffer)
+                executor.submit(self.process)
+
+        except Exception as e:
+            logging.exception(f"Something went wrong, {e}")
+
+    def handleModels(self):
+        from .video_depth_anything import VideoDepthAnything
+
+        model_configs = {
+            'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
+            'vitl': {'encoder': 'vitl', 'features': 256, 'out_channels': [256, 512, 1024, 1024]},
+        }
+
+        encoder = 'vits'
+        
+        self.model = VideoDepthAnything(**model_configs[encoder])
+        
+        modelPath = os.path.join(weightsDir, "video_depth_anything", f"video_depth_anything_{encoder}.pth")
+        
+        if not os.path.exists(modelPath):
+            logging.warning(f"Model file not found at {modelPath}. Using random initialization.")
+        else:
+            self.model.load_state_dict(torch.load(modelPath, map_location='cpu'), strict=True)
+        
+        self.model = self.model.to(checker.device).eval()
+        
+        if self.half and checker.cudaAvailable:
+            self.model = self.model.half()
+
+    def process(self):
+        from .video_depth_utils import read_video_frames, save_video
+        import matplotlib.cm as cm
+
+        frames, target_fps = read_video_frames(self.input, -1, self.fps, 1280)
+        
+        depths, fps = self.model.infer_video_depth(
+            frames, 
+            target_fps, 
+            input_size=518, 
+            device=checker.device, 
+            fp32=(not self.half)
+        )
+
+        colormap = np.array(cm.get_cmap("inferno").colors)
+        d_min, d_max = depths.min(), depths.max()
+        
+        for i, depth in enumerate(depths):
+            depth_norm = ((depth - d_min) / (d_max - d_min) * 255).astype(np.uint8)
+            depth_vis = (colormap[depth_norm] * 255).astype(np.uint8)
+            depth_resized = cv2.resize(depth_vis, (self.width, self.height))
+            
+            depth_tensor = torch.from_numpy(depth_resized).permute(2, 0, 1).unsqueeze(0).float() / 255.0
+            
+            if self.writeBuffer.writeBuffer.full():
+                self.writeBuffer.writeBuffer.get()
+            
+            self.writeBuffer.writeBuffer.put(depth_tensor)
+
+        self.writeBuffer.writeBuffer.put(None)
+        logging.info(f"Processed {len(depths)} frames with Video-Depth-Anything")
