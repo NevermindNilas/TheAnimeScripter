@@ -6,7 +6,7 @@ wheel-stub==0.4.2
 psutil==7.0.0
 
 # Network and HTTP
-requests==2.32.4
+requests==2.32.5
 
 # User interface and CLI
 inquirer==3.4.1
