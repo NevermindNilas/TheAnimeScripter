@@ -9,7 +9,7 @@ einops==0.8.1
 numpy==2.2.4
 triton-windows==3.4.0.post20
 onnxruntime-directml==1.21.1
-pytorch-lightning==2.5.2
+pytorch-lightning==2.5.3
 safetensors==0.6.2
 scenedetect[opencv]
 yt-dlp==2025.8.22
