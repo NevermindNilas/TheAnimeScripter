@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [Unreleased] - YYY-MM-DD
+## [Unreleased] - YYYY-MM-DD
 ### WARNING
 - TAS is now using pytorch 2.8.0 + cuda 12.9, this means that older GPUs ( Maxwell, Pascal, and Volta ) with capabilities <= sm 70 have been fully deprecated and will no longer be supported. This means that TAS will no longer work on these GPUs, if you are using a GPU with sm 70 or lower, please stick to TAS 2.3.8 or earlier.
 - With the migration to Celux, I strongly recommend deleting previous installations of TAS and reinstalling the latest version to avoid any potential issues with the new decoding backend.
@@ -45,9 +45,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## Adobe Edition
 ### New
 - Added `Xpress 8k` compression method to the TAS-Portable folder resulting in up to a 50% reduction in final binary size, highly experimental and not recommended for everyone.
+- An attempt to solve an issue where Pre-Renders would not work properly in the Adobe Edition due to different UI language.
 
 ### Changed
-- Added Resize Output option to the Adobe Edition, this will resize the output to the specified resolution, this is primarily used for upscaling workflows. 
+- Added Resize Output option to the Adobe Edition, this will resize the output to the specified resolution, this is primarily used for upscaling workflows.
 
 ## [2.3.8] - 2025-08-03
 #### Changed
