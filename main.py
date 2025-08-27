@@ -182,7 +182,6 @@ class VideoProcessor:
         """
         if self.autoclip:
             logging.info("Detecting scene changes")
-            # Lazy import
             from src.initializeModels import autoClip
 
             autoClip(self)
@@ -521,12 +520,10 @@ def main():
         logging.info("============== Command Line Arguments ==============")
         logging.info(f"{' '.join(sys.argv)}\n")
 
-        # Parse command line arguments and process input/output paths
         from src.utils.argumentsChecker import createParser
 
         args = createParser(baseOutputPath)
         outputPath = os.path.join(baseOutputPath, "output")
-        # Lazy import to avoid import cost for help/early exit
         from src.utils.inputOutputHandler import processInputOutputPaths
 
         results = processInputOutputPaths(args, outputPath)
@@ -542,7 +539,7 @@ def main():
         else:
             folderTimer = None
 
-        for idx, i in enumerate(results, 1):
+        for _, i in enumerate(results, 1):
             try:
                 VideoProcessor(
                     args,
@@ -556,7 +553,6 @@ def main():
                 )
                 logging.exception(f"Error processing video {results[i]['videoPath']}")
 
-        # Log batch processing statistics
         if totalVideos > 1 and folderTimer is not None:
             totalTime = time() - folderTimer
 
