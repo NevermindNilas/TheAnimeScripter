@@ -6,7 +6,7 @@ wheel-stub==0.4.2
 psutil==7.0.0
 
 # Network and HTTP
-requests==2.32.4
+requests==2.32.5
 
 # User interface and CLI
 inquirer==3.4.1
@@ -15,7 +15,7 @@ rich==14.1.0
 rich-argparse==1.7.1
 
 # Web server for Adobe integration
-Flask==3.1.1
+Flask==3.1.2
 Flask-Cors==6.0.1
 
 # Video processing
