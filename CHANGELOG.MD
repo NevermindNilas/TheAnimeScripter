@@ -49,6 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - An attempt to solve an issue where Pre-Renders would not work properly in the Adobe Edition due to different UI language.
 - Added Resize Output option to the Adobe Edition, this will resize the output to the specified resolution, this is primarily used for upscaling workflows.
 - Added back `ProRes` Encoding.
+- Added breadcrumbs to the `Chain` tab to showcase each step the Input takes.
 
 ### Changed
 - Improved the design of the `LogTab` and `AboutTab`
