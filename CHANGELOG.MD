@@ -47,9 +47,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### New
 - Added `Xpress 8k` compression method to the TAS-Portable folder resulting in up to a 50% reduction in final binary size, highly experimental and not recommended for everyone.
 - An attempt to solve an issue where Pre-Renders would not work properly in the Adobe Edition due to different UI language.
+- Added Resize Output option to the Adobe Edition, this will resize the output to the specified resolution, this is primarily used for upscaling workflows.
+- Added back `ProRes` Encoding.
 
 ### Changed
-- Added Resize Output option to the Adobe Edition, this will resize the output to the specified resolution, this is primarily used for upscaling workflows.
+- Improved the design of the `LogTab` and `AboutTab`
+
+### Fixed
+- Fixed an issue where the screenshot functionality would not parse 3rd party plugins properly.
+- Fixed an issue where the ProRes necessary extension ( .mov ) wasn't properly added to the output file.
 
 ## [2.3.8] - 2025-08-03
 #### Changed
