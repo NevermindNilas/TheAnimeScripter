@@ -357,10 +357,10 @@ C:\Videos\episode3.mp4
 | Method | Speed | Accuracy | VRAM | Best For | Acceleration |
 |--------|-------|----------|------|----------|--------------|
 | **ssim** | ⚡⚡⚡ | ⭐⭐⭐ | Low | General use | CPU |
-| **ssim-cuda** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | GPU accelerated | CUDA |
+| **ssim-cuda** | ⚡⚡⚡⚡ | ⭐⭐⭐ | <1GB | GPU accelerated | CUDA |
 | **mse** | ⚡⚡⚡⚡⚡ | ⭐⭐ | Low | Fast processing | CPU |
-| **mse-cuda** | ⚡⚡⚡⚡⚡ | ⭐⭐ | 1GB | Fast GPU processing | CUDA |
-| **flownets** | ⚡ | ⭐⭐⭐⭐⭐ | 4GB | Maximum accuracy | CUDA |
+| **mse-cuda** | ⚡⚡⚡⚡⚡ | ⭐⭐ | <1GB | Fast GPU processing | CUDA |
+| **flownets** | ⚡ | ⭐⭐⭐⭐⭐ | <2GB | Maximum accuracy | CUDA |
 
 ### 🔧 Restoration & Enhancement
 
