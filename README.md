@@ -98,7 +98,7 @@ The native Windows application will provide a dedicated environment optimized fo
 <div class="requirements-box">
 
 **System Requirements:**
-- After Effects 2020 (v17.5) or higher
+- After Effects 2022 or higher
 - Compatible GPU recommended
 
 </div>
