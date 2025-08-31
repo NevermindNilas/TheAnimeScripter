@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from flask import jsonify
 from flask import Response, stream_with_context
 import json
+import flask.cli as flask_cli
 
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
@@ -73,7 +74,7 @@ def runServer(host):
     port = parsed.port or 8080
 
     logging.info(f"AE Comms Server running on {hostname}:{port}")
-
+    flask_cli.show_server_banner = lambda *args, **kwargs: None
     app.run(host=hostname, port=port, debug=False, threaded=True, use_reloader=False)
 
 
