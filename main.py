@@ -34,6 +34,7 @@ from time import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 from fractions import Fraction
+import src.constants as cs
 
 warnings.filterwarnings("ignore")
 
@@ -476,28 +477,23 @@ def main():
     for single or multiple input files.
     """
     try:
-        # Ultra-fast path for help/version: avoid logging setup and heavy imports
         if any(flag in sys.argv for flag in ("-h", "--help", "-v", "--version")):
             from src.utils.argumentsChecker import createParser
 
             try:
-                # createParser will invoke argparse and exit for -h/-v
                 createParser(outputPath=os.getcwd())
             except SystemExit:
                 return
 
-        # Initialize system constants
-        import src.constants as cs
-
         cs.SYSTEM = system()
-        cs.MAINPATH = (
-            os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
-            if cs.SYSTEM == "Windows"
-            else os.path.join(
-                os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
-                "TheAnimeScripter",
-            )
-        )
+        if cs.SYSTEM == "Windows":
+            appdata = os.getenv("APPDATA") or os.getenv("LOCALAPPDATA")
+            if not appdata:
+                appdata = os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
+            cs.MAINPATH = os.path.join(appdata, "TheAnimeScripter")
+        else:
+            xdg_config = os.getenv("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+            cs.MAINPATH = os.path.join(xdg_config, "TheAnimeScripter")
         cs.WHEREAMIRUNFROM = os.path.dirname(os.path.abspath(__file__))
         os.makedirs(cs.MAINPATH, exist_ok=True)
 
