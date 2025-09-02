@@ -65,6 +65,7 @@ class ProgressBarLogic:
     def __init__(
         self,
         totalFrames: int,
+        title: str = "Processing",
     ):
         """
         Initializes the progress bar for the given range of frames.
