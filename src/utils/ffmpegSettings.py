@@ -59,11 +59,22 @@ class BuildBuffer:
         if not os.path.exists(videoInput):
             raise FileNotFoundError(f"Video file not found: {videoInput}")
 
+        # Determine device and create CUDA stream if possible; gracefully fall back on failure
+        self.cudaEnabled = False
         if checker.cudaAvailable:
-            self.deviceType = "cuda"
-            self.normStream = torch.cuda.Stream()
+            try:
+                self.normStream = torch.cuda.Stream()
+                self.deviceType = "cuda"
+                self.cudaEnabled = True
+            except Exception as e:
+                logging.warning(
+                    f"CUDA stream init failed, falling back to CPU. Reason: {e}"
+                )
+                self.deviceType = "cpu"
+                self.cudaEnabled = False
         else:
             self.deviceType = "cpu"
+            self.cudaEnabled = False
 
     def __call__(self):
         """
@@ -84,7 +95,7 @@ class BuildBuffer:
             for frame in reader:
                 if self.toTorch:
                     frame = self.processFrameToTorch(
-                        frame, self.normStream if checker.cudaAvailable else None
+                        frame, self.normStream if self.cudaEnabled else None
                     )
                 else:
                     frame = self.processFrameToNumpy(frame)
@@ -146,7 +157,7 @@ class BuildBuffer:
             The processed frame as a torch tensor.
         """
         norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
-        if checker.cudaAvailable:
+        if self.cudaEnabled:
             with torch.cuda.stream(normStream):
                 try:
                     frame = frame.pin_memory()
@@ -173,7 +184,8 @@ class BuildBuffer:
                 else:
                     frame = frame.unsqueeze(0)
 
-            normStream.synchronize()
+            if normStream is not None:
+                normStream.synchronize()
             return frame
         else:
             try:
@@ -485,6 +497,7 @@ class WriteBuffer:
                 logging.warning("Encoding interrupted by user")
                 return
 
+        ffmpegProc = None
         try:
             initialFrame = self.writeBuffer.queue[0]
 
@@ -511,19 +524,32 @@ class WriteBuffer:
                 torch.empty(
                     (self.height, self.width, self.channels),
                     dtype=dtype,
-                    pin_memory=True,
                 )
                 for _ in range(2)
             ]
 
+            for buf in hostBuffers:
+                try:
+                    buf = buf.pin_memory()
+                except Exception:
+                    pass
+
+            useCuda = False
+            normStream = None
+            events = None
             if checker.cudaAvailable:
-                normStream = torch.cuda.Stream()
-                events = [
-                    torch.cuda.Event(enable_timing=False),
-                    torch.cuda.Event(enable_timing=False),
-                ]
-            else:
-                normStream = None
+                try:
+                    normStream = torch.cuda.Stream()
+                    events = [
+                        torch.cuda.Event(enable_timing=False),
+                        torch.cuda.Event(enable_timing=False),
+                    ]
+                    useCuda = True
+                except Exception as e:
+                    logging.warning(
+                        f"CUDA init failed in writer, using CPU path. Reason: {e}"
+                    )
+                    useCuda = False
 
             ffmpegProc = subprocess.Popen(
                 command,
@@ -542,7 +568,7 @@ class WriteBuffer:
                 if frame is None:
                     break
 
-                if checker.cudaAvailable:
+                if useCuda:
                     with torch.cuda.stream(normStream):
                         if needsResize:
                             frame = F.interpolate(
@@ -591,7 +617,7 @@ class WriteBuffer:
                     ffmpegProc.stdin.write(memoryview(arr))
                     writtenFrames += 1
 
-            if checker.cudaAvailable and prevIDX is not None:
+            if useCuda and prevIDX is not None:
                 events[prevIDX].synchronize()
                 arr = hostBuffers[prevIDX].numpy()
                 ffmpegProc.stdin.write(memoryview(arr))
@@ -603,8 +629,10 @@ class WriteBuffer:
             logging.error(f"Encoding error: {e}")
         finally:
             try:
-                ffmpegProc.stdin.close()
-                ffmpegProc.wait(timeout=3)
+                if ffmpegProc is not None and ffmpegProc.stdin:
+                    ffmpegProc.stdin.close()
+                if ffmpegProc is not None:
+                    ffmpegProc.wait(timeout=3)
 
             except Exception as e:
                 logging.warning(f"Cleanup error: {e}")
