@@ -413,7 +413,6 @@ class ProgressBarDownloadLogic:
         if cs.ADOBE:
             return
         if hasattr(self, "stackedProgress"):
-            # Set start time if needed
             task = self.stackedProgress.progress.tasks[self.stackedProgress.task]
             if task.start_time is None:
                 task.start_time = time()
