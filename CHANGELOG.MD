@@ -3,7 +3,17 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [Unreleased] - YYYY-MM-DD
+## [2.4.2] - 2025-09-02
+### Fixed
+- Fixed an issue where ffmpeg would fail to download due to Charmap issues in Adobe Edition
+- Theoretically fixed an issue for AMD Users where certain variables would not be defined.
+
+
+## [2.4.1] - 2025-08-31
+### Fixed
+- An issue with appdata path seeking.
+
+## [2.4.0] - 2025-08-31
 ### WARNING
 - TAS is now using pytorch 2.8.0 + cuda 12.9, this means that older GPUs ( Maxwell, Pascal, and Volta ) with capabilities <= sm 70 have been fully deprecated and will no longer be supported. This means that TAS will no longer work on these GPUs, if you are using a GPU with sm 70 or lower, please stick to TAS 2.3.8 or earlier.
 - With the migration to Celux, I strongly recommend deleting previous installations of TAS and reinstalling the latest version to avoid any potential issues with the new decoding backend.
