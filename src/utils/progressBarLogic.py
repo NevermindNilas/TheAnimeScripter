@@ -221,9 +221,9 @@ class ProgressBarLogic:
         self.totalFrames = totalFrames
         self.completed = 0
         if title is not None:
-            self.title = f"🎬 Working on: {title}"
+            self.title = f"Working on: {title}"
         else:
-            self.title = "🎬 Processing Frames:"
+            self.title = "Processing Frames:"
 
     def __enter__(self):
         if cs.ADOBE:
