@@ -358,6 +358,10 @@ class ProgressBarDownloadLogic:
         self.title = title
 
     def __enter__(self):
+        # Disable any visual progress in Adobe mode
+        if cs.ADOBE:
+            return self
+
         # Use stacked progress for downloads too
         columns = [
             TextColumn(
@@ -386,6 +390,8 @@ class ProgressBarDownloadLogic:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        if cs.ADOBE:
+            return
         if hasattr(self, "stackedProgress"):
             self.stackedProgress.__exit__(exc_type, exc_value, traceback)
 
@@ -396,12 +402,16 @@ class ProgressBarDownloadLogic:
         Args:
             newTotal (int): The new total value"""
         self.totalData = newTotal
+        if cs.ADOBE:
+            return
         if hasattr(self, "stackedProgress"):
             self.stackedProgress.progress.update(
                 self.stackedProgress.task, total=newTotal
             )
 
     def advance(self, advance=1):
+        if cs.ADOBE:
+            return
         if hasattr(self, "stackedProgress"):
             # Set start time if needed
             task = self.stackedProgress.progress.tasks[self.stackedProgress.task]
