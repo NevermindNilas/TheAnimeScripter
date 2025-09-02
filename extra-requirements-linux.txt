@@ -6,7 +6,7 @@ tensorrt==10.13.2.6
 opencv-python-headless==4.12.0.88
 timm==1.0.19
 numpy==2.2.4
-onnx==1.18.0
+onnx==1.19.0
 pytorch-lightning==2.5.3
 safetensors==0.6.2
 scenedetect[opencv]
