@@ -22,6 +22,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13.6"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
 
       - name: Extract version
         id: get_version
@@ -40,8 +42,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
-          tag_name: TAS-${{ env.version }}
-          release_name: TAS-${{ env.version }}
+          tag_name: TAS-${{ steps.get_version.outputs.version }}
+          release_name: TAS-${{ steps.get_version.outputs.version }}
           draft: true
 
   build_windows:
@@ -54,13 +56,17 @@ jobs:
           submodules: recursive
 
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: "3.13.6"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
 
-      - name: Set up setuptools and pip
+      - name: Set up setuptools, pip and install requirements
         run: |
           python -m pip install --upgrade pip setuptools wheel
+          # install requirements (will be fast when cache is hit)
+          if (Test-Path requirements.txt) { python -m pip install -r requirements.txt } else { Write-Host 'requirements.txt not found, skipping'}
 
       - name: Run full build script
         run: python build.py
