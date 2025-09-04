@@ -5,6 +5,10 @@ import re
 import subprocess
 import platform
 import inquirer
+import sys
+
+# Add current directory to path to import src modules
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 if platform.system() == "Windows":
     mainPath = os.path.join(os.getenv("APPDATA"), "TheAnimeScripter")
@@ -47,6 +51,26 @@ def runAllBenchmarks(executor, version, inputVideo=None, systemInfo=None):
 
 
 def getExe():
+    """Get executor and version with caching for improved performance"""
+    try:
+        # Try to use cached version first
+        from src.utils.dependencyHandler import DependencyChecker
+        
+        # Set up constants needed by dependencyHandler
+        import src.constants as cs
+        cs.MAINPATH = mainPath
+        
+        dependency_checker = DependencyChecker()
+        executor, version = dependency_checker.getExecutorCached()
+        return executor, version
+        
+    except Exception as e:
+        # Fallback to original implementation if caching fails
+        print(f"Caching failed, using fallback: {e}")
+        return getExeOriginal()
+
+def getExeOriginal():
+    """Original getExe implementation as fallback"""
     if os.path.exists("main.exe"):
         version = subprocess.check_output(["main.exe", "--version"]).decode().strip()
         return ["main.exe"], version
