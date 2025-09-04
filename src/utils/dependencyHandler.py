@@ -24,6 +24,34 @@ def getPythonExecutable() -> str:
     return sys.executable
 
 
+def getPythonVersionCached() -> str:
+    """
+    Get the current Python version with caching for improved performance
+    
+    Returns:
+        str: Python version in format "major.minor.micro"
+    """
+    try:
+        import src.constants as cs
+        if not hasattr(cs, 'MAINPATH') or not cs.MAINPATH:
+            # Fallback to user config directory if MAINPATH not set
+            if sys.platform == "win32":
+                cs.MAINPATH = os.path.join(os.getenv("APPDATA", ""), "TheAnimeScripter")
+            else:
+                cs.MAINPATH = os.path.join(
+                    os.getenv("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+                    "TheAnimeScripter"
+                )
+            if not os.path.exists(cs.MAINPATH):
+                os.makedirs(cs.MAINPATH)
+        
+        checker = DependencyChecker()
+        return checker.getPythonVersionCached()
+    except Exception:
+        # Fallback to direct sys.version_info if caching fails
+        return f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+
+
 # https://github.com/pypa/hatch/blob/4ebce0e1fe8bf0fcdef587a704c207a063d72575/src/hatch/utils/platform.py#L176-L180
 def streamProcessOutput(process) -> Iterable[str]:
     # To avoid blocking never use a pipe's file descriptor iterator. See https://bugs.python.org/issue3907
@@ -211,6 +239,80 @@ class DependencyChecker:
             self._cache = cache
         except Exception as e:
             logging.warning(f"Failed to update dependency cache: {e}")
+
+    def getPythonVersionCached(self):
+        """Get Python version information with caching"""
+        cache = self._loadCache()
+        current_executable = sys.executable
+        
+        # Check if cached version exists and executable hasn't changed
+        if (cache.get("python_executable") == current_executable and 
+            cache.get("python_version")):
+            return cache.get("python_version")
+        
+        # Get version from sys module (faster than subprocess)
+        version_info = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        
+        # Update cache
+        cache["python_executable"] = current_executable
+        cache["python_version"] = version_info
+        
+        try:
+            with open(self.cachePath, "w") as f:
+                json.dump(cache, f)
+            self._cache = cache
+        except Exception as e:
+            logging.warning(f"Failed to update Python version cache: {e}")
+        
+        return version_info
+
+    def getExecutorCached(self):
+        """Get executor and version information with caching"""
+        import os
+        import platform
+        import subprocess
+        
+        cache = self._loadCache()
+        current_executable = sys.executable
+        
+        # Check cache first
+        cache_key_executor = "cached_executor"
+        cache_key_version = "cached_app_version"
+        cache_key_python_exe = "python_executable"
+        
+        if (cache.get(cache_key_python_exe) == current_executable and 
+            cache.get(cache_key_executor) and cache.get(cache_key_version)):
+            return cache.get(cache_key_executor), cache.get(cache_key_version)
+        
+        # Determine executor and get version (original logic)
+        if os.path.exists("main.exe"):
+            executor = ["main.exe"]
+            version = subprocess.check_output([*executor, "--version"]).decode().strip()
+        else:
+            if platform.system() == "Linux":
+                if os.path.exists("./main"):
+                    executor = ["./main"]
+                    version = subprocess.check_output([*executor, "--version"]).decode().strip()
+                else:
+                    executor = ["python3.12", "main.py"]
+                    version = subprocess.check_output([*executor, "--version"]).decode().strip()
+            else:
+                executor = ["python", "main.py"]
+                version = subprocess.check_output([*executor, "--version"]).decode().strip()
+        
+        # Update cache
+        cache[cache_key_python_exe] = current_executable
+        cache[cache_key_executor] = executor
+        cache[cache_key_version] = version
+        
+        try:
+            with open(self.cachePath, "w") as f:
+                json.dump(cache, f)
+            self._cache = cache
+        except Exception as e:
+            logging.warning(f"Failed to update executor cache: {e}")
+        
+        return executor, version
 
     def forceFullDownload(self, requirementsFile=None):
         """
