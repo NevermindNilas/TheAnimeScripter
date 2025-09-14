@@ -300,6 +300,12 @@ def _addUpscalingOptions(argParser):
 
     upscaleMethods = [
         "shufflecugan",
+        "fallin_soft",
+        "fallin_soft-tensorrt",
+        "fallin_soft-directml",
+        "fallin_strong",
+        "fallin_strong-tensorrt",
+        "fallin_strong-directml",
         "compact",
         "ultracompact",
         "superultracompact",
@@ -354,6 +360,11 @@ def _addDedupOptions(argParser):
     )
     dedupGroup.add_argument(
         "--dedup_sens", type=float, default=35, help="Deduplication sensitivity"
+    )
+    dedupGroup.add_argument(
+        "--smooth_dedup",
+        action="store_true",
+        help="Smooth deduplication, this will remove duplicates while also generating new frames to make the video smoother, this is experimental and may not work well with all videos, use --interpolate_method to set the interpolation method",
     )
 
 
@@ -894,8 +905,11 @@ def _configureProcessingSettings(args):
         args.static_step = False
 
     if args.dedup:
-        cs.AUDIO = False
-        logging.info("Deduplication enabled, audio processing disabled")
+        if not args.smooth_dedup:
+            cs.AUDIO = False
+            logging.info(
+                "Deduplication enabled and smooth dedup disabled, audio processing disabled"
+            )
 
         if args.dedup_method in ["ssim", "ssim-cuda"]:
             args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
