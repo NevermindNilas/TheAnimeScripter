@@ -269,16 +269,16 @@ C:\Videos\episode3.mp4
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | General anime | CUDA, TRT, NCNN |
-| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 4GB | Soft enhancement with denoising | CUDA, TRT, DML |
-| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 4GB | Sharper enhancement with denoising | CUDA, TRT, DML |
-| **span** | ⚡⚡ | ⭐⭐⭐ | 6GB | High quality anime | CUDA, TRT, DML, NCNN |
+| **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime | CUDA, TRT, NCNN |
+| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, TRT, DML |
+| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, TRT, DML |
+| **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, TRT, DML, NCNN |
 | **compact** | ⚡ | ⭐⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML |
 | **ultracompact** | ⚡⚡ | ⭐⭐⭐ | 1GB | Very fast | CUDA, TRT, DML |
 | **superultracompact** | ⚡⚡⚡⚡ | ⭐⭐ | 1GB | Fastest | CUDA, TRT, DML |
-| **open-proteus** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT, DML |
-| **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 6GB | Modern anime | CUDA, TRT, DML |
-| **rtmosr** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Real-time focus | TRT, DML |
+| **open-proteus** | ⚡ | ⭐⭐⭐⭐ | 2GB | Maximum quality | CUDA, TRT, DML |
+| **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 2GB | Modern anime | CUDA, TRT, DML |
+| **rtmosr** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Real-time focus | TRT, DML |
 
 > **💡 Recommendation:** Use `shufflecugan-tensorrt` for balanced speed/quality, `span-tensorrt` for best quality
 
