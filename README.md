@@ -143,69 +143,69 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 ### 🆙 Upscaling Models
 
-| Model                 | CUDA | TensorRT | DirectML | NCNN |
-|-----------------------|:----:|:--------:|:--------:|:----:|
-| ShuffleCugan          |  ✅   |    ✅     |    ❌     |  ✅   |
-| Fallin Soft          |  ✅   |    ✅     |    ✅     |  ❌   |
-| Fallin Strong        |  ✅   |    ✅     |    ✅     |
-| Span                  |  ✅   |    ✅     |    ✅     |  ✅   |
-| SRVGGNet (Compact)    |  ✅   |    ✅     |    ✅     |  ❌   |
-| SRVGGNet (Ultra)      |  ✅   |    ✅     |    ✅     |  ❌   |
-| SRVGGNet (SuperUltra) |  ✅   |    ✅     |    ✅     |  ❌   |
-| OpenProteus           |  ✅   |    ✅     |    ✅     |  ❌   |
-| AniScale 2            |  ✅   |    ✅     |    ✅     |  ❌   |
-| RTMOSR                |  ❌   |    ✅     |    ✅     |  ❌   |
-| Custom (Spandrel)     |  ✅   |    ❌     |    ❌     |  ❌   |
+| Model                 | CUDA  | TensorRT | DirectML | NCNN  |
+| --------------------- | :---: | :------: | :------: | :---: |
+| ShuffleCugan          |   ✅   |    ✅     |    ❌     |   ✅   |
+| Fallin Soft           |   ✅   |    ✅     |    ✅     |   ❌   |
+| Fallin Strong         |   ✅   |    ✅     |    ✅     |   ❌   |
+| Span                  |   ✅   |    ✅     |    ✅     |   ✅   |
+| SRVGGNet (Compact)    |   ✅   |    ✅     |    ✅     |   ❌   |
+| SRVGGNet (Ultra)      |   ✅   |    ✅     |    ✅     |   ❌   |
+| SRVGGNet (SuperUltra) |   ✅   |    ✅     |    ✅     |   ❌   |
+| OpenProteus           |   ✅   |    ✅     |    ✅     |   ❌   |
+| AniScale 2            |   ✅   |    ✅     |    ✅     |   ❌   |
+| RTMOSR                |   ❌   |    ✅     |    ✅     |   ❌   |
+| Custom (Spandrel)     |   ✅   |    ❌     |    ❌     |   ❌   |
 
 ### ⏱️ Interpolation Models (RIFE)
 
-| Version               | CUDA | TensorRT | DirectML | NCNN |
-|-----------------------|:----:|:--------:|:--------:|:----:|
-| 4.6                   |  ✅   |    ✅     |    ❌     |  ✅   |
-| 4.15                  |  ✅   |    ✅     |    ❌     |  ✅   |
-| 4.15-lite             |  ✅   |    ✅     |    ❌     |  ✅   |
-| 4.16-lite             |  ✅   |    ❌     |    ❌     |  ✅   |
-| 4.17                  |  ✅   |    ✅     |    ❌     |  ✅   |
-| 4.18                  |  ✅   |    ✅     |    ❌     |  ✅   |
-| 4.20                  |  ✅   |    ✅     |    ❌     |  ✅   |
-| 4.21                  |  ✅   |    ✅     |    ❌     |  ✅   |
-| 4.22                  |  ✅   |    ✅     |    ❌     |  ✅   |
-| 4.22-lite             |  ✅   |    ✅     |    ❌     |  ✅   |
-| 4.25                  |  ✅   |    ✅     |    ❌     |  ❌   |
-| 4.25-heavy            |  ✅   |    ✅     |    ❌     |  ❌   |
-| Rife_Elexor (mod 4.7) |  ✅   |    ✅     |    ❌     |  ❌   |
+| Version               | CUDA  | TensorRT | DirectML | NCNN  |
+| --------------------- | :---: | :------: | :------: | :---: |
+| 4.6                   |   ✅   |    ✅     |    ❌     |   ✅   |
+| 4.15                  |   ✅   |    ✅     |    ❌     |   ✅   |
+| 4.15-lite             |   ✅   |    ✅     |    ❌     |   ✅   |
+| 4.16-lite             |   ✅   |    ❌     |    ❌     |   ✅   |
+| 4.17                  |   ✅   |    ✅     |    ❌     |   ✅   |
+| 4.18                  |   ✅   |    ✅     |    ❌     |   ✅   |
+| 4.20                  |   ✅   |    ✅     |    ❌     |   ✅   |
+| 4.21                  |   ✅   |    ✅     |    ❌     |   ✅   |
+| 4.22                  |   ✅   |    ✅     |    ❌     |   ✅   |
+| 4.22-lite             |   ✅   |    ✅     |    ❌     |   ✅   |
+| 4.25                  |   ✅   |    ✅     |    ❌     |   ❌   |
+| 4.25-heavy            |   ✅   |    ✅     |    ❌     |   ❌   |
+| Rife_Elexor (mod 4.7) |   ✅   |    ✅     |    ❌     |   ❌   |
 
 ### 🔧 Restoration Models
 
-| Model               | CUDA | TensorRT | DirectML | NCNN |
-|---------------------|:----:|:--------:|:--------:|:----:|
-| SCUNet (Denoise)    |  ✅   |    ✅     |    ❌     |  ❌   |
-| NAFNet (Denoise)    |  ✅   |    ❌     |    ❌     |  ❌   |
-| DPIR (Denoise)      |  ✅   |    ❌     |    ❌     |  ❌   |
-| Real-Plksr (DeJpeg) |  ✅   |    ❌     |    ❌     |  ❌   |
-| Anime1080fixer      |  ✅   |    ✅     |    ✅     |  ❌   |
-| FastLineDarken      |  ✅   |    ✅     |    ❌     |  ❌   |
-| GaterV3             |  ✅   |    ❌     |    ✅     |  ❌   |
+| Model               | CUDA  | TensorRT | DirectML | NCNN  |
+| ------------------- | :---: | :------: | :------: | :---: |
+| SCUNet (Denoise)    |   ✅   |    ✅     |    ❌     |   ❌   |
+| NAFNet (Denoise)    |   ✅   |    ❌     |    ❌     |   ❌   |
+| DPIR (Denoise)      |   ✅   |    ❌     |    ❌     |   ❌   |
+| Real-Plksr (DeJpeg) |   ✅   |    ❌     |    ❌     |   ❌   |
+| Anime1080fixer      |   ✅   |    ✅     |    ✅     |   ❌   |
+| FastLineDarken      |   ✅   |    ✅     |    ❌     |   ❌   |
+| GaterV3             |   ✅   |    ❌     |    ✅     |   ❌   |
 
 ### 🌊 Depth Map Models
 
-| Model                                 | CUDA | TensorRT | DirectML | NCNN |
-|---------------------------------------|:----:|:--------:|:--------:|:----:|
-| **"Faster" Depth-Anything v2 Models** |      |          |          |      |
-| Small v2                              |  ✅   |    ✅     |    ✅     |  ❌   |
-| Base v2                               |  ✅   |    ✅     |    ✅     |  ❌   |
-| Large v2                              |  ✅   |    ✅     |    ✅     |  ❌   |
-| **"Faster" Distilled Models**         |      |          |          |      |
-| Distill Small v2                      |  ✅   |    ✅     |    ✅     |  ❌   |
-| Distill Base v2                       |  ✅   |    ✅     |    ✅     |  ❌   |
-| Distill Large v2                      |  ✅   |    ✅     |    ✅     |  ❌   |
-| **Original Implementation Models**    |      |          |          |      |
-| OG Small v2                           |  ✅   |    ✅     |    ✅     |  ❌   |
-| OG Base v2                            |  ✅   |    ✅     |    ✅     |  ❌   |
-| OG Large v2                           |  ✅   |    ✅     |    ✅     |  ❌   |
-| OG Distill Small v2                   |  ✅   |    ✅     |    ✅     |  ❌   |
-| OG Distill Base v2                    |  ✅   |    ✅     |    ✅     |  ❌   |
-| OG Distill Large v2                   |  ✅   |    ✅     |    ✅     |  ❌   |
+| Model                                 | CUDA  | TensorRT | DirectML | NCNN  |
+| ------------------------------------- | :---: | :------: | :------: | :---: |
+| **"Faster" Depth-Anything v2 Models** |       |          |          |       |
+| Small v2                              |   ✅   |    ✅     |    ✅     |   ❌   |
+| Base v2                               |   ✅   |    ✅     |    ✅     |   ❌   |
+| Large v2                              |   ✅   |    ✅     |    ✅     |   ❌   |
+| **"Faster" Distilled Models**         |       |          |          |       |
+| Distill Small v2                      |   ✅   |    ✅     |    ✅     |   ❌   |
+| Distill Base v2                       |   ✅   |    ✅     |    ✅     |   ❌   |
+| Distill Large v2                      |   ✅   |    ✅     |    ✅     |   ❌   |
+| **Original Implementation Models**    |       |          |          |       |
+| OG Small v2                           |   ✅   |    ✅     |    ✅     |   ❌   |
+| OG Base v2                            |   ✅   |    ✅     |    ✅     |   ❌   |
+| OG Large v2                           |   ✅   |    ✅     |    ✅     |   ❌   |
+| OG Distill Small v2                   |   ✅   |    ✅     |    ✅     |   ❌   |
+| OG Distill Base v2                    |   ✅   |    ✅     |    ✅     |   ❌   |
+| OG Distill Large v2                   |   ✅   |    ✅     |    ✅     |   ❌   |
 
 ## 🙏 Project Contributors
 
@@ -213,9 +213,9 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 ### 🧠 Model & Algorithm Contributors
 | Contributor                                       | Contribution                 | Repository                                                                             |
-|---------------------------------------------------|------------------------------|----------------------------------------------------------------------------------------|
+| ------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------- |
 | [SUDO](https://github.com/styler00dollar)         | ShuffleCugan & ONNX models   | [VSGAN-tensorrt-docker](https://github.com/styler00dollar/VSGAN-tensorrt-docker)       |
-| [renarchi](https://github.com/renarchi)             | Fallin Soft & Strong models  | [Fallin-Upscale](https://github.com/renarchi/models/releases/tag/Fallin) |
+| [renarchi](https://github.com/renarchi)           | Fallin Soft & Strong models  | [Fallin-Upscale](https://github.com/renarchi/models/releases/tag/Fallin)               |
 | [HZWER](https://github.com/hzwer)                 | RIFE interpolation framework | [Practical-RIFE](https://github.com/hzwer/Practical-RIFE)                              |
 | [the-database](https://github.com/the-database)   | SRVGGNet model variants      | [mpv-upscale-2x_animejanai](https://github.com/the-database/mpv-upscale-2x_animejanai) |
 | [SkyTNT](https://github.com/SkyTNT)               | Anime segmentation models    | [anime-segmentation](https://github.com/SkyTNT/anime-segmentation)                     |
@@ -228,7 +228,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 ****
 ### 🛠️ Framework & Tool Contributors
 | Contributor                                     | Contribution                           | Repository                                                     |
-|-------------------------------------------------|----------------------------------------|----------------------------------------------------------------|
+| ----------------------------------------------- | -------------------------------------- | -------------------------------------------------------------- |
 | [FFmpeg Group](https://github.com/FFmpeg)       | Video processing framework             | [FFmpeg](https://github.com/FFmpeg/FFmpeg)                     |
 | [YT-DLP Team](https://github.com/yt-dlp)        | Media download capabilities            | [yt-dlp](https://github.com/yt-dlp/yt-dlp)                     |
 | [Breakthrough](https://github.com/Breakthrough) | Scene detection algorithms             | [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) |
@@ -240,7 +240,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 ### 🌟 TAS Collaborators
 | Contributor                                     | Contribution                                    |
-|-------------------------------------------------|-------------------------------------------------|
+| ----------------------------------------------- | ----------------------------------------------- |
 | [Trentonom0r3](https://github.com/Trentonom0r3) | TAS Adobe Edition                               |
 | [Adegerard](https://github.com/adegerard)       | Project architecture & optimization suggestions |
 
