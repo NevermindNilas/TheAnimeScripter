@@ -270,6 +270,8 @@ C:\Videos\episode3.mp4
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
 | **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | General anime | CUDA, TRT, NCNN |
+| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 4GB | Soft enhancement with denoising | CUDA, TRT, DML |
+| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 4GB | Sharper enhancement with denoising | CUDA, TRT, DML |
 | **span** | ⚡⚡ | ⭐⭐⭐ | 6GB | High quality anime | CUDA, TRT, DML, NCNN |
 | **compact** | ⚡ | ⭐⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML |
 | **ultracompact** | ⚡⚡ | ⭐⭐⭐ | 1GB | Very fast | CUDA, TRT, DML |
