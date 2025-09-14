@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [Unreleased] - YYYY-MM-DD
+### Added
+- New upscaling methods: `fallin_soft`, `fallin_strong` with TensorRT and DirectML support by @renarchi
+
+
+## [2.4.3.] - 2025-09-02
+### Changed
+- Reverted back to the old progress bar logic due to some issues with the new one.
+
 ## [2.4.2] - 2025-09-02
 ### Fixed
 - Fixed an issue where ffmpeg would fail to download due to Charmap issues in Adobe Edition

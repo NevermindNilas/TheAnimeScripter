@@ -34,6 +34,12 @@ def modelsList() -> list[str]:
         "shufflespan",
         "shufflespan-directml",
         "shufflespan-tensorrt",
+        "fallin_soft",
+        "fallin_soft-tensorrt",
+        "fallin_soft-directml",
+        "fallin_strong",
+        "fallin_strong-tensorrt",
+        "fallin_strong-directml",
         "aniscale2",
         "aniscale2-directml",
         "aniscale2-tensorrt",
@@ -250,6 +256,23 @@ def modelsMap(
             elif modelType == "ncnn":
                 return "2xsudo_shuffle_cugan-ncnn.zip"
 
+        case "fallin_soft" | "fallin_soft-tensorrt" | "fallin_soft-directml":
+            if modelType == "pth":
+                return "Fallin_soft.pth"
+            else:
+                if half:
+                    return "2x_Fallin_soft_renarchi_fp16_op17_slim.onnx"
+                else:
+                    return "2x_Fallin_soft_renarchi_fp32_op17_slim.onnx"
+
+        case "fallin_strong" | "fallin_strong-tensorrt" | "fallin_strong-directml":
+            if modelType == "pth":
+                return "Fallin_strong.pth"
+            else:
+                if half:
+                    return "2x_Fallin_strong_renarchi_fp16_op17_slim.onnx"
+                else:
+                    return "2x_Fallin_strong_renarchi_fp32_op17_slim.onnx"
         case "segment":
             return "isnetis.ckpt"
 

@@ -13,9 +13,8 @@ except ImportError:
 
 OPSET = 17
 modelList = [
-    r"C:\Users\nilas\Downloads\Distill-Any-Depth-Multi-Teacher-Large.onnx",
-    r"C:\Users\nilas\Downloads\Distill-Any-Depth-Multi-Teacher-Base.onnx",
-    r"C:\Users\nilas\Downloads\Distill-Any-Depth-Multi-Teacher-Small.onnx",
+    r"C:\Users\nilas\Downloads\2x_Fallin_soft_renarchi_fp32.onnx",
+    r"C:\Users\nilas\Downloads\2x_Fallin_strong_renarchi_fp32.onnx",
 ]
 
 
