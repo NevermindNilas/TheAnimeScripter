@@ -12,7 +12,7 @@ import logging
 def objectDetection(self):
     """
     Initialize and execute object detection processing.
-    
+
     Args:
         self: VideoProcessor instance containing processing parameters
     """
@@ -54,7 +54,7 @@ def objectDetection(self):
         )
     else:
         from src.objectDetection.objectDetection import ObjectDetection
-        
+
         ObjectDetection(
             self.input,
             self.output,
@@ -73,7 +73,7 @@ def objectDetection(self):
 def autoClip(self):
     """
     Initialize and execute automatic scene detection and clipping.
-    
+
     Args:
         self: VideoProcessor instance containing processing parameters
     """
@@ -90,10 +90,10 @@ def autoClip(self):
 def segment(self):
     """
     Initialize and execute video segmentation processing.
-    
+
     Args:
         self: VideoProcessor instance containing processing parameters
-        
+
     Raises:
         NotImplementedError: If cartoon segmentation method is selected
     """
@@ -152,7 +152,7 @@ def segment(self):
 def depth(self):
     """
     Initialize and execute depth estimation processing.
-    
+
     Args:
         self: VideoProcessor instance containing processing parameters
     """
@@ -324,14 +324,14 @@ def depth(self):
 def initializeModels(self):
     """
     Initialize all AI models for the video processing pipeline.
-    
+
     Args:
         self: VideoProcessor instance containing processing parameters
-        
+
     Returns:
         tuple: Contains output dimensions and initialized processing functions
             - outputWidth (int): Final output video width
-            - outputHeight (int): Final output video height  
+            - outputHeight (int): Final output video height
             - upscaleProcess: Upscaling model function or None
             - interpolateProcess: Interpolation model function or None
             - restoreProcess: Restoration model function or None
@@ -363,6 +363,8 @@ def initializeModels(self):
                 | "aniscale2"
                 | "shufflespan"
                 | "rtmosr"
+                | "fallin_soft"
+                | "fallin_strong"
             ):
                 upscaleProcess = UniversalPytorch(
                     self.upscaleMethod,
@@ -383,6 +385,8 @@ def initializeModels(self):
                 | "aniscale2-directml"
                 | "shufflespan-directml"
                 | "rtmosr-directml"
+                | "fallin_soft-directml"
+                | "fallin_strong-directml"
             ):
                 from src.unifiedUpscale import UniversalDirectML
 
@@ -413,6 +417,8 @@ def initializeModels(self):
                 | "aniscale2-tensorrt"
                 | "shufflespan-tensorrt"
                 | "rtmosr-tensorrt"
+                | "fallin_soft-tensorrt"
+                | "fallin_strong-tensorrt"
             ):
                 from src.unifiedUpscale import UniversalTensorRT
 
