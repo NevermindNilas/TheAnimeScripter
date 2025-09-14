@@ -59,8 +59,7 @@
 **🎨 Complete Enhancement**
 ```bash
 ./python.exe ./main.py --input video.mp4 \
-  --upscale --interpolate --scenechange \
-  --output_scale 3840x2160
+  --upscale --interpolate --scenechange
 ```
 *Full AI enhancement with smart scene detection and 4K output*
 
@@ -68,8 +67,7 @@
 ```bash
 ./python.exe ./main.py --input video.mp4 \
   --upscale --upscale_method span-tensorrt \
-  --interpolate --interpolate_method rife4.25 \
-  --output_scale 2560x1440
+  --interpolate --interpolate_method rife4.25 
 ```
 *High-end processing with latest models and custom resolution*
 
@@ -118,9 +116,8 @@
 | Use Case | GPU | RAM | Notes |
 |----------|-----|-----|-------|
 | **1080p Anime** | RTX 3060 | 16GB | Good balance of speed/quality |
-| **4K Processing** | RTX 4070+ | 32GB | High-end workflows |
-| **Batch Processing** | RTX 4080+ | 32GB+ | Maximum throughput |
 | **TensorRT Optimization** | RTX Series | 16GB+ | Best performance gains |
+| **4K & Complex Workflows** | RTX 3090/4090/5090 | 32GB+ | Handles high-res and multi-model |
 
 > **💡 Performance Tip:** TensorRT models offer 2-3x speed improvements but require RTX GPUs
 
@@ -167,7 +164,7 @@
 # Gaming content optimization
 ./python.exe ./main.py --input gameplay.mp4 \
   --upscale --upscale_method openproteus-tensorrt \
-  --interpolate --interpolate_method rife4.20-tensorrt \
+  --interpolate --interpolate_method rife4.25-tensorrt \
   --sharpen --sharpen_sens 30 \
   --scenechange --scenechange_sens 70
 ```
@@ -189,7 +186,7 @@
 
 #### Supported Input Formats
 ```
-Video: .mp4, .mkv, .mov, .avi, .webm, .m4v, .flv
+Video: .mp4, .mkv, .mov, .avi, .webm, .m4v
 Batch: .txt (one file path per line)
 URLs: YouTube, direct video links
 ```
