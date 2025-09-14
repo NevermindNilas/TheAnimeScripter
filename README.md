@@ -146,6 +146,8 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | Model                 | CUDA | TensorRT | DirectML | NCNN |
 |-----------------------|:----:|:--------:|:--------:|:----:|
 | ShuffleCugan          |  ✅   |    ✅     |    ❌     |  ✅   |
+| Fallin Soft          |  ✅   |    ✅     |    ✅     |  ❌   |
+| Fallin Strong        |  ✅   |    ✅     |    ✅     |
 | Span                  |  ✅   |    ✅     |    ✅     |  ✅   |
 | SRVGGNet (Compact)    |  ✅   |    ✅     |    ✅     |  ❌   |
 | SRVGGNet (Ultra)      |  ✅   |    ✅     |    ✅     |  ❌   |
@@ -213,6 +215,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | Contributor                                       | Contribution                 | Repository                                                                             |
 |---------------------------------------------------|------------------------------|----------------------------------------------------------------------------------------|
 | [SUDO](https://github.com/styler00dollar)         | ShuffleCugan & ONNX models   | [VSGAN-tensorrt-docker](https://github.com/styler00dollar/VSGAN-tensorrt-docker)       |
+| [renarchi](https://github.com/renarchi)             | Fallin Soft & Strong models  | [Fallin-Upscale](https://github.com/renarchi/models/releases/tag/Fallin) |
 | [HZWER](https://github.com/hzwer)                 | RIFE interpolation framework | [Practical-RIFE](https://github.com/hzwer/Practical-RIFE)                              |
 | [the-database](https://github.com/the-database)   | SRVGGNet model variants      | [mpv-upscale-2x_animejanai](https://github.com/the-database/mpv-upscale-2x_animejanai) |
 | [SkyTNT](https://github.com/SkyTNT)               | Anime segmentation models    | [anime-segmentation](https://github.com/SkyTNT/anime-segmentation)                     |
