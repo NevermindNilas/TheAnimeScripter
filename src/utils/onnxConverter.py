@@ -1,6 +1,5 @@
 import onnx
 import os
-from onnx import version_converter
 from onnxconverter_common import float16
 
 try:
