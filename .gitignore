@@ -5,6 +5,9 @@ __pycache__/
 
 installer.cfg
 
+# copilot
+.github/copilot-instructions.md
+
 #kiro
 .kiro
 
