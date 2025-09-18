@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `Trim to Work Area` button which automatically trims all selected layers ( incl comps ) to the duration of the work area.
 - Added `Freeze on Current Frame` button which automatically freezes the layers ( incl comps ) to the desired frame.
 
+### Changed
+- Updated all dependencies to their latest versions.
+- Made `Fallin Soft` as the default upscaling model.
+
 ## [2.4.3.] - 2025-09-02
 ### Changed
 - Reverted back to the old progress bar logic due to some issues with the new one.
