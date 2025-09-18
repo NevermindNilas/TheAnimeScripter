@@ -235,7 +235,6 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [Chainner-org](https://github.com/chaiNNer-org) | Neural network architecture            | [spandrel](https://github.com/chaiNNer-org/spandrel)           |
 | [TNTWise](https://github.com/TNTwise)           | RIFE ONNX/NCNN optimizations           | [GitHub](https://github.com/TNTwise)                           |
 | [Hyperbrew](https://github.com/hyperbrew)       | Adobe integration framework            | [bolt-cep](https://github.com/hyperbrew/bolt-cep)              |
-| [moi15moi](https://github.com/moi15moi)         | Accurate inpoint and outpoint handling | [VideoTimeStamps](https://github.com/moi15moi/VideoTimestamps) |
 
 
 ### 🌟 TAS Collaborators
