@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Changed
 - Updated all dependencies to their latest versions.
 - Made `Fallin Soft` as the default upscaling model.
+- Minor UI tweaks.
 
 ## [2.4.3.] - 2025-09-02
 ### Changed
