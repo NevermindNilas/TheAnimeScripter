@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Made `Fallin Soft` as the default upscaling model.
 - Minor UI tweaks.
 - Removed Span from the upscale drodown.
+- Removed the "NO" button from the Dependency Downloader of TAS as well as changing some logic where it will interchangeably use "Update" or "Download" based on the current state of the dependencies.
 
 ## [2.4.3.] - 2025-09-02
 ### Changed
