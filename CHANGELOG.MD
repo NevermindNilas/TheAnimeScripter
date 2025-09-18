@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## Adobe Edition
 
 ### New
+- Added `Fallin Soft` and `Fallin Strong` to the Upscale Methods dropdown.
 - Added `Trim to Work Area` button which automatically trims all selected layers ( incl comps ) to the duration of the work area.
 - Added `Freeze on Current Frame` button which automatically freezes the layers ( incl comps ) to the desired frame.
 
