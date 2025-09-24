@@ -631,7 +631,7 @@ def argumentsChecker(args, outputPath):
         _handleDependencies(args)
 
         logAndPrint(
-            "All required libraries have been downloaded, you can now run the script without the --download_requirements argument",
+            "All required libraries have been downloaded, you can now run the script freely.",
             "green",
         )
         sys.exit()
@@ -805,7 +805,7 @@ def _handleDependencies(args):
     if cs.SYSTEM == "Windows":
         if "ffprobe.exe" not in os.environ["PATH"]:
             os.environ["PATH"] += os.pathsep + os.path.dirname(cs.FFPROBEPATH)
-    else:  # Linux and other systems
+    else:
         if "ffprobe" not in os.environ["PATH"]:
             os.environ["PATH"] += os.pathsep + os.path.dirname(cs.FFPROBEPATH)
 
@@ -813,6 +813,10 @@ def _handleDependencies(args):
         from src.utils.getFFMPEG import getFFMPEG
 
         getFFMPEG()
+    else:
+        from src.utils.getFFMPEG import logFfmpegVersion
+
+        logFfmpegVersion(cs.FFMPEGPATH)
 
     try:
         from src.utils.isCudaInit import detectNVidiaGPU
