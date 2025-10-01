@@ -543,11 +543,10 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Options | Description |
 |-----------|------|---------|---------|-------------|
-| `--bit_depth` | str | "8bit" | 8bit/10bit/16bit | **Color bit depth** |
+| `--bit_depth` | str | "8bit" | 8bit/16bit | **Color bit depth** |
 
 **Bit Depth Impact:**
 - **8bit:** Standard, fastest, smallest files
-- **10bit:** Better gradients, HDR support
 - **16bit:** Maximum quality, largest files
 
 ---
