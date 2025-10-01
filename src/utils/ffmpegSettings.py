@@ -111,11 +111,6 @@ class BuildBuffer:
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
 
-    """
-    Loosely based on:
-        https://github.com/Jaded-Encoding-Thaumaturgy/vs-jetpack/blob/8bbac7c6f13937c89a6765cd506fa233b5c63237/vstools/utils/clips.py
-    """
-
     def processFrameToNumpy(self, frame):
         """
         Processes a single frame and converts it to a numpy array.
