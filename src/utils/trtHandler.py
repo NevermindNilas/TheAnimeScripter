@@ -14,7 +14,6 @@ if ADOBE:
 def createNetworkAndConfig(
     builder: trt.Builder,
     maxWorkspaceSize: int,
-    fp16: bool,
 ) -> Tuple[trt.INetworkDefinition, trt.IBuilderConfig]:
     """Create TensorRT network and builder configuration."""
     networkFlags = 0
@@ -188,7 +187,7 @@ def tensorRTEngineCreator(
     try:
         TRTLOGGER = trt.Logger(trt.Logger.INFO)
         builder = trt.Builder(TRTLOGGER)
-        network, config = createNetworkAndConfig(builder, maxWorkspaceSize, fp16)
+        network, config = createNetworkAndConfig(builder, maxWorkspaceSize)
 
         parser = trt.OnnxParser(network, TRTLOGGER)
         if not parseModel(parser, modelPath):

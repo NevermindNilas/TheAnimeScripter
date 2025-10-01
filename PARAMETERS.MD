@@ -501,7 +501,6 @@ C:\Videos\episode3.mp4
 # Maximum performance
 --upscale_method shufflecugan-tensorrt \
 --interpolate_method rife4.22-tensorrt \
---compile_mode max
 ```
 
 **DirectML (AMD/Intel):**
@@ -567,7 +566,6 @@ C:\Videos\episode3.mp4
 --upscale_method compact-tensorrt
 --interpolate_method rife4.22-lite-tensorrt
 --half True
---compile_mode max
 ```
 
 </td>
@@ -785,7 +783,7 @@ C:\Videos\episode3.mp4
 **Performance Optimization:**
 ```bash
 # Maximum speed configuration
---half True --static --compile_mode max
+--half True --static
 --upscale_method compact-tensorrt
 --interpolate_method rife4.22-lite-tensorrt
 ```
@@ -921,7 +919,6 @@ C:\Videos\episode3.mp4
   --interpolate --interpolate_method rife4.22-lite-tensorrt \
   --scenechange \
   --encode_method nvenc_h265 \
-  --half True --compile_mode max
 ```
 **Processing:** Fast hardware encoding  
 **Time:** ~1x video length  
