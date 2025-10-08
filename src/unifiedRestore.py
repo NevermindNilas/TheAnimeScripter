@@ -161,6 +161,16 @@ class UnifiedRestoreTensorRT:
             # padding to 64x64
             self.height = (self.height + 63) // 64 * 64
             self.width = (self.width + 63) // 64 * 64
+        elif self.restoreMethod in ["codeformer-tensorrt"]:
+            if self.forceStatic is not True:
+                self.forceStatic = True
+                logAndPrint(
+                    "Forcing static engine due to Codeformer's limitations.",
+                    "yellow",
+                )
+
+            self.width = 512
+            self.height = 512
 
         if self.width >= 1920 and self.height >= 1080:
             if self.forceStatic is not True:
