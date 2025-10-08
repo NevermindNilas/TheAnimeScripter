@@ -394,6 +394,8 @@ def _addVideoProcessingOptions(argParser):
         "fastlinedarken-tensorrt",
         "gater3",
         "gater3-directml",
+        "codeformer-tensorrt",
+        "codeformer-directml",
         # "gater3-tensorrt",
     ]
 
@@ -969,10 +971,26 @@ def _adjustMethodsBasedOnCuda(args):
             return newMethod
         return method
 
-    from src.utils.isCudaInit import CudaChecker
+    from src.utils.isCudaInit import CudaChecker, detectGPUArchitecture
 
     isCuda = CudaChecker()
-    if not isCuda.cudaAvailable:
+    
+    # Check if GPU architecture supports modern CUDA features
+    needsFallback = False
+    if isCuda.cudaAvailable:
+        isModernGPU, gpuName, computeCap = detectGPUArchitecture()
+        if not isModernGPU:
+            logAndPrint(
+                f"Detected {gpuName} (compute capability: {computeCap}). "
+                f"This GPU may not support modern CUDA kernels. "
+                f"Automatically switching to DirectML/NCNN backends for compatibility.",
+                "yellow"
+            )
+            needsFallback = True
+    else:
+        needsFallback = True
+    
+    if needsFallback:
         from .downloadModels import modelsList
 
         availableModels = modelsList()
@@ -989,6 +1007,11 @@ def _adjustMethodsBasedOnCuda(args):
 
         for attr in methodAttributes:
             currentMethod = getattr(args, attr)
+            # Skip if already using a non-CUDA backend
+            if any(backend in currentMethod.lower() for backend in ["-directml", "-ncnn", "-tensorrt"]):
+                logging.info(f"{attr} already using non-default backend: {currentMethod}")
+                continue
+                
             newMethod = adjustMethod(currentMethod, availableModels)
             if newMethod != currentMethod:
                 logging.info(f"Adjusted {attr} from {currentMethod} to {newMethod}")

@@ -99,7 +99,10 @@ The native Windows application will provide a dedicated environment optimized fo
 
 **System Requirements:**
 - After Effects 2022 or higher
-- Compatible GPU recommended
+- Compatible GPU recommended:
+  - **Modern NVIDIA** (RTX 20/30/40, GTX 16 series): Full CUDA/TensorRT support
+  - **Older NVIDIA** (GTX 1000 series/Pascal): DirectML / NCNN backend (automatic)
+  - **AMD/Intel GPUs**: DirectML / NCNN backend supported
 
 </div>
 

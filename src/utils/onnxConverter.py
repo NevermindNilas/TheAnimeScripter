@@ -11,10 +11,7 @@ except ImportError:
     isOnnxSlim = False
 
 OPSET = 17
-modelList = [
-    r"C:\Users\nilas\Downloads\2x_Fallin_soft_renarchi_fp32.onnx",
-    r"C:\Users\nilas\Downloads\2x_Fallin_strong_renarchi_fp32.onnx",
-]
+modelList = [r"C:\Users\nilas\Downloads\codeformer.onnx"]
 
 
 def convertAndSaveModel(model, modelPath, precision, opset):

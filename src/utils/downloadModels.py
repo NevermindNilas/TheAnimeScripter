@@ -306,6 +306,15 @@ def modelsMap(
                 else:
                     return "1x_Anime1080Fixer_SuperUltraCompact_op20_clamp.onnx"
 
+        case "codeformer-tensorrt" | "codeformer-directml":
+            if modelType == "pth":
+                raise ValueError("Codeformer is not available in PTH format.")
+            elif modelType == "onnx":
+                if half:
+                    return "codeformer_fp16_op17_slim.onnx"
+                else:
+                    return "codeformer_fp32_op17_slim.onnx"
+
         case "gater3" | "gater3-tensorrt" | "gater3-directml":
             if modelType == "pth":
                 return "1x_umzi_adc_gater3_v1.safetensors"
