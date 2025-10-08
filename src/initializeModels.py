@@ -568,7 +568,12 @@ def initializeModels(self):
                     self.half,
                 )
 
-            case "anime1080fixer-tensorrt" | "gater3-tensorrt" | "scunet-tensorrt":
+            case (
+                "anime1080fixer-tensorrt"
+                | "gater3-tensorrt"
+                | "scunet-tensorrt"
+                | "codeformer-tensorrt"
+            ):
                 from src.unifiedRestore import UnifiedRestoreTensorRT
 
                 restoreProcess = UnifiedRestoreTensorRT(
@@ -579,7 +584,12 @@ def initializeModels(self):
                     self.forceStatic,
                 )
 
-            case "anime1080fixer-directml" | "gater3-directml" | "scunet-directml":
+            case (
+                "anime1080fixer-directml"
+                | "gater3-directml"
+                | "scunet-directml"
+                | "codeformer-directml"
+            ):
                 from src.unifiedRestore import UnifiedRestoreDirectML
 
                 restoreProcess = UnifiedRestoreDirectML(
