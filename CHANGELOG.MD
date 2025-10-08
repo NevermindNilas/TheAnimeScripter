@@ -6,7 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
 - FFMPEG build logging.
+- A more robust dependency handler which should allow for a safe fallback for older NVIDIA GPUs ( GTX 1000 series and older )
 
+### Changed
+- Improved the robustness of the GPU detection logic.
 
 
 ## [2.4.4] - 2025-09-18
