@@ -974,7 +974,7 @@ def _adjustMethodsBasedOnCuda(args):
     from src.utils.isCudaInit import CudaChecker, detectGPUArchitecture
 
     isCuda = CudaChecker()
-    
+
     # Check if GPU architecture supports modern CUDA features
     needsFallback = False
     if isCuda.cudaAvailable:
@@ -984,12 +984,12 @@ def _adjustMethodsBasedOnCuda(args):
                 f"Detected {gpuName} (compute capability: {computeCap}). "
                 f"This GPU may not support modern CUDA kernels. "
                 f"Automatically switching to DirectML/NCNN backends for compatibility.",
-                "yellow"
+                "yellow",
             )
             needsFallback = True
     else:
         needsFallback = True
-    
+
     if needsFallback:
         from .downloadModels import modelsList
 
@@ -1008,10 +1008,15 @@ def _adjustMethodsBasedOnCuda(args):
         for attr in methodAttributes:
             currentMethod = getattr(args, attr)
             # Skip if already using a non-CUDA backend
-            if any(backend in currentMethod.lower() for backend in ["-directml", "-ncnn", "-tensorrt"]):
-                logging.info(f"{attr} already using non-default backend: {currentMethod}")
+            if any(
+                backend in currentMethod.lower()
+                for backend in ["-directml", "-ncnn", "-tensorrt"]
+            ):
+                logging.info(
+                    f"{attr} already using non-default backend: {currentMethod}"
+                )
                 continue
-                
+
             newMethod = adjustMethod(currentMethod, availableModels)
             if newMethod != currentMethod:
                 logging.info(f"Adjusted {attr} from {currentMethod} to {newMethod}")
