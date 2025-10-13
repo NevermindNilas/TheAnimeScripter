@@ -396,7 +396,9 @@ def _addVideoProcessingOptions(argParser):
         "gater3-directml",
         "codeformer-tensorrt",
         "codeformer-directml",
-        # "gater3-tensorrt",
+        "deh264",
+        "deh264-tensorrt",
+        "deh264-directml",
     ]
 
     processingGroup.add_argument(

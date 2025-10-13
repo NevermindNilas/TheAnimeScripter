@@ -306,6 +306,15 @@ def modelsMap(
                 else:
                     return "1x_Anime1080Fixer_SuperUltraCompact_op20_clamp.onnx"
 
+        case "deh264" | "deh264-tensorrt" | "deh264-directml":
+            if modelType == "pth":
+                return "1xDeH264_realplksr.pth"
+            elif modelType == "onnx":
+                if half:
+                    return "1xDeH264_realplksr_fp16_op22_slim.onnx"
+                else:
+                    return "1xDeH264_realplksr_fp32_op22_slim.onnx"
+
         case "codeformer-tensorrt" | "codeformer-directml":
             if modelType == "pth":
                 raise ValueError("Codeformer is not available in PTH format.")
