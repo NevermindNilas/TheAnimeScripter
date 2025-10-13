@@ -306,7 +306,7 @@ def modelsMap(
                 else:
                     return "1x_Anime1080Fixer_SuperUltraCompact_op20_clamp.onnx"
 
-        case "deh264" | "deh264-tensorrt" | "deh264-directml":
+        case "deh264_real" | "deh264_real-tensorrt" | "deh264_real-directml":
             if modelType == "pth":
                 return "1xDeH264_realplksr.pth"
             elif modelType == "onnx":
@@ -314,6 +314,15 @@ def modelsMap(
                     return "1xDeH264_realplksr_fp16_op22_slim.onnx"
                 else:
                     return "1xDeH264_realplksr_fp32_op22_slim.onnx"
+
+        case "deh264_span" | "deh264_span-tensorrt" | "deh264_span-directml":
+            if modelType == "pth":
+                return "1x_DeH264_SPAN.safetensors"
+            elif modelType == "onnx":
+                if half:
+                    return "1x_DeH264_SPAN_fp16_op20_slim.onnx"
+                else:
+                    return "1x_DeH264_SPAN_fp32_op20_slim.onnx"
 
         case "codeformer-tensorrt" | "codeformer-directml":
             if modelType == "pth":
