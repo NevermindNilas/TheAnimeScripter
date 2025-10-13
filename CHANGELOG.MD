@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Added
 - FFMPEG build logging.
 - A more robust dependency handler which should allow for a safe fallback for older NVIDIA GPUs ( GTX 1000 series and older )
+- Added 3 new restore methods:
+  - `deh264`, `deh264-tensorrt`, `deh264-directml` by @Phhofm 
 
 ### Changed
 - Improved the robustness of the GPU detection logic.
