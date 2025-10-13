@@ -676,9 +676,16 @@ def argumentsChecker(args, outputPath):
     logging.info("============== Version ==============")
     logging.info(f"TAS: {__version__}\n")
 
+    cliArgs = sys.argv[1:]
+    providedArgs = set()
+    for i, arg in enumerate(cliArgs):
+        if arg.startswith("--"):
+            argName = arg[2:]
+            providedArgs.add(argName)
+
     logging.info("============== Arguments ==============")
     for arg, value in vars(args).items():
-        if value not in [None, "", "none", False]:
+        if arg in providedArgs and value not in [None, "", "none"]:
             logging.info(f"{arg.upper()}: {value}")
 
     if not args.benchmark:
