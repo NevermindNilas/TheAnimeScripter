@@ -831,23 +831,29 @@ def _handleDependencies(args):
 
     try:
         from src.utils.isCudaInit import detectNVidiaGPU
-        from src.utils.dependencyHandler import DependencyChecker
 
         isNvidia = detectNVidiaGPU()
-        if cs.SYSTEM == "Windows":
-            extension = (
-                "extra-requirements-windows.txt"
-                if isNvidia
-                else "extra-requirements-windows-lite.txt"
-            )
-        else:  # Linux and other systems
-            extension = (
-                "extra-requirements-linux.txt"
-                if isNvidia
-                else "extra-requirements-linux-lite.txt"
-            )
+    except ImportError:
+        isNvidia = False
 
-        requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, extension)
+    if cs.SYSTEM == "Windows":
+        extension = (
+            "extra-requirements-windows.txt"
+            if isNvidia
+            else "extra-requirements-windows-lite.txt"
+        )
+    else:
+        extension = (
+            "extra-requirements-linux.txt"
+            if isNvidia
+            else "extra-requirements-linux-lite.txt"
+        )
+
+    requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, extension)
+
+    try:
+        from src.utils.dependencyHandler import DependencyChecker
+
         checker = DependencyChecker()
 
         if checker.needsUpdate(requirementsPath):
@@ -869,6 +875,8 @@ def _handleDependencies(args):
             sys.exit()
         else:
             logAndPrint(message, "green")
+            from src.utils.dependencyHandler import DependencyChecker
+
             checker = DependencyChecker()
             checker.updateCache(requirementsPath)
 
