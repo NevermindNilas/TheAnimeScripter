@@ -560,7 +560,8 @@ def initializeModels(self):
                 | "real-plksr"
                 | "anime1080fixer"
                 | "gater3"
-                | "deh264"
+                | "deh264_real"
+                | "deh264_span"
             ):
                 from src.unifiedRestore import UnifiedRestoreCuda
 
@@ -574,7 +575,8 @@ def initializeModels(self):
                 | "gater3-tensorrt"
                 | "scunet-tensorrt"
                 | "codeformer-tensorrt"
-                | "deh264-tensorrt"
+                | "deh264_real-tensorrt"
+                | "deh264_span-tensorrt"
             ):
                 from src.unifiedRestore import UnifiedRestoreTensorRT
 
@@ -591,7 +593,8 @@ def initializeModels(self):
                 | "gater3-directml"
                 | "scunet-directml"
                 | "codeformer-directml"
-                | "deh264-directml"
+                | "deh264_real-directml"
+                | "deh264_span-directml"
             ):
                 from src.unifiedRestore import UnifiedRestoreDirectML
 
