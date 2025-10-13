@@ -2,8 +2,8 @@ import onnx
 import os
 import sys
 import torch
+import numpy as np
 from pathlib import Path
-from onnxconverter_common import float16
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -15,13 +15,56 @@ except ImportError:
     print("onnxslim not found. Please install onnx-slim using: pip install onnxslim")
     isOnnxSlim = False
 
-OPSET = 22
-modelList = [r"C:\Users\nilas\Downloads\1xDeH264_realplksr.pth"]
+
+def convertToFloat16(model):
+    import copy
+    from onnx import TensorProto
+
+    def convertDtype(tensor):
+        if tensor.data_type == TensorProto.FLOAT:
+            tensor.data_type = TensorProto.FLOAT16
+            if tensor.HasField("raw_data"):
+                float32_data = np.frombuffer(tensor.raw_data, dtype=np.float32)
+                float16_data = float32_data.astype(np.float16)
+                tensor.raw_data = float16_data.tobytes()
+            elif len(tensor.float_data) > 0:
+                float32_data = np.array(tensor.float_data, dtype=np.float32)
+                float16_data = float32_data.astype(np.float16)
+                tensor.ClearField("float_data")
+                tensor.raw_data = float16_data.tobytes()
+
+    model = copy.deepcopy(model)
+
+    for inputTensor in model.graph.input:
+        if inputTensor.type.HasField("tensor_type"):
+            if inputTensor.type.tensor_type.elem_type == TensorProto.FLOAT:
+                inputTensor.type.tensor_type.elem_type = TensorProto.FLOAT16
+
+    for outputTensor in model.graph.output:
+        if outputTensor.type.HasField("tensor_type"):
+            if outputTensor.type.tensor_type.elem_type == TensorProto.FLOAT:
+                outputTensor.type.tensor_type.elem_type = TensorProto.FLOAT16
+
+    for initializer in model.graph.initializer:
+        convertDtype(initializer)
+
+    for node in model.graph.node:
+        for attr in node.attribute:
+            if attr.HasField("t"):
+                convertDtype(attr.t)
+            for tensor in attr.tensors:
+                convertDtype(tensor)
+
+    return model
+
+
+OPSET = 20
+modelList = [r"c:\Users\nilas\Downloads\1x_DeH264_SPAN.safetensors"]
 
 
 def convertAndSaveModel(model, modelPath, precision, opset):
     if precision == "fp16":
-        model = float16.convert_float_to_float16(model)
+        model = convertToFloat16(model)
     newModelPath = modelPath.replace(".onnx", f"_{precision}_op{opset}.onnx")
     onnx.save(model, newModelPath)
     savedModel = onnx.load(newModelPath)
@@ -141,7 +184,7 @@ def pthToOnnx(
     if precision == "fp16":
         print("\nConverting to FP16...")
         onnxModel = onnx.load(outputPath)
-        onnxModel = float16.convert_float_to_float16(onnxModel)
+        onnxModel = convertToFloat16(onnxModel)
         fp16Path = outputPath.replace(".onnx", f"_fp16_op{opset}.onnx")
         onnx.save(onnxModel, fp16Path)
         os.remove(outputPath)
@@ -149,6 +192,8 @@ def pthToOnnx(
         print("✓ FP16 conversion successful!")
     else:
         fp32Path = outputPath.replace(".onnx", f"_fp32_op{opset}.onnx")
+        if os.path.exists(fp32Path):
+            os.remove(fp32Path)
         os.rename(outputPath, fp32Path)
         outputPath = fp32Path
 

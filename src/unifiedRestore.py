@@ -176,7 +176,7 @@ class UnifiedRestoreTensorRT:
             if self.forceStatic is not True:
                 self.forceStatic = True
                 logAndPrint(
-                    "Forcing static engine due to resolution being higher than 1080p.",
+                    "Forcing static engine due to resolution being equal or greater than 1080p.",
                     "yellow",
                 )
             if self.restoreMethod in ["scunet-tensorrt"]:
