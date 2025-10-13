@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Improved the robustness of the GPU detection logic.
 - The arguments sections should only show the actually used arguments now.
 
+### Fixed
+- Fixed a bug where certain unlucky users ( Non-NVidia ) would download the wrong dependencies.
 
 ## [2.4.4] - 2025-09-18
 ### Added

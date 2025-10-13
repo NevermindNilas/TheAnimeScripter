@@ -185,10 +185,11 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | SCUNet (Denoise)    |   ✅   |    ✅     |    ❌     |   ❌   |
 | NAFNet (Denoise)    |   ✅   |    ❌     |    ❌     |   ❌   |
 | DPIR (Denoise)      |   ✅   |    ❌     |    ❌     |   ❌   |
-| Real-Plksr (DeJpeg) |   ✅   |    ❌     |    ❌     |   ❌   |
+| DeJpeg ( Real-Plksr ) |   ✅   |    ❌     |    ❌     |   ❌   |
 | Anime1080fixer      |   ✅   |    ✅     |    ✅     |   ❌   |
 | FastLineDarken      |   ✅   |    ✅     |    ❌     |   ❌   |
 | GaterV3             |   ✅   |    ❌     |    ✅     |   ❌   |
+| DeH264 ( Real-Plksr ) |   ✅   |    ✅     |    ✅     |   ❌   |
 
 ### 🌊 Depth Map Models
 
@@ -223,12 +224,13 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [the-database](https://github.com/the-database)   | SRVGGNet model variants      | [mpv-upscale-2x_animejanai](https://github.com/the-database/mpv-upscale-2x_animejanai) |
 | [SkyTNT](https://github.com/SkyTNT)               | Anime segmentation models    | [anime-segmentation](https://github.com/SkyTNT/anime-segmentation)                     |
 | [DepthAnything](https://github.com/DepthAnything) | Depth map generation         | [Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2)                |
-| [Hongyuanyu](https://github.com/hongyuanyu)       | SPAN upscaling technology    | [span](https://github.com/hongyuanyu/span)                                             |
 | [Sirosky](https://github.com/Sirosky)             | Open-Proteus & AniScale 2    | [Upscale-Hub](https://github.com/Sirosky/Upscale-Hub)                                  |
 | [Elexor](https://github.com/elexor)               | Custom RIFE modifications    | [Modded Rife Experiment(s)](https://github.com/elexor)                                 |
 | [Zarxrax](https://github.com/Zarxrax)             | Anime1080Fixer restoration   | [GitHub](https://github.com/Zarxrax)                                                   |
 | [umzi](https://github.com/umzi2)                  | RTMOSR & GaterV3 Models      | [GitHub](https://github.com/umzi2)                                                     |
+| [Phhofm](https://github.com/Phhofm/models) | DeJpeg & DeH264 restoration |
 ****
+
 ### 🛠️ Framework & Tool Contributors
 | Contributor                                     | Contribution                           | Repository                                                     |
 | ----------------------------------------------- | -------------------------------------- | -------------------------------------------------------------- |
