@@ -157,7 +157,6 @@ class VideoProcessor:
         """
         logging.info("\n============== Processing Outputs ==============")
 
-        # Calculate output FPS based on interpolation settings
         if self.slowmo:
             self.outputFPS = self.fps
         else:
@@ -165,7 +164,6 @@ class VideoProcessor:
                 self.fps * self.interpolateFactor if self.interpolate else self.fps
             )
 
-        # Handle video resizing if requested
         if self.resize:
             aspectRatio = self.width / self.height
             self.width = round(self.width * self.resizeFactor / 2) * 2
@@ -406,7 +404,6 @@ class VideoProcessor:
 
             starTime: float = time()
 
-            # Setup input buffer for reading video frames
             self.readBuffer = BuildBuffer(
                 videoInput=self.input,
                 inpoint=self.inpoint,
@@ -418,7 +415,6 @@ class VideoProcessor:
                 bitDepth=self.bitDepth,
             )
 
-            # Setup output buffer for writing processed frames
             self.writeBuffer = WriteBuffer(
                 input=self.input,
                 output=self.output,
@@ -440,13 +436,11 @@ class VideoProcessor:
                 output_scale_height=self.outputScaleHeight,
             )
 
-            # Initialize preview if enabled
             if self.preview:
                 from src.utils.previewSettings import Preview
 
                 self.preview = Preview()
 
-            # Execute processing pipeline with thread pool
             with ThreadPoolExecutor(max_workers=4 if self.preview else 3) as executor:
                 executor.submit(self.readBuffer)
                 executor.submit(self.writeBuffer)
@@ -454,7 +448,6 @@ class VideoProcessor:
                 if self.preview:
                     executor.submit(self.preview.start)
 
-            # Calculate and log performance metrics
             elapsedTime: float = time() - starTime
             totalFPS: float = (
                 self.totalFrames
@@ -497,15 +490,8 @@ def main():
         cs.WHEREAMIRUNFROM = os.path.dirname(os.path.abspath(__file__))
         os.makedirs(cs.MAINPATH, exist_ok=True)
 
-        # Determine if running from frozen executable
-        isFrozen = hasattr(sys, "_MEIPASS")
-        baseOutputPath = (
-            os.path.dirname(sys.executable)
-            if isFrozen
-            else os.path.dirname(os.path.abspath(__file__))
-        )
+        baseOutputPath = os.path.dirname(os.path.abspath(__file__))
 
-        # Configure logging system
         signal(SIGINT, SIG_DFL)
         logging.basicConfig(
             filename=os.path.join(cs.MAINPATH, "TAS-Log.log"),
