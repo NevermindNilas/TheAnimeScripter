@@ -15,6 +15,9 @@ except ImportError:
     print("onnxslim not found. Please install onnx-slim using: pip install onnxslim")
     isOnnxSlim = False
 
+gOPSET = 20
+modelList = [r"C:\Users\nilas\Downloads\depth_anything_v2_vitg_fp32.safetensors"]
+
 
 def convertToFloat16(model):
     import copy
@@ -56,10 +59,6 @@ def convertToFloat16(model):
                 convertDtype(tensor)
 
     return model
-
-
-OPSET = 20
-modelList = [r"c:\Users\nilas\Downloads\1x_DeH264_SPAN.safetensors"]
 
 
 def convertAndSaveModel(model, modelPath, precision, opset):
