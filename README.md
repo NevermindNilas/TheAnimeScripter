@@ -153,8 +153,8 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | Fallin Strong         |   ✅   |    ✅     |    ✅     |   ❌   |
 | Span                  |   ✅   |    ✅     |    ✅     |   ✅   |
 | SRVGGNet (Compact)    |   ✅   |    ✅     |    ✅     |   ❌   |
-| SRVGGNet (Ultra)      |   ✅   |    ✅     |    ✅     |   ❌   |
-| SRVGGNet (SuperUltra) |   ✅   |    ✅     |    ✅     |   ❌   |
+| SRVGGNet (UltraCompact)      |   ✅   |    ✅     |    ✅     |   ❌   |
+| SRVGGNet (SuperUltraCompact) |   ✅   |    ✅     |    ✅     |   ❌   |
 | OpenProteus           |   ✅   |    ✅     |    ✅     |   ❌   |
 | AniScale 2            |   ✅   |    ✅     |    ✅     |   ❌   |
 | RTMOSR                |   ❌   |    ✅     |    ✅     |   ❌   |
