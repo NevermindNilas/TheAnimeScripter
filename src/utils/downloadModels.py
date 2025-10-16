@@ -27,6 +27,9 @@ DEPTHV2URLBASE = (
 DEPTHV2URLLARGE = (
     "https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/"
 )
+DEPTHV2URLGIANT = (
+    "https://huggingface.co/likeabruh/depth_anything_v2_vitg/resolve/main/"
+)
 
 
 def modelsList() -> list[str]:
@@ -118,6 +121,7 @@ def modelsList() -> list[str]:
         "small_v2",
         "base_v2",
         "large_v2",
+        "giant_v2",
         "small_v2-directml",
         "base_v2-directml",
         "large_v2-directml",
@@ -635,6 +639,9 @@ def modelsMap(
         case "large_v2":
             return "depth_anything_v2_vitl.pth"
 
+        case "giant_v2":
+            return "depth_anything_v2_vitg.pth"
+
         case "small_v2-directml" | "small_v2-tensorrt":
             if half:
                 return "depth_anything_v2_vits_fp16.onnx"
@@ -871,6 +878,8 @@ def downloadModels(
         fullUrl = f"{DEPTHV2URLBASE}{filename}"
     elif model == "large_v2":
         fullUrl = f"{DEPTHV2URLLARGE}{filename}"
+    elif model == "giant_v2":
+        fullUrl = f"{DEPTHV2URLGIANT}{filename}"
 
     else:
         fullUrl = f"{TASURL}{filename}"
