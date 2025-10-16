@@ -15,7 +15,7 @@ except ImportError:
     print("onnxslim not found. Please install onnx-slim using: pip install onnxslim")
     isOnnxSlim = False
 
-gOPSET = 20
+OPSET = 20
 modelList = [r"C:\Users\nilas\Downloads\depth_anything_v2_vitg_fp32.safetensors"]
 
 
