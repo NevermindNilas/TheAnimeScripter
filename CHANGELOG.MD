@@ -20,6 +20,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Fixed
 - Fixed a bug where certain unlucky users ( Non-NVidia ) would download the wrong dependencies.
 
+## Adobe Edition
+
+### Added
+- Added deh264_real and deh264_span restore methods.
+- Added a " Github Sponsors " button.
+
+### Changed
+- Updated some descriptions in the UI for better clarity.
+- Updated all of the dependencies to their latest versions.
+
 ## [2.4.4] - 2025-09-18
 ### Added
 - New upscaling methods: `fallin_soft`, `fallin_strong` with TensorRT and DirectML support by @renarchi
