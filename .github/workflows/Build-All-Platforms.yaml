@@ -74,7 +74,7 @@ jobs:
       - name: Compress full directory
         run: |
           cd ${{ github.workspace }}/dist-portable/main/
-          7z a -t7z -m0=lzma2 -mx=9 -ms=1536m -md=1024m ../../TAS-${{ needs.create_release.outputs.version }}-Windows.7z *
+          Compress-Archive -Path * -DestinationPath ../../TAS-${{ needs.create_release.outputs.version }}-Windows.zip
 
       - name: Upload Release Asset
         id: upload-release-asset
@@ -83,9 +83,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: TAS-${{ needs.create_release.outputs.version }}-Windows.7z
-          asset_name: TAS-${{ needs.create_release.outputs.version }}-Windows.7z
-          asset_content_type: application/x-7z-compressed
+          asset_path: TAS-${{ needs.create_release.outputs.version }}-Windows.zip
+          asset_name: TAS-${{ needs.create_release.outputs.version }}-Windows.zip
+          asset_content_type: application/zip
 
   #build_lite_windows:
   #  needs: create_release
