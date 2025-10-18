@@ -9,13 +9,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - A more robust dependency handler which should allow for a safe fallback for older NVIDIA GPUs ( GTX 1000 series and older )
 - Added 6 new restore methods:
   - `deh264_real`, `deh264_real-tensorrt`, `deh264_real-directml` by @Phhofm
-  - `deh264_span`, `deh264_span-tensorrt`, `deh264_span-directml` by @tntwise 
+  - `deh264_span`, `deh264_span-tensorrt`, `deh264_span-directml` by @tntwise
 
 ### Changed
 - Improved the robustness of the GPU detection logic.
 - The arguments sections should only show the actually used arguments now.
 - Bumped python to `v3.13.9`
 - Bumped `torch` to `2.9.0`
+- Migrated back from `.7z` to `.zip` for packaging in order to simplify the build process.
 
 ### Fixed
 - Fixed a bug where certain unlucky users ( Non-NVidia ) would download the wrong dependencies.
@@ -23,12 +24,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## Adobe Edition
 
 ### Added
-- Added deh264_real and deh264_span restore methods.
+- Added `deh264_real` and `deh264_span` restore methods.
 - Added a " Github Sponsors " button.
+- Shortcuts options for the whole UI including settings in the `About` Tab.
 
 ### Changed
 - Updated some descriptions in the UI for better clarity.
 - Updated all of the dependencies to their latest versions.
+
+### Fixed
+- Potential fix for `.mov` files missing.
 
 ## [2.4.4] - 2025-09-18
 ### Added
