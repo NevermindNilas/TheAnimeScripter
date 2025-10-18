@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Improved the robustness of the GPU detection logic.
 - The arguments sections should only show the actually used arguments now.
 - Bumped python to `v3.13.9`
+- Bumped `torch` to `2.9.0`
 
 ### Fixed
 - Fixed a bug where certain unlucky users ( Non-NVidia ) would download the wrong dependencies.
