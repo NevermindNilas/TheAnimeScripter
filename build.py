@@ -141,11 +141,16 @@ def bundleFiles(targetDir):
 
     print("Copying source code...")
     srcDir = baseDir / "src"
-    shutil.copytree(srcDir, bundleDir / "src", dirs_exist_ok=True)
+    srcDest = bundleDir / "src"
+
+    if srcDest.exists():
+        print(f"Removing existing src directory: {srcDest}")
+        shutil.rmtree(srcDest)
+
+    shutil.copytree(srcDir, srcDest)
 
     shutil.copy2(baseDir / "main.py", bundleDir / "main.py")
 
-    # Create launcher script for Linux
     if system == "Linux":
         launcherScript = bundleDir / "run.sh"
         with open(launcherScript, "w") as f:
