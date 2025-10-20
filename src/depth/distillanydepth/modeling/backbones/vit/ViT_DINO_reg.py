@@ -21,19 +21,21 @@ from torch.nn.init import trunc_normal_
 import torch.nn.init
 import torch.nn.functional as F
 
-#from dinov2.layers import Mlp, PatchEmbed, SwiGLUFFNFused, MemEffAttention, NestedTensorBlock as Block
+# from dinov2.layers import Mlp, PatchEmbed, SwiGLUFFNFused, MemEffAttention, NestedTensorBlock as Block
 
 logger = logging.getLogger("dinov2")
+
 
 # SSF finetuning originally by dongzelian
 def init_ssf_scale_shift(dim):
     scale = nn.Parameter(torch.ones(dim))
     shift = nn.Parameter(torch.zeros(dim))
 
-    nn.init.normal_(scale, mean=1, std=.02)
-    nn.init.normal_(shift, std=.02)
+    nn.init.normal_(scale, mean=1, std=0.02)
+    nn.init.normal_(shift, std=0.02)
 
     return scale, shift
+
 
 def ssf_ada(x, scale, shift):
     assert scale.shape == shift.shape
@@ -42,21 +44,24 @@ def ssf_ada(x, scale, shift):
     elif x.shape[1] == scale.shape[0]:
         return x * scale.view(1, -1, 1, 1) + shift.view(1, -1, 1, 1)
     else:
-        raise ValueError('the input tensor shape does not match the shape of the scale factor.')
+        raise ValueError(
+            "the input tensor shape does not match the shape of the scale factor."
+        )
+
 
 # LoRA finetuning originally by edwardjhu
-class LoRALayer():
+class LoRALayer:
     def __init__(
-        self, 
-        r: int, 
-        lora_alpha: int, 
+        self,
+        r: int,
+        lora_alpha: int,
         lora_dropout: float,
         merge_weights: bool,
     ):
         self.r = r
         self.lora_alpha = lora_alpha
         # Optional dropout
-        if lora_dropout > 0.:
+        if lora_dropout > 0.0:
             self.lora_dropout = nn.Dropout(p=lora_dropout)
         else:
             self.lora_dropout = lambda x: x
@@ -64,22 +69,28 @@ class LoRALayer():
         self.merged = False
         self.merge_weights = merge_weights
 
+
 class LoRALinear(nn.Linear, LoRALayer):
     # LoRA implemented in a dense layer
     def __init__(
-        self, 
-        in_features: int, 
-        out_features: int, 
-        r: int = 0, 
-        lora_alpha: int = 1, 
-        lora_dropout: float = 0.,
-        fan_in_fan_out: bool = False, # Set this to True if the layer to replace stores weight like (fan_in, fan_out)
+        self,
+        in_features: int,
+        out_features: int,
+        r: int = 0,
+        lora_alpha: int = 1,
+        lora_dropout: float = 0.0,
+        fan_in_fan_out: bool = False,  # Set this to True if the layer to replace stores weight like (fan_in, fan_out)
         merge_weights: bool = True,
-        **kwargs
+        **kwargs,
     ):
         nn.Linear.__init__(self, in_features, out_features, **kwargs)
-        LoRALayer.__init__(self, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout,
-                           merge_weights=merge_weights)
+        LoRALayer.__init__(
+            self,
+            r=r,
+            lora_alpha=lora_alpha,
+            lora_dropout=lora_dropout,
+            merge_weights=merge_weights,
+        )
 
         self.fan_in_fan_out = fan_in_fan_out
         # Actual trainable parameters
@@ -96,8 +107,7 @@ class LoRALinear(nn.Linear, LoRALayer):
             self.weight.data = self.weight.data.transpose(0, 1)
 
     def reset_parameters(self):
-
-        if hasattr(self, 'lora_A'):
+        if hasattr(self, "lora_A"):
             # initialize B the same way as the default for nn.Linear and A to zero
             # this is different than what is described in the paper but should not affect performance
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
@@ -120,17 +130,23 @@ class LoRALinear(nn.Linear, LoRALayer):
     #             # Merge the weights and mark it
     #             if self.r > 0:
     #                 self.weight.data += T(self.lora_B @ self.lora_A) * self.scaling
-    #             self.merged = True       
+    #             self.merged = True
 
     def forward(self, x: torch.Tensor):
         def T(w):
             return w.transpose(0, 1) if self.fan_in_fan_out else w
+
         if self.r > 0 and not self.merged:
-            result = F.linear(x, T(self.weight), bias=self.bias)            
-            result += (self.lora_dropout(x) @ self.lora_A.transpose(0, 1) @ self.lora_B.transpose(0, 1)) * self.scaling
+            result = F.linear(x, T(self.weight), bias=self.bias)
+            result += (
+                self.lora_dropout(x)
+                @ self.lora_A.transpose(0, 1)
+                @ self.lora_B.transpose(0, 1)
+            ) * self.scaling
             return result
         else:
             return F.linear(x, T(self.weight), bias=self.bias)
+
 
 def make_2tuple(x):
     if isinstance(x, tuple):
@@ -140,16 +156,20 @@ def make_2tuple(x):
     assert isinstance(x, int)
     return (x, x)
 
+
 def drop_path(x, drop_prob: float = 0.0, training: bool = False):
     if drop_prob == 0.0 or not training:
         return x
     keep_prob = 1 - drop_prob
-    shape = (x.shape[0],) + (1,) * (x.ndim - 1)  # work with diff dim tensors, not just 2D ConvNets
+    shape = (x.shape[0],) + (1,) * (
+        x.ndim - 1
+    )  # work with diff dim tensors, not just 2D ConvNets
     random_tensor = x.new_empty(shape).bernoulli_(keep_prob)
     if keep_prob > 0.0:
         random_tensor.div_(keep_prob)
     output = x * random_tensor
     return output
+
 
 class DropPath(nn.Module):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks)."""
@@ -161,6 +181,7 @@ class DropPath(nn.Module):
     def forward(self, x):
         return drop_path(x, self.drop_prob, self.training)
 
+
 class LayerScale(nn.Module):
     def __init__(
         self,
@@ -170,10 +191,11 @@ class LayerScale(nn.Module):
     ) -> None:
         super().__init__()
         self.inplace = inplace
-        self.gamma = nn.Parameter(init_values * torch.ones(dim))                
+        self.gamma = nn.Parameter(init_values * torch.ones(dim))
 
     def forward(self, x: Tensor) -> Tensor:
         return x.mul_(self.gamma) if self.inplace else x * self.gamma
+
 
 class PatchEmbed(nn.Module):
     """
@@ -195,7 +217,7 @@ class PatchEmbed(nn.Module):
         embed_dim: int = 768,
         norm_layer: Optional[Callable] = None,
         flatten_embedding: bool = True,
-        tuning_mode: Optional[str] = None
+        tuning_mode: Optional[str] = None,
     ) -> None:
         super().__init__()
 
@@ -216,16 +238,18 @@ class PatchEmbed(nn.Module):
 
         self.flatten_embedding = flatten_embedding
 
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_HW, stride=patch_HW)
+        self.proj = nn.Conv2d(
+            in_chans, embed_dim, kernel_size=patch_HW, stride=patch_HW
+        )
         self.norm = norm_layer(embed_dim) if norm_layer else nn.Identity()
 
         if tuning_mode != None:
             self.tuning_mode = tuning_mode
-            if tuning_mode == 'ssf':
+            if tuning_mode == "ssf":
                 self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(embed_dim)
             else:
                 pass
-                #raise NotImplementedError()
+                # raise NotImplementedError()
         else:
             self.tuning_mode = None
 
@@ -233,14 +257,18 @@ class PatchEmbed(nn.Module):
         _, _, H, W = x.shape
         patch_H, patch_W = self.patch_size
 
-        assert H % patch_H == 0, f"Input image height {H} is not a multiple of patch height {patch_H}"
-        assert W % patch_W == 0, f"Input image width {W} is not a multiple of patch width: {patch_W}"
+        assert H % patch_H == 0, (
+            f"Input image height {H} is not a multiple of patch height {patch_H}"
+        )
+        assert W % patch_W == 0, (
+            f"Input image width {W} is not a multiple of patch width: {patch_W}"
+        )
 
         x = self.proj(x)  # B C H W
         H, W = x.size(2), x.size(3)
         x = x.flatten(2).transpose(1, 2)  # B HW C
         x = self.norm(x)
-        if self.tuning_mode == 'ssf':
+        if self.tuning_mode == "ssf":
             x = ssf_ada(x, self.ssf_scale_1, self.ssf_shift_1)
         if not self.flatten_embedding:
             x = x.reshape(-1, H, W, self.embed_dim)  # B H W C
@@ -248,10 +276,17 @@ class PatchEmbed(nn.Module):
 
     def flops(self) -> float:
         Ho, Wo = self.patches_resolution
-        flops = Ho * Wo * self.embed_dim * self.in_chans * (self.patch_size[0] * self.patch_size[1])
+        flops = (
+            Ho
+            * Wo
+            * self.embed_dim
+            * self.in_chans
+            * (self.patch_size[0] * self.patch_size[1])
+        )
         if self.norm is not None:
             flops += Ho * Wo * self.embed_dim
         return flops
+
 
 class Mlp(nn.Module):
     def __init__(
@@ -262,7 +297,7 @@ class Mlp(nn.Module):
         act_layer: Callable[..., nn.Module] = nn.GELU,
         drop: float = 0.0,
         bias: bool = True,
-        tuning_mode: Optional[int] = None
+        tuning_mode: Optional[int] = None,
     ) -> None:
         super().__init__()
         out_features = out_features or in_features
@@ -274,28 +309,31 @@ class Mlp(nn.Module):
 
         if tuning_mode != None:
             self.tuning_mode = tuning_mode
-            if tuning_mode == 'ssf':
-                self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(hidden_features)
+            if tuning_mode == "ssf":
+                self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(
+                    hidden_features
+                )
                 self.ssf_scale_2, self.ssf_shift_2 = init_ssf_scale_shift(out_features)
             else:
                 pass
-                #raise NotImplementedError()
+                # raise NotImplementedError()
         else:
             self.tuning_mode = None
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.fc1(x)
-        if self.tuning_mode == 'ssf':
+        if self.tuning_mode == "ssf":
             x = ssf_ada(x, self.ssf_scale_1, self.ssf_shift_1)
 
         x = self.act(x)
         x = self.drop(x)
         x = self.fc2(x)
-        if self.tuning_mode == 'ssf':
+        if self.tuning_mode == "ssf":
             x = ssf_ada(x, self.ssf_scale_2, self.ssf_shift_2)
 
         x = self.drop(x)
         return x
+
 
 class SwiGLUFFN(nn.Module):
     def __init__(
@@ -306,7 +344,7 @@ class SwiGLUFFN(nn.Module):
         act_layer: Callable[..., nn.Module] = None,
         drop: float = 0.0,
         bias: bool = True,
-        tuning_mode: Optional[int] = None
+        tuning_mode: Optional[int] = None,
     ) -> None:
         super().__init__()
         out_features = out_features or in_features
@@ -316,37 +354,41 @@ class SwiGLUFFN(nn.Module):
 
         if tuning_mode != None:
             self.tuning_mode = tuning_mode
-            if tuning_mode == 'ssf':
-                self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(2 * hidden_features)
+            if tuning_mode == "ssf":
+                self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(
+                    2 * hidden_features
+                )
                 self.ssf_scale_2, self.ssf_shift_2 = init_ssf_scale_shift(out_features)
             else:
                 pass
-                #raise NotImplementedError()
+                # raise NotImplementedError()
         else:
             self.tuning_mode = None
 
-
     def forward(self, x: Tensor) -> Tensor:
         x12 = self.w12(x)
-        if self.tuning_mode == 'ssf':
+        if self.tuning_mode == "ssf":
             x12 = ssf_ada(x12, self.ssf_scale_1, self.ssf_shift_1)
 
         x1, x2 = x12.chunk(2, dim=-1)
         hidden = F.silu(x1) * x2
         out = self.w3(hidden)
 
-        if self.tuning_mode == 'ssf':
+        if self.tuning_mode == "ssf":
             out = ssf_ada(out, self.ssf_scale_2, self.ssf_scale_2)
 
         return out
 
+
 try:
     from xformers.ops import SwiGLU
-    #import numpy.bool
+
+    # import numpy.bool
     XFORMERS_AVAILABLE = True
 except ImportError:
     SwiGLU = SwiGLUFFN
     XFORMERS_AVAILABLE = False
+
 
 class SwiGLUFFNFused(SwiGLU):
     def __init__(
@@ -373,10 +415,10 @@ try:
     from xformers.ops import memory_efficient_attention, unbind, fmha
     from xformers.components.attention import ScaledDotProduct
     from xformers.components import MultiHeadDispatch
-    #import numpy.bool
+
+    # import numpy.bool
     XFORMERS_AVAILABLE = True
 except ImportError:
-    logger.warning("xFormers not available")
     XFORMERS_AVAILABLE = False
 
 
@@ -390,50 +432,58 @@ class Attention(nn.Module):
         attn_drop: float = 0.0,
         proj_drop: float = 0.0,
         window_size: int = 0,
-        tuning_mode: Optional[int] = None
+        tuning_mode: Optional[int] = None,
     ) -> None:
         super().__init__()
         self.num_heads = num_heads
         head_dim = dim // num_heads
         self.scale = head_dim**-0.5
 
-        if tuning_mode == 'lora':
+        if tuning_mode == "lora":
             self.tuning_mode = tuning_mode
             self.qkv = LoRALinear(dim, dim * 3, bias=qkv_bias, r=8)
         else:
             self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
-        
+
         self.attn_drop = nn.Dropout(attn_drop)
-        
-        if tuning_mode == 'lora':
+
+        if tuning_mode == "lora":
             self.tuning_mode = tuning_mode
             self.proj = LoRALinear(dim, dim, bias=proj_bias, r=8)
         else:
             self.proj = nn.Linear(dim, dim, bias=proj_bias)
         self.proj_drop = nn.Dropout(proj_drop)
-        
+
         if tuning_mode != None:
             self.tuning_mode = tuning_mode
-            if tuning_mode == 'ssf':
+            if tuning_mode == "ssf":
                 self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(dim * 3)
                 self.ssf_scale_2, self.ssf_shift_2 = init_ssf_scale_shift(dim)
             else:
                 pass
-                #raise NotImplementedError()
+                # raise NotImplementedError()
         else:
             self.tuning_mode = None
 
-        #if not self.training:
+        # if not self.training:
         #
         # self.attn = ScaledDotProduct()
-            #self.attn = MultiHeadDispatch(dim_model=EMB, residual_dropout=DROPOUT, num_heads=HEADS, attention=attn)
+        # self.attn = MultiHeadDispatch(dim_model=EMB, residual_dropout=DROPOUT, num_heads=HEADS, attention=attn)
 
     def forward(self, x: Tensor, attn_bias=None) -> Tensor:
         B, N, C = x.shape
-        if self.tuning_mode == 'ssf':
-            qkv = ssf_ada(self.qkv(x), self.ssf_scale_1, self.ssf_shift_1).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        if self.tuning_mode == "ssf":
+            qkv = (
+                ssf_ada(self.qkv(x), self.ssf_scale_1, self.ssf_shift_1)
+                .reshape(B, N, 3, self.num_heads, C // self.num_heads)
+                .permute(2, 0, 3, 1, 4)
+            )
         else:
-            qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+            qkv = (
+                self.qkv(x)
+                .reshape(B, N, 3, self.num_heads, C // self.num_heads)
+                .permute(2, 0, 3, 1, 4)
+            )
 
         q, k, v = qkv[0] * self.scale, qkv[1], qkv[2]
         attn = q @ k.transpose(-2, -1)
@@ -447,7 +497,7 @@ class Attention(nn.Module):
         x = (attn @ v).transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
 
-        if self.tuning_mode == 'ssf':
+        if self.tuning_mode == "ssf":
             x = ssf_ada(x, self.ssf_scale_2, self.ssf_shift_2)
 
         x = self.proj_drop(x)
@@ -457,13 +507,15 @@ class Attention(nn.Module):
 class MemEffAttention(Attention):
     def forward(self, x: Tensor, attn_bias=None) -> Tensor:
         if not XFORMERS_AVAILABLE:
-        #if True:
+            # if True:
             assert attn_bias is None, "xFormers is required for nested tensors usage"
             return super().forward(x, attn_bias)
 
         B, N, C = x.shape
-        if self.tuning_mode == 'ssf':
-            qkv = ssf_ada(self.qkv(x), self.ssf_scale_1, self.ssf_shift_1).reshape(B, N, 3, self.num_heads, C // self.num_heads)
+        if self.tuning_mode == "ssf":
+            qkv = ssf_ada(self.qkv(x), self.ssf_scale_1, self.ssf_shift_1).reshape(
+                B, N, 3, self.num_heads, C // self.num_heads
+            )
         else:
             qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads)
 
@@ -475,20 +527,22 @@ class MemEffAttention(Attention):
         x = x.reshape([B, N, C])
 
         x = self.proj(x)
-        if self.tuning_mode == 'ssf':
+        if self.tuning_mode == "ssf":
             x = ssf_ada(x, self.ssf_scale_2, self.ssf_shift_2)
 
         x = self.proj_drop(x)
         return x
 
+
 try:
     from xformers.ops import fmha
     from xformers.ops import scaled_index_add, index_select_cat
-    #import numpy.bool
+
+    # import numpy.bool
     XFORMERS_AVAILABLE = True
 except ImportError:
-    logger.warning("xFormers not available")
     XFORMERS_AVAILABLE = False
+
 
 class Block(nn.Module):
     def __init__(
@@ -501,13 +555,13 @@ class Block(nn.Module):
         ffn_bias: bool = True,
         drop: float = 0.0,
         attn_drop: float = 0.0,
-        init_values = None,
+        init_values=None,
         drop_path: float = 0.0,
         act_layer: Callable[..., nn.Module] = nn.GELU,
         norm_layer: Callable[..., nn.Module] = nn.LayerNorm,
         attn_class: Callable[..., nn.Module] = Attention,
         ffn_layer: Callable[..., nn.Module] = Mlp,
-        tuning_mode: Optional[int] = None
+        tuning_mode: Optional[int] = None,
     ) -> None:
         super().__init__()
         # print(f"biases: qkv: {qkv_bias}, proj: {proj_bias}, ffn: {ffn_bias}")
@@ -519,21 +573,23 @@ class Block(nn.Module):
             proj_bias=proj_bias,
             attn_drop=attn_drop,
             proj_drop=drop,
-            tuning_mode=tuning_mode
+            tuning_mode=tuning_mode,
         )
 
         if tuning_mode != None:
             self.tuning_mode = tuning_mode
-            if tuning_mode == 'ssf':
+            if tuning_mode == "ssf":
                 self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(dim)
                 self.ssf_scale_2, self.ssf_shift_2 = init_ssf_scale_shift(dim)
             else:
                 pass
-                #raise NotImplementedError()
+                # raise NotImplementedError()
         else:
             self.tuning_mode = None
 
-        self.ls1 = LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        self.ls1 = (
+            LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        )
         self.drop_path1 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
         self.norm2 = norm_layer(dim)
@@ -545,21 +601,30 @@ class Block(nn.Module):
             drop=drop,
             bias=ffn_bias,
         )
-        self.ls2 = LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        self.ls2 = (
+            LayerScale(dim, init_values=init_values) if init_values else nn.Identity()
+        )
         self.drop_path2 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
 
         self.sample_drop_ratio = drop_path
 
     def forward(self, x: Tensor, attn_bias=None) -> Tensor:
         def attn_residual_func(x: Tensor, attn_bias) -> Tensor:
-            if self.tuning_mode == 'ssf':
-                return self.ls1(self.attn(ssf_ada(self.norm1(x), self.ssf_scale_1, self.ssf_shift_1), attn_bias))
+            if self.tuning_mode == "ssf":
+                return self.ls1(
+                    self.attn(
+                        ssf_ada(self.norm1(x), self.ssf_scale_1, self.ssf_shift_1),
+                        attn_bias,
+                    )
+                )
             else:
                 return self.ls1(self.attn(self.norm1(x), attn_bias))
 
         def ffn_residual_func(x: Tensor) -> Tensor:
-            if self.tuning_mode == 'ssf':
-                return self.ls2(self.mlp(ssf_ada(self.norm2(x), self.ssf_scale_2, self.ssf_shift_2)))
+            if self.tuning_mode == "ssf":
+                return self.ls2(
+                    self.mlp(ssf_ada(self.norm2(x), self.ssf_scale_2, self.ssf_shift_2))
+                )
             else:
                 return self.ls2(self.mlp(self.norm2(x)))
 
@@ -569,7 +634,7 @@ class Block(nn.Module):
                 x,
                 residual_func=attn_residual_func,
                 sample_drop_ratio=self.sample_drop_ratio,
-                attn_bias=attn_bias
+                attn_bias=attn_bias,
             )
             x = drop_add_residual_stochastic_depth(
                 x,
@@ -588,7 +653,8 @@ class Block(nn.Module):
 def drop_add_residual_stochastic_depth(
     x: Tensor,
     residual_func: Callable[[Tensor], Tensor],
-    sample_drop_ratio: float = 0.0, attn_bias=None
+    sample_drop_ratio: float = 0.0,
+    attn_bias=None,
 ) -> Tensor:
     # 1) extract subset using permutation
     b, n, d = x.shape
@@ -605,7 +671,9 @@ def drop_add_residual_stochastic_depth(
     residual_scale_factor = b / sample_subset_size
 
     # 3) add the residual
-    x_plus_residual = torch.index_add(x_flat, 0, brange, residual.to(dtype=x.dtype), alpha=residual_scale_factor)
+    x_plus_residual = torch.index_add(
+        x_flat, 0, brange, residual.to(dtype=x.dtype), alpha=residual_scale_factor
+    )
     return x_plus_residual.view_as(x)
 
 
@@ -621,10 +689,16 @@ def add_residual(x, brange, residual, residual_scale_factor, scaling_vector=None
     if scaling_vector is None:
         x_flat = x.flatten(1)
         residual = residual.flatten(1)
-        x_plus_residual = torch.index_add(x_flat, 0, brange, residual.to(dtype=x.dtype), alpha=residual_scale_factor)
+        x_plus_residual = torch.index_add(
+            x_flat, 0, brange, residual.to(dtype=x.dtype), alpha=residual_scale_factor
+        )
     else:
         x_plus_residual = scaled_index_add(
-            x, brange, residual.to(dtype=x.dtype), scaling=scaling_vector, alpha=residual_scale_factor
+            x,
+            brange,
+            residual.to(dtype=x.dtype),
+            scaling=scaling_vector,
+            alpha=residual_scale_factor,
         )
     return x_plus_residual
 
@@ -636,7 +710,11 @@ def get_attn_bias_and_cat(x_list, branges=None):
     """
     this will perform the index select, cat the tensors, and provide the attn_bias from cache
     """
-    batch_sizes = [b.shape[0] for b in branges] if branges is not None else [x.shape[0] for x in x_list]
+    batch_sizes = (
+        [b.shape[0] for b in branges]
+        if branges is not None
+        else [x.shape[0] for x in x_list]
+    )
     all_shapes = tuple((b, x.shape[1]) for b, x in zip(batch_sizes, x_list))
     if all_shapes not in attn_bias_cache.keys():
         seqlens = []
@@ -648,7 +726,9 @@ def get_attn_bias_and_cat(x_list, branges=None):
         attn_bias_cache[all_shapes] = attn_bias
 
     if branges is not None:
-        cat_tensors = index_select_cat([x.flatten(1) for x in x_list], branges).view(1, -1, x_list[0].shape[-1])
+        cat_tensors = index_select_cat([x.flatten(1) for x in x_list], branges).view(
+            1, -1, x_list[0].shape[-1]
+        )
     else:
         tensors_bs1 = tuple(x.reshape([1, -1, *x.shape[2:]]) for x in x_list)
         cat_tensors = torch.cat(tensors_bs1, dim=1)
@@ -663,7 +743,9 @@ def drop_add_residual_stochastic_depth_list(
     scaling_vector=None,
 ) -> Tensor:
     # 1) generate random set of indices for dropping samples in the batch
-    branges_scales = [get_branges_scales(x, sample_drop_ratio=sample_drop_ratio) for x in x_list]
+    branges_scales = [
+        get_branges_scales(x, sample_drop_ratio=sample_drop_ratio) for x in x_list
+    ]
     branges = [s[0] for s in branges_scales]
     residual_scale_factors = [s[1] for s in branges_scales]
 
@@ -674,8 +756,14 @@ def drop_add_residual_stochastic_depth_list(
     residual_list = attn_bias.split(residual_func(x_cat, attn_bias=attn_bias))  # type: ignore
 
     outputs = []
-    for x, brange, residual, residual_scale_factor in zip(x_list, branges, residual_list, residual_scale_factors):
-        outputs.append(add_residual(x, brange, residual, residual_scale_factor, scaling_vector).view_as(x))
+    for x, brange, residual, residual_scale_factor in zip(
+        x_list, branges, residual_list, residual_scale_factors
+    ):
+        outputs.append(
+            add_residual(
+                x, brange, residual, residual_scale_factor, scaling_vector
+            ).view_as(x)
+        )
     return outputs
 
 
@@ -698,13 +786,17 @@ class NestedTensorBlock(Block):
                 x_list,
                 residual_func=attn_residual_func,
                 sample_drop_ratio=self.sample_drop_ratio,
-                scaling_vector=self.ls1.gamma if isinstance(self.ls1, LayerScale) else None,
+                scaling_vector=self.ls1.gamma
+                if isinstance(self.ls1, LayerScale)
+                else None,
             )
             x_list = drop_add_residual_stochastic_depth_list(
                 x_list,
                 residual_func=ffn_residual_func,
                 sample_drop_ratio=self.sample_drop_ratio,
-                scaling_vector=self.ls2.gamma if isinstance(self.ls1, LayerScale) else None,
+                scaling_vector=self.ls2.gamma
+                if isinstance(self.ls1, LayerScale)
+                else None,
             )
             return x_list
         else:
@@ -724,18 +816,28 @@ class NestedTensorBlock(Block):
         if isinstance(x_or_x_list, Tensor):
             return super().forward(x_or_x_list, attn_bias)
         elif isinstance(x_or_x_list, list):
-            assert XFORMERS_AVAILABLE, "Please install xFormers for nested tensors usage"
+            assert XFORMERS_AVAILABLE, (
+                "Please install xFormers for nested tensors usage"
+            )
             return self.forward_nested(x_or_x_list)
         else:
             raise AssertionError
 
 
-def named_apply(fn: Callable, module: nn.Module, name="", depth_first=True, include_root=False) -> nn.Module:
+def named_apply(
+    fn: Callable, module: nn.Module, name="", depth_first=True, include_root=False
+) -> nn.Module:
     if not depth_first and include_root:
         fn(module=module, name=name)
     for child_name, child_module in module.named_children():
         child_name = ".".join((name, child_name)) if name else child_name
-        named_apply(fn=fn, module=child_module, name=child_name, depth_first=depth_first, include_root=True)
+        named_apply(
+            fn=fn,
+            module=child_module,
+            name=child_name,
+            depth_first=depth_first,
+            include_root=True,
+        )
     if depth_first and include_root:
         fn(module=module, name=name)
     return module
@@ -777,7 +879,7 @@ class DinoVisionTransformer(nn.Module):
         interpolate_offset=0.1,
         multi_output=False,
         tuning_mode=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Args:
@@ -807,7 +909,9 @@ class DinoVisionTransformer(nn.Module):
         super().__init__()
         norm_layer = partial(nn.LayerNorm, eps=1e-6)
 
-        self.num_features = self.embed_dim = embed_dim  # num_features for consistency with other models
+        self.num_features = self.embed_dim = (
+            embed_dim  # num_features for consistency with other models
+        )
         self.num_tokens = 1
         self.n_blocks = depth
         self.num_heads = num_heads
@@ -818,30 +922,42 @@ class DinoVisionTransformer(nn.Module):
 
         if tuning_mode != None:
             self.tuning_mode = tuning_mode
-            if tuning_mode == 'ssf':
+            if tuning_mode == "ssf":
                 self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(embed_dim)
             else:
                 pass
-                #raise NotImplementedError()
+                # raise NotImplementedError()
         else:
             self.tuning_mode = None
-        tuning_mode_list = [tuning_mode] * depth 
+        tuning_mode_list = [tuning_mode] * depth
 
-        self.patch_embed = embed_layer(img_size=img_size, patch_size=patch_size, in_chans=in_chans, embed_dim=embed_dim, tuning_mode=tuning_mode)
+        self.patch_embed = embed_layer(
+            img_size=img_size,
+            patch_size=patch_size,
+            in_chans=in_chans,
+            embed_dim=embed_dim,
+            tuning_mode=tuning_mode,
+        )
         num_patches = self.patch_embed.num_patches
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
-        self.pos_embed = nn.Parameter(torch.zeros(1, num_patches + self.num_tokens, embed_dim))
+        self.pos_embed = nn.Parameter(
+            torch.zeros(1, num_patches + self.num_tokens, embed_dim)
+        )
         self.multi_output = multi_output
         assert num_register_tokens >= 0
         self.register_tokens = (
-            nn.Parameter(torch.zeros(1, num_register_tokens, embed_dim)) if num_register_tokens else None
+            nn.Parameter(torch.zeros(1, num_register_tokens, embed_dim))
+            if num_register_tokens
+            else None
         )
 
         if drop_path_uniform is True:
             dpr = [drop_path_rate] * depth
         else:
-            dpr = [x.item() for x in torch.linspace(0, drop_path_rate, depth)]  # stochastic depth decay rule
+            dpr = [
+                x.item() for x in torch.linspace(0, drop_path_rate, depth)
+            ]  # stochastic depth decay rule
 
         if ffn_layer == "mlp":
             logger.info("using MLP layer as FFN")
@@ -872,7 +988,7 @@ class DinoVisionTransformer(nn.Module):
                 act_layer=act_layer,
                 ffn_layer=ffn_layer,
                 init_values=init_values,
-                tuning_mode=tuning_mode_list[i]
+                tuning_mode=tuning_mode_list[i],
             )
             for i in range(depth)
         ]
@@ -882,7 +998,9 @@ class DinoVisionTransformer(nn.Module):
             chunksize = depth // block_chunks
             for i in range(0, depth, chunksize):
                 # this is to keep the block index consistent if we chunk the block list
-                chunked_blocks.append([nn.Identity()] * i + blocks_list[i : i + chunksize])
+                chunked_blocks.append(
+                    [nn.Identity()] * i + blocks_list[i : i + chunksize]
+                )
             self.blocks = nn.ModuleList([BlockChunk(p) for p in chunked_blocks])
         else:
             self.chunked_blocks = False
@@ -921,7 +1039,9 @@ class DinoVisionTransformer(nn.Module):
         sqrt_N = math.sqrt(N)
         sx, sy = float(w0) / sqrt_N, float(h0) / sqrt_N
         patch_pos_embed = nn.functional.interpolate(
-            patch_pos_embed.reshape(1, int(sqrt_N), int(sqrt_N), dim).permute(0, 3, 1, 2),
+            patch_pos_embed.reshape(1, int(sqrt_N), int(sqrt_N), dim).permute(
+                0, 3, 1, 2
+            ),
             scale_factor=(sx, sy),
             mode="bicubic",
             antialias=self.interpolate_antialias,
@@ -930,13 +1050,17 @@ class DinoVisionTransformer(nn.Module):
         assert int(w0) == patch_pos_embed.shape[-2]
         assert int(h0) == patch_pos_embed.shape[-1]
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
-        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(previous_dtype)
+        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(
+            previous_dtype
+        )
 
     def prepare_tokens_with_masks(self, x, masks=None):
         B, nc, w, h = x.shape
         x = self.patch_embed(x)
         if masks is not None:
-            x = torch.where(masks.unsqueeze(-1), self.mask_token.to(x.dtype).unsqueeze(0), x)
+            x = torch.where(
+                masks.unsqueeze(-1), self.mask_token.to(x.dtype).unsqueeze(0), x
+            )
 
         x = torch.cat((self.cls_token.expand(x.shape[0], -1, -1), x), dim=1)
         x = x + self.interpolate_pos_encoding(x, w, h)
@@ -954,7 +1078,10 @@ class DinoVisionTransformer(nn.Module):
         return x
 
     def forward_features_list(self, x_list, masks_list):
-        x = [self.prepare_tokens_with_masks(x, masks) for x, masks in zip(x_list, masks_list)]
+        x = [
+            self.prepare_tokens_with_masks(x, masks)
+            for x, masks in zip(x_list, masks_list)
+        ]
         for blk in self.blocks:
             x = blk(x)
 
@@ -981,24 +1108,26 @@ class DinoVisionTransformer(nn.Module):
             x = x[None]
 
         B, C, H, W = x.size()
-        pad_h = (self.patch_size - H % self.patch_size)
-        pad_w = (self.patch_size - W % self.patch_size)
+        pad_h = self.patch_size - H % self.patch_size
+        pad_w = self.patch_size - W % self.patch_size
         if pad_h == self.patch_size:
             pad_h = 0
         if pad_w == self.patch_size:
-            pad_w = 0     
-        #x = nn.functional.pad(x, (pad_h//2, pad_h-pad_h//2, pad_w//2, pad_w-pad_w//2))
+            pad_w = 0
+        # x = nn.functional.pad(x, (pad_h//2, pad_h-pad_h//2, pad_w//2, pad_w-pad_w//2))
         if pad_h + pad_w > 0:
-            x = torch.nn.functional.interpolate(x, (H+pad_h, W+pad_w), mode='bilinear')
+            x = torch.nn.functional.interpolate(
+                x, (H + pad_h, W + pad_w), mode="bilinear"
+            )
 
         x = self.prepare_tokens_with_masks(x, masks)
 
-        #for blk in self.blocks:
-            #x = blk(x)
+        # for blk in self.blocks:
+        # x = blk(x)
 
-        #x_norm = self.norm(x)
-        #if self.tuning_mode == 'ssf': 
-            #x_norm = ssf_ada(x_norm, self.ssf_scale_1, self.ssf_shift_1)
+        # x_norm = self.norm(x)
+        # if self.tuning_mode == 'ssf':
+        # x_norm = ssf_ada(x_norm, self.ssf_scale_1, self.ssf_shift_1)
 
         # return {
         #     "x_norm_clstoken": x_norm[:, 0],
@@ -1018,7 +1147,7 @@ class DinoVisionTransformer(nn.Module):
             for blk in self.blocks:
                 x = blk(x)
             x_norm = self.norm(x)
-            if self.tuning_mode == 'ssf': 
+            if self.tuning_mode == "ssf":
                 x_norm = ssf_ada(x_norm, self.ssf_scale_1, self.ssf_shift_1)
 
             features = []
@@ -1026,7 +1155,17 @@ class DinoVisionTransformer(nn.Module):
             features.append(x_norm)
             features.append(x_norm)
             features.append(x_norm)
-            return [features, (B, (H+pad_h)//self.patch_size, (W+pad_w)//self.patch_size, H, W, self.num_register_tokens)]
+            return [
+                features,
+                (
+                    B,
+                    (H + pad_h) // self.patch_size,
+                    (W + pad_w) // self.patch_size,
+                    H,
+                    W,
+                    self.num_register_tokens,
+                ),
+            ]
         else:
             features = []
             for blk in self.blocks:
@@ -1035,32 +1174,50 @@ class DinoVisionTransformer(nn.Module):
                     if (idx + 1) % (len(blk) // 4) == 0:
                         features.append(x)
 
-            return [features, (B, (H+pad_h)//self.patch_size, (W+pad_w)//self.patch_size, H, W, self.num_register_tokens)]            
+            return [
+                features,
+                (
+                    B,
+                    (H + pad_h) // self.patch_size,
+                    (W + pad_w) // self.patch_size,
+                    H,
+                    W,
+                    self.num_register_tokens,
+                ),
+            ]
 
     def _get_intermediate_layers_not_chunked(self, x, n=1):
         x = self.prepare_tokens_with_masks(x)
         # If n is an int, take the n last blocks. If it's a list, take them
         output, total_block_len = [], len(self.blocks)
-        blocks_to_take = range(total_block_len - n, total_block_len) if isinstance(n, int) else n
+        blocks_to_take = (
+            range(total_block_len - n, total_block_len) if isinstance(n, int) else n
+        )
         for i, blk in enumerate(self.blocks):
             x = blk(x)
             if i in blocks_to_take:
                 output.append(x)
-        assert len(output) == len(blocks_to_take), f"only {len(output)} / {len(blocks_to_take)} blocks found"
+        assert len(output) == len(blocks_to_take), (
+            f"only {len(output)} / {len(blocks_to_take)} blocks found"
+        )
         return output
 
     def _get_intermediate_layers_chunked(self, x, n=1):
         x = self.prepare_tokens_with_masks(x)
         output, i, total_block_len = [], 0, len(self.blocks[-1])
         # If n is an int, take the n last blocks. If it's a list, take them
-        blocks_to_take = range(total_block_len - n, total_block_len) if isinstance(n, int) else n
+        blocks_to_take = (
+            range(total_block_len - n, total_block_len) if isinstance(n, int) else n
+        )
         for block_chunk in self.blocks:
             for blk in block_chunk[i:]:  # Passing the nn.Identity()
                 x = blk(x)
                 if i in blocks_to_take:
                     output.append(x)
                 i += 1
-        assert len(output) == len(blocks_to_take), f"only {len(output)} / {len(blocks_to_take)} blocks found"
+        assert len(output) == len(blocks_to_take), (
+            f"only {len(output)} / {len(blocks_to_take)} blocks found"
+        )
         return output
 
     def get_intermediate_layers(
@@ -1082,7 +1239,9 @@ class DinoVisionTransformer(nn.Module):
         if reshape:
             B, _, w, h = x.shape
             outputs = [
-                out.reshape(B, w // self.patch_size, h // self.patch_size, -1).permute(0, 3, 1, 2).contiguous()
+                out.reshape(B, w // self.patch_size, h // self.patch_size, -1)
+                .permute(0, 3, 1, 2)
+                .contiguous()
                 for out in outputs
             ]
         if return_class_token:
@@ -1107,32 +1266,31 @@ def init_weights_vit_timm(module: nn.Module, name: str = ""):
 
 
 def load_ckpt_dino(checkpoint, model):
-
     if checkpoint is not None:
         try:
             with open(checkpoint, "rb") as f:
                 state_dict = torch.load(f)
-            print('loading dinov2 backbone checkpoint from %s' %checkpoint)
+            print("loading dinov2 backbone checkpoint from %s" % checkpoint)
         except:
-            print('NO pretrained imagenet ckpt available! Check your path!')
+            print("NO pretrained imagenet ckpt available! Check your path!")
             del model.mask_token
             return
 
         # import pdb;pdb.set_trace()
         try:
             model.load_state_dict(state_dict, strict=True)
-            print('load dinov2 pretrain weights successfully ')
+            print("load dinov2 pretrain weights successfully ")
         except:
             new_state_dict = {}
             for key, value in state_dict.items():
-                if 'blocks' in key:
-                    key_new = 'blocks.0' + key[len('blocks'):]
+                if "blocks" in key:
+                    key_new = "blocks.0" + key[len("blocks") :]
                 else:
                     key_new = key
                 new_state_dict[key_new] = value
 
             model.load_state_dict(new_state_dict, strict=True)
-            print('load dinov2 pretrain weights successfully')
+            print("load dinov2 pretrain weights successfully")
         del model.mask_token
         return
     else:
@@ -1189,8 +1347,8 @@ def vit_large(patch_size=14, num_register_tokens=0, checkpoint=None, **kwargs):
         except:
             new_state_dict = {}
             for key, value in state_dict.items():
-                if 'blocks' in key:
-                    key_new = 'blocks.0' + key[len('blocks'):]
+                if "blocks" in key:
+                    key_new = "blocks.0" + key[len("blocks") :]
                 else:
                     key_new = key
                 new_state_dict[key_new] = value
@@ -1212,13 +1370,15 @@ def vit_giant2(patch_size=14, num_register_tokens=0, checkpoint=None, **kwargs):
         mlp_ratio=4,
         block_fn=partial(Block, attn_class=MemEffAttention),
         num_register_tokens=num_register_tokens,
-        ffn_layer='swiglu',
+        ffn_layer="swiglu",
         **kwargs,
     )
     return model
 
 
-def vit_small_reg(patch_size=14, num_register_tokens=4, checkpoint=None, tuning_mode=None, **kwargs):
+def vit_small_reg(
+    patch_size=14, num_register_tokens=4, checkpoint=None, tuning_mode=None, **kwargs
+):
     model = DinoVisionTransformer(
         patch_size=patch_size,
         embed_dim=384,
@@ -1253,9 +1413,11 @@ def vit_base_reg(patch_size=14, num_register_tokens=4, checkpoint=None, **kwargs
     return model
 
 
-def vit_large_reg(patch_size=14, num_register_tokens=4, checkpoint=None, tuning_mode=None, **kwargs):
+def vit_large_reg(
+    patch_size=14, num_register_tokens=4, checkpoint=None, tuning_mode=None, **kwargs
+):
     model = DinoVisionTransformer(
-        img_size = 518,
+        img_size=518,
         patch_size=patch_size,
         embed_dim=1024,
         depth=24,
@@ -1271,7 +1433,9 @@ def vit_large_reg(patch_size=14, num_register_tokens=4, checkpoint=None, tuning_
     return model
 
 
-def vit_giant2_reg(patch_size=14, num_register_tokens=4, checkpoint=None, tuning_mode=None, **kwargs):
+def vit_giant2_reg(
+    patch_size=14, num_register_tokens=4, checkpoint=None, tuning_mode=None, **kwargs
+):
     """
     Close to ViT-giant, with embed-dim 1536 and 24 heads => embed-dim per head 64
     """
@@ -1283,7 +1447,7 @@ def vit_giant2_reg(patch_size=14, num_register_tokens=4, checkpoint=None, tuning
         mlp_ratio=4,
         block_fn=partial(Block, attn_class=MemEffAttention),
         num_register_tokens=num_register_tokens,
-        ffn_layer='swiglu',
+        ffn_layer="swiglu",
         tuning_mode=tuning_mode,
         multi_output=True,
         **kwargs,
@@ -1294,35 +1458,35 @@ def vit_giant2_reg(patch_size=14, num_register_tokens=4, checkpoint=None, tuning
     return model
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     try:
         from mmcv.utils import Config
     except:
-        from mmengine import Config    
-    
-    #rgb = torch.rand((2, 3, 518, 518)).cuda()
+        from mmengine import Config
 
-    #cfg.data_basic['crop_size']['0'] 
-    #cfg.data_basic['crop_size']['1'] 
+    # rgb = torch.rand((2, 3, 518, 518)).cuda()
+
+    # cfg.data_basic['crop_size']['0']
+    # cfg.data_basic['crop_size']['1']
     # cfg = Config.fromfile('configs/metric3d_configs/RAFTDecoder_xugk/vit.raft5.large.kitti.py')
-    # cfg['tuning_mode'] = 'ssf' 
-    #rgb = torch.arange(0, 2*3*1036*1036, 1).cuda().float().view(2, 3, 1036, 1036)
-    
+    # cfg['tuning_mode'] = 'ssf'
+    # rgb = torch.arange(0, 2*3*1036*1036, 1).cuda().float().view(2, 3, 1036, 1036)
+
     rgb = torch.zeros(1, 3, 616, 1064).cuda()
     model = vit_large_reg(
-        checkpoint="./data/weights/dinov2/dinov2_vitl14_reg4_pretrain.pth", 
+        checkpoint="./data/weights/dinov2/dinov2_vitl14_reg4_pretrain.pth",
         tuning_mode=None,
         # kwarg=cfg
-        ).cuda()
+    ).cuda()
 
     # model = vit_large_reg(tuning_mode='ssf').cuda()
 
     out1 = model(rgb)
-    import pdb;pdb.set_trace()
-    #import timm
-    #model2 = timm.models.vision_transformer.vit_large_patch14_dinov2().cuda()
-    #timm.models.load_checkpoint(model2, '/cpfs02/shared/public/yvan/pretrained_weight_repo/vit/dinov2_vitl14_pretrain.pth', filter_fn=timm.models.vision_transformer.checkpoint_filter_fn)
-    #out2 = model2(rgb)
+    import pdb
+
+    pdb.set_trace()
+    # import timm
+    # model2 = timm.models.vision_transformer.vit_large_patch14_dinov2().cuda()
+    # timm.models.load_checkpoint(model2, '/cpfs02/shared/public/yvan/pretrained_weight_repo/vit/dinov2_vitl14_pretrain.pth', filter_fn=timm.models.vision_transformer.checkpoint_filter_fn)
+    # out2 = model2(rgb)
     temp = 0
-
-

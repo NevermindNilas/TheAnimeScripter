@@ -1281,7 +1281,7 @@ class VideoDepthAnythingCUDA:
 
         self.model = self.model.to(checker.device).eval()
 
-        if self.half and checker.cudaAvailable:
+        if self.half:
             self.model = self.model.half()
 
     def process(self):
@@ -1294,9 +1294,11 @@ class VideoDepthAnythingCUDA:
                 frames,
                 target_fps,
                 input_size=518,
-                device=checker.device,
+                device="cuda",
                 fp32=(not self.half),
             )
+
+            print(depths.shape)
 
             d_min, d_max = depths.min(), depths.max()
 
@@ -1304,6 +1306,7 @@ class VideoDepthAnythingCUDA:
                 depth_norm = ((depth - d_min) / (d_max - d_min) * 255).astype(np.uint8)
                 depth_resized = cv2.resize(depth_norm * 255, (self.width, self.height))
 
+                print(depth_resized.shape)
                 depth_tensor = (
                     torch.from_numpy(depth_resized)
                     .permute(2, 0, 1)
