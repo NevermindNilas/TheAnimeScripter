@@ -406,6 +406,7 @@ C:\Videos\episode3.mp4
 | **small_v2** | ⚡⚡⚡⚡ | ⭐ | 2GB | General use | CUDA, TRT, DML |
 | **base_v2** | ⚡⚡⚡ | ⭐⭐ | 4GB | Better quality | CUDA, TRT, DML |
 | **large_v2** | ⚡⚡ | ⭐⭐⭐ | 6GB | Maximum quality | CUDA, TRT, DML |
+| **giant_v2** | ⚡ | ⭐⭐⭐⭐ | 10GB | Highest quality | CUDA |
 | **distill_small_v2** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML |
 | **distill_base_v2** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Balanced | CUDA, TRT, DML |
 | **distill_large_v2** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 5GB | High quality | CUDA, TRT, DML |

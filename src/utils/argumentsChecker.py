@@ -490,12 +490,14 @@ def _addDepthOptions(argParser):
         "small_v2",
         "base_v2",
         "large_v2",
+        "giant_v2",
         "distill_small_v2",
         "distill_base_v2",
         "distill_large_v2",
         "og_small_v2",
         "og_base_v2",
         "og_large_v2",
+        "og_giant_v2",
         "og_distill_small_v2",
         "og_distill_base_v2",
         "og_distill_large_v2",
@@ -898,6 +900,17 @@ def _handleDepthSettings(args):
             "yellow",
         )
         args.depth_quality = "low"
+
+    if args.depth_method in ["giant_v2", "og_giant_v2"]:
+        logAndPrint(
+            f"{args.depth_method} is a very large model and may cause out of memory errors on GPUs with less than 16GB of VRAM",
+            "yellow",
+        )
+        if args.half:
+            logAndPrint(
+                "Half precision does not work with giant models, switching to full precision",
+            )
+            args.half = False
 
 
 def _downloadOfflineModels(args):
