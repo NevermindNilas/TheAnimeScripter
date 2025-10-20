@@ -126,8 +126,7 @@ class DepthCuda:
             case "large_v2" | "distill_large_v2":
                 method = "vitl"
             case "giant_v2":
-                raise NotImplementedError("Giant model not available yet")
-                # method = "vitg"
+                method = "vitg"
 
         self.filename = modelsMap(
             model=self.depth_method, modelType="pth", half=self.half
@@ -159,6 +158,11 @@ class DepthCuda:
                 "encoder": "vitl",
                 "features": 256,
                 "out_channels": [256, 512, 1024, 1024],
+            },
+            "vitg": {
+                "encoder": "vitg",
+                "features": 384,
+                "out_channels": [1536, 1536, 1536, 1536],
             }
             if "distill" not in self.depth_method
             else {
@@ -171,11 +175,6 @@ class DepthCuda:
                 "mode": "disparity",
                 "pretrain_type": "dinov2",
                 "del_mask_token": False,
-            },
-            "vitg": {
-                "encoder": "vitg",
-                "features": 384,
-                "out_channels": [1536, 1536, 1536, 1536],
             },
         }
 
@@ -811,9 +810,9 @@ class OGDepthV2CUDA:
             case "og_large_v2" | "og_distill_large_v2":
                 method = "vitl"
                 toDownload = "large_v2"
-            case "giant_v2":
-                raise NotImplementedError("Giant model not available yet")
-                # method = "vitg"
+            case "og_giant_v2":
+                method = "vitg"
+                toDownload = "giant_v2"
 
         modelType = "pth"
         self.filename = modelsMap(model=toDownload, modelType=modelType, half=self.half)
@@ -843,6 +842,11 @@ class OGDepthV2CUDA:
                 "encoder": "vitl",
                 "features": 256,
                 "out_channels": [256, 512, 1024, 1024],
+            },
+            "vitg": {
+                "encoder": "vitg",
+                "features": 384,
+                "out_channels": [1536, 1536, 1536, 1536],
             }
             if "distill" not in self.depth_method
             else {
@@ -855,11 +859,6 @@ class OGDepthV2CUDA:
                 "mode": "disparity",
                 "pretrain_type": "dinov2",
                 "del_mask_token": False,
-            },
-            "vitg": {
-                "encoder": "vitg",
-                "features": 384,
-                "out_channels": [1536, 1536, 1536, 1536],
             },
         }
 

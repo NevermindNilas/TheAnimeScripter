@@ -5,7 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
 ### Added
-- N/A
+- As per community request, I've `Depth Anything V2 Giant` model support with commands:
+- `giant_v2` & `og_giant_v2`, TRT and DirectML support may be added in the future depending on demand.
 
 ### Changed
 - Removed some unused warnings.
