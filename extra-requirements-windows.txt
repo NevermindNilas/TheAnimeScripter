@@ -12,7 +12,7 @@ onnxruntime-directml==1.23.0
 pytorch-lightning==2.5.5
 safetensors==0.6.2
 scenedetect[opencv]
-yt-dlp==2025.9.26
+yt-dlp==2025.10.14
 onnx==1.19.1
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python_tntwise-1.4.5-cp313-cp313-win_amd64.whl
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/upscale_ncnn_py-1.2.0-cp313-none-win_amd64.whl
