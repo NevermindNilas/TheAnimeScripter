@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
+### Added
+- N/A
+
+### Changed
+- Removed some unused warnings.
+
+## Adobe Edition
+### Added
+- N/A
+
+### Changed
+- Defaulted / Reverted back to `PreRender_XXXXXX` format for pre-renders.
 
 ## [2.4.5] - 2025-10-18
 ### Added
