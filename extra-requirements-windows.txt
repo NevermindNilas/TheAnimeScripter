@@ -7,7 +7,7 @@ opencv-python-headless==4.12.0.88
 timm==1.0.20
 einops==0.8.1
 numpy==2.2.4
-triton-windows==3.4.0.post20
+triton-windows==3.5.0.post21
 onnxruntime-directml==1.23.0
 pytorch-lightning==2.5.5
 safetensors==0.6.2
