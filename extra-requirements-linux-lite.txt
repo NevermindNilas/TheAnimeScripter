@@ -1,5 +1,5 @@
 torch==2.9.0
-torchvision==0.24.0
+torchvision==0.24.0+cu130
 opencv-python-headless==4.12.0.88
 timm==1.0.20
 onnx==1.19.1
