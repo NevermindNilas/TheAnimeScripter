@@ -11,12 +11,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Changed
 - Removed some unused warnings.
 
+### Fixed
+- Missing dependency `onnxscript`.
+
 ## Adobe Edition
 ### Added
-- N/A
+- `Depth Anything V2 Giant` model support in the UI.
+- Quick presets options to the `Chain Tab` which also includes self made presets. 
 
 ### Changed
 - Defaulted / Reverted back to `PreRender_XXXXXX` format for pre-renders.
+- Some small UI tweaks.
 
 ## [2.4.5] - 2025-10-18
 ### Added
