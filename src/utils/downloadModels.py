@@ -206,6 +206,15 @@ def modelsMap(
                 else:
                     return "2x_umzi_anime_rtmosr_fp32_op18.onnx"
 
+        case "animesr" | "animesr-directml" | "animesr-tensorrt":
+            if modelType == "pth":
+                return "AnimeSR_v2.pth"
+            else:
+                if half:
+                    raise ValueError("AnimeSR does not have an ONNX model yet.")
+                else:
+                    raise ValueError("AnimeSR does not have an ONNX model yet.")
+
         case "compact" | "compact-directml" | "compact-tensorrt":
             if modelType == "pth":
                 return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k.pth"
