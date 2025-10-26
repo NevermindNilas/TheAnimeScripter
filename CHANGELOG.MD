@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
 ### Added
+- N/A
+
+### Changed
+- N/A
+
+### Fixed
+- N/A
+
+## Adobe Edition
+### Added
+- Added a `Reinstall TAS` button to the extra TAB.
+
+### Changed
+- Updated dependencies to their latest versions.
+
+### Fixed
+- N/A
+
+## [2.4.6] - 2025-10-24
+### Added
 - As per community request, I've `Depth Anything V2 Giant` model support with commands:
 - `giant_v2` & `og_giant_v2`, TRT and DirectML support may be added in the future depending on demand.
 
