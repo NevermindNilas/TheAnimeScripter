@@ -62,6 +62,7 @@ class ResidualBlockNoBN(nn.Module):
         return identity + out * self.res_scale
 
 
+# https://github.com/HolyWu/vs-animesr/blob/master/vsanimesr/vsr_arch.py
 class MyPixelShuffle(nn.Module):
     def __init__(self, upscale_factor):
         super().__init__()
@@ -78,6 +79,7 @@ class MyPixelShuffle(nn.Module):
         return x_view.permute(0, 1, 4, 2, 5, 3).reshape(b, out_channel, h, w)
 
 
+# https://github.com/HolyWu/vs-animesr/blob/master/vsanimesr/vsr_arch.py
 class MyPixelUnshuffle(nn.Module):
     def __init__(self, downscale_factor):
         super().__init__()
