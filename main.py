@@ -328,7 +328,6 @@ class VideoProcessor:
         self.frameCounter = 0
         self.nextFrame = None
 
-        # Configure interpolation factors for fractional interpolation
         if self.interpolate and isinstance(self.interpolateFactor, float):
             factor = Fraction(self.interpolateFactor).limit_denominator(100)
             self.factorNum = factor.numerator
@@ -345,7 +344,6 @@ class VideoProcessor:
         self.timesteps = None
         self.framesToInsert = self.interpolateFactor - 1 if self.interpolate else 0
 
-        # Initialize interpolation queue if needed
         if self.interpolate and self.interpolateFirst:
             self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
 
