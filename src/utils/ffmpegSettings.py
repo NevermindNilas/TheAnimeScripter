@@ -220,6 +220,27 @@ class BuildBuffer:
         """
         return self.decodeBuffer.get()
 
+    def peek(self):
+        """
+        Peeks at the next frame in the decodeBuffer without removing it.
+
+        Returns:
+            The next frame from the decodeBuffer, or None if the queue is empty.
+        """
+        if self.decodeBuffer.empty():
+            return None
+
+        with self.decodeBuffer.mutex:
+            if len(self.decodeBuffer.queue) > 0:
+                return self.decodeBuffer.queue[0]
+            if self.isFinished:
+                return None
+            else:
+                while len(self.decodeBuffer.queue) == 0:
+                    time.sleep(0.01)
+                return self.decodeBuffer.queue[0]
+            return None
+
     def isReadFinished(self) -> bool:
         """
         Returns:

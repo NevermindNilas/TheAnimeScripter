@@ -270,17 +270,19 @@ class VideoProcessor:
         if self.upscale:
             if self.interpolate:
                 if self.isSceneChange:
-                    frame = self.upscale_process(frame)
+                    frame = self.upscale_process(frame, self.nextFrame)
                     for _ in range(self.framesToInsert + 1):
                         self.writeBuffer.write(frame)
                 else:
                     while not self.interpQueue.empty():
                         self.writeBuffer.write(
-                            self.upscale_process(self.interpQueue.get())
+                            self.upscale_process(self.interpQueue.get(), self.nextFrame)
                         )
-                    self.writeBuffer.write(self.upscale_process(frame))
+
+                    self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
             else:
-                self.writeBuffer.write(self.upscale_process(frame))
+                self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
+
         else:
             if self.interpolate:
                 if self.isSceneChange or not self.interpQueue.empty():
@@ -299,7 +301,7 @@ class VideoProcessor:
             frame: Input video frame tensor
         """
         if self.upscale:
-            frame = self.upscale_process(frame)
+            frame = self.upscale_process(frame, self.nextFrame)
 
         if self.interpolate:
             if self.isSceneChange:
@@ -324,6 +326,7 @@ class VideoProcessor:
         self.isSceneChange = False
         self.sceneChangeCounter = 0
         self.frameCounter = 0
+        self.nextFrame = None
 
         # Configure interpolation factors for fractional interpolation
         if self.interpolate and isinstance(self.interpolateFactor, float):
@@ -354,6 +357,8 @@ class VideoProcessor:
                     frame = self.readBuffer.read()
                     if frame is None:
                         break
+                    if self.upscaleMethod == "animesr":
+                        self.nextFrame = self.readBuffer.peek()
                     self.processFrame(frame)
                     frameCount += 1
                     bar(increment)

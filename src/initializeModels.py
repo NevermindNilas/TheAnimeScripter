@@ -433,6 +433,17 @@ def initializeModels(self):
                     self.customModel,
                     self.forceStatic,
                 )
+
+            case "animesr":
+                from src.unifiedUpscale import AnimeSR
+
+                upscaleProcess = AnimeSR(
+                    2,
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.compileMode,
+                )
     if self.interpolate:
         logging.info(
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolateFactor, '.3f')}fps"
