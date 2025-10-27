@@ -333,6 +333,8 @@ def _addUpscalingOptions(argParser):
         "rtmosr-tensorrt",
         "rtmosr-directml",
         "animesr",
+        "animesr-tensorrt",
+        "animesr-directml",
     ]
 
     upscaleGroup.add_argument(

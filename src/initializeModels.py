@@ -444,6 +444,16 @@ def initializeModels(self):
                     self.height,
                     self.compileMode,
                 )
+
+            case "animesr-tensorrt":
+                from src.unifiedUpscale import AnimeSRTensorRT
+
+                upscaleProcess = AnimeSRTensorRT(
+                    2,
+                    self.half,
+                    self.width,
+                    self.height,
+                )
     if self.interpolate:
         logging.info(
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolateFactor, '.3f')}fps"
