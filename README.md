@@ -1,5 +1,3 @@
-<img width="2559" height="1439" alt="image" src="https://github.com/user-attachments/assets/597727da-f2a0-440b-9ce0-4123b49bdf3a" /><div align="center">
-
 # 🎬 The Anime Scripter (TAS)
 
 #### _High-performance AI video enhancement toolkit for creators_
