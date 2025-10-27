@@ -227,14 +227,21 @@ class BuildBuffer:
         Returns:
             The next frame from the decodeBuffer, or None if the queue is empty.
         """
-        if self.decodeBuffer.empty() and self.isFinished:
+        if self.decodeBuffer.empty():
             return None
 
         with self.decodeBuffer.mutex:
-            if not self.isFinished:
+            if len(self.decodeBuffer.queue) > 0:
                 return self.decodeBuffer.queue[0]
+
             if self.isFinished:
                 return None
+
+            else:
+                while len(self.decodeBuffer.queue) == 0:
+                    time.sleep(0.01)
+
+                return self.decodeBuffer.queue[0]
 
         return None
 
