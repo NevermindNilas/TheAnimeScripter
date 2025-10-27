@@ -1,4 +1,4 @@
-<div align="center">
+<img width="2559" height="1439" alt="image" src="https://github.com/user-attachments/assets/597727da-f2a0-440b-9ce0-4123b49bdf3a" /><div align="center">
 
 # 🎬 The Anime Scripter (TAS)
 
@@ -109,7 +109,7 @@ The native Windows application will provide a dedicated environment optimized fo
 #### Installation Steps:
 1. Download the [**TAS-AdobeEdition**](https://github.com/NevermindNilas/TheAnimeScripter/releases/) from the releases page
 2. Extract the `.zip` file to a location of your choice
-3. Follow the [**installation tutorial**](https://www.goodboy.ninja/help/install/extensions) to add TAS to After Effects
+3. Follow the [**installation tutorial**](https://nevermindnilas.github.io/zxp-installation/) to add TAS to After Effects
 
 <div class="help-box">
 
