@@ -851,19 +851,19 @@ class AnimeSRTensorRT:
                     9,
                     self.paddedHeight,
                     self.paddedWidth,
-                ],  # x: 3 padded frames concatenated
+                ],
                 [
                     1,
                     3,
                     self.paddedHeight * 4,
                     self.paddedWidth * 4,
-                ],  # fb: padded output
+                ],
                 [
                     1,
                     64,
-                    self.paddedHeight,
-                    self.paddedWidth,
-                ],  # state: uses padded dims too
+                    self.height,
+                    self.width,
+                ],
             ]
 
             inputsMin = inputsOpt = inputsMax = inputs
@@ -884,38 +884,37 @@ class AnimeSRTensorRT:
             (1, 3, self.paddedHeight, self.paddedWidth),
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
-        ).to(memory_format=torch.channels_last)
+        ).contiguous()
         self.nextFrame = torch.zeros(
             (1, 3, self.paddedHeight, self.paddedWidth),
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
-        ).to(memory_format=torch.channels_last)
+        ).contiguous()
 
-        # Separate input feedback buffer and output buffer - MUST use padded dimensions
-        self.feedbackBuffer = self.prevFrame.new_zeros(
-            1, 3, self.paddedHeight * 4, self.paddedWidth * 4
-        ).to(memory_format=torch.channels_last)
+        self.dummyOutput = torch.zeros(
+            (1, 3, self.paddedHeight * 4, self.paddedWidth * 4),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        ).contiguous()
 
-        self.dummyOutput = self.prevFrame.new_zeros(
-            1, 3, self.paddedHeight * 4, self.paddedWidth * 4
-        ).to(memory_format=torch.channels_last)
-
-        # State tensors MUST use padded dimensions to match the engine
-        self.state = self.prevFrame.new_zeros(
-            1, 64, self.paddedHeight, self.paddedWidth
+        self.state = torch.zeros(
+            (1, 64, self.height, self.width),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
         )
-        self.stateOutput = self.state.new_zeros(
-            1, 64, self.paddedHeight, self.paddedWidth
+        self.stateOutput = torch.zeros(
+            (1, 64, self.height, self.width),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
         )
 
         self.dummyInput = torch.cat(
             (self.prevFrame, self.prevFrame, self.nextFrame), dim=1
         )
 
-        # AnimeSR has 3 inputs (x, fb, state) and 2 outputs (out_img, out_state)
         self.bindings = {
             "x": self.dummyInput.data_ptr(),
-            "fb": self.feedbackBuffer.data_ptr(),
+            "fb": self.dummyOutput.data_ptr(),
             "state": self.state.data_ptr(),
             "out_img": self.dummyOutput.data_ptr(),
             "out_state": self.stateOutput.data_ptr(),
@@ -929,7 +928,7 @@ class AnimeSRTensorRT:
                 self.context.set_input_shape(tensor_name, self.dummyInput.shape)
             elif tensor_name == "fb":
                 self.context.set_tensor_address(tensor_name, self.bindings["fb"])
-                self.context.set_input_shape(tensor_name, self.feedbackBuffer.shape)
+                self.context.set_input_shape(tensor_name, self.dummyOutput.shape)
             elif tensor_name == "state":
                 self.context.set_tensor_address(tensor_name, self.bindings["state"])
                 self.context.set_input_shape(tensor_name, self.state.shape)
@@ -949,57 +948,45 @@ class AnimeSRTensorRT:
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
-        with torch.cuda.stream(self.normStream):
-            frame = self.padFrame(frame)
-        self.normStream.synchronize()
-
         if self.firstIter:
             with torch.cuda.stream(self.normStream):
+                paddedFrame = self.padFrame(frame)
                 self.prevFrame.copy_(
-                    frame.to(dtype=self.dtype).to(memory_format=torch.channels_last),
+                    paddedFrame.to(dtype=self.dtype),
                     non_blocking=False,
                 )
                 if nextFrame is None:
                     self.nextFrame.copy_(
-                        frame.to(dtype=self.dtype).to(
-                            memory_format=torch.channels_last
-                        ),
+                        paddedFrame.to(dtype=self.dtype),
                         non_blocking=False,
                     )
                 else:
                     paddedNextFrame = self.padFrame(nextFrame)
                     self.nextFrame.copy_(
-                        paddedNextFrame.to(dtype=self.dtype).to(
-                            memory_format=torch.channels_last
-                        ),
+                        paddedNextFrame.to(dtype=self.dtype),
                         non_blocking=False,
                     )
             self.normStream.synchronize()
-
             self.firstIter = False
-
         else:
             with torch.cuda.stream(self.normStream):
+                paddedFrame = self.padFrame(frame)
                 if nextFrame is None:
                     self.nextFrame.copy_(
-                        frame.to(dtype=self.dtype).to(
-                            memory_format=torch.channels_last
-                        ),
+                        paddedFrame.to(dtype=self.dtype),
                         non_blocking=False,
                     )
                 else:
                     paddedNextFrame = self.padFrame(nextFrame)
                     self.nextFrame.copy_(
-                        paddedNextFrame.to(dtype=self.dtype).to(
-                            memory_format=torch.channels_last
-                        ),
+                        paddedNextFrame.to(dtype=self.dtype),
                         non_blocking=False,
                     )
             self.normStream.synchronize()
 
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(
-                torch.cat((self.prevFrame, frame, self.nextFrame), dim=1),
+                torch.cat((self.prevFrame, paddedFrame, self.nextFrame), dim=1),
                 non_blocking=False,
             )
         self.normStream.synchronize()
@@ -1009,9 +996,8 @@ class AnimeSRTensorRT:
         self.outputStream.synchronize()
 
         with torch.cuda.stream(self.normStream):
-            self.feedbackBuffer.copy_(self.dummyOutput, non_blocking=False)
             self.state.copy_(self.stateOutput, non_blocking=False)
-            self.prevFrame.copy_(frame, non_blocking=False)
+            self.prevFrame.copy_(paddedFrame, non_blocking=False)
         self.normStream.synchronize()
 
         with torch.cuda.stream(self.outputStream):
