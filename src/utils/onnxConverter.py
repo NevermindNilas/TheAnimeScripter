@@ -16,7 +16,7 @@ except ImportError:
     isOnnxSlim = False
 
 OPSET = 20
-modelList = [r"C:\Users\nilas\Downloads\depth_anything_v2_vitg_fp32.safetensors"]
+modelList = [r"F:\test\dasdas\AnimeSR_v2.onnx"]
 
 
 def convertToFloat16(model):
@@ -74,11 +74,18 @@ def convertAndSaveModel(model, modelPath, precision, opset):
 
 def slimModel(modelPath, slimPath):
     if isOnnxSlim:
-        onnxslim.slim(modelPath, slimPath)
-        if os.path.exists(slimPath):
-            os.remove(modelPath)
-            return slimPath
-        return modelPath
+        try:
+            onnxslim.slim(modelPath, slimPath)
+            if os.path.exists(slimPath):
+                os.remove(modelPath)
+                print(f"✓ Successfully slimmed: {slimPath}")
+                return slimPath
+            print(f"⚠ Slimming did not produce output, keeping original: {modelPath}")
+            return modelPath
+        except Exception as e:
+            print(f"⚠ Slimming failed with error: {e}")
+            print(f"  Keeping original: {modelPath}")
+            return modelPath
     else:
         print(f"onnxslim not found. Skipping {modelPath} slimming")
         return modelPath

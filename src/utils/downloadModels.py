@@ -34,6 +34,9 @@ DEPTHV2URLGIANT = (
 
 def modelsList() -> list[str]:
     return [
+        "animesr",
+        "animesr-directml",
+        "animesr-tensorrt",
         "shufflespan",
         "shufflespan-directml",
         "shufflespan-tensorrt",
@@ -211,9 +214,9 @@ def modelsMap(
                 return "AnimeSR_v2.pth"
             else:
                 if half:
-                    raise ValueError("AnimeSR does not have an ONNX model yet.")
+                    return "AnimeSR_v2_fp16_op20.onnx"
                 else:
-                    raise ValueError("AnimeSR does not have an ONNX model yet.")
+                    return "AnimeSR_v2_fp32_op20.onnx"
 
         case "compact" | "compact-directml" | "compact-tensorrt":
             if modelType == "pth":
