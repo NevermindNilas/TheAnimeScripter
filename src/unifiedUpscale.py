@@ -757,3 +757,270 @@ class AnimeSR:
         self.outputStream.synchronize()
 
         return output
+
+
+class AnimeSRTensorRT:
+    def __init__(
+        self,
+        upscaleFactor: int = 2,
+        half: bool = False,
+        width: int = 1920,
+        height: int = 1080,
+    ):
+        """
+        Initialize the upscaler with the desired model
+
+        Args:
+            upscaleFactor (int): The factor to upscale by
+            half (bool): Whether to use half precision
+            width (int): The width of the input frame
+            height (int): The height of the input frame
+        """
+        import tensorrt as trt
+        from .utils.trtHandler import (
+            tensorRTEngineCreator,
+            tensorRTEngineLoader,
+            tensorRTEngineNameHandler,
+        )
+
+        self.trt = trt
+        self.tensorRTEngineCreator = tensorRTEngineCreator
+        self.tensorRTEngineLoader = tensorRTEngineLoader
+        self.tensorRTEngineNameHandler = tensorRTEngineNameHandler
+
+        self.upscaleFactor = upscaleFactor
+        self.half = half
+        self.width = width
+        self.height = height
+
+        self.handleModel()
+
+    def handleModel(self):
+        """
+        Load the desired model
+        """
+
+        if self.width > 1920 or self.height > 1080:
+            self.forceStatic = True
+            logAndPrint(
+                message="Forcing static engine due to resolution higher than 1920x1080p",
+                colorFunc="yellow",
+            )
+
+        self.filename = modelsMap(
+            "animesr-tensorrt",
+            self.upscaleFactor,
+            modelType="onnx",
+            half=self.half,
+        )
+        folderName = "animesr-onnx"
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
+            self.modelPath = downloadModels(
+                model="animesr-tensorrt",
+                upscaleFactor=self.upscaleFactor,
+                half=self.half,
+                modelType="onnx",
+            )
+        else:
+            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+
+        self.dtype = torch.float16 if self.half else torch.float32
+        enginePath = self.tensorRTEngineNameHandler(
+            modelPath=self.modelPath,
+            fp16=self.half,
+            optInputShape=[1, 3, self.height, self.width],
+        )
+
+        ph = (4 - self.height % 4) % 4
+        pw = (4 - self.width % 4) % 4
+        self.padding = (0, pw, 0, ph)
+
+        # Padded dimensions for x and fb
+        self.paddedHeight = self.padding[3] + self.height + self.padding[2]
+        self.paddedWidth = self.padding[1] + self.width + self.padding[0]
+
+        self.engine, self.context = self.tensorRTEngineLoader(enginePath)
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
+            inputs = [
+                [
+                    1,
+                    9,
+                    self.paddedHeight,
+                    self.paddedWidth,
+                ],  # x: 3 padded frames concatenated
+                [
+                    1,
+                    3,
+                    self.paddedHeight * 4,
+                    self.paddedWidth * 4,
+                ],  # fb: padded output
+                [
+                    1,
+                    64,
+                    self.paddedHeight,
+                    self.paddedWidth,
+                ],  # state: uses padded dims too
+            ]
+
+            inputsMin = inputsOpt = inputsMax = inputs
+            inputNames = ["x", "fb", "state"]
+
+            self.engine, self.context = self.tensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
+                fp16=self.half,
+                inputsMin=inputsMin,
+                inputsOpt=inputsOpt,
+                inputsMax=inputsMax,
+                inputName=inputNames,
+                isMultiInput=True,
+            )
+
+        self.prevFrame = torch.zeros(
+            (1, 3, self.paddedHeight, self.paddedWidth),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        ).to(memory_format=torch.channels_last)
+        self.nextFrame = torch.zeros(
+            (1, 3, self.paddedHeight, self.paddedWidth),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        ).to(memory_format=torch.channels_last)
+
+        # Separate input feedback buffer and output buffer - MUST use padded dimensions
+        self.feedbackBuffer = self.prevFrame.new_zeros(
+            1, 3, self.paddedHeight * 4, self.paddedWidth * 4
+        ).to(memory_format=torch.channels_last)
+
+        self.dummyOutput = self.prevFrame.new_zeros(
+            1, 3, self.paddedHeight * 4, self.paddedWidth * 4
+        ).to(memory_format=torch.channels_last)
+
+        # State tensors MUST use padded dimensions to match the engine
+        self.state = self.prevFrame.new_zeros(
+            1, 64, self.paddedHeight, self.paddedWidth
+        )
+        self.stateOutput = self.state.new_zeros(
+            1, 64, self.paddedHeight, self.paddedWidth
+        )
+
+        self.dummyInput = torch.cat(
+            (self.prevFrame, self.prevFrame, self.nextFrame), dim=1
+        )
+
+        # AnimeSR has 3 inputs (x, fb, state) and 2 outputs (out_img, out_state)
+        self.bindings = {
+            "x": self.dummyInput.data_ptr(),
+            "fb": self.feedbackBuffer.data_ptr(),
+            "state": self.state.data_ptr(),
+            "out_img": self.dummyOutput.data_ptr(),
+            "out_state": self.stateOutput.data_ptr(),
+        }
+
+        for i in range(self.engine.num_io_tensors):
+            tensor_name = self.engine.get_tensor_name(i)
+
+            if tensor_name == "x":
+                self.context.set_tensor_address(tensor_name, self.bindings["x"])
+                self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+            elif tensor_name == "fb":
+                self.context.set_tensor_address(tensor_name, self.bindings["fb"])
+                self.context.set_input_shape(tensor_name, self.feedbackBuffer.shape)
+            elif tensor_name == "state":
+                self.context.set_tensor_address(tensor_name, self.bindings["state"])
+                self.context.set_input_shape(tensor_name, self.state.shape)
+            elif tensor_name == "out_img":
+                self.context.set_tensor_address(tensor_name, self.bindings["out_img"])
+            elif tensor_name == "out_state":
+                self.context.set_tensor_address(tensor_name, self.bindings["out_state"])
+
+        self.stream = torch.cuda.Stream()
+        self.normStream = torch.cuda.Stream()
+        self.outputStream = torch.cuda.Stream()
+
+        self.firstIter = True
+
+    def padFrame(self, frame: torch.tensor) -> torch.tensor:
+        return torch.nn.functional.pad(frame, self.padding, mode="reflect")
+
+    @torch.inference_mode()
+    def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
+        with torch.cuda.stream(self.normStream):
+            frame = self.padFrame(frame)
+        self.normStream.synchronize()
+
+        if self.firstIter:
+            with torch.cuda.stream(self.normStream):
+                self.prevFrame.copy_(
+                    frame.to(dtype=self.dtype).to(memory_format=torch.channels_last),
+                    non_blocking=False,
+                )
+                if nextFrame is None:
+                    self.nextFrame.copy_(
+                        frame.to(dtype=self.dtype).to(
+                            memory_format=torch.channels_last
+                        ),
+                        non_blocking=False,
+                    )
+                else:
+                    paddedNextFrame = self.padFrame(nextFrame)
+                    self.nextFrame.copy_(
+                        paddedNextFrame.to(dtype=self.dtype).to(
+                            memory_format=torch.channels_last
+                        ),
+                        non_blocking=False,
+                    )
+            self.normStream.synchronize()
+
+            self.firstIter = False
+
+        else:
+            with torch.cuda.stream(self.normStream):
+                if nextFrame is None:
+                    self.nextFrame.copy_(
+                        frame.to(dtype=self.dtype).to(
+                            memory_format=torch.channels_last
+                        ),
+                        non_blocking=False,
+                    )
+                else:
+                    paddedNextFrame = self.padFrame(nextFrame)
+                    self.nextFrame.copy_(
+                        paddedNextFrame.to(dtype=self.dtype).to(
+                            memory_format=torch.channels_last
+                        ),
+                        non_blocking=False,
+                    )
+            self.normStream.synchronize()
+
+        with torch.cuda.stream(self.normStream):
+            self.dummyInput.copy_(
+                torch.cat((self.prevFrame, frame, self.nextFrame), dim=1),
+                non_blocking=False,
+            )
+        self.normStream.synchronize()
+
+        with torch.cuda.stream(self.outputStream):
+            self.context.execute_async_v3(stream_handle=self.outputStream.cuda_stream)
+        self.outputStream.synchronize()
+
+        with torch.cuda.stream(self.normStream):
+            self.feedbackBuffer.copy_(self.dummyOutput, non_blocking=False)
+            self.state.copy_(self.stateOutput, non_blocking=False)
+            self.prevFrame.copy_(frame, non_blocking=False)
+        self.normStream.synchronize()
+
+        with torch.cuda.stream(self.outputStream):
+            output = torch.nn.functional.interpolate(
+                self.dummyOutput,
+                size=(self.height * 2, self.width * 2),
+                mode="bicubic",
+                align_corners=False,
+            )
+        self.outputStream.synchronize()
+
+        return output
