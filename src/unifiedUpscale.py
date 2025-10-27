@@ -622,6 +622,25 @@ class AnimeSR:
                 self.model = self.model.float()
                 self.half = False
 
+        if self.compileMode != "default":
+            try:
+                if self.compileMode == "max":
+                    self.model.compile(mode="max-autotune-no-cudagraphs")
+                elif self.compileMode == "max-graphs":
+                    self.model.compile(
+                        mode="max-autotune-no-cudagraphs", fullgraph=True
+                    )
+            except Exception as e:
+                logging.error(
+                    f"Error compiling model {self.upscaleMethod} with mode {self.compileMode}: {e}"
+                )
+                logAndPrint(
+                    f"Error compiling model {self.upscaleMethod} with mode {self.compileMode}: {e}",
+                    "red",
+                )
+
+            self.compileMode = "default"
+
         # padding related logic
         ph = (4 - self.height % 4) % 4
         pw = (4 - self.width % 4) % 4
