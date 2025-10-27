@@ -1,3 +1,5 @@
+<div align="center">
+
 # 🎬 The Anime Scripter (TAS)
 
 #### _High-performance AI video enhancement toolkit for creators_
