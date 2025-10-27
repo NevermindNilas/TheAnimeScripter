@@ -4,7 +4,7 @@ opencv-python-headless==4.12.0.88
 timm==1.0.20
 onnx==1.19.1
 numpy==2.2.4
-onnxruntime==1.23.1
+onnxruntime==1.23.2
 scenedetect[opencv]
 yt-dlp==2025.10.14
 https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/rife_ncnn_vulkan_python_tntwise-1.4.5-cp313-cp313-manylinux1_x86_64.whl
