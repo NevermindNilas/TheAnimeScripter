@@ -247,11 +247,6 @@ class VideoProcessor:
         else:
             self.ifInterpolateLast(frame)
 
-        if self.preview:
-            self.preview.add(
-                frame.squeeze(0).permute(1, 2, 0).mul(255).byte().cpu().numpy()
-            )
-
     def ifInterpolateFirst(self, frame: any) -> None:
         """
         Process frame with interpolation-first pipeline order.
@@ -273,6 +268,7 @@ class VideoProcessor:
                     frame = self.upscale_process(frame, self.nextFrame)
                     for _ in range(self.framesToInsert + 1):
                         self.writeBuffer.write(frame)
+
                 else:
                     while not self.interpQueue.empty():
                         self.writeBuffer.write(
@@ -280,6 +276,7 @@ class VideoProcessor:
                         )
 
                     self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
+
             else:
                 self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
 
@@ -312,6 +309,7 @@ class VideoProcessor:
                 self.interpolate_process(
                     frame, self.writeBuffer, self.framesToInsert, self.timesteps
                 )
+
         self.writeBuffer.write(frame)
 
     def process(self):
@@ -437,19 +435,19 @@ class VideoProcessor:
                 slowmo=self.slowmo,
                 output_scale_width=self.outputScaleWidth,
                 output_scale_height=self.outputScaleHeight,
+                enablePreview=self.preview,
             )
 
             if self.preview:
                 from src.utils.previewSettings import Preview
 
-                self.preview = Preview()
+                self.preview = Preview(previewPath=self.writeBuffer.previewPath)
+                self.preview.start()
 
-            with ThreadPoolExecutor(max_workers=4 if self.preview else 3) as executor:
+            with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
                 executor.submit(self.writeBuffer)
                 executor.submit(self.process)
-                if self.preview:
-                    executor.submit(self.preview.start)
 
             elapsedTime: float = time() - starTime
             totalFPS: float = (

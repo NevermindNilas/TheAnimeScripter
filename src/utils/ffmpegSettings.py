@@ -285,6 +285,7 @@ class WriteBuffer:
         slowmo: bool = False,
         output_scale_width: int = None,
         output_scale_height: int = None,
+        enablePreview: bool = False,
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -306,6 +307,7 @@ class WriteBuffer:
         outpoint: float - The end time of the segment to encode, in seconds.
         output_scale_width: int - The target width for output scaling (optional).
         output_scale_height: int - The target height for output scaling (optional).
+        enablePreview: bool - Whether to enable FFmpeg-based preview output (optional).
         """
         self.input = input
         self.output = os.path.normpath(output)
@@ -325,9 +327,14 @@ class WriteBuffer:
         self.slowmo = slowmo
         self.output_scale_width = output_scale_width
         self.output_scale_height = output_scale_height
+        self.enablePreview = enablePreview
 
         self.writtenFrames = 0
         self.writeBuffer = Queue(maxsize=10)
+
+        self.previewPath = (
+            os.path.join(cs.MAINPATH, "preview.jpg") if enablePreview else None
+        )
 
     def encodeSettings(self) -> list:
         """
@@ -411,22 +418,81 @@ class WriteBuffer:
         if cs.AUDIO:
             command.extend(["-i", self.input])
 
-        command.extend(["-map", "0:v"])
-
         filterList = self._buildFilterList()
-        if not self.custom_encoder:
-            command.extend(matchEncoder(self.encode_method))
+
+        if self.enablePreview:
+            filterComplexParts = []
+
             if filterList:
-                command.extend(["-vf", ",".join(filterList)])
-            command.extend(["-pix_fmt", outputPixFmt])
+                baseFilters = ",".join(filterList)
+                filterComplexParts.append(f"[0:v]{baseFilters},split=2[main][preview]")
+            else:
+                filterComplexParts.append("[0:v]split=2[main][preview]")
+
+            filterComplexParts.append("[preview]fps=2[previewThrottled]")
+
+            combinedFilter = ";".join(filterComplexParts)
+            command.extend(["-filter_complex", combinedFilter])
+
+            command.extend(["-map", "[main]"])
+
+            if not self.custom_encoder:
+                command.extend(matchEncoder(self.encode_method))
+                command.extend(["-pix_fmt", outputPixFmt])
+            else:
+                customArgs = self.custom_encoder.split()
+                if "-vf" in customArgs:
+                    vfIdx = customArgs.index("-vf")
+                    customArgs.pop(vfIdx)
+                    customArgs.pop(vfIdx)
+                if "-pix_fmt" not in customArgs:
+                    customArgs.extend(["-pix_fmt", outputPixFmt])
+                command.extend(customArgs)
+
+            if cs.AUDIO:
+                command.extend(self._buildAudioSettings())
+
+            command.append(self.output)
+
+            command.extend(
+                [
+                    "-map",
+                    "[previewThrottled]",
+                    "-q:v",
+                    "2",
+                    "-update",
+                    "1",
+                    self.previewPath,
+                ]
+            )
         else:
-            command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
+            command.extend(["-map", "0:v"])
 
-        if cs.AUDIO:
-            command.extend(self._buildAudioSettings())
+            if not self.custom_encoder:
+                command.extend(matchEncoder(self.encode_method))
+                if filterList:
+                    command.extend(["-vf", ",".join(filterList)])
+                command.extend(["-pix_fmt", outputPixFmt])
+            else:
+                command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
 
-        command.append(self.output)
+            if cs.AUDIO:
+                command.extend(self._buildAudioSettings())
+
+            command.append(self.output)
+
         return command
+
+    def _getOutputFormat(self):
+        ext = os.path.splitext(self.output)[1].lower()
+        formatMap = {
+            ".mp4": "mp4",
+            ".mkv": "matroska",
+            ".webm": "webm",
+            ".mov": "mov",
+            ".avi": "avi",
+        }
+        return formatMap.get(ext, "mp4")
 
     def _buildFilterList(self):
         """Build list of video filters based on settings"""
@@ -543,6 +609,12 @@ class WriteBuffer:
 
             command = self.encodeSettings()
             logging.info(f"Encoding with: {' '.join(map(str, command))}")
+
+            if self.enablePreview:
+                logging.info(f"Preview enabled, writing to: {self.previewPath}")
+                from src.utils.logAndPrint import logAndPrint
+
+                logAndPrint(f"Preview will be saved to: {self.previewPath}", "cyan")
 
             hostBuffers = [
                 torch.empty(
@@ -675,7 +747,10 @@ class WriteBuffer:
         self.writeBuffer.put(frame)
 
     def close(self):
-        """
-        Close the queue.
-        """
         self.writeBuffer.put(None)
+
+        if self.previewPath and os.path.exists(self.previewPath):
+            try:
+                os.remove(self.previewPath)
+            except Exception as e:
+                logging.warning(f"Could not remove preview file: {e}")

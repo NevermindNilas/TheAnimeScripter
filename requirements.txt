@@ -14,9 +14,5 @@ colored==2.3.1
 rich==14.2.0
 rich-argparse==1.7.1
 
-# Web server for Adobe integration
-Flask==3.1.2
-Flask-Cors==6.0.1
-
 # Video processing
 celux == 0.7.3

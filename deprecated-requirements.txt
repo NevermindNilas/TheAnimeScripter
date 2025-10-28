@@ -2,3 +2,5 @@ basswood-av
 spandrel
 python-socketio
 vapoursynth
+Flask
+Flask-Cors

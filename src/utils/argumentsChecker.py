@@ -703,6 +703,13 @@ def argumentsChecker(args, outputPath):
 
         checkSystem()
 
+    if args.preview and args.benchmark:
+        logAndPrint(
+            "Preview cannot be enabled in benchmark mode, disabling preview",
+            "yellow",
+        )
+        args.preview = False
+
     if args.ae:
         logging.info("After Effects interface detected")
         cs.ADOBE = True
