@@ -20,16 +20,43 @@ class VideoDownloader:
         self.customEncoder = customEncoder
 
         try:
-            resolutions = self.listResolutions()
+            videoInfo = self.getVideoInfo()
+            resolutions = self.listResolutions(videoInfo)
+
+            if not resolutions:
+                logging.error("No valid resolutions found for this video")
+                exit(1)
+
         except Exception as e:
-            logging.error(f"Error while fetching video resolutions: {e}")
+            logging.error(f"Error while fetching video information: {e}")
             exit(1)
+
+        title = videoInfo.get("title", "Unknown")
+        duration = videoInfo.get("duration", 0)
+        durationStr = f"{duration // 60}m {duration % 60}s" if duration else "Unknown"
+
+        print(f"\n{'=' * 60}")
+        print(f"Video: {title}")
+        print(f"Duration: {durationStr}")
+        print(f"{'=' * 60}\n")
+
+        choices = []
+        for resData in resolutions:
+            width, height, fps, vcodec, filesize = resData
+            fpsStr = f"{fps}fps" if fps else ""
+            codecStr = self._formatCodec(vcodec)
+            sizeStr = self._formatFilesize(filesize)
+
+            display = (
+                f"{width:4}x{height:<4}  {fpsStr:>6}  {codecStr:>8}  {sizeStr:>10}"
+            )
+            choices.append(display)
 
         questions = [
             List(
                 "resolution",
-                message="Select the resolution you want to download (width x height), use up and down arrow keys to navigate and press enter to select",
-                choices=[f"{w}x{h}" for w, h in resolutions],
+                message="Select download quality (↑↓ to navigate, Enter to select)",
+                choices=choices,
             ),
         ]
 
@@ -38,57 +65,114 @@ class VideoDownloader:
             logging.error("No resolution selected, exiting")
             exit(1)
 
-        self.resolution = answers["resolution"]
-        self.width, self.height = map(int, self.resolution.split("x"))
+        selected = answers["resolution"]
+        self.width, self.height = map(int, selected.split()[0].split("x"))
 
         if self.height > 1080 and ADOBE:
-            toPrint = f"The selected resolution {self.resolution} is higher than 1080p, this will require an additional step of encoding the video for compatibility with After Effects"
+            toPrint = f"⚠ Resolution {self.width}x{self.height} >1080p requires re-encoding for After Effects compatibility"
             logging.warning(toPrint)
-            print(toPrint)
+            print(f"\n{toPrint}\n")
         else:
-            toPrint = f"Selected resolution: {self.resolution}"
+            toPrint = f"✓ Selected: {self.width}x{self.height}"
             logging.info(toPrint)
-            print(toPrint)
+            print(f"\n{toPrint}\n")
 
         self.downloadVideo()
 
-    def listResolutions(self):
+    def _formatCodec(self, vcodec):
+        if not vcodec or vcodec == "none":
+            return ""
+        if "avc" in vcodec.lower() or "h264" in vcodec.lower():
+            return "h264"
+        elif "vp9" in vcodec.lower():
+            return "vp9"
+        elif "av01" in vcodec.lower():
+            return "av1"
+        elif "hevc" in vcodec.lower() or "h265" in vcodec.lower():
+            return "h265"
+        return vcodec[:8]
+
+    def _formatFilesize(self, size):
+        if not size:
+            return ""
+        if size > 1024 * 1024 * 1024:
+            return f"~{size / (1024**3):.1f}GB"
+        elif size > 1024 * 1024:
+            return f"~{size / (1024**2):.0f}MB"
+        return f"~{size / 1024:.0f}KB"
+
+    def getVideoInfo(self):
         options = {
-            "listformats": False,
             "quiet": True,
             "no_warnings": True,
+            "skip_download": True,
         }
         with YoutubeDL(options) as ydl:
-            info_dict = ydl.extract_info(self.link, download=False)
-            formats = info_dict.get("formats", [])
-            resolutions = [
-                (f.get("width"), f.get("height"))
-                for f in formats
-                if f.get("width") and f.get("height") and f.get("height") >= 240
-            ]
+            return ydl.extract_info(self.link, download=False)
 
-            return sorted(set(resolutions), key=lambda x: x[1], reverse=True)
+    def listResolutions(self, infoDict):
+        formats = infoDict.get("formats", [])
+
+        resolutionData = []
+        for f in formats:
+            width = f.get("width")
+            height = f.get("height")
+            fps = f.get("fps")
+            vcodec = f.get("vcodec", "")
+            filesize = f.get("filesize") or f.get("filesize_approx")
+
+            if width and height and height >= 240 and vcodec and vcodec != "none":
+                resolutionData.append((width, height, fps, vcodec, filesize))
+
+        uniqueResolutions = {}
+        for width, height, fps, vcodec, filesize in resolutionData:
+            key = (width, height)
+            if key not in uniqueResolutions:
+                uniqueResolutions[key] = (width, height, fps, vcodec, filesize)
+            else:
+                existing = uniqueResolutions[key]
+                if (fps or 0) > (existing[2] or 0) or (filesize or 0) > (
+                    existing[4] or 0
+                ):
+                    uniqueResolutions[key] = (width, height, fps, vcodec, filesize)
+
+        return sorted(uniqueResolutions.values(), key=lambda x: x[1], reverse=True)
 
     def downloadVideo(self):
-        self.downloaded_file = None
+        self.downloadedFile = None
 
         def hook(d):
-            if d.get("status") == "finished":
-                self.downloaded_file = d.get("filename")
+            status = d.get("status")
+            if status == "downloading":
+                downloaded = d.get("downloaded_bytes", 0)
+                total = d.get("total_bytes") or d.get("total_bytes_estimate", 0)
+                speed = d.get("speed", 0)
+
+                if total > 0:
+                    percent = (downloaded / total) * 100
+                    speedStr = f"{speed / (1024**2):.1f}MB/s" if speed else "..."
+                    print(
+                        f"\rDownloading: {percent:.1f}% ({speedStr})",
+                        end="",
+                        flush=True,
+                    )
+
+            elif status == "finished":
+                self.downloadedFile = d.get("filename")
+                print("\r✓ Download complete!           ")
 
         options = self.getOptions()
-        # Add progress_hooks to options
         options["progress_hooks"] = [hook]
+
         try:
             with YoutubeDL(options) as ydl:
                 ydl.download([self.link])
         except Exception as e:
             logging.error(f"Failed to download video: {e}")
-            raise (f"Error downloading video: {e}")
+            raise Exception(f"Error downloading video: {e}")
 
     def getOptions(self):
         if self.height > 1080 and ADOBE:
-            # Always ensure .mp4 extension is present
             outtmpl = self.output
             return {
                 "format": f"bestvideo[height<={self.height}]+bestaudio/best[height<={self.height}]/best",
@@ -101,7 +185,6 @@ class VideoDownloader:
                     {
                         "key": "FFmpegVideoConvertor",
                         "preferedformat": "mp4",
-                        # self.customEncoder if self.customEncoder else matchEncoder(self.encodeMethod),
                     }
                 ],
                 "merge_output_format": "mp4",
