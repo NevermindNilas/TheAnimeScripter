@@ -9,9 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Changed
 - UX improvements to the YTDLP logic.
+- Completely rewrote the `--preview` functionality for better performance and lower overhead, it should now use up at most `0.5-1%` of the CPU rather than up to 5-10% previously.
 
 ### Fixed
-- N/A
+- Issues with `--preview` not showing the actual output frame but instead the input frame.
+
+### Removed
+- Flask and related dependencies.
+
+
 
 ## Adobe Edition
 ### Added
