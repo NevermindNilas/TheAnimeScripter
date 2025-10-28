@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `AnimeSR` support with `animesr` & `animesr-tensorrt` commands ( DirectML support may be added in the future altho' performance may be subpar )
 
 ### Changed
-- N/A
+- UX improvements to the YTDLP logic.
 
 ### Fixed
 - N/A
