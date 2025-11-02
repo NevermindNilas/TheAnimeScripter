@@ -124,6 +124,26 @@ def installRequirements():
             pipExe = portablePythonDir / "bin" / "pip"
 
     runSubprocess([str(pipExe), "install", "-r", str(requirementsPath)])
+    
+    # Install TensorRT separately to work around deprecated nvidia-cuda-runtime-cu13
+    # See: https://pypi.org/project/nvidia-cuda-runtime/
+    print("Installing TensorRT with workaround for deprecated nvidia-cuda-runtime-cu13...")
+    try:
+        # First install the non-deprecated CUDA runtime
+        runSubprocess([str(pipExe), "install", "--extra-index-url", "https://pypi.nvidia.com", "nvidia-cuda-runtime==13.0.96"])
+        # Install tensorrt bindings (no problematic dependencies)
+        runSubprocess([str(pipExe), "install", "--extra-index-url", "https://pypi.nvidia.com", "tensorrt_cu13_bindings==10.13.3.9"])
+        # Install tensorrt libs without dependencies (would try to install deprecated nvidia-cuda-runtime-cu13)
+        runSubprocess([str(pipExe), "install", "--extra-index-url", "https://pypi.nvidia.com", "--no-deps", "tensorrt_cu13_libs==10.13.3.9"])
+        # Install tensorrt_cu13 without dependencies
+        runSubprocess([str(pipExe), "install", "--extra-index-url", "https://pypi.nvidia.com", "--no-deps", "tensorrt_cu13==10.13.3.9"])
+        # Install tensorrt meta-package without dependencies
+        runSubprocess([str(pipExe), "install", "--extra-index-url", "https://pypi.nvidia.com", "--no-deps", "tensorrt==10.13.3.9"])
+        print("TensorRT installation complete!")
+    except Exception as e:
+        print(f"Warning: TensorRT installation encountered an issue: {e}")
+        print("Continuing with build process...")
+    
     print("Requirements installation complete!")
 
 
