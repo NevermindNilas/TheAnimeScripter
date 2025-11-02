@@ -1,11 +1,17 @@
-# TensorRT Installation Workaround
+# ============================================================================
+# ⚠️  WARNING: DO NOT USE "pip install -r tensorrt-requirements.txt" ⚠️
+# ============================================================================
+#
+# TensorRT Installation Workaround for Deprecated nvidia-cuda-runtime-cu13
 # 
 # Due to the deprecation of nvidia-cuda-runtime-cu13, TensorRT must be installed
-# with a workaround. This file documents the required packages.
+# with a specific workaround. This file documents the required packages.
 #
-# IMPORTANT: Do not use "pip install -r tensorrt-requirements.txt"
-# 
-# Instead, run these commands in order:
+# ============================================================================
+# INSTALLATION INSTRUCTIONS:
+# ============================================================================
+#
+# Run these commands in order:
 #
 # pip install --extra-index-url https://pypi.nvidia.com nvidia-cuda-runtime==13.0.96
 # pip install --extra-index-url https://pypi.nvidia.com tensorrt_cu13_bindings==10.13.3.9
@@ -13,7 +19,9 @@
 # pip install --extra-index-url https://pypi.nvidia.com --no-deps tensorrt_cu13==10.13.3.9
 # pip install --extra-index-url https://pypi.nvidia.com --no-deps tensorrt==10.13.3.9
 #
-# Or use the build.py script which handles this automatically.
+# ============================================================================
+# RECOMMENDED: Use the build.py script which handles this automatically.
+# ============================================================================
 #
 # For more information about the deprecation, see:
 # https://pypi.org/project/nvidia-cuda-runtime/
