@@ -547,8 +547,9 @@ class RifeTensorRT:
                 input_names=inputNames,
                 output_names=outputNames,
                 dynamic_axes=dynamicAxes,
-                opset_version=20,
+                opset_version=22,
                 optimize=True,
+                dynamo=False,
             )
 
             inputs = [
@@ -1080,6 +1081,7 @@ class RifeDirectML:
             output_names=outputNames,
             dynamic_axes=dynamicAxes,
             opset_version=20,
+            dynamo=False,
         )
         inputs = [
             [1, 3, self.ph, self.pw],
