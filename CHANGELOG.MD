@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Fixed
 - Issues with `--preview` not showing the actual output frame but instead the input frame.
+- Temporarily reverted the `tensorrt` version in order to fix cuda-runtime issues.
 
 ### Removed
 - Flask and related dependencies.
