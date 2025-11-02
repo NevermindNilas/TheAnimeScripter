@@ -264,6 +264,7 @@ class GMFSSTensorRT:
             output_names=outputNames,
             dynamic_axes=dynamicAxes,
             opset_version=20,
+            dynamo=False,
         )
 
         inputs = [

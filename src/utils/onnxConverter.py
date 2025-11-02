@@ -181,6 +181,7 @@ def pthToOnnx(
                 opset_version=opset,
                 do_constant_folding=True,
                 verbose=False,
+                dynamo=False,
             )
         else:
             raise

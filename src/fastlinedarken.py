@@ -273,6 +273,7 @@ class FastLineDarkenTRT(FastLineDarken):
                 input_names=["input"],
                 output_names=["output"],
                 opset_version=20,
+                dynamo=False,
             )
 
         enginePath = tensorRTEngineNameHandler(
