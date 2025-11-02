@@ -140,8 +140,12 @@ def installRequirements():
         # Install tensorrt meta-package without dependencies
         runSubprocess([str(pipExe), "install", "--extra-index-url", "https://pypi.nvidia.com", "--no-deps", "tensorrt==10.13.3.9"])
         print("TensorRT installation complete!")
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: TensorRT installation failed with exit code {e.returncode}")
+        print("This may be expected on systems without CUDA support.")
+        print("Continuing with build process...")
     except Exception as e:
-        print(f"Warning: TensorRT installation encountered an issue: {e}")
+        print(f"Warning: TensorRT installation encountered an unexpected issue: {e}")
         print("Continuing with build process...")
     
     print("Requirements installation complete!")
