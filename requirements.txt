@@ -3,7 +3,7 @@ setuptools==80.9.0
 wheel-stub==0.4.2
 
 # System and process management
-psutil==7.1.2
+psutil==7.1.3
 
 # Network and HTTP
 requests==2.32.5
