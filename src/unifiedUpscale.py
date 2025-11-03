@@ -209,6 +209,9 @@ class UniversalPytorch:
 
         return output
 
+    def frameReset(self):
+        pass
+
 
 class UniversalTensorRT:
     def __init__(
@@ -373,6 +376,9 @@ class UniversalTensorRT:
 
         return output
 
+    def frameReset(self):
+        pass
+
 
 class UniversalDirectML:
     def __init__(
@@ -520,6 +526,9 @@ class UniversalDirectML:
 
         return frame
 
+    def frameReset(self):
+        pass
+
 
 class UniversalNCNN:
     def __init__(self, upscaleMethod, upscaleFactor):
@@ -572,6 +581,9 @@ class UniversalNCNN:
 
         frame = frame.to(iniFrameDtype).mul(1 / 255).permute(2, 0, 1).unsqueeze(0)
         return frame
+
+    def frameReset(self):
+        pass
 
 
 class AnimeSR:
@@ -757,6 +769,12 @@ class AnimeSR:
         self.outputStream.synchronize()
 
         return output
+
+    def frameReset(self):
+        with torch.cuda.stream(self.normStream):
+            self.prevFrame.zero_()
+        self.normStream.synchronize()
+        self.firstIter = True
 
 
 class AnimeSRTensorRT:
@@ -1010,3 +1028,9 @@ class AnimeSRTensorRT:
         self.outputStream.synchronize()
 
         return output
+
+    def frameReset(self):
+        with torch.cuda.stream(self.normStream):
+            self.prevFrame.zero_()
+        self.normStream.synchronize()
+        self.firstIter = True
