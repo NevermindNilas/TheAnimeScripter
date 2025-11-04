@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - YYYY-MM-DD
 ## Added
 - Added an auto-refresh feature to the `--preview` functionality.
+- 3 new restore models: `hurrdeblur`, `hurrdeblur-tensorrt`, `hurrdeblur-directml` by Zarxrax
 
 ### Changed
 - Added back flask and related dependencies.

@@ -405,6 +405,9 @@ def _addVideoProcessingOptions(argParser):
         "deh264_span",
         "deh264_span-tensorrt",
         "deh264_span-directml",
+        "hurrdeblur",
+        "hurrdeblur-tensorrt",
+        "hurrdeblur-directml",
     ]
 
     processingGroup.add_argument(
