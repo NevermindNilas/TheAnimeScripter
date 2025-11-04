@@ -205,7 +205,7 @@ def _addInterpolationOptions(argParser):
     )
 
     interpolationMethods = [
-        "rife",
+        "multipassdedup",
         "rife4.6",
         "rife4.15-lite",
         "rife4.16-lite",
@@ -251,7 +251,7 @@ def _addInterpolationOptions(argParser):
         "--interpolate_method",
         type=str,
         choices=interpolationMethods,
-        default="rife",
+        default="rife4.6",
         help="Interpolation method",
     )
     interpolationGroup.add_argument(
