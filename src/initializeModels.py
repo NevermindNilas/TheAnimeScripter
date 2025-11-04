@@ -574,6 +574,20 @@ def initializeModels(self):
                     self.ensemble,
                 )
 
+            case "multipassdedup":
+                from src.unifiedInterpolate import MultiPassDedup
+
+                interpolateProcess = MultiPassDedup(
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.interpolateMethod,
+                    ensemble=self.ensemble,
+                    interpolateFactor=self.interpolateFactor,
+                    dynamicScale=self.dynamicScale,
+                    staticStep=self.staticStep,
+                )
+
     if self.restore:
         match self.restoreMethod:
             case (

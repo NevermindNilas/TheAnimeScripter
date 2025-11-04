@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from models.gmflow.backbone import CNNEncoder
 from models.gmflow.transformer import FeatureTransformer, FeatureFlowAttention
 from models.gmflow.matching import global_correlation_softmax, local_correlation_softmax
-from models.gmflow.geometry import flow_warp
+from models.gmflow.geometry import flow_warp, coords_grid
 from models.gmflow.utils import normalize_img, feature_add_position
 
 
@@ -134,9 +134,13 @@ class GMFlow(nn.Module):
 
             # correlation and softmax
             if corr_radius == -1:  # global matching
-                flow_pred = global_correlation_softmax(feature0, feature1, pred_bidir_flow)[0]
+                # flow_pred = global_correlation_softmax(feature0, feature1, pred_bidir_flow)[0]
+                flow_pred, correlation = global_correlation_softmax(feature0, feature1, pred_bidir_flow)
             else:  # local matching
-                flow_pred = local_correlation_softmax(feature0, feature1, corr_radius)[0]
+                # flow_pred = local_correlation_softmax(feature0, feature1, corr_radius)[0]
+                flow_pred, match_prob = local_correlation_softmax(feature0, feature1, corr_radius)
+
+
 
             # flow or residual flow
             flow = flow + flow_pred if flow is not None else flow_pred
@@ -159,4 +163,23 @@ class GMFlow(nn.Module):
             if scale_idx == self.num_scales - 1:
                 flow_up = self.upsample_flow(flow, feature0)
 
+        # from index import get_mask
+        # import cv2
+        # import numpy as np
+        #
+        # flow_low = F.interpolate(flow_up, scale_factor=0.125, mode='bilinear', align_corners=True) * 0.125
+        # b, c, h, w = flow_low.shape
+        # init_grid = coords_grid(b=b, h=h, w=w, homogeneous=False if c == 2 else True, device=flow_up.device, dtype=flow_up.dtype)
+        # correspondence = init_grid + flow_low
+        #
+        # mask = get_mask(correspondence, init_grid, correlation)
+
+        # cv2.imwrite('mask.png', (normalized_mask_min_max[0] * 255.).cpu().numpy().astype(np.uint8))
+
+        # mask = mask.unsqueeze(1).repeat(1, 2, 1, 1)
+        # mask = F.interpolate(mask, scale_factor=8, mode='bilinear', align_corners=True)
+        # froze_mask = mask < 70
+        # flow_up[froze_mask] = 0
+
+        # return flow_up, mask
         return flow_up

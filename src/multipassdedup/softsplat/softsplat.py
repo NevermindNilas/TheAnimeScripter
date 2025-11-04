@@ -235,7 +235,7 @@ def cuda_launch(strKey: str):
     # end
 
     return cupy.RawModule(code=objCudacache[strKey]['strKernel'], options=(
-    '-I ' + os.environ.get('CUDA_HOME'), '-I ' + os.environ.get('CUDA_HOME') + '/include')).get_function(
+        '-I ' + os.environ.get('CUDA_HOME'), '-I ' + os.environ.get('CUDA_HOME') + '/include')).get_function(
         objCudacache[strKey]['strFunction'])
 
 
@@ -245,10 +245,10 @@ def cuda_launch(strKey: str):
 ##########################################################
 
 
-def softsplat(tenIn: torch.Tensor, tenFlow: torch.Tensor, tenMetric: torch.Tensor, strMode: str):
+def softsplat(tenIn, tenFlow, tenMetric, strMode: str):
     output_dtype = tenIn.dtype
 
-    tenIn, tenFlow, tenMetric = map(lambda x: x.float() if x is not None else None, [tenIn, tenFlow, tenMetric])
+    tenIn, tenFlow, tenMetric = [x.float() if x is not None else None for x in [tenIn, tenFlow, tenMetric]]
 
     assert (strMode.split('-')[0] in ['sum', 'avg', 'linear', 'soft'])
 
@@ -386,9 +386,9 @@ class softsplat_func(torch.autograd.Function):
         assert (tenOutgrad.is_cuda == True)
 
         tenIngrad = tenIn.new_zeros([tenIn.shape[0], tenIn.shape[1], tenIn.shape[2], tenIn.shape[3]]) if \
-        self.needs_input_grad[0] == True else None
+            self.needs_input_grad[0] == True else None
         tenFlowgrad = tenFlow.new_zeros([tenFlow.shape[0], tenFlow.shape[1], tenFlow.shape[2], tenFlow.shape[3]]) if \
-        self.needs_input_grad[1] == True else None
+            self.needs_input_grad[1] == True else None
 
         if tenIngrad is not None:
             cuda_launch(cuda_kernel('softsplat_ingrad', '''

@@ -1310,9 +1310,6 @@ class MultiPassDedup:
             dynamicScale (bool, optional): Use Dynamic scale. Defaults to False.
             staticStep (bool, optional): Use static timestep. Defaults to False.
         """
-        raise NotImplementedError(
-            "MultiPassDedup is not implemented yet. Please use Rife."
-        )
         self.half = half
         self.scale = 1.0
         self.width = width
@@ -1338,9 +1335,7 @@ class MultiPassDedup:
         """
         Load the desired model
         """
-        from src.multipassdedup.utils.tools import TMapper
-
-        self.TMAPPER = TMapper()
+        self.interpolateMethod = "rife4.25"
 
         self.filename = modelsMap(self.interpolateMethod)
         if not os.path.exists(os.path.join(weightsDir, "rife", self.filename)):
@@ -1412,7 +1407,7 @@ class MultiPassDedup:
             pw = ((self.width - 1) // 64 + 1) * 64
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
-        self.I0 = torch.zeros(
+        self.prevFrame = torch.zeros(
             1,
             3,
             self.height + self.padding[3],
@@ -1430,20 +1425,30 @@ class MultiPassDedup:
             device=checker.device,
         ).to(memory_format=torch.channels_last)
 
+        self.nextFrame = torch.zeros(
+            1,
+            3,
+            self.height + self.padding[3],
+            self.width + self.padding[1],
+            dtype=self.dType,
+            device=checker.device,
+        ).to(memory_format=torch.channels_last)
+
         self.firstRun = True
+        self.reuse = None
         self.stream = torch.cuda.Stream()
         self.normStream = torch.cuda.Stream()
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
         self.processFrame(frame, "cache")
-        self.processFrame(self.I0, "model")
+        self.processFrame(self.prevFrame, "model")
 
     @torch.inference_mode()
     def processFrame(self, frame, toNorm):
         match toNorm:
-            case "I0":
-                self.I0.copy_(
+            case "prevFrame":
+                self.prevFrame.copy_(
                     self.padFrame(
                         frame.to(
                             device=checker.device,
@@ -1465,8 +1470,20 @@ class MultiPassDedup:
                     non_blocking=True,
                 ).to(memory_format=torch.channels_last)
 
+            case "nextFrame":
+                self.nextFrame.copy_(
+                    self.padFrame(
+                        frame.to(
+                            device=checker.device,
+                            dtype=self.dType,
+                            non_blocking=True,
+                        )
+                    ),
+                    non_blocking=True,
+                ).to(memory_format=torch.channels_last)
+
             case "cache":
-                self.I0.copy_(
+                self.prevFrame.copy_(
                     self.I1,
                     non_blocking=True,
                 )
@@ -1478,13 +1495,16 @@ class MultiPassDedup:
 
             case "infer":
                 with torch.cuda.stream(self.stream):
-                    if self.staticStep:
-                        output = self.model(self.I0, self.I1, frame)
-                    else:
-                        output = self.model(self.I0, self.I1, frame)[
-                            :, :, : self.height, : self.width
-                        ]
+                    output, self.reuse = self.model.inference_ts_drba(
+                        self.prevFrame,
+                        self.I1,
+                        self.nextFrame,
+                        frame,
+                        self.reuse,
+                        linear=True,
+                    )[:, :, : self.height, : self.width]
                 self.stream.synchronize()
+
                 return output
 
             case "model":
@@ -1501,20 +1521,27 @@ class MultiPassDedup:
     # A bit tired of understanding this,
     # TO:DO, postponed to a later date
     @torch.inference_mode()
-    def __call__(self, frame, interpQueue, writeBuffer=None):
+    def __call__(
+        self, frame, nextFrame, interpQueue, framesToInsert: int = 2, timesteps=None
+    ):
         if self.firstRun:
             with torch.cuda.stream(self.normStream):
-                self.processFrame(frame, "I0")
+                self.processFrame(frame, "prevFrame")
             self.normStream.synchronize()
             self.firstRun = False
             return
 
         with torch.cuda.stream(self.normStream):
             self.processFrame(frame, "I1")
+            self.processFrame(nextFrame, "nextFrame")
         self.normStream.synchronize()
 
-        for i in range(self.interpolateFactor - 1):
-            t = 0.5
+        for i in range(framesToInsert):
+            if timesteps is not None and i < len(timesteps):
+                t = timesteps[i]
+            else:
+                t = (i + 1) * 1 / (framesToInsert + 1)
+
             timestep = torch.full(
                 (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
                 t,
