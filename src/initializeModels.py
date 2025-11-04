@@ -599,6 +599,7 @@ def initializeModels(self):
                 | "gater3"
                 | "deh264_real"
                 | "deh264_span"
+                | "hurrdeblur"
             ):
                 from src.unifiedRestore import UnifiedRestoreCuda
 
@@ -614,6 +615,7 @@ def initializeModels(self):
                 | "codeformer-tensorrt"
                 | "deh264_real-tensorrt"
                 | "deh264_span-tensorrt"
+                | "hurrdeblur-tensorrt"
             ):
                 from src.unifiedRestore import UnifiedRestoreTensorRT
 
@@ -632,6 +634,7 @@ def initializeModels(self):
                 | "codeformer-directml"
                 | "deh264_real-directml"
                 | "deh264_span-directml"
+                | "hurrdeblur-directml"
             ):
                 from src.unifiedRestore import UnifiedRestoreDirectML
 
