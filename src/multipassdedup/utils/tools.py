@@ -193,7 +193,6 @@ class VideoFI_IO:
             r_buffer.put(__x)
             ret, __x = v.read()
         r_buffer.put(None)
-        v.release()
 
     def clear_write_buffer(self, w_buffer):
         while True:

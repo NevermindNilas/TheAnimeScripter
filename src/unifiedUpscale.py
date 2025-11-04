@@ -691,14 +691,14 @@ class AnimeSR:
         self.normStream = torch.cuda.Stream()
         self.outputStream = torch.cuda.Stream()
 
-        self.firstIter = True
+        self.firstRun = True
 
     def padFrame(self, frame: torch.tensor) -> torch.tensor:
         return torch.nn.functional.pad(frame, self.padding, mode="reflect")
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
-        if self.firstIter:
+        if self.firstRun:
             with torch.cuda.stream(self.normStream):
                 self.prevFrame.copy_(
                     frame.to(dtype=frame.dtype).to(memory_format=torch.channels_last),
@@ -720,7 +720,7 @@ class AnimeSR:
                     )
             self.normStream.synchronize()
 
-            self.firstIter = False
+            self.firstRun = False
         else:
             with torch.cuda.stream(self.normStream):
                 if nextFrame is None:
@@ -774,7 +774,7 @@ class AnimeSR:
         with torch.cuda.stream(self.normStream):
             self.prevFrame.zero_()
         self.normStream.synchronize()
-        self.firstIter = True
+        self.firstRun = True
 
 
 class AnimeSRTensorRT:
@@ -959,14 +959,14 @@ class AnimeSRTensorRT:
         self.normStream = torch.cuda.Stream()
         self.outputStream = torch.cuda.Stream()
 
-        self.firstIter = True
+        self.firstRun = True
 
     def padFrame(self, frame: torch.tensor) -> torch.tensor:
         return torch.nn.functional.pad(frame, self.padding, mode="reflect")
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
-        if self.firstIter:
+        if self.firstRun:
             with torch.cuda.stream(self.normStream):
                 paddedFrame = self.padFrame(frame)
                 self.prevFrame.copy_(
@@ -985,7 +985,7 @@ class AnimeSRTensorRT:
                         non_blocking=False,
                     )
             self.normStream.synchronize()
-            self.firstIter = False
+            self.firstRun = False
         else:
             with torch.cuda.stream(self.normStream):
                 paddedFrame = self.padFrame(frame)
@@ -1033,4 +1033,4 @@ class AnimeSRTensorRT:
         with torch.cuda.stream(self.normStream):
             self.prevFrame.zero_()
         self.normStream.synchronize()
-        self.firstIter = True
+        self.firstRun = True
