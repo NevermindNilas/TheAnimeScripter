@@ -73,6 +73,9 @@ def modelsList() -> list[str]:
         "anime1080fixer",
         "anime1080fixer-tensorrt",
         "anime1080fixer-directml",
+        "hurrdeblur",
+        "hurrdeblur-tensorrt",
+        "hurrdeblur-directml",
         "rife",
         "rife4.6",
         "rife4.15-lite",
@@ -312,6 +315,15 @@ def modelsMap(
 
         case "nafnet":
             return "NAFNet-GoPro-width64.pth"
+
+        case "hurrdeblur" | "hurrdeblur-tensorrt" | "hurrdeblur-directml":
+            if modelType == "pth":
+                return "1x_HurrDeblur_SuperUltraCompact.pth"
+            elif modelType == "onnx":
+                if half:
+                    return "1x_HurrDeblur_SuperUltraCompact_fp16_op20.onnx"
+                else:
+                    return "1x_HurrDeblur_SuperUltraCompact_fp32_op20.onnx"
 
         case "anime1080fixer" | "anime1080fixer-tensorrt" | "anime1080fixer-directml":
             if modelType == "pth":
