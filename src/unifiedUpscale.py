@@ -773,6 +773,9 @@ class AnimeSR:
     def frameReset(self):
         with torch.cuda.stream(self.normStream):
             self.prevFrame.zero_()
+            self.nextFrame.zero_()
+            self.state.zero_()
+            self.dummyOutput.zero_()
         self.normStream.synchronize()
         self.firstRun = True
 
@@ -1032,5 +1035,9 @@ class AnimeSRTensorRT:
     def frameReset(self):
         with torch.cuda.stream(self.normStream):
             self.prevFrame.zero_()
+            self.nextFrame.zero_()
+            self.state.zero_()
+            self.stateOutput.zero_()
+            self.dummyOutput.zero_()
         self.normStream.synchronize()
         self.firstRun = True

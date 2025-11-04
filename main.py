@@ -263,6 +263,10 @@ class VideoProcessor:
                 )
 
         if self.upscale:
+            if self.isSceneChange and self.upscaleMethod == "animesr":
+                if hasattr(self.upscale_process, "frameReset"):
+                    self.upscale_process.frameReset()
+
             if self.interpolate:
                 if self.isSceneChange:
                     frame = self.upscale_process(frame, self.nextFrame)
@@ -297,6 +301,11 @@ class VideoProcessor:
         Args:
             frame: Input video frame tensor
         """
+        # Reset AnimeSR temporal state on scene changes BEFORE processing
+        if self.isSceneChange and self.upscaleMethod == "animesr":
+            if hasattr(self.upscale_process, "frameReset"):
+                self.upscale_process.frameReset()
+
         if self.upscale:
             frame = self.upscale_process(frame, self.nextFrame)
 
