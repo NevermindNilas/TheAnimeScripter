@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Fixed
 - Issues with rife onnx exports.
-
+- Possible cuda race condition when peeking future frames.
 
 ## [2.4.7] - 2025-11-02
 ### Added
