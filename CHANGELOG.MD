@@ -15,6 +15,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Issues with rife onnx exports.
 - Possible cuda race condition when peeking future frames.
 
+## Adobe Edition
+### Added
+- AnimeSR support.
+- Default presets to the chain tab to ease the first time user experience.
+
+### Changed
+- Improved the Graph Tab performance and responsiveness.
+- Removed some hardly used features from the graph editor.
+- Added a search for preset option in the Graph Editor.
+
+
 ## [2.4.7] - 2025-11-02
 ### Added
 - Added `AnimeSR` support with `animesr` & `animesr-tensorrt` commands ( DirectML support may be added in the future altho' performance may be subpar )
