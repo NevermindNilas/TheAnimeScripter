@@ -413,9 +413,10 @@ def _addVideoProcessingOptions(argParser):
     processingGroup.add_argument(
         "--restore_method",
         type=str,
-        default="anime1080fixer",
+        nargs="+",
+        default=["anime1080fixer"],
         choices=restoreMethods,
-        help="Denoising method",
+        help="Denoising method(s), can specify multiple for chaining",
     )
     processingGroup.add_argument(
         "--resize", action="store_true", help="Resize the video"
@@ -1053,24 +1054,45 @@ def _adjustMethodsBasedOnCuda(args):
 
         for attr in methodAttributes:
             currentMethod = getattr(args, attr)
-            # Skip if already using a non-CUDA backend
-            if any(
-                backend in currentMethod.lower()
-                for backend in ["-directml", "-ncnn", "-tensorrt"]
-            ):
-                logging.info(
-                    f"{attr} already using non-default backend: {currentMethod}"
-                )
-                continue
 
-            newMethod = adjustMethod(currentMethod, availableModels)
-            if newMethod != currentMethod:
-                logging.info(f"Adjusted {attr} from {currentMethod} to {newMethod}")
-                setattr(args, attr, newMethod)
+            if attr == "restore_method" and isinstance(currentMethod, list):
+                adjusted = []
+                for method in currentMethod:
+                    if any(
+                        backend in method.lower()
+                        for backend in ["-directml", "-ncnn", "-tensorrt"]
+                    ):
+                        logging.info(
+                            f"{attr} method {method} already using non-default backend"
+                        )
+                        adjusted.append(method)
+                        continue
+
+                    newMethod = adjustMethod(method, availableModels)
+                    if newMethod != method:
+                        logging.info(
+                            f"Adjusted {attr} method from {method} to {newMethod}"
+                        )
+                    adjusted.append(newMethod)
+                setattr(args, attr, adjusted)
             else:
-                logging.info(
-                    f"No adjustment for {attr} ({currentMethod} remains unchanged)"
-                )
+                if any(
+                    backend in currentMethod.lower()
+                    for backend in ["-directml", "-ncnn", "-tensorrt"]
+                ):
+                    logging.info(
+                        f"{attr} already using non-default backend: {currentMethod}"
+                    )
+                    continue
+
+                newMethod = adjustMethod(currentMethod, availableModels)
+                if newMethod != currentMethod:
+                    logging.info(f"Adjusted {attr} from {currentMethod} to {newMethod}")
+                    setattr(args, attr, newMethod)
+                else:
+                    logging.info(
+                        f"No adjustment for {attr} ({currentMethod} remains unchanged)"
+                    )
 
 
 def processURL(args, outputPath):
