@@ -7,6 +7,19 @@ segmentation, depth estimation, and the main processing pipeline.
 """
 
 import logging
+import torch
+
+
+class RestoreChain:
+    def __init__(self, restore_processes: list):
+        self.restore_processes = restore_processes
+        logging.info(f"Initialized restore chain with {len(restore_processes)} models")
+
+    @torch.inference_mode()
+    def __call__(self, frame: torch.Tensor) -> torch.Tensor:
+        for restore_process in self.restore_processes:
+            frame = restore_process(frame)
+        return frame
 
 
 def objectDetection(self):
@@ -589,75 +602,98 @@ def initializeModels(self):
                 )
 
     if self.restore:
-        match self.restoreMethod:
-            case (
-                "scunet"
-                | "dpir"
-                | "nafnet"
-                | "real-plksr"
-                | "anime1080fixer"
-                | "gater3"
-                | "deh264_real"
-                | "deh264_span"
-                | "hurrdeblur"
-            ):
-                from src.unifiedRestore import UnifiedRestoreCuda
+        restoreMethods = (
+            self.restoreMethod
+            if isinstance(self.restoreMethod, list)
+            else [self.restoreMethod]
+        )
+        restoreProcesses = []
 
-                restoreProcess = UnifiedRestoreCuda(
-                    self.restoreMethod,
-                    self.half,
-                )
+        for method in restoreMethods:
+            match method:
+                case (
+                    "scunet"
+                    | "dpir"
+                    | "nafnet"
+                    | "real-plksr"
+                    | "anime1080fixer"
+                    | "gater3"
+                    | "deh264_real"
+                    | "deh264_span"
+                    | "hurrdeblur"
+                ):
+                    from src.unifiedRestore import UnifiedRestoreCuda
 
-            case (
-                "anime1080fixer-tensorrt"
-                | "gater3-tensorrt"
-                | "scunet-tensorrt"
-                | "codeformer-tensorrt"
-                | "deh264_real-tensorrt"
-                | "deh264_span-tensorrt"
-                | "hurrdeblur-tensorrt"
-            ):
-                from src.unifiedRestore import UnifiedRestoreTensorRT
+                    restoreProcesses.append(
+                        UnifiedRestoreCuda(
+                            method,
+                            self.half,
+                        )
+                    )
 
-                restoreProcess = UnifiedRestoreTensorRT(
-                    self.restoreMethod,
-                    self.half,
-                    self.width,
-                    self.height,
-                    self.forceStatic,
-                )
+                case (
+                    "anime1080fixer-tensorrt"
+                    | "gater3-tensorrt"
+                    | "scunet-tensorrt"
+                    | "codeformer-tensorrt"
+                    | "deh264_real-tensorrt"
+                    | "deh264_span-tensorrt"
+                    | "hurrdeblur-tensorrt"
+                ):
+                    from src.unifiedRestore import UnifiedRestoreTensorRT
 
-            case (
-                "anime1080fixer-directml"
-                | "gater3-directml"
-                | "scunet-directml"
-                | "codeformer-directml"
-                | "deh264_real-directml"
-                | "deh264_span-directml"
-                | "hurrdeblur-directml"
-            ):
-                from src.unifiedRestore import UnifiedRestoreDirectML
+                    restoreProcesses.append(
+                        UnifiedRestoreTensorRT(
+                            method,
+                            self.half,
+                            self.width,
+                            self.height,
+                            self.forceStatic,
+                        )
+                    )
 
-                restoreProcess = UnifiedRestoreDirectML(
-                    self.restoreMethod,
-                    self.half,
-                    self.width,
-                    self.height,
-                )
-            case "fastlinedarken":
-                from src.fastlinedarken import FastLineDarkenWithStreams
+                case (
+                    "anime1080fixer-directml"
+                    | "gater3-directml"
+                    | "scunet-directml"
+                    | "codeformer-directml"
+                    | "deh264_real-directml"
+                    | "deh264_span-directml"
+                    | "hurrdeblur-directml"
+                ):
+                    from src.unifiedRestore import UnifiedRestoreDirectML
 
-                restoreProcess = FastLineDarkenWithStreams(
-                    self.half,
-                )
-            case "fastlinedarken-tensorrt":
-                from src.fastlinedarken import FastLineDarkenTRT
+                    restoreProcesses.append(
+                        UnifiedRestoreDirectML(
+                            method,
+                            self.half,
+                            self.width,
+                            self.height,
+                        )
+                    )
+                case "fastlinedarken":
+                    from src.fastlinedarken import FastLineDarkenWithStreams
 
-                restoreProcess = FastLineDarkenTRT(
-                    self.half,
-                    self.height,
-                    self.width,
-                )
+                    restoreProcesses.append(
+                        FastLineDarkenWithStreams(
+                            self.half,
+                        )
+                    )
+                case "fastlinedarken-tensorrt":
+                    from src.fastlinedarken import FastLineDarkenTRT
+
+                    restoreProcesses.append(
+                        FastLineDarkenTRT(
+                            self.half,
+                            self.height,
+                            self.width,
+                        )
+                    )
+
+        if len(restoreProcesses) == 1:
+            restoreProcess = restoreProcesses[0]
+        else:
+            restoreProcess = RestoreChain(restoreProcesses)
 
     if self.dedup:
         match self.dedupMethod:
