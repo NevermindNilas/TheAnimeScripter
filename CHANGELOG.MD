@@ -8,22 +8,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added an auto-refresh feature to the `--preview` functionality.
 - 3 new restore models: `hurrdeblur`, `hurrdeblur-tensorrt`, `hurrdeblur-directml` by Zarxrax
 - Added restore methods chaining through `--restore_method model model` option.
+- Added command `--json` to pass arguments through a .json file, this is primarily used for the Adobe Edition but can be used in CLI as well.
+
 ### Changed
 - Added back flask and related dependencies.
 
 ### Fixed
 - Issues with rife onnx exports.
 - Possible cuda race condition when peeking future frames.
+- Fixed an issue with fastlinedarken + fastlinedarken-tensorrt.
 
 ## Adobe Edition
 ### Added
 - AnimeSR support.
 - Default presets to the chain tab to ease the first time user experience.
+- Added support for restore methods chaining through the UI.
 
 ### Changed
 - Improved the Graph Tab performance and responsiveness.
 - Removed some hardly used features from the graph editor.
 - Added a search for preset option in the Graph Editor.
+- Migrated to a --json approach for passing arguments from the Adobe Edition to TAS backend for better path safety.
 
 
 ## [2.4.7] - 2025-11-02
