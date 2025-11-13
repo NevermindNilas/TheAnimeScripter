@@ -68,6 +68,71 @@ def str2bool(arg):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
+def _loadJsonConfig(args, parser):
+    """
+    Load configuration from JSON file and merge with command line arguments.
+    CLI arguments take precedence over JSON values.
+
+    Args:
+        args: Parsed command line arguments
+        parser: The ArgumentParser instance
+
+    Returns:
+        argparse.Namespace: Updated arguments with JSON values
+    """
+    import json
+
+    cliProvidedArgs = set()
+    for arg in sys.argv[1:]:
+        if arg.startswith("--") and arg != "--json":
+            argName = arg[2:].replace("-", "_")
+            cliProvidedArgs.add(argName)
+
+    if len(cliProvidedArgs) > 0:
+        logAndPrint(
+            "Cannot use --json with other command line arguments. Use --json alone.",
+            "red",
+        )
+        sys.exit()
+
+    jsonPath = os.path.abspath(args.json)
+
+    if not os.path.exists(jsonPath):
+        logAndPrint(f"JSON config file not found: {jsonPath}", "red")
+        sys.exit()
+
+    try:
+        with open(jsonPath, "r", encoding="utf-8") as f:
+            jsonConfig = json.load(f)
+    except json.JSONDecodeError as e:
+        logAndPrint(f"Invalid JSON format in config file: {e}", "red")
+        sys.exit()
+    except Exception as e:
+        logAndPrint(f"Error reading JSON config: {e}", "red")
+        sys.exit()
+
+    defaults = {}
+    for action in parser._actions:
+        if action.dest not in ["help", "version", "json"]:
+            defaults[action.dest] = action.default
+
+    for key, value in jsonConfig.items():
+        if key == "json":
+            continue
+
+        if hasattr(args, key):
+            currentValue = getattr(args, key)
+            defaultValue = defaults.get(key)
+
+            if currentValue == defaultValue:
+                setattr(args, key, value)
+                logging.info(f"Loaded from JSON: {key} = {value}")
+        else:
+            logging.warning(f"Unknown option in JSON config: {key}")
+
+    return args
+
+
 def createParser(outputPath):
     """
     Create and configure the command line argument parser.
@@ -97,6 +162,11 @@ def createParser(outputPath):
     )
     generalGroup.add_argument(
         "--preview", action="store_true", help="Preview the video during processing"
+    )
+    generalGroup.add_argument(
+        "--json",
+        type=str,
+        help="Path to JSON configuration file with processing options",
     )
 
     # Preset Configuration options
@@ -192,7 +262,7 @@ def createParser(outputPath):
     _addMiscOptions(argParser)
 
     args = argParser.parse_args()
-    return argumentsChecker(args, outputPath)
+    return argumentsChecker(args, outputPath, argParser)
 
 
 def _addInterpolationOptions(argParser):
@@ -631,7 +701,7 @@ def _addMiscOptions(argParser):
     )
 
 
-def argumentsChecker(args, outputPath):
+def argumentsChecker(args, outputPath, parser):
     if args.list_presets:
         from src.utils.presetLogic import listPresets
 
@@ -642,6 +712,9 @@ def argumentsChecker(args, outputPath):
         from src.utils.presetLogic import createPreset
 
         args = createPreset(args)
+
+    if args.json:
+        args = _loadJsonConfig(args, parser)
 
     if args.download_requirements:
         _handleDependencies(args)

@@ -26,10 +26,14 @@ class FastLineDarkenWithStreams(nn.Module):
 
         self.weights = torch.tensor([0.2989, 0.5870, 0.1140])
         self.sobelX = (
-            torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]).unsqueeze(0).unsqueeze(0)
+            torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32)
+            .unsqueeze(0)
+            .unsqueeze(0)
         )
         self.sobelY = (
-            torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]]).unsqueeze(0).unsqueeze(0)
+            torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float32)
+            .unsqueeze(0)
+            .unsqueeze(0)
         )
 
         self.weightsLocal = self.weights.to(checker.device)
@@ -140,10 +144,14 @@ class FastLineDarken(nn.Module):
 
         self.weights = torch.tensor([0.2989, 0.5870, 0.1140])
         self.sobelX = (
-            torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]).unsqueeze(0).unsqueeze(0)
+            torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32)
+            .unsqueeze(0)
+            .unsqueeze(0)
         )
         self.sobelY = (
-            torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]]).unsqueeze(0).unsqueeze(0)
+            torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float32)
+            .unsqueeze(0)
+            .unsqueeze(0)
         )
 
         self.weightsLocal = self.weights.to(checker.device)
