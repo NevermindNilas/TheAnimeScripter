@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## Adobe Edition
 ### Added
 - AnimeSR support.
+- Hurrdeblur support.
 - Default presets to the chain tab to ease the first time user experience.
 - Added support for restore methods chaining through the UI.
 
