@@ -727,19 +727,22 @@ def argumentsChecker(args, outputPath, parser):
 
     if args.cleanup:
         from src.utils.dependencyHandler import uninstallDependencies
-        from src.utils.isCudaInit import detectNVidiaGPU
+        from src.utils.isCudaInit import detectNVidiaGPU, detectGPUArchitecture
 
         isNvidia = detectNVidiaGPU()
+        supportsCuda = False
+        if isNvidia:
+            supportsCuda, _, _ = detectGPUArchitecture()
         if cs.SYSTEM == "Windows":
             extension = (
                 "extra-requirements-windows.txt"
-                if isNvidia
+                if supportsCuda
                 else "extra-requirements-windows-lite.txt"
             )
         else:  # Linux and other systems
             extension = (
                 "extra-requirements-linux.txt"
-                if isNvidia
+                if supportsCuda
                 else "extra-requirements-linux-lite.txt"
             )
         success, message = uninstallDependencies(extension=extension)
@@ -922,22 +925,26 @@ def _handleDependencies(args):
         logFfmpegVersion(cs.FFMPEGPATH)
 
     try:
-        from src.utils.isCudaInit import detectNVidiaGPU
+        from src.utils.isCudaInit import detectNVidiaGPU, detectGPUArchitecture
 
         isNvidia = detectNVidiaGPU()
+        supportsCuda = False
+        if isNvidia:
+            supportsCuda, _, _ = detectGPUArchitecture()
     except ImportError:
         isNvidia = False
+        supportsCuda = False
 
     if cs.SYSTEM == "Windows":
         extension = (
             "extra-requirements-windows.txt"
-            if isNvidia
+            if supportsCuda
             else "extra-requirements-windows-lite.txt"
         )
     else:
         extension = (
             "extra-requirements-linux.txt"
-            if isNvidia
+            if supportsCuda
             else "extra-requirements-linux-lite.txt"
         )
 

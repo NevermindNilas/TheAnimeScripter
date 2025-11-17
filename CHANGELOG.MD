@@ -4,7 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
-## Added
+### Added
+- N/A
+
+### Changed
+- A significant rework of the Dependency Handler.
+
+### Fixed
+- An issue where certain dependencies would not be properly uninstalled when using `--download_requirements`.
+
+## [2.4.8] - 2025-11-15
+### Added
 - Added an auto-refresh feature to the `--preview` functionality.
 - 3 new restore models: `hurrdeblur`, `hurrdeblur-tensorrt`, `hurrdeblur-directml` by Zarxrax
 - Added restore methods chaining through `--restore_method model model` option.
