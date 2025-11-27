@@ -4,14 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
+### IMPORTANT NOTES:
+- I have taken over the development of [Celux](https://github.com/NevermindNilas/CeLux), the primary decoding backend for TAS. In order to improve output quality I have had to migrate many of its core color conversion logic from `swscale` to `libyuv` as well as rework some of its internal pipinelines. This change was non-trivial and performance may be affected in most of the workflows for a significantly better I/O handling and quality. All notable changes will be in that repo. Production of TAS will see a major slowdown now that I have single handedly maintain 3 repositories ( TAS, TAS-AdobeEdition & Celux ) so please be patient with updates.
+
 ### Added
-- N/A
+- Added `av1` decoding support through `libdav1d` in Celux.
 
 ### Changed
 - A significant rework of the Dependency Handler.
 
 ### Fixed
 - An issue where certain dependencies would not be properly uninstalled when using `--download_requirements`.
+
+## TAS Adobe Edition
+### Added
+- Graph Editor is now out of BETA, with improved stability, responsiveness and usability.
+- Graph Editor now has a `.flow` import option in order to easily migrate from other softwares.
+- Added a final fallback to the pre-render file seeking logic which will now look for the latest file in the TAS Pre-Renders folder if all else fails.
+
+### Changed
+- Minor UI tweaks.
 
 ## [2.4.8] - 2025-11-15
 ### Added
