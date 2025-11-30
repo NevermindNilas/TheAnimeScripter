@@ -335,6 +335,32 @@ def depth(self):
                 self.depthQuality,
             )
 
+        case (
+            "small_v3"
+            | "base_v3"
+            | "large_v3"
+        ):
+            from src.depth.depth import OGDepthV3CUDA
+
+            OGDepthV3CUDA(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+            )
+
 
 def initializeModels(self):
     """
