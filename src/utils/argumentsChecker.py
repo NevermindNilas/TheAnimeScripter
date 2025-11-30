@@ -600,6 +600,15 @@ def _addDepthOptions(argParser):
         "small_v3",
         "base_v3",
         "large_v3",
+        "giant_v3",
+        "small_v3-directml",
+        "base_v3-directml",
+        "large_v3-directml",
+        "giant_v3-directml",
+        "small_v3-tensorrt",
+        "base_v3-tensorrt",
+        "large_v3-tensorrt",
+        "giant_v3-tensorrt",
     ]
 
     depthGroup.add_argument(

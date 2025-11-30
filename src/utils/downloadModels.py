@@ -155,6 +155,15 @@ def modelsList() -> list[str]:
         "small_v3",
         "base_v3",
         "large_v3",
+        "giant_v3",
+        "small_v3-directml",
+        "base_v3-directml",
+        "large_v3-directml",
+        "giant_v3-directml",
+        "small_v3-tensorrt",
+        "base_v3-tensorrt",
+        "large_v3-tensorrt",
+        "giant_v3-tensorrt",
     ]
 
 
@@ -750,6 +759,34 @@ def modelsMap(
         case "large_v3":
             if modelType == "pth":
                 return "depth_anything_v3_vitl.pth"
+
+        case "giant_v3":
+            if modelType == "pth":
+                return "depth_anything_v3_vitg.pth"
+
+        case "small_v3-directml" | "small_v3-tensorrt":
+            if half:
+                return "depth_anything_v3_vits_fp16.onnx"
+            else:
+                return "depth_anything_v3_vits_fp32.onnx"
+
+        case "base_v3-directml" | "base_v3-tensorrt":
+            if half:
+                return "depth_anything_v3_vitb_fp16.onnx"
+            else:
+                return "depth_anything_v3_vitb_fp32.onnx"
+
+        case "large_v3-directml" | "large_v3-tensorrt":
+            if half:
+                return "depth_anything_v3_vitl_fp16.onnx"
+            else:
+                return "depth_anything_v3_vitl_fp32.onnx"
+
+        case "giant_v3-directml" | "giant_v3-tensorrt":
+            if half:
+                return "depth_anything_v3_vitg_fp16.onnx"
+            else:
+                return "depth_anything_v3_vitg_fp32.onnx"
 
         case _:
             raise ValueError(f"Model {model} not found.")
