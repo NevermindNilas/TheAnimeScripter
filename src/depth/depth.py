@@ -1323,13 +1323,6 @@ class VideoDepthAnythingCUDA:
 
 
 class OGDepthV3CUDA:
-    """
-    OG (Original) implementation for Depth-Anything-3 monocular depth estimation.
-    
-    Uses NumPy-based preprocessing following the existing project conventions.
-    Supports small, base, large, and giant model variants.
-    """
-
     def __init__(
         self,
         input,
@@ -1519,13 +1512,6 @@ class OGDepthV3CUDA:
 
 
 class DepthDirectMLV3:
-    """
-    DirectML backend implementation for Depth-Anything-3 depth estimation.
-    
-    Uses ONNX Runtime with DirectML provider for inference.
-    Supports small, base, large, and giant model variants.
-    """
-
     def __init__(
         self,
         input,
@@ -1750,13 +1736,6 @@ class DepthDirectMLV3:
 
 
 class DepthTensorRTV3:
-    """
-    TensorRT backend implementation for Depth-Anything-3 depth estimation.
-    
-    Uses TensorRT for optimized inference on NVIDIA GPUs.
-    Supports small, base, large, and giant model variants.
-    """
-
     def __init__(
         self,
         input,
