@@ -1,9 +1,3 @@
-# Copyright (c) 2025 ByteDance Ltd. and/or its affiliates
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-#
-# Licensed under the Apache License, Version 2.0 (the "License").
-# Adapted for TheAnimeScripter project - OG implementation for Depth-Anything-3
-
 import cv2
 import torch
 import torch.nn as nn
@@ -42,11 +36,6 @@ class ConvBlock(nn.Module):
 
 
 class DPTHeadV3(nn.Module):
-    """
-    DPT Head for Depth-Anything-3 monocular depth estimation.
-    Simplified from the full DA3 DPT head for single-image inference.
-    """
-
     def __init__(
         self,
         in_channels,
@@ -182,18 +171,6 @@ class DPTHeadV3(nn.Module):
 
 
 class DepthAnythingV3(nn.Module):
-    """
-    Depth-Anything-3 model for monocular depth estimation.
-    
-    This is the OG (Original) implementation using NumPy-based preprocessing,
-    following the existing project conventions for depth estimation.
-    
-    The model uses:
-    - DINOv2 backbone for feature extraction
-    - DPT head for depth prediction
-    - Exponential activation for depth output
-    """
-
     def __init__(
         self,
         encoder="vitl",
@@ -231,24 +208,12 @@ class DepthAnythingV3(nn.Module):
         )
 
         depth = self.depth_head(features, patch_h, patch_w)
-        # DA3 uses exponential activation for depth
         depth = torch.exp(depth)
 
         return depth.squeeze(1)
 
     @torch.no_grad()
     def infer_image(self, raw_image, input_size=518, half=False):
-        """
-        Perform depth inference on a single image.
-        
-        Args:
-            raw_image: BGR image as numpy array (H, W, 3)
-            input_size: Target size for model input (default 518 for DA3)
-            half: Whether to use half precision
-            
-        Returns:
-            Depth map as numpy array (H, W, 3) - grayscale repeated 3 times
-        """
         image, (h, w) = self.image2tensor(raw_image, input_size)
         image = image.half() if half else image.float()
         depth = self.forward(image)
@@ -269,16 +234,6 @@ class DepthAnythingV3(nn.Module):
         raw_image,
         input_size=518,
     ):
-        """
-        Convert raw image to tensor for model input.
-        
-        Args:
-            raw_image: BGR image as numpy array
-            input_size: Target size for model input
-            
-        Returns:
-            Tuple of (tensor, (original_h, original_w))
-        """
         transform = Compose(
             [
                 Resize(
