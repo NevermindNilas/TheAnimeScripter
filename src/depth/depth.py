@@ -1402,6 +1402,9 @@ class OGDepthV3CUDA:
             case "large_v3":
                 method = "vitl"
                 toDownload = "large_v3"
+            case "giant_v3":
+                method = "vitg"
+                toDownload = "giant_v3"
 
         modelType = "pth"
         self.filename = modelsMap(model=toDownload, modelType=modelType, half=self.half)
@@ -1430,6 +1433,11 @@ class OGDepthV3CUDA:
                 "encoder": "vitl",
                 "features": 256,
                 "out_channels": [256, 512, 1024, 1024],
+            },
+            "vitg": {
+                "encoder": "vitg",
+                "features": 384,
+                "out_channels": [1536, 1536, 1536, 1536],
             },
         }
 
@@ -1508,3 +1516,458 @@ class OGDepthV3CUDA:
             self.outputWriter.write(frame)
 
         self.outputWriter.release()
+
+
+class DepthDirectMLV3:
+    """
+    DirectML backend implementation for Depth-Anything-3 depth estimation.
+    
+    Uses ONNX Runtime with DirectML provider for inference.
+    Supports small, base, large, and giant model variants.
+    """
+
+    def __init__(
+        self,
+        input,
+        output,
+        width,
+        height,
+        fps,
+        half,
+        inpoint=0,
+        outpoint=0,
+        encode_method="x264",
+        depth_method="small_v3-directml",
+        custom_encoder="",
+        benchmark=False,
+        totalFrames=0,
+        bitDepth: str = "16bit",
+        depthQuality: str = "high",
+    ):
+        import onnxruntime as ort
+
+        self.ort = ort
+
+        self.input = input
+        self.output = output
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.half = half
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.encode_method = encode_method
+        self.depth_method = depth_method
+        self.custom_encoder = custom_encoder
+        self.benchmark = benchmark
+        self.totalFrames = totalFrames
+        self.bitDepth = bitDepth
+        self.depthQuality = depthQuality
+
+        self.handleModels()
+
+        try:
+            self.readBuffer = BuildBuffer(
+                videoInput=self.input,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
+                resize=False,
+                width=self.width,
+                height=self.height,
+            )
+
+            self.writeBuffer = WriteBuffer(
+                self.input,
+                self.output,
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
+                self.fps,
+                sharpen=False,
+                sharpen_sens=None,
+                grayscale=True,
+                benchmark=self.benchmark,
+                bitDepth=self.bitDepth,
+            )
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.writeBuffer)
+                executor.submit(self.readBuffer)
+                executor.submit(self.process)
+
+        except Exception as e:
+            logging.exception(f"Something went wrong, {e}")
+
+    def handleModels(self):
+        self.filename = modelsMap(
+            model=self.depth_method, modelType="onnx", half=self.half
+        )
+
+        folderName = self.depth_method.replace("-directml", "-onnx")
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
+            modelPath = downloadModels(
+                model=self.depth_method,
+                half=self.half,
+                modelType="onnx",
+            )
+        else:
+            modelPath = os.path.join(weightsDir, folderName, self.filename)
+
+        providers = self.ort.get_available_providers()
+
+        if "DmlExecutionProvider" in providers:
+            logging.info("DirectML provider available. Defaulting to DirectML")
+            self.model = self.ort.InferenceSession(
+                modelPath, providers=["DmlExecutionProvider"]
+            )
+        else:
+            logging.info(
+                "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
+            )
+            self.model = self.ort.InferenceSession(
+                modelPath, providers=["CPUExecutionProvider"]
+            )
+        # Bind on CPU memory; ORT will handle copies for DML provider
+        self.deviceType = "cpu"
+        self.device = torch.device(self.deviceType)
+
+        # Calculate padded model resolution (height, width)
+        self.newHeight, self.newWidth = calculateAspectRatio(
+            self.width, self.height, self.depthQuality
+        )
+
+        # Discover actual I/O names and dtypes from the ONNX model
+        onnxInputs = self.model.get_inputs()
+        onnxOutputs = self.model.get_outputs()
+        self.inputName = onnxInputs[0].name
+        self.outputName = onnxOutputs[0].name
+
+        def onnxTypeToNumpy(typ: str):
+            return np.float16 if "float16" in typ else np.float32
+
+        def onnxTypeToTorch(typ: str):
+            return torch.float16 if "float16" in typ else torch.float32
+
+        self.numpyInDType = onnxTypeToNumpy(onnxInputs[0].type)
+        self.torchInDType = onnxTypeToTorch(onnxInputs[0].type)
+        self.numpyOutDType = onnxTypeToNumpy(onnxOutputs[0].type)
+        self.torchOutDType = onnxTypeToTorch(onnxOutputs[0].type)
+
+        # Allocate input/output buffers with correct shapes and dtypes
+        self.IoBinding = self.model.io_binding()
+        self.dummyInput = torch.zeros(
+            (1, 3, self.newHeight, self.newWidth),
+            device=self.deviceType,
+            dtype=self.torchInDType,
+        ).contiguous()
+
+        out_rank = len(onnxOutputs[0].shape) if hasattr(onnxOutputs[0], "shape") else 4
+        if out_rank == 3:
+            out_shape = (1, self.newHeight, self.newWidth)
+        else:
+            # Default to NCHW with C=1 when unknown or 4D
+            out_shape = (1, 1, self.newHeight, self.newWidth)
+
+        self.dummyOutput = torch.zeros(
+            out_shape,
+            device=self.deviceType,
+            dtype=self.torchOutDType,
+        ).contiguous()
+
+        self.IoBinding.bind_output(
+            name=self.outputName,
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyOutDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        try:
+            frame = frame.to(self.device)
+
+            frame = F.interpolate(
+                frame,
+                size=(self.newHeight, self.newWidth),
+                mode="bilinear",
+                align_corners=True,
+            )
+
+            # Cast to model's expected input dtype
+            frame = frame.to(dtype=self.torchInDType)
+
+            self.dummyInput.copy_(frame)
+            self.IoBinding.bind_input(
+                name=self.inputName,
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyInDType,
+                shape=self.dummyInput.shape,
+                buffer_ptr=self.dummyInput.data_ptr(),
+            )
+
+            self.model.run_with_iobinding(self.IoBinding)
+
+            # Bring output to float for normalization and resize to target resolution
+            out_tensor = self.dummyOutput.float()
+            if out_tensor.ndim == 3:
+                out_tensor = out_tensor.unsqueeze(0)
+            depth = F.interpolate(
+                out_tensor,
+                size=(self.height, self.width),
+                mode="bilinear",
+                align_corners=True,
+            )
+
+            # Normalize to 0-1 range
+            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
+            self.writeBuffer.write(depth)
+
+        except Exception as e:
+            logging.exception(f"Something went wrong while processing the frame, {e}")
+
+    def process(self):
+        frameCount = 0
+
+        with ProgressBarLogic(self.totalFrames) as bar:
+            for _ in range(self.totalFrames):
+                frame = self.readBuffer.read()
+                if frame is None:
+                    break
+                self.processFrame(frame)
+                frameCount += 1
+                bar(1)
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
+
+        logging.info(f"Processed {frameCount} frames")
+
+        self.writeBuffer.close()
+
+
+class DepthTensorRTV3:
+    """
+    TensorRT backend implementation for Depth-Anything-3 depth estimation.
+    
+    Uses TensorRT for optimized inference on NVIDIA GPUs.
+    Supports small, base, large, and giant model variants.
+    """
+
+    def __init__(
+        self,
+        input,
+        output,
+        width,
+        height,
+        fps,
+        half,
+        inpoint=0,
+        outpoint=0,
+        encode_method="x264",
+        depth_method="small_v3-tensorrt",
+        custom_encoder="",
+        benchmark=False,
+        totalFrames=0,
+        bitDepth: str = "16bit",
+        depthQuality: str = "high",
+    ):
+        self.input = input
+        self.output = output
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.half = half
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.encode_method = encode_method
+        self.depth_method = depth_method
+        self.custom_encoder = custom_encoder
+        self.benchmark = benchmark
+        self.totalFrames = totalFrames
+        self.bitDepth = bitDepth
+        self.depthQuality = depthQuality
+
+        import tensorrt as trt
+        from src.utils.trtHandler import (
+            tensorRTEngineCreator,
+            tensorRTEngineLoader,
+            tensorRTEngineNameHandler,
+        )
+
+        self.trt = trt
+        self.tensorRTEngineCreator = tensorRTEngineCreator
+        self.tensorRTEngineLoader = tensorRTEngineLoader
+        self.tensorRTEngineNameHandler = tensorRTEngineNameHandler
+
+        self.handleModels()
+
+        try:
+            self.readBuffer = BuildBuffer(
+                videoInput=self.input,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
+                resize=False,
+                width=self.width,
+                height=self.height,
+            )
+
+            self.writeBuffer = WriteBuffer(
+                self.input,
+                self.output,
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
+                self.fps,
+                sharpen=False,
+                sharpen_sens=None,
+                grayscale=True,
+                benchmark=self.benchmark,
+                bitDepth=self.bitDepth,
+            )
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.writeBuffer)
+                executor.submit(self.readBuffer)
+                executor.submit(self.process)
+
+        except Exception as e:
+            logging.exception(f"Something went wrong, {e}")
+
+    def handleModels(self):
+        self.filename = modelsMap(
+            model=self.depth_method, modelType="onnx", half=self.half
+        )
+
+        folderName = self.depth_method.replace("-tensorrt", "-onnx")
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
+            self.modelPath = downloadModels(
+                model=self.depth_method,
+                half=self.half,
+                modelType="onnx",
+            )
+        else:
+            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+
+        self.newHeight, self.newWidth = calculateAspectRatio(
+            self.width, self.height, self.depthQuality
+        )
+
+        enginePath = self.tensorRTEngineNameHandler(
+            modelPath=self.modelPath,
+            fp16=self.half,
+            optInputShape=[1, 3, self.newHeight, self.newWidth],
+        )
+
+        self.engine, self.context = self.tensorRTEngineLoader(enginePath)
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
+            self.engine, self.context = self.tensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
+                fp16=self.half,
+                inputsMin=[1, 3, self.newHeight, self.newWidth],
+                inputsOpt=[1, 3, self.newHeight, self.newWidth],
+                inputsMax=[1, 3, self.newHeight, self.newWidth],
+                inputName=["image"],
+            )
+
+        self.stream = torch.cuda.Stream()
+        self.dummyInput = torch.zeros(
+            (1, 3, self.newHeight, self.newWidth),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        self.dummyOutput = torch.zeros(
+            (1, 1, self.newHeight, self.newWidth),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        )
+
+        self.bindings = [self.dummyInput.data_ptr(), self.dummyOutput.data_ptr()]
+
+        for i in range(self.engine.num_io_tensors):
+            self.context.set_tensor_address(
+                self.engine.get_tensor_name(i), self.bindings[i]
+            )
+            tensor_name = self.engine.get_tensor_name(i)
+            if self.engine.get_tensor_mode(tensor_name) == self.trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+
+        self.normStream = torch.cuda.Stream()
+        self.outputNormStream = torch.cuda.Stream()
+        self.cudaGraph = torch.cuda.CUDAGraph()
+        self.initTorchCudaGraph()
+
+    @torch.inference_mode()
+    def initTorchCudaGraph(self):
+        with torch.cuda.graph(self.cudaGraph, stream=self.stream):
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+        self.stream.synchronize()
+
+    @torch.inference_mode()
+    def normFrame(self, frame):
+        with torch.cuda.stream(self.normStream):
+            frame = F.interpolate(
+                frame.float(),
+                (self.newHeight, self.newWidth),
+                mode="bilinear",
+                align_corners=True,
+            )
+            frame = (frame - MEANTENSOR) / STDTENSOR
+            if self.half:
+                frame = frame.half()
+            self.dummyInput.copy_(frame, non_blocking=True)
+        self.normStream.synchronize()
+
+    @torch.inference_mode()
+    def normOutputFrame(self):
+        with torch.cuda.stream(self.outputNormStream):
+            depth = F.interpolate(
+                self.dummyOutput,
+                size=[self.height, self.width],
+                mode="bilinear",
+                align_corners=True,
+            )
+            depth = (depth - depth.min()) / (depth.max() - depth.min())
+        self.outputNormStream.synchronize()
+        return depth
+
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        try:
+            self.normFrame(frame)
+            with torch.cuda.stream(self.stream):
+                self.cudaGraph.replay()
+            self.stream.synchronize()
+            depth = self.normOutputFrame()
+
+            self.writeBuffer.write(depth)
+        except Exception as e:
+            logging.exception(f"Something went wrong while processing the frame, {e}")
+
+    def process(self):
+        frameCount = 0
+
+        with ProgressBarLogic(self.totalFrames) as bar:
+            for _ in range(self.totalFrames):
+                frame = self.readBuffer.read()
+                if frame is None:
+                    break
+                self.processFrame(frame)
+                frameCount += 1
+                bar(1)
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
+
+        logging.info(f"Processed {frameCount} frames")
+        self.writeBuffer.close()
