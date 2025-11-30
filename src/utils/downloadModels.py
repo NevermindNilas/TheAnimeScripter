@@ -152,6 +152,9 @@ def modelsList() -> list[str]:
         "distill_large_v2-directml",
         "og_video_small_v2",
         "yolov9_small_mit",
+        "small_v3",
+        "base_v3",
+        "large_v3",
     ]
 
 
@@ -735,6 +738,18 @@ def modelsMap(
         case "og_video_small_v2":
             if modelType == "pth":
                 return "video_depth_anything_vits.pth"
+
+        case "small_v3":
+            if modelType == "pth":
+                return "depth_anything_v3_vits.pth"
+
+        case "base_v3":
+            if modelType == "pth":
+                return "depth_anything_v3_vitb.pth"
+
+        case "large_v3":
+            if modelType == "pth":
+                return "depth_anything_v3_vitl.pth"
 
         case _:
             raise ValueError(f"Model {model} not found.")

@@ -597,6 +597,9 @@ def _addDepthOptions(argParser):
         "og_distill_small_v2-tensorrt",
         "og_distill_base_v2-tensorrt",
         "og_distill_large_v2-tensorrt",
+        "small_v3",
+        "base_v3",
+        "large_v3",
     ]
 
     depthGroup.add_argument(
