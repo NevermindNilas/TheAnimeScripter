@@ -1327,7 +1327,7 @@ class OGDepthV3CUDA:
     OG (Original) implementation for Depth-Anything-3 monocular depth estimation.
     
     Uses NumPy-based preprocessing following the existing project conventions.
-    Supports small, base, and large model variants.
+    Supports small, base, large, and giant model variants.
     """
 
     def __init__(
