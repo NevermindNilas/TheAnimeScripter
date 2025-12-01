@@ -335,6 +335,85 @@ def depth(self):
                 self.depthQuality,
             )
 
+        case (
+            "small_v3"
+            | "base_v3"
+            | "large_v3"
+            | "giant_v3"
+        ):
+            from src.depth.depth import OGDepthV3CUDA
+
+            OGDepthV3CUDA(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+            )
+
+        case (
+            "small_v3-directml"
+            | "base_v3-directml"
+            | "large_v3-directml"
+            | "giant_v3-directml"
+        ):
+            from src.depth.depth import DepthDirectMLV3
+
+            DepthDirectMLV3(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+            )
+
+        case (
+            "small_v3-tensorrt"
+            | "base_v3-tensorrt"
+            | "large_v3-tensorrt"
+            | "giant_v3-tensorrt"
+        ):
+            from src.depth.depth import DepthTensorRTV3
+
+            DepthTensorRTV3(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+            )
+
 
 def initializeModels(self):
     """
