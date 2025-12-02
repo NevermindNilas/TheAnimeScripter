@@ -275,7 +275,9 @@ def _addInterpolationOptions(argParser):
     )
 
     interpolationMethods = [
-        "multipassdedup",
+        "distildrba",
+        "distildrba-lite",
+        "distildrba-lite-tensorrt",
         "rife4.6",
         "rife4.15-lite",
         "rife4.16-lite",

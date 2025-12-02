@@ -258,9 +258,18 @@ class VideoProcessor:
             if self.isSceneChange:
                 self.interpolate_process.cacheFrameReset(frame)
             else:
-                self.interpolate_process(
-                    frame, self.interpQueue, self.framesToInsert, self.timesteps
-                )
+                if self.interpolateMethod.startswith("distildrba"):
+                    self.interpolate_process(
+                        frame,
+                        self.nextFrame,
+                        self.interpQueue,
+                        self.framesToInsert,
+                        self.timesteps,
+                    )
+                else:
+                    self.interpolate_process(
+                        frame, self.interpQueue, self.framesToInsert, self.timesteps
+                    )
 
         if self.upscale:
             if self.isSceneChange and self.upscaleMethod == "animesr":
@@ -315,9 +324,18 @@ class VideoProcessor:
                     self.writeBuffer.write(frame)
                 self.interpolate_process.cacheFrameReset(frame)
             else:
-                self.interpolate_process(
-                    frame, self.writeBuffer, self.framesToInsert, self.timesteps
-                )
+                if self.interpolateMethod.startswith("distildrba"):
+                    self.interpolate_process(
+                        frame,
+                        self.nextFrame,
+                        self.writeBuffer,
+                        self.framesToInsert,
+                        self.timesteps,
+                    )
+                else:
+                    self.interpolate_process(
+                        frame, self.writeBuffer, self.framesToInsert, self.timesteps
+                    )
 
         self.writeBuffer.write(frame)
 
@@ -362,7 +380,10 @@ class VideoProcessor:
                     frame = self.readBuffer.read()
                     if frame is None:
                         break
-                    if self.upscaleMethod == "animesr":
+                    if self.upscaleMethod == "animesr" or (
+                        self.interpolate
+                        and self.interpolateMethod.startswith("distildrba")
+                    ):
                         self.nextFrame = self.readBuffer.peek()
                     self.processFrame(frame)
                     frameCount += 1

@@ -335,12 +335,7 @@ def depth(self):
                 self.depthQuality,
             )
 
-        case (
-            "small_v3"
-            | "base_v3"
-            | "large_v3"
-            | "giant_v3"
-        ):
+        case "small_v3" | "base_v3" | "large_v3" | "giant_v3":
             from src.depth.depth import OGDepthV3CUDA
 
             OGDepthV3CUDA(
@@ -666,18 +661,27 @@ def initializeModels(self):
                     self.ensemble,
                 )
 
-            case "multipassdedup":
-                from src.unifiedInterpolate import MultiPassDedup
+            case "distildrba" | "distildrba-lite":
+                from src.unifiedInterpolate import DistilDRBACuda
 
-                interpolateProcess = MultiPassDedup(
+                interpolateProcess = DistilDRBACuda(
                     self.half,
                     self.width,
                     self.height,
                     self.interpolateMethod,
-                    ensemble=self.ensemble,
                     interpolateFactor=self.interpolateFactor,
-                    dynamicScale=self.dynamicScale,
-                    staticStep=self.staticStep,
+                    compileMode=self.compileMode,
+                )
+
+            case "distildrba-lite-tensorrt":
+                from src.unifiedInterpolate import DistilDRBATensorRT
+
+                interpolateProcess = DistilDRBATensorRT(
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.interpolateMethod,
+                    interpolateFactor=self.interpolateFactor,
                 )
 
     if self.restore:

@@ -90,6 +90,8 @@ def modelsList() -> list[str]:
         "rife4.25-lite",
         "rife4.25-heavy",
         "rife_elexor",
+        "distildrba",
+        "distildrba-lite",
         "rife4.6-tensorrt",
         "rife4.15-lite-tensorrt",
         "rife4.17-tensorrt",
@@ -408,6 +410,12 @@ def modelsMap(
                 pass
             elif modelType == "ncnn":
                 raise ValueError("NCNN model not found.")
+
+        case "distildrba":
+            return "v1.pkl"
+
+        case "distildrba-lite":
+            return "v2_lite.pkl"
 
         case "rife4.25" | "rife4.25-tensorrt" | "rife4.25-ncnn":
             if modelType == "pth":
