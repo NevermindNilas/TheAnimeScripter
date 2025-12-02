@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
+
+## [2.4.9] - 2025-12-01
 ### IMPORTANT NOTES:
 - I have taken over the development of [Celux](https://github.com/NevermindNilas/CeLux), the primary decoding backend for TAS. In order to improve output quality I have had to migrate many of its core color conversion logic from `swscale` to `libyuv` as well as rework some of its internal pipinelines. This change was non-trivial and performance may be affected in most of the workflows for a significantly better I/O handling and quality. All notable changes will be in that repo. Production of TAS will see a major slowdown now that I have single handedly maintain 3 repositories ( TAS, TAS-AdobeEdition & Celux ) so please be patient with updates.
 
