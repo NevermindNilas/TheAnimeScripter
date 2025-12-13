@@ -27,6 +27,7 @@ class BuildBuffer:
         height: int = 1080,
         bitDepth: str = "8bit",
         toTorch: bool = True,
+        decode_method: str = "cpu",
     ):
         """
         Initializes the BuildBuffer class.
@@ -41,8 +42,10 @@ class BuildBuffer:
             height (int): Height of the output frames.
             bitDepth (str): Bit depth of the output frames, e.g., "8bit" or "10bit".
             toTorch (bool): Whether to convert frames to torch tensors.
+            decode_method (str): The backend to use for decoding, e.g., "cpu" or "nvdec".
 
         """
+        self.decodeMethod = decode_method
         self.half = half
         self.decodeBuffer = Queue(maxsize=20)
         self.useOpenCV = False
@@ -84,14 +87,13 @@ class BuildBuffer:
 
         try:
             if self.inpoint > 0 or self.outpoint > 0:
-                reader = celux.VideoReader(self.videoInput)(
-                    [float(self.inpoint), float(self.outpoint)]
-                )
+                reader = celux.VideoReader(
+                    self.videoInput, decode_accelerator=self.decodeMethod
+                )([float(self.inpoint), float(self.outpoint)])
             else:
                 reader = celux.VideoReader(
-                    self.videoInput,
+                    self.videoInput, decode_accelerator=self.decodeMethod
                 )
-
             for frame in reader:
                 if self.toTorch:
                     frame = self.processFrameToTorch(

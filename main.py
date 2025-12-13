@@ -104,6 +104,7 @@ class VideoProcessor:
         self.dynamicScale: bool = args.dynamic_scale
         self.staticStep: bool = args.static_step
         self.compileMode: str = args.compile_mode
+        self.decodeMethod: str = args.decode_method
 
         # Video processing settings
         self.inpoint: float = args.inpoint
@@ -444,6 +445,7 @@ class VideoProcessor:
                 width=self.width,
                 height=self.height,
                 bitDepth=self.bitDepth,
+                decode_method=self.decodeMethod,
             )
 
             self.writeBuffer = WriteBuffer(

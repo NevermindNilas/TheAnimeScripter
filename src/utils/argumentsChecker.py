@@ -190,6 +190,13 @@ def createParser(outputPath):
         help="NOT IMPLEMENTED YET! Precision for inference, default is fp16",
     )
     performanceGroup.add_argument(
+        "--decode_method",
+        type=str,
+        choices=["cpu", "nvdec"],
+        default="cpu",
+        help="Decoding backend to use, default is cpu. 'nvdec' requires an NVIDIA GPU with NVDEC support.",
+    )
+    performanceGroup.add_argument(
         "--half",
         type=str2bool,
         nargs="?",
