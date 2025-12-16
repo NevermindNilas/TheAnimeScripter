@@ -437,7 +437,7 @@ def _addDedupOptions(argParser):
         "--dedup_method",
         type=str,
         default="ssim",
-        choices=["ssim", "mse", "ssim-cuda", "mse-cuda", "flownets"],
+        choices=["ssim", "mse", "ssim-cuda", "mse-cuda", "flownets", "vmaf"],
         help="Deduplication method",
     )
     dedupGroup.add_argument(
