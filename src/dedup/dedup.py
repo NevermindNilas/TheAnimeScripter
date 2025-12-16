@@ -317,3 +317,68 @@ class DedupFlownetS:
         self.outputStream.synchronize()
 
         return flow.mean() > self.dedupSens
+
+
+class DedupVMAF:
+    def __init__(
+        self,
+        ssimThreshold=90,
+        sampleSize=224,
+        half=True,
+    ):
+        self.ssimThreshold = ssimThreshold
+        self.sampleSize = sampleSize
+        self.half = half
+        self.prevFrame = None
+
+        from vmaf_torch import VMAF
+        from torch.nn import functional as F
+
+        self.interpolate = F.interpolate
+
+        self.vmaf = VMAF().cuda().float()
+
+    def __call__(self, frame):
+        """
+        Returns True if the frames are duplicates
+        """
+        if self.prevFrame is None:
+            self.prevFrame = self.processFrame(frame)
+            return False
+
+        frame = self.processFrame(frame)
+
+        score = self.vmaf(self.prevFrame, frame).mean()
+
+        if score < self.ssimThreshold:
+            self.prevFrame.copy_(frame, non_blocking=True)
+            return False
+        else:
+            return True
+
+    def processFrame(self, frame):
+        resized = (
+            self.interpolate(
+                frame.half(),
+                (self.sampleSize, self.sampleSize),
+                mode="bilinear",
+                align_corners=False,
+            )
+            if self.half
+            else self.interpolate(
+                frame.float(),
+                (self.sampleSize, self.sampleSize),
+                mode="bilinear",
+                align_corners=False,
+            )
+        )
+        return self.to_y(resized).float() * 255.0
+
+    def to_y(self, tensor):
+        if tensor.shape[1] == 3:
+            return (
+                0.299 * tensor[:, 0:1]
+                + 0.587 * tensor[:, 1:2]
+                + 0.114 * tensor[:, 2:3]
+            )
+        return tensor
