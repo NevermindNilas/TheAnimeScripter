@@ -45,8 +45,9 @@ class DedupSSIMCuda:
 
         if score < self.ssimThreshold:
             self.prevFrame.copy_(frame, non_blocking=False)
-
-        return score > self.ssimThreshold
+            return False
+        else:
+            return True
 
     def processFrame(self, frame):
         return (
@@ -93,8 +94,9 @@ class DedupSSIM:
 
         if score < self.ssimThreshold:
             self.prevFrame = frame
-
-        return score > self.ssimThreshold
+            return False
+        else:
+            return True
 
     def processFrame(self, frame):
         return torch.nn.functional.interpolate(
@@ -129,9 +131,11 @@ class DedupMSE:
         frame = self.processFrame(frame)
         score = ((self.prevFrame - frame) ** 2).mean()
 
-        self.prevFrame = frame.copy()
-
-        return score < self.mseThreshold
+        if score < self.mseThreshold:
+            self.prevFrame = frame
+            return False
+        else:
+            return True
 
     def processFrame(self, frame):
         return np.resize(
@@ -178,8 +182,9 @@ class DedupMSSSIMCuda:
 
         if score < self.ssimThreshold:
             self.prevFrame.copy_(frame, non_blocking=True)
-
-        return score > self.ssimThreshold
+            return False
+        else:
+            return True
 
     def processFrame(self, frame):
         return (
