@@ -802,6 +802,14 @@ def initializeModels(self):
                     self.half,
                 )
 
+            case "vmaf":
+                from src.dedup.dedup import DedupVMAF
+
+                dedupProcess = DedupVMAF(
+                    self.dedupSens,
+                    half=self.half,
+                )
+
             case "mse-cuda":
                 from src.dedup.dedup import DedupMSECuda
 
