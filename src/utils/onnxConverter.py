@@ -78,12 +78,12 @@ def slimModel(modelPath, slimPath):
             onnxslim.slim(modelPath, slimPath)
             if os.path.exists(slimPath):
                 os.remove(modelPath)
-                print(f"✓ Successfully slimmed: {slimPath}")
+                print(f"(*) Successfully slimmed: {slimPath}")
                 return slimPath
-            print(f"⚠ Slimming did not produce output, keeping original: {modelPath}")
+            print(f"(!) Slimming did not produce output, keeping original: {modelPath}")
             return modelPath
         except Exception as e:
-            print(f"⚠ Slimming failed with error: {e}")
+            print(f"(!) Slimming failed with error: {e}")
             print(f"  Keeping original: {modelPath}")
             return modelPath
     else:
@@ -166,7 +166,7 @@ def pthToOnnx(
         )
     except Exception as e:
         if useDynamo and opset > 20:
-            print(f"⚠ Dynamo export failed, falling back to opset 20: {e}")
+            print(f"(!) Dynamo export failed, falling back to opset 20: {e}")
             opset = 20
             torch.onnx.export(
                 model,
@@ -186,7 +186,7 @@ def pthToOnnx(
         else:
             raise
 
-    print("✓ ONNX export successful!")
+    print("(*) ONNX export successful!")
 
     if precision == "fp16":
         print("\nConverting to FP16...")
@@ -196,7 +196,7 @@ def pthToOnnx(
         onnx.save(onnxModel, fp16Path)
         os.remove(outputPath)
         outputPath = fp16Path
-        print("✓ FP16 conversion successful!")
+        print("(*) FP16 conversion successful!")
     else:
         fp32Path = outputPath.replace(".onnx", f"_fp32_op{opset}.onnx")
         if os.path.exists(fp32Path):
@@ -211,9 +211,9 @@ def pthToOnnx(
         if os.path.exists(slimPath):
             os.remove(outputPath)
             outputPath = slimPath
-            print("✓ Optimization successful!")
+            print("(*) Optimization successful!")
         else:
-            print("⚠ Optimization failed, keeping original")
+            print("(!) Optimization failed, keeping original")
 
     if outputPath and os.path.exists(outputPath):
         finalModel = onnx.load(outputPath)
