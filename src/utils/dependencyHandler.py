@@ -26,9 +26,8 @@ def getPythonExecutable() -> str:
 
 # https://github.com/pypa/hatch/blob/4ebce0e1fe8bf0fcdef587a704c207a063d72575/src/hatch/utils/platform.py#L176-L180
 def streamProcessOutput(process) -> Iterable[str]:
-    # To avoid blocking never use a pipe's file descriptor iterator. See https://bugs.python.org/issue3907
     for line in iter(process.stdout.readline, b""):
-        yield line.decode("utf-8")
+        yield line.decode("utf-8", errors="replace")
 
 
 def uninstallDependencies(extension: str = "") -> Tuple[bool, str]:
