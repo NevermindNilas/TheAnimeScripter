@@ -502,6 +502,13 @@ def main():
     Handles initialization, argument parsing, and coordinates video processing
     for single or multiple input files.
     """
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+            sys.stderr.reconfigure(encoding="utf-8")
+        except (AttributeError, Exception):
+            pass
+
     try:
         if any(flag in sys.argv for flag in ("-h", "--help", "-v", "--version")):
             from src.utils.argumentsChecker import createParser

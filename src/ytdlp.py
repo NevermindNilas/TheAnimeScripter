@@ -36,7 +36,10 @@ class VideoDownloader:
         durationStr = f"{duration // 60}m {duration % 60}s" if duration else "Unknown"
 
         print(f"\n{'=' * 60}")
-        print(f"Video: {title}")
+        try:
+            print(f"Video: {title}")
+        except UnicodeEncodeError:
+            print(f"Video: {title.encode('ascii', 'replace').decode('ascii')}")
         print(f"Duration: {durationStr}")
         print(f"{'=' * 60}\n")
 
@@ -55,7 +58,7 @@ class VideoDownloader:
         questions = [
             List(
                 "resolution",
-                message="Select download quality (↑↓ to navigate, Enter to select)",
+                message="Select download quality (Up/Down to navigate, Enter to select)",
                 choices=choices,
             ),
         ]
@@ -69,11 +72,11 @@ class VideoDownloader:
         self.width, self.height = map(int, selected.split()[0].split("x"))
 
         if self.height > 1080 and ADOBE:
-            toPrint = f"⚠ Resolution {self.width}x{self.height} >1080p requires re-encoding for After Effects compatibility"
+            toPrint = f"(!) Resolution {self.width}x{self.height} >1080p requires re-encoding for After Effects compatibility"
             logging.warning(toPrint)
             print(f"\n{toPrint}\n")
         else:
-            toPrint = f"✓ Selected: {self.width}x{self.height}"
+            toPrint = f"(*) Selected: {self.width}x{self.height}"
             logging.info(toPrint)
             print(f"\n{toPrint}\n")
 
@@ -159,7 +162,7 @@ class VideoDownloader:
 
             elif status == "finished":
                 self.downloadedFile = d.get("filename")
-                print("\r✓ Download complete!           ")
+                print("\r(*) Download complete!           ")
 
         options = self.getOptions()
         options["progress_hooks"] = [hook]
