@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Anime Scripter (TAS) | Next-Gen AI Video Enhancement</title>
+    <meta name="description"
+        content="The ultimate AI video enhancement toolkit for anime. Professional-grade upscaling, interpolation, and restoration powered by CUDA, TensorRT, and DirectML.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    colors: {
+                        anime: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                            950: '#082f49',
+                        },
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 6s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'glow': 'glow 4s ease-in-out infinite',
+                        'marquee': 'marquee 30s linear infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        },
+                        glow: {
+                            '0%, 100%': { opacity: 0.3 },
+                            '50%': { opacity: 0.6 },
+                        },
+                        marquee: {
+                            '0%': { transform: 'translateX(0)' },
+                            '100%': { transform: 'translateX(-50%)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --bg-color: #020617;
+            --accent-color: #38bdf8;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .glass {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        #navbar {
+            transition: padding 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.5s cubic-bezier(0.4, 0, 0.2, 1),
+                backdrop-filter 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: padding, background-color;
+        }
+
+        .glass-card {
+            position: relative;
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+
+        .glass-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: inherit;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .glass-card:hover {
+            background: rgba(30, 41, 59, 0.6);
+            border-color: rgba(56, 189, 248, 0.4);
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px -20px rgba(56, 189, 248, 0.3);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-size: 200% auto;
+            animation: textGradient 4s linear infinite;
+        }
+
+        @keyframes textGradient {
+            to {
+                background-position: 200% center;
+            }
+        }
+
+        .mesh-gradient {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image:
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(129, 140, 248, 0.15) 0, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(192, 132, 252, 0.15) 0, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(56, 189, 248, 0.15) 0, transparent 50%);
+            filter: blur(80px);
+            z-index: -1;
+        }
+
+        .noise {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            content: "";
+            opacity: 0.015;
+            z-index: 9999;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #020617;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+
+        .cursor-glow {
+            position: fixed;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            transform: translate(-50%, -50%);
+            transition: width 0.3s, height 0.3s;
+        }
+
+        .comparison-slider {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            overflow: hidden;
+            border-radius: 2rem;
+            background-color: #0f172a;
+        }
+
+        .comparison-before,
+        .comparison-after {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            will-change: clip-path;
+        }
+
+        .comparison-before {
+            z-index: 1;
+        }
+
+        .comparison-after {
+            z-index: 2;
+            clip-path: inset(0 0 0 50%);
+        }
+
+        .slider-handle {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 2px;
+            background: white;
+            z-index: 10;
+            cursor: ew-resize;
+            pointer-events: none;
+            /* Handle itself is just a line, container handles events */
+        }
+
+        .slider-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 44px;
+            height: 44px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #020617;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
+        }
+
+        .slider-controls {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            display: flex;
+            gap: 1rem;
+            z-index: 20;
+        }
+
+        .control-btn {
+            width: 48px;
+            height: 48px;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .control-btn:hover {
+            background: rgba(56, 189, 248, 0.2);
+            border-color: rgba(56, 189, 248, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .comparison-slider:fullscreen {
+            width: 100vw;
+            height: 100vh;
+            border-radius: 0;
+        }
+
+        .shimmer {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .shimmer::after {
+            content: "";
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg,
+                    transparent 45%,
+                    rgba(255, 255, 255, 0.1) 50%,
+                    transparent 55%);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                transform: translate(-30%, -30%) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(30%, 30%) rotate(0deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="font-sans antialiased custom-scrollbar">
+    <div class="noise"></div>
+    <div class="cursor-glow" id="cursor-glow"></div>
+
+    <div class="fixed top-0 left-0 w-full h-1 z-[110]">
+        <div class="h-full bg-gradient-to-r from-anime-500 via-purple-500 to-anime-500 w-0 transition-all duration-150"
+            id="scroll-progress"></div>
+    </div>
+
+
+    <nav class="fixed top-0 w-full z-[100] py-4 border-b border-transparent" id="navbar">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="flex justify-between h-20 items-center">
+                <div class="flex items-center gap-3 group cursor-pointer">
+                    <div class="relative">
+                        <div
+                            class="absolute inset-0 bg-anime-400 blur-lg opacity-20 group-hover:opacity-40 transition-opacity">
+                        </div>
+                        <i data-lucide="clapperboard" class="text-anime-400 w-9 h-9 relative"></i>
+                    </div>
+                    <span class="text-2xl font-display font-bold tracking-tight">TheAnimeScripter</span>
+                </div>
+                <div class="hidden md:flex items-center gap-10">
+                    <a href="#features"
+                        class="text-sm font-semibold text-slate-400 hover:text-white transition-all hover:tracking-widest">FEATURES</a>
+                    <a href="#installation"
+                        class="text-sm font-semibold text-slate-400 hover:text-white transition-all hover:tracking-widest">INSTALL</a>
+                    <a href="https://github.com/NevermindNilas/TheAnimeScripter/blob/main/PARAMETERS.MD"
+                        class="text-sm font-semibold text-slate-400 hover:text-white transition-all hover:tracking-widest">DOCS</a>
+                    <a href="https://github.com/NevermindNilas/TheAnimeScripter"
+                        class="group relative px-6 py-2.5 rounded-full overflow-hidden">
+                        <div class="absolute inset-0 bg-white/10 group-hover:bg-white/20 transition-colors"></div>
+                        <div class="relative flex items-center gap-2">
+                            <i data-lucide="github" class="w-4 h-4"></i>
+                            <span class="text-sm font-bold">GITHUB</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <section class="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
+        <div class="mesh-gradient"></div>
+        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-anime-500/10 blur-[120px] animate-pulse-slow"></div>
+        <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 blur-[120px] animate-pulse-slow"
+            style="animation-delay: 2s"></div>
+
+        <div class="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
+            <div class="text-center" data-aos="fade-up" data-aos-duration="1000">
+                <div
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-anime-500/10 border border-anime-500/20 mb-8 animate-float">
+                    <span class="relative flex h-2 w-2">
+                        <span
+                            class="animate-ping absolute inline-flex h-full w-full rounded-full bg-anime-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-anime-500"></span>
+                    </span>
+                    <span class="text-xs font-bold tracking-widest text-anime-400 uppercase" id="latest-version">Loading
+                        Version...</span>
+                </div>
+
+                <h1 class="text-6xl md:text-8xl font-display font-extrabold tracking-tighter mb-8 leading-[0.9]">
+                    Cinematic AI <br />
+                    <span class="gradient-text">Video Evolution</span>
+                </h1>
+
+                <p class="text-xl md:text-2xl text-slate-400 max-w-3xl mx-auto mb-12 font-light leading-relaxed">
+                    The ultimate toolkit for anime. Professional-grade upscaling,
+                    buttery-smooth interpolation, and intelligent restoration powered by cutting-edge neural networks.
+                </p>
+
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
+                    <a href="#installation"
+                        class="group relative w-full sm:w-auto px-10 py-5 bg-anime-500 rounded-2xl font-bold transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(14,165,233,0.4)] overflow-hidden shimmer">
+                        <div
+                            class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000">
+                        </div>
+                        <div class="relative flex items-center justify-center gap-3">
+                            <i data-lucide="zap" class="w-5 h-5 fill-current"></i>
+                            START ENHANCING
+                        </div>
+                    </a>
+                    <a href="https://discord.gg/hwGHXga8ck"
+                        class="w-full sm:w-auto px-10 py-5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 backdrop-blur-sm">
+                        <i data-lucide="message-circle" class="w-5 h-5"></i>
+                        JOIN COMMUNITY
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce opacity-50">
+            <i data-lucide="chevron-down" class="w-6 h-6"></i>
+        </div>
+    </section>
+
+    <section class="py-20 relative border-y border-white/5 bg-slate-950/30">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-12">
+                <div class="text-center" data-aos="fade-up" data-aos-delay="100">
+                    <div class="text-4xl md:text-5xl font-display font-bold text-white mb-2">50+</div>
+                    <div class="text-sm font-bold tracking-widest text-slate-500 uppercase">AI Models</div>
+                </div>
+                <div class="text-center" data-aos="fade-up" data-aos-delay="200">
+                    <div class="text-4xl md:text-5xl font-display font-bold text-white mb-2">4K+</div>
+                    <div class="text-sm font-bold tracking-widest text-slate-500 uppercase">Output Support</div>
+                </div>
+                <div class="text-center" data-aos="fade-up" data-aos-delay="300">
+                    <div class="text-4xl md:text-5xl font-display font-bold text-white mb-2">4</div>
+                    <div class="text-sm font-bold tracking-widest text-slate-500 uppercase">Backends</div>
+                </div>
+                <div class="text-center" data-aos="fade-up" data-aos-delay="400">
+                    <div class="text-4xl md:text-5xl font-display font-bold text-white mb-2">∞</div>
+                    <div class="text-sm font-bold tracking-widest text-slate-500 uppercase">Possibilities</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-32 relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="text-center mb-16" data-aos="fade-up">
+                <h2 class="text-sm font-bold tracking-[0.3em] text-anime-400 uppercase mb-4">Visual Fidelity</h2>
+                <h3 class="text-4xl md:text-6xl font-display font-bold">See the Difference.</h3>
+            </div>
+
+            <div class="relative group" data-aos="zoom-in" data-aos-duration="1000">
+                <div
+                    class="absolute -inset-4 bg-anime-500/20 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
+                </div>
+                <div class="comparison-slider glass border-white/10 group" id="slider-container">
+                    <div class="slider-controls">
+                        <button class="control-btn" id="fullscreen-btn" title="Toggle Fullscreen">
+                            <i data-lucide="maximize"></i>
+                        </button>
+                    </div>
+                    <div class="comparison-before" style="background-image: url('assets/demo.avif')">
+                        <div
+                            class="absolute bottom-8 left-8 px-4 py-2 bg-black/50 backdrop-blur-md rounded-lg text-xs font-bold tracking-widest uppercase border border-white/10">
+                            Original</div>
+                    </div>
+                    <div class="comparison-after" id="slider-after"
+                        style="background-image: url('assets/demo_2x.avif')">
+                        <div
+                            class="absolute bottom-8 right-8 px-4 py-2 bg-anime-500/50 backdrop-blur-md rounded-lg text-xs font-bold tracking-widest uppercase border border-anime-400/30">
+                            Enhanced</div>
+                    </div>
+                    <div class="slider-handle" id="slider-handle">
+                        <div class="slider-button">
+                            <i data-lucide="chevrons-left-right" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="py-32 relative">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-end mb-20 gap-8">
+                <div class="max-w-2xl" data-aos="fade-right">
+                    <h2 class="text-sm font-bold tracking-[0.3em] text-anime-400 uppercase mb-4">Capabilities</h2>
+                    <h3 class="text-4xl md:text-6xl font-display font-bold leading-tight">Engineered for <br />
+                        Perfection.</h3>
+                </div>
+                <p class="text-slate-400 max-w-md text-lg font-light" data-aos="fade-left">
+                    Every module is optimized for maximum throughput and visual fidelity, ensuring your content looks
+                    better than ever.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="p-10 rounded-3xl glass-card group" data-aos="fade-up" data-aos-delay="100">
+                    <div
+                        class="w-16 h-16 bg-anime-500/10 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-anime-500 group-hover:text-white transition-all duration-500">
+                        <i data-lucide="maximize" class="w-8 h-8"></i>
+                    </div>
+                    <h4 class="text-2xl font-display font-bold mb-4">Ultra Upscaling</h4>
+                    <p class="text-slate-400 leading-relaxed font-light">
+                        Many of the greatest upscaling architectures including Real-ESRGAN, AnimeSR and more for
+                        crystal-clear
+                        results.
+                    </p>
+                </div>
+                <div class="p-10 rounded-3xl glass-card group" data-aos="fade-up" data-aos-delay="200">
+                    <div
+                        class="w-16 h-16 bg-purple-500/10 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-purple-500 group-hover:text-white transition-all duration-500">
+                        <i data-lucide="wind" class="w-8 h-8"></i>
+                    </div>
+                    <h4 class="text-2xl font-display font-bold mb-4">Fluid Motion</h4>
+                    <p class="text-slate-400 leading-relaxed font-light">
+                        RIFE 4.x and GMFSS Union integration for artifact-free frame interpolation at any target
+                        framerate.
+                    </p>
+                </div>
+                <div class="p-10 rounded-3xl glass-card group" data-aos="fade-up" data-aos-delay="300">
+                    <div
+                        class="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-500">
+                        <i data-lucide="shield-check" class="w-8 h-8"></i>
+                    </div>
+                    <h4 class="text-2xl font-display font-bold mb-4">Smart Restore</h4>
+                    <p class="text-slate-400 leading-relaxed font-light">
+                        Advanced de-noising and de-blocking models that preserve essential details while removing
+                        compression artifacts.
+                    </p>
+                </div>
+                <div class="p-10 rounded-3xl glass-card group" data-aos="fade-up" data-aos-delay="400">
+                    <div
+                        class="w-16 h-16 bg-orange-500/10 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-orange-500 group-hover:text-white transition-all duration-500">
+                        <i data-lucide="layers" class="w-8 h-8"></i>
+                    </div>
+                    <h4 class="text-2xl font-display font-bold mb-4">Depth Perception</h4>
+                    <p class="text-slate-400 leading-relaxed font-light">
+                        Generate high-fidelity depth maps for 3D compositing and cinematic bokeh effects in
+                        post-production.
+                    </p>
+                </div>
+                <div class="p-10 rounded-3xl glass-card group" data-aos="fade-up" data-aos-delay="500">
+                    <div
+                        class="w-16 h-16 bg-pink-500/10 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-pink-500 group-hover:text-white transition-all duration-500">
+                        <i data-lucide="cpu" class="w-8 h-8"></i>
+                    </div>
+                    <h4 class="text-2xl font-display font-bold mb-4">Hardware Agnostic</h4>
+                    <p class="text-slate-400 leading-relaxed font-light">
+                        Seamless switching between CUDA, TensorRT, DirectML, and NCNN to utilize every bit of your
+                        hardware.
+                    </p>
+                </div>
+                <div class="p-10 rounded-3xl glass-card group" data-aos="fade-up" data-aos-delay="600">
+                    <div
+                        class="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-8 group-hover:bg-blue-500 group-hover:text-white transition-all duration-500">
+                        <i data-lucide="workflow" class="w-8 h-8"></i>
+                    </div>
+                    <h4 class="text-2xl font-display font-bold mb-4">AE Native</h4>
+                    <p class="text-slate-400 leading-relaxed font-light">
+                        Direct integration with Adobe After Effects via Adobe CEP for a streamlined workflow.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="installation" class="py-32 bg-slate-950/50 relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent">
+        </div>
+        <div class="max-w-5xl mx-auto px-6 lg:px-8">
+            <div class="text-center mb-20" data-aos="fade-up">
+                <h2 class="text-4xl md:text-5xl font-display font-bold mb-6">Ready to Deploy?</h2>
+                <p class="text-slate-400 text-lg font-light">Get started with a single command or use our portable
+                    edition.</p>
+            </div>
+
+            <div class="space-y-8">
+                <div class="group relative" data-aos="fade-up" data-aos-delay="100">
+                    <div
+                        class="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-0 group-hover:h-1/2 bg-anime-500 transition-all duration-500 rounded-full">
+                    </div>
+                    <div class="glass rounded-3xl p-8 transition-all group-hover:bg-white/[0.03]">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-4">
+                                <span
+                                    class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold">01</span>
+                                <h5 class="text-xl font-bold">Clone & Initialize</h5>
+                            </div>
+                            <button onclick="copyCode('code1')"
+                                class="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-500 hover:text-white">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <pre id="code1"
+                            class="bg-black/40 p-6 rounded-2xl text-anime-300 font-mono text-sm overflow-x-auto border border-white/5">git clone https://github.com/NevermindNilas/TheAnimeScripter.git
+cd TheAnimeScripter</pre>
+                    </div>
+                </div>
+
+                <div class="group relative" data-aos="fade-up" data-aos-delay="200">
+                    <div
+                        class="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-0 group-hover:h-1/2 bg-anime-500 transition-all duration-500 rounded-full">
+                    </div>
+                    <div class="glass rounded-3xl p-8 transition-all group-hover:bg-white/[0.03]">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-4">
+                                <span
+                                    class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold">02</span>
+                                <h5 class="text-xl font-bold">Install Environment</h5>
+                            </div>
+                            <button onclick="copyCode('code2')"
+                                class="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-500 hover:text-white">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <pre id="code2"
+                            class="bg-black/40 p-6 rounded-2xl text-anime-300 font-mono text-sm overflow-x-auto border border-white/5">pip install -r requirements.txt</pre>
+                    </div>
+                </div>
+
+                <div class="group relative" data-aos="fade-up" data-aos-delay="300">
+                    <div
+                        class="absolute -left-4 top-1/2 -translate-y-1/2 w-1 h-0 group-hover:h-1/2 bg-anime-500 transition-all duration-500 rounded-full">
+                    </div>
+                    <div class="glass rounded-3xl p-8 transition-all group-hover:bg-white/[0.03]">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-4">
+                                <span
+                                    class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold">03</span>
+                                <h5 class="text-xl font-bold">Execute Pipeline</h5>
+                            </div>
+                            <button onclick="copyCode('code3')"
+                                class="p-2 hover:bg-white/10 rounded-lg transition-colors text-slate-500 hover:text-white">
+                                <i data-lucide="copy" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                        <pre id="code3"
+                            class="bg-black/40 p-6 rounded-2xl text-anime-300 font-mono text-sm overflow-x-auto border border-white/5">python main.py --input video.mp4 --upscale --interpolate</pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-20 p-12 rounded-[3rem] bg-gradient-to-br from-anime-600 to-purple-600 relative overflow-hidden group"
+                data-aos="zoom-in">
+                <div
+                    class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20">
+                </div>
+                <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+                    <div class="text-center md:text-left">
+                        <h4 class="text-3xl font-display font-bold text-white mb-2">Adobe After Effects User?</h4>
+                        <p class="text-white/80 font-light">Download our pre-compiled plugin for the best experience.
+                        </p>
+                    </div>
+                    <a href="https://github.com/NevermindNilas/TheAnimeScripter/releases"
+                        class="px-10 py-5 bg-white text-anime-600 rounded-2xl font-bold hover:scale-105 transition-transform shadow-xl">
+                        DOWNLOAD RELEASES
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-20 overflow-hidden border-y border-white/5 bg-white/[0.02]">
+        <div class="flex whitespace-nowrap animate-marquee">
+            <div class="flex gap-20 items-center px-10">
+                <span class="text-2xl font-display font-bold text-slate-700">RIFE 4.22</span>
+                <span class="text-2xl font-display font-bold text-slate-700">GMFSS Union</span>
+                <span class="text-2xl font-display font-bold text-slate-700">AnimeSR</span>
+                <span class="text-2xl font-display font-bold text-slate-700">Span-TRT</span>
+                <span class="text-2xl font-display font-bold text-slate-700">RTMOSR-TRT</span>
+                <span class="text-2xl font-display font-bold text-slate-700">Depth Anything</span>
+                <span class="text-2xl font-display font-bold text-slate-700">RIFE 4.25</span>
+                <span class="text-2xl font-display font-bold text-slate-700">Compact</span>
+                <span class="text-2xl font-display font-bold text-slate-700">UltraCompact</span>
+                <span class="text-2xl font-display font-bold text-slate-700">SuperUltraCompact</span>
+            </div>
+            <div class="flex gap-20 items-center px-10">
+                <span class="text-2xl font-display font-bold text-slate-700">RIFE 4.22</span>
+                <span class="text-2xl font-display font-bold text-slate-700">GMFSS Union</span>
+                <span class="text-2xl font-display font-bold text-slate-700">AnimeSR</span>
+                <span class="text-2xl font-display font-bold text-slate-700">Span-TRT</span>
+                <span class="text-2xl font-display font-bold text-slate-700">RTMOSR-TRT</span>
+                <span class="text-2xl font-display font-bold text-slate-700">Depth Anything</span>
+                <span class="text-2xl font-display font-bold text-slate-700">RIFE 4.25</span>
+                <span class="text-2xl font-display font-bold text-slate-700">Compact</span>
+                <span class="text-2xl font-display font-bold text-slate-700">UltraCompact</span>
+                <span class="text-2xl font-display font-bold text-slate-700">SuperUltraCompact</span>
+            </div>
+        </div>
+    </section>
+
+    <footer class="py-20 border-t border-white/5 relative">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-16 mb-20">
+                <div class="col-span-1 md:col-span-2">
+                    <div class="flex items-center gap-3 mb-8">
+                        <i data-lucide="clapperboard" class="text-anime-400 w-8 h-8"></i>
+                        <span class="text-2xl font-display font-bold tracking-tight">The Anime Scripter</span>
+                    </div>
+                    <p class="text-slate-500 max-w-sm leading-relaxed font-light">
+                        Pushing the boundaries of AI video enhancement. Open source, community driven, and built for the
+                        next generation of creators.
+                    </p>
+                </div>
+                <div>
+                    <h6 class="text-white font-bold mb-8 uppercase tracking-widest text-xs">Resources</h6>
+                    <ul class="space-y-4 text-slate-500 text-sm">
+                        <li><a href="https://github.com/NevermindNilas/TheAnimeScripter#readme"
+                                class="hover:text-anime-400 transition-colors">Documentation</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h6 class="text-white font-bold mb-8 uppercase tracking-widest text-xs">Connect</h6>
+                    <ul class="space-y-4 text-slate-500 text-sm">
+                        <li><a href="https://github.com/NevermindNilas/TheAnimeScripter"
+                                class="hover:text-anime-400 transition-colors flex items-center gap-2"><i
+                                    data-lucide="github" class="w-4 h-4"></i> GitHub</a></li>
+                        <li><a href="https://discord.gg/hwGHXga8ck"
+                                class="hover:text-anime-400 transition-colors flex items-center gap-2"><i
+                                    data-lucide="message-circle" class="w-4 h-4"></i> Discord</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex flex-col md:flex-row justify-between items-center pt-12 border-t border-white/5 gap-6">
+                <p class="text-slate-600 text-xs font-medium tracking-widest uppercase">
+                    &copy; 2025 THE ANIME SCRIPTER. ALL RIGHTS RESERVED.
+                </p>
+                <div class="flex gap-8 text-slate-600 text-xs font-medium tracking-widest uppercase">
+                    <a href="https://github.com/NevermindNilas/TheAnimeScripter/blob/main/LICENSE"
+                        class="hover:text-white transition-colors">License</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <button id="back-to-top"
+        class="fixed bottom-8 right-8 p-4 bg-anime-500 text-white rounded-2xl shadow-2xl opacity-0 translate-y-10 transition-all duration-500 z-[100] hover:scale-110 active:scale-95">
+        <i data-lucide="arrow-up" class="w-6 h-6"></i>
+    </button>
+
+    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+    <script>
+        AOS.init({
+            once: true,
+            offset: 100,
+        });
+
+        lucide.createIcons();
+
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 20) {
+                navbar.classList.add('glass', 'py-2');
+                navbar.classList.remove('py-4', 'border-transparent');
+            } else {
+                navbar.classList.remove('glass', 'py-2');
+                navbar.classList.add('py-4', 'border-transparent');
+            }
+        }, { passive: true });
+
+        function copyCode(id) {
+            const code = document.getElementById(id).innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const btn = event.currentTarget;
+                const originalIcon = btn.innerHTML;
+                btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-emerald-400"></i>';
+                lucide.createIcons();
+                setTimeout(() => {
+                    btn.innerHTML = originalIcon;
+                    lucide.createIcons();
+                }, 2000);
+            });
+        }
+
+        const cursorGlow = document.getElementById('cursor-glow');
+        document.addEventListener('mousemove', (e) => {
+            cursorGlow.style.left = e.clientX + 'px';
+            cursorGlow.style.top = e.clientY + 'px';
+        });
+
+        const container = document.getElementById('slider-container');
+        const after = document.getElementById('slider-after');
+        const handle = document.getElementById('slider-handle');
+        const fullscreenBtn = document.getElementById('fullscreen-btn');
+
+        function moveSlider(e) {
+            const rect = container.getBoundingClientRect();
+            const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+            const percent = Math.max(0, Math.min(100, (x / rect.width) * 100));
+
+            after.style.clipPath = `inset(0 0 0 ${percent}%)`;
+            handle.style.left = percent + '%';
+        }
+
+        container.addEventListener('mousemove', moveSlider);
+        container.addEventListener('touchmove', (e) => {
+            moveSlider(e);
+            e.preventDefault();
+        }, { passive: false });
+
+        fullscreenBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => {
+                    alert(`Error attempting to enable full-screen mode: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            fullscreenBtn.innerHTML = document.fullscreenElement ? '<i data-lucide="minimize"></i>' : '<i data-lucide="maximize"></i>';
+            lucide.createIcons();
+        });
+
+        const backToTop = document.getElementById('back-to-top');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 500) {
+                backToTop.classList.remove('opacity-0', 'translate-y-10');
+                backToTop.classList.add('opacity-100', 'translate-y-0');
+            } else {
+                backToTop.classList.add('opacity-0', 'translate-y-10');
+                backToTop.classList.remove('opacity-100', 'translate-y-0');
+            }
+        });
+
+        backToTop.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        const progress = document.getElementById('scroll-progress');
+        window.addEventListener('scroll', () => {
+            const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+            const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrolled = (winScroll / height) * 100;
+            progress.style.width = scrolled + "%";
+        });
+
+        async function fetchLatestVersion() {
+            try {
+                const response = await fetch('https://api.github.com/repos/NevermindNilas/TheAnimeScripter/releases/latest');
+                const data = await response.json();
+                if (data.tag_name) {
+                    document.getElementById('latest-version').innerText = `Version ${data.tag_name} Now Available`;
+                }
+            } catch (error) {
+                console.error('Error fetching latest version:', error);
+                document.getElementById('latest-version').innerText = 'Version 2.0 Now Available';
+            }
+        }
+        fetchLatestVersion();
+    </script>
+</body>
+
+</html>
