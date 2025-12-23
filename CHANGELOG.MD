@@ -7,10 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Added
 - Added `distilldrba`, `distilldrba-lite`, `distilldrba-lite-tensorrt` interpolate methods.
 - Added `vmaf` dedup method.
-- Added my very first AI Model, Saryn with optiosn: `saryn`, `saryn-tensorrt` & `saryn-directml`.
+- Added my very first AI Model, Saryn with options: `saryn`, `saryn-tensorrt` & `saryn-directml`.
+- 
 
 ### Changed
-- N/A
+- Improved output handling and name generation.
 
 ### Fixed
 - Fixed an issue where if the progress bar contained non UTF-8 compliant text, it would result in a crash.
