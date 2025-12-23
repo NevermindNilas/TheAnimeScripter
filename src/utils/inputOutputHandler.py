@@ -6,44 +6,59 @@ from src.utils.logAndPrint import logAndPrint
 EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
 
 
-def generateOutputPath(video, output, outputPath, args):
+def generateOutputName(args, videoInput):
+    """Generates output filename based on input and processing arguments."""
+    if any(proto in str(videoInput) for proto in ["https://", "http://"]):
+        return f"TAS-YTDLP-{random.randint(0, 1000)}.mp4"
+
+    baseName = os.path.splitext(os.path.basename(videoInput))[0] if videoInput else "TAS"
+
+    features = [
+        ("resize", "Resize", "resize_factor"),
+        ("dedup", "Dedup", "dedup_sens"),
+        ("interpolate", "Int", "interpolate_factor"),
+        ("upscale", "Up", "upscale_factor"),
+        ("sharpen", "Sh", "sharpen_sens"),
+        ("restore", "Restore", "restore_method"),
+        ("segment", "Segment", None),
+        ("depth", "Depth", None),
+        ("ytdlp", "YTDLP", None),
+    ]
+
+    suffixes = []
+    for arg, label, val_attr in features:
+        if getattr(args, arg, False):
+            val = getattr(args, val_attr, "") if val_attr else ""
+            suffixes.append(f"-{label}{val}")
+
+    suffixes.append(f"-{random.randint(0, 1000)}")
+
+    if getattr(args, "segment", False) or getattr(args, "encode_method", "") == "prores":
+        extension = ".mov"
+    elif getattr(args, "encode_method", "") == "png":
+        extension = ""
+    elif videoInput:
+        extension = os.path.splitext(videoInput)[1]
+    else:
+        extension = ".mp4"
+
+    return f"{baseName}{''.join(suffixes)}{extension}"
+
+
+def generateOutputPath(video, output, defaultOutputPath, args):
     """Generates appropriate output path based on input parameters."""
-    # Handle GIF files
-    if video.endswith(".gif"):
-        if output is None or os.path.isdir(output):
-            return os.path.join(output or outputPath, generateOutputName(args, video))
+    if output and output.endswith(tuple(EXTENSIONS)):
         return output
 
-    # Handle output not specified
-    if output is None:
-        if args.encode_method == "png":
-            return handlePngOutput(args, video, outputPath)
-        return os.path.join(outputPath, generateOutputName(args, video))
+    baseDir = output if output and os.path.isdir(output) else defaultOutputPath
 
-    # Handle direct file output
-    if output.endswith(tuple(EXTENSIONS)):
-        return output
+    if getattr(args, "encode_method", "") == "png":
+        outputName = generateOutputName(args, video)
+        outputFolder = os.path.join(baseDir, outputName)
+        os.makedirs(outputFolder, exist_ok=True)
+        return os.path.join(outputFolder, "frames_%05d.png")
 
-    # Handle directory output
-    outputDir = output
-    if not outputDir.endswith(os.path.sep):
-        outputDir += os.path.sep
-
-    if os.path.isdir(outputDir):
-        if args.encode_method == "png":
-            return handlePngOutput(args, video, outputDir)
-        return os.path.join(outputDir, generateOutputName(args, video))
-
-    raise FileNotFoundError(f"Output directory {output} does not exist")
-
-
-def handlePngOutput(args, video, outputPath):
-    """Handles PNG output for video processing."""
-    outputName = generateOutputName(args, video)
-    outputFolder = os.path.join(outputPath, outputName)
-    os.makedirs(outputFolder, exist_ok=True)
-
-    return os.path.join(outputFolder, "frames_%05d.png")
+    return os.path.join(baseDir, generateOutputName(args, video))
 
 
 def validateEncoder(video, encodeMethod, customEncoder):
@@ -61,114 +76,72 @@ def validateEncoder(video, encodeMethod, customEncoder):
     return encodeMethod
 
 
-def processInputOutputPaths(args, outputPath):
-    """Processes input and output paths for video processing."""
-    videos = os.path.abspath(args.input)
-    output = args.output
-    encodeMethod = args.encode_method
-    customEncoder = args.custom_encoder
-
-    os.makedirs(outputPath, exist_ok=True)
-
-    if output and not output.endswith(tuple(EXTENSIONS)):
-        if not output.endswith(os.path.sep):
-            output += os.path.sep
-        os.makedirs(output, exist_ok=True)
-
-    videoFiles = getVideoFiles(videos)
-
-    result = {}
-    for index, video in enumerate(videoFiles, 1):
-        if not os.path.exists(video):
-            raise FileNotFoundError(f"File {video} does not exist")
-
-        result[index] = {
-            "videoPath": video,
-            "outputPath": generateOutputPath(video, output, outputPath, args),
-            "encodeMethod": validateEncoder(video, encodeMethod, customEncoder),
-            "customEncoder": customEncoder,
-        }
-
-    return result
-
-
 def getVideoFiles(videosInput):
     """Extract list of video files from input specification."""
-    if os.path.isdir(videosInput):
+    # Handle semicolon separated paths
+    if ";" in str(videosInput):
+        paths = [v.strip() for v in str(videosInput).split(";") if v.strip()]
+        all_files = []
+        for p in paths:
+            all_files.extend(getVideoFiles(p))
+        return all_files
+
+    # Handle URL input
+    if any(proto in str(videosInput) for proto in ["https://", "http://"]):
+        return [videosInput]
+
+    # Handle directory or file
+    absPath = os.path.abspath(videosInput)
+    if os.path.isdir(absPath):
         return [
-            os.path.join(videosInput, f)
-            for f in os.listdir(videosInput)
+            os.path.join(absPath, f)
+            for f in os.listdir(absPath)
             if os.path.splitext(f)[1].lower() in EXTENSIONS
         ]
-    elif os.path.isfile(videosInput):
-        if videosInput.endswith(".txt"):
-            with open(videosInput, "r") as file:
-                return [line.strip().strip('"') for line in file.readlines()]
-        return [videosInput]
-    else:
-        return videosInput.split(";")
+
+    if os.path.isfile(absPath):
+        if absPath.endswith(".txt"):
+            with open(absPath, "r") as f:
+                return [
+                    os.path.abspath(line.strip().strip('"'))
+                    for line in f
+                    if line.strip()
+                ]
+        return [absPath]
+
+    # Fallback
+    return [absPath]
 
 
-def generateOutputName(args, videoInput):
-    """Generates output filename based on input and processing arguments."""
-    argMap = {
-        "resize": f"-Resize{getattr(args, 'resize_factor', '')}"
-        if getattr(args, "resize", False)
-        else "",
-        "dedup": f"-Dedup{getattr(args, 'dedup_sens', '')}"
-        if getattr(args, "dedup", False)
-        else "",
-        "interpolate": f"-Int{getattr(args, 'interpolate_factor', '')}"
-        if getattr(args, "interpolate", False)
-        else "",
-        "upscale": f"-Up{getattr(args, 'upscale_factor', '')}"
-        if getattr(args, "upscale", False)
-        else "",
-        "sharpen": f"-Sh{getattr(args, 'sharpen_sens', '')}"
-        if getattr(args, "sharpen", False)
-        else "",
-        "restore": f"-Restore{getattr(args, 'restore_method', '')}"
-        if getattr(args, "restore", False)
-        else "",
-        "segment": "-Segment" if getattr(args, "segment", False) else "",
-        "depth": "-Depth" if getattr(args, "depth", False) else "",
-        "ytdlp": "-YTDLP" if getattr(args, "ytdlp", False) else "",
-    }
+def processInputOutputPaths(args, defaultOutputPath):
+    """Processes input and output paths for video processing."""
+    os.makedirs(defaultOutputPath, exist_ok=True)
 
-    try:
-        # Handle URL input
-        if "https://" in videoInput or "http://" in videoInput:
-            return f"TAS-YTDLP-{random.randint(0, 1000)}.mp4"
-
-        # Start with base name
-        baseName = (
-            os.path.splitext(os.path.basename(videoInput))[0] if videoInput else "TAS"
-        )
-
-        # Add processing indicators
-        suffixes = [suffix for suffix in argMap.values() if suffix]
-
-        # Add random number to prevent overwrites
-        suffixes.append(f"-{random.randint(0, 1000)}")
-
-        # Determine extension
-        if (
-            getattr(args, "segment", False)
-            or getattr(args, "encode_method", "") == "prores"
-        ):
-            extension = ".mov"
-        elif args.encode_method == "png":
-            extension = ""
-        elif videoInput:
-            extension = os.path.splitext(videoInput)[1]
+    output = args.output
+    if output:
+        output = os.path.abspath(output)
+        if not output.endswith(tuple(EXTENSIONS)):
+            os.makedirs(output, exist_ok=True)
         else:
-            extension = ".mp4"
+            parent_dir = os.path.dirname(output)
+            if parent_dir:
+                os.makedirs(parent_dir, exist_ok=True)
 
-        return baseName + "".join(suffixes) + extension
+    videoFiles = getVideoFiles(args.input)
 
-    except AttributeError as e:
-        logging.error(f"AttributeError in generateOutputName: {e}")
-        raise
-    except Exception as e:
-        logging.error(f"Unexpected error in generateOutputName: {e}")
-        raise
+    results = {}
+    for index, video in enumerate(videoFiles, 1):
+        if not any(proto in str(video) for proto in ["https://", "http://"]):
+            if not os.path.exists(video):
+                raise FileNotFoundError(f"File {video} does not exist")
+
+        results[index] = {
+            "videoPath": video,
+            "outputPath": generateOutputPath(video, output, defaultOutputPath, args),
+            "encodeMethod": validateEncoder(
+                video, args.encode_method, args.custom_encoder
+            ),
+            "customEncoder": args.custom_encoder,
+        }
+
+    return results
