@@ -33,7 +33,6 @@ class UniversalPytorch:
             width (int): The width of the input frame
             height (int): The height of the input frame
             customModel (str): The path to a custom model file
-            trt (bool): Whether to use tensorRT
             compileMode: (str): The compile mode to use for the model
         """
         self.upscaleMethod = upscaleMethod
@@ -76,20 +75,25 @@ class UniversalPytorch:
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
                 )
+            
+        if not self.upscaleMethod == "saryn":
+            self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
 
-        self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
+            if isinstance(self.model, dict):
+                self.model = ModelLoader().load_from_state_dict(self.model)
 
-        if isinstance(self.model, dict):
-            self.model = ModelLoader().load_from_state_dict(self.model)
+            if self.customModel:
+                assert isinstance(self.model, ImageModelDescriptor)
 
-        if self.customModel:
-            assert isinstance(self.model, ImageModelDescriptor)
-
-        try:
-            # SPANDREL HAXX
-            self.model = self.model.model
-        except Exception:
-            pass
+            try:
+                # SPANDREL HAXX
+                self.model = self.model.model
+            except Exception:
+                pass
+        else:
+            from src.extraArches.RTMoSR import RTMoSR
+            self.model = RTMoSR()
+            self.model.load_state_dict(torch.load(modelPath))
 
         self.model = (
             self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
@@ -844,6 +848,7 @@ class AnimeSRTensorRT:
             )
         else:
             self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+
 
         self.dtype = torch.float16 if self.half else torch.float32
         enginePath = self.tensorRTEngineNameHandler(
