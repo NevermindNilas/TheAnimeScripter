@@ -452,6 +452,7 @@ def initializeModels(self):
                 | "aniscale2"
                 | "shufflespan"
                 | "rtmosr"
+                | "saryn"
                 | "fallin_soft"
                 | "fallin_strong"
             ):
@@ -474,6 +475,7 @@ def initializeModels(self):
                 | "aniscale2-directml"
                 | "shufflespan-directml"
                 | "rtmosr-directml"
+                | "saryn-directml"
                 | "fallin_soft-directml"
                 | "fallin_strong-directml"
             ):
@@ -506,6 +508,7 @@ def initializeModels(self):
                 | "aniscale2-tensorrt"
                 | "shufflespan-tensorrt"
                 | "rtmosr-tensorrt"
+                | "saryn-tensorrt"
                 | "fallin_soft-tensorrt"
                 | "fallin_strong-tensorrt"
             ):

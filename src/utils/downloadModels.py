@@ -53,6 +53,9 @@ def modelsList() -> list[str]:
         "rtmosr",
         "rtmosr-directml",
         "rtmosr-tensorrt",
+        "saryn",
+        "saryn-directml",
+        "saryn-tensorrt",
         "compact",
         "ultracompact",
         "superultracompact",
@@ -225,6 +228,15 @@ def modelsMap(
                     return "2x_umzi_anime_rtmosr_fp16_op18.onnx"
                 else:
                     return "2x_umzi_anime_rtmosr_fp32_op18.onnx"
+
+        case "saryn" | "saryn-directml" | "saryn-tensorrt":
+            if modelType == "pth":
+                return "Saryn-V1-Lite.pth"
+            else:
+                if half:
+                    return "Saryn-V1-Lite-FP16.onnx"
+                else:
+                    return "Saryn-V1-Lite-FP32.onnx"
 
         case "animesr" | "animesr-directml" | "animesr-tensorrt":
             if modelType == "pth":
