@@ -25,9 +25,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### New
 - Added a brand new Queue System to Adobe Edition
 - Added all the new upscale, interpolate and dedup methods.
+- Added Alpha support for Layer inpoint and outpoint effectively bypassing the pre-render step.
 
 ### Changed
 - Rewrote a significat amount of the code.
+- Improved many elements of the UI.
   
 ### Fixed
 - Errors with access violation 3221225477.
