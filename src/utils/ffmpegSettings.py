@@ -79,6 +79,8 @@ class BuildBuffer:
             self.deviceType = "cpu"
             self.cudaEnabled = False
 
+        self.backend = "pytorch" if toTorch else "numpy"
+
     def __call__(self):
         """
         Decodes frames from the video and stores them in the decodeBuffer.
@@ -88,11 +90,11 @@ class BuildBuffer:
         try:
             if self.inpoint > 0 or self.outpoint > 0:
                 reader = celux.VideoReader(
-                    self.videoInput, decode_accelerator=self.decodeMethod
+                    self.videoInput, decode_accelerator=self.decodeMethod, backend=self.backend
                 )([float(self.inpoint), float(self.outpoint)])
             else:
                 reader = celux.VideoReader(
-                    self.videoInput, decode_accelerator=self.decodeMethod
+                    self.videoInput, decode_accelerator=self.decodeMethod, backend=self.backend
                 )
             for frame in reader:
                 if self.toTorch:
@@ -100,7 +102,7 @@ class BuildBuffer:
                         frame, self.normStream if self.cudaEnabled else None
                     )
                 else:
-                    frame = self.processFrameToNumpy(frame)
+                    pass
 
                 self.decodeBuffer.put(frame)
                 decodedFrames += 1
@@ -112,35 +114,6 @@ class BuildBuffer:
 
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
-
-    def processFrameToNumpy(self, frame):
-        """
-        Processes a single frame and converts it to a numpy array.
-
-        Args:
-            frame: The frame to process as Celux frame.
-
-        Returns:
-            The processed frame as a numpy array.
-        """
-        norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
-        frame = frame.permute(2, 0, 1)
-        frame = frame.mul(norm)
-        frame = frame.clamp(0, 1)
-        if self.resize:
-            frame = F.interpolate(
-                frame.unsqueeze(0),
-                size=(self.height, self.width),
-                mode="bicubic",
-                align_corners=False,
-            ).squeeze(0)
-        else:
-            frame = frame.unsqueeze(0)
-
-        frame = frame.half() if self.half else frame.float()
-        frame = frame.cpu().numpy()
-
-        return frame
 
     def processFrameToTorch(self, frame, normStream=None):
         """

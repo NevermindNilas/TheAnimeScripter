@@ -1,4 +1,3 @@
-import pytorch_lightning as pl
 import torch
 
 from .model import (
@@ -30,7 +29,7 @@ def get_net(net_name, img_size):
     raise NotImplementedError
 
 
-class AnimeSegmentation(pl.LightningModule):
+class AnimeSegmentation(torch.nn.Module):
     def __init__(self, net_name, img_size=None, lr=1e-3):
         super().__init__()
         assert net_name in net_names

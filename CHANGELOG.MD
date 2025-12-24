@@ -4,18 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-Dead
+### IMPORTANT NOTES:
+- N/A
+
 ### Added
 - Added `distilldrba`, `distilldrba-lite`, `distilldrba-lite-tensorrt` interpolate methods.
-- Added `vmaf` dedup method.
+- Added `vmaf` & `vmaf-cuda` dedup method.
 - Added my very first AI Model, Saryn with options: `saryn`, `saryn-tensorrt` & `saryn-directml`.
-- 
 
 ### Changed
 - Improved output handling and name generation.
+- Removed `pytorch-lightning` from the requirements.
+- All Depth OG models will now use CELUX for decoding for better performance and better output quality.
 
 ### Fixed
 - Fixed an issue where if the progress bar contained non UTF-8 compliant text, it would result in a crash.
 - Better text handling in the terminal.
+
+## Adobe Edition
+### New
+- Added a brand new Queue System to Adobe Edition
+- Added all the new upscale, interpolate and dedup methods.
+
+### Changed
+- Rewrote a significat amount of the code.
+  
+### Fixed
+- Errors with access violation 3221225477.
 
 ## [2.4.9] - 2025-12-01
 ### IMPORTANT NOTES:
