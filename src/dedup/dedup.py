@@ -327,21 +327,26 @@ class DedupFlownetS:
 class DedupVMAF:
     def __init__(
         self,
-        ssimThreshold=90,
+        dedupMethod = "vmaf", 
+        treshold=90,
         sampleSize=224,
         half=True,
     ):
-        self.ssimThreshold = ssimThreshold
+        self.treshold = treshold
         self.sampleSize = sampleSize
         self.half = half
         self.prevFrame = None
+        self.isCuda = "cuda" in dedupMethod
 
         from vmaf_torch import VMAF
         from torch.nn import functional as F
 
         self.interpolate = F.interpolate
 
-        self.vmaf = VMAF().cuda().float()
+        if self.isCuda:
+            self.vmaf = VMAF().cuda().float()
+        else:
+            self.vmaf = VMAF().float()
 
     def __call__(self, frame):
         """
@@ -355,13 +360,15 @@ class DedupVMAF:
 
         score = self.vmaf(self.prevFrame, frame).mean()
 
-        if score < self.ssimThreshold:
+        if score < self.treshold:
             self.prevFrame.copy_(frame, non_blocking=True)
             return False
         else:
             return True
 
     def processFrame(self, frame):
+        if not self.isCuda:
+            frame = frame.cpu()
         resized = (
             self.interpolate(
                 frame.half(),
@@ -387,3 +394,4 @@ class DedupVMAF:
                 + 0.114 * tensor[:, 2:3]
             )
         return tensor
+

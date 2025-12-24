@@ -335,6 +335,31 @@ def depth(self):
                 self.depthQuality,
             )
 
+        case (
+            "og_small_v2-directml"
+            | "og_base_v2-directml"
+            | "og_large_v2-directml"
+        ):
+            from src.depth.depth import OGDepthV2DirectML
+
+            OGDepthV2DirectML(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+            )
+
         case "small_v3" | "base_v3" | "large_v3" | "giant_v3":
             from src.depth.depth import OGDepthV3CUDA
 
@@ -805,11 +830,12 @@ def initializeModels(self):
                     self.half,
                 )
 
-            case "vmaf":
+            case "vmaf" | "vmaf-cuda":
                 from src.dedup.dedup import DedupVMAF
 
                 dedupProcess = DedupVMAF(
-                    self.dedupSens,
+                    dedupMethod=self.dedupMethod,
+                    treshold=self.dedupSens,
                     half=self.half,
                 )
 

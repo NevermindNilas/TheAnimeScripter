@@ -89,7 +89,6 @@ class DepthCuda:
                 outpoint=self.outpoint,
                 width=self.width,
                 height=self.height,
-                resize=False,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -773,7 +772,6 @@ class OGDepthV2CUDA:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
-        self.decodeBuffer = Queue(maxsize=10)
         self.encodeBuffer = Queue(maxsize=10)
 
         self.handleModels()
@@ -782,7 +780,18 @@ class OGDepthV2CUDA:
             self.width, self.height, self.depthQuality
         )
         try:
-            self.video = cv2.VideoCapture(self.input)
+            self.readBuffer = BuildBuffer(
+                videoInput=self.input,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
+                width=self.width,
+                height=self.height,
+                half=self.half,
+                resize=False,
+                toTorch=False,
+            )
+            
+
             self.output = cv2.VideoWriter(
                 self.output,
                 cv2.VideoWriter_fourcc(*"mp4v"),
@@ -790,7 +799,7 @@ class OGDepthV2CUDA:
                 (self.width, self.height),
             )
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.decodeThread)
+                executor.submit(self.readBuffer)
                 executor.submit(self.encodeThread)
                 executor.submit(self.process)
 
@@ -915,8 +924,10 @@ class OGDepthV2CUDA:
         frameCount = 0
 
         with ProgressBarLogic(self.totalFrames) as bar:
+            print('hi')
+
             for _ in range(self.totalFrames):
-                frame = self.decodeBuffer.get()
+                frame = self.readBuffer.read()
                 if frame is None:
                     break
                 self.processFrame(frame)
@@ -925,15 +936,6 @@ class OGDepthV2CUDA:
 
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
-
-    def decodeThread(self):
-        while True:
-            ret, frame = self.video.read()
-            if not ret:
-                break
-            self.decodeBuffer.put(frame)
-        self.decodeBuffer.put(None)
-        self.video.release()
 
     def encodeThread(self):
         while True:
@@ -979,7 +981,6 @@ class OGDepthV2TensorRT:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.decodeBuffer = Queue(maxsize=10)
         self.encodeBuffer = Queue(maxsize=10)
 
         import tensorrt as trt
@@ -1000,7 +1001,17 @@ class OGDepthV2TensorRT:
             self.width, self.height, self.depthQuality
         )
         try:
-            self.video = cv2.VideoCapture(self.input)
+            self.readBuffer = BuildBuffer(
+                videoInput=self.input,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
+                width=self.width,
+                height=self.height,
+                half=self.half,
+                resize=False,
+                toTorch=False,
+            )
+
             self.outputWriter = cv2.VideoWriter(
                 self.output,
                 cv2.VideoWriter_fourcc(*"mp4v"),
@@ -1008,7 +1019,7 @@ class OGDepthV2TensorRT:
                 (self.width, self.height),
             )
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.decodeThread)
+                executor.submit(self.readBuffer)
                 executor.submit(self.encodeThread)
                 executor.submit(self.process)
         except Exception as e:
@@ -1129,7 +1140,7 @@ class OGDepthV2TensorRT:
     @torch.inference_mode()
     def normOutputFrame(self):
         depth = self.dummyOutput.cpu().numpy()
-        depth = np.reshape(depth, (518, 518))
+        depth = np.reshape(depth, (self.newHeight, self.newWidth))
         depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
         depth = depth.astype(np.uint8)
 
@@ -1151,24 +1162,247 @@ class OGDepthV2TensorRT:
         frameCount = 0
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                frame = self.decodeBuffer.get()
+                frame = self.readBuffer.read()
                 if frame is None:
                     break
                 self.processFrame(frame)
                 frameCount += 1
                 bar(1)
+
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
+
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
 
-    def decodeThread(self):
-        while True:
-            ret, frame = self.video.read()
-            if not ret:
-                break
 
-            self.decodeBuffer.put(frame)
-        self.decodeBuffer.put(None)
-        self.video.release()
+    def encodeThread(self):
+        while True:
+            frame = self.encodeBuffer.get()
+            if frame is None:
+                break
+            if frame.ndim == 2:
+                frame = np.stack([frame] * 3, axis=-1)
+            frame = cv2.resize(
+                frame, (self.width, self.height), interpolation=cv2.INTER_LINEAR
+            )
+            self.outputWriter.write(frame)
+        self.outputWriter.release()
+
+
+class OGDepthV2DirectML:
+    def __init__(
+        self,
+        input,
+        output,
+        width,
+        height,
+        fps,
+        half,
+        inpoint=0,
+        outpoint=0,
+        encode_method="x264",
+        depth_method="og_small_v2-directml",
+        custom_encoder="",
+        benchmark=False,
+        totalFrames=0,
+        bitDepth: str = "16bit",
+        depthQuality: str = "high",
+    ):
+        import onnxruntime as ort
+
+        self.ort = ort
+
+        self.input = input
+        self.output = output
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.half = half
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.encode_method = encode_method
+        self.depth_method = depth_method
+        self.custom_encoder = custom_encoder
+        self.benchmark = benchmark
+        self.totalFrames = totalFrames
+        self.bitDepth = bitDepth
+        self.depthQuality = depthQuality
+        self.encodeBuffer = Queue(maxsize=10)
+
+        self.handleModels()
+
+        try:
+            self.readBuffer = BuildBuffer(
+                videoInput=self.input,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
+                width=self.width,
+                height=self.height,
+                half=self.half,
+                resize=False,
+                toTorch=False,
+            )
+
+            self.outputWriter = cv2.VideoWriter(
+                self.output,
+                cv2.VideoWriter_fourcc(*"mp4v"),
+                self.fps,
+                (self.width, self.height),
+            )
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.readBuffer)
+                executor.submit(self.encodeThread)
+                executor.submit(self.process)
+
+        except Exception as e:
+            logging.exception(f"Something went wrong, {e}")
+
+    def handleModels(self):
+        depth_method = self.depth_method
+        if "og_" in depth_method:
+            depth_method = depth_method.replace("og_", "")
+
+        self.filename = modelsMap(
+            model=depth_method, modelType="onnx", half=self.half
+        )
+
+        folderName = depth_method.replace("-directml", "-onnx")
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
+            modelPath = downloadModels(
+                model=depth_method,
+                half=self.half,
+                modelType="onnx",
+            )
+        else:
+            modelPath = os.path.join(weightsDir, folderName, self.filename)
+
+        providers = self.ort.get_available_providers()
+
+        if "DmlExecutionProvider" in providers:
+            logging.info("DirectML provider available. Defaulting to DirectML")
+            self.model = self.ort.InferenceSession(
+                modelPath, providers=["DmlExecutionProvider"]
+            )
+        else:
+            logging.info(
+                "DirectML provider not available, falling back to CPU"
+            )
+            self.model = self.ort.InferenceSession(
+                modelPath, providers=["CPUExecutionProvider"]
+            )
+        
+        self.deviceType = "cpu"
+        self.device = torch.device(self.deviceType)
+
+        self.newHeight, self.newWidth = calculateAspectRatio(
+            self.width, self.height, self.depthQuality
+        )
+
+        onnxInputs = self.model.get_inputs()
+        onnxOutputs = self.model.get_outputs()
+        self.inputName = onnxInputs[0].name
+        self.outputName = onnxOutputs[0].name
+
+        def onnxTypeToNumpy(typ: str):
+            return np.float16 if "float16" in typ else np.float32
+
+        def onnxTypeToTorch(typ: str):
+            return torch.float16 if "float16" in typ else torch.float32
+
+        self.numpyInDType = onnxTypeToNumpy(onnxInputs[0].type)
+        self.torchInDType = onnxTypeToTorch(onnxInputs[0].type)
+        self.numpyOutDType = onnxTypeToNumpy(onnxOutputs[0].type)
+        self.torchOutDType = onnxTypeToTorch(onnxOutputs[0].type)
+
+        self.IoBinding = self.model.io_binding()
+        self.dummyInput = torch.zeros(
+            (1, 3, self.newHeight, self.newWidth),
+            device=self.deviceType,
+            dtype=self.torchInDType,
+        ).contiguous()
+
+        out_rank = len(onnxOutputs[0].shape) if hasattr(onnxOutputs[0], "shape") else 4
+        if out_rank == 3:
+            out_shape = (1, self.newHeight, self.newWidth)
+        else:
+            out_shape = (1, 1, self.newHeight, self.newWidth)
+
+        self.dummyOutput = torch.zeros(
+            out_shape,
+            device=self.deviceType,
+            dtype=self.torchOutDType,
+        ).contiguous()
+
+        self.IoBinding.bind_output(
+            name=self.outputName,
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyOutDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        try:
+            frame = torch.from_numpy(frame).to(self.device)
+            frame = frame.permute(2, 0, 1).unsqueeze(0)
+            
+            frame = F.interpolate(
+                frame.float() / 255.0,
+                size=(self.newHeight, self.newWidth),
+                mode="bilinear",
+                align_corners=True,
+            )
+
+            frame = (frame - MEANTENSOR.cpu()) / STDTENSOR.cpu()
+            frame = frame.to(dtype=self.torchInDType)
+
+            self.dummyInput.copy_(frame)
+            self.IoBinding.bind_input(
+                name=self.inputName,
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyInDType,
+                shape=self.dummyInput.shape,
+                buffer_ptr=self.dummyInput.data_ptr(),
+            )
+
+            self.model.run_with_iobinding(self.IoBinding)
+
+            out_tensor = self.dummyOutput.float()
+            if out_tensor.ndim == 4:
+                out_tensor = out_tensor.squeeze(1)
+            
+            depth = out_tensor[0].cpu().numpy()
+            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6) * 255.0
+            depth = depth.astype(np.uint8)
+            
+            self.encodeBuffer.put(depth)
+
+        except Exception as e:
+            logging.exception(f"Something went wrong while processing the frame, {e}")
+
+    def process(self):
+        frameCount = 0
+
+        with ProgressBarLogic(self.totalFrames) as bar:
+            for _ in range(self.totalFrames):
+                frame = self.readBuffer.read()
+                if frame is None:
+                    break
+                self.processFrame(frame)
+                frameCount += 1
+                bar(1)
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
+
+        logging.info(f"Processed {frameCount} frames")
+        self.encodeBuffer.put(None)
 
     def encodeThread(self):
         while True:
@@ -1358,7 +1592,6 @@ class OGDepthV3CUDA:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
-        self.decodeBuffer = Queue(maxsize=10)
         self.encodeBuffer = Queue(maxsize=10)
 
         self.handleModels()
@@ -1367,7 +1600,17 @@ class OGDepthV3CUDA:
             self.width, self.height, self.depthQuality
         )
         try:
-            self.video = cv2.VideoCapture(self.input)
+            self.readBuffer = BuildBuffer(
+                videoInput=self.input,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
+                width=self.width,
+                height=self.height,
+                half=self.half,
+                resize=False,
+                toTorch=False,
+            )
+
             self.outputWriter = cv2.VideoWriter(
                 self.output,
                 cv2.VideoWriter_fourcc(*"mp4v"),
@@ -1375,7 +1618,7 @@ class OGDepthV3CUDA:
                 (self.width, self.height),
             )
             with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.decodeThread)
+                executor.submit(self.readBuffer)
                 executor.submit(self.encodeThread)
                 executor.submit(self.process)
 
@@ -1482,24 +1725,20 @@ class OGDepthV3CUDA:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                frame = self.decodeBuffer.get()
+                frame = self.readBuffer.read()
                 if frame is None:
                     break
                 self.processFrame(frame)
                 frameCount += 1
                 bar(1)
 
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
+
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
 
-    def decodeThread(self):
-        while True:
-            ret, frame = self.video.read()
-            if not ret:
-                break
-            self.decodeBuffer.put(frame)
-        self.decodeBuffer.put(None)
-        self.video.release()
 
     def encodeThread(self):
         while True:
