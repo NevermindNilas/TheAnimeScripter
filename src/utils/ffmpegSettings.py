@@ -610,30 +610,12 @@ class WriteBuffer:
 
                 logAndPrint(f"Preview will be saved to: {self.previewPath}", "cyan")
 
-            hostBuffers = [
-                torch.empty(
-                    (self.height, self.width, self.channels),
-                    dtype=dtype,
-                )
-                for _ in range(2)
-            ]
-
-            for buf in hostBuffers:
-                try:
-                    buf = buf.pin_memory()
-                except Exception:
-                    pass
 
             useCuda = False
             normStream = None
-            events = None
             if checker.cudaAvailable:
                 try:
                     normStream = torch.cuda.Stream()
-                    events = [
-                        torch.cuda.Event(enable_timing=False),
-                        torch.cuda.Event(enable_timing=False),
-                    ]
                     useCuda = True
                 except Exception as e:
                     logging.warning(
@@ -649,9 +631,6 @@ class WriteBuffer:
                 shell=False,
                 cwd=cs.MAINPATH,
             )
-
-            bufIdx = 0
-            prevIDX = None
 
             while True:
                 frame = self.writeBuffer.get()
@@ -674,18 +653,13 @@ class WriteBuffer:
                             .squeeze(0)
                             .permute(1, 2, 0)
                             .to(dtype)
-                        )
-                        hostBuffers[bufIdx].copy_(GpuHWCInt, non_blocking=True)
-                        events[bufIdx].record(normStream)
+                            .contiguous()
+                        ).cpu().numpy()
 
-                    if prevIDX is not None:
-                        events[prevIDX].synchronize()
-                        arr = hostBuffers[prevIDX].numpy()
-                        ffmpegProc.stdin.write(memoryview(arr))
-                        writtenFrames += 1
+                    normStream.synchronize()
 
-                    prevIDX = bufIdx
-                    bufIdx ^= 1
+                    ffmpegProc.stdin.write(GpuHWCInt)
+                    writtenFrames += 1
 
                 else:
                     if needsResize:
@@ -701,17 +675,12 @@ class WriteBuffer:
                         .squeeze(0)
                         .permute(1, 2, 0)
                         .to(dtype)
-                    )
-                    hostBuffers[0].copy_(CpuHWCInt, non_blocking=False)
-                    arr = hostBuffers[0].numpy()
-                    ffmpegProc.stdin.write(memoryview(arr))
+                        .contiguous()
+                    ).numpy()
+
+                    ffmpegProc.stdin.write(CpuHWCInt)
                     writtenFrames += 1
 
-            if useCuda and prevIDX is not None:
-                events[prevIDX].synchronize()
-                arr = hostBuffers[prevIDX].numpy()
-                ffmpegProc.stdin.write(memoryview(arr))
-                writtenFrames += 1
 
             logging.info(f"Encoded {writtenFrames} frames")
 
