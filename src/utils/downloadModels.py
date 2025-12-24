@@ -12,7 +12,7 @@ if ADOBE:
 
 weightsDir = os.path.join(cs.MAINPATH, "weights")
 
-TASURL = "https://github.com/NevermindNilas/TAS-Modes-Host/releases/download/main/"
+TASURL = "https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/"
 
 SUDOURL = (
     "https://github.com/styler00dollar/VSGAN-tensorrt-docker/releases/download/models/"
