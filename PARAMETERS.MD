@@ -183,6 +183,7 @@
 |-----------|------|---------|-------------|---------|
 | `--input` | str | - | **Input video path(s)** - Supports multiple files separated by `;` | `video.mp4` or `vid1.mp4;vid2.mp4` |
 | `--output` | str | auto | **Output path** - Auto-generates if not specified | `enhanced_video.mp4` |
+| `--json` | str | - | **Path to JSON configuration file** (loads options from JSON; when used it must be used alone without additional CLI arguments) | `config.json` |
 
 #### Supported Input Formats
 ```
@@ -247,7 +248,7 @@ C:\Videos\episode3.mp4
 |-----------|------|-------------|-------------------|
 | `--benchmark` | flag | **Performance testing** - No output, measures speed | None (testing only) |
 | `--preview` | flag | **Preview mode** - Opens localhost preview | Low |
-| `--ae` | flag | **After Effects mode** - Integration flag | None |
+| `--ae` | str | **After Effects host string (e.g., "127.0.0.1:PORT")** - Enables AE comms and sets Adobe mode | None |
 
 ---
 
@@ -258,7 +259,7 @@ C:\Videos\episode3.mp4
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--upscale` | flag | False | - | **Enable AI upscaling** |
-| `--upscale_factor` | int | 2 | 2, 4 | **Upscale multiplier** |
+| `--upscale_factor` | int | 2 | 1, 2, 3, 4 | **Upscale multiplier** |
 | `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** |
 | `--custom_model` | str | "" | path | **Custom model file** (.pth/.onnx) |
 
@@ -276,6 +277,7 @@ C:\Videos\episode3.mp4
 | **open-proteus** | ⚡ | ⭐⭐⭐⭐ | 2GB | Maximum quality | CUDA, TRT, DML |
 | **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 2GB | Modern anime | CUDA, TRT, DML |
 | **rtmosr** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Real-time focus | TRT, DML |
+| **saryn** | ⚡⚡ | ⭐⭐⭐⭐ | 3GB | Anime-focused, balanced quality | CUDA, TRT, DML |
 
 > **💡 Recommendation:** Use `shufflecugan-tensorrt` for balanced speed/quality, `span-tensorrt` for best quality
 
@@ -284,8 +286,8 @@ C:\Videos\episode3.mp4
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--interpolate` | flag | False | - | **Enable frame interpolation** |
-| `--interpolate_factor` | int | 2 | 2-8 | **Frame multiplication** (2 = 30→60fps) |
-| `--interpolate_method` | str | "rife" | [see table](#interpolation-models) | **Interpolation model** |
+| `--interpolate_factor` | float | 2 | >=1 | **Frame multiplication** (2 = 30→60fps). Accepts fractional values for fractional interpolation; when non-integer the `--static_step` flag will be disabled. |
+| `--interpolate_method` | str | "rife4.6" | [see table](#interpolation-models) | **Interpolation model** |
 | `--ensemble` | flag | False | - | **Higher quality** (slower, RIFE only) |
 | `--dynamic_scale` | flag | False | - | **Dynamic scaling** (CUDA only) |
 
@@ -351,6 +353,7 @@ C:\Videos\episode3.mp4
 | `--dedup_method` | str | "ssim" | [see table](#deduplication-methods) | **Detection algorithm** |
 | `--dedup_sens` | float | 35 | 0-100 | **Similarity threshold** |
 
+
 #### 🎯 Deduplication Methods
 
 | Method | Speed | Accuracy | VRAM | Best For | Acceleration |
@@ -359,14 +362,16 @@ C:\Videos\episode3.mp4
 | **ssim-cuda** | ⚡⚡⚡⚡ | ⭐⭐⭐ | <1GB | GPU accelerated | CUDA |
 | **mse** | ⚡⚡⚡⚡⚡ | ⭐⭐ | Low | Fast processing | CPU |
 | **mse-cuda** | ⚡⚡⚡⚡⚡ | ⭐⭐ | <1GB | Fast GPU processing | CUDA |
-| **flownets** | ⚡ | ⭐⭐⭐⭐⭐ | <2GB | Maximum accuracy | CUDA |
+| **flownets** | ⚡ | ⭐⭐⭐⭐ | <2GB | Maximum accuracy | CUDA |
+| **vmaf** | ⚡ | ⭐⭐⭐⭐ | <2GB | Perceptual duplicate detection | CPU |
+| **vmaf-cuda** | ⚡⚡ | ⭐⭐⭐⭐ | <2GB | GPU-accelerated VMAF-based dedup | CUDA |
 
 ### 🔧 Restoration & Enhancement
 
 | Parameter | Type | Default | Options | Description |
 |-----------|------|---------|---------|-------------|
 | `--restore` | flag | False | - | **Enable denoising/restoration** |
-| `--restore_method` | str | "scunet" | [see table](#restoration-models) | **Restoration model** |
+| `--restore_method` | str | list | ["anime1080fixer"] | **Restoration model(s) — accepts multiple methods for chained processing** |
 | `--sharpen` | flag | False | - | **Enable sharpening** |
 | `--sharpen_sens` | float | 50 | 0-100 | **Sharpening intensity** |
 
@@ -390,7 +395,7 @@ C:\Videos\episode3.mp4
 | `--segment_method` | str | "anime" | **Segmentation model** [see table](#segmentation-methods) |
 | `--depth` | flag | False | **Generate depth maps** |
 | `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) |
-| `--depth_quality` | str | "high" | **Processing quality** (low/medium/high) |
+| `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. |
 
 #### 🎯 Segmentation Methods
 
@@ -434,7 +439,9 @@ C:\Videos\episode3.mp4
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--autoclip` | flag | False | - | **Automatic clip detection** |
-| `--autoclip_sens` | float | 40 | 0-100 | **Detection sensitivity** |
+| `--autoclip_sens` | float | 50 | 0-100 | **Detection sensitivity** |
+
+> **Note:** The autoclip sensitivity is inverted internally (the script uses `100 - value`) to match the underlying algorithm.
 
 ### 📏 Resizing & Output Scaling
 
@@ -481,8 +488,8 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Options | Description |
 |-----------|------|---------|---------|-------------|
-| `--half` | str | "True" | True/False | **FP16 precision** (faster, less VRAM) |
-| `--static` | flag | True | - | **Static engine** (bypass TAS limitations) |
+| `--half` | str | True | True/False | **Use half precision for inference (default: True)** |
+| `--static` | flag | False | - | **Force Static Mode engine generation for TensorRT** |
 | `--compile_mode` | str | "default" | default/max/max-graphs | **PyTorch compilation** (CUDA only) |
 
 #### Compilation Modes Explained
@@ -527,6 +534,7 @@ C:\Videos\episode3.mp4
 |-----------|------|---------|-------------|
 | `--offline` | str | "none" | **Model download mode** |
 | `--download_requirements` | flag | False | **Download dependencies** (Adobe compatibility) |
+| `--cleanup` | flag | False | **Remove unused libraries/dependencies** (attempts to uninstall extras based on detected GPU capability) |
 
 **Offline Mode Options:**
 ```bash
@@ -703,6 +711,8 @@ C:\Videos\episode3.mp4
 |-----------|------|---------|-------------|
 | `--preset` | str | - | **Load saved preset** |
 | `--list_presets` | flag | False | **Show available presets** |
+
+> Tip: You can also load a configuration from a JSON file using `--json <path>`. When `--json` is used it must be supplied alone (no other CLI flags) — the script prevents mixing JSON with other CLI arguments.
 
 ### Creating Presets
 
@@ -986,7 +996,7 @@ C:\Videos\episode3.mp4
 ./python.exe ./main.py --input "anime_scene.mp4" \
   --upscale --upscale_method span-tensorrt \
   --segment --segment_method anime-tensorrt \
-  --depth --depth_method large_v2-tensorrt --depth_quality high \
+  --depth --depth_method large_v2-tensorrt --depth_quality low \
   --encode_method prores
 ```
 **Processing:** Creates segmentation masks and depth maps  

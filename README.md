@@ -158,6 +158,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | OpenProteus           |   ✅   |    ✅     |    ✅     |   ❌   |
 | AniScale 2            |   ✅   |    ✅     |    ✅     |   ❌   |
 | RTMOSR                |   ❌   |    ✅     |    ✅     |   ❌   |
+| Saryn ( My own model, RTMOSR based )                |   ✅   |    ✅     |    ✅     |   ❌   |
 | Custom (Spandrel)     |   ✅   |    ❌     |    ❌     |   ❌   |
 
 ### ⏱️ Interpolation Models (RIFE)
