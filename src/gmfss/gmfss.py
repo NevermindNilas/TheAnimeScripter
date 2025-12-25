@@ -422,5 +422,3 @@ class GMFSSTensorRT:
 
         self.processFrame(None, "cache")
 
-    def getSkippedCounter(self):
-        return self.skippedCounter

@@ -3,9 +3,28 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [Unannounced] - YYYY-MM-DD
+### New
+- Added new restore methods, based on anime4k, `linethinner-lite`, `linethinner-medium`, `linethinner-heavy`
+
+---
+
+## Adobe Edition
+### New
+- N/A
+
+### Changed
+- N/A
+
+### Fixed
+- Fixed an issue where some sponsors couldn't receive their rewards.
+
 ## [2.5.2] - 2025-12-24
 ### Hotfix
 - Fixed wrong wheel for VMAF-Torch
+
+## Adobe Edition
+- Improved security for GitHub sponsors communication.
 
 
 ## [2.5.1] - 2025-12-24

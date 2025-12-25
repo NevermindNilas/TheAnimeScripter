@@ -490,6 +490,9 @@ def _addVideoProcessingOptions(argParser):
         "hurrdeblur",
         "hurrdeblur-tensorrt",
         "hurrdeblur-directml",
+        "linethinner-lite",
+        "linethinner-medium",
+        "linethinner-heavy",
     ]
 
     processingGroup.add_argument(

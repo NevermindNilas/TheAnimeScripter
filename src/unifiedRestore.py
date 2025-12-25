@@ -414,5 +414,4 @@ class UnifiedRestoreDirectML:
 
         return frame
 
-    def getSkippedCounter(self):
-        return self.skippedCounter
+
