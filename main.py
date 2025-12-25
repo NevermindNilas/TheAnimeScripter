@@ -401,7 +401,6 @@ class VideoProcessor:
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
 
-        # Log processing statistics
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
             logging.info(f"Deduplicated {self.dedupCount} frames")
@@ -563,6 +562,10 @@ def main():
 
         for _, i in enumerate(results, 1):
             try:
+                logAndPrint(
+                    f"Processing video {_} of {totalVideos}: {results[i]['videoPath']}", "green"
+                )
+
                 VideoProcessor(
                     args,
                     results=results[i],

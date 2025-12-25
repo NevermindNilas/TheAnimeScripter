@@ -783,7 +783,7 @@ def initializeModels(self):
                         )
                     )
                 case "fastlinedarken":
-                    from src.fastlinedarken import FastLineDarkenWithStreams
+                    from src.extraArches.fastlinedarken import FastLineDarkenWithStreams
 
                     restoreProcesses.append(
                         FastLineDarkenWithStreams(
@@ -791,7 +791,7 @@ def initializeModels(self):
                         )
                     )
                 case "fastlinedarken-tensorrt":
-                    from src.fastlinedarken import FastLineDarkenTRT
+                    from src.extraArches.fastlinedarken import FastLineDarkenTRT
 
                     restoreProcesses.append(
                         FastLineDarkenTRT(
@@ -800,6 +800,19 @@ def initializeModels(self):
                             self.width,
                         )
                     )
+
+                case "linethinner-lite" | "linethinner-medium" | "linethinner-heavy":
+                    from src.extraArches.linethinner import LineThin
+                    
+                    method = method.split("-")[-1]
+
+                    restoreProcesses.append(
+                        LineThin(
+                            variant=method,
+                            half=self.half,
+                        )
+                    )
+                            
 
         if len(restoreProcesses) == 1:
             restoreProcess = restoreProcesses[0]
