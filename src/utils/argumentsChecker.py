@@ -372,9 +372,9 @@ def _addUpscalingOptions(argParser):
     upscaleGroup.add_argument(
         "--upscale_factor",
         type=int,
-        choices=[1, 2, 3, 4],
+        choices=[2, 3, 4],
         default=2,
-        help="Upscaling factor",
+        help="Upscaling factor (minimum 2)",
     )
 
     upscaleMethods = [
@@ -911,6 +911,25 @@ def argumentsChecker(args, outputPath, parser):
     else:
         args.output_scale_width = None
         args.output_scale_height = None
+
+    if args.upscale and hasattr(args, "upscale_factor"):
+        try:
+            if int(args.upscale_factor) < 2:
+                logAndPrint(
+                    "Upscale factor must be at least 2 when --upscale is enabled; defaulting to 2",
+                    "yellow",
+                )
+                logging.info(
+                    f"Adjusted upscale_factor from {args.upscale_factor} to 2 to satisfy minimum requirement"
+                )
+                args.upscale_factor = 2
+        except Exception:
+            logAndPrint(
+                "Invalid upscale_factor provided; defaulting to 2",
+                "yellow",
+            )
+            logging.info("Invalid upscale_factor value encountered; set to 2")
+            args.upscale_factor = 2
 
     if not isAnyOtherProcessingMethodEnabled(args):
         logAndPrint(
