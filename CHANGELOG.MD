@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### New
 - Added new restore methods, based on anime4k, `linethinner-lite`, `linethinner-medium`, `linethinner-heavy`
 
+### Changed
+- Added a check for when `--upscale_factor` is below 2 or a non-integer.
+
 ---
 
 ## Adobe Edition

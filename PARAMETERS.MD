@@ -259,7 +259,7 @@ C:\Videos\episode3.mp4
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
 | `--upscale` | flag | False | - | **Enable AI upscaling** |
-| `--upscale_factor` | int | 2 | 1, 2, 3, 4 | **Upscale multiplier** |
+| `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)** |
 | `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** |
 | `--custom_model` | str | "" | path | **Custom model file** (.pth/.onnx) |
 
