@@ -801,15 +801,17 @@ def initializeModels(self):
                         )
                     )
 
-                case "linethinner-lite" | "linethinner-medium" | "linethinner-heavy":
+                case "linethinner-lite" | "linethinner-medium" | "linethinner-heavy" | "linethinner-lite-cuda" | "linethinner-medium-cuda" | "linethinner-heavy-cuda":
                     from src.extraArches.linethinner import LineThin
                     
-                    method = method.split("-")[-1]
+                    device = "cuda" if "cuda" in method else "cpu"
+                    variant = method.replace("-cuda", "").replace("linethinner-", "")
 
                     restoreProcesses.append(
                         LineThin(
-                            variant=method,
+                            variant=variant,
                             half=self.half,
+                            device=device,
                         )
                     )
                             
