@@ -16,9 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### New
 - Added a copy button for the one time code that's being generated when loging into GitHub.
 - Added restore methods, LineThinner Lite Cuda, LineThinner Medium Cuda, LineThinner Heavy Cuda.
+- Added " Github Sponsors Only " option to all CUDA and TensorRT relevant features.
 
 ### Changed
-- Added " Github Sponsors Only " option to all CUDA and TensorRT relevant features.
 - Changed the deactivation of the GitHub sponsors priviledges from 30min to 7days.
 - Removed BuyMeACoffee from the Sponsors Tab.
 - Removed Offline Mode from the UI
