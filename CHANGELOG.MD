@@ -14,13 +14,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## Adobe Edition
 ### New
-- N/A
+- Added a copy button for the one time code that's being generated when loging into GitHub.
 
 ### Changed
-- N/A
-
+- Added " Github Sponsors Only " option to all CUDA and TensorRT relevant features.
+- Changed the deactivation of the GitHub sponsors priviledges from 30min to 7days.
+- Removed BuyMeACoffee from the Sponsors Tab.
+- 
 ### Fixed
 - Fixed an issue where some sponsors couldn't receive their rewards.
+- Fixed an issue where --upscale_factor 1 was being parsed to the backend.
+- Fixed an issue where --half was set to False despite fp16 being set to true.
+- Fixed Saryn related names.
 
 ## [2.5.2] - 2025-12-24
 ### Hotfix
