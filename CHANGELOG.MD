@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unannounced] - YYYY-MM-DD
 ### New
-- Added new restore methods, based on anime4k, `linethinner-lite`, `linethinner-medium`, `linethinner-heavy`
+- Added new restore methods, based on anime4k, `linethinner-lite-cuda`, `linethinner-medium-cuda`, `linethinner-heavy-cuda`
 
 ### Changed
 - Added a check for when `--upscale_factor` is below 2 or a non-integer.
@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## Adobe Edition
 ### New
 - Added a copy button for the one time code that's being generated when loging into GitHub.
+- Added restore methods, LineThinner Lite Cuda, LineThinner Medium Cuda, LineThinner Heavy Cuda.
 
 ### Changed
 - Added " Github Sponsors Only " option to all CUDA and TensorRT relevant features.

@@ -287,7 +287,7 @@ class LineThin():
     def __init__(
         self,
         variant: Literal['lite', 'medium', 'heavy'] = 'medium',
-        device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
+        device: str = 'cuda',
         half: bool = False,
     ) -> torch.Tensor:
         self.variant = variant
@@ -311,12 +311,13 @@ class LineThin():
         Returns:
             Processed tensor [B, 3, H, W] in range [0, 1]
         """
-        if self.device == 'cuda' and self.normStream is not None:
+        if self.normStream is not None:
             with torch.cuda.stream(self.normStream):
-                output = self.model(image)
+                output = self.model(image.to(device=self.device, dtype=self.precision))
             self.normStream.synchronize()
         else:
-            output = self.model(image.to(device=self.device, dtype=self.precision))
+            image = image.to(device=self.device, dtype=self.precision)
+            output = self.model(image)
 
         return output
 

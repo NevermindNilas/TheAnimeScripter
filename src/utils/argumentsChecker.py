@@ -493,6 +493,9 @@ def _addVideoProcessingOptions(argParser):
         "linethinner-lite",
         "linethinner-medium",
         "linethinner-heavy",
+        "linethinner-lite-cuda",
+        "linethinner-medium-cuda",
+        "linethinner-heavy-cuda",
     ]
 
     processingGroup.add_argument(
