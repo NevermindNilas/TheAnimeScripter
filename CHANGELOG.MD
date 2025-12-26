@@ -20,7 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added " Github Sponsors Only " option to all CUDA and TensorRT relevant features.
 - Changed the deactivation of the GitHub sponsors priviledges from 30min to 7days.
 - Removed BuyMeACoffee from the Sponsors Tab.
-- 
+- Removed Offline Mode from the UI
+
 ### Fixed
 - Fixed an issue where some sponsors couldn't receive their rewards.
 - Fixed an issue where --upscale_factor 1 was being parsed to the backend.
