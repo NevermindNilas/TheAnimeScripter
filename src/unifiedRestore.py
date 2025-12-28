@@ -311,6 +311,12 @@ class UnifiedRestoreDirectML:
             width (int): The width of the input frame
             height (int): The height of the input frame
         """
+        if "openvino" in restoreMethod:
+            logAndPrint(
+                "OpenVINO backend is an experimental feature, please report any issues you encounter.",
+                "yellow",
+            )
+            import openvino # noqa: F401
 
         import onnxruntime as ort
         import numpy as np
@@ -331,11 +337,19 @@ class UnifiedRestoreDirectML:
         Load the desired model
         """
 
-        self.filename = modelsMap(self.restoreMethod, modelType="onnx")
-        folderName = self.restoreMethod.replace("directml", "-onnx")
+        method = self.restoreMethod
+        if "openvino" in self.restoreMethod:
+            method = method.replace("openvino", "directml")
+
+        self.filename = modelsMap(method, modelType="onnx")
+        if "directml" in self.restoreMethod:
+            folderName = self.restoreMethod.replace("directml", "-onnx")
+        elif "openvino" in self.restoreMethod:
+            folderName = self.restoreMethod.replace("openvino", "-onnx")
+
         if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
             modelPath = downloadModels(
-                model=self.restoreMethod,
+                model=method,
                 modelType="onnx",
                 half=self.half,
             )
@@ -343,15 +357,21 @@ class UnifiedRestoreDirectML:
             modelPath = os.path.join(weightsDir, folderName, self.filename)
 
         providers = self.ort.get_available_providers()
+        logging.info(f"Available ONNX Runtime providers: {providers}")
 
-        if "DmlExecutionProvider" in providers:
-            logging.info("DirectML provider available. Defaulting to DirectML")
-            self.model = self.ort.InferenceSession(
-                modelPath, providers=["DmlExecutionProvider"]
-            )
+        if "DmlExecutionProvider" or "OpenVINOExecutionProvider" in providers:
+            if "directml" in self.restoreMethod:
+                logging.info("Using DirectML model")
+                self.model = self.ort.InferenceSession(
+                    modelPath, providers=["DmlExecutionProvider"]
+                )
+            elif "openvino" in self.restoreMethod:
+                self.model = self.ort.InferenceSession(
+                    modelPath, providers=["OpenVINOExecutionProvider"]
+                )
         else:
             logging.info(
-                "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
+                f"{self.restoreMethod} provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = self.ort.InferenceSession(
                 modelPath, providers=["CPUExecutionProvider"]
