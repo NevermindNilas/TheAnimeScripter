@@ -1,6 +1,7 @@
 # Core dependencies
 setuptools==80.9.0
 wheel-stub==0.4.2
+numpy==2.2.6
 
 # System and process management
 psutil==7.1.3

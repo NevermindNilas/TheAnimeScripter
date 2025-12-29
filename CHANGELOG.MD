@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unannounced] - YYYY-MM-DD
 ### New
+- Added `OpenVino` accelerator to the backend through onnxruntime ( highly experimental and only tested so far on my iGPU )
+
+### Changed
+- Bumped numpy 2.2.4 -> 2.2.6 and moved it to one of the default requirements.
+- Slight rework to the directml backend
+
+### Fixed
+- N/A
+
+---
+
+## Adobe Edition
+### New
+- Added Discord Rich Presence support.
+- Added new OpenVino Accelerators ( free for now )
+
+### Changed
+
+
+
+## [2.5.3] - 2025-12-26
+### New
 - Added new restore methods, based on anime4k, `linethinner-lite-cuda`, `linethinner-medium-cuda`, `linethinner-heavy-cuda`
 
 ### Changed
