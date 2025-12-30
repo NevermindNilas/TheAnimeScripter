@@ -417,6 +417,18 @@ def _addUpscalingOptions(argParser):
         "animesr",
         "animesr-tensorrt",
         "animesr-directml",
+        "animesr-openvino",
+        "compact-openvino",
+        "ultracompact-openvino",
+        "superultracompact-openvino",
+        "span-openvino",
+        "open-proteus-openvino",
+        "aniscale2-openvino",
+        "shufflespan-openvino",
+        "rtmosr-openvino",
+        "saryn-openvino",
+        "fallin_soft-openvino",
+        "fallin_strong-openvino",
     ]
 
     upscaleGroup.add_argument(
@@ -631,6 +643,19 @@ def _addDepthOptions(argParser):
         "base_v3-tensorrt",
         "large_v3-tensorrt",
         "giant_v3-tensorrt",
+        "small_v2-openvino",
+        "base_v2-openvino",
+        "large_v2-openvino",
+        "distill_small_v2-openvino",
+        "distill_base_v2-openvino",
+        "distill_large_v2-openvino",
+        "og_small_v2-openvino",
+        "og_base_v2-openvino",
+        "og_large_v2-openvino",
+        "small_v3-openvino",
+        "base_v3-openvino",
+        "large_v3-openvino",
+        "giant_v3-openvino",
     ]
 
     depthGroup.add_argument(
