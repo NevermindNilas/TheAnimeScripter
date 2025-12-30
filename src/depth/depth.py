@@ -323,6 +323,13 @@ class DepthDirectMLV2:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
 
+        if "openvino" in depth_method:
+            logAndPrint(
+                "OpenVINO backend is an experimental feature, please report any issues you encounter.",
+                "yellow",
+            )
+            import openvino  # noqa: F401
+
         self.handleModels()
 
         try:
@@ -359,14 +366,22 @@ class DepthDirectMLV2:
             logging.exception(f"Something went wrong, {e}")
 
     def handleModels(self):
+        method = self.depth_method
+        if "openvino" in self.depth_method:
+            method = method.replace("openvino", "directml")
+
         self.filename = modelsMap(
-            model=self.depth_method, modelType="onnx", half=self.half
+            model=method, modelType="onnx", half=self.half
         )
 
-        folderName = self.depth_method.replace("-directml", "-onnx")
+        if "directml" in self.depth_method:
+            folderName = self.depth_method.replace("-directml", "-onnx")
+        elif "openvino" in self.depth_method:
+            folderName = self.depth_method.replace("openvino", "-onnx")
+
         if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
             modelPath = downloadModels(
-                model=self.depth_method,
+                model=method,
                 half=self.half,
                 modelType="onnx",
             )
@@ -375,11 +390,17 @@ class DepthDirectMLV2:
 
         providers = self.ort.get_available_providers()
 
-        if "DmlExecutionProvider" in providers:
-            logging.info("DirectML provider available. Defaulting to DirectML")
-            self.model = self.ort.InferenceSession(
-                modelPath, providers=["DmlExecutionProvider"]
-            )
+        if "DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers:
+            if "directml" in self.depth_method:
+                logging.info("DirectML provider available. Defaulting to DirectML")
+                self.model = self.ort.InferenceSession(
+                    modelPath, providers=["DmlExecutionProvider"]
+                )
+            elif "openvino" in self.depth_method:
+                logging.info("Using OpenVINO model")
+                self.model = self.ort.InferenceSession(
+                    modelPath, providers=["OpenVINOExecutionProvider"]
+                )
         else:
             logging.info(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
@@ -1231,6 +1252,13 @@ class OGDepthV2DirectML:
         self.depthQuality = depthQuality
         self.encodeBuffer = Queue(maxsize=10)
 
+        if "openvino" in depth_method:
+            logAndPrint(
+                "OpenVINO backend is an experimental feature, please report any issues you encounter.",
+                "yellow",
+            )
+            import openvino  # noqa: F401
+
         self.handleModels()
 
         try:
@@ -1262,6 +1290,9 @@ class OGDepthV2DirectML:
 
     def handleModels(self):
         depth_method = self.depth_method
+        if "openvino" in depth_method:
+            depth_method = depth_method.replace("openvino", "directml")
+
         if "og_" in depth_method:
             depth_method = depth_method.replace("og_", "")
 
@@ -1281,11 +1312,17 @@ class OGDepthV2DirectML:
 
         providers = self.ort.get_available_providers()
 
-        if "DmlExecutionProvider" in providers:
-            logging.info("DirectML provider available. Defaulting to DirectML")
-            self.model = self.ort.InferenceSession(
-                modelPath, providers=["DmlExecutionProvider"]
-            )
+        if "DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers:
+            if "directml" in self.depth_method:
+                logging.info("DirectML provider available. Defaulting to DirectML")
+                self.model = self.ort.InferenceSession(
+                    modelPath, providers=["DmlExecutionProvider"]
+                )
+            elif "openvino" in self.depth_method:
+                logging.info("Using OpenVINO model")
+                self.model = self.ort.InferenceSession(
+                    modelPath, providers=["OpenVINOExecutionProvider"]
+                )
         else:
             logging.info(
                 "DirectML provider not available, falling back to CPU"
@@ -1789,6 +1826,13 @@ class DepthDirectMLV3:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
 
+        if "openvino" in depth_method:
+            logAndPrint(
+                "OpenVINO backend is an experimental feature, please report any issues you encounter.",
+                "yellow",
+            )
+            import openvino  # noqa: F401
+
         self.handleModels()
 
         try:
@@ -1825,14 +1869,22 @@ class DepthDirectMLV3:
             logging.exception(f"Something went wrong, {e}")
 
     def handleModels(self):
+        depth_method = self.depth_method
+        if "openvino" in self.depth_method:
+            depth_method = depth_method.replace("openvino", "directml")
+
         self.filename = modelsMap(
-            model=self.depth_method, modelType="onnx", half=self.half
+            model=depth_method, modelType="onnx", half=self.half
         )
 
-        folderName = self.depth_method.replace("-directml", "-onnx")
+        if "directml" in self.depth_method:
+            folderName = self.depth_method.replace("-directml", "-onnx")
+        elif "openvino" in self.depth_method:
+            folderName = self.depth_method.replace("openvino", "-onnx")
+
         if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
             modelPath = downloadModels(
-                model=self.depth_method,
+                model=depth_method,
                 half=self.half,
                 modelType="onnx",
             )
@@ -1841,11 +1893,17 @@ class DepthDirectMLV3:
 
         providers = self.ort.get_available_providers()
 
-        if "DmlExecutionProvider" in providers:
-            logging.info("DirectML provider available. Defaulting to DirectML")
-            self.model = self.ort.InferenceSession(
-                modelPath, providers=["DmlExecutionProvider"]
-            )
+        if "DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers:
+            if "directml" in self.depth_method:
+                logging.info("DirectML provider available. Defaulting to DirectML")
+                self.model = self.ort.InferenceSession(
+                    modelPath, providers=["DmlExecutionProvider"]
+                )
+            elif "openvino" in self.depth_method:
+                logging.info("Using OpenVINO model")
+                self.model = self.ort.InferenceSession(
+                    modelPath, providers=["OpenVINOExecutionProvider"]
+                )
         else:
             logging.info(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
