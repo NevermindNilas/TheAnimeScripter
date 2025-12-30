@@ -409,6 +409,13 @@ class UniversalDirectML:
         import onnxruntime as ort
         import numpy as np
 
+        if "openvino" in upscaleMethod:
+            logAndPrint(
+                "OpenVINO backend is an experimental feature, please report any issues you encounter.",
+                "yellow",
+            )
+            import openvino  # noqa: F401
+
         self.ort = ort
         self.np = np
         self.ort.set_default_logger_severity(3)
@@ -428,13 +435,21 @@ class UniversalDirectML:
         """
 
         if not self.customModel:
+            method = self.upscaleMethod
+            if "openvino" in self.upscaleMethod:
+                method = method.replace("openvino", "directml")
+
             self.filename = modelsMap(
-                self.upscaleMethod, self.upscaleFactor, modelType="onnx"
+                method, self.upscaleFactor, modelType="onnx"
             )
-            folderName = self.upscaleMethod.replace("directml", "-onnx")
+            if "directml" in self.upscaleMethod:
+                folderName = self.upscaleMethod.replace("directml", "-onnx")
+            elif "openvino" in self.upscaleMethod:
+                folderName = self.upscaleMethod.replace("openvino", "-onnx")
+            
             if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
                 modelPath = downloadModels(
-                    model=self.upscaleMethod,
+                    model=method,
                     upscaleFactor=self.upscaleFactor,
                     modelType="onnx",
                     half=self.half,
@@ -459,11 +474,17 @@ class UniversalDirectML:
 
         providers = self.ort.get_available_providers()
 
-        if "DmlExecutionProvider" in providers:
-            logging.info("DirectML provider available. Defaulting to DirectML")
-            self.model = self.ort.InferenceSession(
-                modelPath, providers=["DmlExecutionProvider"]
-            )
+        if "DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers:
+            if "directml" in self.upscaleMethod:
+                logging.info("DirectML provider available. Defaulting to DirectML")
+                self.model = self.ort.InferenceSession(
+                    modelPath, providers=["DmlExecutionProvider"]
+                )
+            elif "openvino" in self.upscaleMethod:
+                logging.info("Using OpenVINO model")
+                self.model = self.ort.InferenceSession(
+                    modelPath, providers=["OpenVINOExecutionProvider"]
+                )
         else:
             logging.info(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"

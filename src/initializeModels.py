@@ -256,6 +256,33 @@ def depth(self):
                 self.depthQuality,
             )
         case (
+            "small_v2-openvino"
+            | "base_v2-openvino"
+            | "large_v2-openvino"
+            | "distill_small_v2-openvino"
+            | "distill_base_v2-openvino"
+            | "distill_large_v2-openvino"
+        ):
+            from src.depth.depth import DepthDirectMLV2
+
+            DepthDirectMLV2(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+            )
+        case (
             "og_small_v2"
             | "og_base_v2"
             | "og_large_v2"
@@ -360,6 +387,31 @@ def depth(self):
                 self.depthQuality,
             )
 
+        case (
+            "og_small_v2-openvino"
+            | "og_base_v2-openvino"
+            | "og_large_v2-openvino"
+        ):
+            from src.depth.depth import OGDepthV2DirectML
+
+            OGDepthV2DirectML(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+            )
+
         case "small_v3" | "base_v3" | "large_v3" | "giant_v3":
             from src.depth.depth import OGDepthV3CUDA
 
@@ -387,6 +439,32 @@ def depth(self):
             | "base_v3-directml"
             | "large_v3-directml"
             | "giant_v3-directml"
+        ):
+            from src.depth.depth import DepthDirectMLV3
+
+            DepthDirectMLV3(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+            )
+
+        case (
+            "small_v3-openvino"
+            | "base_v3-openvino"
+            | "large_v3-openvino"
+            | "giant_v3-openvino"
         ):
             from src.depth.depth import DepthDirectMLV3
 
@@ -503,6 +581,19 @@ def initializeModels(self):
                 | "saryn-directml"
                 | "fallin_soft-directml"
                 | "fallin_strong-directml"
+                | "compact-openvino"
+                | "ultracompact-openvino"
+                | "superultracompact-openvino"
+                | "span-openvino"
+                | "open-proteus-openvino"
+                | "aniscale2-openvino"
+                | "shufflespan-openvino"
+                | "rtmosr-openvino"
+                | "saryn-openvino"
+                | "fallin_soft-openvino"
+                | "fallin_strong-openvino"
+                | "animesr-openvino"
+                | "animesr-directml"
             ):
                 from src.unifiedUpscale import UniversalDirectML
 
