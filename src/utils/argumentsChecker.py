@@ -296,6 +296,7 @@ def _addInterpolationOptions(argParser):
         "rife4.22",
         "rife4.22-lite",
         "rife4.25",
+        "rife4.25-depth",
         "rife4.25-lite",
         "rife4.25-heavy",
         "rife-ncnn",

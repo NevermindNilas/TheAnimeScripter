@@ -8,6 +8,7 @@ import numpy as np
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .utils.isCudaInit import CudaChecker
 from .utils.logAndPrint import logAndPrint
+from .depth_guided_rife import DepthGuidedRifeCuda
 
 checker = CudaChecker()
 
