@@ -306,3 +306,204 @@ class IFNetLiteTRT(nn.Module):
         mask = torch.sigmoid(mask)
         merged = warpedImg0 * mask + warpedImg1 * (1 - mask)
         return merged
+
+
+class IFBlockV1(nn.Module):
+    """
+    Flow estimation block for v1 (full) model.
+    Outputs: flow(4) + mask(1) + feat(8) + tmap(1) = 14 channels
+    """
+
+    def __init__(self, inPlanes, c=64):
+        super(IFBlockV1, self).__init__()
+        self.conv0 = nn.Sequential(
+            conv(inPlanes, c // 2, 3, 2, 1),
+            conv(c // 2, c, 3, 2, 1),
+        )
+        self.convblock = nn.Sequential(
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+        )
+        # Output: 4*(4+1+8+1) = 56 channels before PixelShuffle -> 14 channels after
+        self.lastconv = nn.Sequential(
+            nn.ConvTranspose2d(c, 4 * (4 + 1 + 8 + 1), 4, 2, 1), nn.PixelShuffle(2)
+        )
+
+    def forward(self, x, flow=None):
+        if flow is not None:
+            x = torch.cat((x, flow), 1)
+        feat = self.conv0(x)
+        feat = self.convblock(feat)
+        tmp = self.lastconv(feat)
+        flow = tmp[:, :4]
+        mask = tmp[:, 4:5]
+        feat = tmp[:, 5:13]
+        tmap = torch.sigmoid(tmp[:, 13:])  # Must be in 0-1 range
+        return flow, mask, feat, tmap
+
+
+class IFNetFullTRT(nn.Module):
+    """
+    DistilDRBA v1 (Full) TensorRT export version.
+
+    This version handles only backward interpolation (timestep in [0.5, 1.0))
+    which is the standard case for TAS interpolation between consecutive frames.
+
+    Inputs to forward:
+        - img0, img1, img2: Input frames [B, 3, H, W] at full resolution
+        - timestep: Timestep tensor [B, 1, H, W] in range [0.5, 1.0)
+
+    Output:
+        - Interpolated frame [B, 3, H, W]
+    """
+
+    def __init__(self, scale=1.0):
+        super(IFNetFullTRT, self).__init__()
+        self.scale = scale
+        self.scaleListDefault = [16, 8, 4, 2, 1]
+
+        self.encode = Head()
+        self.block0 = IFBlockV1(3 * 3 + 16 * 3 + 1, c=192)
+        self.block1 = IFBlockV1(8 + 4 + 8 + 32, c=128)
+        self.block2 = IFBlockV1(8 + 4 + 8 + 32, c=96)
+        self.block3 = IFBlockV1(8 + 4 + 8 + 32, c=64)
+        self.block4 = IFBlockV1(8 + 4 + 8 + 32, c=32)
+
+    def batchInterpolate(
+        self, *tensor, scaleFactor=1.0, mode="bilinear", alignCorners=False
+    ):
+        if scaleFactor != 1:
+            return [
+                F.interpolate(
+                    x, scale_factor=scaleFactor, mode=mode, align_corners=alignCorners
+                )
+                for x in tensor
+            ]
+        return tensor
+
+    def batchWarp(self, *tensor, flow):
+        return [warp(x, flow) for x in tensor]
+
+    def forward(self, img0, img1, img2, timestep):
+        """
+        Forward for backward interpolation (t in [0.5, 1.0)).
+        For backward: inp0=img1, inp1=img0, h0=f1, h1=f0
+
+        Args:
+            img0: Previous frame [B, 3, H, W]
+            img1: Current frame [B, 3, H, W]
+            img2: Next frame [B, 3, H, W]
+            timestep: Timestep tensor [B, 1, H, W] in range [0.5, 1.0)
+        """
+        scaleList = [s / self.scale for s in self.scaleListDefault]
+        encodeScale = min(1 / scaleList[-1], 1)
+
+        img0Encode, img1Encode, img2Encode = self.batchInterpolate(
+            img0, img1, img2, scaleFactor=encodeScale
+        )
+        f0 = self.encode(img0Encode)
+        f1 = self.encode(img1Encode)
+        f2 = self.encode(img2Encode)
+
+
+        inp0, inp1 = img1, img0
+        h0, h1 = f1, f0
+
+        block = [self.block0, self.block1, self.block2, self.block3, self.block4]
+        flow, mask = None, None
+
+        for scaleIdx in range(len(scaleList)):
+            currentScale = 1 / scaleList[scaleIdx]
+
+            if flow is None:
+                f0S, f1S, f2S = self.batchInterpolate(
+                    f0, f1, f2, scaleFactor=currentScale / encodeScale
+                )
+                img0S, img1S, img2S = self.batchInterpolate(
+                    img0, img1, img2, scaleFactor=currentScale
+                )
+
+                timestepS = F.interpolate(
+                    timestep,
+                    scale_factor=currentScale,
+                    mode="bilinear",
+                    align_corners=False,
+                )
+
+                flow, mask, feat, tmap = block[scaleIdx](
+                    torch.cat(
+                        (
+                            img0S,
+                            img1S,
+                            img2S,
+                            f0S,
+                            f1S,
+                            f2S,
+                            timestepS,
+                        ),
+                        1,
+                    )
+                )
+            else:
+                h0S, h1S = self.batchInterpolate(
+                    h0, h1, scaleFactor=currentScale / encodeScale
+                )
+                inp0S, inp1S = self.batchInterpolate(
+                    inp0, inp1, scaleFactor=currentScale
+                )
+
+                if currentScale <= 1:
+                    wf0, warpedImg0 = self.batchWarp(h0S, inp0S, flow=flow[:, :2])
+                    wf1, warpedImg1 = self.batchWarp(h1S, inp1S, flow=flow[:, 2:4])
+                else:
+                    wf0, warpedImg0 = self.batchWarp(h0, inp0, flow=flow[:, :2])
+                    wf1, warpedImg1 = self.batchWarp(h1, inp1, flow=flow[:, 2:4])
+                    wf0, wf1, warpedImg0, warpedImg1 = self.batchInterpolate(
+                        wf0, wf1, warpedImg0, warpedImg1, scaleFactor=currentScale
+                    )
+                    flow, mask, feat, tmap = self.batchInterpolate(
+                        flow, mask, feat, tmap, scaleFactor=currentScale
+                    )
+                    flow = flow * currentScale
+
+                fd, mask, feat, tmap = block[scaleIdx](
+                    torch.cat(
+                        (
+                            warpedImg0,
+                            warpedImg1,
+                            wf0,
+                            wf1,
+                            tmap,
+                            mask,
+                            feat,
+                        ),
+                        1,
+                    ),
+                    flow,
+                )
+                flow = flow + fd
+
+            if scaleIdx == len(scaleList) - 1:
+                flowScale = scaleList[scaleIdx]
+            elif scaleList[scaleIdx + 1] >= 1:
+                flowScale = scaleList[scaleIdx] / scaleList[scaleIdx + 1]
+            else:
+                flowScale = 1
+
+            if flowScale != 1:
+                flow, mask, feat, tmap = self.batchInterpolate(
+                    flow, mask, feat, tmap, scaleFactor=flowScale
+                )
+                flow = flow * flowScale
+
+        warpedImg0 = warp(inp0, flow[:, :2])
+        warpedImg1 = warp(inp1, flow[:, 2:4])
+        mask = torch.sigmoid(mask)
+        merged = warpedImg0 * mask + warpedImg1 * (1 - mask)
+        return merged

@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unannounced] - YYYY-MM-DD
 ### New
 - Added `OpenVino` accelerator to the backend through onnxruntime ( highly experimental and only tested so far on my iGPU )
+- Added `distildrba-tensorrt` interpolate method.
 
 ### Changed
 - Bumped numpy 2.2.4 -> 2.2.6 and moved it to one of the default requirements.

@@ -1483,23 +1483,12 @@ class DistilDRBACuda:
             self.f1 = None
             self.f2 = None
 
-        # Now we have: I0 (cached previous), I1 (current), I2 (next from peek)
-        # Generate interpolated frames between I0 and I1, using I2 as future context
         for i in range(framesToInsert):
             if timesteps is not None and i < len(timesteps):
                 t = timesteps[i]
             else:
-                # Default timestep calculation for uniform spacing
                 t = (i + 1) / (framesToInsert + 1)
 
-            # Convert TAS timestep (0, 1) to DistilDRBA range
-            # DistilDRBA uses [0.5, 1.5] where:
-            #   - 0.5 <= t < 1.0: interpolate between I1 and I0 (backward)
-            #   - 1.0 < t <= 1.5: interpolate between I1 and I2 (forward)
-            #   - t = 1.0 is invalid (would be I1 itself)
-            # For standard interpolation between consecutive frames,
-            # nterpolate between I0 and I1, so we use range [0.5, 1.0)
-            # Map t from (0, 1) to (0.5, 1.0) exclusive of 1.0
             tDrba = 0.5 + t * 0.5 - 0.0001  # Small epsilon to avoid exactly 1.0
 
             if self.stream:
@@ -1570,12 +1559,6 @@ class DistilDRBATensorRT:
         self.interpolateFactor = interpolateFactor
         self.lite = "lite" in interpolateMethod
 
-        # Currently only lite version is supported for TensorRT
-        if not self.lite:
-            raise ValueError(
-                "Only distildrba-lite-tensorrt is currently supported for TensorRT. "
-                "Use distildrba-tensorrt (CUDA) for the full model."
-            )
 
         if width > 1920 or height > 1080:
             self.scale = 0.5
@@ -1605,7 +1588,7 @@ class DistilDRBATensorRT:
         else:
             modelPath = os.path.join(folderPath, self.filename)
 
-        self.model = IFNet(lite=True, scale=self.scale)
+        self.model = IFNet(lite=self.lite, scale=self.scale)
         stateDict = torch.load(modelPath, map_location=self.device, weights_only=True)
         if "model" in stateDict:
             stateDict = stateDict["model"]
@@ -1636,9 +1619,12 @@ class DistilDRBATensorRT:
 
     def createEngine(self, modelPath, enginePath):
         """Create TensorRT engine from ONNX export."""
-        from .rifearches.IFNet_distildrba_tensorrt import IFNetLiteTRT
+        from .rifearches.IFNet_distildrba_tensorrt import IFNetLiteTRT, IFNetFullTRT
 
-        trtModel = IFNetLiteTRT(scale=self.scale)
+        if self.lite:
+            trtModel = IFNetLiteTRT(scale=self.scale)
+        else:
+            trtModel = IFNetFullTRT(scale=self.scale)
         trtModel.load_state_dict(self.model.state_dict(), strict=False)
 
         if self.half:
@@ -1702,7 +1688,9 @@ class DistilDRBATensorRT:
 
         inputsMin = inputsOpt = inputsMax = inputs
 
-        logging.info("Creating TensorRT engine for DistilDRBA-Lite")
+        logging.info(
+            f"Creating TensorRT engine for DistilDRBA-{'Lite' if self.lite else 'Full'}"
+        )
         self.engine, self.context = self.tensorRTEngineCreator(
             modelPath=onnxPath,
             enginePath=enginePath,

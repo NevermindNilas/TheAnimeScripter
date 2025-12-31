@@ -792,7 +792,7 @@ def initializeModels(self):
                     compileMode=self.compileMode,
                 )
 
-            case "distildrba-lite-tensorrt":
+            case "distildrba-lite-tensorrt" | "distildrba-tensorrt":
                 from src.unifiedInterpolate import DistilDRBATensorRT
 
                 interpolateProcess = DistilDRBATensorRT(
