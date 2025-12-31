@@ -695,6 +695,19 @@ def initializeModels(self):
                     compileMode=self.compileMode,
                 )
 
+            case "rife4.25-depth":
+                from src.unifiedInterpolate import DepthGuidedRifeCuda
+
+                interpolateProcess = DepthGuidedRifeCuda(
+                    width=self.width,
+                    height=self.height,
+                    half=self.half,
+                    interpolate_method="rife4.25",
+                    depth_method=self.depthMethod,
+                    depth_quality=self.depthQuality,
+                    ensemble=self.ensemble,
+                )
+
             case (
                 "rife-ncnn"
                 | "rife4.6-ncnn"
