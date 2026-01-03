@@ -21,9 +21,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### New
 - Added Discord Rich Presence support.
 - Added new OpenVino Accelerators ( free for now )
+- Added DistillDrba-Tensorrt interpolation method
+- A brand new Youtube DL handler using ytdlp-nodejs, with both Video and Audio download support.
 
 ### Changed
+- Better OAuth workflow handling incl. improved security.
 
+### Fixed
+- Fixed issues related to Youtube Downloading.
 
 
 ## [2.5.3] - 2025-12-26
