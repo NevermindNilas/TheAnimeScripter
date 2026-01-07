@@ -762,6 +762,39 @@ def _addMiscOptions(argParser):
     )
 
 
+def _autoEnableParentFlags(args):
+    """
+    Automatically enable parent flags when *_method arguments are provided.
+    For example: --upscale_method shufflecugan will auto-enable --upscale
+
+    This allows users to simply specify the method without needing both the enable flag and method argument.
+
+    Args:
+        args: Parsed command line arguments
+    """
+    methodToFlagMapping = {
+        "interpolate_method": ("interpolate", "rife4.6"),
+        "upscale_method": ("upscale", "shufflecugan"),
+        "dedup_method": ("dedup", "ssim"),
+        "restore_method": ("restore", ["anime1080fixer"]),
+        "segment_method": ("segment", "anime"),
+        "scenechange_method": ("scenechange", "maxxvit-directml"),
+        "depth_method": ("depth", "small_v2"),
+        "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
+    }
+
+    for methodArg, (parentFlag, defaultValue) in methodToFlagMapping.items():
+        if hasattr(args, methodArg):
+            currentValue = getattr(args, methodArg)
+
+            if currentValue != defaultValue:
+                if not getattr(args, parentFlag):
+                    logging.info(
+                        f"Auto-enabling --{parentFlag} because --{methodArg}={currentValue} was specified"
+                    )
+                    setattr(args, parentFlag, True)
+
+
 def argumentsChecker(args, outputPath, parser):
     if args.list_presets:
         from src.utils.presetLogic import listPresets
@@ -776,6 +809,8 @@ def argumentsChecker(args, outputPath, parser):
 
     if args.json:
         args = _loadJsonConfig(args, parser)
+
+    _autoEnableParentFlags(args)
 
     if args.download_requirements:
         _handleDependencies(args)
