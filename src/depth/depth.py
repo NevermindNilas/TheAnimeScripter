@@ -464,6 +464,32 @@ class DepthDirectMLV2:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
+        self.usingCpuFallback = False
+        self.modelPath = modelPath
+
+    def _fallbackToCpu(self):
+        """Reinitialize model and CPU accelerate it after DirectML or OpenVINO fails."""
+        logAndPrint(
+            "DirectML/OpenVINO encountered an error, falling back to CPU. Performance will be slower.",
+            "yellow",
+        )
+
+        self.model = self.ort.InferenceSession(
+            self.modelPath, providers=["CPUExecutionProvider"]
+        )
+
+        self.IoBinding = self.model.io_binding()
+        self.IoBinding.bind_output(
+            name=self.outputName,
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyOutDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+        self.usingCpuFallback = True
+
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
@@ -476,7 +502,6 @@ class DepthDirectMLV2:
                 align_corners=True,
             )
 
-            # Cast to model's expected input dtype
             frame = frame.to(dtype=self.torchInDType)
 
             self.dummyInput.copy_(frame)
@@ -491,7 +516,6 @@ class DepthDirectMLV2:
 
             self.model.run_with_iobinding(self.IoBinding)
 
-            # Bring output to float for normalization and resize to target resolution
             out_tensor = self.dummyOutput.float()
             if out_tensor.ndim == 3:
                 out_tensor = out_tensor.unsqueeze(0)
@@ -502,9 +526,16 @@ class DepthDirectMLV2:
                 align_corners=True,
             )
 
-            # Normalize to 0-1 range
             depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
             self.writeBuffer.write(depth)
+
+        except UnicodeDecodeError as e:
+            if not self.usingCpuFallback:
+                logging.warning(f"DirectML/OpenVINO UnicodeDecodeError: {e}")
+                self._fallbackToCpu()
+                self.processFrame(frame)
+            else:
+                logging.exception(f"Something went wrong while processing the frame, {e}")
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -597,7 +628,6 @@ class DepthTensorRTV2:
                 self.height,
                 self.fps,
                 sharpen=False,
-                sharpen_sens=None,
                 grayscale=True,
                 benchmark=self.benchmark,
                 bitDepth=self.bitDepth,
@@ -1967,6 +1997,32 @@ class DepthDirectMLV3:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
+        self.usingCpuFallback = False
+        self.modelPath = modelPath
+
+    def _fallbackToCpu(self):
+        """Reinitialize model with CPU provider after DirectML/OpenVINO failure."""
+        logAndPrint(
+            "DirectML/OpenVINO encountered an error, falling back to CPU. Performance will be slower.",
+            "yellow",
+        )
+
+        self.model = self.ort.InferenceSession(
+            self.modelPath, providers=["CPUExecutionProvider"]
+        )
+
+        self.IoBinding = self.model.io_binding()
+        self.IoBinding.bind_output(
+            name=self.outputName,
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyOutDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+        self.usingCpuFallback = True
+
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
@@ -2008,6 +2064,15 @@ class DepthDirectMLV3:
             # Normalize to 0-1 range
             depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
             self.writeBuffer.write(depth)
+
+        except UnicodeDecodeError as e:
+            if not self.usingCpuFallback:
+                logging.warning(f"DirectML/OpenVINO UnicodeDecodeError: {e}")
+                self._fallbackToCpu()
+                # Retry the frame with CPU provider
+                self.processFrame(frame)
+            else:
+                logging.exception(f"Something went wrong while processing the frame, {e}")
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")

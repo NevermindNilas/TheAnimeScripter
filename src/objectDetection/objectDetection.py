@@ -17,6 +17,7 @@ from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from concurrent.futures import ThreadPoolExecutor
 from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.isCudaInit import CudaChecker
+from src.utils.logAndPrint import logAndPrint
 
 checker = CudaChecker()
 
@@ -554,6 +555,32 @@ class ObjectDetectionDML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
+        self.usingCpuFallback = False
+        self.modelPath = modelPath
+
+    def _fallbackToCpu(self):
+        """Reinitialize model with CPU provider after DirectML failure."""
+        logAndPrint(
+            "DirectML encountered an error, falling back to CPU. Performance will be slower.",
+            "yellow",
+        )
+
+        self.model = self.ort.InferenceSession(
+            self.modelPath, providers=["CPUExecutionProvider"]
+        )
+
+        self.IoBinding = self.model.io_binding()
+        self.IoBinding.bind_output(
+            name="pred_bbox",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+        self.usingCpuFallback = True
+
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
@@ -576,6 +603,14 @@ class ObjectDetectionDML:
             output = self.dummyOutput.cpu().numpy()
 
             self.writeBuffer.write(output)
+
+        except UnicodeDecodeError as e:
+            if not self.usingCpuFallback:
+                logging.warning(f"DirectML UnicodeDecodeError: {e}")
+                self._fallbackToCpu()
+                self.processFrame(frame)
+            else:
+                logging.exception(f"Something went wrong while processing the frame, {e}")
 
         except Exception as e:
             logging.error(f"An error occurred while processing the frame: {e}")

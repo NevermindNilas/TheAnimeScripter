@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [Unannounced] - YYYY-MM-DD
+## [202]] - YYYY-MM-DD
 ### New
 - Added `OpenVino` accelerator to the backend through onnxruntime ( highly experimental and only tested so far on my iGPU )
 - Added `distildrba-tensorrt` interpolate method.

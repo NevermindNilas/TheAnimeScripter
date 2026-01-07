@@ -99,8 +99,6 @@ class ProgressBarLogic:
                 "•",
                 FPSColumn(),
                 "•",
-                MemoryColumn(self.totalFrames),
-                "•",
                 TextColumn("Frames: [green]{task.completed}/{task.total}[/green]"),
             )
             self.task = self.progress.add_task("Processing:", total=self.totalFrames)
