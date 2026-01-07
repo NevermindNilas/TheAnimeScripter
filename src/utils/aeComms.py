@@ -14,11 +14,6 @@ flask_cli.show_server_banner = lambda *args, **kwargs: None
 
 os.environ["FLASK_ENV"] = "production"
 
-try:
-    import eventlet
-    HAS_EVENTLET = True
-except ImportError:
-    HAS_EVENTLET = False
 
 socketio = None
 
@@ -65,7 +60,7 @@ def runServer(host):
     socketio = SocketIO(
         app,
         cors_allowed_origins="*",
-        async_mode="eventlet" if HAS_EVENTLET else "threading",
+        async_mode="threading",
         logger=False,
         engineio_logger=False,
     )
