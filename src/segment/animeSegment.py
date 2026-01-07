@@ -391,8 +391,6 @@ class AnimeSegmentDirectML:
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                totalFrames=self.totalFrames,
-                fps=self.fps,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -522,6 +520,217 @@ class AnimeSegmentDirectML:
         except UnicodeDecodeError as e:
             if not self.usingCpuFallback:
                 logging.warning(f"DirectML UnicodeDecodeError: {e}")
+                self._fallbackToCpu()
+                self.processFrame(frame)
+            else:
+                logging.exception(f"Something went wrong while processing the frame, {e}")
+
+        except Exception as e:
+            logging.exception(f"An error occurred while processing the frame, {e}")
+
+    def process(self):
+        frameCount = 0
+
+        with ProgressBarLogic(self.totalFrames) as bar:
+            for _ in range(self.totalFrames):
+                frame = self.readBuffer.read()
+                if frame is None:
+                    break
+                self.processFrame(frame)
+                frameCount += 1
+                bar(1)
+                if self.readBuffer.isReadFinished():
+                    if self.readBuffer.isQueueEmpty():
+                        break
+
+        logging.info(f"Processed {frameCount} frames")
+
+        self.writeBuffer.close()
+
+
+class AnimeSegmentOpenVino:
+    def __init__(
+        self,
+        input,
+        output,
+        width,
+        height,
+        fps,
+        inpoint=0,
+        outpoint=0,
+        encode_method="x264",
+        custom_encoder="",
+        benchmark=False,
+        totalFrames=0,
+    ):
+        self.input = input
+        self.output = output
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.encode_method = encode_method
+        self.custom_encoder = custom_encoder
+        self.benchmark = benchmark
+        self.totalFrames = totalFrames
+
+        logAndPrint(
+            "OpenVINO backend is an experimental feature, please report any issues you encounter.",
+            "yellow",
+        )
+
+        import onnxruntime as ort
+
+        ort.set_default_logger_severity(3)
+        self.ort = ort
+
+        try:
+            import openvino  # noqa: F401
+        except ImportError:
+            logging.error(
+                "OpenVINO is not installed. Please install it to use this backend."
+            )
+            raise
+
+        self.handleModel()
+        try:
+            self.readBuffer = BuildBuffer(
+                videoInput=self.input,
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
+            )
+
+            self.writeBuffer = WriteBuffer(
+                self.input,
+                self.output,
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
+                self.fps,
+                sharpen=False,
+                sharpen_sens=None,
+                grayscale=False,
+                transparent=True,
+                benchmark=self.benchmark,
+            )
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.readBuffer)
+                executor.submit(self.process)
+                executor.submit(self.writeBuffer)
+
+        except Exception as e:
+            logging.error(f"An error occurred while processing the video: {e}")
+
+    def handleModel(self):
+        method = "segment-directml"
+        self.filename = modelsMap(method)
+        folderName = "segment-onnx"
+        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
+            modelPath = downloadModels(model=method)
+        else:
+            modelPath = os.path.join(weightsDir, folderName, self.filename)
+
+        self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
+        self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
+
+        providers = self.ort.get_available_providers()
+        logging.info(f"Available ONNX Runtime providers: {providers}")
+
+        if "OpenVINOExecutionProvider" in providers:
+            logging.info("OpenVINO provider available. Defaulting to OpenVINO")
+            provider = "OpenVINOExecutionProvider"
+        else:
+            logging.info(
+                "OpenVINO provider not available, falling back to CPU, expect significantly worse performance"
+            )
+            provider = "CPUExecutionProvider"
+
+        self.model = self.ort.InferenceSession(modelPath, providers=[provider])
+        self.deviceType = "cpu"
+        self.device = torch.device(self.deviceType)
+        self.numpyDType = np.float32
+        self.torchDType = torch.float32
+
+        self.IoBinding = self.model.io_binding()
+        self.dummyInput = torch.zeros(
+            (1, 3, self.height + self.padHeight, self.width + self.padWidth),
+            device=self.device,
+            dtype=torch.float32,
+        ).contiguous()
+
+        self.dummyOutput = torch.zeros(
+            (1, 1, self.height + self.padHeight, self.width + self.padWidth),
+            device=self.device,
+            dtype=torch.float32,
+        ).contiguous()
+
+        self.IoBinding.bind_output(
+            name="output",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+        self.usingCpuFallback = False
+        self.modelPath = modelPath
+
+    def _fallbackToCpu(self):
+        """Reinitialize model with CPU provider after OpenVINO failure."""
+        logAndPrint(
+            "OpenVINO encountered an error, falling back to CPU. Performance will be slower.",
+            "yellow",
+        )
+
+        self.model = self.ort.InferenceSession(
+            self.modelPath, providers=["CPUExecutionProvider"]
+        )
+
+        self.IoBinding = self.model.io_binding()
+        self.IoBinding.bind_output(
+            name="output",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+        self.usingCpuFallback = True
+
+    def processFrame(self, frame: torch.tensor) -> torch.tensor:
+        try:
+            frame = frame.to(self.device).float()
+            frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
+            self.dummyInput.copy_(frame)
+
+            self.IoBinding.bind_input(
+                name="input",
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyDType,
+                shape=self.dummyInput.shape,
+                buffer_ptr=self.dummyInput.data_ptr(),
+            )
+
+            self.model.run_with_iobinding(self.IoBinding)
+
+            frameWithMask = torch.cat((frame, self.dummyOutput), dim=1)
+            frameWithMask = frameWithMask[
+                :,
+                :,
+                : frameWithMask.shape[2] - self.padHeight,
+                : frameWithMask.shape[3] - self.padWidth,
+            ]
+            self.writeBuffer.write(frameWithMask)
+
+        except UnicodeDecodeError as e:
+            if not self.usingCpuFallback:
+                logging.warning(f"OpenVINO UnicodeDecodeError: {e}")
                 self._fallbackToCpu()
                 self.processFrame(frame)
             else:
