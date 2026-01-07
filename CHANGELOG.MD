@@ -3,7 +3,38 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [202]] - YYYY-MM-DD
+## [2.5.5] - 2026-01-07
+### New
+- Added `socket-io` and `eventlent` comms to the backend facilitating the development of the Adobe Edition.
+- Added a `CPU` fallback for all DirectML / OpenVino accelerators.
+
+### Changed
+- Changed the way the commands get parsed to the backend, you are no longer required to use `--upscale --upscale_method`, you can simply use `--upscale_method` ( the same applies to other options, like --interpolate or --depth )
+
+### Fixed
+- N/A
+
+### Removed
+- Flask
+
+---
+
+## Adobe Edition
+### New
+- Added a full `socket-io` comms system to the frontend, lowering overhead and improving performance.
+
+### Changed
+- Json related logic has been heavily reworked.
+
+### Fixed
+- Fixed an issue where Github Sponsors would run into an infinite loop error.
+
+### Removed
+- N/A
+
+
+
+## [2.5.4] - 2026-01-03
 ### New
 - Added `OpenVino` accelerator to the backend through onnxruntime ( highly experimental and only tested so far on my iGPU )
 - Added `distildrba-tensorrt` interpolate method.
