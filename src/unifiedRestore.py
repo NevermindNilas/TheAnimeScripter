@@ -409,29 +409,65 @@ class UnifiedRestoreDirectML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
+        self.usingCpuFallback = False
+        self.modelPath = modelPath
+
+    def _fallbackToCpu(self):
+        """Reinitialize model with CPU provider after DirectML/OpenVINO failure."""
+        logAndPrint(
+            "DirectML/OpenVINO encountered an error, falling back to CPU. Performance will be slower.",
+            "yellow",
+        )
+
+        self.model = self.ort.InferenceSession(
+            self.modelPath, providers=["CPUExecutionProvider"]
+        )
+
+        self.IoBinding = self.model.io_binding()
+        self.IoBinding.bind_output(
+            name="output",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+        self.usingCpuFallback = True
+
     def __call__(self, frame: torch.tensor) -> torch.tensor:
         """
         Run the model on the input frame
         """
-        if self.half:
-            frame = frame.half()
-        else:
-            frame = frame.float()
+        try:
+            if self.half:
+                frame = frame.half()
+            else:
+                frame = frame.float()
 
-        self.dummyInput.copy_(frame.contiguous())
+            self.dummyInput.copy_(frame.contiguous())
 
-        self.IoBinding.bind_input(
-            name="input",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.dummyInput.shape,
-            buffer_ptr=self.dummyInput.data_ptr(),
-        )
+            self.IoBinding.bind_input(
+                name="input",
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyDType,
+                shape=self.dummyInput.shape,
+                buffer_ptr=self.dummyInput.data_ptr(),
+            )
 
-        self.model.run_with_iobinding(self.IoBinding)
-        frame = self.dummyOutput.contiguous()
+            self.model.run_with_iobinding(self.IoBinding)
+            frame = self.dummyOutput.contiguous()
 
-        return frame
+            return frame
+
+        except UnicodeDecodeError as e:
+            if not self.usingCpuFallback:
+                logging.warning(f"DirectML/OpenVINO UnicodeDecodeError: {e}")
+                self._fallbackToCpu()
+                return self.__call__(frame)
+            else:
+                logging.exception(f"Something went wrong while processing the frame, {e}")
+                raise
 
 

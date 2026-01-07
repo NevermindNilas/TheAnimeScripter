@@ -5,6 +5,7 @@ import cv2
 
 from torch.nn import functional as F
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
+from src.utils.logAndPrint import logAndPrint
 
 
 class SceneChange:
@@ -57,6 +58,21 @@ class SceneChange:
 
         self.I0 = None
         self.I1 = None
+        self.usingCpuFallback = False
+        self.modelPath = modelPath
+
+    def _fallbackToCpu(self):
+        """Reinitialize model with CPU provider after DirectML failure."""
+        logAndPrint(
+            "DirectML encountered an error, falling back to CPU. Performance will be slower.",
+            "yellow",
+        )
+
+        self.model = self.ort.InferenceSession(
+            self.modelPath, providers=["CPUExecutionProvider"]
+        )
+
+        self.usingCpuFallback = True
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -72,18 +88,28 @@ class SceneChange:
 
     @torch.inference_mode()
     def __call__(self, frame):
-        if self.I0 is None:
-            self.I0 = self.processFrame(frame)
-            return False
+        try:
+            if self.I0 is None:
+                self.I0 = self.processFrame(frame)
+                return False
 
-        self.I1 = self.processFrame(frame)
-        inputs = self.np.concatenate((self.I0, self.I1), 0)
+            self.I1 = self.processFrame(frame)
+            inputs = self.np.concatenate((self.I0, self.I1), 0)
 
-        self.I0 = self.I1
+            self.I0 = self.I1
 
-        result = self.model.run(None, {"input": inputs})[0][0][0] * 255
+            result = self.model.run(None, {"input": inputs})[0][0][0] * 255
 
-        return result > self.sceneChangeThreshold
+            return result > self.sceneChangeThreshold
+
+        except UnicodeDecodeError as e:
+            if not self.usingCpuFallback:
+                logging.warning(f"DirectML UnicodeDecodeError: {e}")
+                self._fallbackToCpu()
+                return self.__call__(frame)
+            else:
+                logging.exception(f"Something went wrong while processing the frame, {e}")
+                raise
 
 
 class SceneChangeTensorRT:
