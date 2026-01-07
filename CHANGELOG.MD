@@ -22,15 +22,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## Adobe Edition
 ### New
 - Added a full `socket-io` comms system to the frontend, lowering overhead and improving performance.
+- Added a new Sponsor Tab to the UI.
+- Added support for DirectML and OpenVino accelerated Segmentation.
+- Merged logs tab into a queue element log for each time you run a job.
 
 ### Changed
 - Json related logic has been heavily reworked.
+- Improved security and UX of the GitHub Sponsors workflow.
 
 ### Fixed
-- Fixed an issue where Github Sponsors would run into an infinite loop error.
+- Fixed an issue where Github Sponsors would run into a bad credentials error.
+- Fixed an issue where YT-DLP was not working.
+- Fixed some spacing related issues.
+- Fixed some inconsistencies in the Picker sections where certain elements would not be displayed.
 
 ### Removed
-- N/A
+- The Logs tab.
 
 
 

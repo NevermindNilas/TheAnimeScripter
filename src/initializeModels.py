@@ -158,6 +158,22 @@ def segment(self):
             self.benchmark,
             self.totalFrames,
         )
+    elif self.segmentMethod == "anime-openvino":
+        from src.segment.animeSegment import AnimeSegmentOpenVino
+
+        AnimeSegmentOpenVino(
+            self.input,
+            self.output,
+            self.width,
+            self.height,
+            self.outputFPS,
+            self.inpoint,
+            self.outpoint,
+            self.encodeMethod,
+            self.customEncoder,
+            self.benchmark,
+            self.totalFrames,
+        )
     elif self.segmentMethod == "cartoon":
         raise NotImplementedError("Cartoon segment is not implemented yet")
 
