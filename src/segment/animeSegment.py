@@ -9,6 +9,7 @@ from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from concurrent.futures import ThreadPoolExecutor
 from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.isCudaInit import CudaChecker
+from src.utils.logAndPrint import logAndPrint
 
 checker = CudaChecker()
 
@@ -466,6 +467,32 @@ class AnimeSegmentDirectML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
+        self.usingCpuFallback = False
+        self.modelPath = modelPath
+
+    def _fallbackToCpu(self):
+        """Reinitialize model with CPU provider after DirectML failure."""
+        logAndPrint(
+            "DirectML encountered an error, falling back to CPU. Performance will be slower.",
+            "yellow",
+        )
+
+        self.model = self.ort.InferenceSession(
+            self.modelPath, providers=["CPUExecutionProvider"]
+        )
+
+        self.IoBinding = self.model.io_binding()
+        self.IoBinding.bind_output(
+            name="output",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyOutput.shape,
+            buffer_ptr=self.dummyOutput.data_ptr(),
+        )
+
+        self.usingCpuFallback = True
+
     def processFrame(self, frame: torch.tensor) -> torch.tensor:
         try:
             frame = frame.to(self.device).float()
@@ -481,6 +508,8 @@ class AnimeSegmentDirectML:
                 buffer_ptr=self.dummyInput.data_ptr(),
             )
 
+            self.model.run_with_iobinding(self.IoBinding)
+
             frameWithMask = torch.cat((frame, self.dummyOutput), dim=1)
             frameWithMask = frameWithMask[
                 :,
@@ -489,6 +518,14 @@ class AnimeSegmentDirectML:
                 : frameWithMask.shape[3] - self.padWidth,
             ]
             self.writeBuffer.write(frameWithMask)
+
+        except UnicodeDecodeError as e:
+            if not self.usingCpuFallback:
+                logging.warning(f"DirectML UnicodeDecodeError: {e}")
+                self._fallbackToCpu()
+                self.processFrame(frame)
+            else:
+                logging.exception(f"Something went wrong while processing the frame, {e}")
 
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")

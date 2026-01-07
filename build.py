@@ -16,7 +16,7 @@ if not requirementsPath.exists():
     raise FileNotFoundError(f"Requirements file not found: {requirementsPath}")
 
 portablePythonDir = baseDir / "portable-python"
-pythonVersion = "3.13.9"
+pythonVersion = "3.13.11"
 system = platform.system()
 
 
