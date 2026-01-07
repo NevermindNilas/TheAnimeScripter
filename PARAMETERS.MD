@@ -66,10 +66,10 @@
 **🔧 Custom Quality**
 ```bash
 ./python.exe ./main.py --input video.mp4 \
-  --upscale --upscale_method span-tensorrt \
-  --interpolate --interpolate_method rife4.25 
+  --upscale_method span-tensorrt \
+  --interpolate_method rife4.25
 ```
-*High-end processing with latest models and custom resolution*
+*High-end processing with latest models — auto-enables features when method is specified*
 
 </td>
 </tr>
@@ -82,6 +82,28 @@
 | 🟢 **Beginner** | `--upscale`, `--interpolate` | Basic enhancement, anime upscaling |
 | 🟡 **Intermediate** | `--restore`, `--dedup`, `--scenechange` | Quality optimization, batch processing |
 | 🔴 **Advanced** | TensorRT models, custom encoders, model chaining | Professional workflows, maximum performance |
+
+### 🚀 Auto-Enable Feature
+
+TheAnimeScripter now automatically enables processing features when you specify their method! Instead of:
+```bash
+--upscale --upscale_method span-tensorrt --interpolate --interpolate_method rife4.25
+```
+
+You can now simply use:
+```bash
+--upscale_method span-tensorrt --interpolate_method rife4.25
+```
+
+The `--upscale` and `--interpolate` flags are **automatically enabled** when their corresponding `*_method` arguments are provided. This applies to all 8 processing operations:
+- `--upscale_method` → auto-enables `--upscale`
+- `--interpolate_method` → auto-enables `--interpolate`
+- `--dedup_method` → auto-enables `--dedup`
+- `--restore_method` → auto-enables `--restore`
+- `--segment_method` → auto-enables `--segment`
+- `--scenechange_method` → auto-enables `--scenechange`
+- `--depth_method` → auto-enables `--depth`
+- `--obj_detect_method` → auto-enables `--obj_detect`
 
 ---
 
@@ -258,10 +280,12 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--upscale` | flag | False | - | **Enable AI upscaling** |
+| `--upscale` | flag | False | - | **Enable AI upscaling** — automatically enabled when `--upscale_method` is specified |
 | `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)** |
-| `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** |
+| `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** — specifying a non-default method auto-enables upscaling |
 | `--custom_model` | str | "" | path | **Custom model file** (.pth/.onnx) |
+
+> **💡 Tip:** You can now simplify commands by omitting `--upscale` when specifying a method. For example: `--upscale_method span-tensorrt` automatically enables upscaling.
 
 #### 🎯 Upscaling Models
 
@@ -285,11 +309,13 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--interpolate` | flag | False | - | **Enable frame interpolation** |
+| `--interpolate` | flag | False | - | **Enable frame interpolation** — automatically enabled when `--interpolate_method` is specified |
 | `--interpolate_factor` | float | 2 | >=1 | **Frame multiplication** (2 = 30→60fps). Accepts fractional values for fractional interpolation; when non-integer the `--static_step` flag will be disabled. |
-| `--interpolate_method` | str | "rife4.6" | [see table](#interpolation-models) | **Interpolation model** |
+| `--interpolate_method` | str | "rife4.6" | [see table](#interpolation-models) | **Interpolation model** — specifying a non-default method auto-enables interpolation |
 | `--ensemble` | flag | False | - | **Higher quality** (slower, RIFE only) |
 | `--dynamic_scale` | flag | False | - | **Dynamic scaling** (CUDA only) |
+
+> **💡 Tip:** You can now simplify commands by omitting `--interpolate` when specifying a method. For example: `--interpolate_method rife4.25` automatically enables interpolation.
 
 #### 🎯 Interpolation Models
 
@@ -325,9 +351,9 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--scenechange` | flag | False | - | **Enable scene detection** |
+| `--scenechange` | flag | False | - | **Enable scene detection** — automatically enabled when `--scenechange_method` is specified |
 | `--scenechange_sens` | float | 50 | 0-100 | **Detection sensitivity** |
-| `--scenechange_method` | str | "maxxvit-directml" | [see table](#scene-change-methods) | **Detection model** |
+| `--scenechange_method` | str | "maxxvit-directml" | [see table](#scene-change-methods) | **Detection model** — specifying a non-default method auto-enables scene detection |
 
 #### 🎯 Scene Change Methods
 
@@ -349,8 +375,8 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Range | Description |
 |-----------|------|---------|-------|-------------|
-| `--dedup` | flag | False | - | **Remove duplicate frames** |
-| `--dedup_method` | str | "ssim" | [see table](#deduplication-methods) | **Detection algorithm** |
+| `--dedup` | flag | False | - | **Remove duplicate frames** — automatically enabled when `--dedup_method` is specified |
+| `--dedup_method` | str | "ssim" | [see table](#deduplication-methods) | **Detection algorithm** — specifying a non-default method auto-enables deduplication |
 | `--dedup_sens` | float | 35 | 0-100 | **Similarity threshold** |
 
 
@@ -370,8 +396,8 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Options | Description |
 |-----------|------|---------|---------|-------------|
-| `--restore` | flag | False | - | **Enable denoising/restoration** |
-| `--restore_method` | str | list | ["anime1080fixer"] | **Restoration model(s) — accepts multiple methods for chained processing** |
+| `--restore` | flag | False | - | **Enable denoising/restoration** — automatically enabled when `--restore_method` is specified |
+| `--restore_method` | str | list | ["anime1080fixer"] | **Restoration model(s) — accepts multiple methods for chained processing** — specifying a non-default method auto-enables restoration |
 | `--sharpen` | flag | False | - | **Enable sharpening** |
 | `--sharpen_sens` | float | 50 | 0-100 | **Sharpening intensity** |
 
@@ -391,10 +417,10 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `--segment` | flag | False | **Background/foreground separation** |
-| `--segment_method` | str | "anime" | **Segmentation model** [see table](#segmentation-methods) |
-| `--depth` | flag | False | **Generate depth maps** |
-| `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) |
+| `--segment` | flag | False | **Background/foreground separation** — automatically enabled when `--segment_method` is specified |
+| `--segment_method` | str | "anime" | **Segmentation model** [see table](#segmentation-methods) — specifying a non-default method auto-enables segmentation |
+| `--depth` | flag | False | **Generate depth maps** — automatically enabled when `--depth_method` is specified |
+| `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) — specifying a non-default method auto-enables depth estimation |
 | `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. |
 
 #### 🎯 Segmentation Methods
@@ -423,8 +449,8 @@ C:\Videos\episode3.mp4
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `--obj_detect` | flag | False | **Detect objects in video** |
-| `--obj_detect_method` | str | "yolov9_small-directml" | **Object detection model** [see table](#object-detection-methods) |
+| `--obj_detect` | flag | False | **Detect objects in video** — automatically enabled when `--obj_detect_method` is specified |
+| `--obj_detect_method` | str | "yolov9_small-directml" | **Object detection model** [see table](#object-detection-methods) — specifying a non-default method auto-enables object detection |
 
 #### 🎯 Object Detection Methods
 
