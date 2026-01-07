@@ -1,23 +1,31 @@
 import logging
 import os
-from threading import Thread, Lock, Event
+from threading import Lock
 from flask import Flask
-from flask_cors import CORS
+from flask_socketio import SocketIO
 from urllib.parse import urlparse
-from flask import jsonify
-from flask import Response, stream_with_context
-import json
+
 import flask.cli as flask_cli
 
 logging.getLogger("werkzeug").setLevel(logging.ERROR)
+logging.getLogger("engineio").setLevel(logging.ERROR)
+logging.getLogger("socketio").setLevel(logging.ERROR)
+flask_cli.show_server_banner = lambda *args, **kwargs: None
 
 os.environ["FLASK_ENV"] = "production"
+
+try:
+    import eventlet
+    HAS_EVENTLET = True
+except ImportError:
+    HAS_EVENTLET = False
+
+socketio = None
 
 
 class ProgressState:
     def __init__(self):
         self._lock = Lock()
-        self._event = Event()
         self.data = {
             "currentFrame": 0,
             "totalFrames": 1,
@@ -28,57 +36,67 @@ class ProgressState:
         }
 
     def update(self, new_data):
+        global socketio
         with self._lock:
             self.data.update(new_data)
-        self._event.set()
+        if socketio:
+            socketio.emit("progress", self.data)
 
     def get(self):
         with self._lock:
             return self.data.copy()
 
-    def wait_for_update(self, timeout=None):
-        self._event.wait(timeout)
-        self._event.clear()
-
 
 progressState = ProgressState()
 
 app = Flask(__name__)
-CORS(app)
-
-
-@app.route("/progress", methods=["GET"])
-def get_progress():
-    return jsonify(progressState.get())
-
-
-@app.route("/progress/stream")
-def progress_stream():
-    def eventStream():
-        lastData = None
-        while True:
-            progressState.wait_for_update()
-            data = progressState.get()
-            if data != lastData:
-                yield f"data: {json.dumps(data)}\n\n"
-                lastData = data.copy()
-
-    return Response(stream_with_context(eventStream()), mimetype="text/event-stream")
 
 
 def runServer(host):
+    global socketio
+
     logging.info(f"Starting AE comms server on {host}...")
 
     parsed = urlparse(host if "://" in host else f"//{host}", scheme="http")
     hostname = parsed.hostname or "0.0.0.0"
     port = parsed.port or 8080
 
+    # Initialize SocketIO with CORS support
+    socketio = SocketIO(
+        app,
+        cors_allowed_origins="*",
+        async_mode="eventlet" if HAS_EVENTLET else "threading",
+        logger=False,
+        engineio_logger=False,
+    )
+
+    @socketio.on("connect")
+    def handle_connect():
+        logging.info("Client connected to Socket.IO")
+        socketio.emit("progress", progressState.get())
+
+    @socketio.on("disconnect")
+    def handle_disconnect():
+        logging.info("Client disconnected from Socket.IO")
+
+    @socketio.on("cancel")
+    def handle_cancel():
+        logging.info("Cancel request received from client")
+
     logging.info(f"AE Comms Server running on {hostname}:{port}")
-    flask_cli.show_server_banner = lambda *args, **kwargs: None
-    app.run(host=hostname, port=port, debug=False, threaded=True, use_reloader=False)
+    socketio.run(
+        app,
+        host=hostname,
+        port=port,
+        debug=False,
+        use_reloader=False,
+        allow_unsafe_werkzeug=True,
+    )
 
 
 def startServerInThread(host):
+    from threading import Thread
+
     serverThread = Thread(target=runServer, args=(host,))
     serverThread.daemon = True
     serverThread.start()
