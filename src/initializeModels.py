@@ -608,8 +608,6 @@ def initializeModels(self):
                 | "saryn-openvino"
                 | "fallin_soft-openvino"
                 | "fallin_strong-openvino"
-                | "animesr-openvino"
-                | "animesr-directml"
             ):
                 from src.unifiedUpscale import UniversalDirectML
 
@@ -620,6 +618,16 @@ def initializeModels(self):
                     self.width,
                     self.height,
                     self.customModel,
+                )
+
+            case "animesr-openvino" | "animesr-directml":
+                from src.unifiedUpscale import AnimeSRDirectML
+
+                upscaleProcess = AnimeSRDirectML(
+                    self.upscaleMethod,
+                    self.half,
+                    self.width,
+                    self.height,
                 )
 
             case "shufflecugan-ncnn" | "span-ncnn":

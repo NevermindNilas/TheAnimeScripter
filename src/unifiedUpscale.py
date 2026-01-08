@@ -11,6 +11,12 @@ checker = CudaChecker()
 
 torch.set_float32_matmul_precision("medium")
 
+def calculatePadding(width, height, multiple=4):
+    padW = (multiple - (width % multiple)) % multiple
+    padH = (multiple - (height % multiple)) % multiple
+    return (0, padW, 0, padH)
+
+
 
 class UniversalPytorch:
     def __init__(
@@ -584,6 +590,204 @@ class UniversalDirectML:
         pass
 
 
+class AnimeSRDirectML:
+    """
+    AnimeSR DirectML/OpenVINO implementation with 5-input architecture.
+    This handles the multi-input/multi-output nature of AnimeSR.
+    """
+
+    def __init__(
+        self,
+        upscaleMethod: str,
+        half: bool,
+        width: int,
+        height: int,
+    ):
+        import onnxruntime as ort
+        import numpy as np
+
+        if "openvino" in upscaleMethod:
+            logAndPrint(
+                "OpenVINO backend is an experimental feature, please report any issues you encounter.",
+                "yellow",
+            )
+            import openvino  # noqa: F401
+
+        self.ort = ort
+        self.np = np
+        self.ort.set_default_logger_severity(3)
+
+        self.upscaleMethod = upscaleMethod
+        self.half = half
+        self.width = width
+        self.height = height
+
+        # Calculate padding to align to 4
+        self.padding = calculatePadding(width, height, 4)
+        self.paddedHeight = self.padding[3] + height + self.padding[2]
+        self.paddedWidth = self.padding[1] + width + self.padding[0]
+
+        self.handleModel()
+
+    def handleModel(self):
+        method = self.upscaleMethod
+        if "openvino" in self.upscaleMethod:
+            method = method.replace("openvino", "directml")
+
+        filename = modelsMap(method, modelType="onnx")
+        if "directml" in self.upscaleMethod:
+            folderName = self.upscaleMethod.replace("directml", "-onnx")
+        elif "openvino" in self.upscaleMethod:
+            folderName = self.upscaleMethod.replace("openvino", "-onnx")
+
+        if not os.path.exists(os.path.join(weightsDir, folderName, filename)):
+            modelPath = downloadModels(
+                model=method,
+                modelType="onnx",
+                half=self.half,
+            )
+        else:
+            modelPath = os.path.join(weightsDir, folderName, filename)
+
+        providers = self.ort.get_available_providers()
+
+        if "DmlExecutionProvider" in providers and "directml" in self.upscaleMethod:
+            logging.info("DirectML provider available. Defaulting to DirectML")
+            self.model = self.ort.InferenceSession(
+                modelPath, providers=["DmlExecutionProvider"]
+            )
+        elif "OpenVINOExecutionProvider" in providers and "openvino" in self.upscaleMethod:
+            logging.info("Using OpenVINO model")
+            self.model = self.ort.InferenceSession(
+                modelPath, providers=["OpenVINOExecutionProvider"]
+            )
+        else:
+            logging.info(
+                "DirectML/OpenVINO provider not available, falling back to CPU"
+            )
+            self.model = self.ort.InferenceSession(
+                modelPath, providers=["CPUExecutionProvider"]
+            )
+
+        self.deviceType = "cpu"
+        self.device = torch.device(self.deviceType)
+
+        if self.half:
+            self.numpyDType = self.np.float16
+            self.torchDType = torch.float16
+        else:
+            self.numpyDType = self.np.float32
+            self.torchDType = torch.float32
+
+        # Create buffers for the 5-input architecture
+        self.prevFrame = torch.zeros(
+            (1, 3, self.paddedHeight, self.paddedWidth),
+            device=self.deviceType,
+            dtype=self.torchDType,
+        ).contiguous()
+        self.currFrame = torch.zeros(
+            (1, 3, self.paddedHeight, self.paddedWidth),
+            device=self.deviceType,
+            dtype=self.torchDType,
+        ).contiguous()
+        self.nextFrame = torch.zeros(
+            (1, 3, self.paddedHeight, self.paddedWidth),
+            device=self.deviceType,
+            dtype=self.torchDType,
+        ).contiguous()
+        self.fb = torch.zeros(
+            (1, 3, self.paddedHeight * 4, self.paddedWidth * 4),
+            device=self.deviceType,
+            dtype=self.torchDType,
+        ).contiguous()
+        self.state = torch.zeros(
+            (1, 64, self.height, self.width),
+            device=self.deviceType,
+            dtype=self.torchDType,
+        ).contiguous()
+
+        # Output buffers
+        self.outImg = torch.zeros(
+            (1, 3, self.paddedHeight * 4, self.paddedWidth * 4),
+            device=self.deviceType,
+            dtype=self.torchDType,
+        ).contiguous()
+        self.outState = torch.zeros(
+            (1, 64, self.height, self.width),
+            device=self.deviceType,
+            dtype=self.torchDType,
+        ).contiguous()
+
+        self.firstRun = True
+        self.modelPath = modelPath
+
+    def padFrame(self, frame: torch.tensor) -> torch.tensor:
+        return torch.nn.functional.pad(frame, self.padding, mode="reflect")
+
+    def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
+        if self.half:
+            frame = frame.half()
+        else:
+            frame = frame.float()
+
+        paddedFrame = self.padFrame(frame).cpu()
+        self.currFrame.copy_(paddedFrame.contiguous())
+
+        if self.firstRun:
+            self.prevFrame.copy_(paddedFrame.contiguous())
+            self.firstRun = False
+
+        if nextFrame is None:
+            self.nextFrame.copy_(paddedFrame.contiguous())
+        else:
+            if self.half:
+                nextFrame = nextFrame.half()
+            else:
+                nextFrame = nextFrame.float()
+            paddedNextFrame = self.padFrame(nextFrame).cpu()
+            self.nextFrame.copy_(paddedNextFrame.contiguous())
+
+        # Run inference
+        outputs = self.model.run(
+            ["out_img", "out_state"],
+            {
+                "prev_frame": self.prevFrame.numpy(),
+                "curr_frame": self.currFrame.numpy(),
+                "next_frame": self.nextFrame.numpy(),
+                "fb": self.fb.numpy(),
+                "state": self.state.numpy(),
+            },
+        )
+
+        self.outImg = torch.from_numpy(outputs[0])
+        self.outState = torch.from_numpy(outputs[1])
+
+        # Update state and fb for next frame
+        self.state.copy_(self.outState)
+        self.fb.copy_(self.outImg)
+        self.prevFrame.copy_(paddedFrame.contiguous())
+
+        # Resize output from 4x to 2x
+        output = torch.nn.functional.interpolate(
+            self.outImg,
+            size=(self.height * 2, self.width * 2),
+            mode="bicubic",
+            align_corners=False,
+        )
+
+        return output
+
+    def frameReset(self):
+        self.prevFrame.zero_()
+        self.currFrame.zero_()
+        self.nextFrame.zero_()
+        self.fb.zero_()
+        self.state.zero_()
+        self.outImg.zero_()
+        self.outState.zero_()
+        self.firstRun = True
+
+
 class UniversalNCNN:
     def __init__(self, upscaleMethod, upscaleFactor):
         self.upscaleMethod = upscaleMethod
@@ -800,7 +1004,9 @@ class AnimeSR:
 
         with torch.cuda.stream(self.outputStream):
             self.dummyOutput, state = self.model(
-                torch.cat((self.prevFrame, frame, self.nextFrame), dim=1),
+                self.prevFrame,
+                frame,
+                self.nextFrame,
                 self.dummyOutput,
                 self.state,
             )
@@ -921,29 +1127,18 @@ class AnimeSRTensorRT:
             or self.context is None
             or not os.path.exists(enginePath)
         ):
+            # 3 separate frame inputs instead of concatenated x (9 channels)
+            # This allows TensorRT to fuse the concatenation operation
             inputs = [
-                [
-                    1,
-                    9,
-                    self.paddedHeight,
-                    self.paddedWidth,
-                ],
-                [
-                    1,
-                    3,
-                    self.paddedHeight * 4,
-                    self.paddedWidth * 4,
-                ],
-                [
-                    1,
-                    64,
-                    self.height,
-                    self.width,
-                ],
+                [1, 3, self.paddedHeight, self.paddedWidth],  # prev_frame
+                [1, 3, self.paddedHeight, self.paddedWidth],  # curr_frame
+                [1, 3, self.paddedHeight, self.paddedWidth],  # next_frame
+                [1, 3, self.paddedHeight * 4, self.paddedWidth * 4],  # fb
+                [1, 64, self.height, self.width],  # state
             ]
 
             inputsMin = inputsOpt = inputsMax = inputs
-            inputNames = ["x", "fb", "state"]
+            inputNames = ["prev_frame", "curr_frame", "next_frame", "fb", "state"]
 
             self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
@@ -957,6 +1152,11 @@ class AnimeSRTensorRT:
             )
 
         self.prevFrame = torch.zeros(
+            (1, 3, self.paddedHeight, self.paddedWidth),
+            device=checker.device,
+            dtype=torch.float16 if self.half else torch.float32,
+        ).contiguous()
+        self.currFrame = torch.zeros(
             (1, 3, self.paddedHeight, self.paddedWidth),
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
@@ -984,12 +1184,10 @@ class AnimeSRTensorRT:
             dtype=torch.float16 if self.half else torch.float32,
         )
 
-        self.dummyInput = torch.cat(
-            (self.prevFrame, self.prevFrame, self.nextFrame), dim=1
-        )
-
         self.bindings = {
-            "x": self.dummyInput.data_ptr(),
+            "prev_frame": self.prevFrame.data_ptr(),
+            "curr_frame": self.currFrame.data_ptr(),
+            "next_frame": self.nextFrame.data_ptr(),
             "fb": self.dummyOutput.data_ptr(),
             "state": self.state.data_ptr(),
             "out_img": self.dummyOutput.data_ptr(),
@@ -999,9 +1197,15 @@ class AnimeSRTensorRT:
         for i in range(self.engine.num_io_tensors):
             tensor_name = self.engine.get_tensor_name(i)
 
-            if tensor_name == "x":
-                self.context.set_tensor_address(tensor_name, self.bindings["x"])
-                self.context.set_input_shape(tensor_name, self.dummyInput.shape)
+            if tensor_name == "prev_frame":
+                self.context.set_tensor_address(tensor_name, self.bindings["prev_frame"])
+                self.context.set_input_shape(tensor_name, self.prevFrame.shape)
+            elif tensor_name == "curr_frame":
+                self.context.set_tensor_address(tensor_name, self.bindings["curr_frame"])
+                self.context.set_input_shape(tensor_name, self.currFrame.shape)
+            elif tensor_name == "next_frame":
+                self.context.set_tensor_address(tensor_name, self.bindings["next_frame"])
+                self.context.set_input_shape(tensor_name, self.nextFrame.shape)
             elif tensor_name == "fb":
                 self.context.set_tensor_address(tensor_name, self.bindings["fb"])
                 self.context.set_input_shape(tensor_name, self.dummyOutput.shape)
@@ -1024,49 +1228,36 @@ class AnimeSRTensorRT:
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
-        if self.firstRun:
-            with torch.cuda.stream(self.normStream):
-                paddedFrame = self.padFrame(frame)
+        with torch.cuda.stream(self.normStream):
+            paddedFrame = self.padFrame(frame)
+            # Copy current frame to currFrame buffer
+            self.currFrame.copy_(
+                paddedFrame.to(dtype=self.dtype),
+                non_blocking=False,
+            )
+
+            if self.firstRun:
+                # On first run, prevFrame = currFrame
                 self.prevFrame.copy_(
                     paddedFrame.to(dtype=self.dtype),
                     non_blocking=False,
                 )
-                if nextFrame is None:
-                    self.nextFrame.copy_(
-                        paddedFrame.to(dtype=self.dtype),
-                        non_blocking=False,
-                    )
-                else:
-                    paddedNextFrame = self.padFrame(nextFrame)
-                    self.nextFrame.copy_(
-                        paddedNextFrame.to(dtype=self.dtype),
-                        non_blocking=False,
-                    )
-            self.normStream.synchronize()
-            self.firstRun = False
-        else:
-            with torch.cuda.stream(self.normStream):
-                paddedFrame = self.padFrame(frame)
-                if nextFrame is None:
-                    self.nextFrame.copy_(
-                        paddedFrame.to(dtype=self.dtype),
-                        non_blocking=False,
-                    )
-                else:
-                    paddedNextFrame = self.padFrame(nextFrame)
-                    self.nextFrame.copy_(
-                        paddedNextFrame.to(dtype=self.dtype),
-                        non_blocking=False,
-                    )
-            self.normStream.synchronize()
+                self.firstRun = False
 
-        with torch.cuda.stream(self.normStream):
-            self.dummyInput.copy_(
-                torch.cat((self.prevFrame, paddedFrame, self.nextFrame), dim=1),
-                non_blocking=False,
-            )
+            if nextFrame is None:
+                self.nextFrame.copy_(
+                    paddedFrame.to(dtype=self.dtype),
+                    non_blocking=False,
+                )
+            else:
+                paddedNextFrame = self.padFrame(nextFrame)
+                self.nextFrame.copy_(
+                    paddedNextFrame.to(dtype=self.dtype),
+                    non_blocking=False,
+                )
         self.normStream.synchronize()
 
+        # TensorRT execution - no torch.cat needed, TRT receives separate buffers
         with torch.cuda.stream(self.outputStream):
             self.context.execute_async_v3(stream_handle=self.outputStream.cuda_stream)
         self.outputStream.synchronize()
@@ -1090,6 +1281,7 @@ class AnimeSRTensorRT:
     def frameReset(self):
         with torch.cuda.stream(self.normStream):
             self.prevFrame.zero_()
+            self.currFrame.zero_()
             self.nextFrame.zero_()
             self.state.zero_()
             self.stateOutput.zero_()

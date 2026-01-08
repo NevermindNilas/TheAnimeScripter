@@ -193,19 +193,23 @@ class MSRSWVSR(nn.Module):
         self.pixel_unshuffle = MyPixelUnshuffle(netscale)
         self.netscale = netscale
 
-    def forward(self, x, fb, state):
+    def forward(self, prev_frame, curr_frame, next_frame, fb, state):
         """
         Args:
-            x: input low-resolution frames, [B, 3, H, W]
-            fb: previous super-resolved frame, [B, 3*netscale*netscale, H/netscale, W/netscale]
-            state: previous hidden state, [B, num_feat, H/netscale, W/netscale]
+            prev_frame: previous low-resolution frame, [B, 3, H, W]
+            curr_frame: current low-resolution frame, [B, 3, H, W]
+            next_frame: next low-resolution frame, [B, 3, H, W]
+            fb: previous super-resolved frame, [B, 3, H*netscale, W*netscale]
+            state: previous hidden state, [B, num_feat, H, W]
         Returns:
-
             out_img: current super-resolved frame, [B, 3, H*netscale, W*netscale]
-            out_state: current hidden state, [B, num_feat, H/netscale, W/netscale]
+            out_state: current hidden state, [B, num_feat, H, W]
         """
+        # Concatenate the 3 frames along channel dimension inside the model
+        # This allows TensorRT to fuse this operation and avoids Python-side torch.cat overhead
+        x = torch.cat((prev_frame, curr_frame, next_frame), dim=1)
 
-        res = x[:, 3:6]
+        res = curr_frame
         # pre frame, cur frame, nxt frame, pre sr frame, pre hidden state
         inp = torch.cat((x, self.pixel_unshuffle(fb), state), dim=1)
         # the out contains both state and sr frame

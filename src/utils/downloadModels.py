@@ -808,6 +808,14 @@ def modelsMap(
             else:
                 return "depth_anything_v3_vitg_fp32.onnx"
 
+        case "tlbvfi":
+            if modelType == "unet":
+                return "vimeo_unet.pth"
+            elif modelType == "vqgan":
+                return "vimeo_new.ckpt"
+            else:
+                return "vimeo_unet.pth"  # Default to unet
+
         case _:
             raise ValueError(f"Model {model} not found.")
 

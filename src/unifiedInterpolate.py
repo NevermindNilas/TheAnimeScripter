@@ -750,19 +750,14 @@ class RifeTensorRT:
             else:
                 t = (i + 1) * 1 / (framesToInsert + 1)
 
-            timestep = torch.full(
-                (1, 1, self.ph, self.pw),
-                t,
-                dtype=self.dtype,
-                device=checker.device,
-            )
+            self.dummyTimeStep.fill_(t)
 
-            self.processFrame(timestep, "timestep")
+            self.processFrame(self.dummyTimeStep, "timestep")
             with torch.cuda.stream(self.stream):
                 self.cudaGraph.replay()
             self.stream.synchronize()
             with torch.cuda.stream(self.outputStream):
-                output = self.dummyOutput.clone().detach()
+                output = self.dummyOutput.clone()
             self.outputStream.synchronize()
             interpQueue.put(output)
 

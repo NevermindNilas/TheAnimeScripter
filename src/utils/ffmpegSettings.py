@@ -5,6 +5,7 @@ import torch
 import src.constants as cs
 import time
 import celux
+import threading
 
 from queue import Queue
 from torch.nn import functional as F
@@ -53,6 +54,7 @@ class BuildBuffer:
         self.height = height
         self.resize = resize
         self.isFinished = False
+        self._frameAvailable = threading.Event()
         self.bitDepth = bitDepth
         self.videoInput = os.path.normpath(videoInput)
         self.toTorch = toTorch
@@ -62,7 +64,6 @@ class BuildBuffer:
         if not os.path.exists(videoInput):
             raise FileNotFoundError(f"Video file not found: {videoInput}")
 
-        # Determine device and create CUDA stream if possible; gracefully fall back on failure
         self.cudaEnabled = False
         if checker.cudaAvailable:
             try:
@@ -105,12 +106,14 @@ class BuildBuffer:
                     pass
 
                 self.decodeBuffer.put(frame)
+                self._frameAvailable.set()
                 decodedFrames += 1
 
         except Exception as e:
             logging.error(f"Decoding error: {e}")
         finally:
             self.decodeBuffer.put(None)
+            self._frameAvailable.set()
 
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
@@ -150,7 +153,6 @@ class BuildBuffer:
                     )
                 else:
                     frame = frame.unsqueeze(0)
-tting frame in queue for consumer
             if normStream is not None:
                 normStream.synchronize()
             return frame
@@ -204,7 +206,8 @@ tting frame in queue for consumer
             if self.isFinished:
                 return None
 
-            time.sleep(0.001)
+            self._frameAvailable.wait(timeout=0.1)
+            self._frameAvailable.clear()
 
     def isReadFinished(self) -> bool:
         """
@@ -603,10 +606,10 @@ class WriteBuffer:
 
 
             useCuda = False
-            normStream = None
+            transferStream = None
             if checker.cudaAvailable:
                 try:
-                    normStream = torch.cuda.Stream()
+                    transferStream = torch.cuda.Stream()
                     useCuda = True
                 except Exception as e:
                     logging.warning(
@@ -623,17 +626,31 @@ class WriteBuffer:
                 cwd=cs.MAINPATH,
             )
 
-            while True:
-                try:
-                    frame = self.writeBuffer.get(timeout=1.0)
-                except Exception:
-                    time.sleep(0.001)
-                    continue
-                if frame is None:
-                    break
+            if useCuda:
+                frameShape = (self.height, self.width, self.channels)
+                pinnedBuffers = [
+                    torch.empty(frameShape, dtype=dtype, pin_memory=True),
+                    torch.empty(frameShape, dtype=dtype, pin_memory=True),
+                ]
+                transferEvents = [torch.cuda.Event(), torch.cuda.Event()]
+                bufferIdx = 0
+                pendingBuffer = None
+                pendingEvent = None
 
-                if useCuda:
-                    with torch.cuda.stream(normStream):
+                while True:
+                    try:
+                        frame = self.writeBuffer.get(timeout=1.0)
+                    except Exception:
+                        time.sleep(0.001)
+                        continue
+                    if frame is None:
+                        if pendingBuffer is not None:
+                            pendingEvent.synchronize()
+                            ffmpegProc.stdin.write(memoryview(pendingBuffer.numpy()))
+                            writtenFrames += 1
+                        break
+
+                    with torch.cuda.stream(transferStream):
                         if needsResize:
                             frame = F.interpolate(
                                 frame,
@@ -642,20 +659,39 @@ class WriteBuffer:
                                 align_corners=False,
                             )
 
-                        frameTensor = (
+                        gpuTensor = (
                             frame.squeeze(0)
                             .permute(1, 2, 0)
                             .mul(multiplier)
                             .clamp(0, multiplier)
                             .to(dtype)
                             .contiguous()
-                            .cpu()
                         )
 
-                    ffmpegProc.stdin.write(memoryview(frameTensor.numpy()))
-                    writtenFrames += 1
+                        currentBuffer = pinnedBuffers[bufferIdx]
+                        currentBuffer.copy_(gpuTensor, non_blocking=True)
+                        currentEvent = transferEvents[bufferIdx]
+                        currentEvent.record(transferStream)
 
-                else:
+                    if pendingBuffer is not None:
+                        pendingEvent.synchronize()
+                        ffmpegProc.stdin.write(memoryview(pendingBuffer.numpy()))
+                        writtenFrames += 1
+
+                    pendingBuffer = currentBuffer
+                    pendingEvent = currentEvent
+                    bufferIdx = 1 - bufferIdx
+
+            else:
+                while True:
+                    try:
+                        frame = self.writeBuffer.get(timeout=1.0)
+                    except Exception:
+                        time.sleep(0.001)
+                        continue
+                    if frame is None:
+                        break
+
                     if needsResize:
                         frame = F.interpolate(
                             frame,
