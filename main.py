@@ -127,6 +127,7 @@ class VideoProcessor:
         self.customModel: str = args.custom_model
         self.benchmark: bool = args.benchmark
         self.preview: bool = args.preview
+        self.profile: bool = args.profile
 
     def _initVideoMetadata(self, args) -> None:
         """
@@ -389,6 +390,7 @@ class VideoProcessor:
                     self.processFrame(frame)
                     frameCount += 1
                     bar(increment)
+
                     if self.readBuffer.isReadFinished():
                         if self.readBuffer.isQueueEmpty():
                             bar.updateTotal(newTotal=frameCount * increment)
@@ -475,10 +477,14 @@ class VideoProcessor:
                 self.preview = Preview(previewPath=self.writeBuffer.previewPath)
                 self.preview.start()
 
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                executor.submit(self.readBuffer)
-                executor.submit(self.writeBuffer)
-                executor.submit(self.process)
+            # Run with profiler if enabled
+            if self.profile:
+                self._runWithProfiler()
+            else:
+                with ThreadPoolExecutor(max_workers=3) as executor:
+                    executor.submit(self.readBuffer)
+                    executor.submit(self.writeBuffer)
+                    executor.submit(self.process)
 
             elapsedTime: float = time() - starTime
             totalFPS: float = (
@@ -492,6 +498,58 @@ class VideoProcessor:
             )
         except Exception as e:
             logging.exception(f"Something went wrong while starting the processes, {e}")
+
+    def _runWithProfiler(self):
+        """
+        Run the processing pipeline with torch.profiler enabled.
+        Uses a simplified approach compatible with multi-threaded execution on Windows.
+        """
+        import torch
+        from torch.profiler import profile, ProfilerActivity
+
+        profilePath = os.path.join(cs.MAINPATH, "profiler_trace")
+        os.makedirs(profilePath, exist_ok=True)
+
+        logAndPrint(
+            f"Profiling enabled. Trace will be saved to: {profilePath}",
+            colorFunc="cyan",
+        )
+
+        activities = [ProfilerActivity.CPU]
+        try:
+            if torch.cuda.is_available():
+                activities.append(ProfilerActivity.CUDA)
+        except Exception:
+            pass
+
+        with profile(
+            activities=activities,
+            record_shapes=True,
+            profile_memory=True,
+            with_stack=False,
+        ) as prof:
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.readBuffer)
+                executor.submit(self.writeBuffer)
+                executor.submit(self.process)
+
+        traceFile = os.path.join(profilePath, "trace.json")
+        prof.export_chrome_trace(traceFile)
+
+
+        logAndPrint("\n=== Profiler Summary (Top 20 by CUDA time) ===", colorFunc="cyan")
+        try:
+            sortKey = "cuda_time_total" if torch.cuda.is_available() else "cpu_time_total"
+            summary = prof.key_averages().table(sort_by=sortKey, row_limit=20)
+            print(summary)
+            logging.info(f"Profiler Summary:\n{summary}")
+        except Exception as e:
+            logging.warning(f"Could not print profiler summary: {e}")
+
+        logAndPrint(
+            f"\nTrace saved to: {traceFile}\n",
+            colorFunc="green",
+        )
 
 
 def main():

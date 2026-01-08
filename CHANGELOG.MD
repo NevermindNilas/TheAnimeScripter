@@ -3,6 +3,31 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [2.5.6] - YYYY-MM-DD
+### New
+- Increased ENCODING performance by up to 10% for most CPU workloads and by UP to 20% for NVIDIA NVENC workloads.
+
+SUC-TensorRT, 1080p, 3090
+
+Before optimizations: ~70 FPS with NVENC
+After memoryview: ~86 FPS
+After hwupload_cuda: ~93 FPS
+
+### Changed
+- Optimized the way the backend handles the encoding process.
+
+### Fixed
+- N/A
+
+### Removed
+- N/A
+
+---
+
+### Adobe Edition
+- N/A
+
+
 ## [2.5.5] - 2026-01-07
 ### New
 - Added `socket-io` comms to the backend facilitating the development of the Adobe Edition.

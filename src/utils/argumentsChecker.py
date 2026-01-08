@@ -731,6 +731,11 @@ def _addMiscOptions(argParser):
         "--benchmark", action="store_true", help="Benchmark the script"
     )
     miscGroup.add_argument(
+        "--profile",
+        action="store_true",
+        help="Enable torch.profiler to analyze GPU/CPU performance bottlenecks",
+    )
+    miscGroup.add_argument(
         "--offline",
         type=str,
         nargs="*",
