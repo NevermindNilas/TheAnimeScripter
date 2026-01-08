@@ -7,3 +7,4 @@ All notable changes to this project will be documented in this file.
 - Added BasicSR and all its dependencies directly into the project to avoid external dependencies.
 - Updated the inference base class to align with TAS's architecture and coding standards.
 - Simplified model forward function calls to improve performance and simplicity.
+- Removed the need to parse a 9 channel tensor, separating them into 3 channels each.
