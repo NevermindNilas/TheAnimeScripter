@@ -133,16 +133,13 @@ class BuildBuffer:
                     frame = frame.pin_memory()
                 except Exception:
                     pass
-                frame = (
-                    frame.to(
-                        device="cuda",
-                        non_blocking=True,
-                        dtype=torch.float16 if self.half else torch.float32,
-                    )
-                    .permute(2, 0, 1)
-                    .mul(norm)
-                    .clamp(0, 1)
-                )
+                frame = frame.to(
+                    device="cuda",
+                    non_blocking=True,
+                    dtype=torch.float16 if self.half else torch.float32,
+                ).permute(2, 0, 1)
+                frame.mul_(norm)
+                frame.clamp_(0, 1)
 
                 if self.resize:
                     frame = F.interpolate(
@@ -153,7 +150,7 @@ class BuildBuffer:
                     )
                 else:
                     frame = frame.unsqueeze(0)
-
+tting frame in queue for consumer
             if normStream is not None:
                 normStream.synchronize()
             return frame
@@ -163,16 +160,13 @@ class BuildBuffer:
             except Exception:
                 pass
 
-            frame = (
-                frame.to(
-                    device="cpu",
-                    non_blocking=False,
-                    dtype=torch.float16 if self.half else torch.float32,
-                )
-                .permute(2, 0, 1)
-                .mul(norm)
-                .clamp(0, 1)
-            )
+            frame = frame.to(
+                device="cpu",
+                non_blocking=False,
+                dtype=torch.float16 if self.half else torch.float32,
+            ).permute(2, 0, 1)
+            frame.mul_(norm)
+            frame.clamp_(0, 1)
 
             if self.resize:
                 frame = F.interpolate(
@@ -210,7 +204,7 @@ class BuildBuffer:
             if self.isFinished:
                 return None
 
-            time.sleep(0.01)
+            time.sleep(0.001)
 
     def isReadFinished(self) -> bool:
         """
@@ -297,7 +291,7 @@ class WriteBuffer:
         self.enablePreview = enablePreview
 
         self.writtenFrames = 0
-        self.writeBuffer = Queue(maxsize=10)
+        self.writeBuffer = Queue(maxsize=20)
 
         self.previewPath = (
             os.path.join(cs.MAINPATH, "preview.jpg") if enablePreview else None
@@ -347,8 +341,18 @@ class WriteBuffer:
             "-",
         ]
 
+    def _isNvencEncoder(self):
+        """Check if the current encode method uses NVENC"""
+        nvenc_methods = [
+            "nvenc_h264", "slow_nvenc_h264", "nvenc_h265", "slow_nvenc_h265",
+            "nvenc_h265_10bit", "nvenc_av1", "slow_nvenc_av1", "lossless_nvenc_h264"
+        ]
+        return self.encode_method in nvenc_methods
+
     def _buildEncodingCommand(self, outputPixFmt):
         """Build FFmpeg command for encoding"""
+        useHwUpload = self._isNvencEncoder() and not self.custom_encoder
+
         command = [
             cs.FFMPEGPATH,
             "-y",
@@ -356,6 +360,13 @@ class WriteBuffer:
             "-loglevel",
             "quiet",
             "-nostats",
+        ]
+
+        # Initialize CUDA device for hwupload when using NVENC
+        if useHwUpload:
+            command.extend(["-init_hw_device", "cuda=cu:0", "-filter_hw_device", "cu"])
+
+        command.extend([
             "-f",
             "rawvideo",
             "-pix_fmt",
@@ -364,7 +375,7 @@ class WriteBuffer:
             f"{self.width}x{self.height}",
             "-r",
             str(self.fps),
-        ]
+        ])
 
         if self.outpoint != 0 and not self.slowmo:
             command.extend(
@@ -437,9 +448,16 @@ class WriteBuffer:
 
             if not self.custom_encoder:
                 command.extend(matchEncoder(self.encode_method))
-                if filterList:
-                    command.extend(["-vf", ",".join(filterList)])
-                command.extend(["-pix_fmt", outputPixFmt])
+
+                if useHwUpload:
+                    hwFilters = filterList.copy() if filterList else []
+                    hwFilters.append("format=nv12")
+                    hwFilters.append("hwupload_cuda")
+                    command.extend(["-vf", ",".join(hwFilters)])
+                else:
+                    if filterList:
+                        command.extend(["-vf", ",".join(filterList)])
+                    command.extend(["-pix_fmt", outputPixFmt])
             else:
                 command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
 
@@ -549,7 +567,7 @@ class WriteBuffer:
         # Wait for at least one frame to be queued before starting encoding
         while self.writeBuffer.empty():
             try:
-                time.sleep(0.01)
+                time.sleep(0.001)
             except KeyboardInterrupt:
                 logging.warning("Encoding interrupted by user")
                 return
@@ -606,7 +624,11 @@ class WriteBuffer:
             )
 
             while True:
-                frame = self.writeBuffer.get()
+                try:
+                    frame = self.writeBuffer.get(timeout=1.0)
+                except Exception:
+                    time.sleep(0.001)
+                    continue
                 if frame is None:
                     break
 
@@ -620,18 +642,17 @@ class WriteBuffer:
                                 align_corners=False,
                             )
 
-                        GpuHWCInt = (
-                            frame.mul(multiplier)
-                            .clamp(0, multiplier)
-                            .squeeze(0)
+                        frameTensor = (
+                            frame.squeeze(0)
                             .permute(1, 2, 0)
+                            .mul(multiplier)
+                            .clamp(0, multiplier)
                             .to(dtype)
                             .contiguous()
-                        ).cpu().numpy()
+                            .cpu()
+                        )
 
-                    normStream.synchronize()
-
-                    ffmpegProc.stdin.write(GpuHWCInt)
+                    ffmpegProc.stdin.write(memoryview(frameTensor.numpy()))
                     writtenFrames += 1
 
                 else:
@@ -642,18 +663,17 @@ class WriteBuffer:
                             mode="bicubic",
                             align_corners=False,
                         )
-                    CpuHWCInt = (
-                        frame.mul(multiplier)
-                        .clamp(0, multiplier)
-                        .squeeze(0)
+                    frameTensor = (
+                        frame.squeeze(0)
                         .permute(1, 2, 0)
+                        .mul(multiplier)
+                        .clamp(0, multiplier)
                         .to(dtype)
                         .contiguous()
-                    ).numpy()
+                    )
 
-                    ffmpegProc.stdin.write(CpuHWCInt)
+                    ffmpegProc.stdin.write(memoryview(frameTensor.numpy()))
                     writtenFrames += 1
-
 
             logging.info(f"Encoded {writtenFrames} frames")
 

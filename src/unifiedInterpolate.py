@@ -265,6 +265,12 @@ class RifeCuda:
         self.stream = torch.cuda.Stream()
         self.normStream = torch.cuda.Stream()
 
+        self._timestep_buffer = torch.zeros(
+            (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
+            dtype=self.dType,
+            device=checker.device,
+        )
+
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
         self.processFrame(frame, "cache")
@@ -278,13 +284,11 @@ class RifeCuda:
                     frame = frame.to(
                         device=checker.device,
                         dtype=self.dType,
-                        non_blocking=False,
+                        non_blocking=True,
                     )
                     frame = self.padFrame(frame)
-                    self.I0.copy_(
-                        frame,
-                        non_blocking=False,
-                    ).to(memory_format=torch.channels_last)
+                    self.I0.copy_(frame, non_blocking=True)
+                # Sync only when data must be ready for inference
                 self.normStream.synchronize()
 
             case "I1":
@@ -292,22 +296,19 @@ class RifeCuda:
                     frame = frame.to(
                         device=checker.device,
                         dtype=self.dType,
-                        non_blocking=False,
+                        non_blocking=True,
                     )
                     frame = self.padFrame(frame)
-                    self.I1.copy_(
-                        frame,
-                        non_blocking=False,
-                    ).to(memory_format=torch.channels_last)
+                    self.I1.copy_(frame, non_blocking=True)
+                # Sync only when data must be ready for inference
                 self.normStream.synchronize()
+
             case "cache":
                 with torch.cuda.stream(self.normStream):
-                    self.I0.copy_(
-                        self.I1,
-                        non_blocking=False,
-                    )
+                    self.I0.copy_(self.I1, non_blocking=True)
                     self.model.cache()
                 self.normStream.synchronize()
+
             case "infer":
                 with torch.cuda.stream(self.normStream):
                     if self.staticStep:
@@ -346,13 +347,9 @@ class RifeCuda:
             else:
                 t = (i + 1) * 1 / (framesToInsert + 1)
 
-            timestep = torch.full(
-                (1, 1, self.height + self.padding[3], self.width + self.padding[1]),
-                t,
-                dtype=self.dType,
-                device=checker.device,
-            )
-            output = self.processFrame(timestep, "infer")
+            # Use pre-allocated buffer and fill in-place
+            self._timestep_buffer.fill_(t)
+            output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
 
         self.processFrame(None, "cache")

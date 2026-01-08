@@ -207,11 +207,7 @@ class UniversalPytorch:
                 )
             self.stream.synchronize()
 
-        with torch.cuda.stream(self.outputStream):
-            output = self.dummyOutput.clone()
-        self.outputStream.synchronize()
-
-        return output
+        return self.dummyOutput.clone()
 
     def frameReset(self):
         pass
@@ -374,11 +370,9 @@ class UniversalTensorRT:
             self.cudaGraph.replay()
         self.stream.synchronize()
 
-        with torch.cuda.stream(self.outputStream):
-            output = self.dummyOutput.clone()
-        self.outputStream.synchronize()
-
-        return output
+        # Clone is required because dummyOutput is reused by CUDA graph
+        # Skip extra stream - sync already happened above
+        return self.dummyOutput.clone()
 
     def frameReset(self):
         pass
