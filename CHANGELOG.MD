@@ -32,6 +32,7 @@ After hwupload_cuda: ~93 FPS
 ### New
 - Added `socket-io` comms to the backend facilitating the development of the Adobe Edition.
 - Added a `CPU` fallback for all DirectML / OpenVino accelerators.
+- Added new Segment ( Background removal ) options, namely `anime-directml` and `anime-openvino`.
 
 ### Changed
 - Changed the way the commands get parsed to the backend, you are no longer required to use `--upscale --upscale_method`, you can simply use `--upscale_method` ( the same applies to other options, like --interpolate or --depth )
@@ -63,8 +64,6 @@ After hwupload_cuda: ~93 FPS
 
 ### Removed
 - The Logs tab.
-
-
 
 ## [2.5.4] - 2026-01-03
 ### New
