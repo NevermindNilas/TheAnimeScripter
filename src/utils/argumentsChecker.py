@@ -800,6 +800,7 @@ def _autoEnableParentFlags(args):
         "scenechange_method": ("scenechange", "maxxvit-directml"),
         "depth_method": ("depth", "small_v2"),
         "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
+        "resize_factor": ("resize", 2),
     }
 
     for methodArg, (parentFlag, defaultValue) in methodToFlagMapping.items():
