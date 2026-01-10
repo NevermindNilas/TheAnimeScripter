@@ -61,7 +61,7 @@ class BuildBuffer:
         self.inpoint = inpoint
         self.outpoint = outpoint
 
-        if not os.path.exists(videoInput):
+        if "%" not in videoInput and not os.path.exists(videoInput):
             raise FileNotFoundError(f"Video file not found: {videoInput}")
 
         self.cudaEnabled = False
@@ -91,11 +91,15 @@ class BuildBuffer:
         try:
             if self.inpoint > 0 or self.outpoint > 0:
                 reader = celux.VideoReader(
-                    self.videoInput, decode_accelerator=self.decodeMethod, backend=self.backend
+                    self.videoInput,
+                    decode_accelerator=self.decodeMethod,
+                    backend=self.backend,
                 )([float(self.inpoint), float(self.outpoint)])
             else:
                 reader = celux.VideoReader(
-                    self.videoInput, decode_accelerator=self.decodeMethod, backend=self.backend
+                    self.videoInput,
+                    decode_accelerator=self.decodeMethod,
+                    backend=self.backend,
                 )
             for frame in reader:
                 if self.toTorch:
@@ -276,6 +280,19 @@ class WriteBuffer:
         self.input = input
         self.output = os.path.normpath(output)
         self.encode_method = encode_method
+
+        if self.encode_method == "png" and "%" not in self.output:
+            # Check if it has an extension
+            _, ext = os.path.splitext(self.output)
+            if not ext:
+                # It's likely a directory
+                self.output = os.path.join(self.output, "%08d.png")
+            else:
+                # It's a file path, assume we want a sequence in the same dir
+                # If it's something like "video.mp4", switch to "video_%08d.png"
+                base, _ = os.path.splitext(self.output)
+                self.output = f"{base}_%08d.png"
+
         self.custom_encoder = custom_encoder
         self.grayscale = grayscale
         self.width = width
@@ -347,8 +364,14 @@ class WriteBuffer:
     def _isNvencEncoder(self):
         """Check if the current encode method uses NVENC"""
         nvenc_methods = [
-            "nvenc_h264", "slow_nvenc_h264", "nvenc_h265", "slow_nvenc_h265",
-            "nvenc_h265_10bit", "nvenc_av1", "slow_nvenc_av1", "lossless_nvenc_h264"
+            "nvenc_h264",
+            "slow_nvenc_h264",
+            "nvenc_h265",
+            "slow_nvenc_h265",
+            "nvenc_h265_10bit",
+            "nvenc_av1",
+            "slow_nvenc_av1",
+            "lossless_nvenc_h264",
         ]
         return self.encode_method in nvenc_methods
 
@@ -369,16 +392,18 @@ class WriteBuffer:
         if useHwUpload:
             command.extend(["-init_hw_device", "cuda=cu:0", "-filter_hw_device", "cu"])
 
-        command.extend([
-            "-f",
-            "rawvideo",
-            "-pix_fmt",
-            self.inputPixFmt,
-            "-s",
-            f"{self.width}x{self.height}",
-            "-r",
-            str(self.fps),
-        ])
+        command.extend(
+            [
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                self.inputPixFmt,
+                "-s",
+                f"{self.width}x{self.height}",
+                "-r",
+                str(self.fps),
+            ]
+        )
 
         if self.outpoint != 0 and not self.slowmo:
             command.extend(
@@ -603,7 +628,6 @@ class WriteBuffer:
                 from src.utils.logAndPrint import logAndPrint
 
                 logAndPrint(f"Preview will be saved to: {self.previewPath}", "cyan")
-
 
             useCuda = False
             transferStream = None

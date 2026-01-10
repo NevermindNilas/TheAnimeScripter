@@ -460,7 +460,15 @@ def _addDedupOptions(argParser):
         "--dedup_method",
         type=str,
         default="ssim",
-        choices=["ssim", "mse", "ssim-cuda", "mse-cuda", "flownets", "vmaf", "vmaf-cuda"],
+        choices=[
+            "ssim",
+            "mse",
+            "ssim-cuda",
+            "mse-cuda",
+            "flownets",
+            "vmaf",
+            "vmaf-cuda",
+        ],
         help="Deduplication method",
     )
     dedupGroup.add_argument(
@@ -780,8 +788,6 @@ def _autoEnableParentFlags(args):
     Automatically enable parent flags when *_method arguments are provided.
     For example: --upscale_method shufflecugan will auto-enable --upscale
 
-    This allows users to simply specify the method without needing both the enable flag and method argument.
-
     Args:
         args: Parsed command line arguments
     """
@@ -802,9 +808,6 @@ def _autoEnableParentFlags(args):
 
             if currentValue != defaultValue:
                 if not getattr(args, parentFlag):
-                    logging.info(
-                        f"Auto-enabling --{parentFlag} because --{methodArg}={currentValue} was specified"
-                    )
                     setattr(args, parentFlag, True)
 
 
@@ -959,9 +962,14 @@ def argumentsChecker(args, outputPath, parser):
     elif args.input.startswith(("http", "www")):
         processURL(args, outputPath)
     elif args.input.lower().endswith((".png", ".jpg", ".jpeg")):
-        raise Exception(
-            "Image input is not supported, use Chainner for image processing"
-        )
+        if "%" in args.input:
+            logging.info(f"Image sequence pattern detected: {args.input}")
+            args.input = os.path.abspath(args.input)
+            cs.AUDIO = False
+        else:
+            raise Exception(
+                "Single image input is not supported. For image sequences, use a pattern like 'frames_%05d.png' or provide a folder containing PNG files."
+            )
     elif args.input.lower().endswith((".gif")):
         if args.encode_method != "gif":
             logging.error(
