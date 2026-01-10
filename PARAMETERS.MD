@@ -292,16 +292,18 @@ C:\Videos\episode3.mp4
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
 | **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime | CUDA, TRT, NCNN |
-| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, TRT, DML |
-| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, TRT, DML |
-| **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, TRT, DML, NCNN |
-| **compact** | ⚡ | ⭐⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML |
-| **ultracompact** | ⚡⚡ | ⭐⭐⭐ | 1GB | Very fast | CUDA, TRT, DML |
-| **superultracompact** | ⚡⚡⚡⚡ | ⭐⭐ | 1GB | Fastest | CUDA, TRT, DML |
-| **open-proteus** | ⚡ | ⭐⭐⭐⭐ | 2GB | Maximum quality | CUDA, TRT, DML |
-| **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 2GB | Modern anime | CUDA, TRT, DML |
-| **rtmosr** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Real-time focus | TRT, DML |
-| **saryn** | ⚡⚡ | ⭐⭐⭐⭐ | 3GB | Anime-focused, balanced quality | CUDA, TRT, DML |
+| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, TRT |
+| **fallin_strong** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, TRT |
+| **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, TRT, DML, NCNN, OpenVINO |
+| **compact** | ⚡ | ⭐⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML, OpenVINO |
+| **ultracompact** | ⚡⚡ | ⭐⭐⭐ | 1GB | Very fast | CUDA, TRT, DML, OpenVINO |
+| **superultracompact** | ⚡⚡⚡⚡ | ⭐⭐ | 1GB | Fastest | CUDA, TRT, DML, OpenVINO |
+| **open-proteus** | ⚡ | ⭐⭐⭐⭐ | 2GB | Maximum quality | CUDA, TRT, DML, OpenVINO |
+| **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 2GB | Modern anime | CUDA, TRT, DML, OpenVINO |
+| **rtmosr** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Real-time focus | TRT, DML, OpenVINO |
+| **saryn** | ⚡⚡ | ⭐⭐⭐ | 3GB | Anime-focused, balanced quality | CUDA, TRT, DML, OpenVINO |
+| **gauss** | ⚡⚡ | ⭐⭐⭐⭐ | 2GB | DIS-based, quality focus | CUDA, TRT, DML, OpenVINO |
+| **animesr** | ⚡ | ⭐⭐⭐⭐⭐ | 4GB | High-quality restoration | CUDA, TRT, DML, OpenVINO |
 
 > **💡 Recommendation:** Use `shufflecugan-tensorrt` for balanced speed/quality, `span-tensorrt` for best quality
 
@@ -326,7 +328,7 @@ C:\Videos\episode3.mp4
 | **rife4.25-lite** | ⚡⚡⚡ | ⭐⭐ | 3GB | Balanced performance | CUDA, TRT |
 | **rife4.25-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
 | **rife4.22-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, TRT, NCNN |
-| **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice | CUDA, TRT, NCNN, DML |
+| **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice | CUDA, TRT, NCNN, DML, OpenVINO |
 | **rife4.15-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, TRT, NCNN |
 | **rife4.15** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
 | **rife4.16-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, NCNN |
@@ -360,11 +362,11 @@ C:\Videos\episode3.mp4
 | Method | Speed | Accuracy | VRAM | Best For | Acceleration |
 |--------|-------|----------|------|----------|--------------|
 | **maxxvit-tensorrt** | ⚡ | ⭐⭐⭐⭐ | 4GB | High accuracy | TensorRT |
-| **maxxvit-directml** | ⚡ | ⭐⭐⭐⭐ | 4GB | Cross-platform | DirectML |
+| **maxxvit-directml** | ⚡ | ⭐⭐⭐⭐ | 4GB | Cross-platform | DirectML, OpenVINO |
 | **differential** | ⚡⚡⚡ | ⭐⭐ | Low | Fast processing | CPU |
 | **differential-tensorrt** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | GPU accelerated | TensorRT |
 | **shift_lpips-tensorrt** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 6GB | Maximum accuracy | TensorRT |
-| **shift_lpips-directml** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Cross-platform accurate | DirectML |
+| **shift_lpips-directml** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Cross-platform accurate | DirectML, OpenVINO |
 
 **Sensitivity Guide:**
 - **20-40:** Conservative (fewer cuts, may miss quick cuts)
@@ -405,13 +407,16 @@ C:\Videos\episode3.mp4
 
 | Model | Speed | Noise Removal | Detail Recovery | Best For | Acceleration |
 |-------|-------|---------------|-----------------|----------|--------------|
-| **scunet** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | General denoising | CUDA, TRT, DML |
+| **scunet** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | General denoising | CUDA, TRT, DML, OpenVINO |
 | **nafnet** | ⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | High-quality denoising | CUDA |
 | **dpir** | ⚡ | ⭐⭐⭐ | ⭐⭐⭐ | JPEG denoising | CUDA |
 | **real-plksr** | ⚡ | ⭐⭐ | ⭐⭐⭐⭐ | JPEG artifact removal | CUDA |
-| **anime1080fixer** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Anime line enhancement | CUDA, TRT, DML |
+| **anime1080fixer** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Anime line enhancement | CUDA, TRT, DML, OpenVINO |
 | **fastlinedarken** | ⚡⚡⚡⚡⚡ | ⭐⭐| ⭐⭐ | Line darkening | CUDA, TRT |
-| **gater3** | ⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐ | Advanced denoising | CUDA, DML |
+| **gater3** | ⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐ | Advanced denoising | CUDA, DML, OpenVINO |
+| **deh264_real** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | De-H.264 artifact removal | CUDA, TRT, DML, OpenVINO |
+| **deh264_span** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | SPAN-based de-H.264 | CUDA, TRT, DML, OpenVINO |
+| **hurrdeblur** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | Deblurring | CUDA, TRT, DML, OpenVINO |
 
 ### 🎭 Segmentation & Depth
 
@@ -434,16 +439,16 @@ C:\Videos\episode3.mp4
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **small_v2** | ⚡⚡⚡⚡ | ⭐ | 2GB | General use | CUDA, TRT, DML |
-| **base_v2** | ⚡⚡⚡ | ⭐⭐ | 4GB | Better quality | CUDA, TRT, DML |
-| **large_v2** | ⚡⚡ | ⭐⭐⭐ | 6GB | Maximum quality | CUDA, TRT, DML |
+| **small_v2** | ⚡⚡⚡⚡ | ⭐ | 2GB | General use | CUDA, TRT, DML, OpenVINO |
+| **base_v2** | ⚡⚡⚡ | ⭐⭐ | 4GB | Better quality | CUDA, TRT, DML, OpenVINO |
+| **large_v2** | ⚡⚡ | ⭐⭐⭐ | 6GB | Maximum quality | CUDA, TRT, DML, OpenVINO |
 | **giant_v2** | ⚡ | ⭐⭐⭐⭐ | 10GB | Highest quality | CUDA |
-| **distill_small_v2** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML |
-| **distill_base_v2** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Balanced | CUDA, TRT, DML |
-| **distill_large_v2** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 5GB | High quality | CUDA, TRT, DML |
-| **og_small_v2** | ⚡ | ⭐⭐⭐⭐ | 3GB | Original implementation | CUDA, TRT |
-| **og_base_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 5GB | Original quality | CUDA, TRT |
-| **og_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Original maximum | CUDA, TRT |
+| **distill_small_v2** | ⚡⚡⚡⚡ | ⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML, OpenVINO |
+| **distill_base_v2** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 3GB | Balanced | CUDA, TRT, DML, OpenVINO |
+| **distill_large_v2** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 5GB | High quality | CUDA, TRT, DML, OpenVINO |
+| **og_small_v2** | ⚡ | ⭐⭐⭐⭐ | 3GB | Original implementation | CUDA, TRT, OpenVINO |
+| **og_base_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 5GB | Original quality | CUDA, TRT, OpenVINO |
+| **og_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Original maximum | CUDA, TRT, OpenVINO |
 
 ### 🎯 Object Detection
 
@@ -592,7 +597,7 @@ C:\Videos\episode3.mp4
 
 <table>
 <tr>
-<td width="33%">
+<td width="25%">
 
 **🚀 Speed Priority**
 ```bash
@@ -603,7 +608,7 @@ C:\Videos\episode3.mp4
 ```
 
 </td>
-<td width="33%">
+<td width="25%">
 
 **⚖️ Balanced**
 ```bash
@@ -615,16 +620,15 @@ C:\Videos\episode3.mp4
 ```
 
 </td>
-<td width="33%">
+<td width="25%">
 
-**🎨 Quality Priority**
+**� OpenVINO (AMD/Intel)**
 ```bash
-# Maximum quality
---upscale_method span-tensorrt
---interpolate_method rife4.25
---ensemble
---restore_method nafnet
---half False
+# Optimized for Intel/AMD
+--upscale_method span-openvino
+--interpolate_method rife4.6-openvino
+--restore_method scunet-openvino
+--half True
 ```
 
 </td>

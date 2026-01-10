@@ -325,7 +325,9 @@ def _addInterpolationOptions(argParser):
         "gmfss-tensorrt",
         "rife_elexor",
         "rife_elexor-tensorrt",
+        "rife4.6-tensorrt",
         "rife4.6-directml",
+        "rife4.6-openvino",
     ]
 
     interpolationGroup.add_argument(
@@ -431,6 +433,10 @@ def _addUpscalingOptions(argParser):
         "saryn-openvino",
         "fallin_soft-openvino",
         "fallin_strong-openvino",
+        "gauss",
+        "gauss-tensorrt",
+        "gauss-directml",
+        "gauss-openvino",
     ]
 
     upscaleGroup.add_argument(
@@ -495,7 +501,7 @@ def _addVideoProcessingOptions(argParser):
         "fastlinedarken-tensorrt",
         "gater3",
         "gater3-directml",
-        "gater3-openovino",
+        "gater3-openvino",
         "deh264_real",
         "deh264_real-tensorrt",
         "deh264_real-directml",
@@ -572,10 +578,12 @@ def _addSceneDetectionOptions(argParser):
     scenechangeMethods = [
         "maxxvit-tensorrt",
         "maxxvit-directml",
+        "maxxvit-openvino",
         "differential",
         "differential-tensorrt",
         "shift_lpips-tensorrt",
         "shift_lpips-directml",
+        "shift_lpips-openvino",
     ]
 
     sceneGroup.add_argument(
