@@ -56,6 +56,9 @@ def modelsList() -> list[str]:
         "saryn",
         "saryn-directml",
         "saryn-tensorrt",
+        "gauss",
+        "gauss-directml",
+        "gauss-tensorrt",
         "compact",
         "ultracompact",
         "superultracompact",
@@ -237,6 +240,15 @@ def modelsMap(
                     return "Saryn-V1-Lite-FP16.onnx"
                 else:
                     return "Saryn-V1-Lite-FP32.onnx"
+
+        case "gauss" | "gauss-directml" | "gauss-tensorrt":
+            if modelType == "pth":
+                return "2x_Gauss.safetensors"
+            else:
+                if half:
+                    return "2x_Gauss_fp16.onnx"
+                else:
+                    return "2x_Gauss_fp32.onnx"
 
         case "animesr" | "animesr-directml" | "animesr-tensorrt":
             if modelType == "pth":

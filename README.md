@@ -158,7 +158,8 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | OpenProteus           |   ✅   |    ✅     |    ✅     |   ❌   |
 | AniScale 2            |   ✅   |    ✅     |    ✅     |   ❌   |
 | RTMOSR                |   ❌   |    ✅     |    ✅     |   ❌   |
-| Saryn ( My own model, RTMOSR based )                |   ✅   |    ✅     |    ✅     |   ❌   |
+| Saryn ( RTMOSR based )                |   ✅   |    ✅     |    ✅     |   ❌   |
+| Gauss ( DIS based )              |   ✅   |    ✅     |    ✅     |   ❌   |
 | Custom (Spandrel)     |   ✅   |    ❌     |    ❌     |   ❌   |
 
 ### ⏱️ Interpolation Models (RIFE)
@@ -230,6 +231,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [Zarxrax](https://github.com/Zarxrax)             | Anime1080Fixer restoration   | [GitHub](https://github.com/Zarxrax)                                                   |
 | [umzi](https://github.com/umzi2)                  | RTMOSR & GaterV3 Models      | [GitHub](https://github.com/umzi2)                                                     |
 | [Phhofm](https://github.com/Phhofm/models) | DeJpeg & DeH264 restoration |
+| [Kim2091](https://github.com/Kim2091)             | DIS Architecture (Gauss)  | [DIS](https://github.com/Kim2091/DIS)                                                  |
 ****
 
 ### 🛠️ Framework & Tool Contributors

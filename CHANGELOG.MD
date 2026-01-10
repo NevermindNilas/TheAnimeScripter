@@ -11,12 +11,18 @@ SUC-TensorRT, 1080p, 3090
 
 Before optimizations: ~70 FPS with NVENC
 After memoryview: ~86 FPS
-After hwupload_cuda: ~93 FPS
+After hwupload_cuda: ~97 FPS
+
+- Added new upscale methods, "gauss", "gauss-tensorrt", "gauss-directml", "gauss-openvino".
 
 ### Changed
 - Slight tweaks to the decoding and encoding pipelines.
 - Improved the performance of .peek() and .get() methods
 - Major improvements to AnimeSR performance.
+- Bumped onnx to 1.20.1
+
+### Added
+- Added new interpolate methods, "gauss", "gauss-tensorrt", "gauss-directml", "gauss-openvino".
 
 ### Fixed
 - N/A
@@ -28,12 +34,6 @@ After hwupload_cuda: ~93 FPS
 
 ### Adobe Edition
 - N/A
-
-### IMPORTANT - AnimeSR Users
-- **Breaking Change**: AnimeSR TensorRT engines need to be regenerated due to the new 5-input architecture.
-- Delete existing AnimeSR TensorRT engine files and they will be automatically regenerated on first run.
-- New ONNX models need to be generated using `python -m src.utils.animesrOnnxExport -i path/to/AnimeSR_v2.pth`
-
 
 ## [2.5.5] - 2026-01-07
 ### New
