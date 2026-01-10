@@ -574,6 +574,7 @@ def initializeModels(self):
                 | "saryn"
                 | "fallin_soft"
                 | "fallin_strong"
+                | "gauss"
             ):
                 upscaleProcess = UniversalPytorch(
                     self.upscaleMethod,
@@ -608,6 +609,8 @@ def initializeModels(self):
                 | "saryn-openvino"
                 | "fallin_soft-openvino"
                 | "fallin_strong-openvino"
+                | "gauss-openvino"
+                | "gauss-directml"
             ):
                 from src.unifiedUpscale import UniversalDirectML
 
@@ -651,6 +654,7 @@ def initializeModels(self):
                 | "saryn-tensorrt"
                 | "fallin_soft-tensorrt"
                 | "fallin_strong-tensorrt"
+                | "gauss-tensorrt"
             ):
                 from src.unifiedUpscale import UniversalTensorRT
 
@@ -805,7 +809,7 @@ def initializeModels(self):
                     self.ensemble,
                 )
 
-            case "rife4.6-directml":
+            case "rife4.6-directml" | "rife4.6-openvino":
                 from src.unifiedInterpolate import RifeDirectML
 
                 interpolateProcess = RifeDirectML(
@@ -860,6 +864,12 @@ def initializeModels(self):
                     | "deh264_real"
                     | "deh264_span"
                     | "hurrdeblur"
+                    | "scunet-openvino"
+                    | "anime1080fixer-openvino"
+                    | "gater3-openvino"
+                    | "deh264_real-openvino"
+                    | "deh264_span-openvino"
+                    | "hurrdeblur-openvino"
                 ):
                     from src.unifiedRestore import UnifiedRestoreCuda
 
@@ -1037,6 +1047,13 @@ def initializeModels(self):
                     self.scenechangeSens,
                     self.height,
                     self.width,
+                )
+            case "maxxvit-openvino" | "shift_lpips-openvino":
+                from src.scenechange import SceneChange
+                
+                scenechangeProcess = SceneChange(
+                    self.half,
+                    self.scenechangeSens,
                 )
             case "differential-directml":
                 # from src.scenechange import DifferentialDirectML

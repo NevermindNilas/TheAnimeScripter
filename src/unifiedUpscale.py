@@ -11,11 +11,11 @@ checker = CudaChecker()
 
 torch.set_float32_matmul_precision("medium")
 
+
 def calculatePadding(width, height, multiple=4):
     padW = (multiple - (width % multiple)) % multiple
     padH = (multiple - (height % multiple)) % multiple
     return (0, padW, 0, padH)
-
 
 
 class UniversalPytorch:
@@ -81,8 +81,19 @@ class UniversalPytorch:
                 raise FileNotFoundError(
                     f"Custom model file {self.customModel} not found"
                 )
-            
-        if not self.upscaleMethod == "saryn":
+
+        if self.upscaleMethod == "saryn":
+            from src.extraArches.RTMoSR import RTMoSR
+
+            self.model = RTMoSR()
+            self.model.load_state_dict(torch.load(modelPath))
+        elif self.upscaleMethod == "gauss":
+            from src.extraArches.DIS import DIS
+            from safetensors.torch import load_file
+
+            self.model = DIS(scale=2, num_features=32, num_blocks=12)
+            self.model.load_state_dict(load_file(modelPath))
+        else:
             self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
 
             if isinstance(self.model, dict):
@@ -96,10 +107,6 @@ class UniversalPytorch:
                 self.model = self.model.model
             except Exception:
                 pass
-        else:
-            from src.extraArches.RTMoSR import RTMoSR
-            self.model = RTMoSR()
-            self.model.load_state_dict(torch.load(modelPath))
 
         self.model = (
             self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
@@ -126,7 +133,8 @@ class UniversalPytorch:
         if self.compileMode != "default":
             try:
                 if self.compileMode == "max":
-                    self.model.compile(mode="max-autotune-no-cudagraphs")
+                    print("hi")
+                    self.model.compile(mode="default")
                 elif self.compileMode == "max-graphs":
                     self.model.compile(
                         mode="max-autotune-no-cudagraphs", fullgraph=True
@@ -439,14 +447,12 @@ class UniversalDirectML:
             if "openvino" in self.upscaleMethod:
                 method = method.replace("openvino", "directml")
 
-            self.filename = modelsMap(
-                method, self.upscaleFactor, modelType="onnx"
-            )
+            self.filename = modelsMap(method, self.upscaleFactor, modelType="onnx")
             if "directml" in self.upscaleMethod:
                 folderName = self.upscaleMethod.replace("directml", "-onnx")
             elif "openvino" in self.upscaleMethod:
                 folderName = self.upscaleMethod.replace("openvino", "-onnx")
-            
+
             if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
                 modelPath = downloadModels(
                     model=method,
@@ -474,7 +480,10 @@ class UniversalDirectML:
 
         providers = self.ort.get_available_providers()
 
-        if "DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers:
+        if (
+            "DmlExecutionProvider" in providers
+            or "OpenVINOExecutionProvider" in providers
+        ):
             if "directml" in self.upscaleMethod:
                 logging.info("DirectML provider available. Defaulting to DirectML")
                 self.model = self.ort.InferenceSession(
@@ -583,7 +592,9 @@ class UniversalDirectML:
                 self._fallbackToCpu()
                 return self.__call__(frame, nextFrame)
             else:
-                logging.exception(f"Something went wrong while processing the frame, {e}")
+                logging.exception(
+                    f"Something went wrong while processing the frame, {e}"
+                )
                 raise
 
     def frameReset(self):
@@ -622,7 +633,6 @@ class AnimeSRDirectML:
         self.width = width
         self.height = height
 
-        # Calculate padding to align to 4
         self.padding = calculatePadding(width, height, 4)
         self.paddedHeight = self.padding[3] + height + self.padding[2]
         self.paddedWidth = self.padding[1] + width + self.padding[0]
@@ -656,7 +666,10 @@ class AnimeSRDirectML:
             self.model = self.ort.InferenceSession(
                 modelPath, providers=["DmlExecutionProvider"]
             )
-        elif "OpenVINOExecutionProvider" in providers and "openvino" in self.upscaleMethod:
+        elif (
+            "OpenVINOExecutionProvider" in providers
+            and "openvino" in self.upscaleMethod
+        ):
             logging.info("Using OpenVINO model")
             self.model = self.ort.InferenceSession(
                 modelPath, providers=["OpenVINOExecutionProvider"]
@@ -679,7 +692,6 @@ class AnimeSRDirectML:
             self.numpyDType = self.np.float32
             self.torchDType = torch.float32
 
-        # Create buffers for the 5-input architecture
         self.prevFrame = torch.zeros(
             (1, 3, self.paddedHeight, self.paddedWidth),
             device=self.deviceType,
@@ -706,7 +718,6 @@ class AnimeSRDirectML:
             dtype=self.torchDType,
         ).contiguous()
 
-        # Output buffers
         self.outImg = torch.zeros(
             (1, 3, self.paddedHeight * 4, self.paddedWidth * 4),
             device=self.deviceType,
@@ -747,7 +758,6 @@ class AnimeSRDirectML:
             paddedNextFrame = self.padFrame(nextFrame).cpu()
             self.nextFrame.copy_(paddedNextFrame.contiguous())
 
-        # Run inference
         outputs = self.model.run(
             ["out_img", "out_state"],
             {
@@ -1105,7 +1115,6 @@ class AnimeSRTensorRT:
         else:
             self.modelPath = os.path.join(weightsDir, folderName, self.filename)
 
-
         self.dtype = torch.float16 if self.half else torch.float32
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
@@ -1198,13 +1207,19 @@ class AnimeSRTensorRT:
             tensor_name = self.engine.get_tensor_name(i)
 
             if tensor_name == "prev_frame":
-                self.context.set_tensor_address(tensor_name, self.bindings["prev_frame"])
+                self.context.set_tensor_address(
+                    tensor_name, self.bindings["prev_frame"]
+                )
                 self.context.set_input_shape(tensor_name, self.prevFrame.shape)
             elif tensor_name == "curr_frame":
-                self.context.set_tensor_address(tensor_name, self.bindings["curr_frame"])
+                self.context.set_tensor_address(
+                    tensor_name, self.bindings["curr_frame"]
+                )
                 self.context.set_input_shape(tensor_name, self.currFrame.shape)
             elif tensor_name == "next_frame":
-                self.context.set_tensor_address(tensor_name, self.bindings["next_frame"])
+                self.context.set_tensor_address(
+                    tensor_name, self.bindings["next_frame"]
+                )
                 self.context.set_input_shape(tensor_name, self.nextFrame.shape)
             elif tensor_name == "fb":
                 self.context.set_tensor_address(tensor_name, self.bindings["fb"])

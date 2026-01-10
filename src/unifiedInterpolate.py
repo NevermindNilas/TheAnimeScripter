@@ -546,7 +546,7 @@ class RifeTensorRT:
                 output_names=outputNames,
                 dynamic_axes=dynamicAxes,
                 opset_version=22,
-                optimize=True,
+                optimize=False,
                 dynamo=False,
             )
 
@@ -915,6 +915,13 @@ class RifeDirectML:
 
         import onnxruntime as ort
 
+        if "openvino" in interpolate_method:
+            logAndPrint(
+                "OpenVINO backend is an experimental feature, please report any issues you encounter.",
+                "yellow",
+            )
+            import openvino  # noqa: F401
+
         self.ort = ort
 
         self.interpolateMethod = interpolateMethod
@@ -1086,14 +1093,20 @@ class RifeDirectML:
 
         providers = self.ort.get_available_providers()
 
-        if "DmlExecutionProvider" in providers:
-            logging.info("DirectML provider available. Defaulting to DirectML")
-            self.model = self.ort.InferenceSession(
-                self.modelPath, providers=["DmlExecutionProvider"]
-            )
+        if ("DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers):
+            if "directml" in self.interpolateMethod:
+                logging.info("DirectML provider available. Defaulting to DirectML")
+                self.model = self.ort.InferenceSession(
+                    self.modelPath, providers=["DmlExecutionProvider"]
+                )
+            elif "openvino" in self.interpolateMethod:
+                logging.info("Using OpenVINO model")
+                self.model = self.ort.InferenceSession(
+                    self.modelPath, providers=["OpenVINOExecutionProvider"]
+                )
         else:
             logging.info(
-                "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
+                "DirectML/OpenVINO provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = self.ort.InferenceSession(
                 self.modelPath, providers=["CPUExecutionProvider"]
@@ -1661,7 +1674,7 @@ class DistilDRBATensorRT:
             output_names=outputNames,
             dynamic_axes=dynamicAxes,
             opset_version=22,
-            optimize=True,
+            optimize=False,
             dynamo=False,
         )
 
