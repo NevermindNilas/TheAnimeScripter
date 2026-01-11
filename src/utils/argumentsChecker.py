@@ -803,13 +803,28 @@ def _autoEnableParentFlags(args):
         "resize_factor": ("resize", 2),
     }
 
+    cliProvided = set()
+    for a in sys.argv[1:]:
+        if a.startswith("--"):
+            name = a[2:].split("=")[0]
+            cliProvided.add(name)
+
     for methodArg, (parentFlag, defaultValue) in methodToFlagMapping.items():
         if hasattr(args, methodArg):
             currentValue = getattr(args, methodArg)
 
-            if currentValue != defaultValue:
+            providedOnCLI = (
+                methodArg in cliProvided
+                or methodArg.replace("_", "-") in cliProvided
+            )
+
+            if providedOnCLI:
                 if not getattr(args, parentFlag):
                     setattr(args, parentFlag, True)
+            else:
+                if currentValue != defaultValue:
+                    if not getattr(args, parentFlag):
+                        setattr(args, parentFlag, True)
 
 
 def argumentsChecker(args, outputPath, parser):
