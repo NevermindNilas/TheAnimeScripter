@@ -915,7 +915,7 @@ class RifeDirectML:
 
         import onnxruntime as ort
 
-        if "openvino" in interpolate_method:
+        if "openvino" in interpolateMethod:
             logAndPrint(
                 "OpenVINO backend is an experimental feature, please report any issues you encounter.",
                 "yellow",
