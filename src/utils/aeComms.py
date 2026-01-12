@@ -4,6 +4,7 @@ from threading import Lock
 from flask import Flask
 from flask_socketio import SocketIO
 from urllib.parse import urlparse
+from time import time
 
 import flask.cli as flask_cli
 
@@ -41,6 +42,26 @@ class ProgressState:
         with self._lock:
             return self.data.copy()
 
+    def setCompleted(self, outputPath=None):
+        """Emit explicit completion signal to frontend."""
+        self.update(
+            {
+                "status": "completed",
+                "outputPath": outputPath,
+            }
+        )
+        logging.info("Processing completed, status emitted to frontend")
+
+    def setFailed(self, error=None):
+        """Emit explicit failure signal to frontend."""
+        self.update(
+            {
+                "status": "failed",
+                "error": str(error) if error else "Unknown error",
+            }
+        )
+        logging.info(f"Processing failed: {error}")
+
 
 progressState = ProgressState()
 
@@ -77,6 +98,35 @@ def runServer(host):
     @socketio.on("cancel")
     def handle_cancel():
         logging.info("Cancel request received from client")
+
+    @socketio.on("handshake")
+    def handle_handshake(data):
+        """
+        Handle handshake from frontend.
+        Responds with capabilities.
+        """
+        logging.info("Handshake received")
+
+        socketio.emit(
+            "handshake_ack",
+            {
+                "capabilities": ["cancel", "progress", "heartbeat"],
+            },
+        )
+
+    @socketio.on("ping")
+    def handle_ping(data):
+        """
+        Handle heartbeat ping from frontend.
+        Responds with pong containing the original timestamp for latency calculation.
+        """
+        socketio.emit(
+            "pong",
+            {
+                "timestamp": data.get("timestamp", time()),
+                "serverTime": time(),
+            },
+        )
 
     logging.info(f"AE Comms Server running on {hostname}:{port}")
     socketio.run(

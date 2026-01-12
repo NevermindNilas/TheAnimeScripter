@@ -418,6 +418,7 @@ class VideoProcessor:
         """
         from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
         from src.utils.progressBarLogic import ProgressBarLogic
+        from src.utils.aeComms import progressState
 
         self.ProgressBarLogic = ProgressBarLogic
 
@@ -477,7 +478,6 @@ class VideoProcessor:
                 self.preview = Preview(previewPath=self.writeBuffer.previewPath)
                 self.preview.start()
 
-            # Run with profiler if enabled
             if self.profile:
                 self._runWithProfiler()
             else:
@@ -496,8 +496,14 @@ class VideoProcessor:
                 f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}",
                 colorFunc="green",
             )
+
+            if cs.ADOBE:
+                progressState.setCompleted(outputPath=self.output)
+
         except Exception as e:
             logging.exception(f"Something went wrong while starting the processes, {e}")
+            if cs.ADOBE:
+                progressState.setFailed(error=str(e))
 
     def _runWithProfiler(self):
         """
@@ -536,10 +542,13 @@ class VideoProcessor:
         traceFile = os.path.join(profilePath, "trace.json")
         prof.export_chrome_trace(traceFile)
 
-
-        logAndPrint("\n=== Profiler Summary (Top 20 by CUDA time) ===", colorFunc="cyan")
+        logAndPrint(
+            "\n=== Profiler Summary (Top 20 by CUDA time) ===", colorFunc="cyan"
+        )
         try:
-            sortKey = "cuda_time_total" if torch.cuda.is_available() else "cpu_time_total"
+            sortKey = (
+                "cuda_time_total" if torch.cuda.is_available() else "cpu_time_total"
+            )
             summary = prof.key_averages().table(sort_by=sortKey, row_limit=20)
             print(summary)
             logging.info(f"Profiler Summary:\n{summary}")
@@ -621,7 +630,8 @@ def main():
         for _, i in enumerate(results, 1):
             try:
                 logAndPrint(
-                    f"Processing video {_} of {totalVideos}: {results[i]['videoPath']}", "green"
+                    f"Processing video {_} of {totalVideos}: {results[i]['videoPath']}",
+                    "green",
                 )
 
                 VideoProcessor(
