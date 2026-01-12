@@ -116,6 +116,7 @@ def _loadJsonConfig(args, parser):
         if action.dest not in ["help", "version", "json"]:
             defaults[action.dest] = action.default
 
+    loadedKeys = set()
     for key, value in jsonConfig.items():
         if key == "json":
             continue
@@ -127,10 +128,11 @@ def _loadJsonConfig(args, parser):
             if currentValue == defaultValue:
                 setattr(args, key, value)
                 logging.info(f"Loaded from JSON: {key} = {value}")
+            loadedKeys.add(key)
         else:
             logging.warning(f"Unknown option in JSON config: {key}")
 
-    return args
+    return args, loadedKeys
 
 
 def createParser(outputPath):
@@ -793,14 +795,19 @@ def _autoEnableParentFlags(args):
     """
     methodToFlagMapping = {
         "interpolate_method": ("interpolate", "rife4.6"),
+        "interpolate_factor": ("interpolate", 2.0),
         "upscale_method": ("upscale", "shufflecugan"),
+        "upscale_factor": ("upscale", 2),
         "dedup_method": ("dedup", "ssim"),
+        "dedup_sens": ("dedup", 35.0),
         "restore_method": ("restore", ["anime1080fixer"]),
         "segment_method": ("segment", "anime"),
         "scenechange_method": ("scenechange", "maxxvit-directml"),
+        "scenechange_sens": ("scenechange", 50.0),
         "depth_method": ("depth", "small_v2"),
         "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
         "resize_factor": ("resize", 2),
+        "output_scale": ("resize", ""),
     }
 
     cliProvided = set()
@@ -814,17 +821,27 @@ def _autoEnableParentFlags(args):
             currentValue = getattr(args, methodArg)
 
             providedOnCLI = (
-                methodArg in cliProvided
-                or methodArg.replace("_", "-") in cliProvided
+                methodArg in cliProvided or methodArg.replace("_", "-") in cliProvided
             )
 
-            if providedOnCLI:
+            # Also consider it provided if it was in the JSON config
+            isExplicitlyProvided = providedOnCLI or (
+                hasattr(args, "_json_keys") and methodArg in args._json_keys
+            )
+
+            if isExplicitlyProvided:
                 if not getattr(args, parentFlag):
                     setattr(args, parentFlag, True)
+                    logging.info(
+                        f"Auto-enabling --{parentFlag} because --{methodArg} was provided"
+                    )
             else:
                 if currentValue != defaultValue:
                     if not getattr(args, parentFlag):
                         setattr(args, parentFlag, True)
+                        logging.info(
+                            f"Auto-enabling --{parentFlag} because {methodArg} differs from default"
+                        )
 
 
 def argumentsChecker(args, outputPath, parser):
@@ -840,7 +857,8 @@ def argumentsChecker(args, outputPath, parser):
         args = createPreset(args)
 
     if args.json:
-        args = _loadJsonConfig(args, parser)
+        args, loadedKeys = _loadJsonConfig(args, parser)
+        args._json_keys = loadedKeys
 
     _autoEnableParentFlags(args)
 
