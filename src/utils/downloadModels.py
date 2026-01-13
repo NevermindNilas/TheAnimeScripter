@@ -162,16 +162,10 @@ def modelsList() -> list[str]:
         "yolov9_small_mit",
         "small_v3",
         "base_v3",
-        "large_v3",
-        "giant_v3",
         "small_v3-directml",
         "base_v3-directml",
-        "large_v3-directml",
-        "giant_v3-directml",
         "small_v3-tensorrt",
         "base_v3-tensorrt",
-        "large_v3-tensorrt",
-        "giant_v3-tensorrt",
     ]
 
 
@@ -782,19 +776,11 @@ def modelsMap(
 
         case "small_v3":
             if modelType == "pth":
-                return "depth_anything_v3_vits.pth"
+                return "depth_anything_v3_vits.safetensors"
 
         case "base_v3":
             if modelType == "pth":
-                return "depth_anything_v3_vitb.pth"
-
-        case "large_v3":
-            if modelType == "pth":
-                return "depth_anything_v3_vitl.pth"
-
-        case "giant_v3":
-            if modelType == "pth":
-                return "depth_anything_v3_vitg.pth"
+                return "depth_anything_v3_vitb.safetensors"
 
         case "small_v3-directml" | "small_v3-tensorrt":
             if half:

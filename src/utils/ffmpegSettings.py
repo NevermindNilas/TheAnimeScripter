@@ -1,16 +1,17 @@
 import logging
 import subprocess
 import os
-import torch
 import src.constants as cs
 import time
 import celux
 import threading
 
 from queue import Queue
-from torch.nn import functional as F
 from src.utils.encodingSettings import matchEncoder, getPixFMT
 from .isCudaInit import CudaChecker
+
+# Lazy imports for heavy dependencies
+# torch and torch.nn.functional are imported only when needed
 
 
 checker = CudaChecker()
@@ -65,8 +66,10 @@ class BuildBuffer:
             raise FileNotFoundError(f"Video file not found: {videoInput}")
 
         self.cudaEnabled = False
-        if checker.cudaAvailable:
+        if checker.cudaAvailable and toTorch:
             try:
+                import torch
+
                 self.normStream = torch.cuda.Stream()
                 self.deviceType = "cuda"
                 self.cudaEnabled = True
@@ -133,6 +136,9 @@ class BuildBuffer:
         Returns:
             The processed frame as a torch tensor.
         """
+        import torch
+        from torch.nn import functional as F
+
         norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
         if self.cudaEnabled:
             with torch.cuda.stream(normStream):
@@ -602,6 +608,9 @@ class WriteBuffer:
 
         ffmpegProc = None
         try:
+            import torch
+            from torch.nn import functional as F
+
             initialFrame = self.writeBuffer.queue[0]
 
             self.channels = 1 if self.grayscale else 4 if self.transparent else 3
@@ -749,16 +758,18 @@ class WriteBuffer:
             except Exception as e:
                 logging.warning(f"Cleanup error: {e}")
 
-    def write(self, frame: torch.Tensor):
+    def write(self, frame):
         """
         Add a frame to the queue. Must be in [B, C, H, W] format.
+        Frame type is torch.Tensor when using PyTorch backend.
         """
         self.writeBuffer.put(frame)
 
-    def put(self, frame: torch.Tensor):
+    def put(self, frame):
         """
         Equivalent to write()
         Add a frame to the queue. Must be in [B, C, H, W] format.
+        Frame type is torch.Tensor when using PyTorch backend.
         """
         self.writeBuffer.put(frame)
 

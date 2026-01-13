@@ -378,11 +378,7 @@ def depth(self):
                 self.depthQuality,
             )
 
-        case (
-            "og_small_v2-directml"
-            | "og_base_v2-directml"
-            | "og_large_v2-directml"
-        ):
+        case "og_small_v2-directml" | "og_base_v2-directml" | "og_large_v2-directml":
             from src.depth.depth import OGDepthV2DirectML
 
             OGDepthV2DirectML(
@@ -403,11 +399,7 @@ def depth(self):
                 self.depthQuality,
             )
 
-        case (
-            "og_small_v2-openvino"
-            | "og_base_v2-openvino"
-            | "og_large_v2-openvino"
-        ):
+        case "og_small_v2-openvino" | "og_base_v2-openvino" | "og_large_v2-openvino":
             from src.depth.depth import OGDepthV2DirectML
 
             OGDepthV2DirectML(
@@ -428,7 +420,7 @@ def depth(self):
                 self.depthQuality,
             )
 
-        case "small_v3" | "base_v3" | "large_v3" | "giant_v3":
+        case "small_v3" | "base_v3":
             from src.depth.depth import OGDepthV3CUDA
 
             OGDepthV3CUDA(
@@ -450,12 +442,7 @@ def depth(self):
                 compileMode=self.compileMode,
             )
 
-        case (
-            "small_v3-directml"
-            | "base_v3-directml"
-            | "large_v3-directml"
-            | "giant_v3-directml"
-        ):
+        case "small_v3-directml" | "base_v3-directml":
             from src.depth.depth import DepthDirectMLV3
 
             DepthDirectMLV3(
@@ -476,12 +463,7 @@ def depth(self):
                 self.depthQuality,
             )
 
-        case (
-            "small_v3-openvino"
-            | "base_v3-openvino"
-            | "large_v3-openvino"
-            | "giant_v3-openvino"
-        ):
+        case "small_v3-openvino" | "base_v3-openvino":
             from src.depth.depth import DepthDirectMLV3
 
             DepthDirectMLV3(
@@ -502,12 +484,7 @@ def depth(self):
                 self.depthQuality,
             )
 
-        case (
-            "small_v3-tensorrt"
-            | "base_v3-tensorrt"
-            | "large_v3-tensorrt"
-            | "giant_v3-tensorrt"
-        ):
+        case "small_v3-tensorrt" | "base_v3-tensorrt":
             from src.depth.depth import DepthTensorRTV3
 
             DepthTensorRTV3(
@@ -940,9 +917,16 @@ def initializeModels(self):
                         )
                     )
 
-                case "linethinner-lite" | "linethinner-medium" | "linethinner-heavy" | "linethinner-lite-cuda" | "linethinner-medium-cuda" | "linethinner-heavy-cuda":
+                case (
+                    "linethinner-lite"
+                    | "linethinner-medium"
+                    | "linethinner-heavy"
+                    | "linethinner-lite-cuda"
+                    | "linethinner-medium-cuda"
+                    | "linethinner-heavy-cuda"
+                ):
                     from src.extraArches.linethinner import LineThin
-                    
+
                     device = "cuda" if "cuda" in method else "cpu"
                     variant = method.replace("-cuda", "").replace("linethinner-", "")
 
@@ -953,7 +937,6 @@ def initializeModels(self):
                             device=device,
                         )
                     )
-                            
 
         if len(restoreProcesses) == 1:
             restoreProcess = restoreProcesses[0]
@@ -1050,7 +1033,7 @@ def initializeModels(self):
                 )
             case "maxxvit-openvino" | "shift_lpips-openvino":
                 from src.scenechange import SceneChange
-                
+
                 scenechangeProcess = SceneChange(
                     self.half,
                     self.scenechangeSens,

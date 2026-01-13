@@ -14,7 +14,15 @@ import src.constants as cs
 from rich_argparse import RichHelpFormatter
 from src.version import __version__
 from .inputOutputHandler import generateOutputName
-from src.utils.logAndPrint import logAndPrint
+from src.utils.logAndPrint import (
+    logAndPrint,
+    logInfo,
+    logSuccess,
+    logWarning,
+    logError,
+    setVerbose,
+    setQuiet,
+)
 from src.utils.dependencyHandler import installDependencies
 
 
@@ -146,29 +154,75 @@ def createParser(outputPath):
         argparse.Namespace: Parsed command line arguments
     """
     argParser = argparse.ArgumentParser(
-        description="The Anime Scripter CLI Tool",
-        usage="main.py [options]",
+        description="""The Anime Scripter - AI Video Enhancement Toolkit
+        
+A professional-grade AI video enhancement toolkit specialized for anime and general video content.
+Supports upscaling, interpolation, restoration, and various other AI-powered enhancements.
+
+EXAMPLES:
+  Basic upscaling:
+    python main.py --input video.mp4 --upscale --upscale_method shufflecugan
+  
+  Interpolation (2x framerate):
+    python main.py --input video.mp4 --interpolate --interpolate_factor 2
+  
+  Combined upscaling + interpolation:
+    python main.py --input video.mp4 --upscale --interpolate
+  
+  Batch processing with custom output:
+    python main.py --input folder/ --output results/ --upscale
+  
+  Using a JSON configuration:
+    python main.py --json config.json
+""",
+        usage="python main.py --input VIDEO [--upscale] [--interpolate] [OPTIONS]",
         formatter_class=RichHelpFormatter,
     )
 
     # Basic options
-    generalGroup = argParser.add_argument_group("General")
+    generalGroup = argParser.add_argument_group("General Options")
     generalGroup.add_argument("-v", "--version", action="version", version=__version__)
-    generalGroup.add_argument("--input", type=str, help="Input video file")
-    generalGroup.add_argument("--output", type=str, help="Output video file")
     generalGroup.add_argument(
-        "--inpoint", type=float, default=0, help="Input start time"
+        "--input",
+        type=str,
+        help="Input video file or folder. Supports: MP4, MKV, AVI, MOV, and image sequences (e.g., 'frames_%%05d.png')",
     )
     generalGroup.add_argument(
-        "--outpoint", type=float, default=0, help="Input end time"
+        "--output",
+        type=str,
+        help="Output video file or folder. If not specified, outputs to './output/' directory",
     )
     generalGroup.add_argument(
-        "--preview", action="store_true", help="Preview the video during processing"
+        "--inpoint",
+        type=float,
+        default=0,
+        help="Start time in seconds for processing (default: 0). Example: --inpoint 10.5",
+    )
+    generalGroup.add_argument(
+        "--outpoint",
+        type=float,
+        default=0,
+        help="End time in seconds for processing (default: 0 = end of video). Example: --outpoint 60",
+    )
+    generalGroup.add_argument(
+        "--preview",
+        action="store_true",
+        help="Enable real-time preview during processing (opens preview window)",
     )
     generalGroup.add_argument(
         "--json",
         type=str,
-        help="Path to JSON configuration file with processing options",
+        help="Path to JSON configuration file. When used, ONLY this flag should be provided (no other arguments)",
+    )
+    generalGroup.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging with detailed debug information",
+    )
+    generalGroup.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Minimize console output (only errors and critical messages)",
     )
 
     # Preset Configuration options
@@ -258,13 +312,14 @@ def createParser(outputPath):
     objectGroup.add_argument(
         "--obj_detect_method",
         type=str,
+        metavar="MODEL",
         default="yolov9_small-directml",
         choices=[
             "yolov9_small-directml",
             "yolov9_medium-directml",
             "yolov9_large-directml",
-            # TO:DO: ADD TENSORRT Backend
         ],
+        help="Object detection model (default: yolov9_small-directml). Sizes: small/medium/large",
     )
 
     # Miscellaneous options
@@ -275,12 +330,20 @@ def createParser(outputPath):
 
 
 def _addInterpolationOptions(argParser):
-    interpolationGroup = argParser.add_argument_group("Interpolation")
-    interpolationGroup.add_argument(
-        "--interpolate", action="store_true", help="Interpolate the video"
+    interpolationGroup = argParser.add_argument_group(
+        "Interpolation Options",
+        "Generate intermediate frames to increase video framerate (e.g., 24fps → 48fps with factor 2)",
     )
     interpolationGroup.add_argument(
-        "--interpolate_factor", type=float, default=2, help="Interpolation factor"
+        "--interpolate",
+        action="store_true",
+        help="Enable frame interpolation to increase framerate",
+    )
+    interpolationGroup.add_argument(
+        "--interpolate_factor",
+        type=float,
+        default=2,
+        help="Interpolation multiplier (e.g., 2 = double framerate, 2.5 = 2.5x framerate). Common values: 2, 3, 4",
     )
 
     interpolationMethods = [
@@ -335,9 +398,10 @@ def _addInterpolationOptions(argParser):
     interpolationGroup.add_argument(
         "--interpolate_method",
         type=str,
+        metavar="METHOD",
         choices=interpolationMethods,
         default="rife4.6",
-        help="Interpolation method",
+        help="Interpolation model (default: rife4.6). Popular: rife4.22, rife4.25, gmfss. Backends: -tensorrt, -directml, -ncnn, -openvino",
     )
     interpolationGroup.add_argument(
         "--slowmo",
@@ -371,16 +435,21 @@ def _addInterpolationOptions(argParser):
 
 
 def _addUpscalingOptions(argParser):
-    upscaleGroup = argParser.add_argument_group("Upscaling")
+    upscaleGroup = argParser.add_argument_group(
+        "Upscaling Options",
+        "AI-powered upscaling to increase video resolution (e.g., 1080p → 4K with factor 2)",
+    )
     upscaleGroup.add_argument(
-        "--upscale", action="store_true", help="Upscale the video"
+        "--upscale",
+        action="store_true",
+        help="Enable AI upscaling to increase resolution",
     )
     upscaleGroup.add_argument(
         "--upscale_factor",
         type=int,
         choices=[2, 3, 4],
         default=2,
-        help="Upscaling factor (minimum 2)",
+        help="Upscaling multiplier (2 = 1080p→4K, 3 = 1080p→6K, 4 = 1080p→8K)",
     )
 
     upscaleMethods = [
@@ -444,9 +513,10 @@ def _addUpscalingOptions(argParser):
     upscaleGroup.add_argument(
         "--upscale_method",
         type=str,
+        metavar="MODEL",
         choices=upscaleMethods,
         default="shufflecugan",
-        help="Upscaling method",
+        help="Upscaling model (default: shufflecugan). Popular: span, compact, open-proteus, animesr. Backends: -tensorrt, -directml, -ncnn, -openvino",
     )
     upscaleGroup.add_argument(
         "--custom_model", type=str, default="", help="Path to custom upscaling model"
@@ -454,13 +524,19 @@ def _addUpscalingOptions(argParser):
 
 
 def _addDedupOptions(argParser):
-    dedupGroup = argParser.add_argument_group("Deduplication")
+    dedupGroup = argParser.add_argument_group(
+        "Deduplication Options",
+        "Remove duplicate frames from video (useful for anime with static scenes)",
+    )
     dedupGroup.add_argument(
-        "--dedup", action="store_true", help="Deduplicate the video"
+        "--dedup",
+        action="store_true",
+        help="Enable duplicate frame detection and removal",
     )
     dedupGroup.add_argument(
         "--dedup_method",
         type=str,
+        metavar="METHOD",
         default="ssim",
         choices=[
             "ssim",
@@ -471,7 +547,7 @@ def _addDedupOptions(argParser):
             "vmaf",
             "vmaf-cuda",
         ],
-        help="Deduplication method",
+        help="Deduplication algorithm (default: ssim). Options: ssim, mse, flownets, vmaf. CUDA variants available for GPU acceleration",
     )
     dedupGroup.add_argument(
         "--dedup_sens", type=float, default=35, help="Deduplication sensitivity"
@@ -484,12 +560,20 @@ def _addDedupOptions(argParser):
 
 
 def _addVideoProcessingOptions(argParser):
-    processingGroup = argParser.add_argument_group("Video Processing")
-    processingGroup.add_argument(
-        "--sharpen", action="store_true", help="Sharpen the video"
+    processingGroup = argParser.add_argument_group(
+        "Video Enhancement Options",
+        "Additional video quality improvements and restoration",
     )
     processingGroup.add_argument(
-        "--sharpen_sens", type=float, default=50, help="Sharpening sensitivity"
+        "--sharpen",
+        action="store_true",
+        help="Apply sharpening filter to enhance detail clarity",
+    )
+    processingGroup.add_argument(
+        "--sharpen_sens",
+        type=float,
+        default=50,
+        help="Sharpening intensity (0-100, default: 50). Higher = more sharpening",
     )
     processingGroup.add_argument(
         "--restore", action="store_true", help="Restore the video"
@@ -535,10 +619,11 @@ def _addVideoProcessingOptions(argParser):
     processingGroup.add_argument(
         "--restore_method",
         type=str,
+        metavar="MODEL",
         nargs="+",
         default=["anime1080fixer"],
         choices=restoreMethods,
-        help="Denoising method(s), can specify multiple for chaining",
+        help="Restoration/denoising model(s) (default: anime1080fixer). Can chain multiple. Popular: scunet, nafnet, gater3, dpir. Backends: -tensorrt, -directml, -openvino",
     )
     processingGroup.add_argument(
         "--resize", action="store_true", help="Resize the video"
@@ -567,9 +652,10 @@ def _addSegmentationOptions(argParser):
     segmentationGroup.add_argument(
         "--segment_method",
         type=str,
+        metavar="METHOD",
         default="anime",
         choices=["anime", "anime-tensorrt", "anime-directml", "cartoon"],
-        help="Segmentation method",
+        help="Segmentation model (default: anime). Backends available: -tensorrt, -directml",
     )
 
 
@@ -599,9 +685,10 @@ def _addSceneDetectionOptions(argParser):
     sceneGroup.add_argument(
         "--scenechange_method",
         type=str,
+        metavar="METHOD",
         default="maxxvit-directml",
         choices=scenechangeMethods,
-        help="Scene change detection method",
+        help="Scene detection model (default: maxxvit-directml). Options: maxxvit, differential, shift_lpips. Backends: -tensorrt, -directml, -openvino",
     )
     sceneGroup.add_argument(
         "--scenechange_sens",
@@ -653,16 +740,10 @@ def _addDepthOptions(argParser):
         "og_distill_large_v2-tensorrt",
         "small_v3",
         "base_v3",
-        "large_v3",
-        "giant_v3",
         "small_v3-directml",
         "base_v3-directml",
-        "large_v3-directml",
-        "giant_v3-directml",
         "small_v3-tensorrt",
         "base_v3-tensorrt",
-        "large_v3-tensorrt",
-        "giant_v3-tensorrt",
         "small_v2-openvino",
         "base_v2-openvino",
         "large_v2-openvino",
@@ -674,16 +755,15 @@ def _addDepthOptions(argParser):
         "og_large_v2-openvino",
         "small_v3-openvino",
         "base_v3-openvino",
-        "large_v3-openvino",
-        "giant_v3-openvino",
     ]
 
     depthGroup.add_argument(
         "--depth_method",
         type=str,
+        metavar="MODEL",
         choices=depthMethods,
         default="small_v2",
-        help="Depth estimation method",
+        help="Depth estimation model (default: small_v2). Sizes: small/base/large/giant. Versions: v2/v3. Variants: distill, og. Backends: -tensorrt, -directml, -openvino",
     )
     depthGroup.add_argument(
         "--depth_quality",
@@ -734,9 +814,10 @@ def _addEncodingOptions(argParser):
     encodingGroup.add_argument(
         "--encode_method",
         type=str,
+        metavar="CODEC",
         choices=encodeMethods,
         default="x264",
-        help="Encoding method",
+        help="Video encoder (default: x264). Codecs: x264/x265/av1. Hardware: nvenc_*/qsv_*/amf_*. Special: prores, png, gif, lossless",
     )
     encodingGroup.add_argument(
         "--custom_encoder", type=str, default="", help="Custom encoder settings"
@@ -744,44 +825,49 @@ def _addEncodingOptions(argParser):
 
 
 def _addMiscOptions(argParser):
-    miscGroup = argParser.add_argument_group("Miscellaneous")
+    miscGroup = argParser.add_argument_group(
+        "Advanced & System Options",
+        "Advanced features, debugging, and system utilities",
+    )
     miscGroup.add_argument(
-        "--benchmark", action="store_true", help="Benchmark the script"
+        "--benchmark",
+        action="store_true",
+        help="Run in benchmark mode (disables audio processing, measures performance)",
     )
     miscGroup.add_argument(
         "--profile",
         action="store_true",
-        help="Enable torch.profiler to analyze GPU/CPU performance bottlenecks",
+        help="Enable PyTorch profiler for performance analysis (generates chrome://tracing compatible output)",
     )
     miscGroup.add_argument(
         "--offline",
         type=str,
         nargs="*",
         default="none",
-        help="Download a specific model or multiple models for offline use, use keyword 'all' to download all models",
+        help="Download models for offline use. Examples: --offline shufflecugan rife4.6, or --offline all",
     )
     miscGroup.add_argument(
         "--ae",
         type=str,
         default="",
-        help="Notify if script is run from After Effects interface",
+        help="[Internal] After Effects integration flag",
     )
     miscGroup.add_argument(
         "--bit_depth",
         type=str,
         default="8bit",
         choices=["8bit", "16bit"],
-        help="Bit Depth of the raw pipe input to FFMPEG",
+        help="Bit depth for FFmpeg processing pipeline (8bit = standard, 16bit = higher precision)",
     )
     miscGroup.add_argument(
         "--download_requirements",
         action="store_true",
-        help="Download all required libraries for the script, only used for Adobe Edition",
+        help="Download all required Python dependencies (for Adobe Edition setup)",
     )
     miscGroup.add_argument(
         "--cleanup",
         action="store_true",
-        help="Remove unused libraries from the script, in case if there were migrations or changes in the script",
+        help="Remove unused/outdated dependencies from installation",
     )
 
 
@@ -862,12 +948,20 @@ def argumentsChecker(args, outputPath, parser):
 
     _autoEnableParentFlags(args)
 
+    # Set verbose/quiet modes
+    if args.verbose and args.quiet:
+        logWarning("Both --verbose and --quiet specified. Using normal output mode.")
+    elif args.verbose:
+        setVerbose(True)
+        logInfo("Verbose mode enabled")
+    elif args.quiet:
+        setQuiet(True)
+
     if args.download_requirements:
         _handleDependencies(args)
 
-        logAndPrint(
-            "All required libraries have been downloaded, you can now run the script freely.",
-            "green",
+        logSuccess(
+            "All required libraries have been downloaded, you can now run the script freely."
         )
         sys.exit()
 
@@ -896,15 +990,13 @@ def argumentsChecker(args, outputPath, parser):
         logging.info(message)
 
         if success:
-            logAndPrint(
-                "Unused libraries have been removed, you can now run the script without the --cleanup argument",
-                "green",
+            logSuccess(
+                "Unused libraries have been removed, you can now run the script without the --cleanup argument"
             )
             sys.exit()
         else:
-            logAndPrint(
-                "Failed to remove unused libraries, please check the logs for more details",
-                "red",
+            logError(
+                "Failed to remove unused libraries, please check the logs for more details"
             )
             logging.error("Failed to remove unused libraries")
             print(message)
@@ -930,10 +1022,7 @@ def argumentsChecker(args, outputPath, parser):
         checkSystem()
 
     if args.preview and args.benchmark:
-        logAndPrint(
-            "Preview cannot be enabled in benchmark mode, disabling preview",
-            "yellow",
-        )
+        logWarning("Preview cannot be enabled in benchmark mode, disabling preview")
         args.preview = False
 
     if args.ae:
@@ -956,10 +1045,7 @@ def argumentsChecker(args, outputPath, parser):
     _handleDependencies(args)
 
     if args.slowmo and not args.interpolate:
-        logAndPrint(
-            "Slow motion is enabled but interpolation is not, disabling slowmo",
-            "yellow",
-        )
+        logWarning("Slow motion is enabled but interpolation is not, disabling slowmo")
         args.slowmo = False
 
     _handleDepthSettings(args)
@@ -1056,9 +1142,8 @@ def argumentsChecker(args, outputPath, parser):
             args.upscale_factor = 2
 
     if not isAnyOtherProcessingMethodEnabled(args):
-        logAndPrint(
-            "No processing methods specified, make sure to use enabler arguments like --upscale, --interpolate, etc.",
-            "red",
+        logError(
+            "No processing methods specified. Use enabler flags like --upscale, --interpolate, --dedup, etc."
         )
         sys.exit()
 
