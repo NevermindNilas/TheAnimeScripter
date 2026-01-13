@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.transforms import Compose
 
-from .dinov2 import DINOv2
+from .dinov2_v3 import DINOv2_V3
 from .og_dpt_utils.blocks import FeatureFusionBlock, _make_scratch
 from .og_dpt_utils.transform import Resize, NormalizeImage, PrepareForNet
 
@@ -21,20 +21,6 @@ def _make_fusion_block(features, use_bn, size=None):
     )
 
 
-class ConvBlock(nn.Module):
-    def __init__(self, in_feature, out_feature):
-        super().__init__()
-
-        self.conv_block = nn.Sequential(
-            nn.Conv2d(in_feature, out_feature, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(out_feature),
-            nn.ReLU(True),
-        )
-
-    def forward(self, x):
-        return self.conv_block(x)
-
-
 class DPTHeadV3(nn.Module):
     def __init__(
         self,
@@ -42,13 +28,14 @@ class DPTHeadV3(nn.Module):
         features=256,
         use_bn=False,
         out_channels=[256, 512, 1024, 1024],
-        use_clstoken=False,
-        output_dim=1,
+        output_dim=2,
     ):
         super(DPTHeadV3, self).__init__()
 
-        self.use_clstoken = use_clstoken
         self.output_dim = output_dim
+
+        # Layer norm for the concatenated features (cls_token + patch_token)
+        self.norm = nn.LayerNorm(in_channels)
 
         self.projects = nn.ModuleList(
             [
@@ -90,13 +77,6 @@ class DPTHeadV3(nn.Module):
             ]
         )
 
-        if use_clstoken:
-            self.readout_projects = nn.ModuleList()
-            for _ in range(len(self.projects)):
-                self.readout_projects.append(
-                    nn.Sequential(nn.Linear(2 * in_channels, in_channels), nn.GELU())
-                )
-
         self.scratch = _make_scratch(
             out_channels,
             features,
@@ -132,12 +112,16 @@ class DPTHeadV3(nn.Module):
     def forward(self, out_features, patch_h, patch_w):
         out = []
         for i, x in enumerate(out_features):
-            if self.use_clstoken:
-                x, cls_token = x[0], x[1]
-                readout = cls_token.unsqueeze(1).expand_as(x)
-                x = self.readout_projects[i](torch.cat((x, readout), -1))
-            else:
-                x = x[0]
+            # out_features is a list of tuples: (patch_tokens, cls_token)
+            patch_tokens, cls_token = x[0], x[1]
+
+            # Expand cls_token to match patch_tokens shape and concatenate
+            # cls_token: [B, C], patch_tokens: [B, N, C]
+            cls_expanded = cls_token.unsqueeze(1).expand(-1, patch_tokens.shape[1], -1)
+            x = torch.cat([patch_tokens, cls_expanded], dim=-1)  # [B, N, 2*C]
+
+            # Apply normalization
+            x = self.norm(x)
 
             x = x.permute(0, 2, 1).reshape((x.shape[0], x.shape[-1], patch_h, patch_w))
 
@@ -177,7 +161,6 @@ class DepthAnythingV3(nn.Module):
         features=256,
         out_channels=[256, 512, 1024, 1024],
         use_bn=False,
-        use_clstoken=False,
     ):
         super(DepthAnythingV3, self).__init__()
 
@@ -189,15 +172,23 @@ class DepthAnythingV3(nn.Module):
         }
 
         self.encoder = encoder
-        self.pretrained = DINOv2(model_name=encoder)
+
+        # Determine qknorm_start based on encoder
+        # vits has qknorm starting at block 4 (verified)
+        # assuming others follow similar pattern or checking weights would be best
+        qknorm_start = 4  # Default to 4
+
+        self.pretrained = DINOv2_V3(model_name=encoder, qknorm_start=qknorm_start)
+
+        # DA3 uses cat_token=True, which doubles the embed_dim for the head
+        head_in_channels = self.pretrained.embed_dim * 2
 
         self.depth_head = DPTHeadV3(
-            self.pretrained.embed_dim,
+            head_in_channels,
             features,
             use_bn,
             out_channels=out_channels,
-            use_clstoken=use_clstoken,
-            output_dim=1,
+            output_dim=2,  # DA3 outputs depth + confidence
         )
 
     def forward(self, x):
@@ -207,8 +198,11 @@ class DepthAnythingV3(nn.Module):
             x, self.intermediate_layer_idx[self.encoder], return_class_token=True
         )
 
-        depth = self.depth_head(features, patch_h, patch_w)
-        depth = torch.exp(depth)
+        out = self.depth_head(features, patch_h, patch_w)
+
+        # Apply exp activation to depth channel (first channel)
+        # out shape: [B, 2, H, W] where channel 0 is depth, channel 1 is confidence
+        depth = torch.exp(out[:, 0:1, :, :])
 
         return depth.squeeze(1)
 

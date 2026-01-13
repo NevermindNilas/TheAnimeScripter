@@ -1,4 +1,11 @@
 import os
+import sys
+
+# Add the current directory to sys.path to support absolute imports within depth_anything_3
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
 import torch
 import logging
 import numpy as np
@@ -370,9 +377,7 @@ class DepthDirectMLV2:
         if "openvino" in self.depth_method:
             method = method.replace("openvino", "directml")
 
-        self.filename = modelsMap(
-            model=method, modelType="onnx", half=self.half
-        )
+        self.filename = modelsMap(model=method, modelType="onnx", half=self.half)
 
         if "directml" in self.depth_method:
             folderName = self.depth_method.replace("-directml", "-onnx")
@@ -390,7 +395,10 @@ class DepthDirectMLV2:
 
         providers = self.ort.get_available_providers()
 
-        if "DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers:
+        if (
+            "DmlExecutionProvider" in providers
+            or "OpenVINOExecutionProvider" in providers
+        ):
             if "directml" in self.depth_method:
                 logging.info("DirectML provider available. Defaulting to DirectML")
                 self.model = self.ort.InferenceSession(
@@ -535,7 +543,9 @@ class DepthDirectMLV2:
                 self._fallbackToCpu()
                 self.processFrame(frame)
             else:
-                logging.exception(f"Something went wrong while processing the frame, {e}")
+                logging.exception(
+                    f"Something went wrong while processing the frame, {e}"
+                )
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -841,7 +851,6 @@ class OGDepthV2CUDA:
                 resize=False,
                 toTorch=False,
             )
-            
 
             self.output = cv2.VideoWriter(
                 self.output,
@@ -975,7 +984,7 @@ class OGDepthV2CUDA:
         frameCount = 0
 
         with ProgressBarLogic(self.totalFrames) as bar:
-            print('hi')
+            print("hi")
 
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()
@@ -1227,7 +1236,6 @@ class OGDepthV2TensorRT:
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
 
-
     def encodeThread(self):
         while True:
             frame = self.encodeBuffer.get()
@@ -1326,9 +1334,7 @@ class OGDepthV2DirectML:
         if "og_" in depth_method:
             depth_method = depth_method.replace("og_", "")
 
-        self.filename = modelsMap(
-            model=depth_method, modelType="onnx", half=self.half
-        )
+        self.filename = modelsMap(model=depth_method, modelType="onnx", half=self.half)
 
         folderName = depth_method.replace("-directml", "-onnx")
         if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
@@ -1342,7 +1348,10 @@ class OGDepthV2DirectML:
 
         providers = self.ort.get_available_providers()
 
-        if "DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers:
+        if (
+            "DmlExecutionProvider" in providers
+            or "OpenVINOExecutionProvider" in providers
+        ):
             if "directml" in self.depth_method:
                 logging.info("DirectML provider available. Defaulting to DirectML")
                 self.model = self.ort.InferenceSession(
@@ -1354,13 +1363,11 @@ class OGDepthV2DirectML:
                     modelPath, providers=["OpenVINOExecutionProvider"]
                 )
         else:
-            logging.info(
-                "DirectML provider not available, falling back to CPU"
-            )
+            logging.info("DirectML provider not available, falling back to CPU")
             self.model = self.ort.InferenceSession(
                 modelPath, providers=["CPUExecutionProvider"]
             )
-        
+
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
 
@@ -1417,7 +1424,7 @@ class OGDepthV2DirectML:
         try:
             frame = torch.from_numpy(frame).to(self.device)
             frame = frame.permute(2, 0, 1).unsqueeze(0)
-            
+
             frame = F.interpolate(
                 frame.float() / 255.0,
                 size=(self.newHeight, self.newWidth),
@@ -1443,11 +1450,11 @@ class OGDepthV2DirectML:
             out_tensor = self.dummyOutput.float()
             if out_tensor.ndim == 4:
                 out_tensor = out_tensor.squeeze(1)
-            
+
             depth = out_tensor[0].cpu().numpy()
             depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6) * 255.0
             depth = depth.astype(np.uint8)
-            
+
             self.encodeBuffer.put(depth)
 
         except Exception as e:
@@ -1693,7 +1700,7 @@ class OGDepthV3CUDA:
             logging.exception(f"Something went wrong, {e}")
 
     def handleModels(self):
-        from .og_dpt_v3 import DepthAnythingV3
+        from src.depth.depth_anything_3.api import DepthAnything3
 
         match self.depth_method:
             case "small_v3":
@@ -1702,12 +1709,6 @@ class OGDepthV3CUDA:
             case "base_v3":
                 method = "vitb"
                 toDownload = "base_v3"
-            case "large_v3":
-                method = "vitl"
-                toDownload = "large_v3"
-            case "giant_v3":
-                method = "vitg"
-                toDownload = "giant_v3"
 
         modelType = "pth"
         self.filename = modelsMap(model=toDownload, modelType=modelType, half=self.half)
@@ -1721,36 +1722,12 @@ class OGDepthV3CUDA:
         else:
             modelPath = os.path.join(weightsDir, toDownload, self.filename)
 
-        modelConfigs = {
-            "vits": {
-                "encoder": "vits",
-                "features": 64,
-                "out_channels": [48, 96, 192, 384],
-            },
-            "vitb": {
-                "encoder": "vitb",
-                "features": 128,
-                "out_channels": [96, 192, 384, 768],
-            },
-            "vitl": {
-                "encoder": "vitl",
-                "features": 256,
-                "out_channels": [256, 512, 1024, 1024],
-            },
-            "vitg": {
-                "encoder": "vitg",
-                "features": 384,
-                "out_channels": [1536, 1536, 1536, 1536],
-            },
-        }
-
-        self.model = DepthAnythingV3(**modelConfigs[method])
-        self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
-        self.model = self.model.to(checker.device).eval()
-
+        self.model = DepthAnything3.from_pretrained(modelPath)
         self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality
         )
+
+        self.model = self.model.to(checker.device).eval()
 
         if self.half and checker.cudaAvailable:
             self.model = self.model.half()
@@ -1782,7 +1759,7 @@ class OGDepthV3CUDA:
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            depth = self.model.infer_image(frame, self.newHeight, self.half)
+            depth = self.model.inference(frame)
             self.encodeBuffer.put(depth)
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -1805,7 +1782,6 @@ class OGDepthV3CUDA:
 
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
-
 
     def encodeThread(self):
         while True:
@@ -1903,9 +1879,7 @@ class DepthDirectMLV3:
         if "openvino" in self.depth_method:
             depth_method = depth_method.replace("openvino", "directml")
 
-        self.filename = modelsMap(
-            model=depth_method, modelType="onnx", half=self.half
-        )
+        self.filename = modelsMap(model=depth_method, modelType="onnx", half=self.half)
 
         if "directml" in self.depth_method:
             folderName = self.depth_method.replace("-directml", "-onnx")
@@ -1923,7 +1897,10 @@ class DepthDirectMLV3:
 
         providers = self.ort.get_available_providers()
 
-        if "DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers:
+        if (
+            "DmlExecutionProvider" in providers
+            or "OpenVINOExecutionProvider" in providers
+        ):
             if "directml" in self.depth_method:
                 logging.info("DirectML provider available. Defaulting to DirectML")
                 self.model = self.ort.InferenceSession(
@@ -2072,7 +2049,9 @@ class DepthDirectMLV3:
                 # Retry the frame with CPU provider
                 self.processFrame(frame)
             else:
-                logging.exception(f"Something went wrong while processing the frame, {e}")
+                logging.exception(
+                    f"Something went wrong while processing the frame, {e}"
+                )
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
