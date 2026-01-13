@@ -78,11 +78,9 @@ class ProgressBarLogic:
     def __enter__(self):
         if cs.ADOBE:
             self.advanceCount = 0
-            # More frequent updates - every 0.5% or at least every 10 frames
             self.updateInterval = max(10, self.totalFrames // 200)
             logging.info(f"Update interval: {self.updateInterval} frames")
 
-            # Initialize timing for FPS and ETA calculations
             self.startTime = time()
 
         else:
