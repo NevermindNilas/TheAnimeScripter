@@ -26,7 +26,15 @@ import os
 import sys
 import logging
 import warnings
-from src.utils.logAndPrint import logAndPrint
+from src.utils.logAndPrint import (
+    logAndPrint,
+    logInfo,
+    logSuccess,
+    logWarning,
+    logError,
+    printSectionHeader,
+    printSubsectionHeader,
+)
 
 from platform import system
 from signal import signal, SIGINT, SIG_DFL
@@ -599,13 +607,18 @@ def main():
         baseOutputPath = os.path.dirname(os.path.abspath(__file__))
 
         signal(SIGINT, SIG_DFL)
+
         logging.basicConfig(
             filename=os.path.join(cs.MAINPATH, "TAS-Log.log"),
             filemode="w",
-            format="%(message)s",
-            level=logging.INFO,
+            format="[%(asctime)s] [%(levelname)s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+            level=logging.DEBUG,
         )
-        logging.info("============== Command Line Arguments ==============")
+
+        logging.info("\n" + "=" * 80)
+        logging.info("Command Line Arguments".center(80))
+        logging.info("=" * 80)
         logging.info(f"{' '.join(sys.argv)}\n")
 
         from src.utils.argumentsChecker import createParser
@@ -618,21 +631,21 @@ def main():
 
         totalVideos = len(results)
         if totalVideos == 0:
-            logAndPrint("No videos found to process", colorFunc="red")
+            logError("No videos found to process")
             sys.exit(1)
 
         if totalVideos > 1:
-            logAndPrint(f"Total Videos found: {totalVideos}", colorFunc="green")
+            printSectionHeader("Batch Processing")
+            logSuccess(f"Found {totalVideos} videos to process")
             folderTimer = time()
         else:
             folderTimer = None
 
         for _, i in enumerate(results, 1):
             try:
-                logAndPrint(
-                    f"Processing video {_} of {totalVideos}: {results[i]['videoPath']}",
-                    "green",
-                )
+                if totalVideos > 1:
+                    printSubsectionHeader(f"Video {_} of {totalVideos}")
+                logInfo(f"Input: {results[i]['videoPath']}")
 
                 VideoProcessor(
                     args,
@@ -640,26 +653,21 @@ def main():
                 )
 
             except Exception as e:
-                logAndPrint(
-                    f"Error processing video {results[i]['videoPath']}: {str(e)}",
-                    colorFunc="red",
-                )
+                logError(f"Error processing video {results[i]['videoPath']}: {str(e)}")
                 logging.exception(f"Error processing video {results[i]['videoPath']}")
 
         if totalVideos > 1 and folderTimer is not None:
             totalTime = time() - folderTimer
-
-            logAndPrint(
-                f"Total Execution Time: {totalTime:.2f} seconds | "
-                f"Average per video: {totalTime / totalVideos:.2f} seconds",
-                colorFunc="green",
-            )
+            printSectionHeader("Batch Processing Summary")
+            logSuccess(f"Total Execution Time: {totalTime:.2f} seconds")
+            logSuccess(f"Average per video: {totalTime / totalVideos:.2f} seconds")
+            logSuccess(f"Videos processed: {totalVideos}")
 
     except KeyboardInterrupt:
-        logAndPrint("Process interrupted by user", colorFunc="yellow")
+        logWarning("Process interrupted by user")
         sys.exit(0)
     except Exception as e:
-        logAndPrint(f"An unexpected error occurred: {str(e)}", colorFunc="red")
+        logError(f"An unexpected error occurred: {str(e)}")
         logging.exception("Fatal error in main execution")
         sys.exit(1)
 
