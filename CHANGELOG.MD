@@ -20,9 +20,8 @@ After hwupload_cuda: ~97 FPS
 - Improved the performance of .peek() and .get() methods
 - Major improvements to AnimeSR performance.
 - Bumped onnx to 1.20.1
-
-### Added
-- Added new interpolate methods, "gauss", "gauss-tensorrt", "gauss-directml", "gauss-openvino".
+- Up to 33% improvements to start-up times.
+- Fixed PNG output related code.
 
 ### Fixed
 - N/A
@@ -33,8 +32,20 @@ After hwupload_cuda: ~97 FPS
 ---
 
 ### Adobe Edition
-- N/A
+#### New
+- Added a very requested feature, PNG output support!
+- Removed Deduplication from the chain tab and replaced it with remove dead frames.
+- Added tweaking opportunities to remove dead frames.
+- A brand new navbar with smaller footprint, better animations and a more modern look, compatible with AE2020+. 
 
+#### Changed
+- Minor performance improvements to remove dead frames.
+- Resize Input will now happen inside After Effects to lower overall processing time.
+- Removed the control points from the keyframe graph editor.
+
+#### Fixed
+- Fixed an issue where the keyframes graph editor would go blank when resizing
+- Partially fixed an issue where the UI froze when switchign to the keyframe graph editor.
 ## [2.5.5] - 2026-01-07
 ### New
 - Added `socket-io` comms to the backend facilitating the development of the Adobe Edition.

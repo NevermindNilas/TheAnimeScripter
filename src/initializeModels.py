@@ -79,6 +79,7 @@ def objectDetection(self):
             self.encodeMethod,
             self.customEncoder,
             self.benchmark,
+            self.totalFrames,
             self.half,
         )
 
