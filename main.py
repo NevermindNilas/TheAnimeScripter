@@ -104,6 +104,7 @@ class VideoProcessor:
         self.segmentMethod: str = args.segment_method
         self.scenechangeMethod: str = args.scenechange_method
         self.objDetectMethod: str = args.obj_detect_method
+        self.objDetectDisableAnnotations: bool = args.obj_detect_disable_annotations
 
         # Quality and performance settings
         self.half: bool = args.half
