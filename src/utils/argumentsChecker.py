@@ -263,8 +263,18 @@ def createParser(outputPath):
             "yolov9_small-directml",
             "yolov9_medium-directml",
             "yolov9_large-directml",
+            "yolov9_small-openvino",
+            "yolov9_medium-openvino",
+            "yolov9_large-openvino",
             # TO:DO: ADD TENSORRT Backend
         ],
+    )
+
+    objectGroup.add_argument(
+        "--obj_detect_disable_annotations",
+        type=str2bool,
+        default=False,
+        help="Disable class labels and confidence percentages on detection boxes (default: False)",
     )
 
     # Miscellaneous options

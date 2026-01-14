@@ -160,6 +160,8 @@ def modelsList() -> list[str]:
         "distill_large_v2-directml",
         "og_video_small_v2",
         "yolov9_small_mit",
+        "yolov9_medium_mit",
+        "yolov9_large_mit",
         "small_v3",
         "base_v3",
         "small_v3-directml",
@@ -759,16 +761,21 @@ def modelsMap(
                 else:
                     return "Distill-Any-Depth-Multi-Teacher-Large_fp32_op17_slim.onnx"
 
-        case "yolov9_small-directml":
-            if modelType == "pth":
-                return "yolov9_small_mit.pth"
-            elif modelType == "onnx":
-                if half:
-                    return "yolov9_small_mit.onnx"
-                else:
-                    return "yolov9_small_mit.onnx"
-            elif modelType == "ncnn":
-                raise ValueError("NCNN backend is not supported for YOLOv9 models.")
+        case (
+            "yolov9_small-directml"
+            | "yolov9_small-openvino"
+            | "yolov9_medium-directml"
+            | "yolov9_medium-openvino"
+            | "yolov9_large-directml"
+            | "yolov9_large-openvino"
+        ):
+            if modelType == "onnx":
+                modelName = model.replace("-directml", "").replace("-openvino", "")
+                return f"{modelName}_mit.onnx"
+            else:
+                raise ValueError(
+                    f"Model type {modelType} not supported for YOLOv9 models."
+                )
 
         case "og_video_small_v2":
             if modelType == "pth":
