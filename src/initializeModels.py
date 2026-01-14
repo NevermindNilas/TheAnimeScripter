@@ -29,7 +29,7 @@ def objectDetection(self):
     Args:
         self: VideoProcessor instance containing processing parameters
     """
-    if "directml" in self.objDetectMethod:
+    if "directml" in self.objDetectMethod or "openvino" in self.objDetectMethod:
         from src.objectDetection.objectDetection import ObjectDetectionDML
 
         ObjectDetectionDML(
@@ -46,6 +46,7 @@ def objectDetection(self):
             self.half,
             self.objDetectMethod,
             self.totalFrames,
+            self.objDetectDisableAnnotations,
         )
     elif "tensorrt" in self.objDetectMethod:
         from src.objectDetection.objectDetection import ObjectDetectionTensorRT
