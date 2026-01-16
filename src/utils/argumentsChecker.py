@@ -1104,6 +1104,15 @@ def _handleDependencies(args):
 
         logFfmpegVersion(cs.FFMPEGPATH)
 
+    if cs.SYSTEM == "Windows":
+        ffmpeg_dir = os.path.dirname(cs.FFMPEGPATH)
+        if os.path.exists(ffmpeg_dir):
+            try:
+                os.add_dll_directory(ffmpeg_dir)
+                logging.info(f"Added FFmpeg directory to DLL search path: {ffmpeg_dir}")
+            except Exception as e:
+                logging.warning(f"Failed to add FFmpeg to DLL search path: {e}")
+
     try:
         from src.utils.isCudaInit import detectNVidiaGPU, detectGPUArchitecture
 

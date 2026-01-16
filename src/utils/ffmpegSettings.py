@@ -17,6 +17,10 @@ from .isCudaInit import CudaChecker
 checker = CudaChecker()
 
 
+# Global cache for VideoReader to support reconfigure() across batch processing
+_CACHED_READER = None
+
+
 class BuildBuffer:
     def __init__(
         self,
@@ -90,20 +94,35 @@ class BuildBuffer:
         Decodes frames from the video and stores them in the decodeBuffer.
         """
         decodedFrames = 0
+        global _CACHED_READER
 
         try:
-            if self.inpoint > 0 or self.outpoint > 0:
-                reader = celux.VideoReader(
-                    self.videoInput,
-                    decode_accelerator=self.decodeMethod,
-                    backend=self.backend,
-                )([float(self.inpoint), float(self.outpoint)])
-            else:
-                reader = celux.VideoReader(
+            # Try to reuse cached reader
+            if _CACHED_READER is not None:
+                try:
+                    logging.info(
+                        f"Reconfiguring cached VideoReader for {self.videoInput}"
+                    )
+                    _CACHED_READER.reconfigure(self.videoInput)
+                except Exception as e:
+                    logging.warning(
+                        f"Failed to reconfigure VideoReader: {e}. Creating new instance."
+                    )
+                    _CACHED_READER = None
+
+            if _CACHED_READER is None:
+                logging.info(f"Initializing new VideoReader for {self.videoInput}")
+                _CACHED_READER = celux.VideoReader(
                     self.videoInput,
                     decode_accelerator=self.decodeMethod,
                     backend=self.backend,
                 )
+
+            # Apply range slicing if needed
+            if self.inpoint > 0 or self.outpoint > 0:
+                reader = _CACHED_READER([float(self.inpoint), float(self.outpoint)])
+            else:
+                reader = _CACHED_READER
             for frame in reader:
                 if self.toTorch:
                     frame = self.processFrameToTorch(
