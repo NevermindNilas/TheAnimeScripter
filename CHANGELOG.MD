@@ -14,6 +14,13 @@ After memoryview: ~86 FPS
 After hwupload_cuda: ~97 FPS
 
 - Added new upscale methods, "gauss", "gauss-tensorrt", "gauss-directml", "gauss-openvino".
+- Added new flag, `--decode_method` with options "CPU" and "NVDEC", this is a work in progress for the Celux project that I've taken over recently but performances are already better than the default. This is a WIP and quality and performance are still being actively improved.
+
+Rife 4.6-TensorRT, 1080p, 3090, default encoding ( x264 vfast ).
+
+Benchmark / Baseline: ~320 FPS
+CPU Decode: ~250 FPS
+NVENC Decode: ~315 FPS
 
 ### Changed
 - Slight tweaks to the decoding and encoding pipelines.
