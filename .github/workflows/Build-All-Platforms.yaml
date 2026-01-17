@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13.9"
+          python-version: "3.13.11"
           cache: "pip"
           cache-dependency-path: requirements.txt
 
@@ -29,8 +29,11 @@ jobs:
         id: get_version
         run: |
           version=$(python -c 'import src.version; print(src.version.__version__)')
+          version_nodots=${version//./}
           echo "version=${version}" >> $GITHUB_ENV
+          echo "version_nodots=${version_nodots}" >> $GITHUB_ENV
           echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "version_nodots=${version_nodots}" >> $GITHUB_OUTPUT
 
       - name: Print version
         id: print_version
@@ -42,8 +45,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
-          tag_name: TAS-${{ steps.get_version.outputs.version }}
-          release_name: TAS-${{ steps.get_version.outputs.version }}
+          tag_name: v${{ steps.get_version.outputs.version }}
+          release_name: v${{ steps.get_version.outputs.version }}
           draft: true
 
   build_windows:
@@ -58,7 +61,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13.9"
+          python-version: "3.13.11"
           cache: "pip"
           cache-dependency-path: requirements.txt
 
@@ -74,7 +77,7 @@ jobs:
       - name: Compress full directory
         run: |
           cd ${{ github.workspace }}/dist-portable/main/
-          Compress-Archive -Path * -DestinationPath ../../TAS-${{ needs.create_release.outputs.version }}-Windows.zip
+          Compress-Archive -Path * -DestinationPath ../../TAS-${{ needs.create_release.outputs.version_nodots }}-Windows.zip
 
       - name: Upload Release Asset
         id: upload-release-asset
@@ -83,8 +86,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.TAS }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: TAS-${{ needs.create_release.outputs.version }}-Windows.zip
-          asset_name: TAS-${{ needs.create_release.outputs.version }}-Windows.zip
+          asset_path: TAS-${{ needs.create_release.outputs.version_nodots }}-Windows.zip
+          asset_name: TAS-${{ needs.create_release.outputs.version_nodots }}-Windows.zip
           asset_content_type: application/zip
 
   #build_lite_windows:
