@@ -47,7 +47,6 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 ### 🎭 Advanced Editing
 - **Background-Foreground Segmentation:** Precise automatic rotobrushing
 - **Depth Map Generation:** 3D-ready depth maps for creative effects
-- **Automatic Scene Detection:** Intelligent clip splitting at scene changes
 
 </td>
 </tr>
