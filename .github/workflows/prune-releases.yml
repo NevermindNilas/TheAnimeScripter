@@ -1,0 +1,106 @@
+name: Prune release .zip assets
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  metadata: read
+
+jobs:
+  prune-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prune uploaded .zip assets from releases
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const DRY_RUN = process.env.DRY_RUN === "true";
+            const DELETE_ZIP_RE = /\.zip$/i;
+            const SKIP_SOURCE_RE = /source/i;
+
+            async function fetchAllReleases() {
+              const per_page = 100;
+              let page = 1;
+              let all = [];
+              while (true) {
+                const res = await github.rest.repos.listReleases({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  per_page,
+                  page
+                });
+                if (!res || !res.data || res.data.length === 0) break;
+                all = all.concat(res.data);
+                if (res.data.length < per_page) break;
+                page++;
+              }
+              return all;
+            }
+
+            const releases = await fetchAllReleases();
+            core.info(`Found ${releases.length} releases.`);
+
+            let totalDeleted = 0;
+            for (const rel of releases) {
+              core.info(`Checking release: id=${rel.id} tag=${rel.tag_name} name=${rel.name || '(no name)'});
+
+              let assets = [];
+              {
+                const per_page = 100;
+                let page = 1;
+                while (true) {
+                  const res = await github.rest.repos.listReleaseAssets({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    release_id: rel.id,
+                    per_page,
+                    page
+                  });
+                  if (!res || !res.data) break;
+                  assets = assets.concat(res.data);
+                  if (res.data.length < per_page) break;
+                  page++;
+                }
+              }
+
+              if (assets.length === 0) {
+                core.info('  No uploaded assets for this release.');
+                continue;
+              }
+
+              for (const asset of assets) {
+                const name = asset.name || '';
+                const isZip = DELETE_ZIP_RE.test(name);
+                const looksLikeSource = SKIP_SOURCE_RE.test(name);
+
+                if (isZip && !looksLikeSource) {
+                  core.info(`  Candidate to delete: asset id=${asset.id} name="${name}" size=${asset.size}`);
+
+                  if (DRY_RUN) {
+                    core.info(`  DRY_RUN enabled — would delete asset id=${asset.id} name="${name}"`);
+                    continue;
+                  }
+
+                  try {
+                    await github.rest.repos.deleteReleaseAsset({
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      asset_id: asset.id
+                    });
+                    core.info(`  Deleted asset id=${asset.id} name="${name}"`);
+                    totalDeleted++;
+                  } catch (err) {
+                    core.warning(`  Failed to delete asset id=${asset.id} name="${name}": ${err.message}`);
+                  }
+                } else {
+                  core.info(`  Skipping asset id=${asset.id} name="${name}" (isZip=${isZip}, looksLikeSource=${looksLikeSource})`);
+                }
+              }
+            }
+
+            core.info(`Done. Total deleted: ${totalDeleted}.`);
+        env:
+          DRY_RUN: "true"
