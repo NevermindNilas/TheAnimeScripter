@@ -17,7 +17,8 @@ jobs:
         with:
           script: |
             const DRY_RUN = process.env.DRY_RUN === "true";
-            const DELETE_ZIP_RE = /\.zip$/i;
+            const KEEP_LATEST_COUNT = 3; // Number of recent releases to keep assets for
+            const DELETE_ASSET_RE = /\.(zip|7z|rar)(\.\d+)?$/i;
             const SKIP_SOURCE_RE = /source/i;
 
             async function fetchAllReleases() {
@@ -43,8 +44,16 @@ jobs:
             core.info(`Found ${releases.length} releases.`);
 
             let totalDeleted = 0;
-            for (const rel of releases) {
-              core.info(`Checking release: id=${rel.id} tag=${rel.tag_name} name=${rel.name || '(no name)'}`);
+            for (let i = 0; i < releases.length; i++) {
+              const rel = releases[i];
+              const isRecent = i < KEEP_LATEST_COUNT;
+              
+              core.info(`Checking release: id=${rel.id} tag=${rel.tag_name} name=${rel.name || '(no name)'}${isRecent ? ' [KEEP LATEST]' : ''}`);
+
+              if (isRecent) {
+                core.info(`  Skipping asset pruning: release is within the latest ${KEEP_LATEST_COUNT}.`);
+                continue;
+              }
 
               let assets = [];
               {
@@ -72,10 +81,10 @@ jobs:
 
               for (const asset of assets) {
                 const name = asset.name || '';
-                const isZip = DELETE_ZIP_RE.test(name);
+                const isTargetType = DELETE_ASSET_RE.test(name);
                 const looksLikeSource = SKIP_SOURCE_RE.test(name);
 
-                if (isZip && !looksLikeSource) {
+                if (isTargetType && !looksLikeSource) {
                   core.info(`  Candidate to delete: asset id=${asset.id} name="${name}" size=${asset.size}`);
 
                   if (DRY_RUN) {
@@ -95,7 +104,7 @@ jobs:
                     core.warning(`  Failed to delete asset id=${asset.id} name="${name}": ${err.message}`);
                   }
                 } else {
-                  core.info(`  Skipping asset id=${asset.id} name="${name}" (isZip=${isZip}, looksLikeSource=${looksLikeSource})`);
+                  core.info(`  Skipping asset id=${asset.id} name="${name}" (targetType=${isTargetType}, looksLikeSource=${looksLikeSource})`);
                 }
               }
             }
