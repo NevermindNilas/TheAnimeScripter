@@ -29,26 +29,32 @@ NVENC Decode: ~315 FPS
 - Bumped onnx to 1.20.1
 - Up to 33% improvements to start-up times.
 - Fixed PNG output related code.
+- Better logging.
 
 ### Fixed
 - N/A
 
 ### Removed
-- N/A
+- SceneChange detection from the main codebase, it will be reintroduced in the future with better performance and accuracy, stay tuned!
 
 ---
 
 ### Adobe Edition
 #### New
 - Added a very requested feature, PNG output support!
-- Removed Deduplication from the chain tab and replaced it with remove dead frames.
 - Added tweaking opportunities to remove dead frames.
 - A brand new navbar with smaller footprint, better animations and a more modern look, compatible with AE2020+. 
+- Account information will now use your own GITHUB profile picture.
+- Added NVDec based decoding methods ( WIP )
 
 #### Changed
 - Minor performance improvements to remove dead frames.
 - Resize Input will now happen inside After Effects to lower overall processing time.
 - Removed the control points from the keyframe graph editor.
+- Removed Deduplication from the chain tab and replaced it with remove dead frames.
+
+#### Fixed
+- Potential fix for Global shortcuts not working on some systems.
 
 #### Fixed
 - Fixed an issue where the keyframes graph editor would go blank when resizing
