@@ -111,4 +111,4 @@ jobs:
 
             core.info(`Done. Total deleted: ${totalDeleted}.`);
         env:
-          DRY_RUN: "true"
+          DRY_RUN: "false"
