@@ -59,9 +59,9 @@
 **🎨 Complete Enhancement**
 ```bash
 ./python.exe ./main.py --input video.mp4 \
-  --upscale --interpolate --scenechange
+  --upscale --interpolate
 ```
-*Full AI enhancement with smart scene detection and 4K output*
+*Full AI enhancement with 4K output*
 
 **🔧 Custom Quality**
 ```bash
@@ -80,7 +80,7 @@
 | Level | Features | Use Case |
 |-------|----------|----------|
 | 🟢 **Beginner** | `--upscale`, `--interpolate` | Basic enhancement, anime upscaling |
-| 🟡 **Intermediate** | `--restore`, `--dedup`, `--scenechange` | Quality optimization, batch processing |
+| 🟡 **Intermediate** | `--restore`, `--dedup` | Quality optimization, batch processing |
 | 🔴 **Advanced** | TensorRT models, custom encoders, model chaining | Professional workflows, maximum performance |
 
 ### 🚀 Auto-Enable Feature
@@ -95,13 +95,12 @@ You can now simply use:
 --upscale_method span-tensorrt --interpolate_method rife4.25
 ```
 
-The `--upscale` and `--interpolate` flags are **automatically enabled** when their corresponding `*_method` arguments are provided. This applies to all 8 processing operations:
+The `--upscale` and `--interpolate` flags are **automatically enabled** when their corresponding `*_method` arguments are provided. This applies to all 7 processing operations:
 - `--upscale_method` → auto-enables `--upscale`
 - `--interpolate_method` → auto-enables `--interpolate`
 - `--dedup_method` → auto-enables `--dedup`
 - `--restore_method` → auto-enables `--restore`
 - `--segment_method` → auto-enables `--segment`
-- `--scenechange_method` → auto-enables `--scenechange`
 - `--depth_method` → auto-enables `--depth`
 - `--obj_detect_method` → auto-enables `--obj_detect`
 
@@ -157,10 +156,9 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 ./python.exe ./main.py --input anime_episode.mp4 \
   --upscale --upscale_method shufflecugan-tensorrt \
   --interpolate --interpolate_method rife4.22-tensorrt \
-  --scenechange --scenechange_method maxxvit-tensorrt \
   --encode_method x264_animation_10bit
 ```
-**What it does:** Upscales, smooths motion, detects scene changes, optimizes for anime
+**What it does:** Upscales, smooths motion, optimizes for anime
 </details>
 
 <details>
@@ -188,9 +186,9 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
   --upscale --upscale_method openproteus-tensorrt \
   --interpolate --interpolate_method rife4.25-tensorrt \
   --sharpen --sharpen_sens 30 \
-  --scenechange --scenechange_sens 70
+  --encode_method x264_animation
 ```
-**What it does:** Handles rapid scene changes common in gaming
+**What it does:** Enhances motion and detail for gaming footage
 </details>
 
 ---
@@ -348,30 +346,6 @@ C:\Videos\episode3.mp4
 | `--slowmo` | flag | False | **Slow motion mode** - Slows video instead of increasing frame rate |
 | `--static_step` | flag | False | **Static timestep** - Force static timestep for RIFE CUDA |
 | `--interpolate_first` | bool | True | **Processing order** - Write interpolated frames to queue immediately |
-
-### 🔍 Scene Change Detection
-
-| Parameter | Type | Default | Range | Description |
-|-----------|------|---------|-------|-------------|
-| `--scenechange` | flag | False | - | **Enable scene detection** — automatically enabled when `--scenechange_method` is specified |
-| `--scenechange_sens` | float | 50 | 0-100 | **Detection sensitivity** |
-| `--scenechange_method` | str | "maxxvit-directml" | [see table](#scene-change-methods) | **Detection model** — specifying a non-default method auto-enables scene detection |
-
-#### 🎯 Scene Change Methods
-
-| Method | Speed | Accuracy | VRAM | Best For | Acceleration |
-|--------|-------|----------|------|----------|--------------|
-| **maxxvit-tensorrt** | ⚡ | ⭐⭐⭐⭐ | 4GB | High accuracy | TensorRT |
-| **maxxvit-directml** | ⚡ | ⭐⭐⭐⭐ | 4GB | Cross-platform | DirectML, OpenVINO |
-| **differential** | ⚡⚡⚡ | ⭐⭐ | Low | Fast processing | CPU |
-| **differential-tensorrt** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | GPU accelerated | TensorRT |
-| **shift_lpips-tensorrt** | ⚡⚡ | ⭐⭐⭐⭐⭐ | 6GB | Maximum accuracy | TensorRT |
-| **shift_lpips-directml** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Cross-platform accurate | DirectML, OpenVINO |
-
-**Sensitivity Guide:**
-- **20-40:** Conservative (fewer cuts, may miss quick cuts)
-- **50-70:** Balanced (recommended for most content)
-- **80-100:** Aggressive (more cuts, may over-segment)
 
 ### 🔄 Deduplication
 
@@ -615,7 +589,6 @@ C:\Videos\episode3.mp4
 # Good speed + quality
 --upscale_method shufflecugan-tensorrt
 --interpolate_method rife4.22-tensorrt
---scenechange
 --half True
 ```
 
@@ -639,9 +612,9 @@ C:\Videos\episode3.mp4
 
 | Content Type | Upscaling | Interpolation | Additional |
 |--------------|-----------|---------------|------------|
-| **TV Anime** | shufflecugan-tensorrt | rife4.22-tensorrt | scenechange |
+| **TV Anime** | shufflecugan-tensorrt | rife4.22-tensorrt | restore_method anime1080fixer |
 | **Movie Anime** | span-tensorrt | rife4.25 | ensemble, restore |
-| **Gaming** | openproteus-tensorrt | rife4.20-tensorrt | scenechange_sens 70 |
+| **Gaming** | openproteus-tensorrt | rife4.20-tensorrt | sharpen_sens 30 |
 | **Live Action** | open-proteus-tensorrt | rife4.22-tensorrt | restore_method nafnet |
 | **Old Content** | span-tensorrt | rife4.25 | restore, sharpen |
 
@@ -767,7 +740,6 @@ C:\Videos\episode3.mp4
 ./python.exe ./main.py --input anime.mp4 \
   --upscale --upscale_method shufflecugan-tensorrt \
   --interpolate --interpolate_method rife4.22-lite-tensorrt \
-  --scenechange \
   --encode_method x264_animation \
   --preset "fast_anime"
 ```
@@ -778,7 +750,6 @@ C:\Videos\episode3.mp4
   --upscale --upscale_method span-tensorrt \
   --interpolate --interpolate_method rife4.25 \
   --ensemble \
-  --scenechange \
   --restore --restore_method scunet \
   --encode_method x264_animation_10bit \
   --preset "quality_anime"
@@ -939,7 +910,6 @@ C:\Videos\episode3.mp4
 ./python.exe ./main.py --input "anime_movie.mkv" \
   --upscale --upscale_method span-tensorrt \
   --interpolate --interpolate_method rife4.25 --ensemble \
-  --scenechange --scenechange_method maxxvit-tensorrt \
   --restore --restore_method nafnet \
   --encode_method x264_animation_10bit \
   --bit_depth 10bit
@@ -957,7 +927,6 @@ C:\Videos\episode3.mp4
 ./python.exe ./main.py --input "batch_list.txt" \
   --upscale --upscale_method compact-tensorrt \
   --interpolate --interpolate_method rife4.22-lite-tensorrt \
-  --scenechange \
   --encode_method nvenc_h265 \
 ```
 **Processing:** Fast hardware encoding  
@@ -973,11 +942,10 @@ C:\Videos\episode3.mp4
 ./python.exe ./main.py --input "gameplay.mp4" \
   --upscale --upscale_method openproteus-tensorrt \
   --interpolate --interpolate_method rife4.20-tensorrt \
-  --scenechange --scenechange_sens 70 \
   --dedup --dedup_method ssim-cuda \
   --encode_method nvenc_h264
 ```
-**Processing:** Handles rapid scene changes  
+**Processing:** Optimized for gaming content  
 **Time:** ~1.5x video length  
 **Quality:** Optimized for gaming content
 </details>
@@ -1009,7 +977,6 @@ C:\Videos\episode3.mp4
 ./python.exe ./main.py --input "https://youtube.com/watch?v=VIDEO_ID" \
   --upscale --upscale_method shufflecugan-tensorrt \
   --interpolate --interpolate_method rife4.22-tensorrt \
-  --scenechange \
   --inpoint 30 --outpoint 180 \
   --encode_method x264_animation
 ```
@@ -1055,7 +1022,6 @@ C:\Videos\episode3.mp4
 ```bash
 --upscale_method shufflecugan-tensorrt \
 --interpolate_method rife4.22-tensorrt \
---scenechange \
 --encode_method x264_animation_10bit \
 ```
 

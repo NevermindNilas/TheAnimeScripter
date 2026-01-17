@@ -31,7 +31,6 @@ def isAnyOtherProcessingMethodEnabled(args):
     return any(
         [
             args.interpolate,
-            args.scenechange,
             args.upscale,
             args.segment,
             args.restore,
@@ -591,34 +590,6 @@ def _addSceneDetectionOptions(argParser):
     sceneGroup.add_argument(
         "--autoclip_sens", type=float, default=50, help="Autoclip sensitivity"
     )
-    sceneGroup.add_argument(
-        "--scenechange", action="store_true", help="Detect scene changes"
-    )
-
-    scenechangeMethods = [
-        "maxxvit-tensorrt",
-        "maxxvit-directml",
-        "maxxvit-openvino",
-        "differential",
-        "differential-tensorrt",
-        "shift_lpips-tensorrt",
-        "shift_lpips-directml",
-        "shift_lpips-openvino",
-    ]
-
-    sceneGroup.add_argument(
-        "--scenechange_method",
-        type=str,
-        default="maxxvit-directml",
-        choices=scenechangeMethods,
-        help="Scene change detection method",
-    )
-    sceneGroup.add_argument(
-        "--scenechange_sens",
-        type=float,
-        default=50,
-        help="Scene change detection sensitivity (0-100)",
-    )
 
 
 def _addDepthOptions(argParser):
@@ -816,8 +787,6 @@ def _autoEnableParentFlags(args):
         "dedup_sens": ("dedup", 35.0),
         "restore_method": ("restore", ["anime1080fixer"]),
         "segment_method": ("segment", "anime"),
-        "scenechange_method": ("scenechange", "maxxvit-directml"),
-        "scenechange_sens": ("scenechange", 50.0),
         "depth_method": ("depth", "small_v2"),
         "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
         "resize_factor": ("resize", 2),
@@ -1045,7 +1014,7 @@ def argumentsChecker(args, outputPath, parser):
             logging.info(
                 f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
             )
-        except (ValueError, AttributeError) as e:
+        except (ValueError, AttributeError):
             logAndPrint(
                 f"Invalid output_scale format: {args.output_scale}. Expected format: WIDTHxHEIGHT (e.g., 2560x1440)"
             )
@@ -1254,24 +1223,6 @@ def _configureProcessingSettings(args):
             f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
         )
 
-    # Map of scene change methods to their sensitivity adjustment values
-    sensMap = {
-        "differential": 0.75,
-        "differential-tensorrt": 0.75,
-        "shift_lpips": 0.50,
-        "maxxvit": 0.9,
-        "maxxvit-tensorrt": 0.9,
-        "maxxvit-directml": 0.9,
-    }
-
-    if args.scenechange_method in sensMap and args.scenechange is True:
-        args.scenechange_sens = sensMap[args.scenechange_method] - (
-            args.scenechange_sens / 1000
-        )
-        logging.info(
-            f"New scenechange sensitivity for {args.scenechange_method} is: {args.scenechange_sens}"
-        )
-
     if args.sharpen:
         args.sharpen_sens = args.sharpen_sens / 100
         logging.info(f"New sharpen sensitivity is: {args.sharpen_sens}")
@@ -1326,7 +1277,6 @@ def _adjustMethodsBasedOnCuda(args):
             "interpolate_method",
             "upscale_method",
             "segment_method",
-            "scenechange_method",
             "depth_method",
             "restore_method",
             "dedup_method",

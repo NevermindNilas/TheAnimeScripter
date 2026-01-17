@@ -89,7 +89,6 @@ class VideoProcessor:
         self.autoclip: bool = args.autoclip
         self.depth: bool = args.depth
         self.segment: bool = args.segment
-        self.scenechange: bool = args.scenechange
         self.objDetect: bool = args.obj_detect
 
         # Processing parameters
@@ -102,7 +101,6 @@ class VideoProcessor:
         self.restoreMethod: str = args.restore_method
         self.depthMethod: str = args.depth_method
         self.segmentMethod: str = args.segment_method
-        self.scenechangeMethod: str = args.scenechange_method
         self.objDetectMethod: str = args.obj_detect_method
         self.objDetectDisableAnnotations: bool = args.obj_detect_disable_annotations
 
@@ -129,7 +127,6 @@ class VideoProcessor:
         # Enhancement settings
         self.sharpenSens: float = args.sharpen_sens
         self.autoclipSens: float = args.autoclip_sens
-        self.scenechangeSens: float = args.scenechange_sens
         self.depthQuality: str = args.depth_quality
 
         # Utility settings
@@ -224,11 +221,6 @@ class VideoProcessor:
             self.dedupCount += 1
             return
 
-        if self.scenechange:
-            self.isSceneChange = self.scenechange_process(frame)
-            if self.isSceneChange:
-                self.sceneChangeCounter += 1
-
         if self.restore:
             frame = self.restore_process(frame)
 
@@ -266,52 +258,35 @@ class VideoProcessor:
             frame: Input video frame tensor
         """
         if self.interpolate:
-            if self.isSceneChange:
-                self.interpolate_process.cacheFrameReset(frame)
+            if self.interpolateMethod.startswith("distildrba"):
+                self.interpolate_process(
+                    frame,
+                    self.nextFrame,
+                    self.interpQueue,
+                    self.framesToInsert,
+                    self.timesteps,
+                )
             else:
-                if self.interpolateMethod.startswith("distildrba"):
-                    self.interpolate_process(
-                        frame,
-                        self.nextFrame,
-                        self.interpQueue,
-                        self.framesToInsert,
-                        self.timesteps,
-                    )
-                else:
-                    self.interpolate_process(
-                        frame, self.interpQueue, self.framesToInsert, self.timesteps
-                    )
+                self.interpolate_process(
+                    frame, self.interpQueue, self.framesToInsert, self.timesteps
+                )
 
         if self.upscale:
-            if self.isSceneChange and self.upscaleMethod == "animesr":
-                if hasattr(self.upscale_process, "frameReset"):
-                    self.upscale_process.frameReset()
-
             if self.interpolate:
-                if self.isSceneChange:
-                    frame = self.upscale_process(frame, self.nextFrame)
-                    for _ in range(self.framesToInsert + 1):
-                        self.writeBuffer.write(frame)
+                while not self.interpQueue.empty():
+                    self.writeBuffer.write(
+                        self.upscale_process(self.interpQueue.get(), self.nextFrame)
+                    )
 
-                else:
-                    while not self.interpQueue.empty():
-                        self.writeBuffer.write(
-                            self.upscale_process(self.interpQueue.get(), self.nextFrame)
-                        )
-
-                    self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
+                self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
 
             else:
                 self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
 
         else:
             if self.interpolate:
-                if self.isSceneChange or not self.interpQueue.empty():
-                    for _ in range(self.framesToInsert):
-                        frameToWrite = (
-                            frame if self.isSceneChange else self.interpQueue.get()
-                        )
-                        self.writeBuffer.write(frameToWrite)
+                while not self.interpQueue.empty():
+                    self.writeBuffer.write(self.interpQueue.get())
             self.writeBuffer.write(frame)
 
     def ifInterpolateLast(self, frame: any) -> None:
@@ -321,32 +296,22 @@ class VideoProcessor:
         Args:
             frame: Input video frame tensor
         """
-        # Reset AnimeSR temporal state on scene changes BEFORE processing
-        if self.isSceneChange and self.upscaleMethod == "animesr":
-            if hasattr(self.upscale_process, "frameReset"):
-                self.upscale_process.frameReset()
-
         if self.upscale:
             frame = self.upscale_process(frame, self.nextFrame)
 
         if self.interpolate:
-            if self.isSceneChange:
-                for _ in range(self.framesToInsert + 1):
-                    self.writeBuffer.write(frame)
-                self.interpolate_process.cacheFrameReset(frame)
+            if self.interpolateMethod.startswith("distildrba"):
+                self.interpolate_process(
+                    frame,
+                    self.nextFrame,
+                    self.writeBuffer,
+                    self.framesToInsert,
+                    self.timesteps,
+                )
             else:
-                if self.interpolateMethod.startswith("distildrba"):
-                    self.interpolate_process(
-                        frame,
-                        self.nextFrame,
-                        self.writeBuffer,
-                        self.framesToInsert,
-                        self.timesteps,
-                    )
-                else:
-                    self.interpolate_process(
-                        frame, self.writeBuffer, self.framesToInsert, self.timesteps
-                    )
+                self.interpolate_process(
+                    frame, self.writeBuffer, self.framesToInsert, self.timesteps
+                )
 
         self.writeBuffer.write(frame)
 
@@ -359,8 +324,6 @@ class VideoProcessor:
         """
         frameCount = 0
         self.dedupCount = 0
-        self.isSceneChange = False
-        self.sceneChangeCounter = 0
         self.frameCounter = 0
         self.nextFrame = None
 
@@ -415,8 +378,6 @@ class VideoProcessor:
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
             logging.info(f"Deduplicated {self.dedupCount} frames")
-        if self.scenechange:
-            logging.info(f"Detected {self.sceneChangeCounter} scene changes")
 
     def start(self):
         """
@@ -442,7 +403,6 @@ class VideoProcessor:
                 self.interpolate_process,
                 self.restore_process,
                 self.dedup_process,
-                self.scenechange_process,
             ) = initializeModels(self)
 
             starTime: float = time()
