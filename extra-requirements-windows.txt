@@ -1,5 +1,5 @@
---index-url https://download.pytorch.org/whl/cu130
---index-url https://pypi.nvidia.com
+--extra-index-url https://download.pytorch.org/whl/cu130
+--extra-index-url https://pypi.nvidia.com
 torch==2.9.1+cu130
 torchvision==0.24.1+cu130
 tensorrt==10.13.2.6
