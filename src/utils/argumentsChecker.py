@@ -803,6 +803,10 @@ def _autoEnableParentFlags(args):
     Args:
         args: Parsed command line arguments
     """
+    logging.info(f"[DEBUG] hasattr(args, '_json_keys'): {hasattr(args, '_json_keys')}")
+    if hasattr(args, "_json_keys"):
+        logging.info(f"[DEBUG] args._json_keys: {args._json_keys}")
+
     methodToFlagMapping = {
         "interpolate_method": ("interpolate", "rife4.6"),
         "interpolate_factor": ("interpolate", 2.0),
@@ -834,10 +838,14 @@ def _autoEnableParentFlags(args):
                 methodArg in cliProvided or methodArg.replace("_", "-") in cliProvided
             )
 
-            # Also consider it provided if it was in the JSON config
             isExplicitlyProvided = providedOnCLI or (
                 hasattr(args, "_json_keys") and methodArg in args._json_keys
             )
+
+            if methodArg == "interpolate_method":
+                logging.info(
+                    f"[DEBUG] interpolate_method - providedOnCLI: {providedOnCLI}, isExplicitlyProvided: {isExplicitlyProvided}"
+                )
 
             if isExplicitlyProvided:
                 if not getattr(args, parentFlag):
@@ -1064,6 +1072,10 @@ def argumentsChecker(args, outputPath, parser):
             )
             logging.info("Invalid upscale_factor value encountered; set to 2")
             args.upscale_factor = 2
+
+    logging.info(
+        f"[DEBUG] Before processing check - args.interpolate: {args.interpolate}"
+    )
 
     if not isAnyOtherProcessingMethodEnabled(args):
         logAndPrint(
