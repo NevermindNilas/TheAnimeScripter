@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [2.5.6] - YYYY-MM-DD
+## [2.5.6] - 2026-01-17
 ### New
 - Increased ENCODING performance by up to 10% for most CPU workloads and by UP to 20% for NVIDIA NVENC workloads.
 
@@ -57,10 +57,9 @@ NVENC Decode: ~315 FPS
 #### Fixed
 - Potential fix for Global shortcuts not working on some systems.
 - Fixed duplicated upscale text description in quick presets.
-  
-#### Fixed
 - Fixed an issue where the keyframes graph editor would go blank when resizing
 - Partially fixed an issue where the UI froze when switchign to the keyframe graph editor.
+
 ## [2.5.5] - 2026-01-07
 ### New
 - Added `socket-io` comms to the backend facilitating the development of the Adobe Edition.
