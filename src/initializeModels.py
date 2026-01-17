@@ -523,7 +523,6 @@ def initializeModels(self):
             - interpolateProcess: Interpolation model function or None
             - restoreProcess: Restoration model function or None
             - dedupProcess: Deduplication function or None
-            - scenechangeProcess: Scene change detection function or None
     """
     outputWidth = self.width
     outputHeight = self.height
@@ -531,7 +530,6 @@ def initializeModels(self):
     interpolateProcess = None
     restoreProcess = None
     dedupProcess = None
-    scenechangeProcess = None
 
     if self.upscale:
         from src.unifiedUpscale import UniversalPytorch
@@ -996,63 +994,6 @@ def initializeModels(self):
                     width=self.width,
                 )
 
-    if self.scenechange:
-        match self.scenechangeMethod:
-            case "maxxvit-tensorrt" | "shift_lpips-tensorrt":
-                from src.scenechange import SceneChangeTensorRT
-
-                scenechangeProcess = SceneChangeTensorRT(
-                    self.half,
-                    self.scenechangeSens,
-                    self.scenechangeMethod,
-                )
-            case "maxxvit-directml":
-                from src.scenechange import SceneChange
-
-                scenechangeProcess = SceneChange(
-                    self.half,
-                    self.scenechangeSens,
-                )
-            case "differential":
-                from src.scenechange import SceneChangeCPU
-
-                scenechangeProcess = SceneChangeCPU(
-                    self.scenechangeSens,
-                )
-            case "differential-cuda":
-                from src.scenechange import SceneChangeCuda
-
-                scenechangeProcess = SceneChangeCuda(
-                    self.scenechangeSens,
-                )
-            case "differential-tensorrt":
-                from src.scenechange import DifferentialTensorRT
-
-                scenechangeProcess = DifferentialTensorRT(
-                    self.scenechangeSens,
-                    self.height,
-                    self.width,
-                )
-            case "maxxvit-openvino" | "shift_lpips-openvino":
-                from src.scenechange import SceneChange
-
-                scenechangeProcess = SceneChange(
-                    self.half,
-                    self.scenechangeSens,
-                )
-            case "differential-directml":
-                # from src.scenechange import DifferentialDirectML
-                # scenechangeProcess = DifferentialDirectML(
-                #     self.scenechangeSens,
-                # )
-                raise NotImplementedError(
-                    "Differential DirectML is not implemented yet"
-                )
-            case _:
-                raise ValueError(
-                    f"Unknown scenechange method: {self.scenechangeMethod}"
-                )
-
     return (
         outputWidth,
         outputHeight,
@@ -1060,5 +1001,4 @@ def initializeModels(self):
         interpolateProcess,
         restoreProcess,
         dedupProcess,
-        scenechangeProcess,
     )
