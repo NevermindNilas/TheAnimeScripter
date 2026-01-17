@@ -9,6 +9,7 @@ import os
 import logging
 import sys
 import argparse
+import shutil
 import src.constants as cs
 
 from rich_argparse import RichHelpFormatter
@@ -16,6 +17,7 @@ from src.version import __version__
 from .inputOutputHandler import generateOutputName
 from src.utils.logAndPrint import logAndPrint
 from src.utils.dependencyHandler import installDependencies
+from src.utils.getFFMPEG import remove_readonly
 
 
 def isAnyOtherProcessingMethodEnabled(args):
@@ -1057,15 +1059,23 @@ def argumentsChecker(args, outputPath, parser):
 
 
 def _handleDependencies(args):
+    legacyFFMPEG = os.path.join(cs.MAINPATH, "ffmpeg")
+    if os.path.isdir(legacyFFMPEG):
+        try:
+            shutil.rmtree(legacyFFMPEG, onerror=remove_readonly)
+            logging.info(f"Removed legacy FFmpeg folder: {legacyFFMPEG}")
+        except Exception as e:
+            logging.warning(f"Failed to remove legacy FFmpeg folder: {e}")
+
+    ffmpegSharedDir = os.path.join(cs.MAINPATH, "ffmpeg_shared")
+
     cs.FFMPEGPATH = os.path.join(
-        cs.MAINPATH,
-        "ffmpeg",
+        ffmpegSharedDir,
         "ffmpeg.exe" if cs.SYSTEM == "Windows" else "ffmpeg",
     )
 
     cs.FFPROBEPATH = os.path.join(
-        cs.MAINPATH,
-        "ffmpeg",
+        ffmpegSharedDir,
         "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe",
     )
 

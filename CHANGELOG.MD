@@ -32,7 +32,7 @@ NVENC Decode: ~315 FPS
 - Better logging.
 
 ### Fixed
-- N/A
+- Fixed a bug where if the default `_method` was used, it will not be picked up as an active option.
 
 ### Removed
 - SceneChange detection from the main codebase, it will be reintroduced in the future with better performance and accuracy, stay tuned!
