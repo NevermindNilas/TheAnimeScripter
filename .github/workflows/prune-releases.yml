@@ -44,7 +44,7 @@ jobs:
 
             let totalDeleted = 0;
             for (const rel of releases) {
-              core.info(`Checking release: id=${rel.id} tag=${rel.tag_name} name=${rel.name || '(no name)'});
+              core.info(`Checking release: id=${rel.id} tag=${rel.tag_name} name=${rel.name || '(no name)'}`);
 
               let assets = [];
               {
