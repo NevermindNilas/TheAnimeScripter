@@ -55,7 +55,8 @@ NVENC Decode: ~315 FPS
 
 #### Fixed
 - Potential fix for Global shortcuts not working on some systems.
-
+- Fixed duplicated upscale text description in quick presets.
+  
 #### Fixed
 - Fixed an issue where the keyframes graph editor would go blank when resizing
 - Partially fixed an issue where the UI froze when switchign to the keyframe graph editor.
