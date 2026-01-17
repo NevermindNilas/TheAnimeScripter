@@ -30,6 +30,7 @@ NVENC Decode: ~315 FPS
 - Up to 33% improvements to start-up times.
 - Fixed PNG output related code.
 - Better logging.
+- Switched from using fully enclosed ffmpeg to shared ffmpeg binaries to work with Celux.
 
 ### Fixed
 - Fixed a bug where if the default `_method` was used, it will not be picked up as an active option.
