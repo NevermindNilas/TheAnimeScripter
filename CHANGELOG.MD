@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [Unreleased] - YYYY-MM-DD
+### New
+- Added Torchcodec as a fallback decoder in case if celux fails to decode certain formats.
+- Added DirectML and OpenVino support for Rife
+
+### Changed
+- N/A
+
+### Fixed
+- N/A
+
+### Removed
+- Deprecated NCNN backends. 
+  
+
+
+
 ## [2.5.6] - 2026-01-17
 ### New
 - Increased ENCODING performance by up to 10% for most CPU workloads and by UP to 20% for NVIDIA NVENC workloads.
