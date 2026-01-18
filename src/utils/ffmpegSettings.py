@@ -3,23 +3,21 @@ import subprocess
 import os
 import src.constants as cs
 import time
+import torch
 import celux
 import threading
 
 from queue import Queue
 from src.utils.encodingSettings import matchEncoder, getPixFMT
 from .isCudaInit import CudaChecker
- 
-
-# Lazy imports for heavy dependencies
-# torch and torch.nn.functional are imported only when needed
-
 
 checker = CudaChecker()
 
+# Debugging flag
+CeluxLog = False
 
-# Global cache for VideoReader to support reconfigure() across batch processing
-_CACHED_READER = None
+CachedReader = None
+CachedReaderMethod = None
 
 
 class BuildBuffer:
@@ -66,15 +64,22 @@ class BuildBuffer:
         self.toTorch = toTorch
         self.inpoint = inpoint
         self.outpoint = outpoint
-
+        """
+        global CeluxLog
+        if not CeluxLog:
+            try:
+                celux.set_log_level(celux.LogLevel.info)
+                CeluxLog = True
+                logging.info("CeLux logging enabled (level: info)")
+            except Exception as e:
+                logging.warning(f"Failed to enable CeLux logging: {e}")
+        """
         if "%" not in videoInput and not os.path.exists(videoInput):
             raise FileNotFoundError(f"Video file not found: {videoInput}")
 
         self.cudaEnabled = False
         if checker.cudaAvailable and toTorch:
             try:
-                import torch
-
                 self.normStream = torch.cuda.Stream()
                 self.deviceType = "cuda"
                 self.cudaEnabled = True
@@ -95,49 +100,25 @@ class BuildBuffer:
         Decodes frames from the video and stores them in the decodeBuffer.
         """
         decodedFrames = 0
-        global _CACHED_READER
+        global CachedReader
+        global CachedReaderMethod
 
         try:
-            # Try to reuse cached reader
-            if _CACHED_READER is not None:
-                try:
-                    logging.info(
-                        f"Reconfiguring cached VideoReader for {self.videoInput}"
-                    )
-                    _CACHED_READER.reconfigure(self.videoInput)
-                except Exception as e:
-                    logging.warning(
-                        f"Failed to reconfigure VideoReader: {e}. Creating new instance."
-                    )
-                    _CACHED_READER = None
-
-            if _CACHED_READER is None:
-                logging.info(f"Initializing new VideoReader for {self.videoInput}")
-                _CACHED_READER = celux.VideoReader(
-                    self.videoInput,
-                    decode_accelerator=self.decodeMethod,
-                    backend=self.backend,
-                )
-
-            # Apply range slicing if needed
-            if self.inpoint > 0 or self.outpoint > 0:
-                reader = _CACHED_READER([float(self.inpoint), float(self.outpoint)])
-            else:
-                reader = _CACHED_READER
-            for frame in reader:
-                if self.toTorch:
-                    frame = self.processFrameToTorch(
-                        frame, self.normStream if self.cudaEnabled else None
-                    )
-                else:
-                    pass
-
-                self.decodeBuffer.put(frame)
-                self._frameAvailable.set()
-                decodedFrames += 1
+            decodedFrames += self._decodeWithCelux(self.decodeMethod)
 
         except Exception as e:
             logging.error(f"Celux decoding error: {e}")
+
+            if self.decodeMethod != "cpu":
+                try:
+                    logging.warning(
+                        "Celux decode failed with non-CPU method; retrying with cpu."
+                    )
+                    decodedFrames += self._decodeWithCelux("cpu")
+                    self.decodeMethod = "cpu"
+                    return
+                except Exception as retry_e:
+                    logging.error(f"Celux CPU retry failed: {retry_e}")
 
             logging.info("Attempting fallback to TorchCodec...")
             try:
@@ -151,6 +132,63 @@ class BuildBuffer:
 
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
+
+    def _decodeWithCelux(self, decodeMethod: str) -> int:
+        """
+        Decode using Celux. Returns number of frames decoded.
+        """
+        global CachedReader
+        global CachedReaderMethod
+
+        if CachedReader is not None and CachedReaderMethod != decodeMethod:
+            CachedReader = None
+            CachedReaderMethod = None
+
+        if CachedReader is not None:
+            try:
+                logging.info(
+                    f"Reconfiguring cached VideoReader for {self.videoInput}"
+                )
+                CachedReader.reconfigure(self.videoInput)
+            except Exception as e:
+                logging.warning(
+                    f"Failed to reconfigure VideoReader: {e}. Creating new instance."
+                )
+                CachedReader = None
+                CachedReaderMethod = None
+
+        if CachedReader is None:
+            logging.info(
+                f"Initializing new VideoReader for {self.videoInput} ({decodeMethod})"
+            )
+            CachedReader = celux.VideoReader(
+                self.videoInput,
+                decode_accelerator=decodeMethod,
+                backend=self.backend,
+            )
+            CachedReaderMethod = decodeMethod
+
+        if self.inpoint > 0 or self.outpoint > 0:
+            reader = CachedReader([float(self.inpoint), float(self.outpoint)])
+        else:
+            reader = CachedReader
+
+        try:
+            decodedFrames = 0
+            for frame in reader:
+                if self.toTorch:
+                    frame = self.processFrameToTorch(
+                        frame, self.normStream if self.cudaEnabled else None
+                    )
+                self.decodeBuffer.put(frame)
+                self._frameAvailable.set()
+                decodedFrames += 1
+
+            return decodedFrames
+
+        except Exception as e:
+            logging.error(f"Error during Celux decoding loop: {e}")
+            raise
 
     def decodeWithTorchCodec(self):
         """
