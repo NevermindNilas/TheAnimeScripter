@@ -19,4 +19,4 @@ rich-argparse==1.7.2
 flask-socketio==5.6.0
 
 # Video processing
-nelux==0.8.3
+nelux==0.8.4
