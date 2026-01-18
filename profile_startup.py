@@ -14,7 +14,6 @@ def profile_imports():
     modules_to_test = [
         "torch",
         "torchvision",
-        "cv2",
         "numpy",
         "onnxruntime",
         "timm",
