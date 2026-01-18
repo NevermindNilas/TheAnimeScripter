@@ -75,11 +75,10 @@ class BuildBuffer:
                 logging.info("CeLux logging enabled (level: info)")
             except Exception as e:
                 logging.warning(f"Failed to enable CeLux logging: {e}")
-        """
 
         if "%" not in videoInput and not os.path.exists(videoInput):
             raise FileNotFoundError(f"Video file not found: {videoInput}")
-
+        """
         self.cudaEnabled = False
         if checker.cudaAvailable and toTorch:
             try:
@@ -436,14 +435,10 @@ class WriteBuffer:
         self.encode_method = encode_method
 
         if self.encode_method == "png" and "%" not in self.output:
-            # Check if it has an extension
             _, ext = os.path.splitext(self.output)
             if not ext:
-                # It's likely a directory
                 self.output = os.path.join(self.output, "%08d.png")
             else:
-                # It's a file path, assume we want a sequence in the same dir
-                # If it's something like "video.mp4", switch to "video_%08d.png"
                 base, _ = os.path.splitext(self.output)
                 self.output = f"{base}_%08d.png"
 
