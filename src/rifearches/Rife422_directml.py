@@ -1,0 +1,293 @@
+"""
+RIFE 4.22 DirectML - DirectML-compatible RIFE 4.22 architecture.
+
+This module implements the RIFE 4.22 architecture using decomposed grid_sample
+operations that are compatible with DirectML. Includes the Head encoder for
+feature caching (f0/f1).
+"""
+
+import torch
+import torch.nn as nn
+from torch.nn.functional import interpolate
+import math
+
+from .grid_sample_directml import grid_sample_directml
+
+
+def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
+    return nn.Sequential(
+        nn.Conv2d(
+            in_planes,
+            out_planes,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            bias=True,
+        ),
+        nn.LeakyReLU(0.2, True),
+    )
+
+
+class Head(nn.Module):
+    """Feature encoder that produces 8-channel features from RGB images."""
+
+    def __init__(self):
+        super(Head, self).__init__()
+        self.cnn0 = nn.Conv2d(3, 32, 3, 2, 1)
+        self.cnn1 = nn.Conv2d(32, 32, 3, 1, 1)
+        self.cnn2 = nn.Conv2d(32, 32, 3, 1, 1)
+        self.cnn3 = nn.ConvTranspose2d(32, 8, 4, 2, 1)
+        self.relu = nn.LeakyReLU(0.2, True)
+
+    def forward(self, x, feat=False):
+        x0 = self.cnn0(x)
+        x = self.relu(x0)
+        x1 = self.cnn1(x)
+        x = self.relu(x1)
+        x2 = self.cnn2(x)
+        x = self.relu(x2)
+        x3 = self.cnn3(x)
+        if feat:
+            return [x0, x1, x2, x3]
+        return x3
+
+
+class ResConv(nn.Module):
+    def __init__(self, c):
+        super(ResConv, self).__init__()
+        self.conv = nn.Conv2d(c, c, 3, 1, padding=1)
+        self.beta = nn.Parameter(torch.ones((1, c, 1, 1)), requires_grad=True)
+        self.relu = nn.LeakyReLU(0.2, True)
+
+    def forward(self, x):
+        return self.relu(self.conv(x) * self.beta + x)
+
+
+class IFBlock(nn.Module):
+    def __init__(self, in_planes, c=64):
+        super(IFBlock, self).__init__()
+        self.conv0 = nn.Sequential(
+            conv(in_planes, out_planes=c // 2, kernel_size=3, stride=2, padding=1),
+            conv(c // 2, out_planes=c, kernel_size=3, stride=2, padding=1),
+        )
+        self.convblock = nn.Sequential(
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+        )
+        self.lastconv = nn.Sequential(
+            nn.ConvTranspose2d(
+                in_channels=c, out_channels=4 * 13, kernel_size=4, stride=2, padding=1
+            ),
+            nn.PixelShuffle(upscale_factor=2),
+        )
+        self.in_planes = in_planes
+
+    def forward(self, x, scale=1):
+        if scale != 1:
+            x = interpolate(
+                x, scale_factor=1 / scale, mode="bilinear", align_corners=False
+            )
+
+        feat = self.conv0(x)
+        feat = self.convblock(feat)
+        tmp = self.lastconv(feat)
+        if scale != 1:
+            tmp = interpolate(
+                tmp, scale_factor=scale, mode="bilinear", align_corners=False
+            )
+
+        flow = tmp[:, :4]
+        mask = tmp[:, 4:5]
+        feat = tmp[:, 5:]
+        if scale != 1:
+            flow = flow * scale
+
+        return flow, mask, feat
+
+
+def warp_directml_422(tenInput, tenFlow, tenFlowMul, backWarp):
+    """
+    DirectML-compatible warp for RIFE 4.22.
+
+    Args:
+        tenInput: Input tensor to warp [B, C, H, W]
+        tenFlow: Optical flow [B, 2, H, W]
+        tenFlowMul: Flow multiplier tensor [1, 2, 1, 1]
+        backWarp: Pre-computed base grid [1, 2, H, W]
+
+    Returns:
+        Warped tensor [B, C, H, W]
+    """
+    # Compute sampling grid
+    g = (backWarp + tenFlow * tenFlowMul).permute(0, 2, 3, 1)
+
+    return grid_sample_directml(
+        input_tensor=tenInput,
+        grid=g,
+        padding_mode="border",
+        align_corners=True,
+    )
+
+
+class IFNet(nn.Module):
+    def __init__(
+        self,
+        scale=1.0,
+        ensemble=False,
+        dtype=torch.float32,
+        device="cuda",
+        width=1920,
+        height=1080,
+    ):
+        super(IFNet, self).__init__()
+        self.block0 = IFBlock(7 + 16, c=256)
+        self.block1 = IFBlock(8 + 4 + 16 + 8, c=192)
+        self.block2 = IFBlock(8 + 4 + 16 + 8, c=96)
+        self.block3 = IFBlock(8 + 4 + 16 + 8, c=48)
+        self.encode = Head()
+        self.device = device
+        self.dtype = dtype
+        self.scaleList = [8 / scale, 4 / scale, 2 / scale, 1 / scale]
+        self.ensemble = ensemble
+        self.width = width
+        self.height = height
+
+        self.blocks = [self.block0, self.block1, self.block2, self.block3]
+
+        # Pre-compute grid and flow multiplier
+        tmp = max(32, int(32 / 1.0))
+        self.pw = math.ceil(self.width / tmp) * tmp
+        self.ph = math.ceil(self.height / tmp) * tmp
+        self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
+
+        hMul = 2 / (self.pw - 1)
+        vMul = 2 / (self.ph - 1)
+
+        # Register as buffers for ONNX export
+        self.register_buffer(
+            "tenFlowMul",
+            torch.tensor([hMul, vMul], dtype=dtype).reshape(1, 2, 1, 1),
+        )
+
+        # Pre-computed base grid
+        horizontal = (
+            (torch.arange(self.pw, dtype=dtype) * hMul - 1)
+            .reshape(1, 1, 1, -1)
+            .expand(-1, -1, self.ph, -1)
+        )
+        vertical = (
+            (torch.arange(self.ph, dtype=dtype) * vMul - 1)
+            .reshape(1, 1, -1, 1)
+            .expand(-1, -1, -1, self.pw)
+        )
+        self.register_buffer("backWarp", torch.cat([horizontal, vertical], dim=1))
+
+    def warp(self, tenInput, tenFlow):
+        """Warp tensor using DirectML-compatible grid_sample."""
+        return warp_directml_422(tenInput, tenFlow, self.tenFlowMul, self.backWarp)
+
+    def warp_batch(self, tenInput, tenFlow):
+        """
+        Batch warp for images and features together.
+        tenInput: [2, C, H, W] - stacked tensors
+        tenFlow: [1, 4, H, W] - stacked flows (split into 2x2)
+        """
+        # Reshape flow for batch processing
+        flow_reshaped = tenFlow.reshape(2, 2, self.ph, self.pw)
+        g = (self.backWarp + flow_reshaped * self.tenFlowMul).permute(0, 2, 3, 1)
+
+        return grid_sample_directml(
+            input_tensor=tenInput,
+            grid=g,
+            padding_mode="border",
+            align_corners=True,
+        )
+
+    def forward(self, img0, img1, timeStep, f0):
+        """
+        Forward pass for RIFE 4.22 interpolation.
+
+        Args:
+            img0: First frame [1, 3, H, W]
+            img1: Second frame [1, 3, H, W]
+            timeStep: Timestep tensor [1, 1, H, W]
+            f0: Cached features from img0 [1, 8, H, W]
+
+        Returns:
+            output: Interpolated frame [1, 3, H, W]
+            f1: Features from img1 for caching [1, 8, H, W]
+        """
+        # Stack images for batch processing
+        imgs = torch.cat([img0, img1], dim=1)
+        imgs2 = torch.reshape(imgs, (2, 3, self.ph, self.pw))
+
+        # Compute features for img1
+        f1 = self.encode(img1[:, :3])
+
+        # Stack features
+        fs = torch.cat([f0, f1], dim=1)
+        fs2 = torch.reshape(fs, (2, 8, self.ph, self.pw))
+
+        warpedImg0 = img0
+        warpedImg1 = img1
+        flows = None
+
+        for block, scale in zip(self.blocks, self.scaleList):
+            if flows is None:
+                temp = torch.cat((imgs, fs, timeStep), 1)
+                flows, mask, feat = block(temp, scale=scale)
+            else:
+                temp = torch.cat(
+                    (
+                        wimg,  # noqa: F821
+                        wf,  # noqa: F821
+                        timeStep,
+                        mask,
+                        feat,
+                        (flows * (1 / scale) if scale != 1 else flows),
+                    ),
+                    1,
+                )
+                fds, mask, feat = block(temp, scale=scale)
+                flows = flows + fds
+
+            # Warp images and features using DirectML-compatible grid_sample
+            precomp = (
+                self.backWarp
+                + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
+            ).permute(0, 2, 3, 1)
+
+            if scale == 1:
+                warpedImgs = grid_sample_directml(
+                    imgs2,
+                    precomp,
+                    padding_mode="border",
+                    align_corners=True,
+                )
+            else:
+                imgsFs2 = torch.cat((imgs2, fs2), 1)
+                warps = grid_sample_directml(
+                    imgsFs2,
+                    precomp,
+                    padding_mode="border",
+                    align_corners=True,
+                )
+                wimg, wf = torch.split(warps, [3, 8], dim=1)
+                wimg = torch.reshape(wimg, (1, 6, self.ph, self.pw))
+                wf = torch.reshape(wf, (1, 16, self.ph, self.pw))
+
+        mask = torch.sigmoid(mask)
+        warpedImg0, warpedImg1 = torch.split(warpedImgs, [1, 1])
+
+        output = (warpedImg0 * mask + warpedImg1 * (1 - mask))[
+            :, :, : self.height, : self.width
+        ]
+
+        return output, f1
