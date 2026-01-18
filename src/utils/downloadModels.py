@@ -407,7 +407,13 @@ def modelsMap(
         case "gmfss":
             return "gmfss-fortuna-union.zip"
 
-        case "rife4.25-heavy" | "rife4.25-heavy-tensorrt" | "rife4.25-heavy-ncnn":
+        case (
+            "rife4.25-heavy"
+            | "rife4.25-heavy-tensorrt"
+            | "rife4.25-heavy-ncnn"
+            | "rife4.25-heavy-directml"
+            | "rife4.25-heavy-openvino"
+        ):
             if modelType == "pth":
                 return "rife425_heavy.pth"
             elif modelType == "onnx":
@@ -423,7 +429,13 @@ def modelsMap(
             elif modelType == "ncnn":
                 raise ValueError("NCNN model not found.")
 
-        case "rife4.25-lite" | "rife4.25-lite-tensorrt" | "rife4.25-lite-ncnn":
+        case (
+            "rife4.25-lite"
+            | "rife4.25-lite-tensorrt"
+            | "rife4.25-lite-ncnn"
+            | "rife4.25-lite-directml"
+            | "rife4.25-lite-openvino"
+        ):
             if modelType == "pth":
                 return "rife425_lite.pth"
             elif modelType == "onnx":
@@ -437,7 +449,13 @@ def modelsMap(
         case "distildrba-lite":
             return "v2_lite.pkl"
 
-        case "rife4.25" | "rife4.25-tensorrt" | "rife4.25-ncnn":
+        case (
+            "rife4.25"
+            | "rife4.25-tensorrt"
+            | "rife4.25-ncnn"
+            | "rife4.25-directml"
+            | "rife4.25-openvino"
+        ):
             if modelType == "pth":
                 return "rife425.pth"
             elif modelType == "onnx":
@@ -461,7 +479,13 @@ def modelsMap(
             elif modelType == "ncnn":
                 pass
 
-        case "rife4.22-lite" | "rife4.22-lite-tensorrt" | "rife4.22-lite-ncnn":
+        case (
+            "rife4.22-lite"
+            | "rife4.22-lite-tensorrt"
+            | "rife4.22-lite-ncnn"
+            | "rife4.22-lite-directml"
+            | "rife4.22-lite-openvino"
+        ):
             if modelType == "pth":
                 return "rife422_lite.pth"
             elif modelType == "onnx":
@@ -493,7 +517,13 @@ def modelsMap(
                 else:
                     return "rife-v4.22-lite-ncnn.zip"
 
-        case "rife4.20" | "rife4.20-tensorrt" | "rife4.20-ncnn":
+        case (
+            "rife4.20"
+            | "rife4.20-tensorrt"
+            | "rife4.20-ncnn"
+            | "rife4.20-directml"
+            | "rife4.20-openvino"
+        ):
             if modelType == "pth":
                 return "rife420.pth"
             elif modelType == "onnx":
@@ -513,7 +543,14 @@ def modelsMap(
                 else:
                     return "rife-v4.20-ncnn.zip"
 
-        case "rife" | "rife4.22" | "rife4.22-tensorrt" | "rife4.22-ncnn":
+        case (
+            "rife"
+            | "rife4.22"
+            | "rife4.22-tensorrt"
+            | "rife4.22-ncnn"
+            | "rife4.22-directml"
+            | "rife4.22-openvino"
+        ):
             if modelType == "pth":
                 return "rife422.pth"
             elif modelType == "onnx":
@@ -545,7 +582,13 @@ def modelsMap(
                 else:
                     return "rife-v4.22-ncnn.zip"
 
-        case "rife4.21" | "rife4.21-tensorrt" | "rife4.21-ncnn":
+        case (
+            "rife4.21"
+            | "rife4.21-tensorrt"
+            | "rife4.21-ncnn"
+            | "rife4.21-directml"
+            | "rife4.21-openvino"
+        ):
             if modelType == "pth":
                 return "rife421.pth"
             elif modelType == "onnx":
@@ -577,7 +620,13 @@ def modelsMap(
                 else:
                     return "rife-v4.21-ncnn.zip"
 
-        case "rife4.18" | "rife4.18-tensorrt" | "rife4.18-ncnn":
+        case (
+            "rife4.18"
+            | "rife4.18-tensorrt"
+            | "rife4.18-ncnn"
+            | "rife4.18-directml"
+            | "rife4.18-openvino"
+        ):
             if modelType == "pth":
                 return "rife418.pth"
             elif modelType == "onnx":
@@ -597,7 +646,13 @@ def modelsMap(
                 else:
                     return "rife-v4.18-ncnn.zip"
 
-        case "rife4.17" | "rife4.17-tensorrt" | "rife4.17-ncnn":
+        case (
+            "rife4.17"
+            | "rife4.17-tensorrt"
+            | "rife4.17-ncnn"
+            | "rife4.17-directml"
+            | "rife4.17-openvino"
+        ):
             if modelType == "pth":
                 return "rife417.pth"
             elif modelType == "onnx":
@@ -637,7 +692,13 @@ def modelsMap(
                 else:
                     return "rife-v4.15-lite-ncnn.zip"
 
-        case "rife4.15" | "rife4.15-tensorrt" | "rife4.15-ncnn":
+        case (
+            "rife4.15"
+            | "rife4.15-tensorrt"
+            | "rife4.15-ncnn"
+            | "rife4.15-directml"
+            | "rife4.15-openvino"
+        ):
             if modelType == "pth":
                 return "rife415.pth"
             elif modelType == "onnx":
@@ -658,7 +719,13 @@ def modelsMap(
                 else:
                     return "rife-v4.15-ncnn.zip"
 
-        case "rife4.6" | "rife4.6-tensorrt" | "rife4.6-ncnn":
+        case (
+            "rife4.6"
+            | "rife4.6-tensorrt"
+            | "rife4.6-ncnn"
+            | "rife4.6-directml"
+            | "rife4.6-openvino"
+        ):
             if modelType == "pth":
                 return "rife46.pth"
             elif modelType == "onnx":

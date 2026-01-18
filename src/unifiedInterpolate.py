@@ -90,10 +90,54 @@ def importRifeArch(interpolateMethod, version):
                     from src.rifearches.Rife415_v3 import IFNet
 
                     Head = True
-                case "rife4.6-tensorrt" | "rife4.6-directml":
+                case "rife4.6-tensorrt":
                     from src.rifearches.Rife46_v3 import IFNet
 
                     Head = False
+                case "rife4.6-directml" | "rife4.6-openvino":
+                    from src.rifearches.Rife46_directml import IFNet
+
+                    Head = False
+                case "rife4.22-directml" | "rife4.22-openvino":
+                    from src.rifearches.Rife422_directml import IFNet
+
+                    Head = True
+                case (
+                    "rife4.15-directml"
+                    | "rife4.17-directml"
+                    | "rife4.18-directml"
+                    | "rife4.15-openvino"
+                    | "rife4.17-openvino"
+                    | "rife4.18-openvino"
+                ):
+                    from src.rifearches.Rife_directml import IFNet_415 as IFNet
+
+                    Head = True
+                case (
+                    "rife4.20-directml"
+                    | "rife4.21-directml"
+                    | "rife4.20-openvino"
+                    | "rife4.21-openvino"
+                ):
+                    from src.rifearches.Rife_directml import IFNet_420 as IFNet
+
+                    Head = True
+                case "rife4.22-lite-directml" | "rife4.22-lite-openvino":
+                    from src.rifearches.Rife_directml import IFNet_422_lite as IFNet
+
+                    Head = True
+                case "rife4.25-directml" | "rife4.25-openvino":
+                    from src.rifearches.Rife_directml import IFNet_425 as IFNet
+
+                    Head = True
+                case "rife4.25-lite-directml" | "rife4.25-lite-openvino":
+                    from src.rifearches.Rife_directml import IFNet_425_lite as IFNet
+
+                    Head = True
+                case "rife4.25-heavy-directml" | "rife4.25-heavy-openvino":
+                    from src.rifearches.Rife_directml import IFNet_425_heavy as IFNet
+
+                    Head = True
                 case "rife_elexor-tensorrt":
                     from src.rifearches.IFNet_elexor_tensorrt import IFNet
 
@@ -890,7 +934,7 @@ class RifeNCNN:
 class RifeDirectML:
     def __init__(
         self,
-        interpolateMethod: str = "rife4.25-directml",
+        interpolateMethod: str = "rife4.6-directml",
         interpolateFactor: int = 2,
         width: int = 0,
         height: int = 0,
@@ -898,21 +942,20 @@ class RifeDirectML:
         ensemble: bool = False,
     ):
         """
-        Interpolates frames using DirectML
+        Interpolates frames using DirectML with decomposed grid_sample.
+
+        This implementation uses a custom grid_sample decomposition that breaks
+        down the operation into primitive tensor ops (floor, gather, weighted sum)
+        that DirectML can accelerate, avoiding CPU fallback.
 
         Arguments:
-            - interpolateMethod (str, optional): Interpolation method. Defaults to "rife415".
+            - interpolateMethod (str, optional): Interpolation method. Defaults to "rife4.6-directml".
             - interpolateFactor (int, optional): Interpolation factor. Defaults to 2.
             - width (int, optional): Width of the frame. Defaults to 0.
             - height (int, optional): Height of the frame. Defaults to 0.
-            - half (bool, optional): Half resolution. Defaults to True.
-            - ensemble (bool, optional): Ensemble. Defaults to False.
+            - half (bool, optional): Half precision. Defaults to True.
+            - ensemble (bool, optional): Ensemble mode. Defaults to False.
         """
-
-        raise NotImplementedError(
-            "DirectML is not supported yet, please use RIFE-NCNN instead."
-        )
-
         import onnxruntime as ort
 
         if "openvino" in interpolateMethod:
@@ -932,27 +975,16 @@ class RifeDirectML:
         self.ensemble = ensemble
         self.model = None
 
-        if self.half:
-            logging.info(
-                "Half precision is not supported for DirectML, defaulting to fp32"
-            )
-            self.half = False
-
         if self.width > 1920 and self.height > 1080:
+            self.scale = 0.5
             if self.half:
                 logAndPrint(
                     "UHD and fp16 are not compatible with RIFE, defaulting to fp32",
                     "yellow",
                 )
-                logging.info(
-                    "UHD and fp16 for rife are not compatible due to flickering issues, defaulting to fp32"
-                )
                 self.half = False
-                # self.scale = 1.0
         else:
-            pass
-            # self.scale = 1.0
-        self.scale = 1.0
+            self.scale = 1.0
 
         self.handleModel()
 
@@ -976,10 +1008,14 @@ class RifeDirectML:
             ensemble=self.ensemble,
         )
 
-        folderName = self.interpolateMethod.replace("-directml", "")
+        folderName = self.interpolateMethod.replace("-directml", "").replace(
+            "-openvino", ""
+        )
         if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
             self.modelPath = downloadModels(
-                model=self.interpolateMethod.replace("-directml", ""),
+                model=self.interpolateMethod.replace("-directml", "").replace(
+                    "-openvino", ""
+                ),
                 modelType="pth",
                 half=self.half,
                 ensemble=self.ensemble,
@@ -988,21 +1024,31 @@ class RifeDirectML:
             self.modelPath = os.path.join(weightsDir, folderName, self.filename)
 
         if self.interpolateMethod in [
-            "rife_elexor-directml",
             "rife4.25-directml",
+            "rife4.25-heavy-directml",
+            "rife4.25-openvino",
+            "rife4.25-heavy-openvino",
         ]:
             channels = 4
             mul = 64
         elif self.interpolateMethod in [
+            "rife4.25-lite-directml",
+            "rife4.25-lite-openvino",
+        ]:
+            channels = 4
+            mul = 128
+        elif self.interpolateMethod in [
             "rife4.22-lite-directml",
+            "rife4.22-lite-openvino",
         ]:
             channels = 4
             mul = 32
         elif self.interpolateMethod in [
-            "rife4.25-lite-directml",
+            "rife4.6-directml",
+            "rife4.6-openvino",
         ]:
-            channels = 4
-            mul = 128
+            channels = 8
+            mul = 32
         else:
             channels = 8
             mul = 32
@@ -1027,7 +1073,9 @@ class RifeDirectML:
             self.model.half()
         else:
             self.model.float()
-        self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
+        self.model.load_state_dict(
+            torch.load(self.modelPath, map_location="cpu"), strict=False
+        )
 
         if Head is True:
             self.norm = self.model.encode
@@ -1057,32 +1105,41 @@ class RifeDirectML:
                 device=self.device,
             )
 
-        self.modelPath = self.modelPath.replace(".pth", ".onnx")
-
-        inputList = [dummyInput1, dummyInput2, dummyInput3]
-        inputNames = ["img0", "img1", "timestep"]
-        outputNames = ["output"]
-        dynamicAxes = {
-            "img0": {2: "height", 3: "width"},
-            "img1": {2: "height", 3: "width"},
-            "timestep": {2: "height", 3: "width"},
-            "output": {1: "height", 2: "width"},
-        }
-        if self.norm is not None:
-            inputList.append(dummyInput4)
-            inputNames.append("f0")
-            outputNames.append("f1")
-            dynamicAxes["f0"] = {2: "height", 3: "width"}
-        torch.onnx.export(
-            self.model,
-            tuple(inputList),
-            self.modelPath,
-            input_names=inputNames,
-            output_names=outputNames,
-            dynamic_axes=dynamicAxes,
-            opset_version=20,
-            dynamo=False,
+        self.modelPath = self.modelPath.replace(
+            ".pth",
+            f"_{self.width}x{self.height}_{'fp16' if self.half else 'fp32'}_directml.onnx",
         )
+
+        if not os.path.exists(self.modelPath):
+            logAndPrint("Exporting model to ONNX", "green")
+            inputList = [dummyInput1, dummyInput2, dummyInput3]
+            inputNames = ["img0", "img1", "timestep"]
+            outputNames = ["output"]
+            dynamicAxes = {
+                "img0": {2: "height", 3: "width"},
+                "img1": {2: "height", 3: "width"},
+                "timestep": {2: "height", 3: "width"},
+                "output": {1: "height", 2: "width"},
+            }
+
+            if self.norm is not None:
+                inputList.append(dummyInput4)
+                inputNames.append("f0")
+                outputNames.append("f1")
+                dynamicAxes["f0"] = {2: "height", 3: "width"}
+
+            logging.info(f"Exporting model to {self.modelPath}")
+
+            torch.onnx.export(
+                self.model,
+                tuple(inputList),
+                self.modelPath,
+                input_names=inputNames,
+                output_names=outputNames,
+                dynamic_axes=dynamicAxes,
+                opset_version=20,
+                dynamo=False,
+            )
         inputs = [
             [1, 3, self.ph, self.pw],
             [1, 3, self.ph, self.pw],
@@ -1092,8 +1149,11 @@ class RifeDirectML:
             inputs.append([1, channels, self.ph, self.pw])
 
         providers = self.ort.get_available_providers()
-
-        if ("DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers):
+        logging.info(f"Available providers: {providers}")
+        if (
+            "DmlExecutionProvider" in providers
+            or "OpenVINOExecutionProvider" in providers
+        ):
             if "directml" in self.interpolateMethod:
                 logging.info("DirectML provider available. Defaulting to DirectML")
                 self.model = self.ort.InferenceSession(
@@ -1182,6 +1242,15 @@ class RifeDirectML:
                 buffer_ptr=self.f0.data_ptr(),
             )
 
+            self.IoBinding.bind_output(
+                name="f1",
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyDType,
+                shape=self.f1.shape,
+                buffer_ptr=self.f1.data_ptr(),
+            )
+
         self.firstRun = True
 
     @torch.inference_mode()
@@ -1196,7 +1265,7 @@ class RifeDirectML:
             case "I0":
                 self.I0.copy_(
                     F.pad(
-                        frame.to(dtype=self.dtype),
+                        frame.to(device=self.device, dtype=self.dtype),
                         self.padding,
                     ),
                     non_blocking=False,
@@ -1205,7 +1274,7 @@ class RifeDirectML:
             case "I1":
                 self.I1.copy_(
                     F.pad(
-                        frame.to(dtype=self.dtype),
+                        frame.to(device=self.device, dtype=self.dtype),
                         self.padding,
                     ),
                     non_blocking=False,
@@ -1215,7 +1284,7 @@ class RifeDirectML:
                 self.f0.copy_(
                     self.norm(
                         F.pad(
-                            frame.to(dtype=self.dtype),
+                            frame.to(device=self.device, dtype=self.dtype),
                             self.padding,
                         )
                     ),
@@ -1244,7 +1313,26 @@ class RifeDirectML:
             self.firstRun = False
             return
 
+        self.IoBinding.bind_input(
+            name="img0",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.I0.shape,
+            buffer_ptr=self.I0.data_ptr(),
+        )
+
         self.processFrame(frame, "I1")
+
+        self.IoBinding.bind_input(
+            name="img1",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.I1.shape,
+            buffer_ptr=self.I1.data_ptr(),
+        )
+
         for i in range(framesToInsert):
             if timesteps is not None and i < len(timesteps):
                 t = timesteps[i]
@@ -1260,23 +1348,6 @@ class RifeDirectML:
             self.processFrame(timestep, "timestep")
 
             self.IoBinding.bind_input(
-                name="img0",
-                device_type=self.deviceType,
-                device_id=0,
-                element_type=self.numpyDType,
-                shape=self.I0.shape,
-                buffer_ptr=self.I0.data_ptr(),
-            )
-
-            self.IoBinding.bind_input(
-                name="img1",
-                device_type=self.deviceType,
-                device_id=0,
-                element_type=self.numpyDType,
-                shape=self.I1.shape,
-                buffer_ptr=self.I1.data_ptr(),
-            )
-            self.IoBinding.bind_input(
                 name="timestep",
                 device_type=self.deviceType,
                 device_id=0,
@@ -1286,7 +1357,11 @@ class RifeDirectML:
             )
 
             self.model.run_with_iobinding(self.IoBinding)
-            interpQueue.put(self.dummyOutput)
+            interpQueue.put(self.dummyOutput.clone())
+
+        self.processFrame(None, "cache")
+        if self.norm is not None:
+            self.processFrame(None, "f0-copy")
 
         return frame
 
@@ -1564,7 +1639,6 @@ class DistilDRBATensorRT:
         self.interpolateMethod = interpolateMethod
         self.interpolateFactor = interpolateFactor
         self.lite = "lite" in interpolateMethod
-
 
         if width > 1920 or height > 1080:
             self.scale = 0.5
