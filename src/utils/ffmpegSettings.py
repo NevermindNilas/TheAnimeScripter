@@ -64,7 +64,9 @@ class BuildBuffer:
         self.toTorch = toTorch
         self.inpoint = inpoint
         self.outpoint = outpoint
+
         """
+        # USED FOR DEBUGGING CeLux
         global CeluxLog
         if not CeluxLog:
             try:
@@ -74,6 +76,7 @@ class BuildBuffer:
             except Exception as e:
                 logging.warning(f"Failed to enable CeLux logging: {e}")
         """
+
         if "%" not in videoInput and not os.path.exists(videoInput):
             raise FileNotFoundError(f"Video file not found: {videoInput}")
 
@@ -173,22 +176,17 @@ class BuildBuffer:
         else:
             reader = CachedReader
 
-        try:
-            decodedFrames = 0
-            for frame in reader:
-                if self.toTorch:
-                    frame = self.processFrameToTorch(
-                        frame, self.normStream if self.cudaEnabled else None
-                    )
-                self.decodeBuffer.put(frame)
-                self._frameAvailable.set()
-                decodedFrames += 1
+        decodedFrames = 0
+        for frame in reader:
+            if self.toTorch:
+                frame = self.processFrameToTorch(
+                    frame, self.normStream if self.cudaEnabled else None
+                )
+            self.decodeBuffer.put(frame)
+            self._frameAvailable.set()
+            decodedFrames += 1
 
-            return decodedFrames
-
-        except Exception as e:
-            logging.error(f"Error during Celux decoding loop: {e}")
-            raise
+        return decodedFrames
 
     def decodeWithTorchCodec(self):
         """
