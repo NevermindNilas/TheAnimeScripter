@@ -9,6 +9,7 @@ import threading
 from queue import Queue
 from src.utils.encodingSettings import matchEncoder, getPixFMT
 from .isCudaInit import CudaChecker
+ 
 
 # Lazy imports for heavy dependencies
 # torch and torch.nn.functional are imported only when needed
@@ -53,7 +54,7 @@ class BuildBuffer:
         """
         self.decodeMethod = decode_method
         self.half = half
-        self.decodeBuffer = Queue(maxsize=20)
+        self.decodeBuffer = Queue(maxsize=64)
         self.useOpenCV = False
         self.width = width
         self.height = height
@@ -136,7 +137,14 @@ class BuildBuffer:
                 decodedFrames += 1
 
         except Exception as e:
-            logging.error(f"Decoding error: {e}")
+            logging.error(f"Celux decoding error: {e}")
+
+            logging.info("Attempting fallback to TorchCodec...")
+            try:
+                decodedFrames += self.decodeWithTorchCodec()
+            except Exception as fallback_e:
+                logging.error(f"TorchCodec fallback failed: {fallback_e}")
+
         finally:
             self.decodeBuffer.put(None)
             self._frameAvailable.set()
@@ -144,13 +152,90 @@ class BuildBuffer:
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
 
-    def processFrameToTorch(self, frame, normStream=None):
+    def decodeWithTorchCodec(self):
+        """
+        Helper method to decode using TorchCodec when Celux fails.
+        Returns the number of frames decoded.
+        """
+        logging.info(f"Initializing TorchCodec VideoDecoder for {self.videoInput}")
+        device = "cuda" if self.cudaEnabled else "cpu"
+
+        try:
+            from torchcodec.decoders import VideoDecoder as TorchCodecDecoder
+            decoder = TorchCodecDecoder(self.videoInput, device=device)
+        except Exception as e:
+            logging.error(f"Failed to create TorchCodec decoder: {e}")
+            raise
+
+        totalFramesDecoded = 0
+
+        try:
+            startTime = float(self.inpoint)
+            endTime = float(self.outpoint)
+            totalFrames = len(decoder)
+
+            if endTime > 0:
+                logging.info(
+                    "TorchCodec: Decoding frames by PTS in range "
+                    f"[{startTime}, {endTime})"
+                )
+            else:
+                logging.info(
+                    "TorchCodec: Decoding frames by PTS starting at "
+                    f"{startTime}"
+                )
+
+            chunkSize = 256
+            stopDecoding = False
+
+            for chunkStart in range(0, totalFrames, chunkSize):
+                chunkEnd = min(chunkStart + chunkSize, totalFrames)
+                indices = list(range(chunkStart, chunkEnd))
+                frameBatch = decoder.get_frames_at(indices=indices)
+
+                for idx, pts in enumerate(frameBatch.pts_seconds):
+                    ptsSeconds = float(pts.item())
+
+                    if ptsSeconds < startTime:
+                        continue
+                    if endTime > 0 and ptsSeconds >= endTime:
+                        stopDecoding = True
+                        break
+
+                    frame = frameBatch.data[idx]
+
+                    if self.toTorch:
+                        frame = self.processFrameToTorch(
+                            frame,
+                            self.normStream if self.cudaEnabled else None,
+                            channels_first=True,
+                        )
+                    else:
+                        if self.cudaEnabled:
+                            frame = frame.cpu()
+                        frame = frame.permute(1, 2, 0).numpy()
+
+                    self.decodeBuffer.put(frame)
+                    self._frameAvailable.set()
+                    totalFramesDecoded += 1
+
+                if stopDecoding:
+                    break
+
+        except Exception as e:
+            logging.error(f"Error during TorchCodec decoding loop: {e}")
+            raise
+
+        return totalFramesDecoded
+
+    def processFrameToTorch(self, frame, normStream=None, channels_first=False):
         """
         Processes a single frame with optimized memory handling.
 
         Args:
             frame: The frame to process as Celux frame.
             normStream: The CUDA stream for normalization (if applicable).
+            channels_first: If True, frame is (C, H, W). If False, (H, W, C).
 
         Returns:
             The processed frame as a torch tensor.
@@ -169,7 +254,11 @@ class BuildBuffer:
                     device="cuda",
                     non_blocking=True,
                     dtype=torch.float16 if self.half else torch.float32,
-                ).permute(2, 0, 1)
+                )
+
+                if not channels_first:
+                    frame = frame.permute(2, 0, 1)
+
                 frame.mul_(norm)
                 frame.clamp_(0, 1)
 
@@ -195,7 +284,11 @@ class BuildBuffer:
                 device="cpu",
                 non_blocking=False,
                 dtype=torch.float16 if self.half else torch.float32,
-            ).permute(2, 0, 1)
+            )
+
+            if not channels_first:
+                frame = frame.permute(2, 0, 1)
+
             frame.mul_(norm)
             frame.clamp_(0, 1)
 
@@ -336,7 +429,7 @@ class WriteBuffer:
         self.enablePreview = enablePreview
 
         self.writtenFrames = 0
-        self.writeBuffer = Queue(maxsize=20)
+        self.writeBuffer = Queue(maxsize=64)
 
         self.previewPath = (
             os.path.join(cs.MAINPATH, "preview.jpg") if enablePreview else None
@@ -411,6 +504,10 @@ class WriteBuffer:
             "-loglevel",
             "quiet",
             "-nostats",
+            "-threads",
+            "0",
+            "-filter_threads",
+            "0",
         ]
 
         # Initialize CUDA device for hwupload when using NVENC
@@ -447,7 +544,7 @@ class WriteBuffer:
             command.extend(["-i", "pipe:0"])
 
         if cs.AUDIO:
-            command.extend(["-i", self.input])
+            command.extend(["-thread_queue_size", "1024", "-i", self.input])
 
         filterList = self._buildFilterList()
 
@@ -463,7 +560,7 @@ class WriteBuffer:
             filterComplexParts.append("[preview]fps=2[previewThrottled]")
 
             combinedFilter = ";".join(filterComplexParts)
-            command.extend(["-filter_complex", combinedFilter])
+            command.extend(["-filter_complex", combinedFilter, "-filter_complex_threads", "0"])
 
             command.extend(["-map", "[main]"])
 
