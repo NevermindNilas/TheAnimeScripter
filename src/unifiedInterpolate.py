@@ -8,7 +8,12 @@ import numpy as np
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .utils.isCudaInit import CudaChecker
 from .utils.logAndPrint import logAndPrint
-from .depth_guided_rife import DepthGuidedRifeCuda
+
+from src.constants import ADOBE
+
+if ADOBE:
+    from src.utils.aeComms import progressState
+
 
 checker = CudaChecker()
 
@@ -95,11 +100,11 @@ def importRifeArch(interpolateMethod, version):
 
                     Head = False
                 case "rife4.6-directml" | "rife4.6-openvino":
-                    from src.rifearches.Rife46_directml import IFNet
+                    from src.rifearches.Rife_directml import IFNet_46 as IFNet
 
                     Head = False
                 case "rife4.22-directml" | "rife4.22-openvino":
-                    from src.rifearches.Rife422_directml import IFNet
+                    from src.rifearches.Rife_directml import IFNet_422 as IFNet
 
                     Head = True
                 case (
@@ -504,7 +509,7 @@ class RifeTensorRT:
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
 
-        IFNet, Head = importRifeArch(self.interpolateMethod, "v3")
+        IFNet, _Head = importRifeArch(self.interpolateMethod, "v3")
 
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
@@ -530,10 +535,9 @@ class RifeTensorRT:
             self.model.float()
         self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
 
-        if Head is True:
-            self.norm = self.model.encode
-        else:
-            self.norm = None
+        # DirectML/OpenVINO path does not use external feature caching.
+        # RIFE DirectML arches compute any needed features internally.
+        self.norm = None
 
         self.engine, self.context = self.tensorRTEngineLoader(enginePath)
         if (
@@ -541,6 +545,10 @@ class RifeTensorRT:
             or self.context is None
             or not os.path.exists(enginePath)
         ):
+            if ADOBE:
+                progressState.update(
+                    {"status": f"Exporting {self.interpolateMethod} to TensorRT."}
+                )
             dummyInput1 = torch.zeros(
                 1, 3, self.ph, self.pw, dtype=self.dtype, device=checker.device
             )
@@ -773,8 +781,6 @@ class RifeTensorRT:
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
         self.processFrame(frame, "I0")
-        if self.norm is not None:
-            self.processFrame(frame, "f0")
 
     @torch.inference_mode()
     def __call__(self, frame, interpQueue, framesToInsert=1, timesteps=None):
@@ -1029,28 +1035,23 @@ class RifeDirectML:
             "rife4.25-openvino",
             "rife4.25-heavy-openvino",
         ]:
-            channels = 4
             mul = 64
         elif self.interpolateMethod in [
             "rife4.25-lite-directml",
             "rife4.25-lite-openvino",
         ]:
-            channels = 4
             mul = 128
         elif self.interpolateMethod in [
             "rife4.22-lite-directml",
             "rife4.22-lite-openvino",
         ]:
-            channels = 4
             mul = 32
         elif self.interpolateMethod in [
             "rife4.6-directml",
             "rife4.6-openvino",
         ]:
-            channels = 8
             mul = 32
         else:
-            channels = 8
             mul = 32
 
         self.dtype = torch.float16 if self.half else torch.float32
@@ -1077,10 +1078,9 @@ class RifeDirectML:
             torch.load(self.modelPath, map_location="cpu"), strict=False
         )
 
-        if Head is True:
-            self.norm = self.model.encode
-        else:
-            self.norm = None
+        # DirectML/OpenVINO exports do not use external feature caching.
+        # DirectML arches compute any required features internally.
+        self.norm = None
 
         dummyInput1 = torch.zeros(
             1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
@@ -1095,22 +1095,16 @@ class RifeDirectML:
             device=self.device,
         )
 
-        if self.norm is not None:
-            dummyInput4 = torch.zeros(
-                1,
-                channels,
-                self.ph,
-                self.pw,
-                dtype=self.dtype,
-                device=self.device,
-            )
-
         self.modelPath = self.modelPath.replace(
             ".pth",
-            f"_{self.width}x{self.height}_{'fp16' if self.half else 'fp32'}_directml.onnx",
+            f"_{self.width}x{self.height}_{'fp16' if self.half else 'fp32'}_directml_nocache.onnx",
         )
 
         if not os.path.exists(self.modelPath):
+            if ADOBE:
+                progressState.update(
+                    {"status": f"Exporting {self.interpolateMethod} to ONNX."}
+                )
             logAndPrint("Exporting model to ONNX", "green")
             inputList = [dummyInput1, dummyInput2, dummyInput3]
             inputNames = ["img0", "img1", "timestep"]
@@ -1121,12 +1115,6 @@ class RifeDirectML:
                 "timestep": {2: "height", 3: "width"},
                 "output": {1: "height", 2: "width"},
             }
-
-            if self.norm is not None:
-                inputList.append(dummyInput4)
-                inputNames.append("f0")
-                outputNames.append("f1")
-                dynamicAxes["f0"] = {2: "height", 3: "width"}
 
             logging.info(f"Exporting model to {self.modelPath}")
 
@@ -1140,14 +1128,6 @@ class RifeDirectML:
                 opset_version=20,
                 dynamo=False,
             )
-        inputs = [
-            [1, 3, self.ph, self.pw],
-            [1, 3, self.ph, self.pw],
-            [1, 1, self.ph, self.pw],
-        ]
-        if self.norm is not None:
-            inputs.append([1, channels, self.ph, self.pw])
-
         providers = self.ort.get_available_providers()
         logging.info(f"Available providers: {providers}")
         if (
@@ -1172,6 +1152,11 @@ class RifeDirectML:
                 self.modelPath, providers=["CPUExecutionProvider"]
             )
 
+        self.needsOutputSync = any(
+            provider in self.model.get_providers()
+            for provider in ("DmlExecutionProvider", "OpenVINOExecutionProvider")
+        )
+
         self.IoBinding = self.model.io_binding()
         self.I0 = torch.zeros(
             1,
@@ -1190,25 +1175,6 @@ class RifeDirectML:
             dtype=self.dtype,
             device=self.device,
         ).contiguous()
-
-        if self.norm is not None:
-            self.f0 = torch.zeros(
-                1,
-                channels,
-                self.ph,
-                self.pw,
-                dtype=self.dtype,
-                device=self.device,
-            ).contiguous()
-
-            self.f1 = torch.zeros(
-                1,
-                channels,
-                self.ph,
-                self.pw,
-                dtype=self.dtype,
-                device=self.device,
-            ).contiguous()
 
         self.dummyTimeStep = torch.full(
             (1, 1, self.ph, self.pw),
@@ -1232,32 +1198,11 @@ class RifeDirectML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
-        if self.norm is not None:
-            self.IoBinding.bind_input(
-                name="f0",
-                device_type=self.deviceType,
-                device_id=0,
-                element_type=self.numpyDType,
-                shape=self.f0.shape,
-                buffer_ptr=self.f0.data_ptr(),
-            )
-
-            self.IoBinding.bind_output(
-                name="f1",
-                device_type=self.deviceType,
-                device_id=0,
-                element_type=self.numpyDType,
-                shape=self.f1.shape,
-                buffer_ptr=self.f1.data_ptr(),
-            )
-
         self.firstRun = True
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
         self.processFrame(frame, "I0")
-        if self.norm is not None:
-            self.processFrame(frame, "f0")
 
     @torch.inference_mode()
     def processFrame(self, frame, name=None):
@@ -1280,20 +1225,6 @@ class RifeDirectML:
                     non_blocking=False,
                 )
 
-            case "f0":
-                self.f0.copy_(
-                    self.norm(
-                        F.pad(
-                            frame.to(device=self.device, dtype=self.dtype),
-                            self.padding,
-                        )
-                    ),
-                    non_blocking=False,
-                )
-
-            case "f0-copy":
-                self.f0.copy_(self.f1, non_blocking=False)
-
             case "cache":
                 self.I0.copy_(self.I1, non_blocking=False)
 
@@ -1305,9 +1236,6 @@ class RifeDirectML:
         self, frame: torch.Tensor, interpQueue, framesToInsert=1, timesteps=None
     ):
         if self.firstRun:
-            if self.norm is not None:
-                self.processFrame(frame, "f0")
-
             self.processFrame(frame, "I0")
 
             self.firstRun = False
@@ -1339,13 +1267,7 @@ class RifeDirectML:
             else:
                 t = (i + 1) * 1 / (framesToInsert + 1)
 
-            timestep = torch.full(
-                (1, 1, self.ph, self.pw),
-                t,
-                dtype=self.dtype,
-                device=self.device,
-            )
-            self.processFrame(timestep, "timestep")
+            self.dummyTimeStep.fill_(t)
 
             self.IoBinding.bind_input(
                 name="timestep",
@@ -1353,16 +1275,16 @@ class RifeDirectML:
                 device_id=0,
                 element_type=self.numpyDType,
                 shape=self.dummyTimeStep.shape,
-                buffer_ptr=timestep.data_ptr(),
+                buffer_ptr=self.dummyTimeStep.data_ptr(),
             )
 
             self.model.run_with_iobinding(self.IoBinding)
+            if self.needsOutputSync:
+                self.IoBinding.synchronize_outputs()
+
             interpQueue.put(self.dummyOutput.clone())
 
         self.processFrame(None, "cache")
-        if self.norm is not None:
-            self.processFrame(None, "f0-copy")
-
         return frame
 
 
