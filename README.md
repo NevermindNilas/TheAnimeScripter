@@ -79,7 +79,7 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 
 Adobe plugin provides seamless integration directly within your AE workflow, enabling AI-powered video enhancement without leaving your editing environment.
 
-![Adobe GUI](https://github.com/user-attachments/assets/eb906836-cfd5-4f10-a004-cd4d0551b75e)
+![Adobe GUI](https://github.com/user-attachments/assets/b89e785b-34e4-4be4-911f-79433cd5c5c8)
 
 ### <img src="https://img.icons8.com/color/24/000000/windows-10.png" width="20"/> Windows Standalone
 > *Under active development - coming soon*
