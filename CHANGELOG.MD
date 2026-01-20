@@ -6,19 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - YYYY-MM-DD
 ### New
 - Added Torchcodec as a fallback decoder in case if celux fails to decode certain formats.
-- Added DirectML and OpenVino support for Rife
+- Added DirectML and OpenVino support for Rife.
 
 ### Changed
-- N/A
+- More progress updates will be present in the Adobe Edition progress bar.
+- Surpressed many of the unnecessary logs.
 
 ### Fixed
-- N/A
+- https://github.com/NevermindNilas/TheAnimeScripter/issues/238
 
 ### Removed
 - Deprecated NCNN backends. 
   
 
+### Adobe Edition
+#### New
+- Added AUTO updating capabilities to TAS-AdobeEdition ( so long as it has access to the preset folder )
+- Added DirectML and OpenVino support for Rife.
+- Added tab switch transitions.
 
+#### Changed
+- More info in the queue tab.
+- Added more async and promise operations over the place for better performance and less UI blocking.
+
+#### Fixed
+- Potential fix for: https://github.com/NevermindNilas/TheAnimeScripter/issues/242
+
+#### Removed
+- All NCNN related code.
+- Small or Large UI modes, the default will remain as is.
+- Lossless or Quicktime Presets, Quicktime is now the default.
 
 ## [2.5.6] - 2026-01-17
 ### New

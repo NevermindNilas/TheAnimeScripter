@@ -19,6 +19,10 @@ from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.isCudaInit import CudaChecker
 from queue import Queue
+from src.constants import ADOBE
+
+if ADOBE:
+    from src.utils.aeComms import progressState
 
 checker = CudaChecker()
 
@@ -122,6 +126,11 @@ class DepthCuda:
             logging.exception(f"Something went wrong, {e}")
 
     def handleModels(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading depth model: {self.depth_method}..."}
+            )
+
         from .dpt_v2 import DepthAnythingV2
 
         match self.depth_method:
@@ -373,6 +382,11 @@ class DepthDirectMLV2:
             logging.exception(f"Something went wrong, {e}")
 
     def handleModels(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading depth model: {self.depth_method}..."}
+            )
+
         method = self.depth_method
         if "openvino" in self.depth_method:
             method = method.replace("openvino", "directml")
@@ -652,6 +666,11 @@ class DepthTensorRTV2:
             logging.exception(f"Something went wrong, {e}")
 
     def handleModels(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading TensorRT depth model: {self.depth_method}..."}
+            )
+
         self.filename = modelsMap(
             model=self.depth_method, modelType="onnx", half=self.half
         )

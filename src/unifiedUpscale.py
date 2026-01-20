@@ -6,6 +6,10 @@ from src.utils.modelOptimizer import ModelOptimizer
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .utils.isCudaInit import CudaChecker
 from src.utils.logAndPrint import logAndPrint
+from src.constants import ADOBE
+
+if ADOBE:
+    from src.utils.aeComms import progressState
 
 checker = CudaChecker()
 
@@ -55,6 +59,11 @@ class UniversalPytorch:
         """
         Load the desired model
         """
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading upscale model: {self.upscaleMethod}..."}
+            )
+
         from src.spandrel import (
             ImageModelDescriptor,
             ModelLoader,
@@ -272,6 +281,11 @@ class UniversalTensorRT:
         self.handleModel()
 
     def handleModel(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading TensorRT upscale model: {self.upscaleMethod}..."}
+            )
+
         if self.width > 1920 or self.height > 1080:
             self.forceStatic = True
             logAndPrint(
@@ -441,6 +455,10 @@ class UniversalDirectML:
         """
         Load the desired model
         """
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading DirectML upscale model: {self.upscaleMethod}..."}
+            )
 
         if not self.customModel:
             method = self.upscaleMethod
