@@ -30,56 +30,82 @@ def streamProcessOutput(process) -> Iterable[str]:
         yield line.decode("utf-8", errors="replace")
 
 
+def _resolveRequirementsPath(extension: str) -> Tuple[bool, str]:
+    """Resolve a requirements file path based on the Python executable and repo root."""
+    pythonPath = getPythonExecutable()
+    if not pythonPath:
+        return False, "Failed to detect Python executable path"
+
+    candidate = os.path.join(os.path.dirname(pythonPath), extension)
+    if os.path.exists(candidate):
+        return True, candidate
+
+    candidate = os.path.join(cs.WHEREAMIRUNFROM, extension)
+    if os.path.exists(candidate):
+        return True, candidate
+
+    return False, f"Requirements file not found: {candidate}"
+
+
+def _runPipCommand(pythonPath: str, args: list[str], action: str) -> Tuple[bool, str]:
+    """Run pip with a streamed log output and return (success, message)."""
+    try:
+        logging.info("Using Python executable: %s", pythonPath)
+        logging.info("Running pip action: %s", action)
+
+        process = subprocess.Popen(
+            [pythonPath, "-I", "-m", "pip", *args],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+
+        if process.stdout is not None:
+            for line in streamProcessOutput(process):
+                print(line, end="")
+                logging.info(line.strip())
+            process.stdout.close()
+
+        returnCode = process.wait()
+
+        if returnCode != 0:
+            errorMsg = f"Error {action} requirements (exit code: {returnCode})"
+            logging.error(errorMsg)
+            print(errorMsg)
+            return False, errorMsg
+
+        return True, f"Successfully {action}ed dependencies from requirements file"
+    except Exception as e:
+        errorMsg = f"Error {action} requirements: {str(e)}"
+        logging.error(errorMsg)
+        print(errorMsg)
+        return False, errorMsg
+
+
 def uninstallDependencies(extension: str = "") -> Tuple[bool, str]:
     """Uninstall dependencies from extra-requirements-windows.txt if it exists
     Args:
         extension (str): Optional extension to the requirements file name"""
 
     pythonPath = getPythonExecutable()
+    ok, requirementsPath = _resolveRequirementsPath(extension)
+    if not ok:
+        return False, requirementsPath
 
-    if not pythonPath:
-        return False, "Failed to detect Python executable path"
-
-    requirementsPath = os.path.join(os.path.dirname(pythonPath), extension)
-
-    if not os.path.exists(requirementsPath):
-        requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, extension)
-        if not os.path.exists(requirementsPath):
-            return False, f"Requirements file not found: {requirementsPath}"
-    logMessage = f"Using Python executable: {pythonPath}"
+    logMessage = f"Uninstalling requirements from: {requirementsPath}"
     logging.info(logMessage)
-    cmd = f'"{pythonPath}" -I -m pip uninstall -y -r "{requirementsPath}" --disable-pip-version-check'
-    try:
-        logMessage = f"Uninstalling requirements from: {requirementsPath}"
-        logging.info(logMessage)
-        print(logMessage)
+    print(logMessage)
 
-        process = subprocess.Popen(
-            cmd,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-
-        for line in streamProcessOutput(process):
-            print(line, end="")
-            logging.info(line.strip())
-
-        process.stdout.close()
-        returnCode = process.wait()
-
-        if returnCode != 0:
-            errorMsg = f"Error uninstalling requirements (exit code: {returnCode})"
-            logging.error(errorMsg)
-            print(errorMsg)
-            return False, errorMsg
-
-        return True, "Successfully uninstalled dependencies from requirements file"
-    except Exception as e:
-        errorMsg = f"Error uninstalling requirements: {str(e)}"
-        logging.error(errorMsg)
-        print(errorMsg)
-        return False, errorMsg
+    return _runPipCommand(
+        pythonPath,
+        [
+            "uninstall",
+            "-y",
+            "-r",
+            requirementsPath,
+            "--disable-pip-version-check",
+        ],
+        "uninstall",
+    )
 
 
 def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[bool, str]:
@@ -90,60 +116,36 @@ def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[boo
         Tuple[bool, str]: Success status and message
     """
     pythonPath = getPythonExecutable()
-    if not pythonPath:
-        return False, "Failed to detect Python executable path"
+    ok, requirementsPath = _resolveRequirementsPath(extension)
+    if not ok:
+        return False, requirementsPath
 
-    requirementsPath = os.path.join(os.path.dirname(pythonPath), extension)
-    if not os.path.exists(requirementsPath):
-        requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, extension)
-        if not os.path.exists(requirementsPath):
-            return False, f"Requirements file not found: {requirementsPath}"
-
-    logMessage = f"Using Python executable: {pythonPath}"
+    logMessage = f"Installing requirements from: {requirementsPath}"
     logging.info(logMessage)
+    print(logMessage)
 
-    cmd = f'"{pythonPath}" -I -m pip install -r "{requirementsPath}" --no-warn-script-location --no-cache --disable-pip-version-check'
+    success, message = _runPipCommand(
+        pythonPath,
+        [
+            "install",
+            "-r",
+            requirementsPath,
+            "--no-warn-script-location",
+            "--no-cache",
+            "--disable-pip-version-check",
+        ],
+        "install",
+    )
 
-    try:
-        logMessage = f"Installing requirements from: {requirementsPath}"
-        logging.info(logMessage)
-        print(logMessage)
+    """
+    if success and isNvidia:
+        success, message = _installTensorRTRTX()
+        if not success:
+            logAndPrint(message, "red")
+            raise RuntimeError(f"Failed to install TensorRT/RTX: {message}")
+    """
 
-        process = subprocess.Popen(
-            cmd,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-
-        for line in streamProcessOutput(process):
-            print(line, end="")
-            logging.info(line.strip())
-
-        process.stdout.close()
-        returnCode = process.wait()
-
-        if returnCode != 0:
-            errorMsg = f"Error installing requirements (exit code: {returnCode})"
-            logging.error(errorMsg)
-            print(errorMsg)
-            return False, errorMsg
-
-        """
-        if isNvidia:
-            success, message = _installTensorRTRTX()
-            if not success:
-                logAndPrint(message, "red")
-                raise RuntimeError(f"Failed to install TensorRT/RTX: {message}")
-        """
-
-        return True, "Successfully installed dependencies from requirements file"
-
-    except Exception as e:
-        errorMsg = f"Error installing requirements: {str(e)}"
-        logging.error(errorMsg)
-        print(errorMsg)
-        return False, errorMsg
+    return success, message
 
 
 class DependencyChecker:
@@ -153,6 +155,7 @@ class DependencyChecker:
         self._requirementsHash = {}
         self.knownAliases = {
             "opencv-python": "cv2",
+            "opencv-python-headless": "cv2",
             "Pillow": "PIL",
             "PyYAML": "yaml",
             "scikit-image": "skimage",
@@ -172,8 +175,20 @@ class DependencyChecker:
 
         currentHash = self._getFileHashCached(requirementsPath)
 
+        if currentHash is None:
+            logging.warning(
+                f"Failed to hash requirements file; forcing update: {requirementsPath}"
+            )
+            return True
+
         # If hash differs, definitely need update
         if currentHash != cache.get("requirements_hash"):
+            return True
+
+        if cache.get("python_executable") != sys.executable:
+            return True
+
+        if cache.get("python_version") != sys.version:
             return True
 
         # Hash matches: verify required distributions are present (and optionally importable)
@@ -202,6 +217,8 @@ class DependencyChecker:
         """Update cache after successful installation"""
         cache = {
             "requirements_hash": self._getFileHashCached(requirementsPath),
+            "python_executable": sys.executable,
+            "python_version": sys.version,
         }
 
         try:
@@ -362,7 +379,8 @@ class DependencyChecker:
             return self._requirementsHash[filepath]
 
         file_hash = self._getFileHash(filepath)
-        self._requirementsHash[filepath] = file_hash
+        if file_hash is not None:
+            self._requirementsHash[filepath] = file_hash
         return file_hash
 
     def _getFileHash(self, filepath):

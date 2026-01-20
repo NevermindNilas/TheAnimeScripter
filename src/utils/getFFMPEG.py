@@ -69,7 +69,8 @@ def logFfmpegVersion(ffmpegPath: str) -> None:
         if output:
             logging.info(f"FFmpeg version: {output[0]}")
             if len(output) > 1:
-                logging.debug(f"FFmpeg build: {output[1]}")
+                pass
+                # logging.debug(f"FFmpeg build: {output[1]}")
         else:
             logging.info("FFmpeg version: <no output>")
     except Exception as e:

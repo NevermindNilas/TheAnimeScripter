@@ -205,7 +205,7 @@
     </style>
 </head>
 
-<body class="text-slate-300 antialiased font-sans selection:bg-cyan-500/30 selection:text-cyan-50">
+<body class="text-slate-300 antialiased font-sans selection:bg-cyan-500/30 selection:text-cyan-50 min-h-screen flex flex-col">
     <div class="noise-bg"></div>
 
     <!-- Background Orbs -->
@@ -255,8 +255,9 @@
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <main class="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-6">
+    <div class="flex-1">
+        <!-- Hero Section -->
+        <main class="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-6">
         <div class="max-w-7xl mx-auto text-center relative z-10">
             <!-- Badge -->
             <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-bold tracking-wider uppercase mb-8 hover:bg-cyan-500/20 transition-colors cursor-default"
@@ -322,10 +323,10 @@
                 </div>
             </div>
         </div>
-    </main>
+        </main>
 
-    <!-- Visual Demo Section -->
-    <section id="demo" class="py-24 px-6 relative">
+        <!-- Visual Demo Section -->
+        <section id="demo" class="py-24 px-6 relative">
         <div class="max-w-6xl mx-auto">
             <div class="text-center mb-16" data-aos="fade-up">
                 <h2 class="text-3xl md:text-5xl font-display font-bold mb-6">See the <span
@@ -590,6 +591,8 @@
                 </div>
             </div>
         </section>
+
+    </div>
 
         <!-- Footer -->
         <footer class="py-12 px-6 border-t border-white/5 relative bg-slate-950">

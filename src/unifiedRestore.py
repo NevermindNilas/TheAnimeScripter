@@ -5,6 +5,10 @@ import logging
 from .utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .utils.isCudaInit import CudaChecker
 from .utils.logAndPrint import logAndPrint
+from src.constants import ADOBE
+
+if ADOBE:
+    from src.utils.aeComms import progressState
 
 checker = CudaChecker()
 
@@ -35,6 +39,9 @@ class UnifiedRestoreCuda:
         """
         Load the Model
         """
+        if ADOBE:
+            progressState.update({"status": f"Loading restore model: {self.model}..."})
+
         from src.spandrel import ModelLoader
 
         if self.model in ["nafnet"]:
@@ -148,6 +155,11 @@ class UnifiedRestoreTensorRT:
         self.handleModel()
 
     def handleModel(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading TensorRT restore model: {self.restoreMethod}..."}
+            )
+
         self.originalHeight = self.height
         self.originalWidth = self.width
 
@@ -316,7 +328,7 @@ class UnifiedRestoreDirectML:
                 "OpenVINO backend is an experimental feature, please report any issues you encounter.",
                 "yellow",
             )
-            import openvino # noqa: F401
+            import openvino  # noqa: F401
 
         import onnxruntime as ort
         import numpy as np
@@ -336,6 +348,10 @@ class UnifiedRestoreDirectML:
         """
         Load the desired model
         """
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading DirectML restore model: {self.restoreMethod}..."}
+            )
 
         method = self.restoreMethod
         if "openvino" in self.restoreMethod:
@@ -467,7 +483,7 @@ class UnifiedRestoreDirectML:
                 self._fallbackToCpu()
                 return self.__call__(frame)
             else:
-                logging.exception(f"Something went wrong while processing the frame, {e}")
+                logging.exception(
+                    f"Something went wrong while processing the frame, {e}"
+                )
                 raise
-
-
