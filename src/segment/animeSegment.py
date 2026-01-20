@@ -10,6 +10,10 @@ from concurrent.futures import ThreadPoolExecutor
 from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.isCudaInit import CudaChecker
 from src.utils.logAndPrint import logAndPrint
+from src.constants import ADOBE
+
+if ADOBE:
+    from src.utils.aeComms import progressState
 
 checker = CudaChecker()
 
@@ -74,6 +78,9 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             logging.error(f"An error occurred while processing the video: {e}")
 
     def handleModel(self):
+        if ADOBE:
+            progressState.update({"status": "Loading background removal model..."})
+
         filename = modelsMap("segment")
         if not os.path.exists(os.path.join(weightsDir, "segment", filename)):
             modelPath = downloadModels(model="segment")
@@ -215,6 +222,11 @@ class AnimeSegmentTensorRT:
             logging.error(f"An error occurred while processing the video: {e}")
 
     def handleModel(self):
+        if ADOBE:
+            progressState.update(
+                {"status": "Loading TensorRT background removal model..."}
+            )
+
         filename = modelsMap("segment-tensorrt")
         folderName = "segment-onnx"
         if not os.path.exists(os.path.join(weightsDir, folderName, filename)):
@@ -417,6 +429,11 @@ class AnimeSegmentDirectML:
             logging.error(f"An error occurred while processing the video: {e}")
 
     def handleModel(self):
+        if ADOBE:
+            progressState.update(
+                {"status": "Loading DirectML background removal model..."}
+            )
+
         self.filename = modelsMap("segment-directml")
         folderName = "segment-onnx"
         if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
@@ -523,7 +540,9 @@ class AnimeSegmentDirectML:
                 self._fallbackToCpu()
                 self.processFrame(frame)
             else:
-                logging.exception(f"Something went wrong while processing the frame, {e}")
+                logging.exception(
+                    f"Something went wrong while processing the frame, {e}"
+                )
 
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
@@ -625,6 +644,11 @@ class AnimeSegmentOpenVino:
             logging.error(f"An error occurred while processing the video: {e}")
 
     def handleModel(self):
+        if ADOBE:
+            progressState.update(
+                {"status": "Loading OpenVINO background removal model..."}
+            )
+
         method = "segment-directml"
         self.filename = modelsMap(method)
         folderName = "segment-onnx"
@@ -734,7 +758,9 @@ class AnimeSegmentOpenVino:
                 self._fallbackToCpu()
                 self.processFrame(frame)
             else:
-                logging.exception(f"Something went wrong while processing the frame, {e}")
+                logging.exception(
+                    f"Something went wrong while processing the frame, {e}"
+                )
 
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")

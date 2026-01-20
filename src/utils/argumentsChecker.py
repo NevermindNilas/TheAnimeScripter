@@ -1313,7 +1313,21 @@ def _adjustMethodsBasedOnCuda(args):
             "obj_detect_method",
         ]
 
+        methodToFlag = {
+            "interpolate_method": "interpolate",
+            "upscale_method": "upscale",
+            "segment_method": "segment",
+            "depth_method": "depth",
+            "restore_method": "restore",
+            "dedup_method": "dedup",
+            "obj_detect_method": "obj_detect",
+        }
+
         for attr in methodAttributes:
+            flagName = methodToFlag.get(attr)
+            if flagName and not getattr(args, flagName):
+                continue
+
             currentMethod = getattr(args, attr)
 
             if attr == "restore_method" and isinstance(currentMethod, list):

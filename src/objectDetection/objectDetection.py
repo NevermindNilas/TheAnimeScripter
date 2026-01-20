@@ -10,6 +10,10 @@ from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from .yolov9_mit import draw_detections, draw_masks, draw_box, colors
+from src.constants import ADOBE
+
+if ADOBE:
+    from src.utils.aeComms import progressState
 
 __all__ = [
     "ObjectDetection",
@@ -99,6 +103,11 @@ class ObjectDetectionDML:
             logging.exception(f"Something went wrong, {e}")
 
     def handleModels(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading object detection model: {self.objDetectMethod}..."}
+            )
+
         folderName = self.objDetectMethod.replace("-directml", "-onnx").replace(
             "-openvino", "-onnx"
         )

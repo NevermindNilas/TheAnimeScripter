@@ -202,6 +202,12 @@ class RifeCuda:
         """
         Load the desired model
         """
+        if ADOBE:
+            progressState.update(
+                {
+                    "status": f"Loading RIFE interpolation model: {self.interpolateMethod}..."
+                }
+            )
 
         self.filename = modelsMap(self.interpolateMethod)
         if not os.path.exists(os.path.join(weightsDir, "rife", self.filename)):

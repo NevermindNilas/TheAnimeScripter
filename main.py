@@ -396,6 +396,8 @@ class VideoProcessor:
             # Initialize AI models and get processing functions
             from src.initializeModels import initializeModels
 
+            progressState.update({"status": "Initializing AI models..."})
+
             (
                 self.new_width,
                 self.new_height,
@@ -406,6 +408,8 @@ class VideoProcessor:
             ) = initializeModels(self)
 
             starTime: float = time()
+
+            progressState.update({"status": "Building input/output buffers..."})
 
             self.readBuffer = BuildBuffer(
                 videoInput=self.input,

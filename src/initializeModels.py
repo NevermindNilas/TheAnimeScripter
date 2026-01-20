@@ -9,6 +9,11 @@ segmentation, depth estimation, and the main processing pipeline.
 import logging
 import torch
 
+from src.constants import ADOBE
+
+if ADOBE:
+    from src.utils.aeComms import progressState
+
 
 class RestoreChain:
     def __init__(self, restore_processes: list):
@@ -534,6 +539,11 @@ def initializeModels(self):
     if self.upscale:
         from src.unifiedUpscale import UniversalPytorch
 
+        if ADOBE:
+            progressState.update(
+                {"status": f"Initializing upscale model: {self.upscaleMethod}..."}
+            )
+
         outputWidth *= self.upscaleFactor
         outputHeight *= self.upscaleFactor
         logging.info(f"Upscaling to {outputWidth}x{outputHeight}")
@@ -666,6 +676,13 @@ def initializeModels(self):
                     self.height,
                 )
     if self.interpolate:
+        if ADOBE:
+            progressState.update(
+                {
+                    "status": f"Initializing interpolation model: {self.interpolateMethod}..."
+                }
+            )
+
         logging.info(
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolateFactor, '.3f')}fps"
         )
@@ -845,6 +862,11 @@ def initializeModels(self):
                 )
 
     if self.restore:
+        if ADOBE:
+            progressState.update(
+                {"status": f"Initializing restore model: {self.restoreMethod}..."}
+            )
+
         restoreMethods = (
             self.restoreMethod
             if isinstance(self.restoreMethod, list)
@@ -967,6 +989,11 @@ def initializeModels(self):
             restoreProcess = RestoreChain(restoreProcesses)
 
     if self.dedup:
+        if ADOBE:
+            progressState.update(
+                {"status": f"Initializing deduplication: {self.dedupMethod}..."}
+            )
+
         match self.dedupMethod:
             case "ssim":
                 from src.dedup.dedup import DedupSSIM
