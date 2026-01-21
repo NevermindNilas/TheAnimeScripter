@@ -315,7 +315,7 @@ class AnimeSegmentTensorRT:
         with torch.cuda.stream(self.normStream):
             frame = F.pad(
                 frame.float(),
-                (0, 0, self.padHeight, self.padWidth),
+                (0, self.padWidth, 0, self.padHeight),
             )
             self.dummyInput.copy_(frame, non_blocking=True)
             self.normStream.synchronize()
@@ -511,7 +511,7 @@ class AnimeSegmentDirectML:
     def processFrame(self, frame: torch.tensor) -> torch.tensor:
         try:
             frame = frame.to(self.device).float()
-            frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
+            frame = F.pad(frame, (0, self.padWidth, 0, self.padHeight))
             self.dummyInput.copy_(frame)
 
             self.IoBinding.bind_input(
@@ -729,7 +729,7 @@ class AnimeSegmentOpenVino:
     def processFrame(self, frame: torch.tensor) -> torch.tensor:
         try:
             frame = frame.to(self.device).float()
-            frame = F.pad(frame, (0, 0, self.padHeight, self.padWidth))
+            frame = F.pad(frame, (0, self.padWidth, 0, self.padHeight))
             self.dummyInput.copy_(frame)
 
             self.IoBinding.bind_input(
