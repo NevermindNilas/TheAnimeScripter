@@ -11,13 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Changed
 - More progress updates will be present in the Adobe Edition progress bar.
 - Surpressed many of the unnecessary logs.
+- Bumped Pytorch to 2.10.0
+- Bumped Celux to 0.8.5
 
 ### Fixed
 - https://github.com/NevermindNilas/TheAnimeScripter/issues/238
 
 ### Removed
 - Deprecated NCNN backends. 
-  
 
 ### Adobe Edition
 #### New
