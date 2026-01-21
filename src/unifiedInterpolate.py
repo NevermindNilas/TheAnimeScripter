@@ -517,6 +517,8 @@ class RifeTensorRT:
 
         IFNet, _Head = importRifeArch(self.interpolateMethod, "v3")
 
+
+
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
@@ -541,9 +543,10 @@ class RifeTensorRT:
             self.model.float()
         self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
 
-        # DirectML/OpenVINO path does not use external feature caching.
-        # RIFE DirectML arches compute any needed features internally.
-        self.norm = None
+        if _Head is True:
+            self.norm = self.model.encode
+        else:
+            self.norm = None
 
         self.engine, self.context = self.tensorRTEngineLoader(enginePath)
         if (
@@ -595,6 +598,7 @@ class RifeTensorRT:
                 inputNames.append("f0")
                 outputNames.append("f1")
                 dynamicAxes["f0"] = {2: "height", 3: "width"}
+
 
             torch.onnx.export(
                 self.model,
@@ -1084,9 +1088,10 @@ class RifeDirectML:
             torch.load(self.modelPath, map_location="cpu"), strict=False
         )
 
-        # DirectML/OpenVINO exports do not use external feature caching.
-        # DirectML arches compute any required features internally.
-        self.norm = None
+        if Head is True:
+            self.norm = self.model.encode
+        else:
+            self.norm = None
 
         dummyInput1 = torch.zeros(
             1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
