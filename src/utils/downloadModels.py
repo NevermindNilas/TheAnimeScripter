@@ -971,10 +971,21 @@ def downloadAndLog(
                 )
 
             if filename.endswith(".zip"):
-                with zipfile.ZipFile(tempFilePath, "r") as zip_ref:
-                    zip_ref.extractall(folderPath)
+                with zipfile.ZipFile(tempFilePath, "r") as zipRef:
+                    zipRef.extractall(folderPath)
+
+                    extractedFiles = zipRef.namelist()
+                    onnxFiles = [f for f in extractedFiles if f.endswith(".onnx")]
+                    if onnxFiles:
+                        filename = onnxFiles[0]
+
+                    elif any(f.endswith(".pth") for f in extractedFiles):
+                        filename = [f for f in extractedFiles if f.endswith(".pth")][0]
+
+                    elif os.path.exists(os.path.join(folderPath, filename[:-4])):
+                        filename = filename[:-4]
+
                 os.remove(tempFilePath)
-                filename = filename[:-4]
             else:
                 os.rename(tempFilePath, os.path.join(folderPath, filename))
 

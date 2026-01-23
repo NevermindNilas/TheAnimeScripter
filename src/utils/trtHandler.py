@@ -33,19 +33,14 @@ def parseModel(parser: trt.OnnxParser, modelPath: str) -> bool:
         return False
 
     try:
-        with open(modelPath, "rb") as model:
-            modelData = model.read()
-            if not modelData:
-                logAndPrint(f"Empty model file: {modelPath}", "red")
-                return False
+        if not parser.parse_from_file(modelPath):
+            logAndPrint("Failed to parse ONNX model:", "red")
+            for error in range(parser.num_errors):
+                errorMSG = parser.get_error(error)
+                logAndPrint(f"  Parser error {error}: {errorMSG}", "red")
+                logging.error(f"ONNX parser error {error}: {errorMSG}")
+            return False
 
-            if not parser.parse(modelData):
-                logAndPrint("Failed to parse ONNX model:", "red")
-                for error in range(parser.num_errors):
-                    errorMSG = parser.get_error(error)
-                    logAndPrint(f"  Parser error {error}: {errorMSG}", "red")
-                    logging.error(f"ONNX parser error {error}: {errorMSG}")
-                return False
         return True
     except Exception as e:
         logAndPrint(f"Error reading model file {modelPath}: {e}", "red")
