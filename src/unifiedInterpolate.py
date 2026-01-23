@@ -517,8 +517,6 @@ class RifeTensorRT:
 
         IFNet, _Head = importRifeArch(self.interpolateMethod, "v3")
 
-
-
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
@@ -598,7 +596,6 @@ class RifeTensorRT:
                 inputNames.append("f0")
                 outputNames.append("f1")
                 dynamicAxes["f0"] = {2: "height", 3: "width"}
-
 
             torch.onnx.export(
                 self.model,
@@ -1065,7 +1062,7 @@ class RifeDirectML:
             mul = 32
 
         self.dtype = torch.float16 if self.half else torch.float32
-        tmp = max(mul, int(mul / 1.0))
+        tmp = max(mul, int(mul / self.scale))
         self.pw = math.ceil(self.width / tmp) * tmp
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)

@@ -189,7 +189,9 @@ class IFBlock46(nn.Module):
         x = interpolate(x, scale_factor=1.0 / scale, mode="bilinear")
         if flow is not None:
             flow = (
-                interpolate(flow, scale_factor=1.0 / scale, mode="bilinear") * 1.0 / scale
+                interpolate(flow, scale_factor=1.0 / scale, mode="bilinear")
+                * 1.0
+                / scale
             )
             x = torch.cat((x, flow), 1)
 
@@ -295,7 +297,9 @@ class IFNet_46(nn.Module):
                     mask = (mask - m1) / 2
             else:
                 f0, m0 = block(
-                    torch.cat((warpedImg0[:, :3], warpedImg1[:, :3], timestep, mask), 1),
+                    torch.cat(
+                        (warpedImg0[:, :3], warpedImg1[:, :3], timestep, mask), 1
+                    ),
                     flow,
                     scale=scale,
                 )
@@ -782,7 +786,7 @@ class IFNet_425(nn.Module):
         self.height = height
         self.blocks = [self.block0, self.block1, self.block2, self.block3, self.block4]
 
-        tmp = max(64, int(64 / 1.0))
+        tmp = max(64, int(64 / scale))
         self.pw = math.ceil(self.width / tmp) * tmp
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
@@ -839,7 +843,7 @@ class IFNet_425(nn.Module):
                 self.backWarp
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
-            if scale == 1:
+            if scale == self.scaleList[-1]:
                 warpedImgs = grid_sample_directml(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
@@ -947,7 +951,7 @@ class IFNet_425_lite(nn.Module):
                 self.backWarp
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
-            if scale == 1:
+            if scale == self.scaleList[-1]:
                 warpedImgs = grid_sample_directml(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
@@ -998,7 +1002,7 @@ class IFNet_425_heavy(nn.Module):
         self.height = height
         self.blocks = [self.block0, self.block1, self.block2, self.block3, self.block4]
 
-        tmp = max(64, int(64 / 1.0))
+        tmp = max(64, int(64 / scale))
         self.pw = math.ceil(self.width / tmp) * tmp
         self.ph = math.ceil(self.height / tmp) * tmp
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
@@ -1055,7 +1059,7 @@ class IFNet_425_heavy(nn.Module):
                 self.backWarp
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
-            if scale == 1:
+            if scale == self.scaleList[-1]:
                 warpedImgs = grid_sample_directml(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
