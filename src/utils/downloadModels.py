@@ -82,6 +82,10 @@ def modelsList() -> list[str]:
         "hurrdeblur",
         "hurrdeblur-tensorrt",
         "hurrdeblur-directml",
+        "dehalo",
+        "dehalo-tensorrt",
+        "dehalo-directml",
+        "dehalo-openvino",
         "rife",
         "rife4.6",
         "rife4.15-lite",
@@ -132,6 +136,8 @@ def modelsList() -> list[str]:
         "span-tensorrt",
         "span-ncnn",
         "shufflecugan-ncnn",
+        "shufflecugan-directml",
+        "shufflecugan-openvino",
         "small_v2",
         "base_v2",
         "large_v2",
@@ -298,34 +304,68 @@ def modelsMap(
             elif modelType == "ncnn":
                 return "2x_modernspanimationv1.5-ncnn.zip"
 
-        case "shufflecugan" | "shufflecugan-tensorrt" | "shufflecugan-ncnn":
+        case (
+            "shufflecugan"
+            | "shufflecugan-tensorrt"
+            | "shufflecugan-ncnn"
+            | "shufflecugan-directml"
+            | "shufflecugan-openvino"
+        ):
             if modelType == "pth":
                 return "sudo_shuffle_cugan_9.584.969.pth"
             elif modelType == "onnx":
-                if half:
-                    return "sudo_shuffle_cugan_fp16_op18_clamped.onnx"
+                if "-directml" in model or "-openvino" in model:
+                    if half:
+                        return "sudo_shuffle_cugan_9.584.969_fp16-directml.onnx"
+                    else:
+                        return "sudo_shuffle_cugan_9.584.969_fp32-directml.onnx"
                 else:
-                    return "sudo_shuffle_cugan_op18_clamped.onnx"
+                    if half:
+                        return "sudo_shuffle_cugan_fp16_op18_clamped.onnx"
+                    else:
+                        return "sudo_shuffle_cugan_op18_clamped.onnx"
             elif modelType == "ncnn":
                 return "2xsudo_shuffle_cugan-ncnn.zip"
 
-        case "fallin_soft" | "fallin_soft-tensorrt" | "fallin_soft-directml":
+        case (
+            "fallin_soft"
+            | "fallin_soft-tensorrt"
+            | "fallin_soft-directml"
+            | "fallin_soft-openvino"
+        ):
             if modelType == "pth":
                 return "Fallin_soft.pth"
             else:
-                if half:
-                    return "2x_Fallin_soft_renarchi_fp16_op17_slim.onnx"
+                if "-directml" in model or "-openvino" in model:
+                    if half:
+                        return "Fallin_soft_fp16-directml.onnx"
+                    else:
+                        return "Fallin_soft_fp32-directml.onnx"
                 else:
-                    return "2x_Fallin_soft_renarchi_fp32_op17_slim.onnx"
+                    if half:
+                        return "2x_Fallin_soft_renarchi_fp16_op17_slim.onnx"
+                    else:
+                        return "2x_Fallin_soft_renarchi_fp32_op17_slim.onnx"
 
-        case "fallin_strong" | "fallin_strong-tensorrt" | "fallin_strong-directml":
+        case (
+            "fallin_strong"
+            | "fallin_strong-tensorrt"
+            | "fallin_strong-directml"
+            | "fallin_strong-openvino"
+        ):
             if modelType == "pth":
                 return "Fallin_strong.pth"
             else:
-                if half:
-                    return "2x_Fallin_strong_renarchi_fp16_op17_slim.onnx"
+                if "-directml" in model or "-openvino" in model:
+                    if half:
+                        return "Fallin_strong_fp16-directml.onnx"
+                    else:
+                        return "Fallin_strong_fp32-directml.onnx"
                 else:
-                    return "2x_Fallin_strong_renarchi_fp32_op17_slim.onnx"
+                    if half:
+                        return "2x_Fallin_strong_renarchi_fp16_op17_slim.onnx"
+                    else:
+                        return "2x_Fallin_strong_renarchi_fp32_op17_slim.onnx"
         case "segment":
             return "isnetis.ckpt"
 
@@ -358,6 +398,15 @@ def modelsMap(
                     return "1x_HurrDeblur_SuperUltraCompact_fp16_op20.onnx"
                 else:
                     return "1x_HurrDeblur_SuperUltraCompact_fp32_op20.onnx"
+
+        case "dehalo" | "dehalo-tensorrt" | "dehalo-directml" | "dehalo-openvino":
+            if modelType == "pth":
+                return "1x_DeHalo_v1_Compact.pth"
+            elif modelType == "onnx":
+                if half:
+                    return "1x_DeHalo_v1_Compact_fp16_op20.onnx"
+                else:
+                    return "1x_DeHalo_v1_Compact_fp32_op20.onnx"
 
         case "anime1080fixer" | "anime1080fixer-tensorrt" | "anime1080fixer-directml":
             if modelType == "pth":
