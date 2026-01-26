@@ -1,5 +1,5 @@
 # Core dependencies
-setuptools==80.9.0
+setuptools==80.10.2
 wheel-stub==0.4.2
 numpy==2.2.6
 
