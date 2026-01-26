@@ -581,6 +581,7 @@ def initializeModels(self):
                 | "open-proteus-directml"
                 | "aniscale2-directml"
                 | "shufflespan-directml"
+                | "shufflecugan-directml"
                 | "rtmosr-directml"
                 | "saryn-directml"
                 | "fallin_soft-directml"
@@ -592,6 +593,7 @@ def initializeModels(self):
                 | "open-proteus-openvino"
                 | "aniscale2-openvino"
                 | "shufflespan-openvino"
+                | "shufflecugan-openvino"
                 | "rtmosr-openvino"
                 | "saryn-openvino"
                 | "fallin_soft-openvino"
@@ -886,12 +888,14 @@ def initializeModels(self):
                     | "deh264_real"
                     | "deh264_span"
                     | "hurrdeblur"
+                    | "dehalo"
                     | "scunet-openvino"
                     | "anime1080fixer-openvino"
                     | "gater3-openvino"
                     | "deh264_real-openvino"
                     | "deh264_span-openvino"
                     | "hurrdeblur-openvino"
+                    | "dehalo-openvino"
                 ):
                     from src.unifiedRestore import UnifiedRestoreCuda
 
@@ -910,6 +914,7 @@ def initializeModels(self):
                     | "deh264_real-tensorrt"
                     | "deh264_span-tensorrt"
                     | "hurrdeblur-tensorrt"
+                    | "dehalo-tensorrt"
                 ):
                     from src.unifiedRestore import UnifiedRestoreTensorRT
 
@@ -932,6 +937,7 @@ def initializeModels(self):
                     | "deh264_real-directml"
                     | "deh264_span-directml"
                     | "hurrdeblur-directml"
+                    | "dehalo-directml"
                 ):
                     from src.unifiedRestore import UnifiedRestoreDirectML
 
