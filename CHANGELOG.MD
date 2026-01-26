@@ -5,9 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
 ### New
+- Added support for Dehalo with commands: "dehalo", "dehalo-tensorrt", "dehalo-directml", "dehalo-openvino".
+- Added DirectML and OpenVino support for ShuffleCugan, Fallin Soft and Fallin Strong.
+
+### Changed
+- N/A
+
+### Fixed
+- N/A
+
+### Removed
+- N/A
+
+### Adobe Edition
+#### New
+- Added DeHalo -CUDA / -TensorRT / -DirectML / -OpenVino support
+- Added ShuffleCugan, Fallin Soft and Fallin Strong -DirectML / -OpenVino support
+- Added preview image support into the queue tab.
+- Added Dark and Light mode support to the UI ( the light mode is take it or leave it :D )
+
+#### Changed
+- Minor performance improvements.
+- Few UI Tweaks to clean up space and improve organization.
+
+#### Fixed
+- Fixed --sharpen not being parsed to the backend.
+
+#### Removed
+- N/A
+
+
+
+#### Changed
+- N/A
+
+#### Fixed
+- N/A
+
+#### Removed
+- N/A
+
+## [2.5.7] - 2026-01-22
+### New
 - Added Torchcodec as a fallback decoder in case if celux fails to decode certain formats.
 - Added DirectML and OpenVino support for Rife.
-
 ### Changed
 - More progress updates will be present in the Adobe Edition progress bar.
 - Surpressed many of the unnecessary logs.
