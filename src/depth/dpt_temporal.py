@@ -2,10 +2,6 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from .dpt_v2 import DPTHead
-try:
-    from easydict import EasyDict
-except ImportError:
-    EasyDict = dict
 
 class TemporalModule(nn.Module):
     def __init__(self, in_channels, num_attention_heads=8, num_transformer_block=1, 

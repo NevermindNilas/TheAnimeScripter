@@ -142,7 +142,6 @@ class UniversalPytorch:
         if self.compileMode != "default":
             try:
                 if self.compileMode == "max":
-                    print("hi")
                     self.model.compile(mode="default")
                 elif self.compileMode == "max-graphs":
                     self.model.compile(

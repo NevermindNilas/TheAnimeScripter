@@ -18,11 +18,10 @@ from torchvision.transforms import Compose
 import cv2
 import numpy as np
 
-from .dinov2 import DINOv2
-from .dpt_temporal import DPTHeadTemporal
-from .util.transform import Resize, NormalizeImage, PrepareForNet
+from src.depth.video_depth_anything.dinov2 import DINOv2
+from src.depth.video_depth_anything.dpt_temporal import DPTHeadTemporal
+from src.depth.video_depth_anything.transform import Resize, NormalizeImage, PrepareForNet
 
-from utils.util import compute_scale_and_shift, get_interpolate_frames
 
 # infer settings, do not change
 INFER_LEN = 32
@@ -44,6 +43,7 @@ class VideoDepthAnything(nn.Module):
 
         self.intermediate_layer_idx = {
             'vits': [2, 5, 8, 11],
+            "vitb": [2, 5, 8, 11],
             'vitl': [4, 11, 17, 23]
         }
         
@@ -54,8 +54,6 @@ class VideoDepthAnything(nn.Module):
         self.transform = None
         self.frame_id_list = []
         self.frame_cache_list = []
-        self.gap = (INFER_LEN - OVERLAP) * 2 - 1 - (OVERLAP - INTERP_LEN)
-        assert self.gap == 41
         self.id = -1
 
     def forward(self, x):
@@ -113,11 +111,12 @@ class VideoDepthAnything(nn.Module):
             depth = depth.to(cur_input.dtype)
             depth = F.interpolate(depth.flatten(0,1).unsqueeze(1), size=(frame_height, frame_width), mode='bilinear', align_corners=True)
 
-            # Copy multiple cache to simulate the windows
-            self.frame_cache_list = [cached_hidden_state_list] * INFER_LEN
-            self.frame_id_list.extend([0] * (INFER_LEN - 1))
+            # Initialize cache with the first frame only. We'll pad with the most recent
+            # cache during warm-up instead of repeating the first frame across the window.
+            self.frame_cache_list = [cached_hidden_state_list]
+            self.frame_id_list.append(0)
 
-            new_depth = depth[0][0].cpu().numpy()
+            new_depth = depth[0][0]
         else:
             frame_height, frame_width = frame.shape[:2]
             assert frame_height == self.frame_height
@@ -130,7 +129,14 @@ class VideoDepthAnything(nn.Module):
                     cur_feature = self.forward_features(cur_input)
                     x_shape = cur_input.shape
 
-            cur_list = self.frame_cache_list[0:2] + self.frame_cache_list[-INFER_LEN+3:]
+            cache_list = self.frame_cache_list
+            if len(cache_list) >= INFER_LEN:
+                cur_list = cache_list[0:2] + cache_list[-INFER_LEN+3:]
+            else:
+                cur_list = cache_list
+                if len(cur_list) < INFER_LEN - 1:
+                    pad_count = (INFER_LEN - 1) - len(cur_list)
+                    cur_list = cur_list + [cur_list[-1]] * pad_count
             '''
             cur_id = self.frame_id_list[0:2] + self.frame_id_list[-INFER_LEN+3:]
             print(f"cur_id: {cur_id}")
@@ -145,16 +151,18 @@ class VideoDepthAnything(nn.Module):
 
             depth = depth.to(cur_input.dtype)
             depth = F.interpolate(depth.flatten(0,1).unsqueeze(1), size=(frame_height, frame_width), mode='bilinear', align_corners=True)
-            depth_list = [depth[i][0].cpu().numpy() for i in range(depth.shape[0])]
+            depth_list = [depth[i][0] for i in range(depth.shape[0])]
 
             new_depth = depth_list[-1]
 
             self.frame_cache_list.append(new_cache)
 
-        # adjust the sliding window
+        # adjust the sliding window to keep the most recent caches
         self.frame_id_list.append(self.id)
-        if self.id + INFER_LEN > self.gap + 1:
-            del self.frame_id_list[1]
-            del self.frame_cache_list[1]
+        max_cache = INFER_LEN - 1
+        if len(self.frame_cache_list) > max_cache:
+            self.frame_cache_list.pop(0)
+            if len(self.frame_id_list) > max_cache:
+                self.frame_id_list.pop(0)
 
         return new_depth
