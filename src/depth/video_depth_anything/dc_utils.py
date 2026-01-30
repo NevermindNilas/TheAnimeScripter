@@ -4,7 +4,6 @@
 # This file may have been modified by ByteDance Ltd. and/or its affiliates on [date of modification]
 # Original file is released under [ MIT License license], with the full license text available at [https://github.com/Tencent/DepthCrafter?tab=License-1-ov-file].
 import numpy as np
-import matplotlib.cm as cm
 import imageio
 try:
     from decord import VideoReader, cpu

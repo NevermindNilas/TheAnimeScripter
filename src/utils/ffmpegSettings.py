@@ -33,6 +33,8 @@ class BuildBuffer:
         bitDepth: str = "8bit",
         toTorch: bool = True,
         decode_method: str = "cpu",
+        batched: bool = False,
+        batchSize: int = 1,
     ):
         """
         Initializes the BuildBuffer class.
@@ -48,7 +50,8 @@ class BuildBuffer:
             bitDepth (str): Bit depth of the output frames, e.g., "8bit" or "10bit".
             toTorch (bool): Whether to convert frames to torch tensors.
             decode_method (str): The backend to use for decoding, e.g., "cpu" or "nvdec".
-
+            batched (bool): Whether to decode frames in batches.
+            batchSize (int): The size of each batch when decoding in batches.
         """
         self.decodeMethod = decode_method
         self.half = half
