@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added DirectML and OpenVino support for ShuffleCugan, Fallin Soft and Fallin Strong.
 
 ### Changed
-- N/A
+- Reverted to Pytorch 2.9.1 to fix some stability issues with certain systems.
 
 ### Fixed
 - N/A
