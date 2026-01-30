@@ -1134,6 +1134,7 @@ class RifeDirectML:
                 output_names=outputNames,
                 dynamic_axes=dynamicAxes,
                 opset_version=20,
+                optimize=False,
                 dynamo=False,
             )
         providers = self.ort.get_available_providers()
