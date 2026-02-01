@@ -1,8 +1,9 @@
 import shutil
-import requests
 import logging
 import os
 import subprocess
+from urllib.request import urlopen
+from urllib.error import URLError, HTTPError
 
 import src.constants as cs
 from src.utils.progressBarLogic import ProgressBarDownloadLogic
@@ -32,8 +33,12 @@ def downloadAndExtractFfmpeg(ffmpegPath):
     )
 
     try:
-        response = requests.get(ffmpegUrl, stream=True)
-        response.raise_for_status()
+        response = urlopen(ffmpegUrl)
+
+        # Check for HTTP errors manually (like raise_for_status)
+        if response.getcode() != 200:
+            raise HTTPError(ffmpegUrl, response.getcode(), None, None, None)
+
         totalSizeInBytes = int(response.headers.get("content-length", 0))
         totalSizeInMB = totalSizeInBytes // (1024 * 1024)
 
@@ -41,11 +46,13 @@ def downloadAndExtractFfmpeg(ffmpegPath):
             ProgressBarDownloadLogic(totalSizeInMB + 1, "Downloading FFmpeg") as bar,
             open(ffmpegArchivePath, "wb") as file,
         ):
-            for data in response.iter_content(chunk_size=1024 * 1024):
-                if data:
-                    file.write(data)
-                    bar(len(data) // (1024 * 1024))
-    except requests.RequestException as e:
+            while True:
+                data = response.read(1024 * 1024)
+                if not data:
+                    break
+                file.write(data)
+                bar(len(data) // (1024 * 1024))
+    except (URLError, HTTPError) as e:
         logging.error(f"Failed to download FFMPEG: {e}")
         raise
 
