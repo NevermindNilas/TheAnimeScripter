@@ -6,9 +6,6 @@ numpy==2.2.6
 # System and process management
 psutil==7.2.1
 
-# Network and HTTP
-requests==2.32.5
-
 # User interface and CLI
 inquirer==3.4.1
 colored==2.3.1
