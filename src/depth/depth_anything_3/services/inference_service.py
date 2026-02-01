@@ -18,9 +18,11 @@ Provides unified interface for local and remote inference
 """
 
 from typing import Any, Dict, List, Optional, Union
+import json
 import numpy as np
-import requests
 import typer
+from urllib.request import urlopen, Request
+from urllib.error import URLError, HTTPError
 
 from ..api import DepthAnything3
 
@@ -142,36 +144,52 @@ class InferenceService:
 
         # Add pose data (if exists)
         if extrinsics is not None:
-            payload["extrinsics"] = [ext.astype(np.float64).tolist() for ext in extrinsics]
+            payload["extrinsics"] = [
+                ext.astype(np.float64).tolist() for ext in extrinsics
+            ]
         if intrinsics is not None:
-            payload["intrinsics"] = [intr.astype(np.float64).tolist() for intr in intrinsics]
+            payload["intrinsics"] = [
+                intr.astype(np.float64).tolist() for intr in intrinsics
+            ]
 
         # Submit task
         typer.echo("Submitting inference task to backend...")
         try:
-            response = requests.post(f"{backend_url}/inference", json=payload, timeout=30)
-            response.raise_for_status()
-            result = response.json()
+            req = Request(
+                f"{backend_url}/inference",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            response = urlopen(req, timeout=30)
+
+            # Check for HTTP errors manually
+            if response.getcode() != 200:
+                raise HTTPError(req.full_url, response.getcode(), None, None, None)
+
+            result = json.loads(response.read().decode("utf-8"))
 
             if result["success"]:
                 task_id = result["task_id"]
                 typer.echo("Task submitted successfully!")
                 typer.echo(f"Task ID: {task_id}")
                 typer.echo(f"Results will be saved to: {export_dir}")
-                typer.echo(f"Check backend logs for progress updates with task ID: {task_id}")
+                typer.echo(
+                    f"Check backend logs for progress updates with task ID: {task_id}"
+                )
                 return result
             else:
                 raise typer.BadParameter(
                     f"Backend inference submission failed: {result['message']}"
                 )
-        except requests.exceptions.RequestException as e:
+        except (URLError, HTTPError) as e:
             raise typer.BadParameter(f"Backend inference submission failed: {e}")
 
     def _check_backend_status(self, backend_url: str) -> bool:
         """Check backend status"""
         try:
-            response = requests.get(f"{backend_url}/status", timeout=5)
-            return response.status_code == 200
+            response = urlopen(f"{backend_url}/status", timeout=5)
+            return response.getcode() == 200
         except Exception:
             return False
 

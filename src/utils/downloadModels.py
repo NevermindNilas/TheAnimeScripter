@@ -944,7 +944,8 @@ def modelsMap(
 def downloadAndLog(
     model: str, filename: str, download_url: str, folderPath: str, retries: int = 3
 ):
-    import requests
+    from urllib.request import urlopen
+    from urllib.error import URLError, HTTPError
     import zipfile
 
     tempFolder = os.path.join(folderPath, "TEMP")
@@ -975,8 +976,10 @@ def downloadAndLog(
             except Exception:
                 pass
 
-            response = requests.get(download_url, stream=True)
-            response.raise_for_status()
+            response = urlopen(download_url)
+
+            if response.getcode() != 200:
+                raise HTTPError(download_url, response.getcode(), None, None, None)
 
             try:
                 totalSizeInBytes = int(response.headers.get("content-length", 0))
@@ -994,7 +997,10 @@ def downloadAndLog(
                     title=f"Downloading {model.upper()} model... (Attempt {attempt + 1}/{retries})",
                 ) as bar:
                     with open(tempFilePath, "wb") as file:
-                        for data in response.iter_content(chunk_size=1024 * 1024):
+                        while True:
+                            data = response.read(1024 * 1024)
+                            if not data:
+                                break
                             file.write(data)
                             downloadedBytes += len(data)
                             bar(int(len(data) / (1024 * 1024)))
@@ -1049,7 +1055,7 @@ def downloadAndLog(
 
             return os.path.join(folderPath, filename)
 
-        except (requests.exceptions.RequestException, zipfile.BadZipFile) as e:
+        except (URLError, HTTPError, zipfile.BadZipFile) as e:
             logging.error(f"Error during download: {e}")
             try:
                 dest_path = os.path.join(folderPath, filename)
@@ -1131,7 +1137,8 @@ def downloadTensorRTRTX(retries: int = 3) -> bool:
     Returns:
         bool: True if successful, False otherwise
     """
-    import requests
+    from urllib.request import urlopen
+    from urllib.error import URLError, HTTPError
     import zipfile
 
     tensorrtUrl = f"{TASURL}tensorrt_rtx.zip"
@@ -1176,8 +1183,11 @@ def downloadTensorRTRTX(retries: int = 3) -> bool:
             logging.info(toLog)
             logAndPrint(toLog, colorFunc="yellow")
 
-            response = requests.get(tensorrtUrl, stream=True)
-            response.raise_for_status()
+            response = urlopen(tensorrtUrl)
+
+            # Check for HTTP errors manually (like raise_for_status)
+            if response.getcode() != 200:
+                raise HTTPError(tensorrtUrl, response.getcode(), None, None, None)
 
             try:
                 totalSizeInBytes = int(response.headers.get("content-length", 0))
@@ -1197,7 +1207,10 @@ def downloadTensorRTRTX(retries: int = 3) -> bool:
                 title=f"Downloading TensorRT RTX... (Attempt {attempt + 1}/{retries})",
             ) as bar:
                 with open(tempFilePath, "wb") as file:
-                    for data in response.iter_content(chunk_size=1024 * 1024):
+                    while True:
+                        data = response.read(1024 * 1024)
+                        if not data:
+                            break
                         file.write(data)
                         downloadedBytes += len(data)
                         bar(int(len(data) / (1024 * 1024)))
@@ -1248,7 +1261,7 @@ def downloadTensorRTRTX(retries: int = 3) -> bool:
 
             return True
 
-        except (requests.exceptions.RequestException, zipfile.BadZipFile) as e:
+        except (URLError, HTTPError, zipfile.BadZipFile) as e:
             logging.error(f"Error during TensorRT RTX download: {e}")
             if os.path.exists(tempFilePath):
                 os.remove(tempFilePath)
