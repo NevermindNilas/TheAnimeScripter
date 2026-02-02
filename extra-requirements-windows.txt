@@ -12,6 +12,6 @@ scenedetect[opencv]
 yt-dlp==2025.12.8
 onnx==1.20.1
 openvino==2025.4.1
-onnxscript==0.5.7
+onnxscript==0.6.0
 vmaf-torch==1.1.0
 https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/onnxruntime_openvino-1.23.2-cp313-cp313-win_amd64.whl
