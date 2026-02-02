@@ -4,7 +4,7 @@ wheel-stub==0.4.2
 numpy==2.2.6
 
 # System and process management
-psutil==7.2.1
+psutil==7.2.2
 
 # User interface and CLI
 inquirer==3.4.1
