@@ -150,7 +150,7 @@ def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[boo
 
 class DependencyChecker:
     def __init__(self):
-        self.cachePath = Path(cs.MAINPATH) / ".dependencyCache.json"
+        self.cachePath = Path(cs.WHEREAMIRUNFROM) / ".dependencyCache.json"
         self._cache = None
         self._requirementsHash = {}
         self.knownAliases = {

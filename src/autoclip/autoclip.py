@@ -2,7 +2,7 @@ import os
 
 from scenedetect import VideoManager, FrameTimecode, SceneManager
 from scenedetect.detectors import AdaptiveDetector
-from src.constants import MAINPATH
+import src.constants as cs
 
 
 class AutoClip:
@@ -28,7 +28,9 @@ class AutoClip:
 
         sceneList = sceneManger.get_scene_list()
 
-        with open(os.path.join(MAINPATH, "autoclipresults.txt"), "w") as f:
+        with open(
+            os.path.join(cs.WHEREAMIRUNFROM, "autoclipresults.txt"), "w"
+        ) as f:
             for i, scene in enumerate(sceneList):
                 startTime = scene[0].get_seconds()
                 endTime = scene[1].get_seconds()
