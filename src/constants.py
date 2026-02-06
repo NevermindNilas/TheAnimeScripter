@@ -8,7 +8,6 @@ and to improve code readability.
 
 # Core system paths
 WHEREAMIRUNFROM: str = ""  # Path to the main script directory
-MAINPATH: str = ""  # Path for logging and application data storage
 SYSTEM: str = ""  # Operating system identifier (Windows/Linux/macOS)
 
 # FFmpeg executable paths

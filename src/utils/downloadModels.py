@@ -10,7 +10,8 @@ if ADOBE:
     from src.utils.aeComms import progressState
 
 
-weightsDir = os.path.join(cs.MAINPATH, "weights")
+weightsBaseDir = cs.WHEREAMIRUNFROM
+weightsDir = os.path.join(weightsBaseDir, "weights")
 
 TASURL = "https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/"
 

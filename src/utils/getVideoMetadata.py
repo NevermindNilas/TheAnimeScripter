@@ -7,7 +7,7 @@ import src.constants as cs
 
 
 def saveMetadata(metadata, videoDataDump=None):
-    metadataPath = os.path.join(cs.MAINPATH, "metadata.json")
+    metadataPath = os.path.join(cs.WHEREAMIRUNFROM, "metadata.json")
     with open(metadataPath, "w") as jsonFile:
         data = {
             "metadata": metadata,

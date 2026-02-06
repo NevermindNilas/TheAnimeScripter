@@ -1085,7 +1085,7 @@ def argumentsChecker(args, outputPath, parser):
 
 
 def _handleDependencies(args):
-    legacyFFMPEG = os.path.join(cs.MAINPATH, "ffmpeg")
+    legacyFFMPEG = os.path.join(cs.WHEREAMIRUNFROM, "ffmpeg")
     if os.path.isdir(legacyFFMPEG):
         try:
             shutil.rmtree(legacyFFMPEG, onerror=remove_readonly)
@@ -1093,7 +1093,8 @@ def _handleDependencies(args):
         except Exception as e:
             logging.warning(f"Failed to remove legacy FFmpeg folder: {e}")
 
-    ffmpegSharedDir = os.path.join(cs.MAINPATH, "ffmpeg_shared")
+    ffmpegBaseDir = cs.WHEREAMIRUNFROM
+    ffmpegSharedDir = os.path.join(ffmpegBaseDir, "ffmpeg_shared")
 
     cs.FFMPEGPATH = os.path.join(
         ffmpegSharedDir,
