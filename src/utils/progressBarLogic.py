@@ -10,6 +10,9 @@ from rich.progress import ProgressColumn
 from time import time
 from src.utils.aeComms import progressState
 
+progressRefreshPerSec = 10  # Rich refresh frequency
+fpsCacheInterval = 0.25  # seconds to cache FPS column output
+
 import os
 import logging
 import psutil
@@ -28,13 +31,21 @@ class FPSColumn(ProgressColumn):
     def __init__(self):
         super().__init__()
         self.startTime = None
+        self._lastCacheTime = 0.0
+        self._cachedStr = None
 
     def render(self, task):
+        now = time()
         if self.startTime is None:
-            self.startTime = time()
-        elapsed = time() - self.startTime
+            self.startTime = now
+        if (now - self._lastCacheTime) < fpsCacheInterval and self._cachedStr is not None:
+            return self._cachedStr
+        elapsed = now - self.startTime
         fps = task.completed / elapsed if elapsed > 0 else 0
-        return f"FPS: [magenta]{fps:.2f}[/magenta]"
+        s = f"FPS: [magenta]{fps:.2f}[/magenta]"
+        self._cachedStr = s
+        self._lastCacheTime = now
+        return s
 
 
 class MemoryColumn(ProgressColumn):
@@ -82,6 +93,16 @@ class ProgressBarLogic:
             logging.info(f"Update interval: {self.updateInterval} frames")
 
             self.startTime = time()
+            self.nextUpdateFrame = self.updateInterval
+            self._adobePayload = {
+                "currentFrame": 0,
+                "totalFrames": self.totalFrames,
+                "fps": 0.0,
+                "eta": 0.0,
+                "elapsedTime": 0.0,
+                "status": "Processing...",
+            }
+            self._adobeUpdate = progressState.update
 
         else:
             self.progress = Progress(
@@ -98,9 +119,13 @@ class ProgressBarLogic:
                 FPSColumn(),
                 "•",
                 TextColumn("Frames: [green]{task.completed}/{task.total}[/green]"),
+                refresh_per_second=progressRefreshPerSec,
             )
             self.task = self.progress.add_task("Processing:", total=self.totalFrames)
             self.progress.start()
+            self._lastRefreshTime = time()
+            self._refreshInterval = 1.0 / progressRefreshPerSec
+            self._framesSinceRefresh = 0
 
         return self
 
@@ -128,35 +153,33 @@ class ProgressBarLogic:
             self.completed += advance
             self.advanceCount += advance
 
-            framesSinceLastUpdate = self.completed % self.updateInterval
-            shouldUpdate = (
-                framesSinceLastUpdate < advance or self.completed >= self.totalFrames
-            )
-
-            if shouldUpdate:
+            if self.completed >= getattr(self, "nextUpdateFrame", self.updateInterval) or self.completed >= self.totalFrames:
                 currentTime = time()
                 elapsedTime = currentTime - self.startTime
-                fps = self.completed / elapsedTime if elapsedTime > 0 else 0
+                fps_val = self.completed / elapsedTime if elapsedTime > 0 else 0.0
 
-                if fps > 0 and self.completed < self.totalFrames:
+                if fps_val > 0 and self.completed < self.totalFrames:
                     remainingFrames = self.totalFrames - self.completed
-                    eta = remainingFrames / fps
+                    eta = remainingFrames / fps_val
                 else:
-                    eta = 0
+                    eta = 0.0
 
-                progressState.update(
-                    {
-                        "currentFrame": self.completed,
-                        "totalFrames": self.totalFrames,
-                        "fps": round(fps, 2),
-                        "eta": eta,
-                        "elapsedTime": elapsedTime,
-                        "status": "Processing...",
-                    }
-                )
+                self._adobePayload["currentFrame"] = self.completed
+                self._adobePayload["fps"] = round(fps_val, 2)
+                self._adobePayload["eta"] = eta
+                self._adobePayload["elapsedTime"] = elapsedTime
+                self._adobeUpdate(self._adobePayload)
+
+                self.nextUpdateFrame = self.completed + self.updateInterval
 
         else:
-            self.progress.update(self.task, advance=advance)
+            self.progress.update(self.task, advance=advance, refresh=False)
+            self._framesSinceRefresh += advance
+            now = time()
+            if (now - self._lastRefreshTime) >= self._refreshInterval:
+                self.progress.refresh()
+                self._lastRefreshTime = now
+                self._framesSinceRefresh = 0
 
     def __call__(self, advance=1):
         self.advance(advance)
@@ -200,9 +223,15 @@ class ProgressBarDownloadLogic:
             SpeedColumn(),
             "•",
             TextColumn("Data: [cyan]{task.completed}/{task.total} MB[/cyan]"),
+            refresh_per_second=progressRefreshPerSec,
         )
         self.task = self.progress.add_task(self.title, total=self.totalData)
         self.progress.start()
+        # bookkeeping for throttled refresh and one-time start
+        self._started = False
+        self._lastRefreshTime = time()
+        self._refreshInterval = 1.0 / progressRefreshPerSec
+        self._framesSinceRefresh = 0
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -218,10 +247,20 @@ class ProgressBarDownloadLogic:
         self.progress.update(self.task, total=newTotal)
 
     def advance(self, advance=1):
-        task = self.progress.tasks[self.task]
-        if task.start_time is None:
-            task.start_time = time()
-        self.progress.update(self.task, advance=advance)
+        if not getattr(self, "_started", False):
+            try:
+                self.progress.tasks[self.task].start_time = time()
+            except Exception:
+                pass
+            self._started = True
+
+        self.progress.update(self.task, advance=advance, refresh=False)
+        self._framesSinceRefresh += advance
+        now = time()
+        if (now - self._lastRefreshTime) >= self._refreshInterval:
+            self.progress.refresh()
+            self._lastRefreshTime = now
+            self._framesSinceRefresh = 0
 
     def __call__(self, advance=1):
         self.advance(advance)
