@@ -1,12 +1,12 @@
 import json
 import os
 from src.utils.logAndPrint import logAndPrint
-from src.constants import MAINPATH
+import src.constants as cs
 
 
 def createPreset(args):
     ignoreList = ["input", "output", "inpoint", "outpoint"]
-    presetsPath = os.path.join(MAINPATH, "presets.json")
+    presetsPath = os.path.join(cs.WHEREAMIRUNFROM, "presets.json")
 
     if not os.path.exists(presetsPath):
         with open(presetsPath, "w") as file:
@@ -38,7 +38,7 @@ def createPreset(args):
 
 
 def listPresets():
-    presetsPath = os.path.join(MAINPATH, "presets.json")
+    presetsPath = os.path.join(cs.WHEREAMIRUNFROM, "presets.json")
 
     if not os.path.exists(presetsPath):
         print("No presets found")

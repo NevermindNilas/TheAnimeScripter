@@ -4,7 +4,7 @@ import os
 import src.constants as cs
 import time
 import torch
-import celux
+import nelux
 import threading
 
 from queue import Queue
@@ -14,7 +14,7 @@ from .isCudaInit import CudaChecker
 checker = CudaChecker()
 
 # Debugging flag
-CeluxLog = False
+neluxLog = True
 
 CachedReader = None
 CachedReaderMethod = None
@@ -68,20 +68,19 @@ class BuildBuffer:
         self.inpoint = inpoint
         self.outpoint = outpoint
 
-        """
-        # USED FOR DEBUGGING CeLux
-        global CeluxLog
-        if not CeluxLog:
+        # USED FOR DEBUGGING neLux
+        global neluxLog
+        if not neluxLog:
             try:
-                celux.set_log_level(celux.LogLevel.info)
-                CeluxLog = True
-                logging.info("CeLux logging enabled (level: info)")
+                nelux.set_log_level(nelux.LogLevel.info)
+                neluxLog = True
+                logging.info("neLux logging enabled (level: info)")
             except Exception as e:
-                logging.warning(f"Failed to enable CeLux logging: {e}")
+                logging.warning(f"Failed to enable neLux logging: {e}")
 
         if "%" not in videoInput and not os.path.exists(videoInput):
             raise FileNotFoundError(f"Video file not found: {videoInput}")
-        """
+
         self.cudaEnabled = False
         if checker.cudaAvailable and toTorch:
             try:
@@ -109,21 +108,21 @@ class BuildBuffer:
         global CachedReaderMethod
 
         try:
-            decodedFrames += self._decodeWithCelux(self.decodeMethod)
+            decodedFrames += self._decodeWithnelux(self.decodeMethod)
 
         except Exception as e:
-            logging.error(f"Celux decoding error: {e}")
+            logging.error(f"nelux decoding error: {e}")
 
             if self.decodeMethod != "cpu":
                 try:
                     logging.warning(
-                        "Celux decode failed with non-CPU method; retrying with cpu."
+                        "nelux decode failed with non-CPU method; retrying with cpu."
                     )
-                    decodedFrames += self._decodeWithCelux("cpu")
+                    decodedFrames += self._decodeWithnelux("cpu")
                     self.decodeMethod = "cpu"
                     return
                 except Exception as retry_e:
-                    logging.error(f"Celux CPU retry failed: {retry_e}")
+                    logging.error(f"nelux CPU retry failed: {retry_e}")
 
             logging.info("Attempting fallback to TorchCodec...")
             try:
@@ -138,9 +137,9 @@ class BuildBuffer:
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
 
-    def _decodeWithCelux(self, decodeMethod: str) -> int:
+    def _decodeWithnelux(self, decodeMethod: str) -> int:
         """
-        Decode using Celux. Returns number of frames decoded.
+        Decode using nelux. Returns number of frames decoded.
         """
         global CachedReader
         global CachedReaderMethod
@@ -151,9 +150,7 @@ class BuildBuffer:
 
         if CachedReader is not None:
             try:
-                logging.info(
-                    f"Reconfiguring cached VideoReader for {self.videoInput}"
-                )
+                logging.info(f"Reconfiguring cached VideoReader for {self.videoInput}")
                 CachedReader.reconfigure(self.videoInput)
             except Exception as e:
                 logging.warning(
@@ -166,7 +163,7 @@ class BuildBuffer:
             logging.info(
                 f"Initializing new VideoReader for {self.videoInput} ({decodeMethod})"
             )
-            CachedReader = celux.VideoReader(
+            CachedReader = nelux.VideoReader(
                 self.videoInput,
                 decode_accelerator=decodeMethod,
                 backend=self.backend,
@@ -192,7 +189,7 @@ class BuildBuffer:
 
     def decodeWithTorchCodec(self):
         """
-        Helper method to decode using TorchCodec when Celux fails.
+        Helper method to decode using TorchCodec when nelux fails.
         Returns the number of frames decoded.
         """
         logging.info(f"Initializing TorchCodec VideoDecoder for {self.videoInput}")
@@ -200,6 +197,7 @@ class BuildBuffer:
 
         try:
             from torchcodec.decoders import VideoDecoder as TorchCodecDecoder
+
             decoder = TorchCodecDecoder(self.videoInput, device=device)
         except Exception as e:
             logging.error(f"Failed to create TorchCodec decoder: {e}")
@@ -219,8 +217,7 @@ class BuildBuffer:
                 )
             else:
                 logging.info(
-                    "TorchCodec: Decoding frames by PTS starting at "
-                    f"{startTime}"
+                    f"TorchCodec: Decoding frames by PTS starting at {startTime}"
                 )
 
             chunkSize = 256
@@ -271,7 +268,7 @@ class BuildBuffer:
         Processes a single frame with optimized memory handling.
 
         Args:
-            frame: The frame to process as Celux frame.
+            frame: The frame to process as nelux frame.
             normStream: The CUDA stream for normalization (if applicable).
             channels_first: If True, frame is (C, H, W). If False, (H, W, C).
 
@@ -281,6 +278,36 @@ class BuildBuffer:
         import torch
         from torch.nn import functional as F
 
+        # Check if frame is already in BCHW float format (from Nelux ML mode)
+        # Nelux now returns [1, 3, H, W] float tensors already normalized to [0, 1]
+        if frame.dim() == 4 and frame.shape[0] == 1 and frame.shape[1] == 3:
+            # Already BCHW format, just ensure correct device and dtype
+            if self.cudaEnabled and frame.device.type != "cuda":
+                with torch.cuda.stream(normStream) if normStream else torch.no_grad():
+                    frame = frame.to(
+                        device="cuda",
+                        non_blocking=True,
+                        dtype=torch.float16 if self.half else torch.float32,
+                    )
+                    if self.resize:
+                        frame = F.interpolate(
+                            frame,
+                            size=(self.height, self.width),
+                            mode="bicubic",
+                            align_corners=False,
+                        )
+                    if normStream:
+                        normStream.synchronize()
+            elif self.resize:
+                frame = F.interpolate(
+                    frame,
+                    size=(self.height, self.width),
+                    mode="bicubic",
+                    align_corners=False,
+                )
+            return frame
+
+        # Original processing for HWC uint8/uint16 frames
         norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
         if self.cudaEnabled:
             with torch.cuda.stream(normStream):
@@ -466,7 +493,7 @@ class WriteBuffer:
         self.writeBuffer = Queue(maxsize=64)
 
         self.previewPath = (
-            os.path.join(cs.MAINPATH, "preview.jpg") if enablePreview else None
+            os.path.join(cs.WHEREAMIRUNFROM, "preview.jpg") if enablePreview else None
         )
 
     def encodeSettings(self) -> list:
@@ -594,7 +621,9 @@ class WriteBuffer:
             filterComplexParts.append("[preview]fps=2[previewThrottled]")
 
             combinedFilter = ";".join(filterComplexParts)
-            command.extend(["-filter_complex", combinedFilter, "-filter_complex_threads", "0"])
+            command.extend(
+                ["-filter_complex", combinedFilter, "-filter_complex_threads", "0"]
+            )
 
             command.extend(["-map", "[main]"])
 
@@ -806,7 +835,7 @@ class WriteBuffer:
                 stdout=None,
                 stderr=subprocess.DEVNULL,
                 shell=False,
-                cwd=cs.MAINPATH,
+                cwd=cs.WHEREAMIRUNFROM,
             )
 
             if useCuda:
@@ -931,3 +960,179 @@ class WriteBuffer:
                 os.remove(self.previewPath)
             except Exception as e:
                 logging.warning(f"Could not remove preview file: {e}")
+
+
+class NeluxWriteBuffer:
+    """
+    Write buffer that uses Nelux VideoEncoder for NVENC encoding.
+    More efficient than FFmpeg pipe for GPU-resident frames.
+    """
+
+    def __init__(
+        self,
+        input: str = "",
+        output: str = "",
+        encode_method: str = "h264_nvenc_nelux",
+        width: int = 1920,
+        height: int = 1080,
+        fps: float = 60.0,
+        inpoint: float = 0.0,
+        outpoint: float = 0.0,
+        **kwargs,  # Accept and ignore other WriteBuffer params for compatibility
+    ):
+        """
+        Initialize Nelux-based encoder.
+
+        Args:
+            input: Input video path (for audio extraction).
+            output: Output video path.
+            encode_method: One of h264_nvenc_nelux, h265_nvenc_nelux, av1_nvenc_nelux.
+            width: Output width.
+            height: Output height.
+            fps: Output framerate.
+            inpoint: Start time for audio (seconds).
+            outpoint: End time for audio (seconds).
+        """
+        self.input = input
+        self.output = os.path.normpath(output)
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.writeBuffer = Queue(maxsize=64)
+        self.writtenFrames = 0
+
+        # Map encode method to Nelux codec
+        codec_map = {
+            "h264_nvenc_nelux": "h264_nvenc",
+            "h265_nvenc_nelux": "hevc_nvenc",
+            "av1_nvenc_nelux": "av1_nvenc",
+        }
+        self.codec = codec_map.get(encode_method, "h264_nvenc")
+        self.encoder = None  # Created lazily when first frame arrives
+
+        logging.info(
+            f"NeluxWriteBuffer initialized: {width}x{height}@{fps}fps, codec={self.codec}"
+        )
+
+    def __call__(self):
+        """Process frames from writeBuffer and encode with Nelux."""
+        import torch
+
+        try:
+            # Wait for first frame to get actual dimensions
+            while self.writeBuffer.empty():
+                time.sleep(0.001)
+
+            # Create encoder with actual output settings
+            self.encoder = nelux.VideoEncoder(
+                self.output,
+                codec=self.codec,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
+            )
+
+            # Verify we're actually using hardware encoder
+            if hasattr(self.encoder, "is_hardware_encoder"):
+                if self.encoder.is_hardware_encoder:
+                    logging.info(
+                        f"Nelux NVENC encoder confirmed: {self.codec} -> {self.output}"
+                    )
+                else:
+                    logging.warning(
+                        f"Nelux encoder is NOT using hardware NVENC! Codec: {self.codec}"
+                    )
+            else:
+                logging.info(f"Nelux encoder created: {self.codec} -> {self.output}")
+
+            while True:
+                try:
+                    frame = self.writeBuffer.get(timeout=1.0)
+                except Exception:
+                    time.sleep(0.001)
+                    continue
+
+                if frame is None:
+                    break
+
+                # Convert BCHW float [0,1] -> HWC uint8 [0,255]
+                # Keep everything on CUDA for zero-copy NVENC!
+                # Input frame shape: [1, 3, H, W] or [B, C, H, W]
+                if frame.dim() == 4:
+                    frame = frame.squeeze(0)  # [3, H, W]
+
+                # All operations stay on the same device (CUDA)
+                frame_hwc = (
+                    frame.permute(1, 2, 0)  # [H, W, 3] - still on CUDA
+                    .mul(255)
+                    .clamp(0, 255)
+                    .to(dtype=torch.uint8)  # Convert dtype but keep on same device
+                    .contiguous()
+                )
+
+                # Frame should still be on CUDA for NVENC
+                # encode_frame should handle CUDA tensors directly
+                self.encoder.encode_frame(frame_hwc)
+                self.writtenFrames += 1
+
+            logging.info(f"Nelux encoded {self.writtenFrames} frames")
+
+        except Exception as e:
+            logging.error(f"Nelux encoding error: {e}")
+            import traceback
+
+            traceback.print_exc()
+        finally:
+            if self.encoder is not None:
+                try:
+                    self.encoder.close()
+                except Exception as e:
+                    logging.warning(f"Error closing Nelux encoder: {e}")
+
+    def write(self, frame):
+        """Add a frame to the queue. Must be in [B, C, H, W] format."""
+        self.writeBuffer.put(frame)
+
+    def put(self, frame):
+        """Equivalent to write(). Add a frame to the queue."""
+        self.writeBuffer.put(frame)
+
+    def close(self):
+        """Signal end of encoding."""
+        self.writeBuffer.put(None)
+
+
+def is_nelux_encoder(encode_method: str) -> bool:
+    """Check if the encode method uses Nelux NVENC."""
+    return encode_method.endswith("_nelux")
+
+
+def create_write_buffer(encode_method: str, **kwargs):
+    """
+    Factory function to create the appropriate write buffer.
+
+    Args:
+        encode_method: The encoding method string.
+        **kwargs: Arguments passed to the buffer constructor.
+
+    Returns:
+        WriteBuffer or NeluxWriteBuffer instance.
+
+    Usage:
+        buffer = create_write_buffer(
+            encode_method=args.encode_method,
+            input=args.input,
+            output=args.output,
+            width=width,
+            height=height,
+            fps=fps,
+            ...
+        )
+    """
+    if is_nelux_encoder(encode_method):
+        logging.info(f"Using NeluxWriteBuffer for {encode_method}")
+        return NeluxWriteBuffer(encode_method=encode_method, **kwargs)
+    else:
+        return WriteBuffer(encode_method=encode_method, **kwargs)

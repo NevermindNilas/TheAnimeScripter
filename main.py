@@ -486,7 +486,7 @@ class VideoProcessor:
         import torch
         from torch.profiler import profile, ProfilerActivity
 
-        profilePath = os.path.join(cs.MAINPATH, "profiler_trace")
+        profilePath = os.path.join(cs.WHEREAMIRUNFROM, "profiler_trace")
         os.makedirs(profilePath, exist_ok=True)
 
         logAndPrint(
@@ -549,6 +549,10 @@ def main():
             pass
 
     try:
+        cs.SYSTEM = system()
+        cs.WHEREAMIRUNFROM = os.path.dirname(os.path.abspath(__file__))
+        os.makedirs(cs.WHEREAMIRUNFROM, exist_ok=True)
+
         if any(flag in sys.argv for flag in ("-h", "--help", "-v", "--version")):
             from src.utils.argumentsChecker import createParser
 
@@ -557,24 +561,12 @@ def main():
             except SystemExit:
                 return
 
-        cs.SYSTEM = system()
-        if cs.SYSTEM == "Windows":
-            appdata = os.getenv("APPDATA") or os.getenv("LOCALAPPDATA")
-            if not appdata:
-                appdata = os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
-            cs.MAINPATH = os.path.join(appdata, "TheAnimeScripter")
-        else:
-            xdg_config = os.getenv("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
-            cs.MAINPATH = os.path.join(xdg_config, "TheAnimeScripter")
-        cs.WHEREAMIRUNFROM = os.path.dirname(os.path.abspath(__file__))
-        os.makedirs(cs.MAINPATH, exist_ok=True)
-
         baseOutputPath = os.path.dirname(os.path.abspath(__file__))
 
         signal(SIGINT, SIG_DFL)
 
         logging.basicConfig(
-            filename=os.path.join(cs.MAINPATH, "TAS-Log.log"),
+            filename=os.path.join(cs.WHEREAMIRUNFROM, "TAS-Log.log"),
             filemode="w",
             format="[%(asctime)s] [%(levelname)s] %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",

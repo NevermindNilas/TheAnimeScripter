@@ -8,8 +8,11 @@ installer.cfg
 # copilot
 .github/copilot-instructions.md
 
-#kiro
-.kiro
+# ffmpeg shared
+ffmpeg_shared/
+
+# weights folder
+weights/
 
 # C extensions
 *.so
