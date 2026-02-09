@@ -5,6 +5,6 @@ timm==1.0.24
 onnx==1.20.0
 onnxruntime==1.23.2
 scenedetect[opencv]
-yt-dlp==2026.1.31
+yt-dlp==2026.2.4
 vmaf-torch
 torchcodec==0.9.1
