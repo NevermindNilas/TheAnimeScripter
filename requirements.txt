@@ -1,6 +1,6 @@
 # Core dependencies
 setuptools==80.10.2
-wheel-stub==0.4.2
+wheel-stub==0.5.0
 numpy==2.2.6
 
 # System and process management
