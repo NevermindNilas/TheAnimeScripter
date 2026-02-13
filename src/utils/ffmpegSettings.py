@@ -52,6 +52,10 @@ class BuildBuffer:
             decode_method (str): The backend to use for decoding, e.g., "cpu" or "nvdec".
             batched (bool): Whether to decode frames in batches.
             batchSize (int): The size of each batch when decoding in batches.
+
+        Note:
+            Nelux returns HWC format [H, W, 3] with native dtype (uint8/int16).
+            processFrameToTorch converts this to BCHW float format for processing.
         """
         self.decodeMethod = decode_method
         self.half = half
@@ -70,7 +74,7 @@ class BuildBuffer:
 
         # USED FOR DEBUGGING neLux
         global neluxLog
-        if not neluxLog:
+        if neluxLog:
             try:
                 nelux.set_log_level(nelux.LogLevel.info)
                 neluxLog = True
@@ -143,6 +147,10 @@ class BuildBuffer:
         """
         global CachedReader
         global CachedReaderMethod
+
+        if decodeMethod == "nvdec":
+            CachedReader = None
+            CachedReaderMethod = None
 
         if CachedReader is not None and CachedReaderMethod != decodeMethod:
             CachedReader = None
@@ -268,46 +276,17 @@ class BuildBuffer:
         Processes a single frame with optimized memory handling.
 
         Args:
-            frame: The frame to process as nelux frame.
+            frame: The frame to process as nelux frame (HWC format).
             normStream: The CUDA stream for normalization (if applicable).
             channels_first: If True, frame is (C, H, W). If False, (H, W, C).
 
         Returns:
-            The processed frame as a torch tensor.
+            The processed frame as a torch tensor in BCHW format.
         """
         import torch
         from torch.nn import functional as F
 
-        # Check if frame is already in BCHW float format (from Nelux ML mode)
-        # Nelux now returns [1, 3, H, W] float tensors already normalized to [0, 1]
-        if frame.dim() == 4 and frame.shape[0] == 1 and frame.shape[1] == 3:
-            # Already BCHW format, just ensure correct device and dtype
-            if self.cudaEnabled and frame.device.type != "cuda":
-                with torch.cuda.stream(normStream) if normStream else torch.no_grad():
-                    frame = frame.to(
-                        device="cuda",
-                        non_blocking=True,
-                        dtype=torch.float16 if self.half else torch.float32,
-                    )
-                    if self.resize:
-                        frame = F.interpolate(
-                            frame,
-                            size=(self.height, self.width),
-                            mode="bicubic",
-                            align_corners=False,
-                        )
-                    if normStream:
-                        normStream.synchronize()
-            elif self.resize:
-                frame = F.interpolate(
-                    frame,
-                    size=(self.height, self.width),
-                    mode="bicubic",
-                    align_corners=False,
-                )
-            return frame
 
-        # Original processing for HWC uint8/uint16 frames
         norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
         if self.cudaEnabled:
             with torch.cuda.stream(normStream):
@@ -321,11 +300,7 @@ class BuildBuffer:
                     dtype=torch.float16 if self.half else torch.float32,
                 )
 
-                if not channels_first:
-                    frame = frame.permute(2, 0, 1)
-
-                frame.mul_(norm)
-                frame.clamp_(0, 1)
+                frame = frame.permute(2, 0, 1).mul(norm).clamp(0, 1)
 
                 if self.resize:
                     frame = F.interpolate(
@@ -336,6 +311,7 @@ class BuildBuffer:
                     )
                 else:
                     frame = frame.unsqueeze(0)
+
             if normStream is not None:
                 normStream.synchronize()
             return frame
@@ -351,8 +327,7 @@ class BuildBuffer:
                 dtype=torch.float16 if self.half else torch.float32,
             )
 
-            if not channels_first:
-                frame = frame.permute(2, 0, 1)
+            frame = frame.permute(2, 0, 1)
 
             frame.mul_(norm)
             frame.clamp_(0, 1)
@@ -939,7 +914,7 @@ class WriteBuffer:
 
     def write(self, frame):
         """
-        Add a frame to the queue. Must be in [B, C, H, W] format.
+        Add a frame to the queue. Must be in [B, C, H, W] format (BCHW).
         Frame type is torch.Tensor when using PyTorch backend.
         """
         self.writeBuffer.put(frame)
@@ -947,7 +922,7 @@ class WriteBuffer:
     def put(self, frame):
         """
         Equivalent to write()
-        Add a frame to the queue. Must be in [B, C, H, W] format.
+        Add a frame to the queue. Must be in [B, C, H, W] format (BCHW).
         Frame type is torch.Tensor when using PyTorch backend.
         """
         self.writeBuffer.put(frame)
@@ -986,7 +961,7 @@ class NeluxWriteBuffer:
         Args:
             input: Input video path (for audio extraction).
             output: Output video path.
-            encode_method: One of h264_nvenc_nelux, h265_nvenc_nelux, av1_nvenc_nelux.
+            encode_method: One of nvenc_h264_nelux, nvenc_h265_nelux, nvenc_av1_nelux.
             width: Output width.
             height: Output height.
             fps: Output framerate.
@@ -1002,15 +977,18 @@ class NeluxWriteBuffer:
         self.outpoint = outpoint
         self.writeBuffer = Queue(maxsize=64)
         self.writtenFrames = 0
+        self.CudaStream = None
 
-        # Map encode method to Nelux codec
         codec_map = {
-            "h264_nvenc_nelux": "h264_nvenc",
-            "h265_nvenc_nelux": "hevc_nvenc",
-            "av1_nvenc_nelux": "av1_nvenc",
+            "nvenc_h264_nelux": "h264_nvenc",
+            "nvenc_h265_nelux": "hevc_nvenc",
+            "nvenc_av1_nelux": "av1_nvenc",
         }
         self.codec = codec_map.get(encode_method, "h264_nvenc")
-        self.encoder = None  # Created lazily when first frame arrives
+        self.encoder = None
+
+        if checker.cudaAvailable:
+            self.CudaStream = torch.cuda.Stream()
 
         logging.info(
             f"NeluxWriteBuffer initialized: {width}x{height}@{fps}fps, codec={self.codec}"
@@ -1021,11 +999,9 @@ class NeluxWriteBuffer:
         import torch
 
         try:
-            # Wait for first frame to get actual dimensions
             while self.writeBuffer.empty():
                 time.sleep(0.001)
 
-            # Create encoder with actual output settings
             self.encoder = nelux.VideoEncoder(
                 self.output,
                 codec=self.codec,
@@ -1034,7 +1010,6 @@ class NeluxWriteBuffer:
                 fps=self.fps,
             )
 
-            # Verify we're actually using hardware encoder
             if hasattr(self.encoder, "is_hardware_encoder"):
                 if self.encoder.is_hardware_encoder:
                     logging.info(
@@ -1057,24 +1032,15 @@ class NeluxWriteBuffer:
                 if frame is None:
                     break
 
-                # Convert BCHW float [0,1] -> HWC uint8 [0,255]
-                # Keep everything on CUDA for zero-copy NVENC!
-                # Input frame shape: [1, 3, H, W] or [B, C, H, W]
-                if frame.dim() == 4:
-                    frame = frame.squeeze(0)  # [3, H, W]
+                with torch.cuda.stream(self.CudaStream):
+                    frame = frame.squeeze(0).permute(1, 2, 0)
+                    frame = frame.mul(255.0).clamp(0, 255).to(dtype=torch.uint8, non_blocking=True)
+                self.CudaStream.synchronize()
+        
+                if not frame.is_contiguous():
+                    frame = frame.contiguous()
 
-                # All operations stay on the same device (CUDA)
-                frame_hwc = (
-                    frame.permute(1, 2, 0)  # [H, W, 3] - still on CUDA
-                    .mul(255)
-                    .clamp(0, 255)
-                    .to(dtype=torch.uint8)  # Convert dtype but keep on same device
-                    .contiguous()
-                )
-
-                # Frame should still be on CUDA for NVENC
-                # encode_frame should handle CUDA tensors directly
-                self.encoder.encode_frame(frame_hwc)
+                self.encoder.encode_frame(frame)
                 self.writtenFrames += 1
 
             logging.info(f"Nelux encoded {self.writtenFrames} frames")
@@ -1092,7 +1058,7 @@ class NeluxWriteBuffer:
                     logging.warning(f"Error closing Nelux encoder: {e}")
 
     def write(self, frame):
-        """Add a frame to the queue. Must be in [B, C, H, W] format."""
+        """Add a frame to the queue. Must be in [H, W, 3] HWC format."""
         self.writeBuffer.put(frame)
 
     def put(self, frame):
@@ -1104,12 +1070,12 @@ class NeluxWriteBuffer:
         self.writeBuffer.put(None)
 
 
-def is_nelux_encoder(encode_method: str) -> bool:
+def isNeluxEncoder(encode_method: str) -> bool:
     """Check if the encode method uses Nelux NVENC."""
     return encode_method.endswith("_nelux")
 
 
-def create_write_buffer(encode_method: str, **kwargs):
+def createWriteBuffer(encode_method: str, **kwargs):
     """
     Factory function to create the appropriate write buffer.
 
@@ -1121,7 +1087,7 @@ def create_write_buffer(encode_method: str, **kwargs):
         WriteBuffer or NeluxWriteBuffer instance.
 
     Usage:
-        buffer = create_write_buffer(
+        buffer = createWriteBuffer(
             encode_method=args.encode_method,
             input=args.input,
             output=args.output,
@@ -1131,7 +1097,7 @@ def create_write_buffer(encode_method: str, **kwargs):
             ...
         )
     """
-    if is_nelux_encoder(encode_method):
+    if isNeluxEncoder(encode_method):
         logging.info(f"Using NeluxWriteBuffer for {encode_method}")
         return NeluxWriteBuffer(encode_method=encode_method, **kwargs)
     else:
