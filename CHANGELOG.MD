@@ -7,9 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### New
 - Added support for Dehalo with commands: "dehalo", "dehalo-tensorrt", "dehalo-directml", "dehalo-openvino".
 - Added DirectML and OpenVino support for ShuffleCugan, Fallin Soft and Fallin Strong.
-
+- Added experimental nvenc support for encoding through nelux ( rebranded celux ), use commands: "nvenc_h264_nelux", "nvenc_hevc_nelux" & "nvenc_av1_nelux" ( WIP ).
+- Added support for "yolov9_large-tensorrt".
+  
 ### Changed
 - Reverted to Pytorch 2.9.1 to fix some stability issues with certain systems.
+- Updated some dependencies to their latest versions.
+- Turned TAS into a fully portable aplication, all dependnecies are now included in the TAS-Portable folder and there is no more need for scaterring dependencies around the system.
 
 ### Fixed
 - N/A
@@ -23,26 +27,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added ShuffleCugan, Fallin Soft and Fallin Strong -DirectML / -OpenVino support
 - Added preview image support into the queue tab.
 - Added Dark and Light mode support to the UI ( the light mode is take it or leave it :D )
+- Added support for turning off discord rich presence.
+- Added support for dynamic download and storage of the backend, the user can now choose where to store the backend.
+- In the quick presets section, added a export and import feature to share presets with other users and or store them for later use.
 
 #### Changed
-- Minor performance improvements.
+- Major performance improvements.
 - Few UI Tweaks to clean up space and improve organization.
+- Minute changes to graph editor
+- Increased security and privacy of the GitHub Sponsors workflow.
+- Further security improvements.
+- Updated some dependencies to their latest versions.
+- UI improvements for the about page.
+- Added a "New" tag for newly added models.
 
 #### Fixed
 - Fixed --sharpen not being parsed to the backend.
-
+- Fixed --slow-mo not being parsed to the backend.
+- Fixed a memory leak in the graph editor.
+  
 #### Removed
-- N/A
-
-
+- Bloat from the graph editor UI.
+- NCNN mentions from the UI.
 
 #### Changed
-- N/A
-
-#### Fixed
-- N/A
-
-#### Removed
 - N/A
 
 ## [2.5.7] - 2026-01-22
