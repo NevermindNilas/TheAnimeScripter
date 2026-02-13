@@ -20,6 +20,182 @@ from src.utils.dependencyHandler import installDependencies
 from src.utils.getFFMPEG import remove_readonly
 
 
+class DidYouMeanArgumentParser(argparse.ArgumentParser):
+    """
+    Custom ArgumentParser that provides "did you mean?" suggestions for invalid choices.
+    
+    When a user provides an invalid choice for an argument, this parser will
+    suggest similar valid choices based on string similarity.
+    """
+
+    def _levenshteinDistance(self, s1, s2):
+        """
+        Calculate the Levenshtein distance between two strings.
+        
+        Args:
+            s1: First string
+            s2: Second string
+            
+        Returns:
+            int: The edit distance between the two strings
+        """
+        if len(s1) < len(s2):
+            return self._levenshteinDistance(s2, s1)
+        
+        if len(s2) == 0:
+            return len(s1)
+        
+        previousRow = range(len(s2) + 1)
+        for i, c1 in enumerate(s1):
+            currentRow = [i + 1]
+            for j, c2 in enumerate(s2):
+                insertions = previousRow[j + 1] + 1
+                deletions = currentRow[j] + 1
+                substitutions = previousRow[j] + (c1 != c2)
+                currentRow.append(min(insertions, deletions, substitutions))
+            previousRow = currentRow
+        
+        return previousRow[-1]
+
+    def _similarityScore(self, invalidValue, choice):
+        """
+        Calculate a similarity score between an invalid value and a valid choice.
+        Higher score = better match.
+        
+        Args:
+            invalidValue: The invalid value provided by the user
+            choice: A valid choice to compare against
+            
+        Returns:
+            float: Similarity score (higher is better)
+        """
+        # Normalize strings for comparison
+        invalidLower = invalidValue.lower()
+        choiceLower = choice.lower()
+        
+        # Calculate base similarity using Levenshtein distance
+        distance = self._levenshteinDistance(invalidLower, choiceLower)
+        maxLen = max(len(invalidLower), len(choiceLower))
+        baseSimilarity = 1.0 - (distance / maxLen) if maxLen > 0 else 0
+        
+        bonus = 0.0
+        
+        # Strong bonus for prefix match
+        if choiceLower.startswith(invalidLower) or invalidLower.startswith(choiceLower):
+            bonus += 0.4
+        
+        # Bonus for common prefix
+        commonPrefixLen = 0
+        for i in range(min(len(invalidLower), len(choiceLower))):
+            if invalidLower[i] == choiceLower[i]:
+                commonPrefixLen += 1
+            else:
+                break
+        bonus += (commonPrefixLen / max(len(invalidLower), len(choiceLower))) * 0.2
+        
+        # Bonus if the choice contains the invalid value as substring
+        if invalidLower in choiceLower:
+            bonus += 0.15
+        
+        return baseSimilarity + bonus
+
+    def _getSuggestions(self, invalidValue, validChoices, maxSuggestions=5):
+        """
+        Get suggestions for an invalid value from a list of valid choices.
+        
+        Args:
+            invalidValue: The invalid value provided by the user
+            validChoices: List of valid choices
+            maxSuggestions: Maximum number of suggestions to return
+            
+        Returns:
+            List of suggested valid choices, sorted by similarity
+        """
+        # Score all choices
+        scoredChoices = [
+            (choice, self._similarityScore(invalidValue, choice))
+            for choice in validChoices
+        ]
+        
+        # Sort by score (descending) and then by length (ascending) for ties
+        scoredChoices.sort(key=lambda x: (-x[1], len(x[0])))
+        
+        # Return top suggestions (only if they have a reasonable score)
+        suggestions = []
+        for choice, score in scoredChoices:
+            if score > 0.3 and len(suggestions) < maxSuggestions:  # Minimum threshold
+                suggestions.append(choice)
+        
+        return suggestions
+
+    def error(self, message):
+        """
+        Override error method to provide "did you mean?" suggestions.
+        
+        Args:
+            message: The original error message from argparse
+        """
+        # Check if this is an invalid choice error
+        if "invalid choice:" in message and "choose from" in message:
+            import re
+            from rich.console import Console
+            from rich.text import Text
+            
+            # Pattern to match: argument --arg_name: invalid choice: 'value' (choose from choice1, choice2, ...)
+            # Note: choices are NOT quoted in the actual argparse output
+            match = re.search(
+                r"argument (--?[\w-]+):\s*invalid choice:\s*'([^']+)'\s*\(choose from\s*(.+)\)",
+                message
+            )
+            
+            if match:
+                argName = match.group(1)
+                invalidValue = match.group(2)
+                choicesStr = match.group(3)
+                
+                # Parse the choices - they are comma-separated, possibly with spaces
+                choices = [c.strip() for c in choicesStr.split(',') if c.strip()]
+                
+                if choices:
+                    suggestions = self._getSuggestions(invalidValue, choices)
+                    
+                    # Build enhanced error message with colors
+                    console = Console(stderr=True)
+                    
+                    # Print usage line
+                    self.print_usage(sys.stderr)
+                    
+                    # Build colored error message
+                    errorText = Text()
+                    errorText.append("main.py: error: ", style="bold red")
+                    errorText.append(f"argument {argName}: invalid choice: ")
+                    errorText.append(f"'{invalidValue}'", style="bold red")
+                    
+                    console.print(errorText)
+                    
+                    if suggestions:
+                        suggestionText = Text()
+                        suggestionText.append("\n  Did you mean: ", style="bold yellow")
+                        suggestionText.append(', '.join(repr(s) for s in suggestions), style="bold green")
+                        console.print(suggestionText)
+                    
+                    # Show first 10 valid choices in a single line
+                    choicesText = Text()
+                    choicesText.append("\n  Valid choices: ", style="bold cyan")
+                    displayedChoices = choices[:10]
+                    choicesStrDisplay = ', '.join(repr(c) for c in displayedChoices)
+                    if len(choices) > 10:
+                        choicesStrDisplay += f", ... ({len(choices) - 10} more)"
+                    choicesText.append(choicesStrDisplay, style="dim")
+                    console.print(choicesText)
+                    
+                    sys.exit(2)
+                    return
+        
+        # For other errors, use the default behavior
+        super().error(message)
+
+
 def isAnyOtherProcessingMethodEnabled(args):
     """
     Check if any video processing operations are enabled.
@@ -146,7 +322,7 @@ def createParser(outputPath):
     Returns:
         argparse.Namespace: Parsed command line arguments
     """
-    argParser = argparse.ArgumentParser(
+    argParser = DidYouMeanArgumentParser(
         description="The Anime Scripter CLI Tool",
         usage="main.py [options]",
         formatter_class=RichHelpFormatter,
