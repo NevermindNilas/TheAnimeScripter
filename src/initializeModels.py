@@ -70,6 +70,7 @@ def objectDetection(self):
             self.half,
             self.objDetectMethod,
             self.totalFrames,
+            self.objDetectDisableAnnotations,
         )
     else:
         from src.objectDetection.objectDetection import ObjectDetection
@@ -105,6 +106,132 @@ def autoClip(self):
         self.inpoint,
         self.outpoint,
     )
+
+
+def atr(self):
+    """
+    Initialize and execute ATR (Adaptive Temporal Redistribution) processing.
+    
+    ATR is a pure PyTorch GPU-accelerated video frame interpolation system
+    designed for anime content. It uses a dual-strategy interpolation approach
+    with per-pixel blending based on motion linearity analysis.
+    
+    Args:
+        self: VideoProcessor instance containing processing parameters
+    """
+    from src.atr import ATRConfig, ATRPipeline
+    from src.utils.ffmpegSettings import BuildBuffer, createWriteBuffer
+    from src.utils.progressBarLogic import ProgressBarLogic
+    import cv2
+    
+    # Create ATR configuration
+    config = ATRConfig(
+        target_fps=self.atrTargetFPS,
+        linearity_bias=self.atrLinearityBias,
+        mask_blur_sigma=self.atrMaskBlur,
+        dup_ssim_threshold=self.atrDupThreshold,
+        scene_ssim_threshold=self.atrSceneThreshold,
+        fp16=self.half,
+        debug_mask=self.atrDebugMask,
+    )
+    
+    # Create ATR pipeline
+    pipeline = ATRPipeline(
+        config=config,
+        width=self.width,
+        height=self.height,
+        enable_nvtx=self.enable_nvtx,
+    )
+    
+    # Initialize RIFE model for ATR
+    logging.info(f"Initializing RIFE model for ATR: {self.interpolateMethod}")
+    
+    from src.unifiedInterpolate import RifeCuda
+    
+    rife_model = RifeCuda(
+        self.half,
+        self.width,
+        self.height,
+        self.interpolateMethod,
+        self.ensemble,
+        2,  # interpolateFactor
+        self.dynamicScale,
+        self.staticStep,
+        compileMode=self.compileMode,
+    )
+    
+    # Set the RIFE model in the ATR pipeline
+    pipeline.set_rife_model(rife_model.model, self.width, self.height)
+    
+    # Read all frames from input video
+    logging.info("Reading input frames...")
+    cap = cv2.VideoCapture(self.input)
+    if not cap.isOpened():
+        raise RuntimeError(f"Cannot open: {self.input}")
+    
+    # Apply inpoint/outpoint if specified
+    if self.inpoint > 0:
+        cap.set(cv2.CAP_PROP_POS_MSEC, self.inpoint * 1000)
+    
+    frames = []
+    frame_count = 0
+    max_frames = self.totalFrames if self.outpoint == 0 else int(
+        (self.outpoint - self.inpoint) * self.fps
+    )
+    
+    while True:
+        ret, bgr = cap.read()
+        if not ret:
+            break
+        frames.append(bgr)
+        frame_count += 1
+        if max_frames > 0 and frame_count >= max_frames:
+            break
+    
+    cap.release()
+    logging.info(f"Read {len(frames)} frames")
+    
+    # Convert frames to tensors
+    from src.atr import frame_to_tensor
+    device = pipeline.device
+    frame_tensors = [frame_to_tensor(f, device) for f in frames]
+    
+    # Process frames through ATR
+    logging.info(f"Processing ATR: {self.fps:.2f}fps → {self.atrTargetFPS:.2f}fps")
+    
+    output_frames = pipeline.process_frames(frame_tensors, self.fps)
+    
+    # Write output video
+    logging.info(f"Writing output to: {self.output}")
+    
+    # Calculate output FPS
+    output_fps = self.atrTargetFPS
+    
+    # Create video writer
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    writer = cv2.VideoWriter(self.output, fourcc, output_fps, (self.width, self.height))
+    
+    from src.atr import tensor_to_frame
+    for frame in output_frames:
+        writer.write(tensor_to_frame(frame))
+    
+    writer.release()
+    logging.info(f"ATR processing complete: {self.output}")
+    
+    # Mux audio if ffmpeg is available
+    import shutil
+    if shutil.which("ffmpeg"):
+        tmp = self.output + ".mux.mp4"
+        import os
+        ret = os.system(
+            f'ffmpeg -y -i "{self.output}" -i "{self.input}" '
+            f'-c:v copy -c:a aac -b:a 192k -map 0:v:0 -map 1:a:0? '
+            f'-shortest "{tmp}" 2>/dev/null'
+        )
+        if ret == 0 and os.path.exists(tmp) and os.path.getsize(tmp) > 0:
+            os.replace(tmp, self.output)
+        elif os.path.exists(tmp):
+            os.remove(tmp)
 
 
 def segment(self):
@@ -683,7 +810,7 @@ def initializeModels(self):
                 {
                     "status": f"Initializing interpolation model: {self.interpolateMethod}..."
                 }
-            )
+            )   
 
         logging.info(
             f"Interpolating from {format(self.fps, '.3f')}fps to {format(self.fps * self.interpolateFactor, '.3f')}fps"
