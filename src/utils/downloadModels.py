@@ -169,6 +169,9 @@ def modelsList() -> list[str]:
         "yolov9_small_mit",
         "yolov9_medium_mit",
         "yolov9_large_mit",
+        "yolov9_small-tensorrt",
+        "yolov9_medium-tensorrt",
+        "yolov9_large-tensorrt",
         "small_v3",
         "base_v3",
         "small_v3-directml",
@@ -881,13 +884,16 @@ def modelsMap(
         case (
             "yolov9_small-directml"
             | "yolov9_small-openvino"
+            | "yolov9_small-tensorrt"
             | "yolov9_medium-directml"
             | "yolov9_medium-openvino"
+            | "yolov9_medium-tensorrt"
             | "yolov9_large-directml"
             | "yolov9_large-openvino"
+            | "yolov9_large-tensorrt"
         ):
             if modelType == "onnx":
-                modelName = model.replace("-directml", "").replace("-openvino", "")
+                modelName = model.replace("-directml", "").replace("-openvino", "").replace("-tensorrt", "")
                 return f"{modelName}_mit.onnx"
             else:
                 raise ValueError(

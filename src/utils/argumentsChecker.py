@@ -267,7 +267,9 @@ def createParser(outputPath):
             "yolov9_small-openvino",
             "yolov9_medium-openvino",
             "yolov9_large-openvino",
-            # TO:DO: ADD TENSORRT Backend
+            "yolov9_small-tensorrt",
+            "yolov9_medium-tensorrt",
+            "yolov9_large-tensorrt",
         ],
     )
 
@@ -399,6 +401,7 @@ def _addInterpolationOptions(argParser):
         choices=[True, False],
         help="Switch back to the old approach where interpolated frames would instantly be written to the write queue",
     )
+
 
 
 def _addUpscalingOptions(argParser):
@@ -738,6 +741,9 @@ def _addEncodingOptions(argParser):
         "lossless",
         "lossless_nvenc",
         "png",
+        "nvenc_h264_nelux",
+        "nvenc_h265_nelux",
+        "nvenc_av1_nelux",
     ]
 
     encodingGroup.add_argument(

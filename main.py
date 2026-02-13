@@ -129,11 +129,13 @@ class VideoProcessor:
         self.autoclipSens: float = args.autoclip_sens
         self.depthQuality: str = args.depth_quality
 
+
         # Utility settings
         self.customModel: str = args.custom_model
         self.benchmark: bool = args.benchmark
         self.preview: bool = args.preview
         self.profile: bool = args.profile
+
 
     def _initVideoMetadata(self, args) -> None:
         """
@@ -207,6 +209,7 @@ class VideoProcessor:
             from src.initializeModels import objectDetection
 
             objectDetection(self)
+
         else:
             self.start()
 
@@ -386,7 +389,7 @@ class VideoProcessor:
         Sets up input/output buffers, initializes AI models, and coordinates
         the multi-threaded processing workflow.
         """
-        from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
+        from src.utils.ffmpegSettings import BuildBuffer, createWriteBuffer
         from src.utils.progressBarLogic import ProgressBarLogic
         from src.utils.aeComms import progressState
 
@@ -423,7 +426,7 @@ class VideoProcessor:
                 decode_method=self.decodeMethod,
             )
 
-            self.writeBuffer = WriteBuffer(
+            self.writeBuffer = createWriteBuffer(
                 input=self.input,
                 output=self.output,
                 encode_method=self.encodeMethod,
