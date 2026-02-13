@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Anime Scripter (TAS) | Next-Gen AI Video Enhancement</title>
+    <title>The Anime Scripter | AI Video Enhancement</title>
     <meta name="description"
-        content="The ultimate AI video enhancement toolkit for anime. Professional-grade upscaling, interpolation, and restoration powered by CUDA, TensorRT, and DirectML.">
+        content="Professional AI video enhancement toolkit. Upscaling, interpolation, and restoration powered by cutting-edge neural networks.">
 
     <!-- Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -16,9 +16,7 @@
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <script>
         tailwind.config = {
@@ -26,45 +24,54 @@
             theme: {
                 extend: {
                     fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        display: ['Space Grotesk', 'sans-serif'],
+                        sans: ['Geist', 'sans-serif'],
+                        mono: ['Geist Mono', 'monospace'],
                     },
                     colors: {
-                        slate: {
-                            850: '#151e2e',
+                        surface: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            800: '#1e293b',
                             900: '#0f172a',
                             950: '#020617',
                         },
+                        brand: {
+                            50: '#ecfeff',
+                            100: '#cffafe',
+                            200: '#a5f3fc',
+                            300: '#67e8f9',
+                            400: '#22d3ee',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                        },
                         accent: {
-                            cyan: '#06b6d4',
-                            purple: '#8b5cf6',
-                            fuchsia: '#d946ef',
+                            violet: '#8b5cf6',
+                            rose: '#f43f5e',
+                            amber: '#f59e0b',
+                            emerald: '#10b981',
                         }
                     },
                     animation: {
-                        'blob': 'blob 7s infinite',
-                        'float': 'float 6s ease-in-out infinite',
-                        'fade-in': 'fadeIn 1s ease-out forwards',
-                        'slide-up': 'slideUp 0.8s ease-out forwards',
+                        'float': 'float 20s ease-in-out infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'gradient': 'gradient 8s ease infinite',
+                        'shimmer': 'shimmer 2s linear infinite',
                     },
                     keyframes: {
-                        blob: {
-                            '0%': { transform: 'translate(0px, 0px) scale(1)' },
-                            '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
-                            '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
-                            '100%': { transform: 'translate(0px, 0px) scale(1)' },
-                        },
                         float: {
-                            '0%, 100%': { transform: 'translateY(0)' },
-                            '50%': { transform: 'translateY(-20px)' },
+                            '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
+                            '25%': { transform: 'translateY(-20px) rotate(2deg)' },
+                            '50%': { transform: 'translateY(-10px) rotate(0deg)' },
+                            '75%': { transform: 'translateY(-25px) rotate(-2deg)' },
                         },
-                        fadeIn: {
-                            '0%': { opacity: '0' },
-                            '100%': { opacity: '1' },
+                        gradient: {
+                            '0%, 100%': { backgroundPosition: '0% 50%' },
+                            '50%': { backgroundPosition: '100% 50%' },
                         },
-                        slideUp: {
-                            '0%': { transform: 'translateY(20px)', opacity: '0' },
-                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        shimmer: {
+                            '0%': { transform: 'translateX(-100%)' },
+                            '100%': { transform: 'translateX(100%)' },
                         }
                     }
                 }
@@ -72,110 +79,153 @@
         }
     </script>
     <style>
-        :root {
-            --cursor-size: 400px;
+        * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         body {
             background-color: #020617;
-            background-image:
-                radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.1) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%);
             overflow-x: hidden;
         }
 
-        /* Ambient Noise Texture - Refined Film Grain */
-        .noise-bg {
+        /* Refined Noise Texture */
+        .noise-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             pointer-events: none;
-            z-index: 50;
-            opacity: 0.05;
-            mix-blend-mode: overlay;
-            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            z-index: 9999;
+            opacity: 0.025;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
         }
 
-        /* Glass Utilities */
-        .glass-nav {
-            background: rgba(2, 6, 23, 0.7);
+        /* Premium Glass Effect */
+        .glass {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-light {
+            background: rgba(255, 255, 255, 0.03);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        .glass-panel {
-            background: rgba(30, 41, 59, 0.2);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.03);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
-
-        /* Spotlight Effect */
-        .spotlight-card {
-            position: relative;
-            overflow: hidden;
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.3s ease;
-        }
-
-        .spotlight-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(var(--cursor-size) circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-                    rgba(255, 255, 255, 0.06),
-                    transparent 40%);
-            z-index: 1;
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-        }
-
-        .spotlight-card:hover::before {
-            opacity: 1;
-        }
-
-        .spotlight-card:hover {
-            border-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .spotlight-content {
-            position: relative;
-            z-index: 2;
-        }
-
         /* Gradient Text */
         .text-gradient {
-            background: linear-gradient(135deg, #22d3ee 0%, #c084fc 50%, #f472b6 100%);
+            background: linear-gradient(135deg, #22d3ee 0%, #8b5cf6 50%, #f43f5e 100%);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
         }
 
+        .text-gradient-subtle {
+            background: linear-gradient(135deg, #67e8f9 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        /* Animated Gradient Border */
+        .gradient-border {
+            position: relative;
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(139, 92, 246, 0.1));
+            border-radius: 1.5rem;
+        }
+
+        .gradient-border::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.3), rgba(139, 92, 246, 0.3), rgba(244, 63, 94, 0.3));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+        }
+
+        /* Card Hover Effect */
+        .card-hover {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card-hover:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -15px rgba(34, 211, 238, 0.15);
+        }
+
+        /* Spotlight Effect */
+        .spotlight {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .spotlight::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.03), transparent 40%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .spotlight:hover::after {
+            opacity: 1;
+        }
+
         /* Custom Scrollbar */
         ::-webkit-scrollbar {
-            width: 8px;
+            width: 6px;
         }
 
         ::-webkit-scrollbar-track {
-            background: #020617;
+            background: transparent;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #334155;
-            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: #475569;
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Button Shimmer */
+        .btn-shimmer {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-shimmer::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transform: translateX(-100%);
+        }
+
+        .btn-shimmer:hover::after {
+            animation: shimmer 0.6s ease;
+        }
+
+        /* Grid Pattern */
+        .grid-pattern {
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        /* Radial Gradient Background */
+        .radial-gradient {
+            background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34, 211, 238, 0.15), transparent);
         }
 
         /* Comparison Slider */
@@ -184,459 +234,432 @@
             user-select: none;
         }
 
-        .comparison-image-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            border-radius: 1rem;
-        }
-
-        .img-comp-overlay {
+        .comparison-overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 50%;
-            height: 100%;
+            inset: 0;
             overflow: hidden;
             border-right: 2px solid rgba(255, 255, 255, 0.8);
-            z-index: 10;
+        }
+
+        /* Feature Icon Glow */
+        .icon-glow {
+            filter: drop-shadow(0 0 20px currentColor);
+        }
+
+        /* Smooth Section Transitions */
+        section {
+            position: relative;
+        }
+
+        /* Terminal Styling */
+        .terminal {
+            background: linear-gradient(180deg, #0d1117 0%, #010409 100%);
+            font-family: 'Geist Mono', monospace;
+        }
+
+        .terminal-line::before {
+            content: '$';
+            color: #22d3ee;
+            margin-right: 0.75rem;
+        }
+
+        /* Floating Elements */
+        .float-element {
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .float-element:nth-child(2) {
+            animation-delay: -5s;
+        }
+
+        .float-element:nth-child(3) {
+            animation-delay: -10s;
+        }
+
+        /* Selection */
+        ::selection {
+            background: rgba(34, 211, 238, 0.3);
+            color: #ecfeff;
         }
     </style>
 </head>
 
-<body
-    class="text-slate-300 antialiased font-sans selection:bg-cyan-500/30 selection:text-cyan-50 min-h-screen flex flex-col">
-    <div class="noise-bg"></div>
+<body class="text-slate-300 font-sans min-h-screen">
+    <div class="noise-overlay"></div>
 
-    <!-- Background Orbs -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none -z-10">
-        <div class="absolute top-0 left-1/4 w-96 h-96 bg-accent-cyan/20 rounded-full blur-[100px] animate-blob"></div>
-        <div
-            class="absolute top-1/4 right-1/4 w-96 h-96 bg-accent-purple/20 rounded-full blur-[100px] animate-blob animation-delay-2000">
-        </div>
-        <div
-            class="absolute -bottom-32 left-1/3 w-96 h-96 bg-accent-fuchsia/20 rounded-full blur-[100px] animate-blob animation-delay-4000">
-        </div>
+    <!-- Ambient Background -->
+    <div class="fixed inset-0 pointer-events-none -z-10">
+        <div class="absolute inset-0 radial-gradient"></div>
+        <div class="absolute inset-0 grid-pattern"></div>
+        <div class="absolute top-0 left-1/4 w-[600px] h-[600px] bg-brand-500/10 rounded-full blur-[150px] float-element"></div>
+        <div class="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-accent-violet/10 rounded-full blur-[150px] float-element"></div>
+        <div class="absolute bottom-0 left-1/2 w-[700px] h-[400px] bg-accent-rose/5 rounded-full blur-[150px] float-element"></div>
     </div>
 
     <!-- Navigation -->
-    <nav class="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-5xl rounded-full glass-nav px-6 py-3 shadow-2xl shadow-cyan-500/5 ring-1 ring-white/10 transition-all duration-300"
-        id="navbar">
-        <div class="flex items-center justify-between">
-            <a href="#" class="flex items-center gap-2 group">
-                <img src="assets/logo.png" alt="TAS Logo"
-                    class="w-8 h-8 rounded-lg group-hover:scale-110 transition-transform">
-                <span
-                    class="font-display font-bold text-white tracking-tight group-hover:text-cyan-400 transition-colors">TheAnimeScripter</span>
-            </a>
+    <nav class="fixed top-0 left-0 right-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto">
+            <div class="glass rounded-2xl px-6 py-3 flex items-center justify-between">
+                <a href="#" class="flex items-center gap-3 group">
+                    <img src="assets/logo.png" alt="TAS Logo" class="w-9 h-9 rounded-xl group-hover:scale-105 transition-transform duration-300">
+                    <span class="font-semibold text-white tracking-tight">TheAnimeScripter</span>
+                </a>
 
-            <div class="hidden md:flex items-center gap-8 text-sm font-medium">
-                <a href="#features" class="hover:text-white transition-colors relative group">
-                    Features
-                    <span
-                        class="absolute -bottom-1 left-0 w-0 h-0.5 bg-cyan-400 transition-all group-hover:w-full"></span>
-                </a>
-                <a href="#demo" class="hover:text-white transition-colors relative group">
-                    Demo
-                    <span
-                        class="absolute -bottom-1 left-0 w-0 h-0.5 bg-purple-400 transition-all group-hover:w-full"></span>
-                </a>
-                <a href="#install" class="hover:text-white transition-colors relative group">
-                    Install
-                    <span
-                        class="absolute -bottom-1 left-0 w-0 h-0.5 bg-fuchsia-400 transition-all group-hover:w-full"></span>
-                </a>
-                <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank"
-                    class="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full border border-white/5 hover:border-white/20 transition-all">
-                    <i data-lucide="github" class="w-4 h-4"></i>
-                    <span>GitHub</span>
-                </a>
+                <div class="hidden md:flex items-center gap-1">
+                    <a href="#features" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">Features</a>
+                    <a href="#showcase" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">Showcase</a>
+                    <a href="#install" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">Install</a>
+                    <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="ml-2 px-4 py-2 text-sm font-medium text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all flex items-center gap-2 border border-white/5">
+                        <i data-lucide="github" class="w-4 h-4"></i>
+                        GitHub
+                    </a>
+                </div>
+
+                <button class="md:hidden p-2 text-slate-400 hover:text-white">
+                    <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
             </div>
         </div>
     </nav>
 
-    <div class="flex-1">
-        <!-- Hero Section -->
-        <main class="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-6">
-            <div class="max-w-7xl mx-auto text-center relative z-10">
-                <!-- Badge -->
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs font-bold tracking-wider uppercase mb-8 hover:bg-cyan-500/20 transition-colors cursor-default"
-                    data-aos="fade-down">
-                    <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
-                    v2.5.6 Stable
+    <!-- Hero Section -->
+    <main class="relative pt-32 pb-24 lg:pt-44 lg:pb-32 px-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="max-w-4xl">
+                <!-- Version Badge -->
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-light mb-8" data-aos="fade-down" data-aos-duration="600">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-400"></span>
+                    </span>
+                    <span class="text-xs font-medium text-brand-300 tracking-wide">Version 2.5.6 Stable</span>
                 </div>
 
                 <!-- Headline -->
-                <h1 class="text-5xl md:text-7xl lg:text-8xl font-display font-bold tracking-tight mb-8 leading-[1.1] md:leading-[1.1]"
-                    data-aos="fade-up" data-aos-delay="100">
-                    Enhance Anime <br>
-                    <span class="text-gradient">Like Never Before</span>
+                <h1 class="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-[1.1] mb-6" data-aos="fade-up" data-aos-duration="700">
+                    AI-Powered<br>
+                    <span class="text-gradient">Video Enhancement</span>
                 </h1>
 
                 <!-- Subheadline -->
-                <p class="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-12 font-light leading-relaxed"
-                    data-aos="fade-up" data-aos-delay="200">
-                    The ultimate open-source toolkit for AI video upscaling and frame interpolation.
-                    Powered by CUDA, TensorRT, DirectML, and OpenVINO for cinematic results.
+                <p class="text-lg md:text-xl text-slate-400 max-w-2xl mb-10 leading-relaxed font-light" data-aos="fade-up" data-aos-duration="700" data-aos-delay="100">
+                    Professional-grade upscaling, frame interpolation, and restoration. 
+                    Transform your anime content with state-of-the-art neural networks.
                 </p>
 
                 <!-- CTA Buttons -->
-                <div class="flex flex-col sm:flex-row items-center justify-center gap-4" data-aos="fade-up"
-                    data-aos-delay="300">
-                    <a href="#install"
-                        class="group relative px-8 py-4 bg-white text-slate-900 rounded-full font-bold hover:bg-cyan-50 transition-all hover:scale-105 active:scale-95 flex items-center gap-2 min-w-[180px] justify-center">
-                        <i data-lucide="zap" class="w-5 h-5 fill-slate-900"></i>
-                        Start Enhancing
-                        <div
-                            class="absolute inset-0 rounded-full ring-2 ring-white/50 animate-ping opacity-20 group-hover:opacity-0">
-                        </div>
+                <div class="flex flex-col sm:flex-row gap-4" data-aos="fade-up" data-aos-duration="700" data-aos-delay="200">
+                    <a href="#install" class="btn-shimmer group inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-surface-950 rounded-xl font-semibold hover:bg-brand-50 transition-all duration-300 shadow-lg shadow-white/5">
+                        <i data-lucide="download" class="w-5 h-5"></i>
+                        Get Started
                     </a>
-                    <a href="https://github.com/NevermindNilas/TheAnimeScripter"
-                        class="px-8 py-4 bg-white/5 border border-white/10 rounded-full font-bold hover:bg-white/10 transition-all hover:border-white/30 backdrop-blur-sm hover:scale-105 active:scale-95 min-w-[180px]">
-                        View Source
+                    <a href="#showcase" class="group inline-flex items-center justify-center gap-2 px-8 py-4 glass-light rounded-xl font-semibold text-white hover:bg-white/10 transition-all duration-300">
+                        <i data-lucide="play" class="w-5 h-5"></i>
+                        View Demo
                     </a>
                 </div>
 
-                <!-- Stats -->
-                <!-- Stats -->
-                <div class="mt-20 grid grid-cols-2 md:grid-cols-5 gap-4 max-w-6xl mx-auto" data-aos="fade-up"
-                    data-aos-delay="400">
-                    <div class="glass-panel rounded-2xl p-6 hover:bg-white/5 transition-colors">
-                        <div class="text-3xl font-display font-bold text-white mb-1">4K+</div>
-                        <div class="text-xs text-slate-500 uppercase tracking-widest font-bold">Resolution</div>
-                    </div>
-                    <div class="glass-panel rounded-2xl p-6 hover:bg-white/5 transition-colors">
-                        <div class="text-3xl font-display font-bold text-white mb-1">50+</div>
-                        <div class="text-xs text-slate-500 uppercase tracking-widest font-bold">Models</div>
-                    </div>
-                    <div class="glass-panel rounded-2xl p-6 hover:bg-white/5 transition-colors">
-                        <div class="text-3xl font-display font-bold text-white mb-1">10X</div>
-                        <div class="text-xs text-slate-500 uppercase tracking-widest font-bold">Faster</div>
-                    </div>
-                    <div class="glass-panel rounded-2xl p-6 hover:bg-white/5 transition-colors">
-                        <div class="text-3xl font-display font-bold text-white mb-1">230+</div>
-                        <div class="text-xs text-slate-500 uppercase tracking-widest font-bold">Stars</div>
-                    </div>
-                    <div class="glass-panel rounded-2xl p-6 hover:bg-white/5 transition-colors"
-                        title="Website Visitors">
-                        <div class="text-3xl font-display font-bold text-white mb-1">156k+</div>
-                        <div class="text-xs text-slate-500 uppercase tracking-widest font-bold">Viewers</div>
+                <!-- Stats Row -->
+                <div class="mt-16 pt-8 border-t border-white/5" data-aos="fade-up" data-aos-duration="700" data-aos-delay="300">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
+                        <div>
+                            <div class="text-3xl font-bold text-white mb-1">4K+</div>
+                            <div class="text-sm text-slate-500">Max Resolution</div>
+                        </div>
+                        <div>
+                            <div class="text-3xl font-bold text-white mb-1">50+</div>
+                            <div class="text-sm text-slate-500">AI Models</div>
+                        </div>
+                        <div>
+                            <div class="text-3xl font-bold text-white mb-1">10x</div>
+                            <div class="text-sm text-slate-500">Faster Inference</div>
+                        </div>
+                        <div>
+                            <div class="text-3xl font-bold text-white mb-1">156k+</div>
+                            <div class="text-sm text-slate-500">Users Worldwide</div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </main>
+        </div>
+    </main>
 
-        <!-- Visual Demo Section -->
-        <section id="demo" class="py-24 px-6 relative">
-            <div class="max-w-6xl mx-auto">
-                <div class="text-center mb-16" data-aos="fade-up">
-                    <h2 class="text-3xl md:text-5xl font-display font-bold mb-6">See the <span
-                            class="text-cyan-400">Difference</span></h2>
-                    <p class="text-slate-400">Drag the slider to compare original vs enhanced output.</p>
+    <!-- Features Section -->
+    <section id="features" class="py-24 px-6 relative">
+        <div class="max-w-7xl mx-auto">
+            <div class="text-center mb-16" data-aos="fade-up">
+                <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Powerful Features</h2>
+                <p class="text-slate-400 max-w-2xl mx-auto">Everything you need for professional video enhancement, all in one package.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Feature 1 -->
+                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="100">
+                    <div class="relative z-10">
+                        <div class="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center mb-6">
+                            <i data-lucide="maximize-2" class="w-6 h-6 text-brand-400"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-white mb-3">Ultra Upscaling</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">Real-ESRGAN, AnimeSR, and cutting-edge architectures for stunning 4K upscaling with preserved detail.</p>
+                    </div>
                 </div>
 
-                <div class="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl shadow-cyan-500/10 group h-[500px] md:h-[600px] select-none"
-                    data-aos="zoom-in">
-                    <!-- Container -->
-                    <div class="absolute inset-0 bg-slate-900 comparison-container">
-                        <!-- Modified Image (Underneath) - Full Visible -->
-                        <div class="absolute inset-0 bg-cover bg-center"
-                            style="background-image: url('assets/demo_2x.avif');">
-                            <div
-                                class="absolute top-6 right-6 px-4 py-2 bg-black/60 backdrop-blur-md rounded-lg border border-cyan-500/30 z-10">
-                                <span class="text-cyan-400 text-xs font-bold tracking-widest uppercase">After
-                                    (Upscaled)</span>
-                            </div>
+                <!-- Feature 2 -->
+                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="150">
+                    <div class="relative z-10">
+                        <div class="w-12 h-12 rounded-xl bg-accent-violet/10 flex items-center justify-center mb-6">
+                            <i data-lucide="film" class="w-6 h-6 text-accent-violet"></i>
                         </div>
+                        <h3 class="text-xl font-semibold text-white mb-3">Frame Interpolation</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">RIFE 4.x and GMFSS Union for butter-smooth motion. Convert any framerate to cinematic quality.</p>
+                    </div>
+                </div>
 
-                        <!-- Original Image (Overlay) - Clipped -->
-                        <div id="compare-overlay" class="absolute inset-0 bg-cover bg-center"
-                            style="background-image: url('assets/demo.avif'); clip-path: inset(0 50% 0 0);">
-                            <div
-                                class="absolute top-6 left-6 px-4 py-2 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 z-10">
-                                <span class="text-white text-xs font-bold tracking-widest uppercase">Before</span>
-                            </div>
+                <!-- Feature 3 -->
+                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="200">
+                    <div class="relative z-10">
+                        <div class="w-12 h-12 rounded-xl bg-accent-emerald/10 flex items-center justify-center mb-6">
+                            <i data-lucide="scan-face" class="w-6 h-6 text-accent-emerald"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-white mb-3">Object Detection</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">YOLO integration for intelligent scene analysis and targeted video enhancement effects.</p>
+                    </div>
+                </div>
+
+                <!-- Feature 4 -->
+                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="250">
+                    <div class="relative z-10">
+                        <div class="w-12 h-12 rounded-xl bg-accent-rose/10 flex items-center justify-center mb-6">
+                            <i data-lucide="cpu" class="w-6 h-6 text-accent-rose"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-white mb-3">Multi-Backend</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">CUDA, TensorRT, DirectML, and OpenVINO support. Optimize for any hardware configuration.</p>
+                    </div>
+                </div>
+
+                <!-- Feature 5 -->
+                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="300">
+                    <div class="relative z-10">
+                        <div class="w-12 h-12 rounded-xl bg-accent-amber/10 flex items-center justify-center mb-6">
+                            <i data-lucide="layers" class="w-6 h-6 text-accent-amber"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-white mb-3">Depth Estimation</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">Depth Anything V2 integration for state-of-the-art monocular depth estimation.</p>
+                    </div>
+                </div>
+
+                <!-- Feature 6 -->
+                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="350">
+                    <div class="relative z-10">
+                        <div class="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center mb-6">
+                            <i data-lucide="workflow" class="w-6 h-6 text-brand-400"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-white mb-3">Adobe Integration</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">Native After Effects integration via CEP panels. Seamless professional workflow.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Showcase Section -->
+    <section id="showcase" class="py-24 px-6 relative">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-16" data-aos="fade-up">
+                <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">See the Difference</h2>
+                <p class="text-slate-400">Drag the slider to compare before and after enhancement.</p>
+            </div>
+
+            <div class="relative rounded-2xl overflow-hidden gradient-border shadow-2xl" data-aos="zoom-in" data-aos-duration="800">
+                <div class="comparison-container relative aspect-video bg-surface-950">
+                    <!-- After Image (Background) -->
+                    <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('assets/demo_2x.avif');">
+                        <div class="absolute top-4 right-4 px-3 py-1.5 glass rounded-lg text-xs font-medium text-brand-300">
+                            Enhanced
+                        </div>
+                    </div>
+
+                    <!-- Before Image (Overlay) -->
+                    <div id="compare-overlay" class="comparison-overlay bg-cover bg-center" style="background-image: url('assets/demo.avif'); clip-path: inset(0 50% 0 0);">
+                        <div class="absolute top-4 left-4 px-3 py-1.5 glass rounded-lg text-xs font-medium text-white">
+                            Original
                         </div>
                     </div>
 
                     <!-- Slider Handle -->
-                    <div id="compare-handle"
-                        class="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-20 shadow-[0_0_20px_rgba(255,255,255,0.5)]"
-                        style="left: 50%;">
-                        <div
-                            class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg text-slate-900">
-                            <i data-lucide="chevrons-left-right" class="w-6 h-6"></i>
+                    <div id="compare-handle" class="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-20 shadow-lg" style="left: 50%;">
+                        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-xl">
+                            <i data-lucide="chevrons-left-right" class="w-5 h-5 text-surface-950"></i>
                         </div>
                     </div>
-
-                    <!-- Fullscreen Button -->
-                    <button onclick="toggleFullscreen(this.parentElement)"
-                        class="absolute bottom-6 right-6 z-30 p-2 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 hover:bg-white/10 transition-colors group/fs">
-                        <i data-lucide="maximize"
-                            class="w-5 h-5 text-white group-hover/fs:text-cyan-400 transition-colors"></i>
-                    </button>
                 </div>
 
-                <script>
-                    function toggleFullscreen(element) {
-                        if (!document.fullscreenElement) {
-                            element.requestFullscreen().catch(err => {
-                                console.error(`Error attempting to enable fullscreen: ${err.message}`);
-                            });
-                        } else {
-                            document.exitFullscreen();
-                        }
-                    }
-                </script>
+                <!-- Fullscreen Button -->
+                <button onclick="toggleFullscreen(this.previousElementSibling)" class="absolute bottom-4 right-4 z-30 p-2 glass rounded-lg hover:bg-white/10 transition-colors">
+                    <i data-lucide="maximize" class="w-5 h-5 text-white"></i>
+                </button>
             </div>
+        </div>
+    </section>
 
+    <!-- Installation Section -->
+    <section id="install" class="py-24 px-6 relative">
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-500/5 to-transparent pointer-events-none"></div>
+        
+        <div class="max-w-6xl mx-auto relative">
+            <div class="grid lg:grid-cols-2 gap-16 items-center">
+                <div data-aos="fade-right">
+                    <h2 class="text-3xl md:text-4xl font-bold text-white mb-6">
+                        Quick Installation
+                    </h2>
+                    <p class="text-slate-400 mb-8 leading-relaxed">
+                        Get started in minutes. Requires Python 3.13+ and a CUDA-compatible GPU for optimal performance.
+                    </p>
 
-            <!-- Features Bento Grid -->
-            <section id="features" class="py-24 px-6">
-                <div class="max-w-7xl mx-auto">
-                    <div class="mb-16 md:text-center max-w-3xl mx-auto" data-aos="fade-up">
-                        <h2 class="text-3xl md:text-5xl font-display font-bold mb-6">Powerhouse <span
-                                class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-fuchsia-400">Features</span>
-                        </h2>
-                        <p class="text-slate-400 text-lg">Designed for enthusiasts and professionals who demand the
-                            highest
-                            quality.</p>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[300px]">
-
-                        <!-- Card 1: Large Span -->
-                        <div class="spotlight-card rounded-3xl p-8 flex flex-col justify-end group" data-aos="fade-up"
-                            data-aos-delay="100">
-                            <div class="spotlight-content h-full flex flex-col justify-between">
-                                <div
-                                    class="w-14 h-14 rounded-2xl bg-cyan-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
-                                    <i data-lucide="maximize-2" class="text-cyan-400 w-7 h-7"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-2xl font-bold text-white mb-2">Ultra Upscaling</h3>
-                                    <p class="text-slate-400">Integrates Real-ESRGAN, AnimeSR, and other
-                                        state-of-the-art
-                                        architectures to restore details and clarity up to 4K resolution.</p>
-                                </div>
+                    <div class="space-y-6">
+                        <div class="flex items-start gap-4">
+                            <div class="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <span class="text-sm font-semibold text-brand-400">1</span>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-white mb-1">Clone Repository</h4>
+                                <p class="text-sm text-slate-500">Download the source code from GitHub</p>
                             </div>
                         </div>
 
-                        <!-- Card 2 -->
-                        <div class="spotlight-card rounded-3xl p-8 flex flex-col justify-end group" data-aos="fade-up"
-                            data-aos-delay="200">
-                            <div class="spotlight-content h-full flex flex-col justify-between">
-                                <div
-                                    class="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
-                                    <i data-lucide="wind" class="text-purple-400 w-7 h-7"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-2xl font-bold text-white mb-2">Fluid Motion</h3>
-                                    <p class="text-slate-400">RIFE 4.x & GMFSS Union integration for butter-smooth frame
-                                        interpolation.</p>
-                                </div>
+                        <div class="flex items-start gap-4">
+                            <div class="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <span class="text-sm font-semibold text-brand-400">2</span>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-white mb-1">Install Dependencies</h4>
+                                <p class="text-sm text-slate-500">Install required Python packages</p>
                             </div>
                         </div>
 
-                        <!-- Card 3: Object Detection (New) -->
-                        <div class="spotlight-card rounded-3xl p-8 flex flex-col justify-end group" data-aos="fade-up"
-                            data-aos-delay="300">
-                            <div class="spotlight-content h-full flex flex-col justify-between">
-                                <div
-                                    class="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
-                                    <i data-lucide="scan-face" class="text-emerald-400 w-7 h-7"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-2xl font-bold text-white mb-2">Object Detection</h3>
-                                    <p class="text-slate-400">YOLO Integration for awesome video effects.</p>
-                                </div>
+                        <div class="flex items-start gap-4">
+                            <div class="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <span class="text-sm font-semibold text-brand-400">3</span>
                             </div>
-                        </div>
-
-                        <!-- Card 4: Multi-Backend -->
-                        <div class="spotlight-card rounded-3xl p-8 flex flex-col justify-end group" data-aos="fade-up"
-                            data-aos-delay="400">
-                            <div class="spotlight-content h-full flex flex-col justify-between">
-                                <div
-                                    class="w-14 h-14 rounded-2xl bg-fuchsia-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
-                                    <i data-lucide="cpu" class="text-fuchsia-400 w-7 h-7"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-2xl font-bold text-white mb-2">Multi-Backend</h3>
-                                    <p class="text-slate-400">Seamlessly switch between CUDA, TensorRT, DirectML, and
-                                        OpenVINO
-                                        optimization.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card 5: Adobe Workflow -->
-                        <div class="spotlight-card rounded-3xl p-8 flex flex-col justify-end group" data-aos="fade-up"
-                            data-aos-delay="500">
-                            <div class="spotlight-content h-full flex flex-col justify-between">
-                                <div
-                                    class="w-14 h-14 rounded-2xl bg-blue-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
-                                    <i data-lucide="workflow" class="text-blue-400 w-7 h-7"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-2xl font-bold text-white mb-2">Adobe Workflow</h3>
-                                    <p class="text-slate-400">Native integration with Adobe After Effects via CEP
-                                        panels.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card 6: Depth Estimation -->
-                        <div class="spotlight-card rounded-3xl p-8 flex flex-col justify-end group" data-aos="fade-up"
-                            data-aos-delay="600">
-                            <div class="spotlight-content h-full flex flex-col justify-between">
-                                <div
-                                    class="w-14 h-14 rounded-2xl bg-orange-500/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500">
-                                    <i data-lucide="layers" class="text-orange-400 w-7 h-7"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-2xl font-bold text-white mb-2">Depth Estimation</h3>
-                                    <p class="text-slate-400">Integrates Depth Anything V2 for state-of-the-art
-                                        monocular
-                                        depth estimation.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-            </section>
-
-            <!-- Installation Terminal -->
-            <section id="install" class="py-24 px-6 bg-slate-900/40 border-y border-white/5 relative">
-                <div
-                    class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-5">
-                </div>
-
-                <div class="max-w-5xl mx-auto relative z-10">
-                    <div class="flex flex-col md:flex-row gap-16 items-center">
-                        <div class="flex-1" data-aos="fade-right">
-                            <h2 class="text-3xl md:text-5xl font-display font-bold mb-6">Install in <br> <span
-                                    class="text-cyan-400">Seconds</span></h2>
-                            <p class="text-slate-400 mb-8 text-lg">Get up and running with a few simple commands.
-                                Requires
-                                Python 3.13+ and a CUDA compatible GPU for best performance.</p>
-
-                            <div class="flex flex-col gap-4">
-                                <div class="flex items-center gap-4 text-sm text-slate-300">
-                                    <div
-                                        class="w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold">
-                                        1</div>
-                                    <span>Clone the repository</span>
-                                </div>
-                                <div class="w-0.5 h-8 bg-white/10 ml-4"></div>
-                                <div class="flex items-center gap-4 text-sm text-slate-300">
-                                    <div
-                                        class="w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold">
-                                        2</div>
-                                    <span>Install dependencies</span>
-                                </div>
-                                <div class="w-0.5 h-8 bg-white/10 ml-4"></div>
-                                <div class="flex items-center gap-4 text-sm text-slate-300">
-                                    <div
-                                        class="w-8 h-8 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-bold">
-                                        3</div>
-                                    <span>Run the app</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex-1 w-full" data-aos="fade-left">
-                            <!-- Terminal Window -->
-                            <div
-                                class="bg-[#0D1117] rounded-xl border border-white/10 shadow-2xl overflow-hidden font-mono text-sm">
-                                <!-- Toolbar -->
-                                <div
-                                    class="bg-white/5 px-4 py-2 flex items-center justify-between border-b border-white/5">
-                                    <div class="flex items-center gap-2 text-xs text-slate-400">
-                                        <i data-lucide="terminal" class="w-4 h-4"></i>
-                                        <span>Command Prompt</span>
-                                    </div>
-                                    <div class="flex items-center gap-4">
-                                        <i data-lucide="minus"
-                                            class="w-3 h-3 text-slate-500 hover:text-white cursor-pointer"></i>
-                                        <i data-lucide="square"
-                                            class="w-3 h-3 text-slate-500 hover:text-white cursor-pointer"></i>
-                                        <i data-lucide="x"
-                                            class="w-3 h-3 text-slate-500 hover:text-red-500 cursor-pointer"></i>
-                                    </div>
-                                </div>
-
-                                <!-- Content -->
-                                <div class="p-6 space-y-4">
-                                    <div class="group relative">
-                                        <div class="flex justify-between items-center text-slate-400 mb-1">
-                                            <span># Clone repository</span>
-                                            <button
-                                                class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded"
-                                                onclick="copyToClipboard('cmd1')">
-                                                <i data-lucide="copy" class="w-3 h-3"></i>
-                                            </button>
-                                        </div>
-                                        <div class="text-cyan-300" id="cmd1">git clone
-                                            https://github.com/NevermindNilas/TheAnimeScripter.git</div>
-                                    </div>
-
-                                    <div class="group relative">
-                                        <div class="flex justify-between items-center text-slate-400 mb-1">
-                                            <span># Install requirements</span>
-                                            <button
-                                                class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded"
-                                                onclick="copyToClipboard('cmd2')">
-                                                <i data-lucide="copy" class="w-3 h-3"></i>
-                                            </button>
-                                        </div>
-                                        <div class="text-cyan-300" id="cmd2">pip install -r requirements.txt</div>
-                                    </div>
-
-                                    <div class="group relative">
-                                        <div class="flex justify-between items-center text-slate-400 mb-1">
-                                            <span># Launch GUI</span>
-                                            <button
-                                                class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/10 rounded"
-                                                onclick="copyToClipboard('cmd3')">
-                                                <i data-lucide="copy" class="w-3 h-3"></i>
-                                            </button>
-                                        </div>
-                                        <div class="text-cyan-300" id="cmd3">python main.py</div>
-                                    </div>
-
-                                    <div class="animate-pulse text-cyan-500">_</div>
-                                </div>
+                            <div>
+                                <h4 class="font-medium text-white mb-1">Launch Application</h4>
+                                <p class="text-sm text-slate-500">Start the GUI or use CLI mode</p>
                             </div>
                         </div>
                     </div>
                 </div>
-            </section>
 
-    </div>
+                <!-- Terminal -->
+                <div data-aos="fade-left">
+                    <div class="terminal rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
+                        <!-- Terminal Header -->
+                        <div class="px-4 py-3 bg-white/5 border-b border-white/5 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full bg-accent-rose/80"></div>
+                                <div class="w-3 h-3 rounded-full bg-accent-amber/80"></div>
+                                <div class="w-3 h-3 rounded-full bg-accent-emerald/80"></div>
+                            </div>
+                            <span class="text-xs text-slate-500">Terminal</span>
+                            <div class="w-16"></div>
+                        </div>
+
+                        <!-- Terminal Content -->
+                        <div class="p-6 space-y-4 text-sm">
+                            <div class="group">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-slate-500 text-xs"># Clone the repository</span>
+                                    <button onclick="copyToClipboard('cmd1')" class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/5 rounded">
+                                        <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-500"></i>
+                                    </button>
+                                </div>
+                                <div class="terminal-line text-slate-300" id="cmd1">git clone https://github.com/NevermindNilas/TheAnimeScripter.git</div>
+                            </div>
+
+                            <div class="group">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-slate-500 text-xs"># Navigate to directory</span>
+                                    <button onclick="copyToClipboard('cmd2')" class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/5 rounded">
+                                        <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-500"></i>
+                                    </button>
+                                </div>
+                                <div class="terminal-line text-slate-300" id="cmd2">cd TheAnimeScripter</div>
+                            </div>
+
+                            <div class="group">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-slate-500 text-xs"># Install dependencies</span>
+                                    <button onclick="copyToClipboard('cmd3')" class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/5 rounded">
+                                        <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-500"></i>
+                                    </button>
+                                </div>
+                                <div class="terminal-line text-slate-300" id="cmd3">pip install -r requirements.txt</div>
+                            </div>
+
+                            <div class="group">
+                                <div class="flex items-center justify-between mb-1">
+                                    <span class="text-slate-500 text-xs"># Launch the application</span>
+                                    <button onclick="copyToClipboard('cmd4')" class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/5 rounded">
+                                        <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-500"></i>
+                                    </button>
+                                </div>
+                                <div class="terminal-line text-slate-300" id="cmd4">python main.py</div>
+                            </div>
+
+                            <div class="pt-2">
+                                <span class="text-brand-400 animate-pulse">_</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="py-24 px-6 relative">
+        <div class="max-w-4xl mx-auto text-center" data-aos="fade-up">
+            <div class="gradient-border rounded-3xl p-12 md:p-16 relative overflow-hidden">
+                <div class="relative z-10">
+                    <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Ready to Enhance?</h2>
+                    <p class="text-slate-400 mb-8 max-w-xl mx-auto">
+                        Join thousands of creators using The Anime Scripter to transform their video content.
+                    </p>
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                        <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="btn-shimmer inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-surface-950 rounded-xl font-semibold hover:bg-brand-50 transition-all duration-300">
+                            <i data-lucide="github" class="w-5 h-5"></i>
+                            Star on GitHub
+                        </a>
+                        <a href="#install" class="inline-flex items-center justify-center gap-2 px-8 py-4 glass-light rounded-xl font-semibold text-white hover:bg-white/10 transition-all duration-300">
+                            <i data-lucide="book-open" class="w-5 h-5"></i>
+                            Documentation
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
     <!-- Footer -->
-    <footer class="py-12 px-6 border-t border-white/5 relative bg-slate-950">
-        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
-            <div class="flex items-center gap-3">
-                <img src="assets/logo.png" alt="TAS Logo" class="w-8 h-8 rounded-lg">
-                <div>
-                    <h4 class="font-display font-bold text-white">The Anime Scripter</h4>
-                    <p class="text-xs text-slate-500">Next-Gen Video Enhancement</p>
+    <footer class="py-12 px-6 border-t border-white/5">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="flex items-center gap-3">
+                    <img src="assets/logo.png" alt="TAS Logo" class="w-8 h-8 rounded-lg">
+                    <div>
+                        <h4 class="font-semibold text-white">The Anime Scripter</h4>
+                        <p class="text-xs text-slate-500">AI Video Enhancement</p>
+                    </div>
                 </div>
-            </div>
 
-            <div class="flex gap-8 text-sm text-slate-400">
-                <a href="#" class="hover:text-cyan-400 transition-colors">Documentation</a>
-                <a href="#" class="hover:text-cyan-400 transition-colors">License</a>
-                <a href="#" class="hover:text-cyan-400 transition-colors">Privacy</a>
-            </div>
+                <div class="flex items-center gap-6 text-sm text-slate-500">
+                    <a href="#" class="hover:text-white transition-colors">Documentation</a>
+                    <a href="#" class="hover:text-white transition-colors">License</a>
+                    <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="hover:text-white transition-colors">GitHub</a>
+                </div>
 
-            <div class="text-xs text-slate-600">
-                &copy; 2026 TAS Project. Open Source.
+                <div class="text-xs text-slate-600">
+                    2026 TAS Project. Open Source.
+                </div>
             </div>
         </div>
     </footer>
@@ -644,23 +667,21 @@
     <!-- Scripts -->
     <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
     <script>
-        // Init Icons and Animations
+        // Initialize
         lucide.createIcons();
         AOS.init({
-            duration: 800,
+            duration: 600,
             once: true,
-            offset: 50
+            offset: 50,
+            easing: 'ease-out-cubic'
         });
 
         // Spotlight Effect
-        const cards = document.querySelectorAll('.spotlight-card');
-        cards.forEach(card => {
+        document.querySelectorAll('.spotlight').forEach(card => {
             card.addEventListener('mousemove', e => {
                 const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                card.style.setProperty('--mouse-x', `${x}px`);
-                card.style.setProperty('--mouse-y', `${y}px`);
+                card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
+                card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
             });
         });
 
@@ -674,7 +695,6 @@
             const rect = container.getBoundingClientRect();
             let position = ((x - rect.left) / rect.width) * 100;
             position = Math.max(0, Math.min(100, position));
-
             overlay.style.clipPath = `inset(0 ${100 - position}% 0 0)`;
             handle.style.left = `${position}%`;
         }
@@ -682,7 +702,6 @@
         if (container && handle) {
             const startDrag = (e) => {
                 isDragging = true;
-                // Prevent text selection during drag
                 e.preventDefault();
             };
 
@@ -690,55 +709,46 @@
                 isDragging = false;
             };
 
-            // Start dragging on both container and handle
             container.addEventListener('mousedown', startDrag);
             handle.addEventListener('mousedown', startDrag);
-
             container.addEventListener('touchstart', startDrag);
             handle.addEventListener('touchstart', startDrag);
 
-            // Stop dragging globally
             window.addEventListener('mouseup', stopDrag);
             window.addEventListener('touchend', stopDrag);
 
             window.addEventListener('mousemove', (e) => {
                 if (!isDragging) return;
-                e.preventDefault(); // preventing selection
+                e.preventDefault();
                 updateSlider(e.clientX);
             });
 
             window.addEventListener('touchmove', (e) => {
                 if (!isDragging) return;
-                // typically e.preventDefault() here prevents scrolling on mobile while dragging slider
-                // e.preventDefault(); 
                 updateSlider(e.touches[0].clientX);
             });
 
-            // Allow click to jump (only on container usually)
             container.addEventListener('click', (e) => {
                 updateSlider(e.clientX);
             });
         }
 
-        // Clipboard Copy
+        // Fullscreen Toggle
+        function toggleFullscreen(element) {
+            if (!document.fullscreenElement) {
+                element.requestFullscreen().catch(err => {
+                    console.error(`Fullscreen error: ${err.message}`);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Copy to Clipboard
         function copyToClipboard(elementId) {
             const text = document.getElementById(elementId).innerText;
             navigator.clipboard.writeText(text);
-            // Optional trigger toast or icon change
         }
-
-        // Navbar Scroll Effect
-        window.addEventListener('scroll', () => {
-            const nav = document.getElementById('navbar');
-            if (window.scrollY > 50) {
-                nav.classList.add('bg-slate-950/80', 'backdrop-blur-xl');
-                nav.classList.remove('bg-transparent');
-            } else {
-                // Keep it glass always for consistency in this design, 
-                // but maybe reduce opacity at top if needed.
-                // nav.classList.remove('bg-slate-950/80');
-            }
-        });
     </script>
 </body>
 
