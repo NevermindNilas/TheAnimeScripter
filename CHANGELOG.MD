@@ -9,7 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added DirectML and OpenVino support for ShuffleCugan, Fallin Soft and Fallin Strong.
 - Added experimental nvenc support for encoding through nelux ( rebranded celux ), use commands: "nvenc_h264_nelux", "nvenc_hevc_nelux" & "nvenc_av1_nelux" ( WIP ).
 - Added support for "yolov9_large-tensorrt".
-  
+- A new argument interpreter with better error handling and more flexibility.
+
 ### Changed
 - Reverted to Pytorch 2.9.1 to fix some stability issues with certain systems.
 - Updated some dependencies to their latest versions.
