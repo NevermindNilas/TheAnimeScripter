@@ -57,7 +57,7 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
         
         return previousRow[-1]
 
-    def _similarityScore(self, invalidValue, choice):
+    def similarityScore(self, invalidValue, choice):
         """
         Calculate a similarity score between an invalid value and a valid choice.
         Higher score = better match.
@@ -69,22 +69,18 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
         Returns:
             float: Similarity score (higher is better)
         """
-        # Normalize strings for comparison
         invalidLower = invalidValue.lower()
         choiceLower = choice.lower()
         
-        # Calculate base similarity using Levenshtein distance
         distance = self._levenshteinDistance(invalidLower, choiceLower)
         maxLen = max(len(invalidLower), len(choiceLower))
         baseSimilarity = 1.0 - (distance / maxLen) if maxLen > 0 else 0
         
         bonus = 0.0
         
-        # Strong bonus for prefix match
         if choiceLower.startswith(invalidLower) or invalidLower.startswith(choiceLower):
             bonus += 0.4
         
-        # Bonus for common prefix
         commonPrefixLen = 0
         for i in range(min(len(invalidLower), len(choiceLower))):
             if invalidLower[i] == choiceLower[i]:
@@ -93,13 +89,12 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
                 break
         bonus += (commonPrefixLen / max(len(invalidLower), len(choiceLower))) * 0.2
         
-        # Bonus if the choice contains the invalid value as substring
         if invalidLower in choiceLower:
             bonus += 0.15
         
         return baseSimilarity + bonus
 
-    def _getSuggestions(self, invalidValue, validChoices, maxSuggestions=5):
+    def getSuggestions(self, invalidValue, validChoices, maxSuggestions=5):
         """
         Get suggestions for an invalid value from a list of valid choices.
         
@@ -113,7 +108,7 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
         """
         # Score all choices
         scoredChoices = [
-            (choice, self._similarityScore(invalidValue, choice))
+            (choice, self.similarityScore(invalidValue, choice))
             for choice in validChoices
         ]
         
@@ -157,7 +152,7 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
                 choices = [c.strip() for c in choicesStr.split(',') if c.strip()]
                 
                 if choices:
-                    suggestions = self._getSuggestions(invalidValue, choices)
+                    suggestions = self.getSuggestions(invalidValue, choices)
                     
                     # Build enhanced error message with colors
                     console = Console(stderr=True)
