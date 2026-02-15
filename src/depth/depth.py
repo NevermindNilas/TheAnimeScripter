@@ -5,7 +5,6 @@ import logging
 import numpy as np
 import torch.nn.functional as F
 import cv2
-import matplotlib.cm as cm
 
 from src.utils.logAndPrint import logAndPrint
 from concurrent.futures import ThreadPoolExecutor
