@@ -44,7 +44,7 @@ jobs:
         run: |
           version="${{ steps.get_version.outputs.version }}"
           # Extract changelog content for the current version
-          # The changelog format is: ## [version] - date
+          # Falls back to [Unreleased] section if version not found
           changelog=$(python -c "
           import re
           
@@ -53,13 +53,21 @@ jobs:
           with open('CHANGELOG.MD', 'r', encoding='utf-8') as f:
               content = f.read()
           
-          # Find the section for this version
-          # Pattern matches: ## [version] or ## [version] - date
+          # First try to find the exact version section
           pattern = rf'##\s*\[{re.escape(version)}\].*?(?=\n##\s*\[|\Z)'
           match = re.search(pattern, content, re.DOTALL)
           
+          # If not found, try to use [Unreleased] section
+          if not match:
+              unreleased_pattern = r'##\s*\[Unreleased\].*?(?=\n##\s*\[|\Z)'
+              match = re.search(unreleased_pattern, content, re.DOTALL)
+          
           if match:
-              print(match.group(0).strip())
+              # Replace [Unreleased] header with version header if using unreleased section
+              result = match.group(0).strip()
+              if '[Unreleased]' in result:
+                  result = result.replace('[Unreleased]', f'[{version}]', 1)
+              print(result)
           else:
               print('No changelog entry found for version ' + version)
           ")
@@ -117,6 +125,7 @@ jobs:
         with:
           tag_name: v${{ needs.create_release.outputs.version }}
           files: TAS-${{ needs.create_release.outputs.version_nodots }}-Windows.zip
+          draft: true
 
   #build_lite_windows:
   #  needs: create_release
