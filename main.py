@@ -261,7 +261,7 @@ class VideoProcessor:
             frame: Input video frame tensor
         """
         if self.interpolate:
-            if self.interpolateMethod.startswith("distildrba"):
+            if self.interpolateMethod.startswith(("distildrba", "atr")):
                 self.interpolate_process(
                     frame,
                     self.nextFrame,
@@ -303,7 +303,7 @@ class VideoProcessor:
             frame = self.upscale_process(frame, self.nextFrame)
 
         if self.interpolate:
-            if self.interpolateMethod.startswith("distildrba"):
+            if self.interpolateMethod.startswith(("distildrba", "atr")):
                 self.interpolate_process(
                     frame,
                     self.nextFrame,
@@ -359,7 +359,7 @@ class VideoProcessor:
                         break
                     if self.upscaleMethod == "animesr" or (
                         self.interpolate
-                        and self.interpolateMethod.startswith("distildrba")
+                        and self.interpolateMethod.startswith(("distildrba", "atr"))
                     ):
                         self.nextFrame = self.readBuffer.peek()
                     self.processFrame(frame)
