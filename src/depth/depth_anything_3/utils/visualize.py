@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import matplotlib
 import numpy as np
 import torch
 from einops import rearrange
@@ -39,7 +38,6 @@ def visualize_depth(
         percentile: Percentile for min/max computation if not provided
         ret_minmax: Whether to return min/max depth values
         ret_type: Return array type (uint8 or float)
-        cmap: Matplotlib colormap name to use
 
     Returns:
         Colored depth visualization as numpy array
@@ -62,20 +60,9 @@ def visualize_depth(
     if depth_min == depth_max:
         depth_min = depth_min - 1e-6
         depth_max = depth_max + 1e-6
-    cm = matplotlib.colormaps[cmap]
     depth = ((depth - depth_min) / (depth_max - depth_min)).clip(0, 1)
     depth = 1 - depth
-    img_colored_np = cm(depth[None], bytes=False)[:, :, :, 0:3]  # value from 0 to 1
-    if ret_type == np.uint8:
-        img_colored_np = (img_colored_np[0] * 255.0).astype(np.uint8)
-    elif ret_type == np.float32 or ret_type == np.float64:
-        img_colored_np = img_colored_np[0]
-    else:
-        raise ValueError(f"Invalid return type: {ret_type}")
-    if ret_minmax:
-        return img_colored_np, depth_min, depth_max
-    else:
-        return img_colored_np
+
 
 
 # GS video rendering visulization function, since it operates in Tensor space...
@@ -99,22 +86,9 @@ def vis_depth_map_tensor(
     return apply_color_map_to_image(result, color_map)
 
 
-def apply_color_map(
-    x: torch.Tensor,  # " *batch"
-    color_map: str = "inferno",
-) -> torch.Tensor:  # "*batch 3"
-    cmap = matplotlib.cm.get_cmap(color_map)
-
-    # Convert to NumPy so that Matplotlib color maps can be used.
-    mapped = cmap(x.float().detach().clip(min=0, max=1).cpu().numpy())[..., :3]
-
-    # Convert back to the original format.
-    return torch.tensor(mapped, device=x.device, dtype=torch.float32)
-
 
 def apply_color_map_to_image(
     image: torch.Tensor,  # "*batch height width"
     color_map: str = "inferno",
 ) -> torch.Tensor:  # "*batch 3 height with"
-    image = apply_color_map(image, color_map)
     return rearrange(image, "... h w c -> ... c h w")
