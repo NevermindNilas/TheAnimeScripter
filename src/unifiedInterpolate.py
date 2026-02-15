@@ -1297,6 +1297,144 @@ class RifeDirectML:
         return frame
 
 
+class ATRCuda:
+    def __init__(
+        self,
+        half: bool,
+        width: int,
+        height: int,
+        interpolateMethod: str,
+        interpolateFactor: int = 2,
+        compileMode: str = None,
+        rifeMethod: str = "rife4.25",
+        linearityK: float = 12.0,
+        blurKernelSize: int = 9,
+        blurSigma: float = 1.5,
+    ):
+        self.half = half
+        self.width = width
+        self.height = height
+        self.interpolateMethod = interpolateMethod
+        self.interpolateFactor = interpolateFactor
+        self.compileMode = compileMode or "default"
+        self.rifeMethod = rifeMethod
+        self.linearityK = linearityK
+        self.blurKernelSize = blurKernelSize
+        self.blurSigma = blurSigma
+
+        self.device = checker.device
+
+        self.rife = RifeCuda(
+            self.half,
+            self.width,
+            self.height,
+            self.rifeMethod,
+            False,
+            self.interpolateFactor,
+            False,
+            False,
+            compileMode=self.compileMode,
+        )
+
+        self.dType = self.rife.dType
+        self._initGaussianKernels()
+
+        self.prevFrame = None
+        self.firstRun = True
+
+    def _initGaussianKernels(self) -> None:
+        kernelSize = max(3, int(self.blurKernelSize) | 1)
+        sigma = max(0.1, float(self.blurSigma))
+        coords = torch.arange(kernelSize, device=self.device, dtype=self.dType)
+        coords = coords - (kernelSize - 1) * 0.5
+        kernel1d = torch.exp(-(coords**2) / (2 * sigma * sigma))
+        kernel1d = kernel1d / kernel1d.sum()
+        self.gaussKernelH = kernel1d.view(1, 1, 1, kernelSize)
+        self.gaussKernelV = kernel1d.view(1, 1, kernelSize, 1)
+        self.gaussPad = kernelSize // 2
+
+    def _prepareFrame(self, frame: torch.Tensor, targetShape=None) -> torch.Tensor:
+        if targetShape is not None and frame.shape[-2:] != targetShape:
+            frame = F.interpolate(
+                frame,
+                size=targetShape,
+                mode="bilinear",
+                align_corners=False,
+            )
+        frame = frame.to(device=self.device, dtype=self.dType, non_blocking=True)
+        return frame.to(memory_format=torch.channels_last)
+
+    def _blurMask(self, mask: torch.Tensor) -> torch.Tensor:
+        mask = F.conv2d(mask, self.gaussKernelH, padding=(0, self.gaussPad))
+        mask = F.conv2d(mask, self.gaussKernelV, padding=(self.gaussPad, 0))
+        return mask
+
+    def _rifeInfer(
+        self, frameA: torch.Tensor, frameB: torch.Tensor, t: float
+    ) -> torch.Tensor:
+        self.rife.processFrame(frameA, "I0")
+        self.rife.processFrame(self.rife.I0, "model")
+        self.rife.processFrame(frameB, "I1")
+        self.rife._timestep_buffer.fill_(t)
+        return self.rife.processFrame(self.rife._timestep_buffer, "infer")
+
+    @torch.inference_mode()
+    def cacheFrame(self, frame: torch.Tensor):
+        self.prevFrame = self._prepareFrame(frame)
+
+    @torch.inference_mode()
+    def cacheFrameReset(self, frame: torch.Tensor):
+        self.prevFrame = self._prepareFrame(frame)
+        self.rife.cacheFrameReset(self.prevFrame)
+        self.firstRun = True
+
+    @torch.inference_mode()
+    def __call__(
+        self,
+        frame: torch.Tensor,
+        nextFrame: torch.Tensor,
+        interpQueue,
+        framesToInsert: int = 2,
+        timesteps=None,
+    ):
+        frameB = self._prepareFrame(frame)
+        frameC = frameB if nextFrame is None else self._prepareFrame(nextFrame, frameB.shape[-2:])
+
+        if self.firstRun:
+            self.prevFrame = frameB
+            self.firstRun = False
+            return
+
+        frameA = self.prevFrame
+        if frameA.shape[-2:] != frameB.shape[-2:]:
+            frameA = F.interpolate(
+                frameA, size=frameB.shape[-2:], mode="bilinear", align_corners=False
+            )
+
+        midAB = self._rifeInfer(frameA, frameB, 0.5)
+        midAC = self._rifeInfer(frameA, frameC, 0.5)
+
+        diff = (midAB - midAC).abs().mean(dim=1, keepdim=True)
+        linearity = torch.exp(-self.linearityK * diff.float())
+        linearity = linearity.to(dtype=self.dType)
+        if self.gaussPad > 0:
+            linearity = self._blurMask(linearity)
+        linearity = linearity.clamp(0.0, 1.0)
+
+        for i in range(framesToInsert):
+            if timesteps is not None and i < len(timesteps):
+                t = timesteps[i]
+            else:
+                t = (i + 1) / (framesToInsert + 1)
+
+            redistributed = self._rifeInfer(frameA, frameB, t)
+            pacePreserved = torch.lerp(frameA, frameB, t)
+            output = torch.lerp(pacePreserved, redistributed, linearity)
+            interpQueue.put(output)
+
+        self.prevFrame = frameB
+
+
 class DistilDRBACuda:
     def __init__(
         self,
