@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
 ### New
+- Added support for Video Depth Anything V2 models with commands: "og_video_small_v2", "og_video_base_v2" and "og_video_large_v2".
 - Added support for Dehalo with commands: "dehalo", "dehalo-tensorrt", "dehalo-directml", "dehalo-openvino".
 - Added DirectML and OpenVino support for ShuffleCugan, Fallin Soft and Fallin Strong.
 - Added experimental nvenc support for encoding through nelux ( rebranded celux ), use commands: "nvenc_h264_nelux", "nvenc_hevc_nelux" & "nvenc_av1_nelux" ( WIP ).

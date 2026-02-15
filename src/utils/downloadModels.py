@@ -166,6 +166,10 @@ def modelsList() -> list[str]:
         "distill_base_v2-directml",
         "distill_large_v2-directml",
         "og_video_small_v2",
+        "og_video_base_v2",
+        "og_video_large_v2",
+        "video_small_v2",
+        "video_large_v2",
         "yolov9_small_mit",
         "yolov9_medium_mit",
         "yolov9_large_mit",
@@ -904,6 +908,14 @@ def modelsMap(
             if modelType == "pth":
                 return "video_depth_anything_vits.pth"
 
+        case "og_video_base_v2":
+            if modelType == "pth":
+                return "video_depth_anything_vitb.pth"
+
+        case "og_video_large_v2":
+            if modelType == "pth":
+                return "video_depth_anything_vitl.pth"
+
         case "small_v3":
             if modelType == "pth":
                 return "depth_anything_v3_vits.safetensors"
@@ -1132,6 +1144,8 @@ def downloadModels(
 
     else:
         fullUrl = f"{TASURL}{filename}"
+
+    print(fullUrl)
 
     return downloadAndLog(model, filename, fullUrl, folderPath)
 
