@@ -9,16 +9,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added support for Dehalo with commands: "dehalo", "dehalo-tensorrt", "dehalo-directml", "dehalo-openvino".
 - Added DirectML and OpenVino support for ShuffleCugan, Fallin Soft and Fallin Strong.
 - Added experimental nvenc support for encoding through nelux ( rebranded celux ), use commands: "nvenc_h264_nelux", "nvenc_hevc_nelux" & "nvenc_av1_nelux" ( WIP ).
-- Added support for "yolov9_large-tensorrt".
+- Added support for "yolov9_large-tensorrt" ( WIP )
 - A new argument interpreter with better error handling and more flexibility.
-
+- The github workflow will now auto add the changelogs to the release description when a new release is created.
+  
 ### Changed
 - Reverted to Pytorch 2.9.1 to fix some stability issues with certain systems.
 - Updated some dependencies to their latest versions.
 - Turned TAS into a fully portable aplication, all dependnecies are now included in the TAS-Portable folder and there is no more need for scaterring dependencies around the system.
 
 ### Fixed
-- N/A
+- Certain users experienced instant crashes with Pytorch 2.10, for now I have reverted back to torch 2.9.1.
 
 ### Removed
 - N/A
@@ -42,7 +43,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Updated some dependencies to their latest versions.
 - UI improvements for the about page.
 - Added a "New" tag for newly added models.
-
+- Added a "Experimetntal" tag for experimental models / features.
+- 
 #### Fixed
 - Fixed --sharpen not being parsed to the backend.
 - Fixed --slow-mo not being parsed to the backend.
@@ -51,9 +53,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 #### Removed
 - Bloat from the graph editor UI.
 - NCNN mentions from the UI.
-
-#### Changed
-- N/A
 
 ## [2.5.7] - 2026-01-22
 ### New
