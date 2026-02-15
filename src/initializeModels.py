@@ -336,10 +336,32 @@ def depth(self):
                 compileMode=self.compileMode,
             )
 
-        case "og_video_small_v2":
+        case "og_video_small_v2" | "og_video_base_v2" | "og_video_large_v2":
             from src.depth.depth import VideoDepthAnythingCUDA
 
             VideoDepthAnythingCUDA(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+            )
+
+        case "video_small_v2" | "video_large_v2":
+            from src.depth.depth import VideoDepthAnythingTorch
+
+            VideoDepthAnythingTorch(
                 self.input,
                 self.output,
                 self.width,
