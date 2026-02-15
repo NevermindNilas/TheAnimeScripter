@@ -472,6 +472,7 @@ def _addInterpolationOptions(argParser):
         "distildrba-lite",
         "distildrba-tensorrt",
         "distildrba-lite-tensorrt",
+        "atr",
         "rife4.6",
         "rife4.15-lite",
         "rife4.16-lite",

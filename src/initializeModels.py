@@ -875,6 +875,18 @@ def initializeModels(self):
                     compileMode=self.compileMode,
                 )
 
+            case "atr":
+                from src.unifiedInterpolate import ATRCuda
+
+                interpolateProcess = ATRCuda(
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.interpolateMethod,
+                    interpolateFactor=self.interpolateFactor,
+                    compileMode=self.compileMode,
+                )
+
             case "distildrba-lite-tensorrt" | "distildrba-tensorrt":
                 from src.unifiedInterpolate import DistilDRBATensorRT
 
