@@ -14,7 +14,7 @@ from .isCudaInit import CudaChecker
 checker = CudaChecker()
 
 # Debugging flag
-neluxLog = True
+neluxLog = False
 
 CachedReader = None
 CachedReaderMethod = None
