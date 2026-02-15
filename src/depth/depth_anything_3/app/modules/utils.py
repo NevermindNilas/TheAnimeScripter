@@ -25,40 +25,6 @@ import os
 import shutil
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
-import numpy as np
-
-def create_depth_visualization(depth: np.ndarray) -> Optional[np.ndarray]:
-    """
-    Create a colored depth visualization.
-
-    Args:
-        depth: Depth array
-
-    Returns:
-        Colored depth visualization or None
-    """
-    if depth is None:
-        return None
-
-    # Normalize depth to 0-1 range
-    depth_min = depth[depth > 0].min() if (depth > 0).any() else 0
-    depth_max = depth.max()
-
-    if depth_max <= depth_min:
-        return None
-
-    # Normalize depth
-    depth_norm = (depth - depth_min) / (depth_max - depth_min)
-    depth_norm = np.clip(depth_norm, 0, 1)
-
-    # Apply colormap (using matplotlib's viridis colormap)
-    import matplotlib.cm as cm
-
-    # Convert to colored image
-    depth_colored = cm.viridis(depth_norm)[:, :, :3]  # Remove alpha channel
-    depth_colored = (depth_colored * 255).astype(np.uint8)
-
-    return depth_colored
 
 
 def save_to_gallery_func(
