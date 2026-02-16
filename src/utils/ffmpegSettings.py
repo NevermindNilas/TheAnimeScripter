@@ -6,6 +6,7 @@ import time
 import torch
 import nelux
 import threading
+import cv2
 
 from queue import Queue
 from src.utils.encodingSettings import matchEncoder, getPixFMT
@@ -128,11 +129,11 @@ class BuildBuffer:
                 except Exception as retry_e:
                     logging.error(f"nelux CPU retry failed: {retry_e}")
 
-            logging.info("Attempting fallback to TorchCodec...")
+            logging.info("Attempting fallback to OpenCV decoder...")
             try:
-                decodedFrames += self.decodeWithTorchCodec()
+                decodedFrames += self.decodeWithOpenCV()
             except Exception as fallback_e:
-                logging.error(f"TorchCodec fallback failed: {fallback_e}")
+                logging.error(f"OpenCV fallback failed: {fallback_e}")
 
         finally:
             self.decodeBuffer.put(None)
@@ -195,79 +196,56 @@ class BuildBuffer:
 
         return decodedFrames
 
-    def decodeWithTorchCodec(self):
+    def decodeWithOpenCV(self):
         """
-        Helper method to decode using TorchCodec when nelux fails.
+        Helper method to decode using OpenCV when nelux fails.
         Returns the number of frames decoded.
         """
-        logging.info(f"Initializing TorchCodec VideoDecoder for {self.videoInput}")
-        device = "cuda" if self.cudaEnabled else "cpu"
+        logging.info(f"Initializing OpenCV VideoCapture for {self.videoInput}")
 
-        try:
-            from torchcodec.decoders import VideoDecoder as TorchCodecDecoder
-
-            decoder = TorchCodecDecoder(self.videoInput, device=device)
-        except Exception as e:
-            logging.error(f"Failed to create TorchCodec decoder: {e}")
-            raise
+        cap = cv2.VideoCapture(self.videoInput)
+        if not cap.isOpened():
+            raise RuntimeError(f"Failed to open video with OpenCV: {self.videoInput}")
 
         totalFramesDecoded = 0
+        startTime = float(self.inpoint)
+        endTime = float(self.outpoint)
 
         try:
-            startTime = float(self.inpoint)
-            endTime = float(self.outpoint)
-            totalFrames = len(decoder)
+            if startTime > 0:
+                cap.set(cv2.CAP_PROP_POS_MSEC, startTime * 1000.0)
 
-            if endTime > 0:
-                logging.info(
-                    "TorchCodec: Decoding frames by PTS in range "
-                    f"[{startTime}, {endTime})"
-                )
-            else:
-                logging.info(
-                    f"TorchCodec: Decoding frames by PTS starting at {startTime}"
-                )
-
-            chunkSize = 256
-            stopDecoding = False
-
-            for chunkStart in range(0, totalFrames, chunkSize):
-                chunkEnd = min(chunkStart + chunkSize, totalFrames)
-                indices = list(range(chunkStart, chunkEnd))
-                frameBatch = decoder.get_frames_at(indices=indices)
-
-                for idx, pts in enumerate(frameBatch.pts_seconds):
-                    ptsSeconds = float(pts.item())
-
-                    if ptsSeconds < startTime:
-                        continue
-                    if endTime > 0 and ptsSeconds >= endTime:
-                        stopDecoding = True
-                        break
-
-                    frame = frameBatch.data[idx]
-
-                    if self.toTorch:
-                        frame = self.processFrameToTorch(
-                            frame,
-                            self.normStream if self.cudaEnabled else None,
-                            channels_first=True,
-                        )
-                    else:
-                        if self.cudaEnabled:
-                            frame = frame.cpu()
-                        frame = frame.permute(1, 2, 0).numpy()
-
-                    self.decodeBuffer.put(frame)
-                    self._frameAvailable.set()
-                    totalFramesDecoded += 1
-
-                if stopDecoding:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
                     break
 
+                ptsMillis = cap.get(cv2.CAP_PROP_POS_MSEC)
+                ptsSeconds = (ptsMillis / 1000.0) if ptsMillis and ptsMillis > 0 else None
+
+                if ptsSeconds is not None and endTime > 0 and ptsSeconds >= endTime:
+                    break
+
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = torch.from_numpy(frame)
+
+                if self.toTorch:
+                    frame = self.processFrameToTorch(
+                        frame,
+                        self.normStream if self.cudaEnabled else None,
+                    )
+                else:
+                    frame = frame.numpy()
+
+                self.decodeBuffer.put(frame)
+                self._frameAvailable.set()
+                totalFramesDecoded += 1
+
         except Exception as e:
-            logging.error(f"Error during TorchCodec decoding loop: {e}")
+            logging.error(f"Error during OpenCV decoding loop: {e}")
             raise
+        finally:
+            cap.release()
 
         return totalFramesDecoded
 
