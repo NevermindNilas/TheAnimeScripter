@@ -1310,6 +1310,8 @@ class ATRCuda:
         linearityK: float = 12.0,
         blurKernelSize: int = 9,
         blurSigma: float = 1.5,
+        temporalMaskAlpha: float = 0.85,
+        redistributionCap: float = 0.9,
     ):
         self.half = half
         self.width = width
@@ -1321,6 +1323,8 @@ class ATRCuda:
         self.linearityK = linearityK
         self.blurKernelSize = blurKernelSize
         self.blurSigma = blurSigma
+        self.temporalMaskAlpha = temporalMaskAlpha
+        self.redistributionCap = redistributionCap
 
         self.device = checker.device
 
@@ -1340,6 +1344,7 @@ class ATRCuda:
         self._initGaussianKernels()
 
         self.prevFrame = None
+        self.prevLinearity = None
         self.firstRun = True
 
     def _initGaussianKernels(self) -> None:
@@ -1385,6 +1390,7 @@ class ATRCuda:
     @torch.inference_mode()
     def cacheFrameReset(self, frame: torch.Tensor):
         self.prevFrame = self._prepareFrame(frame)
+        self.prevLinearity = None
         self.rife.cacheFrameReset(self.prevFrame)
         self.firstRun = True
 
@@ -1419,7 +1425,17 @@ class ATRCuda:
         linearity = linearity.to(dtype=self.dType)
         if self.gaussPad > 0:
             linearity = self._blurMask(linearity)
+
+        if (
+            self.prevLinearity is not None
+            and self.prevLinearity.shape[-2:] == linearity.shape[-2:]
+        ):
+            alpha = min(max(float(self.temporalMaskAlpha), 0.0), 0.99)
+            linearity = torch.lerp(linearity, self.prevLinearity, alpha)
+
         linearity = linearity.clamp(0.0, 1.0)
+        linearity = linearity * min(max(float(self.redistributionCap), 0.0), 1.0)
+        self.prevLinearity = linearity.clone()
 
         for i in range(framesToInsert):
             if timesteps is not None and i < len(timesteps):
