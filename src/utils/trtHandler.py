@@ -1,6 +1,8 @@
 import tensorrt as trt
 import os
 import logging
+import shutil
+import sys
 from pathlib import Path
 from typing import List, Tuple, Optional, Union
 
@@ -9,6 +11,114 @@ from src.constants import ADOBE
 
 if ADOBE:
     from src.utils.aeComms import progressState
+
+
+if hasattr(trt, "IProgressMonitor"):
+
+    class TensorRTProgressMonitor(trt.IProgressMonitor):
+        def __init__(self):
+            trt.IProgressMonitor.__init__(self)
+            self._activePhases = {}
+            self._stepResult = True
+
+        def phase_start(self, phaseName, parentPhase, numSteps):
+            try:
+                if parentPhase is not None and parentPhase in self._activePhases:
+                    nbIndents = 1 + self._activePhases[parentPhase]["nbIndents"]
+                else:
+                    nbIndents = 0
+
+                self._activePhases[phaseName] = {
+                    "title": phaseName,
+                    "steps": 0,
+                    "numSteps": max(1, int(numSteps)),
+                    "nbIndents": nbIndents,
+                }
+                self._redraw()
+            except KeyboardInterrupt:
+                self._stepResult = False
+
+        def phase_finish(self, phaseName):
+            try:
+                if phaseName in self._activePhases:
+                    del self._activePhases[phaseName]
+                    self._redraw(blankLines=1)
+            except KeyboardInterrupt:
+                self._stepResult = False
+
+        def step_complete(self, phaseName, step):
+            try:
+                if phaseName in self._activePhases:
+                    self._activePhases[phaseName]["steps"] = step
+                    self._redraw()
+                return self._stepResult
+            except KeyboardInterrupt:
+                return False
+
+        def _redraw(self, *, blankLines=0):
+            def clearLine():
+                print("\x1B[2K", end="")
+
+            def moveToStartOfLine():
+                print("\x1B[0G", end="")
+
+            def moveCursorUp(lines):
+                if lines > 0:
+                    print(f"\x1B[{lines}A", end="")
+
+            def progressBar(steps, numSteps):
+                innerWidth = 10
+                safeSteps = max(0, min(int(steps), int(numSteps)))
+                completed = int(innerWidth * safeSteps / float(max(1, numSteps)))
+                return f"[{'=' * completed}{'-' * (innerWidth - completed)}]"
+
+            maxCols = shutil.get_terminal_size(fallback=(200, 24)).columns
+
+            moveToStartOfLine()
+            for phase in self._activePhases.values():
+                phasePrefix = "{indent}{bar} {title}".format(
+                    indent=" " * phase["nbIndents"],
+                    bar=progressBar(phase["steps"], phase["numSteps"]),
+                    title=phase["title"],
+                )
+                phaseSuffix = "{steps}/{numSteps}".format(**phase)
+                allowablePrefixChars = maxCols - len(phaseSuffix) - 2
+                if allowablePrefixChars < len(phasePrefix):
+                    if allowablePrefixChars > 3:
+                        phasePrefix = phasePrefix[: allowablePrefixChars - 3] + "..."
+                    else:
+                        phasePrefix = ""
+
+                clearLine()
+                print(phasePrefix, phaseSuffix)
+
+            for _ in range(blankLines):
+                clearLine()
+                print()
+
+            moveCursorUp(len(self._activePhases) + blankLines)
+            sys.stdout.flush()
+
+else:
+
+    class TensorRTProgressMonitor:
+        pass
+
+
+def _attachProgressMonitor(config: trt.IBuilderConfig) -> None:
+    if ADOBE:
+        return
+
+    if not sys.stdout.isatty():
+        return
+
+    if not hasattr(trt, "IProgressMonitor"):
+        return
+
+    try:
+        config.progress_monitor = TensorRTProgressMonitor()
+    except Exception as error:
+        logging.debug(f"TensorRT progress monitor is unavailable: {error}")
 
 
 def createNetworkAndConfig(
@@ -22,6 +132,7 @@ def createNetworkAndConfig(
     network = builder.create_network(networkFlags)
 
     config = builder.create_builder_config()
+    _attachProgressMonitor(config)
     config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, maxWorkspaceSize)
     return network, config
 
