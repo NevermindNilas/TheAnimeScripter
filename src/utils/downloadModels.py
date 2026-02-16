@@ -1145,8 +1145,6 @@ def downloadModels(
     else:
         fullUrl = f"{TASURL}{filename}"
 
-    print(fullUrl)
-
     return downloadAndLog(model, filename, fullUrl, folderPath)
 
 
