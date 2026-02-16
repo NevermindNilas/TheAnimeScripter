@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
+### Added
+- A progress status for tensorrt engine generation.
+
+### Changed
+- Replaced Torchcodec with OpenCV as a fallback decoder.
+- Replaced Video Depth Anything OpenCV decoding with Celux for better performance and better output quality.
+
+### Fixed
+- N/A
 
 ## [2.5.8] - 2026-02-15
 ### New
