@@ -81,6 +81,7 @@ class ObjectDetectionDML:
                 outpoint=self.outpoint,
                 width=self.width,
                 height=self.height,
+                toTorch=False,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -205,9 +206,7 @@ class ObjectDetectionDML:
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            frameNp = frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
-            frameNp = (frameNp * 255).astype(np.uint8)
-            frameNp = cv2.cvtColor(frameNp, cv2.COLOR_RGB2BGR)
+            frameNp = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
             classIds, boxes, confidences = self.detect(frameNp)
 
@@ -305,6 +304,7 @@ class ObjectDetectionTensorRT:
                 outpoint=self.outpoint,
                 width=self.width,
                 height=self.height,
+                toTorch=False,
             )
 
             self.writeBuffer = WriteBuffer(
@@ -328,6 +328,17 @@ class ObjectDetectionTensorRT:
 
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
+
+    def trtDtypeToTorch(self, trtDtype):
+        if trtDtype == self.trt.DataType.FLOAT:
+            return torch.float32
+        if trtDtype == self.trt.DataType.HALF:
+            return torch.float16
+        if trtDtype == self.trt.DataType.INT32:
+            return torch.int32
+        if trtDtype == self.trt.DataType.INT8:
+            return torch.int8
+        raise TypeError(f"Unsupported TensorRT dtype for object detection: {trtDtype}")
 
     def handleModels(self):
         if ADOBE:
@@ -385,18 +396,23 @@ class ObjectDetectionTensorRT:
         self.stream = torch.cuda.Stream()
         self.normStream = torch.cuda.Stream()
 
-        self.dtype = torch.float16 if self.half else torch.float32
+        inputTensorDtype = self.engine.get_tensor_dtype(inputName)
+        outputTensorDtype = self.engine.get_tensor_dtype(outputName)
+        self.inputDtype = self.trtDtypeToTorch(inputTensorDtype)
+        self.outputDtype = self.trtDtypeToTorch(outputTensorDtype)
+
+        self.dtype = self.outputDtype
         self.dummyInput = torch.zeros(
             (1, 3, self.inputHeight, self.inputWidth),
             device=checker.device,
-            dtype=self.dtype,
+            dtype=self.inputDtype,
         )
 
-        self.maxDetections = 1000
+        self.maxDetections = 8400
         self.dummyOutput = torch.zeros(
             (self.maxDetections, 6),
             device=checker.device,
-            dtype=self.dtype,
+            dtype=self.outputDtype,
         )
 
         self.inputName = inputName
@@ -419,25 +435,32 @@ class ObjectDetectionTensorRT:
         self.colorsTensor = torch.tensor(colors, device=checker.device, dtype=torch.float32)
 
     @torch.inference_mode()
-    def prepareInput(self, frame):
-        self.imgHeight, self.imgWidth = frame.shape[2], frame.shape[3]
-        inputTensor = torch.nn.functional.interpolate(
-            frame, size=(self.inputHeight, self.inputWidth), mode="bilinear", align_corners=False
-        )
+    def prepareInput(self, image):
+        self.imgHeight, self.imgWidth = image.shape[:2]
+        inputImg = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        inputImg = cv2.resize(inputImg, (self.inputWidth, self.inputHeight))
+        inputImg = inputImg / 255.0
+        inputImg = inputImg.transpose(2, 0, 1)
+        inputTensor = inputImg[np.newaxis, :, :, :].astype(np.float32)
         return inputTensor
 
     @torch.inference_mode()
     def processOutput(self, output):
-        if output.dim() == 3:
+        if isinstance(output, torch.Tensor):
+            output = output.detach().cpu().numpy()
+
+        if output.ndim == 3:
             output = output.squeeze(0)
+
         boxes = output[:, :-2]
         confidences = output[:, -2]
-        classIds = output[:, -1].long()
+        classIds = output[:, -1].astype(int)
 
         mask = confidences > self.confThreshold
         boxes = boxes[mask, :]
         confidences = confidences[mask]
         classIds = classIds[mask]
+        classIds = np.clip(classIds, 0, len(colors) - 1)
 
         boxes = self.rescaleBoxes(boxes)
         
@@ -449,41 +472,38 @@ class ObjectDetectionTensorRT:
 
     @torch.inference_mode()
     def rescaleBoxes(self, boxes):
-        scaleFactorX = self.imgWidth / self.inputWidth
-        scaleFactorY = self.imgHeight / self.inputHeight
-        boxes[:, 0] *= scaleFactorX
-        boxes[:, 1] *= scaleFactorY
-        boxes[:, 2] *= scaleFactorX
-        boxes[:, 3] *= scaleFactorY
+        inputShape = np.array(
+            [self.inputWidth, self.inputHeight, self.inputWidth, self.inputHeight]
+        )
+        boxes = np.divide(boxes, inputShape, dtype=np.float32)
+        boxes *= np.array(
+            [self.imgWidth, self.imgHeight, self.imgWidth, self.imgHeight]
+        )
         return boxes
 
     @torch.inference_mode()
-    def detect(self, frame):
-        inputTensor = self.prepareInput(frame)
+    def detect(self, image):
+        inputTensor = self.prepareInput(image)
+        inputTensorTorch = torch.from_numpy(inputTensor).to(
+            checker.device,
+            dtype=self.inputDtype,
+            non_blocking=True,
+        )
+        self.dummyOutput.zero_()
         
         with torch.cuda.stream(self.normStream):
-            self.dummyInput.copy_(inputTensor, non_blocking=True)
+            self.dummyInput.copy_(inputTensorTorch, non_blocking=True)
             self.normStream.synchronize()
 
         with torch.cuda.stream(self.stream):
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()
 
-        outputShape = self.context.get_tensor_shape(self.outputName)
-        logging.info(f"TRT Output shape: {outputShape}")
-        logging.info(f"Dummy output shape: {self.dummyOutput.shape}")
-        logging.info(f"Dummy output first 3 rows: {self.dummyOutput[:3]}")
-        logging.info(f"Dummy output max: {self.dummyOutput.max()}, min: {self.dummyOutput.min()}")
-
-        numDetections = outputShape[0] if len(outputShape) > 0 and outputShape[0] > 0 else 0
-        logging.info(f"Num detections: {numDetections}")
-
-        if numDetections > 0:
-            output = self.dummyOutput[:numDetections]
-            logging.info(f"First detection: {output[0]}")
+        if self.dummyOutput.numel() > 0:
+            output = self.dummyOutput.view(-1, 6).detach().cpu().numpy()
             return self.processOutput(output)
         
-        return torch.tensor([], device=checker.device, dtype=torch.long), torch.tensor([], device=checker.device, dtype=self.dtype), torch.tensor([], device=checker.device, dtype=self.dtype)
+        return np.array([], dtype=np.int32), np.empty((0, 4), dtype=np.float32), np.array([], dtype=np.float32)
 
     @torch.inference_mode()
     def drawBoxesTorch(self, frame, boxes, classIds):
@@ -496,25 +516,26 @@ class ObjectDetectionTensorRT:
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            classIds, boxes, confidences = self.detect(frame)
+            frameNp = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-            if boxes.numel() > 0 and boxes.shape[0] > 0:
-                if self.disableAnnotations:
-                    frame = self.drawBoxesTorch(frame, boxes, classIds)
-                else:
-                    frameNp = frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
-                    frameNp = (frameNp * 255).astype(np.uint8)
-                    frameNp = cv2.cvtColor(frameNp, cv2.COLOR_RGB2BGR)
+            classIds, boxes, confidences = self.detect(frameNp)
 
-                    boxesNp = boxes.cpu().numpy()
-                    classIdsNp = classIds.cpu().numpy()
-                    confidencesNp = confidences.cpu().numpy()
+            if self.disableAnnotations:
+                outputImg = frameNp.copy()
+                outputImg = draw_masks(outputImg, boxes, classIds, mask_alpha=0.3)
+                for classId, box in zip(classIds, boxes):
+                    color = colors[classId]
+                    draw_box(outputImg, box, color)
+            else:
+                outputImg = draw_detections(frameNp, boxes, confidences, classIds)
 
-                    outputImg = draw_detections(frameNp, boxesNp, confidencesNp, classIdsNp)
-                    outputImg = cv2.cvtColor(outputImg, cv2.COLOR_BGR2RGB)
-                    frame = torch.from_numpy(outputImg).permute(2, 0, 1).unsqueeze(0).float().to(checker.device) / 255.0
+            outputImg = cv2.cvtColor(outputImg, cv2.COLOR_BGR2RGB)
+            outputTensor = (
+                torch.from_numpy(outputImg).permute(2, 0, 1).unsqueeze(0).float()
+                / 255.0
+            )
 
-            self.writeBuffer.write(frame)
+            self.writeBuffer.write(outputTensor)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
