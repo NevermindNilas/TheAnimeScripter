@@ -100,8 +100,9 @@ The native Windows application will provide a dedicated environment optimized fo
 - After Effects 2022 or higher
 - Compatible GPU recommended:
   - **Modern NVIDIA** (RTX 20/30/40, GTX 16 series): Full CUDA/TensorRT support
-  - **Older NVIDIA** (GTX 1000 series/Pascal): DirectML / NCNN backend (automatic)
-  - **AMD/Intel GPUs**: DirectML / NCNN backend supported
+  - **Older NVIDIA** (GTX 1000 series/Pascal): DirectML backend
+  - **Intel dGPU / iGPU**: OpenVINO backend
+  - **AMD/Intel**: DirectML backend
 
 </div>
 
