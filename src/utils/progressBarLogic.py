@@ -10,20 +10,23 @@ from rich.progress import ProgressColumn
 from time import time
 from src.utils.aeComms import progressState
 
-progressRefreshPerSec = 10  # Rich refresh frequency
-fpsCacheInterval = 0.25  # seconds to cache FPS column output
-
 import os
 import logging
 import psutil
+
+progressRefreshPerSec = 10  # Rich refresh frequency
+fpsCacheInterval = 0.1  # seconds to cache FPS column output
+
 
 
 class SpeedColumn(ProgressColumn):
     """Displays the current download speed in MB/s."""
 
     def render(self, task):
-        elapsed = task.elapsed or 0
-        speed = task.completed / elapsed if elapsed > 0 else 0
+        speed = task.speed
+        if speed is None:
+            elapsed = task.elapsed or 0
+            speed = task.completed / elapsed if elapsed > 0 else 0
         return f"Speed: [magenta]{speed:.2f} MB/s[/magenta]"
 
 
@@ -249,7 +252,7 @@ class ProgressBarDownloadLogic:
     def advance(self, advance=1):
         if not getattr(self, "_started", False):
             try:
-                self.progress.tasks[self.task].start_time = time()
+                self.progress.tasks[self.task].start_time = self.progress.get_time()
             except Exception:
                 pass
             self._started = True

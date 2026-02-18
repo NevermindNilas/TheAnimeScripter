@@ -16,7 +16,7 @@ except ImportError:
     isOnnxSlim = False
 
 OPSET = 20
-modelList = [r"F:\test\dasdas\AnimeSR_v2.onnx"]
+modelList = [r"C:\Users\nilas\Downloads\video_depth_anything_vits.onnx"]
 
 
 def convertToFloat16(model):
@@ -37,6 +37,19 @@ def convertToFloat16(model):
                 tensor.raw_data = float16_data.tobytes()
 
     model = copy.deepcopy(model)
+    usedCommonConverter = False
+
+    try:
+        from onnxconverter_common import float16
+
+        model = float16.convert_float_to_float16(
+            model,
+            keep_io_types=False,
+            disable_shape_infer=False,
+        )
+        usedCommonConverter = True
+    except Exception:
+        usedCommonConverter = False
 
     for inputTensor in model.graph.input:
         if inputTensor.type.HasField("tensor_type"):
@@ -48,10 +61,20 @@ def convertToFloat16(model):
             if outputTensor.type.tensor_type.elem_type == TensorProto.FLOAT:
                 outputTensor.type.tensor_type.elem_type = TensorProto.FLOAT16
 
-    for initializer in model.graph.initializer:
-        convertDtype(initializer)
+    for valueInfo in model.graph.value_info:
+        if valueInfo.type.HasField("tensor_type"):
+            if valueInfo.type.tensor_type.elem_type == TensorProto.FLOAT:
+                valueInfo.type.tensor_type.elem_type = TensorProto.FLOAT16
+
+    if not usedCommonConverter:
+        for initializer in model.graph.initializer:
+            convertDtype(initializer)
 
     for node in model.graph.node:
+        if node.op_type == "Cast":
+            for attr in node.attribute:
+                if attr.name == "to" and attr.i == TensorProto.FLOAT:
+                    attr.i = TensorProto.FLOAT16
         for attr in node.attribute:
             if attr.HasField("t"):
                 convertDtype(attr.t)
@@ -230,33 +253,34 @@ def pthToOnnx(
     return outputPath
 
 
-for modelPath in modelList:
-    if not os.path.exists(modelPath):
-        print(f"Warning: Model file not found: {modelPath}")
-        continue
+if __name__ == "__main__":
+    for modelPath in modelList:
+        if not os.path.exists(modelPath):
+            print(f"Warning: Model file not found: {modelPath}")
+            continue
 
-    if modelPath.endswith(".onnx"):
-        print(f"Processing ONNX model: {modelPath}")
-        model = onnx.load(modelPath)
+        if modelPath.endswith(".onnx"):
+            print(f"Processing ONNX model: {modelPath}")
+            model = onnx.load(modelPath)
 
-        newModelPathFp16 = convertAndSaveModel(model, modelPath, "fp16", OPSET)
-        slimPathFp16 = newModelPathFp16.replace(".onnx", "_slim.onnx")
-        print(f"{newModelPathFp16} -> {slimPathFp16}")
-        slimModel(newModelPathFp16, slimPathFp16)
+            newModelPathFp16 = convertAndSaveModel(model, modelPath, "fp16", OPSET)
+            slimPathFp16 = newModelPathFp16.replace(".onnx", "_slim.onnx")
+            print(f"{newModelPathFp16} -> {slimPathFp16}")
+            slimModel(newModelPathFp16, slimPathFp16)
 
-        newModelPathFp32 = convertAndSaveModel(model, modelPath, "fp32", OPSET)
-        slimPathFp32 = newModelPathFp32.replace(".onnx", "_slim.onnx")
-        print(f"{newModelPathFp32} -> {slimPathFp32}")
-        slimModel(newModelPathFp32, slimPathFp32)
+            newModelPathFp32 = convertAndSaveModel(model, modelPath, "fp32", OPSET)
+            slimPathFp32 = newModelPathFp32.replace(".onnx", "_slim.onnx")
+            print(f"{newModelPathFp32} -> {slimPathFp32}")
+            slimModel(newModelPathFp32, slimPathFp32)
 
-    elif modelPath.endswith((".pth", ".pt", ".ckpt", ".safetensors")):
-        try:
-            pthToOnnx(modelPath, precision="fp32", opset=OPSET, slim=isOnnxSlim)
-            pthToOnnx(modelPath, precision="fp16", opset=OPSET, slim=isOnnxSlim)
-        except Exception as e:
-            print(f"Error converting {modelPath}: {e}")
-            import traceback
+        elif modelPath.endswith((".pth", ".pt", ".ckpt", ".safetensors")):
+            try:
+                pthToOnnx(modelPath, precision="fp32", opset=OPSET, slim=isOnnxSlim)
+                pthToOnnx(modelPath, precision="fp16", opset=OPSET, slim=isOnnxSlim)
+            except Exception as e:
+                print(f"Error converting {modelPath}: {e}")
+                import traceback
 
-            traceback.print_exc()
-    else:
-        print(f"Warning: Unsupported file type: {modelPath}")
+                traceback.print_exc()
+        else:
+            print(f"Warning: Unsupported file type: {modelPath}")
