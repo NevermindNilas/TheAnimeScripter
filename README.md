@@ -62,7 +62,7 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 <td>
 
 ### 🧠 AI Flexibility
-- **Multi-Backend Support:** CUDA, TensorRT, DirectML, and NCNN acceleration
+- **Multi-Backend Support:** CUDA, TensorRT, DirectML, and OpenVINO acceleration
 - **Custom Model Support:** Import your own trained models
 - **Restoration Options:** Denoise, dejpeg, sharpen, and line enhancement
 
@@ -146,72 +146,72 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 ### 🆙 Upscaling Models
 
-| Model                 | CUDA  | TensorRT | DirectML | NCNN  |
+| Model                 | CUDA  | TensorRT | DirectML | OpenVINO  |
 | --------------------- | :---: | :------: | :------: | :---: |
-| ShuffleCugan          |   ✅   |    ✅     |    ❌     |   ✅   |
-| Fallin Soft           |   ✅   |    ✅     |    ✅     |   ❌   |
-| Fallin Strong         |   ✅   |    ✅     |    ✅     |   ❌   |
+| ShuffleCugan          |   ✅   |    ✅     |    ✅    |   ✅   |
+| Fallin Soft           |   ✅   |    ✅     |    ✅     |   ✅   |
+| Fallin Strong         |   ✅   |    ✅     |    ✅     |   ✅   |
 | Span                  |   ✅   |    ✅     |    ✅     |   ✅   |
-| SRVGGNet (Compact)    |   ✅   |    ✅     |    ✅     |   ❌   |
-| SRVGGNet (UltraCompact)      |   ✅   |    ✅     |    ✅     |   ❌   |
-| SRVGGNet (SuperUltraCompact) |   ✅   |    ✅     |    ✅     |   ❌   |
-| OpenProteus           |   ✅   |    ✅     |    ✅     |   ❌   |
-| AniScale 2            |   ✅   |    ✅     |    ✅     |   ❌   |
-| RTMOSR                |   ❌   |    ✅     |    ✅     |   ❌   |
-| Saryn ( RTMOSR based )                |   ✅   |    ✅     |    ✅     |   ❌   |
-| Gauss ( DIS based )              |   ✅   |    ✅     |    ✅     |   ❌   |
+| SRVGGNet (Compact)    |   ✅   |    ✅     |    ✅     |   ✅   |
+| SRVGGNet (UltraCompact)      |   ✅   |    ✅     |    ✅     |   ✅   |
+| SRVGGNet (SuperUltraCompact) |   ✅   |    ✅     |    ✅     |   ✅   |
+| OpenProteus           |   ✅   |    ✅     |    ✅     |   ✅   |
+| AniScale 2            |   ✅   |    ✅     |    ✅     |   ✅   |
+| RTMOSR                |   ❌   |    ✅     |    ✅     |   ✅   |
+| Saryn ( RTMOSR based )                |   ✅   |    ✅     |    ✅     |   ✅   |
+| Gauss ( DIS based )              |   ✅   |    ✅     |    ✅     |   ✅   |
 | Custom (Spandrel)     |   ✅   |    ❌     |    ❌     |   ❌   |
 
 ### ⏱️ Interpolation Models (RIFE)
 
-| Version               | CUDA  | TensorRT | DirectML | NCNN  |
+| Version               | CUDA  | TensorRT | DirectML | OpenVINO  |
 | --------------------- | :---: | :------: | :------: | :---: |
-| 4.6                   |   ✅   |    ✅     |    ❌     |   ✅   |
-| 4.15                  |   ✅   |    ✅     |    ❌     |   ✅   |
-| 4.15-lite             |   ✅   |    ✅     |    ❌     |   ✅   |
-| 4.16-lite             |   ✅   |    ❌     |    ❌     |   ✅   |
-| 4.17                  |   ✅   |    ✅     |    ❌     |   ✅   |
-| 4.18                  |   ✅   |    ✅     |    ❌     |   ✅   |
-| 4.20                  |   ✅   |    ✅     |    ❌     |   ✅   |
-| 4.21                  |   ✅   |    ✅     |    ❌     |   ✅   |
-| 4.22                  |   ✅   |    ✅     |    ❌     |   ✅   |
-| 4.22-lite             |   ✅   |    ✅     |    ❌     |   ✅   |
+| 4.6                   |   ✅   |    ✅     |    ❌     |   ❌   |
+| 4.15                  |   ✅   |    ✅     |    ❌     |   ❌   |
+| 4.15-lite             |   ✅   |    ✅     |    ❌     |   ❌   |
+| 4.16-lite             |   ✅   |    ❌     |    ❌     |   ❌   |
+| 4.17                  |   ✅   |    ✅     |    ❌     |   ❌   |
+| 4.18                  |   ✅   |    ✅     |    ❌     |   ❌   |
+| 4.20                  |   ✅   |    ✅     |    ❌     |   ❌   |
+| 4.21                  |   ✅   |    ✅     |    ❌     |   ❌   |
+| 4.22                  |   ✅   |    ✅     |    ❌     |   ❌   |
+| 4.22-lite             |   ✅   |    ✅     |    ❌     |   ❌   |
 | 4.25                  |   ✅   |    ✅     |    ❌     |   ❌   |
 | 4.25-heavy            |   ✅   |    ✅     |    ❌     |   ❌   |
 | Rife_Elexor (mod 4.7) |   ✅   |    ✅     |    ❌     |   ❌   |
 
 ### 🔧 Restoration Models
 
-| Model               | CUDA  | TensorRT | DirectML | NCNN  |
+| Model               | CUDA  | TensorRT | DirectML | OpenVINO  |
 | ------------------- | :---: | :------: | :------: | :---: |
 | SCUNet (Denoise)    |   ✅   |    ✅     |    ❌     |   ❌   |
 | NAFNet (Denoise)    |   ✅   |    ❌     |    ❌     |   ❌   |
 | DPIR (Denoise)      |   ✅   |    ❌     |    ❌     |   ❌   |
 | DeJpeg ( Real-Plksr ) |   ✅   |    ❌     |    ❌     |   ❌   |
-| Anime1080fixer      |   ✅   |    ✅     |    ✅     |   ❌   |
+| Anime1080fixer      |   ✅   |    ✅     |    ✅     |   ✅   |
 | FastLineDarken      |   ✅   |    ✅     |    ❌     |   ❌   |
-| GaterV3             |   ✅   |    ❌     |    ✅     |   ❌   |
-| DeH264 ( Real-Plksr ) |   ✅   |    ✅     |    ✅     |   ❌   |
+| GaterV3             |   ✅   |    ❌     |    ✅     |   ✅   |
+| DeH264 ( Real-Plksr ) |   ✅   |    ✅     |    ✅     |   ✅   |
 
 ### 🌊 Depth Map Models
 
-| Model                                 | CUDA  | TensorRT | DirectML | NCNN  |
+| Model                                 | CUDA  | TensorRT | DirectML | OpenVINO  |
 | ------------------------------------- | :---: | :------: | :------: | :---: |
 | **"Faster" Depth-Anything v2 Models** |       |          |          |       |
-| Small v2                              |   ✅   |    ✅     |    ✅     |   ❌   |
-| Base v2                               |   ✅   |    ✅     |    ✅     |   ❌   |
-| Large v2                              |   ✅   |    ✅     |    ✅     |   ❌   |
+| Small v2                              |   ✅   |    ✅     |    ✅     |   ✅   |
+| Base v2                               |   ✅   |    ✅     |    ✅     |   ✅   |
+| Large v2                              |   ✅   |    ✅     |    ✅     |   ✅   |
 | **"Faster" Distilled Models**         |       |          |          |       |
-| Distill Small v2                      |   ✅   |    ✅     |    ✅     |   ❌   |
-| Distill Base v2                       |   ✅   |    ✅     |    ✅     |   ❌   |
-| Distill Large v2                      |   ✅   |    ✅     |    ✅     |   ❌   |
+| Distill Small v2                      |   ✅   |    ✅     |    ✅     |   ✅   |
+| Distill Base v2                       |   ✅   |    ✅     |    ✅     |   ✅   |
+| Distill Large v2                      |   ✅   |    ✅     |    ✅     |   ✅   |
 | **Original Implementation Models**    |       |          |          |       |
-| OG Small v2                           |   ✅   |    ✅     |    ✅     |   ❌   |
-| OG Base v2                            |   ✅   |    ✅     |    ✅     |   ❌   |
-| OG Large v2                           |   ✅   |    ✅     |    ✅     |   ❌   |
-| OG Distill Small v2                   |   ✅   |    ✅     |    ✅     |   ❌   |
-| OG Distill Base v2                    |   ✅   |    ✅     |    ✅     |   ❌   |
-| OG Distill Large v2                   |   ✅   |    ✅     |    ✅     |   ❌   |
+| OG Small v2                           |   ✅   |    ✅     |    ✅     |   ✅   |
+| OG Base v2                            |   ✅   |    ✅     |    ✅     |   ✅   |
+| OG Large v2                           |   ✅   |    ✅     |    ✅     |   ✅   |
+| OG Distill Small v2                   |   ✅   |    ✅     |    ✅     |   ✅   |
+| OG Distill Base v2                    |   ✅   |    ✅     |    ✅     |   ✅   |
+| OG Distill Large v2                   |   ✅   |    ✅     |    ✅     |   ✅   |
 
 ## 🙏 Project Contributors
 
@@ -241,7 +241,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [YT-DLP Team](https://github.com/yt-dlp)        | Media download capabilities            | [yt-dlp](https://github.com/yt-dlp/yt-dlp)                     |
 | [Breakthrough](https://github.com/Breakthrough) | Scene detection algorithms             | [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) |
 | [Chainner-org](https://github.com/chaiNNer-org) | Neural network architecture            | [spandrel](https://github.com/chaiNNer-org/spandrel)           |
-| [TNTWise](https://github.com/TNTwise)           | RIFE ONNX/NCNN optimizations           | [GitHub](https://github.com/TNTwise)                           |
+| [TNTWise](https://github.com/TNTwise)           | RIFE ONNX optimizations           | [GitHub](https://github.com/TNTwise)                           |
 | [Hyperbrew](https://github.com/hyperbrew)       | Adobe integration framework            | [bolt-cep](https://github.com/hyperbrew/bolt-cep)              |
 
 

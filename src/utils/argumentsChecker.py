@@ -819,6 +819,7 @@ def _addDepthOptions(argParser):
         "og_video_small_v2",
         "og_video_base_v2",
         "og_video_large_v2",
+        "og_video_small_v2-tensorrt",
         "video_small_v2",
         "video_large_v2",
         "small_v2-tensorrt",
