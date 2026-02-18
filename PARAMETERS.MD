@@ -289,10 +289,10 @@ C:\Videos\episode3.mp4
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime | CUDA, TRT, NCNN |
-| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, TRT |
-| **fallin_strong** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, TRT |
-| **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, TRT, DML, NCNN, OpenVINO |
+| **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime | CUDA, TRT, DML, OpenVINO |
+| **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, TRT, DML, OpenVINO |
+| **fallin_strong** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, TRT, DML, OpenVINO |
+| **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, TRT, DML, OpenVINO |
 | **compact** | ⚡ | ⭐⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML, OpenVINO |
 | **ultracompact** | ⚡⚡ | ⭐⭐⭐ | 1GB | Very fast | CUDA, TRT, DML, OpenVINO |
 | **superultracompact** | ⚡⚡⚡⚡ | ⭐⭐ | 1GB | Fastest | CUDA, TRT, DML, OpenVINO |
@@ -321,19 +321,19 @@ C:\Videos\episode3.mp4
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **rife4.22** | ⚡⚡ | ⭐⭐⭐ | 4GB | General use | CUDA, TRT, NCNN |
+| **rife4.22** | ⚡⚡ | ⭐⭐⭐ | 4GB | General use | CUDA, TRT |
 | **rife4.25** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality | CUDA, TRT |
 | **rife4.25-lite** | ⚡⚡⚡ | ⭐⭐ | 3GB | Balanced performance | CUDA, TRT |
 | **rife4.25-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
-| **rife4.22-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, TRT, NCNN |
-| **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice | CUDA, TRT, NCNN, DML, OpenVINO |
-| **rife4.15-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, TRT, NCNN |
+| **rife4.22-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, TRT |
+| **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice | CUDA, TRT |
+| **rife4.15-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, TRT |
 | **rife4.15** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
-| **rife4.16-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, NCNN |
-| **rife4.17** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
-| **rife4.18** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
-| **rife4.20** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
-| **rife4.21** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
+| **rife4.16-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA |
+| **rife4.17** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
+| **rife4.18** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
+| **rife4.20** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
+| **rife4.21** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
 | **gmfss** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Alternative method | CUDA, TRT |
 | **rife_elexor** | ⚡ | ⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
 

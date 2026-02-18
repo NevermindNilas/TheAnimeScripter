@@ -51,7 +51,7 @@ def downloadAndExtractFfmpeg(ffmpegPath):
                 if not data:
                     break
                 file.write(data)
-                bar(len(data) // (1024 * 1024))
+                bar(len(data) / (1024 * 1024))
     except (URLError, HTTPError) as e:
         logging.error(f"Failed to download FFMPEG: {e}")
         raise

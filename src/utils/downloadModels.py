@@ -168,6 +168,7 @@ def modelsList() -> list[str]:
         "og_video_small_v2",
         "og_video_base_v2",
         "og_video_large_v2",
+        "og_video_small_v2-tensorrt",
         "video_small_v2",
         "video_large_v2",
         "yolov9_small_mit",
@@ -908,6 +909,13 @@ def modelsMap(
             if modelType == "pth":
                 return "video_depth_anything_vits.pth"
 
+        case "og_video_small_v2-tensorrt" | "video_small_v2-tensorrt":
+            if modelType == "onnx":
+                if half:
+                    return "video_depth_anything_vits_fp16_op20_slim.onnx"
+                else:
+                    return "video_depth_anything_vits_fp32_op20_slim.onnx"
+
         case "og_video_base_v2":
             if modelType == "pth":
                 return "video_depth_anything_vitb.pth"
@@ -1022,7 +1030,7 @@ def downloadAndLog(
                                 break
                             file.write(data)
                             downloadedBytes += len(data)
-                            bar(int(len(data) / (1024 * 1024)))
+                            bar(len(data) / (1024 * 1024))
 
                             if totalSizeInBytes > 0:
                                 currentMb = downloadedBytes / (1024 * 1024)
@@ -1232,7 +1240,7 @@ def downloadTensorRTRTX(retries: int = 3) -> bool:
                             break
                         file.write(data)
                         downloadedBytes += len(data)
-                        bar(int(len(data) / (1024 * 1024)))
+                        bar(len(data) / (1024 * 1024))
 
                         if totalSizeInBytes > 0:
                             currentMb = downloadedBytes / (1024 * 1024)

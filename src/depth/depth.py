@@ -1054,7 +1054,6 @@ class OGDepthV2TensorRT:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
-        self.encodeBuffer = Queue(maxsize=10)
 
         import tensorrt as trt
         from src.utils.trtHandler import (
@@ -1085,15 +1084,23 @@ class OGDepthV2TensorRT:
                 toTorch=False,
             )
 
-            self.outputWriter = cv2.VideoWriter(
+            self.writeBuffer = WriteBuffer(
+                self.input,
                 self.output,
-                cv2.VideoWriter_fourcc(*"mp4v"),
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
                 self.fps,
-                (self.width, self.height),
+                sharpen=False,
+                sharpen_sens=None,
+                grayscale=True,
+                benchmark=self.benchmark,
+                bitDepth=self.bitDepth,
             )
             with ThreadPoolExecutor(max_workers=3) as executor:
+                executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
-                executor.submit(self.encodeThread)
                 executor.submit(self.process)
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
@@ -1120,11 +1127,24 @@ class OGDepthV2TensorRT:
             self.width, self.height, self.depthQuality
         )
 
+        self.isVideoDepthTensorRT = "video_small_v2" in self.depth_method
+        self.temporalWindowSize = 32
+
+        inputShape = [1, 3, self.newHeight, self.newWidth]
+        if self.isVideoDepthTensorRT:
+            inputShape = [1, self.temporalWindowSize, 3, self.newHeight, self.newWidth]
+
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
-            optInputShape=[1, 3, self.newHeight, self.newWidth],
+            optInputShape=inputShape,
         )
+
+        if os.path.exists(enginePath) and os.path.getmtime(enginePath) < os.path.getmtime(self.modelPath):
+            try:
+                os.remove(enginePath)
+            except Exception:
+                pass
 
         self.engine, self.context = self.tensorRTEngineLoader(enginePath)
         if (
@@ -1132,26 +1152,52 @@ class OGDepthV2TensorRT:
             or self.context is None
             or not os.path.exists(enginePath)
         ):
-            inputName = "image" if "distill" not in self.depth_method else "input"
+            inputName = "image"
+            if "distill" in self.depth_method or self.isVideoDepthTensorRT:
+                inputName = "input"
+            maxWorkspaceSize = (4 << 30) if self.isVideoDepthTensorRT else (1 << 30)
             self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
                 fp16=self.half,
-                inputsMin=[1, 3, self.newHeight, self.newWidth],
-                inputsOpt=[1, 3, self.newHeight, self.newWidth],
-                inputsMax=[1, 3, self.newHeight, self.newWidth],
+                inputsMin=inputShape,
+                inputsOpt=inputShape,
+                inputsMax=inputShape,
                 inputName=[inputName],
+                maxWorkspaceSize=maxWorkspaceSize,
+            )
+
+        if self.engine is None or self.context is None:
+            raise RuntimeError(
+                f"Failed to initialize TensorRT engine for {self.depth_method} from {self.modelPath}"
             )
 
         self.stream = torch.cuda.Stream()
+        inputTensorShape = (1, 3, self.newHeight, self.newWidth)
+        outputTensorShape = (1, 1, self.newHeight, self.newWidth)
+        if self.isVideoDepthTensorRT:
+            inputTensorShape = (
+                1,
+                self.temporalWindowSize,
+                3,
+                self.newHeight,
+                self.newWidth,
+            )
+            outputTensorShape = (
+                1,
+                self.temporalWindowSize,
+                self.newHeight,
+                self.newWidth,
+            )
+
         self.dummyInput = torch.zeros(
-            (1, 3, self.newHeight, self.newWidth),
+            inputTensorShape,
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
 
         self.dummyOutput = torch.zeros(
-            (1, 1, self.newHeight, self.newWidth),
+            outputTensorShape,
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
@@ -1207,15 +1253,38 @@ class OGDepthV2TensorRT:
             frame = (frame - MEANTENSOR) / STDTENSOR
             if self.half:
                 frame = frame.half()
-            self.dummyInput.copy_(frame, non_blocking=True)
+            if self.isVideoDepthTensorRT:
+                frame = frame.squeeze(0)
+                if not hasattr(self, "frameWindow"):
+                    self.frameWindow = frame.unsqueeze(0).repeat(
+                        self.temporalWindowSize, 1, 1, 1
+                    )
+                else:
+                    self.frameWindow[:-1].copy_(self.frameWindow[1:])
+                    self.frameWindow[-1].copy_(frame)
+                self.dummyInput.copy_(self.frameWindow.unsqueeze(0), non_blocking=True)
+            else:
+                self.dummyInput.copy_(frame, non_blocking=True)
         self.normStream.synchronize()
 
     @torch.inference_mode()
     def normOutputFrame(self):
-        depth = self.dummyOutput.cpu().numpy()
-        depth = np.reshape(depth, (self.newHeight, self.newWidth))
-        depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-        depth = depth.astype(np.uint8)
+        if self.isVideoDepthTensorRT:
+            depthTensor = self.dummyOutput[0, -1].float()
+            depthTensor = torch.nan_to_num(
+                depthTensor, nan=0.0, posinf=0.0, neginf=0.0
+            )
+            flatTensor = depthTensor.flatten()
+            lowerBound = torch.quantile(flatTensor, 0.01)
+            upperBound = torch.quantile(flatTensor, 0.99)
+            denom = (upperBound - lowerBound).clamp_min(1e-6)
+            depthTensor = ((depthTensor - lowerBound) / denom).clamp(0.0, 1.0)
+            depth = (depthTensor * 255.0).byte().cpu().numpy()
+        else:
+            depth = self.dummyOutput.cpu().numpy()
+            depth = np.reshape(depth, (self.newHeight, self.newWidth))
+            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
+            depth = depth.astype(np.uint8)
 
         return depth
 
@@ -1227,7 +1296,14 @@ class OGDepthV2TensorRT:
                 self.cudaGraph.replay()
             self.stream.synchronize()
             depth = self.normOutputFrame()
-            self.encodeBuffer.put(depth)
+            depthTensor = (
+                torch.from_numpy(depth)
+                .to(checker.device, dtype=torch.float32)
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .mul(1 / 255)
+            )
+            self.writeBuffer.write(depthTensor)
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
@@ -1247,20 +1323,7 @@ class OGDepthV2TensorRT:
                         break
 
         logging.info(f"Processed {frameCount} frames")
-        self.encodeBuffer.put(None)
-
-    def encodeThread(self):
-        while True:
-            frame = self.encodeBuffer.get()
-            if frame is None:
-                break
-            if frame.ndim == 2:
-                frame = np.stack([frame] * 3, axis=-1)
-            frame = cv2.resize(
-                frame, (self.width, self.height), interpolation=cv2.INTER_LINEAR
-            )
-            self.outputWriter.write(frame)
-        self.outputWriter.release()
+        self.writeBuffer.close()
 
 
 class OGDepthV2DirectML:
