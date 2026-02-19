@@ -16,7 +16,7 @@ if not requirementsPath.exists():
     raise FileNotFoundError(f"Requirements file not found: {requirementsPath}")
 
 portablePythonDir = baseDir / "portable-python"
-pythonVersion = "3.13.11"
+pythonVersion = "3.13.12"
 system = platform.system()
 
 
@@ -285,7 +285,7 @@ if __name__ == "__main__":
     if args.develop:
         if system == "Windows":
             finalOutputDir = Path(
-                "C:/Users/nilas/AppData/Roaming/TheAnimeScripter/TAS-Portable"
+                r"D:\tastest\TheAnimeScripter"
             )
         else:
             # Linux development path
