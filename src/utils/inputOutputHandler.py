@@ -7,6 +7,7 @@ from src.utils.logAndPrint import logAndPrint
 
 EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
 IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".tiff", ".tif", ".exr", ".dpx"]
+OUTPUT_FILE_EXTENSIONS = tuple(EXTENSIONS + IMAGE_EXTENSIONS)
 
 
 def detectImageSequence(folderPath):
@@ -126,7 +127,9 @@ def generateOutputName(args, videoInput):
 
     suffixes.append(f"-{random.randint(0, 1000)}")
 
-    if (
+    if getattr(args, "single_image_input", False):
+        extension = ".png"
+    elif (
         getattr(args, "segment", False)
         or getattr(args, "encode_method", "") == "prores"
     ):
@@ -143,10 +146,13 @@ def generateOutputName(args, videoInput):
 
 def generateOutputPath(video, output, defaultOutputPath, args):
     """Generates appropriate output path based on input parameters."""
-    if output and output.endswith(tuple(EXTENSIONS)):
+    if output and output.lower().endswith(OUTPUT_FILE_EXTENSIONS):
         return output
 
     baseDir = output if output and os.path.isdir(output) else defaultOutputPath
+
+    if getattr(args, "png_passthrough", False):
+        return os.path.join(baseDir, generateOutputName(args, video))
 
     if getattr(args, "encode_method", "") == "png":
         outputName = generateOutputName(args, video)
@@ -231,7 +237,7 @@ def processInputOutputPaths(args, defaultOutputPath):
     output = args.output
     if output:
         output = os.path.abspath(output)
-        if not output.endswith(tuple(EXTENSIONS)):
+        if not output.lower().endswith(OUTPUT_FILE_EXTENSIONS):
             os.makedirs(output, exist_ok=True)
         else:
             parent_dir = os.path.dirname(output)
