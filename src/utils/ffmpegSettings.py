@@ -390,6 +390,7 @@ class WriteBuffer:
         output_scale_width: int = None,
         output_scale_height: int = None,
         enablePreview: bool = False,
+        single_image_output: bool = False,
     ):
         """
         A class meant to Pipe the input to FFMPEG from a queue.
@@ -416,14 +417,20 @@ class WriteBuffer:
         self.input = input
         self.output = os.path.normpath(output)
         self.encode_method = encode_method
+        self.single_image_output = single_image_output
 
-        if self.encode_method == "png" and "%" not in self.output:
+        if self.encode_method == "png" and not self.single_image_output and "%" not in self.output:
             _, ext = os.path.splitext(self.output)
             if not ext:
                 self.output = os.path.join(self.output, "%08d.png")
             else:
                 base, _ = os.path.splitext(self.output)
                 self.output = f"{base}_%08d.png"
+
+        if self.encode_method == "png" and self.single_image_output:
+            _, ext = os.path.splitext(self.output)
+            if not ext:
+                self.output = f"{self.output}.png"
 
         self.custom_encoder = custom_encoder
         self.grayscale = grayscale
@@ -596,6 +603,9 @@ class WriteBuffer:
             if cs.AUDIO:
                 command.extend(self._buildAudioSettings())
 
+            if self.single_image_output:
+                command.extend(["-frames:v", "1"])
+
             command.append(self.output)
 
             command.extend(
@@ -629,6 +639,9 @@ class WriteBuffer:
 
             if cs.AUDIO:
                 command.extend(self._buildAudioSettings())
+
+            if self.single_image_output:
+                command.extend(["-frames:v", "1"])
 
             command.append(self.output)
 

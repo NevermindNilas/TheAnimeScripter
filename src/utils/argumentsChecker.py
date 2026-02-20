@@ -1043,6 +1043,9 @@ def _autoEnableParentFlags(args):
 
 
 def argumentsChecker(args, outputPath, parser):
+    args.png_passthrough = False
+    args.single_image_input = False
+
     if args.list_presets:
         from src.utils.presetLogic import listPresets
 
@@ -1198,9 +1201,21 @@ def argumentsChecker(args, outputPath, parser):
             logging.info(f"Image sequence pattern detected: {args.input}")
             args.input = os.path.abspath(args.input)
             cs.AUDIO = False
+        elif args.input.lower().endswith(".png"):
+            args.input = os.path.abspath(args.input)
+            cs.AUDIO = False
+            args.single_image_input = True
+            args.png_passthrough = True
+            logging.info("Single PNG input detected, enabling PNG passthrough mode")
+
+            if isAnyOtherProcessingMethodEnabled(args) and args.encode_method != "png":
+                logging.info(
+                    "Single PNG with processing detected; forcing --encode_method png for valid image output"
+                )
+                args.encode_method = "png"
         else:
             raise Exception(
-                "Single image input is not supported. For image sequences, use a pattern like 'frames_%05d.png' or provide a folder containing PNG files."
+                "Single image input is not supported for this format. For image sequences, use a pattern like 'frames_%05d.png' or provide a folder containing PNG files."
             )
     elif args.input.lower().endswith((".gif")):
         if args.encode_method != "gif":
@@ -1257,7 +1272,7 @@ def argumentsChecker(args, outputPath, parser):
         f"[DEBUG] Before processing check - args.interpolate: {args.interpolate}"
     )
 
-    if not isAnyOtherProcessingMethodEnabled(args):
+    if not isAnyOtherProcessingMethodEnabled(args) and not args.png_passthrough:
         logAndPrint(
             "No processing methods specified, make sure to use enabler arguments like --upscale, --interpolate, etc.",
             "red",

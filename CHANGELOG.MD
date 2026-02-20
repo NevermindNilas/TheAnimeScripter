@@ -11,7 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Replaced Torchcodec with OpenCV as a fallback decoder.
 - Replaced Video Depth Anything OpenCV decoding with Celux for better performance and better output quality.
 - Replaced cv2 based decoding to nelux based for yolov9-directml and yolov9-tensorrt for better performance for the same output quality.
-  
+- Bumped python to 3.13.12
+
 ### Fixed
 - N/A
 

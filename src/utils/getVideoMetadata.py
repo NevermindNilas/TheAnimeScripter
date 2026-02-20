@@ -84,20 +84,46 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         # Extract metadata
         width = int(videoStream["width"])
         height = int(videoStream["height"])
-        fpsParts = videoStream["r_frame_rate"].split("/")
-        fps = float(fpsParts[0]) / float(fpsParts[1])
-        duration = float(probeData["format"]["duration"])
-        totalFrames = int(videoStream.get("nb_read_packets", 0))
+        fpsValue = videoStream.get("r_frame_rate", "1/1")
+        fpsParts = fpsValue.split("/") if isinstance(fpsValue, str) else ["1", "1"]
+        try:
+            fpsNum = float(fpsParts[0]) if len(fpsParts) > 0 else 1.0
+            fpsDen = float(fpsParts[1]) if len(fpsParts) > 1 else 1.0
+            fps = fpsNum / fpsDen if fpsDen != 0 else 1.0
+        except Exception:
+            fps = 1.0
+
+        durationRaw = probeData.get("format", {}).get("duration", 0)
+        try:
+            duration = float(durationRaw)
+        except Exception:
+            duration = 0.0
+
+        totalFramesRaw = videoStream.get("nb_read_packets")
+        if totalFramesRaw in (None, "N/A", ""):
+            totalFramesRaw = videoStream.get("nb_frames", 0)
+        try:
+            totalFrames = int(totalFramesRaw)
+        except Exception:
+            totalFrames = 0
+
+        imageExtensions = {".png", ".jpg", ".jpeg", ".tiff", ".tif", ".exr", ".dpx"}
+        isImageInput = os.path.splitext(inputPath)[1].lower() in imageExtensions
+        if isImageInput and totalFrames < 1:
+            totalFrames = 1
         colorFormat = videoStream.get("pix_fmt", "unknown")
         pixelFormat = videoStream.get("color_space", "unknown")
         colorSpace = videoStream.get("color_primaries", "unknown")
         ColorTRT = videoStream.get("color_transfer", "unknown")
         ColorRange = videoStream.get("color_range", "unknown")
 
-        if outPoint != 0:
+        if outPoint != 0 and not isImageInput:
             totalFramesToProcess = int((outPoint - inPoint) * fps)
         else:
             totalFramesToProcess = totalFrames
+
+        if isImageInput and totalFramesToProcess < 1:
+            totalFramesToProcess = 1
 
         metadata = {
             "Width": width,
