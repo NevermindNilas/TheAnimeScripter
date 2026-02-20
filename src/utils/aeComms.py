@@ -1,8 +1,10 @@
 import logging
 import os
 from threading import Lock
+from multiprocessing import get_context
+from queue import Empty
 from flask import Flask
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, emit
 from urllib.parse import urlparse
 from time import time
 
@@ -17,6 +19,16 @@ os.environ["FLASK_ENV"] = "production"
 
 
 socketio = None
+progressQueue = None
+serverProcess = None
+connectedClients = 0
+connectedClientsLock = Lock()
+
+
+def hasConnectedClients():
+    global connectedClients
+    with connectedClientsLock:
+        return connectedClients > 0
 
 
 class ProgressState:
@@ -33,10 +45,20 @@ class ProgressState:
 
     def update(self, new_data):
         global socketio
+        global progressQueue
         with self._lock:
             self.data.update(new_data)
-        if socketio:
-            socketio.emit("progress", self.data)
+            payload = self.data.copy()
+
+        if progressQueue is not None:
+            try:
+                progressQueue.put_nowait(payload)
+            except Exception:
+                pass
+            return
+
+        if socketio and hasConnectedClients():
+            socketio.emit("progress", payload)
 
     def get(self):
         with self._lock:
@@ -68,8 +90,9 @@ progressState = ProgressState()
 app = Flask(__name__)
 
 
-def runServer(host):
+def runServer(host, queue=None):
     global socketio
+    global connectedClients
 
     logging.info(f"Starting AE comms server on {host}...")
 
@@ -77,22 +100,59 @@ def runServer(host):
     hostname = parsed.hostname or "0.0.0.0"
     port = parsed.port or 8080
 
-    # Initialize SocketIO with CORS support
     socketio = SocketIO(
         app,
         cors_allowed_origins="*",
         async_mode="threading",
+        manage_session=False,
         logger=False,
         engineio_logger=False,
     )
 
+    def relayProgressFromQueue():
+        if queue is None:
+            return
+
+        lastEmit = 0.0
+        minEmitInterval = 1.0 / 15.0
+        while True:
+            try:
+                latestPayload = queue.get(timeout=0.1)
+            except Empty:
+                continue
+
+            while True:
+                try:
+                    latestPayload = queue.get_nowait()
+                except Empty:
+                    break
+
+            if not hasConnectedClients():
+                continue
+
+            now = time()
+            if now - lastEmit < minEmitInterval:
+                continue
+
+            socketio.emit("progress", latestPayload)
+            lastEmit = now
+
+    if queue is not None:
+        socketio.start_background_task(relayProgressFromQueue)
+
     @socketio.on("connect")
     def handle_connect():
+        global connectedClients
+        with connectedClientsLock:
+            connectedClients += 1
         logging.info("Client connected to Socket.IO")
-        socketio.emit("progress", progressState.get())
+        emit("progress", progressState.get())
 
     @socketio.on("disconnect")
     def handle_disconnect():
+        global connectedClients
+        with connectedClientsLock:
+            connectedClients = max(0, connectedClients - 1)
         logging.info("Client disconnected from Socket.IO")
 
     @socketio.on("cancel")
@@ -107,7 +167,7 @@ def runServer(host):
         """
         logging.info("Handshake received")
 
-        socketio.emit(
+        emit(
             "handshake_ack",
             {
                 "capabilities": ["cancel", "progress", "heartbeat"],
@@ -120,7 +180,7 @@ def runServer(host):
         Handle heartbeat ping from frontend.
         Responds with pong containing the original timestamp for latency calculation.
         """
-        socketio.emit(
+        emit(
             "pong",
             {
                 "timestamp": data.get("timestamp", time()),
@@ -140,9 +200,15 @@ def runServer(host):
 
 
 def startServerInThread(host):
-    from threading import Thread
+    global progressQueue
+    global serverProcess
 
-    serverThread = Thread(target=runServer, args=(host,))
-    serverThread.daemon = True
-    serverThread.start()
-    return serverThread
+    if serverProcess is not None and serverProcess.is_alive():
+        return serverProcess
+
+    context = get_context("spawn")
+    progressQueue = context.Queue()
+    serverProcess = context.Process(target=runServer, args=(host, progressQueue))
+    serverProcess.daemon = True
+    serverProcess.start()
+    return serverProcess
