@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Bumped python to 3.13.12
 
 ### Fixed
-- N/A
+- Fixed unintended removal of spandrel.
 
 ## [2.5.8] - 2026-02-15
 ### New
