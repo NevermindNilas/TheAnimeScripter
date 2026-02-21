@@ -1336,9 +1336,13 @@ def _handleDependencies(args):
         supportsCuda = False
         if isNvidia:
             supportsCuda, _, _ = detectGPUArchitecture()
+        args.isNvidiaGPU = isNvidia
+        args.supportsCuda = supportsCuda
     except ImportError:
         isNvidia = False
         supportsCuda = False
+        args.isNvidiaGPU = False
+        args.supportsCuda = False
 
     if cs.SYSTEM == "Windows":
         extension = (
@@ -1485,24 +1489,28 @@ def _adjustMethodsBasedOnCuda(args):
             return newMethod
         return method
 
-    from src.utils.isCudaInit import CudaChecker, detectGPUArchitecture
+    supportsCuda = getattr(args, "supportsCuda", None)
 
-    isCuda = CudaChecker()
+    if supportsCuda is None:
+        from src.utils.isCudaInit import CudaChecker, detectGPUArchitecture
 
-    # Check if GPU architecture supports modern CUDA features
-    needsFallback = False
-    if isCuda.cudaAvailable:
-        isModernGPU, gpuName, computeCap = detectGPUArchitecture()
-        if not isModernGPU:
-            logAndPrint(
-                f"Detected {gpuName} (compute capability: {computeCap}). "
-                f"This GPU may not support modern CUDA kernels. "
-                f"Automatically switching to DirectML/NCNN backends for compatibility.",
-                "yellow",
-            )
+        isCuda = CudaChecker()
+
+        needsFallback = False
+        if isCuda.cudaAvailable:
+            isModernGPU, gpuName, computeCap = detectGPUArchitecture()
+            if not isModernGPU:
+                logAndPrint(
+                    f"Detected {gpuName} (compute capability: {computeCap}). "
+                    f"This GPU may not support modern CUDA kernels. "
+                    f"Automatically switching to DirectML/NCNN backends for compatibility.",
+                    "yellow",
+                )
+                needsFallback = True
+        else:
             needsFallback = True
     else:
-        needsFallback = True
+        needsFallback = not supportsCuda
 
     if needsFallback:
         from .downloadModels import modelsList
