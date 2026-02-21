@@ -4,17 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
+
+## [2.5.9] - 2026-02-21
 ### Added
 - A progress status for tensorrt engine generation.
+- PNG input support.
 
 ### Changed
 - Replaced Torchcodec with OpenCV as a fallback decoder.
 - Replaced Video Depth Anything OpenCV decoding with Celux for better performance and better output quality.
 - Replaced cv2 based decoding to nelux based for yolov9-directml and yolov9-tensorrt for better performance for the same output quality.
 - Bumped python to 3.13.12
+- Improved the AEComms bridge between TAS and Adobe for better performance.
 
 ### Fixed
 - Fixed unintended removal of spandrel.
+
+## TAS Adobe Edition
+### Added
+- A new PREVIEW system to the chain tab which allows you to preview the output(s) before committing to the render.
+
+### Changed
+- Minor UI tweaks.
+
+### Fixed
+- About 250% less API calls to GitHub and Cloudflare to check for updates and sponsors status.
+  
 
 ## [2.5.8] - 2026-02-15
 ### New
