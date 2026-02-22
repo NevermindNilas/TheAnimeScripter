@@ -610,6 +610,7 @@ def initializeModels(self):
                 | "fallin_soft"
                 | "fallin_strong"
                 | "gauss"
+                | "figsr"
             ):
                 upscaleProcess = UniversalPytorch(
                     self.upscaleMethod,

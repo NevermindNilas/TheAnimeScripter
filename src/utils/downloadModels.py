@@ -60,6 +60,7 @@ def modelsList() -> list[str]:
         "gauss",
         "gauss-directml",
         "gauss-tensorrt",
+        "figsr",
         "compact",
         "ultracompact",
         "superultracompact",
@@ -269,6 +270,9 @@ def modelsMap(
                     return "AnimeSR_v2_fp16_op20.onnx"
                 else:
                     return "AnimeSR_v2_fp32_op20.onnx"
+
+        case "figsr":
+            return "2x_enhancr_da_figsr.pth"
 
         case "compact" | "compact-directml" | "compact-tensorrt":
             if modelType == "pth":
