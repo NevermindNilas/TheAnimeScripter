@@ -5,11 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
 
-## [2.5.9] - 2026-02-21
+## [2.5.9] - 2026-02-22
 ### Added
 - A progress status for tensorrt engine generation.
 - PNG input support.
 - Added Video Stabilization support with command "--stabilize". ( WIP )
+- Added CUDA upscaling support for `figsr`. ( special thanks to UMZI for this model )
 
 ### Changed
 - Replaced Torchcodec with OpenCV as a fallback decoder.

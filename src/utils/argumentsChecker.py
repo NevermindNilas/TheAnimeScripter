@@ -648,6 +648,7 @@ def _addUpscalingOptions(argParser):
         "gauss-tensorrt",
         "gauss-directml",
         "gauss-openvino",
+        "figsr",
     ]
 
     upscaleGroup.add_argument(
