@@ -96,6 +96,13 @@ class UniversalPytorch:
 
             self.model = RTMoSR()
             self.model.load_state_dict(torch.load(modelPath))
+        elif self.upscaleMethod == "figsr":
+            from src.extraArches.figsr import FIGSR
+
+            stateDict = torch.load(modelPath, map_location="cpu", weights_only=False)
+            self.model = FIGSR(scale=self.upscaleFactor, dim=32)
+
+            self.model.load_state_dict(stateDict, strict=False)
         elif self.upscaleMethod == "gauss":
             from src.extraArches.DIS import DIS
             from safetensors.torch import load_file
