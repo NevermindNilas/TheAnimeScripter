@@ -536,6 +536,31 @@ def depth(self):
             )
 
 
+def stabilize(self):
+    """
+    Initialize and execute video stabilization processing.
+
+    Args:
+        self: VideoProcessor instance containing processing parameters
+    """
+    from src.stabilize.stabilize import VideoStabilize
+
+    VideoStabilize(
+        self.input,
+        self.output,
+        self.width,
+        self.height,
+        self.fps,
+        self.inpoint,
+        self.outpoint,
+        self.encodeMethod,
+        self.customEncoder,
+        self.benchmark,
+        self.totalFrames,
+        self.bitDepth,
+    )
+
+
 def initializeModels(self):
     """
     Initialize all AI models for the video processing pipeline.
