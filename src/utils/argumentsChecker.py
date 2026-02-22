@@ -207,6 +207,7 @@ def isAnyOtherProcessingMethodEnabled(args):
             args.upscale,
             args.segment,
             args.restore,
+            args.stabilize,
             args.sharpen,
             args.resize,
             args.dedup,
@@ -701,6 +702,9 @@ def _addVideoProcessingOptions(argParser):
     )
     processingGroup.add_argument(
         "--restore", action="store_true", help="Restore the video"
+    )
+    processingGroup.add_argument(
+        "--stabilize", action="store_true", help="Stabilize the video"
     )
 
     restoreMethods = [

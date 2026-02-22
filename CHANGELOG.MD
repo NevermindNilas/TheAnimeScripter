@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Added
 - A progress status for tensorrt engine generation.
 - PNG input support.
+- Added Video Stabilization support with command "--stabilize". ( WIP )
 
 ### Changed
 - Replaced Torchcodec with OpenCV as a fallback decoder.
@@ -29,7 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Fixed
 - About 250% less API calls to GitHub and Cloudflare to check for updates and sponsors status.
-  
+- Fixed frequent expiration of GitHub Sponsors status due to rate limits and other issues.  
 
 ## [2.5.8] - 2026-02-15
 ### New
