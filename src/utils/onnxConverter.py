@@ -122,7 +122,7 @@ def pthToOnnx(
     opset=OPSET,
     slim=True,
 ):
-    from src.spandrel import ModelLoader, ImageModelDescriptor
+    from src.spandrelCompat import ModelLoader, ImageModelDescriptor
 
     print(f"\n{'=' * 60}")
     print(f"Converting PyTorch model to ONNX: {pthPath}")

@@ -42,7 +42,7 @@ class UnifiedRestoreCuda:
         if ADOBE:
             progressState.update({"status": f"Loading restore model: {self.model}..."})
 
-        from src.spandrel import ModelLoader
+        from src.spandrelCompat import ModelLoader
 
         if self.model in ["nafnet"]:
             self.half = False

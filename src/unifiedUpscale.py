@@ -64,7 +64,7 @@ class UniversalPytorch:
                 {"status": f"Loading upscale model: {self.upscaleMethod}..."}
             )
 
-        from src.spandrel import (
+        from src.spandrelCompat import (
             ImageModelDescriptor,
             ModelLoader,
             UnsupportedDtypeError,
