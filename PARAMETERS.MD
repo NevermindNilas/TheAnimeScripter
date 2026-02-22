@@ -374,6 +374,7 @@ C:\Videos\episode3.mp4
 |-----------|------|---------|---------|-------------|
 | `--restore` | flag | False | - | **Enable denoising/restoration** — automatically enabled when `--restore_method` is specified |
 | `--restore_method` | str | list | ["anime1080fixer"] | **Restoration model(s) — accepts multiple methods for chained processing** — specifying a non-default method auto-enables restoration |
+| `--stabilize` | flag | False | - | **Enable conservative video stabilization** (translation/rotation with black border fill) |
 | `--sharpen` | flag | False | - | **Enable sharpening** |
 | `--sharpen_sens` | float | 50 | 0-100 | **Sharpening intensity** |
 

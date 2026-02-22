@@ -90,6 +90,7 @@ class VideoProcessor:
         self.depth: bool = args.depth
         self.segment: bool = args.segment
         self.objDetect: bool = args.obj_detect
+        self.stabilize: bool = args.stabilize
 
         # Processing parameters
         self.interpolateFactor: int = args.interpolate_factor
@@ -210,6 +211,11 @@ class VideoProcessor:
             from src.initializeModels import objectDetection
 
             objectDetection(self)
+        elif self.stabilize:
+            logging.info("Stabilizing video")
+            from src.initializeModels import stabilize
+
+            stabilize(self)
 
         else:
             self.start()
