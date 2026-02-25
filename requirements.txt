@@ -9,11 +9,11 @@ psutil==7.2.2
 # User interface and CLI
 inquirer==3.4.1
 colored==2.3.1
-rich==14.3.2
+rich==14.3.3
 rich-argparse==1.7.2
 
 # Ae comms
-flask-socketio==5.6.0
+flask-socketio==5.6.1
 
 # Video processing
 nelux==0.8.8
