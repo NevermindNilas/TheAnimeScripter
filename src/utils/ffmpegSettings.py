@@ -456,6 +456,55 @@ class WriteBuffer:
             os.path.join(cs.WHEREAMIRUNFROM, "preview.jpg") if enablePreview else None
         )
 
+    def _shouldUseDirectPngSingleFrame(self) -> bool:
+        return (
+            self.encode_method == "png"
+            and self.single_image_output
+            and not self.custom_encoder
+            and not self.benchmark
+        )
+
+    def _writeSinglePngDirect(self, frameTensor, needsResize: bool, multiplier: int, dtype):
+        from torch.nn import functional as F
+
+        if needsResize:
+            frameTensor = F.interpolate(
+                frameTensor,
+                size=(self.height, self.width),
+                mode="bicubic",
+                align_corners=False,
+            )
+
+        frameArray = (
+            frameTensor.squeeze(0)
+            .permute(1, 2, 0)
+            .mul(multiplier)
+            .clamp(0, multiplier)
+            .to(dtype)
+            .contiguous()
+            .cpu()
+            .numpy()
+        )
+
+        outputDir = os.path.dirname(self.output)
+        if outputDir:
+            os.makedirs(outputDir, exist_ok=True)
+
+        if frameArray.ndim == 3 and frameArray.shape[2] == 1:
+            frameArray = frameArray[:, :, 0]
+
+        cvWriteFrame = frameArray
+        if frameArray.ndim == 3 and frameArray.shape[2] == 3:
+            cvWriteFrame = cv2.cvtColor(frameArray, cv2.COLOR_RGB2BGR)
+        elif frameArray.ndim == 3 and frameArray.shape[2] == 4:
+            cvWriteFrame = cv2.cvtColor(frameArray, cv2.COLOR_RGBA2BGRA)
+
+        writeOk = cv2.imwrite(self.output, cvWriteFrame)
+        if not writeOk:
+            from PIL import Image
+
+            Image.fromarray(frameArray).save(self.output, format="PNG")
+
     def encodeSettings(self) -> list:
         """
         Simplified structure for setting input/output pix formats
@@ -773,6 +822,40 @@ class WriteBuffer:
                 logging.info(
                     f"Frame size mismatch. Frame: {initialFrame.shape[3]}x{initialFrame.shape[2]}, Output: {self.width}x{self.height}"
                 )
+
+            if self._shouldUseDirectPngSingleFrame():
+                logging.info(
+                    "Using direct single-frame PNG encoder (ffmpeg bypass)"
+                )
+
+                firstFrame = None
+                while firstFrame is None:
+                    try:
+                        firstFrame = self.writeBuffer.get(timeout=1.0)
+                    except Exception:
+                        time.sleep(0.001)
+                        continue
+
+                if firstFrame is not None:
+                    self._writeSinglePngDirect(
+                        firstFrame,
+                        needsResize=needsResize,
+                        multiplier=multiplier,
+                        dtype=dtype,
+                    )
+                    writtenFrames = 1
+
+                while True:
+                    try:
+                        frame = self.writeBuffer.get(timeout=1.0)
+                    except Exception:
+                        time.sleep(0.001)
+                        continue
+                    if frame is None:
+                        break
+
+                logging.info(f"Encoded {writtenFrames} frames")
+                return
 
             command = self.encodeSettings()
             logging.info(f"Encoding with: {' '.join(map(str, command))}")
