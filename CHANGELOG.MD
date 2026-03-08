@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
+### Added
+- N/A
+
+### Changed
+- PNG output support will now be handled by pillow / opencv instead of ffmpeg, this should result in better performance and better output quality at a significantly faster speed. ( from 7s execution time down to 3s )
+
+### Fixed
+- N/A
+
+## Adobe Edition
+### Added
+- N/A
+
+### Changed
+- Minor UI adjustments.
+- Minor Performance improvements.
+- Tweaks to a few translations.
+
+### Fixed
+- N/A
+
 
 ## [2.5.9] - 2026-02-22
 ### Added
