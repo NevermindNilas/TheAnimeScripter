@@ -3,7 +3,7 @@ torchvision==0.24.1
 opencv-python-headless==4.13.0.92
 timm==1.0.25
 onnx==1.20.0
-onnxruntime==1.24.2
+onnxruntime==1.24.3
 scenedetect[opencv]
 yt-dlp==2026.3.3
 vmaf-torch
