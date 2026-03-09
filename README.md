@@ -144,7 +144,7 @@ Use this one-liner:
 iwr -useb https://raw.githubusercontent.com/NevermindNilas/TheAnimeScripter/main/install.ps1 | iex
 ```
 
-It installs into the directory you launch it from and prompts whether that directory should be added to your user PATH.
+It installs into a `TheAnimeScripter` folder inside the directory you launch it from and prompts whether that folder should be added to your user PATH.
 
 After installation, you can use `tas --help` or `theanimescripter --help`.
 
@@ -178,19 +178,19 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 | Version               | CUDA  | TensorRT | DirectML | OpenVINO  |
 | --------------------- | :---: | :------: | :------: | :---: |
-| 4.6                   |   ✅   |    ✅     |    ✅     |   ❌   |
-| 4.15                  |   ✅   |    ✅     |    ✅     |   ❌   |
-| 4.15-lite             |   ✅   |    ✅     |    ✅     |   ❌   |
+| 4.6                   |   ✅   |    ✅     |    ✅     |   ✅   |
+| 4.15                  |   ✅   |    ✅     |    ✅     |   ✅   |
+| 4.15-lite             |   ✅   |    ✅     |    ✅     |   ✅   |
 | 4.16-lite             |   ✅   |    ❌     |    ❌     |   ❌   |
-| 4.17                  |   ✅   |    ✅     |    ✅     |   ❌   |
-| 4.18                  |   ✅   |    ✅     |    ✅     |   ❌   |
-| 4.20                  |   ✅   |    ✅     |    ✅     |   ❌   |
-| 4.21                  |   ✅   |    ✅     |    ✅     |   ❌   |
-| 4.22                  |   ✅   |    ✅     |    ✅     |   ❌   |
-| 4.22-lite             |   ✅   |    ✅     |    ✅     |   ❌   |
-| 4.25                  |   ✅   |    ✅     |    ✅     |   ❌   |
-| 4.25-heavy            |   ✅   |    ✅     |    ✅     |   ❌   |
-| Rife_Elexor (mod 4.7) |   ✅   |    ✅     |    ✅     |   ❌   |
+| 4.17                  |   ✅   |    ✅     |    ✅     |   ✅   |
+| 4.18                  |   ✅   |    ✅     |    ✅     |   ✅   |
+| 4.20                  |   ✅   |    ✅     |    ✅     |   ✅   |
+| 4.21                  |   ✅   |    ✅     |    ✅     |   ✅   |
+| 4.22                  |   ✅   |    ✅     |    ✅     |   ✅   |
+| 4.22-lite             |   ✅   |    ✅     |    ✅     |   ✅   |
+| 4.25                  |   ✅   |    ✅     |    ✅     |   ✅   |
+| 4.25-heavy            |   ✅   |    ✅     |    ✅     |   ✅   |
+| Rife_Elexor (mod 4.7) |   ✅   |    ✅     |    ✅     |   ✅   |
 
 ### 🔧 Restoration Models
 
