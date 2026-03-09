@@ -39,16 +39,10 @@ For detailed usage instructions, refer to:
 For end users on Windows, the preferred install flow is the portable bootstrap script in the repository root:
 
 ```powershell
-pwsh -ExecutionPolicy Bypass -File .\install.ps1
+iwr -useb https://raw.githubusercontent.com/NevermindNilas/TheAnimeScripter/main/install.ps1 | iex
 ```
 
 It installs the portable bundle into the directory where the script was invoked, creates `TheAnimeScripter.cmd` and `tas.cmd`, and can optionally add that directory to the user PATH with `-AddToPath`.
-
-The remote shorthand also works:
-
-```powershell
-iwr -useb https://raw.githubusercontent.com/NevermindNilas/TheAnimeScripter/main/install.ps1 | iex
-```
 
 That form prompts for PATH registration during installation.
 
