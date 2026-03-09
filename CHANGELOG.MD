@@ -5,7 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased] - YYYY-MM-DD
 ### Added
-- N/A
+- Added a Windows PowerShell one-line installer (`iwr -useb https://raw.githubusercontent.com/NevermindNilas/TheAnimeScripter/main/install.ps1 | iex`) that installs in the current directory and supports optional PATH registration.
+- Added `tas` and `theanimescripter` command aliases for CLI usage (`--help`, etc.) after install.
 
 ### Changed
 - PNG output support will now be handled by pillow / opencv instead of ffmpeg, this should result in better performance and better output quality at a significantly faster speed. ( from 7s execution time down to 3s )
