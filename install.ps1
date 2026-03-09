@@ -142,7 +142,7 @@
     }
 
     if ([string]::IsNullOrWhiteSpace($InstallPath)) {
-        $InstallPath = $location.ProviderPath
+        $InstallPath = Join-Path $location.ProviderPath "TheAnimeScripter"
     }
 
     $InstallPath = Get-NormalizedPath -Path $InstallPath
@@ -166,6 +166,7 @@
         "main.py",
         "src",
         "Scripts",
+        "tas-version-check.ps1",
         "TheAnimeScripter.cmd",
         "tas.cmd"
     )
@@ -223,17 +224,158 @@
             Copy-Item -Path $item.FullName -Destination $InstallPath -Recurse -Force
         }
 
-        $launcherContent = @"
-@echo off
-"%~dp0python.exe" "%~dp0main.py" %*
+        $versionCheckerContent = @"
+param(
+    [string]`$Repository = "NevermindNilas/TheAnimeScripter"
+)
+
+Set-StrictMode -Version Latest
+`$ErrorActionPreference = "Stop"
+
+`$installRoot = Split-Path -Parent `$MyInvocation.MyCommand.Path
+`$statePath = Join-Path `$installRoot "tas-version-state.json"
+`$messagePath = Join-Path `$installRoot "tas-update-message.txt"
+`$lockPath = Join-Path `$installRoot "tas-version-check.lock"
+`$cooldown = [TimeSpan]::FromHours(12)
+
+function Get-InstalledVersion {
+    `$versionFile = Join-Path `$installRoot "src\version.py"
+    if (-not (Test-Path `$versionFile)) {
+        return `$null
+    }
+
+    `$match = [regex]::Match((Get-Content -Path `$versionFile -Raw), '__version__\s*=\s*"([^"]+)"')
+    if (`$match.Success) {
+        return `$match.Groups[1].Value
+    }
+
+    return `$null
+}
+
+function Remove-UpdateMessage {
+    if (Test-Path `$messagePath) {
+        Remove-Item -Path `$messagePath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Set-UpdateMessage {
+    param(
+        [string]`$InstalledVersion,
+        [string]`$LatestTag,
+        [string]`$ReleaseUrl
+    )
+
+    `$message = @(
+        "[TAS] Update available: `$LatestTag (installed v`$InstalledVersion)",
+        "[TAS] Download: `$ReleaseUrl",
+        ""
+    ) -join [Environment]::NewLine
+
+    Set-Content -Path `$messagePath -Value `$message -Encoding Ascii
+}
+
+if (Test-Path `$lockPath) {
+    `$lockAge = (Get-Date).ToUniversalTime() - (Get-Item `$lockPath).LastWriteTimeUtc.ToUniversalTime()
+    if (`$lockAge -lt [TimeSpan]::FromMinutes(5)) {
+        exit 0
+    }
+
+    Remove-Item -Path `$lockPath -Force -ErrorAction SilentlyContinue
+}
+
+New-Item -ItemType File -Path `$lockPath -Force | Out-Null
+
+try {
+    `$state = `$null
+    if (Test-Path `$statePath) {
+        try {
+            `$state = Get-Content -Path `$statePath -Raw | ConvertFrom-Json
+        }
+        catch {
+            `$state = `$null
+        }
+    }
+
+    if (`$state -and `$state.LastCheckedUtc) {
+        try {
+            `$lastChecked = [DateTime]::Parse(`$state.LastCheckedUtc, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind)
+            if (((Get-Date).ToUniversalTime() - `$lastChecked.ToUniversalTime()) -lt `$cooldown) {
+                exit 0
+            }
+        }
+        catch {
+        }
+    }
+
+    `$installedVersion = Get-InstalledVersion
+    if (-not `$installedVersion) {
+        exit 0
+    }
+
+    `$headers = @{
+        "Accept"     = "application/vnd.github+json"
+        "User-Agent" = "TheAnimeScripter-Version-Check"
+    }
+
+    `$release = Invoke-RestMethod -Method Get -Uri "https://api.github.com/repos/`$Repository/releases/latest" -Headers `$headers
+    `$latestTag = if (`$release.tag_name) { `$release.tag_name } else { "" }
+    `$latestVersion = `$latestTag.TrimStart('v', 'V')
+    `$updateAvailable = `$false
+
+    if (-not [string]::IsNullOrWhiteSpace(`$latestVersion)) {
+        try {
+            `$updateAvailable = ([version]`$latestVersion -gt [version]`$installedVersion)
+        }
+        catch {
+            `$updateAvailable = (`$latestVersion -ne `$installedVersion)
+        }
+    }
+
+    if (`$updateAvailable) {
+        Set-UpdateMessage -InstalledVersion `$installedVersion -LatestTag `$latestTag -ReleaseUrl `$release.html_url
+    }
+    else {
+        Remove-UpdateMessage
+    }
+
+    [pscustomobject]@{
+        LastCheckedUtc   = (Get-Date).ToUniversalTime().ToString("o")
+        InstalledVersion = `$installedVersion
+        LatestTag        = `$latestTag
+        LatestVersion    = `$latestVersion
+        UpdateAvailable  = `$updateAvailable
+        ReleaseUrl       = `$release.html_url
+    } | ConvertTo-Json | Set-Content -Path `$statePath -Encoding Ascii
+}
+catch {
+}
+finally {
+    Remove-Item -Path `$lockPath -Force -ErrorAction SilentlyContinue
+}
 "@
 
+        $launcherContent = @"
+@echo off
+setlocal
+set "TAS_ROOT=%~dp0"
+set "TAS_NOTICE_FILE=%TAS_ROOT%tas-update-message.txt"
+set "TAS_CHECKER=%TAS_ROOT%tas-version-check.ps1"
+set "TAS_POWERSHELL=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
+
+if exist "%TAS_NOTICE_FILE%" type "%TAS_NOTICE_FILE%"
+if exist "%TAS_CHECKER%" if exist "%TAS_POWERSHELL%" start "" /B "%TAS_POWERSHELL%" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%TAS_CHECKER%"
+
+"%TAS_ROOT%python.exe" "%TAS_ROOT%main.py" %*
+"@
+
+        Set-Content -Path (Join-Path $InstallPath "tas-version-check.ps1") -Value $versionCheckerContent -Encoding Ascii
         Set-Content -Path (Join-Path $InstallPath "TheAnimeScripter.cmd") -Value $launcherContent -Encoding Ascii
         Set-Content -Path (Join-Path $InstallPath "tas.cmd") -Value $launcherContent -Encoding Ascii
 
         $requiredFiles = @(
             (Join-Path $InstallPath "python.exe"),
             (Join-Path $InstallPath "main.py"),
+            (Join-Path $InstallPath "tas-version-check.ps1"),
             (Join-Path $InstallPath "TheAnimeScripter.cmd"),
             (Join-Path $InstallPath "tas.cmd")
         )
