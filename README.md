@@ -136,6 +136,18 @@ Get the most powerful and flexible version of TAS with the command-line interfac
 
 </div>
 
+#### Windows CLI Installer
+
+Use this one-liner:
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/NevermindNilas/TheAnimeScripter/main/install.ps1 | iex
+```
+
+It installs into the directory you launch it from and prompts whether that directory should be added to your user PATH.
+
+After installation, you can use `tas --help` or `theanimescripter --help`.
+
 </div>
 
 ## 📚 Available Inputs
