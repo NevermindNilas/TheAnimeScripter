@@ -4,7 +4,7 @@ opencv-python-headless==4.13.0.92
 timm==1.0.25
 einops==0.8.2
 scenedetect[opencv]
-yt-dlp==2026.2.21
+yt-dlp==2026.3.3
 onnx==1.20.0
 openvino==2026.0.0
 onnxscript==0.6.2
