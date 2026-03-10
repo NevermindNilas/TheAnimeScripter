@@ -134,14 +134,14 @@ Get the most powerful and flexible version of TAS with the command-line interfac
 - **[⬇️ Stable Release](https://github.com/NevermindNilas/TheAnimeScripter/releases)** — Recommended for production work
 - **[⬇️ Nightly Builds](https://github.com/NevermindNilas/TAS-Nightly/releases)** — Latest features (may contain bugs)
 
-For local development, use uv to create the environment and run the CLI:
+</div>
+
+For local development, create the environment from the lockfile and run the CLI with UV:
 
 ```sh
 uv sync --extra runtime-windows-lite
 uv run python main.py -h
 ```
-
-</div>
 
 #### Windows CLI Installer
 
