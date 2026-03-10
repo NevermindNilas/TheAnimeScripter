@@ -115,3 +115,6 @@ tensorrt = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

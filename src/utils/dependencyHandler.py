@@ -16,11 +16,16 @@ from importlib.metadata import version, PackageNotFoundError
 from importlib.util import find_spec
 
 
+UV_RUNTIME_WINDOWS_CUDA = "runtime-windows-cuda"
+UV_RUNTIME_WINDOWS_LITE = "runtime-windows-lite"
+UV_RUNTIME_LINUX_CUDA = "runtime-linux-cuda"
+UV_RUNTIME_LINUX_LITE = "runtime-linux-lite"
+
 UV_EXTRA_BY_REQUIREMENTS = {
-    "extra-requirements-windows.txt": "runtime-windows-cuda",
-    "extra-requirements-windows-lite.txt": "runtime-windows-lite",
-    "extra-requirements-linux.txt": "runtime-linux-cuda",
-    "extra-requirements-linux-lite.txt": "runtime-linux-lite",
+    "extra-requirements-windows.txt": UV_RUNTIME_WINDOWS_CUDA,
+    "extra-requirements-windows-lite.txt": UV_RUNTIME_WINDOWS_LITE,
+    "extra-requirements-linux.txt": UV_RUNTIME_LINUX_CUDA,
+    "extra-requirements-linux-lite.txt": UV_RUNTIME_LINUX_LITE,
 }
 
 UV_EXTRAS = set(UV_EXTRA_BY_REQUIREMENTS.values())
@@ -40,23 +45,6 @@ def getPythonExecutable() -> str:
 def streamProcessOutput(process) -> Iterable[str]:
     for line in iter(process.stdout.readline, b""):
         yield line.decode("utf-8", errors="replace")
-
-
-def _resolveRequirementsPath(extension: str) -> Tuple[bool, str]:
-    """Resolve a requirements file path based on the Python executable and repo root."""
-    pythonPath = getPythonExecutable()
-    if not pythonPath:
-        return False, "Failed to detect Python executable path"
-
-    candidate = os.path.join(os.path.dirname(pythonPath), extension)
-    if os.path.exists(candidate):
-        return True, candidate
-
-    candidate = os.path.join(cs.WHEREAMIRUNFROM, extension)
-    if os.path.exists(candidate):
-        return True, candidate
-
-    return False, f"Requirements file not found: {candidate}"
 
 
 def _resolveUvProfile(profileSpecifier: str) -> str | None:
@@ -127,17 +115,6 @@ def _getUvProfileHash(profile: str) -> str:
                 hashMd5.update(chunk)
     hashMd5.update(profile.encode("utf-8"))
     return hashMd5.hexdigest()
-
-
-def _getExportedRequirementsPath(profileSpecifier: str) -> Tuple[str | None, str | None]:
-    uvProfile = _resolveUvProfile(profileSpecifier)
-    if not _useUvManagedDependencies(profileSpecifier) or uvProfile is None:
-        ok, requirementsPath = _resolveRequirementsPath(profileSpecifier)
-        return (requirementsPath, None) if ok else (None, requirementsPath)
-
-    uvExecutable = _resolveUvExecutable(getPythonExecutable())
-    exportedRequirements = _exportLockedRequirements(uvExecutable, uvProfile)
-    return exportedRequirements, None
 
 
 def _exportLockedRequirements(uvExecutable: str, extra: str | None) -> str:
@@ -425,15 +402,11 @@ class DependencyChecker:
                 supportsCuda, _, _ = detectGPUArchitecture()
             if cs.SYSTEM == "Windows":
                 requirementsFile = (
-                    "extra-requirements-windows.txt"
-                    if supportsCuda
-                    else "extra-requirements-windows-lite.txt"
+                    UV_RUNTIME_WINDOWS_CUDA if supportsCuda else UV_RUNTIME_WINDOWS_LITE
                 )
             else:
                 requirementsFile = (
-                    "extra-requirements-linux.txt"
-                    if supportsCuda
-                    else "extra-requirements-linux-lite.txt"
+                    UV_RUNTIME_LINUX_CUDA if supportsCuda else UV_RUNTIME_LINUX_LITE
                 )
 
         requirementsPath = requirementsFile
