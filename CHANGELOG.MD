@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Added
 - Added a Windows PowerShell one-line installer (`iwr -useb https://raw.githubusercontent.com/NevermindNilas/TheAnimeScripter/main/install.ps1 | iex`) that installs in the current directory and supports optional PATH registration.
 - Added `tas` and `theanimescripter` command aliases for CLI usage (`--help`, etc.) after install.
+- A full migration from `pip` to `uv` for dependency management, improving installation speed and reliability. This migration implied a heavy rewrite of the dependency handler and the build process, expect some issues here and there but it should be mostly smooth sailing.
 
 ### Changed
 - PNG output support will now be handled by pillow / opencv instead of ffmpeg, this should result in better performance and better output quality at a significantly faster speed. ( from 7s execution time down to 3s )

@@ -1,6 +1,0 @@
-basswood-av
-spandrel
-python-socketio
-vapoursynth
-celux
-pytorch-lightning

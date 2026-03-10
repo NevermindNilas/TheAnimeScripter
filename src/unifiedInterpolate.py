@@ -1111,7 +1111,7 @@ class RifeDirectML:
         if not os.path.exists(self.modelPath):
             if ADOBE:
                 progressState.update(
-                    {"status": f"Exporting {self.interpolateMethod} to ONNX."}
+                    {"status": f"Exporting {self.interpolateMethod} to ONNX. This may take a few minutes.   "}
                 )
             logAndPrint("Exporting model to ONNX", "green")
             inputList = [dummyInput1, dummyInput2, dummyInput3]
