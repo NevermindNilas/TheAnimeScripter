@@ -1,0 +1,117 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "theanimescripter"
+version = "2.5.9"
+description = "AI-powered video enhancement toolkit for anime and general video workflows."
+readme = "README.md"
+requires-python = "==3.13.*"
+dependencies = [
+    "setuptools==82.0.0",
+    "wheel-stub==0.5.0",
+    "numpy==2.2.6",
+    "psutil==7.2.2",
+    "inquirer==3.4.1",
+    "colored==2.3.1",
+    "rich==14.3.3",
+    "rich-argparse==1.7.2",
+    "flask-socketio==5.6.1",
+    "nelux==0.8.9; platform_system == 'Windows'",
+]
+
+[project.optional-dependencies]
+runtime-windows-cuda = [
+    "torch==2.9.1+cu130; platform_system == 'Windows'",
+    "torchvision==0.24.1+cu130; platform_system == 'Windows'",
+    "tensorrt==10.15.1.29; platform_system == 'Windows'",
+    "opencv-python-headless==4.13.0.92; platform_system == 'Windows'",
+    "timm==1.0.25; platform_system == 'Windows'",
+    "einops==0.8.2; platform_system == 'Windows'",
+    "triton-windows==3.6.0.post25; platform_system == 'Windows'",
+    "safetensors==0.7.0; platform_system == 'Windows'",
+    "scenedetect[opencv]; platform_system == 'Windows'",
+    "yt-dlp==2026.3.3; platform_system == 'Windows'",
+    "onnx==1.20.1; platform_system == 'Windows'",
+    "openvino==2026.0.0; platform_system == 'Windows'",
+    "onnxscript==0.6.2; platform_system == 'Windows'",
+    "vmaf-torch==1.1.0; platform_system == 'Windows'",
+    "onnxruntime-openvino @ https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/onnxruntime_openvino-1.23.2-cp313-cp313-win_amd64.whl ; platform_system == 'Windows'",
+]
+runtime-windows-lite = [
+    "torch==2.9.1; platform_system == 'Windows'",
+    "torchvision==0.24.1; platform_system == 'Windows'",
+    "opencv-python-headless==4.13.0.92; platform_system == 'Windows'",
+    "timm==1.0.25; platform_system == 'Windows'",
+    "einops==0.8.2; platform_system == 'Windows'",
+    "scenedetect[opencv]; platform_system == 'Windows'",
+    "yt-dlp==2026.3.3; platform_system == 'Windows'",
+    "onnx==1.20.0; platform_system == 'Windows'",
+    "openvino==2026.0.0; platform_system == 'Windows'",
+    "onnxscript==0.6.2; platform_system == 'Windows'",
+    "vmaf-torch==1.1.0; platform_system == 'Windows'",
+    "onnxruntime-openvino @ https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/onnxruntime_openvino-1.23.2-cp313-cp313-win_amd64.whl ; platform_system == 'Windows'",
+]
+runtime-linux-cuda = [
+    "torch==2.9.1+cu130; platform_system == 'Linux'",
+    "torchvision==0.24.1+cu130; platform_system == 'Linux'",
+    "tensorrt==10.15.1.29; platform_system == 'Linux'",
+    "opencv-python-headless==4.13.0.92; platform_system == 'Linux'",
+    "timm==1.0.25; platform_system == 'Linux'",
+    "onnx==1.20.0; platform_system == 'Linux'",
+    "safetensors==0.7.0; platform_system == 'Linux'",
+    "scenedetect[opencv]; platform_system == 'Linux'",
+    "yt-dlp==2026.3.3; platform_system == 'Linux'",
+    "vmaf-torch; platform_system == 'Linux'",
+    "torchcodec==0.9.1; platform_system == 'Linux'",
+]
+runtime-linux-lite = [
+    "torch==2.9.1; platform_system == 'Linux'",
+    "torchvision==0.24.1; platform_system == 'Linux'",
+    "opencv-python-headless==4.13.0.92; platform_system == 'Linux'",
+    "timm==1.0.25; platform_system == 'Linux'",
+    "onnx==1.20.0; platform_system == 'Linux'",
+    "onnxruntime==1.24.3; platform_system == 'Linux'",
+    "scenedetect[opencv]; platform_system == 'Linux'",
+    "yt-dlp==2026.3.3; platform_system == 'Linux'",
+    "vmaf-torch; platform_system == 'Linux'",
+    "torchcodec==0.9.1; platform_system == 'Linux'",
+]
+
+[tool.uv]
+conflicts = [
+    [
+        { extra = "runtime-windows-cuda" },
+        { extra = "runtime-windows-lite" },
+        { extra = "runtime-linux-cuda" },
+        { extra = "runtime-linux-lite" },
+    ],
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cu130", extra = "runtime-windows-cuda" },
+    { index = "pytorch-cu130", extra = "runtime-linux-cuda" },
+]
+torchvision = [
+    { index = "pytorch-cu130", extra = "runtime-windows-cuda" },
+    { index = "pytorch-cu130", extra = "runtime-linux-cuda" },
+]
+tensorrt = [
+    { index = "nvidia", extra = "runtime-windows-cuda" },
+    { index = "nvidia", extra = "runtime-linux-cuda" },
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
