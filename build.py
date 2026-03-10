@@ -10,22 +10,48 @@ import argparse
 
 baseDir = Path(__file__).resolve().parent
 distPath = baseDir / "dist-portable"
-requirementsPath = baseDir / "requirements.txt"
+pyprojectPath = baseDir / "pyproject.toml"
+uvLockPath = baseDir / "uv.lock"
 
-if not requirementsPath.exists():
-    raise FileNotFoundError(f"Requirements file not found: {requirementsPath}")
+if not pyprojectPath.exists():
+    raise FileNotFoundError(f"Project file not found: {pyprojectPath}")
+
+if not uvLockPath.exists():
+    raise FileNotFoundError(f"Lock file not found: {uvLockPath}")
 
 portablePythonDir = baseDir / "portable-python"
 pythonVersion = "3.13.12"
 system = platform.system()
 
 
-def runSubprocess(command, shell=False, cwd=None):
+def runSubprocess(command, shell=False, cwd=None, stdout=None, env=None):
     try:
-        subprocess.run(command, shell=shell, check=True, cwd=cwd)
+        subprocess.run(
+            command,
+            shell=shell,
+            check=True,
+            cwd=cwd,
+            stdout=stdout,
+            env=env,
+        )
     except subprocess.CalledProcessError as e:
         print(f"Error while running command {command}: {e}")
         raise
+
+
+def getUvExecutable() -> str:
+    uvExecutable = shutil.which("uv")
+    if uvExecutable is None:
+        raise FileNotFoundError(
+            "uv executable not found on PATH. Install uv before running the build."
+        )
+    return uvExecutable
+
+
+def getUvCommandEnv() -> dict[str, str]:
+    env = os.environ.copy()
+    env.setdefault("UV_PROJECT_ENVIRONMENT", str(baseDir / ".uv-build-env"))
+    return env
 
 
 def downloadPortablePython():
@@ -43,7 +69,6 @@ def downloadPortablePython():
 def downloadPortablePythonWindows():
     """Download the embeddable Python package for Windows"""
     pythonUrl = f"https://www.python.org/ftp/python/{pythonVersion}/python-{pythonVersion}-embed-amd64.zip"
-    getPiPUrl = "https://bootstrap.pypa.io/get-pip.py"
 
     pythonZip = portablePythonDir / "python.zip"
     if not pythonZip.exists():
@@ -54,11 +79,6 @@ def downloadPortablePythonWindows():
         print("Extracting Python...")
         with zipfile.ZipFile(pythonZip, "r") as zipRef:
             zipRef.extractall(portablePythonDir)
-
-    getPiPPath = portablePythonDir / "get-pip.py"
-    if not getPiPPath.exists():
-        print("Downloading get-pip.py...")
-        urllib.request.urlretrieve(getPiPUrl, getPiPPath)
 
     pthFiles = list(portablePythonDir.glob("python*._pth"))
     if pthFiles:
@@ -71,11 +91,6 @@ def downloadPortablePythonWindows():
             with open(pthFile, "w") as f:
                 f.write(content)
 
-    print("Installing pip...")
-    runSubprocess(
-        [str(portablePythonDir / "python.exe"), "get-pip.py"], cwd=portablePythonDir
-    )
-
     print("Portable Python installation complete!")
     return portablePythonDir / "python.exe"
 
@@ -84,7 +99,6 @@ def downloadPortablePythonLinux():
     """Download and setup Python for Linux"""
     # For Linux, we'll download a portable Python build or use pyenv-like approach
     pythonUrl = f"https://github.com/indygreg/python-build-standalone/releases/download/20241016/cpython-{pythonVersion}+20241016-x86_64-unknown-linux-gnu-install_only.tar.gz"
-    getPiPUrl = "https://bootstrap.pypa.io/get-pip.py"
 
     pythonTar = portablePythonDir / "python.tar.gz"
     if not pythonTar.exists():
@@ -101,30 +115,56 @@ def downloadPortablePythonLinux():
         if pythonExe.exists():
             os.chmod(pythonExe, 0o755)
 
-    getPiPPath = portablePythonDir / "get-pip.py"
-    if not getPiPPath.exists():
-        print("Downloading get-pip.py...")
-        urllib.request.urlretrieve(getPiPUrl, getPiPPath)
-
-    print("Installing pip...")
-    runSubprocess([str(pythonExe), str(getPiPPath)], cwd=portablePythonDir)
-
     print("Portable Python installation complete!")
     return pythonExe
 
 
 def installRequirements():
-    print("Installing the requirements...")
+    print("Syncing locked core requirements into the portable Python...")
 
-    if system == "Windows":
-        pipExe = portablePythonDir / "Scripts" / "pip.exe"
-    else:
-        pipExe = portablePythonDir / "bin" / "pip3"
-        if not pipExe.exists():
-            pipExe = portablePythonDir / "bin" / "pip"
+    pythonExecutable = (
+        portablePythonDir / "python.exe"
+        if system == "Windows"
+        else portablePythonDir / "bin" / "python3"
+    )
 
-    runSubprocess([str(pipExe), "install", "-r", str(requirementsPath)])
-    print("Requirements installation complete!")
+    if not pythonExecutable.exists():
+        raise FileNotFoundError(
+            f"Portable Python executable not found: {pythonExecutable}"
+        )
+
+    exportPath = portablePythonDir / "requirements-core.txt"
+    uvExecutable = getUvExecutable()
+    uvCommandEnv = getUvCommandEnv()
+
+    with open(exportPath, "w", encoding="utf-8") as exportedRequirements:
+        runSubprocess(
+            [
+                uvExecutable,
+                "export",
+                "--directory",
+                str(baseDir),
+                "--locked",
+                "--no-emit-project",
+                "--format",
+                "requirements.txt",
+            ],
+            stdout=exportedRequirements,
+            env=uvCommandEnv,
+        )
+
+    runSubprocess(
+        [
+            uvExecutable,
+            "pip",
+            "sync",
+            str(exportPath),
+            "--python",
+            str(pythonExecutable),
+        ],
+        env=uvCommandEnv,
+    )
+    print("Locked core requirements synced successfully!")
 
 
 def bundleFiles(targetDir):
@@ -150,6 +190,10 @@ def bundleFiles(targetDir):
     shutil.copytree(srcDir, srcDest)
 
     shutil.copy2(baseDir / "main.py", bundleDir / "main.py")
+    shutil.copy2(pyprojectPath, bundleDir / "pyproject.toml")
+    shutil.copy2(uvLockPath, bundleDir / "uv.lock")
+    uvExecutablePath = Path(getUvExecutable())
+    shutil.copy2(uvExecutablePath, bundleDir / uvExecutablePath.name)
 
     if system == "Linux":
         launcherScript = bundleDir / "run.sh"
@@ -176,38 +220,6 @@ exec "$PYTHON_EXE" "$SCRIPT_DIR/main.py" "$@"
         # Make the script executable
         os.chmod(launcherScript, 0o755)
         print("Created Linux launcher script: run.sh")
-
-    print("Copying requirements files...")
-    # Copy Windows requirements files
-    if (baseDir / "extra-requirements-windows.txt").exists():
-        shutil.copy2(
-            baseDir / "extra-requirements-windows.txt",
-            bundleDir / "extra-requirements-windows.txt",
-        )
-    if (baseDir / "extra-requirements-windows-lite.txt").exists():
-        shutil.copy2(
-            baseDir / "extra-requirements-windows-lite.txt",
-            bundleDir / "extra-requirements-windows-lite.txt",
-        )
-
-    # Copy Linux requirements files
-    if (baseDir / "extra-requirements-linux.txt").exists():
-        shutil.copy2(
-            baseDir / "extra-requirements-linux.txt",
-            bundleDir / "extra-requirements-linux.txt",
-        )
-    if (baseDir / "extra-requirements-linux-lite.txt").exists():
-        shutil.copy2(
-            baseDir / "extra-requirements-linux-lite.txt",
-            bundleDir / "extra-requirements-linux-lite.txt",
-        )
-
-    # Copy deprecated requirements
-    if (baseDir / "deprecated-requirements.txt").exists():
-        shutil.copy2(
-            baseDir / "deprecated-requirements.txt",
-            bundleDir / "deprecated-requirements.txt",
-        )
 
     print(f"Portable bundle created at {bundleDir}")
 
@@ -237,16 +249,16 @@ def cleanupTempFiles(targetDir):
     if system == "Windows":
         tempFiles = [
             "python.zip",
-            "get-pip.py",
             "license.txt",
             "wheel",
+            "requirements-core.txt",
         ]
     else:
         tempFiles = [
             "python.tar.gz",
-            "get-pip.py",
             "license.txt",
             "wheel",
+            "requirements-core.txt",
         ]
 
     for tempFile in tempFiles:

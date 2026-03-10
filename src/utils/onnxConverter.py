@@ -12,7 +12,7 @@ try:
 
     isOnnxSlim = True
 except ImportError:
-    print("onnxslim not found. Please install onnx-slim using: pip install onnxslim")
+    print("onnxslim not found. Please install onnx-slim using: uv pip install onnxslim")
     isOnnxSlim = False
 
 OPSET = 20

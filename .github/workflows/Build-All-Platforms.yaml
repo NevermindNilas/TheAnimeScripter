@@ -22,8 +22,6 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.13.12"
-          cache: "pip"
-          cache-dependency-path: requirements.txt
 
       - name: Extract version
         id: get_version
@@ -100,14 +98,14 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.13.12"
-          cache: "pip"
-          cache-dependency-path: requirements.txt
 
-      - name: Set up setuptools, pip and install requirements
-        run: |
-          python -m pip install --upgrade pip setuptools wheel
-          # install requirements (will be fast when cache is hit)
-          if (Test-Path requirements.txt) { python -m pip install -r requirements.txt } else { Write-Host 'requirements.txt not found, skipping'}
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Validate uv lockfile
+        run: uv lock --check
 
       - name: Run full build script
         run: python build.py
