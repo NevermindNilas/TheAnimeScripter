@@ -1102,16 +1102,16 @@ def argumentsChecker(args, outputPath, parser):
 
         if success:
             logAndPrint(
-                "Unused libraries have been removed, you can now run the script without the --cleanup argument",
+                "Dependency cache cleared. TAS no longer prunes packages from the shared Python environment.",
                 "green",
             )
             sys.exit()
         else:
             logAndPrint(
-                "Failed to remove unused libraries, please check the logs for more details",
+                "Failed to clear dependency cache, please check the logs for more details",
                 "red",
             )
-            logging.error("Failed to remove unused libraries")
+            logging.error("Failed to clear dependency cache")
             print(message)
 
     logging.info("============== Version ==============")

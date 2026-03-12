@@ -6,8 +6,8 @@ import src.constants as cs
 import json
 import hashlib
 import re
+import tomllib
 import shutil
-import tempfile
 
 from pathlib import Path
 from typing import Tuple, Iterable
@@ -20,6 +20,24 @@ UV_RUNTIME_WINDOWS_CUDA = "runtime-windows-cuda"
 UV_RUNTIME_WINDOWS_LITE = "runtime-windows-lite"
 UV_RUNTIME_LINUX_CUDA = "runtime-linux-cuda"
 UV_RUNTIME_LINUX_LITE = "runtime-linux-lite"
+
+KNOWN_MODULE_ALIASES = {
+    "opencv-python": "cv2",
+    "opencv-python-headless": "cv2",
+    "Pillow": "PIL",
+    "PyYAML": "yaml",
+    "scikit-image": "skimage",
+    "scikit-learn": "sklearn",
+    "onnxruntime-gpu": "onnxruntime",
+    "onnxruntime-directml": "onnxruntime",
+    "onnxruntime-openvino": "onnxruntime",
+    "imageio-ffmpeg": "imageio_ffmpeg",
+    "tensorrt": "tensorrt",
+    "torch": "torch",
+    "torchvision": "torchvision",
+    "torchaudio": "torchaudio",
+    "triton-windows": "triton",
+}
 
 UV_EXTRA_BY_REQUIREMENTS = {
     "extra-requirements-windows.txt": UV_RUNTIME_WINDOWS_CUDA,
@@ -60,19 +78,21 @@ def _resolveUvProfile(profileSpecifier: str) -> str | None:
 
 
 def _getUvLockPath() -> Path:
-    return Path(cs.WHEREAMIRUNFROM) / "uv.lock"
+    return _getRuntimeRoot() / "uv.lock"
 
 
 def _getPyprojectPath() -> Path:
-    return Path(cs.WHEREAMIRUNFROM) / "pyproject.toml"
+    return _getRuntimeRoot() / "pyproject.toml"
 
 
-def _useUvManagedDependencies(profileSpecifier: str) -> bool:
-    return (
-        _resolveUvProfile(profileSpecifier) is not None
-        and _getUvLockPath().exists()
-        and _getPyprojectPath().exists()
-    )
+def _getRuntimeRoot() -> Path:
+    if cs.WHEREAMIRUNFROM:
+        return Path(cs.WHEREAMIRUNFROM)
+    return Path(__file__).resolve().parents[2]
+
+
+def _resolveUvExtra(extension: str) -> str | None:
+    return _resolveUvProfile(extension)
 
 
 def _resolveUvExecutable(pythonPath: str) -> str:
@@ -80,9 +100,16 @@ def _resolveUvExecutable(pythonPath: str) -> str:
     pythonDir = Path(pythonPath).resolve().parent
 
     if os.name == "nt":
-        candidates.extend([pythonDir / "uv.exe", Path(cs.WHEREAMIRUNFROM) / "uv.exe"])
+        candidates.extend(
+            [
+                pythonDir / "uv.exe",
+                pythonDir / "uv.EXE",
+                _getRuntimeRoot() / "uv.exe",
+                _getRuntimeRoot() / "uv.EXE",
+            ]
+        )
     else:
-        candidates.extend([pythonDir / "uv", Path(cs.WHEREAMIRUNFROM) / "uv"])
+        candidates.extend([pythonDir / "uv", _getRuntimeRoot() / "uv"])
 
     for candidate in candidates:
         if candidate.exists():
@@ -98,74 +125,192 @@ def _resolveUvExecutable(pythonPath: str) -> str:
 
 
 def _getUvCommandEnv() -> dict[str, str]:
-    env = os.environ.copy()
-    env.setdefault("UV_PROJECT_ENVIRONMENT", os.path.join(cs.WHEREAMIRUNFROM, ".uv-runtime-env"))
-    return env
+    return os.environ.copy()
 
 
-def _resolveUvExtra(extension: str) -> str | None:
-    return _resolveUvProfile(extension)
+def _loadPyprojectMetadata() -> dict:
+    with open(_getPyprojectPath(), "rb") as fileHandle:
+        return tomllib.load(fileHandle)
 
 
-def _getUvProfileHash(profile: str) -> str:
+def _requirementAppliesToCurrentEnvironment(specifier: str) -> bool:
+    try:
+        from packaging.markers import default_environment
+        from packaging.requirements import Requirement
+
+        requirement = Requirement(specifier)
+        if requirement.marker is None:
+            return True
+        return requirement.marker.evaluate(default_environment())
+    except Exception:
+        if ";" not in specifier:
+            return True
+
+        marker = specifier.split(";", 1)[1].strip().lower()
+        if "platform_system" not in marker:
+            return True
+        if "windows" in marker:
+            return cs.SYSTEM == "Windows"
+        if "linux" in marker:
+            return cs.SYSTEM == "Linux"
+        return True
+
+
+def _getSelectedDependencySpecs(profileSpecifier: str) -> list[str]:
+    metadata = _loadPyprojectMetadata()
+    projectMetadata = metadata.get("project", {})
+
+    dependencySpecs = list(projectMetadata.get("dependencies", []))
+    profile = _resolveUvProfile(profileSpecifier)
+    if profile is not None:
+        dependencySpecs.extend(
+            projectMetadata.get("optional-dependencies", {}).get(profile, [])
+        )
+
+    return [
+        specifier
+        for specifier in dependencySpecs
+        if _requirementAppliesToCurrentEnvironment(specifier)
+    ]
+
+
+def _getDependencySelectionHash(profile: str | None) -> str:
     hashMd5 = hashlib.md5()
-    for path in (_getPyprojectPath(), _getUvLockPath()):
-        with open(path, "rb") as fileHandle:
-            for chunk in iter(lambda: fileHandle.read(4096), b""):
-                hashMd5.update(chunk)
-    hashMd5.update(profile.encode("utf-8"))
+    with open(_getPyprojectPath(), "rb") as fileHandle:
+        for chunk in iter(lambda: fileHandle.read(4096), b""):
+            hashMd5.update(chunk)
+    hashMd5.update((profile or "base").encode("utf-8"))
     return hashMd5.hexdigest()
 
 
-def _exportLockedRequirements(uvExecutable: str, extra: str | None) -> str:
-    exportCommand = [
-        uvExecutable,
-        "export",
-        "--directory",
-        cs.WHEREAMIRUNFROM,
-        "--locked",
-        "--no-emit-project",
-        "--format",
-        "requirements.txt",
-    ]
+def _parseRequirementName(specifier: str) -> str | None:
+    try:
+        from packaging.requirements import Requirement
 
-    if extra is not None:
-        exportCommand.extend(["--extra", extra])
-
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".txt", delete=False, encoding="utf-8"
-    ) as exportedRequirements:
-        subprocess.run(
-            exportCommand,
-            check=True,
-            stdout=exportedRequirements,
-            env=_getUvCommandEnv(),
-        )
-        return exportedRequirements.name
+        return Requirement(specifier).name
+    except Exception:
+        match = re.match(r"^([A-Za-z0-9._-]+)", specifier)
+        return match.group(1) if match else None
 
 
-def _runUvSync(pythonPath: str, extra: str | None, action: str) -> Tuple[bool, str]:
-    """Run uv pip sync with streamed log output and return (success, message)."""
-    exportedRequirements = None
+def _versionSatisfiesRequirement(specifier: str, installedVersion: str) -> bool:
+    try:
+        from packaging.requirements import Requirement
+
+        requirement = Requirement(specifier)
+        if not requirement.specifier:
+            return True
+        return requirement.specifier.contains(installedVersion, prereleases=True)
+    except Exception:
+        return True
+
+
+def _appendUnique(items: list[str], value: str):
+    if value not in items:
+        items.append(value)
+
+
+def _stripRequirementMarker(specifier: str) -> str:
+    return specifier.split(";", 1)[0].strip()
+
+
+def _getUvExtraIndexUrls(
+    profile: str | None, dependencySpecs: list[str]
+) -> list[str]:
+    if profile is None:
+        return []
+
+    metadata = _loadPyprojectMetadata()
+    uvMetadata = metadata.get("tool", {}).get("uv", {})
+    indexes = {
+        indexEntry.get("name"): indexEntry.get("url")
+        for indexEntry in uvMetadata.get("index", [])
+        if indexEntry.get("name") and indexEntry.get("url")
+    }
+
+    requiredPackages = {
+        _parseRequirementName(specifier)
+        for specifier in dependencySpecs
+        if _parseRequirementName(specifier)
+    }
+
+    extraIndexUrls: list[str] = []
+    for packageName in requiredPackages:
+        sourceEntries = uvMetadata.get("sources", {}).get(packageName, [])
+        if isinstance(sourceEntries, dict):
+            sourceEntries = [sourceEntries]
+
+        for sourceEntry in sourceEntries:
+            if sourceEntry.get("extra") != profile:
+                continue
+
+            indexUrl = indexes.get(sourceEntry.get("index"))
+            if indexUrl:
+                _appendUnique(extraIndexUrls, indexUrl)
+
+    return extraIndexUrls
+
+
+def _collectPendingDependencySpecs(
+    dependencySpecs: list[str], moduleAliases: dict[str, str] | None = None
+) -> tuple[list[str], list[tuple[str, str, str]], list[str]]:
+    moduleAliases = moduleAliases or {}
+    pendingSpecs: list[str] = []
+    versionMismatches: list[tuple[str, str, str]] = []
+    notImportable: list[str] = []
+
+    for specifier in dependencySpecs:
+        requirementName = _parseRequirementName(specifier)
+        if not requirementName:
+            continue
+
+        try:
+            installedVersion = version(requirementName)
+        except PackageNotFoundError:
+            _appendUnique(pendingSpecs, specifier)
+            continue
+
+        if not _versionSatisfiesRequirement(specifier, installedVersion):
+            versionMismatches.append((requirementName, installedVersion, specifier))
+            _appendUnique(pendingSpecs, specifier)
+            continue
+
+        moduleName = moduleAliases.get(requirementName, requirementName.replace("-", "_"))
+        if moduleName and find_spec(moduleName) is None:
+            notImportable.append(moduleName)
+            _appendUnique(pendingSpecs, specifier)
+
+    return pendingSpecs, versionMismatches, notImportable
+
+
+def _runUvInstall(
+    pythonPath: str, dependencySpecs: list[str], extra: str | None
+) -> Tuple[bool, str]:
     try:
         uvExecutable = _resolveUvExecutable(pythonPath)
-        exportedRequirements = _exportLockedRequirements(uvExecutable, extra)
+        installSpecs = [_stripRequirementMarker(specifier) for specifier in dependencySpecs]
+        extraIndexUrls = _getUvExtraIndexUrls(extra, dependencySpecs)
+
+        installCommand = [
+            uvExecutable,
+            "pip",
+            "install",
+            "--python",
+            pythonPath,
+            *installSpecs,
+        ]
+
+        for indexUrl in extraIndexUrls:
+            installCommand.extend(["--extra-index-url", indexUrl])
 
         logging.info("Using Python executable: %s", pythonPath)
         logging.info("Using uv executable: %s", uvExecutable)
-        logging.info("Running uv sync action: %s", action)
-
-        syncCommand = [
-            uvExecutable,
-            "pip",
-            "sync",
-            exportedRequirements,
-            "--python",
-            pythonPath,
-        ]
+        logging.info(
+            "Running uv pip install for %d dependency specifiers", len(dependencySpecs)
+        )
 
         process = subprocess.Popen(
-            syncCommand,
+            installCommand,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             env=_getUvCommandEnv(),
@@ -178,65 +323,72 @@ def _runUvSync(pythonPath: str, extra: str | None, action: str) -> Tuple[bool, s
             process.stdout.close()
 
         returnCode = process.wait()
-
         if returnCode != 0:
-            errorMsg = f"Error {action}ing locked dependencies (exit code: {returnCode})"
+            errorMsg = f"Error installing dependencies (exit code: {returnCode})"
             logging.error(errorMsg)
             print(errorMsg)
             return False, errorMsg
 
-        targetDescription = extra or "base environment"
-        return True, f"Successfully synced locked dependencies for {targetDescription}"
+        return True, "Successfully installed runtime dependencies"
     except Exception as e:
-        errorMsg = f"Error {action}ing locked dependencies: {str(e)}"
+        errorMsg = f"Error installing dependencies: {str(e)}"
         logging.error(errorMsg)
         print(errorMsg)
         return False, errorMsg
-    finally:
-        if exportedRequirements and os.path.exists(exportedRequirements):
-            try:
-                os.remove(exportedRequirements)
-            except OSError:
-                logging.warning(
-                    "Failed to remove temporary exported requirements file: %s",
-                    exportedRequirements,
-                )
 
 
 def uninstallDependencies(extension: str = "") -> Tuple[bool, str]:
-    """Reset the runtime environment back to the locked base dependency set.
+    """Disable destructive runtime cleanup for shared Python environments.
     Args:
         extension (str): Legacy profile specifier retained for compatibility."""
 
-    pythonPath = getPythonExecutable()
+    cachePath = _getRuntimeRoot() / ".dependencyCache.json"
+    if cachePath.exists():
+        try:
+            cachePath.unlink()
+        except OSError as e:
+            return False, f"Failed to clear dependency cache: {e}"
 
-    logMessage = (
-        "Resetting runtime environment to the locked base dependency set"
-    )
+    logMessage = "Dependency cleanup is disabled; cleared TAS dependency cache only"
     logging.info(logMessage)
     print(logMessage)
-
-    return _runUvSync(pythonPath, None, "uninstall")
+    return True, logMessage
 
 
 def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[bool, str]:
     """
-    Sync a locked runtime dependency profile into the current environment.
+    Ensure the selected runtime dependencies exist in the current environment.
 
     Returns:
         Tuple[bool, str]: Success status and message
     """
     pythonPath = getPythonExecutable()
 
-    uvExtra = _resolveUvExtra(extension)
-    if uvExtra is None:
-        return False, f"Unsupported dependency profile for uv sync: {extension}"
+    dependencySet = _resolveUvExtra(extension)
+    if dependencySet is None:
+        return False, f"Unsupported runtime dependency set: {extension}"
 
-    logMessage = f"Syncing locked runtime profile {uvExtra}"
+    dependencySpecs = _getSelectedDependencySpecs(extension)
+    pendingSpecs, versionMismatches, notImportable = _collectPendingDependencySpecs(
+        dependencySpecs,
+        moduleAliases=KNOWN_MODULE_ALIASES,
+    )
+
+    if not pendingSpecs:
+        return True, f"Runtime dependencies already satisfied for {dependencySet}"
+
+    logMessage = (
+        f"Installing {len(pendingSpecs)} runtime dependencies for {dependencySet}"
+    )
     logging.info(logMessage)
     print(logMessage)
 
-    success, message = _runUvSync(pythonPath, uvExtra, "install")
+    if versionMismatches:
+        logging.info("Version mismatches detected before install: %s", versionMismatches)
+    if notImportable:
+        logging.info("Broken imports detected before install: %s", notImportable)
+
+    success, message = _runUvInstall(pythonPath, pendingSpecs, dependencySet)
 
     """
     if success and isNvidia:
@@ -251,34 +403,19 @@ def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[boo
 
 class DependencyChecker:
     def __init__(self):
-        self.cachePath = Path(cs.WHEREAMIRUNFROM) / ".dependencyCache.json"
+        self.cachePath = _getRuntimeRoot() / ".dependencyCache.json"
         self._cache = None
         self._requirementsHash = {}
-        self.knownAliases = {
-            "opencv-python": "cv2",
-            "opencv-python-headless": "cv2",
-            "Pillow": "PIL",
-            "PyYAML": "yaml",
-            "scikit-image": "skimage",
-            "scikit-learn": "sklearn",
-            "onnxruntime-gpu": "onnxruntime",
-            "onnxruntime-directml": "onnxruntime",
-            "imageio-ffmpeg": "imageio_ffmpeg",
-            "tensorrt": "tensorrt",
-            "torch": "torch",
-            "torchvision": "torchvision",
-            "torchaudio": "torchaudio",
-        }
+        self.knownAliases = dict(KNOWN_MODULE_ALIASES)
 
     def needsUpdate(self, requirementsPath):
         """Check if dependencies need updating using hash + no-import presence checks"""
         cache = self._loadCache()
 
         uvProfile = _resolveUvProfile(requirementsPath)
-        exportedRequirements = None
 
-        if _useUvManagedDependencies(requirementsPath) and uvProfile is not None:
-            currentHash = _getUvProfileHash(uvProfile)
+        if uvProfile is not None and _getPyprojectPath().exists():
+            currentHash = _getDependencySelectionHash(uvProfile)
 
             if currentHash != cache.get("requirements_hash"):
                 return True
@@ -292,23 +429,11 @@ class DependencyChecker:
             if cache.get("python_version") != sys.version:
                 return True
 
-            try:
-                uvExecutable = _resolveUvExecutable(getPythonExecutable())
-                exportedRequirements = _exportLockedRequirements(uvExecutable, uvProfile)
-                missing, wrongVersion, notImportable = self.checkRequirementsInstalled(
-                    exportedRequirements,
-                    moduleAliases=self.knownAliases,
-                    enforceVersions=False,
-                )
-            finally:
-                if exportedRequirements and os.path.exists(exportedRequirements):
-                    try:
-                        os.remove(exportedRequirements)
-                    except OSError:
-                        logging.warning(
-                            "Failed to remove temporary exported requirements file: %s",
-                            exportedRequirements,
-                        )
+            missing, wrongVersion, notImportable = self.checkRequirementsInstalled(
+                dependencySpecs=_getSelectedDependencySpecs(requirementsPath),
+                moduleAliases=self.knownAliases,
+                enforceVersions=True,
+            )
 
             if missing:
                 logging.info(f"Missing distributions detected: {missing}")
@@ -319,9 +444,10 @@ class DependencyChecker:
                 return True
 
             if notImportable:
-                logging.debug(
+                logging.info(
                     f"Distributions present but modules not importable via expected names: {notImportable}"
                 )
+                return True
 
             return False
 
@@ -347,7 +473,7 @@ class DependencyChecker:
         missing, wrongVersion, notImportable = self.checkRequirementsInstalled(
             requirementsPath,
             moduleAliases=self.knownAliases,
-            enforceVersions=False,
+            enforceVersions=True,
         )
 
         if missing:
@@ -359,9 +485,10 @@ class DependencyChecker:
             return True
 
         if notImportable:
-            logging.debug(
+            logging.info(
                 f"Distributions present but modules not importable via expected names: {notImportable}"
             )
+            return True
 
         return False
 
@@ -369,8 +496,8 @@ class DependencyChecker:
         """Update cache after successful installation"""
         uvProfile = _resolveUvProfile(requirementsPath)
         requirementsHash = (
-            _getUvProfileHash(uvProfile)
-            if _useUvManagedDependencies(requirementsPath) and uvProfile is not None
+            _getDependencySelectionHash(uvProfile)
+            if uvProfile is not None and _getPyprojectPath().exists()
             else self._getFileHashCached(requirementsPath)
         )
 
@@ -411,8 +538,6 @@ class DependencyChecker:
 
         requirementsPath = requirementsFile
 
-        self.uninstallDeprecatedDependencies()
-
         logAndPrint("Forcing full dependency download...", "yellow")
         # If requirementsFile is provided explicitly, avoid referencing undefined isNvidia
         try:
@@ -433,8 +558,30 @@ class DependencyChecker:
             self.updateCache(requirementsPath)
             return True
 
-    def iterRequirements(self, requirementsPath: str):
-        """Yield (name, rawSpecifier) pairs from an exported requirements file, ignoring comments, includes, and URLs."""
+    def iterRequirements(
+        self,
+        requirementsPath: str | None = None,
+        dependencySpecs: list[str] | None = None,
+    ):
+        """Yield (name, rawSpecifier) pairs from requirement specifiers or requirements files."""
+        if dependencySpecs is not None:
+            for specifier in dependencySpecs:
+                name = _parseRequirementName(specifier)
+                if not name:
+                    continue
+
+                try:
+                    from packaging.requirements import Requirement
+
+                    requirement = Requirement(specifier)
+                    yield requirement.name, str(requirement.specifier)
+                except Exception:
+                    yield name, specifier[len(name) :].strip()
+            return
+
+        if requirementsPath is None:
+            return
+
         try:
             with open(requirementsPath, "r", encoding="utf-8") as f:
                 for raw in f:
@@ -464,7 +611,8 @@ class DependencyChecker:
 
     def checkRequirementsInstalled(
         self,
-        requirementsPath: str,
+        requirementsPath: str | None = None,
+        dependencySpecs: list[str] | None = None,
         moduleAliases: dict | None = None,
         enforceVersions: bool = False,
     ):
@@ -479,30 +627,26 @@ class DependencyChecker:
         wrongVersion: list[tuple[str, str, str]] = []
         notImportable: list[str] = []
 
-        try:
-            from packaging.requirements import Requirement
-
-            havePackaging = True
-        except Exception:
-            havePackaging = False
-
-        for name, rawSpec in self.iterRequirements(requirementsPath):
+        for name, rawSpec in self.iterRequirements(
+            requirementsPath, dependencySpecs=dependencySpecs
+        ):
             try:
                 installedVer = version(name)
             except PackageNotFoundError:
                 missing.append(name)
                 continue
 
-            if enforceVersions and havePackaging:
-                try:
-                    req = Requirement(f"{name}{rawSpec}")
-                    if req.specifier and not req.specifier.contains(
-                        installedVer, prereleases=True
-                    ):
-                        wrongVersion.append((name, installedVer, str(req.specifier)))
-                except Exception:
-                    # Ignore unparsable spec lines gracefully
-                    pass
+            if enforceVersions and rawSpec:
+                fullSpecifier = f"{name}{rawSpec}" if not dependencySpecs else next(
+                    (
+                        specifier
+                        for specifier in dependencySpecs
+                        if _parseRequirementName(specifier) == name
+                    ),
+                    f"{name}{rawSpec}",
+                )
+                if not _versionSatisfiesRequirement(fullSpecifier, installedVer):
+                    wrongVersion.append((name, installedVer, rawSpec))
 
             # Optional: module importability check without importing heavy libs
             modName = moduleAliases.get(name, name.replace("-", "_"))
@@ -553,27 +697,27 @@ class DependencyChecker:
 
     def uninstallDeprecatedDependencies(self):
         """
-        Reset the runtime environment before syncing the selected locked profile.
+        Cleanup no longer prunes the shared Python environment.
         """
         logAndPrint(
-            "Resetting environment before syncing the selected runtime profile...",
+            "Dependency cleanup is disabled for shared Python environments; clearing cache only...",
             "yellow",
         )
         success, message = uninstallDependencies()
 
         if not success:
             logAndPrint(
-                f"Failed to uninstall deprecated dependencies: {message}", "red"
+                f"Failed to clear dependency cache: {message}", "red"
             )
             return False
         else:
-            logAndPrint("Successfully uninstalled deprecated dependencies", "green")
+            logAndPrint("Successfully cleared dependency cache", "green")
             return True
 
 
 def uninstallDeprecatedDependenciesStandalone() -> Tuple[bool, str]:
     """
-    Standalone helper to reset the runtime environment before a locked sync.
+    Standalone helper for non-destructive dependency cleanup.
 
     Returns:
         Tuple[bool, str]: Success status and message
@@ -582,11 +726,11 @@ def uninstallDeprecatedDependenciesStandalone() -> Tuple[bool, str]:
     try:
         success = checker.uninstallDeprecatedDependencies()
         if success:
-            return True, "Successfully uninstalled deprecated dependencies"
+            return True, "Successfully cleared dependency cache"
         else:
-            return False, "Failed to uninstall deprecated dependencies"
+            return False, "Failed to clear dependency cache"
     except Exception as e:
-        errorMsg = f"Error during deprecated dependencies uninstall: {str(e)}"
+        errorMsg = f"Error while clearing dependency cache: {str(e)}"
         logging.error(errorMsg)
         return False, errorMsg
 
