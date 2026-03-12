@@ -19,8 +19,9 @@ from importlib import import_module
 from pathlib import Path
 
 import yapf
-from addict import Dict
 from yapf.yapflib.yapf_api import FormatCode
+from src.depth.attr_dict import AttrDict as Dict
+
 
 # from .misc import import_modules_from_strings
 # from .path import check_file_exist
