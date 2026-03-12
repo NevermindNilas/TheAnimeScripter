@@ -13,7 +13,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - PNG output support will now be handled by pillow / opencv instead of ffmpeg, this should result in better performance and better output quality at a significantly faster speed. ( from 7s execution time down to 3s )
 
 ### Fixed
-- N/A
+- Fixed an issue where the dependency handler would not properly handle certain edge cases when installing or uninstalling dependencies.
+- Fixed an issue where the dependency handler would faulty trigger a dependency installation / check due to a false positive.
+- (NELUX FIX) Fixed an issue where NVDEC caused Cuda Race conditions when the consumer was also utilizing the frames/tensors for pre-processing the frames.
+- (NELUX FIX) Fixed an issue where OpenCV returned frames caused stuttering / freezing of the first X initial frames due to frame queing issues.
+
+### Known issues
+- NVENC Nelux encoders can have some stuttering / freezing in the first few frames due to the way the frames are queued and processed, this is a known issue that I'm actively working on fixing. ( Cuda Race condition, nelux needs to bep patched )
+- The new dependency handler is still a work in progress and may have some edge cases that are not properly handled, if you encounter any issues with dependencies, please report them to me so I can fix them.
 
 ## Adobe Edition
 ### Added
@@ -25,7 +32,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Tweaks to a few translations.
 
 ### Fixed
-- N/A
+- Fixed an issue where the UI would faulty display a red box around Video Stabilization.
+- Fixed a regression in the queue handler, mostly related to the progress bar not updating properly.
+  
 
 
 ## [2.5.9] - 2026-02-22
