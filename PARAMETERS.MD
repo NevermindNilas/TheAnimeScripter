@@ -424,6 +424,7 @@ C:\Videos\episode3.mp4
 | **og_small_v2** | ⚡ | ⭐⭐⭐⭐ | 3GB | Original implementation | CUDA, TRT, OpenVINO |
 | **og_base_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 5GB | Original quality | CUDA, TRT, OpenVINO |
 | **og_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Original maximum | CUDA, TRT, OpenVINO |
+| **og_large_v3** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Original maximum v3 | CUDA |
 
 ### 🎯 Object Detection
 

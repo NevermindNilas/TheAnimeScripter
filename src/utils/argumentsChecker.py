@@ -846,6 +846,7 @@ def _addDepthOptions(argParser):
         "og_distill_large_v2-tensorrt",
         "small_v3",
         "base_v3",
+        "og_large_v3",
         "large_v3",
         "giant_v3",
         "small_v3-directml",
