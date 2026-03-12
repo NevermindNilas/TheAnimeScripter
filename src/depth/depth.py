@@ -1,10 +1,13 @@
 import os
+import sys
+os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
 import torch
 import logging
 import numpy as np
 import torch.nn.functional as F
 import cv2
+import importlib
 
 from src.utils.logAndPrint import logAndPrint
 from concurrent.futures import ThreadPoolExecutor
@@ -29,24 +32,27 @@ STDTENSOR = (
 )
 
 
-def calculateAspectRatio(width, height, depthQuality="high"):
+def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
+    if isV3:
+        if depthQuality == "high":
+            return ((max(width, height) + 13) // 14) * 14
+        if depthQuality == "medium":
+            return 700
+        return 518
+
     if depthQuality == "high":
         # Whilst this doesn't necessarily allign with the model, it produces
         # sharper results at the cost of performance and some accuracy loss.
-        newWidth = ((width + 13) // 14) * 14
         newHeight = ((height + 13) // 14) * 14
-    elif depthQuality == "medium":
-        # Should be preferred through and through
-        newHeight = 700
-        newWidth = 700
+        newWidth = ((width + 13) // 14) * 14
     else:
-        # Depth quality low
-        newHeight = 518
-        newWidth = 518
+        # I'd suggest 700px as a good middle ground for resizing
+        size = 700 if depthQuality == "medium" else 518
+        newHeight = size
+        newWidth = size
 
     logging.info(f"Depth Padding: {newWidth}x{newHeight}")
     return newHeight, newWidth
-
 
 class DepthCuda:
     def __init__(
@@ -1018,6 +1024,111 @@ class OGDepthV2CUDA:
 
         self.output.release()
 
+
+class OGDepthV3Cuda(OGDepthV2CUDA):
+    def handleModels(self):
+        from . import depth_anything_3 as depth_anything_3_pkg
+
+        sys.modules.setdefault("depth_anything_3", depth_anything_3_pkg)
+        MonocularDepthAnything3 = importlib.import_module("depth_anything_3.mono").MonocularDepthAnything3
+        toDownload = self.depth_method
+        modelMap = {
+            "small_v3": "da3-small",
+            "base_v3": "da3-base",
+            "og_large_v3": "da3metric-large",
+        }
+        modelName = modelMap[self.depth_method]
+
+        self.filename = modelsMap(model=toDownload, modelType="pth", half=self.half)
+
+        if not os.path.exists(os.path.join(weightsDir, toDownload, self.filename)):
+            modelPath = downloadModels(
+                model=toDownload,
+                half=self.half,
+                modelType="pth",
+            )
+        else:
+            modelPath = os.path.join(weightsDir, toDownload, self.filename)
+
+        self.model = MonocularDepthAnything3.from_pretrained(
+            modelPath,
+            model_name=modelName,
+            strict=False,
+        ).to(checker.device)
+
+        self.newHeight, self.newWidth = calculateAspectRatio(
+            self.width, self.height, self.depthQuality
+        )
+        self.processRes = calculateAspectRatio(
+            self.width, self.height, self.depthQuality, True
+        )
+        self.processResMethod = "lower_bound_resize" if self.depthQuality == "high" else "upper_bound_resize"
+        
+        if self.compileMode != "default":
+            try:
+                if self.compileMode == "max":
+                    self.model.compile(mode="max-autotune-no-cudagraphs")
+                elif self.compileMode == "max-graphs":
+                    self.model.compile(
+                        mode="max-autotune-no-cudagraphs", fullgraph=True
+                    )
+            except Exception as e:
+                logging.error(
+                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}"
+                )
+                logAndPrint(
+                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}",
+                    "red",
+                )
+
+            self.compileMode = "default"
+
+    @torch.inference_mode()
+    def processFrame(self, frame):
+        try:
+            depth = self.model.infer_image(
+                frame,
+                process_res=self.processRes,
+                process_res_method=self.processResMethod,
+            )
+            depth = np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0)
+            validMask = depth > 0
+
+            if validMask.sum() <= 10:
+                gray = np.zeros(depth.shape, dtype=np.uint8)
+                self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
+
+            disparity = np.zeros_like(depth, dtype=np.float32)
+            disparity[validMask] = 1.0 / depth[validMask]
+
+            disp_min = np.percentile(disparity[validMask], 2)
+            disp_max = np.percentile(disparity[validMask], 98)
+            if disp_min == disp_max:
+                disp_min -= 1e-6
+                disp_max += 1e-6
+
+            gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
+            gray = (gray * 255.0).astype(np.uint8)
+            self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
+        except Exception as e:
+            logging.exception(f"Something went wrong while processing the frame, {e}")
+
+    def encodeThread(self):
+        while True:
+            frame = self.encodeBuffer.get()
+            if frame is None:
+                break
+            if frame.ndim == 2:
+                frame = np.stack([frame] * 3, axis=-1)
+            if frame.shape[1] != self.width or frame.shape[0] != self.height:
+                frame = cv2.resize(
+                    frame,
+                    (self.width, self.height),
+                    interpolation=cv2.INTER_LINEAR,
+                )
+            self.output.write(frame)
+
+        self.output.release()
 
 
 class OGDepthV2TensorRT:

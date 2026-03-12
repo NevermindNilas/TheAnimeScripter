@@ -180,6 +180,7 @@ def modelsList() -> list[str]:
         "yolov9_large-tensorrt",
         "small_v3",
         "base_v3",
+        "og_large_v3",
         "small_v3-directml",
         "base_v3-directml",
         "small_v3-tensorrt",
@@ -935,6 +936,10 @@ def modelsMap(
         case "base_v3":
             if modelType == "pth":
                 return "depth_anything_v3_vitb.safetensors"
+
+        case "og_large_v3":
+            if modelType == "pth":
+                return "depth_anything_v3_vitl.safetensors"
 
         case "small_v3-directml" | "small_v3-tensorrt":
             if half:

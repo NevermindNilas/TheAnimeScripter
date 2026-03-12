@@ -450,10 +450,10 @@ def depth(self):
                 self.depthQuality,
             )
 
-        case "small_v3" | "base_v3":
-            from src.depth.depth import OGDepthV3CUDA
+        case "small_v3" | "base_v3" | "og_large_v3":
+            from src.depth.depth import OGDepthV3Cuda
 
-            OGDepthV3CUDA(
+            OGDepthV3Cuda(
                 self.input,
                 self.output,
                 self.width,
