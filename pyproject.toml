@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "theanimescripter"
-version = "2.5.9"
+version = "2.5.10"
 description = "AI-powered video enhancement toolkit for anime and general video workflows."
 readme = "README.md"
 requires-python = "==3.13.*"
