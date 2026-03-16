@@ -1311,11 +1311,11 @@ opencv = [
 
 [[package]]
 name = "setuptools"
-version = "82.0.0"
+version = "82.0.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/82/f3/748f4d6f65d1756b9ae577f329c951cda23fb900e4de9f70900ced962085/setuptools-82.0.0.tar.gz", hash = "sha256:22e0a2d69474c6ae4feb01951cb69d515ed23728cf96d05513d36e42b62b37cb", size = 1144893, upload-time = "2026-02-08T15:08:40.206Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4f/db/cfac1baf10650ab4d1c111714410d2fbb77ac5a616db26775db562c8fab2/setuptools-82.0.1.tar.gz", hash = "sha256:7d872682c5d01cfde07da7bccc7b65469d3dca203318515ada1de5eda35efbf9", size = 1152316, upload-time = "2026-03-09T12:47:17.221Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e1/c6/76dc613121b793286a3f91621d7b75a2b493e0390ddca50f11993eadf192/setuptools-82.0.0-py3-none-any.whl", hash = "sha256:70b18734b607bd1da571d097d236cfcfacaf01de45717d59e6e04b96877532e0", size = 1003468, upload-time = "2026-02-08T15:08:38.723Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/76/f789f7a86709c6b087c5a2f52f911838cad707cc613162401badc665acfe/setuptools-82.0.1-py3-none-any.whl", hash = "sha256:a59e362652f08dcd477c78bb6e7bd9d80a7995bc73ce773050228a348ce2e5bb", size = 1006223, upload-time = "2026-03-09T12:47:15.026Z" },
 ]
 
 [[package]]
@@ -1425,7 +1425,7 @@ runtime-linux-cuda = [
     { name = "torchcodec", marker = "sys_platform == 'linux'" },
     { name = "torchvision", version = "0.24.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'linux'" },
     { name = "vmaf-torch", marker = "sys_platform == 'linux'" },
-    { name = "yt-dlp", marker = "sys_platform == 'linux'" },
+    { name = "yt-dlp", version = "2026.3.3", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
 ]
 runtime-linux-lite = [
     { name = "onnx", version = "1.20.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
@@ -1437,7 +1437,7 @@ runtime-linux-lite = [
     { name = "torchcodec", marker = "sys_platform == 'linux'" },
     { name = "torchvision", version = "0.24.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
     { name = "vmaf-torch", marker = "sys_platform == 'linux'" },
-    { name = "yt-dlp", marker = "sys_platform == 'linux'" },
+    { name = "yt-dlp", version = "2026.3.3", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
 ]
 runtime-windows-cuda = [
     { name = "einops", marker = "sys_platform == 'win32'" },
@@ -1454,7 +1454,7 @@ runtime-windows-cuda = [
     { name = "torchvision", version = "0.24.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'win32'" },
     { name = "triton-windows", marker = "sys_platform == 'win32'" },
     { name = "vmaf-torch", marker = "sys_platform == 'win32'" },
-    { name = "yt-dlp", marker = "sys_platform == 'win32'" },
+    { name = "yt-dlp", version = "2026.3.13", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
 ]
 runtime-windows-lite = [
     { name = "einops", marker = "sys_platform == 'win32'" },
@@ -1468,7 +1468,7 @@ runtime-windows-lite = [
     { name = "torch", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
     { name = "torchvision", version = "0.24.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
     { name = "vmaf-torch", marker = "sys_platform == 'win32'" },
-    { name = "yt-dlp", marker = "sys_platform == 'win32'" },
+    { name = "yt-dlp", version = "2026.3.13", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
 ]
 
 [package.metadata]
@@ -1505,7 +1505,7 @@ requires-dist = [
     { name = "scenedetect", extras = ["opencv"], marker = "sys_platform == 'linux' and extra == 'runtime-linux-lite'" },
     { name = "scenedetect", extras = ["opencv"], marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'" },
     { name = "scenedetect", extras = ["opencv"], marker = "sys_platform == 'win32' and extra == 'runtime-windows-lite'" },
-    { name = "setuptools", specifier = "==82.0.0" },
+    { name = "setuptools", specifier = "==82.0.1" },
     { name = "tensorrt", marker = "sys_platform == 'linux' and extra == 'runtime-linux-cuda'", specifier = "==10.15.1.29", index = "https://pypi.nvidia.com/", conflict = { package = "theanimescripter", extra = "runtime-linux-cuda" } },
     { name = "tensorrt", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==10.15.1.29", index = "https://pypi.nvidia.com/", conflict = { package = "theanimescripter", extra = "runtime-windows-cuda" } },
     { name = "timm", marker = "sys_platform == 'linux' and extra == 'runtime-linux-cuda'", specifier = "==1.0.25" },
@@ -1522,7 +1522,7 @@ requires-dist = [
     { name = "torchvision", marker = "sys_platform == 'linux' and extra == 'runtime-linux-lite'", specifier = "==0.24.1" },
     { name = "torchvision", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==0.24.1+cu130", index = "https://download.pytorch.org/whl/cu130", conflict = { package = "theanimescripter", extra = "runtime-windows-cuda" } },
     { name = "torchvision", marker = "sys_platform == 'win32' and extra == 'runtime-windows-lite'", specifier = "==0.24.1" },
-    { name = "triton-windows", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==3.6.0.post25" },
+    { name = "triton-windows", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==3.6.0.post26" },
     { name = "vmaf-torch", marker = "sys_platform == 'linux' and extra == 'runtime-linux-cuda'" },
     { name = "vmaf-torch", marker = "sys_platform == 'linux' and extra == 'runtime-linux-lite'" },
     { name = "vmaf-torch", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==1.1.0" },
@@ -1530,8 +1530,8 @@ requires-dist = [
     { name = "wheel-stub", specifier = "==0.5.0" },
     { name = "yt-dlp", marker = "sys_platform == 'linux' and extra == 'runtime-linux-cuda'", specifier = "==2026.3.3" },
     { name = "yt-dlp", marker = "sys_platform == 'linux' and extra == 'runtime-linux-lite'", specifier = "==2026.3.3" },
-    { name = "yt-dlp", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==2026.3.3" },
-    { name = "yt-dlp", marker = "sys_platform == 'win32' and extra == 'runtime-windows-lite'", specifier = "==2026.3.3" },
+    { name = "yt-dlp", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==2026.3.13" },
+    { name = "yt-dlp", marker = "sys_platform == 'win32' and extra == 'runtime-windows-lite'", specifier = "==2026.3.13" },
 ]
 provides-extras = ["runtime-windows-cuda", "runtime-windows-lite", "runtime-linux-cuda", "runtime-linux-lite"]
 
@@ -1687,10 +1687,10 @@ dependencies = [
     { name = "torch", version = "2.9.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "(sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (sys_platform == 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite') or (sys_platform == 'win32' and extra != 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (sys_platform == 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra != 'extra-16-theanimescripter-runtime-windows-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-lite')" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/cu130/torchvision-0.24.1%2Bcu130-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:1cac548fc20d6bd1da437f1bf586bbf9159ca3225222bacaa79b8a672197a535" },
-    { url = "https://download.pytorch.org/whl/cu130/torchvision-0.24.1%2Bcu130-cp313-cp313-win_amd64.whl", hash = "sha256:d688426d623b8ba763087726faf5b34b1fe404f44741656978d855403dbc7444" },
-    { url = "https://download.pytorch.org/whl/cu130/torchvision-0.24.1%2Bcu130-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:e342aa662dbd4dcb43a01e697e03f61f615fc34011f13f8c9bfcd1527f8a40c5" },
-    { url = "https://download.pytorch.org/whl/cu130/torchvision-0.24.1%2Bcu130-cp313-cp313t-win_amd64.whl", hash = "sha256:878ce9b16d2c8797cb846709d31c270e9b985bd7cc59e8c8e5bbb0ed372b31c7" },
+    { url = "https://download-r2.pytorch.org/whl/cu130/torchvision-0.24.1%2Bcu130-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:1cac548fc20d6bd1da437f1bf586bbf9159ca3225222bacaa79b8a672197a535" },
+    { url = "https://download-r2.pytorch.org/whl/cu130/torchvision-0.24.1%2Bcu130-cp313-cp313-win_amd64.whl", hash = "sha256:d688426d623b8ba763087726faf5b34b1fe404f44741656978d855403dbc7444" },
+    { url = "https://download-r2.pytorch.org/whl/cu130/torchvision-0.24.1%2Bcu130-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:e342aa662dbd4dcb43a01e697e03f61f615fc34011f13f8c9bfcd1527f8a40c5" },
+    { url = "https://download-r2.pytorch.org/whl/cu130/torchvision-0.24.1%2Bcu130-cp313-cp313t-win_amd64.whl", hash = "sha256:878ce9b16d2c8797cb846709d31c270e9b985bd7cc59e8c8e5bbb0ed372b31c7" },
 ]
 
 [[package]]
@@ -1718,10 +1718,10 @@ wheels = [
 
 [[package]]
 name = "triton-windows"
-version = "3.6.0.post25"
+version = "3.6.0.post26"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e5/cb/1f5f738cf8f6b8c6d475a92422251228a16ca2ee6f872d0f63c761f02896/triton_windows-3.6.0.post25-cp313-cp313-win_amd64.whl", hash = "sha256:d22e5f6f4896b43037d811910e2fcc5ff5f057b78f6094ab28999e4a21997b76", size = 47383937, upload-time = "2026-01-26T03:21:35.071Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/69/7579a5da5d8c5372711bb4b99a185ad35eae6c7549d85b9f75171e06832b/triton_windows-3.6.0.post26-cp313-cp313-win_amd64.whl", hash = "sha256:033f3d50c6a0e4539a3ccfa042304dbf76bf79155f382f9c09d010323d5a9a32", size = 47402101, upload-time = "2026-03-10T02:51:47.669Z" },
 ]
 
 [[package]]
@@ -1827,9 +1827,24 @@ wheels = [
 name = "yt-dlp"
 version = "2026.3.3"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "sys_platform != 'emscripten' and sys_platform != 'win32'",
+]
 sdist = { url = "https://files.pythonhosted.org/packages/66/6f/7427d23609353e5ef3470ff43ef551b8bd7b166dd4fef48957f0d0e040fe/yt_dlp-2026.3.3.tar.gz", hash = "sha256:3db7969e3a8964dc786bdebcffa2653f31123bf2a630f04a17bdafb7bbd39952", size = 3118658, upload-time = "2026-03-03T16:54:53.909Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7e/a4/8b5cd28ab87aef48ef15e74241befec3445496327db028f34147a9e0f14f/yt_dlp-2026.3.3-py3-none-any.whl", hash = "sha256:166c6e68c49ba526474bd400e0129f58aa522c2896204aa73be669c3d2f15e63", size = 3315599, upload-time = "2026-03-03T16:54:51.899Z" },
+]
+
+[[package]]
+name = "yt-dlp"
+version = "2026.3.13"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "sys_platform == 'win32'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/34/69/59253e5627f583939e742a592f56dc7d7f30d164473e58f055e1fccdc02b/yt_dlp-2026.3.13.tar.gz", hash = "sha256:fb43659db684a3db6ff2f5c92e0f1641262f6ecc71dbb64fefe84177aaba9e36", size = 3117911, upload-time = "2026-03-13T09:02:22.711Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f0/ef/52ed7ed10d2e1a22badf74b520b617c48b0a725a981620393245ac842bf9/yt_dlp-2026.3.13-py3-none-any.whl", hash = "sha256:e22e7716f94c08e76b29c0172a3fe0c01d8cabab9bce7f528ad440d70a0d213c", size = 3315062, upload-time = "2026-03-13T09:02:20.357Z" },
 ]
 
 [[package]]
