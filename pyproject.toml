@@ -9,7 +9,7 @@ description = "AI-powered video enhancement toolkit for anime and general video 
 readme = "README.md"
 requires-python = "==3.13.*"
 dependencies = [
-    "setuptools==82.0.0",
+    "setuptools==82.0.1",
     "wheel-stub==0.5.0",
     "numpy==2.2.6",
     "omegaconf==2.3.0",
