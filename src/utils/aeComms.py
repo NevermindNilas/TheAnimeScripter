@@ -89,6 +89,8 @@ progressState = ProgressState()
 
 app = Flask(__name__)
 
+EMITRATE = 25
+
 
 def runServer(host, queue=None):
     global socketio
@@ -114,7 +116,7 @@ def runServer(host, queue=None):
             return
 
         lastEmit = 0.0
-        minEmitInterval = 1.0 / 15.0
+        minEmitInterval = 1.0 / EMITRATE
         while True:
             try:
                 latestPayload = queue.get(timeout=0.1)

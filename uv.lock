@@ -1397,7 +1397,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/1a/dd/745dacecd032db572
 
 [[package]]
 name = "theanimescripter"
-version = "2.5.9"
+version = "2.5.10"
 source = { editable = "." }
 dependencies = [
     { name = "colored" },

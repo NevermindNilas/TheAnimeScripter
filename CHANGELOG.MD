@@ -25,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## Adobe Edition
 ### Added
-- N/A
+- New depth Method, "OG DA3 V3 Large Cuda".
 
 ### Changed
 - Minor UI adjustments.
@@ -35,8 +35,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Fixed
 - Fixed an issue where the UI would faulty display a red box around Video Stabilization.
 - Fixed a regression in the queue handler, mostly related to the progress bar not updating properly.
-  
-
 
 ## [2.5.9] - 2026-02-22
 ### Added
