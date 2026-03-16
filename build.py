@@ -235,10 +235,12 @@ def moveExtras(targetDir):
     ]
 
     for fileName in filesToCopy:
-        try:
-            shutil.copy(baseDir / fileName, bundleDir)
-        except Exception as e:
-            print(f"Error while copying {fileName}: {e}")
+        sourcePath = baseDir / fileName
+        if not sourcePath.exists():
+            print(f"Skipping missing extra file: {sourcePath}")
+            continue
+
+        shutil.copy(sourcePath, bundleDir)
 
 
 def cleanupTempFiles(targetDir):
