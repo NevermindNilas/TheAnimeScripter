@@ -63,7 +63,7 @@ runtime-linux-cuda = [
     "onnx==1.20.0; platform_system == 'Linux'",
     "safetensors==0.7.0; platform_system == 'Linux'",
     "scenedetect[opencv]; platform_system == 'Linux'",
-    "yt-dlp==2026.3.3; platform_system == 'Linux'",
+    "yt-dlp==2026.3.17; platform_system == 'Linux'",
     "vmaf-torch; platform_system == 'Linux'",
     "torchcodec==0.9.1; platform_system == 'Linux'",
 ]
@@ -75,7 +75,7 @@ runtime-linux-lite = [
     "onnx==1.20.0; platform_system == 'Linux'",
     "onnxruntime==1.24.4; platform_system == 'Linux'",
     "scenedetect[opencv]; platform_system == 'Linux'",
-    "yt-dlp==2026.3.3; platform_system == 'Linux'",
+    "yt-dlp==2026.3.17; platform_system == 'Linux'",
     "vmaf-torch; platform_system == 'Linux'",
     "torchcodec==0.9.1; platform_system == 'Linux'",
 ]
