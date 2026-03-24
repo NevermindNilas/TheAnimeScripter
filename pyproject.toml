@@ -9,7 +9,7 @@ description = "AI-powered video enhancement toolkit for anime and general video 
 readme = "README.md"
 requires-python = "==3.13.*"
 dependencies = [
-    "setuptools==82.0.1",
+    "setuptools==81.0.0",
     "wheel-stub==0.5.0",
     "numpy==2.2.6",
     "omegaconf==2.3.0",
@@ -24,8 +24,8 @@ dependencies = [
 
 [project.optional-dependencies]
 runtime-windows-cuda = [
-    "torch==2.9.1+cu130; platform_system == 'Windows'",
-    "torchvision==0.24.1+cu130; platform_system == 'Windows'",
+    "torch==2.11.0+cu130; platform_system == 'Windows'",
+    "torchvision==0.26.1+cu130; platform_system == 'Windows'",
     "tensorrt==10.16.0.72; platform_system == 'Windows'",
     "opencv-python-headless==4.13.0.92; platform_system == 'Windows'",
     "timm==1.0.25; platform_system == 'Windows'",
@@ -34,33 +34,33 @@ runtime-windows-cuda = [
     "safetensors==0.7.0; platform_system == 'Windows'",
     "scenedetect[opencv]; platform_system == 'Windows'",
     "yt-dlp==2026.3.13; platform_system == 'Windows'",
-    "onnx==1.21.0rc1; platform_system == 'Windows'",
+    "onnx==1.20.1; platform_system == 'Windows'",
     "openvino==2026.0.0; platform_system == 'Windows'",
     "onnxscript==0.6.2; platform_system == 'Windows'",
     "vmaf-torch==1.1.0; platform_system == 'Windows'",
     "onnxruntime-openvino @ https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/onnxruntime_openvino-1.23.2-cp313-cp313-win_amd64.whl ; platform_system == 'Windows'",
 ]
 runtime-windows-lite = [
-    "torch==2.9.1; platform_system == 'Windows'",
-    "torchvision==0.24.1; platform_system == 'Windows'",
+    "torch==2.11.0; platform_system == 'Windows'",
+    "torchvision==0.26.1; platform_system == 'Windows'",
     "opencv-python-headless==4.13.0.92; platform_system == 'Windows'",
     "timm==1.0.25; platform_system == 'Windows'",
     "einops==0.8.2; platform_system == 'Windows'",
     "scenedetect[opencv]; platform_system == 'Windows'",
     "yt-dlp==2026.3.13; platform_system == 'Windows'",
-    "onnx==1.21.0rc1; platform_system == 'Windows'",
+    "onnx==1.20.0; platform_system == 'Windows'",
     "openvino==2026.0.0; platform_system == 'Windows'",
     "onnxscript==0.6.2; platform_system == 'Windows'",
     "vmaf-torch==1.1.0; platform_system == 'Windows'",
     "onnxruntime-openvino @ https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/onnxruntime_openvino-1.23.2-cp313-cp313-win_amd64.whl ; platform_system == 'Windows'",
 ]
 runtime-linux-cuda = [
-    "torch==2.9.1+cu130; platform_system == 'Linux'",
-    "torchvision==0.24.1+cu130; platform_system == 'Linux'",
+    "torch==2.11.0+cu130; platform_system == 'Linux'",
+    "torchvision==0.26.1+cu130; platform_system == 'Linux'",
     "tensorrt==10.15.1.29; platform_system == 'Linux'",
     "opencv-python-headless==4.13.0.92; platform_system == 'Linux'",
     "timm==1.0.25; platform_system == 'Linux'",
-    "onnx==1.21.0rc1; platform_system == 'Linux'",
+    "onnx==1.20.0; platform_system == 'Linux'",
     "safetensors==0.7.0; platform_system == 'Linux'",
     "scenedetect[opencv]; platform_system == 'Linux'",
     "yt-dlp==2026.3.17; platform_system == 'Linux'",
@@ -68,11 +68,11 @@ runtime-linux-cuda = [
     "torchcodec==0.9.1; platform_system == 'Linux'",
 ]
 runtime-linux-lite = [
-    "torch==2.9.1; platform_system == 'Linux'",
-    "torchvision==0.24.1; platform_system == 'Linux'",
+    "torch==2.11.0; platform_system == 'Linux'",
+    "torchvision==0.26.1; platform_system == 'Linux'",
     "opencv-python-headless==4.13.0.92; platform_system == 'Linux'",
     "timm==1.0.25; platform_system == 'Linux'",
-    "onnx==1.21.0rc1; platform_system == 'Linux'",
+    "onnx==1.20.0; platform_system == 'Linux'",
     "onnxruntime==1.24.4; platform_system == 'Linux'",
     "scenedetect[opencv]; platform_system == 'Linux'",
     "yt-dlp==2026.3.17; platform_system == 'Linux'",
