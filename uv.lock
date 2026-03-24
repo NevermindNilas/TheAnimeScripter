@@ -909,7 +909,7 @@ wheels = [
 
 [[package]]
 name = "onnxruntime"
-version = "1.24.3"
+version = "1.24.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "flatbuffers", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
@@ -919,13 +919,13 @@ dependencies = [
     { name = "sympy", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/51/8d/487ece554119e2991242d4de55de7019ac6e47ee8dfafa69fcf41d37f8ed/onnxruntime-1.24.3-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:34a0ea5ff191d8420d9c1332355644148b1bf1a0d10c411af890a63a9f662aa7", size = 17342706, upload-time = "2026-03-05T16:35:10.813Z" },
-    { url = "https://files.pythonhosted.org/packages/dd/25/8b444f463c1ac6106b889f6235c84f01eec001eaf689c3eff8c69cf48fae/onnxruntime-1.24.3-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:1fd2ec7bb0fabe42f55e8337cfc9b1969d0d14622711aac73d69b4bd5abb5ed7", size = 15149956, upload-time = "2026-03-05T16:34:59.264Z" },
-    { url = "https://files.pythonhosted.org/packages/34/fc/c9182a3e1ab46940dd4f30e61071f59eee8804c1f641f37ce6e173633fb6/onnxruntime-1.24.3-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:df8e70e732fe26346faaeec9147fa38bef35d232d2495d27e93dd221a2d473a9", size = 17237370, upload-time = "2026-03-05T17:18:05.258Z" },
-    { url = "https://files.pythonhosted.org/packages/05/7e/3b549e1f4538514118bff98a1bcd6481dd9a17067f8c9af77151621c9a5c/onnxruntime-1.24.3-cp313-cp313-win_amd64.whl", hash = "sha256:2d3706719be6ad41d38a2250998b1d87758a20f6ea4546962e21dc79f1f1fd2b", size = 12597939, upload-time = "2026-03-05T17:18:54.772Z" },
-    { url = "https://files.pythonhosted.org/packages/80/41/9696a5c4631a0caa75cc8bc4efd30938fd483694aa614898d087c3ee6d29/onnxruntime-1.24.3-cp313-cp313-win_arm64.whl", hash = "sha256:b082f3ba9519f0a1a1e754556bc7e635c7526ef81b98b3f78da4455d25f0437b", size = 12270705, upload-time = "2026-03-05T17:18:44.774Z" },
-    { url = "https://files.pythonhosted.org/packages/b7/65/a26c5e59e3b210852ee04248cf8843c81fe7d40d94cf95343b66efe7eec9/onnxruntime-1.24.3-cp313-cp313t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:72f956634bc2e4bd2e8b006bef111849bd42c42dea37bd0a4c728404fdaf4d34", size = 15161796, upload-time = "2026-03-05T16:35:02.871Z" },
-    { url = "https://files.pythonhosted.org/packages/f3/25/2035b4aa2ccb5be6acf139397731ec507c5f09e199ab39d3262b22ffa1ac/onnxruntime-1.24.3-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:78d1f25eed4ab9959db70a626ed50ee24cf497e60774f59f1207ac8556399c4d", size = 17240936, upload-time = "2026-03-05T17:18:09.534Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/f0/8a21ec0a97e40abb7d8da1e8b20fb9e1af509cc6d191f6faa75f73622fb2/onnxruntime-1.24.4-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:e99a48078baaefa2b50fe5836c319499f71f13f76ed32d0211f39109147a49e0", size = 17341922, upload-time = "2026-03-17T22:03:56.364Z" },
+    { url = "https://files.pythonhosted.org/packages/8b/25/d7908de8e08cee9abfa15b8aa82349b79733ae5865162a3609c11598805d/onnxruntime-1.24.4-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:dc4aaed1e5e1aaacf2343c838a30a7c3ade78f13eeb16817411f929d04040a13", size = 15172290, upload-time = "2026-03-17T22:03:37.124Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/72/105ec27a78c5aa0154a7c0cd8c41c19a97799c3b12fc30392928997e3be3/onnxruntime-1.24.4-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e30c972bc02e072911aabb6891453ec73795386c0af2b761b65444b8a4c4745f", size = 17244738, upload-time = "2026-03-17T22:04:40.625Z" },
+    { url = "https://files.pythonhosted.org/packages/05/fb/a592736d968c2f58e12de4d52088dda8e0e724b26ad5c0487263adb45875/onnxruntime-1.24.4-cp313-cp313-win_amd64.whl", hash = "sha256:3b6ba8b0181a3aa88edab00eb01424ffc06f42e71095a91186c2249415fcff93", size = 12597435, upload-time = "2026-03-17T22:05:43.826Z" },
+    { url = "https://files.pythonhosted.org/packages/ad/04/ae2479e9841b64bd2eb44f8a64756c62593f896514369a11243b1b86ca5c/onnxruntime-1.24.4-cp313-cp313-win_arm64.whl", hash = "sha256:71d6a5c1821d6e8586a024000ece458db8f2fc0ecd050435d45794827ce81e19", size = 12269852, upload-time = "2026-03-17T22:05:33.353Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/af/a479a536c4398ffaf49fbbe755f45d5b8726bdb4335ab31b537f3d7149b8/onnxruntime-1.24.4-cp313-cp313t-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:1700f559c8086d06b2a4d5de51e62cb4ff5e2631822f71a36db8c72383db71ee", size = 15176861, upload-time = "2026-03-17T22:03:40.143Z" },
+    { url = "https://files.pythonhosted.org/packages/be/13/19f5da70c346a76037da2c2851ecbf1266e61d7f0dcdb887c667210d4608/onnxruntime-1.24.4-cp313-cp313t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4c74e268dc808e61e63784d43f9ddcdaf50a776c2819e8bd1d1b11ef64bf7e36", size = 17247454, upload-time = "2026-03-17T22:04:46.643Z" },
 ]
 
 [[package]]
@@ -1364,25 +1364,59 @@ wheels = [
 name = "tensorrt"
 version = "10.15.1.29"
 source = { registry = "https://pypi.nvidia.com/" }
+resolution-markers = [
+    "sys_platform != 'emscripten' and sys_platform != 'win32'",
+]
 dependencies = [
-    { name = "tensorrt-cu13", marker = "(sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (sys_platform == 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite') or (sys_platform == 'win32' and extra != 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (sys_platform == 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra != 'extra-16-theanimescripter-runtime-windows-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-lite')" },
+    { name = "tensorrt-cu13", version = "10.15.1.29", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://pypi.nvidia.com/tensorrt/tensorrt-10.15.1.29.tar.gz", hash = "sha256:a78fb34aee9695b81a7485ac0648859b802ff1faaac4bde743d9c51d7493204b" }
+
+[[package]]
+name = "tensorrt"
+version = "10.16.0.72"
+source = { registry = "https://pypi.nvidia.com/" }
+resolution-markers = [
+    "sys_platform == 'win32'",
+]
+dependencies = [
+    { name = "tensorrt-cu13", version = "10.16.0.72", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://pypi.nvidia.com/tensorrt/tensorrt-10.16.0.72.tar.gz", hash = "sha256:bd3b478f9986535ee44008fe4bcf20360ebced5fd4b82997e0ab698a0d6dcd78" }
 
 [[package]]
 name = "tensorrt-cu13"
 version = "10.15.1.29"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "sys_platform != 'emscripten' and sys_platform != 'win32'",
+]
 dependencies = [
-    { name = "tensorrt-cu13-bindings", marker = "(sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (sys_platform == 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite') or (sys_platform == 'win32' and extra != 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (sys_platform == 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra != 'extra-16-theanimescripter-runtime-windows-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-lite')" },
-    { name = "tensorrt-cu13-libs", marker = "(sys_platform != 'emscripten' and sys_platform != 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (sys_platform == 'emscripten' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (sys_platform == 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite') or (sys_platform == 'win32' and extra != 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (sys_platform == 'win32' and extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra != 'extra-16-theanimescripter-runtime-windows-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (extra != 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-lite')" },
+    { name = "tensorrt-cu13-bindings", version = "10.15.1.29", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "tensorrt-cu13-libs", version = "10.15.1.29", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1b/0b/ff3683ddf1960227fb2c6210e92ab83c26eda92091046c123d8dfc1adc93/tensorrt_cu13-10.15.1.29.tar.gz", hash = "sha256:60edcdf1a68526732ea613c309283af036f418f6ebcbc8e18d24566b74d776e0", size = 19084, upload-time = "2026-01-30T07:42:55.055Z" }
+
+[[package]]
+name = "tensorrt-cu13"
+version = "10.16.0.72"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "sys_platform == 'win32'",
+]
+dependencies = [
+    { name = "tensorrt-cu13-bindings", version = "10.16.0.72", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+    { name = "tensorrt-cu13-libs", version = "10.16.0.72", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c9/85/6535f7f1906a145d78b36ec54ea28d82998bea94a5ba4c210c72886362e7/tensorrt_cu13-10.16.0.72.tar.gz", hash = "sha256:9526aee25519d0243072aa8e3bb6846059efc9fdf23927f74873a7af6e9f7d4b", size = 17927, upload-time = "2026-03-18T18:30:23.499Z" }
 
 [[package]]
 name = "tensorrt-cu13-bindings"
 version = "10.15.1.29"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "sys_platform != 'emscripten' and sys_platform != 'win32'",
+]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ea/04/be92cfbd2580038e5dd511dc9bc6bdfd2a6c1127fe2885f3a125fda94519/tensorrt_cu13_bindings-10.15.1.29-cp313-none-manylinux_2_28_x86_64.whl", hash = "sha256:4a065bbdc7d4ebd6c7e0fe635b9a9ed2b6b6431ba4cba5aa7f00c2d3eceb1ab8", size = 1140759, upload-time = "2026-01-29T20:59:15.746Z" },
     { url = "https://files.pythonhosted.org/packages/fc/90/ab65253fc12057de36b8626f676c015a6c6d47fafa765f5b9852b03902ff/tensorrt_cu13_bindings-10.15.1.29-cp313-none-manylinux_2_35_aarch64.whl", hash = "sha256:5372daece50818dca9805a26ea3384d1acc3b5a84720e739646869367bfff331", size = 1144646, upload-time = "2026-01-29T21:00:46.732Z" },
@@ -1390,10 +1424,35 @@ wheels = [
 ]
 
 [[package]]
+name = "tensorrt-cu13-bindings"
+version = "10.16.0.72"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "sys_platform == 'win32'",
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/29/e6/03d598aa7d6e3f702dc5135f26784d5331ecae516d026df9001e7b90f7ae/tensorrt_cu13_bindings-10.16.0.72-cp313-none-manylinux_2_28_x86_64.whl", hash = "sha256:0047128d5ee7edf4ce79824944260545c9f6b980aa2f620311c4282f1beb4ebf", size = 1341149, upload-time = "2026-03-18T18:35:15.412Z" },
+    { url = "https://files.pythonhosted.org/packages/85/c9/fe48680b3d55434d1dfa9806d43447c065e43e8d33f475a00c3dcba70d11/tensorrt_cu13_bindings-10.16.0.72-cp313-none-manylinux_2_35_aarch64.whl", hash = "sha256:02cd81644fc56bc810371ce50b2ec50052d82519d80c8115a058fe680775bb5f", size = 1331545, upload-time = "2026-03-18T18:32:42.794Z" },
+    { url = "https://files.pythonhosted.org/packages/35/ff/ebe14ebf0f0ca441cc34bc048839aecbf2ce179f958c523b85256c22118f/tensorrt_cu13_bindings-10.16.0.72-cp313-none-win_amd64.whl", hash = "sha256:e7919ca8fcd7b766adbb5113d39c07fa36e4bb85f8618216b0da2889f52f7937", size = 964914, upload-time = "2026-03-18T18:33:24.728Z" },
+]
+
+[[package]]
 name = "tensorrt-cu13-libs"
 version = "10.15.1.29"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "sys_platform != 'emscripten' and sys_platform != 'win32'",
+]
 sdist = { url = "https://files.pythonhosted.org/packages/1a/dd/745dacecd032db5720e8bacfbbb436319eb49b621142414b3abf19cafd9a/tensorrt_cu13_libs-10.15.1.29.tar.gz", hash = "sha256:d07fe8b65ce7edb94e805d0b6e9653afe742610b7d5e1b270c918bc9e58a36b1", size = 681, upload-time = "2026-01-29T20:58:43.318Z" }
+
+[[package]]
+name = "tensorrt-cu13-libs"
+version = "10.16.0.72"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "sys_platform == 'win32'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/70/2f/0aa3da3b5f171702b2770b0dc56d180fe88c52a453b314fe5f1731c3ccf7/tensorrt_cu13_libs-10.16.0.72.tar.gz", hash = "sha256:b72924a48c68a615b44bb78af036417a99240119f2164f26cc9b32e9a1337bcd", size = 15745, upload-time = "2026-03-18T18:30:40.925Z" }
 
 [[package]]
 name = "theanimescripter"
@@ -1419,13 +1478,13 @@ runtime-linux-cuda = [
     { name = "opencv-python-headless", marker = "sys_platform == 'linux'" },
     { name = "safetensors", marker = "sys_platform == 'linux'" },
     { name = "scenedetect", extra = ["opencv"], marker = "(sys_platform == 'linux' and extra == 'extra-16-theanimescripter-runtime-linux-cuda') or (extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite') or (extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra == 'extra-16-theanimescripter-runtime-windows-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite')" },
-    { name = "tensorrt", marker = "sys_platform == 'linux'" },
+    { name = "tensorrt", version = "10.15.1.29", source = { registry = "https://pypi.nvidia.com/" }, marker = "sys_platform == 'linux'" },
     { name = "timm", marker = "sys_platform == 'linux'" },
     { name = "torch", version = "2.9.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'linux'" },
     { name = "torchcodec", marker = "sys_platform == 'linux'" },
     { name = "torchvision", version = "0.24.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'linux'" },
     { name = "vmaf-torch", marker = "sys_platform == 'linux'" },
-    { name = "yt-dlp", version = "2026.3.3", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
+    { name = "yt-dlp", version = "2026.3.17", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
 ]
 runtime-linux-lite = [
     { name = "onnx", version = "1.20.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
@@ -1437,7 +1496,7 @@ runtime-linux-lite = [
     { name = "torchcodec", marker = "sys_platform == 'linux'" },
     { name = "torchvision", version = "0.24.1", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
     { name = "vmaf-torch", marker = "sys_platform == 'linux'" },
-    { name = "yt-dlp", version = "2026.3.3", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
+    { name = "yt-dlp", version = "2026.3.17", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform == 'linux'" },
 ]
 runtime-windows-cuda = [
     { name = "einops", marker = "sys_platform == 'win32'" },
@@ -1448,7 +1507,7 @@ runtime-windows-cuda = [
     { name = "openvino", marker = "sys_platform == 'win32'" },
     { name = "safetensors", marker = "sys_platform == 'win32'" },
     { name = "scenedetect", extra = ["opencv"], marker = "(sys_platform == 'win32' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (extra == 'extra-16-theanimescripter-runtime-windows-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-linux-lite') or (extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (extra == 'extra-16-theanimescripter-runtime-linux-cuda' and extra == 'extra-16-theanimescripter-runtime-windows-lite') or (extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-cuda') or (extra == 'extra-16-theanimescripter-runtime-linux-lite' and extra == 'extra-16-theanimescripter-runtime-windows-lite')" },
-    { name = "tensorrt", marker = "sys_platform == 'win32'" },
+    { name = "tensorrt", version = "10.16.0.72", source = { registry = "https://pypi.nvidia.com/" }, marker = "sys_platform == 'win32'" },
     { name = "timm", marker = "sys_platform == 'win32'" },
     { name = "torch", version = "2.9.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'win32'" },
     { name = "torchvision", version = "0.24.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "sys_platform == 'win32'" },
@@ -1485,7 +1544,7 @@ requires-dist = [
     { name = "onnx", marker = "sys_platform == 'linux' and extra == 'runtime-linux-lite'", specifier = "==1.20.0" },
     { name = "onnx", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==1.20.1" },
     { name = "onnx", marker = "sys_platform == 'win32' and extra == 'runtime-windows-lite'", specifier = "==1.20.0" },
-    { name = "onnxruntime", marker = "sys_platform == 'linux' and extra == 'runtime-linux-lite'", specifier = "==1.24.3" },
+    { name = "onnxruntime", marker = "sys_platform == 'linux' and extra == 'runtime-linux-lite'", specifier = "==1.24.4" },
     { name = "onnxruntime-openvino", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", url = "https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/onnxruntime_openvino-1.23.2-cp313-cp313-win_amd64.whl" },
     { name = "onnxruntime-openvino", marker = "sys_platform == 'win32' and extra == 'runtime-windows-lite'", url = "https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/onnxruntime_openvino-1.23.2-cp313-cp313-win_amd64.whl" },
     { name = "onnxscript", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==0.6.2" },
@@ -1507,7 +1566,7 @@ requires-dist = [
     { name = "scenedetect", extras = ["opencv"], marker = "sys_platform == 'win32' and extra == 'runtime-windows-lite'" },
     { name = "setuptools", specifier = "==82.0.1" },
     { name = "tensorrt", marker = "sys_platform == 'linux' and extra == 'runtime-linux-cuda'", specifier = "==10.15.1.29", index = "https://pypi.nvidia.com/", conflict = { package = "theanimescripter", extra = "runtime-linux-cuda" } },
-    { name = "tensorrt", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==10.15.1.29", index = "https://pypi.nvidia.com/", conflict = { package = "theanimescripter", extra = "runtime-windows-cuda" } },
+    { name = "tensorrt", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==10.16.0.72", index = "https://pypi.nvidia.com/", conflict = { package = "theanimescripter", extra = "runtime-windows-cuda" } },
     { name = "timm", marker = "sys_platform == 'linux' and extra == 'runtime-linux-cuda'", specifier = "==1.0.25" },
     { name = "timm", marker = "sys_platform == 'linux' and extra == 'runtime-linux-lite'", specifier = "==1.0.25" },
     { name = "timm", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==1.0.25" },
@@ -1528,8 +1587,8 @@ requires-dist = [
     { name = "vmaf-torch", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==1.1.0" },
     { name = "vmaf-torch", marker = "sys_platform == 'win32' and extra == 'runtime-windows-lite'", specifier = "==1.1.0" },
     { name = "wheel-stub", specifier = "==0.5.0" },
-    { name = "yt-dlp", marker = "sys_platform == 'linux' and extra == 'runtime-linux-cuda'", specifier = "==2026.3.3" },
-    { name = "yt-dlp", marker = "sys_platform == 'linux' and extra == 'runtime-linux-lite'", specifier = "==2026.3.3" },
+    { name = "yt-dlp", marker = "sys_platform == 'linux' and extra == 'runtime-linux-cuda'", specifier = "==2026.3.17" },
+    { name = "yt-dlp", marker = "sys_platform == 'linux' and extra == 'runtime-linux-lite'", specifier = "==2026.3.17" },
     { name = "yt-dlp", marker = "sys_platform == 'win32' and extra == 'runtime-windows-cuda'", specifier = "==2026.3.13" },
     { name = "yt-dlp", marker = "sys_platform == 'win32' and extra == 'runtime-windows-lite'", specifier = "==2026.3.13" },
 ]
@@ -1825,18 +1884,6 @@ wheels = [
 
 [[package]]
 name = "yt-dlp"
-version = "2026.3.3"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "sys_platform != 'emscripten' and sys_platform != 'win32'",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/66/6f/7427d23609353e5ef3470ff43ef551b8bd7b166dd4fef48957f0d0e040fe/yt_dlp-2026.3.3.tar.gz", hash = "sha256:3db7969e3a8964dc786bdebcffa2653f31123bf2a630f04a17bdafb7bbd39952", size = 3118658, upload-time = "2026-03-03T16:54:53.909Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/a4/8b5cd28ab87aef48ef15e74241befec3445496327db028f34147a9e0f14f/yt_dlp-2026.3.3-py3-none-any.whl", hash = "sha256:166c6e68c49ba526474bd400e0129f58aa522c2896204aa73be669c3d2f15e63", size = 3315599, upload-time = "2026-03-03T16:54:51.899Z" },
-]
-
-[[package]]
-name = "yt-dlp"
 version = "2026.3.13"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
@@ -1845,6 +1892,18 @@ resolution-markers = [
 sdist = { url = "https://files.pythonhosted.org/packages/34/69/59253e5627f583939e742a592f56dc7d7f30d164473e58f055e1fccdc02b/yt_dlp-2026.3.13.tar.gz", hash = "sha256:fb43659db684a3db6ff2f5c92e0f1641262f6ecc71dbb64fefe84177aaba9e36", size = 3117911, upload-time = "2026-03-13T09:02:22.711Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f0/ef/52ed7ed10d2e1a22badf74b520b617c48b0a725a981620393245ac842bf9/yt_dlp-2026.3.13-py3-none-any.whl", hash = "sha256:e22e7716f94c08e76b29c0172a3fe0c01d8cabab9bce7f528ad440d70a0d213c", size = 3315062, upload-time = "2026-03-13T09:02:20.357Z" },
+]
+
+[[package]]
+name = "yt-dlp"
+version = "2026.3.17"
+source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "sys_platform != 'emscripten' and sys_platform != 'win32'",
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8b/34/7c6b4e3f89cb6416d2cd7ab6dab141a1df97ab0fb22d15816db2c92148c9/yt_dlp-2026.3.17.tar.gz", hash = "sha256:ba7aa31d533f1ffccfe70e421596d7ca8ff0bf1398dc6bb658b7d9dec057d2c9", size = 3119221, upload-time = "2026-03-17T23:43:00.244Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cd/13/5093bcb954878e50f7217fd2ab94282b53934022e4e4a03265582da83bf5/yt_dlp-2026.3.17-py3-none-any.whl", hash = "sha256:32992db94303a8a5d211a183f2174834fe7f8c29d83ed2e7a324eae97a8f26d8", size = 3315134, upload-time = "2026-03-17T23:42:57.863Z" },
 ]
 
 [[package]]
