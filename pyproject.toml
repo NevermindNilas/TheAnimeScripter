@@ -25,7 +25,7 @@ dependencies = [
 [project.optional-dependencies]
 runtime-windows-cuda = [
     "torch==2.11.0+cu130; platform_system == 'Windows'",
-    "torchvision==0.26.1+cu130; platform_system == 'Windows'",
+    "torchvision==0.26.0+cu130; platform_system == 'Windows'",
     "tensorrt==10.16.0.72; platform_system == 'Windows'",
     "opencv-python-headless==4.13.0.92; platform_system == 'Windows'",
     "timm==1.0.25; platform_system == 'Windows'",
@@ -42,7 +42,7 @@ runtime-windows-cuda = [
 ]
 runtime-windows-lite = [
     "torch==2.11.0; platform_system == 'Windows'",
-    "torchvision==0.26.1; platform_system == 'Windows'",
+    "torchvision==0.26.0; platform_system == 'Windows'",
     "opencv-python-headless==4.13.0.92; platform_system == 'Windows'",
     "timm==1.0.25; platform_system == 'Windows'",
     "einops==0.8.2; platform_system == 'Windows'",
@@ -56,7 +56,7 @@ runtime-windows-lite = [
 ]
 runtime-linux-cuda = [
     "torch==2.11.0+cu130; platform_system == 'Linux'",
-    "torchvision==0.26.1+cu130; platform_system == 'Linux'",
+    "torchvision==0.26.0+cu130; platform_system == 'Linux'",
     "tensorrt==10.15.1.29; platform_system == 'Linux'",
     "opencv-python-headless==4.13.0.92; platform_system == 'Linux'",
     "timm==1.0.25; platform_system == 'Linux'",
@@ -69,7 +69,7 @@ runtime-linux-cuda = [
 ]
 runtime-linux-lite = [
     "torch==2.11.0; platform_system == 'Linux'",
-    "torchvision==0.26.1; platform_system == 'Linux'",
+    "torchvision==0.26.0; platform_system == 'Linux'",
     "opencv-python-headless==4.13.0.92; platform_system == 'Linux'",
     "timm==1.0.25; platform_system == 'Linux'",
     "onnx==1.20.0; platform_system == 'Linux'",
