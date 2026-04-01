@@ -5,7 +5,7 @@ timm==1.0.26
 einops==0.8.2
 scenedetect[opencv]
 yt-dlp==2026.3.17
-onnx==1.20.0
+onnx==1.21.0rc1
 openvino==2026.0.0
 onnxscript==0.6.2
 vmaf-torch==1.1.0
