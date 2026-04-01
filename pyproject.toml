@@ -9,7 +9,7 @@ description = "AI-powered video enhancement toolkit for anime and general video 
 readme = "README.md"
 requires-python = "==3.13.*"
 dependencies = [
-    "setuptools==82.0.1",
+    "setuptools==81.0.0",
     "wheel-stub==0.5.0",
     "numpy==2.2.6",
     "omegaconf==2.3.0",
@@ -78,40 +78,6 @@ runtime-linux-lite = [
     "yt-dlp==2026.3.17; platform_system == 'Linux'",
     "vmaf-torch; platform_system == 'Linux'",
     "torchcodec==0.11.0; platform_system == 'Linux'",
-]
-
-[tool.uv]
-conflicts = [
-    [
-        { extra = "runtime-windows-cuda" },
-        { extra = "runtime-windows-lite" },
-        { extra = "runtime-linux-cuda" },
-        { extra = "runtime-linux-lite" },
-    ],
-]
-
-[[tool.uv.index]]
-name = "pytorch-cu130"
-url = "https://download.pytorch.org/whl/cu130"
-explicit = true
-
-[[tool.uv.index]]
-name = "nvidia"
-url = "https://pypi.nvidia.com"
-explicit = true
-
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cu130", extra = "runtime-windows-cuda" },
-    { index = "pytorch-cu130", extra = "runtime-linux-cuda" },
-]
-torchvision = [
-    { index = "pytorch-cu130", extra = "runtime-windows-cuda" },
-    { index = "pytorch-cu130", extra = "runtime-linux-cuda" },
-]
-tensorrt = [
-    { index = "nvidia", extra = "runtime-windows-cuda" },
-    { index = "nvidia", extra = "runtime-linux-cuda" },
 ]
 
 [tool.hatch.build.targets.wheel]

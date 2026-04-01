@@ -3,7 +3,6 @@
 ## Prerequisites
 
 - Python 3.13 installed and accessible from PATH
-- uv installed and accessible from PATH
 - Windows 11
 
 ## Build Process
@@ -14,11 +13,11 @@ To build the project on Windows, run:
 python build.py
 ```
 
-The build uses [pyproject.toml](pyproject.toml) and [uv.lock](uv.lock) as the
-canonical source of truth for core and runtime dependencies.
+The build uses [requirements.txt](requirements.txt) plus the runtime-specific
+requirements files as the source of truth for portable dependency installation.
 
-The portable bundle now ships with `uv.exe` alongside `python.exe` so runtime
-dependency syncs can be reproduced from the locked metadata without bootstrapping pip.
+[pyproject.toml](pyproject.toml) remains in the repository as project metadata,
+but the portable build and runtime dependency handling are driven by pip.
 
 ### Output Location
 After successful compilation, the executable files will be located in:
@@ -29,8 +28,8 @@ After successful compilation, the executable files will be located in:
 ## Runtime Dependencies
 
 TAS automatically downloads and installs additional dependencies as needed:
-- Core dependencies are locked through `pyproject.toml` + `uv.lock`
-- Runtime profiles are exported from the lockfile and synced with `uv pip sync`
+- Core dependencies are installed from `requirements.txt`
+- Runtime profiles are installed from the matching `extra-requirements-*.txt` file with pip
 
 All downloaded dependencies are placed in the same directory as the executable.
 
