@@ -1103,16 +1103,16 @@ def argumentsChecker(args, outputPath, parser):
 
         if success:
             logAndPrint(
-                "Dependency cache cleared. TAS no longer prunes packages from the shared Python environment.",
+                "Dependencies from the selected runtime profile were uninstalled.",
                 "green",
             )
             sys.exit()
         else:
             logAndPrint(
-                "Failed to clear dependency cache, please check the logs for more details",
+                "Failed to uninstall dependencies, please check the logs for more details",
                 "red",
             )
-            logging.error("Failed to clear dependency cache")
+            logging.error("Failed to uninstall dependencies")
             print(message)
 
     logging.info("============== Version ==============")

@@ -136,12 +136,14 @@ Get the most powerful and flexible version of TAS with the command-line interfac
 
 </div>
 
-For local development, create the environment from the lockfile and run the CLI with UV:
+For local development, install the base requirements and the runtime profile you want with pip:
 
 ```sh
-uv sync --extra runtime-windows-lite
-uv run python main.py -h
+python -m pip install -r requirements.txt -r extra-requirements-windows-lite.txt
+python main.py -h
 ```
+
+Swap `extra-requirements-windows-lite.txt` for the matching Windows/Linux and CUDA/lite profile you want to test.
 
 #### Windows CLI Installer
 

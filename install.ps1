@@ -160,13 +160,17 @@
 
     $managedPaths = @(
         "python.exe",
-        "uv.exe",
         "pythonw.exe",
         "python313.dll",
         "python313.zip",
         "main.py",
         "pyproject.toml",
-        "uv.lock",
+        "requirements.txt",
+        "extra-requirements-windows.txt",
+        "extra-requirements-windows-lite.txt",
+        "extra-requirements-linux.txt",
+        "extra-requirements-linux-lite.txt",
+        "deprecated-requirements.txt",
         "src",
         "Scripts",
         "tas-version-check.ps1",
@@ -377,10 +381,12 @@ if exist "%TAS_CHECKER%" if exist "%TAS_POWERSHELL%" start "" /B "%TAS_POWERSHEL
 
         $requiredFiles = @(
             (Join-Path $InstallPath "python.exe"),
-            (Join-Path $InstallPath "uv.exe"),
             (Join-Path $InstallPath "main.py"),
-            (Join-Path $InstallPath "pyproject.toml"),
-            (Join-Path $InstallPath "uv.lock"),
+            (Join-Path $InstallPath "requirements.txt"),
+            (Join-Path $InstallPath "extra-requirements-windows.txt"),
+            (Join-Path $InstallPath "extra-requirements-windows-lite.txt"),
+            (Join-Path $InstallPath "extra-requirements-linux.txt"),
+            (Join-Path $InstallPath "extra-requirements-linux-lite.txt"),
             (Join-Path $InstallPath "tas-version-check.ps1"),
             (Join-Path $InstallPath "TheAnimeScripter.cmd"),
             (Join-Path $InstallPath "tas.cmd")
