@@ -57,7 +57,7 @@ runtime-windows-lite = [
 runtime-linux-cuda = [
     "torch==2.11.0+cu130; platform_system == 'Linux'",
     "torchvision==0.26.0+cu130; platform_system == 'Linux'",
-    "tensorrt==10.15.1.29; platform_system == 'Linux'",
+    "tensorrt==10.16.0.72; platform_system == 'Linux'",
     "opencv-python-headless==4.13.0.92; platform_system == 'Linux'",
     "timm==1.0.25; platform_system == 'Linux'",
     "onnx==1.20.0; platform_system == 'Linux'",
