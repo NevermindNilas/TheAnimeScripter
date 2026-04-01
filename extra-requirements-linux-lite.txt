@@ -1,0 +1,10 @@
+torch==2.11.0
+torchvision==0.26.0
+opencv-python-headless==4.13.0.92
+timm==1.0.25
+onnx==1.20.0
+onnxruntime==1.24.4
+scenedetect[opencv]
+yt-dlp==2026.3.17
+vmaf-torch
+torchcodec==0.11.0

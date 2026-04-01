@@ -99,14 +99,6 @@ jobs:
         with:
           python-version: "3.13.12"
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: true
-
-      - name: Validate uv lockfile
-        run: uv lock --check
-
       - name: Run full build script
         run: python build.py
 

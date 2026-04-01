@@ -19,6 +19,7 @@ if hasattr(trt, "IProgressMonitor"):
         def __init__(self):
             trt.IProgressMonitor.__init__(self)
             self._activePhases = {}
+            self._renderedLineCount = 0
             self._stepResult = True
 
         def phase_start(self, phaseName, parentPhase, numSteps):
@@ -49,7 +50,7 @@ if hasattr(trt, "IProgressMonitor"):
         def step_complete(self, phaseName, step):
             try:
                 if phaseName in self._activePhases:
-                    self._activePhases[phaseName]["steps"] = step
+                    self._activePhases[phaseName]["steps"] = max(0, int(step))
                     self._redraw()
                 return self._stepResult
             except KeyboardInterrupt:
@@ -66,37 +67,70 @@ if hasattr(trt, "IProgressMonitor"):
                 if lines > 0:
                     print(f"\x1B[{lines}A", end="")
 
-            def progressBar(steps, numSteps):
-                innerWidth = 10
+            def progressBar(steps, numSteps, width):
                 safeSteps = max(0, min(int(steps), int(numSteps)))
-                completed = int(innerWidth * safeSteps / float(max(1, numSteps)))
-                return f"[{'=' * completed}{'-' * (innerWidth - completed)}]"
+                completed = int(width * safeSteps / float(max(1, numSteps)))
+                return f"{'#' * completed}{'.' * (width - completed)}"
+
+            def trimText(text, maxWidth):
+                if maxWidth <= 0:
+                    return ""
+
+                if len(text) <= maxWidth:
+                    return text
+
+                if maxWidth <= 3:
+                    return text[:maxWidth]
+
+                return text[: maxWidth - 3] + "..."
+
+            def formatPhaseLine(phase, maxCols):
+                safeSteps = max(0, min(int(phase["steps"]), int(phase["numSteps"])))
+                percentage = int(
+                    round((safeSteps / float(max(1, phase["numSteps"]))) * 100)
+                )
+                stats = f"{percentage:>3}%  {safeSteps}/{phase['numSteps']}"
+
+                indent = "  " * phase["nbIndents"]
+                labelPrefix = f"{indent}> "
+                minBarWidth = 10
+                preferredBarWidth = 24
+                spacingWidth = 4
+                availableWidth = maxCols - len(labelPrefix) - len(stats) - spacingWidth
+                barWidth = min(preferredBarWidth, max(minBarWidth, availableWidth // 2))
+                titleWidth = max(12, availableWidth - barWidth)
+                title = trimText(phase["title"], titleWidth)
+                bar = progressBar(safeSteps, phase["numSteps"], barWidth)
+                return f"{labelPrefix}{title:<{titleWidth}} [{bar}]  {stats}"
 
             maxCols = shutil.get_terminal_size(fallback=(200, 24)).columns
+            lines = []
+
+            if self._activePhases:
+                lines.append("\x1B[1mTensorRT Build Progress\x1B[0m")
+                for phase in self._activePhases.values():
+                    lines.append(formatPhaseLine(phase, maxCols))
 
             moveToStartOfLine()
-            for phase in self._activePhases.values():
-                phasePrefix = "{indent}{bar} {title}".format(
-                    indent=" " * phase["nbIndents"],
-                    bar=progressBar(phase["steps"], phase["numSteps"]),
-                    title=phase["title"],
-                )
-                phaseSuffix = "{steps}/{numSteps}".format(**phase)
-                allowablePrefixChars = maxCols - len(phaseSuffix) - 2
-                if allowablePrefixChars < len(phasePrefix):
-                    if allowablePrefixChars > 3:
-                        phasePrefix = phasePrefix[: allowablePrefixChars - 3] + "..."
-                    else:
-                        phasePrefix = ""
+            moveCursorUp(self._renderedLineCount)
 
+            for _ in range(self._renderedLineCount):
                 clearLine()
-                print(phasePrefix, phaseSuffix)
+                print()
+
+            moveCursorUp(self._renderedLineCount)
+            moveToStartOfLine()
+
+            for line in lines:
+                clearLine()
+                print(trimText(line, maxCols))
 
             for _ in range(blankLines):
                 clearLine()
                 print()
 
-            moveCursorUp(len(self._activePhases) + blankLines)
+            self._renderedLineCount = len(lines) + blankLines
+            moveCursorUp(self._renderedLineCount)
             sys.stdout.flush()
 
 else:
