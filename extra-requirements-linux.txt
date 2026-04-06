@@ -10,4 +10,4 @@ safetensors==0.7.0
 scenedetect[opencv]
 yt-dlp==2026.3.17
 vmaf-torch
-torchcodec==0.11.0
+torchcodec==0.11.0+cu130
