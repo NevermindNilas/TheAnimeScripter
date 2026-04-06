@@ -843,17 +843,6 @@ def initializeModels(self):
                     compileMode=self.compileMode,
                 )
 
-            case "gmfss-tensorrt":
-                from src.gmfss.gmfss import GMFSSTensorRT
-
-                interpolateProcess = GMFSSTensorRT(
-                    int(self.interpolateFactor),
-                    outputWidth,
-                    outputHeight,
-                    self.half,
-                    self.ensemble,
-                )
-
             case (
                 "rife4.6-directml"
                 | "rife4.6-openvino"

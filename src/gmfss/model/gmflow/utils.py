@@ -3,6 +3,10 @@ import torch
 from .position import PositionEmbeddingSine
 
 
+normalize_img_cache = {}
+position_encoder_cache = {}
+
+
 def split_feature(
     feature,
     num_splits=2,
@@ -70,12 +74,17 @@ def merge_splits(
 def normalize_img(img0, img1):
     # loaded images are in [0, 255]
     # normalize by ImageNet mean and std
-    mean = torch.tensor(
-        [0.485, 0.456, 0.406], dtype=img1.dtype, device=img1.device
-    ).view(1, 3, 1, 1)
-    std = torch.tensor(
-        [0.229, 0.224, 0.225], dtype=img1.dtype, device=img1.device
-    ).view(1, 3, 1, 1)
+    key = (img1.device, img1.dtype)
+    cached = normalize_img_cache.get(key)
+
+    if cached is None:
+        cached = (
+            torch.tensor([0.485, 0.456, 0.406], dtype=img1.dtype, device=img1.device).view(1, 3, 1, 1),
+            torch.tensor([0.229, 0.224, 0.225], dtype=img1.dtype, device=img1.device).view(1, 3, 1, 1),
+        )
+        normalize_img_cache[key] = cached
+
+    mean, std = cached
     img0 = (img0 - mean) / std
     img1 = (img1 - mean) / std
 
@@ -83,7 +92,12 @@ def normalize_img(img0, img1):
 
 
 def feature_add_position(feature0, feature1, attn_splits, feature_channels):
-    pos_enc = PositionEmbeddingSine(num_pos_feats=feature_channels // 2)
+    num_pos_feats = feature_channels // 2
+    pos_enc = position_encoder_cache.get(num_pos_feats)
+
+    if pos_enc is None:
+        pos_enc = PositionEmbeddingSine(num_pos_feats=num_pos_feats)
+        position_encoder_cache[num_pos_feats] = pos_enc
 
     if attn_splits > 1:  # add position in splited window
         feature0_splits = split_feature(feature0, num_splits=attn_splits)
