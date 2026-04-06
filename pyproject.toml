@@ -42,7 +42,7 @@ runtime-windows-cuda = [
 ]
 runtime-windows-lite = [
     "torch==2.11.0; platform_system == 'Windows'",
-    "torchvision==0.26.0; platform_system == 'Windows'",
+    "torchvision==0.26.0+cu130; platform_system == 'Windows'",
     "opencv-python-headless==4.13.0.92; platform_system == 'Windows'",
     "timm==1.0.26; platform_system == 'Windows'",
     "einops==0.8.2; platform_system == 'Windows'",
