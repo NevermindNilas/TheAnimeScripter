@@ -11,17 +11,53 @@ torch.fx.wrap('forward_backward_consistency_check')
 backwarp_tenGrid = {}
 
 
+def get_backwarp_grid(tenflow):
+    key = (tenflow.device, tenflow.dtype, tenflow.shape[2], tenflow.shape[3])
+    grid = backwarp_tenGrid.get(key)
+
+    if grid is None:
+        tenHor = torch.linspace(
+            start=-1.0,
+            end=1.0,
+            steps=tenflow.shape[3],
+            dtype=tenflow.dtype,
+            device=tenflow.device,
+        ).view(1, 1, 1, -1)
+        tenVer = torch.linspace(
+            start=-1.0,
+            end=1.0,
+            steps=tenflow.shape[2],
+            dtype=tenflow.dtype,
+            device=tenflow.device,
+        ).view(1, 1, -1, 1)
+        grid = torch.cat(
+            [
+                tenHor.expand(1, -1, tenflow.shape[2], -1),
+                tenVer.expand(1, -1, -1, tenflow.shape[3]),
+            ],
+            1,
+        )
+        backwarp_tenGrid[key] = grid
+
+    return grid.expand(tenflow.shape[0], -1, -1, -1)
+
+
 def backwarp(tenIn, tenflow):
-    if str(tenflow.shape) not in backwarp_tenGrid:
-        tenHor = torch.linspace(start=-1.0, end=1.0, steps=tenflow.shape[3], dtype=tenflow.dtype, device=tenflow.device).view(1, 1, 1, -1).repeat(1, 1, tenflow.shape[2], 1)
-        tenVer = torch.linspace(start=-1.0, end=1.0, steps=tenflow.shape[2], dtype=tenflow.dtype, device=tenflow.device).view(1, 1, -1, 1).repeat(1, 1, 1, tenflow.shape[3])
+    tenflow = torch.cat(
+        [
+            tenflow[:, 0:1, :, :] / ((tenIn.shape[3] - 1.0) / 2.0),
+            tenflow[:, 1:2, :, :] / ((tenIn.shape[2] - 1.0) / 2.0),
+        ],
+        1,
+    )
 
-        backwarp_tenGrid[str(tenflow.shape)] = torch.cat([tenHor, tenVer], 1)
-    # end
-
-    tenflow = torch.cat([tenflow[:, 0:1, :, :] / ((tenIn.shape[3] - 1.0) / 2.0), tenflow[:, 1:2, :, :] / ((tenIn.shape[2] - 1.0) / 2.0)], 1)
-
-    return torch.nn.functional.grid_sample(input=tenIn, grid=(backwarp_tenGrid[str(tenflow.shape)] + tenflow).permute(0, 2, 3, 1), mode='bilinear', padding_mode='zeros', align_corners=True)
+    return torch.nn.functional.grid_sample(
+        input=tenIn,
+        grid=(get_backwarp_grid(tenflow) + tenflow).permute(0, 2, 3, 1),
+        mode='bilinear',
+        padding_mode='zeros',
+        align_corners=True,
+    )
 
 
 class MetricNet(nn.Module):
@@ -59,7 +95,11 @@ class MetricNet(nn.Module):
         flow = torch.cat((flow01, flow10), 1)
         occ = torch.cat((fwd_occ.unsqueeze(1), bwd_occ.unsqueeze(1)), 1)
 
-        feat = self.metric_in(torch.cat((img, metric, flow, occ), 1))
+        feat = self.metric_in(
+            torch.cat((img, metric, flow, occ), 1).contiguous(
+                memory_format=torch.channels_last
+            )
+        )
         feat = self.metric_net1(feat) + feat
         feat = self.metric_net2(feat) + feat
         feat = self.metric_net3(feat) + feat

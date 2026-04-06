@@ -2,39 +2,67 @@ import torch
 import torch.nn.functional as F
 
 
-def coords_grid(b, h, w, homogeneous=False, device=None):
-    y, x = torch.meshgrid(torch.arange(h), torch.arange(w), indexing='ij')  # [H, W]
-
-    stacks = [x, y]
-
-    if homogeneous:
-        ones = torch.ones_like(x)  # [H, W]
-        stacks.append(ones)
-
-    grid = torch.stack(stacks, dim=0).float()  # [2, H, W] or [3, H, W]
-
-    grid = grid[None].repeat(b, 1, 1, 1)  # [B, 2, H, W] or [B, 3, H, W]
-
-    if device is not None:
-        grid = grid.to(device)
-
-    return grid
+coords_grid_cache = {}
+window_grid_cache = {}
+normalize_coords_cache = {}
 
 
-def generate_window_grid(h_min, h_max, w_min, w_max, len_h, len_w, device=None):
+def coords_grid(b, h, w, homogeneous=False, device=None, dtype=torch.float32):
+    key = (device, dtype, h, w, homogeneous)
+    grid = coords_grid_cache.get(key)
+
+    if grid is None:
+        y, x = torch.meshgrid(
+            torch.arange(h, device=device, dtype=dtype),
+            torch.arange(w, device=device, dtype=dtype),
+            indexing='ij',
+        )  # [H, W]
+
+        stacks = [x, y]
+
+        if homogeneous:
+            ones = torch.ones_like(x)  # [H, W]
+            stacks.append(ones)
+
+        grid = torch.stack(stacks, dim=0).unsqueeze(0)  # [1, 2, H, W] or [1, 3, H, W]
+        coords_grid_cache[key] = grid
+
+    return grid.expand(b, -1, -1, -1)
+
+
+def generate_window_grid(h_min, h_max, w_min, w_max, len_h, len_w, device=None, dtype=torch.float32):
     assert device is not None
 
-    x, y = torch.meshgrid([torch.linspace(w_min, w_max, len_w, device=device),
-                           torch.linspace(h_min, h_max, len_h, device=device)],
-                          indexing='ij')
-    grid = torch.stack((x, y), -1).transpose(0, 1).float()  # [H, W, 2]
+    key = (device, dtype, h_min, h_max, w_min, w_max, len_h, len_w)
+    grid = window_grid_cache.get(key)
+
+    if grid is None:
+        x, y = torch.meshgrid(
+            [
+                torch.linspace(w_min, w_max, len_w, device=device, dtype=dtype),
+                torch.linspace(h_min, h_max, len_h, device=device, dtype=dtype),
+            ],
+            indexing='ij',
+        )
+        grid = torch.stack((x, y), -1).transpose(0, 1)  # [H, W, 2]
+        window_grid_cache[key] = grid
 
     return grid
 
 
 def normalize_coords(coords, h, w):
     # coords: [B, H, W, 2]
-    c = torch.tensor([(w - 1) / 2., (h - 1) / 2.], dtype=coords.dtype, device=coords.device)
+    key = (coords.device, coords.dtype, h, w)
+    c = normalize_coords_cache.get(key)
+
+    if c is None:
+        c = torch.tensor(
+            [(w - 1) / 2.0, (h - 1) / 2.0],
+            dtype=coords.dtype,
+            device=coords.device,
+        )
+        normalize_coords_cache[key] = c
+
     return (coords - c) / c  # [-1, 1]
 
 
@@ -66,7 +94,7 @@ def flow_warp(feature, flow, mask=False, padding_mode='zeros'):
     b, c, h, w = feature.size()
     assert flow.size(1) == 2
 
-    grid = coords_grid(b, h, w).to(flow) + flow  # [B, 2, H, W]
+    grid = coords_grid(b, h, w, device=flow.device, dtype=flow.dtype) + flow  # [B, 2, H, W]
 
     return bilinear_sample(feature, grid, padding_mode=padding_mode,
                            return_mask=mask)
