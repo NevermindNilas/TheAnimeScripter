@@ -11,7 +11,12 @@ import importlib
 
 from src.utils.logAndPrint import logAndPrint
 from concurrent.futures import ThreadPoolExecutor
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.utils.ffmpegSettings import (
+    BuildBuffer,
+    WriteBuffer,
+    extractFramePayload,
+    replaceFramePayload,
+)
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.isCudaInit import CudaChecker
@@ -269,14 +274,14 @@ class DepthCuda:
         return (depth - depth.min()) / (depth.max() - depth.min())
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processFrame(self, framePayload, frame):
         try:
             with torch.cuda.stream(self.stream):
                 frame = self.normFrame(frame)
                 depth = self.model(frame)
                 depth = self.outputFrameNorm(depth)
             self.stream.synchronize()
-            self.writeBuffer.write(depth)
+            self.writeBuffer.write(replaceFramePayload(framePayload, depth))
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -286,10 +291,11 @@ class DepthCuda:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
+                framePayload = self.readBuffer.read()
+                _, frame = extractFramePayload(framePayload)
                 if frame is None:
                     break
-                self.processFrame(frame)
+                self.processFrame(framePayload, frame)
                 frameCount += 1
                 bar(1)
                 if self.readBuffer.isReadFinished():
@@ -514,7 +520,7 @@ class DepthDirectMLV2:
         self.usingCpuFallback = True
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processFrame(self, framePayload, frame):
         try:
             frame = frame.to(self.device)
 
@@ -550,13 +556,13 @@ class DepthDirectMLV2:
             )
 
             depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
-            self.writeBuffer.write(depth)
+            self.writeBuffer.write(replaceFramePayload(framePayload, depth))
 
         except UnicodeDecodeError as e:
             if not self.usingCpuFallback:
                 logging.warning(f"DirectML/OpenVINO UnicodeDecodeError: {e}")
                 self._fallbackToCpu()
-                self.processFrame(frame)
+                self.processFrame(framePayload, frame)
             else:
                 logging.exception(
                     f"Something went wrong while processing the frame, {e}"
@@ -570,10 +576,11 @@ class DepthDirectMLV2:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
+                framePayload = self.readBuffer.read()
+                _, frame = extractFramePayload(framePayload)
                 if frame is None:
                     break
-                self.processFrame(frame)
+                self.processFrame(framePayload, frame)
                 frameCount += 1
                 bar(1)
                 if self.readBuffer.isReadFinished():
@@ -786,7 +793,7 @@ class DepthTensorRTV2:
         return depth
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processFrame(self, framePayload, frame):
         try:
             self.normFrame(frame)
             with torch.cuda.stream(self.stream):
@@ -794,7 +801,7 @@ class DepthTensorRTV2:
             self.stream.synchronize()
             depth = self.normOutputFrame()
 
-            self.writeBuffer.write(depth)
+            self.writeBuffer.write(replaceFramePayload(framePayload, depth))
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
@@ -803,10 +810,11 @@ class DepthTensorRTV2:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
+                framePayload = self.readBuffer.read()
+                _, frame = extractFramePayload(framePayload)
                 if frame is None:
                     break
-                self.processFrame(frame)
+                self.processFrame(framePayload, frame)
                 frameCount += 1
                 bar(1)
                 if self.readBuffer.isReadFinished():
@@ -993,10 +1001,10 @@ class OGDepthV2CUDA:
             self.compileMode = "default"
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processFrame(self, framePayload, frame):
         try:
             depth = self.model.infer_image(frame, self.newHeight, self.half)
-            self.encodeBuffer.put(depth)
+            self.encodeBuffer.put(replaceFramePayload(framePayload, depth))
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
@@ -1005,10 +1013,11 @@ class OGDepthV2CUDA:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
+                framePayload = self.readBuffer.read()
+                _, frame = extractFramePayload(framePayload)
                 if frame is None:
                     break
-                self.processFrame(frame)
+                self.processFrame(framePayload, frame)
                 frameCount += 1
                 bar(1)
 
@@ -1017,7 +1026,7 @@ class OGDepthV2CUDA:
 
     def encodeThread(self):
         while True:
-            frame = self.encodeBuffer.get()
+            _, frame = extractFramePayload(self.encodeBuffer.get())
             if frame is None:
                 break
             self.output.write(frame)
@@ -1084,7 +1093,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
             self.compileMode = "default"
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processFrame(self, framePayload, frame):
         try:
             depth = self.model.infer_image(
                 frame,
@@ -1096,7 +1105,9 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
 
             if validMask.sum() <= 10:
                 gray = np.zeros(depth.shape, dtype=np.uint8)
-                self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
+                self.encodeBuffer.put(
+                    replaceFramePayload(framePayload, np.stack([gray] * 3, axis=-1))
+                )
 
             disparity = np.zeros_like(depth, dtype=np.float32)
             disparity[validMask] = 1.0 / depth[validMask]
@@ -1109,13 +1120,15 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
 
             gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
             gray = (gray * 255.0).astype(np.uint8)
-            self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
+            self.encodeBuffer.put(
+                replaceFramePayload(framePayload, np.stack([gray] * 3, axis=-1))
+            )
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def encodeThread(self):
         while True:
-            frame = self.encodeBuffer.get()
+            _, frame = extractFramePayload(self.encodeBuffer.get())
             if frame is None:
                 break
             if frame.ndim == 2:
@@ -1400,7 +1413,7 @@ class OGDepthV2TensorRT:
         return depth
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processFrame(self, framePayload, frame):
         try:
             self.normFrame(frame)
             with torch.cuda.stream(self.stream):
@@ -1414,7 +1427,7 @@ class OGDepthV2TensorRT:
                 .unsqueeze(0)
                 .mul(1 / 255)
             )
-            self.writeBuffer.write(depthTensor)
+            self.writeBuffer.write(replaceFramePayload(framePayload, depthTensor))
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
@@ -1422,10 +1435,11 @@ class OGDepthV2TensorRT:
         frameCount = 0
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
+                framePayload = self.readBuffer.read()
+                _, frame = extractFramePayload(framePayload)
                 if frame is None:
                     break
-                self.processFrame(frame)
+                self.processFrame(framePayload, frame)
                 frameCount += 1
                 bar(1)
 
@@ -1607,7 +1621,7 @@ class OGDepthV2DirectML:
         )
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processFrame(self, framePayload, frame):
         try:
             frame = torch.from_numpy(frame).to(self.device)
             frame = frame.permute(2, 0, 1).unsqueeze(0)
@@ -1642,7 +1656,7 @@ class OGDepthV2DirectML:
             depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6) * 255.0
             depth = depth.astype(np.uint8)
 
-            self.encodeBuffer.put(depth)
+            self.encodeBuffer.put(replaceFramePayload(framePayload, depth))
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -1652,10 +1666,11 @@ class OGDepthV2DirectML:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
+                framePayload = self.readBuffer.read()
+                _, frame = extractFramePayload(framePayload)
                 if frame is None:
                     break
-                self.processFrame(frame)
+                self.processFrame(framePayload, frame)
                 frameCount += 1
                 bar(1)
                 if self.readBuffer.isReadFinished():
@@ -1667,7 +1682,7 @@ class OGDepthV2DirectML:
 
     def encodeThread(self):
         while True:
-            frame = self.encodeBuffer.get()
+            _, frame = extractFramePayload(self.encodeBuffer.get())
             if frame is None:
                 break
             if frame.ndim == 2:
@@ -1799,13 +1814,13 @@ class VideoDepthAnythingCUDA:
         self.model.frame_cache_list = []
         self.model.id = -1
 
-    def processFrame(self, frame):
+    def processFrame(self, framePayload, frame):
         try:
             depth = self.model.infer_video_depth_one(frame, 518, self.device, True)
             min_val, max_val = depth.min(), depth.max()
             depth = ((depth - min_val) / (max_val - min_val) * 255).astype(np.uint8)
             depth = np.stack([depth] * 3, axis=-1)
-            self.encodeBuffer.put(depth)
+            self.encodeBuffer.put(replaceFramePayload(framePayload, depth))
         except Exception as e:
             self._resetVideoDepthState()
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -1816,10 +1831,11 @@ class VideoDepthAnythingCUDA:
         self._resetVideoDepthState()
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
+                framePayload = self.readBuffer.read()
+                _, frame = extractFramePayload(framePayload)
                 if frame is None:
                     break
-                self.processFrame(frame)
+                self.processFrame(framePayload, frame)
                 frameCount += 1
                 bar(1)
 
@@ -1833,7 +1849,7 @@ class VideoDepthAnythingCUDA:
 
     def encodeThread(self):
         while True:
-            frame = self.encodeBuffer.get()
+            _, frame = extractFramePayload(self.encodeBuffer.get())
             if frame is None:
                 break
             self.output.write(frame)
@@ -1964,7 +1980,7 @@ class VideoDepthAnythingTorch:
         self.model.id = -1
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processFrame(self, framePayload, frame):
         """Process a single frame - frame is a PyTorch tensor (C, H, W) or numpy array."""
         try:
             # If tensor, convert to numpy for the model (it expects numpy RGB)
@@ -1982,7 +1998,7 @@ class VideoDepthAnythingTorch:
             min_val, max_val = depth.min(), depth.max()
             depth = ((depth - min_val) / (max_val - min_val) * 255).astype(np.uint8)
             depth = np.stack([depth] * 3, axis=-1)
-            self.encodeBuffer.put(depth)
+            self.encodeBuffer.put(replaceFramePayload(framePayload, depth))
         except Exception as e:
             self._resetVideoDepthState()
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -1995,11 +2011,12 @@ class VideoDepthAnythingTorch:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
+                framePayload = self.readBuffer.read()
+                _, frame = extractFramePayload(framePayload)
                 if frame is None:
                     break
 
-                self.processFrame(frame)
+                self.processFrame(framePayload, frame)
                 frameCount += 1
                 bar(1)
 
@@ -2011,7 +2028,7 @@ class VideoDepthAnythingTorch:
 
     def encodeThread(self):
         while True:
-            frame = self.encodeBuffer.get()
+            _, frame = extractFramePayload(self.encodeBuffer.get())
             if frame is None:
                 break
             self.output.write(frame)

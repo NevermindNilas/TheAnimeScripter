@@ -50,7 +50,8 @@ class PixelShuffleBlcok(nn.Module):
 
     def forward(self, x):
         x = self.conv_before_upsample(x)
-        x = self.conv_last(self.upsample(x))
+        x = self.upsample(x).contiguous(memory_format=torch.channels_last)
+        x = self.conv_last(x)
         return x
 
 # grid network

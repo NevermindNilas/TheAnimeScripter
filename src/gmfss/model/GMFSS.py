@@ -57,15 +57,23 @@ class GMFSS(nn.Module):
         feat_ext0 = [feat11, feat12, feat13]
         feat_ext1 = [feat21, feat22, feat23]
 
-        img0 = F.interpolate(img0, scale_factor=0.5, mode="bilinear")
-        img1 = F.interpolate(img1, scale_factor=0.5, mode="bilinear")
+        img0_half = F.interpolate(img0, scale_factor=0.5, mode="bilinear").contiguous(
+            memory_format=torch.channels_last
+        )
+        img1_half = F.interpolate(img1, scale_factor=0.5, mode="bilinear").contiguous(
+            memory_format=torch.channels_last
+        )
 
         if self.scale != 1.0:
-            imgf0 = F.interpolate(img0, scale_factor=self.scale, mode="bilinear")
-            imgf1 = F.interpolate(img1, scale_factor=self.scale, mode="bilinear")
+            imgf0 = F.interpolate(
+                img0_half, scale_factor=self.scale, mode="bilinear"
+            ).contiguous(memory_format=torch.channels_last)
+            imgf1 = F.interpolate(
+                img1_half, scale_factor=self.scale, mode="bilinear"
+            ).contiguous(memory_format=torch.channels_last)
         else:
-            imgf0 = img0
-            imgf1 = img1
+            imgf0 = img0_half
+            imgf1 = img1_half
         flow01 = self.flownet(imgf0, imgf1)
         flow10 = self.flownet(imgf1, imgf0)
         if self.scale != 1.0:
@@ -78,40 +86,47 @@ class GMFSS(nn.Module):
                 / self.scale
             )
 
-        metric0, metric1 = self.metricnet(img0, img1, flow01, flow10)
+        metric0, metric1 = self.metricnet(img0_half, img1_half, flow01, flow10)
 
-        return flow01, flow10, metric0, metric1, feat_ext0, feat_ext1
+        return (
+            img0_half,
+            img1_half,
+            flow01,
+            flow10,
+            metric0,
+            metric1,
+            feat_ext0,
+            feat_ext1,
+        )
 
-    def forward(self, img0, img1, timestep):
-        reuse_things = self.reuse(img0, img1)
-        flow01, metric0, feat11, feat12, feat13 = (
-            reuse_things[0],
-            reuse_things[2],
-            reuse_things[4][0],
-            reuse_things[4][1],
-            reuse_things[4][2],
-        )
-        flow10, metric1, feat21, feat22, feat23 = (
-            reuse_things[1],
-            reuse_things[3],
-            reuse_things[5][0],
-            reuse_things[5][1],
-            reuse_things[5][2],
-        )
+    def forward_from_reuse(self, reuse_things, timestep):
+        (
+            img0_half,
+            img1_half,
+            flow01,
+            flow10,
+            metric0,
+            metric1,
+            feat_ext0,
+            feat_ext1,
+        ) = reuse_things
+        feat11, feat12, feat13 = feat_ext0
+        feat21, feat22, feat23 = feat_ext1
+
+        timestep = timestep.view(-1, 1, 1, 1)
+        inverse_timestep = 1 - timestep
 
         F1t = timestep * flow01
-        F2t = (1 - timestep) * flow10
+        F2t = inverse_timestep * flow10
 
         Z1t = timestep * metric0
-        Z2t = (1 - timestep) * metric1
+        Z2t = inverse_timestep * metric1
 
-        img0 = F.interpolate(img0, scale_factor=0.5, mode="bilinear")
-        I1t = warp(img0, F1t, Z1t, strMode="soft")
-        img1 = F.interpolate(img1, scale_factor=0.5, mode="bilinear")
-        I2t = warp(img1, F2t, Z2t, strMode="soft")
+        I1t = warp(img0_half, F1t, Z1t, strMode="soft")
+        I2t = warp(img1_half, F2t, Z2t, strMode="soft")
 
         if self.model_type == "union":
-            rife = self.ifnet(img0, img1, timestep)
+            rife = self.ifnet(img0_half, img1_half, timestep.view(-1))
 
         feat1t1 = warp(feat11, F1t, Z1t, strMode="soft")
         feat2t1 = warp(feat21, F2t, Z2t, strMode="soft")
@@ -132,14 +147,23 @@ class GMFSS(nn.Module):
 
         out = self.fusionnet(
             torch.cat(
-                [img0, I1t, I2t, img1]
+                [img0_half, I1t, I2t, img1_half]
                 if self.model_type == "base"
                 else [I1t, rife, I2t],
                 dim=1,
+            ).contiguous(memory_format=torch.channels_last),
+            torch.cat([feat1t1, feat2t1], dim=1).contiguous(
+                memory_format=torch.channels_last
             ),
-            torch.cat([feat1t1, feat2t1], dim=1),
-            torch.cat([feat1t2, feat2t2], dim=1),
-            torch.cat([feat1t3, feat2t3], dim=1),
+            torch.cat([feat1t2, feat2t2], dim=1).contiguous(
+                memory_format=torch.channels_last
+            ),
+            torch.cat([feat1t3, feat2t3], dim=1).contiguous(
+                memory_format=torch.channels_last
+            ),
         )
 
         return torch.clamp(out, 0, 1)
+
+    def forward(self, img0, img1, timestep):
+        return self.forward_from_reuse(self.reuse(img0, img1), timestep)
