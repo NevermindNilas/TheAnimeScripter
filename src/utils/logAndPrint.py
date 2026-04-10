@@ -6,7 +6,48 @@ Ensures consistent message formatting and logging throughout the application.
 """
 
 import logging
-from colored import fg, attr
+import sys
+import os
+
+# ANSI escape codes - works on modern terminals (Windows 10+, Linux, macOS)
+_RESET = "\033[0m"
+_BOLD = "\033[1m"
+
+_COLORS = {
+    "red": "\033[91m",
+    "green": "\033[92m",
+    "yellow": "\033[93m",
+    "blue": "\033[94m",
+    "magenta": "\033[95m",
+    "cyan": "\033[96m",
+    "light_blue": "\033[94m",
+}
+
+# Detect whether the output supports ANSI colors
+def _supportsColor():
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    if not hasattr(sys.stdout, "isatty") or not sys.stdout.isatty():
+        return False
+    if sys.platform == "win32":
+        # Windows 10 build 14393+ supports ANSI natively
+        try:
+            ver = sys.getwindowsversion()
+            return ver.major >= 10 and ver.build >= 14393
+        except Exception:
+            return False
+    return True
+
+
+_COLOR_ENABLED = _supportsColor()
+
+
+def _ansi(text, color_code):
+    if not _COLOR_ENABLED:
+        return str(text)
+    return f"{color_code}{text}{_RESET}"
 
 
 _VERBOSE = False
@@ -46,9 +87,9 @@ def logAndPrint(message: str, colorFunc: str = "cyan", level: str = "INFO") -> N
     """
     colorFunctions = {"cyan": cyan, "red": red, "yellow": yellow, "green": green}
 
-    icons = {"INFO": "ℹ", "WARNING": "⚠", "ERROR": "✗", "SUCCESS": "✓", "DEBUG": "🔍"}
+    icons = {"INFO": "i", "WARNING": "!", "ERROR": "x", "SUCCESS": "+", "DEBUG": "?"}
 
-    icon = icons.get(level.upper(), "ℹ")
+    icon = icons.get(level.upper(), "i")
     if not _QUIET:
         if colorFunc in colorFunctions:
             formatted_message = f"{icon} {message}"
@@ -148,131 +189,52 @@ def coloredPrint(message: str, colorFunc: str = "cyan") -> None:
         print(message)
 
 
-"""
-Colored Terminal Output Utilities
-
-Provides functions for colored terminal text output using the colored library.
-Used throughout the application for user-friendly console feedback.
-"""
-
-
 def green(text):
-    """
-    Format text in green color for success messages.
-
-    Args:
-        text (str): Text to colorize
-
-    Returns:
-        str: Green-colored text with reset attributes
-    """
-    return "%s%s%s" % (fg("green"), text, attr("reset"))
+    """Format text in green color."""
+    return _ansi(text, _COLORS["green"])
 
 
 def red(text):
-    """
-    Format text in red color for error messages.
-
-    Args:
-        text (str): Text to colorize
-
-    Returns:
-        str: Red-colored text with reset attributes
-    """
-    return "%s%s%s" % (fg("red"), text, attr("reset"))
+    """Format text in red color."""
+    return _ansi(text, _COLORS["red"])
 
 
 def yellow(text):
-    """
-    Format text in yellow color for warning messages.
-
-    Args:
-        text (str): Text to colorize
-
-    Returns:
-        str: Yellow-colored text with reset attributes
-    """
-    return "%s%s%s" % (fg("yellow"), text, attr("reset"))
+    """Format text in yellow color."""
+    return _ansi(text, _COLORS["yellow"])
 
 
 def blue(text):
-    """
-    Format text in blue color for informational messages.
-
-    Args:
-        text (str): Text to colorize
-
-    Returns:
-        str: Blue-colored text with reset attributes
-    """
-    return "%s%s%s" % (fg("blue"), text, attr("reset"))
+    """Format text in blue color."""
+    return _ansi(text, _COLORS["blue"])
 
 
 def magenta(text):
-    """
-    Format text in magenta color.
-
-    Args:
-        text (str): Text to colorize
-
-    Returns:
-        str: Magenta-colored text with reset attributes
-    """
-    return "%s%s%s" % (fg("magenta"), text, attr("reset"))
+    """Format text in magenta color."""
+    return _ansi(text, _COLORS["magenta"])
 
 
 def cyan(text):
-    """
-    Format text in cyan color for general information.
-
-    Args:
-        text (str): Text to colorize
-
-    Returns:
-        str: Cyan-colored text with reset attributes
-    """
-    return "%s%s%s" % (fg("cyan"), text, attr("reset"))
+    """Format text in cyan color."""
+    return _ansi(text, _COLORS["cyan"])
 
 
 def lightBlue(text):
-    """
-    Format text in light blue color.
-
-    Args:
-        text (str): Text to colorize
-
-    Returns:
-        str: Light blue-colored text with reset attributes
-    """
-    return "%s%s%s" % (fg("light_blue"), text, attr("reset"))
+    """Format text in light blue color."""
+    return _ansi(text, _COLORS["light_blue"])
 
 
 def rainbow(text):
-    """
-    Format text with rainbow colors, cycling through different colors per character.
-
-    Args:
-        text (str): Text to colorize
-
-    Returns:
-        str: Rainbow-colored text with reset attributes
-    """
+    """Format text with rainbow colors, cycling through different colors per character."""
+    if not _COLOR_ENABLED:
+        return str(text)
     colors = ["red", "yellow", "green", "blue", "magenta", "cyan"]
-    coloredText = ""
+    result = ""
     for i, char in enumerate(text):
-        color = colors[i % len(colors)]
-        coloredText += "%s%s%s" % (fg(color), char, attr("reset"))
-    return coloredText
+        result += f"{_COLORS[colors[i % len(colors)]]}{char}"
+    return f"{result}{_RESET}"
 
 
 def bold(text):
-    """
-    Format text in bold style.
-
-    Args:
-        text (str): Text to make bold
-
-    Returns:
-        str: Bold text with reset attributes
-    """
-    return "%s%s%s" % (attr("bold"), text, attr("reset"))
+    """Format text in bold style."""
+    return _ansi(text, _BOLD)

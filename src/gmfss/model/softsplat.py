@@ -1,15 +1,9 @@
 import torch
-import torch.nn as nn
 
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
 
 grid_cache = {}
 base_index_cache = {}
 out_cache = {}
-
-torch.set_float32_matmul_precision("medium")
-torch.set_grad_enabled(False)
 
 
 def _parse_mode(strMode: str):
@@ -141,7 +135,6 @@ def softsplat(
 class softsplat_func(torch.autograd.Function):
     @staticmethod
     @torch.inference_mode()
-    @torch.amp.custom_fwd(device_type=device)
     def forward(ctx, tenIn: torch.Tensor, tenFlow: torch.Tensor):
         n, channels, height, width = tenIn.shape
         dev = tenIn.device
@@ -216,25 +209,3 @@ class softsplat_func(torch.autograd.Function):
         return out.view(n, height, width, channels).permute(0, 3, 1, 2)
 
 
-def FunctionSoftsplat(
-    tenInput: torch.Tensor,
-    tenFlow: torch.Tensor,
-    tenMetric: torch.Tensor | None,
-    strType: str,
-):
-    strMode = {
-        "summation": "sum",
-        "average": "avg-zeroeps",
-        "linear": "linear-zeroeps",
-        "softmax": "soft-zeroeps",
-    }.get(strType, strType)
-    return softsplat(tenInput, tenFlow, tenMetric, strMode)
-
-
-class Softsplat(nn.Module):
-    def __init__(self, strType: str = "softmax"):
-        super().__init__()
-        self.strType = strType
-
-    def forward(self, img, flow, z):
-        return FunctionSoftsplat(img, flow, z, self.strType)

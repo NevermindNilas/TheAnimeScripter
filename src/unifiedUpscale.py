@@ -110,10 +110,17 @@ class UniversalPytorch:
             self.model = DIS(scale=2, num_features=32, num_blocks=12)
             self.model.load_state_dict(load_file(modelPath))
         else:
-            self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
+            if self.customModel:
+                self.model = ModelLoader().load_from_file(modelPath)
+                if not isinstance(self.model, ImageModelDescriptor):
+                    raise TypeError(
+                        f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
+                    )
+            else:
+                self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
 
-            if isinstance(self.model, dict):
-                self.model = ModelLoader().load_from_state_dict(self.model)
+                if isinstance(self.model, dict):
+                    self.model = ModelLoader().load_from_state_dict(self.model)
 
             if self.customModel:
                 assert isinstance(self.model, ImageModelDescriptor)
