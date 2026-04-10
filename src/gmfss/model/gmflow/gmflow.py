@@ -70,6 +70,60 @@ class GMFlow(nn.Module):
 
         return feature0, feature1
 
+    def _run_flow_pipeline(self, feature0_list, feature1_list,
+                           attn_splits_list, corr_radius_list, prop_radius_list):
+        """Run transformer + matching + propagation + upsample for one flow direction."""
+        flow = None
+        for scale_idx in range(self.num_scales):
+            feature0, feature1 = feature0_list[scale_idx], feature1_list[scale_idx]
+
+            upsample_factor = self.upsample_factor * (2 ** (self.num_scales - 1 - scale_idx))
+
+            if scale_idx > 0:
+                flow = F.interpolate(flow, scale_factor=2, mode='bilinear', align_corners=True) * 2
+
+            if flow is not None:
+                flow = flow.detach()
+                feature1 = flow_warp(feature1, flow)
+
+            attn_splits = attn_splits_list[scale_idx]
+            corr_radius = corr_radius_list[scale_idx]
+            prop_radius = prop_radius_list[scale_idx]
+
+            feature0, feature1 = feature_add_position(feature0, feature1, attn_splits, self.feature_channels)
+            feature0, feature1 = self.transformer(feature0, feature1, attn_num_splits=attn_splits)
+
+            if corr_radius == -1:
+                flow_pred = global_correlation_softmax(feature0, feature1, False)[0]
+            else:
+                flow_pred = local_correlation_softmax(feature0, feature1, corr_radius)[0]
+
+            flow = flow + flow_pred if flow is not None else flow_pred
+
+            flow = self.feature_flow_attn(feature0, flow.detach(),
+                                          local_window_attn=prop_radius > 0,
+                                          local_window_radius=prop_radius)
+
+            if scale_idx == self.num_scales - 1:
+                flow_up = self.upsample_flow(flow, feature0)
+
+        return flow_up
+
+    def forward_bidir(self, img0, img1,
+                      attn_splits_list=[2, 8],
+                      corr_radius_list=[-1, 4],
+                      prop_radius_list=[-1, 1],
+                      ):
+        """Compute bidirectional flow with shared backbone features (extracted once)."""
+        img0, img1 = normalize_img(img0, img1)
+        feature0_list, feature1_list = self.extract_feature(img0, img1)
+
+        flow01 = self._run_flow_pipeline(feature0_list, feature1_list,
+                                         attn_splits_list, corr_radius_list, prop_radius_list)
+        flow10 = self._run_flow_pipeline(feature1_list, feature0_list,
+                                         attn_splits_list, corr_radius_list, prop_radius_list)
+        return flow01, flow10
+
     def upsample_flow(self, flow, feature, bilinear=False, upsample_factor=8,
                       ):
         if bilinear:
@@ -99,70 +153,8 @@ class GMFlow(nn.Module):
                 attn_splits_list=[2, 8],
                 corr_radius_list=[-1, 4],
                 prop_radius_list=[-1, 1],
-                pred_bidir_flow=False,
-                **kwargs,
                 ):
-
-        img0, img1 = normalize_img(img0, img1)  # [B, 3, H, W]
-
-        # resolution low to high
-        feature0_list, feature1_list = self.extract_feature(img0, img1)  # list of features
-
-        flow = None
-
-        assert len(attn_splits_list) == len(corr_radius_list) == len(prop_radius_list) == self.num_scales
-
-        for scale_idx in range(self.num_scales):
-            feature0, feature1 = feature0_list[scale_idx], feature1_list[scale_idx]
-
-            if pred_bidir_flow and scale_idx > 0:
-                # predicting bidirectional flow with refinement
-                feature0, feature1 = torch.cat((feature0, feature1), dim=0), torch.cat((feature1, feature0), dim=0)
-
-            upsample_factor = self.upsample_factor * (2 ** (self.num_scales - 1 - scale_idx))
-
-            if scale_idx > 0:
-                flow = F.interpolate(flow, scale_factor=2, mode='bilinear', align_corners=True) * 2
-
-            if flow is not None:
-                flow = flow.detach()
-                feature1 = flow_warp(feature1, flow)  # [B, C, H, W]
-
-            attn_splits = attn_splits_list[scale_idx]
-            corr_radius = corr_radius_list[scale_idx]
-            prop_radius = prop_radius_list[scale_idx]
-
-            # add position to features
-            feature0, feature1 = feature_add_position(feature0, feature1, attn_splits, self.feature_channels)
-
-            # Transformer
-            feature0, feature1 = self.transformer(feature0, feature1, attn_num_splits=attn_splits)
-
-            # correlation and softmax
-            if corr_radius == -1:  # global matching
-                flow_pred = global_correlation_softmax(feature0, feature1, pred_bidir_flow)[0]
-            else:  # local matching
-                flow_pred = local_correlation_softmax(feature0, feature1, corr_radius)[0]
-
-            # flow or residual flow
-            flow = flow + flow_pred if flow is not None else flow_pred
-
-            # upsample to the original resolution for supervison
-            if self.training:  # only need to upsample intermediate flow predictions at training time
-                flow_bilinear = self.upsample_flow(flow, None, bilinear=True, upsample_factor=upsample_factor)
-
-            # flow propagation with self-attn
-            if pred_bidir_flow and scale_idx == 0:
-                feature0 = torch.cat((feature0, feature1), dim=0)  # [2*B, C, H, W] for propagation
-            flow = self.feature_flow_attn(feature0, flow.detach(),
-                                          local_window_attn=prop_radius > 0,
-                                          local_window_radius=prop_radius)
-
-            # bilinear upsampling at training time except the last one
-            if self.training and scale_idx < self.num_scales - 1:
-                flow_up = self.upsample_flow(flow, feature0, bilinear=True, upsample_factor=upsample_factor)
-
-            if scale_idx == self.num_scales - 1:
-                flow_up = self.upsample_flow(flow, feature0)
-
-        return flow_up
+        img0, img1 = normalize_img(img0, img1)
+        feature0_list, feature1_list = self.extract_feature(img0, img1)
+        return self._run_flow_pipeline(feature0_list, feature1_list,
+                                       attn_splits_list, corr_radius_list, prop_radius_list)

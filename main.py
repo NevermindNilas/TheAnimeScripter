@@ -26,18 +26,6 @@ import os
 import sys
 import logging
 import warnings
-from src.utils.logAndPrint import (
-    logAndPrint,
-    logInfo,
-    logSuccess,
-    logWarning,
-    logError,
-    printSectionHeader,
-    printSubsectionHeader,
-)
-
-from platform import system
-from signal import signal, SIGINT, SIG_DFL
 from time import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
@@ -399,6 +387,7 @@ class VideoProcessor:
         from src.utils.ffmpegSettings import BuildBuffer, createWriteBuffer
         from src.utils.progressBarLogic import ProgressBarLogic
         from src.utils.aeComms import progressState
+        from src.utils.logAndPrint import logAndPrint
 
         self.ProgressBarLogic = ProgressBarLogic
 
@@ -496,6 +485,7 @@ class VideoProcessor:
         """
         import torch
         from torch.profiler import profile, ProfilerActivity
+        from src.utils.logAndPrint import logAndPrint
 
         profilePath = os.path.join(cs.WHEREAMIRUNFROM, "profiler_trace")
         os.makedirs(profilePath, exist_ok=True)
@@ -560,6 +550,8 @@ def main():
             pass
 
     try:
+        from platform import system
+
         cs.SYSTEM = system()
         cs.WHEREAMIRUNFROM = os.path.dirname(os.path.abspath(__file__))
         os.makedirs(cs.WHEREAMIRUNFROM, exist_ok=True)
@@ -571,6 +563,16 @@ def main():
                 createParser(outputPath=os.getcwd())
             except SystemExit:
                 return
+
+        from signal import signal, SIGINT, SIG_DFL
+        from src.utils.logAndPrint import (
+            logInfo,
+            logSuccess,
+            logWarning,
+            logError,
+            printSectionHeader,
+            printSubsectionHeader,
+        )
 
         baseOutputPath = os.path.dirname(os.path.abspath(__file__))
 

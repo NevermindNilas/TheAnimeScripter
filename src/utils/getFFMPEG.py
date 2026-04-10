@@ -6,7 +6,6 @@ from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
 
 import src.constants as cs
-from src.utils.progressBarLogic import ProgressBarDownloadLogic
 
 
 def getFFMPEG():
@@ -33,6 +32,8 @@ def downloadAndExtractFfmpeg(ffmpegPath):
     )
 
     try:
+        from src.utils.progressBarLogic import ProgressBarDownloadLogic
+
         response = urlopen(ffmpegUrl)
 
         # Check for HTTP errors manually (like raise_for_status)

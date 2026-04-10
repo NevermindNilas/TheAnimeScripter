@@ -80,7 +80,6 @@ class IFNet(nn.Module):
         self.block1 = IFBlock(8 + 4, c=128)
         self.block2 = IFBlock(8 + 4, c=96)
         self.block3 = IFBlock(8 + 4, c=64)
-        self.scale_list = [8, 4, 2, 1]
         self.ensemble = ensemble
 
     def forward(self, img0, img1, timestep):
@@ -92,7 +91,7 @@ class IFNet(nn.Module):
                 memory_format=torch.channels_last
             ),
             None,
-            scale=self.scale_list[0],
+            scale=8,
         )
         if self.ensemble:
             f1, m1 = self.block0(
@@ -100,7 +99,7 @@ class IFNet(nn.Module):
                     memory_format=torch.channels_last
                 ),
                 None,
-                scale=self.scale_list[0],
+                scale=8,
             )
             flow = (flow + torch.cat((f1[:, 2:4], f1[:, :2]), 1)) / 2
             mask = (mask + (-m1)) / 2

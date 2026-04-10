@@ -843,6 +843,7 @@ def initializeModels(self):
                     compileMode=self.compileMode,
                 )
 
+
             case (
                 "rife4.6-directml"
                 | "rife4.6-openvino"

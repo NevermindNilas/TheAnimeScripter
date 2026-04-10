@@ -3,7 +3,6 @@ import logging
 import random
 import re
 import glob
-from src.utils.logAndPrint import logAndPrint
 
 EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
 IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".tiff", ".tif", ".exr", ".dpx"]
@@ -170,6 +169,8 @@ def validateEncoder(video, encodeMethod, customEncoder):
         and not customEncoder
         and encodeMethod not in ["vp9", "qsv_vp9", "av1"]
     ):
+        from src.utils.logAndPrint import logAndPrint
+
         logAndPrint(
             f"Video {video} is a Webm file, encode method was not set to ['vp9', 'qsv_vp9', 'av1'] and `--custom_encoder` is None, defaulting to 'vp9'.",
             colorFunc="yellow",

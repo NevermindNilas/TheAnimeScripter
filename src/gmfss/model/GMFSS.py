@@ -14,17 +14,14 @@ torch.fx.wrap("warp")
 
 
 class GMFSS(nn.Module):
-    def __init__(self, model_dir, model_type, scale, ensemble):
+    def __init__(self, model_dir, scale, ensemble):
         super(GMFSS, self).__init__()
-        if model_type == "base":
-            from .FusionNet_b import GridNet
-        else:
-            from .FusionNet_u import GridNet
+        from .FusionNet_u import GridNet
 
-            self.ifnet = IFNet(ensemble)
-            self.ifnet.load_state_dict(
-                torch.load(os.path.join(model_dir, "rife.pkl"), map_location="cpu")
-            )
+        self.ifnet = IFNet(ensemble)
+        self.ifnet.load_state_dict(
+            torch.load(os.path.join(model_dir, "rife.pkl"), map_location="cpu")
+        )
         self.flownet = GMFlow()
         self.metricnet = MetricNet()
         self.feat_ext = FeatureNet()
@@ -34,26 +31,29 @@ class GMFSS(nn.Module):
         )
         self.metricnet.load_state_dict(
             torch.load(
-                os.path.join(model_dir, f"metric_{model_type}.pkl"), map_location="cpu"
+                os.path.join(model_dir, "metric_union.pkl"), map_location="cpu"
             )
         )
         self.feat_ext.load_state_dict(
             torch.load(
-                os.path.join(model_dir, f"feat_{model_type}.pkl"), map_location="cpu"
+                os.path.join(model_dir, "feat_union.pkl"), map_location="cpu"
             )
         )
         self.fusionnet.load_state_dict(
             torch.load(
-                os.path.join(model_dir, f"fusionnet_{model_type}.pkl"),
+                os.path.join(model_dir, "fusionnet_union.pkl"),
                 map_location="cpu",
             )
         )
-        self.model_type = model_type
         self.scale = scale
 
     def reuse(self, img0, img1):
-        feat11, feat12, feat13 = self.feat_ext(img0)
-        feat21, feat22, feat23 = self.feat_ext(img1)
+        # Batch feature extraction: process both frames in one forward pass
+        imgs_cat = torch.cat([img0, img1], dim=0)
+        feats = self.feat_ext(imgs_cat)
+        feat11, feat21 = feats[0].chunk(2, dim=0)
+        feat12, feat22 = feats[1].chunk(2, dim=0)
+        feat13, feat23 = feats[2].chunk(2, dim=0)
         feat_ext0 = [feat11, feat12, feat13]
         feat_ext1 = [feat21, feat22, feat23]
 
@@ -74,8 +74,8 @@ class GMFSS(nn.Module):
         else:
             imgf0 = img0_half
             imgf1 = img1_half
-        flow01 = self.flownet(imgf0, imgf1)
-        flow10 = self.flownet(imgf1, imgf0)
+        # Use forward_bidir to share backbone feature extraction
+        flow01, flow10 = self.flownet.forward_bidir(imgf0, imgf1)
         if self.scale != 1.0:
             flow01 = (
                 F.interpolate(flow01, scale_factor=1.0 / self.scale, mode="bilinear")
@@ -125,8 +125,7 @@ class GMFSS(nn.Module):
         I1t = warp(img0_half, F1t, Z1t, strMode="soft")
         I2t = warp(img1_half, F2t, Z2t, strMode="soft")
 
-        if self.model_type == "union":
-            rife = self.ifnet(img0_half, img1_half, timestep.view(-1))
+        rife = self.ifnet(img0_half, img1_half, timestep.view(-1))
 
         feat1t1 = warp(feat11, F1t, Z1t, strMode="soft")
         feat2t1 = warp(feat21, F2t, Z2t, strMode="soft")
@@ -146,12 +145,9 @@ class GMFSS(nn.Module):
         feat2t3 = warp(feat23, F2tdd, Z2dd, strMode="soft")
 
         out = self.fusionnet(
-            torch.cat(
-                [img0_half, I1t, I2t, img1_half]
-                if self.model_type == "base"
-                else [I1t, rife, I2t],
-                dim=1,
-            ).contiguous(memory_format=torch.channels_last),
+            torch.cat([I1t, rife, I2t], dim=1).contiguous(
+                memory_format=torch.channels_last
+            ),
             torch.cat([feat1t1, feat2t1], dim=1).contiguous(
                 memory_format=torch.channels_last
             ),
