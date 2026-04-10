@@ -4,42 +4,10 @@ import torch.nn.functional as F
 
 from .gmflow.geometry import forward_backward_consistency_check
 from .util import MyPReLU
+from .warplayer import get_backwarp_grid
 
 torch.fx.wrap('backwarp')
 torch.fx.wrap('forward_backward_consistency_check')
-
-backwarp_tenGrid = {}
-
-
-def get_backwarp_grid(tenflow):
-    key = (tenflow.device, tenflow.dtype, tenflow.shape[2], tenflow.shape[3])
-    grid = backwarp_tenGrid.get(key)
-
-    if grid is None:
-        tenHor = torch.linspace(
-            start=-1.0,
-            end=1.0,
-            steps=tenflow.shape[3],
-            dtype=tenflow.dtype,
-            device=tenflow.device,
-        ).view(1, 1, 1, -1)
-        tenVer = torch.linspace(
-            start=-1.0,
-            end=1.0,
-            steps=tenflow.shape[2],
-            dtype=tenflow.dtype,
-            device=tenflow.device,
-        ).view(1, 1, -1, 1)
-        grid = torch.cat(
-            [
-                tenHor.expand(1, -1, tenflow.shape[2], -1),
-                tenVer.expand(1, -1, -1, tenflow.shape[3]),
-            ],
-            1,
-        )
-        backwarp_tenGrid[key] = grid
-
-    return grid.expand(tenflow.shape[0], -1, -1, -1)
 
 
 def backwarp(tenIn, tenflow):

@@ -32,6 +32,29 @@ KNOWN_MODULE_ALIASES = {
     "triton-windows": "triton",
 }
 
+DEPENDENCY_PROFILE_REQUIREMENTS = {
+    "windows-cuda": "extra-requirements-windows.txt",
+    "windows-lite": "extra-requirements-windows-lite.txt",
+    "linux-cuda": "extra-requirements-linux.txt",
+    "linux-lite": "extra-requirements-linux-lite.txt",
+}
+
+
+def getDependencyProfile(systemName: str, supportsCuda: bool) -> str:
+    normalizedSystem = "windows" if systemName.lower() == "windows" else "linux"
+    return f"{normalizedSystem}-cuda" if supportsCuda else f"{normalizedSystem}-lite"
+
+
+def getRequirementsFileForProfile(profile: str) -> str:
+    normalizedProfile = profile.strip().lower()
+    requirementsFile = DEPENDENCY_PROFILE_REQUIREMENTS.get(normalizedProfile)
+    if requirementsFile is None:
+        validProfiles = ", ".join(DEPENDENCY_PROFILE_REQUIREMENTS)
+        raise ValueError(
+            f"Unsupported dependency profile '{profile}'. Expected one of: {validProfiles}"
+        )
+    return requirementsFile
+
 
 def getPythonExecutable() -> str:
     """
@@ -263,18 +286,10 @@ class DependencyChecker:
             supportsCuda = False
             if isNvidia:
                 supportsCuda, _, _ = detectGPUArchitecture()
-            if cs.SYSTEM == "Windows":
-                requirementsFile = (
-                    "extra-requirements-windows.txt"
-                    if supportsCuda
-                    else "extra-requirements-windows-lite.txt"
-                )
-            else:
-                requirementsFile = (
-                    "extra-requirements-linux.txt"
-                    if supportsCuda
-                    else "extra-requirements-linux-lite.txt"
-                )
+            profile = getDependencyProfile(cs.SYSTEM, supportsCuda)
+            requirementsFile = getRequirementsFileForProfile(profile)
+        elif requirementsFile in DEPENDENCY_PROFILE_REQUIREMENTS:
+            requirementsFile = getRequirementsFileForProfile(requirementsFile)
 
         requirementsPath = os.path.join(_getRuntimeRoot(), requirementsFile)
 

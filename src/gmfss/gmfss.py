@@ -10,7 +10,7 @@ from src.utils.logAndPrint import logAndPrint
 checker = CudaChecker()
 
 torch.set_float32_matmul_precision("medium")
-# from: https://github.com/HolyWu/vs-gmfss_fortuna/blob/master/vsgmfss_fortuna/__init__.py
+# from: https://github.com/HolyWu/vs-gmfss_fortuna/blob/master/vsgmfss_fortuna/__init__.py  
 
 
 def get_gmfss_model_dir():
@@ -48,9 +48,6 @@ class GMFSS:
 
     def handleModel(self):
         modelDir = get_gmfss_model_dir()
-
-        modelType = "union"
-
         self.device = torch.device("cuda" if checker.cudaAvailable else "cpu")
         self.use_cuda_stream = self.device.type == "cuda"
 
@@ -61,7 +58,7 @@ class GMFSS:
 
         from .model.GMFSS import GMFSS as Model
 
-        self.model = Model(modelDir, modelType, self.scale, ensemble=self.ensemble)
+        self.model = Model(modelDir, self.scale, ensemble=self.ensemble)
         self.model.eval().to(self.device, memory_format=torch.channels_last)
 
         self.dtype = torch.float32
@@ -190,18 +187,4 @@ class GMFSS:
                 interpQueue.put(output)
 
             self.cacheFrame()
-
-
-class GMFSSTensorRT:
-    def __init__(
-        self,
-        interpolateFactor: int = 2,
-        width: int = 0,
-        height: int = 0,
-        half: bool = True,
-        ensemble: bool = False,
-    ):
-        raise NotImplementedError(
-            "TensorRT is not supported for GMFSS, use the default GMFSS implementation"
-        )
 

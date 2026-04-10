@@ -281,9 +281,11 @@ C:\Videos\episode3.mp4
 | `--upscale` | flag | False | - | **Enable AI upscaling** — automatically enabled when `--upscale_method` is specified |
 | `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)** |
 | `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** — specifying a non-default method auto-enables upscaling |
-| `--custom_model` | str | "" | path | **Custom model file** (.pth/.onnx) |
+| `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA methods like `compact`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods |
 
 > **💡 Tip:** You can now simplify commands by omitting `--upscale` when specifying a method. For example: `--upscale_method span-tensorrt` automatically enables upscaling.
+
+> **⚠️ Backend Match Required:** `--custom_model` must match the selected upscale backend. A custom ONNX model will not load with plain CUDA methods such as `compact`; use `compact-directml`, `compact-openvino`, or `compact-tensorrt` instead.
 
 #### 🎯 Upscaling Models
 
@@ -540,7 +542,7 @@ C:\Videos\episode3.mp4
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `--offline` | str | "none" | **Model download mode** |
-| `--download_requirements` | flag | False | **Download dependencies** (Adobe compatibility) |
+| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `linux-cuda`, or `linux-lite`. With no value, prompts for full CUDA / TensorRT or lite dependencies for the current OS. |
 | `--cleanup` | flag | False | **Remove unused libraries/dependencies** (attempts to uninstall extras based on detected GPU capability) |
 
 **Offline Mode Options:**

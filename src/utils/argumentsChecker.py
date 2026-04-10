@@ -12,12 +12,20 @@ import argparse
 import shutil
 import src.constants as cs
 
-from rich_argparse import RichHelpFormatter
 from src.version import __version__
-from .inputOutputHandler import generateOutputName
-from src.utils.logAndPrint import logAndPrint
-from src.utils.dependencyHandler import installDependencies
-from src.utils.getFFMPEG import remove_readonly
+
+_logAndPrint = None
+
+
+def logAndPrint(message, colorFunc="cyan", level="INFO"):
+    global _logAndPrint
+    if _logAndPrint is None:
+        from src.utils.logAndPrint import logAndPrint as _lap
+        _logAndPrint = _lap
+    _logAndPrint(message, colorFunc, level)
+
+
+DOWNLOAD_REQUIREMENTS_PROMPT_SENTINEL = "__prompt__"
 
 
 class DidYouMeanArgumentParser(argparse.ArgumentParser):
@@ -191,6 +199,164 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
         super().error(message)
 
 
+def _supportsColorStdout():
+    if os.environ.get("NO_COLOR"):
+        return False
+    if os.environ.get("FORCE_COLOR"):
+        return True
+    if not hasattr(sys.stdout, "isatty") or not sys.stdout.isatty():
+        return False
+    if sys.platform == "win32":
+        try:
+            return sys.getwindowsversion().build >= 14393
+        except Exception:
+            return False
+    return True
+
+
+class TASHelpFormatter(argparse.HelpFormatter):
+    """Compact, colored help formatter that groups long choice lists by backend."""
+
+    _INLINE_THRESHOLD = 6
+    _KNOWN_BACKENDS = ("tensorrt", "directml", "ncnn", "openvino")
+
+    def __init__(self, prog, indent_increment=2, max_help_position=36, width=None):
+        if width is None:
+            try:
+                width = os.get_terminal_size().columns
+            except (ValueError, OSError):
+                width = 100
+        super().__init__(
+            prog, indent_increment, max_help_position, min(max(width, 60), 120)
+        )
+
+    def _metavar_formatter(self, action, default_metavar):
+        if action.choices is not None:
+            choices = [str(c) for c in action.choices]
+            if len(choices) > self._INLINE_THRESHOLD:
+                result = action.dest.upper().rsplit("_", 1)[-1]
+            else:
+                result = "{%s}" % ", ".join(choices)
+
+            def format(tuple_size):
+                return (result,) * tuple_size
+
+            return format
+        return super()._metavar_formatter(action, default_metavar)
+
+    def _get_help_string(self, action):
+        help_text = action.help or ""
+        extras = []
+        if (
+            action.default is not None
+            and action.default is not argparse.SUPPRESS
+            and action.default not in (None, False, [], "")
+            and not isinstance(action.default, bool)
+            and action.option_strings
+            and "default:" not in help_text.lower()
+            and "default is" not in help_text.lower()
+        ):
+            if isinstance(action.default, list):
+                default_str = ", ".join(str(d) for d in action.default)
+            else:
+                default_str = str(action.default)
+            extras.append("default: %s" % default_str)
+        if extras:
+            help_text += " (%s)" % ", ".join(extras)
+        return help_text
+
+    def _format_action(self, action):
+        result = super()._format_action(action)
+        if not action.choices or len(list(action.choices)) <= self._INLINE_THRESHOLD:
+            return result
+        indent = " " * self._max_help_position
+        groups = self._group_choices([str(c) for c in action.choices])
+        lines = []
+        if len(groups) == 1:
+            # Single group - no backend labels needed
+            items_str = ", ".join(list(groups.values())[0])
+            lines.append(indent + items_str)
+        else:
+            for backend, items in groups.items():
+                label = "%-10s " % ("[%s]" % backend)
+                items_str = ", ".join(items)
+                lines.append(indent + label + items_str)
+        return result + "\n".join(lines) + "\n"
+
+    @classmethod
+    def _group_choices(cls, choices):
+        from collections import OrderedDict
+
+        groups = OrderedDict()
+        for choice in choices:
+            parts = choice.rsplit("-", 1)
+            if len(parts) == 2 and parts[1] in cls._KNOWN_BACKENDS:
+                backend = parts[1]
+            else:
+                backend = "cuda"
+            groups.setdefault(backend, []).append(choice)
+        return groups
+
+    def format_help(self):
+        text = super().format_help()
+
+        # Don't add header/colors for short outputs like --version
+        if "usage:" not in text.lower():
+            return text
+
+        color = _supportsColorStdout()
+
+        if color:
+            R = "\033[0m"
+            B = "\033[1m"
+            C = "\033[96m"
+            D = "\033[2m"
+            header = (
+                f"\n  {B}{C}The Anime Scripter{R} {D}v{__version__}{R}\n"
+                f"  {D}AI-powered video enhancement toolkit{R}\n\n"
+            )
+        else:
+            header = (
+                f"\n  The Anime Scripter v{__version__}\n"
+                f"  AI-powered video enhancement toolkit\n\n"
+            )
+
+        if not color:
+            return header + text
+
+        import re
+
+        R = "\033[0m"
+        B = "\033[1m"
+        C = "\033[96m"
+        G = "\033[92m"
+        Y = "\033[93m"
+
+        lines = text.split("\n")
+        out = []
+        for line in lines:
+            # Section headings like "General:" or "Video Processing:"
+            m = re.match(r"^(\s{0,2})([\w][\w /()-]*):(\s*)$", line)
+            if m:
+                out.append(f"{m.group(1)}{B}{C}{m.group(2)}{R}")
+                continue
+
+            # "Usage:" or "usage:" prefix
+            line = re.sub(r"^(usage:\s*|Usage:\s*)", f"{B}\\1{R}", line)
+
+            # --long-flags
+            line = re.sub(r"(--[\w][\w-]*)", f"{G}\\1{R}", line)
+            # -x short flags
+            line = re.sub(r"(?<=[\s,])(-[a-zA-Z])(?=[\s,\]])", f"{G}\\1{R}", line)
+
+            # {choices} in braces
+            line = re.sub(r"(\{[^}]+\})", f"{Y}\\1{R}", line)
+
+            out.append(line)
+
+        return header + "\n".join(out)
+
+
 def isAnyOtherProcessingMethodEnabled(args):
     """
     Check if any video processing operations are enabled.
@@ -239,6 +405,53 @@ def str2bool(arg):
         return False
     else:
         raise argparse.ArgumentTypeError("Boolean value expected.")
+
+
+def _parseDownloadRequirementsSelection(value):
+    from src.utils.dependencyHandler import DEPENDENCY_PROFILE_REQUIREMENTS
+
+    normalizedValue = value.strip().lower()
+    if normalizedValue == DOWNLOAD_REQUIREMENTS_PROMPT_SENTINEL:
+        return DOWNLOAD_REQUIREMENTS_PROMPT_SENTINEL
+    if normalizedValue not in DEPENDENCY_PROFILE_REQUIREMENTS:
+        validProfiles = ", ".join(DEPENDENCY_PROFILE_REQUIREMENTS)
+        raise argparse.ArgumentTypeError(
+            f"Unsupported dependency profile '{value}'. Expected one of: {validProfiles}"
+        )
+    return normalizedValue
+
+
+def _promptDownloadRequirementsSelection() -> str:
+    from inquirer import List, prompt
+
+    currentPlatform = "windows" if cs.SYSTEM == "Windows" else "linux"
+    choices = [
+        ("Full CUDA / TensorRT dependencies", f"{currentPlatform}-cuda"),
+        ("Lite dependencies", f"{currentPlatform}-lite"),
+    ]
+    answers = prompt(
+        [
+            List(
+                "dependency_profile",
+                message=(
+                    f"Select which {currentPlatform.title()} dependencies to install"
+                ),
+                choices=choices,
+            )
+        ]
+    )
+
+    if not answers:
+        logAndPrint("No dependency profile selected, exiting.", "red")
+        sys.exit()
+
+    return answers["dependency_profile"]
+
+
+def _resolveDownloadRequirementsSelection(selection: str) -> str:
+    if selection == DOWNLOAD_REQUIREMENTS_PROMPT_SENTINEL:
+        return _promptDownloadRequirementsSelection()
+    return selection
 
 
 def _loadJsonConfig(args, parser):
@@ -319,9 +532,8 @@ def createParser(outputPath):
         argparse.Namespace: Parsed command line arguments
     """
     argParser = DidYouMeanArgumentParser(
-        description="The Anime Scripter CLI Tool",
         usage="main.py [options]",
-        formatter_class=RichHelpFormatter,
+        formatter_class=TASHelpFormatter,
     )
 
     # Basic options
@@ -657,7 +869,10 @@ def _addUpscalingOptions(argParser):
         help="Upscaling method",
     )
     upscaleGroup.add_argument(
-        "--custom_model", type=str, default="", help="Path to custom upscaling model"
+        "--custom_model",
+        type=str,
+        default="",
+        help="Path to a custom upscale model. Use .pt/.pth/.ckpt/.safetensors with CUDA methods and .onnx with -directml, -openvino, or -tensorrt methods",
     )
 
 
@@ -971,8 +1186,17 @@ def _addMiscOptions(argParser):
     )
     miscGroup.add_argument(
         "--download_requirements",
-        action="store_true",
-        help="Download all required libraries for the script, only used for Adobe Edition",
+        type=_parseDownloadRequirementsSelection,
+        nargs="?",
+        const=DOWNLOAD_REQUIREMENTS_PROMPT_SENTINEL,
+        default=None,
+        metavar="PROFILE",
+        help=(
+            "Download dependencies for a runtime profile. Supported profiles: "
+            "windows-cuda, windows-lite, linux-cuda, linux-lite. When used "
+            "without a profile, prompts for the current OS full CUDA / TensorRT "
+            "or lite dependencies."
+        ),
     )
     miscGroup.add_argument(
         "--cleanup",
@@ -1067,8 +1291,32 @@ def argumentsChecker(args, outputPath, parser):
 
     _autoEnableParentFlags(args)
 
-    if args.download_requirements:
+    if args.download_requirements is not None:
+        from src.utils.dependencyHandler import getRequirementsFileForProfile, installDependencies
+
         _handleDependencies(args)
+        selectedProfile = _resolveDownloadRequirementsSelection(
+            args.download_requirements
+        )
+        requirementsFile = getRequirementsFileForProfile(selectedProfile)
+        requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, requirementsFile)
+
+        success, message = installDependencies(
+            requirementsFile,
+            isNvidia=selectedProfile.endswith("-cuda"),
+        )
+
+        if not success:
+            logAndPrint(message, "red")
+            sys.exit()
+
+        try:
+            from src.utils.dependencyHandler import DependencyChecker
+
+            checker = DependencyChecker()
+            checker.updateCache(requirementsPath)
+        except ImportError:
+            logging.warning("Dependency cache update skipped: DependencyChecker unavailable")
 
         logAndPrint(
             "All required libraries have been downloaded, you can now run the script freely.",
@@ -1077,25 +1325,16 @@ def argumentsChecker(args, outputPath, parser):
         sys.exit()
 
     if args.cleanup:
-        from src.utils.dependencyHandler import uninstallDependencies
+        from src.utils.dependencyHandler import uninstallDependencies, getRequirementsFileForProfile, getDependencyProfile
         from src.utils.isCudaInit import detectNVidiaGPU, detectGPUArchitecture
 
         isNvidia = detectNVidiaGPU()
         supportsCuda = False
         if isNvidia:
             supportsCuda, _, _ = detectGPUArchitecture()
-        if cs.SYSTEM == "Windows":
-            extension = (
-                "extra-requirements-windows.txt"
-                if supportsCuda
-                else "extra-requirements-windows-lite.txt"
-            )
-        else:  # Linux and other systems
-            extension = (
-                "extra-requirements-linux.txt"
-                if supportsCuda
-                else "extra-requirements-linux-lite.txt"
-            )
+        extension = getRequirementsFileForProfile(
+            getDependencyProfile(cs.SYSTEM, supportsCuda)
+        )
         success, message = uninstallDependencies(extension=extension)
 
         logging.info(message)
@@ -1176,6 +1415,7 @@ def argumentsChecker(args, outputPath, parser):
 
     # Check CUDA availability and adjust methods if needed
     _adjustMethodsBasedOnCuda(args)
+    _validateCustomUpscaleModel(args)
 
     if args.custom_encoder:
         logging.info("Custom encoder specified, use with caution")
@@ -1290,6 +1530,8 @@ def _handleDependencies(args):
     legacyFFMPEG = os.path.join(cs.WHEREAMIRUNFROM, "ffmpeg")
     if os.path.isdir(legacyFFMPEG):
         try:
+            from src.utils.getFFMPEG import remove_readonly
+
             shutil.rmtree(legacyFFMPEG, onerror=remove_readonly)
             logging.info(f"Removed legacy FFmpeg folder: {legacyFFMPEG}")
         except Exception as e:
@@ -1348,49 +1590,10 @@ def _handleDependencies(args):
         args.isNvidiaGPU = False
         args.supportsCuda = False
 
-    if cs.SYSTEM == "Windows":
-        extension = (
-            "extra-requirements-windows.txt"
-            if supportsCuda
-            else "extra-requirements-windows-lite.txt"
-        )
-    else:
-        extension = (
-            "extra-requirements-linux.txt"
-            if supportsCuda
-            else "extra-requirements-linux-lite.txt"
-        )
+    from src.utils.dependencyHandler import getDependencyProfile, getRequirementsFileForProfile
 
-    requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, extension)
-
-    try:
-        from src.utils.dependencyHandler import DependencyChecker
-
-        checker = DependencyChecker()
-
-        if checker.needsUpdate(requirementsPath):
-            logAndPrint("Dependencies need updating...", "yellow")
-            success, message = installDependencies(extension, isNvidia=isNvidia)
-            if not success:
-                logAndPrint(message, "red")
-                sys.exit()
-            else:
-                logAndPrint(message, "green")
-                checker.updateCache(requirementsPath)
-        else:
-            logging.info("Dependencies are up to date")
-
-    except ImportError:
-        success, message = installDependencies(extension, isNvidia=isNvidia)
-        if not success:
-            logAndPrint(message, "red")
-            sys.exit()
-        else:
-            logAndPrint(message, "green")
-            from src.utils.dependencyHandler import DependencyChecker
-
-            checker = DependencyChecker()
-            checker.updateCache(requirementsPath)
+    args.dependency_profile = getDependencyProfile(cs.SYSTEM, supportsCuda)
+    args.requirements_file = getRequirementsFileForProfile(args.dependency_profile)
 
 
 def _handleDepthSettings(args):
@@ -1480,6 +1683,55 @@ def _configureProcessingSettings(args):
         logging.info(
             f"Pytorch Compile mode is set to {args.compile_mode}, this will increase startup time and memory usage and may lead to instability with some models"
         )
+
+
+def _validateCustomUpscaleModel(args):
+    if not args.custom_model:
+        return
+
+    args.custom_model = os.path.abspath(args.custom_model)
+    if not os.path.isfile(args.custom_model):
+        logAndPrint(f"Custom model file not found: {args.custom_model}", "red")
+        sys.exit()
+
+    extension = os.path.splitext(args.custom_model)[1].lower()
+    pytorchExtensions = {".pt", ".pth", ".ckpt", ".safetensors"}
+    onnxExtensions = {".onnx"}
+    backendSuffixes = ("-directml", "-openvino", "-tensorrt", "-ncnn")
+
+    selectedBackend = "pytorch"
+    baseMethod = args.upscale_method
+    for suffix in backendSuffixes:
+        if args.upscale_method.endswith(suffix):
+            selectedBackend = suffix[1:]
+            baseMethod = args.upscale_method[: -len(suffix)]
+            break
+
+    if extension in onnxExtensions:
+        if selectedBackend not in {"directml", "openvino", "tensorrt"}:
+            logAndPrint(
+                "Custom ONNX upscale models require an ONNX backend. Use an upscale method ending in -directml, -openvino, or -tensorrt, for example "
+                f"{baseMethod}-directml.",
+                "red",
+            )
+            sys.exit()
+        return
+
+    if extension in pytorchExtensions:
+        if selectedBackend != "pytorch":
+            logAndPrint(
+                "Custom PyTorch upscale models require a CUDA/PyTorch upscale method without a backend suffix. "
+                f"Use {baseMethod} for .pt/.pth/.ckpt/.safetensors files.",
+                "red",
+            )
+            sys.exit()
+        return
+
+    logAndPrint(
+        "Unsupported custom upscale model format. Supported extensions are .pt, .pth, .ckpt, .safetensors, and .onnx.",
+        "red",
+    )
+    sys.exit()
 
 
 def _adjustMethodsBasedOnCuda(args):
@@ -1590,6 +1842,7 @@ def _adjustMethodsBasedOnCuda(args):
 def processURL(args, outputPath):
     from urllib.parse import urlparse
     from src.ytdlp import VideoDownloader
+    from .inputOutputHandler import generateOutputName
 
     result = urlparse(args.input)
 

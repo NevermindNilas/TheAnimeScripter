@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Upgraded Pytorch to 2.11.0.
 - Upgraded Torchvision to 0.26.0.
 - Upgraded TensorRT to 10.16.0
+- Improved `--help` / `--version` startup performance by ~57% (326ms → 141ms avg)
+- Replaced the `colored` library with native ANSI escape codes for further improvements to startup time and reduced dependencies.
 
 ### Fixed
 - N/A
