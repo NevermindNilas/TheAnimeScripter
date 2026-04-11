@@ -141,57 +141,54 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
         # Check if this is an invalid choice error
         if "invalid choice:" in message and "choose from" in message:
             import re
-            from rich.console import Console
-            from rich.text import Text
-            
-            # Pattern to match: argument --arg_name: invalid choice: 'value' (choose from choice1, choice2, ...)
-            # Note: choices are NOT quoted in the actual argparse output
+
             match = re.search(
                 r"argument (--?[\w-]+):\s*invalid choice:\s*'([^']+)'\s*\(choose from\s*(.+)\)",
                 message
             )
-            
+
             if match:
                 argName = match.group(1)
                 invalidValue = match.group(2)
                 choicesStr = match.group(3)
-                
-                # Parse the choices - they are comma-separated, possibly with spaces
+
                 choices = [c.strip() for c in choicesStr.split(',') if c.strip()]
-                
+
                 if choices:
                     suggestions = self.getSuggestions(invalidValue, choices)
-                    
-                    # Build enhanced error message with colors
-                    console = Console(stderr=True)
-                    
-                    # Print usage line
+
+                    useColor = _supportsColorStdout()
+                    RED = "\x1b[1;31m" if useColor else ""
+                    YELLOW = "\x1b[1;33m" if useColor else ""
+                    GREEN = "\x1b[1;32m" if useColor else ""
+                    CYAN = "\x1b[1;36m" if useColor else ""
+                    DIM = "\x1b[2m" if useColor else ""
+                    RESET = "\x1b[0m" if useColor else ""
+
                     self.print_usage(sys.stderr)
-                    
-                    # Build colored error message
-                    errorText = Text()
-                    errorText.append("main.py: error: ", style="bold red")
-                    errorText.append(f"argument {argName}: invalid choice: ")
-                    errorText.append(f"'{invalidValue}'", style="bold red")
-                    
-                    console.print(errorText)
-                    
+
+                    print(
+                        f"{RED}main.py: error:{RESET} argument {argName}: "
+                        f"invalid choice: {RED}'{invalidValue}'{RESET}",
+                        file=sys.stderr,
+                    )
+
                     if suggestions:
-                        suggestionText = Text()
-                        suggestionText.append("\n  Did you mean: ", style="bold yellow")
-                        suggestionText.append(', '.join(repr(s) for s in suggestions), style="bold green")
-                        console.print(suggestionText)
-                    
-                    # Show first 10 valid choices in a single line
-                    choicesText = Text()
-                    choicesText.append("\n  Valid choices: ", style="bold cyan")
+                        print(
+                            f"\n  {YELLOW}Did you mean:{RESET} "
+                            f"{GREEN}{', '.join(repr(s) for s in suggestions)}{RESET}",
+                            file=sys.stderr,
+                        )
+
                     displayedChoices = choices[:10]
                     choicesStrDisplay = ', '.join(repr(c) for c in displayedChoices)
                     if len(choices) > 10:
                         choicesStrDisplay += f", ... ({len(choices) - 10} more)"
-                    choicesText.append(choicesStrDisplay, style="dim")
-                    console.print(choicesText)
-                    
+                    print(
+                        f"\n  {CYAN}Valid choices:{RESET} {DIM}{choicesStrDisplay}{RESET}",
+                        file=sys.stderr,
+                    )
+
                     sys.exit(2)
                     return
         
@@ -806,6 +803,10 @@ def _addUpscalingOptions(argParser):
 
     upscaleMethods = [
         "shufflecugan",
+        "adore",
+        "adore-tensorrt",
+        "adore-directml",
+        "adore-openvino",
         "fallin_soft",
         "fallin_soft-tensorrt",
         "fallin_soft-directml",
@@ -1261,7 +1262,7 @@ def _autoEnableParentFlags(args):
         "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
         "resize_factor": ("resize", 2),
         "output_scale": ("resize", ""),
-        "moblur_factor": ("moblur", 4),
+        "moblur_factor": ("moblur", 2),
         "moblur_strength": ("moblur", "equal"),
     }
 

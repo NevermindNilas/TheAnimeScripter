@@ -177,7 +177,7 @@ class GMFSS:
                 outputs.append(
                     self.model.forward_from_reuse(reuse_cache, self._timestep_buffer)[
                         :, :, : self.height, : self.width
-                    ]
+                    ].clone()
                 )
 
             if self.stream is not None:

@@ -16,7 +16,7 @@ except ImportError:
     isOnnxSlim = False
 
 OPSET = 20
-modelList = [r"C:\Users\nilas\Downloads\video_depth_anything_vits.onnx"]
+modelList = [r"C:\Users\nilas\Downloads\adore.pth"]
 
 
 def convertToFloat16(model):

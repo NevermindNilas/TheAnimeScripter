@@ -1,7 +1,6 @@
 import tensorrt as trt
 import os
 import logging
-import shutil
 import sys
 from pathlib import Path
 from typing import List, Tuple, Optional, Union
@@ -16,121 +15,90 @@ if ADOBE:
 if hasattr(trt, "IProgressMonitor"):
 
     class TensorRTProgressMonitor(trt.IProgressMonitor):
+        """ASCII progress monitor for TensorRT engine builds.
+
+        Ported verbatim (with minor renaming) from NVIDIA's reference sample
+        at samples/python/simple_progress_monitor/simple_progress_monitor.py
+        in the NVIDIA/TensorRT repository.
+        """
+
         def __init__(self):
             trt.IProgressMonitor.__init__(self)
-            self._activePhases = {}
-            self._renderedLineCount = 0
-            self._stepResult = True
+            self._active_phases = {}
+            self._step_result = True
 
-        def phase_start(self, phaseName, parentPhase, numSteps):
+        def phase_start(self, phase_name, parent_phase, num_steps):
             try:
-                if parentPhase is not None and parentPhase in self._activePhases:
-                    nbIndents = 1 + self._activePhases[parentPhase]["nbIndents"]
+                if parent_phase is not None:
+                    nbIndents = 1 + self._active_phases[parent_phase]["nbIndents"]
                 else:
                     nbIndents = 0
-
-                self._activePhases[phaseName] = {
-                    "title": phaseName,
+                self._active_phases[phase_name] = {
+                    "title": phase_name,
                     "steps": 0,
-                    "numSteps": max(1, int(numSteps)),
+                    "num_steps": num_steps,
                     "nbIndents": nbIndents,
                 }
                 self._redraw()
             except KeyboardInterrupt:
-                self._stepResult = False
+                self._step_result = False
 
-        def phase_finish(self, phaseName):
+        def phase_finish(self, phase_name):
             try:
-                if phaseName in self._activePhases:
-                    del self._activePhases[phaseName]
-                    self._redraw(blankLines=1)
+                del self._active_phases[phase_name]
+                self._redraw(blank_lines=1)
             except KeyboardInterrupt:
-                self._stepResult = False
+                self._step_result = False
 
-        def step_complete(self, phaseName, step):
+        def step_complete(self, phase_name, step):
             try:
-                if phaseName in self._activePhases:
-                    self._activePhases[phaseName]["steps"] = max(0, int(step))
-                    self._redraw()
-                return self._stepResult
+                self._active_phases[phase_name]["steps"] = step
+                self._redraw()
+                return self._step_result
             except KeyboardInterrupt:
                 return False
 
-        def _redraw(self, *, blankLines=0):
-            def clearLine():
+        def _redraw(self, *, blank_lines=0):
+            def clear_line():
                 print("\x1B[2K", end="")
 
-            def moveToStartOfLine():
+            def move_to_start_of_line():
                 print("\x1B[0G", end="")
 
-            def moveCursorUp(lines):
-                if lines > 0:
-                    print(f"\x1B[{lines}A", end="")
+            def move_cursor_up(lines):
+                print("\x1B[{}A".format(lines), end="")
 
-            def progressBar(steps, numSteps, width):
-                safeSteps = max(0, min(int(steps), int(numSteps)))
-                completed = int(width * safeSteps / float(max(1, numSteps)))
-                return f"{'#' * completed}{'.' * (width - completed)}"
-
-            def trimText(text, maxWidth):
-                if maxWidth <= 0:
-                    return ""
-
-                if len(text) <= maxWidth:
-                    return text
-
-                if maxWidth <= 3:
-                    return text[:maxWidth]
-
-                return text[: maxWidth - 3] + "..."
-
-            def formatPhaseLine(phase, maxCols):
-                safeSteps = max(0, min(int(phase["steps"]), int(phase["numSteps"])))
-                percentage = int(
-                    round((safeSteps / float(max(1, phase["numSteps"]))) * 100)
+            def progress_bar(steps, num_steps):
+                INNER_WIDTH = 10
+                completed_bar_chars = int(INNER_WIDTH * steps / float(num_steps))
+                return "[{}{}]".format(
+                    "=" * completed_bar_chars,
+                    "-" * (INNER_WIDTH - completed_bar_chars),
                 )
-                stats = f"{percentage:>3}%  {safeSteps}/{phase['numSteps']}"
 
-                indent = "  " * phase["nbIndents"]
-                labelPrefix = f"{indent}> "
-                minBarWidth = 10
-                preferredBarWidth = 24
-                spacingWidth = 4
-                availableWidth = maxCols - len(labelPrefix) - len(stats) - spacingWidth
-                barWidth = min(preferredBarWidth, max(minBarWidth, availableWidth // 2))
-                titleWidth = max(12, availableWidth - barWidth)
-                title = trimText(phase["title"], titleWidth)
-                bar = progressBar(safeSteps, phase["numSteps"], barWidth)
-                return f"{labelPrefix}{title:<{titleWidth}} [{bar}]  {stats}"
+            max_cols = (
+                os.get_terminal_size().columns if sys.stdout.isatty() else 200
+            )
 
-            maxCols = shutil.get_terminal_size(fallback=(200, 24)).columns
-            lines = []
-
-            if self._activePhases:
-                lines.append("\x1B[1mTensorRT Build Progress\x1B[0m")
-                for phase in self._activePhases.values():
-                    lines.append(formatPhaseLine(phase, maxCols))
-
-            moveToStartOfLine()
-            moveCursorUp(self._renderedLineCount)
-
-            for _ in range(self._renderedLineCount):
-                clearLine()
+            move_to_start_of_line()
+            for phase in self._active_phases.values():
+                phase_prefix = "{indent}{bar} {title}".format(
+                    indent=" " * phase["nbIndents"],
+                    bar=progress_bar(phase["steps"], phase["num_steps"]),
+                    title=phase["title"],
+                )
+                phase_suffix = "{steps}/{num_steps}".format(**phase)
+                allowable_prefix_chars = max_cols - len(phase_suffix) - 2
+                if allowable_prefix_chars < len(phase_prefix):
+                    phase_prefix = (
+                        phase_prefix[0 : allowable_prefix_chars - 3] + "..."
+                    )
+                clear_line()
+                print(phase_prefix, phase_suffix)
+            for _ in range(blank_lines):
+                clear_line()
                 print()
-
-            moveCursorUp(self._renderedLineCount)
-            moveToStartOfLine()
-
-            for line in lines:
-                clearLine()
-                print(trimText(line, maxCols))
-
-            for _ in range(blankLines):
-                clearLine()
-                print()
-
-            self._renderedLineCount = len(lines) + blankLines
-            moveCursorUp(self._renderedLineCount)
+            move_cursor_up(len(self._active_phases) + blank_lines)
             sys.stdout.flush()
 
 else:

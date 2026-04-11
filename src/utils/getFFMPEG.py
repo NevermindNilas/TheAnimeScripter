@@ -41,10 +41,9 @@ def downloadAndExtractFfmpeg(ffmpegPath):
             raise HTTPError(ffmpegUrl, response.getcode(), None, None, None)
 
         totalSizeInBytes = int(response.headers.get("content-length", 0))
-        totalSizeInMB = totalSizeInBytes // (1024 * 1024)
 
         with (
-            ProgressBarDownloadLogic(totalSizeInMB + 1, "Downloading FFmpeg") as bar,
+            ProgressBarDownloadLogic(totalSizeInBytes or 1, "Downloading FFmpeg") as bar,
             open(ffmpegArchivePath, "wb") as file,
         ):
             while True:
@@ -52,7 +51,7 @@ def downloadAndExtractFfmpeg(ffmpegPath):
                 if not data:
                     break
                 file.write(data)
-                bar(len(data) / (1024 * 1024))
+                bar(len(data))
     except (URLError, HTTPError) as e:
         logging.error(f"Failed to download FFMPEG: {e}")
         raise
