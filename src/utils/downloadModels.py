@@ -356,16 +356,10 @@ def modelsMap(
             if modelType == "pth":
                 return "adore.pth"
             elif modelType == "onnx":
-                if "-directml" in model or "-openvino" in model:
-                    if half:
-                        return "adore_fp16-directml.onnx"
-                    else:
-                        return "adore_fp32-directml.onnx"
+                if half:
+                    return "2x_Adore_renarchi_fp16.onnx"
                 else:
-                    if half:
-                        return "adore_fp16_op20.onnx"
-                    else:
-                        return "adore_fp32_op20.onnx"
+                    return "2x_Adore_renarchi_fp32.onnx"
             elif modelType == "ncnn":
                 return "2x_adore-ncnn.zip"
 
