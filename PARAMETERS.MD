@@ -404,6 +404,7 @@ C:\Videos\episode3.mp4
 | `--depth` | flag | False | **Generate depth maps** — automatically enabled when `--depth_method` is specified |
 | `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) — specifying a non-default method auto-enables depth estimation |
 | `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. |
+| `--depth_norm` | flag | False | **Temporal depth normalization** — applies percentile-based normalization with pixel-level temporal blending to reduce flickering in depth maps. Not compatible with video depth methods (`video_small_v2`, `video_large_v2`, `og_video_*`). |
 
 #### 🎯 Segmentation Methods
 

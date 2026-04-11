@@ -6,7 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
-- N/A
+- Added motion blur support (`--moblur`). Supports `equal`, `gaussian_sym`, `pyramid`, `ascending`, and `descending` weighting using `--moblur_strength`, plus `--moblur_factor`. Works with all RIFE/GMFSS interpolation backends and includes automatic scene cut detection.
+- Added `--depth_norm` to normalize depth maps over time for better quality with minimal performance impact.
 
 ### Changed
 - Reverted dependency handling back to pip-based requirements files for runtime installs, the portable build, and the Windows installer.
@@ -21,11 +22,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## Adobe Edition
 ### Added
-- N/A
+- Graph Editor is now out of BETA.
 
 ### Changed
-- N/A
-
+- Rewrote the Graph Editor from the ground up for better performance, stability and usability.
+- Rewrote the About Page to be more informative and better looking.
+- 
 ### Fixed
 - N/A  
 
