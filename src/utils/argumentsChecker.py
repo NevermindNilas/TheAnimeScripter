@@ -380,6 +380,7 @@ def isAnyOtherProcessingMethodEnabled(args):
             args.depth,
             args.autoclip,
             args.obj_detect,
+            args.moblur,
         ]
     )
 
@@ -621,6 +622,9 @@ def createParser(outputPath):
 
     # Video processing options
     _addVideoProcessingOptions(argParser)
+
+    # Motion Blur options
+    _addMotionBlurOptions(argParser)
 
     # Segmentation options
     _addSegmentationOptions(argParser)
@@ -987,6 +991,28 @@ def _addVideoProcessingOptions(argParser):
     )
 
 
+def _addMotionBlurOptions(argParser):
+    moblurGroup = argParser.add_argument_group("Motion Blur")
+    moblurGroup.add_argument(
+        "--moblur",
+        action="store_true",
+        help="Add motion blur via interpolation and frame blending",
+    )
+    moblurGroup.add_argument(
+        "--moblur_factor",
+        type=int,
+        default=2,
+        help="Interpolation factor for motion blur frame generation",
+    )
+    moblurGroup.add_argument(
+        "--moblur_strength",
+        type=str,
+        default="equal",
+        choices=["equal", "gaussian_sym", "pyramid", "ascending", "descending"],
+        help="Weighting scheme for frame blending",
+    )
+
+
 def _addSegmentationOptions(argParser):
     segmentationGroup = argParser.add_argument_group(
         "Segmentation / Background Removal"
@@ -1099,6 +1125,11 @@ def _addDepthOptions(argParser):
         choices=["low", "medium", "high"],
         default="low",
         help="This will determine the quality of the depth map, low is significantly faster but lower quality, only works with CUDA Depth Maps",
+    )
+    depthGroup.add_argument(
+        "--depth_norm",
+        action="store_true",
+        help="Apply sliding window normalization to reduce flickering in depth maps, not compatible with video depth methods",
     )
 
 
@@ -1230,6 +1261,8 @@ def _autoEnableParentFlags(args):
         "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
         "resize_factor": ("resize", 2),
         "output_scale": ("resize", ""),
+        "moblur_factor": ("moblur", 4),
+        "moblur_strength": ("moblur", "equal"),
     }
 
     cliProvided = set()
@@ -1610,6 +1643,13 @@ def _handleDepthSettings(args):
             "yellow",
         )
         args.depth_quality = "low"
+
+    if args.depth_norm and "video" in args.depth_method:
+        logAndPrint(
+            "Depth normalization is not compatible with video depth methods, disabling depth_norm",
+            "yellow",
+        )
+        args.depth_norm = False
 
     if args.depth_method in ["giant_v2", "og_giant_v2"]:
         logAndPrint(

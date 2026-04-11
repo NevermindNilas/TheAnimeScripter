@@ -222,6 +222,7 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
+                depthNorm=self.depthNorm,
             )
 
         case (
@@ -250,6 +251,7 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
+                depthNorm=self.depthNorm,
             )
 
         case (
@@ -278,6 +280,7 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
+                depthNorm=self.depthNorm,
             )
         case (
             "small_v2-openvino"
@@ -305,6 +308,7 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
+                depthNorm=self.depthNorm,
             )
         case (
             "og_small_v2"
@@ -334,6 +338,7 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
+                depthNorm=self.depthNorm,
             )
 
         case "og_video_small_v2" | "og_video_base_v2" | "og_video_large_v2":
@@ -406,6 +411,7 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
+                depthNorm=self.depthNorm,
             )
 
         case "og_small_v2-directml" | "og_base_v2-directml" | "og_large_v2-directml":
@@ -427,6 +433,7 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
+                depthNorm=self.depthNorm,
             )
 
         case "og_small_v2-openvino" | "og_base_v2-openvino" | "og_large_v2-openvino":
@@ -448,6 +455,7 @@ def depth(self):
                 self.totalFrames,
                 self.bitDepth,
                 self.depthQuality,
+                depthNorm=self.depthNorm,
             )
 
         case "small_v3" | "base_v3" | "og_large_v3":
@@ -470,6 +478,7 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
+                depthNorm=self.depthNorm,
             )
 
         case "small_v3-directml" | "base_v3-directml":
@@ -534,6 +543,34 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
             )
+
+
+def motionBlur(self):
+    from src.motionBlur import MotionBlurPipeline
+
+    MotionBlurPipeline(
+        self.input,
+        self.output,
+        self.width,
+        self.height,
+        self.fps,
+        half=self.half,
+        inpoint=self.inpoint,
+        outpoint=self.outpoint,
+        encode_method=self.encodeMethod,
+        custom_encoder=self.customEncoder,
+        benchmark=self.benchmark,
+        totalFrames=self.totalFrames,
+        bitDepth=self.bitDepth,
+        interpolate_method=self.interpolateMethod,
+        interpolate_factor=self.moblurFactor,
+        moblur_strength=self.moblurStrength,
+        ensemble=self.ensemble,
+        dynamic_scale=self.dynamicScale,
+        static_step=self.staticStep,
+        compile_mode=self.compileMode,
+        decode_method=self.decodeMethod,
+    )
 
 
 def stabilize(self):
