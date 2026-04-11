@@ -231,19 +231,18 @@ class UniversalPytorch:
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: None) -> torch.tensor:
         self.processFrame(frame)
-        if not self.compileMode != "default":
-            with torch.cuda.stream(self.stream):
+        with torch.cuda.stream(self.stream):
+            if self.compileMode == "default":
                 self.cudaGraph.replay()
-            self.stream.synchronize()
-        else:
-            with torch.cuda.stream(self.stream):
+            else:
                 self.dummyOutput.copy_(
                     self.model(self.dummyInput),
                     non_blocking=True,
                 )
-            self.stream.synchronize()
+            output = self.dummyOutput.clone()
+        self.stream.synchronize()
 
-        return self.dummyOutput.clone()
+        return output
 
     def frameReset(self):
         pass
@@ -406,14 +405,12 @@ class UniversalTensorRT:
     def __call__(self, frame, nextFrame: None) -> torch.tensor:
         self.processFrame(frame)
 
-        # Experimental feature, may not work as expected
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
+            output = self.dummyOutput.clone()
         self.stream.synchronize()
 
-        # Clone is required because dummyOutput is reused by CUDA graph
-        # Skip extra stream - sync already happened above
-        return self.dummyOutput.clone()
+        return output
 
     def frameReset(self):
         pass

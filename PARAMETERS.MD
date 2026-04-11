@@ -292,6 +292,7 @@ C:\Videos\episode3.mp4
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
 | **shufflecugan** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime | CUDA, TRT, DML, OpenVINO |
+| **adore** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | General anime (shufflecugan-arch, 2x) | CUDA, TRT, DML, OpenVINO, NCNN |
 | **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, TRT, DML, OpenVINO |
 | **fallin_strong** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, TRT, DML, OpenVINO |
 | **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, TRT, DML, OpenVINO |

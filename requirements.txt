@@ -5,7 +5,6 @@ omegaconf==2.3.0
 psutil==7.2.2
 inquirer==3.4.1
 colored==2.3.2
-rich==14.3.3
-rich-argparse==1.7.2
+barflow==0.2.1
 flask-socketio==5.6.1
 nelux==0.8.10 ; platform_system == "Windows"

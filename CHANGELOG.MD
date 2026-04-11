@@ -6,8 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
+- Added `adore` 2x upscaler (shufflecugan architecture). Available across CUDA, TensorRT, DirectML, OpenVINO and NCNN backends via `--upscale_method adore[-tensorrt|-directml|-openvino|-ncnn]`.
 - Added motion blur support (`--moblur`). Supports `equal`, `gaussian_sym`, `pyramid`, `ascending`, and `descending` weighting using `--moblur_strength`, plus `--moblur_factor`. Works with all RIFE/GMFSS interpolation backends and includes automatic scene cut detection.
 - Added `--depth_norm` to normalize depth maps over time for better quality with minimal performance impact.
+- Terminal window/tab title now updates during processing to `★ Processing - <video name> [current/total]`, making batch progress visible at a glance from the taskbar.
+- Added new upscaling methods: `adore` (shufflecugan architecture) with TensorRT and Cuda support.
 
 ### Changed
 - Reverted dependency handling back to pip-based requirements files for runtime installs, the portable build, and the Windows installer.
@@ -16,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Upgraded TensorRT to 10.16.0
 - Improved `--help` / `--version` startup performance by ~57% (326ms → 141ms avg)
 - Replaced the `colored` library with native ANSI escape codes for further improvements to startup time and reduced dependencies.
+- Replaced `rich` library with `barflow` for the progress bars, for better performance and lower overhead.
 
 ### Fixed
 - N/A

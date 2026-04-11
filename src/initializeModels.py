@@ -635,6 +635,7 @@ def initializeModels(self):
         match self.upscaleMethod:
             case (
                 "shufflecugan"
+                | "adore"
                 | "compact"
                 | "ultracompact"
                 | "superultracompact"
@@ -668,6 +669,7 @@ def initializeModels(self):
                 | "aniscale2-directml"
                 | "shufflespan-directml"
                 | "shufflecugan-directml"
+                | "adore-directml"
                 | "rtmosr-directml"
                 | "saryn-directml"
                 | "fallin_soft-directml"
@@ -680,6 +682,7 @@ def initializeModels(self):
                 | "aniscale2-openvino"
                 | "shufflespan-openvino"
                 | "shufflecugan-openvino"
+                | "adore-openvino"
                 | "rtmosr-openvino"
                 | "saryn-openvino"
                 | "fallin_soft-openvino"
@@ -708,7 +711,7 @@ def initializeModels(self):
                     self.height,
                 )
 
-            case "shufflecugan-ncnn" | "span-ncnn":
+            case "shufflecugan-ncnn" | "adore-ncnn" | "span-ncnn":
                 from src.unifiedUpscale import UniversalNCNN
 
                 upscaleProcess = UniversalNCNN(
@@ -718,6 +721,7 @@ def initializeModels(self):
 
             case (
                 "shufflecugan-tensorrt"
+                | "adore-tensorrt"
                 | "compact-tensorrt"
                 | "ultracompact-tensorrt"
                 | "superultracompact-tensorrt"

@@ -66,6 +66,11 @@ def modelsList() -> list[str]:
         "superultracompact",
         "span",
         "shufflecugan",
+        "adore",
+        "adore-tensorrt",
+        "adore-ncnn",
+        "adore-directml",
+        "adore-openvino",
         "segment",
         "segment-tensorrt",
         "segment-directml",
@@ -340,6 +345,29 @@ def modelsMap(
                         return "sudo_shuffle_cugan_op18_clamped.onnx"
             elif modelType == "ncnn":
                 return "2xsudo_shuffle_cugan-ncnn.zip"
+
+        case (
+            "adore"
+            | "adore-tensorrt"
+            | "adore-ncnn"
+            | "adore-directml"
+            | "adore-openvino"
+        ):
+            if modelType == "pth":
+                return "adore.pth"
+            elif modelType == "onnx":
+                if "-directml" in model or "-openvino" in model:
+                    if half:
+                        return "adore_fp16-directml.onnx"
+                    else:
+                        return "adore_fp32-directml.onnx"
+                else:
+                    if half:
+                        return "adore_fp16_op20.onnx"
+                    else:
+                        return "adore_fp32_op20.onnx"
+            elif modelType == "ncnn":
+                return "2x_adore-ncnn.zip"
 
         case (
             "fallin_soft"
@@ -1029,7 +1057,7 @@ def downloadAndLog(
 
             try:
                 with ProgressBarDownloadLogic(
-                    int(totalSizeInMb + 1),
+                    totalSizeInBytes or 1,
                     title=f"Downloading {model.upper()} model... (Attempt {attempt + 1}/{retries})",
                 ) as bar:
                     with open(tempFilePath, "wb") as file:
@@ -1039,7 +1067,7 @@ def downloadAndLog(
                                 break
                             file.write(data)
                             downloadedBytes += len(data)
-                            bar(len(data) / (1024 * 1024))
+                            bar(len(data))
 
                             if totalSizeInBytes > 0:
                                 currentMb = downloadedBytes / (1024 * 1024)
@@ -1239,7 +1267,7 @@ def downloadTensorRTRTX(retries: int = 3) -> bool:
             loggedPercentages = set()
 
             with ProgressBarDownloadLogic(
-                int(totalSizeInMb + 1),
+                totalSizeInBytes or 1,
                 title=f"Downloading TensorRT RTX... (Attempt {attempt + 1}/{retries})",
             ) as bar:
                 with open(tempFilePath, "wb") as file:
@@ -1249,7 +1277,7 @@ def downloadTensorRTRTX(retries: int = 3) -> bool:
                             break
                         file.write(data)
                         downloadedBytes += len(data)
-                        bar(len(data) / (1024 * 1024))
+                        bar(len(data))
 
                         if totalSizeInBytes > 0:
                             currentMb = downloadedBytes / (1024 * 1024)
