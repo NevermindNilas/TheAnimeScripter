@@ -1,78 +1,77 @@
-from rich.progress import (
-    Progress,
-    TimeElapsedColumn,
-    TimeRemainingColumn,
+from barflow import Progress
+from barflow.columns import (
     BarColumn,
     TextColumn,
+    DescriptionColumn,
+    PercentColumn,
+    ElapsedColumn,
+    EtaColumn,
+    CountColumn,
+    CallbackColumn,
 )
 import src.constants as cs
-from rich.progress import ProgressColumn
 from time import time
 from src.utils.aeComms import progressState
 
-import os
 import logging
-import psutil
 
-progressRefreshPerSec = 10  # Rich refresh frequency
-fpsCacheInterval = 0.1  # seconds to cache FPS column output
+progressRefreshPerSec = 10
+_minInterval = 1.0 / progressRefreshPerSec
 
-
-
-class SpeedColumn(ProgressColumn):
-    """Displays the current download speed in MB/s."""
-
-    def render(self, task):
-        speed = task.speed
-        if speed is None:
-            elapsed = task.elapsed or 0
-            speed = task.completed / elapsed if elapsed > 0 else 0
-        return f"Speed: [magenta]{speed:.2f} MB/s[/magenta]"
+_SEP = TextColumn(" \u2502 ", style="bright_black")
 
 
-class FPSColumn(ProgressColumn):
-    def __init__(self):
-        super().__init__()
-        self.startTime = None
-        self._lastCacheTime = 0.0
-        self._cachedStr = None
-
-    def render(self, task):
-        now = time()
-        if self.startTime is None:
-            self.startTime = now
-        if (now - self._lastCacheTime) < fpsCacheInterval and self._cachedStr is not None:
-            return self._cachedStr
-        elapsed = now - self.startTime
-        fps = task.completed / elapsed if elapsed > 0 else 0
-        s = f"FPS: [magenta]{fps:.2f}[/magenta]"
-        self._cachedStr = s
-        self._lastCacheTime = now
-        return s
+def _fpsRender(task):
+    elapsed = task.elapsed
+    fps = task.completed / elapsed if elapsed > 0 else 0.0
+    return f"FPS {fps:6.2f}"
 
 
-class MemoryColumn(ProgressColumn):
-    def __init__(self, totalFrames: int):
-        super().__init__()
-        self.advanceCount = 0
-        self.updateInterval = max(1, totalFrames // 1000)
-        self.cachedMem = 0
-        self.process = psutil.Process(os.getpid())
-        self.lastUpdate = 0
+def _byteSpeedRender(task):
+    elapsed = task.elapsed
+    mbps = (task.completed / elapsed / (1024 * 1024)) if elapsed > 0 else 0.0
+    return f"{mbps:6.2f} MB/s"
 
-    def render(self, task):
-        self.advanceCount += 1
-        if self.advanceCount - self.lastUpdate >= self.updateInterval:
-            self.lastUpdate = self.advanceCount
-            try:
-                mem = self.process.memory_info().rss / (1024 * 1024)
-                if mem > self.cachedMem:
-                    self.cachedMem = mem
-                else:
-                    self.cachedMem = (self.cachedMem + mem) / 2
-            except psutil.NoSuchProcess:
-                self.process = psutil.Process(os.getpid())
-        return f"Mem: [yellow]{self.cachedMem:.1f}MB[/yellow]"
+
+def _byteCountRender(task):
+    mb = 1024 * 1024
+    return f"{task.completed / mb:6.2f}/{task.total / mb:.2f} MB"
+
+
+def _frameColumns(desc: str):
+    return (
+        DescriptionColumn(style="bold bright_cyan"),
+        TextColumn(" "),
+        BarColumn(width=None, style="bright_cyan", glyphs="smooth"),
+        TextColumn(" "),
+        PercentColumn(style="bold white"),
+        _SEP,
+        ElapsedColumn(style="yellow"),
+        TextColumn("<", style="bright_black"),
+        EtaColumn(style="bright_yellow"),
+        _SEP,
+        CallbackColumn(_fpsRender, style="magenta"),
+        _SEP,
+        CountColumn(style="green"),
+    )
+
+
+def _byteColumns():
+    return (
+        DescriptionColumn(style="bold bright_cyan"),
+        TextColumn(" "),
+        BarColumn(width=None, style="bright_cyan", glyphs="smooth"),
+        TextColumn(" "),
+        PercentColumn(style="bold white"),
+        _SEP,
+        ElapsedColumn(style="yellow"),
+        TextColumn("<", style="bright_black"),
+        EtaColumn(style="bright_yellow"),
+        _SEP,
+        CallbackColumn(_byteSpeedRender, style="magenta"),
+        _SEP,
+        CallbackColumn(_byteCountRender, style="cyan"),
+    )
 
 
 class ProgressBarLogic:
@@ -85,8 +84,11 @@ class ProgressBarLogic:
         Initializes the progress bar for the given range of frames.
 
         Args:
-            totalFrames (int): The total number of frames to process"""
+            totalFrames (int): The total number of frames to process
+            title (str): Description shown at the head of the bar
+        """
         self.totalFrames = totalFrames
+        self.title = title or "Processing"
         self.completed = 0
 
     def __enter__(self):
@@ -109,26 +111,12 @@ class ProgressBarLogic:
 
         else:
             self.progress = Progress(
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-                "•",
-                TextColumn("Elapsed Time:"),
-                TimeElapsedColumn(),
-                "•",
-                TextColumn("ETA:"),
-                TimeRemainingColumn(),
-                "•",
-                FPSColumn(),
-                "•",
-                TextColumn("Frames: [green]{task.completed}/{task.total}[/green]"),
-                refresh_per_second=progressRefreshPerSec,
+                *_frameColumns(self.title),
+                total=self.totalFrames,
+                desc=self.title,
+                min_interval=_minInterval,
             )
-            self.task = self.progress.add_task("Processing:", total=self.totalFrames)
-            self.progress.start()
-            self._lastRefreshTime = time()
-            self._refreshInterval = 1.0 / progressRefreshPerSec
-            self._framesSinceRefresh = 0
+            self.progress.__enter__()
 
         return self
 
@@ -149,7 +137,7 @@ class ProgressBarLogic:
                 }
             )
         else:
-            self.progress.stop()
+            self.progress.__exit__(exc_type, exc_value, traceback)
 
     def advance(self, advance=1):
         if cs.ADOBE:
@@ -176,13 +164,7 @@ class ProgressBarLogic:
                 self.nextUpdateFrame = self.completed + self.updateInterval
 
         else:
-            self.progress.update(self.task, advance=advance, refresh=False)
-            self._framesSinceRefresh += advance
-            now = time()
-            if (now - self._lastRefreshTime) >= self._refreshInterval:
-                self.progress.refresh()
-                self._lastRefreshTime = now
-                self._framesSinceRefresh = 0
+            self.progress.advance(advance)
 
     def __call__(self, advance=1):
         self.advance(advance)
@@ -196,7 +178,7 @@ class ProgressBarLogic:
         """
         self.totalFrames = newTotal
         if not cs.ADOBE:
-            self.progress.update(self.task, total=newTotal)
+            self.progress.set_total(0, newTotal)
 
 
 class ProgressBarDownloadLogic:
@@ -205,40 +187,24 @@ class ProgressBarDownloadLogic:
         Initializes the progress bar for the given range of data.
 
         Args:
-            totalData (int): The total amount of data to process
+            totalData (int): Total bytes to download
             title (str): The title of the progress bar
         """
-        self.totalData = totalData - 1
+        self.totalData = max(1, int(totalData))
         self.title = title
 
     def __enter__(self):
         self.progress = Progress(
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-            "•",
-            TextColumn("Elapsed Time:"),
-            TimeElapsedColumn(),
-            "•",
-            TextColumn("ETA:"),
-            TimeRemainingColumn(),
-            "•",
-            SpeedColumn(),
-            "•",
-            TextColumn("Data: [cyan]{task.completed}/{task.total} MB[/cyan]"),
-            refresh_per_second=progressRefreshPerSec,
+            *_byteColumns(),
+            total=self.totalData,
+            desc=self.title,
+            min_interval=_minInterval,
         )
-        self.task = self.progress.add_task(self.title, total=self.totalData)
-        self.progress.start()
-        # bookkeeping for throttled refresh and one-time start
-        self._started = False
-        self._lastRefreshTime = time()
-        self._refreshInterval = 1.0 / progressRefreshPerSec
-        self._framesSinceRefresh = 0
+        self.progress.__enter__()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.progress.stop()
+        self.progress.__exit__(exc_type, exc_value, traceback)
 
     def setTotal(self, newTotal: int):
         """
@@ -247,23 +213,10 @@ class ProgressBarDownloadLogic:
         Args:
             newTotal (int): The new total value"""
         self.totalData = newTotal
-        self.progress.update(self.task, total=newTotal)
+        self.progress.set_total(0, newTotal)
 
     def advance(self, advance=1):
-        if not getattr(self, "_started", False):
-            try:
-                self.progress.tasks[self.task].start_time = self.progress.get_time()
-            except Exception:
-                pass
-            self._started = True
-
-        self.progress.update(self.task, advance=advance, refresh=False)
-        self._framesSinceRefresh += advance
-        now = time()
-        if (now - self._lastRefreshTime) >= self._refreshInterval:
-            self.progress.refresh()
-            self._lastRefreshTime = now
-            self._framesSinceRefresh = 0
+        self.progress.advance(advance)
 
     def __call__(self, advance=1):
         self.advance(advance)

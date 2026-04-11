@@ -35,6 +35,16 @@ import src.constants as cs
 warnings.filterwarnings("ignore")
 
 
+def _setTerminalTitle(title: str) -> None:
+    if cs.ADOBE or not sys.stdout.isatty():
+        return
+    try:
+        sys.stdout.write(f"\033]0;{title}\007")
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+
 class VideoProcessor:
     """
     Main video processing class that handles AI-powered video enhancement operations.
@@ -626,6 +636,13 @@ def main():
 
         for _, i in enumerate(results, 1):
             try:
+                _videoName = os.path.basename(results[i]["videoPath"])
+                if len(_videoName) > 60:
+                    _videoName = _videoName[:57] + "..."
+                if totalVideos > 1:
+                    _setTerminalTitle(f"\u2605 Processing - {_videoName} [{_}/{totalVideos}]")
+                else:
+                    _setTerminalTitle(f"\u2605 Processing - {_videoName}")
                 if totalVideos > 1:
                     printSubsectionHeader(f"Video {_} of {totalVideos}")
                 logInfo(f"Input: {results[i]['videoPath']}")
@@ -710,6 +727,8 @@ def main():
             except Exception as e:
                 logError(f"Error processing video {results[i]['videoPath']}: {str(e)}")
                 logging.exception(f"Error processing video {results[i]['videoPath']}")
+
+        _setTerminalTitle("TAS")
 
         if totalVideos > 1 and folderTimer is not None:
             totalTime = time() - folderTimer

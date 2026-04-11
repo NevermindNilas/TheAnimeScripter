@@ -5,3 +5,5 @@ vapoursynth
 celux
 pytorch-lightning
 colored
+rich
+rich-argparse
