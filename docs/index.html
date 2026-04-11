@@ -1,755 +1,1519 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
-
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>The Anime Scripter | AI Video Enhancement</title>
-    <meta name="description"
-        content="Professional AI video enhancement toolkit. Upscaling, interpolation, and restoration powered by cutting-edge neural networks.">
+    <title>TheAnimeScripter — AI Video Enhancement</title>
+    <meta name="description" content="Professional AI video enhancement. 50+ neural network models for upscaling, interpolation, restoration, and more.">
+    <meta name="theme-color" content="#050505">
+    <link rel="icon" href="assets/logo.png" type="image/png">
 
-    <!-- Libraries -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
-
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
 
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Geist', 'sans-serif'],
-                        mono: ['Geist Mono', 'monospace'],
-                    },
-                    colors: {
-                        surface: {
-                            50: '#f8fafc',
-                            100: '#f1f5f9',
-                            200: '#e2e8f0',
-                            800: '#1e293b',
-                            900: '#0f172a',
-                            950: '#020617',
-                        },
-                        brand: {
-                            50: '#ecfeff',
-                            100: '#cffafe',
-                            200: '#a5f3fc',
-                            300: '#67e8f9',
-                            400: '#22d3ee',
-                            500: '#06b6d4',
-                            600: '#0891b2',
-                        },
-                        accent: {
-                            violet: '#8b5cf6',
-                            rose: '#f43f5e',
-                            amber: '#f59e0b',
-                            emerald: '#10b981',
-                        }
-                    },
-                    animation: {
-                        'float': 'float 20s ease-in-out infinite',
-                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'gradient': 'gradient 8s ease infinite',
-                        'shimmer': 'shimmer 2s linear infinite',
-                    },
-                    keyframes: {
-                        float: {
-                            '0%, 100%': { transform: 'translateY(0) rotate(0deg)' },
-                            '25%': { transform: 'translateY(-20px) rotate(2deg)' },
-                            '50%': { transform: 'translateY(-10px) rotate(0deg)' },
-                            '75%': { transform: 'translateY(-25px) rotate(-2deg)' },
-                        },
-                        gradient: {
-                            '0%, 100%': { backgroundPosition: '0% 50%' },
-                            '50%': { backgroundPosition: '100% 50%' },
-                        },
-                        shimmer: {
-                            '0%': { transform: 'translateX(-100%)' },
-                            '100%': { transform: 'translateX(100%)' },
-                        }
-                    }
-                }
-            }
-        }
-    </script>
     <style>
-        * {
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #050505;
+            --bg-card: #0a0a0a;
+            --bg-hover: #0f0f0f;
+
+            --border: rgba(255,255,255,0.06);
+            --border-hover: rgba(255,255,255,0.12);
+
+            --text-1: #f0f0f0;
+            --text-2: #888888;
+            --text-3: #4a4a4a;
+
+            --accent: #d4d4d4;
+            --accent-dim: rgba(255,255,255,0.06);
+            --accent-glow: rgba(255,255,255,0.08);
+            --purple: #999999;
+            --purple-dim: rgba(255,255,255,0.04);
+
+            --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+            --ease: cubic-bezier(0.4, 0, 0.2, 1);
+            --ease-out: cubic-bezier(0, 0, 0.2, 1);
+        }
+
+        html { scroll-behavior: smooth; }
+        body {
+            background: var(--bg);
+            color: var(--text-2);
+            font-family: var(--sans);
+            line-height: 1.6;
+            overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
 
-        body {
-            background-color: #020617;
-            overflow-x: hidden;
+        ::selection { background: rgba(255,255,255,0.15); color: #fff; }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+        /* ═══════════════════ BACKGROUND FX ═══════════════════ */
+
+        .aurora {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -2;
+            overflow: hidden;
         }
 
-        /* Refined Noise Texture */
-        .noise-overlay {
+        .aurora-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0;
+            animation: aurora-in 2s var(--ease-out) forwards;
+        }
+
+        .aurora-1 {
+            width: 50vw; height: 50vw;
+            top: -15%; left: 15%;
+            background: radial-gradient(circle, rgba(255,255,255,0.03), transparent 70%);
+            animation-delay: 0s;
+        }
+        .aurora-1 { animation: aurora-in 2s var(--ease-out) forwards, drift1 25s ease-in-out infinite 2s; }
+
+        .aurora-2 {
+            width: 45vw; height: 45vw;
+            top: 5%; right: 10%;
+            background: radial-gradient(circle, rgba(255,255,255,0.025), transparent 70%);
+        }
+        .aurora-2 { animation: aurora-in 2s var(--ease-out) 0.3s forwards, drift2 30s ease-in-out infinite 2.3s; }
+
+        .aurora-3 {
+            width: 40vw; height: 40vw;
+            top: 20%; left: 35%;
+            background: radial-gradient(circle, rgba(255,255,255,0.02), transparent 70%);
+        }
+        .aurora-3 { animation: aurora-in 2s var(--ease-out) 0.6s forwards, drift3 35s ease-in-out infinite 2.6s; }
+
+        @keyframes aurora-in { to { opacity: 1; } }
+        @keyframes drift1 {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(5vw, 3vh); }
+            50% { transform: translate(-3vw, 6vh); }
+            75% { transform: translate(4vw, -2vh); }
+        }
+        @keyframes drift2 {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(-4vw, 5vh); }
+            50% { transform: translate(3vw, -3vh); }
+            75% { transform: translate(-5vw, 4vh); }
+        }
+        @keyframes drift3 {
+            0%, 100% { transform: translate(0, 0); }
+            33% { transform: translate(6vw, -4vh); }
+            66% { transform: translate(-4vw, 3vh); }
+        }
+
+        .noise {
             position: fixed;
             inset: 0;
             pointer-events: none;
             z-index: 9999;
             opacity: 0.025;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
         }
 
-        /* Premium Glass Effect */
-        .glass {
-            background: rgba(15, 23, 42, 0.6);
+        /* ═══════════════════ LAYOUT ═══════════════════ */
+
+        .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+        .container-wide { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+
+        /* ═══════════════════ NAV ═══════════════════ */
+
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 100;
+            padding: 16px 24px;
+            transition: all 0.4s var(--ease);
+        }
+
+        nav.scrolled {
+            background: rgba(5,5,5,0.8);
             backdrop-filter: blur(20px) saturate(180%);
             -webkit-backdrop-filter: blur(20px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid var(--border);
         }
 
-        .glass-light {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        .nav-inner {
+            max-width: 1120px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 40px;
         }
 
-        /* Gradient Text */
-        .text-gradient {
-            background: linear-gradient(135deg, #22d3ee 0%, #8b5cf6 50%, #f43f5e 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+            color: var(--text-1);
+            font-family: var(--mono);
+            font-weight: 600;
+            font-size: 0.85rem;
+            letter-spacing: -0.02em;
         }
 
-        .text-gradient-subtle {
-            background: linear-gradient(135deg, #67e8f9 0%, #a78bfa 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+        .nav-brand img {
+            width: 26px; height: 26px;
+            border-radius: 6px;
+            transition: filter 0.3s;
         }
 
-        /* Animated Gradient Border */
-        .gradient-border {
+        .nav-brand:hover img {
+            filter: drop-shadow(0 0 8px var(--accent-glow));
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .nav-links a {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            color: var(--text-3);
+            text-decoration: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .nav-links a:hover { color: var(--text-1); background: rgba(255,255,255,0.04); }
+
+        .nav-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            color: var(--text-1) !important;
+            padding: 7px 16px !important;
+            border: 1px solid var(--border);
+            border-radius: 8px !important;
+            margin-left: 6px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .nav-cta:hover {
+            border-color: var(--border-hover) !important;
+            box-shadow: 0 0 20px rgba(255,255,255,0.03);
+        }
+
+        .mobile-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-2);
+            cursor: pointer;
+        }
+
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 99;
+            background: rgba(5,5,5,0.97);
+            backdrop-filter: blur(24px);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .mobile-menu.open { display: flex; }
+
+        .mobile-menu a {
+            font-family: var(--mono);
+            font-size: 1.1rem;
+            color: var(--text-2);
+            text-decoration: none;
+            padding: 14px 28px;
+            transition: color 0.2s;
+        }
+
+        .mobile-menu a:hover { color: var(--text-1); }
+
+        .mobile-close {
+            position: absolute;
+            top: 20px; right: 24px;
+            background: none;
+            border: none;
+            color: var(--text-2);
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .mobile-btn { display: block; }
+        }
+
+        /* ═══════════════════ HERO ═══════════════════ */
+
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 120px 24px 80px;
             position: relative;
-            background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(139, 92, 246, 0.1));
-            border-radius: 1.5rem;
         }
 
-        .gradient-border::before {
+        .hero-content { max-width: 720px; position: relative; z-index: 1; }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-2);
+            padding: 6px 16px;
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            margin-bottom: 32px;
+        }
+
+        .hero-badge-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--text-2);
+            box-shadow: 0 0 8px rgba(255,255,255,0.15);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .hero h1 {
+            font-size: clamp(3rem, 7vw, 5rem);
+            font-weight: 800;
+            color: var(--text-1);
+            letter-spacing: -0.04em;
+            line-height: 1.05;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 .gradient-text {
+            color: #fff;
+        }
+
+        .hero-sub {
+            font-size: clamp(1rem, 2vw, 1.15rem);
+            color: var(--text-2);
+            font-weight: 300;
+            max-width: 520px;
+            margin: 0 auto 40px;
+            line-height: 1.7;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            font-weight: 500;
+            padding: 13px 28px;
+            border-radius: 10px;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s var(--ease);
+            position: relative;
+        }
+
+        .btn-primary {
+            background: var(--text-1);
+            color: var(--bg);
+        }
+
+        .btn-primary:hover {
+            background: #fff;
+            box-shadow: 0 0 40px rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary:active { transform: translateY(0); }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            color: var(--text-1);
+            border-color: var(--border-hover);
+            background: rgba(255,255,255,0.03);
+            transform: translateY(-1px);
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-3);
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            animation: float-hint 3s ease-in-out infinite;
+        }
+
+        @keyframes float-hint {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(6px); }
+        }
+
+        /* ═══════════════════ STATS ═══════════════════ */
+
+        .stats-bar {
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            padding: 0;
+        }
+
+        .stats-inner {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+        }
+
+        .stat {
+            padding: 32px 24px;
+            text-align: center;
+            position: relative;
+        }
+
+        .stat + .stat::before {
             content: '';
             position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            padding: 1px;
-            background: linear-gradient(135deg, rgba(34, 211, 238, 0.3), rgba(139, 92, 246, 0.3), rgba(244, 63, 94, 0.3));
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
+            left: 0;
+            top: 20%;
+            height: 60%;
+            width: 1px;
+            background: var(--border);
         }
 
-        /* Card Hover Effect */
-        .card-hover {
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        .stat-val {
+            font-family: var(--mono);
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-1);
+            margin-bottom: 2px;
         }
 
-        .card-hover:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 40px -15px rgba(34, 211, 238, 0.15);
+        .stat-lbl {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text-3);
+            letter-spacing: 0.06em;
         }
 
-        /* Spotlight Effect */
-        .spotlight {
+        @media (max-width: 640px) {
+            .stats-inner { grid-template-columns: repeat(2, 1fr); }
+            .stat:nth-child(3)::before { display: none; }
+            .stat:nth-child(3), .stat:nth-child(4) { border-top: 1px solid var(--border); }
+        }
+
+        /* ═══════════════════ SECTIONS ═══════════════════ */
+
+        .section {
+            padding: 120px 0;
+        }
+
+        .section-label {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-3);
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .section-title {
+            font-size: clamp(1.5rem, 3vw, 2.25rem);
+            font-weight: 700;
+            color: var(--text-1);
+            letter-spacing: -0.03em;
+            line-height: 1.2;
+        }
+
+        .section-desc {
+            font-size: 1rem;
+            color: var(--text-2);
+            margin-top: 12px;
+            max-width: 480px;
+            font-weight: 300;
+        }
+
+        .section-header { margin-bottom: 48px; }
+
+        /* ═══════════════════ SHOWCASE ═══════════════════ */
+
+        .showcase-frame {
+            margin-top: 48px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
             position: relative;
+            transition: border-color 0.4s;
+        }
+
+        .showcase-frame:hover { border-color: var(--border-hover); }
+
+        .comparison {
+            position: relative;
+            aspect-ratio: 16 / 9;
+            background: var(--bg-card);
+            cursor: ew-resize;
+            user-select: none;
             overflow: hidden;
         }
 
-        .spotlight::after {
-            content: '';
+        .comparison img {
             position: absolute;
             inset: 0;
-            background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.03), transparent 40%);
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
             pointer-events: none;
-            opacity: 0;
+        }
+
+        .comp-overlay {
+            position: absolute;
+            inset: 0;
+            clip-path: inset(0 50% 0 0);
+        }
+
+        .comp-handle {
+            position: absolute;
+            top: 0; bottom: 0;
+            left: 50%;
+            width: 2px;
+            background: rgba(255,255,255,0.8);
+            z-index: 10;
+            cursor: ew-resize;
+            transition: background 0.2s;
+        }
+
+        .comparison:hover .comp-handle { background: #fff; }
+
+        .comp-knob {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: 2px solid rgba(255,255,255,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .comparison:hover .comp-knob {
+            border-color: #fff;
+            box-shadow: 0 0 24px rgba(255,255,255,0.1);
+        }
+
+        .comp-knob i { color: rgba(255,255,255,0.6); }
+        .comparison:hover .comp-knob i { color: #fff; }
+
+        .comp-label {
+            position: absolute;
+            top: 16px;
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            padding: 5px 14px;
+            border-radius: 6px;
+            background: rgba(5,5,5,0.65);
+            backdrop-filter: blur(12px);
+            z-index: 5;
+            pointer-events: none;
             transition: opacity 0.3s;
         }
 
-        .spotlight:hover::after {
-            opacity: 1;
-        }
+        .comp-label-before { left: 16px; color: var(--text-2); }
+        .comp-label-after { right: 16px; color: var(--text-1); }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 3px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        /* Button Shimmer */
-        .btn-shimmer {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn-shimmer::after {
-            content: '';
+        /* Zoom */
+        .comp-zoom-bar {
             position: absolute;
-            inset: 0;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transform: translateX(-100%);
+            bottom: 16px;
+            right: 16px;
+            z-index: 20;
+            display: flex;
+            gap: 6px;
         }
 
-        .btn-shimmer:hover::after {
-            animation: shimmer 0.6s ease;
+        .comp-zoom-btn {
+            width: 36px; height: 36px;
+            border-radius: 8px;
+            background: rgba(5,5,5,0.65);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            color: var(--text-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: color 0.2s, border-color 0.2s, background 0.2s;
         }
 
-        /* Grid Pattern */
-        .grid-pattern {
-            background-image: 
-                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-            background-size: 60px 60px;
+        .comp-zoom-btn:hover {
+            color: var(--text-1);
+            border-color: var(--border-hover);
+            background: rgba(5,5,5,0.8);
         }
 
-        /* Radial Gradient Background */
-        .radial-gradient {
-            background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(34, 211, 238, 0.15), transparent);
+        .comp-zoom-btn.active {
+            color: var(--text-1);
+            border-color: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08);
         }
 
-        /* Comparison Slider */
-        .comparison-container {
-            position: relative;
+        .comparison.zoomed {
+            cursor: grab;
+        }
+
+        .comparison.zoomed:active {
+            cursor: grabbing;
+        }
+
+        .comparison.zoomed img,
+        .comparison.zoomed .comp-overlay {
+            transition: none;
+        }
+
+        .comp-zoom-level {
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            color: var(--text-3);
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            background: rgba(5,5,5,0.65);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 8px;
             user-select: none;
         }
 
-        .comparison-overlay {
+        /* ═══════════════════ BENTO FEATURES ═══════════════════ */
+
+        .bento {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--border);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-top: 48px;
+        }
+
+        .bento-card {
+            background: var(--bg);
+            padding: 36px 32px;
+            position: relative;
+            overflow: hidden;
+            transition: background 0.4s var(--ease);
+        }
+
+        .bento-card::before {
+            content: '';
             position: absolute;
             inset: 0;
+            background: radial-gradient(
+                500px circle at var(--mx, 50%) var(--my, 50%),
+                rgba(255,255,255,0.03),
+                transparent 40%
+            );
+            opacity: 0;
+            transition: opacity 0.4s;
+            pointer-events: none;
+        }
+
+        .bento-card:hover { background: var(--bg-hover); }
+        .bento-card:hover::before { opacity: 1; }
+
+        .bento-wide { grid-column: span 2; }
+
+        .bento-icon {
+            width: 40px; height: 40px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            color: var(--text-2);
+            transition: box-shadow 0.3s, color 0.3s;
+        }
+
+        .bento-card:hover .bento-icon {
+            box-shadow: 0 0 20px rgba(255,255,255,0.04);
+            color: var(--text-1);
+        }
+
+        .bento-card h3 {
+            font-family: var(--sans);
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-1);
+            margin-bottom: 8px;
+            letter-spacing: -0.01em;
+        }
+
+        .bento-card p {
+            font-size: 0.85rem;
+            color: var(--text-3);
+            line-height: 1.6;
+        }
+
+        .bento-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 16px;
+        }
+
+        .bento-tag {
+            font-family: var(--mono);
+            font-size: 0.65rem;
+            padding: 3px 10px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.04);
+            color: var(--text-3);
+            border: 1px solid var(--border);
+        }
+
+        @media (max-width: 900px) {
+            .bento { grid-template-columns: repeat(2, 1fr); }
+            .bento-wide { grid-column: span 2; }
+        }
+
+        @media (max-width: 600px) {
+            .bento { grid-template-columns: 1fr; }
+            .bento-wide { grid-column: span 1; }
+        }
+
+        /* ═══════════════════ INSTALL ═══════════════════ */
+
+        .install-layout {
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 56px;
+            align-items: start;
+            margin-top: 48px;
+        }
+
+        .steps { display: flex; flex-direction: column; gap: 28px; }
+
+        .step {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        .step-n {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-2);
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .step h4 {
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            color: var(--text-1);
+            margin-bottom: 2px;
+            font-weight: 600;
+        }
+
+        .step p { font-size: 0.8rem; color: var(--text-3); }
+
+        .terminal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
             overflow: hidden;
-            border-right: 2px solid rgba(255, 255, 255, 0.8);
+            transition: border-color 0.3s;
         }
 
-        /* Feature Icon Glow */
-        .icon-glow {
-            filter: drop-shadow(0 0 20px currentColor);
+        .terminal:hover { border-color: var(--border-hover); }
+
+        .term-bar {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        /* Smooth Section Transitions */
-        section {
+        .term-dots { display: flex; gap: 7px; }
+
+        .term-dot {
+            width: 11px; height: 11px;
+            border-radius: 50%;
+            opacity: 0.5;
+        }
+
+        .term-dot-r { background: #ef4444; }
+        .term-dot-y { background: #eab308; }
+        .term-dot-g { background: #22c55e; }
+
+        .term-title {
+            font-family: var(--mono);
+            font-size: 0.7rem;
+            color: var(--text-3);
+        }
+
+        .term-body {
+            padding: 20px 22px;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            line-height: 2.2;
+        }
+
+        .term-line {
+            display: flex;
+            align-items: center;
+            position: relative;
+            padding-right: 28px;
+        }
+
+        .term-prompt {
+            color: var(--text-3);
+            margin-right: 10px;
+            user-select: none;
+        }
+
+        .term-cmd { color: var(--text-2); }
+
+        .term-copy {
+            position: absolute;
+            right: 0;
+            background: none;
+            border: none;
+            color: var(--text-3);
+            cursor: pointer;
+            padding: 2px;
+            opacity: 0;
+            transition: opacity 0.2s, color 0.2s;
+        }
+
+        .term-line:hover .term-copy { opacity: 1; }
+        .term-copy:hover { color: var(--text-1); }
+
+        .term-cursor {
+            display: inline-block;
+            width: 8px; height: 15px;
+            background: var(--text-2);
+            animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+        }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        @media (max-width: 800px) {
+            .install-layout { grid-template-columns: 1fr; }
+        }
+
+        /* ═══════════════════ CTA ═══════════════════ */
+
+        .cta-box {
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 72px 48px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.4s;
+        }
+
+        .cta-box:hover { border-color: var(--border-hover); }
+
+        .cta-glow {
+            position: absolute;
+            top: -2px; left: 10%; right: 10%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+            border-radius: 2px;
+            filter: blur(1px);
+        }
+
+        .cta-glow-soft {
+            position: absolute;
+            top: -40px; left: 20%; right: 20%;
+            height: 80px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+            filter: blur(40px);
+            pointer-events: none;
+        }
+
+        .cta-box h2 { margin-bottom: 12px; position: relative; }
+        .cta-box p { max-width: 420px; margin: 0 auto 36px; position: relative; }
+
+        .cta-btns {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
             position: relative;
         }
 
-        /* Terminal Styling */
-        .terminal {
-            background: linear-gradient(180deg, #0d1117 0%, #010409 100%);
-            font-family: 'Geist Mono', monospace;
+        /* ═══════════════════ FOOTER ═══════════════════ */
+
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 28px 0;
         }
 
-        .terminal-line::before {
-            content: '$';
-            color: #22d3ee;
-            margin-right: 0.75rem;
+        .footer-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        /* Floating Elements */
-        .float-element {
-            animation: float 20s ease-in-out infinite;
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .float-element:nth-child(2) {
-            animation-delay: -5s;
+        .footer-brand img { width: 20px; height: 20px; border-radius: 4px; }
+
+        .footer-brand span {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--text-3);
         }
 
-        .float-element:nth-child(3) {
-            animation-delay: -10s;
+        .footer-links {
+            display: flex;
+            gap: 20px;
         }
 
-        /* Selection */
-        ::selection {
-            background: rgba(34, 211, 238, 0.3);
-            color: #ecfeff;
+        .footer-links a {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text-3);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover { color: var(--text-1); }
+
+        .footer-copy {
+            font-family: var(--mono);
+            font-size: 0.68rem;
+            color: var(--text-3);
+        }
+
+        @media (max-width: 768px) {
+            .footer-inner { flex-direction: column; gap: 14px; text-align: center; }
+        }
+
+        /* ═══════════════════ SCROLL REVEAL ═══════════════════ */
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(24px);
+            transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .reveal-d1 { transition-delay: 0.08s; }
+        .reveal-d2 { transition-delay: 0.16s; }
+        .reveal-d3 { transition-delay: 0.24s; }
+        .reveal-d4 { transition-delay: 0.32s; }
+
+        /* ═══════════════════ DIVIDERS ═══════════════════ */
+
+        .glow-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
         }
     </style>
 </head>
 
-<body class="text-slate-300 font-sans min-h-screen">
-    <div class="noise-overlay"></div>
-
-    <!-- Ambient Background -->
-    <div class="fixed inset-0 pointer-events-none -z-10">
-        <div class="absolute inset-0 radial-gradient"></div>
-        <div class="absolute inset-0 grid-pattern"></div>
-        <div class="absolute top-0 left-1/4 w-[600px] h-[600px] bg-brand-500/10 rounded-full blur-[150px] float-element"></div>
-        <div class="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-accent-violet/10 rounded-full blur-[150px] float-element"></div>
-        <div class="absolute bottom-0 left-1/2 w-[700px] h-[400px] bg-accent-rose/5 rounded-full blur-[150px] float-element"></div>
+<body>
+    <!-- BG FX -->
+    <div class="aurora">
+        <div class="aurora-blob aurora-1"></div>
+        <div class="aurora-blob aurora-2"></div>
+        <div class="aurora-blob aurora-3"></div>
     </div>
+    <div class="noise"></div>
 
-    <!-- Navigation -->
-    <nav class="fixed top-0 left-0 right-0 z-50 px-6 py-4">
-        <div class="max-w-7xl mx-auto">
-            <div class="glass rounded-2xl px-6 py-3 flex items-center justify-between">
-                <a href="#" class="flex items-center gap-3 group">
-                    <img src="assets/logo.png" alt="TAS Logo" class="w-9 h-9 rounded-xl group-hover:scale-105 transition-transform duration-300">
-                    <span class="font-semibold text-white tracking-tight">TheAnimeScripter</span>
+    <!-- NAV -->
+    <nav id="nav">
+        <div class="nav-inner">
+            <a href="#" class="nav-brand">
+                <img src="assets/logo.png" alt="TAS">
+                <span>TheAnimeScripter</span>
+            </a>
+            <div class="nav-links">
+                <a href="#showcase">Showcase</a>
+                <a href="#features">Features</a>
+                <a href="#install">Install</a>
+                <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="nav-cta">
+                    <i data-lucide="github" class="w-4 h-4"></i> GitHub
                 </a>
-
-                <div class="hidden md:flex items-center gap-1">
-                    <a href="#features" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">Features</a>
-                    <a href="#showcase" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">Showcase</a>
-                    <a href="#install" class="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-white/5">Install</a>
-                    <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="ml-2 px-4 py-2 text-sm font-medium text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all flex items-center gap-2 border border-white/5">
-                        <i data-lucide="github" class="w-4 h-4"></i>
-                        GitHub
-                    </a>
-                </div>
-
-                <button class="md:hidden p-2 text-slate-400 hover:text-white">
-                    <i data-lucide="menu" class="w-5 h-5"></i>
-                </button>
             </div>
+            <button class="mobile-btn" onclick="toggleMobile()">
+                <i data-lucide="menu" class="w-5 h-5"></i>
+            </button>
         </div>
     </nav>
 
-    <!-- Hero Section -->
-    <main class="relative pt-32 pb-24 lg:pt-44 lg:pb-32 px-6">
-        <div class="max-w-7xl mx-auto">
-            <div class="max-w-4xl">
-                <!-- Version Badge -->
-                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-light mb-8" data-aos="fade-down" data-aos-duration="600">
-                    <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-400"></span>
-                    </span>
-                    <span class="text-xs font-medium text-brand-300 tracking-wide">Version 2.5.6 Stable</span>
+    <!-- MOBILE MENU -->
+    <div class="mobile-menu" id="mobile-menu">
+        <button class="mobile-close" onclick="toggleMobile()">
+            <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+        <a href="#showcase" onclick="toggleMobile()">Showcase</a>
+        <a href="#features" onclick="toggleMobile()">Features</a>
+        <a href="#install" onclick="toggleMobile()">Install</a>
+        <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank">GitHub</a>
+    </div>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge reveal">
+                <span class="hero-badge-dot"></span>
+                Open Source &mdash; Free Forever
+            </div>
+
+            <h1 class="reveal reveal-d1">
+                Every frame,<br><span class="gradient-text">perfected.</span>
+            </h1>
+
+            <p class="hero-sub reveal reveal-d2">
+                AI video enhancement powered by 50+ neural network models.
+                Upscale, interpolate, restore &mdash; one toolkit.
+            </p>
+
+            <div class="hero-actions reveal reveal-d3">
+                <a href="#install" class="btn btn-primary">
+                    <i data-lucide="arrow-down" class="w-4 h-4"></i>
+                    Get Started
+                </a>
+                <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="btn btn-secondary">
+                    <i data-lucide="github" class="w-4 h-4"></i>
+                    View Source
+                </a>
+            </div>
+        </div>
+
+        <div class="scroll-hint">
+            <span>scroll</span>
+            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+        </div>
+    </section>
+
+    <!-- STATS -->
+    <div class="stats-bar">
+        <div class="container">
+            <div class="stats-inner">
+                <div class="stat reveal">
+                    <div class="stat-val">4K+</div>
+                    <div class="stat-lbl">Max Resolution</div>
+                </div>
+                <div class="stat reveal reveal-d1">
+                    <div class="stat-val">50+</div>
+                    <div class="stat-lbl">AI Models</div>
+                </div>
+                <div class="stat reveal reveal-d2">
+                    <div class="stat-val">10x</div>
+                    <div class="stat-lbl">TensorRT Speed</div>
+                </div>
+                <div class="stat reveal reveal-d3">
+                    <div class="stat-val">156k+</div>
+                    <div class="stat-lbl">Downloads</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHOWCASE -->
+    <section id="showcase" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label reveal">Results</span>
+                <h2 class="section-title reveal reveal-d1">See the difference</h2>
+                <p class="section-desc reveal reveal-d2">Drag the slider to compare original vs. AI-enhanced output.</p>
+            </div>
+
+            <div class="showcase-frame reveal reveal-d3">
+                <div class="comparison" id="comparison">
+                    <img src="assets/demo_2x.avif" alt="Enhanced">
+
+                    <div class="comp-overlay" id="comp-overlay">
+                        <img src="assets/demo.avif" alt="Original">
+                    </div>
+
+                    <div class="comp-handle" id="comp-handle">
+                        <div class="comp-knob">
+                            <i data-lucide="chevrons-left-right" class="w-4 h-4"></i>
+                        </div>
+                    </div>
+
+                    <span class="comp-label comp-label-before">Original</span>
+                    <span class="comp-label comp-label-after">Enhanced</span>
+
+                    <div class="comp-zoom-bar">
+                        <span class="comp-zoom-level" id="zoom-level">1x</span>
+                        <button class="comp-zoom-btn" id="zoom-in" title="Zoom in">
+                            <i data-lucide="zoom-in" class="w-4 h-4"></i>
+                        </button>
+                        <button class="comp-zoom-btn" id="zoom-out" title="Zoom out">
+                            <i data-lucide="zoom-out" class="w-4 h-4"></i>
+                        </button>
+                        <button class="comp-zoom-btn" id="zoom-reset" title="Reset zoom">
+                            <i data-lucide="minimize-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="glow-divider"></div>
+
+    <!-- FEATURES -->
+    <section id="features" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label reveal">Capabilities</span>
+                <h2 class="section-title reveal reveal-d1">Built for professionals</h2>
+                <p class="section-desc reveal reveal-d2">A complete suite of AI-powered video processing tools.</p>
+            </div>
+
+            <div class="bento reveal reveal-d3">
+                <!-- Row 1: wide + regular -->
+                <div class="bento-card bento-wide">
+                    <div class="bento-icon"><i data-lucide="maximize-2" class="w-5 h-5"></i></div>
+                    <h3>Upscaling</h3>
+                    <p>Professional 4K upscaling with artifact-free detail preservation across 14+ model architectures.</p>
+                    <div class="bento-tags">
+                        <span class="bento-tag">Real-ESRGAN</span>
+                        <span class="bento-tag">AnimeSR</span>
+                        <span class="bento-tag">SwinIR</span>
+                        <span class="bento-tag">Compact</span>
+                        <span class="bento-tag">SPAN</span>
+                    </div>
                 </div>
 
-                <!-- Headline -->
-                <h1 class="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-[1.1] mb-6" data-aos="fade-up" data-aos-duration="700">
-                    AI-Powered<br>
-                    <span class="text-gradient">Video Enhancement</span>
-                </h1>
+                <div class="bento-card">
+                    <div class="bento-icon"><i data-lucide="film" class="w-5 h-5"></i></div>
+                    <h3>Interpolation</h3>
+                    <p>Convert any framerate to silky-smooth motion with RIFE 4.x and GMFSS Union.</p>
+                </div>
 
-                <!-- Subheadline -->
-                <p class="text-lg md:text-xl text-slate-400 max-w-2xl mb-10 leading-relaxed font-light" data-aos="fade-up" data-aos-duration="700" data-aos-delay="100">
-                    Professional-grade upscaling, frame interpolation, and restoration. 
-                    Transform your anime content with state-of-the-art neural networks.
-                </p>
+                <!-- Row 2 -->
+                <div class="bento-card">
+                    <div class="bento-icon"><i data-lucide="wind" class="w-5 h-5"></i></div>
+                    <h3>Motion Blur</h3>
+                    <p>Realistic camera blur via AI interpolation and weighted frame blending.</p>
+                </div>
 
-                <!-- CTA Buttons -->
-                <div class="flex flex-col sm:flex-row gap-4" data-aos="fade-up" data-aos-duration="700" data-aos-delay="200">
-                    <a href="#install" class="btn-shimmer group inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-surface-950 rounded-xl font-semibold hover:bg-brand-50 transition-all duration-300 shadow-lg shadow-white/5">
-                        <i data-lucide="download" class="w-5 h-5"></i>
-                        Get Started
+                <div class="bento-card">
+                    <div class="bento-icon"><i data-lucide="sparkles" class="w-5 h-5"></i></div>
+                    <h3>Restoration</h3>
+                    <p>Denoise, dejpeg, sharpen, and enhance line art on degraded footage.</p>
+                </div>
+
+                <div class="bento-card">
+                    <div class="bento-icon"><i data-lucide="layers" class="w-5 h-5"></i></div>
+                    <h3>Depth Estimation</h3>
+                    <p>Depth Anything V2 for 3D-ready monocular depth maps from any source.</p>
+                </div>
+
+                <!-- Row 3 -->
+                <div class="bento-card">
+                    <div class="bento-icon"><i data-lucide="scan" class="w-5 h-5"></i></div>
+                    <h3>Detection</h3>
+                    <p>YOLO-powered scene analysis, segmentation, and targeted masking.</p>
+                </div>
+
+                <div class="bento-card bento-wide">
+                    <div class="bento-icon"><i data-lucide="cpu" class="w-5 h-5"></i></div>
+                    <h3>Multi-Backend Acceleration</h3>
+                    <p>Runs on any hardware. Automatic backend selection with manual override.</p>
+                    <div class="bento-tags">
+                        <span class="bento-tag">CUDA</span>
+                        <span class="bento-tag">TensorRT</span>
+                        <span class="bento-tag">DirectML</span>
+                        <span class="bento-tag">OpenVINO</span>
+                        <span class="bento-tag">NCNN</span>
+                    </div>
+                </div>
+
+                <!-- Row 4 -->
+                <div class="bento-card">
+                    <div class="bento-icon"><i data-lucide="workflow" class="w-5 h-5"></i></div>
+                    <h3>After Effects</h3>
+                    <p>Native CEP plugin. Use TAS directly inside your Adobe workflow.</p>
+                </div>
+
+                <div class="bento-card bento-wide">
+                    <div class="bento-icon"><i data-lucide="terminal" class="w-5 h-5"></i></div>
+                    <h3>CLI with 60+ Parameters</h3>
+                    <p>Full command-line control over every processing option. Chain models, batch process, automate.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="glow-divider"></div>
+
+    <!-- INSTALL -->
+    <section id="install" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label reveal">Get Started</span>
+                <h2 class="section-title reveal reveal-d1">Up and running in minutes</h2>
+                <p class="section-desc reveal reveal-d2">Python 3.13+ and a CUDA-compatible GPU recommended.</p>
+            </div>
+
+            <div class="install-layout">
+                <div class="steps reveal reveal-d2">
+                    <div class="step">
+                        <div class="step-n">01</div>
+                        <div>
+                            <h4>Clone the repo</h4>
+                            <p>Grab the latest source from GitHub</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-n">02</div>
+                        <div>
+                            <h4>Install dependencies</h4>
+                            <p>pip handles everything automatically</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-n">03</div>
+                        <div>
+                            <h4>Run it</h4>
+                            <p>Launch via CLI or start the application</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="terminal reveal reveal-d3">
+                    <div class="term-bar">
+                        <div class="term-dots">
+                            <span class="term-dot term-dot-r"></span>
+                            <span class="term-dot term-dot-y"></span>
+                            <span class="term-dot term-dot-g"></span>
+                        </div>
+                        <span class="term-title">terminal</span>
+                        <span style="width: 48px;"></span>
+                    </div>
+                    <div class="term-body">
+                        <div class="term-line">
+                            <span class="term-prompt">$</span>
+                            <span class="term-cmd" id="c1">git clone https://github.com/NevermindNilas/TheAnimeScripter.git</span>
+                            <button class="term-copy" onclick="copyCmd('c1')"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                        <div class="term-line">
+                            <span class="term-prompt">$</span>
+                            <span class="term-cmd" id="c2">cd TheAnimeScripter</span>
+                            <button class="term-copy" onclick="copyCmd('c2')"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                        <div class="term-line">
+                            <span class="term-prompt">$</span>
+                            <span class="term-cmd" id="c3">pip install -r requirements.txt</span>
+                            <button class="term-copy" onclick="copyCmd('c3')"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                        <div class="term-line">
+                            <span class="term-prompt">$</span>
+                            <span class="term-cmd" id="c4">python main.py --help</span>
+                            <button class="term-copy" onclick="copyCmd('c4')"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                        <div class="term-line">
+                            <span class="term-prompt">$</span>
+                            <span class="term-cursor"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="glow-divider"></div>
+
+    <!-- CTA -->
+    <section class="section">
+        <div class="container">
+            <div class="cta-box reveal">
+                <div class="cta-glow"></div>
+                <div class="cta-glow-soft"></div>
+                <h2 class="section-title">Open source. Free forever.</h2>
+                <p>Star the repo, report issues, or contribute. Built by the community, for the community.</p>
+                <div class="cta-btns">
+                    <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="btn btn-primary">
+                        <i data-lucide="star" class="w-4 h-4"></i>
+                        Star on GitHub
                     </a>
-                    <a href="#showcase" class="group inline-flex items-center justify-center gap-2 px-8 py-4 glass-light rounded-xl font-semibold text-white hover:bg-white/10 transition-all duration-300">
-                        <i data-lucide="play" class="w-5 h-5"></i>
-                        View Demo
+                    <a href="https://github.com/NevermindNilas/TheAnimeScripter/wiki" target="_blank" class="btn btn-secondary">
+                        <i data-lucide="book-open" class="w-4 h-4"></i>
+                        Documentation
                     </a>
                 </div>
-
-                <!-- Stats Row -->
-                <div class="mt-16 pt-8 border-t border-white/5" data-aos="fade-up" data-aos-duration="700" data-aos-delay="300">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
-                        <div>
-                            <div class="text-3xl font-bold text-white mb-1">4K+</div>
-                            <div class="text-sm text-slate-500">Max Resolution</div>
-                        </div>
-                        <div>
-                            <div class="text-3xl font-bold text-white mb-1">50+</div>
-                            <div class="text-sm text-slate-500">AI Models</div>
-                        </div>
-                        <div>
-                            <div class="text-3xl font-bold text-white mb-1">10x</div>
-                            <div class="text-sm text-slate-500">Faster Inference</div>
-                        </div>
-                        <div>
-                            <div class="text-3xl font-bold text-white mb-1">156k+</div>
-                            <div class="text-sm text-slate-500">Users Worldwide</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Features Section -->
-    <section id="features" class="py-24 px-6 relative">
-        <div class="max-w-7xl mx-auto">
-            <div class="text-center mb-16" data-aos="fade-up">
-                <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Powerful Features</h2>
-                <p class="text-slate-400 max-w-2xl mx-auto">Everything you need for professional video enhancement, all in one package.</p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Feature 1 -->
-                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="100">
-                    <div class="relative z-10">
-                        <div class="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center mb-6">
-                            <i data-lucide="maximize-2" class="w-6 h-6 text-brand-400"></i>
-                        </div>
-                        <h3 class="text-xl font-semibold text-white mb-3">Ultra Upscaling</h3>
-                        <p class="text-slate-400 text-sm leading-relaxed">Real-ESRGAN, AnimeSR, and cutting-edge architectures for stunning 4K upscaling with preserved detail.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 2 -->
-                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="150">
-                    <div class="relative z-10">
-                        <div class="w-12 h-12 rounded-xl bg-accent-violet/10 flex items-center justify-center mb-6">
-                            <i data-lucide="film" class="w-6 h-6 text-accent-violet"></i>
-                        </div>
-                        <h3 class="text-xl font-semibold text-white mb-3">Frame Interpolation</h3>
-                        <p class="text-slate-400 text-sm leading-relaxed">RIFE 4.x and GMFSS Union for butter-smooth motion. Convert any framerate to cinematic quality.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 3 -->
-                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="200">
-                    <div class="relative z-10">
-                        <div class="w-12 h-12 rounded-xl bg-accent-emerald/10 flex items-center justify-center mb-6">
-                            <i data-lucide="scan-face" class="w-6 h-6 text-accent-emerald"></i>
-                        </div>
-                        <h3 class="text-xl font-semibold text-white mb-3">Object Detection</h3>
-                        <p class="text-slate-400 text-sm leading-relaxed">YOLO integration for intelligent scene analysis and targeted video enhancement effects.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 4 -->
-                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="250">
-                    <div class="relative z-10">
-                        <div class="w-12 h-12 rounded-xl bg-accent-rose/10 flex items-center justify-center mb-6">
-                            <i data-lucide="cpu" class="w-6 h-6 text-accent-rose"></i>
-                        </div>
-                        <h3 class="text-xl font-semibold text-white mb-3">Multi-Backend</h3>
-                        <p class="text-slate-400 text-sm leading-relaxed">CUDA, TensorRT, DirectML, and OpenVINO support. Optimize for any hardware configuration.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 5 -->
-                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="300">
-                    <div class="relative z-10">
-                        <div class="w-12 h-12 rounded-xl bg-accent-amber/10 flex items-center justify-center mb-6">
-                            <i data-lucide="layers" class="w-6 h-6 text-accent-amber"></i>
-                        </div>
-                        <h3 class="text-xl font-semibold text-white mb-3">Depth Estimation</h3>
-                        <p class="text-slate-400 text-sm leading-relaxed">Depth Anything V2 integration for state-of-the-art monocular depth estimation.</p>
-                    </div>
-                </div>
-
-                <!-- Feature 6 -->
-                <div class="spotlight card-hover gradient-border rounded-2xl p-8" data-aos="fade-up" data-aos-delay="350">
-                    <div class="relative z-10">
-                        <div class="w-12 h-12 rounded-xl bg-brand-500/10 flex items-center justify-center mb-6">
-                            <i data-lucide="workflow" class="w-6 h-6 text-brand-400"></i>
-                        </div>
-                        <h3 class="text-xl font-semibold text-white mb-3">Adobe Integration</h3>
-                        <p class="text-slate-400 text-sm leading-relaxed">Native After Effects integration via CEP panels. Seamless professional workflow.</p>
-                    </div>
-                </div>
             </div>
         </div>
     </section>
 
-    <!-- Showcase Section -->
-    <section id="showcase" class="py-24 px-6 relative">
-        <div class="max-w-6xl mx-auto">
-            <div class="text-center mb-16" data-aos="fade-up">
-                <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">See the Difference</h2>
-                <p class="text-slate-400">Drag the slider to compare before and after enhancement.</p>
-            </div>
-
-            <div class="relative rounded-2xl overflow-hidden gradient-border shadow-2xl" data-aos="zoom-in" data-aos-duration="800">
-                <div class="comparison-container relative aspect-video bg-surface-950">
-                    <!-- After Image (Background) -->
-                    <div class="absolute inset-0 bg-cover bg-center" style="background-image: url('assets/demo_2x.avif');">
-                        <div class="absolute top-4 right-4 px-3 py-1.5 glass rounded-lg text-xs font-medium text-brand-300">
-                            Enhanced
-                        </div>
-                    </div>
-
-                    <!-- Before Image (Overlay) -->
-                    <div id="compare-overlay" class="comparison-overlay bg-cover bg-center" style="background-image: url('assets/demo.avif'); clip-path: inset(0 50% 0 0);">
-                        <div class="absolute top-4 left-4 px-3 py-1.5 glass rounded-lg text-xs font-medium text-white">
-                            Original
-                        </div>
-                    </div>
-
-                    <!-- Slider Handle -->
-                    <div id="compare-handle" class="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize z-20 shadow-lg" style="left: 50%;">
-                        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-xl">
-                            <i data-lucide="chevrons-left-right" class="w-5 h-5 text-surface-950"></i>
-                        </div>
-                    </div>
+    <!-- FOOTER -->
+    <footer>
+        <div class="container">
+            <div class="footer-inner">
+                <div class="footer-brand">
+                    <img src="assets/logo.png" alt="TAS">
+                    <span>TheAnimeScripter</span>
                 </div>
-
-                <!-- Fullscreen Button -->
-                <button onclick="toggleFullscreen(this.previousElementSibling)" class="absolute bottom-4 right-4 z-30 p-2 glass rounded-lg hover:bg-white/10 transition-colors">
-                    <i data-lucide="maximize" class="w-5 h-5 text-white"></i>
-                </button>
-            </div>
-        </div>
-    </section>
-
-    <!-- Installation Section -->
-    <section id="install" class="py-24 px-6 relative">
-        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-brand-500/5 to-transparent pointer-events-none"></div>
-        
-        <div class="max-w-6xl mx-auto relative">
-            <div class="grid lg:grid-cols-2 gap-16 items-center">
-                <div data-aos="fade-right">
-                    <h2 class="text-3xl md:text-4xl font-bold text-white mb-6">
-                        Quick Installation
-                    </h2>
-                    <p class="text-slate-400 mb-8 leading-relaxed">
-                        Get started in minutes. Requires Python 3.13+ and a CUDA-compatible GPU for optimal performance.
-                    </p>
-
-                    <div class="space-y-6">
-                        <div class="flex items-start gap-4">
-                            <div class="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <span class="text-sm font-semibold text-brand-400">1</span>
-                            </div>
-                            <div>
-                                <h4 class="font-medium text-white mb-1">Clone Repository</h4>
-                                <p class="text-sm text-slate-500">Download the source code from GitHub</p>
-                            </div>
-                        </div>
-
-                        <div class="flex items-start gap-4">
-                            <div class="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <span class="text-sm font-semibold text-brand-400">2</span>
-                            </div>
-                            <div>
-                                <h4 class="font-medium text-white mb-1">Install Dependencies</h4>
-                                <p class="text-sm text-slate-500">Install required Python packages</p>
-                            </div>
-                        </div>
-
-                        <div class="flex items-start gap-4">
-                            <div class="w-8 h-8 rounded-lg bg-brand-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <span class="text-sm font-semibold text-brand-400">3</span>
-                            </div>
-                            <div>
-                                <h4 class="font-medium text-white mb-1">Launch Application</h4>
-                                <p class="text-sm text-slate-500">Start the GUI or use CLI mode</p>
-                            </div>
-                        </div>
-                    </div>
+                <div class="footer-links">
+                    <a href="https://github.com/NevermindNilas/TheAnimeScripter/wiki" target="_blank">Docs</a>
+                    <a href="https://github.com/NevermindNilas/TheAnimeScripter/blob/main/LICENSE" target="_blank">License</a>
+                    <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank">GitHub</a>
                 </div>
-
-                <!-- Terminal -->
-                <div data-aos="fade-left">
-                    <div class="terminal rounded-2xl border border-white/5 overflow-hidden shadow-2xl">
-                        <!-- Terminal Header -->
-                        <div class="px-4 py-3 bg-white/5 border-b border-white/5 flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <div class="w-3 h-3 rounded-full bg-accent-rose/80"></div>
-                                <div class="w-3 h-3 rounded-full bg-accent-amber/80"></div>
-                                <div class="w-3 h-3 rounded-full bg-accent-emerald/80"></div>
-                            </div>
-                            <span class="text-xs text-slate-500">Terminal</span>
-                            <div class="w-16"></div>
-                        </div>
-
-                        <!-- Terminal Content -->
-                        <div class="p-6 space-y-4 text-sm">
-                            <div class="group">
-                                <div class="flex items-center justify-between mb-1">
-                                    <span class="text-slate-500 text-xs"># Clone the repository</span>
-                                    <button onclick="copyToClipboard('cmd1')" class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/5 rounded">
-                                        <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-500"></i>
-                                    </button>
-                                </div>
-                                <div class="terminal-line text-slate-300" id="cmd1">git clone https://github.com/NevermindNilas/TheAnimeScripter.git</div>
-                            </div>
-
-                            <div class="group">
-                                <div class="flex items-center justify-between mb-1">
-                                    <span class="text-slate-500 text-xs"># Navigate to directory</span>
-                                    <button onclick="copyToClipboard('cmd2')" class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/5 rounded">
-                                        <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-500"></i>
-                                    </button>
-                                </div>
-                                <div class="terminal-line text-slate-300" id="cmd2">cd TheAnimeScripter</div>
-                            </div>
-
-                            <div class="group">
-                                <div class="flex items-center justify-between mb-1">
-                                    <span class="text-slate-500 text-xs"># Install dependencies</span>
-                                    <button onclick="copyToClipboard('cmd3')" class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/5 rounded">
-                                        <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-500"></i>
-                                    </button>
-                                </div>
-                                <div class="terminal-line text-slate-300" id="cmd3">python -m pip install -r requirements.txt -r extra-requirements-windows-lite.txt</div>
-                            </div>
-
-                            <div class="group">
-                                <div class="flex items-center justify-between mb-1">
-                                    <span class="text-slate-500 text-xs"># Launch the application</span>
-                                    <button onclick="copyToClipboard('cmd4')" class="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-white/5 rounded">
-                                        <i data-lucide="copy" class="w-3.5 h-3.5 text-slate-500"></i>
-                                    </button>
-                                </div>
-                                <div class="terminal-line text-slate-300" id="cmd4">python main.py</div>
-                            </div>
-
-                            <div class="pt-2">
-                                <span class="text-brand-400 animate-pulse">_</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- CTA Section -->
-    <section class="py-24 px-6 relative">
-        <div class="max-w-4xl mx-auto text-center" data-aos="fade-up">
-            <div class="gradient-border rounded-3xl p-12 md:p-16 relative overflow-hidden">
-                <div class="relative z-10">
-                    <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">Ready to Enhance?</h2>
-                    <p class="text-slate-400 mb-8 max-w-xl mx-auto">
-                        Join thousands of creators using The Anime Scripter to transform their video content.
-                    </p>
-                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                        <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="btn-shimmer inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-surface-950 rounded-xl font-semibold hover:bg-brand-50 transition-all duration-300">
-                            <i data-lucide="github" class="w-5 h-5"></i>
-                            Star on GitHub
-                        </a>
-                        <a href="#install" class="inline-flex items-center justify-center gap-2 px-8 py-4 glass-light rounded-xl font-semibold text-white hover:bg-white/10 transition-all duration-300">
-                            <i data-lucide="book-open" class="w-5 h-5"></i>
-                            Documentation
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="py-12 px-6 border-t border-white/5">
-        <div class="max-w-7xl mx-auto">
-            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
-                <div class="flex items-center gap-3">
-                    <img src="assets/logo.png" alt="TAS Logo" class="w-8 h-8 rounded-lg">
-                    <div>
-                        <h4 class="font-semibold text-white">The Anime Scripter</h4>
-                        <p class="text-xs text-slate-500">AI Video Enhancement</p>
-                    </div>
-                </div>
-
-                <div class="flex items-center gap-6 text-sm text-slate-500">
-                    <a href="#" class="hover:text-white transition-colors">Documentation</a>
-                    <a href="#" class="hover:text-white transition-colors">License</a>
-                    <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="hover:text-white transition-colors">GitHub</a>
-                </div>
-
-                <div class="text-xs text-slate-600">
-                    2026 TAS Project. Open Source.
-                </div>
+                <span class="footer-copy">&copy; 2026 TAS Project</span>
             </div>
         </div>
     </footer>
 
-    <!-- Scripts -->
-    <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
     <script>
-        // Initialize
+        // ── Init ──
         lucide.createIcons();
-        AOS.init({
-            duration: 600,
-            once: true,
-            offset: 50,
-            easing: 'ease-out-cubic'
+
+        // ── Scroll Reveal ──
+        const revealObs = new IntersectionObserver((entries) => {
+            entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+        }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+        document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+
+        // ── Nav Scroll ──
+        const nav = document.getElementById('nav');
+        let ticking = false;
+        window.addEventListener('scroll', () => {
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    nav.classList.toggle('scrolled', window.scrollY > 50);
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        }, { passive: true });
+
+        // ── Mobile Menu ──
+        function toggleMobile() {
+            document.getElementById('mobile-menu').classList.toggle('open');
+        }
+
+        // ── Comparison Slider ──
+        const comp = document.getElementById('comparison');
+        const overlay = document.getElementById('comp-overlay');
+        const handle = document.getElementById('comp-handle');
+        let dragging = false;
+
+        function setSlider(clientX) {
+            const rect = comp.getBoundingClientRect();
+            let pct = ((clientX - rect.left) / rect.width) * 100;
+            pct = Math.max(2, Math.min(98, pct));
+            overlay.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+            handle.style.left = pct + '%';
+        }
+
+        comp.addEventListener('mousedown', e => { dragging = true; setSlider(e.clientX); e.preventDefault(); });
+        comp.addEventListener('touchstart', e => { dragging = true; setSlider(e.touches[0].clientX); }, { passive: true });
+        window.addEventListener('mouseup', () => dragging = false);
+        window.addEventListener('touchend', () => dragging = false);
+        window.addEventListener('mousemove', e => { if (dragging) { setSlider(e.clientX); e.preventDefault(); } });
+        window.addEventListener('touchmove', e => { if (dragging) setSlider(e.touches[0].clientX); }, { passive: true });
+
+        // Auto-animate slider on first view
+        const sliderObs = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    sliderObs.unobserve(entry.target);
+                    setTimeout(() => animateSlider(), 600);
+                }
+            });
+        }, { threshold: 0.4 });
+        sliderObs.observe(comp);
+
+        function animateSlider() {
+            const start = 50, target1 = 25, target2 = 75, target3 = 50;
+            const duration = 2000;
+            const startTime = performance.now();
+
+            function tick(now) {
+                const t = Math.min((now - startTime) / duration, 1);
+                let pct;
+                if (t < 0.33) {
+                    const p = t / 0.33;
+                    pct = start + (target1 - start) * easeInOut(p);
+                } else if (t < 0.66) {
+                    const p = (t - 0.33) / 0.33;
+                    pct = target1 + (target2 - target1) * easeInOut(p);
+                } else {
+                    const p = (t - 0.66) / 0.34;
+                    pct = target2 + (target3 - target2) * easeInOut(p);
+                }
+                overlay.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+                handle.style.left = pct + '%';
+                if (t < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        }
+
+        function easeInOut(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
+
+        // ── Zoom ──
+        const zoomLevels = [1, 2, 3, 4];
+        let zoomIdx = 0;
+        let panX = 0, panY = 0;
+        let panning = false, panStartX = 0, panStartY = 0, panOriginX = 0, panOriginY = 0;
+        const zoomLevelEl = document.getElementById('zoom-level');
+        const allImgs = comp.querySelectorAll('img');
+
+        function applyZoom() {
+            const scale = zoomLevels[zoomIdx];
+            zoomLevelEl.textContent = scale + 'x';
+            comp.classList.toggle('zoomed', scale > 1);
+
+            // Clamp pan so image doesn't go out of bounds
+            const maxPan = ((scale - 1) / scale) * 50;
+            panX = Math.max(-maxPan, Math.min(maxPan, panX));
+            panY = Math.max(-maxPan, Math.min(maxPan, panY));
+
+            allImgs.forEach(img => {
+                img.style.transform = scale > 1
+                    ? `scale(${scale}) translate(${panX}%, ${panY}%)`
+                    : '';
+            });
+
+            document.getElementById('zoom-in').classList.toggle('active', zoomIdx > 0);
+        }
+
+        document.getElementById('zoom-in').addEventListener('click', e => {
+            e.stopPropagation();
+            if (zoomIdx < zoomLevels.length - 1) { zoomIdx++; applyZoom(); }
         });
 
-        // Spotlight Effect
-        document.querySelectorAll('.spotlight').forEach(card => {
+        document.getElementById('zoom-out').addEventListener('click', e => {
+            e.stopPropagation();
+            if (zoomIdx > 0) { zoomIdx--; applyZoom(); }
+        });
+
+        document.getElementById('zoom-reset').addEventListener('click', e => {
+            e.stopPropagation();
+            zoomIdx = 0; panX = 0; panY = 0; applyZoom();
+        });
+
+        // Pan when zoomed (right-click drag or shift+drag to avoid conflict with slider)
+        comp.addEventListener('mousedown', e => {
+            if (zoomLevels[zoomIdx] > 1 && e.shiftKey) {
+                panning = true;
+                dragging = false;
+                panStartX = e.clientX;
+                panStartY = e.clientY;
+                panOriginX = panX;
+                panOriginY = panY;
+                e.preventDefault();
+            }
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (!panning) return;
+            const rect = comp.getBoundingClientRect();
+            const scale = zoomLevels[zoomIdx];
+            const dx = (e.clientX - panStartX) / rect.width * 100 / scale;
+            const dy = (e.clientY - panStartY) / rect.height * 100 / scale;
+            panX = panOriginX + dx;
+            panY = panOriginY + dy;
+            applyZoom();
+        });
+
+        window.addEventListener('mouseup', () => { panning = false; });
+
+        // ── Bento Card Spotlight ──
+        document.querySelectorAll('.bento-card').forEach(card => {
             card.addEventListener('mousemove', e => {
                 const rect = card.getBoundingClientRect();
-                card.style.setProperty('--mouse-x', `${e.clientX - rect.left}px`);
-                card.style.setProperty('--mouse-y', `${e.clientY - rect.top}px`);
+                card.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+                card.style.setProperty('--my', `${e.clientY - rect.top}px`);
             });
         });
 
-        // Comparison Slider
-        const container = document.querySelector('.comparison-container');
-        const overlay = document.getElementById('compare-overlay');
-        const handle = document.getElementById('compare-handle');
-        let isDragging = false;
-
-        function updateSlider(x) {
-            const rect = container.getBoundingClientRect();
-            let position = ((x - rect.left) / rect.width) * 100;
-            position = Math.max(0, Math.min(100, position));
-            overlay.style.clipPath = `inset(0 ${100 - position}% 0 0)`;
-            handle.style.left = `${position}%`;
-        }
-
-        if (container && handle) {
-            const startDrag = (e) => {
-                isDragging = true;
-                e.preventDefault();
-            };
-
-            const stopDrag = () => {
-                isDragging = false;
-            };
-
-            container.addEventListener('mousedown', startDrag);
-            handle.addEventListener('mousedown', startDrag);
-            container.addEventListener('touchstart', startDrag);
-            handle.addEventListener('touchstart', startDrag);
-
-            window.addEventListener('mouseup', stopDrag);
-            window.addEventListener('touchend', stopDrag);
-
-            window.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                e.preventDefault();
-                updateSlider(e.clientX);
+        // ── Copy to Clipboard ──
+        function copyCmd(id) {
+            const text = document.getElementById(id).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById(id).parentElement.querySelector('.term-copy');
+                btn.style.color = '#fff';
+                setTimeout(() => btn.style.color = '', 1500);
             });
-
-            window.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
-                updateSlider(e.touches[0].clientX);
-            });
-
-            container.addEventListener('click', (e) => {
-                updateSlider(e.clientX);
-            });
-        }
-
-        // Fullscreen Toggle
-        function toggleFullscreen(element) {
-            if (!document.fullscreenElement) {
-                element.requestFullscreen().catch(err => {
-                    console.error(`Fullscreen error: ${err.message}`);
-                });
-            } else {
-                document.exitFullscreen();
-            }
-        }
-
-        // Copy to Clipboard
-        function copyToClipboard(elementId) {
-            const text = document.getElementById(elementId).innerText;
-            navigator.clipboard.writeText(text);
         }
     </script>
 </body>
-
 </html>

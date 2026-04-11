@@ -14,8 +14,6 @@ from concurrent.futures import ThreadPoolExecutor
 from src.utils.ffmpegSettings import (
     BuildBuffer,
     WriteBuffer,
-    extractFramePayload,
-    replaceFramePayload,
 )
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from src.utils.progressBarLogic import ProgressBarLogic
@@ -26,7 +24,73 @@ from src.constants import ADOBE
 if ADOBE:
     from src.utils.aeComms import progressState
 
+from collections import deque
+
 checker = CudaChecker()
+
+
+class SlidingWindowNormalizer:
+    def __init__(self, low_pct=2.0, high_pct=98.0, bounds_momentum=0.05, blend_alpha=0.5):
+        self.low_pct = low_pct
+        self.high_pct = high_pct
+        self.bounds_momentum = bounds_momentum
+        self.blend_alpha = blend_alpha
+        self.smooth_low = None
+        self.smooth_high = None
+        self.prev_depth = None
+
+    def normalize(self, depth):
+        if isinstance(depth, torch.Tensor):
+            return self._normalize_tensor(depth)
+        else:
+            return self._normalize_numpy(depth)
+
+    def _normalize_tensor(self, depth):
+        flat = depth.float().flatten()
+        cur_low = torch.quantile(flat, self.low_pct / 100.0).item()
+        cur_high = torch.quantile(flat, self.high_pct / 100.0).item()
+
+        if self.smooth_low is None:
+            self.smooth_low = cur_low
+            self.smooth_high = cur_high
+        else:
+            self.smooth_low += self.bounds_momentum * (cur_low - self.smooth_low)
+            self.smooth_high += self.bounds_momentum * (cur_high - self.smooth_high)
+
+        denom = self.smooth_high - self.smooth_low
+        if denom < 1e-6:
+            denom = 1e-6
+
+        normalized = ((depth - self.smooth_low) / denom).clamp(0.0, 1.0)
+
+        if self.prev_depth is not None and self.prev_depth.shape == normalized.shape:
+            normalized = self.blend_alpha * normalized + (1.0 - self.blend_alpha) * self.prev_depth
+        self.prev_depth = normalized.clone()
+
+        return normalized
+
+    def _normalize_numpy(self, depth):
+        cur_low = float(np.percentile(depth, self.low_pct))
+        cur_high = float(np.percentile(depth, self.high_pct))
+
+        if self.smooth_low is None:
+            self.smooth_low = cur_low
+            self.smooth_high = cur_high
+        else:
+            self.smooth_low += self.bounds_momentum * (cur_low - self.smooth_low)
+            self.smooth_high += self.bounds_momentum * (cur_high - self.smooth_high)
+
+        denom = self.smooth_high - self.smooth_low
+        if denom < 1e-6:
+            denom = 1e-6
+
+        normalized = np.clip((depth - self.smooth_low) / denom, 0.0, 1.0)
+
+        if self.prev_depth is not None and self.prev_depth.shape == normalized.shape:
+            normalized = self.blend_alpha * normalized + (1.0 - self.blend_alpha) * self.prev_depth
+        self.prev_depth = normalized.copy()
+
+        return normalized
 
 
 MEANTENSOR = (
@@ -78,6 +142,7 @@ class DepthCuda:
         bitDepth: str = "16bit",
         depthQuality: str = "high",
         compileMode: str = "default",
+        depthNorm: bool = False,
     ):
         self.input = input
         self.output = output
@@ -95,6 +160,7 @@ class DepthCuda:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
+        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
         self.handleModels()
 
@@ -271,17 +337,19 @@ class DepthCuda:
             mode="bilinear",
             align_corners=True,
         )
+        if self.normalizer is not None:
+            return self.normalizer.normalize(depth)
         return (depth - depth.min()) / (depth.max() - depth.min())
 
     @torch.inference_mode()
-    def processFrame(self, framePayload, frame):
+    def processFrame(self, frame):
         try:
             with torch.cuda.stream(self.stream):
                 frame = self.normFrame(frame)
                 depth = self.model(frame)
                 depth = self.outputFrameNorm(depth)
             self.stream.synchronize()
-            self.writeBuffer.write(replaceFramePayload(framePayload, depth))
+            self.writeBuffer.write(depth)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -291,11 +359,10 @@ class DepthCuda:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                framePayload = self.readBuffer.read()
-                _, frame = extractFramePayload(framePayload)
+                frame = self.readBuffer.read()
                 if frame is None:
                     break
-                self.processFrame(framePayload, frame)
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
                 if self.readBuffer.isReadFinished():
@@ -325,6 +392,7 @@ class DepthDirectMLV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        depthNorm: bool = False,
     ):
         import onnxruntime as ort
 
@@ -345,6 +413,7 @@ class DepthDirectMLV2:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
         if "openvino" in depth_method:
             logAndPrint(
@@ -520,7 +589,7 @@ class DepthDirectMLV2:
         self.usingCpuFallback = True
 
     @torch.inference_mode()
-    def processFrame(self, framePayload, frame):
+    def processFrame(self, frame):
         try:
             frame = frame.to(self.device)
 
@@ -555,14 +624,17 @@ class DepthDirectMLV2:
                 align_corners=True,
             )
 
-            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
-            self.writeBuffer.write(replaceFramePayload(framePayload, depth))
+            if self.normalizer is not None:
+                depth = self.normalizer.normalize(depth)
+            else:
+                depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
+            self.writeBuffer.write(depth)
 
         except UnicodeDecodeError as e:
             if not self.usingCpuFallback:
                 logging.warning(f"DirectML/OpenVINO UnicodeDecodeError: {e}")
                 self._fallbackToCpu()
-                self.processFrame(framePayload, frame)
+                self.processFrame(frame)
             else:
                 logging.exception(
                     f"Something went wrong while processing the frame, {e}"
@@ -576,11 +648,10 @@ class DepthDirectMLV2:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                framePayload = self.readBuffer.read()
-                _, frame = extractFramePayload(framePayload)
+                frame = self.readBuffer.read()
                 if frame is None:
                     break
-                self.processFrame(framePayload, frame)
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
                 if self.readBuffer.isReadFinished():
@@ -610,6 +681,7 @@ class DepthTensorRTV2:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        depthNorm: bool = False,
     ):
         self.input = input
         self.output = output
@@ -626,6 +698,7 @@ class DepthTensorRTV2:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
         import tensorrt as trt
         from src.utils.trtHandler import (
@@ -788,12 +861,15 @@ class DepthTensorRTV2:
                 mode="bilinear",
                 align_corners=True,
             )
-            depth = (depth - depth.min()) / (depth.max() - depth.min())
+            if self.normalizer is not None:
+                depth = self.normalizer.normalize(depth)
+            else:
+                depth = (depth - depth.min()) / (depth.max() - depth.min())
         self.outputNormStream.synchronize()
         return depth
 
     @torch.inference_mode()
-    def processFrame(self, framePayload, frame):
+    def processFrame(self, frame):
         try:
             self.normFrame(frame)
             with torch.cuda.stream(self.stream):
@@ -801,7 +877,7 @@ class DepthTensorRTV2:
             self.stream.synchronize()
             depth = self.normOutputFrame()
 
-            self.writeBuffer.write(replaceFramePayload(framePayload, depth))
+            self.writeBuffer.write(depth)
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
@@ -810,11 +886,10 @@ class DepthTensorRTV2:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                framePayload = self.readBuffer.read()
-                _, frame = extractFramePayload(framePayload)
+                frame = self.readBuffer.read()
                 if frame is None:
                     break
-                self.processFrame(framePayload, frame)
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
                 if self.readBuffer.isReadFinished():
@@ -844,6 +919,7 @@ class OGDepthV2CUDA:
         bitDepth: str = "16bit",
         depthQuality: str = "high",
         compileMode: str = "default",
+        depthNorm: bool = False,
     ):
         self.input = input
         self.output = output
@@ -861,6 +937,7 @@ class OGDepthV2CUDA:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
+        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
         self.encodeBuffer = Queue(maxsize=10)
 
         self.handleModels()
@@ -1001,10 +1078,22 @@ class OGDepthV2CUDA:
             self.compileMode = "default"
 
     @torch.inference_mode()
-    def processFrame(self, framePayload, frame):
+    def processFrame(self, frame):
         try:
-            depth = self.model.infer_image(frame, self.newHeight, self.half)
-            self.encodeBuffer.put(replaceFramePayload(framePayload, depth))
+            if self.normalizer is not None:
+                image, (h, w) = self.model.image2tensor(frame, self.newHeight)
+                image = image.half() if self.half else image.float()
+                depth = self.model.forward(image)
+                depth = depth.unsqueeze(1)
+                depth = F.interpolate(
+                    depth, (h, w), mode="bilinear", align_corners=True
+                )
+                depth = self.normalizer.normalize(depth[0, 0])
+                depth = (depth * 255.0).byte()
+                depth = depth.repeat(3, 1, 1).permute(1, 2, 0).cpu().numpy()
+            else:
+                depth = self.model.infer_image(frame, self.newHeight, self.half)
+            self.encodeBuffer.put(depth)
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
@@ -1013,11 +1102,10 @@ class OGDepthV2CUDA:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                framePayload = self.readBuffer.read()
-                _, frame = extractFramePayload(framePayload)
+                frame = self.readBuffer.read()
                 if frame is None:
                     break
-                self.processFrame(framePayload, frame)
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
 
@@ -1026,7 +1114,7 @@ class OGDepthV2CUDA:
 
     def encodeThread(self):
         while True:
-            _, frame = extractFramePayload(self.encodeBuffer.get())
+            frame = self.encodeBuffer.get()
             if frame is None:
                 break
             self.output.write(frame)
@@ -1093,7 +1181,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
             self.compileMode = "default"
 
     @torch.inference_mode()
-    def processFrame(self, framePayload, frame):
+    def processFrame(self, frame):
         try:
             depth = self.model.infer_image(
                 frame,
@@ -1106,29 +1194,31 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
             if validMask.sum() <= 10:
                 gray = np.zeros(depth.shape, dtype=np.uint8)
                 self.encodeBuffer.put(
-                    replaceFramePayload(framePayload, np.stack([gray] * 3, axis=-1))
+                    np.stack([gray] * 3, axis=-1)
                 )
 
             disparity = np.zeros_like(depth, dtype=np.float32)
             disparity[validMask] = 1.0 / depth[validMask]
 
-            disp_min = np.percentile(disparity[validMask], 2)
-            disp_max = np.percentile(disparity[validMask], 98)
-            if disp_min == disp_max:
-                disp_min -= 1e-6
-                disp_max += 1e-6
-
-            gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
+            if self.normalizer is not None:
+                gray = self.normalizer.normalize(disparity)
+            else:
+                disp_min = np.percentile(disparity[validMask], 2)
+                disp_max = np.percentile(disparity[validMask], 98)
+                if disp_min == disp_max:
+                    disp_min -= 1e-6
+                    disp_max += 1e-6
+                gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
             gray = (gray * 255.0).astype(np.uint8)
             self.encodeBuffer.put(
-                replaceFramePayload(framePayload, np.stack([gray] * 3, axis=-1))
+                np.stack([gray] * 3, axis=-1)
             )
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def encodeThread(self):
         while True:
-            _, frame = extractFramePayload(self.encodeBuffer.get())
+            frame = self.encodeBuffer.get()
             if frame is None:
                 break
             if frame.ndim == 2:
@@ -1162,6 +1252,7 @@ class OGDepthV2TensorRT:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        depthNorm: bool = False,
     ):
         self.input = input
         self.output = output
@@ -1178,6 +1269,7 @@ class OGDepthV2TensorRT:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
         import tensorrt as trt
         from src.utils.trtHandler import (
@@ -1407,13 +1499,17 @@ class OGDepthV2TensorRT:
         else:
             depth = self.dummyOutput.cpu().numpy()
             depth = np.reshape(depth, (self.newHeight, self.newWidth))
-            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
-            depth = depth.astype(np.uint8)
+            if self.normalizer is not None:
+                depth = self.normalizer.normalize(depth)
+                depth = (depth * 255.0).astype(np.uint8)
+            else:
+                depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
+                depth = depth.astype(np.uint8)
 
         return depth
 
     @torch.inference_mode()
-    def processFrame(self, framePayload, frame):
+    def processFrame(self, frame):
         try:
             self.normFrame(frame)
             with torch.cuda.stream(self.stream):
@@ -1427,7 +1523,7 @@ class OGDepthV2TensorRT:
                 .unsqueeze(0)
                 .mul(1 / 255)
             )
-            self.writeBuffer.write(replaceFramePayload(framePayload, depthTensor))
+            self.writeBuffer.write(depthTensor)
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
@@ -1435,11 +1531,10 @@ class OGDepthV2TensorRT:
         frameCount = 0
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                framePayload = self.readBuffer.read()
-                _, frame = extractFramePayload(framePayload)
+                frame = self.readBuffer.read()
                 if frame is None:
                     break
-                self.processFrame(framePayload, frame)
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
 
@@ -1469,6 +1564,7 @@ class OGDepthV2DirectML:
         totalFrames=0,
         bitDepth: str = "16bit",
         depthQuality: str = "high",
+        depthNorm: bool = False,
     ):
         import onnxruntime as ort
 
@@ -1489,6 +1585,7 @@ class OGDepthV2DirectML:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
+        self.normalizer = SlidingWindowNormalizer() if depthNorm else None
         self.encodeBuffer = Queue(maxsize=10)
 
         if "openvino" in depth_method:
@@ -1621,7 +1718,7 @@ class OGDepthV2DirectML:
         )
 
     @torch.inference_mode()
-    def processFrame(self, framePayload, frame):
+    def processFrame(self, frame):
         try:
             frame = torch.from_numpy(frame).to(self.device)
             frame = frame.permute(2, 0, 1).unsqueeze(0)
@@ -1653,10 +1750,14 @@ class OGDepthV2DirectML:
                 out_tensor = out_tensor.squeeze(1)
 
             depth = out_tensor[0].cpu().numpy()
-            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6) * 255.0
-            depth = depth.astype(np.uint8)
+            if self.normalizer is not None:
+                depth = self.normalizer.normalize(depth)
+                depth = (depth * 255.0).astype(np.uint8)
+            else:
+                depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6) * 255.0
+                depth = depth.astype(np.uint8)
 
-            self.encodeBuffer.put(replaceFramePayload(framePayload, depth))
+            self.encodeBuffer.put(depth)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -1666,11 +1767,10 @@ class OGDepthV2DirectML:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                framePayload = self.readBuffer.read()
-                _, frame = extractFramePayload(framePayload)
+                frame = self.readBuffer.read()
                 if frame is None:
                     break
-                self.processFrame(framePayload, frame)
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
                 if self.readBuffer.isReadFinished():
@@ -1682,7 +1782,7 @@ class OGDepthV2DirectML:
 
     def encodeThread(self):
         while True:
-            _, frame = extractFramePayload(self.encodeBuffer.get())
+            frame = self.encodeBuffer.get()
             if frame is None:
                 break
             if frame.ndim == 2:
@@ -1814,13 +1914,13 @@ class VideoDepthAnythingCUDA:
         self.model.frame_cache_list = []
         self.model.id = -1
 
-    def processFrame(self, framePayload, frame):
+    def processFrame(self, frame):
         try:
             depth = self.model.infer_video_depth_one(frame, 518, self.device, True)
             min_val, max_val = depth.min(), depth.max()
             depth = ((depth - min_val) / (max_val - min_val) * 255).astype(np.uint8)
             depth = np.stack([depth] * 3, axis=-1)
-            self.encodeBuffer.put(replaceFramePayload(framePayload, depth))
+            self.encodeBuffer.put(depth)
         except Exception as e:
             self._resetVideoDepthState()
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -1831,11 +1931,10 @@ class VideoDepthAnythingCUDA:
         self._resetVideoDepthState()
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                framePayload = self.readBuffer.read()
-                _, frame = extractFramePayload(framePayload)
+                frame = self.readBuffer.read()
                 if frame is None:
                     break
-                self.processFrame(framePayload, frame)
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
 
@@ -1849,7 +1948,7 @@ class VideoDepthAnythingCUDA:
 
     def encodeThread(self):
         while True:
-            _, frame = extractFramePayload(self.encodeBuffer.get())
+            frame = self.encodeBuffer.get()
             if frame is None:
                 break
             self.output.write(frame)
@@ -1980,7 +2079,7 @@ class VideoDepthAnythingTorch:
         self.model.id = -1
 
     @torch.inference_mode()
-    def processFrame(self, framePayload, frame):
+    def processFrame(self, frame):
         """Process a single frame - frame is a PyTorch tensor (C, H, W) or numpy array."""
         try:
             # If tensor, convert to numpy for the model (it expects numpy RGB)
@@ -1998,7 +2097,7 @@ class VideoDepthAnythingTorch:
             min_val, max_val = depth.min(), depth.max()
             depth = ((depth - min_val) / (max_val - min_val) * 255).astype(np.uint8)
             depth = np.stack([depth] * 3, axis=-1)
-            self.encodeBuffer.put(replaceFramePayload(framePayload, depth))
+            self.encodeBuffer.put(depth)
         except Exception as e:
             self._resetVideoDepthState()
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -2011,12 +2110,11 @@ class VideoDepthAnythingTorch:
 
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
-                framePayload = self.readBuffer.read()
-                _, frame = extractFramePayload(framePayload)
+                frame = self.readBuffer.read()
                 if frame is None:
                     break
 
-                self.processFrame(framePayload, frame)
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
 
@@ -2028,7 +2126,7 @@ class VideoDepthAnythingTorch:
 
     def encodeThread(self):
         while True:
-            _, frame = extractFramePayload(self.encodeBuffer.get())
+            frame = self.encodeBuffer.get()
             if frame is None:
                 break
             self.output.write(frame)

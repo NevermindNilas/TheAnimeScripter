@@ -117,7 +117,12 @@ class VideoProcessor:
         self.sharpenSens: float = args.sharpen_sens
         self.autoclipSens: float = args.autoclip_sens
         self.depthQuality: str = args.depth_quality
+        self.depthNorm: bool = args.depth_norm
 
+
+        self.moblur: bool = args.moblur
+        self.moblurFactor: int = args.moblur_factor
+        self.moblurStrength: str = args.moblur_strength
 
         # Utility settings
         self.customModel: str = args.custom_model
@@ -204,6 +209,12 @@ class VideoProcessor:
             from src.initializeModels import stabilize
 
             stabilize(self)
+
+        elif self.moblur:
+            logging.info("Applying motion blur")
+            from src.initializeModels import motionBlur
+
+            motionBlur(self)
 
         else:
             self.start()
