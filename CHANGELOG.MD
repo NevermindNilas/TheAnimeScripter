@@ -28,7 +28,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Color formatting related issues when encoding BT709 + RGB24.
 - Fixed Error [22] - FFMPEG errors caused by certain memory allocations + mem cuda pinned issues.
 - Fixed Error [32] - FFMPEG can't write to output file due to permission issues or non existing folder. ( in some cases, TAS-AdobeEdition fails to create the folder/s )
- 
+- Fixed `og_small_base_v2`.
+  
 ## Adobe Edition
 ### Added
 - Graph Editor is now out of BETA.
