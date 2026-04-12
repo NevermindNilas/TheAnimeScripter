@@ -407,15 +407,21 @@ def _promptDownloadRequirementsSelection() -> str:
 
     currentPlatform = "windows" if cs.SYSTEM == "Windows" else "linux"
     choices = [
-        ("Full CUDA / TensorRT dependencies", f"{currentPlatform}-cuda"),
-        ("Lite dependencies", f"{currentPlatform}-lite"),
+        (
+            "Full CUDA / TensorRT dependencies (GTX 16xx, RTX 20xx+, newer NVIDIA)",
+            f"{currentPlatform}-cuda",
+        ),
+        (
+            "Lite dependencies (GTX 10xx, AMD, Intel)",
+            f"{currentPlatform}-lite",
+        ),
     ]
     answers = prompt(
         [
             List(
                 "dependency_profile",
                 message=(
-                    f"Select which {currentPlatform.title()} dependencies to install"
+                    f"Select which {currentPlatform.title()} dependencies to install for your hardware"
                 ),
                 choices=choices,
             )
@@ -1203,7 +1209,8 @@ def _addMiscOptions(argParser):
             "Download dependencies for a runtime profile. Supported profiles: "
             "windows-cuda, windows-lite, linux-cuda, linux-lite. When used "
             "without a profile, prompts for the current OS full CUDA / TensorRT "
-            "or lite dependencies."
+            "or lite dependencies, with guidance for newer NVIDIA GPUs vs "
+            "GTX 10xx, AMD, and Intel hardware."
         ),
     )
     miscGroup.add_argument(
@@ -1302,40 +1309,16 @@ def argumentsChecker(args, outputPath, parser):
     _autoEnableParentFlags(args)
 
     if args.download_requirements is not None:
-        from src.utils.dependencyHandler import (
-            getRequirementsFileForProfile,
-            installDependencies,
-        )
+        from src.utils.dependencyHandler import DependencyChecker
 
         _handleDependencies(args)
         selectedProfile = args.download_requirements.strip().lower()
         if not selectedProfile:
             selectedProfile = _promptDownloadRequirementsSelection()
 
-        try:
-            requirementsFile = getRequirementsFileForProfile(selectedProfile)
-        except ValueError as exc:
-            logAndPrint(str(exc), "red")
-            sys.exit()
-
-        requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, requirementsFile)
-
-        success, message = installDependencies(
-            requirementsFile,
-            isNvidia=selectedProfile.endswith("-cuda"),
-        )
-
-        if not success:
-            logAndPrint(message, "red")
-            sys.exit()
-
-        try:
-            from src.utils.dependencyHandler import DependencyChecker
-
-            checker = DependencyChecker()
-            checker.updateCache(requirementsPath)
-        except ImportError:
-            logging.warning("Dependency cache update skipped: DependencyChecker unavailable")
+        checker = DependencyChecker()
+        if not checker.installProfile(selectedProfile):
+            sys.exit(1)
 
         logAndPrint(
             "All required libraries have been downloaded, you can now run the script freely.",
@@ -1344,17 +1327,35 @@ def argumentsChecker(args, outputPath, parser):
         sys.exit()
 
     if args.cleanup:
-        from src.utils.dependencyHandler import uninstallDependencies, getRequirementsFileForProfile, getDependencyProfile
-        from src.utils.isCudaInit import detectNVidiaGPU, detectGPUArchitecture
-
-        isNvidia = detectNVidiaGPU()
-        supportsCuda = False
-        if isNvidia:
-            supportsCuda, _, _ = detectGPUArchitecture()
-        extension = getRequirementsFileForProfile(
-            getDependencyProfile(cs.SYSTEM, supportsCuda)
+        from src.utils.dependencyHandler import (
+            DependencyChecker,
+            uninstallDependencies,
+            getRequirementsFileForProfile,
+            getDependencyProfile,
         )
+
+        checker = DependencyChecker()
+        storedProfile = checker.loadStoredProfile()
+
+        if storedProfile:
+            try:
+                extension = getRequirementsFileForProfile(storedProfile)
+            except ValueError:
+                storedProfile = None
+
+        if not storedProfile:
+            from src.utils.isCudaInit import detectNVidiaGPU, detectGPUArchitecture
+
+            isNvidia = detectNVidiaGPU()
+            supportsCuda = False
+            if isNvidia:
+                supportsCuda, _, _ = detectGPUArchitecture()
+            extension = getRequirementsFileForProfile(
+                getDependencyProfile(cs.SYSTEM, supportsCuda)
+            )
+
         success, message = uninstallDependencies(extension=extension)
+        checker.clearCache()
 
         logging.info(message)
 
@@ -1613,6 +1614,12 @@ def _handleDependencies(args):
 
     args.dependency_profile = getDependencyProfile(cs.SYSTEM, supportsCuda)
     args.requirements_file = getRequirementsFileForProfile(args.dependency_profile)
+
+    if args.download_requirements is None and not args.cleanup:
+        from src.utils.dependencyHandler import DependencyChecker
+
+        checker = DependencyChecker()
+        checker.ensureDependencies()
 
 
 def _handleDepthSettings(args):

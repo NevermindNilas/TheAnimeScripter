@@ -735,7 +735,7 @@ class WriteBuffer:
         metadata = json.loads(open(cs.METADATAPATH, "r", encoding="utf-8").read())
         if not self.grayscale and not self.transparent:
             colorSPaceFilter = {
-                "bt709": f"zscale=matrix=709:dither=error_diffusion,format={self.inputPixFmt}",
+                "bt709": "zscale=matrix=709:dither=error_diffusion",
                 "bt2020": "zscale=matrix=bt2020:norm=bt2020:dither=error_diffusion,format=yuv420p",
             }
 
