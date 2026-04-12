@@ -4,7 +4,6 @@ import os
 import logging
 import src.constants as cs
 import json
-import hashlib
 import re
 
 from pathlib import Path
@@ -57,12 +56,6 @@ def getRequirementsFileForProfile(profile: str) -> str:
 
 
 def getPythonExecutable() -> str:
-    """
-    Get the path to the current Python executable
-
-    Returns:
-        str: Path to the Python executable
-    """
     return sys.executable
 
 
@@ -144,11 +137,7 @@ def _runPipCommand(pythonPath: str, args: list[str], action: str) -> Tuple[bool,
 
 
 def uninstallDependencies(extension: str = "") -> Tuple[bool, str]:
-    """Uninstall dependencies from the selected requirements file.
-
-    Args:
-        extension (str): Requirements file name or absolute path.
-    """
+    """Uninstall dependencies from the selected requirements file."""
     pythonPath = getPythonExecutable()
     ok, requirementsPath = _resolveRequirementsPath(extension)
     if not ok:
@@ -172,12 +161,7 @@ def uninstallDependencies(extension: str = "") -> Tuple[bool, str]:
 
 
 def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[bool, str]:
-    """
-    Install dependencies from the selected requirements file.
-
-    Returns:
-        Tuple[bool, str]: Success status and message
-    """
+    """Install dependencies from the selected requirements file."""
     pythonPath = getPythonExecutable()
     ok, requirementsPath = _resolveRequirementsPath(extension)
     if not ok:
@@ -200,14 +184,6 @@ def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[boo
         "install",
     )
 
-    """
-    if success and isNvidia:
-        success, message = _installTensorRTRTX()
-        if not success:
-            logAndPrint(message, "red")
-            raise RuntimeError(f"Failed to install TensorRT/RTX: {message}")
-    """
-
     return success, message
 
 
@@ -215,103 +191,94 @@ class DependencyChecker:
     def __init__(self):
         self.cachePath = _getRuntimeRoot() / ".dependencyCache.json"
         self._cache = None
-        self._requirementsHash = {}
         self.knownAliases = dict(KNOWN_MODULE_ALIASES)
 
-    def needsUpdate(self, requirementsPath):
-        """Check if dependencies need updating using hash and installed package checks."""
+    def loadStoredProfile(self) -> str | None:
+        """Return the profile the user previously installed, or None."""
         cache = self._loadCache()
-        currentHash = self._getFileHashCached(requirementsPath)
+        return cache.get("profile")
 
-        if currentHash is None:
-            logging.warning(
-                f"Failed to hash requirements file; forcing update: {requirementsPath}"
-            )
-            return True
-
-        if currentHash != cache.get("requirements_hash"):
-            return True
-
-        if cache.get("python_executable") != sys.executable:
-            return True
-
-        if cache.get("python_version") != sys.version:
-            return True
-
-        missing, wrongVersion, notImportable = self.checkRequirementsInstalled(
-            requirementsPath,
-            moduleAliases=self.knownAliases,
-            enforceVersions=True,
-        )
-
-        if missing:
-            logging.info(f"Missing distributions detected: {missing}")
-            return True
-
-        if wrongVersion:
-            logging.info(f"Version mismatches detected: {wrongVersion}")
-            return True
-
-        if notImportable:
-            logging.info(
-                f"Distributions present but modules not importable via expected names: {notImportable}"
-            )
-            return True
-
-        return False
-
-    def updateCache(self, requirementsPath):
-        """Update cache after successful installation."""
-        cache = {
-            "requirements_hash": self._getFileHashCached(requirementsPath),
-            "python_executable": sys.executable,
-            "python_version": sys.version,
-        }
-
+    def storeProfile(self, profile: str):
+        """Persist the user's chosen profile."""
         try:
             with open(self.cachePath, "w") as f:
-                json.dump(cache, f)
-            self._cache = cache
+                json.dump({"profile": profile}, f)
+            self._cache = {"profile": profile}
         except Exception as e:
-            logging.warning(f"Failed to update dependency cache: {e}")
+            logging.warning(f"Failed to store dependency profile: {e}")
 
-    def forceFullDownload(self, requirementsFile=None):
-        """
-        Force a full download of all dependencies, bypassing cache checks.
-        """
-        if requirementsFile is None:
-            from src.utils.isCudaInit import detectNVidiaGPU, detectGPUArchitecture
+    def clearCache(self):
+        """Delete the cache file (used by --cleanup)."""
+        try:
+            if self.cachePath.exists():
+                self.cachePath.unlink()
+            self._cache = None
+        except Exception as e:
+            logging.warning(f"Failed to clear dependency cache: {e}")
 
-            isNvidia = detectNVidiaGPU()
-            supportsCuda = False
-            if isNvidia:
-                supportsCuda, _, _ = detectGPUArchitecture()
-            profile = getDependencyProfile(cs.SYSTEM, supportsCuda)
-            requirementsFile = getRequirementsFileForProfile(profile)
-        elif requirementsFile in DEPENDENCY_PROFILE_REQUIREMENTS:
-            requirementsFile = getRequirementsFileForProfile(requirementsFile)
+    def ensureDependencies(self) -> bool:
+        """Check that the stored profile's dependencies are installed.
+
+        - No stored profile → prompt + install + store.
+        - Stored profile with missing packages → prompt + install + store.
+        - Everything present → return True immediately.
+
+        Returns True if dependencies are satisfied after this call.
+        """
+        storedProfile = self.loadStoredProfile()
+
+        if storedProfile is None:
+            return self._promptInstallAndStore()
+
+        try:
+            requirementsFile = getRequirementsFileForProfile(storedProfile)
+        except ValueError:
+            logging.warning(f"Stored profile '{storedProfile}' is invalid, re-prompting")
+            self.clearCache()
+            return self._promptInstallAndStore()
 
         requirementsPath = os.path.join(_getRuntimeRoot(), requirementsFile)
+        if not os.path.exists(requirementsPath):
+            logging.warning(f"Requirements file missing: {requirementsPath}")
+            return False
 
-        self.uninstallDeprecatedDependencies()
+        missing, _, notImportable = self.checkRequirementsInstalled(
+            requirementsPath,
+            moduleAliases=self.knownAliases,
+        )
 
-        logAndPrint("Forcing full dependency download...", "yellow")
-        try:
-            success, message = (
-                installDependencies(requirementsFile, isNvidia=isNvidia)
-                if "isNvidia" in locals()
-                else installDependencies(requirementsFile)
-            )
-        except Exception as e:
-            logAndPrint(str(e), "red")
-            raise
+        if not missing and not notImportable:
+            return True
+
+        logAndPrint(
+            "Missing dependencies detected: "
+            + ", ".join(missing + notImportable),
+            "yellow",
+        )
+        return self._promptInstallAndStore()
+
+    def installProfile(self, profile: str) -> bool:
+        """Install a specific profile's requirements and store the choice."""
+        requirementsFile = getRequirementsFileForProfile(profile)
+
+        success, message = installDependencies(
+            requirementsFile,
+            isNvidia=profile.endswith("-cuda"),
+        )
 
         if not success:
             logAndPrint(message, "red")
-            raise RuntimeError(f"Failed to install dependencies: {message}")
+            return False
 
-        logAndPrint(message, "green")
-        self.updateCache(requirementsPath)
+        self.storeProfile(profile)
+
+        import importlib
+        importlib.invalidate_caches()
+
+        logAndPrint(
+            "Dependencies installed successfully, continuing execution.",
+            "green",
+        )
         return True
 
     def iterRequirements(self, requirementsPath: str):
@@ -373,8 +340,19 @@ class DependencyChecker:
 
         return missing, wrongVersion, notImportable
 
+    def _promptInstallAndStore(self) -> bool:
+        """Show the inquirer prompt, install, and store the chosen profile."""
+        from src.utils.argumentsChecker import _promptDownloadRequirementsSelection
+
+        try:
+            selectedProfile = _promptDownloadRequirementsSelection()
+        except Exception:
+            logAndPrint("Could not launch dependency installer.", "red")
+            return False
+
+        return self.installProfile(selectedProfile)
+
     def _loadCache(self):
-        """Load cache from file with in-memory caching."""
         if self._cache is not None:
             return self._cache
 
@@ -390,74 +368,3 @@ class DependencyChecker:
             logging.warning(f"Failed to load dependency cache: {e}")
             self._cache = {}
             return self._cache
-
-    def _getFileHashCached(self, filepath):
-        """Get MD5 hash of a file with caching."""
-        if filepath in self._requirementsHash:
-            return self._requirementsHash[filepath]
-
-        fileHash = self._getFileHash(filepath)
-        if fileHash is not None:
-            self._requirementsHash[filepath] = fileHash
-        return fileHash
-
-    def _getFileHash(self, filepath):
-        """Get MD5 hash of a file."""
-        try:
-            hashMd5 = hashlib.md5()
-            with open(filepath, "rb") as f:
-                for chunk in iter(lambda: f.read(4096), b""):
-                    hashMd5.update(chunk)
-            return hashMd5.hexdigest()
-        except Exception as e:
-            logging.warning(f"Failed to hash file {filepath}: {e}")
-            return None
-
-    def uninstallDeprecatedDependencies(self):
-        """Uninstall dependencies listed in deprecated-requirements.txt when present."""
-        deprecatedRequirementsFile = "deprecated-requirements.txt"
-        deprecatedRequirementsPath = os.path.join(
-            _getRuntimeRoot(), deprecatedRequirementsFile
-        )
-
-        if not os.path.exists(deprecatedRequirementsPath):
-            logAndPrint(
-                f"Deprecated requirements file not found: {deprecatedRequirementsPath}",
-                "yellow",
-            )
-            return True
-
-        logAndPrint("Uninstalling deprecated dependencies...", "yellow")
-        success, message = uninstallDependencies(deprecatedRequirementsFile)
-
-        if not success:
-            logAndPrint(
-                f"Failed to uninstall deprecated dependencies: {message}", "red"
-            )
-            return False
-
-        logAndPrint("Successfully uninstalled deprecated dependencies", "green")
-        return True
-
-
-def uninstallDeprecatedDependenciesStandalone() -> Tuple[bool, str]:
-    """
-    Standalone function to uninstall dependencies from deprecated-requirements.txt.
-
-    Returns:
-        Tuple[bool, str]: Success status and message
-    """
-    checker = DependencyChecker()
-    try:
-        success = checker.uninstallDeprecatedDependencies()
-        if success:
-            return True, "Successfully uninstalled deprecated dependencies"
-        return False, "Failed to uninstall deprecated dependencies"
-    except Exception as e:
-        errorMsg = f"Error during deprecated dependencies uninstall: {str(e)}"
-        logging.error(errorMsg)
-        return False, errorMsg
-
-
-def _installTensorRTRTX() -> Tuple[bool, str]:
-                    return self._requirementsHash[filepath]

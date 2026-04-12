@@ -544,7 +544,7 @@ C:\Videos\episode3.mp4
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `--offline` | str | "none" | **Model download mode** |
-| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `linux-cuda`, or `linux-lite`. With no value, prompts for full CUDA / TensorRT or lite dependencies for the current OS. |
+| `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `linux-cuda`, or `linux-lite`. With no value, prompts for full CUDA / TensorRT dependencies for GTX 16xx, RTX 20xx+, and newer NVIDIA GPUs, or lite dependencies for GTX 10xx, AMD, and Intel hardware. |
 | `--cleanup` | flag | False | **Remove unused libraries/dependencies** (attempts to uninstall extras based on detected GPU capability) |
 
 **Offline Mode Options:**

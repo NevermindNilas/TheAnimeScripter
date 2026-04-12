@@ -6,34 +6,45 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
-- Added `adore` 2x upscaler (shufflecugan architecture). Available across CUDA, TensorRT, DirectML, OpenVINO and NCNN backends via `--upscale_method adore[-tensorrt|-directml|-openvino|-ncnn]`.
+- Added `adore` 2x upscaler (shufflecugan architecture). Available across CUDA and TensorRT.
 - Added motion blur support (`--moblur`). Supports `equal`, `gaussian_sym`, `pyramid`, `ascending`, and `descending` weighting using `--moblur_strength`, plus `--moblur_factor`. Works with all RIFE/GMFSS interpolation backends and includes automatic scene cut detection.
 - Added `--depth_norm` to normalize depth maps over time for better quality with minimal performance impact.
 - Terminal window/tab title now updates during processing to `★ Processing - <video name> [current/total]`, making batch progress visible at a glance from the taskbar.
 - Added new upscaling methods: `adore` (shufflecugan architecture) with TensorRT and Cuda support.
+- Major reworks for the dependency handler including --download_requirements which now allows for 2 variables `--windows-cuda` and `--windows-lite` to further specify the dependencies to be downloaded for windows users.
+- Added a brand new progress bar with better performance and better visuals. Named `barflow`, this is a custom progress bar library that I've developed for TAS and will be open sourced in the future.
 
 ### Changed
 - Reverted dependency handling back to pip-based requirements files for runtime installs, the portable build, and the Windows installer.
 - Upgraded Pytorch to 2.11.0.
 - Upgraded Torchvision to 0.26.0.
 - Upgraded TensorRT to 10.16.0
+- Upgraded Nelux to 0.8.10
 - Improved `--help` / `--version` startup performance by ~57% (326ms → 141ms avg)
 - Replaced the `colored` library with native ANSI escape codes for further improvements to startup time and reduced dependencies.
-- Replaced `rich` library with `barflow` for the progress bars, for better performance and lower overhead.
+- Completely removed rich from the codebase.
 
 ### Fixed
-- N/A
+- Color formatting related issues when encoding BT709 + RGB24.
 
 ## Adobe Edition
 ### Added
 - Graph Editor is now out of BETA.
+- Added Adore Cuda and Adore TensorRT
+- Added a Legacy models toggle in the settings tab to show or hide superseeded models.
+- Added depth normalization toggle to the depth settings.
 
 ### Changed
 - Rewrote the Graph Editor from the ground up for better performance, stability and usability.
 - Rewrote the About Page to be more informative and better looking.
-- 
+- Rewrote the Queue Tab to be more informative and better looking.
+- Minor UI adjustments.
+- Up to 37% performance improvements for Remove Dead Frames.
+- Updated all the dependencies.
+- Further improvements to the GitHub Sponsors workflow and Security.
+
 ### Fixed
-- N/A  
+- 
 
 ## [2.5.10] - 2026-03-16
 ### Added
