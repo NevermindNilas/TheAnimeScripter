@@ -767,7 +767,7 @@ class RifeTensorRT:
                     self.f0.copy_(
                         self.norm(
                             F.pad(
-                                frame.to(dtype=self.dtype),
+                                frame.to(device=checker.device, dtype=self.dtype),
                                 self.padding,
                             )
                         ),
