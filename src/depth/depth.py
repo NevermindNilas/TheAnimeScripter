@@ -1894,6 +1894,8 @@ class VideoDepthAnythingCUDA:
 
         if self.depth_method == "og_video_small_v2":
             encoder = "vits"
+        elif self.depth_method == "og_video_base_v2":
+            encoder = "vitb"
         elif self.depth_method == "og_video_large_v2":
             encoder = "vitl"
             
