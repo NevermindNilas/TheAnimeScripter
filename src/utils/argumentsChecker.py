@@ -25,9 +25,6 @@ def logAndPrint(message, colorFunc="cyan", level="INFO"):
     _logAndPrint(message, colorFunc, level)
 
 
-DOWNLOAD_REQUIREMENTS_PROMPT_SENTINEL = "__prompt__"
-
-
 class DidYouMeanArgumentParser(argparse.ArgumentParser):
     """
     Custom ArgumentParser that provides "did you mean?" suggestions for invalid choices.
@@ -405,20 +402,6 @@ def str2bool(arg):
         raise argparse.ArgumentTypeError("Boolean value expected.")
 
 
-def _parseDownloadRequirementsSelection(value):
-    from src.utils.dependencyHandler import DEPENDENCY_PROFILE_REQUIREMENTS
-
-    normalizedValue = value.strip().lower()
-    if normalizedValue == DOWNLOAD_REQUIREMENTS_PROMPT_SENTINEL:
-        return DOWNLOAD_REQUIREMENTS_PROMPT_SENTINEL
-    if normalizedValue not in DEPENDENCY_PROFILE_REQUIREMENTS:
-        validProfiles = ", ".join(DEPENDENCY_PROFILE_REQUIREMENTS)
-        raise argparse.ArgumentTypeError(
-            f"Unsupported dependency profile '{value}'. Expected one of: {validProfiles}"
-        )
-    return normalizedValue
-
-
 def _promptDownloadRequirementsSelection() -> str:
     from inquirer import List, prompt
 
@@ -444,12 +427,6 @@ def _promptDownloadRequirementsSelection() -> str:
         sys.exit()
 
     return answers["dependency_profile"]
-
-
-def _resolveDownloadRequirementsSelection(selection: str) -> str:
-    if selection == DOWNLOAD_REQUIREMENTS_PROMPT_SENTINEL:
-        return _promptDownloadRequirementsSelection()
-    return selection
 
 
 def _loadJsonConfig(args, parser):
@@ -696,7 +673,6 @@ def _addInterpolationOptions(argParser):
         "rife4.22",
         "rife4.22-lite",
         "rife4.25",
-        "rife4.25-depth",
         "rife4.25-lite",
         "rife4.25-heavy",
         "rife-ncnn",
@@ -1218,9 +1194,9 @@ def _addMiscOptions(argParser):
     )
     miscGroup.add_argument(
         "--download_requirements",
-        type=_parseDownloadRequirementsSelection,
+        type=str,
         nargs="?",
-        const=DOWNLOAD_REQUIREMENTS_PROMPT_SENTINEL,
+        const="",
         default=None,
         metavar="PROFILE",
         help=(
@@ -1326,13 +1302,22 @@ def argumentsChecker(args, outputPath, parser):
     _autoEnableParentFlags(args)
 
     if args.download_requirements is not None:
-        from src.utils.dependencyHandler import getRequirementsFileForProfile, installDependencies
+        from src.utils.dependencyHandler import (
+            getRequirementsFileForProfile,
+            installDependencies,
+        )
 
         _handleDependencies(args)
-        selectedProfile = _resolveDownloadRequirementsSelection(
-            args.download_requirements
-        )
-        requirementsFile = getRequirementsFileForProfile(selectedProfile)
+        selectedProfile = args.download_requirements.strip().lower()
+        if not selectedProfile:
+            selectedProfile = _promptDownloadRequirementsSelection()
+
+        try:
+            requirementsFile = getRequirementsFileForProfile(selectedProfile)
+        except ValueError as exc:
+            logAndPrint(str(exc), "red")
+            sys.exit()
+
         requirementsPath = os.path.join(cs.WHEREAMIRUNFROM, requirementsFile)
 
         success, message = installDependencies(
