@@ -416,6 +416,9 @@ class WriteBuffer:
         """
         self.input = input
         self.output = os.path.normpath(output)
+        outputDir = os.path.dirname(self.output)
+        if outputDir:
+            os.makedirs(outputDir, exist_ok=True)
         self.encode_method = encode_method
         self.single_image_output = single_image_output
 
@@ -485,10 +488,6 @@ class WriteBuffer:
             .cpu()
             .numpy()
         )
-
-        outputDir = os.path.dirname(self.output)
-        if outputDir:
-            os.makedirs(outputDir, exist_ok=True)
 
         if frameArray.ndim == 3 and frameArray.shape[2] == 1:
             frameArray = frameArray[:, :, 0]
@@ -572,7 +571,7 @@ class WriteBuffer:
             "-y",
             "-hide_banner",
             "-loglevel",
-            "quiet",
+            "error",
             "-nostats",
             "-threads",
             "0",
@@ -882,10 +881,17 @@ class WriteBuffer:
                 command,
                 stdin=subprocess.PIPE,
                 stdout=None,
-                stderr=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 shell=False,
                 cwd=cs.WHEREAMIRUNFROM,
             )
+
+            if ffmpegProc.poll() is not None:
+                stderr_out = ffmpegProc.stderr.read().decode(errors="replace") if ffmpegProc.stderr else ""
+                logging.error(f"FFmpeg exited immediately with code {ffmpegProc.returncode}: {stderr_out}")
+                return
+
+            logging.info(f"Encoding path: {'CUDA pinned' if useCuda else 'CPU'}")
 
             if useCuda:
                 frameShape = (self.height, self.width, self.channels)
@@ -907,7 +913,7 @@ class WriteBuffer:
                     if frame is None:
                         if pendingBuffer is not None:
                             pendingEvent.synchronize()
-                            ffmpegProc.stdin.write(memoryview(pendingBuffer.numpy()))
+                            ffmpegProc.stdin.write(pendingBuffer.numpy().tobytes())
                             writtenFrames += 1
                         break
 
@@ -936,7 +942,7 @@ class WriteBuffer:
 
                     if pendingBuffer is not None:
                         pendingEvent.synchronize()
-                        ffmpegProc.stdin.write(memoryview(pendingBuffer.numpy()))
+                        ffmpegProc.stdin.write(pendingBuffer.numpy().tobytes())
                         writtenFrames += 1
 
                     pendingBuffer = currentBuffer
@@ -969,15 +975,27 @@ class WriteBuffer:
                         .contiguous()
                     )
 
-                    ffmpegProc.stdin.write(memoryview(frameTensor.numpy()))
+                    ffmpegProc.stdin.write(frameTensor.numpy().tobytes())
                     writtenFrames += 1
 
             logging.info(f"Encoded {writtenFrames} frames")
 
         except Exception as e:
             logging.error(f"Encoding error: {e}")
+            if ffmpegProc is not None:
+                rc = ffmpegProc.poll()
+                logging.error(f"FFmpeg exit code: {rc}")
+                if ffmpegProc.stderr:
+                    try:
+                        stderr_out = ffmpegProc.stderr.read().decode(errors="replace").strip()
+                        if stderr_out:
+                            logging.error(f"FFmpeg stderr: {stderr_out}")
+                    except Exception:
+                        pass
         finally:
             try:
+                if ffmpegProc is not None and ffmpegProc.stderr:
+                    ffmpegProc.stderr.close()
                 if ffmpegProc is not None and ffmpegProc.stdin:
                     ffmpegProc.stdin.close()
                 if ffmpegProc is not None:

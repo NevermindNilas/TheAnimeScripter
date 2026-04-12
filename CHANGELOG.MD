@@ -26,13 +26,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Fixed
 - Color formatting related issues when encoding BT709 + RGB24.
-
+- Fixed Error [22] - FFMPEG errors caused by certain memory allocations + mem cuda pinned issues.
+- Fixed Error [32] - FFMPEG can't write to output file due to permission issues or non existing folder. ( in some cases, TAS-AdobeEdition fails to create the folder/s )
+ 
 ## Adobe Edition
 ### Added
 - Graph Editor is now out of BETA.
 - Added Adore Cuda and Adore TensorRT
 - Added a Legacy models toggle in the settings tab to show or hide superseeded models.
 - Added depth normalization toggle to the depth settings.
+- Remove dead frames now properly supports multiple layers at once.
 
 ### Changed
 - Rewrote the Graph Editor from the ground up for better performance, stability and usability.
@@ -44,7 +47,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Further improvements to the GitHub Sponsors workflow and Security.
 
 ### Fixed
-- 
+- Fixed many translations and broken UI elements.
+- Fixed many contextual helpers looking weird due to the the new language system implemented.
 
 ## [2.5.10] - 2026-03-16
 ### Added
