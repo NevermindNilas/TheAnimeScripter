@@ -2,7 +2,7 @@
 --extra-index-url https://pypi.nvidia.com
 torch==2.11.0+cu130
 torchvision==0.26.0+cu130
-tensorrt==10.16.0.72
+tensorrt==10.16.1.11
 opencv-python-headless==4.13.0.92
 timm==1.0.26
 onnx==1.21.0
