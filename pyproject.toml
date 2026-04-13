@@ -25,7 +25,7 @@ dependencies = [
 runtime-windows-cuda = [
     "torch==2.11.0+cu130; platform_system == 'Windows'",
     "torchvision==0.26.0+cu130; platform_system == 'Windows'",
-    "tensorrt==10.16.0.72; platform_system == 'Windows'",
+    "tensorrt==10.16.1.11; platform_system == 'Windows'",
     "opencv-python-headless==4.13.0.92; platform_system == 'Windows'",
     "timm==1.0.26; platform_system == 'Windows'",
     "einops==0.8.2; platform_system == 'Windows'",
