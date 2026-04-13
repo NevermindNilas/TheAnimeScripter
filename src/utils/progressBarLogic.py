@@ -11,9 +11,24 @@ from barflow.columns import (
 )
 import src.constants as cs
 from time import time
+from random import choice
 from src.utils.aeComms import progressState
 
 import logging
+
+TITLES = [
+    "Handling",
+    "Processing",
+    "Inferencing",
+    "Managing",
+    "Dealing With",
+    "Working",
+    "Executing",
+    "Computing",
+    "Refining",
+    "Producing",
+    "Digesting",
+]
 
 progressRefreshPerSec = 10
 _minInterval = 1.0 / progressRefreshPerSec
@@ -78,7 +93,7 @@ class ProgressBarLogic:
     def __init__(
         self,
         totalFrames: int,
-        title: str = "Processing",
+        title: str = None,
     ):
         """
         Initializes the progress bar for the given range of frames.
@@ -88,7 +103,7 @@ class ProgressBarLogic:
             title (str): Description shown at the head of the bar
         """
         self.totalFrames = totalFrames
-        self.title = title or "Processing"
+        self.title = title or choice(TITLES)
         self.completed = 0
 
     def __enter__(self):
