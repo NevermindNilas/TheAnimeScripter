@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
+- N/A
+
+### Changed
+- N/A
+
+### Fixed
+- N/A
+
+## TAS Adobe Edition
+### Added
+- N/A
+
+### Changed
+- N/A
+  
+### Fixed
+- N/A
+
+## [2.6.0] - 2026-04-13
+### Added
 - Added `adore` 2x upscaler (shufflecugan architecture). Available across CUDA and TensorRT.
 - Added motion blur support (`--moblur`). Supports `equal`, `gaussian_sym`, `pyramid`, `ascending`, and `descending` weighting using `--moblur_strength`, plus `--moblur_factor`. Works with all RIFE/GMFSS interpolation backends and includes automatic scene cut detection.
 - Added `--depth_norm` to normalize depth maps over time for better quality with minimal performance impact.
