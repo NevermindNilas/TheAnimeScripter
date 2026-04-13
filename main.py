@@ -367,7 +367,7 @@ class VideoProcessor:
 
         try:
             with self.ProgressBarLogic(
-                self.totalFrames * increment, title=self.input
+                self.totalFrames * increment,
             ) as bar:
                 for _ in range(self.totalFrames):
                     frame = self.readBuffer.read()
