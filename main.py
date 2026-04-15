@@ -134,6 +134,8 @@ class VideoProcessor:
         self.moblurFactor: int = args.moblur_factor
         self.moblurStrength: str = args.moblur_strength
 
+        self.demo: bool = getattr(args, "demo", False)
+
         # Utility settings
         self.customModel: str = args.custom_model
         self.benchmark: bool = args.benchmark
@@ -225,6 +227,15 @@ class VideoProcessor:
             from src.initializeModels import motionBlur
 
             motionBlur(self)
+
+        elif self.demo:
+            logging.info(
+                "NELUX Parallel-Stream Upscale Benchmark "
+                "(num_streams sweep 2/3/4 x cpu-cpu/gpu-gpu)"
+            )
+            from src.neluxDemo import run_parallel_stream_benchmark
+
+            run_parallel_stream_benchmark(self, num_streams_values=(1, 2, 3))
 
         else:
             self.start()

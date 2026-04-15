@@ -1,28 +1,26 @@
 import logging
-import os
 from threading import Lock
 from multiprocessing import get_context
 from queue import Empty
-from flask import Flask
-from flask_socketio import SocketIO, emit
 from urllib.parse import urlparse
 from time import time
 
-import flask.cli as flask_cli
-
-logging.getLogger("werkzeug").setLevel(logging.ERROR)
-logging.getLogger("engineio").setLevel(logging.ERROR)
-logging.getLogger("socketio").setLevel(logging.ERROR)
-flask_cli.show_server_banner = lambda *args, **kwargs: None
-
-os.environ["FLASK_ENV"] = "production"
-
 
 socketio = None
+app = None
 progressQueue = None
 serverProcess = None
 connectedClients = 0
 connectedClientsLock = Lock()
+
+
+def _loadSocketIOStack():
+    import socketio as sio_module
+
+    logging.getLogger("engineio").setLevel(logging.ERROR)
+    logging.getLogger("socketio").setLevel(logging.ERROR)
+
+    return sio_module
 
 
 def hasConnectedClients():
@@ -87,14 +85,15 @@ class ProgressState:
 
 progressState = ProgressState()
 
-app = Flask(__name__)
-
 EMITRATE = 25
 
 
 def runServer(host, queue=None):
     global socketio
+    global app
     global connectedClients
+
+    sio_module = _loadSocketIOStack()
 
     logging.info(f"Starting AE comms server on {host}...")
 
@@ -102,14 +101,13 @@ def runServer(host, queue=None):
     hostname = parsed.hostname or "0.0.0.0"
     port = parsed.port or 8080
 
-    socketio = SocketIO(
-        app,
+    socketio = sio_module.Server(
         cors_allowed_origins="*",
         async_mode="threading",
-        manage_session=False,
         logger=False,
         engineio_logger=False,
     )
+    app = sio_module.WSGIApp(socketio)
 
     def relayProgressFromQueue():
         if queue is None:
@@ -143,62 +141,73 @@ def runServer(host, queue=None):
         socketio.start_background_task(relayProgressFromQueue)
 
     @socketio.on("connect")
-    def handle_connect():
+    def handle_connect(sid, environ):
         global connectedClients
         with connectedClientsLock:
             connectedClients += 1
         logging.info("Client connected to Socket.IO")
-        emit("progress", progressState.get())
+        socketio.emit("progress", progressState.get(), to=sid)
 
     @socketio.on("disconnect")
-    def handle_disconnect():
+    def handle_disconnect(sid):
         global connectedClients
         with connectedClientsLock:
             connectedClients = max(0, connectedClients - 1)
         logging.info("Client disconnected from Socket.IO")
 
     @socketio.on("cancel")
-    def handle_cancel():
+    def handle_cancel(sid):
         logging.info("Cancel request received from client")
 
     @socketio.on("handshake")
-    def handle_handshake(data):
+    def handle_handshake(sid, data):
         """
         Handle handshake from frontend.
         Responds with capabilities.
         """
         logging.info("Handshake received")
 
-        emit(
+        socketio.emit(
             "handshake_ack",
             {
                 "capabilities": ["cancel", "progress", "heartbeat"],
             },
+            to=sid,
         )
 
     @socketio.on("ping")
-    def handle_ping(data):
+    def handle_ping(sid, data):
         """
         Handle heartbeat ping from frontend.
         Responds with pong containing the original timestamp for latency calculation.
         """
-        emit(
+        socketio.emit(
             "pong",
             {
                 "timestamp": data.get("timestamp", time()),
                 "serverTime": time(),
             },
+            to=sid,
         )
 
     logging.info(f"AE Comms Server running on {hostname}:{port}")
-    socketio.run(
-        app,
-        host=hostname,
-        port=port,
-        debug=False,
-        use_reloader=False,
-        allow_unsafe_werkzeug=True,
+
+    from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
+    from socketserver import ThreadingMixIn
+
+    class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
+        daemon_threads = True
+
+    class QuietHandler(WSGIRequestHandler):
+        def log_message(self, format, *args):
+            return
+
+    httpd = make_server(
+        hostname, port, app,
+        server_class=ThreadingWSGIServer,
+        handler_class=QuietHandler,
     )
+    httpd.serve_forever()
 
 
 def startServerInThread(host):

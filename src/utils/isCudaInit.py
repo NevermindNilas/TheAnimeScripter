@@ -25,21 +25,6 @@ class CudaChecker:
 
         try:
             self._cuda_available = self.torch.cuda.is_available()
-
-            if self._cuda_available:
-                try:
-                    test = self.torch.zeros(1, device="cuda")
-                    _ = test + 1
-                except RuntimeError as e:
-                    if "no kernel image is available" in str(e).lower():
-                        self.logging.warning(
-                            f"CUDA is technically available but kernels are incompatible: {e}"
-                        )
-                        self.logging.warning(
-                            "This usually indicates a Pascal (GTX 1000 series) or older GPU. "
-                            "Consider using DirectML backend for better compatibility."
-                        )
-                del test
         except Exception as e:
             self._cuda_available = False
             self.logging.warning(f"CUDA is not available: {e}")
