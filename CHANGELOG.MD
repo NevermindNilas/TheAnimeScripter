@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - N/A
 
 ### Changed
-- N/A
+- Up to `300ms` start up times improvements by optimizing imports and lazy loading certain modules.
 
 ### Fixed
 - N/A
