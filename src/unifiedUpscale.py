@@ -248,6 +248,152 @@ class UniversalPytorch:
         pass
 
 
+class UniversalPytorchMPS:
+    """
+    Apple Silicon (MPS) PyTorch upscaler. Mirrors UniversalPytorch but without
+    CUDA streams / CUDA graphs, since MPS does not support them. Shares .pth
+    weights with the CUDA path — the "-mps" suffix on upscaleMethod is stripped
+    before resolving model filenames.
+    """
+
+    def __init__(
+        self,
+        upscaleMethod: str = "superultracompact-mps",
+        upscaleFactor: int = 2,
+        half: bool = False,
+        width: int = 1920,
+        height: int = 1080,
+        customModel: str = None,
+        compileMode: str = "default",
+    ):
+        self.upscaleMethod = upscaleMethod
+        self.baseMethod = upscaleMethod.replace("-mps", "")
+        self.upscaleFactor = upscaleFactor
+        self.half = half
+        self.width = width
+        self.height = height
+        self.customModel = customModel
+        self.compileMode = compileMode
+        self.device = torch.device("mps")
+        self.dtype = torch.float16 if self.half else torch.float32
+
+        self.handleModel()
+
+    def handleModel(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading MPS upscale model: {self.upscaleMethod}..."}
+            )
+
+        from src.spandrelCompat import (
+            ImageModelDescriptor,
+            ModelLoader,
+            UnsupportedDtypeError,
+        )
+
+        if not self.customModel:
+            self.filename = modelsMap(
+                self.baseMethod, self.upscaleFactor, modelType="pth"
+            )
+            weightsPath = os.path.join(weightsDir, self.baseMethod, self.filename)
+            if not os.path.exists(weightsPath):
+                modelPath = downloadModels(
+                    model=self.baseMethod,
+                    upscaleFactor=self.upscaleFactor,
+                )
+            else:
+                modelPath = weightsPath
+        else:
+            if not os.path.isfile(self.customModel):
+                raise FileNotFoundError(
+                    f"Custom model file {self.customModel} not found"
+                )
+            modelPath = self.customModel
+
+        if self.baseMethod == "saryn":
+            from src.extraArches.RTMoSR import RTMoSR
+
+            self.model = RTMoSR()
+            self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
+        elif self.baseMethod == "figsr":
+            from src.extraArches.figsr import FIGSR
+
+            stateDict = torch.load(modelPath, map_location="cpu", weights_only=False)
+            self.model = FIGSR(scale=self.upscaleFactor, dim=32)
+            self.model.load_state_dict(stateDict, strict=False)
+        elif self.baseMethod == "gauss":
+            from src.extraArches.DIS import DIS
+            from safetensors.torch import load_file
+
+            self.model = DIS(scale=2, num_features=32, num_blocks=12)
+            self.model.load_state_dict(load_file(modelPath))
+        else:
+            if self.customModel:
+                self.model = ModelLoader().load_from_file(modelPath)
+                if not isinstance(self.model, ImageModelDescriptor):
+                    raise TypeError(
+                        f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
+                    )
+            else:
+                self.model = torch.load(
+                    modelPath, map_location="cpu", weights_only=False
+                )
+                if isinstance(self.model, dict):
+                    self.model = ModelLoader().load_from_state_dict(self.model)
+
+            try:
+                # SPANDREL HAXX
+                self.model = self.model.model
+            except Exception:
+                pass
+
+        self.model = self.model.eval().to(self.device)
+
+        if self.half:
+            try:
+                self.model = self.model.half()
+            except UnsupportedDtypeError as e:
+                logging.error(f"Model does not support half precision on MPS: {e}")
+                self.model = self.model.float()
+                self.half = False
+                self.dtype = torch.float32
+            except Exception as e:
+                logging.error(f"Error converting model to half precision on MPS: {e}")
+                self.model = self.model.float()
+                self.half = False
+                self.dtype = torch.float32
+
+        if self.compileMode != "default":
+            # torch.compile on MPS is unstable as of torch 2.11 — warn and skip.
+            logAndPrint(
+                f"compileMode '{self.compileMode}' ignored on MPS backend (unsupported).",
+                "yellow",
+            )
+            self.compileMode = "default"
+
+        # Warm-up to force MPS kernel compilation before the first real frame.
+        with torch.inference_mode():
+            dummy = torch.zeros(
+                (1, 3, self.height, self.width),
+                device=self.device,
+                dtype=self.dtype,
+            )
+            for _ in range(2):
+                _ = self.model(dummy)
+            torch.mps.synchronize()
+
+    @torch.inference_mode()
+    def __call__(self, frame: torch.Tensor, nextFrame=None) -> torch.Tensor:
+        if frame.device != self.device or frame.dtype != self.dtype:
+            frame = frame.to(device=self.device, dtype=self.dtype)
+        output = self.model(frame)
+        torch.mps.synchronize()
+        return output
+
+    def frameReset(self):
+        pass
+
+
 class UniversalTensorRT:
     def __init__(
         self,

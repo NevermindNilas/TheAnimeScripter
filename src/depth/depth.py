@@ -25,71 +25,84 @@ if ADOBE:
     from src.utils.aeComms import progressState
 
 from collections import deque
+import statistics
 
 checker = CudaChecker()
 
 
 class SlidingWindowNormalizer:
-    def __init__(self, low_pct=2.0, high_pct=98.0, bounds_momentum=0.05, blend_alpha=0.5):
-        self.low_pct = low_pct
-        self.high_pct = high_pct
-        self.bounds_momentum = bounds_momentum
-        self.blend_alpha = blend_alpha
-        self.smooth_low = None
-        self.smooth_high = None
-        self.prev_depth = None
+    """
+    Causal window-median percentile deflicker for depth streams.
 
-    def normalize(self, depth):
-        if isinstance(depth, torch.Tensor):
-            return self._normalize_tensor(depth)
+    Smooths only the normalization range (low/high percentiles) across a
+    sliding window of past frames, then rescales each frame independently.
+    No pixel-level temporal blending, so no motion ghosting. Resets the
+    window when per-frame percentiles diverge sharply from the running
+    median (scene cut / abrupt exposure change).
+    """
+
+    def __init__(
+        self,
+        low_pct: float = 2.0,
+        high_pct: float = 98.0,
+        window_size: int = 7,
+        scene_cut_ratio: float = 2.5,
+        scene_cut_shift: float = 1.0,
+    ):
+        self.low_q = low_pct / 100.0
+        self.high_q = high_pct / 100.0
+        self.window_size = window_size
+        self.scene_cut_ratio = scene_cut_ratio
+        self.scene_cut_shift = scene_cut_shift
+        self.lows: deque = deque(maxlen=window_size)
+        self.highs: deque = deque(maxlen=window_size)
+
+    def normalize(self, depth, mask=None):
+        is_numpy = isinstance(depth, np.ndarray)
+        if is_numpy:
+            t = torch.from_numpy(depth).float()
         else:
-            return self._normalize_numpy(depth)
+            t = depth if depth.dtype.is_floating_point else depth.float()
 
-    def _normalize_tensor(self, depth):
-        flat = depth.float().flatten()
-        cur_low = torch.quantile(flat, self.low_pct / 100.0).item()
-        cur_high = torch.quantile(flat, self.high_pct / 100.0).item()
-
-        if self.smooth_low is None:
-            self.smooth_low = cur_low
-            self.smooth_high = cur_high
+        if mask is not None:
+            sample = t[mask]
+            if sample.numel() == 0:
+                sample = t.flatten()
         else:
-            self.smooth_low += self.bounds_momentum * (cur_low - self.smooth_low)
-            self.smooth_high += self.bounds_momentum * (cur_high - self.smooth_high)
+            sample = t.flatten()
 
-        denom = self.smooth_high - self.smooth_low
-        if denom < 1e-6:
-            denom = 1e-6
+        if sample.dtype not in (torch.float32, torch.float64):
+            sample = sample.float()
 
-        normalized = ((depth - self.smooth_low) / denom).clamp(0.0, 1.0)
+        cur_low = torch.quantile(sample, self.low_q).item()
+        cur_high = torch.quantile(sample, self.high_q).item()
 
-        if self.prev_depth is not None and self.prev_depth.shape == normalized.shape:
-            normalized = self.blend_alpha * normalized + (1.0 - self.blend_alpha) * self.prev_depth
-        self.prev_depth = normalized.clone()
+        if len(self.lows) >= 3:
+            med_low = statistics.median(self.lows)
+            med_high = statistics.median(self.highs)
+            med_range = max(med_high - med_low, 1e-6)
+            cur_range = max(cur_high - cur_low, 1e-6)
+            ratio = cur_range / med_range
+            shift = abs(cur_low - med_low) / med_range
+            if (
+                ratio > self.scene_cut_ratio
+                or ratio < 1.0 / self.scene_cut_ratio
+                or shift > self.scene_cut_shift
+            ):
+                self.lows.clear()
+                self.highs.clear()
 
-        return normalized
+        self.lows.append(cur_low)
+        self.highs.append(cur_high)
 
-    def _normalize_numpy(self, depth):
-        cur_low = float(np.percentile(depth, self.low_pct))
-        cur_high = float(np.percentile(depth, self.high_pct))
+        target_low = statistics.median(self.lows)
+        target_high = statistics.median(self.highs)
+        denom = max(target_high - target_low, 1e-6)
 
-        if self.smooth_low is None:
-            self.smooth_low = cur_low
-            self.smooth_high = cur_high
-        else:
-            self.smooth_low += self.bounds_momentum * (cur_low - self.smooth_low)
-            self.smooth_high += self.bounds_momentum * (cur_high - self.smooth_high)
+        normalized = ((t - target_low) / denom).clamp(0.0, 1.0)
 
-        denom = self.smooth_high - self.smooth_low
-        if denom < 1e-6:
-            denom = 1e-6
-
-        normalized = np.clip((depth - self.smooth_low) / denom, 0.0, 1.0)
-
-        if self.prev_depth is not None and self.prev_depth.shape == normalized.shape:
-            normalized = self.blend_alpha * normalized + (1.0 - self.blend_alpha) * self.prev_depth
-        self.prev_depth = normalized.copy()
-
+        if is_numpy:
+            return normalized.cpu().numpy()
         return normalized
 
 

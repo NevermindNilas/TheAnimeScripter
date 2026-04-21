@@ -18,6 +18,7 @@ requirementsFiles = [
     baseDir / "extra-requirements-windows-lite.txt",
     baseDir / "extra-requirements-linux.txt",
     baseDir / "extra-requirements-linux-lite.txt",
+    baseDir / "extra-requirements-macos.txt",
     baseDir / "deprecated-requirements.txt",
 ]
 
@@ -53,8 +54,9 @@ def downloadPortablePython():
 
     if system == "Windows":
         return downloadPortablePythonWindows()
-    else:
-        return downloadPortablePythonLinux()
+    if system == "Darwin":
+        return downloadPortablePythonMacos()
+    return downloadPortablePythonLinux()
 
 
 def downloadPortablePythonWindows():
@@ -115,6 +117,46 @@ def downloadPortablePythonLinux():
             tarRef.extractall(portablePythonDir)
 
         # Make Python executable
+        if pythonExe.exists():
+            os.chmod(pythonExe, 0o755)
+
+    getPipPath = portablePythonDir / "get-pip.py"
+    if not getPipPath.exists():
+        print("Downloading get-pip.py...")
+        urllib.request.urlretrieve(getPipUrl, getPipPath)
+
+    print("Installing pip...")
+    runSubprocess([str(pythonExe), str(getPipPath)], cwd=portablePythonDir)
+
+    print("Portable Python installation complete!")
+    return pythonExe
+
+
+def downloadPortablePythonMacos():
+    """Download and setup Python for macOS (Apple Silicon arm64)."""
+    machine = platform.machine().lower()
+    if machine not in ("arm64", "aarch64"):
+        raise RuntimeError(
+            f"Unsupported macOS architecture '{machine}'. Only Apple Silicon (arm64) is supported."
+        )
+
+    pythonUrl = (
+        f"https://github.com/astral-sh/python-build-standalone/releases/download/"
+        f"20260325/cpython-{pythonVersion}+20260325-aarch64-apple-darwin-install_only.tar.gz"
+    )
+    getPipUrl = "https://bootstrap.pypa.io/get-pip.py"
+
+    pythonTar = portablePythonDir / "python.tar.gz"
+    if not pythonTar.exists():
+        print("Downloading Python standalone build for macOS (arm64)...")
+        urllib.request.urlretrieve(pythonUrl, pythonTar)
+
+    pythonExe = portablePythonDir / "bin" / "python3"
+    if not pythonExe.exists():
+        print("Extracting Python...")
+        with tarfile.open(pythonTar, "r:gz") as tarRef:
+            tarRef.extractall(portablePythonDir)
+
         if pythonExe.exists():
             os.chmod(pythonExe, 0o755)
 
@@ -206,14 +248,15 @@ def bundleFiles(targetDir):
     for requirementsFile in requirementsFiles:
         shutil.copy2(requirementsFile, bundleDir / requirementsFile.name)
 
-    if system == "Linux":
+    if system in ("Linux", "Darwin"):
         launcherScript = bundleDir / "run.sh"
+        platformLabel = "Linux" if system == "Linux" else "macOS"
         with open(launcherScript, "w") as f:
-            f.write("""#!/bin/bash
-# The Anime Scripter - Linux Launcher Script
+            f.write(f"""#!/bin/bash
+# The Anime Scripter - {platformLabel} Launcher Script
 
 # Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 
 # Set up the Python path
 PYTHON_EXE="$SCRIPT_DIR/bin/python3"
@@ -228,9 +271,8 @@ fi
 # Run the main application
 exec "$PYTHON_EXE" "$SCRIPT_DIR/main.py" "$@"
 """)
-        # Make the script executable
         os.chmod(launcherScript, 0o755)
-        print("Created Linux launcher script: run.sh")
+        print(f"Created {platformLabel} launcher script: run.sh")
 
     print(f"Portable bundle created at {bundleDir}")
 
@@ -311,6 +353,10 @@ if __name__ == "__main__":
         if system == "Windows":
             finalOutputDir = Path(
                 r"D:\tastest\TheAnimeScripter"
+            )
+        elif system == "Darwin":
+            finalOutputDir = (
+                Path.home() / "Library" / "Application Support" / "TheAnimeScripter" / "TAS-Portable"
             )
         else:
             # Linux development path

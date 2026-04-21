@@ -111,6 +111,91 @@ class UnifiedRestoreCuda:
         return frame
 
 
+class UnifiedRestoreMPS:
+    """
+    Apple Silicon (MPS) restore. Mirrors UnifiedRestoreCuda but drops
+    torch.cuda.Stream. Shares weights with the CUDA path: the "-mps" suffix
+    on the method name is stripped before resolving model files.
+    """
+
+    def __init__(
+        self,
+        model: str = "scunet-mps",
+        half: bool = True,
+    ):
+        self.originalModel = model
+        self.model = model.replace("-mps", "")
+        self.half = half
+        self.CHANNELSLAST = True
+        self.device = torch.device("mps")
+        self.handleModel()
+
+    def handleModel(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading MPS restore model: {self.model}..."}
+            )
+
+        from src.spandrelCompat import ModelLoader
+
+        if self.model in ["nafnet"]:
+            self.half = False
+            print("NAFNet does not support half precision, using float32 instead")
+
+        self.filename = modelsMap(self.model)
+        if not os.path.exists(os.path.join(weightsDir, self.model, self.filename)):
+            modelPath = downloadModels(model=self.model)
+        else:
+            modelPath = os.path.join(weightsDir, self.model, self.filename)
+
+        if self.model not in ["gater3"]:
+            try:
+                self.model = ModelLoader().load_from_file(path=modelPath)
+                if isinstance(self.model, dict):
+                    self.model = ModelLoader().load_from_state_dict(self.model)
+            except Exception as e:
+                logging.error(f"Error loading model: {e}")
+        else:
+            from safetensors.torch import load_file
+
+            if self.model == "gater3":
+                from src.extraArches.gaterv3 import GateRV3
+
+                self.CHANNELSLAST = False
+                self.model = GateRV3()
+                stateDict = load_file(modelPath)
+                self.model.load_state_dict(stateDict)
+
+        try:
+            # Weird spandrel hack to bypass ModelDescriptor
+            self.model = self.model.model
+        except Exception:
+            pass
+
+        self.model = self.model.eval().to(self.device)
+
+        if self.half:
+            self.model.half()
+            self.dType = torch.float16
+        else:
+            self.model.float()
+            self.dType = torch.float32
+
+        if self.CHANNELSLAST:
+            self.model.to(memory_format=torch.channels_last)
+        else:
+            self.model.to(memory_format=torch.contiguous_format)
+
+    @torch.inference_mode()
+    def __call__(self, frame: torch.tensor) -> torch.tensor:
+        moved = frame.to(self.device, dtype=self.dType)
+        if self.CHANNELSLAST:
+            moved = moved.to(memory_format=torch.channels_last)
+        output = self.model(moved)
+        torch.mps.synchronize()
+        return output
+
+
 class UnifiedRestoreTensorRT:
     def __init__(
         self,
