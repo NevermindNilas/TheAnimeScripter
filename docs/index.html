@@ -1,1519 +1,692 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TheAnimeScripter — AI Video Enhancement</title>
-    <meta name="description" content="Professional AI video enhancement. 50+ neural network models for upscaling, interpolation, restoration, and more.">
-    <meta name="theme-color" content="#050505">
-    <link rel="icon" href="assets/logo.png" type="image/png">
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/lucide@latest"></script>
-
-    <style>
-        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-
-        :root {
-            --bg: #050505;
-            --bg-card: #0a0a0a;
-            --bg-hover: #0f0f0f;
-
-            --border: rgba(255,255,255,0.06);
-            --border-hover: rgba(255,255,255,0.12);
-
-            --text-1: #f0f0f0;
-            --text-2: #888888;
-            --text-3: #4a4a4a;
-
-            --accent: #d4d4d4;
-            --accent-dim: rgba(255,255,255,0.06);
-            --accent-glow: rgba(255,255,255,0.08);
-            --purple: #999999;
-            --purple-dim: rgba(255,255,255,0.04);
-
-            --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            --mono: 'JetBrains Mono', 'Fira Code', monospace;
-
-            --ease: cubic-bezier(0.4, 0, 0.2, 1);
-            --ease-out: cubic-bezier(0, 0, 0.2, 1);
-        }
-
-        html { scroll-behavior: smooth; }
-        body {
-            background: var(--bg);
-            color: var(--text-2);
-            font-family: var(--sans);
-            line-height: 1.6;
-            overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        ::selection { background: rgba(255,255,255,0.15); color: #fff; }
-
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
-
-        /* ═══════════════════ BACKGROUND FX ═══════════════════ */
-
-        .aurora {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: -2;
-            overflow: hidden;
-        }
-
-        .aurora-blob {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(100px);
-            opacity: 0;
-            animation: aurora-in 2s var(--ease-out) forwards;
-        }
-
-        .aurora-1 {
-            width: 50vw; height: 50vw;
-            top: -15%; left: 15%;
-            background: radial-gradient(circle, rgba(255,255,255,0.03), transparent 70%);
-            animation-delay: 0s;
-        }
-        .aurora-1 { animation: aurora-in 2s var(--ease-out) forwards, drift1 25s ease-in-out infinite 2s; }
-
-        .aurora-2 {
-            width: 45vw; height: 45vw;
-            top: 5%; right: 10%;
-            background: radial-gradient(circle, rgba(255,255,255,0.025), transparent 70%);
-        }
-        .aurora-2 { animation: aurora-in 2s var(--ease-out) 0.3s forwards, drift2 30s ease-in-out infinite 2.3s; }
-
-        .aurora-3 {
-            width: 40vw; height: 40vw;
-            top: 20%; left: 35%;
-            background: radial-gradient(circle, rgba(255,255,255,0.02), transparent 70%);
-        }
-        .aurora-3 { animation: aurora-in 2s var(--ease-out) 0.6s forwards, drift3 35s ease-in-out infinite 2.6s; }
-
-        @keyframes aurora-in { to { opacity: 1; } }
-        @keyframes drift1 {
-            0%, 100% { transform: translate(0, 0); }
-            25% { transform: translate(5vw, 3vh); }
-            50% { transform: translate(-3vw, 6vh); }
-            75% { transform: translate(4vw, -2vh); }
-        }
-        @keyframes drift2 {
-            0%, 100% { transform: translate(0, 0); }
-            25% { transform: translate(-4vw, 5vh); }
-            50% { transform: translate(3vw, -3vh); }
-            75% { transform: translate(-5vw, 4vh); }
-        }
-        @keyframes drift3 {
-            0%, 100% { transform: translate(0, 0); }
-            33% { transform: translate(6vw, -4vh); }
-            66% { transform: translate(-4vw, 3vh); }
-        }
-
-        .noise {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 9999;
-            opacity: 0.025;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-        }
-
-        /* ═══════════════════ LAYOUT ═══════════════════ */
-
-        .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
-        .container-wide { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
-
-        /* ═══════════════════ NAV ═══════════════════ */
-
-        nav {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            z-index: 100;
-            padding: 16px 24px;
-            transition: all 0.4s var(--ease);
-        }
-
-        nav.scrolled {
-            background: rgba(5,5,5,0.8);
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
-            border-bottom: 1px solid var(--border);
-        }
-
-        .nav-inner {
-            max-width: 1120px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 40px;
-        }
-
-        .nav-brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            color: var(--text-1);
-            font-family: var(--mono);
-            font-weight: 600;
-            font-size: 0.85rem;
-            letter-spacing: -0.02em;
-        }
-
-        .nav-brand img {
-            width: 26px; height: 26px;
-            border-radius: 6px;
-            transition: filter 0.3s;
-        }
-
-        .nav-brand:hover img {
-            filter: drop-shadow(0 0 8px var(--accent-glow));
-        }
-
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 2px;
-        }
-
-        .nav-links a {
-            font-family: var(--mono);
-            font-size: 0.78rem;
-            color: var(--text-3);
-            text-decoration: none;
-            padding: 6px 14px;
-            border-radius: 6px;
-            transition: color 0.2s, background 0.2s;
-        }
-
-        .nav-links a:hover { color: var(--text-1); background: rgba(255,255,255,0.04); }
-
-        .nav-cta {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-family: var(--mono);
-            font-size: 0.78rem;
-            color: var(--text-1) !important;
-            padding: 7px 16px !important;
-            border: 1px solid var(--border);
-            border-radius: 8px !important;
-            margin-left: 6px;
-            transition: border-color 0.3s, box-shadow 0.3s;
-        }
-
-        .nav-cta:hover {
-            border-color: var(--border-hover) !important;
-            box-shadow: 0 0 20px rgba(255,255,255,0.03);
-        }
-
-        .mobile-btn {
-            display: none;
-            background: none;
-            border: none;
-            color: var(--text-2);
-            cursor: pointer;
-        }
-
-        .mobile-menu {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 99;
-            background: rgba(5,5,5,0.97);
-            backdrop-filter: blur(24px);
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-        }
-
-        .mobile-menu.open { display: flex; }
-
-        .mobile-menu a {
-            font-family: var(--mono);
-            font-size: 1.1rem;
-            color: var(--text-2);
-            text-decoration: none;
-            padding: 14px 28px;
-            transition: color 0.2s;
-        }
-
-        .mobile-menu a:hover { color: var(--text-1); }
-
-        .mobile-close {
-            position: absolute;
-            top: 20px; right: 24px;
-            background: none;
-            border: none;
-            color: var(--text-2);
-            cursor: pointer;
-        }
-
-        @media (max-width: 768px) {
-            .nav-links { display: none; }
-            .mobile-btn { display: block; }
-        }
-
-        /* ═══════════════════ HERO ═══════════════════ */
-
-        .hero {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            padding: 120px 24px 80px;
-            position: relative;
-        }
-
-        .hero-content { max-width: 720px; position: relative; z-index: 1; }
-
-        .hero-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-family: var(--mono);
-            font-size: 0.72rem;
-            font-weight: 500;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--text-2);
-            padding: 6px 16px;
-            border: 1px solid var(--border);
-            border-radius: 100px;
-            margin-bottom: 32px;
-        }
-
-        .hero-badge-dot {
-            width: 6px; height: 6px;
-            border-radius: 50%;
-            background: var(--text-2);
-            box-shadow: 0 0 8px rgba(255,255,255,0.15);
-            animation: pulse-dot 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
-        }
-
-        .hero h1 {
-            font-size: clamp(3rem, 7vw, 5rem);
-            font-weight: 800;
-            color: var(--text-1);
-            letter-spacing: -0.04em;
-            line-height: 1.05;
-            margin-bottom: 24px;
-        }
-
-        .hero h1 .gradient-text {
-            color: #fff;
-        }
-
-        .hero-sub {
-            font-size: clamp(1rem, 2vw, 1.15rem);
-            color: var(--text-2);
-            font-weight: 300;
-            max-width: 520px;
-            margin: 0 auto 40px;
-            line-height: 1.7;
-        }
-
-        .hero-actions {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-family: var(--mono);
-            font-size: 0.82rem;
-            font-weight: 500;
-            padding: 13px 28px;
-            border-radius: 10px;
-            text-decoration: none;
-            cursor: pointer;
-            border: none;
-            transition: all 0.3s var(--ease);
-            position: relative;
-        }
-
-        .btn-primary {
-            background: var(--text-1);
-            color: var(--bg);
-        }
-
-        .btn-primary:hover {
-            background: #fff;
-            box-shadow: 0 0 40px rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.4);
-            transform: translateY(-1px);
-        }
-
-        .btn-primary:active { transform: translateY(0); }
-
-        .btn-secondary {
-            background: transparent;
-            color: var(--text-2);
-            border: 1px solid var(--border);
-        }
-
-        .btn-secondary:hover {
-            color: var(--text-1);
-            border-color: var(--border-hover);
-            background: rgba(255,255,255,0.03);
-            transform: translateY(-1px);
-        }
-
-        .scroll-hint {
-            position: absolute;
-            bottom: 40px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            color: var(--text-3);
-            font-family: var(--mono);
-            font-size: 0.65rem;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            animation: float-hint 3s ease-in-out infinite;
-        }
-
-        @keyframes float-hint {
-            0%, 100% { transform: translateX(-50%) translateY(0); }
-            50% { transform: translateX(-50%) translateY(6px); }
-        }
-
-        /* ═══════════════════ STATS ═══════════════════ */
-
-        .stats-bar {
-            border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
-            padding: 0;
-        }
-
-        .stats-inner {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-        }
-
-        .stat {
-            padding: 32px 24px;
-            text-align: center;
-            position: relative;
-        }
-
-        .stat + .stat::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 20%;
-            height: 60%;
-            width: 1px;
-            background: var(--border);
-        }
-
-        .stat-val {
-            font-family: var(--mono);
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--text-1);
-            margin-bottom: 2px;
-        }
-
-        .stat-lbl {
-            font-family: var(--mono);
-            font-size: 0.7rem;
-            color: var(--text-3);
-            letter-spacing: 0.06em;
-        }
-
-        @media (max-width: 640px) {
-            .stats-inner { grid-template-columns: repeat(2, 1fr); }
-            .stat:nth-child(3)::before { display: none; }
-            .stat:nth-child(3), .stat:nth-child(4) { border-top: 1px solid var(--border); }
-        }
-
-        /* ═══════════════════ SECTIONS ═══════════════════ */
-
-        .section {
-            padding: 120px 0;
-        }
-
-        .section-label {
-            font-family: var(--mono);
-            font-size: 0.72rem;
-            font-weight: 500;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--text-3);
-            margin-bottom: 12px;
-            display: block;
-        }
-
-        .section-title {
-            font-size: clamp(1.5rem, 3vw, 2.25rem);
-            font-weight: 700;
-            color: var(--text-1);
-            letter-spacing: -0.03em;
-            line-height: 1.2;
-        }
-
-        .section-desc {
-            font-size: 1rem;
-            color: var(--text-2);
-            margin-top: 12px;
-            max-width: 480px;
-            font-weight: 300;
-        }
-
-        .section-header { margin-bottom: 48px; }
-
-        /* ═══════════════════ SHOWCASE ═══════════════════ */
-
-        .showcase-frame {
-            margin-top: 48px;
-            border-radius: 16px;
-            overflow: hidden;
-            border: 1px solid var(--border);
-            position: relative;
-            transition: border-color 0.4s;
-        }
-
-        .showcase-frame:hover { border-color: var(--border-hover); }
-
-        .comparison {
-            position: relative;
-            aspect-ratio: 16 / 9;
-            background: var(--bg-card);
-            cursor: ew-resize;
-            user-select: none;
-            overflow: hidden;
-        }
-
-        .comparison img {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            pointer-events: none;
-        }
-
-        .comp-overlay {
-            position: absolute;
-            inset: 0;
-            clip-path: inset(0 50% 0 0);
-        }
-
-        .comp-handle {
-            position: absolute;
-            top: 0; bottom: 0;
-            left: 50%;
-            width: 2px;
-            background: rgba(255,255,255,0.8);
-            z-index: 10;
-            cursor: ew-resize;
-            transition: background 0.2s;
-        }
-
-        .comparison:hover .comp-handle { background: #fff; }
-
-        .comp-knob {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px; height: 40px;
-            border-radius: 50%;
-            background: var(--bg);
-            border: 2px solid rgba(255,255,255,0.6);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        .comparison:hover .comp-knob {
-            border-color: #fff;
-            box-shadow: 0 0 24px rgba(255,255,255,0.1);
-        }
-
-        .comp-knob i { color: rgba(255,255,255,0.6); }
-        .comparison:hover .comp-knob i { color: #fff; }
-
-        .comp-label {
-            position: absolute;
-            top: 16px;
-            font-family: var(--mono);
-            font-size: 0.68rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            padding: 5px 14px;
-            border-radius: 6px;
-            background: rgba(5,5,5,0.65);
-            backdrop-filter: blur(12px);
-            z-index: 5;
-            pointer-events: none;
-            transition: opacity 0.3s;
-        }
-
-        .comp-label-before { left: 16px; color: var(--text-2); }
-        .comp-label-after { right: 16px; color: var(--text-1); }
-
-        /* Zoom */
-        .comp-zoom-bar {
-            position: absolute;
-            bottom: 16px;
-            right: 16px;
-            z-index: 20;
-            display: flex;
-            gap: 6px;
-        }
-
-        .comp-zoom-btn {
-            width: 36px; height: 36px;
-            border-radius: 8px;
-            background: rgba(5,5,5,0.65);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
-            color: var(--text-2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: color 0.2s, border-color 0.2s, background 0.2s;
-        }
-
-        .comp-zoom-btn:hover {
-            color: var(--text-1);
-            border-color: var(--border-hover);
-            background: rgba(5,5,5,0.8);
-        }
-
-        .comp-zoom-btn.active {
-            color: var(--text-1);
-            border-color: rgba(255,255,255,0.2);
-            background: rgba(255,255,255,0.08);
-        }
-
-        .comparison.zoomed {
-            cursor: grab;
-        }
-
-        .comparison.zoomed:active {
-            cursor: grabbing;
-        }
-
-        .comparison.zoomed img,
-        .comparison.zoomed .comp-overlay {
-            transition: none;
-        }
-
-        .comp-zoom-level {
-            font-family: var(--mono);
-            font-size: 0.68rem;
-            color: var(--text-3);
-            display: flex;
-            align-items: center;
-            padding: 0 8px;
-            background: rgba(5,5,5,0.65);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            user-select: none;
-        }
-
-        /* ═══════════════════ BENTO FEATURES ═══════════════════ */
-
-        .bento {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1px;
-            background: var(--border);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            overflow: hidden;
-            margin-top: 48px;
-        }
-
-        .bento-card {
-            background: var(--bg);
-            padding: 36px 32px;
-            position: relative;
-            overflow: hidden;
-            transition: background 0.4s var(--ease);
-        }
-
-        .bento-card::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(
-                500px circle at var(--mx, 50%) var(--my, 50%),
-                rgba(255,255,255,0.03),
-                transparent 40%
-            );
-            opacity: 0;
-            transition: opacity 0.4s;
-            pointer-events: none;
-        }
-
-        .bento-card:hover { background: var(--bg-hover); }
-        .bento-card:hover::before { opacity: 1; }
-
-        .bento-wide { grid-column: span 2; }
-
-        .bento-icon {
-            width: 40px; height: 40px;
-            border-radius: 10px;
-            background: rgba(255,255,255,0.04);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-            color: var(--text-2);
-            transition: box-shadow 0.3s, color 0.3s;
-        }
-
-        .bento-card:hover .bento-icon {
-            box-shadow: 0 0 20px rgba(255,255,255,0.04);
-            color: var(--text-1);
-        }
-
-        .bento-card h3 {
-            font-family: var(--sans);
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-1);
-            margin-bottom: 8px;
-            letter-spacing: -0.01em;
-        }
-
-        .bento-card p {
-            font-size: 0.85rem;
-            color: var(--text-3);
-            line-height: 1.6;
-        }
-
-        .bento-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 16px;
-        }
-
-        .bento-tag {
-            font-family: var(--mono);
-            font-size: 0.65rem;
-            padding: 3px 10px;
-            border-radius: 4px;
-            background: rgba(255,255,255,0.04);
-            color: var(--text-3);
-            border: 1px solid var(--border);
-        }
-
-        @media (max-width: 900px) {
-            .bento { grid-template-columns: repeat(2, 1fr); }
-            .bento-wide { grid-column: span 2; }
-        }
-
-        @media (max-width: 600px) {
-            .bento { grid-template-columns: 1fr; }
-            .bento-wide { grid-column: span 1; }
-        }
-
-        /* ═══════════════════ INSTALL ═══════════════════ */
-
-        .install-layout {
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 56px;
-            align-items: start;
-            margin-top: 48px;
-        }
-
-        .steps { display: flex; flex-direction: column; gap: 28px; }
-
-        .step {
-            display: flex;
-            gap: 16px;
-            align-items: flex-start;
-        }
-
-        .step-n {
-            font-family: var(--mono);
-            font-size: 0.7rem;
-            font-weight: 600;
-            color: var(--text-2);
-            width: 32px; height: 32px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .step h4 {
-            font-family: var(--mono);
-            font-size: 0.85rem;
-            color: var(--text-1);
-            margin-bottom: 2px;
-            font-weight: 600;
-        }
-
-        .step p { font-size: 0.8rem; color: var(--text-3); }
-
-        .terminal {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            overflow: hidden;
-            transition: border-color 0.3s;
-        }
-
-        .terminal:hover { border-color: var(--border-hover); }
-
-        .term-bar {
-            padding: 14px 18px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .term-dots { display: flex; gap: 7px; }
-
-        .term-dot {
-            width: 11px; height: 11px;
-            border-radius: 50%;
-            opacity: 0.5;
-        }
-
-        .term-dot-r { background: #ef4444; }
-        .term-dot-y { background: #eab308; }
-        .term-dot-g { background: #22c55e; }
-
-        .term-title {
-            font-family: var(--mono);
-            font-size: 0.7rem;
-            color: var(--text-3);
-        }
-
-        .term-body {
-            padding: 20px 22px;
-            font-family: var(--mono);
-            font-size: 0.78rem;
-            line-height: 2.2;
-        }
-
-        .term-line {
-            display: flex;
-            align-items: center;
-            position: relative;
-            padding-right: 28px;
-        }
-
-        .term-prompt {
-            color: var(--text-3);
-            margin-right: 10px;
-            user-select: none;
-        }
-
-        .term-cmd { color: var(--text-2); }
-
-        .term-copy {
-            position: absolute;
-            right: 0;
-            background: none;
-            border: none;
-            color: var(--text-3);
-            cursor: pointer;
-            padding: 2px;
-            opacity: 0;
-            transition: opacity 0.2s, color 0.2s;
-        }
-
-        .term-line:hover .term-copy { opacity: 1; }
-        .term-copy:hover { color: var(--text-1); }
-
-        .term-cursor {
-            display: inline-block;
-            width: 8px; height: 15px;
-            background: var(--text-2);
-            animation: blink 1s step-end infinite;
-            vertical-align: text-bottom;
-            margin-left: 2px;
-        }
-
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-
-        @media (max-width: 800px) {
-            .install-layout { grid-template-columns: 1fr; }
-        }
-
-        /* ═══════════════════ CTA ═══════════════════ */
-
-        .cta-box {
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 72px 48px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-            transition: border-color 0.4s;
-        }
-
-        .cta-box:hover { border-color: var(--border-hover); }
-
-        .cta-glow {
-            position: absolute;
-            top: -2px; left: 10%; right: 10%;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
-            border-radius: 2px;
-            filter: blur(1px);
-        }
-
-        .cta-glow-soft {
-            position: absolute;
-            top: -40px; left: 20%; right: 20%;
-            height: 80px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
-            filter: blur(40px);
-            pointer-events: none;
-        }
-
-        .cta-box h2 { margin-bottom: 12px; position: relative; }
-        .cta-box p { max-width: 420px; margin: 0 auto 36px; position: relative; }
-
-        .cta-btns {
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            flex-wrap: wrap;
-            position: relative;
-        }
-
-        /* ═══════════════════ FOOTER ═══════════════════ */
-
-        footer {
-            border-top: 1px solid var(--border);
-            padding: 28px 0;
-        }
-
-        .footer-inner {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .footer-brand {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .footer-brand img { width: 20px; height: 20px; border-radius: 4px; }
-
-        .footer-brand span {
-            font-family: var(--mono);
-            font-size: 0.75rem;
-            color: var(--text-3);
-        }
-
-        .footer-links {
-            display: flex;
-            gap: 20px;
-        }
-
-        .footer-links a {
-            font-family: var(--mono);
-            font-size: 0.72rem;
-            color: var(--text-3);
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-
-        .footer-links a:hover { color: var(--text-1); }
-
-        .footer-copy {
-            font-family: var(--mono);
-            font-size: 0.68rem;
-            color: var(--text-3);
-        }
-
-        @media (max-width: 768px) {
-            .footer-inner { flex-direction: column; gap: 14px; text-align: center; }
-        }
-
-        /* ═══════════════════ SCROLL REVEAL ═══════════════════ */
-
-        .reveal {
-            opacity: 0;
-            transform: translateY(24px);
-            transition: opacity 0.7s var(--ease-out), transform 0.7s var(--ease-out);
-        }
-
-        .reveal.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .reveal-d1 { transition-delay: 0.08s; }
-        .reveal-d2 { transition-delay: 0.16s; }
-        .reveal-d3 { transition-delay: 0.24s; }
-        .reveal-d4 { transition-delay: 0.32s; }
-
-        /* ═══════════════════ DIVIDERS ═══════════════════ */
-
-        .glow-divider {
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Anime Scripter — AI video enhancement for anime creators</title>
+  <meta name="description" content="Open-source AI toolkit for anime video enhancement: RIFE/GMFSS interpolation, SPAN/Compact/AniScale upscaling, depth maps, segmentation and restoration. CUDA / TensorRT / DirectML / OpenVINO. AGPL-3.0." />
+  <meta name="theme-color" content="#0a0b12" />
+  <meta name="color-scheme" content="dark" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="The Anime Scripter — AI video enhancement for anime creators" />
+  <meta property="og:description" content="Open-source AI toolkit for anime. Interpolation, upscaling, depth, segmentation, restoration. CUDA · TensorRT · DirectML · OpenVINO. AGPL-3.0." />
+  <meta property="og:site_name" content="The Anime Scripter" />
+  <meta property="og:url" content="https://github.com/NevermindNilas/TheAnimeScripter" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="The Anime Scripter" />
+  <meta name="twitter:description" content="Open-source AI video enhancement for anime. AGPL-3.0." />
+
+  <link rel="canonical" href="https://github.com/NevermindNilas/TheAnimeScripter" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'><path d='M20 2 L36 12 L36 28 L20 38 L4 28 L4 12 Z' fill='%230a0b12' stroke='%23ff2b3a' stroke-width='3'/><path d='M13 14 L20 26 L27 14' fill='none' stroke='%23ff2b3a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/></svg>" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="image" href="assets/demo_2x.avif" fetchpriority="high" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+
+  <script>document.documentElement.classList.add('js');</script>
 </head>
-
 <body>
-    <!-- BG FX -->
-    <div class="aurora">
-        <div class="aurora-blob aurora-1"></div>
-        <div class="aurora-blob aurora-2"></div>
-        <div class="aurora-blob aurora-3"></div>
-    </div>
-    <div class="noise"></div>
+  <a href="#main" class="skip-link">Skip to content</a>
+  <!-- Film-grain overlay -->
+  <div class="grain" aria-hidden="true"></div>
+  <!-- Scan lines overlay -->
+  <div class="scanlines" aria-hidden="true"></div>
 
-    <!-- NAV -->
-    <nav id="nav">
-        <div class="nav-inner">
-            <a href="#" class="nav-brand">
-                <img src="assets/logo.png" alt="TAS">
-                <span>TheAnimeScripter</span>
-            </a>
-            <div class="nav-links">
-                <a href="#showcase">Showcase</a>
-                <a href="#features">Features</a>
-                <a href="#install">Install</a>
-                <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="nav-cta">
-                    <i data-lucide="github" class="w-4 h-4"></i> GitHub
-                </a>
-            </div>
-            <button class="mobile-btn" onclick="toggleMobile()">
-                <i data-lucide="menu" class="w-5 h-5"></i>
-            </button>
-        </div>
+  <!-- NAV -->
+  <header class="nav">
+    <a href="#top" class="brand" aria-label="The Anime Scripter home">
+      <svg class="brand-mark" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#ff2b3a"/>
+            <stop offset="100%" stop-color="#8b0000"/>
+          </linearGradient>
+        </defs>
+        <path d="M20 2 L36 12 L36 28 L20 38 L4 28 L4 12 Z" fill="none" stroke="url(#lg1)" stroke-width="2"/>
+        <path d="M13 14 L20 26 L27 14" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="brand-text">TAS<span class="brand-dot">.</span></span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#models">Models</a>
+      <a href="#faq">FAQ</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/NevermindNilas/TheAnimeScripter" class="nav-cta" target="_blank" rel="noopener">GitHub</a>
     </nav>
+  </header>
 
-    <!-- MOBILE MENU -->
-    <div class="mobile-menu" id="mobile-menu">
-        <button class="mobile-close" onclick="toggleMobile()">
-            <i data-lucide="x" class="w-6 h-6"></i>
+  <main id="main">
+
+  <!-- HERO -->
+  <section class="hero" id="top">
+    <div class="hero-mesh" id="heroMesh" aria-hidden="true">
+      <div class="parallax" data-parallax="0.03"><div class="blob blob-a"></div></div>
+      <div class="parallax" data-parallax="0.05"><div class="blob blob-b"></div></div>
+      <div class="parallax" data-parallax="0.08"><div class="blob blob-c"></div></div>
+      <div class="frame-lines">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+
+    <div class="hero-inner">
+      <div class="eyebrow">
+        <span class="pulse"></span>
+        <span>v2.6.0 · Open Source · AGPL-3.0</span>
+      </div>
+      <h1 class="hero-title">
+        <span class="line glitch" data-text="ENHANCE ANIME.">ENHANCE ANIME.</span>
+        <span class="line accent">FRAME BY <span class="highlight">FRAME</span>.</span>
+      </h1>
+      <p class="hero-sub">
+        An open-source AI video toolkit engineered for anime. Interpolation, upscaling, depth, segmentation and restoration — all in one pipeline. Runs on <strong>CUDA</strong>, <strong>TensorRT</strong>, <strong>DirectML</strong> and <strong>OpenVINO</strong>.
+      </p>
+      <div class="hero-cta">
+        <a href="#download" class="btn btn-primary">
+          <span>Download TAS</span>
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        </a>
+        <a href="https://github.com/NevermindNilas/TheAnimeScripter" class="btn btn-ghost" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.3 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.3 11.3 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.9 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
+          <span>Star on GitHub</span>
+        </a>
+      </div>
+
+      <div class="hero-terminal" aria-hidden="true">
+        <div class="term-bar term-bar--minimal">
+          <span class="term-power"></span>
+          <span class="term-title">main.py · TAS CLI</span>
+        </div>
+        <pre class="term-body"><code><span class="tp">$</span> python <span class="ts">main.py</span> <span class="tf">--input</span> episode.mkv <span class="tf">--interpolate_method</span> <span class="tv">rife4.25-tensorrt</span> <span class="tf">--upscale_method</span> <span class="tv">adore-tensorrt</span></code></pre>
+        <div class="term-progress" aria-hidden="true">
+          <div class="term-progress-bar"></div>
+        </div>
+        <pre class="term-body term-body--done"><code><span class="tg">✓ done in 12m 47s</span></code></pre>
+      </div>
+    </div>
+
+    <div class="scroll-hint" aria-hidden="true">
+      <span>SCROLL</span>
+      <div class="scroll-line"></div>
+    </div>
+  </section>
+
+  <!-- MARQUEE -->
+  <section class="marquee" aria-hidden="true">
+    <div class="marquee-track">
+      <span>RIFE 4.22</span><span>·</span>
+      <span>GMFSS FORTUNA</span><span>·</span>
+      <span>ShuffleCugan</span><span>·</span>
+      <span>SPAN</span><span>·</span>
+      <span>SRVGGNetCompact</span><span>·</span>
+      <span>Depth Anything V2</span><span>·</span>
+      <span>ANIMESEGMENT</span><span>·</span>
+      <span>SCUNet</span><span>·</span>
+      <span>TensorRT · FP16</span><span>·</span>
+      <span>DirectML</span><span>·</span>
+      <span>OpenVINO</span><span>·</span>
+      <!-- dup for seamless loop -->
+      <span>RIFE 4.22</span><span>·</span>
+      <span>GMFSS FORTUNA</span><span>·</span>
+      <span>ShuffleCugan</span><span>·</span>
+      <span>SPAN</span><span>·</span>
+      <span>SRVGGNetCompact</span><span>·</span>
+      <span>Depth Anything V2</span><span>·</span>
+      <span>ANIMESEGMENT</span><span>·</span>
+      <span>SCUNet</span><span>·</span>
+      <span>TensorRT · FP16</span><span>·</span>
+      <span>DirectML</span><span>·</span>
+      <span>OpenVINO</span><span>·</span>
+    </div>
+  </section>
+
+  <!-- BEFORE / AFTER -->
+  <section class="section compare" id="compare">
+    <div class="section-head">
+      <p class="kicker"><span class="kicker-bar"></span> 01 · Upscale Demo</p>
+      <h2>From source frame to <span class="grad">anime-tuned SR</span>.</h2>
+      <p class="lede">Drag the handle. The left side is the untouched source frame; the right is the TAS-upscaled result using fallin_strong on TensorRT. Pixel-for-pixel sharper lines, preserved cel colors, no halo.</p>
+    </div>
+
+    <div class="ba-wrap" id="baWrap" role="region" aria-label="Before and after slider">
+      <div class="ba-stage">
+        <img class="ba-img ba-after" src="assets/demo_2x.avif" alt="After: TAS upscaled frame with fallin_strong" loading="eager" decoding="async" fetchpriority="high" />
+        <div class="ba-clip" id="baClip">
+          <img class="ba-img ba-before" src="assets/demo.avif" alt="Before: source frame" loading="eager" decoding="async" />
+        </div>
+        <div class="ba-label ba-label-before">BEFORE</div>
+        <div class="ba-label ba-label-after">AFTER · fallin_strong</div>
+        <div class="ba-handle" id="baHandle" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" tabindex="0">
+          <div class="ba-handle-line"></div>
+          <div class="ba-handle-knob">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M9 6l-4 6 4 6M15 6l4 6-4 6"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="ba-meta">
+        <span>Fallin Strong · TensorRT · FP16</span>
+        <span>Sharper enhancement with denoising</span>
+        <span>2× scale factor</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section features" id="features">
+    <div class="section-head">
+      <p class="kicker"><span class="kicker-bar"></span> 02 · Pipeline</p>
+      <h2>One toolkit. <span class="grad">Every step</span> of the post-production chain.</h2>
+    </div>
+
+    <div class="feat-grid">
+      <article class="feat-card">
+        <div class="feat-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 8h6v16H4zM22 8h6v16h-6zM13 16h6M13 11h6M13 21h6"/></svg></div>
+        <h3>Frame Interpolation</h3>
+        <p>Multiply frames between keyframes with <strong>RIFE 4.22-lite</strong>, <strong>RIFE 4.25-heavy</strong> and <strong>GMFSS</strong> for fluid in-betweens. Scene-change detection built in.</p>
+        <ul class="feat-tags">
+          <li>RIFE</li><li>GMFSS</li><li>Scene Cut</li>
+        </ul>
+      </article>
+
+      <article class="feat-card">
+        <div class="feat-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M6 6l8 0 0 8-8 0zM18 6l8 0 0 8-8 0zM6 18l8 0 0 8-8 0zM18 18l8 0 0 8-8 0zM14 14l4 4"/></svg></div>
+        <h3>AI Upscaling</h3>
+        <p>2× resolution with anime-tuned models. <strong>ShuffleCugan</strong>, <strong>SPAN</strong>, <strong>Fallin Strong</strong> and <strong>Compact</strong> variants all supported.</p>
+        <ul class="feat-tags">
+          <li>ShuffleCugan</li><li>SPAN</li><li>Compact</li>
+        </ul>
+      </article>
+
+      <article class="feat-card">
+        <div class="feat-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 28 L12 14 L16 20 L22 10 L28 28 Z M22 10 L28 18"/></svg></div>
+        <h3>Depth Maps</h3>
+        <p>Monocular depth estimation via <strong>Depth Anything V2</strong>. Small / Base / Large variants for After Effects 2.5D parallax and shader work.</p>
+        <ul class="feat-tags">
+          <li>DA V2</li><li>Small/Base/Large</li>
+        </ul>
+      </article>
+
+      <article class="feat-card">
+        <div class="feat-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M16 4a12 12 0 100 24 12 12 0 000-24zM4 16h24M16 4v24"/></svg></div>
+        <h3>BG / FG Segmentation</h3>
+        <p>Alpha-channel mattes for character isolation. Clean edges on hair, armor and line art — ready for compositing in Resolve or AE.</p>
+        <ul class="feat-tags">
+          <li>ANIMESEGMENT</li><li>Alpha Out</li>
+        </ul>
+      </article>
+
+      <article class="feat-card">
+        <div class="feat-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 16c4-8 20-8 24 0M4 16c4 8 20 8 24 0M16 12v8M12 16h8"/></svg></div>
+        <h3>Restoration</h3>
+        <p><strong>SCUNet</strong> denoising, anime-specific sharpening and deblock. Rescue old broadcast masters without destroying cel detail.</p>
+        <ul class="feat-tags">
+          <li>SCUNet</li><li>NAFNet</li><li>Sharpen</li>
+        </ul>
+      </article>
+
+      <article class="feat-card">
+        <div class="feat-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M5 10h10v12H5zM17 6h10v12H17zM9 22l-4 4M21 18l-4 4"/></svg></div>
+        <h3>Deduplication</h3>
+        <p>Drops redundant or near-identical cels before the GPU touches them — fewer frames in means faster passes out. Swap detection with <code>--dedup_method</code>: <strong>SSIM</strong>, <strong>MSE</strong>, <strong>FlowNetS</strong> or <strong>VMAF</strong>.</p>
+        <ul class="feat-tags">
+          <li>SSIM</li><li>FlowNetS</li><li>VMAF</li>
+        </ul>
+      </article>
+
+    </div>
+
+    <div class="integration-block">
+      <div class="integration-head">
+        <h3>Two frontends. <span class="grad">One engine.</span></h3>
+        <p>Drop TAS directly into your motion-graphics workflow, or script every pass from the terminal. Same models, same flags, same results.</p>
+      </div>
+      <div class="integration-grid">
+        <article class="integration-card">
+          <div class="feat-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 6h24v20H4zM4 12h24M9 6v-2M23 6v-2M9 18l3 3 6-6"/></svg></div>
+          <h4>After Effects Panel</h4>
+          <p>A CEP panel that sits inside AE. Queue shots, pick a preset, render — without leaving your comp.</p>
+          <ul class="feat-tags"><li>AE CEP Panel</li><li>Windows</li></ul>
+        </article>
+        <article class="integration-card">
+          <div class="feat-icon"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M5 8l6 8-6 8M14 24h13"/></svg></div>
+          <h4>Python CLI</h4>
+          <p>Every pass is a flag on <code>main.py</code>. Script it, batch it, drop it in a Makefile — it's just a CLI.</p>
+          <ul class="feat-tags"><li>main.py</li><li>Python 3.13</li></ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="section stats" id="stats">
+    <div class="section-head">
+      <p class="kicker"><span class="kicker-bar"></span> 03 · By the Numbers</p>
+      <h2>Numbers that <span class="grad">actually ship</span>.</h2>
+    </div>
+    <div class="stat-grid">
+      <div class="stat">
+        <div class="stat-num" data-target="30" data-suffix="+">30+</div>
+        <div class="stat-label">AI Models<br><small>interp · upscale · depth · restore</small></div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-target="20" data-suffix="+">20+</div>
+        <div class="stat-label">Video Encoders<br><small>x264 · x265 · NVENC · AV1 · ProRes</small></div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-target="4" data-suffix="">4</div>
+        <div class="stat-label">Inference Backends<br><small>CUDA · TensorRT · DirectML · OpenVINO</small></div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-target="2" data-suffix="×">2×</div>
+        <div class="stat-label">Upscale Factor<br><small>anime-tuned super-resolution</small></div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-target="1" data-suffix="">1</div>
+        <div class="stat-label">Windows<br><small>Standalone + After Effects</small></div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-target="100" data-suffix="% OSS">100% OSS</div>
+        <div class="stat-label">AGPL-3.0<br><small>fork it, contribute back</small></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOWNLOAD CTA -->
+  <section class="section download" id="download">
+    <div class="dl-inner">
+      <div class="dl-left">
+        <p class="kicker"><span class="kicker-bar"></span> 04 · Get TAS</p>
+        <h2>Install once. <span class="grad">Run everywhere.</span></h2>
+        <p class="lede">Prebuilt releases bundle all models and dependencies. No Python install required on Windows.</p>
+        <p class="dl-note"><span class="pulse"></span> Latest build · v2.6.0 · ships with all models bundled</p>
+      </div>
+      <div class="dl-right">
+        <a class="dl-card dl-card-primary" href="https://github.com/NevermindNilas/TheAnimeScripter/releases" target="_blank" rel="noopener">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M3 5h12v12H3zM17 5h12v12H17zM3 19h12v12H3zM17 19h12v12H17z"/></svg>
+          <div>
+            <strong>Windows</strong>
+            <span>x64 · CUDA / TensorRT / DirectML / OpenVINO</span>
+          </div>
+          <span class="dl-arrow">→</span>
+        </a>
+        <a class="dl-card" href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" rel="noopener">
+          <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M11 8 L4 16 L11 24 M21 8 L28 16 L21 24"/></svg>
+          <div>
+            <strong>Build from source</strong>
+            <span>Python 3.13 · pip · `main.py`</span>
+          </div>
+          <span class="dl-arrow">→</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- PIPELINE / HOW IT WORKS -->
+  <section class="section pipeline" id="pipeline">
+    <div class="section-head">
+      <p class="kicker"><span class="kicker-bar"></span> 05 · How it works</p>
+      <h2>One file in. <span class="grad">Six stages</span> of inference out.</h2>
+      <p class="lede">Every pass TAS runs shares a single in-memory frame queue — no redundant disk writes between stages. Flags you pass on the command line decide which nodes light up.</p>
+    </div>
+
+    <ol class="pipeline-flow" id="pipelineFlow">
+      <li class="pstage" style="--i:0">
+        <div class="pstage-card">
+          <div class="pstage-icon">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M6 8h20v16H6zM10 12l4 4-4 4M18 20h6"/></svg>
+          </div>
+          <div class="pstage-index">01</div>
+          <h4>Input</h4>
+          <p>Local file, batch list or YouTube URL.</p>
+          <span class="pstage-tag">mp4 · mkv · mov · webm</span>
+        </div>
+      </li>
+      <li class="pstage" style="--i:1">
+        <div class="pstage-card">
+          <div class="pstage-icon">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M5 10h10v12H5zM17 6h10v12H17zM9 22l-4 4M21 18l-4 4"/></svg>
+          </div>
+          <div class="pstage-index">02</div>
+          <h4>Deduplication</h4>
+          <p>Drops redundant cels before the GPU ever sees them.</p>
+          <span class="pstage-tag">SSIM · MSE · FlowNetS · VMAF</span>
+        </div>
+      </li>
+      <li class="pstage" style="--i:2">
+        <div class="pstage-card">
+          <div class="pstage-icon">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 8h6v16H4zM22 8h6v16h-6zM13 16h6M13 11h6M13 21h6"/></svg>
+          </div>
+          <div class="pstage-index">03</div>
+          <h4>Interpolation</h4>
+          <p>Synthesises in-between frames from neighbouring keyframes.</p>
+          <span class="pstage-tag">RIFE 4.6 → 4.25-heavy · GMFSS · Elexor</span>
+        </div>
+      </li>
+      <li class="pstage" style="--i:3">
+        <div class="pstage-card">
+          <div class="pstage-icon">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M6 6l8 0 0 8-8 0zM18 6l8 0 0 8-8 0zM6 18l8 0 0 8-8 0zM18 18l8 0 0 8-8 0zM14 14l4 4"/></svg>
+          </div>
+          <div class="pstage-index">04</div>
+          <h4>Upscaling</h4>
+          <p>2× with anime-tuned super-resolution architectures.</p>
+          <span class="pstage-tag">ShuffleCugan · SPAN · Compact · OpenProteus · AniScale 2</span>
+        </div>
+      </li>
+      <li class="pstage" style="--i:4">
+        <div class="pstage-card">
+          <div class="pstage-icon">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 16c4-8 20-8 24 0M4 16c4 8 20 8 24 0M16 12v8M12 16h8"/></svg>
+          </div>
+          <div class="pstage-index">05</div>
+          <h4>Restoration</h4>
+          <p>Denoise, deblock, dejpeg, sharpen and darken line art — chainable.</p>
+          <span class="pstage-tag">SCUNet · NAFNet · Anime1080Fixer · FastLineDarken</span>
+        </div>
+      </li>
+      <li class="pstage" style="--i:5">
+        <div class="pstage-card">
+          <div class="pstage-icon">
+            <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M4 6h24v20H4zM9 11l6 5-6 5M17 21h6"/></svg>
+          </div>
+          <div class="pstage-index">06</div>
+          <h4>Encoded Output</h4>
+          <p>FFmpeg hand-off with animation-tuned x264/x265 or NVENC.</p>
+          <span class="pstage-tag">x264_animation_10bit · x265 · NVENC · AV1 · ProRes</span>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- SUPPORTED MODELS GALLERY -->
+  <section class="section models" id="models">
+    <div class="section-head">
+      <p class="kicker"><span class="kicker-bar"></span> 06 · Supported models</p>
+      <h2>Pick the model. <span class="grad">Pick the backend.</span></h2>
+      <p class="lede">Real model names, real backends. Swap any weight in via <code>--custom_model</code> (Spandrel on CUDA, ONNX on TensorRT / DirectML / OpenVINO).</p>
+    </div>
+
+    <div class="models-group">
+      <div class="models-row-head"><span class="models-dot"></span><h3>Interpolation</h3><span class="models-meta">RIFE family · GMFSS · Elexor</span></div>
+      <div class="marquee marquee-row">
+        <div class="marquee-track marquee-track--slow">
+          <span class="mchip">RIFE 4.22</span>
+          <span class="mchip">RIFE 4.22-lite</span>
+          <span class="mchip">RIFE 4.25</span>
+          <span class="mchip">RIFE 4.25-lite</span>
+          <span class="mchip">RIFE 4.25-heavy</span>
+          <span class="mchip">RIFE 4.6</span>
+          <span class="mchip">RIFE 4.15</span>
+          <span class="mchip">RIFE 4.17</span>
+          <span class="mchip">RIFE 4.18</span>
+          <span class="mchip">RIFE 4.20</span>
+          <span class="mchip">RIFE 4.21</span>
+          <span class="mchip">GMFSS</span>
+          <span class="mchip">Rife_Elexor</span>
+          <!-- dup -->
+          <span class="mchip">RIFE 4.22</span>
+          <span class="mchip">RIFE 4.22-lite</span>
+          <span class="mchip">RIFE 4.25</span>
+          <span class="mchip">RIFE 4.25-lite</span>
+          <span class="mchip">RIFE 4.25-heavy</span>
+          <span class="mchip">RIFE 4.6</span>
+          <span class="mchip">RIFE 4.15</span>
+          <span class="mchip">RIFE 4.17</span>
+          <span class="mchip">RIFE 4.18</span>
+          <span class="mchip">RIFE 4.20</span>
+          <span class="mchip">RIFE 4.21</span>
+          <span class="mchip">GMFSS</span>
+          <span class="mchip">Rife_Elexor</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="models-group">
+      <div class="models-row-head"><span class="models-dot"></span><h3>Upscaling</h3><span class="models-meta">SPAN · Compact · ShuffleCugan · AniScale · Proteus</span></div>
+      <div class="marquee marquee-row">
+        <div class="marquee-track marquee-track--reverse">
+          <span class="mchip">ShuffleCugan</span>
+          <span class="mchip">SPAN</span>
+          <span class="mchip">Compact</span>
+          <span class="mchip">UltraCompact</span>
+          <span class="mchip">SuperUltraCompact</span>
+          <span class="mchip">OpenProteus</span>
+          <span class="mchip">AniScale 2</span>
+          <span class="mchip">RTMOSR</span>
+          <span class="mchip">Saryn</span>
+          <span class="mchip">Gauss</span>
+          <span class="mchip">Adore</span>
+          <span class="mchip">Fallin Soft</span>
+          <span class="mchip">Fallin Strong</span>
+          <span class="mchip">AnimeSR</span>
+          <!-- dup -->
+          <span class="mchip">ShuffleCugan</span>
+          <span class="mchip">SPAN</span>
+          <span class="mchip">Compact</span>
+          <span class="mchip">UltraCompact</span>
+          <span class="mchip">SuperUltraCompact</span>
+          <span class="mchip">OpenProteus</span>
+          <span class="mchip">AniScale 2</span>
+          <span class="mchip">RTMOSR</span>
+          <span class="mchip">Saryn</span>
+          <span class="mchip">Gauss</span>
+          <span class="mchip">Adore</span>
+          <span class="mchip">Fallin Soft</span>
+          <span class="mchip">Fallin Strong</span>
+          <span class="mchip">AnimeSR</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="models-group">
+      <div class="models-row-head"><span class="models-dot"></span><h3>Restoration &amp; Depth</h3><span class="models-meta">Denoise · Line art · Depth Anything V2</span></div>
+      <div class="marquee marquee-row">
+        <div class="marquee-track marquee-track--slow">
+          <span class="mchip">SCUNet</span>
+          <span class="mchip">NAFNet</span>
+          <span class="mchip">DPIR</span>
+          <span class="mchip">Anime1080Fixer</span>
+          <span class="mchip">FastLineDarken</span>
+          <span class="mchip">GaterV3</span>
+          <span class="mchip">DeH264 (Real-PLKSR)</span>
+          <span class="mchip">DeJpeg (Real-PLKSR)</span>
+          <span class="mchip">HurrDeblur</span>
+          <span class="mchip mchip--depth">Depth Anything V2 · Small</span>
+          <span class="mchip mchip--depth">Depth Anything V2 · Base</span>
+          <span class="mchip mchip--depth">Depth Anything V2 · Large</span>
+          <span class="mchip mchip--depth">Depth Anything V2 · Giant</span>
+          <span class="mchip mchip--depth">Distill Small v2</span>
+          <span class="mchip mchip--depth">Distill Base v2</span>
+          <span class="mchip mchip--depth">Distill Large v2</span>
+          <!-- dup -->
+          <span class="mchip">SCUNet</span>
+          <span class="mchip">NAFNet</span>
+          <span class="mchip">DPIR</span>
+          <span class="mchip">Anime1080Fixer</span>
+          <span class="mchip">FastLineDarken</span>
+          <span class="mchip">GaterV3</span>
+          <span class="mchip">DeH264 (Real-PLKSR)</span>
+          <span class="mchip">DeJpeg (Real-PLKSR)</span>
+          <span class="mchip">HurrDeblur</span>
+          <span class="mchip mchip--depth">Depth Anything V2 · Small</span>
+          <span class="mchip mchip--depth">Depth Anything V2 · Base</span>
+          <span class="mchip mchip--depth">Depth Anything V2 · Large</span>
+          <span class="mchip mchip--depth">Depth Anything V2 · Giant</span>
+          <span class="mchip mchip--depth">Distill Small v2</span>
+          <span class="mchip mchip--depth">Distill Base v2</span>
+          <span class="mchip mchip--depth">Distill Large v2</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLI PIPELINE IN 30 SECONDS -->
+  <section class="section cli" id="cli">
+    <div class="section-head">
+      <p class="kicker"><span class="kicker-bar"></span> 07 · Pipeline in 30 seconds</p>
+      <h2>One invocation. <span class="grad">Whole chain.</span></h2>
+      <p class="lede">Every pass is a flag. Chain them. Auto-enable is real — specifying a <code>*_method</code> turns the feature on for you.</p>
+    </div>
+
+    <div class="cli-card">
+      <div class="term-bar term-bar--minimal">
+        <span class="term-power"></span>
+        <span class="term-title">main.py · full anime restoration pipeline</span>
+        <button class="cli-copy" id="cliCopy" type="button" aria-label="Copy command">
+          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 3h10v14H9zM5 7v14h10"/></svg>
+          <span>Copy</span>
         </button>
-        <a href="#showcase" onclick="toggleMobile()">Showcase</a>
-        <a href="#features" onclick="toggleMobile()">Features</a>
-        <a href="#install" onclick="toggleMobile()">Install</a>
-        <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank">GitHub</a>
+      </div>
+      <pre class="term-body cli-body"><code id="cliCode"><span class="tp">$</span> python <span class="ts">main.py</span> <span class="tf">--input</span> <span class="tv">anime_episode.mkv</span> \
+    <span class="tf">--upscale_method</span> <span class="tv">shufflecugan-tensorrt</span> \
+    <span class="tf">--interpolate_method</span> <span class="tv">rife4.25-tensorrt</span> <span class="tf">--ensemble</span> \
+    <span class="tf">--restore_method</span> <span class="tv">anime1080fixer-tensorrt</span> \
+    <span class="tf">--dedup_method</span> <span class="tv">ssim-cuda</span> \
+    <span class="tf">--sharpen</span> <span class="tf">--sharpen_sens</span> <span class="tv">30</span> \
+    <span class="tf">--encode_method</span> <span class="tv">x264_animation_10bit</span> <span class="tf">--bit_depth</span> <span class="tv">10bit</span>
+<span class="tc">›</span> resolving backends · tensorrt engines cached
+<span class="tc">›</span> stage: dedup        · ssim-cuda
+<span class="tc">›</span> stage: interpolate  · rife4.25-tensorrt (ensemble)
+<span class="tc">›</span> stage: upscale      · shufflecugan-tensorrt (2×)
+<span class="tc">›</span> stage: restore      · anime1080fixer-tensorrt + sharpen
+<span class="tc">›</span> encoder · libx264 · animation · 10-bit</code></pre>
+      <div class="term-progress term-progress--cli" aria-hidden="true">
+        <div class="term-progress-bar"></div>
+      </div>
+      <pre class="term-body term-body--done cli-body cli-body--done"><code><span class="tg">✓ done in 12m 47s</span></code></pre>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section faq" id="faq">
+    <div class="section-head">
+      <p class="kicker"><span class="kicker-bar"></span> 08 · FAQ</p>
+      <h2>The honest <span class="grad">answers</span>.</h2>
     </div>
 
-    <!-- HERO -->
-    <section class="hero">
-        <div class="hero-content">
-            <div class="hero-badge reveal">
-                <span class="hero-badge-dot"></span>
-                Open Source &mdash; Free Forever
-            </div>
-
-            <h1 class="reveal reveal-d1">
-                Every frame,<br><span class="gradient-text">perfected.</span>
-            </h1>
-
-            <p class="hero-sub reveal reveal-d2">
-                AI video enhancement powered by 50+ neural network models.
-                Upscale, interpolate, restore &mdash; one toolkit.
-            </p>
-
-            <div class="hero-actions reveal reveal-d3">
-                <a href="#install" class="btn btn-primary">
-                    <i data-lucide="arrow-down" class="w-4 h-4"></i>
-                    Get Started
-                </a>
-                <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="btn btn-secondary">
-                    <i data-lucide="github" class="w-4 h-4"></i>
-                    View Source
-                </a>
-            </div>
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>
+          <span class="faq-q" data-text="Does TAS work with my GPU?">Does TAS work with my GPU?</span>
+          <span class="faq-chev" aria-hidden="true">+</span>
+        </summary>
+        <div class="faq-a">
+          <p>If you have an RTX 20/30/40/50 card, use the CUDA + TensorRT build for the best speed. GTX 16 series works on CUDA. GTX 10 series (Pascal) and AMD cards run on the DirectML backend. Intel iGPUs and dGPUs run on OpenVINO. Pick the matching <code>-tensorrt</code>, <code>-directml</code> or <code>-openvino</code> model suffix.</p>
         </div>
+      </details>
 
-        <div class="scroll-hint">
-            <span>scroll</span>
-            <i data-lucide="chevron-down" class="w-4 h-4"></i>
+      <details class="faq-item">
+        <summary>
+          <span class="faq-q" data-text="Can I use my own models?">Can I use my own models?</span>
+          <span class="faq-chev" aria-hidden="true">+</span>
+        </summary>
+        <div class="faq-a">
+          <p>Yes. The <code>--custom_model</code> flag accepts <code>.pt</code>, <code>.pth</code>, <code>.ckpt</code> and <code>.safetensors</code> for the CUDA <code>compact</code> path via Spandrel, and <code>.onnx</code> for the <code>-directml</code>, <code>-openvino</code> and <code>-tensorrt</code> variants. Just match the backend suffix to the file format.</p>
         </div>
-    </section>
+      </details>
 
-    <!-- STATS -->
-    <div class="stats-bar">
-        <div class="container">
-            <div class="stats-inner">
-                <div class="stat reveal">
-                    <div class="stat-val">4K+</div>
-                    <div class="stat-lbl">Max Resolution</div>
-                </div>
-                <div class="stat reveal reveal-d1">
-                    <div class="stat-val">50+</div>
-                    <div class="stat-lbl">AI Models</div>
-                </div>
-                <div class="stat reveal reveal-d2">
-                    <div class="stat-val">10x</div>
-                    <div class="stat-lbl">TensorRT Speed</div>
-                </div>
-                <div class="stat reveal reveal-d3">
-                    <div class="stat-val">156k+</div>
-                    <div class="stat-lbl">Downloads</div>
-                </div>
-            </div>
+      <details class="faq-item">
+        <summary>
+          <span class="faq-q" data-text="Do I need Python installed?">Do I need Python installed?</span>
+          <span class="faq-chev" aria-hidden="true">+</span>
+        </summary>
+        <div class="faq-a">
+          <p>Not for the prebuilt Windows release — everything you need is bundled. On first run TAS will fetch FFmpeg automatically if it isn't already present. You only need Python if you're cloning the repo to develop, in which case <code>pip install -r requirements.txt</code> plus one of the <code>extra-requirements-*</code> profiles will get you going.</p>
         </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          <span class="faq-q" data-text="Is TAS really free and open source?">Is TAS really free and open source?</span>
+          <span class="faq-chev" aria-hidden="true">+</span>
+        </summary>
+        <div class="faq-a">
+          <p>Yes — the source is on <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" rel="noopener">GitHub</a> under the <a href="https://github.com/NevermindNilas/TheAnimeScripter/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0</a> license. Fork it, modify it, redistribute it — just keep any network-service derivatives open under the same license.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          <span class="faq-q" data-text="Will there be new features?">Will there be new features?</span>
+          <span class="faq-chev" aria-hidden="true">+</span>
+        </summary>
+        <div class="faq-a">
+          <p>Yes — new models, backends and restoration passes land regularly. The standalone Windows app and the After Effects panel are both under active development. Follow releases on GitHub or join the <a href="https://discord.gg/hwGHXga8ck" target="_blank" rel="noopener">Discord</a> for nightly builds.</p>
+        </div>
+      </details>
     </div>
+  </section>
 
-    <!-- SHOWCASE -->
-    <section id="showcase" class="section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label reveal">Results</span>
-                <h2 class="section-title reveal reveal-d1">See the difference</h2>
-                <p class="section-desc reveal reveal-d2">Drag the slider to compare original vs. AI-enhanced output.</p>
-            </div>
+  <!-- CLOSING CTA -->
+  <section class="section closing" id="closing">
+    <div class="closing-inner">
+      <p class="kicker closing-kicker"><span class="kicker-bar"></span> 09 · Ship it</p>
+      <h2 class="closing-title" data-text="READY TO ENHANCE?">READY TO ENHANCE<span class="closing-q">?</span></h2>
+      <p class="closing-sub">Open-source. No paywall. Just frames.</p>
+      <div class="closing-cta">
+        <a href="https://github.com/NevermindNilas/TheAnimeScripter" class="btn btn-primary btn-huge" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.3 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.3 11.3 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.2 2.9.1 3.2.8.9 1.2 1.9 1.2 3.2 0 4.7-2.8 5.7-5.5 6 .4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3z"/></svg>
+          <span>Get TAS on GitHub</span>
+        </a>
+        <a href="https://discord.gg/hwGHXga8ck" class="btn btn-ghost btn-huge" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M20 4.3A18 18 0 0 0 15.7 3l-.2.4a14 14 0 0 0-7 0L8.3 3A18 18 0 0 0 4 4.3C1.4 8.1.7 11.8 1 15.5a18 18 0 0 0 5.5 2.8l.4-.6a11 11 0 0 1-1.7-.8c.1-.1.3-.2.4-.3a12.5 12.5 0 0 0 10.8 0l.4.3a11 11 0 0 1-1.7.8l.4.6A18 18 0 0 0 23 15.5c.3-4.2-.5-7.8-3-11.2zM9 13.5c-.9 0-1.6-.9-1.6-1.9S8.1 9.7 9 9.7s1.6.9 1.6 1.9-.7 1.9-1.6 1.9zm6 0c-.9 0-1.6-.9-1.6-1.9s.7-1.9 1.6-1.9 1.6.9 1.6 1.9-.7 1.9-1.6 1.9z"/></svg>
+          <span>Join Discord</span>
+        </a>
+      </div>
+      <p class="closing-foot">AGPL-3.0 · Windows · Built by the community, for the community.</p>
+    </div>
+  </section>
 
-            <div class="showcase-frame reveal reveal-d3">
-                <div class="comparison" id="comparison">
-                    <img src="assets/demo_2x.avif" alt="Enhanced">
+  </main>
 
-                    <div class="comp-overlay" id="comp-overlay">
-                        <img src="assets/demo.avif" alt="Original">
-                    </div>
-
-                    <div class="comp-handle" id="comp-handle">
-                        <div class="comp-knob">
-                            <i data-lucide="chevrons-left-right" class="w-4 h-4"></i>
-                        </div>
-                    </div>
-
-                    <span class="comp-label comp-label-before">Original</span>
-                    <span class="comp-label comp-label-after">Enhanced</span>
-
-                    <div class="comp-zoom-bar">
-                        <span class="comp-zoom-level" id="zoom-level">1x</span>
-                        <button class="comp-zoom-btn" id="zoom-in" title="Zoom in">
-                            <i data-lucide="zoom-in" class="w-4 h-4"></i>
-                        </button>
-                        <button class="comp-zoom-btn" id="zoom-out" title="Zoom out">
-                            <i data-lucide="zoom-out" class="w-4 h-4"></i>
-                        </button>
-                        <button class="comp-zoom-btn" id="zoom-reset" title="Reset zoom">
-                            <i data-lucide="minimize-2" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="foot-brand">
+        <svg class="brand-mark" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M20 2 L36 12 L36 28 L20 38 L4 28 L4 12 Z" fill="none" stroke="#ff2b3a" stroke-width="2"/>
+          <path d="M13 14 L20 26 L27 14" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <strong>The Anime Scripter</strong>
+          <p>Open-source AI video enhancement toolkit. Built by the community, for the community.</p>
         </div>
-    </section>
-
-    <div class="glow-divider"></div>
-
-    <!-- FEATURES -->
-    <section id="features" class="section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label reveal">Capabilities</span>
-                <h2 class="section-title reveal reveal-d1">Built for professionals</h2>
-                <p class="section-desc reveal reveal-d2">A complete suite of AI-powered video processing tools.</p>
-            </div>
-
-            <div class="bento reveal reveal-d3">
-                <!-- Row 1: wide + regular -->
-                <div class="bento-card bento-wide">
-                    <div class="bento-icon"><i data-lucide="maximize-2" class="w-5 h-5"></i></div>
-                    <h3>Upscaling</h3>
-                    <p>Professional 4K upscaling with artifact-free detail preservation across 14+ model architectures.</p>
-                    <div class="bento-tags">
-                        <span class="bento-tag">Real-ESRGAN</span>
-                        <span class="bento-tag">AnimeSR</span>
-                        <span class="bento-tag">SwinIR</span>
-                        <span class="bento-tag">Compact</span>
-                        <span class="bento-tag">SPAN</span>
-                    </div>
-                </div>
-
-                <div class="bento-card">
-                    <div class="bento-icon"><i data-lucide="film" class="w-5 h-5"></i></div>
-                    <h3>Interpolation</h3>
-                    <p>Convert any framerate to silky-smooth motion with RIFE 4.x and GMFSS Union.</p>
-                </div>
-
-                <!-- Row 2 -->
-                <div class="bento-card">
-                    <div class="bento-icon"><i data-lucide="wind" class="w-5 h-5"></i></div>
-                    <h3>Motion Blur</h3>
-                    <p>Realistic camera blur via AI interpolation and weighted frame blending.</p>
-                </div>
-
-                <div class="bento-card">
-                    <div class="bento-icon"><i data-lucide="sparkles" class="w-5 h-5"></i></div>
-                    <h3>Restoration</h3>
-                    <p>Denoise, dejpeg, sharpen, and enhance line art on degraded footage.</p>
-                </div>
-
-                <div class="bento-card">
-                    <div class="bento-icon"><i data-lucide="layers" class="w-5 h-5"></i></div>
-                    <h3>Depth Estimation</h3>
-                    <p>Depth Anything V2 for 3D-ready monocular depth maps from any source.</p>
-                </div>
-
-                <!-- Row 3 -->
-                <div class="bento-card">
-                    <div class="bento-icon"><i data-lucide="scan" class="w-5 h-5"></i></div>
-                    <h3>Detection</h3>
-                    <p>YOLO-powered scene analysis, segmentation, and targeted masking.</p>
-                </div>
-
-                <div class="bento-card bento-wide">
-                    <div class="bento-icon"><i data-lucide="cpu" class="w-5 h-5"></i></div>
-                    <h3>Multi-Backend Acceleration</h3>
-                    <p>Runs on any hardware. Automatic backend selection with manual override.</p>
-                    <div class="bento-tags">
-                        <span class="bento-tag">CUDA</span>
-                        <span class="bento-tag">TensorRT</span>
-                        <span class="bento-tag">DirectML</span>
-                        <span class="bento-tag">OpenVINO</span>
-                        <span class="bento-tag">NCNN</span>
-                    </div>
-                </div>
-
-                <!-- Row 4 -->
-                <div class="bento-card">
-                    <div class="bento-icon"><i data-lucide="workflow" class="w-5 h-5"></i></div>
-                    <h3>After Effects</h3>
-                    <p>Native CEP plugin. Use TAS directly inside your Adobe workflow.</p>
-                </div>
-
-                <div class="bento-card bento-wide">
-                    <div class="bento-icon"><i data-lucide="terminal" class="w-5 h-5"></i></div>
-                    <h3>CLI with 60+ Parameters</h3>
-                    <p>Full command-line control over every processing option. Chain models, batch process, automate.</p>
-                </div>
-            </div>
+      </div>
+      <div class="foot-cols">
+        <div>
+          <h4>Project</h4>
+          <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/NevermindNilas/TheAnimeScripter/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/NevermindNilas/TheAnimeScripter/blob/main/PARAMETERS.MD" target="_blank" rel="noopener">Parameters</a>
+          <a href="https://github.com/NevermindNilas/TheAnimeScripter/blob/main/CHANGELOG.MD" target="_blank" rel="noopener">Changelog</a>
         </div>
-    </section>
-
-    <div class="glow-divider"></div>
-
-    <!-- INSTALL -->
-    <section id="install" class="section">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-label reveal">Get Started</span>
-                <h2 class="section-title reveal reveal-d1">Up and running in minutes</h2>
-                <p class="section-desc reveal reveal-d2">Python 3.13+ and a CUDA-compatible GPU recommended.</p>
-            </div>
-
-            <div class="install-layout">
-                <div class="steps reveal reveal-d2">
-                    <div class="step">
-                        <div class="step-n">01</div>
-                        <div>
-                            <h4>Clone the repo</h4>
-                            <p>Grab the latest source from GitHub</p>
-                        </div>
-                    </div>
-                    <div class="step">
-                        <div class="step-n">02</div>
-                        <div>
-                            <h4>Install dependencies</h4>
-                            <p>pip handles everything automatically</p>
-                        </div>
-                    </div>
-                    <div class="step">
-                        <div class="step-n">03</div>
-                        <div>
-                            <h4>Run it</h4>
-                            <p>Launch via CLI or start the application</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="terminal reveal reveal-d3">
-                    <div class="term-bar">
-                        <div class="term-dots">
-                            <span class="term-dot term-dot-r"></span>
-                            <span class="term-dot term-dot-y"></span>
-                            <span class="term-dot term-dot-g"></span>
-                        </div>
-                        <span class="term-title">terminal</span>
-                        <span style="width: 48px;"></span>
-                    </div>
-                    <div class="term-body">
-                        <div class="term-line">
-                            <span class="term-prompt">$</span>
-                            <span class="term-cmd" id="c1">git clone https://github.com/NevermindNilas/TheAnimeScripter.git</span>
-                            <button class="term-copy" onclick="copyCmd('c1')"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
-                        </div>
-                        <div class="term-line">
-                            <span class="term-prompt">$</span>
-                            <span class="term-cmd" id="c2">cd TheAnimeScripter</span>
-                            <button class="term-copy" onclick="copyCmd('c2')"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
-                        </div>
-                        <div class="term-line">
-                            <span class="term-prompt">$</span>
-                            <span class="term-cmd" id="c3">pip install -r requirements.txt</span>
-                            <button class="term-copy" onclick="copyCmd('c3')"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
-                        </div>
-                        <div class="term-line">
-                            <span class="term-prompt">$</span>
-                            <span class="term-cmd" id="c4">python main.py --help</span>
-                            <button class="term-copy" onclick="copyCmd('c4')"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
-                        </div>
-                        <div class="term-line">
-                            <span class="term-prompt">$</span>
-                            <span class="term-cursor"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div>
+          <h4>Community</h4>
+          <a href="https://discord.gg/hwGHXga8ck" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/NevermindNilas/TheAnimeScripter/issues" target="_blank" rel="noopener">Issues</a>
+          <a href="https://github.com/NevermindNilas/TheAnimeScripter/pulls" target="_blank" rel="noopener">Pull Requests</a>
+          <a href="https://github.com/NevermindNilas/TheAnimeScripter/blob/main/LICENSE" target="_blank" rel="noopener">AGPL-3.0 License</a>
         </div>
-    </section>
-
-    <div class="glow-divider"></div>
-
-    <!-- CTA -->
-    <section class="section">
-        <div class="container">
-            <div class="cta-box reveal">
-                <div class="cta-glow"></div>
-                <div class="cta-glow-soft"></div>
-                <h2 class="section-title">Open source. Free forever.</h2>
-                <p>Star the repo, report issues, or contribute. Built by the community, for the community.</p>
-                <div class="cta-btns">
-                    <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank" class="btn btn-primary">
-                        <i data-lucide="star" class="w-4 h-4"></i>
-                        Star on GitHub
-                    </a>
-                    <a href="https://github.com/NevermindNilas/TheAnimeScripter/wiki" target="_blank" class="btn btn-secondary">
-                        <i data-lucide="book-open" class="w-4 h-4"></i>
-                        Documentation
-                    </a>
-                </div>
-            </div>
+        <div>
+          <h4>Stack</h4>
+          <span>PyTorch</span>
+          <span>TensorRT</span>
+          <span>ONNX Runtime</span>
+          <span>FFmpeg</span>
         </div>
-    </section>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 NevermindNilas / TAS contributors</span>
+      <span>AGPL-3.0 · Ship it.</span>
+    </div>
+  </footer>
 
-    <!-- FOOTER -->
-    <footer>
-        <div class="container">
-            <div class="footer-inner">
-                <div class="footer-brand">
-                    <img src="assets/logo.png" alt="TAS">
-                    <span>TheAnimeScripter</span>
-                </div>
-                <div class="footer-links">
-                    <a href="https://github.com/NevermindNilas/TheAnimeScripter/wiki" target="_blank">Docs</a>
-                    <a href="https://github.com/NevermindNilas/TheAnimeScripter/blob/main/LICENSE" target="_blank">License</a>
-                    <a href="https://github.com/NevermindNilas/TheAnimeScripter" target="_blank">GitHub</a>
-                </div>
-                <span class="footer-copy">&copy; 2026 TAS Project</span>
-            </div>
-        </div>
-    </footer>
-
-    <script>
-        // ── Init ──
-        lucide.createIcons();
-
-        // ── Scroll Reveal ──
-        const revealObs = new IntersectionObserver((entries) => {
-            entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-        }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
-        document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
-
-        // ── Nav Scroll ──
-        const nav = document.getElementById('nav');
-        let ticking = false;
-        window.addEventListener('scroll', () => {
-            if (!ticking) {
-                requestAnimationFrame(() => {
-                    nav.classList.toggle('scrolled', window.scrollY > 50);
-                    ticking = false;
-                });
-                ticking = true;
-            }
-        }, { passive: true });
-
-        // ── Mobile Menu ──
-        function toggleMobile() {
-            document.getElementById('mobile-menu').classList.toggle('open');
-        }
-
-        // ── Comparison Slider ──
-        const comp = document.getElementById('comparison');
-        const overlay = document.getElementById('comp-overlay');
-        const handle = document.getElementById('comp-handle');
-        let dragging = false;
-
-        function setSlider(clientX) {
-            const rect = comp.getBoundingClientRect();
-            let pct = ((clientX - rect.left) / rect.width) * 100;
-            pct = Math.max(2, Math.min(98, pct));
-            overlay.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
-            handle.style.left = pct + '%';
-        }
-
-        comp.addEventListener('mousedown', e => { dragging = true; setSlider(e.clientX); e.preventDefault(); });
-        comp.addEventListener('touchstart', e => { dragging = true; setSlider(e.touches[0].clientX); }, { passive: true });
-        window.addEventListener('mouseup', () => dragging = false);
-        window.addEventListener('touchend', () => dragging = false);
-        window.addEventListener('mousemove', e => { if (dragging) { setSlider(e.clientX); e.preventDefault(); } });
-        window.addEventListener('touchmove', e => { if (dragging) setSlider(e.touches[0].clientX); }, { passive: true });
-
-        // Auto-animate slider on first view
-        const sliderObs = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    sliderObs.unobserve(entry.target);
-                    setTimeout(() => animateSlider(), 600);
-                }
-            });
-        }, { threshold: 0.4 });
-        sliderObs.observe(comp);
-
-        function animateSlider() {
-            const start = 50, target1 = 25, target2 = 75, target3 = 50;
-            const duration = 2000;
-            const startTime = performance.now();
-
-            function tick(now) {
-                const t = Math.min((now - startTime) / duration, 1);
-                let pct;
-                if (t < 0.33) {
-                    const p = t / 0.33;
-                    pct = start + (target1 - start) * easeInOut(p);
-                } else if (t < 0.66) {
-                    const p = (t - 0.33) / 0.33;
-                    pct = target1 + (target2 - target1) * easeInOut(p);
-                } else {
-                    const p = (t - 0.66) / 0.34;
-                    pct = target2 + (target3 - target2) * easeInOut(p);
-                }
-                overlay.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
-                handle.style.left = pct + '%';
-                if (t < 1) requestAnimationFrame(tick);
-            }
-            requestAnimationFrame(tick);
-        }
-
-        function easeInOut(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
-
-        // ── Zoom ──
-        const zoomLevels = [1, 2, 3, 4];
-        let zoomIdx = 0;
-        let panX = 0, panY = 0;
-        let panning = false, panStartX = 0, panStartY = 0, panOriginX = 0, panOriginY = 0;
-        const zoomLevelEl = document.getElementById('zoom-level');
-        const allImgs = comp.querySelectorAll('img');
-
-        function applyZoom() {
-            const scale = zoomLevels[zoomIdx];
-            zoomLevelEl.textContent = scale + 'x';
-            comp.classList.toggle('zoomed', scale > 1);
-
-            // Clamp pan so image doesn't go out of bounds
-            const maxPan = ((scale - 1) / scale) * 50;
-            panX = Math.max(-maxPan, Math.min(maxPan, panX));
-            panY = Math.max(-maxPan, Math.min(maxPan, panY));
-
-            allImgs.forEach(img => {
-                img.style.transform = scale > 1
-                    ? `scale(${scale}) translate(${panX}%, ${panY}%)`
-                    : '';
-            });
-
-            document.getElementById('zoom-in').classList.toggle('active', zoomIdx > 0);
-        }
-
-        document.getElementById('zoom-in').addEventListener('click', e => {
-            e.stopPropagation();
-            if (zoomIdx < zoomLevels.length - 1) { zoomIdx++; applyZoom(); }
-        });
-
-        document.getElementById('zoom-out').addEventListener('click', e => {
-            e.stopPropagation();
-            if (zoomIdx > 0) { zoomIdx--; applyZoom(); }
-        });
-
-        document.getElementById('zoom-reset').addEventListener('click', e => {
-            e.stopPropagation();
-            zoomIdx = 0; panX = 0; panY = 0; applyZoom();
-        });
-
-        // Pan when zoomed (right-click drag or shift+drag to avoid conflict with slider)
-        comp.addEventListener('mousedown', e => {
-            if (zoomLevels[zoomIdx] > 1 && e.shiftKey) {
-                panning = true;
-                dragging = false;
-                panStartX = e.clientX;
-                panStartY = e.clientY;
-                panOriginX = panX;
-                panOriginY = panY;
-                e.preventDefault();
-            }
-        });
-
-        window.addEventListener('mousemove', e => {
-            if (!panning) return;
-            const rect = comp.getBoundingClientRect();
-            const scale = zoomLevels[zoomIdx];
-            const dx = (e.clientX - panStartX) / rect.width * 100 / scale;
-            const dy = (e.clientY - panStartY) / rect.height * 100 / scale;
-            panX = panOriginX + dx;
-            panY = panOriginY + dy;
-            applyZoom();
-        });
-
-        window.addEventListener('mouseup', () => { panning = false; });
-
-        // ── Bento Card Spotlight ──
-        document.querySelectorAll('.bento-card').forEach(card => {
-            card.addEventListener('mousemove', e => {
-                const rect = card.getBoundingClientRect();
-                card.style.setProperty('--mx', `${e.clientX - rect.left}px`);
-                card.style.setProperty('--my', `${e.clientY - rect.top}px`);
-            });
-        });
-
-        // ── Copy to Clipboard ──
-        function copyCmd(id) {
-            const text = document.getElementById(id).textContent;
-            navigator.clipboard.writeText(text).then(() => {
-                const btn = document.getElementById(id).parentElement.querySelector('.term-copy');
-                btn.style.color = '#fff';
-                setTimeout(() => btn.style.color = '', 1500);
-            });
-        }
-    </script>
+  <script src="script.js"></script>
 </body>
 </html>

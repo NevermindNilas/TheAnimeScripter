@@ -9,12 +9,12 @@ import subprocess
 class CudaChecker:
     def __init__(self):
         """
-        A dumb class to check if CUDA is available and to get the device name.
-        Just to avoid writing the same code over and over again.
+        Checks available torch accelerators (CUDA, then MPS on Apple Silicon)
+        and exposes a unified .device property. Falls back to CPU otherwise.
 
-        Note: This class checks if CUDA is available in PyTorch, but does not
-        validate if the GPU architecture is compatible with modern CUDA kernels.
-        Use detectGPUArchitecture() to check for Pascal or older GPUs.
+        Note: This class checks accelerator availability in PyTorch, but does
+        not validate CUDA GPU architecture compatibility. Use
+        detectGPUArchitecture() to check for Pascal or older GPUs.
         """
         # Lazify the import
         import torch
@@ -29,12 +29,30 @@ class CudaChecker:
             self._cuda_available = False
             self.logging.warning(f"CUDA is not available: {e}")
 
+        self._mps_available = False
+        if not self._cuda_available:
+            try:
+                mpsBackend = getattr(self.torch.backends, "mps", None)
+                if mpsBackend is not None and mpsBackend.is_available():
+                    self._mps_available = bool(mpsBackend.is_built())
+            except Exception as e:
+                self._mps_available = False
+                self.logging.warning(f"MPS is not available: {e}")
+
         if self._cuda_available:
             self.enableCudaOptimizations()
 
     @property
     def cudaAvailable(self):
         return self._cuda_available
+
+    @property
+    def mpsAvailable(self):
+        return self._mps_available
+
+    @property
+    def acceleratorAvailable(self):
+        return self._cuda_available or self._mps_available
 
     def enableCudaOptimizations(self):
         self.torch.backends.cudnn.benchmark = False
@@ -46,33 +64,48 @@ class CudaChecker:
 
     @property
     def device(self):
-        return self.torch.device("cuda" if self.cudaAvailable else "cpu")
+        if self._cuda_available:
+            return self.torch.device("cuda")
+        if self._mps_available:
+            return self.torch.device("mps")
+        return self.torch.device("cpu")
 
     @property
     def deviceName(self):
-        if not self.cudaAvailable:
-            return "cpu"
-        try:
-            return self.torch.cuda.get_device_name(0)
-        except (RuntimeError, AssertionError) as e:
-            self.logging.warning(f"Could not get CUDA device name: {e}")
-            return "cuda_device_unknown"
+        if self._cuda_available:
+            try:
+                return self.torch.cuda.get_device_name(0)
+            except (RuntimeError, AssertionError) as e:
+                self.logging.warning(f"Could not get CUDA device name: {e}")
+                return "cuda_device_unknown"
+        if self._mps_available:
+            return "Apple Silicon (MPS)"
+        return "cpu"
 
     @property
     def deviceCount(self):
-        """Get the number of available CUDA devices."""
-        return self.torch.cuda.device_count() if self.cudaAvailable else 0
+        """Get the number of available accelerator devices."""
+        if self._cuda_available:
+            return self.torch.cuda.device_count()
+        if self._mps_available:
+            return 1
+        return 0
 
     @property
     def allDeviceNames(self):
-        """Get the names of all available CUDA devices."""
-        if not self.cudaAvailable:
-            return ["cpu"]
-        try:
-            return [self.torch.cuda.get_device_name(i) for i in range(self.deviceCount)]
-        except (RuntimeError, AssertionError) as e:
-            self.logging.warning(f"Could not get all CUDA device names: {e}")
-            return ["cuda_device_unknown"]
+        """Get the names of all available accelerator devices."""
+        if self._cuda_available:
+            try:
+                return [
+                    self.torch.cuda.get_device_name(i)
+                    for i in range(self.deviceCount)
+                ]
+            except (RuntimeError, AssertionError) as e:
+                self.logging.warning(f"Could not get all CUDA device names: {e}")
+                return ["cuda_device_unknown"]
+        if self._mps_available:
+            return ["Apple Silicon (MPS)"]
+        return ["cpu"]
 
 
 def getNvsmipaths():
