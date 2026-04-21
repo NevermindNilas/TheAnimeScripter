@@ -36,12 +36,17 @@ DEPENDENCY_PROFILE_REQUIREMENTS = {
     "windows-lite": "extra-requirements-windows-lite.txt",
     "linux-cuda": "extra-requirements-linux.txt",
     "linux-lite": "extra-requirements-linux-lite.txt",
+    "macos-mps": "extra-requirements-macos.txt",
 }
 
 
 def getDependencyProfile(systemName: str, supportsCuda: bool) -> str:
-    normalizedSystem = "windows" if systemName.lower() == "windows" else "linux"
-    return f"{normalizedSystem}-cuda" if supportsCuda else f"{normalizedSystem}-lite"
+    normalized = systemName.lower()
+    if normalized == "windows":
+        return "windows-cuda" if supportsCuda else "windows-lite"
+    if normalized == "darwin":
+        return "macos-mps"
+    return "linux-cuda" if supportsCuda else "linux-lite"
 
 
 def getRequirementsFileForProfile(profile: str) -> str:

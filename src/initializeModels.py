@@ -701,6 +701,35 @@ def initializeModels(self):
                     self.customModel,
                 )
 
+            case (
+                "shufflecugan-mps"
+                | "adore-mps"
+                | "compact-mps"
+                | "ultracompact-mps"
+                | "superultracompact-mps"
+                | "span-mps"
+                | "open-proteus-mps"
+                | "aniscale2-mps"
+                | "shufflespan-mps"
+                | "rtmosr-mps"
+                | "saryn-mps"
+                | "fallin_soft-mps"
+                | "fallin_strong-mps"
+                | "gauss-mps"
+                | "figsr-mps"
+            ):
+                from src.unifiedUpscale import UniversalPytorchMPS
+
+                upscaleProcess = UniversalPytorchMPS(
+                    self.upscaleMethod,
+                    self.upscaleFactor,
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.customModel,
+                    self.compileMode,
+                )
+
             case "animesr-openvino" | "animesr-directml":
                 from src.unifiedUpscale import AnimeSRDirectML
 
@@ -798,6 +827,36 @@ def initializeModels(self):
                 from src.unifiedInterpolate import RifeCuda
 
                 interpolateProcess = RifeCuda(
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.interpolateMethod,
+                    self.ensemble,
+                    self.interpolateFactor,
+                    self.dynamicScale,
+                    self.staticStep,
+                    compileMode=self.compileMode,
+                )
+
+            case (
+                "rife-mps"
+                | "rife4.6-mps"
+                | "rife4.15-lite-mps"
+                | "rife4.16-lite-mps"
+                | "rife4.17-mps"
+                | "rife4.18-mps"
+                | "rife4.20-mps"
+                | "rife4.21-mps"
+                | "rife4.22-mps"
+                | "rife4.22-lite-mps"
+                | "rife4.25-mps"
+                | "rife4.25-lite-mps"
+                | "rife_elexor-mps"
+                | "rife4.25-heavy-mps"
+            ):
+                from src.unifiedInterpolate import RifeMPS
+
+                interpolateProcess = RifeMPS(
                     self.half,
                     self.width,
                     self.height,
@@ -981,6 +1040,27 @@ def initializeModels(self):
 
                     restoreProcesses.append(
                         UnifiedRestoreCuda(
+                            method,
+                            self.half,
+                        )
+                    )
+
+                case (
+                    "scunet-mps"
+                    | "dpir-mps"
+                    | "nafnet-mps"
+                    | "real-plksr-mps"
+                    | "anime1080fixer-mps"
+                    | "gater3-mps"
+                    | "deh264_real-mps"
+                    | "deh264_span-mps"
+                    | "hurrdeblur-mps"
+                    | "dehalo-mps"
+                ):
+                    from src.unifiedRestore import UnifiedRestoreMPS
+
+                    restoreProcesses.append(
+                        UnifiedRestoreMPS(
                             method,
                             self.half,
                         )

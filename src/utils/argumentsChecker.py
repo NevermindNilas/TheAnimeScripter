@@ -405,6 +405,9 @@ def str2bool(arg):
 def _promptDownloadRequirementsSelection() -> str:
     from inquirer import List, prompt
 
+    if cs.SYSTEM == "Darwin":
+        return "macos-mps"
+
     currentPlatform = "windows" if cs.SYSTEM == "Windows" else "linux"
     choices = [
         (
@@ -729,6 +732,20 @@ def _addInterpolationOptions(argParser):
         "rife4.25-openvino",
         "rife4.25-lite-openvino",
         "rife4.25-heavy-openvino",
+        "rife-mps",
+        "rife4.6-mps",
+        "rife4.15-lite-mps",
+        "rife4.16-lite-mps",
+        "rife4.17-mps",
+        "rife4.18-mps",
+        "rife4.20-mps",
+        "rife4.21-mps",
+        "rife4.22-mps",
+        "rife4.22-lite-mps",
+        "rife4.25-mps",
+        "rife4.25-lite-mps",
+        "rife4.25-heavy-mps",
+        "rife_elexor-mps",
     ]
 
     interpolationGroup.add_argument(
@@ -846,6 +863,21 @@ def _addUpscalingOptions(argParser):
         "gauss-directml",
         "gauss-openvino",
         "figsr",
+        "shufflecugan-mps",
+        "adore-mps",
+        "compact-mps",
+        "ultracompact-mps",
+        "superultracompact-mps",
+        "span-mps",
+        "open-proteus-mps",
+        "aniscale2-mps",
+        "shufflespan-mps",
+        "rtmosr-mps",
+        "saryn-mps",
+        "fallin_soft-mps",
+        "fallin_strong-mps",
+        "gauss-mps",
+        "figsr-mps",
     ]
 
     upscaleGroup.add_argument(
@@ -941,6 +973,16 @@ def _addVideoProcessingOptions(argParser):
         "dehalo-tensorrt",
         "dehalo-directml",
         "dehalo-openvino",
+        "scunet-mps",
+        "nafnet-mps",
+        "dpir-mps",
+        "real-plksr-mps",
+        "anime1080fixer-mps",
+        "gater3-mps",
+        "deh264_real-mps",
+        "deh264_span-mps",
+        "hurrdeblur-mps",
+        "dehalo-mps",
         "linethinner-lite",
         "linethinner-medium",
         "linethinner-heavy",
@@ -1768,8 +1810,14 @@ def _validateCustomUpscaleModel(args):
 
 
 def _adjustMethodsBasedOnCuda(args):
+    isDarwin = cs.SYSTEM == "Darwin"
+
     def adjustMethod(method, modelsList):
         base = method.lower().split("-")[0]
+        if isDarwin:
+            mpsMethod = f"{base}-mps"
+            if mpsMethod in modelsList:
+                return mpsMethod
         directML = f"{base}-directml"
         if directML in modelsList:
             return directML
@@ -1837,7 +1885,7 @@ def _adjustMethodsBasedOnCuda(args):
                 for method in currentMethod:
                     if any(
                         backend in method.lower()
-                        for backend in ["-directml", "-ncnn", "-tensorrt"]
+                        for backend in ["-directml", "-ncnn", "-tensorrt", "-mps"]
                     ):
                         logging.info(
                             f"{attr} method {method} already using non-default backend"
