@@ -6,21 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
-- N/A
+- New encoding options, x264_nelux, x265_nelux and av1_nelux, which utilize the Nelux encoder for improved performance and quality.
 
 ### Changed
 - Up to `300ms` start up times improvements by optimizing imports and lazy loading certain modules.
+- Up to `1.8x` performance improvements to `--resize`.
 
 ### Fixed
 - N/A
 
 ## TAS Adobe Edition
 ### Added
-- N/A
+- Read button to the graph editor to read the current graph from the backend and display it in the UI.
+- Import / Export buttons to the graph editor to export and share your presets.
+- Added a flip x/y axis toggle.
 
 ### Changed
-- N/A
-  
+- The keyframe graph editor is now bound by the X axis of the canvas.
+- Updated dependencies.
+
 ### Fixed
 - N/A
 
