@@ -133,6 +133,9 @@ class VideoProcessor:
         self.moblur: bool = args.moblur
         self.moblurFactor: int = args.moblur_factor
         self.moblurStrength: str = args.moblur_strength
+        self.moblurShutterAngle: float = args.moblur_shutter_angle
+        self.moblurLinearBlend: bool = not args.moblur_no_linear_blend
+        self.moblurMask: str = args.moblur_mask
 
         self.demo: bool = getattr(args, "demo", False)
 
