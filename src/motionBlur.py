@@ -1,8 +1,10 @@
 import logging
 import math
+import os
 from time import time
 from concurrent.futures import ThreadPoolExecutor
 
+import cv2
 import torch
 
 from src.constants import ADOBE
@@ -13,31 +15,33 @@ if ADOBE:
     from src.utils.aeComms import progressState
 
 
-def generateWeights(numFrames, scheme="equal"):
-    if numFrames <= 0:
+def generateWeights(numSamples, scheme="gaussian_sym"):
+    if numSamples <= 0:
         return []
+    if numSamples == 1:
+        return [1.0]
 
     if scheme == "equal":
-        weights = [1.0] * numFrames
+        weights = [1.0] * numSamples
     elif scheme == "gaussian_sym":
-        radius = numFrames // 2
-        sigma = max(numFrames / 6.0, 0.5)
+        center = (numSamples - 1) / 2.0
+        sigma = max(numSamples / 4.0, 0.5)
         weights = [
-            math.exp(-((i - radius) ** 2) / (2 * sigma * sigma))
-            for i in range(numFrames)
+            math.exp(-((i - center) ** 2) / (2.0 * sigma * sigma))
+            for i in range(numSamples)
         ]
     elif scheme == "pyramid":
-        half = numFrames // 2
+        center = (numSamples - 1) / 2.0
         weights = [
-            float(i + 1) if i <= half else float(numFrames - i)
-            for i in range(numFrames)
+            max(0.0, 1.0 - abs(i - center) / (center + 1.0))
+            for i in range(numSamples)
         ]
     elif scheme == "ascending":
-        weights = [float(i + 1) for i in range(numFrames)]
+        weights = [float(i + 1) for i in range(numSamples)]
     elif scheme == "descending":
-        weights = [float(numFrames - i) for i in range(numFrames)]
+        weights = [float(numSamples - i) for i in range(numSamples)]
     else:
-        weights = [1.0] * numFrames
+        weights = [1.0] * numSamples
 
     total = sum(weights)
     return [w / total for w in weights]
@@ -56,24 +60,43 @@ class FrameCollector:
         self.frames.clear()
 
 
-class FrameBlender:
-    def __init__(self, numFrames, scheme, dtype, device):
-        self.numFrames = numFrames
-        self.scheme = scheme
-        self.isEqual = scheme == "equal"
-        if not self.isEqual:
-            weights = generateWeights(numFrames, scheme)
-            self.weightTensor = (
-                torch.tensor(weights, dtype=dtype, device=device)
-                .view(numFrames, 1, 1, 1)
-            )
+class GammaCorrectBlender:
+    """Weighted frame blend in linear-light space.
+
+    Converts sRGB-encoded [0,1] input to linear via gamma 2.2, sums, then
+    re-encodes. Gamma 2.2 is a close approximation to the sRGB piecewise EOTF
+    and runs ~2x faster than the exact form. Blending in the encoded space
+    (what the old pipeline did) crushes highlights and lifts shadows during
+    averaging, producing the muddy, plastic look.
+    """
+
+    GAMMA = 2.2
+    INV_GAMMA = 1.0 / 2.2
+
+    def __init__(self, weights, dtype, device, gamma=True):
+        self.weightTensor = (
+            torch.tensor(weights, dtype=dtype, device=device)
+            .view(-1, 1, 1, 1)
+        )
+        self.gamma = gamma
+        self.isEqual = len(weights) > 0 and all(
+            abs(w - weights[0]) < 1e-9 for w in weights
+        )
 
     @torch.inference_mode()
     def __call__(self, frames):
         stacked = torch.cat(frames, dim=0)
+        if self.gamma:
+            stacked = stacked.clamp_(0.0, 1.0).pow_(self.GAMMA)
+
         if self.isEqual:
-            return stacked.mean(dim=0, keepdim=True).clamp_(0.0, 1.0)
-        return (stacked * self.weightTensor).sum(dim=0, keepdim=True).clamp_(0.0, 1.0)
+            blended = stacked.mean(dim=0, keepdim=True)
+        else:
+            blended = (stacked * self.weightTensor).sum(dim=0, keepdim=True)
+
+        if self.gamma:
+            blended = blended.clamp_(0.0, 1.0).pow_(self.INV_GAMMA)
+        return blended.clamp_(0.0, 1.0)
 
 
 class MotionBlurPipeline:
@@ -93,8 +116,11 @@ class MotionBlurPipeline:
         totalFrames=0,
         bitDepth="8bit",
         interpolate_method="rife4.25",
-        interpolate_factor=4,
-        moblur_strength="equal",
+        interpolate_factor=8,
+        moblur_strength="gaussian_sym",
+        moblur_shutter_angle=180.0,
+        moblur_gamma=True,
+        moblur_mask="",
         ensemble=False,
         dynamic_scale=False,
         static_step=False,
@@ -115,8 +141,12 @@ class MotionBlurPipeline:
         self.totalFrames = totalFrames
         self.bitDepth = bitDepth
         self.interpolateMethod = interpolate_method
-        self.interpolateFactor = interpolate_factor
+        self.interpolateFactor = max(2, int(interpolate_factor))
         self.moblurStrength = moblur_strength
+        self.shutterAngle = max(0.0, min(360.0, float(moblur_shutter_angle)))
+        self.moblurGamma = bool(moblur_gamma)
+        self.moblurMaskPath = moblur_mask or ""
+        self.mask = None
         self.ensemble = ensemble
         self.dynamicScale = dynamic_scale
         self.staticStep = static_step
@@ -128,7 +158,8 @@ class MotionBlurPipeline:
 
         logging.info(
             f"Motion blur: factor={self.interpolateFactor}, "
-            f"strength={self.moblurStrength}, method={self.interpolateMethod}"
+            f"shutter={self.shutterAngle}°, weights={self.moblurStrength}, "
+            f"linear_blend={self.moblurGamma}, method={self.interpolateMethod}"
         )
 
         try:
@@ -318,43 +349,188 @@ class MotionBlurPipeline:
         if ADOBE:
             progressState.setCompleted(outputPath=self.output)
 
+    def _loadMask(self, dtype, device):
+        """Load protection mask as blur-weight tensor [1, 1, H, W] in [0, 1].
+
+        Intended input: transparent PNG where the user paints protected regions
+        with opaque dark pixels on a transparent background. Everything else
+        (transparent or bright) blurs normally.
+
+        Derivation of per-pixel protection:
+            RGBA: protection = alpha * (1 - luma)
+            RGB : protection = 1 - luma          (assume fully opaque)
+            Gray: protection = 1 - value         (dark = protected)
+
+        Returned tensor is blur-weight = 1 - protection, so downstream math is:
+            out = blended * weight + currFrame * (1 - weight)
+        """
+        if not self.moblurMaskPath:
+            return None
+
+        if not os.path.isfile(self.moblurMaskPath):
+            logging.warning(
+                f"Motion blur mask not found: {self.moblurMaskPath}. Ignoring."
+            )
+            return None
+
+        maskImg = cv2.imread(self.moblurMaskPath, cv2.IMREAD_UNCHANGED)
+        if maskImg is None:
+            logging.warning(
+                f"Failed to read motion blur mask: {self.moblurMaskPath}. Ignoring."
+            )
+            return None
+
+        if maskImg.shape[:2] != (self.height, self.width):
+            logging.info(
+                f"Resizing motion blur mask from {maskImg.shape[1]}x{maskImg.shape[0]} "
+                f"to {self.width}x{self.height}"
+            )
+            maskImg = cv2.resize(
+                maskImg, (self.width, self.height), interpolation=cv2.INTER_LINEAR
+            )
+
+        norm = 65535.0 if maskImg.dtype == "uint16" else 255.0
+
+        if maskImg.ndim == 3 and maskImg.shape[2] == 4:
+            bgr = maskImg[:, :, :3]
+            alpha = maskImg[:, :, 3]
+            luma = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+            lumaT = torch.from_numpy(luma).to(device=device, dtype=dtype).div_(norm)
+            alphaT = torch.from_numpy(alpha).to(device=device, dtype=dtype).div_(norm)
+            protection = alphaT * (1.0 - lumaT)
+            channels = "RGBA"
+        elif maskImg.ndim == 3:
+            luma = cv2.cvtColor(maskImg, cv2.COLOR_BGR2GRAY)
+            lumaT = torch.from_numpy(luma).to(device=device, dtype=dtype).div_(norm)
+            protection = 1.0 - lumaT
+            channels = "RGB (no alpha, assuming opaque)"
+        else:
+            gray = torch.from_numpy(maskImg).to(device=device, dtype=dtype).div_(norm)
+            protection = 1.0 - gray
+            channels = "grayscale"
+
+        protection = protection.clamp_(0.0, 1.0)
+        weightTensor = (1.0 - protection).view(1, 1, self.height, self.width)
+
+        logging.info(
+            f"Loaded motion blur mask: {self.moblurMaskPath} ({channels})"
+        )
+        return weightTensor
+
+    def _computeWindow(self):
+        """Resolve shutter window → sample counts from prev/next segments.
+
+        Timeline around curr frame at offset 0:
+            prevSeg samples at offset -1 + k/factor for k in [1..factor-1]
+            curr at 0
+            nextSeg samples at offset  k/factor for k in [1..factor-1]
+
+        Shutter window [-halfWindow, +halfWindow] with halfWindow = angle/720.
+        """
+        factor = self.interpolateFactor
+        framesToInsert = factor - 1
+        halfWindow = self.shutterAngle / 720.0
+
+        # prev segment: keep samples with k ≥ ceil(factor*(1-halfWindow))
+        kStart = max(1, math.ceil(factor * (1.0 - halfWindow)))
+        prevSegStart = min(framesToInsert, kStart - 1)
+        leftCount = framesToInsert - prevSegStart
+
+        # next segment: keep samples with k ≤ floor(factor*halfWindow)
+        nextSegCount = min(framesToInsert, math.floor(factor * halfWindow))
+
+        totalSamples = leftCount + 1 + nextSegCount
+        noBlur = leftCount == 0 and nextSegCount == 0
+        return framesToInsert, prevSegStart, leftCount, nextSegCount, totalSamples, noBlur
+
     def _processFrames(self):
-        prevFrame = None
-        framesToInsert = self.interpolateFactor - 1
-        collector = FrameCollector()
+        (
+            framesToInsert,
+            prevSegStart,
+            leftCount,
+            nextSegCount,
+            totalSamples,
+            noBlur,
+        ) = self._computeWindow()
+
         dtype = torch.float16 if self.half else torch.float32
         device = torch.device("cuda" if self.useCuda else "cpu")
-        blender = FrameBlender(
-            self.interpolateFactor, self.moblurStrength, dtype, device
+
+        weights = generateWeights(totalSamples, self.moblurStrength)
+        blender = GammaCorrectBlender(weights, dtype, device, gamma=self.moblurGamma)
+
+        self.mask = self._loadMask(dtype, device)
+
+        logging.info(
+            f"Motion blur window: {totalSamples} samples "
+            f"({leftCount} prev + 1 curr + {nextSegCount} next)"
+            + (" [no-blur pass-through]" if noBlur else "")
+            + (" [masked]" if self.mask is not None else "")
         )
+
+        collector = FrameCollector()
+
+        prevFrame = None
+        currFrame = None
+        prevSeg = None
 
         with ProgressBarLogic(self.totalFrames, title=self.input) as bar:
             for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
+                nextFrame = self.readBuffer.read()
+                if nextFrame is None:
                     break
 
-                collector.clear()
-                self.interpolateProcess(frame, collector, framesToInsert, None)
-
                 if prevFrame is None:
-                    prevFrame = frame
-                    self.writeBuffer.write(frame)
+                    # Prime interp state (firstRun stores I0, returns nothing).
+                    collector.clear()
+                    self.interpolateProcess(nextFrame, collector, framesToInsert, None)
+                    prevFrame = nextFrame
+                    self.writeBuffer.write(nextFrame)
                     bar(1)
                     continue
 
-                collector.frames.insert(0, prevFrame)
-                blended = blender(collector.frames)
+                collector.clear()
+                self.interpolateProcess(nextFrame, collector, framesToInsert, None)
+                newSeg = list(collector.frames)
 
-                if self.useCuda:
-                    torch.cuda.current_stream().synchronize()
+                if currFrame is None:
+                    # Bootstrap: need both neighboring segments before first blur.
+                    prevSeg = newSeg
+                    currFrame = nextFrame
+                    continue
 
-                self.writeBuffer.write(blended)
+                if noBlur:
+                    self.writeBuffer.write(currFrame)
+                else:
+                    window = []
+                    if leftCount > 0 and prevSeg is not None:
+                        window.extend(prevSeg[prevSegStart:])
+                    window.append(currFrame)
+                    if nextSegCount > 0:
+                        window.extend(newSeg[:nextSegCount])
 
-                prevFrame = frame
+                    blended = blender(window)
+
+                    if self.mask is not None:
+                        blended = blended * self.mask + currFrame * (1.0 - self.mask)
+
+                    if self.useCuda:
+                        torch.cuda.current_stream().synchronize()
+
+                    self.writeBuffer.write(blended)
+
                 bar(1)
+
+                prevFrame = currFrame
+                currFrame = nextFrame
+                prevSeg = newSeg
 
                 if self.readBuffer.isReadFinished() and self.readBuffer.isQueueEmpty():
                     break
+
+            # Final frame: no nextSeg available, emit pristine.
+            if currFrame is not None:
+                self.writeBuffer.write(currFrame)
+                bar(1)
 
         self.writeBuffer.close()

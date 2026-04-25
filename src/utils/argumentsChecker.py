@@ -1026,15 +1026,32 @@ def _addMotionBlurOptions(argParser):
     moblurGroup.add_argument(
         "--moblur_factor",
         type=int,
-        default=2,
-        help="Interpolation factor for motion blur frame generation",
+        default=8,
+        help="Interpolation factor for motion blur sample generation (8-16 recommended; higher = smoother trails)",
     )
     moblurGroup.add_argument(
         "--moblur_strength",
         type=str,
-        default="equal",
+        default="gaussian_sym",
         choices=["equal", "gaussian_sym", "pyramid", "ascending", "descending"],
-        help="Weighting scheme for frame blending",
+        help="Frame-weighting scheme. gaussian_sym mimics natural shutter falloff",
+    )
+    moblurGroup.add_argument(
+        "--moblur_shutter_angle",
+        type=float,
+        default=180.0,
+        help="Virtual shutter angle in degrees (0-360). 180 = cinema standard, 360 = max smear, 90 = crisp, 0 = disabled",
+    )
+    moblurGroup.add_argument(
+        "--moblur_no_linear_blend",
+        action="store_true",
+        help="Disable gamma-correct (linear-light) blending. Not recommended — produces muddy highlights and lifted shadows",
+    )
+    moblurGroup.add_argument(
+        "--moblur_mask",
+        type=str,
+        default="",
+        help="Path to a transparent PNG marking regions to protect from motion blur. Paint opaque dark pixels on a transparent background — those areas stay sharp (HUD/text), transparent areas blur normally.",
     )
 
 
@@ -1290,8 +1307,9 @@ def _autoEnableParentFlags(args):
         "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
         "resize_factor": ("resize", 2),
         "output_scale": ("resize", ""),
-        "moblur_factor": ("moblur", 2),
-        "moblur_strength": ("moblur", "equal"),
+        "moblur_factor": ("moblur", 8),
+        "moblur_strength": ("moblur", "gaussian_sym"),
+        "moblur_shutter_angle": ("moblur", 180.0),
     }
 
     cliProvided = set()
