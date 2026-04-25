@@ -7,10 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
 - New encoding options, x264_nelux, x265_nelux and av1_nelux, which utilize the Nelux encoder for improved performance and quality.
+- `--moblur_shutter_angle` (degrees, default `180`): cinema-style shutter window. `360` = full smear, `90` = crisp, `0` = passthrough.
+- `--moblur_no_linear_blend`: opt-out of gamma-correct blending (default on).
+- `--moblur_mask`: transparent PNG to protect regions from motion blur. Paint opaque dark pixels on a transparent background — those areas stay sharp (HUD/text), transparent areas blur.
 
 ### Changed
 - Up to `300ms` start up times improvements by optimizing imports and lazy loading certain modules.
 - Up to `1.8x` performance improvements to `--resize`.
+- Major motion blur quality overhaul: gamma-correct (linear-light) blending plus symmetric shutter window centered on each source frame. Trails no longer lag motion, highlights retain punch, shadows stay clean.
+- `--moblur_factor` default `2` → `8`, `--moblur_strength` default `equal` → `gaussian_sym`.
 
 ### Fixed
 - N/A
