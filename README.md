@@ -48,6 +48,8 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 ### 🎭 Advanced Editing
 - **Background-Foreground Segmentation:** Precise automatic rotobrushing
 - **Depth Map Generation:** 3D-ready depth maps for creative effects
+- **Object Detection:** YOLOv9-based detection with bounding boxes, masks, and class labels
+- **Video Stabilization:** SuperPoint feature-matching stabilizer for shaky footage
 
 </td>
 </tr>
@@ -234,6 +236,20 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | OG Distill Small v2                   |   ✅   |    ✅     |    ✅     |   ✅   |
 | OG Distill Base v2                    |   ✅   |    ✅     |    ✅     |   ✅   |
 | OG Distill Large v2                   |   ✅   |    ✅     |    ✅     |   ✅   |
+
+### 🎯 Object Detection Models (YOLOv9-MIT)
+
+| Model         | CUDA  | TensorRT | DirectML | OpenVINO |
+| ------------- | :---: | :------: | :------: | :------: |
+| YOLOv9 Small  |   ✅   |    ✅     |    ✅     |    ✅     |
+| YOLOv9 Medium |   ✅   |    ✅     |    ✅     |    ✅     |
+| YOLOv9 Large  |   ✅   |    ✅     |    ✅     |    ✅     |
+
+### 🎥 Video Stabilization
+
+| Method                       | CUDA  |
+| ---------------------------- | :---: |
+| SuperPoint feature matching  |   ✅   |
 
 ## 🙏 Project Contributors
 
