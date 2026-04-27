@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.27.0"]
+requires = ["hatchling>=1.29.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -35,7 +35,7 @@ runtime-windows-cuda = [
     "yt-dlp==2026.3.17; platform_system == 'Windows'",
     "onnx==1.21.0; platform_system == 'Windows'",
     "openvino==2026.1.0; platform_system == 'Windows'",
-    "onnxscript==0.6.2; platform_system == 'Windows'",
+    "onnxscript==0.7.0; platform_system == 'Windows'",
     "vmaf-torch==1.1.0; platform_system == 'Windows'",
     "onnxruntime-openvino @ https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/onnxruntime_openvino-1.23.2-cp313-cp313-win_amd64.whl ; platform_system == 'Windows'",
 ]
@@ -49,7 +49,7 @@ runtime-windows-lite = [
     "yt-dlp==2026.3.17; platform_system == 'Windows'",
     "onnx==1.21.0; platform_system == 'Windows'",
     "openvino==2026.1.0; platform_system == 'Windows'",
-    "onnxscript==0.6.2; platform_system == 'Windows'",
+    "onnxscript==0.7.0; platform_system == 'Windows'",
     "vmaf-torch==1.1.0; platform_system == 'Windows'",
     "onnxruntime-openvino @ https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/onnxruntime_openvino-1.23.2-cp313-cp313-win_amd64.whl ; platform_system == 'Windows'",
 ]
@@ -72,7 +72,7 @@ runtime-linux-lite = [
     "opencv-python-headless==4.13.0.92; platform_system == 'Linux'",
     "timm==1.0.26; platform_system == 'Linux'",
     "onnx==1.20.0; platform_system == 'Linux'",
-    "onnxruntime==1.24.4; platform_system == 'Linux'",
+    "onnxruntime==1.25.0; platform_system == 'Linux'",
     "scenedetect[opencv]; platform_system == 'Linux'",
     "yt-dlp==2026.3.17; platform_system == 'Linux'",
     "vmaf-torch; platform_system == 'Linux'",
