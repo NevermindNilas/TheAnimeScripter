@@ -151,6 +151,16 @@ class IFNet(nn.Module):
                     None,
                     scale=self.scale_list[i],
                 )
+                if self.ensemble:
+                    f_, m_ = self.blocks[i](
+                        torch.cat((img1, img0, f1, f0, 1 - timestep), 1),
+                        self.ph,
+                        self.pw,
+                        None,
+                        scale=self.scale_list[i],
+                    )
+                    flow = (flow + torch.cat((f_[:, 2:4], f_[:, :2]), 1)) / 2
+                    mask = (mask + (-m_)) / 2
 
                 if large_flow is not None:
                     magnitude = torch.sqrt(
@@ -165,13 +175,28 @@ class IFNet(nn.Module):
             else:
                 wf0 = warp(f0, flow[:, :2], self.tenFlow, self.backWarp)
                 wf1 = warp(f1, flow[:, 2:4], self.tenFlow, self.backWarp)
-                fd, mask = self.blocks[i](
+                fd, m0 = self.blocks[i](
                     torch.cat((warped_img0, warped_img1, wf0, wf1, timestep, mask), 1),
                     self.ph,
                     self.pw,
                     flow,
                     scale=self.scale_list[i],
                 )
+                if self.ensemble:
+                    fd_, m_ = self.blocks[i](
+                        torch.cat(
+                            (warped_img1, warped_img0, wf1, wf0, 1 - timestep, -mask),
+                            1,
+                        ),
+                        self.ph,
+                        self.pw,
+                        torch.cat((flow[:, 2:4], flow[:, :2]), 1),
+                        scale=self.scale_list[i],
+                    )
+                    fd = (fd + torch.cat((fd_[:, 2:4], fd_[:, :2]), 1)) / 2
+                    mask = (m0 + (-m_)) / 2
+                else:
+                    mask = m0
                 flow = flow + fd
 
             warped_img0 = warp(img0, flow[:, :2], self.tenFlow, self.backWarp)

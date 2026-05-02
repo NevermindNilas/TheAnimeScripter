@@ -322,6 +322,7 @@ class IFNet(nn.Module):
         self.f0 = None
         self.f1 = None
         self.scale_list = [16 / scale, 8 / scale, 4 / scale, 2 / scale, 1 / scale]
+        self.ensemble = ensemble
         self.dynamicScale = dynamicScale
         self.counter = 1
         self.interpolateFactor = interpolateFactor
@@ -372,6 +373,18 @@ class IFNet(nn.Module):
                     None,
                     scale=self.scale_list[i],
                 )
+                if self.ensemble:
+                    f_, m_, feat_ = self.blocks[i](
+                        torch.cat(
+                            (img1[:, :3], img0[:, :3], self.f1, self.f0, 1 - timestep),
+                            1,
+                        ),
+                        None,
+                        scale=self.scale_list[i],
+                    )
+                    flow = (flow + torch.cat((f_[:, 2:4], f_[:, :2]), 1)) / 2
+                    mask = (mask + (-m_)) / 2
+                    feat = (feat + feat_) / 2
 
             else:
                 wf0 = warp(self.f0, flow[:, :2])
@@ -392,8 +405,28 @@ class IFNet(nn.Module):
                     flow,
                     scale=self.scale_list[i],
                 )
-
-                mask = m0
+                if self.ensemble:
+                    fd_, m_, feat_ = self.blocks[i](
+                        torch.cat(
+                            (
+                                warped_img1[:, :3],
+                                warped_img0[:, :3],
+                                wf1,
+                                wf0,
+                                1 - timestep,
+                                -mask,
+                                feat,
+                            ),
+                            1,
+                        ),
+                        torch.cat((flow[:, 2:4], flow[:, :2]), 1),
+                        scale=self.scale_list[i],
+                    )
+                    fd = (fd + torch.cat((fd_[:, 2:4], fd_[:, :2]), 1)) / 2
+                    mask = (m0 + (-m_)) / 2
+                    feat = (feat + feat_) / 2
+                else:
+                    mask = m0
                 flow = flow + fd
             warped_img0 = warp(img0, flow[:, :2])
             warped_img1 = warp(img1, flow[:, 2:4])
