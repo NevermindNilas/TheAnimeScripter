@@ -19,32 +19,45 @@ class GMFSS(nn.Module):
         from .FusionNet_u import GridNet
 
         self.ifnet = IFNet(ensemble)
-        self.ifnet.load_state_dict(
-            torch.load(os.path.join(model_dir, "rife.pkl"), map_location="cpu")
+        ifnetState = torch.load(
+            os.path.join(model_dir, "rife.pkl"), map_location="cpu"
         )
+        self.ifnet.load_state_dict(ifnetState)
+        del ifnetState
+
         self.flownet = GMFlow()
         self.metricnet = MetricNet()
         self.feat_ext = FeatureNet()
         self.fusionnet = GridNet()
-        self.flownet.load_state_dict(
-            torch.load(os.path.join(model_dir, "flownet.pkl"), map_location="cpu")
+
+        flownetState = torch.load(
+            os.path.join(model_dir, "flownet.pkl"), map_location="cpu"
         )
-        self.metricnet.load_state_dict(
-            torch.load(
-                os.path.join(model_dir, "metric_union.pkl"), map_location="cpu"
-            )
+        self.flownet.load_state_dict(flownetState)
+        del flownetState
+
+        metricState = torch.load(
+            os.path.join(model_dir, "metric_union.pkl"), map_location="cpu"
         )
-        self.feat_ext.load_state_dict(
-            torch.load(
-                os.path.join(model_dir, "feat_union.pkl"), map_location="cpu"
-            )
+        self.metricnet.load_state_dict(metricState)
+        del metricState
+
+        featState = torch.load(
+            os.path.join(model_dir, "feat_union.pkl"), map_location="cpu"
         )
-        self.fusionnet.load_state_dict(
-            torch.load(
-                os.path.join(model_dir, "fusionnet_union.pkl"),
-                map_location="cpu",
-            )
+        self.feat_ext.load_state_dict(featState)
+        del featState
+
+        fusionState = torch.load(
+            os.path.join(model_dir, "fusionnet_union.pkl"),
+            map_location="cpu",
         )
+        self.fusionnet.load_state_dict(fusionState)
+        del fusionState
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         self.scale = scale
 
     def reuse(self, img0, img1):

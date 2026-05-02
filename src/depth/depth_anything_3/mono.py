@@ -202,6 +202,10 @@ class MonocularDepthAnything3(nn.Module):
         payload = _load_checkpoint_payload(source)
         state_dict = _normalize_state_dict(_unwrap_state_dict(payload), resolved_model_name)
         instance.load_state_dict(state_dict, strict=strict)
+        del state_dict
+        del payload
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         instance.eval()
         return instance
 

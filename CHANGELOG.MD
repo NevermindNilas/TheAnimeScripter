@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Up to `1.8x` performance improvements to `--resize`.
 - Major motion blur quality overhaul: gamma-correct (linear-light) blending plus symmetric shutter window centered on each source frame. Trails no longer lag motion, highlights retain punch, shadows stay clean.
 - `--moblur_factor` default `2` → `8`, `--moblur_strength` default `equal` → `gaussian_sym`.
+- Reduced peak VRAM during model initialization by ~`22%` (measured on `--depth_method base_v2`: 1004 MiB → 788 MiB peak reserved).
+- Reduced FFmpeg decode/encode buffer queues from `64` to `32` frames, halving frame queue VRAM (e.g. ~3 GB saved at 4K fp16) without throughput impact.
 
 ### Fixed
 - N/A
