@@ -260,15 +260,20 @@ class RifeCuda:
                     self.interpolateFactor,
                 )
 
+        stateDict = torch.load(modelPath, map_location="cpu")
+        self.model.load_state_dict(stateDict)
+        del stateDict
+
         if checker.cudaAvailable and self.half:
-            self.model.half()
+            self.model = self.model.half()
         else:
             self.half = False
-            self.model.float()
+            self.model = self.model.float()
 
-        self.model.load_state_dict(torch.load(modelPath, map_location=checker.device))
-        self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
-        self.model = self.model.to(checker.device)
+        self.model = self.model.eval()
+        if checker.cudaAvailable:
+            self.model = self.model.cuda()
+            torch.cuda.empty_cache()
         self.model = self.model.to(memory_format=torch.channels_last)
 
         if self.compileMode != "default":
@@ -515,13 +520,17 @@ class RifeMPS:
                     self.interpolateFactor,
                 )
 
-        if self.half:
-            self.model.half()
-        else:
-            self.model.float()
+        stateDict = torch.load(modelPath, map_location="cpu")
+        self.model.load_state_dict(stateDict)
+        del stateDict
 
-        self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
-        self.model.eval().to(self.device)
+        if self.half:
+            self.model = self.model.half()
+        else:
+            self.model = self.model.float()
+
+        self.model = self.model.eval()
+        self.model = self.model.to(self.device)
         self.model = self.model.to(memory_format=torch.channels_last)
 
         if self.compileMode != "default":
@@ -753,12 +762,16 @@ class RifeTensorRT:
             height=self.height,
         )
 
-        self.model.to(checker.device)
+        stateDict = torch.load(self.modelPath, map_location="cpu")
+        self.model.load_state_dict(stateDict)
+        del stateDict
+
         if self.half:
-            self.model.half()
+            self.model = self.model.half()
         else:
-            self.model.float()
-        self.model.load_state_dict(torch.load(self.modelPath, map_location="cpu"))
+            self.model = self.model.float()
+        self.model = self.model.to(checker.device)
+        torch.cuda.empty_cache()
 
         if _Head is True:
             self.norm = self.model.encode
@@ -1296,13 +1309,14 @@ class RifeDirectML:
             width=self.width,
             height=self.height,
         )
+        stateDict = torch.load(self.modelPath, map_location="cpu")
+        self.model.load_state_dict(stateDict, strict=False)
+        del stateDict
+
         if self.half:
-            self.model.half()
+            self.model = self.model.half()
         else:
-            self.model.float()
-        self.model.load_state_dict(
-            torch.load(self.modelPath, map_location="cpu"), strict=False
-        )
+            self.model = self.model.float()
 
         if Head is True:
             self.norm = self.model.encode
@@ -1739,21 +1753,24 @@ class DistilDRBACuda:
 
         self.model = IFNet(lite=self.lite, scale=self.scale)
 
-        stateDict = torch.load(modelPath, map_location=self.device, weights_only=True)
+        stateDict = torch.load(modelPath, map_location="cpu", weights_only=True)
 
         if "model" in stateDict:
             stateDict = stateDict["model"]
 
         self.model.load_state_dict(stateDict, strict=False)
+        del stateDict
 
         if self.half:
-            self.model.half()
+            self.model = self.model.half()
         else:
-            self.model.float()
+            self.model = self.model.float()
 
-        self.model.eval()
+        self.model = self.model.eval()
         self.model = self.model.to(self.device)
         self.model = self.model.to(memory_format=torch.channels_last)
+        if checker.cudaAvailable:
+            torch.cuda.empty_cache()
 
         logging.info(
             f"DistilDRBA {'Lite' if self.lite else 'Full'} model loaded, "
@@ -1973,17 +1990,20 @@ class DistilDRBATensorRT:
             modelPath = os.path.join(folderPath, self.filename)
 
         self.model = IFNet(lite=self.lite, scale=self.scale)
-        stateDict = torch.load(modelPath, map_location=self.device, weights_only=True)
+        stateDict = torch.load(modelPath, map_location="cpu", weights_only=True)
         if "model" in stateDict:
             stateDict = stateDict["model"]
         self.model.load_state_dict(stateDict, strict=False)
+        del stateDict
 
         if self.half:
-            self.model.half()
+            self.model = self.model.half()
         else:
-            self.model.float()
-        self.model.eval()
+            self.model = self.model.float()
+        self.model = self.model.eval()
         self.model = self.model.to(self.device)
+        if checker.cudaAvailable:
+            torch.cuda.empty_cache()
 
         enginePrecision = "fp16" if self.half else "fp32"
         engineName = f"_{enginePrecision}_{self.height}x{self.width}.engine"
@@ -2009,7 +2029,9 @@ class DistilDRBATensorRT:
             trtModel = IFNetLiteTRT(scale=self.scale)
         else:
             trtModel = IFNetFullTRT(scale=self.scale)
-        trtModel.load_state_dict(self.model.state_dict(), strict=False)
+        srcStateDict = self.model.state_dict()
+        trtModel.load_state_dict(srcStateDict, strict=False)
+        del srcStateDict
 
         if self.half:
             trtModel.half()
@@ -2017,6 +2039,8 @@ class DistilDRBATensorRT:
             trtModel.float()
         trtModel.eval()
         trtModel = trtModel.to(self.device)
+        if checker.cudaAvailable:
+            torch.cuda.empty_cache()
 
         dummyImg0 = torch.zeros(
             1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device

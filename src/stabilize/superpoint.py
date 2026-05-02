@@ -155,18 +155,25 @@ class SuperPoint(nn.Module):
         }
 
     def load(self, map_location="cpu"):
+        # Always deserialize to CPU to avoid a transient 2x VRAM peak; the
+        # caller is responsible for moving the model to the target device
+        # after weights are loaded. The map_location parameter is kept for
+        # API compatibility but intentionally ignored.
         try:
             state_dict = torch.hub.load_state_dict_from_url(
                 SUPERPOINT_WEIGHTS_URL,
                 weights_only=True,
-                map_location=map_location,
+                map_location="cpu",
             )
         except TypeError:
             state_dict = torch.hub.load_state_dict_from_url(
                 SUPERPOINT_WEIGHTS_URL,
-                map_location=map_location,
+                map_location="cpu",
             )
         self.load_state_dict(state_dict)
+        del state_dict
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         return self
 
     @torch.inference_mode()

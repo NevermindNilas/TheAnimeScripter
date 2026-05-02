@@ -60,7 +60,7 @@ class BuildBuffer:
         """
         self.decodeMethod = decode_method
         self.half = half
-        self.decodeBuffer = Queue(maxsize=64)
+        self.decodeBuffer = Queue(maxsize=32)
         self.useOpenCV = False
         self.width = width
         self.height = height
@@ -453,7 +453,7 @@ class WriteBuffer:
         self.enablePreview = enablePreview
 
         self.writtenFrames = 0
-        self.writeBuffer = Queue(maxsize=64)
+        self.writeBuffer = Queue(maxsize=32)
 
         self.previewPath = (
             os.path.join(cs.WHEREAMIRUNFROM, "preview.jpg") if enablePreview else None
@@ -1067,7 +1067,7 @@ class NeluxWriteBuffer:
         self.fps = fps
         self.inpoint = inpoint
         self.outpoint = outpoint
-        self.writeBuffer = Queue(maxsize=64)
+        self.writeBuffer = Queue(maxsize=32)
         self.writtenFrames = 0
         self.CudaStream = None
 
