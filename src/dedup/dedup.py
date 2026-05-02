@@ -226,9 +226,10 @@ class DedupFlownetS:
         else:
             modelPath = os.path.join(weightsDir, "flownets", self.filename)
 
-        self.model = torch.load(modelPath)
-        self.model = flownet.__dict__[self.model["arch"]](self.model).to(checker.device)
-        self.model.eval()
+        stateDict = torch.load(modelPath, map_location="cpu")
+        self.model = flownet.__dict__[stateDict["arch"]](stateDict)
+        del stateDict
+        self.model = self.model.eval()
 
         self.model = ModelOptimizer(
             model=self.model,
@@ -237,9 +238,13 @@ class DedupFlownetS:
         ).optimizeModel()
 
         if half:
-            self.model.half()
+            self.model = self.model.half()
         else:
-            self.model.float()
+            self.model = self.model.float()
+
+        self.model = self.model.to(checker.device)
+        if checker.cudaAvailable:
+            torch.cuda.empty_cache()
 
         self.prevFrame = None
         self.mean = (

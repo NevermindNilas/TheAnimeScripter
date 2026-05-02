@@ -291,13 +291,15 @@ class DepthCuda:
             modelWeights = load_file(modelPath)
             self.model.load_state_dict(modelWeights)
             del modelWeights
-            torch.cuda.empty_cache()
         else:
-            self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
-        self.model = self.model.to(checker.device).eval()
+            stateDict = torch.load(modelPath, map_location="cpu")
+            self.model.load_state_dict(stateDict)
+            del stateDict
 
         if self.half and checker.cudaAvailable:
             self.model = self.model.half()
+        self.model = self.model.to(checker.device).eval()
+        torch.cuda.empty_cache()
 
         self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality

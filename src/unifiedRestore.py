@@ -73,6 +73,7 @@ class UnifiedRestoreCuda:
 
                 stateDict = load_file(modelPath)
                 self.model.load_state_dict(stateDict)
+                del stateDict
 
         try:
             # Weird spandrel hack to bypass ModelDecriptor
@@ -80,16 +81,19 @@ class UnifiedRestoreCuda:
         except Exception:
             pass
 
-        self.model = (
-            self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
-        )
+        self.model = self.model.eval()
 
         if self.half:
-            self.model.half()
+            self.model = self.model.half()
             self.dType = torch.float16
         else:
-            self.model.float()  # Sanity check, should not be needed
+            self.model = self.model.float()  # Sanity check, should not be needed
             self.dType = torch.float32
+
+        if checker.cudaAvailable:
+            self.model = self.model.cuda()
+            torch.cuda.empty_cache()
+
         self.stream = torch.cuda.Stream()
 
         if self.CHANNELSLAST:
@@ -165,6 +169,7 @@ class UnifiedRestoreMPS:
                 self.model = GateRV3()
                 stateDict = load_file(modelPath)
                 self.model.load_state_dict(stateDict)
+                del stateDict
 
         try:
             # Weird spandrel hack to bypass ModelDescriptor
@@ -172,14 +177,16 @@ class UnifiedRestoreMPS:
         except Exception:
             pass
 
-        self.model = self.model.eval().to(self.device)
+        self.model = self.model.eval()
 
         if self.half:
-            self.model.half()
+            self.model = self.model.half()
             self.dType = torch.float16
         else:
-            self.model.float()
+            self.model = self.model.float()
             self.dType = torch.float32
+
+        self.model = self.model.to(self.device)
 
         if self.CHANNELSLAST:
             self.model.to(memory_format=torch.channels_last)

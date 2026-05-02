@@ -95,7 +95,9 @@ class UniversalPytorch:
             from src.extraArches.RTMoSR import RTMoSR
 
             self.model = RTMoSR()
-            self.model.load_state_dict(torch.load(modelPath))
+            stateDict = torch.load(modelPath, map_location="cpu")
+            self.model.load_state_dict(stateDict)
+            del stateDict
         elif self.upscaleMethod == "figsr":
             from src.extraArches.figsr import FIGSR
 
@@ -103,12 +105,15 @@ class UniversalPytorch:
             self.model = FIGSR(scale=self.upscaleFactor, dim=32)
 
             self.model.load_state_dict(stateDict, strict=False)
+            del stateDict
         elif self.upscaleMethod == "gauss":
             from src.extraArches.DIS import DIS
             from safetensors.torch import load_file
 
             self.model = DIS(scale=2, num_features=32, num_blocks=12)
-            self.model.load_state_dict(load_file(modelPath))
+            stateDict = load_file(modelPath)
+            self.model.load_state_dict(stateDict)
+            del stateDict
         else:
             if self.customModel:
                 self.model = ModelLoader().load_from_file(modelPath)
@@ -131,9 +136,7 @@ class UniversalPytorch:
             except Exception:
                 pass
 
-        self.model = (
-            self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
-        )
+        self.model = self.model.eval()
 
         if self.half and checker.cudaAvailable:
             try:
@@ -146,6 +149,10 @@ class UniversalPytorch:
                 logging.error(f"Error converting model to half precision: {e}")
                 self.model = self.model.float()
                 self.half = False
+
+        if checker.cudaAvailable:
+            self.model = self.model.cuda()
+            torch.cuda.empty_cache()
 
         self.model = ModelOptimizer(
             self.model,
@@ -314,19 +321,24 @@ class UniversalPytorchMPS:
             from src.extraArches.RTMoSR import RTMoSR
 
             self.model = RTMoSR()
-            self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
+            stateDict = torch.load(modelPath, map_location="cpu")
+            self.model.load_state_dict(stateDict)
+            del stateDict
         elif self.baseMethod == "figsr":
             from src.extraArches.figsr import FIGSR
 
             stateDict = torch.load(modelPath, map_location="cpu", weights_only=False)
             self.model = FIGSR(scale=self.upscaleFactor, dim=32)
             self.model.load_state_dict(stateDict, strict=False)
+            del stateDict
         elif self.baseMethod == "gauss":
             from src.extraArches.DIS import DIS
             from safetensors.torch import load_file
 
             self.model = DIS(scale=2, num_features=32, num_blocks=12)
-            self.model.load_state_dict(load_file(modelPath))
+            stateDict = load_file(modelPath)
+            self.model.load_state_dict(stateDict)
+            del stateDict
         else:
             if self.customModel:
                 self.model = ModelLoader().load_from_file(modelPath)
@@ -347,7 +359,7 @@ class UniversalPytorchMPS:
             except Exception:
                 pass
 
-        self.model = self.model.eval().to(self.device)
+        self.model = self.model.eval()
 
         if self.half:
             try:
@@ -362,6 +374,8 @@ class UniversalPytorchMPS:
                 self.model = self.model.float()
                 self.half = False
                 self.dtype = torch.float32
+
+        self.model = self.model.to(self.device)
 
         if self.compileMode != "default":
             # torch.compile on MPS is unstable as of torch 2.11 — warn and skip.
@@ -1062,11 +1076,11 @@ class AnimeSR:
 
         self.model = MSRSWVSR(num_feat=64, num_block=[5, 3, 2], netscale=4)
 
-        self.model.load_state_dict(torch.load(modelPath))
+        stateDict = torch.load(modelPath, map_location="cpu")
+        self.model.load_state_dict(stateDict)
+        del stateDict
 
-        self.model = (
-            self.model.eval().cuda() if checker.cudaAvailable else self.model.eval()
-        )
+        self.model = self.model.eval()
 
         if self.half and checker.cudaAvailable:
             try:
@@ -1075,6 +1089,10 @@ class AnimeSR:
                 logging.error(f"Error converting model to half precision: {e}")
                 self.model = self.model.float()
                 self.half = False
+
+        if checker.cudaAvailable:
+            self.model = self.model.cuda()
+            torch.cuda.empty_cache()
 
         if self.compileMode != "default":
             try:

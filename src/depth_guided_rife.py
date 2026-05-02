@@ -142,11 +142,15 @@ class DepthEstimator:
             )
         
         self.model = DepthAnythingV2(**model_configs[encoder])
-        self.model.load_state_dict(torch.load(model_path, map_location="cpu"))
-        self.model = self.model.to(self.device).eval()
-        
+        stateDict = torch.load(model_path, map_location="cpu")
+        self.model.load_state_dict(stateDict)
+        del stateDict
+
         if self.half:
             self.model = self.model.half()
+        self.model = self.model.to(self.device).eval()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     
     def _setup_preprocessing(self):
         """Setup preprocessing tensors and dimensions."""
@@ -282,14 +286,19 @@ class DepthGuidedRifeCuda:
             interpolateFactor=2,
         )
         
+        stateDict = torch.load(model_path, map_location="cpu")
+        self.rife.load_state_dict(stateDict)
+        del stateDict
+
         if self.half:
-            self.rife.half()
+            self.rife = self.rife.half()
         else:
-            self.rife.float()
-        
-        self.rife.load_state_dict(torch.load(model_path, map_location=self.device))
-        self.rife.eval().to(self.device)
+            self.rife = self.rife.float()
+
+        self.rife = self.rife.eval().to(self.device)
         self.rife = self.rife.to(memory_format=torch.channels_last)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     
     def _load_depth_model(self):
         """Load the depth estimation model."""
