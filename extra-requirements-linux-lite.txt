@@ -7,4 +7,3 @@ onnxruntime==1.25.0
 scenedetect[opencv]
 yt-dlp==2026.3.17
 vmaf-torch
-torchcodec==0.11.0

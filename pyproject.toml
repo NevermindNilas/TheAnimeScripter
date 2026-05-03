@@ -64,7 +64,6 @@ runtime-linux-cuda = [
     "scenedetect[opencv]; platform_system == 'Linux'",
     "yt-dlp==2026.3.17; platform_system == 'Linux'",
     "vmaf-torch; platform_system == 'Linux'",
-    "torchcodec==0.11.0; platform_system == 'Linux'",
 ]
 runtime-linux-lite = [
     "torch==2.11.0; platform_system == 'Linux'",
@@ -76,7 +75,6 @@ runtime-linux-lite = [
     "scenedetect[opencv]; platform_system == 'Linux'",
     "yt-dlp==2026.3.17; platform_system == 'Linux'",
     "vmaf-torch; platform_system == 'Linux'",
-    "torchcodec==0.11.0; platform_system == 'Linux'",
 ]
 runtime-macos-mps = [
     "torch==2.11.0; platform_system == 'Darwin'",

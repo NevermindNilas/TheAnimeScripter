@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--moblur_shutter_angle` (degrees, default `180`): cinema-style shutter window. `360` = full smear, `90` = crisp, `0` = passthrough.
 - `--moblur_no_linear_blend`: opt-out of gamma-correct blending (default on).
 - `--moblur_mask`: transparent PNG to protect regions from motion blur. Paint opaque dark pixels on a transparent background — those areas stay sharp (HUD/text), transparent areas blur.
+- `--autoclip_method` with selectable scene-cut backends: `pyscenedetect`, `maxxvit-directml`, `maxxvit-tensorrt`, and `transnetv2`.
+- Added MaxxVit- and TransNetV2-based autoclip support, including automatic weight download for TransNetV2.
 
 ### Changed
 - Up to `300ms` start up times improvements by optimizing imports and lazy loading certain modules.
@@ -18,9 +20,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--moblur_factor` default `2` → `8`, `--moblur_strength` default `equal` → `gaussian_sym`.
 - Reduced peak VRAM during model initialization by ~`22%` (measured on `--depth_method base_v2`: 1004 MiB → 788 MiB peak reserved).
 - Reduced FFmpeg decode/encode buffer queues from `64` to `32` frames, halving frame queue VRAM (e.g. ~3 GB saved at 4K fp16) without throughput impact.
+- Autoclip dispatch now routes to backend-specific implementations, and `--autoclip_sens` is remapped per backend so higher values consistently mean more aggressive cut detection.
+- Nelux `VideoReader` reuse now accounts for resize targets and can perform decoder-side resize directly, avoiding redundant post-decode interpolation when `--resize` is enabled.
 
 ### Fixed
-- N/A
+- Removed the Linux `torchcodec` runtime dependency from requirements and project metadata.
 
 ## TAS Adobe Edition
 ### Added
