@@ -1077,6 +1077,18 @@ def _addSceneDetectionOptions(argParser):
         "--autoclip", action="store_true", help="Detect scene changes"
     )
     sceneGroup.add_argument(
+        "--autoclip_method",
+        type=str,
+        default="pyscenedetect",
+        choices=[
+            "pyscenedetect",
+            "maxxvit-directml",
+            "maxxvit-tensorrt",
+            "transnetv2",
+        ],
+        help="Autoclip detection backend",
+    )
+    sceneGroup.add_argument(
         "--autoclip_sens", type=float, default=50, help="Autoclip sensitivity"
     )
 
@@ -1770,10 +1782,17 @@ def _configureProcessingSettings(args):
         logging.info(f"New sharpen sensitivity is: {args.sharpen_sens}")
 
     if args.autoclip:
-        # For some reason, the sensitivity is inverted in the autoclip method, could be some hard math that I don't understand
-        # but for now, we will just invert it to make it work as expected
-        args.autoclip_sens = float(100 - args.autoclip_sens)
-        logging.info(f"New autoclip sensitivity is: {args.autoclip_sens}")
+        if args.autoclip_method == "pyscenedetect":
+            # AdaptiveDetector treats higher threshold as less sensitive; flip
+            # so the user-facing sens is monotonic (higher = more cuts).
+            args.autoclip_sens = float(100 - args.autoclip_sens)
+        else:
+            # maxxvit / transnetv2 produce probability in [0, 1]; map sens
+            # 0..100 -> threshold 1..0 so higher sens fires more cuts.
+            args.autoclip_sens = float(1.0 - (args.autoclip_sens / 100.0))
+        logging.info(
+            f"New autoclip sensitivity for {args.autoclip_method} is: {args.autoclip_sens}"
+        )
 
     if args.compile_mode != "default":
         logging.info(

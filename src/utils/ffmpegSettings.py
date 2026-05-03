@@ -19,6 +19,7 @@ neluxLog = False
 
 CachedReader = None
 CachedReaderMethod = None
+CachedReaderResize = None
 
 
 class BuildBuffer:
@@ -72,6 +73,7 @@ class BuildBuffer:
         self.toTorch = toTorch
         self.inpoint = inpoint
         self.outpoint = outpoint
+        self._didDecoderResize = False
 
         # USED FOR DEBUGGING neLux
         global neluxLog
@@ -148,14 +150,24 @@ class BuildBuffer:
         """
         global CachedReader
         global CachedReaderMethod
+        global CachedReaderResize
+
+        resizeTarget = (self.width, self.height) if self.resize else None
 
         if decodeMethod == "nvdec":
             CachedReader = None
             CachedReaderMethod = None
+            CachedReaderResize = None
 
         if CachedReader is not None and CachedReaderMethod != decodeMethod:
             CachedReader = None
             CachedReaderMethod = None
+            CachedReaderResize = None
+
+        if CachedReader is not None and CachedReaderResize != resizeTarget:
+            CachedReader = None
+            CachedReaderMethod = None
+            CachedReaderResize = None
 
         if CachedReader is not None:
             try:
@@ -167,17 +179,23 @@ class BuildBuffer:
                 )
                 CachedReader = None
                 CachedReaderMethod = None
+                CachedReaderResize = None
 
         if CachedReader is None:
             logging.info(
                 f"Initializing new VideoReader for {self.videoInput} ({decodeMethod})"
+                + (f" resize={resizeTarget}" if resizeTarget else "")
             )
             CachedReader = nelux.VideoReader(
                 self.videoInput,
                 decode_accelerator=decodeMethod,
                 backend=self.backend,
+                resize=resizeTarget,
             )
             CachedReaderMethod = decodeMethod
+            CachedReaderResize = resizeTarget
+
+        self._didDecoderResize = resizeTarget is not None
 
         if self.inpoint > 0 or self.outpoint > 0:
             reader = CachedReader([float(self.inpoint), float(self.outpoint)])
@@ -280,7 +298,7 @@ class BuildBuffer:
 
                 frame = frame.permute(2, 0, 1).mul(norm).clamp(0, 1)
 
-                if self.resize:
+                if self.resize and not self._didDecoderResize:
                     frame = F.interpolate(
                         frame.unsqueeze(0),
                         size=(self.height, self.width),
@@ -310,7 +328,7 @@ class BuildBuffer:
             frame.mul_(norm)
             frame.clamp_(0, 1)
 
-            if self.resize:
+            if self.resize and not self._didDecoderResize:
                 frame = F.interpolate(
                     frame.unsqueeze(0),
                     size=(self.height, self.width),

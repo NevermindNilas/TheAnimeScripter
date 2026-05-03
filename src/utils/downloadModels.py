@@ -32,6 +32,8 @@ DEPTHV2URLGIANT = (
     "https://huggingface.co/likeabruh/depth_anything_v2_vitg/resolve/main/"
 )
 
+TRANSNETV2URL = "https://huggingface.co/Sn4kehead/TransNetV2/resolve/main/"
+
 
 def modelsList() -> list[str]:
     return [
@@ -200,6 +202,7 @@ def modelsList() -> list[str]:
         "shift_lpips-tensorrt",
         "shift_lpips-directml",
         "differential-tensorrt",
+        "transnetv2",
         "gmfss",
         "flownets",
         "distill_small_v2",
@@ -886,6 +889,9 @@ def modelsMap(
         case "differential-tensorrt":
             return "scene_change_nilas.onnx"
 
+        case "transnetv2":
+            return "transnetv2-pytorch-weights.pth"
+
         case "small_v2":
             return "depth_anything_v2_vits.pth"
 
@@ -1211,6 +1217,9 @@ def downloadModels(
             logging.warning(f"Failed to download from SUDOURL: {e}")
             fullUrl = f"{TASURL}{filename}"
             return downloadAndLog(model, filename, fullUrl, folderPath)
+
+    elif model == "transnetv2":
+        fullUrl = f"{TRANSNETV2URL}{filename}"
 
     elif model == "small_v2":
         fullUrl = f"{DEPTHV2URLSMALL}{filename}"
