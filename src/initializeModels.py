@@ -98,14 +98,38 @@ def autoClip(self):
     Args:
         self: VideoProcessor instance containing processing parameters
     """
-    from src.autoclip.autoclip import AutoClip
+    if self.autoclipMethod == "pyscenedetect":
+        from src.autoclip.autoclip import AutoClip
 
-    AutoClip(
-        self.input,
-        self.autoclipSens,
-        self.inpoint,
-        self.outpoint,
-    )
+        AutoClip(
+            self.input,
+            self.autoclipSens,
+            self.inpoint,
+            self.outpoint,
+        )
+    elif self.autoclipMethod in ("maxxvit-directml", "maxxvit-tensorrt"):
+        from src.autoclip.autoclipMaxxvit import AutoClipMaxxvit
+
+        AutoClipMaxxvit(
+            self.input,
+            self.autoclipMethod,
+            self.autoclipSens,
+            self.inpoint,
+            self.outpoint,
+            self.half,
+        )
+    elif self.autoclipMethod == "transnetv2":
+        from src.autoclip.autoclipTransnetv2 import AutoClipTransnetv2
+
+        AutoClipTransnetv2(
+            self.input,
+            self.autoclipSens,
+            self.inpoint,
+            self.outpoint,
+            self.half,
+        )
+    else:
+        raise ValueError(f"Unknown autoclip_method: {self.autoclipMethod}")
 
 
 def segment(self):

@@ -126,6 +126,7 @@ class VideoProcessor:
         # Enhancement settings
         self.sharpenSens: float = args.sharpen_sens
         self.autoclipSens: float = args.autoclip_sens
+        self.autoclipMethod: str = args.autoclip_method
         self.depthQuality: str = args.depth_quality
         self.depthNorm: bool = args.depth_norm
 
