@@ -5,7 +5,7 @@ omegaconf==2.3.0
 psutil==7.2.2
 inquirer==3.4.1
 colored==2.3.2
-barflow==0.2.1
+barflow==0.2.2
 python-socketio==5.16.1
 simple-websocket==1.1.0
 nelux==0.10.0
