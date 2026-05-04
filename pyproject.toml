@@ -16,7 +16,7 @@ dependencies = [
     "psutil==7.2.2",
     "inquirer==3.4.1",
     "colored==2.3.2",
-    "barflow==0.2.1",
+    "barflow==0.2.2",
     "flask-socketio==5.6.1",
     "nelux==0.8.9; platform_system == 'Windows'",
 ]
