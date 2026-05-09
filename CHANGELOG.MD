@@ -22,9 +22,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Reduced FFmpeg decode/encode buffer queues from `64` to `32` frames, halving frame queue VRAM (e.g. ~3 GB saved at 4K fp16) without throughput impact.
 - Autoclip dispatch now routes to backend-specific implementations, and `--autoclip_sens` is remapped per backend so higher values consistently mean more aggressive cut detection.
 - Nelux `VideoReader` reuse now accounts for resize targets and can perform decoder-side resize directly, avoiding redundant post-decode interpolation when `--resize` is enabled.
+- Bumped nelux to `0.10.1` for improved stability and performance.
+- Bumped openvino and onnxruntime-openvino to the latest release.
 
 ### Fixed
 - Removed the Linux `torchcodec` runtime dependency from requirements and project metadata.
+- Fixed openvino related issues.
 
 ## TAS Adobe Edition
 ### Added

@@ -23,6 +23,12 @@ Home: https://github.com/NevermindNilas/TheAnimeScripter
 """
 
 import os
+
+# Disable Intel Fortran's console ctrl handler before MKL/numpy/torch load.
+# Without this, Ctrl+C triggers `forrtl: error (200)` and freezes the terminal
+# instead of raising KeyboardInterrupt.
+os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
+
 import sys
 import logging
 import warnings
@@ -251,9 +257,9 @@ class VideoProcessor:
         Args:
             frame: Input video frame tensor
         """
-        if self.dedup and self.dedup_process(frame):
-            self.dedupCount += 1
-            return
+        #if self.dedup and self.dedup_process(frame):
+        #    self.dedupCount += 1
+        #    return
 
         if self.restore:
             frame = self.restore_process(frame)
@@ -600,7 +606,6 @@ def main():
             except SystemExit:
                 return
 
-        from signal import signal, SIGINT, SIG_DFL
         from src.utils.logAndPrint import (
             logInfo,
             logSuccess,
@@ -611,8 +616,6 @@ def main():
         )
 
         baseOutputPath = os.path.dirname(os.path.abspath(__file__))
-
-        signal(SIGINT, SIG_DFL)
 
         logging.basicConfig(
             filename=os.path.join(cs.WHEREAMIRUNFROM, "TAS-Log.log"),
@@ -754,7 +757,9 @@ def main():
 
     except KeyboardInterrupt:
         logWarning("Process interrupted by user")
-        sys.exit(0)
+        # Force-exit: bypass blocked thread joins (TRT inference, ffmpeg subprocess
+        # wait, nelux decoder) which sys.exit() would hang on.
+        os._exit(130)
     except Exception as e:
         logError(f"An unexpected error occurred: {str(e)}")
         logging.exception("Fatal error in main execution")
