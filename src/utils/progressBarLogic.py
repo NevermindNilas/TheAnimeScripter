@@ -20,7 +20,6 @@ TITLES = [
     "Handling",
     "Processing",
     "Inferencing",
-    "Managing",
     "Dealing With",
     "Working",
     "Executing",
@@ -28,6 +27,13 @@ TITLES = [
     "Refining",
     "Producing",
     "Digesting",
+    "Transforming",
+    "Analyzing",
+    "Calculating",
+    "Rendering",
+    "Synthesizing",
+    "Optimizing",
+    "Finalizing",
 ]
 
 progressRefreshPerSec = 10

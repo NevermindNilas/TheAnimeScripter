@@ -104,13 +104,16 @@ class UnifiedRestoreCuda:
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
         with torch.cuda.stream(self.stream):
-            frame = self.model(
-                frame.to(checker.device, non_blocking=True, dtype=self.dType).to(
-                    memory_format=torch.channels_last
+            if self.CHANNELSLAST:
+                frame = frame.to(
+                    checker.device,
+                    non_blocking=True,
+                    dtype=self.dType,
+                    memory_format=torch.channels_last,
                 )
-                if self.CHANNELSLAST
-                else frame.to(checker.device, non_blocking=True, dtype=self.dType)
-            )
+            else:
+                frame = frame.to(checker.device, non_blocking=True, dtype=self.dType)
+            frame = self.model(frame)
         self.stream.synchronize()
         return frame
 
@@ -475,7 +478,10 @@ class UnifiedRestoreDirectML:
                 )
             elif "openvino" in self.restoreMethod:
                 self.model = self.ort.InferenceSession(
-                    modelPath, providers=["OpenVINOExecutionProvider"]
+                    modelPath,
+                    providers=[
+                        ("OpenVINOExecutionProvider", {"device_type": "AUTO:GPU,CPU"})
+                    ],
                 )
         else:
             logging.info(

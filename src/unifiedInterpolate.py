@@ -1123,37 +1123,63 @@ class RifeNCNN:
         self.wrapped.wstr_p_assign(modelDir.wstr, str(modelPath))
         self.Rife.load(modelDir)
 
-        self.outputBytes = bytearray(width * height * 3)
+        bufSize = width * height * 3
+        self.outputBytes = bytearray(bufSize)
         self.output = self.wrapped.Image(self.outputBytes, self.width, self.height, 3)
-        self.frame0 = None
+
+        self._frameBytes = [bytearray(bufSize), bytearray(bufSize)]
+        self._frameBufs = [
+            torch.frombuffer(self._frameBytes[0], dtype=torch.uint8).reshape(
+                height, width, 3
+            ),
+            torch.frombuffer(self._frameBytes[1], dtype=torch.uint8).reshape(
+                height, width, 3
+            ),
+        ]
+        self._frameImages = [
+            self.wrapped.Image(self._frameBytes[0], self.width, self.height, 3),
+            self.wrapped.Image(self._frameBytes[1], self.width, self.height, 3),
+        ]
+        self._frame0Idx = 0
+        self._firstFrame = True
         self.shape = (self.height, self.width)
 
+    def _writeFrameInto(self, frame, idx):
+        src = (
+            frame.mul(255)
+            .clamp(0, 255)
+            .squeeze(0)
+            .permute(1, 2, 0)
+            .to(torch.uint8)
+            .cpu()
+            .contiguous()
+        )
+        self._frameBufs[idx].copy_(src)
+
     def cacheFrame(self):
-        self.frame0Bytes = self.frame1Bytes
-        self.frame0 = self.frame1
+        self._frame0Idx = 1 - self._frame0Idx
 
     def cacheFrameReset(self, frame):
-        self.frame0 = frame.cpu().numpy().astype("uint8")
-        self.frame0Bytes = bytearray(self.frame0.tobytes())
-        self.frame0 = self.wrapped.Image(self.frame0Bytes, self.width, self.height, 3)
+        arr = (
+            frame.cpu().numpy().astype("uint8")
+            if torch.is_tensor(frame)
+            else np.asarray(frame).astype("uint8")
+        )
+        arr = np.ascontiguousarray(arr).reshape(self.height, self.width, 3)
+        self._frameBytes[self._frame0Idx][:] = arr.tobytes()
+        self._firstFrame = False
 
     def __call__(self, frame, interpQueue, framesToInsert=1, timesteps=None):
-        if self.frame0 is None:
-            self.frame0 = (
-                frame.mul(255).squeeze(0).permute(1, 2, 0).cpu().numpy().astype("uint8")
-            )
-            self.frame0Bytes = bytearray(self.frame0.tobytes())
-            self.frame0 = self.wrapped.Image(
-                self.frame0Bytes, self.width, self.height, 3
-            )
-
+        if self._firstFrame:
+            self._writeFrameInto(frame, self._frame0Idx)
+            self._firstFrame = False
             return False
 
-        self.frame1 = (
-            frame.mul(255).squeeze(0).permute(1, 2, 0).cpu().numpy().astype("uint8")
-        )
-        self.frame1Bytes = bytearray(self.frame1.tobytes())
-        self.frame1 = self.wrapped.Image(self.frame1Bytes, self.width, self.height, 3)
+        frame1Idx = 1 - self._frame0Idx
+        self._writeFrameInto(frame, frame1Idx)
+
+        image0 = self._frameImages[self._frame0Idx]
+        image1 = self._frameImages[frame1Idx]
 
         for i in range(framesToInsert):
             if timesteps is not None and i < len(timesteps):
@@ -1161,7 +1187,7 @@ class RifeNCNN:
             else:
                 t = (i + 1) * 1 / (framesToInsert + 1)
 
-            self.Rife.process(self.frame0, self.frame1, t, self.output)
+            self.Rife.process(image0, image1, t, self.output)
 
             output = (
                 torch.frombuffer(self.outputBytes, dtype=torch.uint8)
@@ -1384,7 +1410,10 @@ class RifeDirectML:
             elif "openvino" in self.interpolateMethod:
                 logging.info("Using OpenVINO model")
                 self.model = self.ort.InferenceSession(
-                    self.modelPath, providers=["OpenVINOExecutionProvider"]
+                    self.modelPath,
+                    providers=[
+                        ("OpenVINOExecutionProvider", {"device_type": "AUTO:GPU,CPU"})
+                    ],
                 )
         else:
             logging.info(
@@ -1440,6 +1469,31 @@ class RifeDirectML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
+        self.IoBinding.bind_input(
+            name="img0",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.I0.shape,
+            buffer_ptr=self.I0.data_ptr(),
+        )
+        self.IoBinding.bind_input(
+            name="img1",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.I1.shape,
+            buffer_ptr=self.I1.data_ptr(),
+        )
+        self.IoBinding.bind_input(
+            name="timestep",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyTimeStep.shape,
+            buffer_ptr=self.dummyTimeStep.data_ptr(),
+        )
+
         self.firstRun = True
 
     @torch.inference_mode()
@@ -1483,25 +1537,7 @@ class RifeDirectML:
             self.firstRun = False
             return
 
-        self.IoBinding.bind_input(
-            name="img0",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.I0.shape,
-            buffer_ptr=self.I0.data_ptr(),
-        )
-
         self.processFrame(frame, "I1")
-
-        self.IoBinding.bind_input(
-            name="img1",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.I1.shape,
-            buffer_ptr=self.I1.data_ptr(),
-        )
 
         for i in range(framesToInsert):
             if timesteps is not None and i < len(timesteps):
@@ -1510,15 +1546,6 @@ class RifeDirectML:
                 t = (i + 1) * 1 / (framesToInsert + 1)
 
             self.dummyTimeStep.fill_(t)
-
-            self.IoBinding.bind_input(
-                name="timestep",
-                device_type=self.deviceType,
-                device_id=0,
-                element_type=self.numpyDType,
-                shape=self.dummyTimeStep.shape,
-                buffer_ptr=self.dummyTimeStep.data_ptr(),
-            )
 
             self.model.run_with_iobinding(self.IoBinding)
             if self.needsOutputSync:

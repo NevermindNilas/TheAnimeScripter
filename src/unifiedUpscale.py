@@ -228,10 +228,11 @@ class UniversalPytorch:
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(
-                frame.to(dtype=self.dummyInput.dtype).to(
-                    memory_format=torch.channels_last
+                frame.to(
+                    dtype=self.dummyInput.dtype,
+                    memory_format=torch.channels_last,
                 ),
-                non_blocking=False,
+                non_blocking=True,
             )
         self.normStream.synchronize()
 
@@ -680,7 +681,10 @@ class UniversalDirectML:
             elif "openvino" in self.upscaleMethod:
                 logging.info("Using OpenVINO model")
                 self.model = self.ort.InferenceSession(
-                    modelPath, providers=["OpenVINOExecutionProvider"]
+                    modelPath,
+                    providers=[
+                        ("OpenVINOExecutionProvider", {"device_type": "AUTO:GPU,CPU"})
+                    ],
                 )
         else:
             logging.info(
@@ -722,6 +726,15 @@ class UniversalDirectML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
+        self.IoBinding.bind_input(
+            name="input",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyInput.shape,
+            buffer_ptr=self.dummyInput.data_ptr(),
+        )
+
         self.usingCpuFallback = False
         self.modelPath = modelPath
 
@@ -745,6 +758,14 @@ class UniversalDirectML:
             shape=self.dummyOutput.shape,
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
+        self.IoBinding.bind_input(
+            name="input",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyInput.shape,
+            buffer_ptr=self.dummyInput.data_ptr(),
+        )
 
         self.usingCpuFallback = True
 
@@ -759,15 +780,6 @@ class UniversalDirectML:
                 frame = frame.float()
 
             self.dummyInput.copy_(frame.contiguous(), non_blocking=False)
-
-            self.IoBinding.bind_input(
-                name="input",
-                device_type=self.deviceType,
-                device_id=0,
-                element_type=self.numpyDType,
-                shape=self.dummyInput.shape,
-                buffer_ptr=self.dummyInput.data_ptr(),
-            )
 
             self.model.run_with_iobinding(self.IoBinding)
             frame = self.dummyOutput.contiguous()
@@ -860,7 +872,10 @@ class AnimeSRDirectML:
         ):
             logging.info("Using OpenVINO model")
             self.model = self.ort.InferenceSession(
-                modelPath, providers=["OpenVINOExecutionProvider"]
+                modelPath,
+                providers=[
+                    ("OpenVINOExecutionProvider", {"device_type": "AUTO:GPU,CPU"})
+                ],
             )
         else:
             logging.info(
@@ -917,6 +932,14 @@ class AnimeSRDirectML:
             dtype=self.torchDType,
         ).contiguous()
 
+        self._ortInputs = {
+            "prev_frame": self.prevFrame.numpy(),
+            "curr_frame": self.currFrame.numpy(),
+            "next_frame": self.nextFrame.numpy(),
+            "fb": self.fb.numpy(),
+            "state": self.state.numpy(),
+        }
+
         self.firstRun = True
         self.modelPath = modelPath
 
@@ -924,56 +947,35 @@ class AnimeSRDirectML:
         return torch.nn.functional.pad(frame, self.padding, mode="reflect")
 
     def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
-        if self.half:
-            frame = frame.half()
-        else:
-            frame = frame.float()
-
+        frame = frame.half() if self.half else frame.float()
         paddedFrame = self.padFrame(frame).cpu()
-        self.currFrame.copy_(paddedFrame.contiguous())
+        self.currFrame.copy_(paddedFrame)
 
         if self.firstRun:
-            self.prevFrame.copy_(paddedFrame.contiguous())
+            self.prevFrame.copy_(paddedFrame)
             self.firstRun = False
 
         if nextFrame is None:
-            self.nextFrame.copy_(paddedFrame.contiguous())
+            self.nextFrame.copy_(paddedFrame)
         else:
-            if self.half:
-                nextFrame = nextFrame.half()
-            else:
-                nextFrame = nextFrame.float()
-            paddedNextFrame = self.padFrame(nextFrame).cpu()
-            self.nextFrame.copy_(paddedNextFrame.contiguous())
+            nextFrame = nextFrame.half() if self.half else nextFrame.float()
+            self.nextFrame.copy_(self.padFrame(nextFrame).cpu())
 
-        outputs = self.model.run(
-            ["out_img", "out_state"],
-            {
-                "prev_frame": self.prevFrame.numpy(),
-                "curr_frame": self.currFrame.numpy(),
-                "next_frame": self.nextFrame.numpy(),
-                "fb": self.fb.numpy(),
-                "state": self.state.numpy(),
-            },
-        )
+        outputs = self.model.run(["out_img", "out_state"], self._ortInputs)
 
         self.outImg = torch.from_numpy(outputs[0])
         self.outState = torch.from_numpy(outputs[1])
 
-        # Update state and fb for next frame
         self.state.copy_(self.outState)
         self.fb.copy_(self.outImg)
-        self.prevFrame.copy_(paddedFrame.contiguous())
+        self.prevFrame.copy_(paddedFrame)
 
-        # Resize output from 4x to 2x
-        output = torch.nn.functional.interpolate(
+        return torch.nn.functional.interpolate(
             self.outImg,
             size=(self.height * 2, self.width * 2),
             mode="bicubic",
             align_corners=False,
         )
-
-        return output
 
     def frameReset(self):
         self.prevFrame.zero_()

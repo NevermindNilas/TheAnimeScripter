@@ -1853,7 +1853,7 @@ def _adjustMethodsBasedOnCuda(args):
     isDarwin = cs.SYSTEM == "Darwin"
 
     def adjustMethod(method, modelsList):
-        base = method.lower().split("-")[0]
+        base = method.lower()
         if isDarwin:
             mpsMethod = f"{base}-mps"
             if mpsMethod in modelsList:
@@ -1925,7 +1925,7 @@ def _adjustMethodsBasedOnCuda(args):
                 for method in currentMethod:
                     if any(
                         backend in method.lower()
-                        for backend in ["-directml", "-ncnn", "-tensorrt", "-mps"]
+                        for backend in ["-directml", "-ncnn", "-tensorrt", "-mps", "-openvino"]
                     ):
                         logging.info(
                             f"{attr} method {method} already using non-default backend"
@@ -1943,7 +1943,7 @@ def _adjustMethodsBasedOnCuda(args):
             else:
                 if any(
                     backend in currentMethod.lower()
-                    for backend in ["-directml", "-ncnn", "-tensorrt"]
+                    for backend in ["-directml", "-ncnn", "-tensorrt", "-mps", "-openvino"]
                 ):
                     logging.info(
                         f"{attr} already using non-default backend: {currentMethod}"
