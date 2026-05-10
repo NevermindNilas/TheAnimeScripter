@@ -117,6 +117,37 @@ jobs:
           files: TAS-${{ needs.create_release.outputs.version_nodots }}-Windows.zip
           draft: true
 
+  build_macos:
+    needs: create_release
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13.12"
+
+      - name: Run full build script
+        run: python build.py
+
+      - name: Compress full directory
+        run: |
+          cd "${{ github.workspace }}/dist-portable/main/"
+          zip -r "../../TAS-${{ needs.create_release.outputs.version_nodots }}-macOS-arm64.zip" .
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.TAS }}
+        with:
+          tag_name: v${{ needs.create_release.outputs.version }}
+          files: TAS-${{ needs.create_release.outputs.version_nodots }}-macOS-arm64.zip
+          draft: true
+
   #build_lite_windows:
   #  needs: create_release
   #  runs-on: windows-latest
