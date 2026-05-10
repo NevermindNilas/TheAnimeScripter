@@ -99,6 +99,20 @@ def downloadPortablePythonWindows():
     return portablePythonDir / "python.exe"
 
 
+def flattenStandalonePythonDir(targetDir: Path):
+    """python-build-standalone install_only tarballs extract to a `python/`
+    subdirectory. Move its contents up so layout matches `targetDir/bin/python3`."""
+    nested = targetDir / "python"
+    if not nested.is_dir():
+        return
+    for item in nested.iterdir():
+        dest = targetDir / item.name
+        if dest.exists():
+            shutil.rmtree(dest) if dest.is_dir() else dest.unlink()
+        shutil.move(str(item), str(dest))
+    nested.rmdir()
+
+
 def downloadPortablePythonLinux():
     """Download and setup Python for Linux"""
     # For Linux, we'll download a portable Python build or use pyenv-like approach
@@ -115,6 +129,8 @@ def downloadPortablePythonLinux():
         print("Extracting Python...")
         with tarfile.open(pythonTar, "r:gz") as tarRef:
             tarRef.extractall(portablePythonDir)
+
+        flattenStandalonePythonDir(portablePythonDir)
 
         # Make Python executable
         if pythonExe.exists():
@@ -156,6 +172,8 @@ def downloadPortablePythonMacos():
         print("Extracting Python...")
         with tarfile.open(pythonTar, "r:gz") as tarRef:
             tarRef.extractall(portablePythonDir)
+
+        flattenStandalonePythonDir(portablePythonDir)
 
         if pythonExe.exists():
             os.chmod(pythonExe, 0o755)

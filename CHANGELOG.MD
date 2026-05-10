@@ -11,11 +11,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--moblur_no_linear_blend`: opt-out of gamma-correct blending (default on).
 - `--moblur_mask`: transparent PNG to protect regions from motion blur. Paint opaque dark pixels on a transparent background — those areas stay sharp (HUD/text), transparent areas blur.
 - `--autoclip_method` with selectable scene-cut backends: `pyscenedetect`, `maxxvit-directml`, `maxxvit-tensorrt`, and `transnetv2`.
-- Added MaxxVit- and TransNetV2-based autoclip support, including automatic weight download for TransNetV2.
+- Added MaxxVit- and TransNetV2-based autoclip support.
+- Added A VERY experimental WIP MacOS build.)
 
 ### Changed
 - Up to `300ms` start up times improvements by optimizing imports and lazy loading certain modules.
-- Up to `1.8x` performance improvements to `--resize`.
+- Up to `2x` performance improvements to `--resize`.
 - Major motion blur quality overhaul: gamma-correct (linear-light) blending plus symmetric shutter window centered on each source frame. Trails no longer lag motion, highlights retain punch, shadows stay clean.
 - `--moblur_factor` default `2` → `8`, `--moblur_strength` default `equal` → `gaussian_sym`.
 - Reduced peak VRAM during model initialization by ~`22%` (measured on `--depth_method base_v2`: 1004 MiB → 788 MiB peak reserved).
@@ -24,23 +25,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Nelux `VideoReader` reuse now accounts for resize targets and can perform decoder-side resize directly, avoiding redundant post-decode interpolation when `--resize` is enabled.
 - Bumped nelux to `0.10.1` for improved stability and performance.
 - Bumped openvino and onnxruntime-openvino to the latest release.
+- Removed the Linux `torchcodec` runtime dependency from requirements and project metadata.
 
 ### Fixed
-- Removed the Linux `torchcodec` runtime dependency from requirements and project metadata.
 - Fixed openvino related issues.
 
 ## TAS Adobe Edition
 ### Added
+- A FULLY redesigned auto clip workflow with its own separate interface, clip selection support, fast and accurate selection, multiple new backends and more. ( UX inspiration from https://github.com/crptk/AMVerge )
+- Added mask option, linear blend, and shutter angle options to the motion blur settings.
+- Added new autoclip methods, MaxxVit- and TransNetV2-based.
 - Read button to the graph editor to read the current graph from the backend and display it in the UI.
 - Import / Export buttons to the graph editor to export and share your presets.
-- Added a flip x/y axis toggle.
-
+- Added a flip x/y axis toggle to the graph editor.
+- A major redesign to the chain tab with checkboxes, clear indication of what models are being used and a more intuitive layout.
+- Added a real time import to AE option to the graph editor, this allows you to apply the changes in real time.
+  
 ### Changed
 - The keyframe graph editor is now bound by the X axis of the canvas.
 - Updated dependencies.
+- Reworked the Youtube download workflow, it will now try its best to comply with after effects innate codec and container limitations.
+- Shaved up to 3s on the yt-dlp fetch and download process by optimizing the logic and parallelizing certain operations.
+- Major performance improvements in start-up times.
 
 ### Fixed
-- N/A
+- Fixed an issue where the graph editor would not properly read the current graph from the backend.
+- Fixed an issue with av1 / vp9 and webm containers when downloading from youtube.
 
 ## [2.6.0] - 2026-04-13
 ### Added
