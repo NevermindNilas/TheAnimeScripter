@@ -164,7 +164,6 @@
         "python313.dll",
         "python313.zip",
         "main.py",
-        "pyproject.toml",
         "requirements.txt",
         "extra-requirements-windows.txt",
         "extra-requirements-windows-lite.txt",

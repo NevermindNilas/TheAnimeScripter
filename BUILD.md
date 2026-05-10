@@ -16,9 +16,6 @@ python build.py
 The build uses [requirements.txt](requirements.txt) plus the runtime-specific
 requirements files as the source of truth for portable dependency installation.
 
-[pyproject.toml](pyproject.toml) remains in the repository as project metadata,
-but the portable build and runtime dependency handling are driven by pip.
-
 ### Output Location
 After successful compilation, the executable files will be located in:
 ```
