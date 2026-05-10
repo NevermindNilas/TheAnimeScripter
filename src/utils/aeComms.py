@@ -192,20 +192,26 @@ def runServer(host, queue=None):
 
     logging.info(f"AE Comms Server running on {hostname}:{port}")
 
-    from wsgiref.simple_server import make_server, WSGIServer, WSGIRequestHandler
-    from socketserver import ThreadingMixIn
-
-    class ThreadingWSGIServer(ThreadingMixIn, WSGIServer):
-        daemon_threads = True
+    # Werkzeug's request handler exposes ``werkzeug.socket`` in the WSGI
+    # environ, which ``simple-websocket`` (used by python-engineio for
+    # threading-mode async) requires to upgrade HTTP -> WebSocket. wsgiref
+    # provides no such hook, so the upgrade dies with
+    # "Cannot obtain socket from WSGI environment.".
+    from werkzeug.serving import make_server, WSGIRequestHandler
 
     class QuietHandler(WSGIRequestHandler):
+        def log_request(self, *args, **kwargs):
+            return
+
         def log_message(self, format, *args):
             return
 
     httpd = make_server(
-        hostname, port, app,
-        server_class=ThreadingWSGIServer,
-        handler_class=QuietHandler,
+        hostname,
+        port,
+        app,
+        threaded=True,
+        request_handler=QuietHandler,
     )
     httpd.serve_forever()
 
