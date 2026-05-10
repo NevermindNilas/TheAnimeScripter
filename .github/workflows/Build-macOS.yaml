@@ -9,10 +9,6 @@ on:
       - "build.py"
       - "extra-requirements-macos.txt"
       - "requirements.txt"
-      - "pyproject.toml"
-      - "src/**"
-      - "main.py"
-      - ".github/workflows/Build-macOS.yaml"
 
 permissions:
   contents: write
