@@ -577,6 +577,61 @@ class VideoProcessor:
         )
 
 
+def _runPngPassthrough(inputPath: str, outputPath: str) -> None:
+    """Decode an image (OpenCV → Pillow fallback), round-trip through torch, write PNG."""
+    outputDir = os.path.dirname(outputPath)
+    if outputDir:
+        os.makedirs(outputDir, exist_ok=True)
+
+    tensorFrame = None
+    cv2Module = None
+
+    try:
+        import cv2
+        import torch
+
+        cv2Module = cv2
+
+        image = cv2.imread(inputPath, cv2.IMREAD_UNCHANGED)
+        if image is None:
+            raise RuntimeError(f"Failed to decode image with OpenCV: {inputPath}")
+
+        if image.ndim == 2:
+            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
+        elif image.shape[2] == 4:
+            image = cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA)
+        else:
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        tensorFrame = torch.from_numpy(image)
+
+    except Exception as cvError:
+        logging.warning(f"OpenCV decode failed, trying Pillow fallback: {cvError}")
+        from PIL import Image
+        import numpy as np
+        import torch
+
+        pilImage = Image.open(inputPath).convert("RGB")
+        tensorFrame = torch.from_numpy(np.array(pilImage))
+
+    outputFrame = tensorFrame.cpu().numpy()
+    if cv2Module is not None:
+        if outputFrame.ndim == 2:
+            writeOk = cv2Module.imwrite(outputPath, outputFrame)
+        else:
+            writeOk = cv2Module.imwrite(
+                outputPath,
+                cv2Module.cvtColor(outputFrame, cv2Module.COLOR_RGB2BGR),
+            )
+
+        if not writeOk:
+            raise RuntimeError(f"Failed to write output PNG: {outputPath}")
+    else:
+        from PIL import Image
+
+        Image.fromarray(outputFrame).save(outputPath)
+
+
 def main():
     """
     Main entry point for The Anime Scripter application.
@@ -669,57 +724,7 @@ def main():
                     inputPath = results[i]["videoPath"]
                     outputPath = results[i]["outputPath"]
 
-                    outputDir = os.path.dirname(outputPath)
-                    if outputDir:
-                        os.makedirs(outputDir, exist_ok=True)
-
-                    tensorFrame = None
-                    cv2Module = None
-
-                    try:
-                        import cv2
-                        import torch
-
-                        cv2Module = cv2
-
-                        image = cv2.imread(inputPath, cv2.IMREAD_UNCHANGED)
-                        if image is None:
-                            raise RuntimeError(f"Failed to decode image with OpenCV: {inputPath}")
-
-                        if image.ndim == 2:
-                            image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-                        elif image.shape[2] == 4:
-                            image = cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA)
-                        else:
-                            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-                        tensorFrame = torch.from_numpy(image)
-
-                    except Exception as cvError:
-                        logging.warning(f"OpenCV decode failed, trying Pillow fallback: {cvError}")
-                        from PIL import Image
-                        import numpy as np
-                        import torch
-
-                        pilImage = Image.open(inputPath).convert("RGB")
-                        tensorFrame = torch.from_numpy(np.array(pilImage))
-
-                    outputFrame = tensorFrame.cpu().numpy()
-                    if cv2Module is not None:
-                        if outputFrame.ndim == 2:
-                            writeOk = cv2Module.imwrite(outputPath, outputFrame)
-                        else:
-                            writeOk = cv2Module.imwrite(
-                                outputPath,
-                                cv2Module.cvtColor(outputFrame, cv2Module.COLOR_RGB2BGR),
-                            )
-
-                        if not writeOk:
-                            raise RuntimeError(f"Failed to write output PNG: {outputPath}")
-                    else:
-                        from PIL import Image
-
-                        Image.fromarray(outputFrame).save(outputPath)
+                    _runPngPassthrough(inputPath, outputPath)
 
                     logSuccess(f"PNG passthrough completed: {outputPath}")
 

@@ -4,7 +4,7 @@ import os
 import torch
 import torch.nn.functional as F
 
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
+from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
 from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
 from concurrent.futures import ThreadPoolExecutor
 from src.utils.progressBarLogic import ProgressBarLogic
@@ -82,10 +82,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             progressState.update({"status": "Loading background removal model..."})
 
         filename = modelsMap("segment")
-        if not os.path.exists(os.path.join(weightsDir, "segment", filename)):
-            modelPath = downloadModels(model="segment")
-        else:
-            modelPath = os.path.join(weightsDir, "segment", filename)
+        modelPath = resolveWeightPath("segment", filename)
 
         from .train import AnimeSegmentation
 
@@ -229,10 +226,9 @@ class AnimeSegmentTensorRT:
 
         filename = modelsMap("segment-tensorrt")
         folderName = "segment-onnx"
-        if not os.path.exists(os.path.join(weightsDir, folderName, filename)):
-            self.modelPath = downloadModels(model="segment-tensorrt")
-        else:
-            self.modelPath = os.path.join(weightsDir, folderName, filename)
+        self.modelPath = resolveWeightPath(
+            folderName, filename, downloadModel="segment-tensorrt"
+        )
 
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
@@ -436,10 +432,9 @@ class AnimeSegmentDirectML:
 
         self.filename = modelsMap("segment-directml")
         folderName = "segment-onnx"
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            modelPath = downloadModels(model="segment-directml")
-        else:
-            modelPath = os.path.join(weightsDir, folderName, self.filename)
+        modelPath = resolveWeightPath(
+            folderName, self.filename, downloadModel="segment-directml"
+        )
 
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
@@ -652,10 +647,9 @@ class AnimeSegmentOpenVino:
         method = "segment-directml"
         self.filename = modelsMap(method)
         folderName = "segment-onnx"
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            modelPath = downloadModels(model=method)
-        else:
-            modelPath = os.path.join(weightsDir, folderName, self.filename)
+        modelPath = resolveWeightPath(
+            folderName, self.filename, downloadModel=method
+        )
 
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width

@@ -3,7 +3,7 @@ import torch
 import logging
 
 from src.utils.modelOptimizer import ModelOptimizer
-from .utils.downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
 from .utils.isCudaInit import CudaChecker
 from src.utils.logAndPrint import logAndPrint
 from src.constants import ADOBE
@@ -74,15 +74,11 @@ class UniversalPytorch:
             self.filename = modelsMap(
                 self.upscaleMethod, self.upscaleFactor, modelType="pth"
             )
-            if not os.path.exists(
-                os.path.join(weightsDir, self.upscaleMethod, self.filename)
-            ):
-                modelPath = downloadModels(
-                    model=self.upscaleMethod,
-                    upscaleFactor=self.upscaleFactor,
-                )
-            else:
-                modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
+            modelPath = resolveWeightPath(
+                self.upscaleMethod,
+                self.filename,
+                upscaleFactor=self.upscaleFactor,
+            )
         else:
             if os.path.isfile(self.customModel):
                 modelPath = self.customModel
@@ -303,14 +299,11 @@ class UniversalPytorchMPS:
             self.filename = modelsMap(
                 self.baseMethod, self.upscaleFactor, modelType="pth"
             )
-            weightsPath = os.path.join(weightsDir, self.baseMethod, self.filename)
-            if not os.path.exists(weightsPath):
-                modelPath = downloadModels(
-                    model=self.baseMethod,
-                    upscaleFactor=self.upscaleFactor,
-                )
-            else:
-                modelPath = weightsPath
+            modelPath = resolveWeightPath(
+                self.baseMethod,
+                self.filename,
+                upscaleFactor=self.upscaleFactor,
+            )
         else:
             if not os.path.isfile(self.customModel):
                 raise FileNotFoundError(
@@ -474,15 +467,14 @@ class UniversalTensorRT:
                 half=self.half,
             )
             folderName = self.upscaleMethod.replace("-tensorrt", "-onnx")
-            if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-                self.modelPath = downloadModels(
-                    model=self.upscaleMethod,
-                    upscaleFactor=self.upscaleFactor,
-                    half=self.half,
-                    modelType="onnx",
-                )
-            else:
-                self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+            self.modelPath = resolveWeightPath(
+                folderName,
+                self.filename,
+                downloadModel=self.upscaleMethod,
+                upscaleFactor=self.upscaleFactor,
+                half=self.half,
+                modelType="onnx",
+            )
         else:
             self.modelPath = self.customModel
             if not os.path.exists(self.customModel):
@@ -637,20 +629,19 @@ class UniversalDirectML:
                 method = method.replace("openvino", "directml")
 
             self.filename = modelsMap(method, self.upscaleFactor, modelType="onnx")
-            if "directml" in self.upscaleMethod:
-                folderName = self.upscaleMethod.replace("directml", "-onnx")
-            elif "openvino" in self.upscaleMethod:
-                folderName = self.upscaleMethod.replace("openvino", "-onnx")
+            if "-directml" in self.upscaleMethod:
+                folderName = self.upscaleMethod.replace("-directml", "-onnx")
+            elif "-openvino" in self.upscaleMethod:
+                folderName = self.upscaleMethod.replace("-openvino", "-onnx")
 
-            if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-                modelPath = downloadModels(
-                    model=method,
-                    upscaleFactor=self.upscaleFactor,
-                    modelType="onnx",
-                    half=self.half,
-                )
-            else:
-                modelPath = os.path.join(weightsDir, folderName, self.filename)
+            modelPath = resolveWeightPath(
+                folderName,
+                self.filename,
+                downloadModel=method,
+                upscaleFactor=self.upscaleFactor,
+                modelType="onnx",
+                half=self.half,
+            )
         else:
             logging.info(
                 f"Using custom model: {self.customModel}, this is an experimental feature, expect potential issues"
@@ -845,19 +836,18 @@ class AnimeSRDirectML:
             method = method.replace("openvino", "directml")
 
         filename = modelsMap(method, modelType="onnx")
-        if "directml" in self.upscaleMethod:
-            folderName = self.upscaleMethod.replace("directml", "-onnx")
-        elif "openvino" in self.upscaleMethod:
-            folderName = self.upscaleMethod.replace("openvino", "-onnx")
+        if "-directml" in self.upscaleMethod:
+            folderName = self.upscaleMethod.replace("-directml", "-onnx")
+        elif "-openvino" in self.upscaleMethod:
+            folderName = self.upscaleMethod.replace("-openvino", "-onnx")
 
-        if not os.path.exists(os.path.join(weightsDir, folderName, filename)):
-            modelPath = downloadModels(
-                model=method,
-                modelType="onnx",
-                half=self.half,
-            )
-        else:
-            modelPath = os.path.join(weightsDir, folderName, filename)
+        modelPath = resolveWeightPath(
+            folderName,
+            filename,
+            downloadModel=method,
+            modelType="onnx",
+            half=self.half,
+        )
 
         providers = self.ort.get_available_providers()
 
@@ -1005,15 +995,11 @@ class UniversalNCNN:
         elif self.filename.endswith("-ncnn"):
             self.filename = self.filename[:-5]
 
-        if not os.path.exists(
-            os.path.join(weightsDir, self.upscaleMethod, self.filename)
-        ):
-            modelPath = downloadModels(
-                model=self.upscaleMethod,
-                modelType="ncnn",
-            )
-        else:
-            modelPath = os.path.join(weightsDir, self.upscaleMethod, self.filename)
+        modelPath = resolveWeightPath(
+            self.upscaleMethod,
+            self.filename,
+            modelType="ncnn",
+        )
 
         if modelPath.endswith("-ncnn.zip"):
             modelPath = modelPath[:-9]
@@ -1066,13 +1052,11 @@ class AnimeSR:
         Load the desired model
         """
         self.filename = modelsMap("animesr", self.upscaleFactor, modelType="pth")
-        if not os.path.exists(os.path.join(weightsDir, "animesr", self.filename)):
-            modelPath = downloadModels(
-                model="animesr",
-                upscaleFactor=self.upscaleFactor,
-            )
-        else:
-            modelPath = os.path.join(weightsDir, "animesr", self.filename)
+        modelPath = resolveWeightPath(
+            "animesr",
+            self.filename,
+            upscaleFactor=self.upscaleFactor,
+        )
 
         from src.extraArches.AnimeSR import MSRSWVSR
 
@@ -1298,16 +1282,14 @@ class AnimeSRTensorRT:
             modelType="onnx",
             half=self.half,
         )
-        folderName = "animesr-onnx"
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            self.modelPath = downloadModels(
-                model="animesr-tensorrt",
-                upscaleFactor=self.upscaleFactor,
-                half=self.half,
-                modelType="onnx",
-            )
-        else:
-            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+        self.modelPath = resolveWeightPath(
+            "animesr-onnx",
+            self.filename,
+            downloadModel="animesr-tensorrt",
+            upscaleFactor=self.upscaleFactor,
+            half=self.half,
+            modelType="onnx",
+        )
 
         self.dtype = torch.float16 if self.half else torch.float32
         enginePath = self.tensorRTEngineNameHandler(
