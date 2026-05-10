@@ -197,13 +197,18 @@ class BuildBuffer:
 
         self._didDecoderResize = resizeTarget is not None
 
-        if self.inpoint > 0 or self.outpoint > 0:
-            reader = CachedReader([float(self.inpoint), float(self.outpoint)])
-        else:
-            reader = CachedReader
+        fps = CachedReader.fps or 0.0
+        startFrame = int(round(float(self.inpoint) * fps)) if self.inpoint > 0 else 0
+        endFrame = int(round(float(self.outpoint) * fps)) if self.outpoint > 0 else 0
 
         decodedFrames = 0
-        for frame in reader:
+        frameIdx = 0
+        for frame in CachedReader:
+            if frameIdx < startFrame:
+                frameIdx += 1
+                continue
+            if endFrame > 0 and frameIdx >= endFrame:
+                break
             if self.toTorch:
                 frame = self.processFrameToTorch(
                     frame, self.normStream if self.cudaEnabled else None
@@ -211,6 +216,7 @@ class BuildBuffer:
             self.decodeBuffer.put(frame)
             self._frameAvailable.set()
             decodedFrames += 1
+            frameIdx += 1
 
         return decodedFrames
 
