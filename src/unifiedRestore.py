@@ -530,14 +530,7 @@ class UnifiedRestoreDirectML:
         )
 
         self.IoBinding = self.model.io_binding()
-        self.IoBinding.bind_output(
-            name="output",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.dummyOutput.shape,
-            buffer_ptr=self.dummyOutput.data_ptr(),
-        )
+
 
         self.usingCpuFallback = True
 
@@ -560,6 +553,15 @@ class UnifiedRestoreDirectML:
                 element_type=self.numpyDType,
                 shape=self.dummyInput.shape,
                 buffer_ptr=self.dummyInput.data_ptr(),
+            )
+
+            self.IoBinding.bind_output(
+                name="output",
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyDType,
+                shape=self.dummyOutput.shape,
+                buffer_ptr=self.dummyOutput.data_ptr(),
             )
 
             self.model.run_with_iobinding(self.IoBinding)

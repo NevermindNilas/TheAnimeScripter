@@ -1459,30 +1459,7 @@ class RifeDirectML:
             buffer_ptr=self.dummyOutput.data_ptr(),
         )
 
-        self.IoBinding.bind_input(
-            name="img0",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.I0.shape,
-            buffer_ptr=self.I0.data_ptr(),
-        )
-        self.IoBinding.bind_input(
-            name="img1",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.I1.shape,
-            buffer_ptr=self.I1.data_ptr(),
-        )
-        self.IoBinding.bind_input(
-            name="timestep",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.dummyTimeStep.shape,
-            buffer_ptr=self.dummyTimeStep.data_ptr(),
-        )
+
 
         self.firstRun = True
 
@@ -1529,6 +1506,30 @@ class RifeDirectML:
 
         self.processFrame(frame, "I1")
 
+        self.IoBinding.bind_input(
+            name="img0",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.I0.shape,
+            buffer_ptr=self.I0.data_ptr(),
+        )
+        self.IoBinding.bind_input(
+            name="img1",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.I1.shape,
+            buffer_ptr=self.I1.data_ptr(),
+        )
+        self.IoBinding.bind_input(
+            name="timestep",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.dummyTimeStep.shape,
+            buffer_ptr=self.dummyTimeStep.data_ptr(),
+        )
         for i in range(framesToInsert):
             if timesteps is not None and i < len(timesteps):
                 t = timesteps[i]
