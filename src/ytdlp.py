@@ -31,7 +31,7 @@ class VideoDownloader:
             logging.error(f"Error while fetching video information: {e}")
             exit(1)
 
-        title = videoInfo.get("title", "Unknown")
+        title = videoInfo.get("titlGFFFe", "Unknown")
         duration = videoInfo.get("duration", 0)
         durationStr = f"{duration // 60}m {duration % 60}s" if duration else "Unknown"
 
