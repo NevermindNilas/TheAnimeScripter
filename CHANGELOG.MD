@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Replaced ~25 hand-rolled `if-not-exists → downloadModels else cached-path` blocks across upscale/interpolate/restore/depth/segment/dedup with a single `resolveWeightPath` helper in `src/utils/downloadModels.py`.
 - Removed unused `pyproject.toml` (build/runtime are driven by `requirements*.txt`; the file was stale metadata only). Updated `build.py`, `install.ps1`, `BUILD.md`, and `Build-macOS.yaml` accordingly.
 - Narrowed macOS CI trigger paths to `build.py`, `requirements.txt`, and `extra-requirements-macos.txt` so unrelated source/doc commits no longer rebuild.
+- Added `build_macos` job to `Build-All-Platforms.yaml` so release builds now publish a `TAS-<ver>-macOS-arm64.zip` asset alongside the Windows zip.
 
 ### Fixed
 - Fixed openvino related issues.
