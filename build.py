@@ -352,7 +352,7 @@ if __name__ == "__main__":
     if args.develop:
         if system == "Windows":
             finalOutputDir = Path(
-                r"D:\tastest\TheAnimeScripter"
+                r"C:\Users\nilas\AppData\Roaming\TheAnimeScripter"
             )
         elif system == "Darwin":
             finalOutputDir = (

@@ -46,7 +46,22 @@ class AutoClipTransnetv2:
             )
 
         self._loadModel()
-        self._run()
+
+        if cs.ADOBE:
+            from src.utils.aeComms import progressState
+
+            progressState.update(
+                {"status": "Detecting scene changes (transnetv2)..."}
+            )
+            try:
+                self._run()
+            except Exception as e:
+                progressState.setFailed(error=str(e))
+                raise
+            outPath = os.path.join(cs.WHEREAMIRUNFROM, "autoclipresults.txt")
+            progressState.setCompleted(outputPath=outPath)
+        else:
+            self._run()
 
     def _resolveModelPath(self):
         filename = modelsMap("transnetv2")
@@ -118,12 +133,19 @@ class AutoClipTransnetv2:
         # O(N^2)-ish behavior for sequential indices. ``__iter__`` (and the
         # range-slice form below) reuse the persistent decoder and stay O(1)
         # per frame.
+        # ``prefetch=True`` at construction is mandatory: nelux 0.10.x has a
+        # race between FF_THREAD_FRAME codec ctx and post-hoc
+        # ``start_prefetch()`` (the prefetch flag never flips, decodeFrame
+        # keeps routing to the sync path while the producer thread also
+        # decodes -> ``av_assert0(!fctx->async_lock)`` at
+        # pthread_frame.c:174). Constructing with prefetch=True from the
+        # start avoids the dual-path race entirely.
         reader = nelux.VideoReader(
             self.input,
             backend="pytorch",
             decode_accelerator="cpu",
             resize=(self.W, self.H),
-            num_threads=8,
+            prefetch=True,
         )
         fps = reader.fps
         if not fps or fps <= 0:
@@ -145,10 +167,6 @@ class AutoClipTransnetv2:
         else:
             iterable = reader
 
-        try:
-            reader.start_prefetch()
-        except Exception:
-            pass
         return iter(iterable), fps, startFrame, endFrame
 
     @torch.inference_mode()
