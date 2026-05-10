@@ -6,13 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
-- New encoding options, x264_nelux, x265_nelux and av1_nelux, which utilize the Nelux encoder for improved performance and quality.
+- New encoding options, x264_nelux, x265_nelux and av1_nelux, which utilize the Nelux encoder for improved performance.
 - `--moblur_shutter_angle` (degrees, default `180`): cinema-style shutter window. `360` = full smear, `90` = crisp, `0` = passthrough.
 - `--moblur_no_linear_blend`: opt-out of gamma-correct blending (default on).
 - `--moblur_mask`: transparent PNG to protect regions from motion blur. Paint opaque dark pixels on a transparent background — those areas stay sharp (HUD/text), transparent areas blur.
 - `--autoclip_method` with selectable scene-cut backends: `pyscenedetect`, `maxxvit-directml`, `maxxvit-tensorrt`, and `transnetv2`.
 - Added MaxxVit- and TransNetV2-based autoclip support.
-- Added A VERY experimental WIP MacOS build.)
+- Added A VERY! experimental WIP MacOS build.
 
 ### Changed
 - Up to `300ms` start up times improvements by optimizing imports and lazy loading certain modules.
@@ -23,7 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Reduced FFmpeg decode/encode buffer queues from `64` to `32` frames, halving frame queue VRAM (e.g. ~3 GB saved at 4K fp16) without throughput impact.
 - Autoclip dispatch now routes to backend-specific implementations, and `--autoclip_sens` is remapped per backend so higher values consistently mean more aggressive cut detection.
 - Nelux `VideoReader` reuse now accounts for resize targets and can perform decoder-side resize directly, avoiding redundant post-decode interpolation when `--resize` is enabled.
-- Bumped nelux to `0.10.1` for improved stability and performance.
+- Bumped nelux to `0.10.1` for improved stability and performance. Decoding is now significantly faster and more efficient, especially for H264, HEVC and AV1 content of any pixel format. Nearly all pixel formats are now supported with no fallback to OpenCV.
 - Bumped openvino and onnxruntime-openvino to the latest release.
 - Removed the Linux `torchcodec` runtime dependency from requirements and project metadata.
 
@@ -47,11 +47,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Reworked the Youtube download workflow, it will now try its best to comply with after effects innate codec and container limitations.
 - Shaved up to 3s on the yt-dlp fetch and download process by optimizing the logic and parallelizing certain operations.
 - Major performance improvements in start-up times.
+- Further security improvements to the GitHub Sponsors workflow.
 
 ### Fixed
 - Fixed an issue where the graph editor would not properly read the current graph from the backend.
 - Fixed an issue with av1 / vp9 and webm containers when downloading from youtube.
-
+- Changed some delinking related parameters in the Github Sponsors workflow to be less strict and more effective. Less false positives and less deconnection issues. 
+ 
 ## [2.6.0] - 2026-04-13
 ### Added
 - Added `adore` 2x upscaler (shufflecugan architecture). Available across CUDA and TensorRT.
