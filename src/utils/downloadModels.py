@@ -1178,6 +1178,36 @@ def downloadAndLog(
     return None
 
 
+def resolveWeightPath(
+    subdir: str,
+    filename: str,
+    downloadModel: str = None,
+    modelType: str = "pth",
+    half: bool = True,
+    ensemble: bool = False,
+    upscaleFactor: int = 2,
+) -> str:
+    """
+    Return the local weight file if present, otherwise download it.
+
+    Args:
+        subdir: Folder under `weightsDir` where the file is expected to live.
+        filename: Expected filename inside `subdir`.
+        downloadModel: Model identifier passed to `downloadModels` when missing.
+            Defaults to `subdir` when not provided.
+    """
+    cachedPath = os.path.join(weightsDir, subdir, filename)
+    if os.path.exists(cachedPath):
+        return cachedPath
+    return downloadModels(
+        model=downloadModel if downloadModel is not None else subdir,
+        upscaleFactor=upscaleFactor,
+        modelType=modelType,
+        half=half,
+        ensemble=ensemble,
+    )
+
+
 def downloadModels(
     model: str = None,
     upscaleFactor: int = 2,

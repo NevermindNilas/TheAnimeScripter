@@ -2,7 +2,7 @@ import os
 import torch
 import logging
 
-from .utils.downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
 from .utils.isCudaInit import CudaChecker
 from .utils.logAndPrint import logAndPrint
 from src.constants import ADOBE
@@ -49,10 +49,7 @@ class UnifiedRestoreCuda:
             print("NAFNet does not support half precision, using float32 instead")
 
         self.filename = modelsMap(self.model)
-        if not os.path.exists(os.path.join(weightsDir, self.model, self.filename)):
-            modelPath = downloadModels(model=self.model)
-        else:
-            modelPath = os.path.join(weightsDir, self.model, self.filename)
+        modelPath = resolveWeightPath(self.model, self.filename)
 
         if self.model not in ["gater3"]:
             try:
@@ -150,10 +147,7 @@ class UnifiedRestoreMPS:
             print("NAFNet does not support half precision, using float32 instead")
 
         self.filename = modelsMap(self.model)
-        if not os.path.exists(os.path.join(weightsDir, self.model, self.filename)):
-            modelPath = downloadModels(model=self.model)
-        else:
-            modelPath = os.path.join(weightsDir, self.model, self.filename)
+        modelPath = resolveWeightPath(self.model, self.filename)
 
         if self.model not in ["gater3"]:
             try:
@@ -298,14 +292,13 @@ class UnifiedRestoreTensorRT:
             half=self.half,
         )
         folderName = self.restoreMethod.replace("-tensorrt", "-onnx")
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            self.modelPath = downloadModels(
-                model=self.restoreMethod,
-                half=self.half,
-                modelType="onnx",
-            )
-        else:
-            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+        self.modelPath = resolveWeightPath(
+            folderName,
+            self.filename,
+            downloadModel=self.restoreMethod,
+            modelType="onnx",
+            half=self.half,
+        )
 
         self.dtype = torch.float16 if self.half else torch.float32
 
@@ -453,24 +446,23 @@ class UnifiedRestoreDirectML:
             method = method.replace("openvino", "directml")
 
         self.filename = modelsMap(method, modelType="onnx")
-        if "directml" in self.restoreMethod:
-            folderName = self.restoreMethod.replace("directml", "-onnx")
-        elif "openvino" in self.restoreMethod:
-            folderName = self.restoreMethod.replace("openvino", "-onnx")
+        if "-directml" in self.restoreMethod:
+            folderName = self.restoreMethod.replace("-directml", "-onnx")
+        elif "-openvino" in self.restoreMethod:
+            folderName = self.restoreMethod.replace("-openvino", "-onnx")
 
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            modelPath = downloadModels(
-                model=method,
-                modelType="onnx",
-                half=self.half,
-            )
-        else:
-            modelPath = os.path.join(weightsDir, folderName, self.filename)
+        modelPath = resolveWeightPath(
+            folderName,
+            self.filename,
+            downloadModel=method,
+            modelType="onnx",
+            half=self.half,
+        )
 
         providers = self.ort.get_available_providers()
         logging.info(f"Available ONNX Runtime providers: {providers}")
 
-        if "DmlExecutionProvider" or "OpenVINOExecutionProvider" in providers:
+        if "DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers:
             if "directml" in self.restoreMethod:
                 logging.info("Using DirectML model")
                 self.model = self.ort.InferenceSession(

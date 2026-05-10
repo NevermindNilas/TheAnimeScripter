@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import math
 import numpy as np
 
-from .utils.downloadModels import downloadModels, weightsDir, modelsMap
+from .utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
 from .utils.isCudaInit import CudaChecker
 from .utils.logAndPrint import logAndPrint
 
@@ -210,10 +210,9 @@ class RifeCuda:
             )
 
         self.filename = modelsMap(self.interpolateMethod)
-        if not os.path.exists(os.path.join(weightsDir, "rife", self.filename)):
-            modelPath = downloadModels(model=self.interpolateMethod)
-        else:
-            modelPath = os.path.join(weightsDir, "rife", self.filename)
+        modelPath = resolveWeightPath(
+            "rife", self.filename, downloadModel=self.interpolateMethod
+        )
 
         self.dType = torch.float16 if self.half else torch.float32
 
@@ -468,10 +467,9 @@ class RifeMPS:
             )
 
         self.filename = modelsMap(self.baseMethod)
-        if not os.path.exists(os.path.join(weightsDir, "rife", self.filename)):
-            modelPath = downloadModels(model=self.baseMethod)
-        else:
-            modelPath = os.path.join(weightsDir, "rife", self.filename)
+        modelPath = resolveWeightPath(
+            "rife", self.filename, downloadModel=self.baseMethod
+        )
 
         self.dType = torch.float16 if self.half else torch.float32
 
@@ -706,15 +704,14 @@ class RifeTensorRT:
         )
 
         folderName = self.interpolateMethod.replace("-tensorrt", "")
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            self.modelPath = downloadModels(
-                model=self.interpolateMethod.replace("-tensorrt", ""),
-                modelType="pth",
-                half=self.half,
-                ensemble=self.ensemble,
-            )
-        else:
-            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+        self.modelPath = resolveWeightPath(
+            folderName,
+            self.filename,
+            downloadModel=folderName,
+            modelType="pth",
+            half=self.half,
+            ensemble=self.ensemble,
+        )
 
         if self.interpolateMethod in [
             "rife_elexor-tensorrt",
@@ -1089,16 +1086,12 @@ class RifeNCNN:
         elif self.filename.endswith("-ncnn"):
             self.filename = self.filename[:-5]
 
-        if not os.path.exists(
-            os.path.join(weightsDir, self.interpolateMethod, self.filename)
-        ):
-            modelPath = downloadModels(
-                model=self.interpolateMethod,
-                ensemble=self.ensemble,
-                modelType="ncnn",
-            )
-        else:
-            modelPath = os.path.join(weightsDir, self.interpolateMethod, self.filename)
+        modelPath = resolveWeightPath(
+            self.interpolateMethod,
+            self.filename,
+            ensemble=self.ensemble,
+            modelType="ncnn",
+        )
 
         if modelPath.endswith("-ncnn.zip"):
             modelPath = modelPath[:-9]
@@ -1282,17 +1275,14 @@ class RifeDirectML:
         folderName = self.interpolateMethod.replace("-directml", "").replace(
             "-openvino", ""
         )
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            self.modelPath = downloadModels(
-                model=self.interpolateMethod.replace("-directml", "").replace(
-                    "-openvino", ""
-                ),
-                modelType="pth",
-                half=self.half,
-                ensemble=self.ensemble,
-            )
-        else:
-            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+        self.modelPath = resolveWeightPath(
+            folderName,
+            self.filename,
+            downloadModel=folderName,
+            modelType="pth",
+            half=self.half,
+            ensemble=self.ensemble,
+        )
 
         if self.interpolateMethod in [
             "rife4.25-directml",

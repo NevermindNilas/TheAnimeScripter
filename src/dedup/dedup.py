@@ -3,7 +3,7 @@ import torch
 import os
 
 from torch.functional import F
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
+from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
 from src.utils.isCudaInit import CudaChecker
 from src.utils.modelOptimizer import ModelOptimizer
 
@@ -219,12 +219,7 @@ class DedupFlownetS:
 
         self.filename = modelsMap("flownets", modelType="pth")
 
-        if not os.path.exists(os.path.join(weightsDir, "flownets", self.filename)):
-            modelPath = downloadModels(
-                model="flownets",
-            )
-        else:
-            modelPath = os.path.join(weightsDir, "flownets", self.filename)
+        modelPath = resolveWeightPath("flownets", self.filename)
 
         stateDict = torch.load(modelPath, map_location="cpu")
         self.model = flownet.__dict__[stateDict["arch"]](stateDict)

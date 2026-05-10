@@ -285,29 +285,7 @@ def depth(self):
             | "distill_small_v2-directml"
             | "distill_base_v2-directml"
             | "distill_large_v2-directml"
-        ):
-            from src.depth.depth import DepthDirectMLV2
-
-            DepthDirectMLV2(
-                self.input,
-                self.output,
-                self.width,
-                self.height,
-                self.fps,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encodeMethod,
-                self.depthMethod,
-                self.customEncoder,
-                self.benchmark,
-                self.totalFrames,
-                self.bitDepth,
-                self.depthQuality,
-                depthNorm=self.depthNorm,
-            )
-        case (
-            "small_v2-openvino"
+            | "small_v2-openvino"
             | "base_v2-openvino"
             | "large_v2-openvino"
             | "distill_small_v2-openvino"
@@ -438,29 +416,14 @@ def depth(self):
                 depthNorm=self.depthNorm,
             )
 
-        case "og_small_v2-directml" | "og_base_v2-directml" | "og_large_v2-directml":
-            from src.depth.depth import OGDepthV2DirectML
-
-            OGDepthV2DirectML(
-                self.input,
-                self.output,
-                self.width,
-                self.height,
-                self.fps,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encodeMethod,
-                self.depthMethod,
-                self.customEncoder,
-                self.benchmark,
-                self.totalFrames,
-                self.bitDepth,
-                self.depthQuality,
-                depthNorm=self.depthNorm,
-            )
-
-        case "og_small_v2-openvino" | "og_base_v2-openvino" | "og_large_v2-openvino":
+        case (
+            "og_small_v2-directml"
+            | "og_base_v2-directml"
+            | "og_large_v2-directml"
+            | "og_small_v2-openvino"
+            | "og_base_v2-openvino"
+            | "og_large_v2-openvino"
+        ):
             from src.depth.depth import OGDepthV2DirectML
 
             OGDepthV2DirectML(
@@ -505,28 +468,12 @@ def depth(self):
                 depthNorm=self.depthNorm,
             )
 
-        case "small_v3-directml" | "base_v3-directml":
-            from src.depth.depth import DepthDirectMLV3
-
-            DepthDirectMLV3(
-                self.input,
-                self.output,
-                self.width,
-                self.height,
-                self.fps,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encodeMethod,
-                self.depthMethod,
-                self.customEncoder,
-                self.benchmark,
-                self.totalFrames,
-                self.bitDepth,
-                self.depthQuality,
-            )
-
-        case "small_v3-openvino" | "base_v3-openvino":
+        case (
+            "small_v3-directml"
+            | "base_v3-directml"
+            | "small_v3-openvino"
+            | "base_v3-openvino"
+        ):
             from src.depth.depth import DepthDirectMLV3
 
             DepthDirectMLV3(
