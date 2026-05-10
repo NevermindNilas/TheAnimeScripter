@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased] - YYYY-MM-DD
+### Fixed
+- DirectML black frames due to IOBinding issues.
+
+
+## [2.7.0] - 2026-05-10
 ### Added
 - New encoding options, x264_nelux, x265_nelux and av1_nelux, which utilize the Nelux encoder for improved performance.
 - `--moblur_shutter_angle` (degrees, default `180`): cinema-style shutter window. `360` = full smear, `90` = crisp, `0` = passthrough.
