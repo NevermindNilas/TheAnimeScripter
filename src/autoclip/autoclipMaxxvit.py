@@ -49,7 +49,22 @@ class AutoClipMaxxvit:
 
         self.backend = "tensorrt" if method.endswith("-tensorrt") else "directml"
         self._loadModel()
-        self._run()
+
+        if cs.ADOBE:
+            from src.utils.aeComms import progressState
+
+            progressState.update(
+                {"status": f"Detecting scene changes ({self.method})..."}
+            )
+            try:
+                self._run()
+            except Exception as e:
+                progressState.setFailed(error=str(e))
+                raise
+            outPath = os.path.join(cs.WHEREAMIRUNFROM, "autoclipresults.txt")
+            progressState.setCompleted(outputPath=outPath)
+        else:
+            self._run()
 
     def _resolveModelPath(self):
         # TensorRT path is pinned to fp32 weights + fp32 engine because TRT 10.x
@@ -196,12 +211,18 @@ class AutoClipMaxxvit:
         # in a loop: that path seeks to the nearest keyframe + decodes forward
         # per call, giving O(N^2)-ish behavior. Range slicing via
         # ``reader([startSec, endSec])`` reuses the persistent decoder.
+        # See autoclipTransnetv2._openDecoder for the full rationale: nelux
+        # 0.10.x has an FF_THREAD_FRAME race when ``start_prefetch()`` is
+        # called after construction (pthread_frame.c:174 async_lock
+        # assertion). Construct with prefetch=True so the codec ctx is
+        # bound to a single decode path from the start.
         reader = nelux.VideoReader(
             self.input,
             backend="pytorch",
             decode_accelerator="cpu",
             resize=(self.W, self.H),
             num_threads=8,
+            prefetch=True,
         )
         fps = reader.fps
         if not fps or fps <= 0:
@@ -221,10 +242,6 @@ class AutoClipMaxxvit:
         else:
             iterable = reader
 
-        try:
-            reader.start_prefetch()
-        except Exception:
-            pass
         return iterable, fps, startSec, totalFrames
 
     def _decodeWorker(self, iterable, preprocess, queue):
