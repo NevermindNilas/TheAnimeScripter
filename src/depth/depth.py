@@ -15,7 +15,7 @@ from src.utils.ffmpegSettings import (
     BuildBuffer,
     WriteBuffer,
 )
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
+from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
 from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.isCudaInit import CudaChecker
 from queue import Queue
@@ -231,17 +231,12 @@ class DepthCuda:
         self.filename = modelsMap(
             model=self.depth_method, modelType="pth", half=self.half
         )
-        if not os.path.exists(
-            os.path.join(weightsDir, self.depth_method, self.filename)
-        ):
-            modelPath = downloadModels(
-                model=self.depth_method,
-                half=self.half,
-                modelType="pth",
-            )
-
-        else:
-            modelPath = os.path.join(weightsDir, self.depth_method, self.filename)
+        modelPath = resolveWeightPath(
+            self.depth_method,
+            self.filename,
+            half=self.half,
+            modelType="pth",
+        )
 
         modelConfigs = {
             "vits": {
@@ -315,10 +310,10 @@ class DepthCuda:
                     )
             except Exception as e:
                 logging.error(
-                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}"
+                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}"
                 )
                 logAndPrint(
-                    f"Error compiling model {self.interpolateMethod} with mode {self.compileMode}: {e}",
+                    f"Error compiling model {self.depth_method} with mode {self.compileMode}: {e}",
                     "red",
                 )
 
@@ -489,14 +484,13 @@ class DepthDirectMLV2:
         elif "openvino" in self.depth_method:
             folderName = self.depth_method.replace("openvino", "-onnx")
 
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            modelPath = downloadModels(
-                model=method,
-                half=self.half,
-                modelType="onnx",
-            )
-        else:
-            modelPath = os.path.join(weightsDir, folderName, self.filename)
+        modelPath = resolveWeightPath(
+            folderName,
+            self.filename,
+            downloadModel=method,
+            half=self.half,
+            modelType="onnx",
+        )
 
         providers = self.ort.get_available_providers()
 
@@ -772,14 +766,13 @@ class DepthTensorRTV2:
         )
 
         folderName = self.depth_method.replace("-tensorrt", "-onnx")
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            self.modelPath = downloadModels(
-                model=self.depth_method,
-                half=self.half,
-                modelType="onnx",
-            )
-        else:
-            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+        self.modelPath = resolveWeightPath(
+            folderName,
+            self.filename,
+            downloadModel=self.depth_method,
+            half=self.half,
+            modelType="onnx",
+        )
 
         self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality
@@ -1006,15 +999,12 @@ class OGDepthV2CUDA:
         modelType = "pth"
         self.filename = modelsMap(model=toDownload, modelType=modelType, half=self.half)
 
-        if not os.path.exists(os.path.join(weightsDir, toDownload, self.filename)):
-            modelPath = downloadModels(
-                model=toDownload,
-                half=self.half,
-                modelType=modelType,
-            )
-
-        else:
-            modelPath = os.path.join(weightsDir, toDownload, self.filename)
+        modelPath = resolveWeightPath(
+            toDownload,
+            self.filename,
+            half=self.half,
+            modelType=modelType,
+        )
 
         modelConfigs = {
             "vits": {
@@ -1153,14 +1143,12 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
 
         self.filename = modelsMap(model=toDownload, modelType="pth", half=self.half)
 
-        if not os.path.exists(os.path.join(weightsDir, toDownload, self.filename)):
-            modelPath = downloadModels(
-                model=toDownload,
-                half=self.half,
-                modelType="pth",
-            )
-        else:
-            modelPath = os.path.join(weightsDir, toDownload, self.filename)
+        modelPath = resolveWeightPath(
+            toDownload,
+            self.filename,
+            half=self.half,
+            modelType="pth",
+        )
 
         self.model = MonocularDepthAnything3.from_pretrained(
             modelPath,
@@ -1345,14 +1333,13 @@ class OGDepthV2TensorRT:
         )
 
         folderName = self.depth_method.replace("-tensorrt", "-onnx")
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            self.modelPath = downloadModels(
-                model=self.depth_method,
-                half=self.half,
-                modelType="onnx",
-            )
-        else:
-            self.modelPath = os.path.join(weightsDir, folderName, self.filename)
+        self.modelPath = resolveWeightPath(
+            folderName,
+            self.filename,
+            downloadModel=self.depth_method,
+            half=self.half,
+            modelType="onnx",
+        )
 
         self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality
@@ -1650,14 +1637,13 @@ class OGDepthV2DirectML:
         self.filename = modelsMap(model=depth_method, modelType="onnx", half=self.half)
 
         folderName = depth_method.replace("-directml", "-onnx")
-        if not os.path.exists(os.path.join(weightsDir, folderName, self.filename)):
-            modelPath = downloadModels(
-                model=depth_method,
-                half=self.half,
-                modelType="onnx",
-            )
-        else:
-            modelPath = os.path.join(weightsDir, folderName, self.filename)
+        modelPath = resolveWeightPath(
+            folderName,
+            self.filename,
+            downloadModel=depth_method,
+            half=self.half,
+            modelType="onnx",
+        )
 
         providers = self.ort.get_available_providers()
 
@@ -1882,16 +1868,12 @@ class VideoDepthAnythingCUDA:
             model=self.depth_method, modelType="pth", half=self.half
         )
 
-        if not os.path.exists(
-            os.path.join(weightsDir, self.depth_method, self.filename)
-        ):
-            modelPath = downloadModels(
-                model=self.depth_method,
-                half=self.half,
-                modelType="pth",
-            )
-        else:
-            modelPath = os.path.join(weightsDir, self.depth_method, self.filename)
+        modelPath = resolveWeightPath(
+            self.depth_method,
+            self.filename,
+            half=self.half,
+            modelType="pth",
+        )
 
         model_configs = {
             "vits": {
@@ -2048,16 +2030,12 @@ class VideoDepthAnythingTorch:
             model=weights_model, modelType="pth", half=self.half
         )
 
-        if not os.path.exists(
-            os.path.join(weightsDir, weights_model, self.filename)
-        ):
-            modelPath = downloadModels(
-                model=weights_model,
-                half=self.half,
-                modelType="pth",
-            )
-        else:
-            modelPath = os.path.join(weightsDir, weights_model, self.filename)
+        modelPath = resolveWeightPath(
+            weights_model,
+            self.filename,
+            half=self.half,
+            modelType="pth",
+        )
 
         model_configs = {
             "vits": {

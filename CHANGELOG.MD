@@ -26,9 +26,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Bumped nelux to `0.10.1` for improved stability and performance. Decoding is now significantly faster and more efficient, especially for H264, HEVC and AV1 content of any pixel format. Nearly all pixel formats are now supported with no fallback to OpenCV.
 - Bumped openvino and onnxruntime-openvino to the latest release.
 - Removed the Linux `torchcodec` runtime dependency from requirements and project metadata.
+- Collapsed duplicate `*-directml` / `*-openvino` match arms in depth dispatch (`small_v2`, `og_*_v2`, `*_v3`).
+- Extracted PNG passthrough flow in `main.py` into `_runPngPassthrough` to keep the batch loop readable.
+- Added `*.log` to `.gitignore` to stop tracking transient log artifacts.
+- Replaced ~25 hand-rolled `if-not-exists → downloadModels else cached-path` blocks across upscale/interpolate/restore/depth/segment/dedup with a single `resolveWeightPath` helper in `src/utils/downloadModels.py`.
 
 ### Fixed
 - Fixed openvino related issues.
+- Fixed broken DirectML/OpenVINO provider check in `UnifiedRestoreDirectML` (operator-precedence bug made the CPU fallback unreachable).
+- Fixed wrong attribute reference in `DepthCuda` compile error path (`self.interpolateMethod` → `self.depth_method`).
+- Fixed double-dash folder names for ONNX restore weight resolution (`-directml`/`-openvino` suffixes are now replaced as a unit).
+- Fixed mirrored `replace("directml"/"openvino", "-onnx")` folder-name bug in `UniversalDirectML` and `AnimeSRDirectML` (same root cause as the restore fix).
 
 ## TAS Adobe Edition
 ### Added
