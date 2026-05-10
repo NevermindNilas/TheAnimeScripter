@@ -10,7 +10,6 @@ import argparse
 
 baseDir = Path(__file__).resolve().parent
 distPath = baseDir / "dist-portable"
-pyprojectPath = baseDir / "pyproject.toml"
 requirementsPath = baseDir / "requirements.txt"
 requirementsFiles = [
     requirementsPath,
@@ -259,8 +258,6 @@ def bundleFiles(targetDir):
     shutil.copytree(srcDir, srcDest)
 
     shutil.copy2(baseDir / "main.py", bundleDir / "main.py")
-    if pyprojectPath.exists():
-        shutil.copy2(pyprojectPath, bundleDir / "pyproject.toml")
 
     print("Copying requirements files...")
     for requirementsFile in requirementsFiles:

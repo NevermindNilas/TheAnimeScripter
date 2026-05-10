@@ -30,6 +30,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Extracted PNG passthrough flow in `main.py` into `_runPngPassthrough` to keep the batch loop readable.
 - Added `*.log` to `.gitignore` to stop tracking transient log artifacts.
 - Replaced ~25 hand-rolled `if-not-exists → downloadModels else cached-path` blocks across upscale/interpolate/restore/depth/segment/dedup with a single `resolveWeightPath` helper in `src/utils/downloadModels.py`.
+- Removed unused `pyproject.toml` (build/runtime are driven by `requirements*.txt`; the file was stale metadata only). Updated `build.py`, `install.ps1`, `BUILD.md`, and `Build-macOS.yaml` accordingly.
+- Narrowed macOS CI trigger paths to `build.py`, `requirements.txt`, and `extra-requirements-macos.txt` so unrelated source/doc commits no longer rebuild.
 
 ### Fixed
 - Fixed openvino related issues.
