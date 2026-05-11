@@ -115,6 +115,137 @@ class UnifiedRestoreCuda:
         return frame
 
 
+# NVIDIA Works Notice (required by NVIDIA Software License Agreement
+# AI Product-Specific Terms §1.7.1 for distributed source files using
+# the NVIDIA Video Effects SDK / Maxine):
+#
+#   This software contains source code provided by NVIDIA Corporation.
+#
+class MaxineRestore:
+    """
+    NVIDIA Maxine Video Effects same-size enhancement (DENOISE / DEBLUR).
+
+    Quality parsed from method name:
+      maxine-denoise_{low,medium,high,ultra}  -> DENOISE_*
+      maxine-deblur_{low,medium,high,ultra}   -> DEBLUR_*
+
+    API hard limits (Maxine 1.2.0):
+      - Input dtype must be float32 (no fp16/bf16)
+      - Input shape must be (3, H, W) (no batch, no channels_last)
+
+    """
+
+    _VALID_QUALITIES = {
+        "DENOISE_LOW", "DENOISE_MEDIUM", "DENOISE_HIGH", "DENOISE_ULTRA",
+        "DEBLUR_LOW", "DEBLUR_MEDIUM", "DEBLUR_HIGH", "DEBLUR_ULTRA",
+    }
+
+    def __init__(
+        self,
+        method: str = "maxine-denoise_high",
+        half: bool = False,
+        width: int = 1920,
+        height: int = 1080,
+    ):
+        self.method = method
+        self.half = half
+        self.width = width
+        self.height = height
+
+        if not checker.cudaAvailable:
+            raise RuntimeError("MaxineRestore requires a CUDA-capable NVIDIA GPU")
+
+        if self.half:
+            logAndPrint(
+                "NVIDIA Maxine API requires float32 input; forcing half=False.",
+                "yellow",
+            )
+            self.half = False
+
+        self.qualityName = self._parseQuality(self.method)
+
+        self.handleModel()
+
+    @classmethod
+    def _parseQuality(cls, method: str) -> str:
+        suffix = method.lower().replace("maxine", "", 1).lstrip("-")
+        name = suffix.upper()
+        if name not in cls._VALID_QUALITIES:
+            raise ValueError(
+                f"Unknown Maxine restore quality '{name}' in method "
+                f"'{method}'. Valid: {sorted(cls._VALID_QUALITIES)}"
+            )
+        return name
+
+    def handleModel(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading Maxine restore ({self.qualityName})..."}
+            )
+
+        import nvvfx
+        from nvvfx import VideoSuperRes
+
+        self.nvvfx = nvvfx
+
+        quality = VideoSuperRes.QualityLevel[self.qualityName]
+        deviceIdx = (
+            checker.device.index
+            if checker.device.index is not None
+            else 0
+        )
+
+        self.sdkModel = VideoSuperRes(quality=quality, device=deviceIdx)
+        self.sdkModel.output_width = self.width
+        self.sdkModel.output_height = self.height
+
+        try:
+            self.sdkModel.load()
+        except Exception as e:
+            logging.error(f"Maxine restore load failed: {e}")
+            raise
+
+        self.dummyInput = torch.zeros(
+            (3, self.height, self.width),
+            device=checker.device,
+            dtype=torch.float32,
+        ).contiguous()
+
+        self.dummyOutput = torch.zeros(
+            (1, 3, self.height, self.width),
+            device=checker.device,
+            dtype=torch.float32,
+        ).contiguous()
+
+        # No custom streams — default stream throughout. See NvidiaVSR for
+        # rationale: multi-stream gave no measurable gain and added
+        # cross-stream visibility risk against upstream/downstream stages.
+
+        for _ in range(5):
+            _out = self.sdkModel.run(self.dummyInput, stream_ptr=0)
+            _ = torch.from_dlpack(_out.image).clone()
+        self.dummyInput.uniform_(0.0, 1.0)
+        for _ in range(5):
+            _out = self.sdkModel.run(self.dummyInput, stream_ptr=0)
+            _ = torch.from_dlpack(_out.image).clone()
+        self.dummyInput.zero_()
+        torch.cuda.synchronize()
+
+    @torch.inference_mode()
+    def __call__(self, frame: torch.Tensor) -> torch.Tensor:
+        src = frame.squeeze(0) # We are always using 4 dim throughout the process, but Maxine API expects 3 dim (C,H,W), so remove batch dim here.
+        self.dummyInput.copy_(src.contiguous(), non_blocking=False)
+        outCapsule = self.sdkModel.run(self.dummyInput, stream_ptr=0)
+        restored = torch.from_dlpack(outCapsule.image)  # (3, H, W)
+        self.dummyOutput[0].copy_(restored, non_blocking=False)
+        output = self.dummyOutput.clone()
+        torch.cuda.synchronize()
+        return output
+
+    def frameReset(self):
+        pass
+
+
 class UnifiedRestoreMPS:
     """
     Apple Silicon (MPS) restore. Mirrors UnifiedRestoreCuda but drops

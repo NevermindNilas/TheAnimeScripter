@@ -5,9 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased] - YYYY-MM-DD
+
+### Added
+- NVIDIA Maxine Video Super Resolution (RTX VSR) upscale backend via `nvidia-vfx` Python binding. New `--upscale_method` values: `maxine-bicubic`, `maxine-low`, `maxine-medium`, `maxine-high`, `maxine-ultra`, plus `maxine-highbitrate_{low,medium,high,ultra}` tuned for clean high-bitrate source. Runs on RTX Tensor cores; bundled TensorRT engines, no model download. Supports `--upscale_factor` 2/3/4.
+- NVIDIA Maxine same-size enhancement restore backend via `nvidia-vfx`. New `--restore_method` values: `maxine-denoise_{low,medium,high,ultra}` and `maxine-deblur_{low,medium,high,ultra}`. Chainable with other restore methods.
+- Added `nvidia-vfx==0.1.0.1` to `extra-requirements-windows.txt` and `extra-requirements-linux.txt` (lite variants unchanged). First install pulls ~490 MB (bundled model weights).
+- Added `THIRD_PARTY_NOTICES.md` covering NVIDIA Video Effects SDK attribution requirement (AI Product-Specific Terms §1.7.1).
+
+## [2.7.0] - 2026-05-10
 ### Fixed
 - DirectML black frames due to IOBinding issues.
-
 
 ## [2.7.0] - 2026-05-10
 ### Added
