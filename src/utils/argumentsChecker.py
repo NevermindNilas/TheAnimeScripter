@@ -878,6 +878,15 @@ def _addUpscalingOptions(argParser):
         "fallin_strong-mps",
         "gauss-mps",
         "figsr-mps",
+        "maxine-bicubic",
+        "maxine-low",
+        "maxine-medium",
+        "maxine-high",
+        "maxine-ultra",
+        "maxine-highbitrate_low",
+        "maxine-highbitrate_medium",
+        "maxine-highbitrate_high",
+        "maxine-highbitrate_ultra",
     ]
 
     upscaleGroup.add_argument(
@@ -989,6 +998,14 @@ def _addVideoProcessingOptions(argParser):
         "linethinner-lite-cuda",
         "linethinner-medium-cuda",
         "linethinner-heavy-cuda",
+        "maxine-denoise_low",
+        "maxine-denoise_medium",
+        "maxine-denoise_high",
+        "maxine-denoise_ultra",
+        "maxine-deblur_low",
+        "maxine-deblur_medium",
+        "maxine-deblur_high",
+        "maxine-deblur_ultra",
     ]
 
     processingGroup.add_argument(
