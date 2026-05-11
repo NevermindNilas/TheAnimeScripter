@@ -29,6 +29,7 @@ KNOWN_MODULE_ALIASES = {
     "torchvision": "torchvision",
     "torchaudio": "torchaudio",
     "triton-windows": "triton",
+    "nvidia-vfx": "nvvfx",
 }
 
 DEPENDENCY_PROFILE_REQUIREMENTS = {

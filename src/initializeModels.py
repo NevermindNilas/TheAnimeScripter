@@ -770,6 +770,29 @@ def initializeModels(self):
                     self.width,
                     self.height,
                 )
+
+            case (
+                "maxine-bicubic"
+                | "maxine-low"
+                | "maxine-medium"
+                | "maxine-high"
+                | "maxine-ultra"
+                | "maxine-highbitrate_low"
+                | "maxine-highbitrate_medium"
+                | "maxine-highbitrate_high"
+                | "maxine-highbitrate_ultra"
+            ):
+                from src.unifiedUpscale import NvidiaVSR
+
+                upscaleProcess = NvidiaVSR(
+                    self.upscaleMethod,
+                    self.upscaleFactor,
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.customModel,
+                    self.compileMode,
+                )
     if self.interpolate:
         if ADOBE:
             progressState.update(
@@ -1120,6 +1143,27 @@ def initializeModels(self):
                             variant=variant,
                             half=self.half,
                             device=device,
+                        )
+                    )
+
+                case (
+                    "maxine-denoise_low"
+                    | "maxine-denoise_medium"
+                    | "maxine-denoise_high"
+                    | "maxine-denoise_ultra"
+                    | "maxine-deblur_low"
+                    | "maxine-deblur_medium"
+                    | "maxine-deblur_high"
+                    | "maxine-deblur_ultra"
+                ):
+                    from src.unifiedRestore import MaxineRestore
+
+                    restoreProcesses.append(
+                        MaxineRestore(
+                            method,
+                            self.half,
+                            self.width,
+                            self.height,
                         )
                     )
 
