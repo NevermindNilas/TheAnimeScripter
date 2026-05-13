@@ -82,7 +82,7 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 
 Adobe plugin provides seamless integration directly within your AE workflow, enabling AI-powered video enhancement without leaving your editing environment.
 
-<img src="docs/assets/adobe-gui.webp" width="300" alt="Adobe GUI">
+<img src="https://tas.nevermindnilas.dev/assets/adobe-gui.webp" width="300" alt="Adobe GUI">
 
 ### <img src="https://img.icons8.com/color/24/000000/windows-10.png" width="20"/> Windows Standalone
 > *Under active development - coming soon*
@@ -153,7 +153,7 @@ Swap `extra-requirements-windows-lite.txt` for the matching Windows/Linux and CU
 Use this one-liner:
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/NevermindNilas/TheAnimeScripter/main/install.ps1 | iex
+iwr -useb https://tas.nevermindnilas.dev/install.ps1 | iex
 ```
 
 It installs into a `TheAnimeScripter` folder inside the directory you launch it from and prompts whether that folder should be added to your user PATH.
