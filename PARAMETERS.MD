@@ -204,7 +204,6 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 | `--input` | str | - | **Input video path(s)** - Supports multiple files separated by `;` | `video.mp4` or `vid1.mp4;vid2.mp4` |
 | `--output` | str | auto | **Output path** - Auto-generates if not specified | `enhanced_video.mp4` |
 | `--json` | str | - | **Path to JSON configuration file** (loads options from JSON; when used it must be used alone without additional CLI arguments) | `config.json` |
-| `--check_updates` | flag | False | **Re-show the update prompt** even if you previously dismissed the current latest release. Every invocation already checks GitHub for newer releases and prompts you before installing; this flag overrides the per-tag "do not ask again" dismissal so the prompt reappears | `tas --check_updates` |
 
 #### Supported Input Formats
 ```

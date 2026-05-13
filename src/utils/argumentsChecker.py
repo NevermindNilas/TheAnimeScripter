@@ -539,11 +539,6 @@ def createParser(outputPath):
         type=str,
         help="Path to JSON configuration file with processing options",
     )
-    generalGroup.add_argument(
-        "--check_updates",
-        action="store_true",
-        help="Re-show the update prompt even if a previously offered release was dismissed. Every invocation already checks GitHub and prompts when a newer release is available; this flag overrides the 'do not ask again until next release' dismissal so the prompt reappears",
-    )
 
     # Preset Configuration options
     presetGroup = argParser.add_argument_group("Preset Configuration")
