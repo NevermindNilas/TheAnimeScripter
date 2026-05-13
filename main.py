@@ -646,16 +646,6 @@ def main():
         except (AttributeError, Exception):
             pass
 
-        try:
-            from src.utils.updater import maybe_check_for_update
-
-            maybe_check_for_update(
-                force_recheck="--check_updates" in sys.argv,
-                skip=any(f in sys.argv for f in ("-h", "--help", "-v", "--version")),
-            )
-        except Exception:
-            pass
-
     try:
         from platform import system
 
