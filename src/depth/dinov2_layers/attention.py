@@ -10,6 +10,8 @@
 
 import logging
 
+import torch
+import torch.nn.functional as F
 from torch import Tensor
 from torch import nn
 
@@ -20,7 +22,7 @@ logger = logging.getLogger("dinov2")
 try:
     from xformers.ops import memory_efficient_attention, unbind, fmha
     XFORMERS_AVAILABLE = True
-    
+
 except ImportError:
     XFORMERS_AVAILABLE = False
 
@@ -39,6 +41,7 @@ class Attention(nn.Module):
         self.num_heads = num_heads
         head_dim = dim // num_heads
         self.scale = head_dim**-0.5
+        self.attn_drop_p = attn_drop
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = nn.Dropout(attn_drop)
@@ -49,13 +52,19 @@ class Attention(nn.Module):
         B, N, C = x.shape
         qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
 
-        q, k, v = qkv[0] * self.scale, qkv[1], qkv[2]
-        attn = q @ k.transpose(-2, -1)
+        if x.dtype in (torch.float16, torch.bfloat16):
+            q, k, v = qkv.unbind(0)
+            x = F.scaled_dot_product_attention(
+                q, k, v,
+                dropout_p=self.attn_drop_p if self.training else 0.0,
+            )
+            x = x.transpose(1, 2).reshape(B, N, C)
+        else:
+            q, k, v = qkv[0] * self.scale, qkv[1], qkv[2]
+            attn = (q @ k.transpose(-2, -1)).softmax(dim=-1)
+            attn = self.attn_drop(attn)
+            x = (attn @ v).transpose(1, 2).reshape(B, N, C)
 
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
-
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
@@ -63,6 +72,9 @@ class Attention(nn.Module):
 
 class MemEffAttention(Attention):
     def forward(self, x: Tensor, attn_bias=None) -> Tensor:
+        if attn_bias is None:
+            return super().forward(x)
+
         if not XFORMERS_AVAILABLE:
             assert attn_bias is None, "xFormers is required for nested tensors usage"
             return super().forward(x)

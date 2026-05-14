@@ -167,6 +167,8 @@ class DinoVisionTransformer(nn.Module):
 
         self.mask_token = nn.Parameter(torch.zeros(1, embed_dim))
 
+        self._pos_embed_cache = {}
+
         self.init_weights()
 
     def init_weights(self):
@@ -182,32 +184,35 @@ class DinoVisionTransformer(nn.Module):
         N = self.pos_embed.shape[1] - 1
         if npatch == N and w == h:
             return self.pos_embed
+
+        cache_key = (w, h, previous_dtype)
+        cached = self._pos_embed_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         pos_embed = self.pos_embed.float()
         class_pos_embed = pos_embed[:, 0]
         patch_pos_embed = pos_embed[:, 1:]
         dim = x.shape[-1]
         w0 = w // self.patch_size
         h0 = h // self.patch_size
-        # we add a small number to avoid floating point error in the interpolation
-        # see discussion at https://github.com/facebookresearch/dino/issues/8
-        # DINOv2 with register modify the interpolate_offset from 0.1 to 0.0
         w0, h0 = w0 + self.interpolate_offset, h0 + self.interpolate_offset
-        # w0, h0 = w0 + 0.1, h0 + 0.1
-        
+
         sqrt_N = math.sqrt(N)
         sx, sy = float(w0) / sqrt_N, float(h0) / sqrt_N
         patch_pos_embed = nn.functional.interpolate(
             patch_pos_embed.reshape(1, int(sqrt_N), int(sqrt_N), dim).permute(0, 3, 1, 2),
             scale_factor=(sx, sy),
-            # (int(w0), int(h0)), # to solve the upsampling shape issue
             mode="bicubic",
             antialias=self.interpolate_antialias
         )
-        
+
         assert int(w0) == patch_pos_embed.shape[-2]
         assert int(h0) == patch_pos_embed.shape[-1]
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
-        return torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(previous_dtype)
+        result = torch.cat((class_pos_embed.unsqueeze(0), patch_pos_embed), dim=1).to(previous_dtype)
+        self._pos_embed_cache[cache_key] = result
+        return result
 
     def prepare_tokens_with_masks(self, x, masks=None):
         B, nc, w, h = x.shape
