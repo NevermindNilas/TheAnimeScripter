@@ -389,7 +389,6 @@ class ResidualConvUnit(nn.Module):
         self.norm1 = None
         self.norm2 = None
         self.activation = activation
-        self.skip_add = nn.quantized.FloatFunctional()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # type: ignore[override]
         out = self.activation(x)
@@ -402,7 +401,7 @@ class ResidualConvUnit(nn.Module):
         if self.norm2 is not None:
             out = self.norm2(out)
 
-        return self.skip_add.add(out, x)
+        return out + x
 
 
 class FeatureFusionBlock(nn.Module):
@@ -432,7 +431,6 @@ class FeatureFusionBlock(nn.Module):
 
         out_features = (features // 2) if expand else features
         self.out_conv = nn.Conv2d(features, out_features, 1, 1, 0, bias=True, groups=groups)
-        self.skip_add = nn.quantized.FloatFunctional()
 
     def forward(self, *xs: torch.Tensor, size: Tuple[int, int] = None) -> torch.Tensor:  # type: ignore[override]
         """
@@ -442,7 +440,7 @@ class FeatureFusionBlock(nn.Module):
         """
         y = xs[0]
         if self.has_residual and len(xs) > 1 and self.resConfUnit1 is not None:
-            y = self.skip_add.add(y, self.resConfUnit1(xs[1]))
+            y = y + self.resConfUnit1(xs[1])
 
         y = self.resConfUnit2(y)
 
