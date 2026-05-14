@@ -12,6 +12,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `nvidia-vfx==0.1.0.1` to `extra-requirements-windows.txt` and `extra-requirements-linux.txt` (lite variants unchanged). First install pulls ~490 MB (bundled model weights).
 - Added `THIRD_PARTY_NOTICES.md` covering NVIDIA Video Effects SDK attribution requirement (AI Product-Specific Terms §1.7.1).
 
+### Changed
+- RIFE CUDA fp16 fast path: load-time weight repack (ResConv beta fold, ConvTranspose→Conv2d+PixelShuffle) + cached backwarp grid. Same `.pth`, fp32 untouched, output within fp16 noise (PSNR ≥74 dB). RTX 3090 1080p fp16 FPS:
+
+  | method | base FPS | fast FPS | gain | base VRAM | fast VRAM |
+  |---|---|---|---|---|---|
+  | rife4.6 | 99.0 | 109.2 | +10.3% | 2.7 GB | 2.4 GB |
+  | rife4.15-lite | 88.8 | 98.8 | +11.3% | 2.9 GB | 2.6 GB |
+  | rife4.17 | 66.0 | 71.0 | +7.6% | 2.8 GB | 2.7 GB |
+  | rife4.18 | 66.1 | 71.2 | +7.7% | 3.2 GB | 2.7 GB |
+  | rife4.20 | 64.5 | 69.1 | +7.2% | 3.2 GB | 2.8 GB |
+  | rife4.21 | 52.7 | 54.9 | +4.3% | 3.1 GB | 3.0 GB |
+  | rife4.22 | 53.5 | 55.5 | +3.8% | 3.1 GB | 3.0 GB |
+  | rife4.22-lite | 79.5 | 89.3 | +12.4% | 2.9 GB | 2.7 GB |
+  | rife4.25 | 73.5 | 78.1 | +6.2% | 3.0 GB | 2.8 GB |
+  | rife4.25-lite | 75.4 | 80.7 | +7.1% | 3.1 GB | 2.9 GB |
+  | rife4.25-heavy | 53.3 | 56.1 | +5.3% | 3.4 GB | 3.1 GB |
+
 ## [2.7.0] - 2026-05-10
 ### Fixed
 - DirectML black frames due to IOBinding issues.

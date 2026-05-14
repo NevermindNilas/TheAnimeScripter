@@ -20,37 +20,39 @@ checker = CudaChecker()
 torch.set_float32_matmul_precision("medium")
 
 
-def importRifeArch(interpolateMethod, version):
+# method -> (fast class name in rife_fast, baseline module name in src.rifearches)
+# fast=None means no fast variant available (always use baseline)
+_RIFE_V1 = {
+    "rife":           ("IFNet425",      "IFNet_rife425"),
+    "rife4.25":       ("IFNet425",      "IFNet_rife425"),
+    "rife4.25-heavy": ("IFNet425Heavy", "IFNet_rife425heavy"),
+    "rife4.25-lite":  ("IFNet425Lite",  "IFNet_rife425lite"),
+    "rife4.22":       ("IFNet422",      "IFNet_rife422"),
+    "rife4.22-lite":  ("IFNet422Lite",  "IFNet_rife422lite"),
+    "rife4.21":       ("IFNet421",      "IFNet_rife421"),
+    "rife4.20":       ("IFNet420",      "IFNet_rife420"),
+    "rife4.18":       ("IFNet418",      "IFNet_rife418"),
+    "rife4.17":       ("IFNet417",      "IFNet_rife417"),
+    "rife4.15-lite":  ("IFNet415Lite",  "IFNet_rife415lite"),
+    "rife4.16-lite":  ("IFNet416Lite",  "IFNet_rife416lite"),
+    "rife4.6":        ("IFNet46",       "IFNet_rife46"),
+    "rife_elexor":    (None,            "IFNet_elexor_cuda"),
+}
+
+
+def _loadV1(method, half):
+    fastName, baseMod = _RIFE_V1[method]
+    if half and fastName:
+        from .rifearches import rife_fast
+        return getattr(rife_fast, fastName)
+    mod = __import__(f"src.rifearches.{baseMod}", fromlist=["IFNet"])
+    return mod.IFNet
+
+
+def importRifeArch(interpolateMethod, version, half=True):
     match version:
         case "v1":
-            match interpolateMethod:
-                case "rife4.25-heavy":
-                    from .rifearches.IFNet_rife425heavy import IFNet
-                case "rife4.25-lite":
-                    from .rifearches.IFNet_rife425lite import IFNet
-                case "rife" | "rife4.25":
-                    from .rifearches.IFNet_rife425 import IFNet
-                case "rife4.22-lite":
-                    from .rifearches.IFNet_rife422lite import IFNet
-                case "rife4.22":
-                    from .rifearches.IFNet_rife422 import IFNet
-                case "rife4.21":
-                    from .rifearches.IFNet_rife421 import IFNet
-                case "rife4.20":
-                    from .rifearches.IFNet_rife420 import IFNet
-                case "rife4.18":
-                    from .rifearches.IFNet_rife418 import IFNet
-                case "rife4.17":
-                    from .rifearches.IFNet_rife417 import IFNet
-                case "rife4.15-lite":
-                    from .rifearches.IFNet_rife415lite import IFNet
-                case "rife4.16-lite":
-                    from .rifearches.IFNet_rife416lite import IFNet
-                case "rife4.6":
-                    from .rifearches.IFNet_rife46 import IFNet
-                case "rife_elexor":
-                    from .rifearches.IFNet_elexor_cuda import IFNet
-            return IFNet
+            return _loadV1(interpolateMethod, half)
 
         case "v3":
             match interpolateMethod:
@@ -216,7 +218,7 @@ class RifeCuda:
 
         self.dType = torch.float16 if self.half else torch.float32
 
-        IFNet = importRifeArch(self.interpolateMethod, "v1")
+        IFNet = importRifeArch(self.interpolateMethod, "v1", half=self.half)
         if self.interpolateMethod in ["rife_elexor"] and self.staticStep:
             self.staticStep = False
             logAndPrint(
@@ -262,6 +264,9 @@ class RifeCuda:
         stateDict = torch.load(modelPath, map_location="cpu")
         self.model.load_state_dict(stateDict)
         del stateDict
+
+        if hasattr(self.model, "repackWeights"):
+            self.model.repackWeights()
 
         if checker.cudaAvailable and self.half:
             self.model = self.model.half()
