@@ -199,6 +199,16 @@ class DepthAnythingV2(nn.Module):
             use_clstoken=use_clstoken,
         )
 
+        self._layerscale_folded = False
+
+    def load_state_dict(self, state_dict, strict=True, assign=False):
+        result = super().load_state_dict(state_dict, strict=strict, assign=assign)
+        if not self._layerscale_folded:
+            from .fold_layerscale import fold_layerscale_
+            fold_layerscale_(self)
+            self._layerscale_folded = True
+        return result
+
     def forward(self, x):
         patch_h, patch_w = x.shape[-2] // 14, x.shape[-1] // 14
 

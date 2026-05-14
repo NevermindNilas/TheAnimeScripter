@@ -52,23 +52,12 @@ class ResidualConvUnit(nn.Module):
 
         self.activation = activation
 
-        self.skip_add = nn.quantized.FloatFunctional()
-
     def forward(self, x):
-        """Forward pass.
-
-        Args:
-            x (tensor): input
-
-        Returns:
-            tensor: output
-        """
-        
         out = self.activation(x)
         out = self.conv1(out)
         if self.bn:
             out = self.bn1(out)
-       
+
         out = self.activation(out)
         out = self.conv2(out)
         if self.bn:
@@ -77,7 +66,7 @@ class ResidualConvUnit(nn.Module):
         if self.groups > 1:
             out = self.conv_merge(out)
 
-        return self.skip_add.add(out, x)
+        return out + x
 
 
 class FeatureFusionBlock(nn.Module):
@@ -115,22 +104,15 @@ class FeatureFusionBlock(nn.Module):
 
         self.resConfUnit1 = ResidualConvUnit(features, activation, bn)
         self.resConfUnit2 = ResidualConvUnit(features, activation, bn)
-        
-        self.skip_add = nn.quantized.FloatFunctional()
 
         self.size=size
 
     def forward(self, *xs, size=None):
-        """Forward pass.
-
-        Returns:
-            tensor: output
-        """
         output = xs[0]
 
         if len(xs) == 2:
             res = self.resConfUnit1(xs[1])
-            output = self.skip_add.add(output, res)
+            output = output + res
 
         output = self.resConfUnit2(output)
 

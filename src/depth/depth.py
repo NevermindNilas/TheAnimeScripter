@@ -112,6 +112,8 @@ MEANTENSOR = (
 STDTENSOR = (
     torch.tensor([0.229, 0.224, 0.225]).contiguous().view(3, 1, 1).to(checker.device)
 )
+MEANTENSOR_HALF = MEANTENSOR.half() if checker.cudaAvailable else MEANTENSOR
+STDTENSOR_HALF = STDTENSOR.half() if checker.cudaAvailable else STDTENSOR
 
 
 def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
@@ -182,8 +184,10 @@ class DepthCuda:
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                width=self.width,
-                height=self.height,
+                half=self.half,
+                resize=True,
+                width=self.newWidth,
+                height=self.newHeight,
             )
 
 
@@ -325,19 +329,11 @@ class DepthCuda:
 
     @torch.inference_mode()
     def normFrame(self, frame):
-        frame = F.interpolate(
-            frame,
-            (self.newHeight, self.newWidth),
-            mode="bilinear",
-            align_corners=True,
-        )
-
-        frame = (frame - MEANTENSOR) / STDTENSOR
-
         if self.half and checker.cudaAvailable:
-            frame = frame.half()
-
-        return frame
+            if frame.dtype != torch.float16:
+                frame = frame.half()
+            return (frame - MEANTENSOR_HALF) / STDTENSOR_HALF
+        return (frame - MEANTENSOR) / STDTENSOR
 
     @torch.inference_mode()
     def outputFrameNorm(self, depth):
@@ -366,7 +362,6 @@ class DepthCuda:
 
     def process(self):
         frameCount = 0
-
         with ProgressBarLogic(self.totalFrames) as bar:
             for _ in range(self.totalFrames):
                 frame = self.readBuffer.read()
@@ -950,18 +945,22 @@ class OGDepthV2CUDA:
 
         self.handleModels()
 
-        self.newHeight, self.newWidth = calculateAspectRatio(
-            self.width, self.height, self.depthQuality
-        )
+        if not hasattr(self, "newHeight") or not hasattr(self, "newWidth"):
+            self.newHeight, self.newWidth = calculateAspectRatio(
+                self.width, self.height, self.depthQuality
+            )
+        decodeW = getattr(self, "_decodeWidth", self.width)
+        decodeH = getattr(self, "_decodeHeight", self.height)
+        decodeResize = getattr(self, "_decodeResize", False)
         try:
             self.readBuffer = BuildBuffer(
                 videoInput=self.input,
                 inpoint=self.inpoint,
                 outpoint=self.outpoint,
-                width=self.width,
-                height=self.height,
+                width=decodeW,
+                height=decodeH,
                 half=self.half,
-                resize=False,
+                resize=decodeResize,
                 toTorch=False,
             )
 
@@ -1049,6 +1048,7 @@ class OGDepthV2CUDA:
             self.model = DepthAnythingV2(**modelConfigs[method])
 
         self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
+
         self.model = self.model.to(checker.device).eval()
 
         self.newHeight, self.newWidth = calculateAspectRatio(
@@ -1156,6 +1156,9 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
             strict=False,
         ).to(checker.device)
 
+        from .fold_layerscale import fold_layerscale_
+        fold_layerscale_(self.model)
+
         self.newHeight, self.newWidth = calculateAspectRatio(
             self.width, self.height, self.depthQuality
         )
@@ -1163,6 +1166,16 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
             self.width, self.height, self.depthQuality, True
         )
         self.processResMethod = "lower_bound_resize" if self.depthQuality == "high" else "upper_bound_resize"
+
+        if self.processResMethod == "upper_bound_resize":
+            scale = self.processRes / max(self.width, self.height)
+        else:
+            scale = self.processRes / min(self.width, self.height)
+        tgt_w = max(14, (max(1, round(self.width * scale)) // 14) * 14)
+        tgt_h = max(14, (max(1, round(self.height * scale)) // 14) * 14)
+        self._decodeWidth = tgt_w
+        self._decodeHeight = tgt_h
+        self._decodeResize = True
         
         if self.compileMode != "default":
             try:
