@@ -20,8 +20,6 @@ checker = CudaChecker()
 torch.set_float32_matmul_precision("medium")
 
 
-# method -> (fast class name in rife_fast, baseline module name in src.rifearches)
-# fast=None means no fast variant available (always use baseline)
 _RIFE_V1 = {
     "rife":           ("IFNet425",      "IFNet_rife425"),
     "rife4.25":       ("IFNet425",      "IFNet_rife425"),
