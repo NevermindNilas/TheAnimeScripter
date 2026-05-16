@@ -37,6 +37,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   | rife4.25-lite | 75.4 | 80.7 | +7.1% | 3.1 GB | 2.9 GB |
   | rife4.25-heavy | 53.3 | 56.1 | +5.3% | 3.4 GB | 3.1 GB |
 
+### Fixed
+- WebM input forced to `vp9` even when an AV1 encoder was selected. `validateEncoder` allowlist now includes `nvenc_av1`, `slow_nvenc_av1`, `av1`, and `slow_av1` alongside `vp9` / `qsv_vp9`.
+
 ## [2.7.0] - 2026-05-10
 ### Fixed
 - DirectML black frames due to IOBinding issues.

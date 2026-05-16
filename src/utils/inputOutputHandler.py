@@ -162,17 +162,27 @@ def generateOutputPath(video, output, defaultOutputPath, args):
     return os.path.join(baseDir, generateOutputName(args, video))
 
 
+WEBM_COMPATIBLE_ENCODERS = (
+    "vp9",
+    "qsv_vp9",
+    "av1",
+    "slow_av1",
+    "nvenc_av1",
+    "slow_nvenc_av1",
+)
+
+
 def validateEncoder(video, encodeMethod, customEncoder):
     """Validates and potentially adjusts the encoder method based on file type."""
     if (
         video.endswith(".webm")
         and not customEncoder
-        and encodeMethod not in ["vp9", "qsv_vp9", "av1"]
+        and encodeMethod not in WEBM_COMPATIBLE_ENCODERS
     ):
         from src.utils.logAndPrint import logAndPrint
 
         logAndPrint(
-            f"Video {video} is a Webm file, encode method was not set to ['vp9', 'qsv_vp9', 'av1'] and `--custom_encoder` is None, defaulting to 'vp9'.",
+            f"Video {video} is a Webm file, encode method was not set to {list(WEBM_COMPATIBLE_ENCODERS)} and `--custom_encoder` is None, defaulting to 'vp9'.",
             colorFunc="yellow",
         )
         return "vp9"
