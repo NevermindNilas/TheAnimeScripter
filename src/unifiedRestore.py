@@ -44,14 +44,15 @@ class UnifiedRestoreCuda:
 
         from src.spandrelCompat import ModelLoader
 
-        if self.model in ["nafnet"]:
+        if self.model in ["nafnet", "deepdeband-f"]:
             self.half = False
-            print("NAFNet does not support half precision, using float32 instead")
+            print(f"{self.model} does not support half precision, using float32 instead")
 
         self.filename = modelsMap(self.model)
         modelPath = resolveWeightPath(self.model, self.filename)
 
-        if self.model not in ["gater3"]:
+        customLoaders = ("gater3", "deepdeband-f")
+        if self.model not in customLoaders:
             try:
                 self.model = ModelLoader().load_from_file(path=modelPath)
                 if isinstance(self.model, dict):
@@ -59,9 +60,8 @@ class UnifiedRestoreCuda:
             except Exception as e:
                 logging.error(f"Error loading model: {e}")
         else:
-            from safetensors.torch import load_file
-
             if self.model == "gater3":
+                from safetensors.torch import load_file
                 from src.extraArches.gaterv3 import GateRV3
 
                 self.CHANNELSLAST = False
@@ -70,6 +70,16 @@ class UnifiedRestoreCuda:
 
                 stateDict = load_file(modelPath)
                 self.model.load_state_dict(stateDict)
+                del stateDict
+            elif self.model == "deepdeband-f":
+                from src.extraArches.deepdeband import DeepDebandF
+
+                self.CHANNELSLAST = False
+
+                wrapper = DeepDebandF()
+                stateDict = torch.load(modelPath, map_location="cpu")
+                wrapper.net.load_state_dict(stateDict)
+                self.model = wrapper
                 del stateDict
 
         try:
