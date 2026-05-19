@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
+- `deepdeband-f` restore method ([RaymondLZhou/deepDeband](https://github.com/RaymondLZhou/deepDeband), ICIP 2022).
 - NVIDIA Maxine Video Super Resolution (RTX VSR) upscale backend via `nvidia-vfx` Python binding. New `--upscale_method` values: `maxine-bicubic`, `maxine-low`, `maxine-medium`, `maxine-high`, `maxine-ultra`, plus `maxine-highbitrate_{low,medium,high,ultra}` tuned for clean high-bitrate source. Runs on RTX Tensor cores; bundled TensorRT engines, no model download. Supports `--upscale_factor` 2/3/4.
 - NVIDIA Maxine same-size enhancement restore backend via `nvidia-vfx`. New `--restore_method` values: `maxine-denoise_{low,medium,high,ultra}` and `maxine-deblur_{low,medium,high,ultra}`. Chainable with other restore methods.
 - Added `nvidia-vfx==0.1.0.1` to `extra-requirements-windows.txt` and `extra-requirements-linux.txt` (lite variants unchanged). First install pulls ~490 MB (bundled model weights).

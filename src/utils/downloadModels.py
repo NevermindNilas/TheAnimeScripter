@@ -82,6 +82,7 @@ def modelsList() -> list[str]:
         "gater3",
         "gater3-tensorrt",
         "gater3-directml",
+        "deepdeband-f",
         "dpir",
         "real-plksr",
         "nafnet",
@@ -531,6 +532,9 @@ def modelsMap(
                     return "1x_umzi_adc_gater3_v1_fp16_op17.onnx"
                 else:
                     return "1x_umzi_adc_gater3_v1_fp32_op17.onnx"
+
+        case "deepdeband-f":
+            return "deepdeband_f.pth"
 
         case "gmfss":
             return "gmfss-fortuna-union.zip"

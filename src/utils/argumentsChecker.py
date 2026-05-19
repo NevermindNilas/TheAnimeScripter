@@ -966,6 +966,7 @@ def _addVideoProcessingOptions(argParser):
         "gater3",
         "gater3-directml",
         "gater3-openvino",
+        "deepdeband-f",
         "deh264_real",
         "deh264_real-tensorrt",
         "deh264_real-directml",
