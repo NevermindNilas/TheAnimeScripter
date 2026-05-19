@@ -3,6 +3,13 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Prebuilt native CUDA extensions shipped with the repo
+!src/gmfss/model/_gmfss_softsplat_ext*.pyd
+!src/gmfss/model/_gmfss_softsplat_ext*.so
+
+# Build scratch for the softsplat extension (sources tracked, build dir ignored)
+src/gmfss/model/csrc/build/
+
 # log artifacts
 *.log
 

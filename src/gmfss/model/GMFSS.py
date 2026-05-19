@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from .FeatureNet import FeatureNet
 from .gmflow.gmflow import GMFlow
-from .IFNet_HDv3 import IFNet
+from .IFNet_HDv3 import IFNet, ResConv
 from .MetricNet import MetricNet
 from .softsplat import softsplat as warp
 
@@ -22,8 +22,16 @@ class GMFSS(nn.Module):
         ifnetState = torch.load(
             os.path.join(model_dir, "rife.pkl"), map_location="cpu"
         )
+        ifnetState = {k: v for k, v in ifnetState.items() if k.startswith("block0.")}
         self.ifnet.load_state_dict(ifnetState)
         del ifnetState
+
+        # Fold ResConv per-channel beta into preceding conv weight/bias.
+        # Done after load (still fp32) and before any later .half()/.to() so the
+        # baked weights ride along with the rest of the model.
+        for m in self.ifnet.modules():
+            if isinstance(m, ResConv):
+                m.fold_beta()
 
         self.flownet = GMFlow()
         self.metricnet = MetricNet()
@@ -135,27 +143,56 @@ class GMFSS(nn.Module):
         Z1t = timestep * metric0
         Z2t = inverse_timestep * metric1
 
-        I1t = warp(img0_half, F1t, Z1t, strMode="soft")
-        I2t = warp(img1_half, F2t, Z2t, strMode="soft")
-
         rife = self.ifnet(img0_half, img1_half, timestep.view(-1))
 
-        feat1t1 = warp(feat11, F1t, Z1t, strMode="soft")
-        feat2t1 = warp(feat21, F2t, Z2t, strMode="soft")
+        # Batched pyramid interpolate: cat [F1t(2), Z1t(1), F2t(2), Z2t(1)] = 6ch.
+        pyr = torch.cat([F1t, Z1t, F2t, Z2t], dim=1)
+        pyr_d = F.interpolate(pyr, scale_factor=0.5, mode="bilinear")
+        pyr_dd = F.interpolate(pyr, scale_factor=0.25, mode="bilinear")
 
-        F1td = F.interpolate(F1t, scale_factor=0.5, mode="bilinear") * 0.5
-        Z1d = F.interpolate(Z1t, scale_factor=0.5, mode="bilinear")
-        feat1t2 = warp(feat12, F1td, Z1d, strMode="soft")
-        F2td = F.interpolate(F2t, scale_factor=0.5, mode="bilinear") * 0.5
-        Z2d = F.interpolate(Z2t, scale_factor=0.5, mode="bilinear")
-        feat2t2 = warp(feat22, F2td, Z2d, strMode="soft")
+        F1td = pyr_d[:, 0:2] * 0.5
+        Z1d = pyr_d[:, 2:3]
+        F2td = pyr_d[:, 3:5] * 0.5
+        Z2d = pyr_d[:, 5:6]
 
-        F1tdd = F.interpolate(F1t, scale_factor=0.25, mode="bilinear") * 0.25
-        Z1dd = F.interpolate(Z1t, scale_factor=0.25, mode="bilinear")
-        feat1t3 = warp(feat13, F1tdd, Z1dd, strMode="soft")
-        F2tdd = F.interpolate(F2t, scale_factor=0.25, mode="bilinear") * 0.25
-        Z2dd = F.interpolate(Z2t, scale_factor=0.25, mode="bilinear")
-        feat2t3 = warp(feat23, F2tdd, Z2dd, strMode="soft")
+        F1tdd = pyr_dd[:, 0:2] * 0.25
+        Z1dd = pyr_dd[:, 2:3]
+        F2tdd = pyr_dd[:, 3:5] * 0.25
+        Z2dd = pyr_dd[:, 5:6]
+
+        b = img0_half.shape[0]
+        img_ch = img0_half.shape[1]
+
+        # /2 res: batch directions, concat (img, feat1) channels → single splat.
+        in_l1 = torch.cat(
+            [
+                torch.cat([img0_half, feat11], dim=1),
+                torch.cat([img1_half, feat21], dim=1),
+            ],
+            dim=0,
+        )
+        flow_l1 = torch.cat([F1t, F2t], dim=0)
+        metric_l1 = torch.cat([Z1t, Z2t], dim=0)
+        out_l1 = warp(in_l1, flow_l1, metric_l1, strMode="soft")
+        out_l1_0, out_l1_1 = out_l1[:b], out_l1[b:]
+        I1t = out_l1_0[:, :img_ch]
+        feat1t1 = out_l1_0[:, img_ch:]
+        I2t = out_l1_1[:, :img_ch]
+        feat2t1 = out_l1_1[:, img_ch:]
+
+        # /4 res: batch directions for feat12/feat22.
+        in_l2 = torch.cat([feat12, feat22], dim=0)
+        flow_l2 = torch.cat([F1td, F2td], dim=0)
+        metric_l2 = torch.cat([Z1d, Z2d], dim=0)
+        out_l2 = warp(in_l2, flow_l2, metric_l2, strMode="soft")
+        feat1t2, feat2t2 = out_l2[:b], out_l2[b:]
+
+        # /8 res: batch directions for feat13/feat23.
+        in_l3 = torch.cat([feat13, feat23], dim=0)
+        flow_l3 = torch.cat([F1tdd, F2tdd], dim=0)
+        metric_l3 = torch.cat([Z1dd, Z2dd], dim=0)
+        out_l3 = warp(in_l3, flow_l3, metric_l3, strMode="soft")
+        feat1t3, feat2t3 = out_l3[:b], out_l3[b:]
 
         out = self.fusionnet(
             torch.cat([I1t, rife, I2t], dim=1).contiguous(

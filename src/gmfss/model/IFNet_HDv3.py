@@ -29,9 +29,22 @@ class ResConv(nn.Module):
         self.conv = nn.Conv2d(c, c, 3, 1, dilation, dilation=dilation, groups=1)
         self.beta = nn.Parameter(torch.ones((1, c, 1, 1)), requires_grad=True)
         self.relu = nn.LeakyReLU(0.2, True)
+        self._beta_folded = False
 
     def forward(self, x):
+        if self._beta_folded:
+            return self.relu(self.conv(x) + x)
         return self.relu(self.conv(x) * self.beta + x)
+
+    @torch.no_grad()
+    def fold_beta(self):
+        if self._beta_folded:
+            return
+        b = self.beta.data.view(-1)
+        self.conv.weight.data.mul_(b.view(-1, 1, 1, 1))
+        if self.conv.bias is not None:
+            self.conv.bias.data.mul_(b)
+        self._beta_folded = True
 
 
 class IFBlock(nn.Module):
@@ -77,9 +90,6 @@ class IFNet(nn.Module):
     def __init__(self, ensemble=False):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7, c=192)
-        self.block1 = IFBlock(8 + 4, c=128)
-        self.block2 = IFBlock(8 + 4, c=96)
-        self.block3 = IFBlock(8 + 4, c=64)
         self.ensemble = ensemble
 
     def forward(self, img0, img1, timestep):

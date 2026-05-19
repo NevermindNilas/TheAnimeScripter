@@ -302,6 +302,7 @@ class FeatureTransformer(nn.Module):
         concat0 = torch.cat((feature0, feature1), dim=0)  # [2B, H*W, C]
         concat1 = torch.cat((feature1, feature0), dim=0)  # [2B, H*W, C]
 
+        roll_shift = concat0.shape[0] // 2
         for layer in self.layers:
             concat0 = layer(concat0, concat1,
                             height=h,
@@ -310,8 +311,8 @@ class FeatureTransformer(nn.Module):
                             attn_num_splits=attn_num_splits,
                             )
 
-            # update feature1
-            concat1 = torch.cat(concat0.chunk(chunks=2, dim=0)[::-1], dim=0)
+            # update feature1 (swap halves along batch dim)
+            concat1 = torch.roll(concat0, shifts=roll_shift, dims=0)
 
         feature0, feature1 = concat0.chunk(chunks=2, dim=0)  # [B, H*W, C]
 

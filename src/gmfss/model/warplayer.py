@@ -35,13 +35,6 @@ def get_backwarp_grid(tenFlow):
 
 
 def warp(tenInput, tenFlow):
-    orig_dtype = tenInput.dtype
-    if tenInput.dtype != torch.float32:
-        tenInput = tenInput.float()
-
-    if tenFlow.dtype != torch.float32:
-        tenFlow = tenFlow.float()
-
     tenFlow = torch.cat(
         [
             tenFlow[:, 0:1, :, :] / ((tenInput.shape[3] - 1.0) / 2.0),
@@ -57,4 +50,4 @@ def warp(tenInput, tenFlow):
         mode='bilinear',
         padding_mode='border',
         align_corners=True,
-    ).to(orig_dtype)
+    )

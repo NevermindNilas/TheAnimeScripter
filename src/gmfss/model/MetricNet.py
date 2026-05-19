@@ -50,8 +50,14 @@ class MetricNet(nn.Module):
         )
 
     def forward(self, img0, img1, flow01, flow10):
-        metric0 = F.l1_loss(img0, backwarp(img1, flow01), reduction='none').mean([1], True)
-        metric1 = F.l1_loss(img1, backwarp(img0, flow10), reduction='none').mean([1], True)
+        b = img0.shape[0]
+        warped = backwarp(
+            torch.cat([img1, img0], dim=0),
+            torch.cat([flow01, flow10], dim=0),
+        )
+        warped01, warped10 = warped[:b], warped[b:]
+        metric0 = F.l1_loss(img0, warped01, reduction='none').mean([1], True)
+        metric1 = F.l1_loss(img1, warped10, reduction='none').mean([1], True)
 
         fwd_occ, bwd_occ = forward_backward_consistency_check(flow01, flow10)
 
