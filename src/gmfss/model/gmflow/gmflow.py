@@ -71,8 +71,14 @@ class GMFlow(nn.Module):
         return feature0, feature1
 
     def _run_flow_pipeline(self, feature0_list, feature1_list,
-                           attn_splits_list, corr_radius_list, prop_radius_list):
-        """Run transformer + matching + propagation + upsample for one flow direction."""
+                           attn_splits_list, corr_radius_list, prop_radius_list,
+                           scale0_pretransformed=None):
+        """Run transformer + matching + propagation + upsample for one flow direction.
+
+        If scale0_pretransformed is provided as (feat0, feat1), those are used at
+        scale 0 directly (assumed already passed through feature_add_position +
+        transformer) and the scale-0 transformer is skipped.
+        """
         flow = None
         for scale_idx in range(self.num_scales):
             feature0, feature1 = feature0_list[scale_idx], feature1_list[scale_idx]
@@ -90,8 +96,11 @@ class GMFlow(nn.Module):
             corr_radius = corr_radius_list[scale_idx]
             prop_radius = prop_radius_list[scale_idx]
 
-            feature0, feature1 = feature_add_position(feature0, feature1, attn_splits, self.feature_channels)
-            feature0, feature1 = self.transformer(feature0, feature1, attn_num_splits=attn_splits)
+            if scale_idx == 0 and scale0_pretransformed is not None:
+                feature0, feature1 = scale0_pretransformed
+            else:
+                feature0, feature1 = feature_add_position(feature0, feature1, attn_splits, self.feature_channels)
+                feature0, feature1 = self.transformer(feature0, feature1, attn_num_splits=attn_splits)
 
             if corr_radius == -1:
                 flow_pred = global_correlation_softmax(feature0, feature1, False)[0]
@@ -114,14 +123,28 @@ class GMFlow(nn.Module):
                       corr_radius_list=[-1, 4],
                       prop_radius_list=[-1, 1],
                       ):
-        """Compute bidirectional flow with shared backbone features (extracted once)."""
+        """Compute bidirectional flow with shared backbone features (extracted once)
+        and shared scale-0 transformer (run once for both directions)."""
         img0, img1 = normalize_img(img0, img1)
         feature0_list, feature1_list = self.extract_feature(img0, img1)
 
-        flow01 = self._run_flow_pipeline(feature0_list, feature1_list,
-                                         attn_splits_list, corr_radius_list, prop_radius_list)
-        flow10 = self._run_flow_pipeline(feature1_list, feature0_list,
-                                         attn_splits_list, corr_radius_list, prop_radius_list)
+        # Scale-0 transformer is direction-agnostic at this stage (no flow_warp yet,
+        # same positional embedding added to both features). Compute once.
+        f0_s0, f1_s0 = feature0_list[0], feature1_list[0]
+        attn_splits0 = attn_splits_list[0]
+        f0_s0, f1_s0 = feature_add_position(f0_s0, f1_s0, attn_splits0, self.feature_channels)
+        f0_s0, f1_s0 = self.transformer(f0_s0, f1_s0, attn_num_splits=attn_splits0)
+
+        flow01 = self._run_flow_pipeline(
+            feature0_list, feature1_list,
+            attn_splits_list, corr_radius_list, prop_radius_list,
+            scale0_pretransformed=(f0_s0, f1_s0),
+        )
+        flow10 = self._run_flow_pipeline(
+            feature1_list, feature0_list,
+            attn_splits_list, corr_radius_list, prop_radius_list,
+            scale0_pretransformed=(f1_s0, f0_s0),
+        )
         return flow01, flow10
 
     def upsample_flow(self, flow, feature, bilinear=False, upsample_factor=8,

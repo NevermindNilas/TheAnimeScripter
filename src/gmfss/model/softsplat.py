@@ -5,6 +5,13 @@ grid_cache = {}
 base_index_cache = {}
 out_cache = {}
 
+# Prebuilt native CUDA kernel. Falls back to the pure-torch index_add_ path if
+# the binary is missing (e.g. running from source on an unsupported platform).
+try:
+    from . import _gmfss_softsplat_ext as _native_ext  # type: ignore[attr-defined]
+except ImportError:
+    _native_ext = None
+
 
 def _parse_mode(strMode: str):
     mode_parts = strMode.split("-")
@@ -124,7 +131,10 @@ def softsplat(
         )
 
     tenPrepared = _prepare_input(tenIn, tenMetric, mode_main)
-    tenOut = softsplat_func.apply(tenPrepared, tenFlow)
+    if _native_ext is not None and tenPrepared.is_cuda:
+        tenOut = _native_ext.forward(tenPrepared.contiguous(), tenFlow.contiguous())
+    else:
+        tenOut = softsplat_func.apply(tenPrepared, tenFlow)
 
     if mode_main != "sum":
         tenOut = _normalize_output(tenOut, mode_sub)

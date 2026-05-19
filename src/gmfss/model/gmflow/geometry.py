@@ -108,17 +108,28 @@ def forward_backward_consistency_check(fwd_flow, bwd_flow,
     # alpha and beta values are following UnFlow (https://arxiv.org/abs/1711.07837)
     assert fwd_flow.dim() == 4 and bwd_flow.dim() == 4
     assert fwd_flow.size(1) == 2 and bwd_flow.size(1) == 2
-    flow_mag = torch.norm(fwd_flow, dim=1) + torch.norm(bwd_flow, dim=1)  # [B, H, W]
 
-    warped_bwd_flow = flow_warp(bwd_flow, fwd_flow)  # [B, 2, H, W]
-    warped_fwd_flow = flow_warp(fwd_flow, bwd_flow)  # [B, 2, H, W]
+    b = fwd_flow.shape[0]
 
-    diff_fwd = torch.norm(fwd_flow + warped_bwd_flow, dim=1)  # [B, H, W]
-    diff_bwd = torch.norm(bwd_flow + warped_fwd_flow, dim=1)
+    # Batched flow_warp: warp [bwd, fwd] with grid from [fwd, bwd].
+    inp = torch.cat([bwd_flow, fwd_flow], dim=0)
+    grid_flow = torch.cat([fwd_flow, bwd_flow], dim=0)
+    warped = flow_warp(inp, grid_flow)
+    warped_bwd_flow, warped_fwd_flow = warped[:b], warped[b:]
+
+    # Batched norm over the two flows.
+    mag = torch.linalg.vector_norm(torch.stack([fwd_flow, bwd_flow], dim=0), dim=2)
+    flow_mag = mag[0] + mag[1]
+
+    diffs = torch.linalg.vector_norm(
+        torch.stack([fwd_flow + warped_bwd_flow, bwd_flow + warped_fwd_flow], dim=0),
+        dim=2,
+    )
+    diff_fwd, diff_bwd = diffs[0], diffs[1]
 
     threshold = alpha * flow_mag + beta
 
-    fwd_occ = (diff_fwd > threshold).to(fwd_flow.dtype)  # [B, H, W]
+    fwd_occ = (diff_fwd > threshold).to(fwd_flow.dtype)
     bwd_occ = (diff_bwd > threshold).to(bwd_flow.dtype)
 
     return fwd_occ, bwd_occ
