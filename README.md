@@ -216,6 +216,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | FastLineDarken      |   ✅   |    ✅     |    ❌     |   ❌   |
 | GaterV3             |   ✅   |    ❌     |    ✅     |   ✅   |
 | DeH264 ( Real-Plksr ) |   ✅   |    ✅     |    ✅     |   ✅   |
+| deepDeband-f (Debanding) |   ✅   |    ❌     |    ❌     |   ❌   |
 
 ### 🌊 Depth Map Models
 
@@ -270,6 +271,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [umzi](https://github.com/umzi2)                  | RTMOSR & GaterV3 Models      | [GitHub](https://github.com/umzi2)                                                     |
 | [Phhofm](https://github.com/Phhofm/models) | DeJpeg & DeH264 restoration |
 | [Kim2091](https://github.com/Kim2091)             | DIS Architecture (Gauss)  | [DIS](https://github.com/Kim2091/DIS)                                                  |
+| [Raymond Zhou et al.](https://github.com/RaymondLZhou) | deepDeband (ICIP 2022) debanding | [deepDeband](https://github.com/RaymondLZhou/deepDeband)                          |
 ****
 
 ### 🛠️ Framework & Tool Contributors

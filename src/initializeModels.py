@@ -1021,6 +1021,7 @@ def initializeModels(self):
                     | "real-plksr"
                     | "anime1080fixer"
                     | "gater3"
+                    | "deepdeband-f"
                     | "deh264_real"
                     | "deh264_span"
                     | "hurrdeblur"
