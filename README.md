@@ -176,9 +176,6 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | Fallin Soft           |   ✅   |    ✅     |    ✅     |   ✅   |
 | Fallin Strong         |   ✅   |    ✅     |    ✅     |   ✅   |
 | Span                  |   ✅   |    ✅     |    ✅     |   ✅   |
-| SRVGGNet (Compact)    |   ✅   |    ✅     |    ✅     |   ✅   |
-| SRVGGNet (UltraCompact)      |   ✅   |    ✅     |    ✅     |   ✅   |
-| SRVGGNet (SuperUltraCompact) |   ✅   |    ✅     |    ✅     |   ✅   |
 | OpenProteus           |   ✅   |    ✅     |    ✅     |   ✅   |
 | AniScale 2            |   ✅   |    ✅     |    ✅     |   ✅   |
 | RTMOSR                |   ❌   |    ✅     |    ✅     |   ✅   |

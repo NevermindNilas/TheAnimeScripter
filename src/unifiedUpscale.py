@@ -262,7 +262,7 @@ class UniversalPytorchMPS:
 
     def __init__(
         self,
-        upscaleMethod: str = "superultracompact-mps",
+        upscaleMethod: str = "shufflecugan-mps",
         upscaleFactor: int = 2,
         half: bool = False,
         width: int = 1920,

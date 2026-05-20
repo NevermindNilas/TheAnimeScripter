@@ -167,7 +167,7 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 ```bash
 # Comprehensive restoration
 ./python.exe ./main.py --input old_anime.mp4 \
-  --upscale --upscale_method compact-tensorrt \
+  --upscale --upscale_method shufflecugan-tensorrt \
   --restore --restore_method anime1080fixer-tensorrt \
   --sharpen --sharpen_sens 30 \
   --interpolate --interpolate_method rife4.25 \
@@ -281,11 +281,11 @@ C:\Videos\episode3.mp4
 | `--upscale` | flag | False | - | **Enable AI upscaling** — automatically enabled when `--upscale_method` is specified |
 | `--upscale_factor` | int | 2 | 2, 3, 4 | **Upscale multiplier (minimum 2)** |
 | `--upscale_method` | str | "shufflecugan" | [see table](#upscaling-models) | **AI model selection** — specifying a non-default method auto-enables upscaling |
-| `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA methods like `compact`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods |
+| `--custom_model` | str | "" | path | **Custom model file**. Use `.pt`, `.pth`, `.ckpt`, or `.safetensors` with CUDA methods like `shufflecugan`; use `.onnx` with `-directml`, `-openvino`, or `-tensorrt` methods |
 
 > **💡 Tip:** You can now simplify commands by omitting `--upscale` when specifying a method. For example: `--upscale_method span-tensorrt` automatically enables upscaling.
 
-> **⚠️ Backend Match Required:** `--custom_model` must match the selected upscale backend. A custom ONNX model will not load with plain CUDA methods such as `compact`; use `compact-directml`, `compact-openvino`, or `compact-tensorrt` instead.
+> **⚠️ Backend Match Required:** `--custom_model` must match the selected upscale backend. A custom ONNX model will not load with plain CUDA methods such as `shufflecugan`; use `shufflecugan-directml`, `shufflecugan-openvino`, or `shufflecugan-tensorrt` instead.
 
 #### 🎯 Upscaling Models
 
@@ -296,9 +296,6 @@ C:\Videos\episode3.mp4
 | **fallin_soft** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Soft enhancement with denoising | CUDA, TRT, DML, OpenVINO |
 | **fallin_strong** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Sharper enhancement with denoising | CUDA, TRT, DML, OpenVINO |
 | **span** | ⚡⚡ | ⭐⭐⭐ | 2GB | High quality anime | CUDA, TRT, DML, OpenVINO |
-| **compact** | ⚡ | ⭐⭐⭐⭐ | 2GB | Fast processing | CUDA, TRT, DML, OpenVINO |
-| **ultracompact** | ⚡⚡ | ⭐⭐⭐ | 1GB | Very fast | CUDA, TRT, DML, OpenVINO |
-| **superultracompact** | ⚡⚡⚡⚡ | ⭐⭐ | 1GB | Fastest | CUDA, TRT, DML, OpenVINO |
 | **open-proteus** | ⚡ | ⭐⭐⭐⭐ | 2GB | Maximum quality | CUDA, TRT, DML, OpenVINO |
 | **aniscale2** | ⚡ | ⭐⭐⭐⭐ | 2GB | Modern anime | CUDA, TRT, DML, OpenVINO |
 | **rtmosr** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Real-time focus | TRT, DML, OpenVINO |
@@ -582,7 +579,7 @@ C:\Videos\episode3.mp4
 **🚀 Speed Priority**
 ```bash
 # Fastest processing
---upscale_method compact-tensorrt
+--upscale_method shufflecugan-tensorrt
 --interpolate_method rife4.22-lite-tensorrt
 --half True
 ```
@@ -801,7 +798,7 @@ C:\Videos\episode3.mp4
 ```bash
 # Maximum speed configuration
 --half True --static
---upscale_method compact-tensorrt
+--upscale_method shufflecugan-tensorrt
 --interpolate_method rife4.22-lite-tensorrt
 ```
 </details>
@@ -931,7 +928,7 @@ C:\Videos\episode3.mp4
 ```bash
 # Speed-optimized for multiple files
 ./python.exe ./main.py --input "batch_list.txt" \
-  --upscale --upscale_method compact-tensorrt \
+  --upscale --upscale_method shufflecugan-tensorrt \
   --interpolate --interpolate_method rife4.22-lite-tensorrt \
   --encode_method nvenc_h265 \
 ```
@@ -1011,14 +1008,14 @@ C:\Videos\episode3.mp4
 
 **Memory-Constrained Systems:**
 ```bash
---upscale_method superultracompact-tensorrt \  # Lightweight model  
+--upscale_method rtmosr-tensorrt \  # Lightweight model
 --interpolate_method rife4.22-lite-tensorrt \  # Lite variant
 --half True  # FP16 precision
 ```
 
 **Maximum Quality (Slow):**
 ```bash
---upscale_method compact-tensorrt \
+--upscale_method open-proteus-tensorrt \
 --interpolate_method rife4.25 --ensemble \
 --restore --restore_method anime1080fixer-tensorrt \
 --encode_method slow_x265 \

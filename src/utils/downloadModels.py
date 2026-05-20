@@ -63,9 +63,6 @@ def modelsList() -> list[str]:
         "gauss-directml",
         "gauss-tensorrt",
         "figsr",
-        "compact",
-        "ultracompact",
-        "superultracompact",
         "span",
         "shufflecugan",
         "adore",
@@ -134,15 +131,9 @@ def modelsList() -> list[str]:
         "rife4.22-ncnn",
         "rife4.22-lite-ncnn",
         "open-proteus-directml",
-        "compact-directml",
-        "ultracompact-directml",
-        "superultracompact-directml",
         "span-directml",
         "open-proteus-tensorrt",
         "shufflecugan-tensorrt",
-        "compact-tensorrt",
-        "ultracompact-tensorrt",
-        "superultracompact-tensorrt",
         "span-tensorrt",
         "span-ncnn",
         "shufflecugan-ncnn",
@@ -150,9 +141,6 @@ def modelsList() -> list[str]:
         "shufflecugan-openvino",
         "shufflecugan-mps",
         "adore-mps",
-        "compact-mps",
-        "ultracompact-mps",
-        "superultracompact-mps",
         "span-mps",
         "open-proteus-mps",
         "aniscale2-mps",
@@ -238,7 +226,7 @@ def modelsList() -> list[str]:
 
 
 def modelsMap(
-    model: str = "compact",
+    model: str = "shufflecugan",
     upscaleFactor: int = 2,
     modelType="pth",
     half: bool = True,
@@ -323,38 +311,6 @@ def modelsMap(
 
         case "figsr":
             return "2x_enhancr_da_figsr.pth"
-
-        case "compact" | "compact-directml" | "compact-tensorrt":
-            if modelType == "pth":
-                return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k.pth"
-            else:
-                if half:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k_clamp_fp16_op18_onnxslim.onnx"
-                else:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_Compact_430k_clamp_op18_onnxslim.onnx"
-
-        case "ultracompact" | "ultracompact-directml" | "ultracompact-tensorrt":
-            if modelType == "pth":
-                return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k.pth"
-            else:
-                if half:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k_clamp_fp16_op18_onnxslim.onnx"
-                else:
-                    return "2x_AnimeJaNai_HD_V3_Sharp1_UltraCompact_425k_clamp_op18_onnxslim.onnx"
-
-        case (
-            "superultracompact"
-            | "superultracompact-directml"
-            | "superultracompact-tensorrt"
-        ):
-            if modelType == "pth":
-                return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k.pth"
-            else:
-                if half:
-                    return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k_clamp_fp16_op18_onnxslim.1.onnx"
-
-                else:
-                    return "2x_AnimeJaNai_HD_V3Sharp1_SuperUltraCompact_25k_clamp_op18_onnxslim.onnx"
 
         case "span" | "span-directml" | "span-tensorrt" | "span-ncnn":
             if modelType == "pth":
