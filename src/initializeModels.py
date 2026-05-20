@@ -610,9 +610,6 @@ def initializeModels(self):
             case (
                 "shufflecugan"
                 | "adore"
-                | "compact"
-                | "ultracompact"
-                | "superultracompact"
                 | "span"
                 | "open-proteus"
                 | "aniscale2"
@@ -635,10 +632,7 @@ def initializeModels(self):
                 )
 
             case (
-                "compact-directml"
-                | "ultracompact-directml"
-                | "superultracompact-directml"
-                | "span-directml"
+                "span-directml"
                 | "open-proteus-directml"
                 | "aniscale2-directml"
                 | "shufflespan-directml"
@@ -648,9 +642,6 @@ def initializeModels(self):
                 | "saryn-directml"
                 | "fallin_soft-directml"
                 | "fallin_strong-directml"
-                | "compact-openvino"
-                | "ultracompact-openvino"
-                | "superultracompact-openvino"
                 | "span-openvino"
                 | "open-proteus-openvino"
                 | "aniscale2-openvino"
@@ -678,9 +669,6 @@ def initializeModels(self):
             case (
                 "shufflecugan-mps"
                 | "adore-mps"
-                | "compact-mps"
-                | "ultracompact-mps"
-                | "superultracompact-mps"
                 | "span-mps"
                 | "open-proteus-mps"
                 | "aniscale2-mps"
@@ -725,9 +713,6 @@ def initializeModels(self):
             case (
                 "shufflecugan-tensorrt"
                 | "adore-tensorrt"
-                | "compact-tensorrt"
-                | "ultracompact-tensorrt"
-                | "superultracompact-tensorrt"
                 | "span-tensorrt"
                 | "open-proteus-tensorrt"
                 | "aniscale2-tensorrt"
