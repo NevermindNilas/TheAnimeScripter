@@ -321,7 +321,10 @@ class DedupFlownetS:
             self.prevFrame.copy_(frame, non_blocking=True)
         self.outputStream.synchronize()
 
-        return flow.mean() > self.dedupSens
+        # FlowNetS outputs an optical-flow field (1, 2, H, W); duplicate frames
+        # have little motion, so compare the mean flow magnitude (not the signed
+        # mean) against the sensitivity threshold.
+        return flow.abs().mean() < self.dedupSens
 
 
 class DedupVMAF:

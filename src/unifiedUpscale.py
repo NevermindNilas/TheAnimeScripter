@@ -159,7 +159,7 @@ class UniversalPytorch:
         if self.compileMode != "default":
             try:
                 if self.compileMode == "max":
-                    self.model.compile(mode="default")
+                    self.model.compile(mode="max-autotune")
                 elif self.compileMode == "max-graphs":
                     self.model.compile(
                         mode="max-autotune-no-cudagraphs", fullgraph=True

@@ -2203,7 +2203,7 @@ class DistilDRBATensorRT:
                 case "img2":
                     self.tImg2.copy_(padded, non_blocking=True)
                 case "timestep":
-                    self.tTimestep.fill_(frame)
+                    self.tTimestep.copy_(frame, non_blocking=True)
         self.normStream.synchronize()
 
     @torch.inference_mode()

@@ -706,9 +706,9 @@ class UnifiedRestoreDirectML:
 
             return frame
 
-        except UnicodeDecodeError as e:
+        except Exception as e:
             if not self.usingCpuFallback:
-                logging.warning(f"DirectML/OpenVINO UnicodeDecodeError: {e}")
+                logging.warning(f"DirectML/OpenVINO inference failed, falling back to CPU: {e}")
                 self._fallbackToCpu()
                 return self.__call__(frame)
             else:
