@@ -535,7 +535,7 @@ class WriteBuffer:
         """
         # Set environment variables
         os.environ["FFREPORT"] = "file=FFmpeg-Log.log:level=32"
-        if "av1" in [self.encode_method, self.custom_encoder]:
+        if any(m and "av1" in m for m in (self.encode_method, self.custom_encoder)):
             os.environ["SVT_LOG"] = "0"
 
         self.inputPixFmt, outputPixFmt, self.encode_method = getPixFMT(

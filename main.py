@@ -614,6 +614,11 @@ def _runPngPassthrough(inputPath: str, outputPath: str) -> None:
     if cv2Module is not None:
         if outputFrame.ndim == 2:
             writeOk = cv2Module.imwrite(outputPath, outputFrame)
+        elif outputFrame.shape[2] == 4:
+            writeOk = cv2Module.imwrite(
+                outputPath,
+                cv2Module.cvtColor(outputFrame, cv2Module.COLOR_RGBA2BGRA),
+            )
         else:
             writeOk = cv2Module.imwrite(
                 outputPath,

@@ -130,12 +130,15 @@ def runServer(host, queue=None):
             if not hasConnectedClients():
                 continue
 
-            now = time()
-            if now - lastEmit < minEmitInterval:
-                continue
+            elapsed = time() - lastEmit
+            if elapsed < minEmitInterval:
+                # Throttle without dropping: wait out the remaining interval so
+                # the latest payload (e.g. a terminal completed/failed state) is
+                # always delivered.
+                socketio.sleep(minEmitInterval - elapsed)
 
             socketio.emit("progress", latestPayload)
-            lastEmit = now
+            lastEmit = time()
 
     if queue is not None:
         socketio.start_background_task(relayProgressFromQueue)

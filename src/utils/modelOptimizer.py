@@ -39,8 +39,8 @@ class ModelOptimizer:
         # I only tested this so far, I will need to test other optimizations
         class ReplaceReLU(torch.fx.Transformer):
             def call_module(self, target, args, kwargs):
-                if target == "relu":
-                    return torch.nn.functional.leaky_relu(*args, **kwargs)
+                # Note: do not swap ReLU for LeakyReLU here — that silently
+                # changes the model's activation semantics and corrupts output.
                 return super().call_module(target, args, kwargs)
 
         try:

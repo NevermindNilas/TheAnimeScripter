@@ -58,6 +58,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Encoding crashed when the metadata file was absent (preview / single-image paths).
 - Video metadata read `ColorSpace` / `PixelFormat` from swapped ffprobe fields.
 - YouTube downloader always showed the title as "Unknown" (typo'd info-dict key).
+- RGBA PNG passthrough crashed on write (`COLOR_RGB2BGR` applied to a 4-channel image).
+- FlowNetS dedup never detected duplicates: it compared the signed optical-flow mean instead of motion magnitude.
+- AE progress relay could drop the final (completed/failed) payload under rate-limiting.
+- DirectML/OpenVINO restore now falls back to CPU on any inference failure, not only `UnicodeDecodeError`.
+- Upscale `--compile_mode max` compiled with the default mode instead of max-autotune.
+- AV1 encoders (`nvenc_av1`, `slow_av1`, custom encoders) now set `SVT_LOG` correctly (was an exact-match check).
+- Model optimizer no longer silently replaces ReLU with LeakyReLU, which corrupted activations.
 
 ## [2.7.0] - 2026-05-10
 ### Fixed
