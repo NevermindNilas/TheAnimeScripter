@@ -703,22 +703,22 @@ def main():
         else:
             folderTimer = None
 
-        for _, i in enumerate(results, 1):
+        for idx, entry in enumerate(results, 1):
             try:
-                _videoName = os.path.basename(results[i]["videoPath"])
+                _videoName = os.path.basename(entry["videoPath"])
                 if len(_videoName) > 60:
                     _videoName = _videoName[:57] + "..."
                 if totalVideos > 1:
-                    _setTerminalTitle(f"\u2605 Processing - {_videoName} [{_}/{totalVideos}]")
+                    _setTerminalTitle(f"\u2605 Processing - {_videoName} [{idx}/{totalVideos}]")
                 else:
                     _setTerminalTitle(f"\u2605 Processing - {_videoName}")
                 if totalVideos > 1:
-                    printSubsectionHeader(f"Video {_} of {totalVideos}")
-                logInfo(f"Input: {results[i]['videoPath']}")
+                    printSubsectionHeader(f"Video {idx} of {totalVideos}")
+                logInfo(f"Input: {entry['videoPath']}")
 
                 if getattr(args, "png_passthrough", False) and not processingEnabled:
-                    inputPath = results[i]["videoPath"]
-                    outputPath = results[i]["outputPath"]
+                    inputPath = entry["videoPath"]
+                    outputPath = entry["outputPath"]
 
                     _runPngPassthrough(inputPath, outputPath)
 
@@ -740,12 +740,12 @@ def main():
 
                 VideoProcessor(
                     args,
-                    results=results[i],
+                    results=entry,
                 )
 
             except Exception as e:
-                logError(f"Error processing video {results[i]['videoPath']}: {str(e)}")
-                logging.exception(f"Error processing video {results[i]['videoPath']}")
+                logError(f"Error processing video {entry['videoPath']}: {str(e)}")
+                logging.exception(f"Error processing video {entry['videoPath']}")
 
         _setTerminalTitle("TAS")
 

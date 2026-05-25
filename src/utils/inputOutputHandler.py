@@ -1,12 +1,41 @@
 import os
 import logging
-import random
 import re
 import glob
 
 EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
 IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".tiff", ".tif", ".exr", ".dpx"]
 OUTPUT_FILE_EXTENSIONS = tuple(EXTENSIONS + IMAGE_EXTENSIONS)
+
+# Characters that are illegal in filenames on Windows (and a good idea to avoid
+# everywhere). Argument values get folded into output names, so scrub them.
+_UNSAFE_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+_SEQUENCE_PATTERN = re.compile(r"^(.+?)(\d+)(\.[^.]+)$")
+
+
+def _isURL(value):
+    """True if the input string is an http(s) URL."""
+    return any(proto in str(value) for proto in ("https://", "http://"))
+
+
+def _sanitize(value):
+    """Replace filesystem-unsafe characters in a name fragment."""
+    return _UNSAFE_CHARS.sub("_", str(value))
+
+
+def _listImages(folderPath):
+    """Return a sorted, de-duplicated list of image files in a folder.
+
+    Globbing is case-insensitive on Windows/NTFS, so matching both ``*.png``
+    and ``*.PNG`` returns each file twice. A set collapses the duplicates;
+    without it, frame counts (and sequence detection) double on Windows.
+    """
+    found = set()
+    for ext in IMAGE_EXTENSIONS:
+        found.update(glob.glob(os.path.join(folderPath, f"*{ext}")))
+        found.update(glob.glob(os.path.join(folderPath, f"*{ext.upper()}")))
+    return sorted(found)
 
 
 def detectImageSequence(folderPath):
@@ -22,54 +51,35 @@ def detectImageSequence(folderPath):
     if not os.path.isdir(folderPath):
         return None
 
-    imageFiles = []
-    for ext in IMAGE_EXTENSIONS:
-        imageFiles.extend(glob.glob(os.path.join(folderPath, f"*{ext}")))
-        imageFiles.extend(glob.glob(os.path.join(folderPath, f"*{ext.upper()}")))
-
+    imageFiles = _listImages(folderPath)
     if len(imageFiles) < 2:
         return None
 
-    imageFiles.sort()
-
     firstFile = os.path.basename(imageFiles[0])
+    match = _SEQUENCE_PATTERN.match(firstFile)
+    if not match:
+        return None
 
-    patterns = [
-        r"^(.+?)(\d+)(\.[^.]+)$",
-    ]
+    prefix, number, extension = match.groups()
+    padding = len(number)
+    expectedPattern = f"{prefix}%0{padding}d{extension}"
 
-    for pattern in patterns:
-        match = re.match(pattern, firstFile)
-        if match:
-            prefix, number, extension = match.groups()
-            padding = len(number)
+    frameNumbers = set()
+    for imgFile in imageFiles:
+        basename = os.path.basename(imgFile)
+        m = _SEQUENCE_PATTERN.match(basename)
+        if m and m.group(1) == prefix and m.group(3).lower() == extension.lower():
+            try:
+                frameNumbers.add(int(m.group(2)))
+            except ValueError:
+                continue
 
-            expectedPattern = f"{prefix}%0{padding}d{extension}"
+    if len(frameNumbers) < 2:
+        return None
 
-            frameNumbers = []
-            for imgFile in imageFiles:
-                basename = os.path.basename(imgFile)
-                m = re.match(pattern, basename)
-                if (
-                    m
-                    and m.group(1) == prefix
-                    and m.group(3).lower() == extension.lower()
-                ):
-                    try:
-                        frameNumbers.append(int(m.group(2)))
-                    except ValueError:
-                        continue
-
-            if len(frameNumbers) >= 2:
-                frameNumbers.sort()
-                firstFrame = frameNumbers[0]
-                lastFrame = frameNumbers[-1]
-
-                sequencePath = os.path.join(folderPath, expectedPattern)
-
-                return (sequencePath, firstFrame, lastFrame, len(frameNumbers))
-
-    return None
+    frameNumbers = sorted(frameNumbers)
+    sequencePath = os.path.join(folderPath, expectedPattern)
+    return (sequencePath, frameNumbers[0], frameNumbers[-1], len(frameNumbers))
 
 
 def getFirstImageInSequence(folderPath):
@@ -85,26 +95,48 @@ def getFirstImageInSequence(folderPath):
     if not os.path.isdir(folderPath):
         return None
 
-    imageFiles = []
-    for ext in IMAGE_EXTENSIONS:
-        imageFiles.extend(glob.glob(os.path.join(folderPath, f"*{ext}")))
-        imageFiles.extend(glob.glob(os.path.join(folderPath, f"*{ext.upper()}")))
+    imageFiles = _listImages(folderPath)
+    return imageFiles[0] if imageFiles else None
 
-    if not imageFiles:
-        return None
 
-    imageFiles.sort()
-    return imageFiles[0]
+def _baseName(videoInput):
+    """Derive the leading filename component from an input path/URL."""
+    if _isURL(videoInput):
+        return "TAS-YTDLP"
+    if not videoInput:
+        return "TAS"
+
+    name = os.path.splitext(os.path.basename(videoInput))[0]
+    # Image-sequence inputs look like ``frames_%05d`` after splitext; keep only
+    # the human-readable prefix instead of leaking the printf pattern.
+    if "%" in name:
+        name = name.split("%", 1)[0].rstrip("_-. ") or "TAS"
+    return name
+
+
+def _resolveExtension(args, videoInput):
+    """Pick the output file extension consistently for every input kind."""
+    if getattr(args, "single_image_input", False):
+        return ".png"
+    if (
+        getattr(args, "segment", False)
+        or getattr(args, "encode_method", "") == "prores"
+    ):
+        return ".mov"
+    if getattr(args, "encode_method", "") == "png":
+        return ""  # png -> image-sequence directory, handled by the caller
+    # URLs and printf-style sequence patterns have no trustworthy extension to
+    # copy, so fall back to the container default rather than parsing garbage.
+    if _isURL(videoInput) or (videoInput and "%" in str(videoInput)):
+        return ".mp4"
+    if videoInput:
+        return os.path.splitext(videoInput)[1] or ".mp4"
+    return ".mp4"
 
 
 def generateOutputName(args, videoInput):
     """Generates output filename based on input and processing arguments."""
-    if any(proto in str(videoInput) for proto in ["https://", "http://"]):
-        return f"TAS-YTDLP-{random.randint(0, 1000)}.mp4"
-
-    baseName = (
-        os.path.splitext(os.path.basename(videoInput))[0] if videoInput else "TAS"
-    )
+    baseName = _baseName(videoInput)
 
     features = [
         ("resize", "Resize", "resize_factor"),
@@ -118,48 +150,86 @@ def generateOutputName(args, videoInput):
         ("ytdlp", "YTDLP", None),
     ]
 
+    isUrl = _isURL(videoInput)
     suffixes = []
-    for arg, label, val_attr in features:
+    for arg, label, valAttr in features:
+        # URL base name already carries the YTDLP tag; don't duplicate it.
+        if arg == "ytdlp" and isUrl:
+            continue
         if getattr(args, arg, False):
-            val = getattr(args, val_attr, "") if val_attr else ""
-            suffixes.append(f"-{label}{val}")
+            val = getattr(args, valAttr, "") if valAttr else ""
+            suffixes.append(f"-{label}{_sanitize(val)}")
 
-    suffixes.append(f"-{random.randint(0, 1000)}")
-
-    if getattr(args, "single_image_input", False):
-        extension = ".png"
-    elif (
-        getattr(args, "segment", False)
-        or getattr(args, "encode_method", "") == "prores"
-    ):
-        extension = ".mov"
-    elif getattr(args, "encode_method", "") == "png":
-        extension = ""
-    elif videoInput:
-        extension = os.path.splitext(videoInput)[1]
-    else:
-        extension = ".mp4"
-
-    return f"{baseName}{''.join(suffixes)}{extension}"
+    extension = _resolveExtension(args, videoInput)
+    return f"{_sanitize(baseName)}{''.join(suffixes)}{extension}"
 
 
-def generateOutputPath(video, output, defaultOutputPath, args):
-    """Generates appropriate output path based on input parameters."""
+def _makeUniquePath(path, usedPaths, checkFs=True):
+    """Return ``path``, or ``path-1``/``path-2``/... if it would collide.
+
+    A name is considered taken if it was already handed out in this run
+    (``usedPaths``) or, when ``checkFs`` is set, if it already exists on disk.
+    ``checkFs=False`` is used for explicit user-named outputs: those should be
+    overwritable, but still must not clobber each other inside one batch.
+    """
+
+    def taken(candidate):
+        return candidate in usedPaths or (checkFs and os.path.exists(candidate))
+
+    if not taken(path):
+        usedPaths.add(path)
+        return path
+
+    root, ext = os.path.splitext(path)
+    index = 1
+    while taken(f"{root}-{index}{ext}"):
+        index += 1
+    unique = f"{root}-{index}{ext}"
+    usedPaths.add(unique)
+    return unique
+
+
+def _makeUniqueDir(path, usedPaths):
+    """Like :func:`_makeUniquePath` but for image-sequence output folders."""
+
+    def taken(candidate):
+        return candidate in usedPaths or os.path.exists(candidate)
+
+    candidate = path
+    index = 0
+    while taken(candidate):
+        index += 1
+        candidate = f"{path}-{index}"
+    usedPaths.add(candidate)
+    return candidate
+
+
+def generateOutputPath(video, output, defaultOutputPath, args, usedPaths):
+    """Generates appropriate output path based on input parameters.
+
+    ``usedPaths`` is a set shared across one batch; it guarantees that two
+    inputs never resolve to the same output file (e.g. same basename in two
+    folders, or one explicit ``--output file.mp4`` for many inputs).
+    """
+    # Explicit, fully-specified output file: honour the exact name the user
+    # gave (allow overwriting a prior file), but disambiguate within a batch.
     if output and output.lower().endswith(OUTPUT_FILE_EXTENSIONS):
-        return output
+        return _makeUniquePath(output, usedPaths, checkFs=False)
 
     baseDir = output if output and os.path.isdir(output) else defaultOutputPath
 
-    if getattr(args, "png_passthrough", False):
-        return os.path.join(baseDir, generateOutputName(args, video))
-
-    if getattr(args, "encode_method", "") == "png":
+    pngSequence = getattr(args, "encode_method", "") == "png" and not getattr(
+        args, "png_passthrough", False
+    )
+    if pngSequence:
         outputName = generateOutputName(args, video)
-        outputFolder = os.path.join(baseDir, outputName)
+        outputFolder = _makeUniqueDir(os.path.join(baseDir, outputName), usedPaths)
         os.makedirs(outputFolder, exist_ok=True)
         return os.path.join(outputFolder, "frames_%05d.png")
 
-    return os.path.join(baseDir, generateOutputName(args, video))
+    return _makeUniquePath(
+        os.path.join(baseDir, generateOutputName(args, video)), usedPaths
+    )
 
 
 WEBM_COMPATIBLE_ENCODERS = (
@@ -175,7 +245,7 @@ WEBM_COMPATIBLE_ENCODERS = (
 def validateEncoder(video, encodeMethod, customEncoder):
     """Validates and potentially adjusts the encoder method based on file type."""
     if (
-        video.endswith(".webm")
+        str(video).endswith(".webm")
         and not customEncoder
         and encodeMethod not in WEBM_COMPATIBLE_ENCODERS
     ):
@@ -200,7 +270,7 @@ def getVideoFiles(videosInput):
         return all_files
 
     # Handle URL input
-    if any(proto in str(videosInput) for proto in ["https://", "http://"]):
+    if _isURL(videosInput):
         return [videosInput]
 
     # Handle image sequence pattern (e.g., frames_%05d.png)
@@ -220,12 +290,13 @@ def getVideoFiles(videosInput):
             )
             return [sequencePath]
 
-        # Otherwise, look for video files in the directory
-        return [
+        # Otherwise, look for video files in the directory (sorted for a stable,
+        # reproducible batch order regardless of filesystem listing order).
+        return sorted(
             os.path.join(absPath, f)
             for f in os.listdir(absPath)
             if os.path.splitext(f)[1].lower() in EXTENSIONS
-        ]
+        )
 
     if os.path.isfile(absPath):
         if absPath.endswith(".txt"):
@@ -242,7 +313,11 @@ def getVideoFiles(videosInput):
 
 
 def processInputOutputPaths(args, defaultOutputPath):
-    """Processes input and output paths for video processing."""
+    """Processes input and output paths for video processing.
+
+    Returns a list of per-video dicts (``videoPath``, ``outputPath``,
+    ``encodeMethod``, ``customEncoder``), one entry per resolved input.
+    """
     os.makedirs(defaultOutputPath, exist_ok=True)
 
     output = args.output
@@ -257,20 +332,25 @@ def processInputOutputPaths(args, defaultOutputPath):
 
     videoFiles = getVideoFiles(args.input)
 
-    results = {}
-    for index, video in enumerate(videoFiles, 1):
-        if not any(proto in str(video) for proto in ["https://", "http://"]):
+    usedPaths = set()
+    results = []
+    for video in videoFiles:
+        if not _isURL(video):
             # Skip existence check for image sequence patterns (they contain %)
             if "%" not in str(video) and not os.path.exists(video):
                 raise FileNotFoundError(f"File {video} does not exist")
 
-        results[index] = {
-            "videoPath": video,
-            "outputPath": generateOutputPath(video, output, defaultOutputPath, args),
-            "encodeMethod": validateEncoder(
-                video, args.encode_method, args.custom_encoder
-            ),
-            "customEncoder": args.custom_encoder,
-        }
+        results.append(
+            {
+                "videoPath": video,
+                "outputPath": generateOutputPath(
+                    video, output, defaultOutputPath, args, usedPaths
+                ),
+                "encodeMethod": validateEncoder(
+                    video, args.encode_method, args.custom_encoder
+                ),
+                "customEncoder": args.custom_encoder,
+            }
+        )
 
     return results

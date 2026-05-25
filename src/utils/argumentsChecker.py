@@ -851,6 +851,30 @@ def _addUpscalingOptions(argParser):
         "gauss-directml",
         "gauss-openvino",
         "figsr",
+        "artcnn_c4f16-tensorrt",
+        "artcnn_c4f16-directml",
+        "artcnn_c4f16-openvino",
+        "artcnn_c4f16_dn-tensorrt",
+        "artcnn_c4f16_dn-directml",
+        "artcnn_c4f16_dn-openvino",
+        "artcnn_c4f16_ds-tensorrt",
+        "artcnn_c4f16_ds-directml",
+        "artcnn_c4f16_ds-openvino",
+        "artcnn_c4f32-tensorrt",
+        "artcnn_c4f32-directml",
+        "artcnn_c4f32-openvino",
+        "artcnn_c4f32_dn-tensorrt",
+        "artcnn_c4f32_dn-directml",
+        "artcnn_c4f32_dn-openvino",
+        "artcnn_c4f32_ds-tensorrt",
+        "artcnn_c4f32_ds-directml",
+        "artcnn_c4f32_ds-openvino",
+        "artcnn_r8f64-tensorrt",
+        "artcnn_r8f64-directml",
+        "artcnn_r8f64-openvino",
+        "artcnn_r16f96-tensorrt",
+        "artcnn_r16f96-directml",
+        "artcnn_r16f96-openvino",
         "shufflecugan-mps",
         "adore-mps",
         "span-mps",
@@ -1998,7 +2022,7 @@ def processURL(args, outputPath):
             if tempOutput != args.output:
                 os.rename(tempOutput, args.output)
                 logging.info(f"Renamed output to: {args.output}")
-                sys.exit()
+            sys.exit()
 
         args.input = str(tempOutput)
         logging.info(f"New input path: {args.input}")

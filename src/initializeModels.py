@@ -757,6 +757,57 @@ def initializeModels(self):
                 )
 
             case (
+                "artcnn_c4f16-tensorrt"
+                | "artcnn_c4f16_dn-tensorrt"
+                | "artcnn_c4f16_ds-tensorrt"
+                | "artcnn_c4f32-tensorrt"
+                | "artcnn_c4f32_dn-tensorrt"
+                | "artcnn_c4f32_ds-tensorrt"
+                | "artcnn_r8f64-tensorrt"
+                | "artcnn_r16f96-tensorrt"
+            ):
+                from src.unifiedUpscale import ArtCNNTensorRT
+
+                upscaleProcess = ArtCNNTensorRT(
+                    self.upscaleMethod,
+                    self.upscaleFactor,
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.customModel,
+                    self.forceStatic,
+                )
+
+            case (
+                "artcnn_c4f16-directml"
+                | "artcnn_c4f16_dn-directml"
+                | "artcnn_c4f16_ds-directml"
+                | "artcnn_c4f32-directml"
+                | "artcnn_c4f32_dn-directml"
+                | "artcnn_c4f32_ds-directml"
+                | "artcnn_r8f64-directml"
+                | "artcnn_r16f96-directml"
+                | "artcnn_c4f16-openvino"
+                | "artcnn_c4f16_dn-openvino"
+                | "artcnn_c4f16_ds-openvino"
+                | "artcnn_c4f32-openvino"
+                | "artcnn_c4f32_dn-openvino"
+                | "artcnn_c4f32_ds-openvino"
+                | "artcnn_r8f64-openvino"
+                | "artcnn_r16f96-openvino"
+            ):
+                from src.unifiedUpscale import ArtCNNDirectML
+
+                upscaleProcess = ArtCNNDirectML(
+                    self.upscaleMethod,
+                    self.upscaleFactor,
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.customModel,
+                )
+
+            case (
                 "maxine-bicubic"
                 | "maxine-low"
                 | "maxine-medium"
