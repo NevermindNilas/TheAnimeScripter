@@ -477,7 +477,7 @@ class DepthDirectMLV2:
         if "directml" in self.depth_method:
             folderName = self.depth_method.replace("-directml", "-onnx")
         elif "openvino" in self.depth_method:
-            folderName = self.depth_method.replace("openvino", "-onnx")
+            folderName = self.depth_method.replace("-openvino", "-onnx")
 
         modelPath = resolveWeightPath(
             folderName,
@@ -1212,6 +1212,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
                 self.encodeBuffer.put(
                     np.stack([gray] * 3, axis=-1)
                 )
+                return
 
             disparity = np.zeros_like(depth, dtype=np.float32)
             disparity[validMask] = 1.0 / depth[validMask]

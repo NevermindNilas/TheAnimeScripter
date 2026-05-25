@@ -53,6 +53,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Fixed
 - WebM input forced to `vp9` even when an AV1 encoder was selected. `validateEncoder` allowlist now includes `nvenc_av1`, `slow_nvenc_av1`, `av1`, and `slow_av1` alongside `vp9` / `qsv_vp9`.
 - Output naming overhaul: collisions now get a `-1`/`-2` suffix instead of overwriting, Windows image sequences are no longer double-counted, directory inputs process in sorted order, and URL/sequence inputs pick the correct extension.
+- OpenVINO depth models failed to load due to a double-dash folder name.
+- Depth (`OGDepthV3Cuda`) enqueued two output frames for near-empty-mask inputs, desyncing output length.
+- Encoding crashed when the metadata file was absent (preview / single-image paths).
+- Video metadata read `ColorSpace` / `PixelFormat` from swapped ffprobe fields.
+- YouTube downloader always showed the title as "Unknown" (typo'd info-dict key).
 
 ## [2.7.0] - 2026-05-10
 ### Fixed

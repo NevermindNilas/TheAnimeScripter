@@ -1190,7 +1190,7 @@ class RifeNCNN:
                 .reshape(self.height, self.width, 3)
                 .permute(2, 0, 1)
                 .unsqueeze(0)
-                .to(dtype=torch.float32 if self.half else torch.float16)
+                .to(dtype=torch.float16 if self.half else torch.float32)
                 .mul(1 / 255.0)
             )
             interpQueue.put(output)
