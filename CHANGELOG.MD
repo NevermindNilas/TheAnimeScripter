@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - YYYY-MM-DD
 
 ### Added
+- ArtCNN luma upscale backend ([Artoriuz/ArtCNN](https://github.com/Artoriuz/ArtCNN)). ArtCNN doublers upscale the luma (Y) channel only, so the RGB frame is split to BT.709 Y'CbCr, the model runs on Y, chroma is bicubic-upscaled, and the planes are recombined. 8 models × 3 backends (`-tensorrt`, `-directml`, `-openvino`): `artcnn_c4f16{,_dn,_ds}`, `artcnn_c4f32{,_dn,_ds}`, `artcnn_r8f64`, `artcnn_r16f96` (DN = denoise/soften, DS = denoise/sharpen; only the C-series ship those variants). Fixed 2x, fp16/fp32.
 - `deepdeband-f` restore method ([RaymondLZhou/deepDeband](https://github.com/RaymondLZhou/deepDeband), ICIP 2022).
 - NVIDIA Maxine Video Super Resolution (RTX VSR) upscale backend via `nvidia-vfx` Python binding. New `--upscale_method` values: `maxine-bicubic`, `maxine-low`, `maxine-medium`, `maxine-high`, `maxine-ultra`, plus `maxine-highbitrate_{low,medium,high,ultra}` tuned for clean high-bitrate source. Runs on RTX Tensor cores; bundled TensorRT engines, no model download. Supports `--upscale_factor` 2/3/4.
 - NVIDIA Maxine same-size enhancement restore backend via `nvidia-vfx`. New `--restore_method` values: `maxine-denoise_{low,medium,high,ultra}` and `maxine-deblur_{low,medium,high,ultra}`. Chainable with other restore methods.
@@ -51,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Fixed
 - WebM input forced to `vp9` even when an AV1 encoder was selected. `validateEncoder` allowlist now includes `nvenc_av1`, `slow_nvenc_av1`, `av1`, and `slow_av1` alongside `vp9` / `qsv_vp9`.
+- Output naming overhaul: collisions now get a `-1`/`-2` suffix instead of overwriting, Windows image sequences are no longer double-counted, directory inputs process in sorted order, and URL/sequence inputs pick the correct extension.
 
 ## [2.7.0] - 2026-05-10
 ### Fixed

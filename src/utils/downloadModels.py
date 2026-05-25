@@ -63,6 +63,30 @@ def modelsList() -> list[str]:
         "gauss-directml",
         "gauss-tensorrt",
         "figsr",
+        "artcnn_c4f16-tensorrt",
+        "artcnn_c4f16-directml",
+        "artcnn_c4f16-openvino",
+        "artcnn_c4f16_dn-tensorrt",
+        "artcnn_c4f16_dn-directml",
+        "artcnn_c4f16_dn-openvino",
+        "artcnn_c4f16_ds-tensorrt",
+        "artcnn_c4f16_ds-directml",
+        "artcnn_c4f16_ds-openvino",
+        "artcnn_c4f32-tensorrt",
+        "artcnn_c4f32-directml",
+        "artcnn_c4f32-openvino",
+        "artcnn_c4f32_dn-tensorrt",
+        "artcnn_c4f32_dn-directml",
+        "artcnn_c4f32_dn-openvino",
+        "artcnn_c4f32_ds-tensorrt",
+        "artcnn_c4f32_ds-directml",
+        "artcnn_c4f32_ds-openvino",
+        "artcnn_r8f64-tensorrt",
+        "artcnn_r8f64-directml",
+        "artcnn_r8f64-openvino",
+        "artcnn_r16f96-tensorrt",
+        "artcnn_r16f96-directml",
+        "artcnn_r16f96-openvino",
         "span",
         "shufflecugan",
         "adore",
@@ -311,6 +335,64 @@ def modelsMap(
 
         case "figsr":
             return "2x_enhancr_da_figsr.pth"
+
+        # ArtCNN luma-only 2x SR. Single-channel (1,1,H,W) -> (1,1,2H,2W).
+        # OpenVINO reuses the -directml filename (mapped upstream in the loader).
+        case (
+            "artcnn_c4f16-tensorrt"
+            | "artcnn_c4f16-directml"
+            | "artcnn_c4f16-openvino"
+        ):
+            return "ArtCNN_C4F16_fp16.onnx" if half else "ArtCNN_C4F16_fp32.onnx"
+
+        case (
+            "artcnn_c4f16_dn-tensorrt"
+            | "artcnn_c4f16_dn-directml"
+            | "artcnn_c4f16_dn-openvino"
+        ):
+            return "ArtCNN_C4F16_DN_fp16.onnx" if half else "ArtCNN_C4F16_DN_fp32.onnx"
+
+        case (
+            "artcnn_c4f16_ds-tensorrt"
+            | "artcnn_c4f16_ds-directml"
+            | "artcnn_c4f16_ds-openvino"
+        ):
+            return "ArtCNN_C4F16_DS_fp16.onnx" if half else "ArtCNN_C4F16_DS_fp32.onnx"
+
+        case (
+            "artcnn_c4f32-tensorrt"
+            | "artcnn_c4f32-directml"
+            | "artcnn_c4f32-openvino"
+        ):
+            return "ArtCNN_C4F32_fp16.onnx" if half else "ArtCNN_C4F32_fp32.onnx"
+
+        case (
+            "artcnn_c4f32_dn-tensorrt"
+            | "artcnn_c4f32_dn-directml"
+            | "artcnn_c4f32_dn-openvino"
+        ):
+            return "ArtCNN_C4F32_DN_fp16.onnx" if half else "ArtCNN_C4F32_DN_fp32.onnx"
+
+        case (
+            "artcnn_c4f32_ds-tensorrt"
+            | "artcnn_c4f32_ds-directml"
+            | "artcnn_c4f32_ds-openvino"
+        ):
+            return "ArtCNN_C4F32_DS_fp16.onnx" if half else "ArtCNN_C4F32_DS_fp32.onnx"
+
+        case (
+            "artcnn_r8f64-tensorrt"
+            | "artcnn_r8f64-directml"
+            | "artcnn_r8f64-openvino"
+        ):
+            return "ArtCNN_R8F64_fp16.onnx" if half else "ArtCNN_R8F64_fp32.onnx"
+
+        case (
+            "artcnn_r16f96-tensorrt"
+            | "artcnn_r16f96-directml"
+            | "artcnn_r16f96-openvino"
+        ):
+            return "ArtCNN_R16F96_fp16.onnx" if half else "ArtCNN_R16F96_fp32.onnx"
 
         case "span" | "span-directml" | "span-tensorrt" | "span-ncnn":
             if modelType == "pth":
