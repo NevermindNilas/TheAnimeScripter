@@ -755,18 +755,25 @@ class WriteBuffer:
 
         import json
 
-        metadata = json.loads(open(cs.METADATAPATH, "r", encoding="utf-8").read())
         if not self.grayscale and not self.transparent:
             colorSPaceFilter = {
                 "bt709": "zscale=matrix=709:dither=error_diffusion",
                 "bt2020": "zscale=matrix=bt2020:norm=bt2020:dither=error_diffusion,format=yuv420p",
             }
 
+            metadata = {}
+            if cs.METADATAPATH and os.path.exists(cs.METADATAPATH):
+                try:
+                    with open(cs.METADATAPATH, "r", encoding="utf-8") as f:
+                        metadata = json.load(f)
+                except Exception as e:
+                    logging.warning(f"Failed to read metadata for color space: {e}")
+
             metadataFields = ["ColorSpace", "PixelFormat", "ColorTRT"]
             detectedColorSpace = None
 
             for field in metadataFields:
-                colorValue = metadata["metadata"].get(field, "unknown")
+                colorValue = metadata.get("metadata", {}).get(field, "unknown")
                 if colorValue in colorSPaceFilter:
                     detectedColorSpace = colorValue
                     break

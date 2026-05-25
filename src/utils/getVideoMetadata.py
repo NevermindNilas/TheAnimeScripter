@@ -112,8 +112,8 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         if isImageInput and totalFrames < 1:
             totalFrames = 1
         colorFormat = videoStream.get("pix_fmt", "unknown")
-        pixelFormat = videoStream.get("color_space", "unknown")
-        colorSpace = videoStream.get("color_primaries", "unknown")
+        pixelFormat = videoStream.get("color_primaries", "unknown")
+        colorSpace = videoStream.get("color_space", "unknown")
         ColorTRT = videoStream.get("color_transfer", "unknown")
         ColorRange = videoStream.get("color_range", "unknown")
 
