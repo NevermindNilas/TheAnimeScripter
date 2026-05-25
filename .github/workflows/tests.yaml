@@ -23,7 +23,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13.12"
+          # Float the patch so setup-python hits the runner's pre-baked
+          # interpreter (instant) instead of downloading an exact build (~1 min).
+          python-version: "3.13"
           # Cache pip's wheel store; key tracks this workflow (where deps are pinned).
           cache: pip
           cache-dependency-path: .github/workflows/tests.yaml
