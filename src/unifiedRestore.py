@@ -44,7 +44,7 @@ class UnifiedRestoreCuda:
 
         from src.spandrelCompat import ModelLoader
 
-        if self.model in ["nafnet", "deepdeband-f"]:
+        if self.model in ["deepdeband-f"]:
             self.half = False
             print(f"{self.model} does not support half precision, using float32 instead")
 
@@ -282,10 +282,6 @@ class UnifiedRestoreMPS:
             )
 
         from src.spandrelCompat import ModelLoader
-
-        if self.model in ["nafnet"]:
-            self.half = False
-            print("NAFNet does not support half precision, using float32 instead")
 
         self.filename = modelsMap(self.model)
         modelPath = resolveWeightPath(self.model, self.filename)
