@@ -1704,18 +1704,15 @@ def _handleDependencies(args):
         supportsCuda = False
         if isNvidia:
             supportsCuda, _, _ = detectGPUArchitecture()
-        args.isNvidiaGPU = isNvidia
         args.supportsCuda = supportsCuda
     except ImportError:
         isNvidia = False
         supportsCuda = False
-        args.isNvidiaGPU = False
         args.supportsCuda = False
 
-    from src.utils.dependencyHandler import getDependencyProfile, getRequirementsFileForProfile
+    from src.utils.dependencyHandler import getDependencyProfile
 
     args.dependency_profile = getDependencyProfile(cs.SYSTEM, supportsCuda)
-    args.requirements_file = getRequirementsFileForProfile(args.dependency_profile)
 
     if args.download_requirements is None and not args.cleanup:
         from src.utils.dependencyHandler import DependencyChecker

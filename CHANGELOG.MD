@@ -66,6 +66,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - AV1 encoders (`nvenc_av1`, `slow_av1`, custom encoders) now set `SVT_LOG` correctly (was an exact-match check).
 - Model optimizer no longer silently replaces ReLU with LeakyReLU, which corrupted activations.
 
+### Removed
+- Dead-code sweep (no behavior change). Removed orphaned depth-arch modules `dpt_v1.py`, `blocks_v1.py`, `dinov2_v3.py`, and the stray top-level `dpt_temporal.py` / `blocks.py` / `transform.py` (superseded by the `dpt_v2` / `og_dpt_v2` / `video_depth_anything` lineages). Removed unreferenced symbols: the never-dispatched `DedupMSSSIMCuda` class (and the now-orphaned `MS_SSIM` / `ms_ssim` in `dedup/ssim.py`) and `ATRCuda`; all unused `frameReset()` methods across upscale/restore; `objectDetection.drawBoxesTorch`; `stabilize._processStreamingFrames`; `downloadModels.downloadTensorRTRTX`; the unused `logAndPrint` helpers (`setVerbose`/`setQuiet`/`logDebug`/`blue`/`magenta`/`lightBlue`/`rainbow`/`bold`); dead `CudaChecker` members (`mpsAvailable`/`acceleratorAvailable`/`disableCudaOptimizations`/`deviceName`/`allDeviceNames`); and several write-only attrs / unused params (`useOpenCV`, `batchSize`, `channels_first`, `optimizationLevel`, `args.isNvidiaGPU`, `args.requirements_file`).
+
 ## [2.7.0] - 2026-05-10
 ### Fixed
 - DirectML black frames due to IOBinding issues.

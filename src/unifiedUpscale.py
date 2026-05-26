@@ -248,10 +248,6 @@ class UniversalPytorch:
 
         return output
 
-    def frameReset(self):
-        pass
-
-
 class UniversalPytorchMPS:
     """
     Apple Silicon (MPS) PyTorch upscaler. Mirrors UniversalPytorch but without
@@ -397,10 +393,6 @@ class UniversalPytorchMPS:
         output = self.model(frame)
         torch.mps.synchronize()
         return output
-
-    def frameReset(self):
-        pass
-
 
 class UniversalTensorRT:
     def __init__(
@@ -565,10 +557,6 @@ class UniversalTensorRT:
 
         return output
 
-    def frameReset(self):
-        pass
-
-
 # NVIDIA Works Notice (required by NVIDIA Software License Agreement
 # AI Product-Specific Terms §1.7.1 for distributed source files using
 # the NVIDIA Video Effects SDK / Maxine VSR):
@@ -721,10 +709,6 @@ class NvidiaVSR:
         output = self.dummyOutput.clone()
         torch.cuda.synchronize()
         return output
-
-    def frameReset(self):
-        pass
-
 
 class UniversalDirectML:
     def __init__(
@@ -949,10 +933,6 @@ class UniversalDirectML:
                 )
                 raise
 
-    def frameReset(self):
-        pass
-
-
 class AnimeSRDirectML:
     """
     AnimeSR DirectML/OpenVINO implementation with 5-input architecture.
@@ -1128,16 +1108,6 @@ class AnimeSRDirectML:
             align_corners=False,
         )
 
-    def frameReset(self):
-        self.prevFrame.zero_()
-        self.currFrame.zero_()
-        self.nextFrame.zero_()
-        self.fb.zero_()
-        self.state.zero_()
-        self.outImg.zero_()
-        self.outState.zero_()
-        self.firstRun = True
-
 
 class UniversalNCNN:
     def __init__(self, upscaleMethod, upscaleFactor):
@@ -1186,10 +1156,6 @@ class UniversalNCNN:
 
         frame = frame.to(iniFrameDtype).mul(1 / 255).permute(2, 0, 1).unsqueeze(0)
         return frame
-
-    def frameReset(self):
-        pass
-
 
 class AnimeSR:
     def __init__(
@@ -1378,15 +1344,6 @@ class AnimeSR:
         self.outputStream.synchronize()
 
         return output
-
-    def frameReset(self):
-        with torch.cuda.stream(self.normStream):
-            self.prevFrame.zero_()
-            self.nextFrame.zero_()
-            self.state.zero_()
-            self.dummyOutput.zero_()
-        self.normStream.synchronize()
-        self.firstRun = True
 
 
 class AnimeSRTensorRT:
@@ -1630,17 +1587,6 @@ class AnimeSRTensorRT:
 
         return output
 
-    def frameReset(self):
-        with torch.cuda.stream(self.normStream):
-            self.prevFrame.zero_()
-            self.currFrame.zero_()
-            self.nextFrame.zero_()
-            self.state.zero_()
-            self.stateOutput.zero_()
-            self.dummyOutput.zero_()
-        self.normStream.synchronize()
-        self.firstRun = True
-
 
 class _ArtCNNLumaMixin:
     """
@@ -1855,10 +1801,6 @@ class ArtCNNTensorRT(_ArtCNNLumaMixin):
 
         return output
 
-    def frameReset(self):
-        pass
-
-
 class ArtCNNDirectML(_ArtCNNLumaMixin):
     """
     ArtCNN luma-only 2x upscaler (DirectML / OpenVINO via onnxruntime).
@@ -2012,6 +1954,3 @@ class ArtCNNDirectML(_ArtCNNLumaMixin):
         cbUp = self._upscaleChroma(cb)
         crUp = self._upscaleChroma(cr)
         return self._yCbCrToRgb(yUp, cbUp, crUp).to(dtype=self.torchDType)
-
-    def frameReset(self):
-        pass
