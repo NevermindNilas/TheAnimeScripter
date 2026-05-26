@@ -432,8 +432,6 @@ class ObjectDetectionTensorRT:
                 self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
                 self.stream.synchronize()
 
-        self.colorsTensor = torch.tensor(colors, device=checker.device, dtype=torch.float32)
-
     @torch.inference_mode()
     def prepareInput(self, image):
         self.imgHeight, self.imgWidth = image.shape[:2]
@@ -504,14 +502,6 @@ class ObjectDetectionTensorRT:
             return self.processOutput(output)
         
         return np.array([], dtype=np.int32), np.empty((0, 4), dtype=np.float32), np.array([], dtype=np.float32)
-
-    @torch.inference_mode()
-    def drawBoxesTorch(self, frame, boxes, classIds):
-        for i in range(boxes.shape[0]):
-            x1, y1, x2, y2 = boxes[i].int()
-            color = self.colorsTensor[classIds[i].item()]
-            frame[:, :, y1:y2, x1:x2] = color.view(1, 3, 1, 1) * 0.3 + frame[:, :, y1:y2, x1:x2] * 0.7
-        return frame
 
     @torch.inference_mode()
     def processFrame(self, frame):

@@ -252,9 +252,6 @@ class MaxineRestore:
         torch.cuda.synchronize()
         return output
 
-    def frameReset(self):
-        pass
-
 
 class UnifiedRestoreMPS:
     """
@@ -268,7 +265,6 @@ class UnifiedRestoreMPS:
         model: str = "scunet-mps",
         half: bool = True,
     ):
-        self.originalModel = model
         self.model = model.replace("-mps", "")
         self.half = half
         self.CHANNELSLAST = True

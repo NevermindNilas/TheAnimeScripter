@@ -36,7 +36,6 @@ class BuildBuffer:
         toTorch: bool = True,
         decode_method: str = "cpu",
         batched: bool = False,
-        batchSize: int = 1,
     ):
         """
         Initializes the BuildBuffer class.
@@ -53,7 +52,6 @@ class BuildBuffer:
             toTorch (bool): Whether to convert frames to torch tensors.
             decode_method (str): The backend to use for decoding, e.g., "cpu" or "nvdec".
             batched (bool): Whether to decode frames in batches.
-            batchSize (int): The size of each batch when decoding in batches.
 
         Note:
             Nelux returns HWC format [H, W, 3] with native dtype (uint8/int16).
@@ -62,7 +60,6 @@ class BuildBuffer:
         self.decodeMethod = decode_method
         self.half = half
         self.decodeBuffer = Queue(maxsize=32)
-        self.useOpenCV = False
         self.width = width
         self.height = height
         self.resize = resize
@@ -273,14 +270,13 @@ class BuildBuffer:
 
         return totalFramesDecoded
 
-    def processFrameToTorch(self, frame, normStream=None, channels_first=False):
+    def processFrameToTorch(self, frame, normStream=None):
         """
         Processes a single frame with optimized memory handling.
 
         Args:
             frame: The frame to process as nelux frame (HWC format).
             normStream: The CUDA stream for normalization (if applicable).
-            channels_first: If True, frame is (C, H, W). If False, (H, W, C).
 
         Returns:
             The processed frame as a torch tensor in BCHW format.
@@ -718,17 +714,6 @@ class WriteBuffer:
             command.append(self.output)
 
         return command
-
-    def _getOutputFormat(self):
-        ext = os.path.splitext(self.output)[1].lower()
-        formatMap = {
-            ".mp4": "mp4",
-            ".mkv": "matroska",
-            ".webm": "webm",
-            ".mov": "mov",
-            ".avi": "avi",
-        }
-        return formatMap.get(ext, "mp4")
 
     def _buildFilterList(self):
         """Build list of video filters based on settings"""

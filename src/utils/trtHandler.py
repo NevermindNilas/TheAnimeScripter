@@ -235,7 +235,6 @@ def tensorRTEngineCreator(
     inputsMax: Union[List[Tuple[int, ...]], Tuple[int, ...]] = [],
     inputName: Optional[List[str]] = None,
     maxWorkspaceSize: int = (1 << 30),
-    optimizationLevel: int = 3,
     forceStatic: bool = False,
     isMultiInput: bool = False,
     isRife: bool = False,
@@ -252,7 +251,6 @@ def tensorRTEngineCreator(
         inputsMax: The maximum shape(s) that the profile will support.
         inputName (List[str]): The names of the input tensors.
         maxWorkspaceSize (int): The maximum GPU memory that the engine will use.
-        optimizationLevel (int): The optimization level for the engine.
         forceStatic (bool): Force static shapes for all inputs.
         isMultiInput (bool): Whether the model has multiple inputs.
         isRife (bool): Whether the model is a RIFE model.
