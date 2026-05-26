@@ -11,7 +11,6 @@ import os
 
 # ANSI escape codes - works on modern terminals (Windows 10+, Linux, macOS)
 _RESET = "\033[0m"
-_BOLD = "\033[1m"
 
 _COLORS = {
     "red": "\033[91m",
@@ -52,28 +51,6 @@ def _ansi(text, color_code):
 
 _VERBOSE = False
 _QUIET = False
-
-
-def setVerbose(verbose: bool) -> None:
-    """
-    Set global verbose mode for detailed logging.
-
-    Args:
-        verbose (bool): Enable verbose mode
-    """
-    global _VERBOSE
-    _VERBOSE = verbose
-
-
-def setQuiet(quiet: bool) -> None:
-    """
-    Set global quiet mode for minimal console output.
-
-    Args:
-        quiet (bool): Enable quiet mode
-    """
-    global _QUIET
-    _QUIET = quiet
 
 
 def logAndPrint(message: str, colorFunc: str = "cyan", level: str = "INFO") -> None:
@@ -125,12 +102,6 @@ def logWarning(message: str) -> None:
 def logError(message: str) -> None:
     """Log error message."""
     logAndPrint(message, "red", "ERROR")
-
-
-def logDebug(message: str) -> None:
-    """Log debug message (only shown in verbose mode)."""
-    if _VERBOSE:
-        logAndPrint(message, "cyan", "DEBUG")
 
 
 def printSectionHeader(title: str, char: str = "=") -> None:
@@ -204,37 +175,6 @@ def yellow(text):
     return _ansi(text, _COLORS["yellow"])
 
 
-def blue(text):
-    """Format text in blue color."""
-    return _ansi(text, _COLORS["blue"])
-
-
-def magenta(text):
-    """Format text in magenta color."""
-    return _ansi(text, _COLORS["magenta"])
-
-
 def cyan(text):
     """Format text in cyan color."""
     return _ansi(text, _COLORS["cyan"])
-
-
-def lightBlue(text):
-    """Format text in light blue color."""
-    return _ansi(text, _COLORS["light_blue"])
-
-
-def rainbow(text):
-    """Format text with rainbow colors, cycling through different colors per character."""
-    if not _COLOR_ENABLED:
-        return str(text)
-    colors = ["red", "yellow", "green", "blue", "magenta", "cyan"]
-    result = ""
-    for i, char in enumerate(text):
-        result += f"{_COLORS[colors[i % len(colors)]]}{char}"
-    return f"{result}{_RESET}"
-
-
-def bold(text):
-    """Format text in bold style."""
-    return _ansi(text, _BOLD)

@@ -59,7 +59,7 @@ def _byteCountRender(task):
     return f"{task.completed / mb:6.2f}/{task.total / mb:.2f} MB"
 
 
-def _frameColumns(desc: str):
+def _frameColumns():
     return (
         DescriptionColumn(style="bold bright_cyan"),
         TextColumn(" "),
@@ -114,7 +114,6 @@ class ProgressBarLogic:
 
     def __enter__(self):
         if cs.ADOBE:
-            self.advanceCount = 0
             self.updateInterval = max(10, self.totalFrames // 200)
             logging.info(f"Update interval: {self.updateInterval} frames")
 
@@ -132,7 +131,7 @@ class ProgressBarLogic:
 
         else:
             self.progress = Progress(
-                *_frameColumns(self.title),
+                *_frameColumns(),
                 total=self.totalFrames,
                 desc=self.title,
                 min_interval=_minInterval,
@@ -163,7 +162,6 @@ class ProgressBarLogic:
     def advance(self, advance=1):
         if cs.ADOBE:
             self.completed += advance
-            self.advanceCount += advance
 
             if self.completed >= getattr(self, "nextUpdateFrame", self.updateInterval) or self.completed >= self.totalFrames:
                 currentTime = time()
@@ -226,15 +224,6 @@ class ProgressBarDownloadLogic:
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.progress.__exit__(exc_type, exc_value, traceback)
-
-    def setTotal(self, newTotal: int):
-        """
-        Updates the total value of the progress bar.
-
-        Args:
-            newTotal (int): The new total value"""
-        self.totalData = newTotal
-        self.progress.set_total(0, newTotal)
 
     def advance(self, advance=1):
         self.progress.advance(advance)
