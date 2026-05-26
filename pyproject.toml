@@ -1,0 +1,84 @@
+[build-system]
+requires = ["uv_build>=0.11.16,<0.12"]
+build-backend = "uv_build"
+
+[project]
+name = "anime-scripter"
+version = "2.7.1"
+description = "High-performance AI video enhancement toolkit for creators"
+readme = "README.md"
+requires-python = ">=3.13, <3.15"
+license = "AGPL-3.0-or-later"
+authors = [{ name = "NevermindNilas" }]
+keywords = [
+    "anime",
+    "video",
+    "upscaling",
+    "interpolation",
+    "super-resolution",
+    "AI",
+    "enhancement",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "barflow>=0.2.2",
+    "colored>=2.3.2",
+    "einops>=0.8.2",
+    "inquirer>=3.4.1",
+    "nelux>=0.11.0",
+    "numpy>=2.4.6",
+    "omegaconf>=2.3.0",
+    "onnx>=1.21.0",
+    "onnxruntime>=1.26.0",
+    "opencv-python-headless>=4.13.0.92",
+    "psutil>=7.2.2",
+    "python-socketio>=5.16.2",
+    "safetensors>=0.7.0",
+    "scenedetect>=0.7",
+    "timm>=1.0.27",
+    "torch>=2.12.0",
+    "torchvision>=0.27.0",
+    "vmaf-torch>=1.1.0",
+    "werkzeug>=3.1.8",
+    "yt-dlp>=2026.3.17",
+]
+
+# timm and vmaf-torch are universal (every platform/profile needs them) and now
+# live in [project.dependencies]; groups below carry only platform-specific extras.
+[dependency-groups]
+win32 = [
+    "onnxscript>=0.7.0 ; sys_platform == 'win32'",
+    "openvino>=2026.1.0 ; sys_platform == 'win32'",
+    "onnxruntime-openvino @ https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/onnxruntime_openvino-1.26.0-cp313-cp313-win_amd64.whl ; sys_platform == 'win32' and python_version == '3.13'",
+    { include-group = "cuda" },
+]
+
+cuda = [
+    "triton-windows>=3.7.0.post26 ; sys_platform == 'win32'",
+    "nvidia-vfx>=0.1.0.1 ; sys_platform == 'linux' or sys_platform == 'win32'",
+    "tensorrt>=10.16.1.11 ; sys_platform == 'linux' or sys_platform == 'win32'",
+]
+
+[project.urls]
+Repository = "https://github.com/NevermindNilas/TheAnimeScripter"
+Issues = "https://github.com/NevermindNilas/TheAnimeScripter/issues"
+
+[project.scripts]
+anime-scripter = "anime_scripter.main:main"
+
+[[tool.uv.index]]
+name = "nvidia"
+url = "https://pypi.nvidia.com"
+default = false
+
+[tool.uv.sources]
+nvidia-vfx = { index = "nvidia" }
+tensorrt = { index = "nvidia" }
