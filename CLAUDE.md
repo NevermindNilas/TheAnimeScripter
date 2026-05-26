@@ -56,7 +56,7 @@ Each capability = one base CUDA/PyTorch class + one **sibling class per backend*
 ```powershell
 python -m pytest tests/ -q                              # all; torch/cv2 tests importorskip (skip without GPU deps)
 python -m pytest tests/test_encodingSettings.py -q      # single file
-python build.py                                         # Nuitka portable build → dist-portable/main/ (see BUILD.md)
+python build.py                                         # portable-Python bundle (downloads embeddable/standalone Python, pip-installs reqs, copies src) → dist-portable/main/ (see BUILD.md)
 ```
 
 No lint/format/type tooling (no ruff/black/mypy/pre-commit). CI in `.github/workflows/`: `tests.yaml` (PR/push, Win py3.13), build + prune workflows. Version: `src/version.py`. Deps: `requirements.txt` + `extra-requirements-{windows,windows-lite,linux,linux-lite,macos}.txt`.
