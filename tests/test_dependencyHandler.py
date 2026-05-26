@@ -7,10 +7,13 @@ runtime stack, so the table is pinned exactly.
 
 import pytest
 
+import src.utils.dependencyHandler as dh
 from src.utils.dependencyHandler import (
     getDependencyProfile,
     getRequirementsFileForProfile,
     _versionSatisfiesRequirement,
+    pruneMaxineUnusedLibs,
+    _MAXINE_UNUSED_LIBS,
     DEPENDENCY_PROFILE_REQUIREMENTS,
 )
 
@@ -82,3 +85,59 @@ def testBarePackageAlwaysSatisfied():
 def testUnparseableSpecifierIsLenient():
     # Bad input must not crash the dependency check; it errs on "satisfied".
     assert _versionSatisfiesRequirement("!!!not a requirement!!!", "1.0") is True
+
+
+# --------------------------------------------------------------------------- #
+# pruneMaxineUnusedLibs — trims the TensorRT libs the Maxine VSR path never uses
+# --------------------------------------------------------------------------- #
+
+def _fakeLibsDir(tmp_path):
+    """Build a stand-in nvvfx/libs with the TRT trio + one keep-file."""
+    libs = tmp_path / "nvvfx" / "libs"
+    libs.mkdir(parents=True)
+    for name in _MAXINE_UNUSED_LIBS:
+        (libs / name).write_bytes(b"x" * 1024)
+    # A file VSR actually needs must survive the prune.
+    (libs / "nvngx_vsr.dll").write_bytes(b"keepme")
+    return libs
+
+
+def testPruneRemovesTrtTrioAndReportsBytes(tmp_path, monkeypatch):
+    libs = _fakeLibsDir(tmp_path)
+    monkeypatch.setattr(dh, "_locateNvvfxLibsDir", lambda: libs)
+
+    removed, freed = pruneMaxineUnusedLibs()
+
+    # Only the platform-matching subset exists as real names, but the fake dir
+    # wrote every entry in the table, so all are removed.
+    assert removed == len(_MAXINE_UNUSED_LIBS)
+    assert freed == removed * 1024
+    for name in _MAXINE_UNUSED_LIBS:
+        assert not (libs / name).exists()
+
+
+def testPruneKeepsNonTargetLibs(tmp_path, monkeypatch):
+    libs = _fakeLibsDir(tmp_path)
+    monkeypatch.setattr(dh, "_locateNvvfxLibsDir", lambda: libs)
+
+    pruneMaxineUnusedLibs()
+
+    # The VSR model DLL must never be touched.
+    assert (libs / "nvngx_vsr.dll").read_bytes() == b"keepme"
+
+
+def testPruneIsIdempotent(tmp_path, monkeypatch):
+    libs = _fakeLibsDir(tmp_path)
+    monkeypatch.setattr(dh, "_locateNvvfxLibsDir", lambda: libs)
+
+    pruneMaxineUnusedLibs()
+    removed, freed = pruneMaxineUnusedLibs()
+
+    assert removed == 0
+    assert freed == 0
+
+
+def testPruneNoopWhenPackageAbsent(monkeypatch):
+    # No nvidia-vfx installed -> locate returns None -> clean no-op, no raise.
+    monkeypatch.setattr(dh, "_locateNvvfxLibsDir", lambda: None)
+    assert pruneMaxineUnusedLibs() == (0, 0)
