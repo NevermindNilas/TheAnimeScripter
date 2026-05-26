@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `THIRD_PARTY_NOTICES.md` covering NVIDIA Video Effects SDK attribution requirement (AI Product-Specific Terms §1.7.1).
 
 ### Changed
+- After a CUDA-profile dependency install, trim the ~470 MB of TensorRT runtime libs (`nvinfer_10`, `nvinfer_plugin_10`, `nvonnxparser_10`) bundled in the `nvidia-vfx` wheel that the Maxine VideoSuperRes path never loads — VSR runs entirely on NGX (`nvVFXVideoSuperRes → nvngxruntime → nvcuda`), verified at runtime (upscale/denoise/deblur all succeed without them). Trims the locally installed package only (no modified artifact redistributed). `src/utils/dependencyHandler.py` `pruneMaxineUnusedLibs()`.
 - Bumped PyTorch and TorchVision to 2.12.0+cu132 and 0.27.0+cu132.
 - Bumped Nelux to '0.11.0'.
 - DepthAnythingV2 CUDA fp16 fast path: SDPA (gated to fp16/bf16, fp32 stays bit-exact), positional-embedding cache keyed by `(W, H, dtype)`, `nn.quantized.FloatFunctional` skip-add wrappers dropped from DPT fusion blocks (also applied to Depth Anything V3 DPT), LayerScale gamma folded into preceding `attn.proj` / `mlp.fc2|w3` weights at `load_state_dict` time, and decoder-side resize via `BuildBuffer(resize=True, …)` to skip post-decode `F.interpolate`. End-to-end TAS workflow on RTX 3090, 720p input (1268×714, `--depth_quality high`), 5s clip:
