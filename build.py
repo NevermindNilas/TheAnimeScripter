@@ -26,7 +26,9 @@ for requirementsFile in requirementsFiles:
         raise FileNotFoundError(f"Requirements file not found: {requirementsFile}")
 
 portablePythonDir = baseDir / "portable-python"
-pythonVersion = "3.13.12"
+pythonVersion = "3.14.5"
+# python-build-standalone release tag that ships pythonVersion (Linux/macOS portable builds)
+standaloneRelease = "20260510"
 system = platform.system()
 
 
@@ -115,7 +117,7 @@ def flattenStandalonePythonDir(targetDir: Path):
 def downloadPortablePythonLinux():
     """Download and setup Python for Linux"""
     # For Linux, we'll download a portable Python build or use pyenv-like approach
-    pythonUrl = f"https://github.com/indygreg/python-build-standalone/releases/download/20241016/cpython-{pythonVersion}+20241016-x86_64-unknown-linux-gnu-install_only.tar.gz"
+    pythonUrl = f"https://github.com/astral-sh/python-build-standalone/releases/download/{standaloneRelease}/cpython-{pythonVersion}+{standaloneRelease}-x86_64-unknown-linux-gnu-install_only.tar.gz"
     getPipUrl = "https://bootstrap.pypa.io/get-pip.py"
 
     pythonTar = portablePythonDir / "python.tar.gz"
@@ -157,7 +159,7 @@ def downloadPortablePythonMacos():
 
     pythonUrl = (
         f"https://github.com/astral-sh/python-build-standalone/releases/download/"
-        f"20260325/cpython-{pythonVersion}+20260325-aarch64-apple-darwin-install_only.tar.gz"
+        f"{standaloneRelease}/cpython-{pythonVersion}+{standaloneRelease}-aarch64-apple-darwin-install_only.tar.gz"
     )
     getPipUrl = "https://bootstrap.pypa.io/get-pip.py"
 

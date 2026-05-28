@@ -25,7 +25,7 @@ jobs:
         with:
           # Float the patch so setup-python hits the runner's pre-baked
           # interpreter (instant) instead of downloading an exact build (~1 min).
-          python-version: "3.13"
+          python-version: "3.14"
           # Cache pip's wheel store; key tracks this workflow (where deps are pinned).
           cache: pip
           cache-dependency-path: .github/workflows/tests.yaml
