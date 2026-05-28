@@ -96,6 +96,12 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
         
         if invalidLower in choiceLower:
             bonus += 0.15
+
+        # Family awareness: reward sharing the base name before a backend
+        # suffix (e.g. 'span-trt' -> 'span-tensorrt' over 'span-ncnn').
+        if "-" in invalidLower and "-" in choiceLower:
+            if invalidLower.rsplit("-", 1)[0] == choiceLower.rsplit("-", 1)[0]:
+                bonus += 0.15
         
         return baseSimilarity + bonus
 
@@ -128,6 +134,88 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
         
         return suggestions
 
+    def _palette(self):
+        """ANSI color codes, blanked out when the terminal lacks color."""
+        useColor = _supportsColorStdout()
+        code = lambda c: c if useColor else ""
+        return {
+            "RED": code("\x1b[1;31m"),
+            "YELLOW": code("\x1b[1;33m"),
+            "GREEN": code("\x1b[1;32m"),
+            "CYAN": code("\x1b[1;36m"),
+            "DIM": code("\x1b[2m"),
+            "RESET": code("\x1b[0m"),
+        }
+
+    def _collectOptionStrings(self):
+        """Every registered option string (e.g. '--upscale', '-v')."""
+        options = []
+        for action in self._actions:
+            options.extend(action.option_strings)
+        return options
+
+    def _suggestOptions(self, invalidOption, validOptions, maxSuggestions=3):
+        """
+        Suggest the closest valid option names for a misspelled flag.
+
+        Compares only within the same dash style ('--' vs '-') and scores on
+        the dash-stripped core, so the shared leading dashes don't inflate the
+        similarity of every candidate.
+        """
+        isLong = invalidOption.startswith("--")
+        invalidCore = invalidOption.lstrip("-")
+
+        scored = []
+        for option in validOptions:
+            if option.startswith("--") != isLong:
+                continue
+            scored.append((option, self.similarityScore(invalidCore, option.lstrip("-"))))
+
+        scored.sort(key=lambda x: (-x[1], len(x[0])))
+        return [option for option, score in scored if score > 0.4][:maxSuggestions]
+
+    def _suggestOptionNames(self, message):
+        """
+        Provide "did you mean?" suggestions for unrecognized option names.
+
+        Returns True when it printed a tailored message (and exited); returns
+        False to let the default argparse handler take over (e.g. when the
+        unrecognized tokens are stray positionals, not flags).
+        """
+        tokens = message[len("unrecognized arguments:"):].split()
+        badOptions = [t for t in tokens if t.startswith("-") and len(t) > 1]
+        if not badOptions:
+            return False
+
+        validOptions = self._collectOptionStrings()
+        c = self._palette()
+
+        print(
+            f"\n  {c['RED']}Error:{c['RESET']} unrecognized "
+            f"{'option' if len(badOptions) == 1 else 'options'}: "
+            f"{c['RED']}{' '.join(badOptions)}{c['RESET']}",
+            file=sys.stderr,
+        )
+
+        for bad in badOptions:
+            core = bad.split("=", 1)[0]
+            suggestions = self._suggestOptions(core, validOptions)
+            if suggestions:
+                print(
+                    f"\n  {c['YELLOW']}Did you mean:{c['RESET']} "
+                    f"{c['GREEN']}{', '.join(suggestions)}{c['RESET']} "
+                    f"{c['DIM']}(instead of '{core}'){c['RESET']}",
+                    file=sys.stderr,
+                )
+
+        print(
+            f"\n  {c['CYAN']}Tip:{c['RESET']} {c['DIM']}run "
+            f"'main.py --help' for the full option list.{c['RESET']}",
+            file=sys.stderr,
+        )
+
+        sys.exit(2)
+
     def error(self, message):
         """
         Override error method to provide "did you mean?" suggestions.
@@ -149,7 +237,9 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
                 invalidValue = match.group(2)
                 choicesStr = match.group(3)
 
-                choices = [c.strip() for c in choicesStr.split(',') if c.strip()]
+                # argparse wraps each choice in quotes ('a', 'b'); strip them
+                # so repr() below doesn't double-quote (e.g. "'span-tensorrt'").
+                choices = [c.strip().strip("'\"") for c in choicesStr.split(',') if c.strip()]
 
                 if choices:
                     suggestions = self.getSuggestions(invalidValue, choices)
@@ -162,10 +252,8 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
                     DIM = "\x1b[2m" if useColor else ""
                     RESET = "\x1b[0m" if useColor else ""
 
-                    self.print_usage(sys.stderr)
-
                     print(
-                        f"{RED}main.py: error:{RESET} argument {argName}: "
+                        f"\n  {RED}Error:{RESET} argument {argName}: "
                         f"invalid choice: {RED}'{invalidValue}'{RESET}",
                         file=sys.stderr,
                     )
@@ -189,8 +277,16 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
                     sys.exit(2)
                     return
         
-        # For other errors, use the default behavior
-        super().error(message)
+        # Misspelled option names (e.g. '--upscalee') -> suggest closest flag.
+        if message.startswith("unrecognized arguments:"):
+            self._suggestOptionNames(message)
+
+        # Everything else (missing/required args, bad values, ambiguous options):
+        # same minimal style as the suggestion paths -- no usage block, "Error:"
+        # prefix, leading blank line, indented to match.
+        c = self._palette()
+        print(f"\n  {c['RED']}Error:{c['RESET']} {message}", file=sys.stderr)
+        sys.exit(2)
 
 
 def _supportsColorStdout():
@@ -298,9 +394,16 @@ class TASHelpFormatter(argparse.HelpFormatter):
         if "usage:" not in text.lower():
             return text
 
+        # argparse reuses this formatter for usage-only output (format_usage,
+        # which print_usage calls on every error). The banner belongs only on
+        # the full --help screen, so skip it when there's just a usage block.
+        isUsageOnly = "\n\n" not in text.strip("\n")
+
         color = _supportsColorStdout()
 
-        if color:
+        if isUsageOnly:
+            header = ""
+        elif color:
             R = "\033[0m"
             B = "\033[1m"
             C = "\033[96m"
@@ -505,15 +608,94 @@ def _loadJsonConfig(args, parser):
     return args, loadedKeys
 
 
-def createParser(outputPath):
+def capabilityMethods(parser, excluded=("decode_method",)):
     """
-    Create and configure the command line argument parser.
+    Map capability -> its --*_method choices, harvested from the parser itself.
+
+    Single source of truth: the data comes straight from the registered actions,
+    so it can never drift from the actual argparse choices. 'decode_method'
+    (cpu/nvdec) is excluded since it's a backend toggle, not a model capability.
+    """
+    excluded = set(excluded)
+    capabilities = {}
+    for action in parser._actions:
+        if (
+            action.dest.endswith("_method")
+            and action.choices
+            and action.dest not in excluded
+        ):
+            capability = action.dest[: -len("_method")]
+            capabilities[capability] = [str(choice) for choice in action.choices]
+    return capabilities
+
+
+def _listMethods(parser, requested):
+    """
+    Print the --*_method choices for one capability (or all) and return an exit
+    code. Backend variants are grouped with the same logic as --help.
+    """
+    capabilities = capabilityMethods(parser)
+
+    palette = parser._palette() if hasattr(parser, "_palette") else {}
+    CYAN = palette.get("CYAN", "")
+    DIM = palette.get("DIM", "")
+    GREEN = palette.get("GREEN", "")
+    YELLOW = palette.get("YELLOW", "")
+    RED = palette.get("RED", "")
+    RESET = palette.get("RESET", "")
+
+    requested = (requested or "all").lower()
+
+    if requested != "all" and requested not in capabilities:
+        print(f"{RED}Unknown capability:{RESET} '{requested}'", file=sys.stderr)
+        suggestions = (
+            parser.getSuggestions(requested, list(capabilities))
+            if hasattr(parser, "getSuggestions")
+            else []
+        )
+        if suggestions:
+            print(
+                f"  {YELLOW}Did you mean:{RESET} "
+                f"{GREEN}{', '.join(suggestions)}{RESET}",
+                file=sys.stderr,
+            )
+        print(
+            f"  {DIM}Capabilities: {', '.join(sorted(capabilities))}{RESET}",
+            file=sys.stderr,
+        )
+        return 2
+
+    targets = (
+        capabilities
+        if requested == "all"
+        else {requested: capabilities[requested]}
+    )
+
+    for capability, methods in targets.items():
+        print(f"\n{CYAN}{capability}{RESET} {DIM}({len(methods)} methods){RESET}")
+        groups = TASHelpFormatter._group_choices(methods)
+        if len(groups) == 1:
+            print("  " + ", ".join(next(iter(groups.values()))))
+        else:
+            for backend, items in groups.items():
+                label = "%-10s" % ("[%s]" % backend)
+                print(f"  {DIM}{label}{RESET} {', '.join(items)}")
+
+    return 0
+
+
+def _buildParser(outputPath):
+    """
+    Build and configure the command line argument parser (without parsing).
+
+    Kept separate from createParser so the fully-wired parser can be introspected
+    (e.g. by --list_methods and the tests) without triggering a parse + validation.
 
     Args:
         outputPath (str): Default output directory path
 
     Returns:
-        argparse.Namespace: Parsed command line arguments
+        DidYouMeanArgumentParser: The configured parser.
     """
     argParser = DidYouMeanArgumentParser(
         usage="main.py [options]",
@@ -549,6 +731,16 @@ def createParser(outputPath):
     )
     presetGroup.add_argument(
         "--list_presets", action="store_true", help="List all available presets"
+    )
+    presetGroup.add_argument(
+        "--list_methods",
+        type=str,
+        nargs="?",
+        const="all",
+        default=None,
+        metavar="CAPABILITY",
+        help="List available methods for a capability (e.g. --list_methods upscale) "
+        "or every capability when used alone, then exit.",
     )
 
     # Performance options
@@ -654,6 +846,20 @@ def createParser(outputPath):
     # Miscellaneous options
     _addMiscOptions(argParser)
 
+    return argParser
+
+
+def createParser(outputPath):
+    """
+    Build the parser, parse argv, and run validation.
+
+    Args:
+        outputPath (str): Default output directory path
+
+    Returns:
+        argparse.Namespace: Parsed and validated command line arguments
+    """
+    argParser = _buildParser(outputPath)
     args = argParser.parse_args()
     return argumentsChecker(args, outputPath, argParser)
 
@@ -709,7 +915,6 @@ def _addInterpolationOptions(argParser):
         "gmfss",
         "rife_elexor",
         "rife_elexor-tensorrt",
-        "rife4.6-tensorrt",
         "rife4.6-directml",
         "rife4.15-directml",
         "rife4.17-directml",
@@ -1399,6 +1604,9 @@ def argumentsChecker(args, outputPath, parser):
         listPresets()
         sys.exit()
 
+    if args.list_methods is not None:
+        sys.exit(_listMethods(parser, args.list_methods))
+
     if args.preset:
         from src.utils.presetLogic import createPreset
 
@@ -1548,8 +1756,10 @@ def argumentsChecker(args, outputPath, parser):
         )
         args.bit_depth = "8bit"
 
-    if args.output and not os.path.exists(os.path.dirname(args.output)):
-        os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    if args.output:
+        outDir = os.path.dirname(os.path.abspath(args.output))
+        if outDir and not os.path.exists(outDir):
+            os.makedirs(outDir, exist_ok=True)
 
     if args.encode_method in ["gif", "png"]:
         logging.info(
@@ -1683,10 +1893,6 @@ def _handleDependencies(args):
         from src.utils.getFFMPEG import getFFMPEG
 
         getFFMPEG()
-    else:
-        from src.utils.getFFMPEG import logFfmpegVersion
-
-        logFfmpegVersion(cs.FFMPEGPATH)
 
     if cs.SYSTEM == "Windows":
         ffmpeg_dir = os.path.dirname(cs.FFMPEGPATH)

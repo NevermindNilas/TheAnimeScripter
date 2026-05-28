@@ -2115,9 +2115,11 @@ class DistilDRBATensorRT:
 
             tDrba = 0.5 + t * 0.5 - 0.0001
 
-            self.tTimestep.fill_(tDrba)
-
             with torch.cuda.stream(self.stream):
+                # Fill the timestep on the SAME stream that replays the graph so
+                # the replay is ordered after the write; filling on the default
+                # stream races the replay and can read a stale timestep.
+                self.tTimestep.fill_(tDrba)
                 self.cudaGraph.replay()
             self.stream.synchronize()
 

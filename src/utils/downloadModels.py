@@ -553,15 +553,6 @@ def modelsMap(
                 else:
                     return "1x_DeH264_SPAN_fp32_op20_slim.onnx"
 
-        case "codeformer-tensorrt" | "codeformer-directml":
-            if modelType == "pth":
-                raise ValueError("Codeformer is not available in PTH format.")
-            elif modelType == "onnx":
-                if half:
-                    return "codeformer_fp16_op17_slim.onnx"
-                else:
-                    return "codeformer_fp32_op17_slim.onnx"
-
         case "gater3" | "gater3-tensorrt" | "gater3-directml":
             if modelType == "pth":
                 return "1x_umzi_adc_gater3_v1.safetensors"
@@ -1092,6 +1083,7 @@ def downloadAndLog(
 ):
     from urllib.request import urlopen
     from urllib.error import URLError, HTTPError
+    from http.client import IncompleteRead
     import zipfile
 
     tempFolder = os.path.join(folderPath, "TEMP")
@@ -1136,6 +1128,7 @@ def downloadAndLog(
                 logging.error(e)
 
             loggedPercentages = set()
+            downloadedBytes = 0  # reset per attempt so the size check below is correct on retries
 
             try:
                 with ProgressBarDownloadLogic(
@@ -1171,6 +1164,12 @@ def downloadAndLog(
                     f"Progress UI encoding issue on this console ({e}). Continuing without rich UI."
                 )
 
+            if totalSizeInBytes > 0 and downloadedBytes != totalSizeInBytes:
+                # Server advertised a content-length we did not fully receive, so
+                # the temp file is truncated. Trigger the retry/cleanup path
+                # instead of committing a corrupt file to the weights cache.
+                raise IncompleteRead(downloadedBytes, totalSizeInBytes - downloadedBytes)
+
             if filename.endswith(".zip"):
                 with zipfile.ZipFile(tempFilePath, "r") as zipRef:
                     zipRef.extractall(folderPath)
@@ -1201,7 +1200,14 @@ def downloadAndLog(
 
             return os.path.join(folderPath, filename)
 
-        except (URLError, HTTPError, zipfile.BadZipFile) as e:
+        except (
+            URLError,
+            HTTPError,
+            zipfile.BadZipFile,
+            IncompleteRead,
+            ConnectionError,
+            TimeoutError,
+        ) as e:
             logging.error(f"Error during download: {e}")
             try:
                 dest_path = os.path.join(folderPath, filename)
