@@ -85,6 +85,12 @@ class ProgressState:
 
 progressState = ProgressState()
 
+# Cache of the most recent progress payload seen by the relay. The Socket.IO
+# server runs in a child process whose `progressState` is NOT the instance the
+# worker updates (updates arrive over the queue), so a freshly-connected client
+# must be sent this cached payload rather than the always-stale progressState.
+latestProgressPayload = None
+
 EMITRATE = 25
 
 
@@ -110,6 +116,7 @@ def runServer(host, queue=None):
     app = sio_module.WSGIApp(socketio)
 
     def relayProgressFromQueue():
+        global latestProgressPayload
         if queue is None:
             return
 
@@ -126,6 +133,11 @@ def runServer(host, queue=None):
                     latestPayload = queue.get_nowait()
                 except Empty:
                     break
+
+            # Record the latest payload even when no client is connected, so a
+            # client connecting later immediately receives the true current (or
+            # terminal) state instead of a stale/empty snapshot.
+            latestProgressPayload = latestPayload
 
             if not hasConnectedClients():
                 continue
@@ -149,7 +161,13 @@ def runServer(host, queue=None):
         with connectedClientsLock:
             connectedClients += 1
         logging.info("Client connected to Socket.IO")
-        socketio.emit("progress", progressState.get(), to=sid)
+        socketio.emit(
+            "progress",
+            latestProgressPayload
+            if latestProgressPayload is not None
+            else progressState.get(),
+            to=sid,
+        )
 
     @socketio.on("disconnect")
     def handle_disconnect(sid):
@@ -160,7 +178,11 @@ def runServer(host, queue=None):
 
     @socketio.on("cancel")
     def handle_cancel(sid):
-        logging.info("Cancel request received from client")
+        # NOTE: not wired to the worker yet — there is no IPC path to interrupt
+        # the frame loop, so this only logs. "cancel" is intentionally NOT
+        # advertised in handshake capabilities until a real cancel is implemented
+        # (shared multiprocessing.Event set here + polled in main.py process()).
+        logging.info("Cancel request received from client (no-op: not implemented)")
 
     @socketio.on("handshake")
     def handle_handshake(sid, data):
@@ -173,7 +195,7 @@ def runServer(host, queue=None):
         socketio.emit(
             "handshake_ack",
             {
-                "capabilities": ["cancel", "progress", "heartbeat"],
+                "capabilities": ["progress", "heartbeat"],
             },
             to=sid,
         )

@@ -19,6 +19,9 @@ from src.utils.argumentsChecker import (
     _configureProcessingSettings,
     DidYouMeanArgumentParser,
     TASHelpFormatter,
+    _buildParser,
+    capabilityMethods,
+    _listMethods,
 )
 
 
@@ -192,3 +195,130 @@ def testGroupChoicesUnknownSuffixFallsToCuda():
     # A trailing token that isn't a known backend stays in the default cuda bucket.
     groups = TASHelpFormatter._group_choices(["rife4.25-heavy"])
     assert groups["cuda"] == ["rife4.25-heavy"]
+
+
+# --------------------------------------------------------------------------- #
+# Family-aware scoring + invalid-choice error output
+# --------------------------------------------------------------------------- #
+
+def testFamilyBonusRanksSameBaseFirst(parser):
+    # 'span-trt' shares the base 'span', so span-* should outrank unrelated names.
+    choices = ["span-tensorrt", "span-ncnn", "x-cuda", "shufflecugan-tensorrt"]
+    assert parser.getSuggestions("span-trt", choices)[0] == "span-tensorrt"
+
+
+def testInvalidChoiceSuggestionNotDoubleQuoted(parser, capsys):
+    # Regression: argparse wraps choices in quotes; we must strip before repr()
+    # so the output is 'span-tensorrt', never "'span-tensorrt'".
+    parser.add_argument("--upscale_method", choices=["span-tensorrt", "x-cuda"])
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--upscale_method", "span-tensorrtt"])
+    err = capsys.readouterr().err
+    assert "Did you mean" in err
+    assert "'span-tensorrt'" in err
+    assert "\"'" not in err
+
+
+# --------------------------------------------------------------------------- #
+# Misspelled option-name suggestions (new feature)
+# --------------------------------------------------------------------------- #
+
+def testSuggestOptionsClosestLongFlag(parser):
+    parser.add_argument("--upscale", action="store_true")
+    parser.add_argument("--upscale_method")
+    parser.add_argument("--interpolate", action="store_true")
+    opts = parser._collectOptionStrings()
+    assert parser._suggestOptions("--upscalee", opts)[0] == "--upscale"
+
+
+def testSuggestOptionsRespectsDashStyle(parser):
+    # A short-style typo must never be matched against long options.
+    parser.add_argument("--input")
+    opts = parser._collectOptionStrings()
+    assert all(not o.startswith("--") for o in parser._suggestOptions("-i", opts))
+
+
+def testUnrecognizedOptionPrintsSuggestion(parser, capsys):
+    parser.add_argument("--upscale", action="store_true")
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--upscalee"])
+    err = capsys.readouterr().err
+    assert "Did you mean" in err
+    assert "--upscale" in err
+
+
+def testStrayPositionalFallsThrough(parser, capsys):
+    # Non-flag unrecognized tokens are not options -> default argparse handling.
+    parser.add_argument("--upscale", action="store_true")
+    with pytest.raises(SystemExit):
+        parser.parse_args(["somefile.mp4"])
+    err = capsys.readouterr().err
+    assert "unrecognized arguments" in err
+    assert "Did you mean" not in err
+
+
+def testGenericErrorUsesUnifiedStyle(parser, capsys):
+    # Non-suggestion errors (bad value, missing arg, ...) use the same minimal
+    # style: "Error:" prefix, no usage block, no "main.py: error:".
+    parser.add_argument("--inpoint", type=float)
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--inpoint", "abc"])
+    err = capsys.readouterr().err
+    assert "Error:" in err
+    assert "usage:" not in err
+    assert "main.py: error:" not in err
+
+
+# --------------------------------------------------------------------------- #
+# capabilityMethods + --list_methods (single-source method registry / drift guard)
+# --------------------------------------------------------------------------- #
+
+@pytest.fixture
+def builtParser():
+    return _buildParser(".")
+
+
+def testCapabilityMethodsExcludesDecode(builtParser):
+    caps = capabilityMethods(builtParser)
+    assert "decode" not in caps  # decode_method (cpu/nvdec) is a backend toggle
+    for expected in ("upscale", "interpolate", "restore", "depth", "obj_detect"):
+        assert expected in caps
+
+
+def testCapabilityMethodsCoverAllMethodDests(builtParser):
+    # Source of truth: every *_method action with choices (bar decode_method).
+    methodDests = {
+        a.dest
+        for a in builtParser._actions
+        if a.dest.endswith("_method") and a.choices and a.dest != "decode_method"
+    }
+    expected = {d[: -len("_method")] for d in methodDests}
+    assert expected == set(capabilityMethods(builtParser))
+
+
+def testNoDuplicateMethodChoices(builtParser):
+    # 2E drift guard: the hand-maintained choice lists must not gain duplicates.
+    dupes = {}
+    for capability, methods in capabilityMethods(builtParser).items():
+        repeated = sorted({m for m in methods if methods.count(m) > 1})
+        if repeated:
+            dupes[capability] = repeated
+    assert dupes == {}, f"Duplicate method choices: {dupes}"
+
+
+def testListMethodsUnknownReturns2WithSuggestion(builtParser, capsys):
+    assert _listMethods(builtParser, "upscal") == 2
+    assert "upscale" in capsys.readouterr().err
+
+
+def testListMethodsAllReturns0(builtParser, capsys):
+    assert _listMethods(builtParser, "all") == 0
+    out = capsys.readouterr().out
+    assert "upscale" in out and "interpolate" in out
+
+
+def testBannerOnlyOnFullHelpNotUsage(builtParser):
+    # The banner belongs on --help only; usage-only output (which argparse
+    # reuses on every error via format_usage) must not carry it.
+    assert "AI-powered" in builtParser.format_help()
+    assert "AI-powered" not in builtParser.format_usage()

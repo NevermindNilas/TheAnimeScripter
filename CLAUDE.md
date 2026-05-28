@@ -1,8 +1,8 @@
 # CLAUDE.md
 
-TheAnimeScripter (TAS) — AI video enhancement toolkit for anime/general video: upscale, frame interpolation, restore/denoise, dedup, depth, segment, object detection, stabilize, autoclip. CLI + After Effects bridge (this repo is the Python server; the `.jsx`/ExtendScript UI lives in a separate repo). Multi-backend: CUDA, TensorRT, DirectML, OpenVINO, NCNN. Python 3.13.
+TheAnimeScripter (TAS) — AI video enhancement toolkit for anime/general video: upscale, frame interpolation, restore/denoise, dedup, depth, segment, object detection, stabilize, autoclip, motion blur. CLI + After Effects bridge (this repo is the Python server; the `.jsx`/ExtendScript UI lives in a separate repo). Multi-backend: CUDA, TensorRT, DirectML, OpenVINO, NCNN, MPS (partial). **Python 3.14** (cp314; migrated from 3.13). Version in `src/version.py`.
 
-## Run
+## Setup / Run
 
 ```powershell
 python main.py --input <video> --output <video> [--upscale --interpolate --restore --dedup ...]
@@ -12,61 +12,77 @@ Args + flag `choices` in `src/utils/argumentsChecker.py` (`createParser`). Full 
 
 ## Architecture
 
-Entry: `main.py` → `VideoProcessor` (`main.py:50`). `start()` inits models + I/O buffers; `process()` is the frame loop. Model selection lives in `src/initializeModels.py` (returns the inference callables wired into the pipeline based on flags).
+Entry: `main.py` → `VideoProcessor` (`main.py:50`). `start()` (`main.py:418`) inits models via `initializeModels(self)` + I/O buffers, then runs read/process/write on a ThreadPoolExecutor. `process()` (`main.py:354`) is the frame loop; per-frame work in `processFrame()` (`main.py:249`).
 
-Pipeline: decode (`src/utils/ffmpegSettings.py` `BuildBuffer`) → dedup → restore → interpolate↔upscale (order via `interpolateFirst`) → encode (`WriteBuffer`). Specialized ops (depth/segment/obj_detect/stabilize/motion_blur/autoclip) bypass the standard loop via `initializeModels`.
+**Standard pipeline** (per frame, in `processFrame`): decode → dedup → restore → interpolate↔upscale → encode. interpolate-vs-upscale order set by `--interpolate_first` (`self.interpolateFirst`; branches `ifInterpolateFirst`/`ifInterpolateLast` ~`main.py:284`).
+
+**I/O backend = nelux** (native FFmpeg+torch extension, `nelux==0.12.0`): decode via `nelux.VideoReader` inside `BuildBuffer` (`ffmpegSettings.py:25`); encode chosen by `createWriteBuffer()` factory (`ffmpegSettings.py:1282`) → `NeluxWriteBuffer` (`*_nelux` encode methods, `:1063`) or legacy FFmpeg-subprocess `WriteBuffer` (`:391`). Audio/subtitle passthrough: `NeluxWriteBuffer._setupPassthrough`. nelux needs FFmpeg DLLs on the search path — `argumentsChecker.py` (~`:1695`, Windows) does `os.add_dll_directory(dirname(cs.FFMPEGPATH))`. (Landmine: the `requirements.txt` nelux pin can pull a torch-ABI-mismatched wheel on a cu132 box — verify `import nelux` works before trusting a fresh install.)
+
+**Specialized ops** (autoclip/depth/segment/obj_detect/stabilize/motion_blur) bypass the standard loop. The bypass decision is in `VideoProcessor._selectProcessingMethod()` (`main.py:198`); each op's standalone driver function lives in `src/initializeModels.py`.
+
+Standard-loop model/backend selection: `initializeModels(self)` (`src/initializeModels.py`) uses `match`/`case` on the suffixed method strings (e.g. `--upscale_method x-tensorrt`) to pick + lazy-import the backend class, returning a tuple of inference callables wired in by flag.
 
 ### Capability → file map
 
 | Capability | File | Backends |
 |---|---|---|
-| Upscale | `src/unifiedUpscale.py` | CUDA, TensorRT, DirectML, OpenVINO, NCNN |
-| Interpolate (RIFE) | `src/unifiedInterpolate.py` | CUDA, TensorRT, DirectML, OpenVINO, NCNN |
-| Restore/denoise | `src/unifiedRestore.py` | CUDA, TensorRT, DirectML, OpenVINO, Maxine |
-| Dedup | `src/dedup/dedup.py` | CUDA, CPU (metric ops; knob `dedupSens`, default 0.9) |
-| Depth | `src/depth/depth.py` | CUDA, TensorRT, DirectML |
+| Upscale | `src/unifiedUpscale.py` | CUDA, TensorRT, DirectML, OpenVINO, NCNN, MPS |
+| Interpolate (RIFE) | `src/unifiedInterpolate.py` | CUDA, TensorRT, DirectML, OpenVINO, NCNN, MPS |
+| Restore/denoise | `src/unifiedRestore.py` | CUDA, TensorRT, DirectML, OpenVINO, Maxine, MPS |
+| Dedup | `src/dedup/dedup.py` | CUDA, CPU (SSIM/MSE/flownets). Knob `--dedup_sens` raw default **35**, remapped: ssim→`1−s/1000`, flownets→`s/100` |
+| Depth | `src/depth/depth.py` | CUDA, TensorRT, DirectML (incl. VideoDepthAnything temporal family) |
 | Segment | `src/segment/animeSegment.py` | CUDA, TensorRT, DirectML, OpenVINO |
 | Object detect | `src/objectDetection/objectDetection.py` | CUDA, TensorRT, DirectML |
 | Autoclip | `src/autoclip/` | CPU (PySceneDetect), TRT, DML, TransNetV2 |
-| Stabilize | `src/stabilize/` | SuperPoint |
+| Stabilize | `src/stabilize/` | SuperPoint (+ ORB/LK fallback) |
+| Motion blur | `src/motionBlur.py` | `MotionBlurPipeline` |
+
+Other helpers: `src/scenechange.py` (scene-change detection for interpolate/dedup), `src/ytdlp.py` (URL input download).
 
 ### Backend pattern (IMPORTANT)
 
-Each capability = one base CUDA/PyTorch class + one **sibling class per backend**. Class names are dashless camelCase suffixes: `UniversalPytorch`, `UniversalTensorRT`, `UniversalDirectML`, `UniversalNCNN` (the `-<backend>` dash only appears in the method *string* like `--upscale_method ...-directml`, stripped at load). New backend = new sibling class, never rewrite the CUDA path. Each implements `__call__(frame, ...)` + `handleModel()`. No ABC — convention only.
+Each capability = one base CUDA/PyTorch class + one **sibling class per backend**, dashless camelCase suffix: `UniversalPytorch`/`UniversalTensorRT`/`UniversalDirectML`/`UniversalNCNN`/`UniversalPytorchMPS` (upscale); `RifeCuda`/`RifeTensorRT`/`RifeDirectML`/`RifeNCNN`/`RifeMPS` (interpolate). The `-<backend>` dash appears only in the method *string* (stripped at load — backend class does e.g. `.replace("-tensorrt","-onnx")` to resolve weights).
+
+New backend = new sibling class + new `match`/`case` arm in `initializeModels.py` + register names in argparse `choices` (`argumentsChecker.py`) and `modelsList()`/`modelsMap()` (`downloadModels.py`). **NEVER rewrite the CUDA path.** No ABC — convention only; each class implements `__call__(frame, ...)` + `handleModel()`.
+
+Deviations to expect: **OpenVINO is usually a branch inside the DirectML/ORT class, not its own sibling** (only Segment has a real `AnimeSegmentOpenVino`). Model-specific arches break the "one base + siblings" shape (`AnimeSR*`, `ArtCNN*`, `DistilDRBA*`, `NvidiaVSR`, `DepthGuidedRife*`). Base-class suffix is inconsistent (`UniversalPytorch` has no `Cuda`, but `RifeCuda` does).
 
 ### Where things live (common tasks)
 
-- **Add a model** = TWO edits: weight mapping in `src/utils/downloadModels.py` `modelsMap()` AND the flag `choices` in `argumentsChecker.py`.
-- **Weights**: `modelsMap()` resolves name+scale+dtype → filename; `resolveWeightPath()` → `weights/{model}/...`; auto-downloads from TAS-Models-Host. `-tensorrt`/`-directml`/`-openvino` pull ONNX into `weights/{model}-onnx/`.
-- **Output filename** (the `Up`/`Int` suffixing, uniquification, image-seq/URL input): `src/utils/inputOutputHandler.py` `generateOutputName`. (`ffmpegSettings.py` only consumes the path.)
-- **Encode methods** (x264/nvenc/…): `match` arms in `src/utils/encodingSettings.py` `matchEncoder()` + mirrored in argparse `choices`.
-- **Global singletons** (`FFMPEGPATH`, `WHEREAMIRUNFROM`, `ADOBE`, paths): `src/constants.py`, set once in argumentsChecker, read everywhere as `import src.constants as cs`.
-- **Runtime deps install**: `src/utils/dependencyHandler.py` picks per-platform `extra-requirements-*.txt` and pip-installs. FFmpeg auto-download: `src/utils/getFFMPEG.py`.
-- **AE bridge**: `--ae` starts a Socket.IO server (`src/utils/aeComms.py`); `cs.ADOBE` mode.
-- **Logs**: `TAS-Log.log` in `cs.WHEREAMIRUNFROM`; helper `src/utils/logAndPrint.py`.
+- **Add a model** = TWO edits: weight mapping in `downloadModels.py` `modelsMap()` AND the flag `choices` in `argumentsChecker.py`. (`modelsList()` in downloadModels.py is the canonical method-name registry, reused by `--offline`.)
+- **Weights**: `modelsMap()` resolves name+scale+dtype → filename; `resolveWeightPath()` → `weights/{model}/...`; auto-downloads from TAS-Models-Host. `-tensorrt`/`-directml`/`-openvino` pull ONNX into `weights/{model}-onnx/` (rife keeps its base folder).
+- **Output filename** (`Up`/`Int` suffixing, uniquification, image-seq/URL input): `inputOutputHandler.py` `generateOutputName`.
+- **Encode methods** (x264/nvenc/…): `match` arms in `encodingSettings.py` `matchEncoder()`, mirrored in argparse `choices`.
+- **Custom-model ONNX export**: `src/utils/onnxConverter.py` (`pthToOnnx`, fp16/slim). TRT ONNX→engine build/cache: `src/utils/trtHandler.py`.
+- **Global singletons** (`WHEREAMIRUNFROM`, `SYSTEM`, `FFMPEGPATH`, `FFPROBEPATH`, `METADATAPATH`, `ADOBE`, `AUDIO`): `src/constants.py`, set once in argumentsChecker, read everywhere as `import src.constants as cs`.
+- **Runtime deps install**: `dependencyHandler.py` picks the per-platform `extra-requirements-*.txt` and pip-installs. FFmpeg auto-download: `getFFMPEG.py`. Hardware probe: `checkSpecs.py`.
+- **AE bridge**: `--ae` starts a Socket.IO server (`aeComms.py`); `cs.ADOBE` mode. Live frame preview server: `previewSettings.py`. Preset save/load (`--preset`): `presetLogic.py`. Video metadata probe: `getVideoMetadata.py`.
+- **Logs**: `TAS-Log.log` in `cs.WHEREAMIRUNFROM` (configured ~`main.py:676`); colored-print helper `logAndPrint.py` (wraps stdlib logging — it does NOT own the file path).
 
 ### Supporting code
 
-- `src/spandrel/` — vendored Spandrel (PyTorch model auto-detect/loader, 40+ arches: ESRGAN, SCUNet, SPAN, PLKSR, NAFNet, …). Wrapped via `src/spandrelCompat.py`. Treat as third-party.
-- `src/rifearches/`, `src/gmfss/`, `src/extraArches/`, `src/atr/` — model architectures.
-- `src/utils/trtHandler.py` — TensorRT ONNX→engine build/cache. `src/utils/modelOptimizer.py` — torch.fx graph transforms (channels_last lives in the backend classes, not here).
+- **`src/spandrel/` — VENDORED in-repo (no longer a submodule).** Fork of `github.com/TNTwise/spandrel` @ `e747f27` (branch `adding_extra_archs`); provenance in `src/spandrel/NOTICE.md`. Arch code lives under `src/spandrel/libs/spandrel/spandrel/architectures/...` (40+ permissive arches: ESRGAN, SCUNet, SPAN, PLKSR, NAFNet, …). The restrictive `spandrel_extra_arches` package was **removed** (non-permissive / research-only licenses). Wrapped via `src/spandrelCompat.py` (prepends `libs/spandrel` to `sys.path`). Arch edits are now normal in-repo edits (one repo, one commit) — must stay ONNX-exportable + FP16-capable (see perf note below).
+- Model arches: `src/rifearches/`, `src/gmfss/`, `src/extraArches/`.
+- `src/utils/modelOptimizer.py` — torch.fx graph transforms (channels_last lives in the backend classes, not here).
 
 ## Test / Build
 
 ```powershell
-python -m pytest tests/ -q                              # all; torch/cv2 tests importorskip (skip without GPU deps)
+python -m pytest tests/ -q                              # torch/cv2/nelux-dependent tests use importorskip (skip without those deps)
 python -m pytest tests/test_encodingSettings.py -q      # single file
-python build.py                                         # portable-Python bundle (downloads embeddable/standalone Python, pip-installs reqs, copies src) → dist-portable/main/ (see BUILD.md)
+python build.py                                         # portable-Python bundle: downloads Python 3.14.5 standalone, pip-installs reqs, copies src → dist-portable/main/ (see BUILD.md; --develop redirects output)
 ```
 
-No lint/format/type tooling (no ruff/black/mypy/pre-commit). CI in `.github/workflows/`: `tests.yaml` (PR/push, Win py3.13), build + prune workflows. Version: `src/version.py`. Deps: `requirements.txt` + `extra-requirements-{windows,windows-lite,linux,linux-lite,macos}.txt`.
+No lint/format/type tooling (no ruff/black/mypy/pre-commit). CI in `.github/workflows/`: `tests.yaml` (PR+push, Win py3.14), `Build-All-Platforms.yaml` + `Build-macOS.yaml` (portable bundles, dispatch), `prune-releases.yml` (trims old release assets). Deps: `requirements.txt` + `extra-requirements-{windows,windows-lite,linux,linux-lite,macos}.txt`.
+
+**Python 3.14 deps note**: several wheels have no cp314 build on PyPI — custom builds (tensorrt cp314 fork, onnxruntime-openvino cp314, nelux) are hosted as flat assets on the `NevermindNilas/TAS-Models-Host` GitHub release (tag `main`) and pointed at by `extra-requirements-*.txt`. Don't assume plain PyPI `pip install` resolves the full set.
 
 ## Conventions / gotchas
 
 - Backend additions → new sibling class (see Backend pattern), never rewrite the CUDA path.
 - Commit messages: **no AI co-author / "Generated with Claude" trailer.**
 - Model dtype: ONNX variants ship **paired fp16 + fp32 files** in `modelsMap` (gated on `half`) — never fake fp16 ONNX from fp32. (`.pth`/CUDA path ships one file + runtime `.half()`.)
-- Spandrel arch perf work must stay ONNX-exportable + FP16-capable. FP16 normalization kernels are slow/lossy → compute norm *stats* in FP32, cast back.
+- Spandrel arch perf work must stay ONNX-exportable + FP16-capable. FP16 normalization kernels are slow/lossy → compute norm *stats* in FP32, cast back. (Already done for PLKSR/NAFNet/SPAN.)
 - ONNX/DirectML backends return CPU tensors; CUDA backends keep tensors on GPU (CUDA graphs/streams). Mind device placement in shared pipeline code.
 - `CHANGELOG.MD` ~82K chars — never read whole for orientation; grep the specific entry.
 

@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.13 installed and accessible from PATH
+- Python 3.14 installed and accessible from PATH
 - Windows 11
 
 ## Build Process
@@ -51,5 +51,5 @@ That form prompts for PATH registration during installation.
 
 ## Troubleshooting
 
-- Ensure Python 3.13 is properly installed and added to your system PATH
+- Ensure Python 3.14 is properly installed and added to your system PATH
 - Verify you have sufficient disk space for the build process

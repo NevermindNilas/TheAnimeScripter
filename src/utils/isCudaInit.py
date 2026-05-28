@@ -4,6 +4,7 @@ import os
 import platform
 import shutil
 import subprocess
+from functools import lru_cache
 
 
 class CudaChecker:
@@ -89,23 +90,41 @@ def getNvsmipaths():
     return ordered
 
 
-def runNvsmicheck(path):
+@lru_cache(maxsize=1)
+def queryNvidiaSmiGpus():
+    """
+    Run nvidia-smi once and cache the result for the whole process.
+
+    A single query returns both presence and architecture info, so callers
+    (detectNVidiaGPU + detectGPUArchitecture, possibly across multiple
+    startup phases) share one subprocess spawn instead of each spawning their
+    own.
+
+    Returns:
+        tuple[tuple[str, str], ...]: (name, compute_cap) per GPU, empty if
+        nvidia-smi is absent or fails.
+    """
+    smiPath = next((p for p in getNvsmipaths() if p and os.path.exists(p)), None)
+    if smiPath is None:
+        return ()
     try:
         result = subprocess.run(
-            [path, "-L"], capture_output=True, text=True, check=False
+            [smiPath, "--query-gpu=name,compute_cap", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            check=False,
         )
-        if result.returncode == 0 and result.stdout:
-            gpuLines = [
-                line.strip()
-                for line in result.stdout.strip().split("\n")
-                if line.strip()
-            ]
-            if gpuLines:
-                logging.info(f"NVIDIA GPUs detected: {', '.join(gpuLines)}")
-                return True
     except (subprocess.SubprocessError, FileNotFoundError):
         logging.info("nvidia-smi not found or failed to run")
-    return False
+        return ()
+    if result.returncode != 0 or not result.stdout.strip():
+        return ()
+    gpus = []
+    for line in result.stdout.strip().split("\n"):
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) >= 2 and parts[0]:
+            gpus.append((parts[0], parts[1]))
+    return tuple(gpus)
 
 
 def checkWindowsAdapters():
@@ -168,9 +187,10 @@ def isTuringOrNewer(major, minor):
 
 
 def detectNVidiaGPU():
-    for path in getNvsmipaths():
-        if path and os.path.exists(path) and runNvsmicheck(path):
-            return True
+    gpus = queryNvidiaSmiGpus()
+    if gpus:
+        logging.info(f"NVIDIA GPUs detected: {', '.join(name for name, _ in gpus)}")
+        return True
     systemName = platform.system().lower()
     if systemName == "windows" and checkWindowsAdapters():
         logging.info("NVIDIA GPU detected via WMI")
@@ -186,69 +206,21 @@ def detectGPUArchitecture():
     """
     Returns:
         tuple: (isModernGPU: bool, gpuName: str, computeCapability: str)
-               isModernGPU is True for Volta (compute 7.0) and newer architectures
+               isModernGPU is True for Turing (compute 7.5) and newer architectures
     """
-    try:
-        result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,compute_cap", "--format=csv,noheader"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-
-        if result.returncode == 0 and result.stdout:
-            lines = result.stdout.strip().split("\n")
-            if lines:
-                parts = lines[0].split(",")
-                if len(parts) >= 2:
-                    gpuName = parts[0].strip()
-                    computeCap = parts[1].strip()
-                    major, minor = parseComputeCapability(computeCap)
-                    isModern = isTuringOrNewer(major, minor)
-                    if not isModern:
-                        logging.warning(
-                            f"GPU {gpuName} has compute capability {computeCap} (Pascal or older). DirectML backend recommended."
-                        )
-                    else:
-                        logging.info(
-                            f"GPU {gpuName} has compute capability {computeCap} - modern CUDA support available"
-                        )
-                    return isModern, gpuName, computeCap
-
-        result = subprocess.run(
-            ["nvidia-smi", "-L"], capture_output=True, text=True, check=False
-        )
-
-        if result.returncode == 0 and result.stdout:
-            gpuName = result.stdout.strip().split("\n")[0]
-            if ":" in gpuName:
-                gpuName = gpuName.split(":")[1].strip().split("(")[0].strip()
-
-            oldArchitectures = [
-                "GTX 9",
-                "GTX 10",
-                "GT 7",
-                "GT 8",
-                "GT 9",
-                "Quadro K",
-                "Quadro M",
-                "Quadro P",
-                "Tesla K",
-                "Tesla M",
-                "Tesla P",
-            ]
-
-            isOld = any(arch in gpuName for arch in oldArchitectures)
-
-            if isOld:
-                logging.warning(
-                    f"GPU {gpuName} appears to be Pascal generation or older. DirectML backend recommended for compatibility."
-                )
-                return False, gpuName, "unknown"
-
-            return True, gpuName, "unknown"
-
-    except (subprocess.SubprocessError, FileNotFoundError) as e:
-        logging.warning(f"Could not detect GPU architecture: {e}")
+    gpus = queryNvidiaSmiGpus()
+    if gpus:
+        gpuName, computeCap = gpus[0]
+        major, minor = parseComputeCapability(computeCap)
+        isModern = isTuringOrNewer(major, minor)
+        if not isModern:
+            logging.warning(
+                f"GPU {gpuName} has compute capability {computeCap} (Pascal or older). DirectML backend recommended."
+            )
+        else:
+            logging.info(
+                f"GPU {gpuName} has compute capability {computeCap} - modern CUDA support available"
+            )
+        return isModern, gpuName, computeCap
 
     return False, "unknown", "unknown"

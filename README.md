@@ -277,7 +277,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [FFmpeg Group](https://github.com/FFmpeg)       | Video processing framework             | [FFmpeg](https://github.com/FFmpeg/FFmpeg)                     |
 | [YT-DLP Team](https://github.com/yt-dlp)        | Media download capabilities            | [yt-dlp](https://github.com/yt-dlp/yt-dlp)                     |
 | [Breakthrough](https://github.com/Breakthrough) | Scene detection algorithms             | [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) |
-| [Chainner-org](https://github.com/chaiNNer-org) | Neural network architecture            | [spandrel](https://github.com/chaiNNer-org/spandrel)           |
+| [Chainner-org](https://github.com/chaiNNer-org) | Neural network architecture (vendored fork) | [spandrel](https://github.com/chaiNNer-org/spandrel)           |
 | [TNTWise](https://github.com/TNTwise)           | RIFE ONNX optimizations           | [GitHub](https://github.com/TNTwise)                           |
 | [Hyperbrew](https://github.com/hyperbrew)       | Adobe integration framework            | [bolt-cep](https://github.com/hyperbrew/bolt-cep)              |
 
