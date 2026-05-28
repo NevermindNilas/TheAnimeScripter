@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13.12"
+          python-version: "3.14.5"
 
       - name: Extract version
         id: get_version
@@ -97,7 +97,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13.12"
+          python-version: "3.14.5"
 
       - name: Run full build script
         run: python build.py
@@ -129,7 +129,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13.12"
+          python-version: "3.14.5"
 
       - name: Run full build script
         run: python build.py
