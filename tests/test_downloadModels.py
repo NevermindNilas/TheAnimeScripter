@@ -13,7 +13,12 @@ import contextlib
 
 import pytest
 
-from src.utils import downloadModels as dm
+# downloadModels imports progressBarLogic -> barflow at module load, so skip
+# cleanly in the minimal CI env that does not install the full runtime deps
+# (mirrors the torch/nelux importorskip in the other test modules).
+pytest.importorskip("barflow")
+
+from src.utils import downloadModels as dm  # noqa: E402
 
 
 class _TruncatedResponse:
