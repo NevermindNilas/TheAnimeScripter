@@ -1118,10 +1118,15 @@ class NeluxWriteBuffer:
         self.writeBuffer = Queue(maxsize=32)
         self.writtenFrames = 0
         self.CudaStream = None
+        # Nelux does not produce an FFmpeg-based preview image. Define the
+        # attribute (matching WriteBuffer's None default) so main.py's preview
+        # setup -- which reads writeBuffer.previewPath -- doesn't AttributeError
+        # when --preview is combined with a *_nelux encoder.
+        self.previewPath = None
 
         # Mirror the FFmpeg encoder targets in encodingSettings.matchEncoder
         # one-for-one. Each entry is the full nelux.VideoEncoder kwarg set.
-        # nelux (==0.12.0, pinned) takes an INTEGER preset and maps it per-codec
+        # nelux (==0.12.2, pinned) takes an INTEGER preset and maps it per-codec
         # internally (Encoder.cpp): x264/x265 1=ultrafast..9=veryslow so 3=veryfast;
         # libsvtav1 preset = 13-n so n=5 -> svt preset 8; NVENC -> p<n> so 1 -> p1.
         # cq maps to `-crf` (software) / NVENC CQ; cq=15 == FFmpeg `-crf/-cq 15`.

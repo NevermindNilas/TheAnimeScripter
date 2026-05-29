@@ -223,4 +223,16 @@ def detectGPUArchitecture():
             )
         return isModern, gpuName, computeCap
 
+    # nvidia-smi could not report compute_cap (absent, or a driver too old to
+    # support --query-gpu=compute_cap). If an NVIDIA GPU is still detected by
+    # other means, assume a modern (Turing+) arch rather than silently picking
+    # the lite/DirectML dependency profile -- the removed `nvidia-smi -L`
+    # heuristic likewise defaulted unrecognized NVIDIA GPUs to modern.
+    if detectNVidiaGPU():
+        logging.warning(
+            "NVIDIA GPU detected but compute capability is unavailable; "
+            "assuming a modern (Turing+) architecture."
+        )
+        return True, "unknown", "unknown"
+
     return False, "unknown", "unknown"

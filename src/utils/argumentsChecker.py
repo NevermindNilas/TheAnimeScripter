@@ -1349,7 +1349,6 @@ def _addDepthOptions(argParser):
         "og_video_small_v2",
         "og_video_base_v2",
         "og_video_large_v2",
-        "og_video_small_v2-tensorrt",
         "video_small_v2",
         "video_large_v2",
         "small_v2-tensorrt",
@@ -1373,16 +1372,10 @@ def _addDepthOptions(argParser):
         "small_v3",
         "base_v3",
         "og_large_v3",
-        "large_v3",
-        "giant_v3",
         "small_v3-directml",
         "base_v3-directml",
-        "large_v3-directml",
-        "giant_v3-directml",
         "small_v3-tensorrt",
         "base_v3-tensorrt",
-        "large_v3-tensorrt",
-        "giant_v3-tensorrt",
         "small_v2-openvino",
         "base_v2-openvino",
         "large_v2-openvino",
@@ -1394,8 +1387,6 @@ def _addDepthOptions(argParser):
         "og_large_v2-openvino",
         "small_v3-openvino",
         "base_v3-openvino",
-        "large_v3-openvino",
-        "giant_v3-openvino",
     ]
 
     depthGroup.add_argument(
