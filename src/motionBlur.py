@@ -167,6 +167,9 @@ class MotionBlurPipeline:
             self._run()
         except Exception as e:
             logging.exception(f"Motion blur pipeline failed: {e}")
+            # Re-raise so a bad config surfaces as a real error instead of a
+            # silently empty/corrupt output file.
+            raise
 
     def _initInterpolationModel(self):
         if ADOBE:
@@ -300,6 +303,13 @@ class MotionBlurPipeline:
                     self.height,
                     self.half,
                     self.ensemble,
+                )
+
+            case _:
+                raise ValueError(
+                    f"Motion blur does not support interpolate_method "
+                    f"'{self.interpolateMethod}'. Supported methods are the "
+                    f"rife (cuda/ncnn/tensorrt/directml/openvino) variants and gmfss."
                 )
 
     def _run(self):

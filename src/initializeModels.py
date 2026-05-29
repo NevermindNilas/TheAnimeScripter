@@ -515,6 +515,13 @@ def depth(self):
                 self.depthQuality,
             )
 
+        case _:
+            raise ValueError(
+                f"Unsupported depth_method: {self.depthMethod}. "
+                f"This value is accepted by the CLI but has no model wired up "
+                f"in initializeModels.depth()."
+            )
+
 
 def motionBlur(self):
     from src.motionBlur import MotionBlurPipeline
@@ -1104,7 +1111,6 @@ def initializeModels(self):
                     "anime1080fixer-tensorrt"
                     | "gater3-tensorrt"
                     | "scunet-tensorrt"
-                    | "codeformer-tensorrt"
                     | "deh264_real-tensorrt"
                     | "deh264_span-tensorrt"
                     | "hurrdeblur-tensorrt"
@@ -1127,7 +1133,6 @@ def initializeModels(self):
                     | "anime1080fixer-openvino"
                     | "gater3-directml"
                     | "scunet-directml"
-                    | "codeformer-directml"
                     | "deh264_real-directml"
                     | "deh264_span-directml"
                     | "hurrdeblur-directml"

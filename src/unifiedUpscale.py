@@ -922,9 +922,11 @@ class UniversalDirectML:
 
             return frame
 
-        except UnicodeDecodeError as e:
+        except Exception as e:
             if not self.usingCpuFallback:
-                logging.warning(f"DirectML/OpenVINO UnicodeDecodeError: {e}")
+                logging.warning(
+                    f"DirectML/OpenVINO inference failed ({e}); falling back to CPU provider."
+                )
                 self._fallbackToCpu()
                 return self.__call__(frame, nextFrame)
             else:
@@ -1137,8 +1139,8 @@ class UniversalNCNN:
         elif modelPath.endswith("-ncnn"):
             modelPath = modelPath[:-5]
 
-        lastSlash = modelPath.split("\\")[-1]
-        modelPath = modelPath + "\\" + lastSlash
+        lastSlash = os.path.basename(modelPath)
+        modelPath = os.path.join(modelPath, lastSlash)
 
         self.model = UPSCALE(
             gpuid=0,
@@ -1151,7 +1153,7 @@ class UniversalNCNN:
     def __call__(self, frame, nextFrame: None) -> torch.tensor:
         iniFrameDtype = frame.dtype
         frame = self.model.process_torch(
-            frame.mul(255).to(torch.uint8).squeeze(0).permute(1, 2, 0).cpu()
+            frame.mul(255).clamp(0, 255).to(torch.uint8).squeeze(0).permute(1, 2, 0).cpu()
         )
 
         frame = frame.to(iniFrameDtype).mul(1 / 255).permute(2, 0, 1).unsqueeze(0)

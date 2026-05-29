@@ -112,9 +112,13 @@ class AutoClip:
 
         sceneList = sceneManager.get_scene_list()
         outPath = os.path.join(cs.WHEREAMIRUNFROM, "autoclipresults.txt")
+        # The last scene's end is the video EOF, not a real cut, so drop it to
+        # avoid emitting a spurious boundary at the very end of the video
+        # (matching the TransNetV2/Maxxvit behavior).
+        cuts = sceneList[:-1]
         with open(outPath, "w") as f:
-            for i, scene in enumerate(sceneList):
+            for i, scene in enumerate(cuts):
                 endSec = scene[1].get_seconds()
                 logging.info(f"Scene {i + 1}: cut at {endSec:.3f}s")
                 f.write(f"{endSec}\n")
-        logAndPrint(f"AutoClip wrote {len(sceneList)} cuts to {outPath}", "green")
+        logAndPrint(f"AutoClip wrote {len(cuts)} cuts to {outPath}", "green")

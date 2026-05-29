@@ -404,12 +404,15 @@ class VideoProcessor:
                             bar.updateTotal(newTotal=frameCount * increment)
                             break
 
+        except Exception as e:
+            logging.exception(f"Something went wrong while processing the frames, {e}")
+        finally:
+            # Always enqueue the writer's None sentinel (and close preview) even
+            # when a frame raises, otherwise the writer/reader threads block
+            # forever and the ThreadPoolExecutor join deadlocks the process.
             if self.preview:
                 self.preview.close()
             self.writeBuffer.close()
-
-        except Exception as e:
-            logging.exception(f"Something went wrong while processing the frames, {e}")
 
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
@@ -483,11 +486,15 @@ class VideoProcessor:
                 single_image_output=self.singleImageInput,
             )
 
-            if self.preview:
+            if self.preview and self.writeBuffer.previewPath is not None:
                 from src.utils.previewSettings import Preview
 
                 self.preview = Preview(previewPath=self.writeBuffer.previewPath)
                 self.preview.start()
+            else:
+                # No preview surface (e.g. nelux encoders emit no preview image),
+                # so there is nothing to start and nothing for process() to close.
+                self.preview = None
 
             if self.profile:
                 self._runWithProfiler()
