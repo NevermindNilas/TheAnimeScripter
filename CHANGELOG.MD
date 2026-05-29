@@ -16,23 +16,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `NeluxWriteBuffer` (the `*_nelux` encode methods) now muxes audio + subtitle streams from the source via `nelux.VideoEncoder.add_passthrough` instead of dropping them — `*_nelux` output was previously silent and subtitle-less because the path never spawned FFmpeg for muxing. Streams are registered before the first `encode_frame` (when the container header is written), gated/rebased to the `--ss`/`--to` (`inpoint`/`outpoint`) window to match the decode-side video trim, and gated on the `cs.AUDIO` global like the FFmpeg `WriteBuffer`. `allow_transcode=True` (nelux ≥ 0.12.0; feature-detected, copy-only fallback on older builds) re-encodes streams the container can't stream-copy (e.g. AAC→WebM → opus/webvtt) instead of skipping them, mirroring the `WriteBuffer` WebM path. Verified end-to-end: mkv(h264+aac+subrip) → mkv carries all three streams, and a 0.5–1.5s trim produces a 1.0s clip with audio/subs packet-gated to the window (`src/utils/ffmpegSettings.py` `NeluxWriteBuffer._setupPassthrough`). No FFmpeg subprocess is spawned on the `*_nelux` path.
 
 ### Fixed
-- `x264_nelux`, `x265_nelux`, `av1_nelux` encode methods were CLI-accepted but silently fell back to `h264_nvenc` hardware encoding — `NeluxWriteBuffer` codec map only had the three `nvenc_*_nelux` entries. Mapped them to software codecs and stopped the false "NOT using hardware NVENC" warning for software methods (`src/utils/ffmpegSettings.py`).
-- `NeluxWriteBuffer` ignored quality/preset entirely — it passed no `cq`/`preset` to `nelux.VideoEncoder`, so every nelux encode (hardware and software) ran at nelux's default ~4 Mbps fixed bitrate instead of the FFmpeg paths' targets. Now each `*_nelux` method maps to a `(codec, preset, cq)` mirroring `encodingSettings.matchEncoder`: `x264_nelux`/`x265_nelux` → `libx264`/`libx265` preset 3 (= veryfast on nelux's 1=ultrafast..9=veryslow int ladder) cq 15 (= `-crf 15`); `av1_nelux` → `libsvtav1` preset 5 (= SVT-AV1 preset 8, matching the FFmpeg `av1` path — previously mis-mapped to the much slower `libaom-av1`) cq 15; `nvenc_*_nelux` → preset 1 (= `p1`) cq 15. Matches FFmpeg `x264`/`x265`/`av1` quality and preset. (Note: nelux 0.11.0 `VideoEncoder` exposes only integer `preset`/`cq`/`pixel_format` — no string preset or `extra_options` — so `tune`/`profile`/`-g` extras used by the `slow_*`/`*_animation`/`*_10bit` FFmpeg variants are not reproducible via nelux; no `*_nelux` counterparts exist for those.)
-
-- Frame-processing errors no longer deadlock the process. `VideoProcessor.process()` enqueued the writer's stop sentinel (`writeBuffer.close()`) only on the success path, so any per-frame failure (OOM, TRT/CUDA error) skipped it — the writer/reader threads then blocked forever and the `ThreadPoolExecutor` join hung the whole run after merely logging the error. Moved the preview/writer close into a `finally` block (`main.py`).
-- `NeluxWriteBuffer` no longer crashes on non-CUDA hosts. `__call__` called `self.CudaStream.synchronize()` unconditionally, but `CudaStream` is `None` without CUDA, so the software `*_nelux` encoders (`x264_nelux`/`x265_nelux`/`av1_nelux`) raised `AttributeError` (swallowed into an empty output) on CPU/DirectML/MPS boxes. Guarded the stream usage; the uint8 conversion runs directly on CPU when there is no CUDA stream (`src/utils/ffmpegSettings.py`).
-- `mse` / `mse-cuda` deduplication was broken two ways: `DedupMSE.processFrame` used `np.resize` (which tiles/truncates the flat byte buffer instead of resizing the image, making the comparison meaningless), and the comparison direction was inverted (high MSE / different frames were flagged as duplicates — the opposite of what MSE means). Switched to a real bilinear `F.interpolate` resize and corrected the direction (low MSE = duplicate). Also added the missing `DedupMSECuda` class, which `--dedup_method mse-cuda` selected but did not exist (`ImportError` at init). Regression tests in `tests/test_dedup.py` (`src/dedup/dedup.py`).
-- `--depth_method` no longer offers values that have no model wiring. Methods such as `large_v3`, `giant_v3` (and their `-directml`/`-tensorrt`/`-openvino` variants) and `og_video_small_v2-tensorrt` were valid CLI choices but had no arm in `initializeModels.depth()`'s `match`, so they ran no model and reported success with no output. Removed them from the `--depth_method` choices (`src/utils/argumentsChecker.py`) and added a `case _:` guard that raises, so any future choices/dispatch drift fails loudly instead of silently (`src/initializeModels.py`).
-- Decode fallback no longer duplicates frames. A mid-stream nelux decode failure re-decoded the video from frame 0 (CPU/OpenCV fallback) without draining the already-consumed `decodeBuffer`, injecting duplicate/garbled frames. The fallback is now skipped (with a clear error) once any frame has been emitted (`src/utils/ffmpegSettings.py`).
-- Truncated model downloads are detected and retried. The downloader committed files to the weights cache without verifying them against the advertised `content-length`, and `http.client.IncompleteRead` was not in the retry `except`. Added a size check that raises a `ConnectionError` to trigger the existing retry/cleanup path — deliberately not `IncompleteRead`, whose `__repr__`/`__str__` does `len(self.partial)` and so raises `TypeError` (which is *not* in the retry `except` and would escape, aborting the loop) when constructed with the integer byte counts available here. Widened the retry exceptions (`IncompleteRead`/`ConnectionError`/`TimeoutError`) and reset `downloadedBytes` per attempt. Regression tests in `tests/test_downloadModels.py` (`src/utils/downloadModels.py`).
-- Motion blur fails loudly on an unsupported `interpolate_method`. `MotionBlurPipeline._initInterpolationModel` had no default case (so `interpolateProcess` stayed `None` and produced an empty/corrupt output) and the pipeline's top-level `try` swallowed every error. Added a `case _:` that raises and made the pipeline re-raise after logging (`src/motionBlur.py`).
-- Bare `--output filename.mp4` (no directory component) no longer crashes. `argumentsChecker` ran `os.makedirs(os.path.dirname(args.output))` on the raw value, calling `os.makedirs("")` → `FileNotFoundError`. It now resolves to an absolute path and guards the empty dirname (`src/utils/argumentsChecker.py`).
-- DirectML/OpenVINO upscale CPU fallback now actually triggers. `UniversalDirectML.__call__` caught only `UnicodeDecodeError`, which a real provider failure never raises, so the CPU fallback was dead code. It now catches `Exception` (re-raising once already on the CPU provider) (`src/unifiedUpscale.py`).
-- NCNN upscale: hardcoded `\` path separators corrupted the model path on Linux/macOS (now `os.path.join`/`os.path.basename`), and the output was cast to `uint8` without clamping so out-of-range pixels wrapped to garbage (now `.clamp(0, 255)`) (`src/unifiedUpscale.py`).
-- DistilDRBA TensorRT per-frame timestep race: `tTimestep.fill_()` ran on the default stream while the CUDA graph replayed on a separate stream with no sync, so the replay could read a stale timestep. The fill now runs on the replay stream (`src/unifiedInterpolate.py`).
-- After Effects bridge: a freshly-connected client received an always-stale/empty progress snapshot because the Socket.IO server runs in a child process whose `progressState` is not the instance the worker updates; it now emits the latest payload relayed over the queue. Removed `cancel` from the advertised handshake capabilities — it was a no-op with no path to interrupt the worker (`src/utils/aeComms.py`).
-- AutoClip (PySceneDetect) wrote a spurious final "cut" at the video's EOF; the last scene boundary (the video end, not a cut) is now dropped, matching the TransNetV2/MaxxViT backends (`src/autoclip/autoclip.py`).
-- `--preview` combined with a `*_nelux` encoder no longer fails the run. `NeluxWriteBuffer` (unlike `WriteBuffer`) never defined `previewPath`, so `main.py`'s preview setup raised `AttributeError` reading `self.writeBuffer.previewPath`. Added `previewPath = None` to `NeluxWriteBuffer` and now skip preview start when it is `None` — the nelux path emits no FFmpeg preview image (`src/utils/ffmpegSettings.py`, `main.py`).
+- `x264_nelux`/`x265_nelux`/`av1_nelux` were CLI-accepted but silently fell back to `h264_nvenc` (codec map only had the `nvenc_*_nelux` entries); now mapped to software codecs.
+- `*_nelux` encoders ignored quality/preset and ran at nelux's ~4 Mbps default; each now maps to a `(codec, preset, cq)` mirroring `matchEncoder` (`av1_nelux` was also mis-routed to the slow `libaom-av1`).
+- `NeluxWriteBuffer` crashed on non-CUDA hosts (unconditional `CudaStream.synchronize()`); stream usage now guarded.
+- `--preview` + a `*_nelux` encoder crashed (`NeluxWriteBuffer` had no `previewPath`); preview is now skipped on the nelux path.
+- Frame-processing errors deadlocked the run — the writer stop sentinel was only sent on the success path; moved into a `finally` block.
+- Decode fallback duplicated frames: a mid-stream nelux decode failure re-decoded from frame 0 without draining the buffer; fallback now skipped once any frame is emitted.
+- Truncated model downloads are now verified against `content-length` and retried (widened retry exceptions).
+- `mse`/`mse-cuda` dedup was broken: `np.resize` mangled the buffer and the comparison was inverted; switched to `F.interpolate` + corrected direction, and added the missing `DedupMSECuda` class.
+- FlowNetS dedup never detected duplicates: compared the signed optical-flow mean instead of motion magnitude.
+- `--depth_method` no longer offers unwired values (e.g. `large_v3`, `giant_v3`, `og_video_small_v2-tensorrt`) that ran no model; added a raising default arm.
+- Motion blur now fails loudly on an unsupported `interpolate_method` instead of producing empty output.
+- Bare `--output filename.mp4` (no directory) crashed on `os.makedirs("")`; now resolves to an absolute path.
+- DirectML/OpenVINO upscale + restore CPU fallback was dead code (caught only `UnicodeDecodeError`); now catches real provider errors.
+- NCNN upscale: hardcoded `\` path separators broke non-Windows, and output was cast to `uint8` without clamping; fixed both.
+- DistilDRBA TensorRT timestep race: the fill ran on the default stream while the graph replayed on another; fill now on the replay stream.
+- Upscale `--compile_mode max` compiled with the default mode instead of max-autotune.
+- Model optimizer no longer silently replaces ReLU with LeakyReLU, which corrupted activations.
+- After Effects bridge: a newly-connected client got a stale/empty progress snapshot and the final payload could drop under rate-limiting; now emits the latest relayed payload, and dropped the no-op `cancel` capability.
+- AutoClip (PySceneDetect) wrote a spurious final "cut" at EOF; the trailing boundary is now dropped.
+- OpenVINO depth models failed to load due to a double-dash folder name.
+- Depth (`OGDepthV3Cuda`) enqueued two output frames for near-empty-mask inputs, desyncing output length.
+- Encoding crashed when the metadata file was absent (preview / single-image paths).
+- Video metadata read `ColorSpace`/`PixelFormat` from swapped ffprobe fields.
+- WebM input forced to `vp9` even when an AV1 encoder was selected; `validateEncoder` allowlist now includes the av1 encoders.
+- AV1 encoders now set `SVT_LOG` correctly (was an exact-match check).
+- RGBA PNG passthrough crashed on write (`COLOR_RGB2BGR` on a 4-channel image).
+- Output naming overhaul: collisions get a `-1`/`-2` suffix instead of overwriting, Windows image sequences are no longer double-counted, directory inputs process in sorted order, and URL/sequence inputs pick the correct extension.
+- YouTube downloader always showed the title as "Unknown" (typo'd info-dict key).
 
 ### Changed
 - Upgraded to Python 3.14 (3.14.5 bundled). Dependencies are now cp314-specific — existing installs require a fresh dependency install to stay compatible.
@@ -74,22 +85,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   | Peak VRAM | 4058 MB | 4402 MB | 4169 MB |
 
   Quality vs baseline: PSNR 51.4 dB avg / SSIM 0.9989 / VMAF 96.3 (fp16-noise tier).
-
-### Fixed
-- WebM input forced to `vp9` even when an AV1 encoder was selected. `validateEncoder` allowlist now includes `nvenc_av1`, `slow_nvenc_av1`, `av1`, and `slow_av1` alongside `vp9` / `qsv_vp9`.
-- Output naming overhaul: collisions now get a `-1`/`-2` suffix instead of overwriting, Windows image sequences are no longer double-counted, directory inputs process in sorted order, and URL/sequence inputs pick the correct extension.
-- OpenVINO depth models failed to load due to a double-dash folder name.
-- Depth (`OGDepthV3Cuda`) enqueued two output frames for near-empty-mask inputs, desyncing output length.
-- Encoding crashed when the metadata file was absent (preview / single-image paths).
-- Video metadata read `ColorSpace` / `PixelFormat` from swapped ffprobe fields.
-- YouTube downloader always showed the title as "Unknown" (typo'd info-dict key).
-- RGBA PNG passthrough crashed on write (`COLOR_RGB2BGR` applied to a 4-channel image).
-- FlowNetS dedup never detected duplicates: it compared the signed optical-flow mean instead of motion magnitude.
-- AE progress relay could drop the final (completed/failed) payload under rate-limiting.
-- DirectML/OpenVINO restore now falls back to CPU on any inference failure, not only `UnicodeDecodeError`.
-- Upscale `--compile_mode max` compiled with the default mode instead of max-autotune.
-- AV1 encoders (`nvenc_av1`, `slow_av1`, custom encoders) now set `SVT_LOG` correctly (was an exact-match check).
-- Model optimizer no longer silently replaces ReLU with LeakyReLU, which corrupted activations.
 
 ### Removed
 - Dead-code sweep (no behavior change). Removed orphaned depth-arch modules `dpt_v1.py`, `blocks_v1.py`, `dinov2_v3.py`, and the stray top-level `dpt_temporal.py` / `blocks.py` / `transform.py` (superseded by the `dpt_v2` / `og_dpt_v2` / `video_depth_anything` lineages). Removed unreferenced symbols: the never-dispatched `DedupMSSSIMCuda` class (and the now-orphaned `MS_SSIM` / `ms_ssim` in `dedup/ssim.py`) and `ATRCuda`; all unused `frameReset()` methods across upscale/restore; `objectDetection.drawBoxesTorch`; `stabilize._processStreamingFrames`; `downloadModels.downloadTensorRTRTX`; the unused `logAndPrint` helpers (`setVerbose`/`setQuiet`/`logDebug`/`blue`/`magenta`/`lightBlue`/`rainbow`/`bold`); dead `CudaChecker` members (`mpsAvailable`/`acceleratorAvailable`/`disableCudaOptimizations`/`deviceName`/`allDeviceNames`); and several write-only attrs / unused params (`useOpenCV`, `batchSize`, `channels_first`, `optimizationLevel`, `args.isNvidiaGPU`, `args.requirements_file`).
