@@ -486,11 +486,15 @@ class VideoProcessor:
                 single_image_output=self.singleImageInput,
             )
 
-            if self.preview:
+            if self.preview and self.writeBuffer.previewPath is not None:
                 from src.utils.previewSettings import Preview
 
                 self.preview = Preview(previewPath=self.writeBuffer.previewPath)
                 self.preview.start()
+            else:
+                # No preview surface (e.g. nelux encoders emit no preview image),
+                # so there is nothing to start and nothing for process() to close.
+                self.preview = None
 
             if self.profile:
                 self._runWithProfiler()

@@ -1168,7 +1168,14 @@ def downloadAndLog(
                 # Server advertised a content-length we did not fully receive, so
                 # the temp file is truncated. Trigger the retry/cleanup path
                 # instead of committing a corrupt file to the weights cache.
-                raise IncompleteRead(downloadedBytes, totalSizeInBytes - downloadedBytes)
+                # NOTE: use ConnectionError, not IncompleteRead(int, int) -- the
+                # latter's __repr__/__str__ does len(self.partial), which raises
+                # TypeError when partial is an int, and that TypeError (not in the
+                # except tuple below) would escape and abort the retry loop.
+                raise ConnectionError(
+                    f"Incomplete download: received {downloadedBytes} of "
+                    f"{totalSizeInBytes} bytes"
+                )
 
             if filename.endswith(".zip"):
                 with zipfile.ZipFile(tempFilePath, "r") as zipRef:
