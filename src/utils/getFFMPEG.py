@@ -1,7 +1,6 @@
 import shutil
 import logging
 import os
-import subprocess
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
 
@@ -13,7 +12,6 @@ def getFFMPEG():
     cs.FFMPEGPATH = ffmpegPath
     ffProbeExe = "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe"
     cs.FFPROBEPATH = os.path.join(os.path.dirname(ffmpegPath), ffProbeExe)
-    logFfmpegVersion(cs.FFMPEGPATH)
 
 
 def downloadAndExtractFfmpeg(ffmpegPath):
@@ -58,30 +56,6 @@ def downloadAndExtractFfmpeg(ffmpegPath):
 
     extractFunc(ffmpegArchivePath, ffmpegDir)
     return str(ffmpegPath)
-
-
-def logFfmpegVersion(ffmpegPath: str) -> None:
-    try:
-        if not ffmpegPath or not os.path.exists(ffmpegPath):
-            logging.warning("FFmpeg path not found to log version.")
-            return
-        proc = subprocess.run(
-            [ffmpegPath, "-version"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            check=False,
-        )
-        output = proc.stdout.splitlines()
-        if output:
-            logging.info(f"FFmpeg version: {output[0]}")
-            if len(output) > 1:
-                pass
-                # logging.debug(f"FFmpeg build: {output[1]}")
-        else:
-            logging.info("FFmpeg version: <no output>")
-    except Exception as e:
-        logging.warning(f"Unable to retrieve FFmpeg version: {e}")
 
 
 def extractFfmpegZip(ffmpegZipPath, ffmpegDir):

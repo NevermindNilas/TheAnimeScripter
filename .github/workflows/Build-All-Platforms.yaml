@@ -15,8 +15,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -91,8 +89,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -123,8 +119,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-        with:
-          submodules: recursive
 
       - name: Set up Python
         uses: actions/setup-python@v6

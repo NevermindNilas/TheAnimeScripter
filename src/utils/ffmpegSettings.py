@@ -108,6 +108,10 @@ class BuildBuffer:
         Decodes frames from the video and stores them in the decodeBuffer.
         """
         decodedFrames = 0
+        # Number of frames already pushed into the (concurrently-consumed)
+        # decodeBuffer this run; used to forbid a fallback re-decode that would
+        # duplicate frames after a mid-stream failure.
+        self._emittedFrames = 0
         global CachedReader
         global CachedReaderMethod
 
@@ -117,7 +121,10 @@ class BuildBuffer:
         except Exception as e:
             logging.error(f"nelux decoding error: {e}")
 
-            if self.decodeMethod != "cpu":
+            # A fallback re-decode restarts from frame 0. If the failed attempt
+            # already emitted frames, re-decoding duplicates them, so only fall
+            # back when nothing has been queued yet.
+            if self._emittedFrames == 0 and self.decodeMethod != "cpu":
                 try:
                     logging.warning(
                         "nelux decode failed with non-CPU method; retrying with cpu."
@@ -128,11 +135,17 @@ class BuildBuffer:
                 except Exception as retry_e:
                     logging.error(f"nelux CPU retry failed: {retry_e}")
 
-            logging.info("Attempting fallback to OpenCV decoder...")
-            try:
-                decodedFrames += self.decodeWithOpenCV()
-            except Exception as fallback_e:
-                logging.error(f"OpenCV fallback failed: {fallback_e}")
+            if self._emittedFrames == 0:
+                logging.info("Attempting fallback to OpenCV decoder...")
+                try:
+                    decodedFrames += self.decodeWithOpenCV()
+                except Exception as fallback_e:
+                    logging.error(f"OpenCV fallback failed: {fallback_e}")
+            else:
+                logging.error(
+                    f"Decode failed after {self._emittedFrames} frame(s) were already "
+                    f"queued; skipping fallback to avoid duplicating frames."
+                )
 
         finally:
             self.decodeBuffer.put(None)
@@ -213,6 +226,7 @@ class BuildBuffer:
             self.decodeBuffer.put(frame)
             self._frameAvailable.set()
             decodedFrames += 1
+            self._emittedFrames += 1
             frameIdx += 1
 
         return decodedFrames
@@ -261,6 +275,7 @@ class BuildBuffer:
                 self.decodeBuffer.put(frame)
                 self._frameAvailable.set()
                 totalFramesDecoded += 1
+                self._emittedFrames += 1
 
         except Exception as e:
             logging.error(f"Error during OpenCV decoding loop: {e}")
@@ -733,16 +748,31 @@ class WriteBuffer:
         if self.transparent:
             filterList.append("format=yuva420p")
 
-        """
-                "-vf",
-            "zscale=matrix=709:dither=error_diffusion,format=yuv420p",
-            """
-
         import json
 
         if not self.grayscale and not self.transparent:
+            # RGB->YUV colorspace conversion + dithering.
+            #
+            # BT.709 (the common path; unknown/SD sources also default here):
+            # use swscale (`scale`) instead of `zscale`. zscale/zimg runs a
+            # float pipeline and costs ~3x the CPU of swscale's SIMD-integer
+            # path for a matrix-identical result (verified bit-for-bit on luma
+            # mean, black level, and banding across every test source/pixfmt).
+            # swscale only dithers on a bit-DEPTH reduction, so we route through
+            # a 16-bit working format (yuv444p16le); the downstream -pix_fmt /
+            # hwupload reduction then error-diffusion-dithers down to the target
+            # depth, matching zscale's banding exactly. `setparams` stamps the
+            # full color metadata (matrix + primaries + transfer + range) --
+            # swscale alone only tags the matrix.
+            #
+            # BT.2020 stays on zscale: swscale has no bt2020nc matrix and zimg's
+            # `norm=bt2020` does transfer handling swscale cannot replicate.
             colorSPaceFilter = {
-                "bt709": "zscale=matrix=709:dither=error_diffusion",
+                "bt709": (
+                    "scale=in_range=pc:out_range=tv:out_color_matrix=bt709,"
+                    "format=yuv444p16le,"
+                    "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv"
+                ),
                 "bt2020": "zscale=matrix=bt2020:norm=bt2020:dither=error_diffusion,format=yuv420p",
             }
 
@@ -1047,7 +1077,8 @@ class WriteBuffer:
 
 class NeluxWriteBuffer:
     """
-    Write buffer that uses Nelux VideoEncoder for NVENC encoding.
+    Write buffer that uses Nelux VideoEncoder for NVENC (hardware) or
+    libx264/libx265/libaom-av1 (software) encoding.
     More efficient than FFmpeg pipe for GPU-resident frames.
     """
 
@@ -1067,14 +1098,15 @@ class NeluxWriteBuffer:
         Initialize Nelux-based encoder.
 
         Args:
-            input: Input video path (for audio extraction).
+            input: Source video path (audio/subtitle passthrough; see _setupPassthrough).
             output: Output video path.
-            encode_method: One of nvenc_h264_nelux, nvenc_h265_nelux, nvenc_av1_nelux.
+            encode_method: One of nvenc_h264_nelux, nvenc_h265_nelux, nvenc_av1_nelux
+                (hardware) or x264_nelux, x265_nelux, av1_nelux (software).
             width: Output width.
             height: Output height.
             fps: Output framerate.
-            inpoint: Start time for audio (seconds).
-            outpoint: End time for audio (seconds).
+            inpoint: Trim start in seconds (--ss); applied to passthrough streams.
+            outpoint: Trim end in seconds (--to); applied to passthrough streams.
         """
         self.input = input
         self.output = os.path.normpath(output)
@@ -1086,13 +1118,36 @@ class NeluxWriteBuffer:
         self.writeBuffer = Queue(maxsize=32)
         self.writtenFrames = 0
         self.CudaStream = None
+        # Nelux does not produce an FFmpeg-based preview image. Define the
+        # attribute (matching WriteBuffer's None default) so main.py's preview
+        # setup -- which reads writeBuffer.previewPath -- doesn't AttributeError
+        # when --preview is combined with a *_nelux encoder.
+        self.previewPath = None
 
-        codec_map = {
-            "nvenc_h264_nelux": "h264_nvenc",
-            "nvenc_h265_nelux": "hevc_nvenc",
-            "nvenc_av1_nelux": "av1_nvenc",
+        # Mirror the FFmpeg encoder targets in encodingSettings.matchEncoder
+        # one-for-one. Each entry is the full nelux.VideoEncoder kwarg set.
+        # nelux (==0.12.2, pinned) takes an INTEGER preset and maps it per-codec
+        # internally (Encoder.cpp): x264/x265 1=ultrafast..9=veryslow so 3=veryfast;
+        # libsvtav1 preset = 13-n so n=5 -> svt preset 8; NVENC -> p<n> so 1 -> p1.
+        # cq maps to `-crf` (software) / NVENC CQ; cq=15 == FFmpeg `-crf/-cq 15`.
+        # pixel_format is passed explicitly to match getPixFMT's 8-bit default
+        # (yuv420p) rather than relying on the encoder's internal default.
+        #   ffmpeg `x264`: -c:v libx264 -preset veryfast -crf 15  (yuv420p)
+        # Verified: x264 preset=3,cq=15 -> within ~2% of ffmpeg veryfast/crf15.
+        encoderSettings = {
+            "x264_nelux":       dict(codec="libx264",   preset=3, cq=15, pixel_format="yuv420p"),  # veryfast / crf 15
+            "x265_nelux":       dict(codec="libx265",   preset=3, cq=15, pixel_format="yuv420p"),  # veryfast / crf 15
+            "av1_nelux":        dict(codec="libsvtav1", preset=5, cq=15, pixel_format="yuv420p"),  # svt preset 8 / crf 15
+            "nvenc_h264_nelux": dict(codec="h264_nvenc", preset=1, cq=15, pixel_format="yuv420p"),  # p1 / cq 15
+            "nvenc_h265_nelux": dict(codec="hevc_nvenc", preset=1, cq=15, pixel_format="yuv420p"),  # p1 / cq 15
+            "nvenc_av1_nelux":  dict(codec="av1_nvenc",  preset=1, cq=15, pixel_format="yuv420p"),  # p1 / cq 15
         }
-        self.codec = codec_map.get(encode_method, "h264_nvenc")
+        self.encoderKwargs = encoderSettings.get(
+            encode_method, encoderSettings["nvenc_h264_nelux"]
+        )
+        self.codec = self.encoderKwargs["codec"]
+        # NVENC variants expect a hardware encoder; software (libx*/libsvtav1) do not.
+        self.expectHardware = self.codec.endswith("_nvenc")
         self.encoder = None
 
         if checker.cudaAvailable:
@@ -1101,6 +1156,59 @@ class NeluxWriteBuffer:
         logging.info(
             f"NeluxWriteBuffer initialized: {width}x{height}@{fps}fps, codec={self.codec}"
         )
+
+    def _setupPassthrough(self):
+        """
+        Copy/transcode audio + subtitle streams from the source into the Nelux
+        output via VideoEncoder.add_passthrough, replacing the FFmpeg-subprocess
+        muxing the standard WriteBuffer uses (second `-i input`, `-map 1:a -c:a
+        copy`, `-map 1:s? -c:s copy`, with the webm `libopus`/`webvtt` fallback).
+        The --ss/--to trim (inpoint/outpoint) is honored: streams are packet-gated
+        and rebased so inpoint maps to output t=0, aligning with the first video
+        frame pushed (the decode side already trims the video to the same range).
+
+        Must run AFTER the encoder is constructed but BEFORE the first
+        encode_frame: Nelux writes the container header on the first frame and
+        every stream must exist by then.
+        """
+        encoder = self.encoder
+        if encoder is None or not cs.AUDIO:
+            return
+        if not self.input or "%" in self.input or not os.path.exists(self.input):
+            logging.info(
+                f"Nelux passthrough skipped: no usable source file ('{self.input}')."
+            )
+            return
+
+        end = self.outpoint if self.outpoint and self.outpoint > 0 else None
+        try:
+            # allow_transcode re-encodes streams the container cannot stream-copy
+            # (e.g. AAC->webm) to the container default instead of dropping them,
+            # mirroring the WriteBuffer webm path. The kwarg only exists in
+            # nelux >= 0.12.0; older builds fall back to copy-only.
+            try:
+                encoder.add_passthrough(
+                    self.input,
+                    audio=True,
+                    subtitles=True,
+                    start=float(self.inpoint),
+                    end=end,
+                    allow_transcode=True,
+                )
+            except TypeError:
+                encoder.add_passthrough(
+                    self.input,
+                    audio=True,
+                    subtitles=True,
+                    start=float(self.inpoint),
+                    end=end,
+                )
+            logging.info(
+                f"Nelux passthrough: audio+subtitles from '{self.input}' "
+                f"(start={self.inpoint}, end={end})"
+            )
+        except Exception as e:
+            logging.warning(f"Nelux passthrough failed, encoding video only: {e}")
 
     def __call__(self):
         """Process frames from writeBuffer and encode with Nelux."""
@@ -1112,23 +1220,31 @@ class NeluxWriteBuffer:
 
             self.encoder = nelux.VideoEncoder(
                 self.output,
-                codec=self.codec,
                 width=self.width,
                 height=self.height,
                 fps=self.fps,
+                **self.encoderKwargs,  # codec, preset, cq, pixel_format
             )
 
             if hasattr(self.encoder, "is_hardware_encoder"):
                 if self.encoder.is_hardware_encoder:
                     logging.info(
-                        f"Nelux NVENC encoder confirmed: {self.codec} -> {self.output}"
+                        f"Nelux hardware encoder confirmed: {self.codec} -> {self.output}"
                     )
-                else:
+                elif self.expectHardware:
                     logging.warning(
                         f"Nelux encoder is NOT using hardware NVENC! Codec: {self.codec}"
                     )
+                else:
+                    logging.info(
+                        f"Nelux software encoder: {self.codec} -> {self.output}"
+                    )
             else:
                 logging.info(f"Nelux encoder created: {self.codec} -> {self.output}")
+
+            # Register audio/subtitle passthrough before the first encode_frame
+            # (the container header is written on that first frame).
+            self._setupPassthrough()
 
             while True:
                 try:
@@ -1140,10 +1256,16 @@ class NeluxWriteBuffer:
                 if frame is None:
                     break
 
-                with torch.cuda.stream(self.CudaStream):
+                if self.CudaStream is not None:
+                    with torch.cuda.stream(self.CudaStream):
+                        frame = frame.squeeze(0).permute(1, 2, 0)
+                        frame = frame.mul(255.0).clamp(0, 255).to(dtype=torch.uint8, non_blocking=True)
+                    self.CudaStream.synchronize()
+                else:
+                    # No CUDA stream on CPU/DirectML/MPS hosts; run the same
+                    # conversion directly (frame is already a CPU tensor here).
                     frame = frame.squeeze(0).permute(1, 2, 0)
-                    frame = frame.mul(255.0).clamp(0, 255).to(dtype=torch.uint8, non_blocking=True)
-                self.CudaStream.synchronize()
+                    frame = frame.mul(255.0).clamp(0, 255).to(dtype=torch.uint8)
         
                 if not frame.is_contiguous():
                     frame = frame.contiguous()

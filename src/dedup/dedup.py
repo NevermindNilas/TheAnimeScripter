@@ -128,15 +128,75 @@ class DedupMSE:
         frame = self.processFrame(frame)
         score = ((self.prevFrame - frame) ** 2).mean()
 
+        # Low MSE -> (near) identical to the previous kept frame -> duplicate.
+        # NOTE: SSIM/VMAF treat a HIGH score as "similar"; MSE is the opposite
+        # (0 == identical), so the comparison direction is inverted relative to
+        # those backends. Keep the reference frame on a duplicate; advance it
+        # only when we keep a distinct frame.
         if score < self.mseThreshold:
+            return True
+        else:
             self.prevFrame = frame
             return False
-        else:
-            return True
 
     def processFrame(self, frame):
-        return np.resize(
-            frame.mul(255).cpu().numpy(), (self.sampleSize, self.sampleSize, 3)
+        # np.resize flattens then tiles/truncates raw bytes (it does NOT scale
+        # the image), which made the MSE comparison meaningless. Use a real
+        # bilinear resize on the tensor and keep values on a 0-255 scale.
+        return torch.nn.functional.interpolate(
+            frame.float(),
+            size=(self.sampleSize, self.sampleSize),
+            mode="bilinear",
+            align_corners=False,
+        ).mul(255.0)
+
+
+class DedupMSECuda:
+    def __init__(
+        self,
+        mseThreshold=1000,
+        half=True,
+        sampleSize=224,
+    ):
+        self.mseThreshold = mseThreshold
+        self.sampleSize = sampleSize
+        self.half = half
+        self.prevFrame = None
+        self.interpolate = F.interpolate
+
+    def __call__(self, frame):
+        """
+        Returns True if the frames are duplicates
+        """
+        if self.prevFrame is None:
+            self.prevFrame = self.processFrame(frame)
+            return False
+
+        frame = self.processFrame(frame)
+        score = ((self.prevFrame - frame) ** 2).mean()
+
+        # Low MSE -> (near) identical -> duplicate (see DedupMSE for why the
+        # direction is inverted vs SSIM/VMAF). Advance the reference only on a
+        # distinct frame.
+        if score < self.mseThreshold:
+            return True
+        else:
+            self.prevFrame.copy_(frame, non_blocking=False)
+            return False
+
+    def processFrame(self, frame):
+        return (
+            F.interpolate(
+                frame.half(),
+                (self.sampleSize, self.sampleSize),
+                mode="nearest",
+            ).mul(255.0)
+            if self.half
+            else F.interpolate(
+                frame.float(),
+                (self.sampleSize, self.sampleSize),
+                mode="nearest",
+            ).mul(255.0)
         )
 
 
