@@ -413,8 +413,6 @@ class WriteBuffer:
         width: int = 1920,
         height: int = 1080,
         fps: float = 60.0,
-        sharpen: bool = False,
-        sharpen_sens: float = 0.0,
         grayscale: bool = False,
         transparent: bool = False,
         benchmark: bool = False,
@@ -437,8 +435,6 @@ class WriteBuffer:
         width: int - The width of the output video in pixels.
         height: int - The height of the output video in pixels.
         fps: float - The frames per second of the output video.
-        sharpen: bool - Whether to apply a sharpening filter to the video.
-        sharpen_sens: float - The sensitivity of the sharpening filter.
         transparent: bool - Whether to encode the video with transparency.
         audio: bool - Whether to include audio in the output video.
         benchmark: bool - Whether to benchmark the encoding process, this will not output any video.
@@ -475,8 +471,6 @@ class WriteBuffer:
         self.width = width
         self.height = height
         self.fps = fps
-        self.sharpen = sharpen
-        self.sharpen_sens = sharpen_sens
         self.transparent = transparent
         self.benchmark = benchmark
         self.bitDepth = bitDepth
@@ -739,8 +733,6 @@ class WriteBuffer:
                 f"scale={self.output_scale_width}:{self.output_scale_height}:flags=bilinear"
             )
 
-        if self.sharpen:
-            filterList.append(f"cas={self.sharpen_sens}")
         if self.grayscale:
             filterList.append(
                 "format=gray" if self.bitDepth == "8bit" else "format=gray16be"

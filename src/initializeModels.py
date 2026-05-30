@@ -1167,6 +1167,15 @@ def initializeModels(self):
                         )
                     )
 
+                case "autocas":
+                    from src.unifiedRestore import AutoCAS
+
+                    restoreProcesses.append(
+                        AutoCAS(
+                            self.half,
+                        )
+                    )
+
                 case (
                     "linethinner-lite"
                     | "linethinner-medium"

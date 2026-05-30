@@ -182,6 +182,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | Saryn ( RTMOSR based )                |   ✅   |    ✅     |    ✅     |   ✅   |
 | Gauss ( DIS based )              |   ✅   |    ✅     |    ✅     |   ✅   |
 | Custom (Spandrel)     |   ✅   |    ❌     |    ❌     |   ❌   |
+| NVIDIA Maxine VSR     |   ✅   |    ✅     |    ❌     |   ❌   |
 
 ### ⏱️ Interpolation Models (RIFE)
 
@@ -214,6 +215,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | GaterV3             |   ✅   |    ❌     |    ✅     |   ✅   |
 | DeH264 ( Real-Plksr ) |   ✅   |    ✅     |    ✅     |   ✅   |
 | deepDeband-f (Debanding) |   ✅   |    ❌     |    ❌     |   ❌   |
+| NVIDIA Maxine (Denoise/Deblur) |   ✅   |    ✅     |    ❌     |   ❌   |
 
 ### 🌊 Depth Map Models
 
@@ -259,7 +261,6 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [SUDO](https://github.com/styler00dollar)         | ShuffleCugan & ONNX models   | [VSGAN-tensorrt-docker](https://github.com/styler00dollar/VSGAN-tensorrt-docker)       |
 | [renarchi](https://github.com/renarchi)           | Adore, Fallin Soft & Strong models | [Fallin-Upscale](https://github.com/renarchi/Re-SISR)               |
 | [HZWER](https://github.com/hzwer)                 | RIFE interpolation framework | [Practical-RIFE](https://github.com/hzwer/Practical-RIFE)                              |
-| [the-database](https://github.com/the-database)   | SRVGGNet model variants      | [mpv-upscale-2x_animejanai](https://github.com/the-database/mpv-upscale-2x_animejanai) |
 | [SkyTNT](https://github.com/SkyTNT)               | Anime segmentation models    | [anime-segmentation](https://github.com/SkyTNT/anime-segmentation)                     |
 | [DepthAnything](https://github.com/DepthAnything) | Depth map generation         | [Depth-Anything-V2](https://github.com/DepthAnything/Depth-Anything-V2)                |
 | [Sirosky](https://github.com/Sirosky)             | Open-Proteus & AniScale 2    | [Upscale-Hub](https://github.com/Sirosky/Upscale-Hub)                                  |
@@ -280,6 +281,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [Chainner-org](https://github.com/chaiNNer-org) | Neural network architecture (vendored fork) | [spandrel](https://github.com/chaiNNer-org/spandrel)           |
 | [TNTWise](https://github.com/TNTwise)           | RIFE ONNX optimizations           | [GitHub](https://github.com/TNTwise)                           |
 | [Hyperbrew](https://github.com/hyperbrew)       | Adobe integration framework            | [bolt-cep](https://github.com/hyperbrew/bolt-cep)              |
+| [NVIDIA](https://github.com/NVIDIA)             | Maxine Video Effects SDK (RTX VSR) via `nvidia-vfx` | [MAXINE-VFX-SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)      |
 
 
 ### 🌟 TAS Collaborators

@@ -143,7 +143,6 @@ def generateOutputName(args, videoInput):
         ("dedup", "Dedup", "dedup_sens"),
         ("interpolate", "Int", "interpolate_factor"),
         ("upscale", "Up", "upscale_factor"),
-        ("sharpen", "Sh", "sharpen_sens"),
         ("restore", "Restore", "restore_method"),
         ("segment", "Segment", None),
         ("depth", "Depth", None),

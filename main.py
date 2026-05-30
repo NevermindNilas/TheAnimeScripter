@@ -85,7 +85,6 @@ class VideoProcessor:
         self.upscale: bool = args.upscale
         self.restore: bool = args.restore
         self.dedup: bool = args.dedup
-        self.sharpen: bool = args.sharpen
         self.autoclip: bool = args.autoclip
         self.depth: bool = args.depth
         self.segment: bool = args.segment
@@ -126,7 +125,6 @@ class VideoProcessor:
         self.outputScaleHeight: int = args.output_scale_height
 
         # Enhancement settings
-        self.sharpenSens: float = args.sharpen_sens
         self.autoclipSens: float = args.autoclip_sens
         self.autoclipMethod: str = args.autoclip_method
         self.depthQuality: str = args.depth_quality
@@ -471,8 +469,6 @@ class VideoProcessor:
                 width=self.new_width,
                 height=self.new_height,
                 fps=self.outputFPS,
-                sharpen=self.sharpen,
-                sharpen_sens=self.sharpenSens,
                 grayscale=False,
                 transparent=False,
                 benchmark=self.benchmark,

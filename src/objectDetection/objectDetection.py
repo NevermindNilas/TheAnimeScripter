@@ -92,8 +92,6 @@ class ObjectDetectionDML:
                 self.width,
                 self.height,
                 self.fps,
-                sharpen=False,
-                sharpen_sens=None,
                 grayscale=False,
                 benchmark=self.benchmark,
             )
@@ -315,8 +313,6 @@ class ObjectDetectionTensorRT:
                 self.width,
                 self.height,
                 self.fps,
-                sharpen=False,
-                sharpen_sens=None,
                 grayscale=False,
                 benchmark=self.benchmark,
             )

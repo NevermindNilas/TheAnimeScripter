@@ -471,7 +471,6 @@ def isAnyOtherProcessingMethodEnabled(args):
             args.segment,
             args.restore,
             args.stabilize,
-            args.sharpen,
             args.resize,
             args.dedup,
             args.depth,
@@ -1151,12 +1150,6 @@ def _addDedupOptions(argParser):
 def _addVideoProcessingOptions(argParser):
     processingGroup = argParser.add_argument_group("Video Processing")
     processingGroup.add_argument(
-        "--sharpen", action="store_true", help="Sharpen the video"
-    )
-    processingGroup.add_argument(
-        "--sharpen_sens", type=float, default=50, help="Sharpening sensitivity"
-    )
-    processingGroup.add_argument(
         "--restore", action="store_true", help="Restore the video"
     )
     processingGroup.add_argument(
@@ -1177,6 +1170,7 @@ def _addVideoProcessingOptions(argParser):
         "anime1080fixer-openvino",
         "fastlinedarken",
         "fastlinedarken-tensorrt",
+        "autocas",
         "gater3",
         "gater3-directml",
         "gater3-openvino",
@@ -1997,10 +1991,6 @@ def _configureProcessingSettings(args):
         logging.info(
             f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
         )
-
-    if args.sharpen:
-        args.sharpen_sens = args.sharpen_sens / 100
-        logging.info(f"New sharpen sensitivity is: {args.sharpen_sens}")
 
     if args.autoclip:
         if args.autoclip_method == "pyscenedetect":
