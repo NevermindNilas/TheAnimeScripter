@@ -214,6 +214,16 @@ class UniversalPytorch:
             self.cudaGraph = torch.cuda.CUDAGraph()
             self.initTorchCudaGraph()
 
+        self._outputPool = [
+            torch.zeros(
+                (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
+                device=checker.device,
+                dtype=torch.float16 if self.half else torch.float32,
+            ).to(memory_format=torch.channels_last)
+            for _ in range(2)
+        ]
+        self._poolIdx = 0
+
     @torch.inference_mode()
     def initTorchCudaGraph(self):
         with torch.cuda.graph(self.cudaGraph, stream=self.stream):
@@ -238,12 +248,11 @@ class UniversalPytorch:
         with torch.cuda.stream(self.stream):
             if self.compileMode == "default":
                 self.cudaGraph.replay()
+                output = self._outputPool[self._poolIdx]
+                output.copy_(self.dummyOutput, non_blocking=True)
             else:
-                self.dummyOutput.copy_(
-                    self.model(self.dummyInput),
-                    non_blocking=True,
-                )
-            output = self.dummyOutput.clone()
+                output = self.model(self.dummyInput)
+            self._poolIdx ^= 1
         self.stream.synchronize()
 
         return output
@@ -531,6 +540,16 @@ class UniversalTensorRT:
         self.cudaGraph = torch.cuda.CUDAGraph()
         self.initTorchCudaGraph()
 
+        self._outputPool = [
+            torch.zeros(
+                (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
+                device=checker.device,
+                dtype=self.dtype,
+            )
+            for _ in range(2)
+        ]
+        self._poolIdx = 0
+
     @torch.inference_mode()
     def initTorchCudaGraph(self):
         with torch.cuda.graph(self.cudaGraph, stream=self.stream):
@@ -552,7 +571,9 @@ class UniversalTensorRT:
 
         with torch.cuda.stream(self.stream):
             self.cudaGraph.replay()
-            output = self.dummyOutput.clone()
+            output = self._outputPool[self._poolIdx]
+            output.copy_(self.dummyOutput, non_blocking=True)
+            self._poolIdx ^= 1
         self.stream.synchronize()
 
         return output

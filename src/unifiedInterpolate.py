@@ -335,6 +335,17 @@ class RifeCuda:
 
         self._setupCudaGraph()
 
+        poolSize = max(int(self.interpolateFactor), 4)
+        self._outputPool = [
+            torch.zeros(
+                (1, 3, self.height, self.width),
+                dtype=self.dType,
+                device=checker.device,
+            ).to(memory_format=torch.channels_last)
+            for _ in range(poolSize)
+        ]
+        self._poolIdx = 0
+
     @torch.inference_mode()
     def _setupCudaGraph(self):
         """
@@ -440,20 +451,19 @@ class RifeCuda:
             case "infer":
                 with torch.cuda.stream(self.normStream):
                     if self.useGraph:
-                        # `frame` here is self._timestep_buffer (filled in-place
-                        # by __call__); the graph reads it + I0/I1 at their fixed
-                        # addresses. Replay on normStream == same stream/ordering
-                        # as the eager forward it replaces.
                         self.cudaGraph.replay()
-                        output = self._graphOut[
-                            :, :, : self.height, : self.width
-                        ].clone()
+                        output = self._outputPool[self._poolIdx]
+                        output.copy_(
+                            self._graphOut[:, :, : self.height, : self.width],
+                            non_blocking=True,
+                        )
                     elif self.staticStep:
-                        output = self.model(self.I0, self.I1, frame).clone()
+                        output = self.model(self.I0, self.I1, frame)
                     else:
                         output = self.model(self.I0, self.I1, frame)[
                             :, :, : self.height, : self.width
-                        ].clone()
+                        ]
+                    self._poolIdx = (self._poolIdx + 1) % len(self._outputPool)
                 self.normStream.synchronize()
                 return output
 
@@ -1042,6 +1052,17 @@ class RifeTensorRT:
         self.cudaGraph = torch.cuda.CUDAGraph()
         self.initTorchCudaGraph()
 
+        poolSize = max(int(self.interpolateFactor), 4)
+        self._outputPool = [
+            torch.zeros(
+                (1, 3, self.height, self.width),
+                device=checker.device,
+                dtype=self.dtype,
+            )
+            for _ in range(poolSize)
+        ]
+        self._poolIdx = 0
+
     @torch.inference_mode()
     def initTorchCudaGraph(self):
         with torch.cuda.graph(self.cudaGraph, stream=self.stream):
@@ -1121,7 +1142,9 @@ class RifeTensorRT:
                 self.cudaGraph.replay()
             self.stream.synchronize()
             with torch.cuda.stream(self.outputStream):
-                output = self.dummyOutput.clone()
+                output = self._outputPool[self._poolIdx]
+                output.copy_(self.dummyOutput, non_blocking=True)
+                self._poolIdx = (self._poolIdx + 1) % len(self._outputPool)
             self.outputStream.synchronize()
             interpQueue.put(output)
 
