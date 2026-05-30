@@ -1,7 +1,7 @@
 """Tests for src/utils/argumentsChecker.py — pure CLI helper logic.
 
 Covers the parts that carry real logic rather than argparse plumbing:
-- sensitivity remapping in _configureProcessingSettings (dedup/sharpen/autoclip),
+- sensitivity remapping in _configureProcessingSettings (dedup/autoclip),
   where user-facing 0-100 scales get inverted/rescaled per method. This is the
   area recent fixes touched, so the exact transforms are pinned here.
 - "did you mean?" fuzzy suggestion machinery.
@@ -29,7 +29,6 @@ def makeArgs(**overrides):
     base = dict(
         slowmo=False, static_step=False, interpolate_factor=2.0,
         dedup=False, smooth_dedup=False, dedup_method="ssim", dedup_sens=35.0,
-        sharpen=False, sharpen_sens=50.0,
         autoclip=False, autoclip_method="pyscenedetect", autoclip_sens=50.0,
         compile_mode="default",
     )
@@ -68,7 +67,7 @@ def testStr2boolRejectsGarbage():
 def fullFlags(**on):
     flags = dict(
         interpolate=False, upscale=False, segment=False, restore=False,
-        stabilize=False, sharpen=False, resize=False, dedup=False, depth=False,
+        stabilize=False, resize=False, dedup=False, depth=False,
         autoclip=False, obj_detect=False, moblur=False,
     )
     flags.update(on)
@@ -103,12 +102,6 @@ def testMseDedupSensUntouched():
     a = makeArgs(dedup=True, dedup_method="mse", dedup_sens=20.0)
     _configureProcessingSettings(a)
     assert a.dedup_sens == 20.0
-
-
-def testSharpenSensDividedBy100():
-    a = makeArgs(sharpen=True, sharpen_sens=50.0)
-    _configureProcessingSettings(a)
-    assert a.sharpen_sens == pytest.approx(0.5)
 
 
 def testPysceneDetectSensInvertedOn0To100Scale():

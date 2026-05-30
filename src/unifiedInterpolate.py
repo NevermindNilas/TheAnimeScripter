@@ -333,6 +333,72 @@ class RifeCuda:
             device=checker.device,
         )
 
+        self._setupCudaGraph()
+
+    @torch.inference_mode()
+    def _setupCudaGraph(self):
+        """
+        Capture the per-frame model forward into a CUDA graph and replay it in
+        the "infer" path, removing eager per-kernel launch overhead.
+
+        Only the forward is captured; it is replayed on ``normStream`` in the
+        exact spot the eager call ran, so every existing stream synchronize /
+        cross-op race guard (decode-buffer / upscale interaction) is preserved
+        unchanged. I0/I1/_timestep_buffer are fixed buffers already, so replay
+        reads their current contents.
+
+        Disabled when:
+          - not CUDA,
+          - ``staticStep`` (different forward signature/return), or
+          - ``dynamicScale`` (scale_list recomputed per frame from data -> a
+            single captured graph would bake in one scale).
+        Any arch whose forward is not safely capturable is caught by the
+        self-check below (graph replay must match an eager forward) and falls
+        back to the eager path.
+        """
+        self.cudaGraph = None
+        self._graphOut = None
+        self.useGraph = (
+            checker.cudaAvailable and not self.staticStep and not self.dynamicScale
+        )
+        if not self.useGraph:
+            return
+
+        try:
+            warmStream = torch.cuda.Stream()
+            warmStream.wait_stream(torch.cuda.current_stream())
+            with torch.cuda.stream(warmStream):
+                for _ in range(3):
+                    self.model(self.I0, self.I1, self._timestep_buffer)
+            torch.cuda.current_stream().wait_stream(warmStream)
+            torch.cuda.synchronize()
+
+            self.cudaGraph = torch.cuda.CUDAGraph()
+            with torch.cuda.graph(self.cudaGraph, stream=self.normStream):
+                self._graphOut = self.model(self.I0, self.I1, self._timestep_buffer)
+            self.normStream.synchronize()
+
+            # Self-check: replay must match a fresh eager forward on the same
+            # inputs, else disable the graph (protects arches where capture
+            # silently misbehaves).
+            self._timestep_buffer.fill_(0.5)
+            self.I1.copy_(self.I0)
+            eagerRef = self.model(self.I0, self.I1, self._timestep_buffer).clone()
+            self.cudaGraph.replay()
+            self.normStream.synchronize()
+            if not torch.allclose(eagerRef, self._graphOut, rtol=1e-3, atol=1e-3):
+                raise RuntimeError("graph replay output != eager forward")
+            self._timestep_buffer.zero_()
+            self.I1.zero_()
+        except Exception as e:
+            logging.error(
+                f"RifeCuda CUDA-graph capture disabled for "
+                f"{self.interpolateMethod}: {e}"
+            )
+            self.cudaGraph = None
+            self._graphOut = None
+            self.useGraph = False
+
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
         self.processFrame(frame, "cache")
@@ -373,7 +439,16 @@ class RifeCuda:
 
             case "infer":
                 with torch.cuda.stream(self.normStream):
-                    if self.staticStep:
+                    if self.useGraph:
+                        # `frame` here is self._timestep_buffer (filled in-place
+                        # by __call__); the graph reads it + I0/I1 at their fixed
+                        # addresses. Replay on normStream == same stream/ordering
+                        # as the eager forward it replaces.
+                        self.cudaGraph.replay()
+                        output = self._graphOut[
+                            :, :, : self.height, : self.width
+                        ].clone()
+                    elif self.staticStep:
                         output = self.model(self.I0, self.I1, frame).clone()
                     else:
                         output = self.model(self.I0, self.I1, frame)[

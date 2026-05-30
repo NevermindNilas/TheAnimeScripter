@@ -20,7 +20,6 @@ def make_args(**overrides):
         dedup=0, dedup_sens=50,
         interpolate=0, interpolate_factor=2,
         upscale=0, upscale_factor=2,
-        sharpen=0, sharpen_sens=50,
         restore=0, restore_method="scunet",
         segment=0, depth=0, ytdlp=0,
         single_image_input=0,

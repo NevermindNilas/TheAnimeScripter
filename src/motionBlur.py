@@ -338,8 +338,6 @@ class MotionBlurPipeline:
             self.width,
             self.height,
             self.fps,
-            sharpen=False,
-            sharpen_sens=0.0,
             grayscale=False,
             benchmark=self.benchmark,
             bitDepth=self.bitDepth,

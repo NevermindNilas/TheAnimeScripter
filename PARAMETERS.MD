@@ -168,8 +168,7 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 # Comprehensive restoration
 ./python.exe ./main.py --input old_anime.mp4 \
   --upscale --upscale_method shufflecugan-tensorrt \
-  --restore --restore_method anime1080fixer-tensorrt \
-  --sharpen --sharpen_sens 30 \
+  --restore --restore_method anime1080fixer-tensorrt autocas \
   --interpolate --interpolate_method rife4.25 \
 ```
 **What it does:** Restores quality, removes noise, enhances details, smooths motion
@@ -185,7 +184,7 @@ The `--upscale` and `--interpolate` flags are **automatically enabled** when the
 ./python.exe ./main.py --input gameplay.mp4 \
   --upscale --upscale_method openproteus-tensorrt \
   --interpolate --interpolate_method rife4.25-tensorrt \
-  --sharpen --sharpen_sens 30 \
+  --restore --restore_method autocas \
   --encode_method x264_animation
 ```
 **What it does:** Enhances motion and detail for gaming footage
@@ -375,8 +374,6 @@ C:\Videos\episode3.mp4
 | `--restore` | flag | False | - | **Enable denoising/restoration** — automatically enabled when `--restore_method` is specified |
 | `--restore_method` | str | list | ["anime1080fixer"] | **Restoration model(s) — accepts multiple methods for chained processing** — specifying a non-default method auto-enables restoration |
 | `--stabilize` | flag | False | - | **Enable conservative video stabilization** (translation/rotation with black border fill) |
-| `--sharpen` | flag | False | - | **Enable sharpening** |
-| `--sharpen_sens` | float | 50 | 0-100 | **Sharpening intensity** |
 
 #### 🎯 Restoration Models
 
@@ -388,6 +385,7 @@ C:\Videos\episode3.mp4
 | **real-plksr** | ⚡ | ⭐⭐ | ⭐⭐⭐⭐ | JPEG artifact removal | CUDA |
 | **anime1080fixer** | ⚡⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Anime line enhancement | CUDA, TRT, DML, OpenVINO |
 | **fastlinedarken** | ⚡⚡⚡⚡⚡ | ⭐⭐| ⭐⭐ | Line darkening | CUDA, TRT |
+| **autocas** | ⚡⚡⚡⚡⚡ | ⭐ | ⭐⭐⭐ | Adaptive sharpening (auto-tuned FidelityFX CAS, no weights) | CUDA, CPU |
 | **gater3** | ⚡⚡ | ⭐⭐⭐⭐ | ⭐⭐⭐ | Advanced denoising | CUDA, DML, OpenVINO |
 | **deh264_real** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | De-H.264 artifact removal | CUDA, TRT, DML, OpenVINO |
 | **deh264_span** | ⚡⚡ | ⭐⭐⭐ | ⭐⭐⭐ | SPAN-based de-H.264 | CUDA, TRT, DML, OpenVINO |
@@ -617,9 +615,9 @@ C:\Videos\episode3.mp4
 |--------------|-----------|---------------|------------|
 | **TV Anime** | shufflecugan-tensorrt | rife4.22-tensorrt | restore_method anime1080fixer |
 | **Movie Anime** | span-tensorrt | rife4.25 | ensemble, restore |
-| **Gaming** | openproteus-tensorrt | rife4.20-tensorrt | sharpen_sens 30 |
+| **Gaming** | openproteus-tensorrt | rife4.20-tensorrt | restore_method autocas |
 | **Live Action** | open-proteus-tensorrt | rife4.22-tensorrt | restore_method nafnet |
-| **Old Content** | span-tensorrt | rife4.25 | restore, sharpen |
+| **Old Content** | span-tensorrt | rife4.25 | restore_method scunet autocas |
 
 ---
 
@@ -961,8 +959,7 @@ C:\Videos\episode3.mp4
 ./python.exe ./main.py --input "old_video.avi" \
   --upscale --upscale_method span-tensorrt \
   --interpolate --interpolate_method rife4.25 \
-  --restore --restore_method nafnet \
-  --sharpen --sharpen_sens 40 \
+  --restore --restore_method nafnet autocas \
   --dedup --dedup_method ssim \
   --encode_method slow_x265 \
   --bit_depth 10bit

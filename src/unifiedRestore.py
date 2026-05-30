@@ -125,6 +125,42 @@ class UnifiedRestoreCuda:
         return frame
 
 
+class AutoCAS:
+    """
+    AutoCAS — AMD FidelityFX Contrast Adaptive Sharpening (PyTorch port) with
+    automatic strength detection. Deterministic signal-processing filter: no
+    weights, nothing to download. Replaces the old FFmpeg `cas` --sharpen path
+    with a frame-tensor restore stage that auto-tunes its sharpening amount per
+    frame from the image's own blur statistics.
+
+    Runs on the input frame's own device (CUDA / CPU / MPS). The blur/contrast
+    statistics are computed in fp32 internally, so fp16 input is safe.
+    """
+
+    def __init__(self, half: bool = True):
+        if ADOBE:
+            progressState.update({"status": "Loading restore model: autocas..."})
+
+        from src.extraArches.cas import contrast_adaptive_sharpening
+
+        self._cas = contrast_adaptive_sharpening
+        self.half = half
+        self.dType = torch.float16 if half else torch.float32
+        self.stream = torch.cuda.Stream() if checker.cudaAvailable else None
+
+    @torch.inference_mode()
+    def __call__(self, frame: torch.Tensor) -> torch.Tensor:
+        # amount=None -> per-frame auto-tune from the frame's own blur signal.
+        # Cast + filter run inside the restore stream (mirrors UnifiedRestoreCuda)
+        # so the dtype cast is visible to the filter without a cross-stream race.
+        if frame.is_cuda and self.stream is not None:
+            with torch.cuda.stream(self.stream):
+                frame = self._cas(frame.to(dtype=self.dType), amount=None)
+            self.stream.synchronize()
+            return frame
+        return self._cas(frame.to(dtype=self.dType), amount=None)
+
+
 # NVIDIA Works Notice (required by NVIDIA Software License Agreement
 # AI Product-Specific Terms §1.7.1 for distributed source files using
 # the NVIDIA Video Effects SDK / Maxine):
