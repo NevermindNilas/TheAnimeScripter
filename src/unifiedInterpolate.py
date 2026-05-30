@@ -17,9 +17,6 @@ if ADOBE:
 
 checker = CudaChecker()
 
-torch.set_float32_matmul_precision("medium")
-
-
 _RIFE_V1 = {
     "rife":           ("IFNet425",      "IFNet_rife425"),
     "rife4.25":       ("IFNet425",      "IFNet_rife425"),
@@ -772,8 +769,6 @@ class RifeTensorRT:
         self.handleModel()
 
     def handleModel(self):
-        if self.half:
-            torch.set_default_dtype(torch.float16)
         self.filename = modelsMap(
             self.interpolateMethod.replace("-tensorrt", ""),
             modelType="pth",
@@ -1341,8 +1336,6 @@ class RifeDirectML:
             self.numpyDType = np.float32
             self.torchDType = torch.float32
 
-        if self.half:
-            torch.set_default_dtype(torch.float16)
         self.filename = modelsMap(
             self.interpolateMethod.replace("-directml", ""),
             modelType="pth",

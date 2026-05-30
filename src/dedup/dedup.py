@@ -50,18 +50,10 @@ class DedupSSIMCuda:
             return True
 
     def processFrame(self, frame):
-        return (
-            F.interpolate(
-                frame.half(),
-                (self.sampleSize, self.sampleSize),
-                mode="nearest",
-            )
-            if self.half
-            else F.interpolate(
-                frame.float(),
-                (self.sampleSize, self.sampleSize),
-                mode="nearest",
-            )
+        return F.interpolate(
+            frame if self.half else frame.float(),
+            (self.sampleSize, self.sampleSize),
+            mode="nearest",
         )
 
 
@@ -185,19 +177,11 @@ class DedupMSECuda:
             return False
 
     def processFrame(self, frame):
-        return (
-            F.interpolate(
-                frame.half(),
-                (self.sampleSize, self.sampleSize),
-                mode="nearest",
-            ).mul(255.0)
-            if self.half
-            else F.interpolate(
-                frame.float(),
-                (self.sampleSize, self.sampleSize),
-                mode="nearest",
-            ).mul(255.0)
-        )
+        return F.interpolate(
+            frame if self.half else frame.float(),
+            (self.sampleSize, self.sampleSize),
+            mode="nearest",
+        ).mul(255.0)
 
 
 class DedupFlownetS:

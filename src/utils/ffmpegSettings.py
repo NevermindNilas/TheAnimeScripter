@@ -997,33 +997,48 @@ class WriteBuffer:
                     bufferIdx = 1 - bufferIdx
 
             else:
-                while True:
-                    try:
-                        frame = self.writeBuffer.get(timeout=1.0)
-                    except Exception:
-                        time.sleep(0.001)
-                        continue
-                    if frame is None:
-                        break
+                from concurrent.futures import ThreadPoolExecutor
 
-                    if needsResize:
-                        frame = F.interpolate(
-                            frame,
-                            size=(self.height, self.width),
-                            mode="bicubic",
-                            align_corners=False,
+                with ThreadPoolExecutor(max_workers=1) as cpuWritePool:
+                    pendingWrite = None
+
+                    while True:
+                        try:
+                            frame = self.writeBuffer.get(timeout=1.0)
+                        except Exception:
+                            time.sleep(0.001)
+                            continue
+                        if frame is None:
+                            break
+
+                        if pendingWrite is not None:
+                            pendingWrite.result()
+
+                        if needsResize:
+                            frame = F.interpolate(
+                                frame,
+                                size=(self.height, self.width),
+                                mode="bicubic",
+                                align_corners=False,
+                            )
+                        frameBytes = (
+                            frame.squeeze(0)
+                            .permute(1, 2, 0)
+                            .mul(multiplier)
+                            .clamp(0, multiplier)
+                            .to(dtype)
+                            .contiguous()
+                            .numpy()
+                            .tobytes()
                         )
-                    frameTensor = (
-                        frame.squeeze(0)
-                        .permute(1, 2, 0)
-                        .mul(multiplier)
-                        .clamp(0, multiplier)
-                        .to(dtype)
-                        .contiguous()
-                    )
 
-                    ffmpegProc.stdin.write(frameTensor.numpy().tobytes())
-                    writtenFrames += 1
+                        pendingWrite = cpuWritePool.submit(
+                            ffmpegProc.stdin.write, frameBytes
+                        )
+                        writtenFrames += 1
+
+                    if pendingWrite is not None:
+                        pendingWrite.result()
 
             logging.info(f"Encoded {writtenFrames} frames")
 

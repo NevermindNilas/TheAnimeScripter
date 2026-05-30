@@ -33,6 +33,9 @@ from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 from fractions import Fraction
 import src.constants as cs
+import torch
+
+torch.set_float32_matmul_precision("medium")
 
 warnings.filterwarnings("ignore")
 
