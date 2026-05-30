@@ -325,8 +325,6 @@ class BuildBuffer:
                 else:
                     frame = frame.unsqueeze(0)
 
-                frame = frame.to(memory_format=torch.channels_last)
-
             if normStream is not None:
                 normStream.synchronize()
             return frame
