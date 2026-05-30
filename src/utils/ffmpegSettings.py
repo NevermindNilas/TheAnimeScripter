@@ -827,6 +827,15 @@ class WriteBuffer:
         if self.output.endswith(".webm"):
             audioCodec = "libopus"
             subCodec = "webvtt"
+        elif self.output.endswith(".mov"):
+            # MOV cannot stream-copy opus/vorbis (FFmpeg aborts with
+            # "opus only supported in MP4"). The transparent/segment path
+            # always lands here as prores in a .mov, so transcode to a
+            # container-safe codec instead of dropping the muxer. mov_text is
+            # the MOV subtitle codec (copy of webvtt/srt fails the same way).
+            # MP4/M4V are left on copy — they accept opus natively.
+            audioCodec = "aac"
+            subCodec = "mov_text"
         audioSettings.extend(["-c:a", audioCodec, "-map", "1:s?", "-c:s", subCodec])
 
         if self.outpoint != 0:
