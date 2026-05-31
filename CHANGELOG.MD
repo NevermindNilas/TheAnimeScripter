@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 
+
+## [2.7.6] - 2026-05-31
+### Removed
+- `--sharpen` / `--sharpen_sens` and any refereces to it.
+
+### Fixed
+- `--segment` (and any `prores`/transparent `.mov` output) crashed at encode start when the source had opus/vorbis audio — `WriteBuffer` stream-copied the audio into MOV, which FFmpeg rejects (`opus only supported in MP4`). `.mov` outputs now transcode audio to `aac` and subtitles to `mov_text` (MP4/M4V stay on copy — they accept opus natively).
+
+
+## [2.7.5] - 2026-05-30
+
 ### Added
 - ArtCNN luma upscale backend ([Artoriuz/ArtCNN](https://github.com/Artoriuz/ArtCNN)). ArtCNN doublers upscale the luma (Y) channel only, so the RGB frame is split to BT.709 Y'CbCr, the model runs on Y, chroma is bicubic-upscaled, and the planes are recombined. 8 models × 3 backends (`-tensorrt`, `-directml`, `-openvino`): `artcnn_c4f16{,_dn,_ds}`, `artcnn_c4f32{,_dn,_ds}`, `artcnn_r8f64`, `artcnn_r16f96` (DN = denoise/soften, DS = denoise/sharpen; only the C-series ship those variants). Fixed 2x, fp16/fp32.
 - `deepdeband-f` restore method ([RaymondLZhou/deepDeband](https://github.com/RaymondLZhou/deepDeband), ICIP 2022).
@@ -16,8 +27,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `THIRD_PARTY_NOTICES.md` covering NVIDIA Video Effects SDK attribution requirement (AI Product-Specific Terms §1.7.1).
 - `NeluxWriteBuffer` (the `*_nelux` encode methods) now muxes audio + subtitle streams from the source via `nelux.VideoEncoder.add_passthrough` instead of dropping them — `*_nelux` output was previously silent and subtitle-less because the path never spawned FFmpeg for muxing. Streams are registered before the first `encode_frame` (when the container header is written), gated/rebased to the `--ss`/`--to` (`inpoint`/`outpoint`) window to match the decode-side video trim, and gated on the `cs.AUDIO` global like the FFmpeg `WriteBuffer`. `allow_transcode=True` (nelux ≥ 0.12.0; feature-detected, copy-only fallback on older builds) re-encodes streams the container can't stream-copy (e.g. AAC→WebM → opus/webvtt) instead of skipping them, mirroring the `WriteBuffer` WebM path. Verified end-to-end: mkv(h264+aac+subrip) → mkv carries all three streams, and a 0.5–1.5s trim produces a 1.0s clip with audio/subs packet-gated to the window (`src/utils/ffmpegSettings.py` `NeluxWriteBuffer._setupPassthrough`). No FFmpeg subprocess is spawned on the `*_nelux` path.
 
-### Removed
-- `--sharpen` / `--sharpen_sens` and any refereces to it.
 - 
 ### Fixed
 - `--segment` (and any `prores`/transparent `.mov` output) crashed at encode start when the source had opus/vorbis audio — `WriteBuffer` stream-copied the audio into MOV, which FFmpeg rejects (`opus only supported in MP4`). `.mov` outputs now transcode audio to `aac` and subtitles to `mov_text` (MP4/M4V stay on copy — they accept opus natively).
