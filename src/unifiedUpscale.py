@@ -224,10 +224,7 @@ class UniversalPytorch:
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(
-                frame.to(
-                    dtype=self.dummyInput.dtype,
-                    memory_format=torch.channels_last,
-                ),
+                frame.to(dtype=self.dummyInput.dtype),
                 non_blocking=True,
             )
         self.normStream.synchronize()
