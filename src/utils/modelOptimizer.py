@@ -1,4 +1,3 @@
-from torch.fx import GraphModule
 import torch
 import logging
 
@@ -30,27 +29,4 @@ class ModelOptimizer:
         if not isinstance(self.model, torch.nn.Module):
             raise TypeError("Model must be an instance of torch.nn.Module")
 
-        try:
-            symbolicTraced: GraphModule = torch.fx.symbolic_trace(self.model)
-        except Exception as e:
-            logging.error(f"Error tracing model: {e}")
-            return self.toMemoryFormat(self.model)
-
-        # I only tested this so far, I will need to test other optimizations
-        class ReplaceReLU(torch.fx.Transformer):
-            def call_module(self, target, args, kwargs):
-                # Note: do not swap ReLU for LeakyReLU here — that silently
-                # changes the model's activation semantics and corrupts output.
-                return super().call_module(target, args, kwargs)
-
-        try:
-            transformer = ReplaceReLU(symbolicTraced)
-            optimizedModel = transformer.transform()
-        except Exception:
-            optimizedModel = symbolicTraced
-
-        optimizedModel = self.toMemoryFormat(optimizedModel)
-        return optimizedModel
-
-    def toMemoryFormat(self, model) -> torch.nn.Module:
-        return model.to(memory_format=self.memoryFormat)
+        return self.model.to(memory_format=self.memoryFormat)
