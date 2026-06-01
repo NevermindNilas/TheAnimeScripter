@@ -623,29 +623,34 @@ class ObjectDetectionDFineTensorRT(ObjectDetectionTensorRT):
         self.inputWidth = inputDims[3].dim_value if inputDims[3].dim_value > 0 else 640
         logging.info(f"Model input shape: 1x3x{self.inputHeight}x{self.inputWidth}")
 
-        # D-FINE raw head emits TWO outputs: class logits [1, Q, C] and boxes [1, Q, 4].
-        self.boxesOutputName = None
-        self.logitsOutputName = None
-        self.numQueries = 0
-        self.numClasses = 0
+        # D-FINE raw head emits EXACTLY TWO outputs: class logits [1, Q, C] and
+        # boxes [1, Q, 4]. Collect candidates and fail fast on any deviation rather
+        # than silently overwriting the bindings if an export adds an aux output.
+        boxesOutputs = []
+        logitsOutputs = []
         for out in onnxModel.graph.output:
             dims = [d.dim_value for d in out.type.tensor_type.shape.dim]
             if len(dims) >= 1 and dims[-1] == 4:
-                self.boxesOutputName = out.name
-                if len(dims) >= 2 and dims[1] > 0:
-                    self.numQueries = dims[1]
+                boxesOutputs.append((out.name, dims))
             else:
-                self.logitsOutputName = out.name
-                if dims and dims[-1] > 0:
-                    self.numClasses = dims[-1]
-                if len(dims) >= 2 and dims[1] > 0:
-                    self.numQueries = dims[1]
+                logitsOutputs.append((out.name, dims))
 
-        if self.boxesOutputName is None or self.logitsOutputName is None:
+        if len(onnxModel.graph.output) != 2 or len(boxesOutputs) != 1 or len(logitsOutputs) != 1:
             raise ValueError(
-                "Could not identify D-FINE logits/boxes outputs from "
+                "D-FINE RAW head must emit exactly two outputs (one boxes [.,.,4], "
+                "one logits); got "
                 f"{[o.name for o in onnxModel.graph.output]}"
             )
+
+        self.boxesOutputName, boxDims = boxesOutputs[0]
+        self.logitsOutputName, logitDims = logitsOutputs[0]
+        self.numQueries = 0
+        self.numClasses = 0
+        for dims in (boxDims, logitDims):
+            if len(dims) >= 2 and dims[1] > 0:
+                self.numQueries = dims[1]
+        if logitDims and logitDims[-1] > 0:
+            self.numClasses = logitDims[-1]
         if self.numQueries <= 0:
             self.numQueries = 300
         if self.numClasses <= 0:
@@ -713,9 +718,15 @@ class ObjectDetectionDFineTensorRT(ObjectDetectionTensorRT):
                 self.context.set_tensor_address(tensorName, self.dummyInput.data_ptr())
             elif tensorName == self.boxesOutputName:
                 self.context.set_tensor_address(tensorName, self.dummyBoxes.data_ptr())
-            else:
+            elif tensorName == self.logitsOutputName:
                 self.context.set_tensor_address(
                     tensorName, self.dummyLogits.data_ptr()
+                )
+            else:
+                # Bind explicitly; alias-into-logits on an unexpected output would
+                # be silent corruption.
+                raise ValueError(
+                    f"Unexpected TensorRT IO tensor '{tensorName}' for D-FINE engine"
                 )
 
         with torch.cuda.stream(self.stream):

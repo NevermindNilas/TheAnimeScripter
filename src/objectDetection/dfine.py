@@ -41,19 +41,28 @@ def splitDFineOutputs(outputs):
     one whose last dimension is 4; the other is the class logits.
     """
     arrays = [np.asarray(o) for o in outputs]
-    boxes = None
-    logits = None
-    for arr in arrays:
-        if arr.shape[-1] == 4:
-            boxes = arr
-        else:
-            logits = arr
-    if boxes is None or logits is None:
+    boxesArrays = [a for a in arrays if a.shape[-1] == 4]
+    logitsArrays = [a for a in arrays if a.shape[-1] != 4]
+    # RAW head contract is exactly two outputs; fail fast rather than silently
+    # mis-route if a future export adds an auxiliary tensor.
+    if len(arrays) != 2 or len(boxesArrays) != 1 or len(logitsArrays) != 1:
         raise ValueError(
-            "Unexpected D-FINE outputs; could not identify logits/boxes from shapes "
+            "D-FINE RAW head must emit exactly two outputs (one boxes tensor with "
+            "last dim 4, one logits tensor); got shapes "
             f"{[a.shape for a in arrays]}"
         )
-    return logits, boxes
+    return logitsArrays[0], boxesArrays[0]
+
+
+def _sigmoid(x):
+    """Numerically-stable sigmoid (no exp-overflow warnings on large-magnitude
+    negative focal logits); identical values to 1/(1+exp(-x))."""
+    out = np.empty_like(x, dtype=np.float32)
+    pos = x >= 0
+    out[pos] = 1.0 / (1.0 + np.exp(-x[pos]))
+    ex = np.exp(x[~pos])
+    out[~pos] = ex / (1.0 + ex)
+    return out
 
 
 def _emptyDetections():
@@ -89,14 +98,17 @@ def decodeDFine(
     numClasses = logits.shape[-1]
 
     # Focal/sigmoid scoring: every (query, class) pair is an independent candidate.
-    scores = 1.0 / (1.0 + np.exp(-logits))  # [Q, C]
+    scores = _sigmoid(logits)  # [Q, C]
     flat = scores.reshape(-1)  # [Q * C]
 
     k = int(min(numTopQueries, flat.shape[0]))
     if k <= 0:
         return _emptyDetections()
 
+    # argpartition leaves the top-k unordered; sort descending so detections (and
+    # therefore draw order, highest-confidence on top) are deterministic.
     topIdx = np.argpartition(flat, -k)[-k:]
+    topIdx = topIdx[np.argsort(-flat[topIdx])]
     topScores = flat[topIdx]
 
     classIds = (topIdx % numClasses).astype(np.int64)
