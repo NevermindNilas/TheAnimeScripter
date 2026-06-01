@@ -1484,51 +1484,33 @@ class RifeDirectML:
                 self.modelPath, providers=["CPUExecutionProvider"]
             )
 
-        self.needsOutputSync = any(
-            provider in self.model.get_providers()
-            for provider in ("DmlExecutionProvider", "OpenVINOExecutionProvider")
+        self.I0Np = np.zeros(
+            (1, 3, self.ph, self.pw),
+            dtype=self.numpyDType,
         )
+        self.I0 = torch.from_numpy(self.I0Np)
 
-        self.IoBinding = self.model.io_binding()
-        self.I0 = torch.zeros(
-            1,
-            3,
-            self.ph,
-            self.pw,
-            dtype=self.dtype,
-            device=self.device,
-        ).contiguous()
+        self.I1Np = np.zeros(
+            (1, 3, self.ph, self.pw),
+            dtype=self.numpyDType,
+        )
+        self.I1 = torch.from_numpy(self.I1Np)
 
-        self.I1 = torch.zeros(
-            1,
-            3,
-            self.ph,
-            self.pw,
-            dtype=self.dtype,
-            device=self.device,
-        ).contiguous()
-
-        self.dummyTimeStep = torch.full(
+        self.dummyTimeStepNp = np.full(
             (1, 1, self.ph, self.pw),
             0.5,
-            dtype=self.dtype,
-            device=self.device,
-        ).contiguous()
-
-        self.dummyOutput = torch.zeros(
-            (1, 3, self.height, self.width),
-            device=self.device,
-            dtype=self.dtype,
-        ).contiguous()
-
-        self.IoBinding.bind_output(
-            name="output",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.dummyOutput.shape,
-            buffer_ptr=self.dummyOutput.data_ptr(),
+            dtype=self.numpyDType,
         )
+        self.dummyTimeStep = torch.from_numpy(self.dummyTimeStepNp)
+
+        self.dummyOutputNp = np.zeros(
+            (1, 3, self.height, self.width),
+            dtype=self.numpyDType,
+        )
+        self.dummyOutput = torch.from_numpy(self.dummyOutputNp)
+
+        self.inputName = self.model.get_inputs()[0].name
+        self.outputName = self.model.get_outputs()[0].name
 
 
 
@@ -1577,30 +1559,6 @@ class RifeDirectML:
 
         self.processFrame(frame, "I1")
 
-        self.IoBinding.bind_input(
-            name="img0",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.I0.shape,
-            buffer_ptr=self.I0.data_ptr(),
-        )
-        self.IoBinding.bind_input(
-            name="img1",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.I1.shape,
-            buffer_ptr=self.I1.data_ptr(),
-        )
-        self.IoBinding.bind_input(
-            name="timestep",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.dummyTimeStep.shape,
-            buffer_ptr=self.dummyTimeStep.data_ptr(),
-        )
         for i in range(framesToInsert):
             if timesteps is not None and i < len(timesteps):
                 t = timesteps[i]
@@ -1609,9 +1567,15 @@ class RifeDirectML:
 
             self.dummyTimeStep.fill_(t)
 
-            self.model.run_with_iobinding(self.IoBinding)
-            if self.needsOutputSync:
-                self.IoBinding.synchronize_outputs()
+            outputs = self.model.run(
+                [self.outputName],
+                {
+                    "img0": self.I0Np,
+                    "img1": self.I1Np,
+                    "timestep": self.dummyTimeStepNp,
+                },
+            )
+            np.copyto(self.dummyOutputNp, outputs[0])
 
             interpQueue.put(self.dummyOutput.clone())
 
