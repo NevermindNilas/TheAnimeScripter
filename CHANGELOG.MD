@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased] - YYYY-MM-DD
+### Added
+- **`--moblur_method`** — pick the motion-blur interpolation model + backend: `rife4.6` / `rife4.25` (CUDA) and their `-tensorrt` / `-directml` variants. Default `rife4.25` (rife4.6 is faster). Previously motion blur reused `--interpolate_method`.
+
+### Performance
+- **Motion blur is faster on CUDA** — only the frames inside the shutter window are interpolated. ~1.5× faster at the default shutter 180, up to ~3× at shutter 90. Output is unchanged; TensorRT/DirectML and shutter 360 are unaffected.
 
 
 ## [2.7.7] - 2026-06-01

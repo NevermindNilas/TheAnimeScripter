@@ -1250,6 +1250,23 @@ def _addMotionBlurOptions(argParser):
         help="Add motion blur via interpolation and frame blending",
     )
     moblurGroup.add_argument(
+        "--moblur_method",
+        type=str,
+        default="rife4.25",
+        choices=[
+            "rife4.6",
+            "rife4.25",
+            "rife4.6-directml",
+            "rife4.25-directml",
+            "rife4.6-tensorrt",
+            "rife4.25-tensorrt",
+        ],
+        help="Interpolation model + backend used to synthesize the motion-blur samples. "
+        "rife4.25 is sharper/slower, rife4.6 is faster. Suffix picks the backend: "
+        "none = CUDA (NVIDIA; the only path that gets the windowed-sample speedup), "
+        "-tensorrt = CUDA via TensorRT, -directml = AMD/Intel GPUs.",
+    )
+    moblurGroup.add_argument(
         "--moblur_factor",
         type=int,
         default=8,
@@ -1536,6 +1553,7 @@ def _autoEnableParentFlags(args):
         "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
         "resize_factor": ("resize", 2),
         "output_scale": ("resize", ""),
+        "moblur_method": ("moblur", "rife4.25"),
         "moblur_factor": ("moblur", 8),
         "moblur_strength": ("moblur", "gaussian_sym"),
         "moblur_shutter_angle": ("moblur", 180.0),
@@ -2106,6 +2124,7 @@ def _adjustMethodsBasedOnCuda(args):
         availableModels = modelsList()
         methodAttributes = [
             "interpolate_method",
+            "moblur_method",
             "upscale_method",
             "segment_method",
             "depth_method",
@@ -2116,6 +2135,7 @@ def _adjustMethodsBasedOnCuda(args):
 
         methodToFlag = {
             "interpolate_method": "interpolate",
+            "moblur_method": "moblur",
             "upscale_method": "upscale",
             "segment_method": "segment",
             "depth_method": "depth",
