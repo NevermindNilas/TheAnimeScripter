@@ -999,6 +999,7 @@ class WriteBuffer:
             else:
                 from concurrent.futures import ThreadPoolExecutor
 
+                # Use a single‑worker thread pool to serialize ffmpeg writes while allowing the main thread to continue frame conversion.
                 with ThreadPoolExecutor(max_workers=1) as cpuWritePool:
                     pendingWrite = None
 
@@ -1011,9 +1012,7 @@ class WriteBuffer:
                         if frame is None:
                             break
 
-                        if pendingWrite is not None:
-                            pendingWrite.result()
-
+                        # Resize if needed and convert the tensor to raw bytes for ffmpeg.
                         if needsResize:
                             frame = F.interpolate(
                                 frame,
@@ -1032,11 +1031,13 @@ class WriteBuffer:
                             .tobytes()
                         )
 
+                        # Submit the write operation without awaiting it, enabling overlap.
                         pendingWrite = cpuWritePool.submit(
                             ffmpegProc.stdin.write, frameBytes
                         )
                         writtenFrames += 1
 
+                    # Ensure the final write completes before exiting.
                     if pendingWrite is not None:
                         pendingWrite.result()
 
