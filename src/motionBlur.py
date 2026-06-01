@@ -544,7 +544,12 @@ class MotionBlurPipeline:
                 self.interpolateProcess(nextFrame, collector, nSamples, sampleTs)
                 # segs[i] is the interpolated sample at neededKs[i]; kPos maps a
                 # k back to its position. Keep the whole list alive (see prevSegs).
-                segs = list(collector.frames)
+                # Move to the blend device: CPU-output backends (directml /
+                # openvino) return CPU tensors, but currFrame and the blender
+                # weights live on `device`; mixing them blows up torch.cat. For
+                # the CUDA backends the tensors are already on `device`, so .to()
+                # is a no-op.
+                segs = [s.to(device) for s in collector.frames]
 
                 if currFrame is None:
                     # Bootstrap: need both neighboring segments before first blur.

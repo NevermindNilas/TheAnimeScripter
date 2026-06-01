@@ -2124,7 +2124,6 @@ def _adjustMethodsBasedOnCuda(args):
         availableModels = modelsList()
         methodAttributes = [
             "interpolate_method",
-            "moblur_method",
             "upscale_method",
             "segment_method",
             "depth_method",
@@ -2135,7 +2134,6 @@ def _adjustMethodsBasedOnCuda(args):
 
         methodToFlag = {
             "interpolate_method": "interpolate",
-            "moblur_method": "moblur",
             "upscale_method": "upscale",
             "segment_method": "segment",
             "depth_method": "depth",
@@ -2189,6 +2187,22 @@ def _adjustMethodsBasedOnCuda(args):
                     logging.info(
                         f"No adjustment for {attr} ({currentMethod} remains unchanged)"
                     )
+
+        # Motion blur selects its interpolation backend via --moblur_method. The
+        # bare (rife4.x) and -tensorrt forms both route to CUDA and would crash
+        # on a non-CUDA host (RifeCuda allocates a CUDA stream). adjustMethod()
+        # can't rescue them: rife4.25 has no NCNN/DirectML entry in modelsList,
+        # and NCNN is no longer supported. Force the DirectML backend, which
+        # MotionBlurPipeline supports for every --moblur_method model.
+        if getattr(args, "moblur", False):
+            mob = args.moblur_method
+            if not any(backend in mob for backend in ("-directml", "-openvino")):
+                base = mob.replace("-tensorrt", "")
+                args.moblur_method = f"{base}-directml"
+                logging.info(
+                    f"Adjusted moblur_method from {mob} to {args.moblur_method} "
+                    f"(no CUDA available)"
+                )
 
 
 def processURL(args, outputPath):
