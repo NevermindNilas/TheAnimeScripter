@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Added
 - **`--moblur_method`** — pick the motion-blur interpolation model + backend: `rife4.6` / `rife4.25` (CUDA) and their `-tensorrt` / `-directml` variants. Default `rife4.25` (rife4.6 is faster). Previously motion blur reused `--interpolate_method`.
 
+### Changed
+- Bumped `nelux` `0.12.4` → `0.12.6`.
+
 ### Performance
 - **Motion blur is faster on CUDA** — only the frames inside the shutter window are interpolated. ~1.5× faster at the default shutter 180, up to ~3× at shutter 90. Output is unchanged; TensorRT/DirectML and shutter 360 are unaffected.
 
