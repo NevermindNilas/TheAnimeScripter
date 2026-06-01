@@ -832,6 +832,12 @@ def _buildParser(outputPath):
             "yolov9_small-tensorrt",
             "yolov9_medium-tensorrt",
             "yolov9_large-tensorrt",
+            "dfine_small-tensorrt",
+            "dfine_medium-tensorrt",
+            "dfine_large-tensorrt",
+            "dfine_small-openvino",
+            "dfine_medium-openvino",
+            "dfine_large-openvino",
         ],
     )
 

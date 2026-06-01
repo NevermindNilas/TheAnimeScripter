@@ -34,10 +34,18 @@ def objectDetection(self):
     Args:
         self: VideoProcessor instance containing processing parameters
     """
+    isDFine = self.objDetectMethod.startswith("dfine")
     if "directml" in self.objDetectMethod or "openvino" in self.objDetectMethod:
-        from src.objectDetection.objectDetection import ObjectDetectionDML
+        if isDFine:
+            from src.objectDetection.objectDetection import (
+                ObjectDetectionDFineDML as ObjectDetectionDMLCls,
+            )
+        else:
+            from src.objectDetection.objectDetection import (
+                ObjectDetectionDML as ObjectDetectionDMLCls,
+            )
 
-        ObjectDetectionDML(
+        ObjectDetectionDMLCls(
             self.input,
             self.output,
             self.width,
@@ -54,9 +62,16 @@ def objectDetection(self):
             self.objDetectDisableAnnotations,
         )
     elif "tensorrt" in self.objDetectMethod:
-        from src.objectDetection.objectDetection import ObjectDetectionTensorRT
+        if isDFine:
+            from src.objectDetection.objectDetection import (
+                ObjectDetectionDFineTensorRT as ObjectDetectionTensorRTCls,
+            )
+        else:
+            from src.objectDetection.objectDetection import (
+                ObjectDetectionTensorRT as ObjectDetectionTensorRTCls,
+            )
 
-        ObjectDetectionTensorRT(
+        ObjectDetectionTensorRTCls(
             self.input,
             self.output,
             self.width,
