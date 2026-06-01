@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - YYYY-MM-DD
 
 
+## [2.7.7] - 2026-06-01
+## TAS Adobe Edition
+- Pre-renders now force a video output module — Lossless, falling back to ProRes/QuickTime then H.264 — so file always has a video stream. Fails with clear error (instead of hanging) if no video template exists or no output file produced.
+
+
 ## [2.7.6] - 2026-05-31
 ### Removed
 - `--sharpen` / `--sharpen_sens` and any refereces to it.
