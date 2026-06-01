@@ -1250,6 +1250,23 @@ def _addMotionBlurOptions(argParser):
         help="Add motion blur via interpolation and frame blending",
     )
     moblurGroup.add_argument(
+        "--moblur_method",
+        type=str,
+        default="rife4.25",
+        choices=[
+            "rife4.6",
+            "rife4.25",
+            "rife4.6-directml",
+            "rife4.25-directml",
+            "rife4.6-tensorrt",
+            "rife4.25-tensorrt",
+        ],
+        help="Interpolation model + backend used to synthesize the motion-blur samples. "
+        "rife4.25 is sharper/slower, rife4.6 is faster. Suffix picks the backend: "
+        "none = CUDA (NVIDIA; the only path that gets the windowed-sample speedup), "
+        "-tensorrt = CUDA via TensorRT, -directml = AMD/Intel GPUs.",
+    )
+    moblurGroup.add_argument(
         "--moblur_factor",
         type=int,
         default=8,
@@ -1536,6 +1553,7 @@ def _autoEnableParentFlags(args):
         "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
         "resize_factor": ("resize", 2),
         "output_scale": ("resize", ""),
+        "moblur_method": ("moblur", "rife4.25"),
         "moblur_factor": ("moblur", 8),
         "moblur_strength": ("moblur", "gaussian_sym"),
         "moblur_shutter_angle": ("moblur", 180.0),
@@ -2169,6 +2187,22 @@ def _adjustMethodsBasedOnCuda(args):
                     logging.info(
                         f"No adjustment for {attr} ({currentMethod} remains unchanged)"
                     )
+
+        # Motion blur selects its interpolation backend via --moblur_method. The
+        # bare (rife4.x) and -tensorrt forms both route to CUDA and would crash
+        # on a non-CUDA host (RifeCuda allocates a CUDA stream). adjustMethod()
+        # can't rescue them: rife4.25 has no NCNN/DirectML entry in modelsList,
+        # and NCNN is no longer supported. Force the DirectML backend, which
+        # MotionBlurPipeline supports for every --moblur_method model.
+        if getattr(args, "moblur", False):
+            mob = args.moblur_method
+            if not any(backend in mob for backend in ("-directml", "-openvino")):
+                base = mob.replace("-tensorrt", "")
+                args.moblur_method = f"{base}-directml"
+                logging.info(
+                    f"Adjusted moblur_method from {mob} to {args.moblur_method} "
+                    f"(no CUDA available)"
+                )
 
 
 def processURL(args, outputPath):

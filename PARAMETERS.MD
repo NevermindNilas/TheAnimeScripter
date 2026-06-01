@@ -440,6 +440,18 @@ C:\Videos\episode3.mp4
 | **yolov9_medium-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Balanced performance | DirectML |
 | **yolov9_large-directml** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Maximum accuracy | DirectML |
 
+### 🌀 Motion Blur
+
+| Parameter | Type | Default | Range/Choices | Description |
+|-----------|------|---------|---------------|-------------|
+| `--moblur` | flag | False | - | **Add motion blur** via interpolation + frame blending — auto-enabled when `--moblur_method` is set |
+| `--moblur_method` | str | "rife4.25" | rife4.6, rife4.25 (each also `-tensorrt` / `-directml`) | **Interpolation model + backend.** rife4.25 sharper, rife4.6 faster. No suffix = CUDA (fastest); `-tensorrt` = NVIDIA, `-directml` = AMD/Intel |
+| `--moblur_factor` | int | 8 | 8-16 | **Sample count** — higher = smoother trails, slower |
+| `--moblur_shutter_angle` | float | 180 | 0-360 | **Blur amount.** 180 = cinema standard, 360 = max smear, 90 = crisp, 0 = off |
+| `--moblur_strength` | str | "gaussian_sym" | gaussian_sym, equal, pyramid, ascending, descending | **Frame-weighting scheme** (gaussian_sym mimics a natural shutter) |
+| `--moblur_no_linear_blend` | flag | False | - | Disable gamma-correct blending (not recommended) |
+| `--moblur_mask` | str | "" | path | **Protect regions** — transparent PNG; opaque dark areas stay sharp (HUD/text), transparent areas blur |
+
 ### 🔍 Auto Clip Detection
 
 | Parameter | Type | Default | Range | Description |
