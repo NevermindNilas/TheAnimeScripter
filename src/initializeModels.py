@@ -540,7 +540,7 @@ def motionBlur(self):
         benchmark=self.benchmark,
         totalFrames=self.totalFrames,
         bitDepth=self.bitDepth,
-        interpolate_method=self.interpolateMethod,
+        interpolate_method=self.moblurMethod,
         interpolate_factor=self.moblurFactor,
         moblur_strength=self.moblurStrength,
         moblur_shutter_angle=self.moblurShutterAngle,

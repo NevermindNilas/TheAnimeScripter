@@ -154,6 +154,12 @@ class MotionBlurPipeline:
         self.decodeMethod = decode_method
         self.useCuda = torch.cuda.is_available()
 
+        # When True, only the timesteps inside the shutter window are
+        # interpolated instead of the full interpolateFactor-1 set (the rest
+        # are discarded by _computeWindow anyway). Enabled per-backend in
+        # _initInterpolationModel for interpolators verified to honour it.
+        self.windowed = False
+
         self.interpolateProcess = None
 
         logging.info(
@@ -207,6 +213,15 @@ class MotionBlurPipeline:
                     self.staticStep,
                     compileMode=self.compileMode,
                 )
+                # Only the CUDA-graph path is windowed: graph replay reads the
+                # per-call timestep buffer and is independent of the encode
+                # counter, so emitting fewer samples per pair is safe and stays
+                # within the path's inherent run-to-run variance (verified on
+                # rife4.25, equivalent to a baseline re-run). The eager path
+                # (dynamic_scale / static_step) re-encodes features via that
+                # counter, which a short sample list would desync, so it keeps
+                # the full set.
+                self.windowed = self.interpolateProcess.useGraph
 
             case (
                 "rife-ncnn"
@@ -469,9 +484,31 @@ class MotionBlurPipeline:
 
         self.mask = self._loadMask(dtype, device)
 
+        # Each interpolated segment is reused as both neighbours of a blurred
+        # frame: its low-t samples (smallKs, near the segment start) supply the
+        # trailing edge of the *current* output, and its high-t samples
+        # (largeKs, near the segment end) supply the leading edge of the *next*
+        # output. _computeWindow already discards everything outside the shutter
+        # window, so when self.windowed is set we ask the interpolator for only
+        # the union of those k's instead of the full interpolateFactor-1 set.
+        smallKs = list(range(1, nextSegCount + 1))
+        largeKs = list(range(prevSegStart + 1, framesToInsert + 1))
+        if self.windowed:
+            neededKs = sorted(set(smallKs) | set(largeKs))
+            sampleTs = [k / self.interpolateFactor for k in neededKs]
+        else:
+            # Full fallback: interpolate the whole uniform set (sampleTs=None ->
+            # the interpolator's own k/factor schedule) and slice it below. This
+            # path is byte-for-byte identical to the pre-windowing behaviour.
+            neededKs = list(range(1, framesToInsert + 1))
+            sampleTs = None
+        kPos = {k: i for i, k in enumerate(neededKs)}
+        nSamples = len(neededKs)
+
         logging.info(
             f"Motion blur window: {totalSamples} samples "
             f"({leftCount} prev + 1 curr + {nextSegCount} next)"
+            + (f" [windowed: {nSamples}/{framesToInsert} interpolated]" if self.windowed else "")
             + (" [no-blur pass-through]" if noBlur else "")
             + (" [masked]" if self.mask is not None else "")
         )
@@ -480,7 +517,13 @@ class MotionBlurPipeline:
 
         prevFrame = None
         currFrame = None
-        prevSeg = None
+        # Hold the whole previous segment (not just its large-t slice) so each
+        # interpolated clone lives two iterations, matching the original
+        # prevSeg/newSeg retention. Releasing clones a frame earlier lets the
+        # CUDA caching allocator recycle their memory while the blend that reads
+        # them is still in flight -> a cross-stream race that makes output
+        # non-deterministic run-to-run.
+        prevSegs = None
 
         with ProgressBarLogic(self.totalFrames, title=self.input) as bar:
             for _ in range(self.totalFrames):
@@ -491,19 +534,26 @@ class MotionBlurPipeline:
                 if prevFrame is None:
                     # Prime interp state (firstRun stores I0, returns nothing).
                     collector.clear()
-                    self.interpolateProcess(nextFrame, collector, framesToInsert, None)
+                    self.interpolateProcess(nextFrame, collector, nSamples, sampleTs)
                     prevFrame = nextFrame
                     self.writeBuffer.write(nextFrame)
                     bar(1)
                     continue
 
                 collector.clear()
-                self.interpolateProcess(nextFrame, collector, framesToInsert, None)
-                newSeg = list(collector.frames)
+                self.interpolateProcess(nextFrame, collector, nSamples, sampleTs)
+                # segs[i] is the interpolated sample at neededKs[i]; kPos maps a
+                # k back to its position. Keep the whole list alive (see prevSegs).
+                # Move to the blend device: CPU-output backends (directml /
+                # openvino) return CPU tensors, but currFrame and the blender
+                # weights live on `device`; mixing them blows up torch.cat. For
+                # the CUDA backends the tensors are already on `device`, so .to()
+                # is a no-op.
+                segs = [s.to(device) for s in collector.frames]
 
                 if currFrame is None:
                     # Bootstrap: need both neighboring segments before first blur.
-                    prevSeg = newSeg
+                    prevSegs = segs
                     currFrame = nextFrame
                     continue
 
@@ -511,11 +561,13 @@ class MotionBlurPipeline:
                     self.writeBuffer.write(currFrame)
                 else:
                     window = []
-                    if leftCount > 0 and prevSeg is not None:
-                        window.extend(prevSeg[prevSegStart:])
+                    if leftCount > 0 and prevSegs is not None:
+                        # trailing edge: large-t samples of the PREVIOUS segment
+                        window.extend(prevSegs[kPos[k]] for k in largeKs)
                     window.append(currFrame)
                     if nextSegCount > 0:
-                        window.extend(newSeg[:nextSegCount])
+                        # leading edge: small-t samples of the CURRENT segment
+                        window.extend(segs[kPos[k]] for k in smallKs)
 
                     blended = blender(window)
 
@@ -531,7 +583,7 @@ class MotionBlurPipeline:
 
                 prevFrame = currFrame
                 currFrame = nextFrame
-                prevSeg = newSeg
+                prevSegs = segs
 
                 if self.readBuffer.isReadFinished() and self.readBuffer.isQueueEmpty():
                     break
