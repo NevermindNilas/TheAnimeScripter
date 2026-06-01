@@ -239,6 +239,12 @@ def modelsList() -> list[str]:
         "yolov9_small-tensorrt",
         "yolov9_medium-tensorrt",
         "yolov9_large-tensorrt",
+        "dfine_small-tensorrt",
+        "dfine_small-openvino",
+        "dfine_medium-tensorrt",
+        "dfine_medium-openvino",
+        "dfine_large-tensorrt",
+        "dfine_large-openvino",
         "small_v3",
         "base_v3",
         "og_large_v3",
@@ -1009,6 +1015,26 @@ def modelsMap(
             else:
                 raise ValueError(
                     f"Model type {modelType} not supported for YOLOv9 models."
+                )
+
+        case (
+            "dfine_small-openvino"
+            | "dfine_small-tensorrt"
+            | "dfine_medium-openvino"
+            | "dfine_medium-tensorrt"
+            | "dfine_large-openvino"
+            | "dfine_large-tensorrt"
+        ):
+            if modelType == "onnx":
+                size = (
+                    model.split("-")[0]
+                    .replace("dfine_", "")
+                )
+                precision = "fp16" if half else "fp32"
+                return f"dfine_{size}_{precision}.onnx"
+            else:
+                raise ValueError(
+                    f"Model type {modelType} not supported for D-FINE models."
                 )
 
         case "og_video_small_v2":
