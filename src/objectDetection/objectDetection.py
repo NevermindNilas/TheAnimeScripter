@@ -11,6 +11,7 @@ from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
 from src.utils.isCudaInit import CudaChecker
 from .yolov9_mit import draw_detections, draw_masks, draw_box, colors
+from .dfine import decodeDFine, splitDFineOutputs
 from src.constants import ADOBE
 
 if ADOBE:
@@ -22,6 +23,8 @@ __all__ = [
     "ObjectDetection",
     "ObjectDetectionDML",
     "ObjectDetectionTensorRT",
+    "ObjectDetectionDFineDML",
+    "ObjectDetectionDFineTensorRT",
     "draw_detections",
 ]
 
@@ -543,6 +546,208 @@ class ObjectDetectionTensorRT:
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
+
+
+class ObjectDetectionDFineDML(ObjectDetectionDML):
+    """D-FINE (DETR-family) detector over the DirectML / OpenVINO ONNX Runtime path.
+
+    Shares preprocessing, drawing and the read/write pipeline with the YOLOv9-MIT
+    ``ObjectDetectionDML``; only the output contract differs. D-FINE's RAW head
+    emits two outputs (class logits + normalized cxcywh boxes) and is NMS-free, so
+    only the detect/decode step is overridden — ``prepareInput`` and ``rescaleBoxes``
+    are reused verbatim because D-FINE preprocessing matches TAS exactly.
+    """
+
+    @torch.inference_mode()
+    def detect(self, image):
+        inputTensor = self.prepareInput(image)
+        # fp16 ONNX variants declare a float16 input (TAS ships paired fp16/fp32
+        # ONNX); prepareInput always produces float32, so cast to the model's dtype.
+        if getattr(self, "_inputNpDtype", None) is None:
+            inType = self.session.get_inputs()[0].type
+            self._inputNpDtype = np.float16 if "float16" in inType else np.float32
+        if inputTensor.dtype != self._inputNpDtype:
+            inputTensor = inputTensor.astype(self._inputNpDtype)
+        outputs = self.session.run(self.outputNames, {self.inputName: inputTensor})
+        logits, boxes = splitDFineOutputs(outputs)
+        classIds, boxesXyxy, confidences = decodeDFine(
+            logits, boxes, self.confThreshold, self.inputWidth, self.inputHeight
+        )
+        boxesXyxy = self.rescaleBoxes(boxesXyxy)
+        return classIds, boxesXyxy, confidences
+
+
+class ObjectDetectionDFineTensorRT(ObjectDetectionTensorRT):
+    """D-FINE (DETR-family) detector over the TensorRT path.
+
+    Overrides ``handleModels`` because D-FINE's RAW head has TWO outputs
+    (logits [1, Q, C] and boxes [1, Q, 4]) instead of the single [N, 6] tensor the
+    YOLOv9-MIT engine produces, so two output bindings are allocated. The input
+    stays single (``images``), which is the whole reason for exporting the RAW head
+    rather than the baked post-processor that needs an ``orig_target_sizes`` input.
+    """
+
+    def handleModels(self):
+        if ADOBE:
+            progressState.update(
+                {
+                    "status": f"Loading TensorRT object detection model: {self.objDetectMethod}..."
+                }
+            )
+
+        folderName = self.objDetectMethod.replace("-tensorrt", "-onnx")
+        filename = modelsMap(
+            model=self.objDetectMethod, modelType="onnx", half=self.half
+        )
+
+        folderPath = os.path.join(weightsDir, folderName)
+        os.makedirs(folderPath, exist_ok=True)
+        self.modelPath = os.path.join(folderPath, filename)
+
+        if not os.path.exists(self.modelPath):
+            self.modelPath = downloadModels(
+                model=self.objDetectMethod,
+                modelType="onnx",
+                half=self.half,
+            )
+
+        logging.info("Using TensorRT for D-FINE object detection")
+
+        import onnx
+
+        onnxModel = onnx.load(self.modelPath)
+        inputName = onnxModel.graph.input[0].name
+
+        inputDims = list(onnxModel.graph.input[0].type.tensor_type.shape.dim)
+        self.inputHeight = inputDims[2].dim_value if inputDims[2].dim_value > 0 else 640
+        self.inputWidth = inputDims[3].dim_value if inputDims[3].dim_value > 0 else 640
+        logging.info(f"Model input shape: 1x3x{self.inputHeight}x{self.inputWidth}")
+
+        # D-FINE raw head emits TWO outputs: class logits [1, Q, C] and boxes [1, Q, 4].
+        self.boxesOutputName = None
+        self.logitsOutputName = None
+        self.numQueries = 0
+        self.numClasses = 0
+        for out in onnxModel.graph.output:
+            dims = [d.dim_value for d in out.type.tensor_type.shape.dim]
+            if len(dims) >= 1 and dims[-1] == 4:
+                self.boxesOutputName = out.name
+                if len(dims) >= 2 and dims[1] > 0:
+                    self.numQueries = dims[1]
+            else:
+                self.logitsOutputName = out.name
+                if dims and dims[-1] > 0:
+                    self.numClasses = dims[-1]
+                if len(dims) >= 2 and dims[1] > 0:
+                    self.numQueries = dims[1]
+
+        if self.boxesOutputName is None or self.logitsOutputName is None:
+            raise ValueError(
+                "Could not identify D-FINE logits/boxes outputs from "
+                f"{[o.name for o in onnxModel.graph.output]}"
+            )
+        if self.numQueries <= 0:
+            self.numQueries = 300
+        if self.numClasses <= 0:
+            self.numClasses = len(colors)
+        logging.info(
+            f"D-FINE outputs: logits={self.logitsOutputName} [1,{self.numQueries},{self.numClasses}], "
+            f"boxes={self.boxesOutputName} [1,{self.numQueries},4]"
+        )
+
+        enginePath = self.tensorRTEngineNameHandler(
+            modelPath=self.modelPath,
+            fp16=self.half,
+            optInputShape=[1, 3, self.inputHeight, self.inputWidth],
+        )
+
+        self.engine, self.context = self.tensorRTEngineLoader(enginePath)
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
+            self.engine, self.context = self.tensorRTEngineCreator(
+                modelPath=self.modelPath,
+                enginePath=enginePath,
+                fp16=self.half,
+                inputsMin=[1, 3, self.inputHeight, self.inputWidth],
+                inputsOpt=[1, 3, self.inputHeight, self.inputWidth],
+                inputsMax=[1, 3, self.inputHeight, self.inputWidth],
+                inputName=[inputName],
+            )
+
+        self.stream = torch.cuda.Stream()
+        self.normStream = torch.cuda.Stream()
+
+        self.inputDtype = self.trtDtypeToTorch(self.engine.get_tensor_dtype(inputName))
+        self.logitsDtype = self.trtDtypeToTorch(
+            self.engine.get_tensor_dtype(self.logitsOutputName)
+        )
+        self.boxesDtype = self.trtDtypeToTorch(
+            self.engine.get_tensor_dtype(self.boxesOutputName)
+        )
+
+        self.dummyInput = torch.zeros(
+            (1, 3, self.inputHeight, self.inputWidth),
+            device=checker.device,
+            dtype=self.inputDtype,
+        )
+        self.dummyLogits = torch.zeros(
+            (1, self.numQueries, self.numClasses),
+            device=checker.device,
+            dtype=self.logitsDtype,
+        )
+        self.dummyBoxes = torch.zeros(
+            (1, self.numQueries, 4),
+            device=checker.device,
+            dtype=self.boxesDtype,
+        )
+
+        self.inputName = inputName
+
+        for i in range(self.engine.num_io_tensors):
+            tensorName = self.engine.get_tensor_name(i)
+            if self.engine.get_tensor_mode(tensorName) == self.trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(tensorName, self.dummyInput.shape)
+                self.context.set_tensor_address(tensorName, self.dummyInput.data_ptr())
+            elif tensorName == self.boxesOutputName:
+                self.context.set_tensor_address(tensorName, self.dummyBoxes.data_ptr())
+            else:
+                self.context.set_tensor_address(
+                    tensorName, self.dummyLogits.data_ptr()
+                )
+
+        with torch.cuda.stream(self.stream):
+            for _ in range(5):
+                self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+                self.stream.synchronize()
+
+    @torch.inference_mode()
+    def detect(self, image):
+        inputTensor = self.prepareInput(image)
+        inputTensorTorch = torch.from_numpy(inputTensor).to(
+            checker.device,
+            dtype=self.inputDtype,
+            non_blocking=True,
+        )
+
+        with torch.cuda.stream(self.normStream):
+            self.dummyInput.copy_(inputTensorTorch, non_blocking=True)
+            self.normStream.synchronize()
+
+        with torch.cuda.stream(self.stream):
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+            self.stream.synchronize()
+
+        logits = self.dummyLogits.float().cpu().numpy()
+        boxes = self.dummyBoxes.float().cpu().numpy()
+
+        classIds, boxesXyxy, confidences = decodeDFine(
+            logits, boxes, self.confThreshold, self.inputWidth, self.inputHeight
+        )
+        boxesXyxy = self.rescaleBoxes(boxesXyxy)
+        return classIds, boxesXyxy, confidences
 
 
 class ObjectDetection:

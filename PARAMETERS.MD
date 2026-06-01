@@ -434,11 +434,20 @@ C:\Videos\episode3.mp4
 
 #### 🎯 Object Detection Methods
 
+> **YOLOv9-MIT** (MIT license) and **D-FINE** (Apache-2.0) are both fully free for commercial use.
+> YOLOv9 runs on `-directml` / `-openvino` / `-tensorrt`. D-FINE is a real-time DETR (NMS-free,
+> higher accuracy) and runs on `-tensorrt` (NVIDIA) and `-openvino` (Intel/CPU) — **not DirectML**
+> (its DETR decoder uses ops the DirectML runtime can't compile).
+
 | Method | Speed | Accuracy | VRAM | Best For | Acceleration |
 |--------|-------|----------|------|----------|--------------|
 | **yolov9_small-directml** | ⚡⚡⚡ | ⭐⭐⭐ | 2GB | Fast detection | DirectML |
 | **yolov9_medium-directml** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Balanced performance | DirectML |
 | **yolov9_large-directml** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Maximum accuracy | DirectML |
+| **dfine_small-tensorrt** | ⚡⚡⚡ | ⭐⭐⭐⭐ | 2GB | Fast DETR (~48 AP) | TensorRT |
+| **dfine_medium-tensorrt** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Balanced DETR (~52 AP) | TensorRT |
+| **dfine_large-tensorrt** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Highest accuracy (~54 AP) | TensorRT |
+| **dfine_{small,medium,large}-openvino** | ⚡⚡ | ⭐⭐⭐⭐ | — | D-FINE on Intel/CPU | OpenVINO |
 
 ### 🔍 Auto Clip Detection
 
