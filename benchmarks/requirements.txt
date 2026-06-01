@@ -1,0 +1,4 @@
+# Benchmark-only extras. Core deps (numpy, psutil, opencv) come from the main
+# requirements / extra-requirements-*.txt. matplotlib is used only for the graphs;
+# without it benchmark.py still writes results.json and skips the PNGs.
+matplotlib>=3.8

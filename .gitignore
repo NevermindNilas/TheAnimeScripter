@@ -188,6 +188,10 @@ venv.bak/
 venv-lite/
 venv-full/
 
+# Benchmark sample media + run artifacts (downloaded / generated, not tracked)
+benchmarks/*.mp4
+benchmarks/results/
+
 # Spyder project settings
 .spyderproject
 .spyproject
