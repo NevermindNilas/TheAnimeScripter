@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
 - **`--moblur_method`** — pick the motion-blur interpolation model + backend: `rife4.6` / `rife4.25` (CUDA) and their `-tensorrt` / `-directml` variants. Default `rife4.25` (rife4.6 is faster). Previously motion blur reused `--interpolate_method`.
+- Added `smosr` 2x upscale model ([umzi2/SMoSR](https://github.com/umzi2/SMoSR), MIT) across CUDA, MPS, TensorRT, DirectML, and OpenVINO backends. Special thanks to UMZI.
 
 ### Changed
 - Bumped `nelux` `0.12.4` → `0.12.6`.
