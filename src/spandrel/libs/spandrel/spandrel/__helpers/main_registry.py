@@ -37,6 +37,7 @@ from ..architectures import (
     RestoreFormer,
     RetinexFormer,
     RTMoSR,
+    SMoSR,
     SCUNet,
     Sebica,
     SeemoRe,
@@ -104,4 +105,5 @@ MAIN_REGISTRY.add(
     ArchSupport.from_architecture(DIS.DISArch()),
     ArchSupport.from_architecture(FIGSR.FIGSRArch()),
     ArchSupport.from_architecture(GateRV3.GateRV3Arch()),
+    ArchSupport.from_architecture(SMoSR.SMoSRArch()),
 )

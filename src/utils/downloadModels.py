@@ -63,6 +63,10 @@ def modelsList() -> list[str]:
         "gauss-directml",
         "gauss-tensorrt",
         "figsr",
+        "smosr",
+        "smosr-tensorrt",
+        "smosr-directml",
+        "smosr-openvino",
         "artcnn_c4f16-tensorrt",
         "artcnn_c4f16-directml",
         "artcnn_c4f16-openvino",
@@ -175,6 +179,7 @@ def modelsList() -> list[str]:
         "fallin_strong-mps",
         "gauss-mps",
         "figsr-mps",
+        "smosr-mps",
         "animesr-mps",
         "rife-mps",
         "rife4.6-mps",
@@ -335,6 +340,15 @@ def modelsMap(
 
         case "figsr":
             return "2x_enhancr_da_figsr.pth"
+
+        case "smosr" | "smosr-directml" | "smosr-tensorrt":
+            if modelType == "pth":
+                return "2x_enhancr_da_smosr_v1.safetensors"
+            else:
+                if half:
+                    return "2x_enhancr_da_smosr_v1_fp16_op25.onnx"
+                else:
+                    return "2x_enhancr_da_smosr_v1_fp32_op25.onnx"
 
         # ArtCNN luma-only 2x SR. Single-channel (1,1,H,W) -> (1,1,2H,2W).
         # OpenVINO reuses the -directml filename (mapped upstream in the loader).

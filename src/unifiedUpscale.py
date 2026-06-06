@@ -102,6 +102,16 @@ class UniversalPytorch:
 
             self.model.load_state_dict(stateDict, strict=False)
             del stateDict
+        elif self.upscaleMethod == "smosr":
+            # SMoSR is a registered spandrel arch; ModelLoader reads the
+            # .safetensors, auto-detects dim/depth/rep, and reparameterizes
+            # (fuses) the rep branches when .eval() runs below.
+            self.model = ModelLoader().load_from_file(modelPath)
+            if not isinstance(self.model, ImageModelDescriptor):
+                raise TypeError(
+                    f"SMoSR model {modelPath} did not resolve to an image model descriptor"
+                )
+            self.model = self.model.model
         elif self.upscaleMethod == "gauss":
             from src.extraArches.DIS import DIS
             from safetensors.torch import load_file
@@ -318,6 +328,13 @@ class UniversalPytorchMPS:
             self.model = FIGSR(scale=self.upscaleFactor, dim=32)
             self.model.load_state_dict(stateDict, strict=False)
             del stateDict
+        elif self.baseMethod == "smosr":
+            self.model = ModelLoader().load_from_file(modelPath)
+            if not isinstance(self.model, ImageModelDescriptor):
+                raise TypeError(
+                    f"SMoSR model {modelPath} did not resolve to an image model descriptor"
+                )
+            self.model = self.model.model
         elif self.baseMethod == "gauss":
             from src.extraArches.DIS import DIS
             from safetensors.torch import load_file
