@@ -627,6 +627,7 @@ def initializeModels(self):
                 | "fallin_strong"
                 | "gauss"
                 | "figsr"
+                | "smosr"
             ):
                 upscaleProcess = UniversalPytorch(
                     self.upscaleMethod,
@@ -661,6 +662,8 @@ def initializeModels(self):
                 | "fallin_strong-openvino"
                 | "gauss-openvino"
                 | "gauss-directml"
+                | "smosr-directml"
+                | "smosr-openvino"
             ):
                 from src.unifiedUpscale import UniversalDirectML
 
@@ -686,6 +689,7 @@ def initializeModels(self):
                 | "fallin_strong-mps"
                 | "gauss-mps"
                 | "figsr-mps"
+                | "smosr-mps"
             ):
                 from src.unifiedUpscale import UniversalPytorchMPS
 
@@ -729,6 +733,7 @@ def initializeModels(self):
                 | "fallin_soft-tensorrt"
                 | "fallin_strong-tensorrt"
                 | "gauss-tensorrt"
+                | "smosr-tensorrt"
             ):
                 from src.unifiedUpscale import UniversalTensorRT
 

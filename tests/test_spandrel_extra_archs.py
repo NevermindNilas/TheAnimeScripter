@@ -93,6 +93,30 @@ def testFIGSRPixelShuffleDirect():
 
 
 # --------------------------------------------------------------------------- #
+# SMoSR — Spatial Modulation SR (Umzi). Reparameterizable: .eval() fuses the
+# ConvNXC/DOConv2d branches, so the detector must round-trip both rep variants.
+# --------------------------------------------------------------------------- #
+
+def testSMoSRRepPixelShuffleDirect():
+    from spandrel.architectures.SMoSR import SMoSR
+
+    model = SMoSR(dim=24, n_mb=2, scale=2, rep=True)
+    desc = _roundtrip(model, "SMoSR", 2, 3, 3)
+    assert desc.purpose == "SR"
+    assert "rep" in desc.tags
+    _assert_forward(desc, 3, 2)
+
+
+def testSMoSRNoRep():
+    from spandrel.architectures.SMoSR import SMoSR
+
+    model = SMoSR(dim=16, n_mb=3, scale=2, rep=False)
+    desc = _roundtrip(model, "SMoSR", 2, 3, 3)
+    assert "norep" in desc.tags
+    _assert_forward(desc, 3, 2)
+
+
+# --------------------------------------------------------------------------- #
 # GateRV3
 # --------------------------------------------------------------------------- #
 
