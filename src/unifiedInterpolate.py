@@ -1600,14 +1600,6 @@ class RifeDirectML:
             shape=self.I1.shape,
             buffer_ptr=self.I1.data_ptr(),
         )
-        self.IoBinding.bind_input(
-            name="timestep",
-            device_type=self.deviceType,
-            device_id=0,
-            element_type=self.numpyDType,
-            shape=self.dummyTimeStep.shape,
-            buffer_ptr=self.dummyTimeStep.data_ptr(),
-        )
         for i in range(framesToInsert):
             if timesteps is not None and i < len(timesteps):
                 t = timesteps[i]
@@ -1615,6 +1607,19 @@ class RifeDirectML:
                 t = (i + 1) * 1 / (framesToInsert + 1)
 
             self.dummyTimeStep.fill_(t)
+
+            # ORT reads bound inputs at bind_input() time, not at run time, so the
+            # timestep MUST be rebound after every fill_; otherwise all inserted
+            # frames in a gap reuse the timestep captured before the loop (0.5),
+            # collapsing factor>2 interpolation into duplicate frames.
+            self.IoBinding.bind_input(
+                name="timestep",
+                device_type=self.deviceType,
+                device_id=0,
+                element_type=self.numpyDType,
+                shape=self.dummyTimeStep.shape,
+                buffer_ptr=self.dummyTimeStep.data_ptr(),
+            )
 
             self.model.run_with_iobinding(self.IoBinding)
             if self.needsOutputSync:

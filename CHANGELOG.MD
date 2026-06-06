@@ -11,6 +11,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Changed
 - Bumped `nelux` `0.12.4` → `0.12.6`.
 
+### Fixed
+- DirectML/OpenVINO interpolation produced duplicate frames at factors above 2 — the ONNX `timestep` input was bound once and never refreshed per inserted frame. Now rebound each frame (#339).
+
 ### Performance
 - **Motion blur is faster on CUDA** — only the frames inside the shutter window are interpolated. ~1.5× faster at the default shutter 180, up to ~3× at shutter 90. Output is unchanged; TensorRT/DirectML and shutter 360 are unaffected.
 
