@@ -1,4 +1,3 @@
-from sympy import false
 from typing_extensions import override
 
 from ...util import KeyCondition, get_scale_and_output_channels

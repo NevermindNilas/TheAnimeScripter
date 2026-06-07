@@ -6,7 +6,6 @@ import time
 import torch
 import nelux
 import threading
-import cv2
 
 from queue import Queue
 from src.utils.encodingSettings import matchEncoder, getPixFMT
@@ -237,6 +236,8 @@ class BuildBuffer:
         Returns the number of frames decoded.
         """
         logging.info(f"Initializing OpenCV VideoCapture for {self.videoInput}")
+
+        import cv2  # lazy: cv2 (~13ms) is only needed on the OpenCV decode fallback
 
         cap = cv2.VideoCapture(self.videoInput)
         if not cap.isOpened():
@@ -520,6 +521,8 @@ class WriteBuffer:
 
         if frameArray.ndim == 3 and frameArray.shape[2] == 1:
             frameArray = frameArray[:, :, 0]
+
+        import cv2  # lazy: only needed for single-image (PNG) output
 
         cvWriteFrame = frameArray
         if frameArray.ndim == 3 and frameArray.shape[2] == 3:
