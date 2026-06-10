@@ -9,7 +9,7 @@ import re
 
 from pathlib import Path
 from typing import Iterable, Tuple
-from src.utils.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint
 from importlib import invalidate_caches
 from importlib.metadata import version, PackageNotFoundError
 from importlib.util import find_spec

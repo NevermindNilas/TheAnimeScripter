@@ -8,12 +8,12 @@ import torch
 
 from src.constants import ADOBE
 from src.stabilize.superpoint import SuperPoint, find_match_index, find_transform
-import src.utils.ffmpegSettings as ffmpegSettings
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.utils.progressBarLogic import ProgressBarLogic
+import src.io.ffmpegSettings as ffmpegSettings
+from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.infra.progressBarLogic import ProgressBarLogic
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 
 class VideoStabilize:

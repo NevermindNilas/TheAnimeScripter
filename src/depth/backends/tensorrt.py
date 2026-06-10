@@ -9,20 +9,20 @@ import torch.nn.functional as F
 import cv2
 import importlib
 
-from src.utils.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint
 from concurrent.futures import ThreadPoolExecutor
-from src.utils.ffmpegSettings import (
+from src.io.ffmpegSettings import (
     BuildBuffer,
     WriteBuffer,
 )
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
-from src.utils.progressBarLogic import ProgressBarLogic
-from src.utils.isCudaInit import CudaChecker
+from src.model.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
+from src.infra.progressBarLogic import ProgressBarLogic
+from src.infra.isCudaInit import CudaChecker
 from queue import Queue
 from src.constants import ADOBE
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 from collections import deque
 import statistics
@@ -176,7 +176,7 @@ class DepthTensorRTV2:
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
         import tensorrt as trt
-        from src.utils.trtHandler import (
+        from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
@@ -411,7 +411,7 @@ class OGDepthV2TensorRT:
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
         import tensorrt as trt
-        from src.utils.trtHandler import (
+        from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,

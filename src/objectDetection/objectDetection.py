@@ -5,16 +5,16 @@ import torch
 import logging
 from concurrent.futures import ThreadPoolExecutor
 
-from src.utils.logAndPrint import logAndPrint
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.utils.progressBarLogic import ProgressBarLogic
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
-from src.utils.isCudaInit import CudaChecker
+from src.infra.logAndPrint import logAndPrint
+from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.infra.progressBarLogic import ProgressBarLogic
+from src.model.downloadModels import downloadModels, weightsDir, modelsMap
+from src.infra.isCudaInit import CudaChecker
 from .yolov9_mit import draw_detections, draw_masks, draw_box, colors
 from src.constants import ADOBE
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 checker = CudaChecker()
 
@@ -265,7 +265,7 @@ class ObjectDetectionTensorRT:
         disableAnnotations=False,
     ):
         import tensorrt as trt
-        from src.utils.trtHandler import (
+        from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,

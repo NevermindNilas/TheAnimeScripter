@@ -30,7 +30,7 @@ def downloadAndExtractFfmpeg(ffmpegPath):
     )
 
     try:
-        from src.utils.progressBarLogic import ProgressBarDownloadLogic
+        from src.infra.progressBarLogic import ProgressBarDownloadLogic
 
         response = urlopen(ffmpegUrl)
 

@@ -3,9 +3,9 @@ import torch
 import logging
 from contextlib import nullcontext
 
-from src.utils.downloadModels import downloadModels, weightsDir
-from src.utils.isCudaInit import CudaChecker
-from src.utils.logAndPrint import logAndPrint
+from src.model.downloadModels import downloadModels, weightsDir
+from src.infra.isCudaInit import CudaChecker
+from src.infra.logAndPrint import logAndPrint
 
 checker = CudaChecker()
 
