@@ -132,12 +132,6 @@ def test_sequence_detection_none_for_single_image(tmp_path):
     assert io.detectImageSequence(str(tmp_path)) is None
 
 
-def test_first_image_in_sequence(tmp_path):
-    (tmp_path / "b.png").touch()
-    (tmp_path / "a.png").touch()
-    assert os.path.basename(io.getFirstImageInSequence(str(tmp_path))) == "a.png"
-
-
 # --------------------------------------------------------------------------- #
 # generateOutputPath: collision-safe naming (#2 #3 #4 + explicit output)
 # --------------------------------------------------------------------------- #

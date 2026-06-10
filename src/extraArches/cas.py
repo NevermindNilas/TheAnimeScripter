@@ -151,17 +151,6 @@ def estimate_amount(x4, tiles=0):
     return _to_amount(score).to(dt)                         # [B,1,1,1]
 
 
-def image_stats(x):
-    """Public helper for calibration: returns the log blur-score, [B,1,1,1].
-
-    Used by calibrate.py to fit LO/HI (the blur band).
-    """
-    x4, _ = _to_4d(x)
-    hf, contrast = _feature_maps(x4)
-    score = (hf * contrast).sum((1, 2, 3), keepdim=True) / (contrast.sum((1, 2, 3), keepdim=True) + EPSILON)
-    return th.log(score + 1e-4)
-
-
 def contrast_adaptive_sharpening(x, amount=0.8, better_diagonals=True, auto_tiles=0):
     """
     Performs a contrast adaptive sharpening on the batch of images x.

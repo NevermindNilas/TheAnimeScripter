@@ -206,5 +206,3 @@ class RTMoSR(nn.Module):
         out = self.to_img(self.body(out))[:, :, :h * self.scale, :w * self.scale]
         return out + F.interpolate(x, scale_factor=self.scale, mode="nearest")
 
-def RTMoSR_L(**kwargs): return RTMoSR(unshuffle_mod=True, **kwargs)
-def RTMoSR_UL(**kwargs): return RTMoSR(ffn_expansion=1.5, dccm=False, se=False, unshuffle_mod=True, **kwargs)

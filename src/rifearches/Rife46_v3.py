@@ -5,7 +5,6 @@ from .warplayer_v2 import warp
 from .rife_fast import _repackDeconv
 import math
 
-
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
         nn.Conv2d(
@@ -20,7 +19,6 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
         nn.LeakyReLU(0.2, True),
     )
 
-
 class ResConv(nn.Module):
     def __init__(self, c, dilation=1):
         super(ResConv, self).__init__()
@@ -30,7 +28,6 @@ class ResConv(nn.Module):
 
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
-
 
 class IFBlock(nn.Module):
     def __init__(self, in_planes, c=64):
@@ -73,7 +70,6 @@ class IFBlock(nn.Module):
         flow = tmp[:, :4] * scale
         mask = tmp[:, 4:5]
         return flow, mask
-
 
 class IFNet(nn.Module):
     def __init__(

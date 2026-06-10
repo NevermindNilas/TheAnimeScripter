@@ -31,10 +31,11 @@ jobs:
           cache-dependency-path: .github/workflows/tests.yaml
 
       # Pure-logic tests need only the standard library plus packaging (for the
-      # dependency version checks). Pinned so the pip cache key stays stable.
+      # dependency version checks). barflow is required by downloadModels via
+      # progressBarLogic (registry-drift tests). Pinned so the pip cache key stays stable.
       # The torch/cv2-backed motion-blur tests skip themselves via importorskip.
       - name: Install test dependencies
-        run: pip install pytest==9.0.3 packaging==26.0
+        run: pip install pytest==9.0.3 packaging==26.0 barflow==0.4.0
 
       - name: Run unit tests
         run: python -m pytest tests/ -q
