@@ -19,6 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Performance
 - **Motion blur is faster on CUDA** — only the frames inside the shutter window are interpolated. ~1.5× faster at the default shutter 180, up to ~3× at shutter 90. Output is unchanged; TensorRT/DirectML and shutter 360 are unaffected.
+- **Upscale cold start ~30% faster** (launch → first frame on the CUDA/PyTorch path, e.g. `shufflecugan`; measured ~3.5s → ~2.5s at 720p on an RTX 3090). Output is byte-identical and all backends are unaffected. Five independent startup wins:
+  - Made the `torchvision` imports in the vendored spandrel `LaMa`/`RestoreFormer` arches lazy (moved to call-site). The eager architecture registry imported `torchvision` (which drags in `torch._dynamo`, ~1s) at every startup even though the upscale model in use almost never touches those arches (~−740ms).
+  - Removed two dead `from sympy import true` / `from sympy import false` imports (accidental auto-imports, never referenced) in the `SPANPlus`/`sudo_SPANPlus` arches that pulled in `sympy` during the registry build (~−290ms).
+  - Reduced the pre-CUDA-graph warmup in `UniversalPytorch` from 5 to 3 iterations — `cudnn.benchmark` is off so the algorithm is fixed and 3 warmups suffice to prepare cudnn kernels/workspace before capture; the captured graph (and thus output) is identical (~−100ms).
+  - Made `cv2` lazy in `ffmpegSettings` (only the OpenCV decode fallback and single-image PNG writer use it) (~−13ms), and read the Windows CPU name from `PROCESSOR_IDENTIFIER` instead of `platform.processor()`'s WMI shell-out in `checkSpecs` (~−25ms).
 
 
 ## [2.7.7] - 2026-06-01
