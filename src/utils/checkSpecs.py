@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.infra.checkSpecs directly."""
-from src.infra.checkSpecs import *  # noqa: F401,F403
+import sys as _sys
+import src.infra.checkSpecs as _canonical
+_sys.modules[__name__] = _canonical

@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.server.aeComms directly."""
-from src.server.aeComms import *  # noqa: F401,F403
+import sys as _sys
+import src.server.aeComms as _canonical
+_sys.modules[__name__] = _canonical

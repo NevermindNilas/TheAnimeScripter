@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.io.inputOutputHandler directly."""
-from src.io.inputOutputHandler import *  # noqa: F401,F403
+import sys as _sys
+import src.io.inputOutputHandler as _canonical
+_sys.modules[__name__] = _canonical

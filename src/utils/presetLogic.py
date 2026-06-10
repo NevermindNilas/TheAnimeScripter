@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.server.presetLogic directly."""
-from src.server.presetLogic import *  # noqa: F401,F403
+import sys as _sys
+import src.server.presetLogic as _canonical
+_sys.modules[__name__] = _canonical

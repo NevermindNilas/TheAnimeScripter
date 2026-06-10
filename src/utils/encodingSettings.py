@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.io.encodingSettings directly."""
-from src.io.encodingSettings import *  # noqa: F401,F403
+import sys as _sys
+import src.io.encodingSettings as _canonical
+_sys.modules[__name__] = _canonical

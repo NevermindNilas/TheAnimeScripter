@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.infra.logAndPrint directly."""
-from src.infra.logAndPrint import *  # noqa: F401,F403
+import sys as _sys
+import src.infra.logAndPrint as _canonical
+_sys.modules[__name__] = _canonical

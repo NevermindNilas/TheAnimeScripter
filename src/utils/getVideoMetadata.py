@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.io.getVideoMetadata directly."""
-from src.io.getVideoMetadata import *  # noqa: F401,F403
+import sys as _sys
+import src.io.getVideoMetadata as _canonical
+_sys.modules[__name__] = _canonical

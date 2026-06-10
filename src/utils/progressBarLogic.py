@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.infra.progressBarLogic directly."""
-from src.infra.progressBarLogic import *  # noqa: F401,F403
+import sys as _sys
+import src.infra.progressBarLogic as _canonical
+_sys.modules[__name__] = _canonical

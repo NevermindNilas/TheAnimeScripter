@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.model.modelOptimizer directly."""
-from src.model.modelOptimizer import *  # noqa: F401,F403
+import sys as _sys
+import src.model.modelOptimizer as _canonical
+_sys.modules[__name__] = _canonical

@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.infra.isCudaInit directly."""
-from src.infra.isCudaInit import *  # noqa: F401,F403
+import sys as _sys
+import src.infra.isCudaInit as _canonical
+_sys.modules[__name__] = _canonical

@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.model.modelProtocol directly."""
-from src.model.modelProtocol import *  # noqa: F401,F403
+import sys as _sys
+import src.model.modelProtocol as _canonical
+_sys.modules[__name__] = _canonical

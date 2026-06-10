@@ -1,2 +1,4 @@
 """Backward-compatibility shim. Import from src.infra.getFFMPEG directly."""
-from src.infra.getFFMPEG import *  # noqa: F401,F403
+import sys as _sys
+import src.infra.getFFMPEG as _canonical
+_sys.modules[__name__] = _canonical
