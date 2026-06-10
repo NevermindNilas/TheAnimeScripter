@@ -3,7 +3,6 @@ from src.dedup.ssim import SSIM
 
 SSIMFUNCTION = None
 
-
 def dynamicScale(
     img1: torch.Tensor,
     img2: torch.Tensor,

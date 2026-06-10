@@ -5,7 +5,6 @@ Credit to HolyWU ( VS-Rife ) for many of the improvements seen
     https://github.com/HolyWu/vs-rife
 """
 
-
 def warp(tenInput, tenFlow, tenFlowDiv, backWarp):
     tenFlow = torch.cat(
         [tenFlow[:, 0:1] / tenFlowDiv[0], tenFlow[:, 1:2] / tenFlowDiv[1]], 1
