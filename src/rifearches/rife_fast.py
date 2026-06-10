@@ -104,6 +104,14 @@ class _IFBlock(nn.Module):
             if scale != 1:
                 flow = F.interpolate(flow, scale_factor=1.0 / scale, mode="bilinear", align_corners=False) * (1.0 / scale)
             x = torch.cat((x, flow), 1)
+        return self._tail(x, scale)
+
+    def forwardPrescaled(self, x, scale=1):
+        """x is already at block resolution with flow channels appended
+        (downsample-then-cat == cat-then-downsample: bilinear is per-channel)."""
+        return self._tail(x, scale)
+
+    def _tail(self, x, scale):
         feat = self.conv0(x)
         feat = self.convblock(feat)
         tmp = self.lastps1(self.lastps0(self.lastconv(feat)))
@@ -270,7 +278,8 @@ class _FastIFNet(nn.Module):
         self._gridShape = key
 
     def _warp(self, inp, flow2):
-        grid = (self._backWarp + flow2 * self._tenFlow).permute(0, 2, 3, 1)
+        # addcmul fuses backWarp + flow*tenFlow into one elementwise pass
+        grid = torch.addcmul(self._backWarp, flow2, self._tenFlow).permute(0, 2, 3, 1)
         return F.grid_sample(inp, grid, mode="bilinear", padding_mode="border", align_corners=True)
 
     def cache(self):
@@ -309,15 +318,43 @@ class _FastIFNet(nn.Module):
         mask = None
         feat = None
 
+        # img and feature warps share the same flow -> one grid_sample per side
+        # on the channel-concat (grid_sample is channel-independent, exact).
+        # img0/f0 are constant across blocks, so concat once per forward.
+        if self._hasHead:
+            imgf0 = torch.cat((img0[:, :3], self.f0), 1)
+            imgf1 = torch.cat((img1[:, :3], self.f1), 1)
+
+        lastIdx = len(self.blocks) - 1
+
         for i, blk in enumerate(self.blocks):
             scale = self.scale_list[i]
+            # Downsample components individually and concat at block resolution:
+            # bilinear is per-channel, so downsample(cat(...)) == cat(downsample
+            # of each part) -- this skips writing+reading the full-res concat.
+            lowResCat = (not self.ensemble) and scale != 1
+            inv = 1.0 / scale
+
+            def ds(t):
+                return F.interpolate(
+                    t, scale_factor=inv, mode="bilinear", align_corners=False
+                )
+
             if flow is None:
-                inp_parts = [img0[:, :3], img1[:, :3]]
-                if self._hasHead:
-                    inp_parts += [self.f0, self.f1]
-                inp_parts.append(timestep)
-                inp = torch.cat(inp_parts, 1)
-                out = blk(inp, flow=None, scale=scale)
+                if lowResCat:
+                    if self._hasHead:
+                        a, b = ds(imgf0), ds(imgf1)
+                        parts = [a[:, :3], b[:, :3], a[:, 3:], b[:, 3:], ds(timestep)]
+                    else:
+                        parts = [ds(img0[:, :3]), ds(img1[:, :3]), ds(timestep)]
+                    out = blk.forwardPrescaled(torch.cat(parts, 1), scale)
+                else:
+                    inp_parts = [img0[:, :3], img1[:, :3]]
+                    if self._hasHead:
+                        inp_parts += [self.f0, self.f1]
+                    inp_parts.append(timestep)
+                    inp = torch.cat(inp_parts, 1)
+                    out = blk(inp, flow=None, scale=scale)
                 if self._usesFeat:
                     flow, mask, feat = out
                 else:
@@ -337,14 +374,26 @@ class _FastIFNet(nn.Module):
                     flow = (flow + torch.cat((fR[:, 2:4], fR[:, :2]), 1)) / 2
                     mask = (mask + (-mR)) / 2
             else:
-                inp_parts = [warped_img0[:, :3], warped_img1[:, :3]]
-                if self._hasHead:
-                    inp_parts += [wf0, wf1]
-                inp_parts += [timestep, mask]
-                if self._usesFeat:
-                    inp_parts.append(feat)
-                inp = torch.cat(inp_parts, 1)
-                out = blk(inp, flow=flow, scale=scale)
+                if lowResCat:
+                    if self._hasHead:
+                        a, b = ds(w0), ds(w1)
+                        parts = [a[:, :3], b[:, :3], a[:, 3:], b[:, 3:]]
+                    else:
+                        parts = [ds(warped_img0[:, :3]), ds(warped_img1[:, :3])]
+                    parts += [ds(timestep), ds(mask)]
+                    if self._usesFeat:
+                        parts.append(ds(feat))
+                    parts.append(ds(flow) * inv)
+                    out = blk.forwardPrescaled(torch.cat(parts, 1), scale)
+                else:
+                    inp_parts = [warped_img0[:, :3], warped_img1[:, :3]]
+                    if self._hasHead:
+                        inp_parts += [wf0, wf1]
+                    inp_parts += [timestep, mask]
+                    if self._usesFeat:
+                        inp_parts.append(feat)
+                    inp = torch.cat(inp_parts, 1)
+                    out = blk(inp, flow=flow, scale=scale)
                 if self._usesFeat:
                     fd, m0, feat = out
                 else:
@@ -375,14 +424,20 @@ class _FastIFNet(nn.Module):
 
             flow_a = flow[:, :2]
             flow_b = flow[:, 2:4]
-            warped_img0 = self._warp(img0, flow_a)
-            warped_img1 = self._warp(img1, flow_b)
-            if self._hasHead:
-                wf0 = self._warp(self.f0, flow_a)
-                wf1 = self._warp(self.f1, flow_b)
+            # last block: wf0/wf1 are never read again -> warp only the images
+            # (matches the baseline arch, which warps features at loop start)
+            if self._hasHead and i < lastIdx:
+                w0 = self._warp(imgf0, flow_a)
+                w1 = self._warp(imgf1, flow_b)
+                warped_img0, wf0 = w0[:, :3], w0[:, 3:]
+                warped_img1, wf1 = w1[:, :3], w1[:, 3:]
+            else:
+                warped_img0 = self._warp(img0, flow_a)
+                warped_img1 = self._warp(img1, flow_b)
 
         mask = torch.sigmoid(mask)
-        return warped_img0 * mask + warped_img1 * (1 - mask)
+        # lerp(b, a, m) == a*m + b*(1-m): two elementwise passes instead of four
+        return torch.lerp(warped_img1, warped_img0, mask)
 
 
 # -----------------------------------------------------------------------------
