@@ -379,7 +379,7 @@ class _FastIFNet(nn.Module):
                         a, b = ds(w0), ds(w1)
                         parts = [a[:, :3], b[:, :3], a[:, 3:], b[:, 3:]]
                     else:
-                        parts = [ds(warped_img0), ds(warped_img1)]
+                        parts = [ds(warped_img0[:, :3]), ds(warped_img1[:, :3])]
                     parts += [ds(timestep), ds(mask)]
                     if self._usesFeat:
                         parts.append(ds(feat))

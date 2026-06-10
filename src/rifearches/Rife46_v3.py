@@ -122,7 +122,7 @@ class IFNet(nn.Module):
         ).to(dtype=self.dtype, device=self.device)
         self.backWarp = torch.cat([tenHorizontal, tenVertical], 1)
 
-    def load_state_dict(self, stateDict, strict=True):
+    def load_state_dict(self, stateDict, strict=True, assign=False):
         """Rearrange ConvTranspose2d weights into the repacked Conv2d+PixelShuffle
         layout (math identical, see _repackDeconv). Deconv keys are detected by
         their unique 4x4 kernel shape."""
@@ -139,7 +139,7 @@ class IFNet(nn.Module):
                 remapped[k] = newK
                 if newB is not None:
                     remapped[pfx + ".bias"] = newB
-        return super().load_state_dict(remapped, strict=strict)
+        return super().load_state_dict(remapped, strict=strict, assign=assign)
 
     def forward(self, img0, img1, timeStep):
         warpedImg0, warpedImg1 = img0, img1
