@@ -17,6 +17,14 @@ from ....util import store_hyperparameters
 class LearnableSpatialTransformWrapper(nn.Module):
     def __init__(self, impl, pad_coef=0.5, angle_init_range=80, train_angle=True):
         super().__init__()
+        # torchvision is imported lazily, here rather than at module level:
+        # importing this arch module for registry registration must not drag in
+        # torchvision (+ torch._dynamo), ~1s of cold-start cost paid only when
+        # a LaMa model is actually instantiated.
+        from torchvision.transforms.functional import InterpolationMode, rotate
+
+        self._rotate = rotate
+        self._bilinear = InterpolationMode.BILINEAR
         self.impl = impl
         self.angle = torch.rand(1) * angle_init_range
         if train_angle:
@@ -44,8 +52,8 @@ class LearnableSpatialTransformWrapper(nn.Module):
         height, width = x.shape[2:]
         pad_h, pad_w = int(height * self.pad_coef), int(width * self.pad_coef)
         x_padded = F.pad(x, [pad_w, pad_w, pad_h, pad_h], mode="reflect")
-        x_padded_rotated = rotate(
-            x_padded, self.angle.to(x_padded), InterpolationMode.BILINEAR, fill=0
+        x_padded_rotated = self._rotate(
+            x_padded, self.angle.to(x_padded), self._bilinear, fill=0
         )
 
         return x_padded_rotated
@@ -56,10 +64,10 @@ class LearnableSpatialTransformWrapper(nn.Module):
         height, width = orig_x.shape[2:]
         pad_h, pad_w = int(height * self.pad_coef), int(width * self.pad_coef)
 
-        y_padded = rotate(
+        y_padded = self._rotate(
             y_padded_rotated,
             -self.angle.to(y_padded_rotated),
-            InterpolationMode.BILINEAR,
+            self._bilinear,
             fill=0,
         )
         y_height, y_width = y_padded.shape[2:]

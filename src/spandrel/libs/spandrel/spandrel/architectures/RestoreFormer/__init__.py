@@ -81,11 +81,12 @@ class RestoreFormerArch(Architecture[RestoreFormer]):
             head_size=head_size,
         )
 
-        def call(model: RestoreFormer, x: torch.Tensor) -> torch.Tensor:
-            # Lazy import: keep torchvision out of the arch-registry import path
-            # (see LaMa) so it is only loaded when RestoreFormer actually runs.
-            from torchvision.transforms.functional import normalize as tv_normalize
+        # Lazy import at load() time: keep torchvision out of the arch-registry
+        # import path (see LaMa) so it is only loaded when a RestoreFormer model
+        # is actually loaded, and resolved once rather than per call.
+        from torchvision.transforms.functional import normalize as tv_normalize
 
+        def call(model: RestoreFormer, x: torch.Tensor) -> torch.Tensor:
             x = tv_normalize(x, [0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
             result = model(x)[0]
             return (result + 1) / 2
