@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--encode_method lossless_nvenc` silently produced an FFmpeg command with no `-c:v` (the encoder defaulted per container) — `matchEncoder` only had an arm for the unreachable name `lossless_nvenc_h264`. Both names now resolve to the NVENC lossless flags and count as NVENC for hwupload.
 - The final decoded frame of an `--inpoint`/`--outpoint` segment was silently dropped when the metadata frame count rounded down; sentinel-driven loops now emit every decoded frame (#329).
 - DirectML/OpenVINO interpolation produced duplicate frames at factors above 2 — the ONNX `timestep` input was bound once and never refreshed per inserted frame. Now rebound each frame (#339).
+- CI test job failed at collection: the registry drift-guard tests import `downloadModels`, which pulled in `barflow` (absent from the minimal CI env) at module level via `progressBarLogic`. The progress-bar import is now lazy inside `downloadAndLog`, so registry-only consumers (`modelsList`/`modelsMap`) import clean.
 
 ### Performance
 - **Motion blur is faster on CUDA** — only the frames inside the shutter window are interpolated. ~1.5× faster at the default shutter 180, up to ~3× at shutter 90. Output is unchanged; TensorRT/DirectML and shutter 360 are unaffected.
