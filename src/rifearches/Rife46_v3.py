@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from .warplayer_v2 import warp
+from .rife_fast import _repackDeconv
 import math
 
 
@@ -48,8 +49,12 @@ class IFBlock(nn.Module):
             ResConv(c),
             ResConv(c),
         )
+        # repacked ConvTranspose2d(c, 4*6, 4, 2, 1)+PS(2):
+        # Conv2d(c, 4*4*6) + PS(2) + PS(2), weights rearranged at load
         self.lastconv = nn.Sequential(
-            nn.ConvTranspose2d(c, 4 * 6, 4, 2, 1), nn.PixelShuffle(2)
+            nn.Conv2d(c, 4 * (4 * 6), 3, 1, 1),
+            nn.PixelShuffle(2),
+            nn.PixelShuffle(2),
         )
 
     def forward(self, x, flow=None, scale=1):
@@ -116,6 +121,25 @@ class IFNet(nn.Module):
             .expand(-1, -1, -1, self.pw)
         ).to(dtype=self.dtype, device=self.device)
         self.backWarp = torch.cat([tenHorizontal, tenVertical], 1)
+
+    def load_state_dict(self, stateDict, strict=True, assign=False):
+        """Rearrange ConvTranspose2d weights into the repacked Conv2d+PixelShuffle
+        layout (math identical, see _repackDeconv). Deconv keys are detected by
+        their unique 4x4 kernel shape."""
+        remapped = dict(stateDict)
+        for k in list(remapped):
+            if (
+                k.endswith(".weight")
+                and remapped[k].dim() == 4
+                and remapped[k].shape[-1] == 4
+                and (".lastconv.0." in k or k == "encode.cnn3.weight")
+            ):
+                pfx = k[: -len(".weight")]
+                newK, newB = _repackDeconv(remapped[k], remapped.get(pfx + ".bias"))
+                remapped[k] = newK
+                if newB is not None:
+                    remapped[pfx + ".bias"] = newB
+        return super().load_state_dict(remapped, strict=strict, assign=assign)
 
     def forward(self, img0, img1, timeStep):
         warpedImg0, warpedImg1 = img0, img1
