@@ -585,6 +585,7 @@ class WriteBuffer:
             "nvenc_h265_10bit",
             "nvenc_av1",
             "slow_nvenc_av1",
+            "lossless_nvenc",
             "lossless_nvenc_h264",
         ]
         return self.encode_method in nvenc_methods

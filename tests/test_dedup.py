@@ -14,7 +14,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from src.dedup.dedup import DedupMSE, DedupMSECuda
+from src.dedup.dedup import DedupMSE, DedupMSECuda, DedupSSIM
 
 
 def _frame(value, h=64, w=64):
@@ -62,3 +62,46 @@ def testDedupMSECudaLogicOnCpu():
     assert d(_frame(0.5)) is False
     assert d(_frame(0.5)) is True
     assert d(_frame(0.0)) is False
+
+
+# --------------------------------------------------------------------------- #
+# DedupSSIM (CPU): comparison direction is OPPOSITE to MSE -- high score (1.0)
+# means identical. Pinned so the inverted-comparison bug fixed in the MSE
+# backend can never sneak into the SSIM one.
+# --------------------------------------------------------------------------- #
+
+def _noisyFrame(seed, h=64, w=64):
+    g = torch.Generator().manual_seed(seed)
+    return torch.rand((1, 3, h, w), generator=g, dtype=torch.float32)
+
+
+def testDedupSSIMFlagsIdenticalFramesAsDuplicates():
+    d = DedupSSIM(ssimThreshold=0.9)
+    f = _noisyFrame(0)
+    assert d(f) is False           # first frame: nothing to compare against
+    assert d(f.clone()) is True    # identical -> SSIM 1.0 -> duplicate
+
+
+def testDedupSSIMKeepsDistinctFrames():
+    d = DedupSSIM(ssimThreshold=0.9)
+    assert d(_noisyFrame(0)) is False
+    assert d(_noisyFrame(1)) is False  # uncorrelated noise -> SSIM ~0 -> keep
+
+
+def testDedupSSIMKeepsReferenceOnDuplicate():
+    # After a duplicate the reference must NOT advance (same contract as MSE).
+    d = DedupSSIM(ssimThreshold=0.9)
+    f = _noisyFrame(0)
+    d(f)
+    assert d(f.clone()) is True
+    assert d(f.clone()) is True
+    assert d(_noisyFrame(1)) is False
+
+
+def testDedupSSIMAdvancesReferenceOnKeptFrame():
+    d = DedupSSIM(ssimThreshold=0.9)
+    a, b = _noisyFrame(0), _noisyFrame(1)
+    d(a)
+    assert d(b) is False           # distinct -> kept -> becomes the reference
+    assert d(b.clone()) is True    # duplicate of the NEW reference
+

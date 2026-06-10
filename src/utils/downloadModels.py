@@ -867,6 +867,15 @@ def modelsMap(
                 else:
                     return "rife-v4.15-lite-ncnn.zip"
 
+        case "rife4.16-lite" | "rife4.16-lite-ncnn":
+            if modelType == "pth":
+                return "rife416_lite.pth"
+            elif modelType == "ncnn":
+                if ensemble:
+                    return "rife-v4.16-lite-ensemble-ncnn.zip"
+                else:
+                    return "rife-v4.16-lite-ncnn.zip"
+
         case (
             "rife4.15"
             | "rife4.15-tensorrt"

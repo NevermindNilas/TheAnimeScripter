@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Bumped `nelux` `0.12.4` → `0.12.6`.
 
 ### Fixed
+- `--interpolate_method rife4.16-lite` crashed at model download (`ValueError: Model rife4.16-lite not found.`) — the method was wired through the CLI, model init and the arch table but had no `modelsMap` weight mapping. Mapping added (`rife416_lite.pth` / NCNN zips); new registry drift-guard tests (`tests/test_registryDrift.py`) now enforce the choices ↔ registry ↔ `modelsMap` sync so this class of gap fails tests instead of crashing users.
+- `--encode_method lossless_nvenc` silently produced an FFmpeg command with no `-c:v` (the encoder defaulted per container) — `matchEncoder` only had an arm for the unreachable name `lossless_nvenc_h264`. Both names now resolve to the NVENC lossless flags and count as NVENC for hwupload.
 - The final decoded frame of an `--inpoint`/`--outpoint` segment was silently dropped when the metadata frame count rounded down; sentinel-driven loops now emit every decoded frame (#329).
 - DirectML/OpenVINO interpolation produced duplicate frames at factors above 2 — the ONNX `timestep` input was bound once and never refreshed per inserted frame. Now rebound each frame (#339).
 

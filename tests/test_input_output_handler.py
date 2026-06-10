@@ -55,6 +55,23 @@ def test_no_input_falls_back_to_tas():
     assert io.generateOutputName(make_args(), None) == "TAS.mp4"
 
 
+def test_resize_suffix_carries_factor():
+    assert io.generateOutputName(make_args(resize=1), "clip.mkv") == "clip-Resize2.mkv"
+
+
+def test_dedup_suffix_carries_sensitivity():
+    assert io.generateOutputName(make_args(dedup=1), "clip.mkv") == "clip-Dedup50.mkv"
+
+
+def test_feature_suffix_order_is_stable():
+    # Suffix order is fixed by the features table, not by flag order:
+    # Resize, Dedup, Int, Up, Restore, ...
+    name = io.generateOutputName(
+        make_args(resize=1, dedup=1, interpolate=1, upscale=1), "clip.mkv"
+    )
+    assert name == "clip-Resize2-Dedup50-Int2-Up2.mkv"
+
+
 # ---- #5 URL respects encode_method + feature suffixes ---------------------- #
 
 @pytest.mark.parametrize("url", ["https://youtu.be/x", "http://y/z"])
