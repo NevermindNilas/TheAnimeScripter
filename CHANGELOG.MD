@@ -10,9 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `smosr` 2x upscale model ([umzi2/SMoSR](https://github.com/umzi2/SMoSR), MIT) across CUDA, MPS, TensorRT, DirectML, and OpenVINO backends. Special thanks to UMZI.
 
 ### Changed
+- Frame-processing loops (main pipeline, depth, object detection, segment) now terminate on the decoder's end-of-stream sentinel instead of polling queue state every frame; main loop uses a one-frame lookahead instead of queue peeking (#329). Thanks @KRRT7.
 - Bumped `nelux` `0.12.4` → `0.12.6`.
 
 ### Fixed
+- The final decoded frame of an `--inpoint`/`--outpoint` segment was silently dropped when the metadata frame count rounded down; sentinel-driven loops now emit every decoded frame (#329).
 - DirectML/OpenVINO interpolation produced duplicate frames at factors above 2 — the ONNX `timestep` input was bound once and never refreshed per inserted frame. Now rebound each frame (#339).
 
 ### Performance
