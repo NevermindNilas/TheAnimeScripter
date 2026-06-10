@@ -28,9 +28,9 @@ os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
 import sys
 import logging
 import warnings
+from queue import Empty, Queue
 from time import time
 from concurrent.futures import ThreadPoolExecutor
-from queue import Queue
 from fractions import Fraction
 import src.constants as cs
 
@@ -285,6 +285,14 @@ class VideoProcessor:
         else:
             self.ifInterpolateLast(frame)
 
+    def _drainInterpQueue(self) -> None:
+        while True:
+            try:
+                item = self.interpQueue.get_nowait()
+            except Empty:
+                break
+            self.writeBuffer.write(item)
+
     def ifInterpolateFirst(self, frame: any) -> None:
         """
         Process frame with interpolation-first pipeline order.
@@ -308,10 +316,12 @@ class VideoProcessor:
 
         if self.upscale:
             if self.interpolate:
-                while not self.interpQueue.empty():
-                    self.writeBuffer.write(
-                        self.upscale_process(self.interpQueue.get(), self.nextFrame)
-                    )
+                while True:
+                    try:
+                        item = self.interpQueue.get_nowait()
+                    except Empty:
+                        break
+                    self.writeBuffer.write(self.upscale_process(item, self.nextFrame))
 
                 self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
 
@@ -320,8 +330,7 @@ class VideoProcessor:
 
         else:
             if self.interpolate:
-                while not self.interpQueue.empty():
-                    self.writeBuffer.write(self.interpQueue.get())
+                self._drainInterpQueue()
             self.writeBuffer.write(frame)
 
     def ifInterpolateLast(self, frame: any) -> None:
@@ -382,26 +391,28 @@ class VideoProcessor:
             self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
 
         try:
+            currentFrame = self.readBuffer.read()
+            nextFrame = self.readBuffer.read() if currentFrame is not None else None
+
             with self.ProgressBarLogic(
                 self.totalFrames * increment,
             ) as bar:
-                for _ in range(self.totalFrames):
-                    frame = self.readBuffer.read()
-                    if frame is None:
-                        break
+                while currentFrame is not None:
                     if self.upscaleMethod == "animesr" or (
                         self.interpolate
                         and self.interpolateMethod.startswith(("distildrba"))
                     ):
-                        self.nextFrame = self.readBuffer.peek()
-                    self.processFrame(frame)
+                        self.nextFrame = nextFrame
+                    self.processFrame(currentFrame)
                     frameCount += 1
                     bar(increment)
 
-                    if self.readBuffer.isReadFinished():
-                        if self.readBuffer.isQueueEmpty():
-                            bar.updateTotal(newTotal=frameCount * increment)
-                            break
+                    currentFrame = nextFrame
+                    if currentFrame is not None:
+                        nextFrame = self.readBuffer.read()
+
+                if frameCount != self.totalFrames:
+                    bar.updateTotal(frameCount * increment)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")

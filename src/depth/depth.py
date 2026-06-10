@@ -360,17 +360,16 @@ class DepthCuda:
 
     def process(self):
         frameCount = 0
+        currentFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read() if currentFrame is not None else None
         with ProgressBarLogic(self.totalFrames) as bar:
-            for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-                self.processFrame(frame)
+            while currentFrame is not None:
+                self.processFrame(currentFrame)
                 frameCount += 1
                 bar(1)
-                if self.readBuffer.isReadFinished():
-                    if self.readBuffer.isQueueEmpty():
-                        break
+                currentFrame = nextFrame
+                if currentFrame is not None:
+                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -646,17 +645,16 @@ class DepthDirectMLV2:
     def process(self):
         frameCount = 0
 
+        currentFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read() if currentFrame is not None else None
         with ProgressBarLogic(self.totalFrames) as bar:
-            for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-                self.processFrame(frame)
+            while currentFrame is not None:
+                self.processFrame(currentFrame)
                 frameCount += 1
                 bar(1)
-                if self.readBuffer.isReadFinished():
-                    if self.readBuffer.isQueueEmpty():
-                        break
+                currentFrame = nextFrame
+                if currentFrame is not None:
+                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -882,17 +880,16 @@ class DepthTensorRTV2:
     def process(self):
         frameCount = 0
 
+        currentFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read() if currentFrame is not None else None
         with ProgressBarLogic(self.totalFrames) as bar:
-            for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-                self.processFrame(frame)
+            while currentFrame is not None:
+                self.processFrame(currentFrame)
                 frameCount += 1
                 bar(1)
-                if self.readBuffer.isReadFinished():
-                    if self.readBuffer.isQueueEmpty():
-                        break
+                currentFrame = nextFrame
+                if currentFrame is not None:
+                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
@@ -1100,14 +1097,16 @@ class OGDepthV2CUDA:
     def process(self):
         frameCount = 0
 
+        currentFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read() if currentFrame is not None else None
         with ProgressBarLogic(self.totalFrames) as bar:
-            for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-                self.processFrame(frame)
+            while currentFrame is not None:
+                self.processFrame(currentFrame)
                 frameCount += 1
                 bar(1)
+                currentFrame = nextFrame
+                if currentFrame is not None:
+                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
@@ -1539,17 +1538,15 @@ class OGDepthV2TensorRT:
     def process(self):
         frameCount = 0
         with ProgressBarLogic(self.totalFrames) as bar:
-            for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-                self.processFrame(frame)
+            currentFrame = self.readBuffer.read()
+            nextFrame = self.readBuffer.read() if currentFrame is not None else None
+            while currentFrame is not None:
+                self.processFrame(currentFrame)
                 frameCount += 1
                 bar(1)
-
-                if self.readBuffer.isReadFinished():
-                    if self.readBuffer.isQueueEmpty():
-                        break
+                currentFrame = nextFrame
+                if currentFrame is not None:
+                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
@@ -1935,18 +1932,16 @@ class VideoDepthAnythingCUDA:
         """Process using Nelux-backed BuildBuffer decoding."""
         frameCount = 0
         self._resetVideoDepthState()
+        currentFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read() if currentFrame is not None else None
         with ProgressBarLogic(self.totalFrames) as bar:
-            for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-                self.processFrame(frame)
+            while currentFrame is not None:
+                self.processFrame(currentFrame)
                 frameCount += 1
                 bar(1)
-
-                if self.readBuffer.isReadFinished():
-                    if self.readBuffer.isQueueEmpty():
-                        break
+                currentFrame = nextFrame
+                if currentFrame is not None:
+                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
@@ -2109,19 +2104,17 @@ class VideoDepthAnythingTorch:
         frameCount = 0
 
         self._resetVideoDepthState()
+        currentFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read() if currentFrame is not None else None
 
         with ProgressBarLogic(self.totalFrames) as bar:
-            for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-
-                self.processFrame(frame)
+            while currentFrame is not None:
+                self.processFrame(currentFrame)
                 frameCount += 1
                 bar(1)
-
-                if self.readBuffer.isReadFinished() and self.readBuffer.isQueueEmpty():
-                    break
+                currentFrame = nextFrame
+                if currentFrame is not None:
+                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
@@ -2134,4 +2127,3 @@ class VideoDepthAnythingTorch:
             self.output.write(frame)
 
         self.output.release()
-
