@@ -129,7 +129,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
     def process(self):
         frameCount = 0
         currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read() if currentFrame is not None else None
 
         with ProgressBarLogic(self.totalFrames) as bar:
             while currentFrame is not None:
@@ -341,7 +341,7 @@ class AnimeSegmentTensorRT:
     def process(self):
         frameCount = 0
         currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read() if currentFrame is not None else None
 
         with ProgressBarLogic(self.totalFrames) as bar:
             while currentFrame is not None:
@@ -539,7 +539,7 @@ class AnimeSegmentDirectML:
     def process(self):
         frameCount = 0
         currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read() if currentFrame is not None else None
 
         with ProgressBarLogic(self.totalFrames) as bar:
             while currentFrame is not None:

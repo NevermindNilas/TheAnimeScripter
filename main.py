@@ -392,7 +392,7 @@ class VideoProcessor:
             self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
 
         currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read() if currentFrame is not None else None
 
         try:
             with self.ProgressBarLogic(
