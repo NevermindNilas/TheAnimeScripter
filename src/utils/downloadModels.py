@@ -1,7 +1,6 @@
 import os
 import logging
 from src.utils.logAndPrint import logAndPrint
-from src.utils.progressBarLogic import ProgressBarDownloadLogic
 import src.constants as cs
 
 from src.constants import ADOBE
@@ -1108,6 +1107,10 @@ def downloadAndLog(
     from urllib.error import URLError, HTTPError
     from http.client import IncompleteRead
     import zipfile
+
+    # Imported lazily so registry-only consumers (modelsList/modelsMap, the
+    # drift-guard tests) don't drag in barflow at module import.
+    from src.utils.progressBarLogic import ProgressBarDownloadLogic
 
     tempFolder = os.path.join(folderPath, "TEMP")
     os.makedirs(tempFolder, exist_ok=True)

@@ -13,9 +13,10 @@ import contextlib
 
 import pytest
 
-# downloadModels imports progressBarLogic -> barflow at module load, so skip
-# cleanly in the minimal CI env that does not install the full runtime deps
-# (mirrors the torch/nelux importorskip in the other test modules).
+# downloadAndLog lazily imports progressBarLogic -> barflow, and these tests
+# patch ProgressBarDownloadLogic inside that module, so skip cleanly in the
+# minimal CI env that does not install the full runtime deps (mirrors the
+# torch/nelux importorskip in the other test modules).
 pytest.importorskip("barflow")
 
 from src.utils import downloadModels as dm  # noqa: E402
@@ -47,7 +48,9 @@ def testTruncatedDownloadRaisesStringifiableRetryable(tmp_path, monkeypatch):
     import urllib.request
 
     monkeypatch.setattr(urllib.request, "urlopen", lambda _url: _TruncatedResponse())
-    monkeypatch.setattr(dm, "ProgressBarDownloadLogic", _noopProgressBar)
+    monkeypatch.setattr(
+        "src.utils.progressBarLogic.ProgressBarDownloadLogic", _noopProgressBar
+    )
 
     with pytest.raises(Exception) as excInfo:
         dm.downloadAndLog(
@@ -72,7 +75,9 @@ def testTruncatedDownloadDoesNotCommitPartialFile(tmp_path, monkeypatch):
     import urllib.request
 
     monkeypatch.setattr(urllib.request, "urlopen", lambda _url: _TruncatedResponse())
-    monkeypatch.setattr(dm, "ProgressBarDownloadLogic", _noopProgressBar)
+    monkeypatch.setattr(
+        "src.utils.progressBarLogic.ProgressBarDownloadLogic", _noopProgressBar
+    )
 
     with pytest.raises(ConnectionError):
         dm.downloadAndLog(
