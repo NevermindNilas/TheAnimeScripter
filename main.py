@@ -391,27 +391,26 @@ class VideoProcessor:
         if self.interpolate and self.interpolateFirst:
             self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
 
+        currentFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read()
+
         try:
             with self.ProgressBarLogic(
                 self.totalFrames * increment,
             ) as bar:
-                for _ in range(self.totalFrames):
-                    frame = self.readBuffer.read()
-                    if frame is None:
-                        break
+                while currentFrame is not None:
                     if self.upscaleMethod == "animesr" or (
                         self.interpolate
                         and self.interpolateMethod.startswith(("distildrba"))
                     ):
-                        self.nextFrame = self.readBuffer.peek()
-                    self.processFrame(frame)
+                        self.nextFrame = nextFrame
+                    self.processFrame(currentFrame)
                     frameCount += 1
                     bar(increment)
 
-                    if self.readBuffer.isReadFinished():
-                        if self.readBuffer.isQueueEmpty():
-                            bar.updateTotal(newTotal=frameCount * increment)
-                            break
+                    currentFrame = nextFrame
+                    if currentFrame is not None:
+                        nextFrame = self.readBuffer.read()
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")
