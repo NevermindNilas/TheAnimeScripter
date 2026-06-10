@@ -53,7 +53,7 @@ Deviations to expect: **OpenVINO is usually a branch inside the DirectML/ORT cla
 - **Weights**: `modelsMap()` resolves name+scale+dtype → filename; `resolveWeightPath()` → `weights/{model}/...`; auto-downloads from TAS-Models-Host. `-tensorrt`/`-directml`/`-openvino` pull ONNX into `weights/{model}-onnx/` (rife keeps its base folder).
 - **Output filename** (`Up`/`Int` suffixing, uniquification, image-seq/URL input): `inputOutputHandler.py` `generateOutputName`.
 - **Encode methods** (x264/nvenc/…): `match` arms in `encodingSettings.py` `matchEncoder()`, mirrored in argparse `choices`.
-- **Custom-model ONNX export**: `src/utils/onnxConverter.py` (`pthToOnnx`, fp16/slim). TRT ONNX→engine build/cache: `src/utils/trtHandler.py`.
+- **Custom-model ONNX export**: `tools/onnxConverter.py` (`pthToOnnx`, fp16/slim). TRT ONNX→engine build/cache: `src/utils/trtHandler.py`.
 - **Global singletons** (`WHEREAMIRUNFROM`, `SYSTEM`, `FFMPEGPATH`, `FFPROBEPATH`, `METADATAPATH`, `ADOBE`, `AUDIO`): `src/constants.py`, set once in argumentsChecker, read everywhere as `import src.constants as cs`.
 - **Runtime deps install**: `dependencyHandler.py` picks the per-platform `extra-requirements-*.txt` and pip-installs. FFmpeg auto-download: `getFFMPEG.py`. Hardware probe: `checkSpecs.py`.
 - **AE bridge**: `--ae` starts a Socket.IO server (`aeComms.py`); `cs.ADOBE` mode. Live frame preview server: `previewSettings.py`. Preset save/load (`--preset`): `presetLogic.py`. Video metadata probe: `getVideoMetadata.py`.
