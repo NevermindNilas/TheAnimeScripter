@@ -1,7 +1,10 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn.functional import interpolate
 import math
+
+from .rife_fast import _repackDeconv
 
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
@@ -25,7 +28,9 @@ class Head(nn.Module):
         self.cnn0 = nn.Conv2d(3, 16, 3, 2, 1)
         self.cnn1 = nn.Conv2d(16, 16, 3, 1, 1)
         self.cnn2 = nn.Conv2d(16, 16, 3, 1, 1)
-        self.cnn3 = nn.ConvTranspose2d(16, 4, 4, 2, 1)
+        # repacked ConvTranspose2d(16, 4, 4, 2, 1): Conv2d + PixelShuffle,
+        # weights rearranged at load (math identical)
+        self.cnn3 = nn.Conv2d(16, 16, 3, 1, 1)
         self.relu = nn.LeakyReLU(0.2, True)
 
     def forward(self, x, feat=False):
@@ -35,7 +40,7 @@ class Head(nn.Module):
         x = self.relu(x1)
         x2 = self.cnn2(x)
         x = self.relu(x2)
-        x3 = self.cnn3(x)
+        x3 = F.pixel_shuffle(self.cnn3(x), 2)
         if feat:
             return [x0, x1, x2, x3]
         return x3
@@ -60,10 +65,11 @@ class IFBlock(nn.Module):
             conv(c // 2, out_planes=c, kernel_size=3, stride=2, padding=1),
         )
         self.convblock = nn.Sequential(*[ResConv(c) for _ in range(8)])
+        # repacked ConvTranspose2d(c, 4*13, 4, 2, 1)+PS(2):
+        # Conv2d(c, 4*4*13) + PS(2) + PS(2), weights rearranged at load
         self.lastconv = nn.Sequential(
-            nn.ConvTranspose2d(
-                in_channels=c, out_channels=4 * 13, kernel_size=4, stride=2, padding=1
-            ),
+            nn.Conv2d(c, 4 * (4 * 13), 3, 1, 1),
+            nn.PixelShuffle(upscale_factor=2),
             nn.PixelShuffle(upscale_factor=2),
         )
         self.in_planes = in_planes
@@ -139,6 +145,25 @@ class IFNet(nn.Module):
             ),
             dim=1,
         ).to(device=self.device, dtype=self.dtype)
+
+    def load_state_dict(self, stateDict, strict=True):
+        """Rearrange ConvTranspose2d weights into the repacked Conv2d+PixelShuffle
+        layout (math identical, see _repackDeconv). Deconv keys are detected by
+        their unique 4x4 kernel shape."""
+        remapped = dict(stateDict)
+        for k in list(remapped):
+            if (
+                k.endswith(".weight")
+                and remapped[k].dim() == 4
+                and remapped[k].shape[-1] == 4
+                and (".lastconv.0." in k or k == "encode.cnn3.weight")
+            ):
+                pfx = k[: -len(".weight")]
+                newK, newB = _repackDeconv(remapped[k], remapped.get(pfx + ".bias"))
+                remapped[k] = newK
+                if newB is not None:
+                    remapped[pfx + ".bias"] = newB
+        return super().load_state_dict(remapped, strict=strict)
 
     def forward(self, img0, img1, timeStep, f0):
         warpedImg0, warpedImg1 = img0, img1
