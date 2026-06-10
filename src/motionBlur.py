@@ -200,7 +200,7 @@ class MotionBlurPipeline:
                 | "rife_elexor"
                 | "rife4.25-heavy"
             ):
-                from src.unifiedInterpolate import RifeCuda
+                from src.interpolate.rife import RifeCuda
 
                 self.interpolateProcess = RifeCuda(
                     self.half,
@@ -235,7 +235,7 @@ class MotionBlurPipeline:
                 | "rife4.22-ncnn"
                 | "rife4.22-lite-ncnn"
             ):
-                from src.unifiedInterpolate import RifeNCNN
+                from src.interpolate.rife_ncnn import RifeNCNN
 
                 self.interpolateProcess = RifeNCNN(
                     self.interpolateMethod,
@@ -262,7 +262,7 @@ class MotionBlurPipeline:
                 | "rife_elexor-tensorrt"
                 | "rife4.25-heavy-tensorrt"
             ):
-                from src.unifiedInterpolate import RifeTensorRT
+                from src.interpolate.rife_tensorrt import RifeTensorRT
 
                 self.interpolateProcess = RifeTensorRT(
                     self.interpolateMethod,
@@ -309,7 +309,7 @@ class MotionBlurPipeline:
                 | "rife4.25-lite-openvino"
                 | "rife4.25-heavy-openvino"
             ):
-                from src.unifiedInterpolate import RifeDirectML
+                from src.interpolate.rife_directml import RifeDirectML
 
                 self.interpolateProcess = RifeDirectML(
                     self.interpolateMethod,
