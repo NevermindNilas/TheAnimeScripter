@@ -3,7 +3,8 @@ import torch
 import logging
 
 from src.model.modelOptimizer import ModelOptimizer
-from src.model.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
+from src.model.registry import weightsDir, modelsMap
+from src.model.download import downloadModels, resolveWeightPath
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.constants import ADOBE
