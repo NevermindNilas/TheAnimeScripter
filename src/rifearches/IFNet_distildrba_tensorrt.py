@@ -7,9 +7,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 backwarpTenGrid = {}
-
 
 def warp(tenInput, tenFlow):
     """
@@ -48,7 +46,6 @@ def warp(tenInput, tenFlow):
         align_corners=True,
     )
 
-
 def conv(inPlanes, outPlanes, kernelSize=3, stride=1, padding=1, dilation=1):
     """Conv2d + LeakyReLU"""
     return nn.Sequential(
@@ -63,7 +60,6 @@ def conv(inPlanes, outPlanes, kernelSize=3, stride=1, padding=1, dilation=1):
         ),
         nn.LeakyReLU(0.2, True),
     )
-
 
 class Head(nn.Module):
     """Feature encoder head - encodes RGB to 16-channel features"""
@@ -86,7 +82,6 @@ class Head(nn.Module):
         x3 = self.cnn3(x)
         return x3
 
-
 class ResConv(nn.Module):
     """Residual convolution block"""
 
@@ -98,7 +93,6 @@ class ResConv(nn.Module):
 
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
-
 
 class IFBlockV2Lite(nn.Module):
     """Flow estimation block for v2_lite model (3 blocks)"""
@@ -133,7 +127,6 @@ class IFBlockV2Lite(nn.Module):
         mask = tmp[:, 4:5]
         feat = tmp[:, 5:]
         return flow, mask, feat
-
 
 class IFNetLiteTRT(nn.Module):
     """
@@ -307,7 +300,6 @@ class IFNetLiteTRT(nn.Module):
         merged = warpedImg0 * mask + warpedImg1 * (1 - mask)
         return merged
 
-
 class IFBlockV1(nn.Module):
     """
     Flow estimation block for v1 (full) model.
@@ -346,7 +338,6 @@ class IFBlockV1(nn.Module):
         feat = tmp[:, 5:13]
         tmap = torch.sigmoid(tmp[:, 13:])  # Must be in 0-1 range
         return flow, mask, feat, tmap
-
 
 class IFNetFullTRT(nn.Module):
     """
@@ -410,7 +401,6 @@ class IFNetFullTRT(nn.Module):
         f0 = self.encode(img0Encode)
         f1 = self.encode(img1Encode)
         f2 = self.encode(img2Encode)
-
 
         inp0, inp1 = img1, img0
         h0, h1 = f1, f0

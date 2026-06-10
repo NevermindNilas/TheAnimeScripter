@@ -20,11 +20,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 # -----------------------------------------------------------------------------
 # shared modules
 # -----------------------------------------------------------------------------
-
 
 def _conv(inPlanes, outPlanes, kernelSize=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
@@ -33,14 +31,12 @@ def _conv(inPlanes, outPlanes, kernelSize=3, stride=1, padding=1, dilation=1):
         nn.LeakyReLU(0.2, inplace=True),
     )
 
-
 _DECONV_MAPPING = {
     (0, 0): [((0, 0), (3, 3)), ((0, 1), (3, 1)), ((1, 0), (1, 3)), ((1, 1), (1, 1))],
     (0, 1): [((0, 1), (3, 2)), ((0, 2), (3, 0)), ((1, 1), (1, 2)), ((1, 2), (1, 0))],
     (1, 0): [((1, 0), (2, 3)), ((1, 1), (2, 1)), ((2, 0), (0, 3)), ((2, 1), (0, 1))],
     (1, 1): [((1, 1), (2, 2)), ((1, 2), (2, 0)), ((2, 1), (0, 2)), ((2, 2), (0, 0))],
 }
-
 
 def _repackDeconv(deconvW, deconvB):
     """ConvTranspose2d(Cin, Cout, 4, 2, 1) -> Conv2d(Cin, 4*Cout, 3, 1, 1)."""
@@ -55,7 +51,6 @@ def _repackDeconv(deconvW, deconvB):
         if deconvB is not None:
             newB[sub::4] = deconvB
     return newK, newB
-
 
 class _ResConv(nn.Module):
     def __init__(self, c, dilation=1):
@@ -78,7 +73,6 @@ class _ResConv(nn.Module):
             self.conv.weight.mul_(bf.view(-1, 1, 1, 1))
             self.conv.bias.mul_(bf)
         self._betaFolded = True
-
 
 class _IFBlock(nn.Module):
     """IFBlock with deconv->Conv2d+double-PS rewrite. lastOutCh: 6 or 13."""
@@ -126,7 +120,6 @@ class _IFBlock(nn.Module):
             return flow_out, mask, feat_out
         return flow_out, mask
 
-
 class _Head(nn.Module):
     """Head encoder. midC=16/32, outC=4/8. cnn3 is deconv replaced with Conv2d+PS."""
 
@@ -151,11 +144,9 @@ class _Head(nn.Module):
             return [x0, x1, x2, x3]
         return x3
 
-
 # -----------------------------------------------------------------------------
 # generic fast IFNet, parameterized by config
 # -----------------------------------------------------------------------------
-
 
 class _FastIFNet(nn.Module):
     """Generic fast IFNet supporting all RIFE 4.x variants.
@@ -439,11 +430,9 @@ class _FastIFNet(nn.Module):
         # lerp(b, a, m) == a*m + b*(1-m): two elementwise passes instead of four
         return torch.lerp(warped_img1, warped_img0, mask)
 
-
 # -----------------------------------------------------------------------------
 # concrete variants
 # -----------------------------------------------------------------------------
-
 
 def _make(channels, inPlanesList, lastOutCh, hasHead, headMidC, headOutC, scaleBase, maskMode):
     """Factory that returns a class binding the config to __init__ defaults."""
@@ -462,7 +451,6 @@ def _make(channels, inPlanesList, lastOutCh, hasHead, headMidC, headOutC, scaleB
             )
 
     return _Concrete
-
 
 # rife4.6: 4 blocks, no Head, lastOutCh=6, additive mask
 IFNet46 = _make(

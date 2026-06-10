@@ -82,23 +82,6 @@ def detectImageSequence(folderPath):
     return (sequencePath, frameNumbers[0], frameNumbers[-1], len(frameNumbers))
 
 
-def getFirstImageInSequence(folderPath):
-    """
-    Gets the first image file in a folder for sequence detection.
-
-    Args:
-        folderPath: Path to the folder
-
-    Returns:
-        Path to the first image file, or None if no images found
-    """
-    if not os.path.isdir(folderPath):
-        return None
-
-    imageFiles = _listImages(folderPath)
-    return imageFiles[0] if imageFiles else None
-
-
 def _baseName(videoInput):
     """Derive the leading filename component from an input path/URL."""
     if _isURL(videoInput):

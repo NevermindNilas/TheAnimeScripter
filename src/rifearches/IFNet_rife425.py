@@ -4,7 +4,6 @@ import torch.nn.functional as F
 from .warplayer import warp
 from .dynamic_scale import dynamicScale
 
-
 def get_drm_t(drm, t, precision=1e-3):
     """
     DRM is a tensor with dimensions b, 1, h, w, where for any value x (0 < x < 1).
@@ -59,7 +58,6 @@ def get_drm_t(drm, t, precision=1e-3):
 
     return x_drm.to(dtype)
 
-
 def calc_drm_rife(t, flow10, flow12, linear=False):
     # Compute the distance using the optical flow and distance calculator
     d10 = distance_calculator(flow10) + 1e-4
@@ -101,101 +99,10 @@ def calc_drm_rife(t, flow10, flow12, linear=False):
 
     return {"drm_t1_t01": drm_t1_t01, "drm_t1_t12": drm_t1_t12}
 
-
-def calc_drm_gmfss(t, flow10, flow12, metric10, metric12, linear=False):
-    # Compute the distance using the optical flow and distance calculator
-    d10 = distance_calculator(flow10)
-    d12 = distance_calculator(flow12)
-
-    # Calculate the distance ratio map
-    drm10 = d10 / (d10 + d12)
-    drm12 = d12 / (d10 + d12)
-
-    warp_method = "soft" if (metric10 is not None and metric12 is not None) else "avg"
-
-    if linear:
-        drm1t_t01 = drm12 * t * 2
-        drm1t_t12 = drm10 * t * 2
-        drm0t_t01_unaligned = 1 - drm1t_t01
-        drm2t_t12_unaligned = 1 - drm1t_t12
-    else:
-        drm1t_t01 = get_drm_t(drm12, t)
-        drm1t_t12 = get_drm_t(drm10, t)
-        drm0t_t01_unaligned = 1 - drm1t_t01
-        drm2t_t12_unaligned = 1 - drm1t_t12
-
-    drm0t_t01 = warp(drm0t_t01_unaligned, flow10, metric10, warp_method)
-    drm2t_t12 = warp(drm2t_t12_unaligned, flow12, metric12, warp_method)
-
-    # Create a mask with all ones to identify the holes in the warped drm maps
-    ones_mask = drm0t_t01.clone() * 0 + 1
-
-    # Warp the ones mask
-    warped_ones_mask0t_t01 = warp(ones_mask, flow10, metric10, warp_method)
-    warped_ones_mask2t_t12 = warp(ones_mask, flow12, metric12, warp_method)
-
-    # Identify holes in warped drm map
-    gap_0t_t01 = warped_ones_mask0t_t01 < 0.999
-    gap_2t_t12 = warped_ones_mask2t_t12 < 0.999
-
-    # Fill the holes in the warped drm maps with the inverse of the original drm maps
-    drm0t_t01[gap_0t_t01] = drm0t_t01_unaligned[gap_0t_t01]
-    drm2t_t12[gap_2t_t12] = drm2t_t12_unaligned[gap_2t_t12]
-
-    return {
-        "drm0t_t01": drm0t_t01,
-        "drm1t_t01": drm1t_t01,
-        "drm1t_t12": drm1t_t12,
-        "drm2t_t12": drm2t_t12,
-    }
-
-
-def calc_drm_rife_auxiliary(t, flow10, flow12, metric10, metric12, linear=False):
-    # Compute the distance using the optical flow and distance calculator
-    d10 = distance_calculator(flow10) + 1e-4
-    d12 = distance_calculator(flow12) + 1e-4
-
-    # Calculate the distance ratio map
-    drm10 = d10 / (d10 + d12)
-    drm12 = d12 / (d10 + d12)
-
-    if linear:
-        drm_t0_unaligned = drm10 * t * 2
-        drm_t1_unaligned = drm12 * t * 2
-    else:
-        drm_t0_unaligned = get_drm_t(drm10, t)
-        drm_t1_unaligned = get_drm_t(drm12, t)
-
-    warp_method = "soft" if (metric10 is not None and metric12 is not None) else "avg"
-
-    # For RIFE, drm should be aligned with the time corresponding to the intermediate frame.
-    drm_t1_t01 = warp(
-        drm_t1_unaligned, flow10 * drm_t1_unaligned, metric10, warp_method
-    )
-    drm_t1_t12 = warp(
-        drm_t0_unaligned, flow12 * drm_t0_unaligned, metric12, warp_method
-    )
-
-    ones_mask = drm10.clone() * 0 + 1
-
-    mask_t1_t01 = warp(ones_mask, flow10 * drm_t1_unaligned, metric10, warp_method)
-    mask_t1_t12 = warp(ones_mask, flow12 * drm_t0_unaligned, metric12, warp_method)
-
-    gap_t1_t01 = mask_t1_t01 < 0.999
-    gap_t1_t12 = mask_t1_t12 < 0.999
-
-    drm_t1_t01[gap_t1_t01] = drm_t1_unaligned[gap_t1_t01]
-    drm_t1_t12[gap_t1_t12] = drm_t0_unaligned[gap_t1_t12]
-
-    # why use drm0t1 not drm1t0, because rife use backward warp not forward warp.
-    return {"drm_t1_t01": drm_t1_t01, "drm_t1_t12": drm_t1_t12}
-
-
 def distance_calculator(_x):
     dtype = _x.dtype
     u, v = _x[:, 0:1].float(), _x[:, 1:].float()
     return torch.sqrt(u**2 + v**2).to(dtype)
-
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
@@ -210,23 +117,6 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
         ),
         nn.LeakyReLU(0.2, True),
     )
-
-
-def conv_bn(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
-    return nn.Sequential(
-        nn.Conv2d(
-            in_planes,
-            out_planes,
-            kernel_size=kernel_size,
-            stride=stride,
-            padding=padding,
-            dilation=dilation,
-            bias=False,
-        ),
-        nn.BatchNorm2d(out_planes),
-        nn.LeakyReLU(0.2, True),
-    )
-
 
 class Head(nn.Module):
     def __init__(self):
@@ -249,7 +139,6 @@ class Head(nn.Module):
             return [x0, x1, x2, x3]
         return x3
 
-
 class ResConv(nn.Module):
     def __init__(self, c, dilation=1):
         super(ResConv, self).__init__()
@@ -259,7 +148,6 @@ class ResConv(nn.Module):
 
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
-
 
 class IFBlock(nn.Module):
     def __init__(self, in_planes, c=64):
@@ -305,7 +193,6 @@ class IFBlock(nn.Module):
         mask = tmp[:, 4:5]
         feat = tmp[:, 5:]
         return flow, mask, feat
-
 
 class IFNet(nn.Module):
     def __init__(
