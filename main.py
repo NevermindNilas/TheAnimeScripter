@@ -28,10 +28,9 @@ os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
 import sys
 import logging
 import warnings
-from queue import Empty
+from queue import Empty, Queue
 from time import time
 from concurrent.futures import ThreadPoolExecutor
-from queue import Queue
 from fractions import Fraction
 import src.constants as cs
 
@@ -391,10 +390,10 @@ class VideoProcessor:
         if self.interpolate and self.interpolateFirst:
             self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
 
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
-
         try:
+            currentFrame = self.readBuffer.read()
+            nextFrame = self.readBuffer.read() if currentFrame is not None else None
+
             with self.ProgressBarLogic(
                 self.totalFrames * increment,
             ) as bar:
@@ -411,6 +410,9 @@ class VideoProcessor:
                     currentFrame = nextFrame
                     if currentFrame is not None:
                         nextFrame = self.readBuffer.read()
+
+                if frameCount != self.totalFrames:
+                    bar.updateTotal(frameCount * increment)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frames, {e}")

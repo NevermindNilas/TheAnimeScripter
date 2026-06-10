@@ -899,6 +899,7 @@ class UniversalDirectML:
 
         self.usingCpuFallback = True
 
+    @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: None) -> torch.tensor:
         """
         Run the model on the input frame
