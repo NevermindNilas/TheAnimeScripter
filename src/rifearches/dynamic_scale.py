@@ -41,21 +41,3 @@ def dynamicScale(
     scale = max(minScale, min(maxScale, scale))
     scale = round(scale / 0.5) * 0.5
     return scale
-
-
-def dynamicScaleList(
-    img1: torch.Tensor,
-    img2: torch.Tensor,
-    minScale: float = 0.5,
-    maxScale: float = 2.0,
-    scaleList: list = [],
-) -> list:
-    """
-    This function is a wrapper around dynamicScale that applies the scale to a list of scales
-    Should simplify the amount of extra repeated code in the main function
-    """
-    scale = dynamicScale(img1, img2, minScale, maxScale)
-    for i in range(len(scaleList)):
-        scaleList[i] = scaleList[i] / scale
-
-    return scaleList
