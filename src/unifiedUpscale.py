@@ -213,7 +213,10 @@ class UniversalPytorch:
         self.stream = torch.cuda.Stream()
 
         with torch.cuda.stream(self.stream):
-            for _ in range(5):
+            # 3 warmup iters before CUDA-graph capture: cudnn.benchmark is False
+            # (no algo autotune), so 3 is sufficient to JIT cudnn kernels +
+            # allocate workspace before capture (PyTorch-documented minimum).
+            for _ in range(3):
                 self.model(self.dummyInput)
                 self.stream.synchronize()
 

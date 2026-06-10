@@ -10,7 +10,6 @@ Model adapted from advimman's lama project: https://github.com/advimman/lama
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.transforms.functional import InterpolationMode, rotate
 
 from ....util import store_hyperparameters
 
@@ -37,6 +36,11 @@ class LearnableSpatialTransformWrapper(nn.Module):
             raise ValueError(f"Unexpected input type {type(x)}")
 
     def transform(self, x):
+        # torchvision is imported lazily: importing this arch module for
+        # registry registration must not drag in torchvision (+ torch._dynamo),
+        # ~1s of cold-start cost paid only when LaMa actually runs.
+        from torchvision.transforms.functional import InterpolationMode, rotate
+
         height, width = x.shape[2:]
         pad_h, pad_w = int(height * self.pad_coef), int(width * self.pad_coef)
         x_padded = F.pad(x, [pad_w, pad_w, pad_h, pad_h], mode="reflect")
@@ -47,6 +51,8 @@ class LearnableSpatialTransformWrapper(nn.Module):
         return x_padded_rotated
 
     def inverse_transform(self, y_padded_rotated, orig_x):
+        from torchvision.transforms.functional import InterpolationMode, rotate
+
         height, width = orig_x.shape[2:]
         pad_h, pad_w = int(height * self.pad_coef), int(width * self.pad_coef)
 

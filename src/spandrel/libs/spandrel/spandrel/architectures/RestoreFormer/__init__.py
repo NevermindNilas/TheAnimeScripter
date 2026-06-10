@@ -1,5 +1,4 @@
 import torch
-from torchvision.transforms.functional import normalize as tv_normalize
 from typing_extensions import override
 
 from ...util import KeyCondition, get_seq_len
@@ -83,6 +82,10 @@ class RestoreFormerArch(Architecture[RestoreFormer]):
         )
 
         def call(model: RestoreFormer, x: torch.Tensor) -> torch.Tensor:
+            # Lazy import: keep torchvision out of the arch-registry import path
+            # (see LaMa) so it is only loaded when RestoreFormer actually runs.
+            from torchvision.transforms.functional import normalize as tv_normalize
+
             x = tv_normalize(x, [0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
             result = model(x)[0]
             return (result + 1) / 2

@@ -1,4 +1,3 @@
-from sympy import true
 from typing_extensions import override
 
 from ...__helpers.model_descriptor import Architecture, ImageModelDescriptor, StateDict

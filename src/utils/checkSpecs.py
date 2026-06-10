@@ -1,4 +1,5 @@
 import logging
+import os
 import psutil
 import platform
 from src.constants import SYSTEM
@@ -11,7 +12,9 @@ def getWindowsInfo():
     ramInfo = psutil.virtual_memory()
     totalRam = round(ramInfo.total / (1024.0**3), 2)
 
-    cpuInfo = platform.processor()
+    # platform.processor() shells out to WMI/registry (~12-28ms) and returns
+    # exactly PROCESSOR_IDENTIFIER on Windows; read the env directly when set.
+    cpuInfo = os.environ.get("PROCESSOR_IDENTIFIER") or platform.processor()
 
     logging.info(f"OS: {osName} {osVersion}")
     logging.info(f"CPU: {cpuInfo}")
