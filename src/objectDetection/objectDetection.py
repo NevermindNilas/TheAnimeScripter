@@ -230,18 +230,17 @@ class ObjectDetectionDML:
 
     def process(self):
         frameCount = 0
+        currentFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read()
 
         with ProgressBarLogic(self.totalFrames) as bar:
-            for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-                self.processFrame(frame)
+            while currentFrame is not None:
+                self.processFrame(currentFrame)
                 frameCount += 1
                 bar(1)
-                if self.readBuffer.isReadFinished():
-                    if self.readBuffer.isQueueEmpty():
-                        break
+                currentFrame = nextFrame
+                if currentFrame is not None:
+                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
@@ -528,18 +527,17 @@ class ObjectDetectionTensorRT:
 
     def process(self):
         frameCount = 0
+        currentFrame = self.readBuffer.read()
+        nextFrame = self.readBuffer.read()
 
         with ProgressBarLogic(self.totalFrames) as bar:
-            for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-                self.processFrame(frame)
+            while currentFrame is not None:
+                self.processFrame(currentFrame)
                 frameCount += 1
                 bar(1)
-                if self.readBuffer.isReadFinished():
-                    if self.readBuffer.isQueueEmpty():
-                        break
+                currentFrame = nextFrame
+                if currentFrame is not None:
+                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
