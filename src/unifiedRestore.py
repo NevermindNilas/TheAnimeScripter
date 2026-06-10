@@ -693,6 +693,7 @@ class UnifiedRestoreDirectML:
 
         self.usingCpuFallback = True
 
+    @torch.inference_mode()
     def __call__(self, frame: torch.tensor) -> torch.tensor:
         """
         Run the model on the input frame
