@@ -329,11 +329,6 @@ class BuildBuffer:
                 normStream.synchronize()
             return frame
         else:
-            try:
-                frame = frame.pin_memory()
-            except Exception:
-                pass
-
             frame = frame.to(
                 device="cpu",
                 non_blocking=False,

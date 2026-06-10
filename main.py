@@ -28,6 +28,7 @@ os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
 import sys
 import logging
 import warnings
+from queue import Empty
 from time import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
@@ -285,6 +286,14 @@ class VideoProcessor:
         else:
             self.ifInterpolateLast(frame)
 
+    def _drainInterpQueue(self) -> None:
+        while True:
+            try:
+                item = self.interpQueue.get_nowait()
+            except Empty:
+                break
+            self.writeBuffer.write(item)
+
     def ifInterpolateFirst(self, frame: any) -> None:
         """
         Process frame with interpolation-first pipeline order.
@@ -308,10 +317,12 @@ class VideoProcessor:
 
         if self.upscale:
             if self.interpolate:
-                while not self.interpQueue.empty():
-                    self.writeBuffer.write(
-                        self.upscale_process(self.interpQueue.get(), self.nextFrame)
-                    )
+                while True:
+                    try:
+                        item = self.interpQueue.get_nowait()
+                    except Empty:
+                        break
+                    self.writeBuffer.write(self.upscale_process(item, self.nextFrame))
 
                 self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
 
@@ -320,8 +331,7 @@ class VideoProcessor:
 
         else:
             if self.interpolate:
-                while not self.interpQueue.empty():
-                    self.writeBuffer.write(self.interpQueue.get())
+                self._drainInterpQueue()
             self.writeBuffer.write(frame)
 
     def ifInterpolateLast(self, frame: any) -> None:
