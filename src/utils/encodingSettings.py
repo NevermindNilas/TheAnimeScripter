@@ -281,7 +281,7 @@ def matchEncoder(encode_method: str):
                     "0",
                 ]
             )
-        case "lossless_nvenc_h264":
+        case "lossless_nvenc" | "lossless_nvenc_h264":
             command.extend(
                 [
                     "-c:v",
