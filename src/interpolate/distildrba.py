@@ -9,8 +9,9 @@ from src.infra.isCudaInit import CudaChecker
 
 from src.constants import ADOBE
 
+
 if ADOBE:
-    pass
+    from src.server.aeComms import progressState
 
 
 checker = CudaChecker()
@@ -304,8 +305,6 @@ class DistilDRBACuda:
 
         Frame mapping using peek():
             - I0 = previous frame (cached from last call)
-            - I1 = current frame (passed as `frame`)
-            - I2 = next frame (passed as `nextFrame` from readBuffer.peek())
 
         We interpolate between I0 and I1, using I2 as future context.
         """

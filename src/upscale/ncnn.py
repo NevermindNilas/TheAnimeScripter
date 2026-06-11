@@ -6,8 +6,9 @@ from src.model.registry import modelsMap
 from src.infra.isCudaInit import CudaChecker
 from src.constants import ADOBE
 
+
 if ADOBE:
-    pass
+    from src.server.aeComms import progressState
 
 checker = CudaChecker()
 
