@@ -1,7 +1,7 @@
 """Pure static data for model registry - no I/O or network dependencies.
 
 This module contains only:
-- Path constants (weightsBaseDir, weightsDir)
+- Path constants (weightsBaseDir, weightsDir) - computed from __file__
 - URL constants for model downloads
 - modelsList() - registry of available models
 - modelsMap() - mapping from model names to filenames
@@ -9,9 +9,9 @@ This module contains only:
 
 import os
 
-import src.constants as cs
-
-weightsBaseDir = cs.WHEREAMIRUNFROM
+# Compute weightsBaseDir from this file's location (avoids importing src.constants)
+# This is equivalent to cs.WHEREAMIRUNFROM but without the dependency
+weightsBaseDir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 weightsDir = os.path.join(weightsBaseDir, "weights")
 
 TASURL = "https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/"

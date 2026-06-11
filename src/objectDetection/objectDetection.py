@@ -8,7 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from src.infra.logAndPrint import logAndPrint
 from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.infra.progressBarLogic import ProgressBarLogic
-from src.model.registry import downloadModels, weightsDir, modelsMap
+from src.model.download import downloadModels
+from src.model.registry import weightsDir, modelsMap
 from src.infra.isCudaInit import CudaChecker
 from .yolov9_mit import draw_detections, draw_masks, draw_box, colors
 from src.constants import ADOBE

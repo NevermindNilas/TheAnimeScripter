@@ -333,7 +333,8 @@ def _adjustMethodsBasedOnCuda(args):
 
 
 def _downloadOfflineModels(args):
-    from src.model.registry import downloadModels, modelsList
+    from src.model.download import downloadModels
+    from src.model.registry import modelsList
 
     logAndPrint(
         f"Offline mode enabled, downloading {args.offline} model(s)...", "green"
