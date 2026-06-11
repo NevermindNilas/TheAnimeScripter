@@ -108,7 +108,7 @@ class DPT(BaseModel):
 
 
     def forward(self, x):
-        if self.channels_last == True:
+        if self.channels_last:
             x.contiguous(memory_format=torch.channels_last)
 
         layers = self.forward_transformer(self.pretrained, x)

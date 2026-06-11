@@ -111,7 +111,8 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
 
     def _palette(self):
         useColor = _supportsColorStdout()
-        code = lambda c: c if useColor else ""
+        def code(c):
+            return c if useColor else ""
         return {
             "RED": code("\x1b[1;31m"),
             "YELLOW": code("\x1b[1;33m"),

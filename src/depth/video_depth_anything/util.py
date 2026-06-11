@@ -27,8 +27,8 @@ def compute_scale(prediction, target, mask):
     mask = mask.astype(np.float32)
 
     a_00 = np.sum(mask * prediction * prediction)
-    a_01 = np.sum(mask * prediction)
-    a_11 = np.sum(mask)
+    np.sum(mask * prediction)
+    np.sum(mask)
 
     # right hand side: b = [b_0, b_1]
     b_0 = np.sum(mask * prediction * target)

@@ -3,7 +3,6 @@ import ast
 import copy
 import os
 import os.path as osp
-import subprocess
 from packaging.version import parse
 
 import platform

@@ -7,7 +7,7 @@ from torchvision.transforms import Compose
 from .dinov2 import DINOv2
 from .util.blocks import FeatureFusionBlock, _make_scratch
 from .util.transform import Resize, NormalizeImage, PrepareForNet
-from huggingface_hub import PyTorchModelHubMixin, hf_hub_download
+from huggingface_hub import PyTorchModelHubMixin
 from diffusers.models.modeling_utils import ModelMixin
 from diffusers.configuration_utils import ConfigMixin, register_to_config
 

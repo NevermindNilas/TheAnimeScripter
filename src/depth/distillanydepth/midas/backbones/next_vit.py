@@ -2,7 +2,6 @@ import timm
 
 import torch.nn as nn
 
-from pathlib import Path
 from .utils import activations, forward_default, get_activation
 
 from ..external.next_vit.classification.nextvit import *
@@ -32,7 +31,7 @@ def _make_next_vit_backbone(
 def _make_pretrained_next_vit_large_6m(hooks=None):
     model = timm.create_model("nextvit_large")
 
-    hooks = [2, 6, 36, 39] if hooks == None else hooks
+    hooks = [2, 6, 36, 39] if hooks is None else hooks
     return _make_next_vit_backbone(
         model,
         hooks=hooks,

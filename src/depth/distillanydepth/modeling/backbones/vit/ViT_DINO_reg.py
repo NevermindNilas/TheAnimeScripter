@@ -243,7 +243,7 @@ class PatchEmbed(nn.Module):
         )
         self.norm = norm_layer(embed_dim) if norm_layer else nn.Identity()
 
-        if tuning_mode != None:
+        if tuning_mode is not None:
             self.tuning_mode = tuning_mode
             if tuning_mode == "ssf":
                 self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(embed_dim)
@@ -307,7 +307,7 @@ class Mlp(nn.Module):
         self.fc2 = nn.Linear(hidden_features, out_features, bias=bias)
         self.drop = nn.Dropout(drop)
 
-        if tuning_mode != None:
+        if tuning_mode is not None:
             self.tuning_mode = tuning_mode
             if tuning_mode == "ssf":
                 self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(
@@ -352,7 +352,7 @@ class SwiGLUFFN(nn.Module):
         self.w12 = nn.Linear(in_features, 2 * hidden_features, bias=bias)
         self.w3 = nn.Linear(hidden_features, out_features, bias=bias)
 
-        if tuning_mode != None:
+        if tuning_mode is not None:
             self.tuning_mode = tuning_mode
             if tuning_mode == "ssf":
                 self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(
@@ -454,7 +454,7 @@ class Attention(nn.Module):
             self.proj = nn.Linear(dim, dim, bias=proj_bias)
         self.proj_drop = nn.Dropout(proj_drop)
 
-        if tuning_mode != None:
+        if tuning_mode is not None:
             self.tuning_mode = tuning_mode
             if tuning_mode == "ssf":
                 self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(dim * 3)
@@ -576,7 +576,7 @@ class Block(nn.Module):
             tuning_mode=tuning_mode,
         )
 
-        if tuning_mode != None:
+        if tuning_mode is not None:
             self.tuning_mode = tuning_mode
             if tuning_mode == "ssf":
                 self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(dim)
@@ -846,7 +846,7 @@ def named_apply(
 class BlockChunk(nn.ModuleList):
     def forward(self, x, others=None):
         for b in self:
-            if others == None:
+            if others is None:
                 x = b(x)
             else:
                 x = b(x, others)
@@ -920,7 +920,7 @@ class DinoVisionTransformer(nn.Module):
         self.interpolate_antialias = interpolate_antialias
         self.interpolate_offset = interpolate_offset
 
-        if tuning_mode != None:
+        if tuning_mode is not None:
             self.tuning_mode = tuning_mode
             if tuning_mode == "ssf":
                 self.ssf_scale_1, self.ssf_shift_1 = init_ssf_scale_shift(embed_dim)
@@ -1143,7 +1143,7 @@ class DinoVisionTransformer(nn.Module):
         # features.append(x_norm)
         # return [features, (B, (H+pad_h)//self.patch_size, (W+pad_w)//self.patch_size, H, W, self.num_register_tokens)]
 
-        if self.multi_output == False:
+        if not self.multi_output:
             for blk in self.blocks:
                 x = blk(x)
             x_norm = self.norm(x)
@@ -1460,9 +1460,9 @@ def vit_giant2_reg(
 
 if __name__ == "__main__":
     try:
-        from mmcv.utils import Config
+        pass
     except:
-        from mmengine import Config
+        pass
 
     # rgb = torch.rand((2, 3, 518, 518)).cuda()
 

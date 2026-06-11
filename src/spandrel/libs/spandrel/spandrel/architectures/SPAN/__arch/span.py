@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from typing import Literal
-import sys
 
 import torch
 import torch.nn.functional as F

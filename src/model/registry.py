@@ -9,6 +9,8 @@ This module contains only:
 
 import os
 
+from src.infra.logAndPrint import logAndPrint
+
 # Compute weightsBaseDir from this file's location (avoids importing src.constants)
 # This is equivalent to cs.WHEREAMIRUNFROM but without the dependency
 weightsBaseDir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -634,21 +636,9 @@ def modelsMap(
                 return "rife425.pth"
             elif modelType == "onnx":
                 if half:
-                    if ensemble:
-                        logAndPrint(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported.",
-                            colorFunc="yellow",
-                        )
-                    else:
-                        return "rife425_fp16_op21_slim.onnx"
+                    return "rife425_fp16_op21_slim.onnx"
                 else:
-                    if ensemble:
-                        logAndPrint(
-                            "Starting rife 4.21 Ensemble is no longer going to be supported.",
-                            colorFunc="yellow",
-                        )
-                    else:
-                        return "rife425_fp32_op21_slim.onnx"
+                    return "rife425_fp32_op21_slim.onnx"
 
             elif modelType == "ncnn":
                 pass

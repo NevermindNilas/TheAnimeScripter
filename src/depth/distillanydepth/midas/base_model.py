@@ -1,5 +1,5 @@
 import torch
-from huggingface_hub import PyTorchModelHubMixin, hf_hub_download
+from huggingface_hub import PyTorchModelHubMixin
 
 
 class BaseModel(torch.nn.Module, PyTorchModelHubMixin):

@@ -27,7 +27,6 @@ from .layers import (  # noqa: F401
     SwiGLUFFNFused,
 )
 from depth_anything_3.model.reference_view_selector import (
-    RefViewStrategy,
     select_reference_view,
     reorder_by_reference,
     restore_original_order,

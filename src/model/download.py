@@ -29,7 +29,6 @@ def downloadAndLog(
     from urllib.request import urlopen
     from urllib.error import URLError, HTTPError
     from http.client import IncompleteRead
-    import zipfile
 
     # Imported lazily so registry-only consumers (modelsList/modelsMap, the
     # drift-guard tests) don't drag in barflow at module import.

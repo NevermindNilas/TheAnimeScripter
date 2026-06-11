@@ -83,7 +83,7 @@ class GMFlow(nn.Module):
         for scale_idx in range(self.num_scales):
             feature0, feature1 = feature0_list[scale_idx], feature1_list[scale_idx]
 
-            upsample_factor = self.upsample_factor * (2 ** (self.num_scales - 1 - scale_idx))
+            self.upsample_factor * (2 ** (self.num_scales - 1 - scale_idx))
 
             if scale_idx > 0:
                 flow = F.interpolate(flow, scale_factor=2, mode='bilinear', align_corners=True) * 2

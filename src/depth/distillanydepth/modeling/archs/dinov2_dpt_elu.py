@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from typing import List, Optional, Set, Tuple, Union
+from typing import List, Optional, Tuple, Union
 from transformers import DPTForDepthEstimation, DPTPreTrainedModel
 
 from transformers.modeling_outputs import DepthEstimatorOutput

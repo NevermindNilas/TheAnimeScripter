@@ -1,5 +1,4 @@
 import os
-import sys
 os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
 import torch
@@ -7,7 +6,6 @@ import logging
 import numpy as np
 import torch.nn.functional as F
 import cv2
-import importlib
 
 from src.infra.logAndPrint import logAndPrint
 from concurrent.futures import ThreadPoolExecutor
@@ -15,8 +13,8 @@ from src.io.ffmpegSettings import (
     BuildBuffer,
     WriteBuffer,
 )
-from src.model.download import downloadModels, resolveWeightPath
-from src.model.registry import weightsDir, modelsMap
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.infra.isCudaInit import CudaChecker
 from queue import Queue

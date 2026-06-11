@@ -4,8 +4,8 @@ import os
 import torch
 import torch.nn.functional as F
 
-from src.model.download import downloadModels, resolveWeightPath
-from src.model.registry import weightsDir, modelsMap
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
 from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
 from concurrent.futures import ThreadPoolExecutor
 from src.infra.progressBarLogic import ProgressBarLogic

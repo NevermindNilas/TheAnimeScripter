@@ -20,7 +20,6 @@ class SPANPlusArch(Architecture[SPANPlus]):
     @override
     def load(self, state_dict: StateDict) -> ImageModelDescriptor[SPANPlus]:
         num_in_ch: int = 3
-        num_out_ch: int = 3
         unshuffle_mod: bool = False
         feature_channels: int = 48
         upscale: int = 4
@@ -33,13 +32,12 @@ class SPANPlusArch(Architecture[SPANPlus]):
         feature_channels = state_dict["feats.0.eval_conv.weight"].shape[0]
         if "upsampler.0.weight" in state_dict:
             upsampler = "ps"
-            num_out_ch = num_in_ch
             upscale = int(
                 (state_dict["upsampler.0.weight"].shape[0] / num_in_ch) ** 0.5
             )
         else:
             upsampler = "dys"
-            num_out_ch = state_dict["upsampler.end_conv.weight"].shape[0]
+            state_dict["upsampler.end_conv.weight"].shape[0]
             upscale = int((state_dict["upsampler.offset.weight"].shape[0] // 8) ** 0.5)
 
         if num_in_ch == 12:

@@ -1,12 +1,9 @@
-import os
 import torch
 import logging
 import torch.nn.functional as F
-import math
-import numpy as np
 
-from src.model.download import downloadModels, resolveWeightPath
-from src.model.registry import weightsDir, modelsMap
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 

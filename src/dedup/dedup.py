@@ -1,10 +1,7 @@
-import numpy as np
 import torch
-import os
 
 from torch.functional import F
-from src.model.download import downloadModels
-from src.model.registry import weightsDir, modelsMap
+from src.model.registry import modelsMap
 from src.model.download import resolveWeightPath
 from src.infra.isCudaInit import CudaChecker
 from src.model.modelOptimizer import ModelOptimizer

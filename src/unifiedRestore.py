@@ -2,7 +2,7 @@ import os
 import torch
 import logging
 
-from .utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
+from .utils.downloadModels import modelsMap, resolveWeightPath
 from .utils.isCudaInit import CudaChecker
 from .utils.logAndPrint import logAndPrint
 from src.constants import ADOBE

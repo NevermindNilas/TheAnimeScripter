@@ -99,7 +99,7 @@ def stem_b4_transpose(in_chs, out_chs, activation):
 def _make_pretrained_levit_384(pretrained, hooks=None):
     model = timm.create_model("levit_384", pretrained=pretrained)
 
-    hooks = [3, 11, 21] if hooks == None else hooks
+    hooks = [3, 11, 21] if hooks is None else hooks
     return _make_levit_backbone(
         model,
         hooks=hooks
