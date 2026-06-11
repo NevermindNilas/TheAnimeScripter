@@ -6,10 +6,6 @@ from src.model.registry import modelsMap
 from src.infra.isCudaInit import CudaChecker
 from src.constants import ADOBE
 
-
-if ADOBE:
-    pass
-
 checker = CudaChecker()
 
 torch.set_float32_matmul_precision("medium")

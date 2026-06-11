@@ -9,10 +9,6 @@ import numpy as np
 from src.infra.isCudaInit import CudaChecker
 from src.constants import ADOBE
 
-
-if ADOBE:
-    pass
-
 from collections import deque
 import statistics
 

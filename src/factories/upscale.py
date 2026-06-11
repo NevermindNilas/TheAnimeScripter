@@ -10,7 +10,7 @@ import logging
 
 
 def buildUpscaleProcess(self):
-    from src.unifiedUpscale import UniversalPytorch
+    from src.upscale.pytorch import UniversalPytorch
 
     logging.info(
         f"Upscaling to {self.width * self.upscaleFactor}x{self.height * self.upscaleFactor}"
@@ -68,7 +68,7 @@ def buildUpscaleProcess(self):
             | "smosr-directml"
             | "smosr-openvino"
         ):
-            from src.unifiedUpscale import UniversalDirectML
+            from src.upscale.directml import UniversalDirectML
 
             return UniversalDirectML(
                 self.upscaleMethod,
@@ -94,7 +94,7 @@ def buildUpscaleProcess(self):
             | "figsr-mps"
             | "smosr-mps"
         ):
-            from src.unifiedUpscale import UniversalPytorchMPS
+            from src.upscale.pytorch import UniversalPytorchMPS
 
             return UniversalPytorchMPS(
                 self.upscaleMethod,
@@ -107,7 +107,7 @@ def buildUpscaleProcess(self):
             )
 
         case "animesr-openvino" | "animesr-directml":
-            from src.unifiedUpscale import AnimeSRDirectML
+            from src.upscale.directml import AnimeSRDirectML
 
             return AnimeSRDirectML(
                 self.upscaleMethod,
@@ -117,7 +117,7 @@ def buildUpscaleProcess(self):
             )
 
         case "shufflecugan-ncnn" | "adore-ncnn" | "span-ncnn":
-            from src.unifiedUpscale import UniversalNCNN
+            from src.upscale.ncnn import UniversalNCNN
 
             return UniversalNCNN(
                 self.upscaleMethod,
@@ -138,7 +138,7 @@ def buildUpscaleProcess(self):
             | "gauss-tensorrt"
             | "smosr-tensorrt"
         ):
-            from src.unifiedUpscale import UniversalTensorRT
+            from src.upscale.tensorrt import UniversalTensorRT
 
             return UniversalTensorRT(
                 self.upscaleMethod,
@@ -151,7 +151,7 @@ def buildUpscaleProcess(self):
             )
 
         case "animesr":
-            from src.unifiedUpscale import AnimeSR
+            from src.upscale.misc import AnimeSR
 
             return AnimeSR(
                 2,
@@ -162,7 +162,7 @@ def buildUpscaleProcess(self):
             )
 
         case "animesr-tensorrt":
-            from src.unifiedUpscale import AnimeSRTensorRT
+            from src.upscale.tensorrt import AnimeSRTensorRT
 
             return AnimeSRTensorRT(
                 2,
@@ -181,7 +181,7 @@ def buildUpscaleProcess(self):
             | "artcnn_r8f64-tensorrt"
             | "artcnn_r16f96-tensorrt"
         ):
-            from src.unifiedUpscale import ArtCNNTensorRT
+            from src.upscale.artcnn import ArtCNNTensorRT
 
             return ArtCNNTensorRT(
                 self.upscaleMethod,
@@ -211,7 +211,7 @@ def buildUpscaleProcess(self):
             | "artcnn_r8f64-openvino"
             | "artcnn_r16f96-openvino"
         ):
-            from src.unifiedUpscale import ArtCNNDirectML
+            from src.upscale.artcnn import ArtCNNDirectML
 
             return ArtCNNDirectML(
                 self.upscaleMethod,

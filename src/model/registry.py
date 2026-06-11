@@ -634,8 +634,18 @@ def modelsMap(
                 return "rife425.pth"
             elif modelType == "onnx":
                 if half:
+                    if ensemble:
+                        logAndPrint(
+                            "Starting rife 4.25 Ensemble is no longer going to be supported.",
+                            colorFunc="yellow",
+                        )
                     return "rife425_fp16_op21_slim.onnx"
                 else:
+                    if ensemble:
+                        logAndPrint(
+                            "Starting rife 4.25 Ensemble is no longer going to be supported.",
+                            colorFunc="yellow",
+                        )
                     return "rife425_fp32_op21_slim.onnx"
 
             elif modelType == "ncnn":

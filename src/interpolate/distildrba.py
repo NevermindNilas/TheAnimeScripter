@@ -6,13 +6,7 @@ import torch.nn.functional as F
 from src.model.download import downloadModels
 from src.model.registry import weightsDir, modelsMap
 from src.infra.isCudaInit import CudaChecker
-
 from src.constants import ADOBE
-
-
-if ADOBE:
-    pass
-
 
 checker = CudaChecker()
 

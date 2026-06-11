@@ -8,7 +8,7 @@ import torch
 
 from src.constants import ADOBE
 from src.stabilize.superpoint import SuperPoint, find_match_index, find_transform
-import src.ffmpegSettings as ffmpegSettings
+import src.io.ffmpegSettings as ffmpegSettings
 from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.infra.progressBarLogic import ProgressBarLogic
 

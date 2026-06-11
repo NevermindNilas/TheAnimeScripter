@@ -437,7 +437,7 @@ class DependencyChecker:
 
     def _promptInstallAndStore(self) -> bool:
         """Show the inquirer prompt, install, and store the chosen profile."""
-        from src.cli.parser import _promptDownloadRequirementsSelection
+        from src.cli.startup import _promptDownloadRequirementsSelection
 
         try:
             selectedProfile = _promptDownloadRequirementsSelection()
