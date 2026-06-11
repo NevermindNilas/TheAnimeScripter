@@ -1,0 +1,1334 @@
+import logging
+import subprocess
+import os
+import src.constants as cs
+import time
+import torch
+import nelux
+import threading
+
+from queue import Queue
+from src.utils.encodingSettings import matchEncoder, getPixFMT
+from src.utils.isCudaInit import CudaChecker
+
+checker = CudaChecker()
+
+# Debugging flag
+neluxLog = False
+
+CachedReader = None
+CachedReaderMethod = None
+CachedReaderResize = None
+
+
+class BuildBuffer:
+    def __init__(
+        self,
+        videoInput: str = "",
+        inpoint: float = 0.0,
+        outpoint: float = 0.0,
+        half: bool = True,
+        resize: bool = False,
+        width: int = 1920,
+        height: int = 1080,
+        bitDepth: str = "8bit",
+        toTorch: bool = True,
+        decode_method: str = "cpu",
+        batched: bool = False,
+    ):
+        """
+        Initializes the BuildBuffer class.
+
+        Args:
+            videoInput (str): Path to the input video file.
+            inpoint (float): Start time of the segment to decode, in seconds.
+            outpoint (float): End time of the segment to decode, in seconds.
+            half (bool): Whether to use half precision (float16) for tensors.
+            resize (bool): Whether to resize the frames.
+            width (int): Width of the output frames.
+            height (int): Height of the output frames.
+            bitDepth (str): Bit depth of the output frames, e.g., "8bit" or "10bit".
+            toTorch (bool): Whether to convert frames to torch tensors.
+            decode_method (str): The backend to use for decoding, e.g., "cpu" or "nvdec".
+            batched (bool): Whether to decode frames in batches.
+
+        Note:
+            Nelux returns HWC format [H, W, 3] with native dtype (uint8/int16).
+            processFrameToTorch converts this to BCHW float format for processing.
+        """
+        self.decodeMethod = decode_method
+        self.half = half
+        self.decodeBuffer = Queue(maxsize=32)
+        self.width = width
+        self.height = height
+        self.resize = resize
+        self.isFinished = False
+        self._frameAvailable = threading.Event()
+        self.bitDepth = bitDepth
+        self.videoInput = os.path.normpath(videoInput)
+        self.toTorch = toTorch
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self._didDecoderResize = False
+
+        # USED FOR DEBUGGING neLux
+        global neluxLog
+        if neluxLog:
+            try:
+                nelux.set_log_level(nelux.LogLevel.info)
+                neluxLog = True
+                logging.info("neLux logging enabled (level: info)")
+            except Exception as e:
+                logging.warning(f"Failed to enable neLux logging: {e}")
+
+        if "%" not in videoInput and not os.path.exists(videoInput):
+            raise FileNotFoundError(f"Video file not found: {videoInput}")
+
+        self.cudaEnabled = False
+        if checker.cudaAvailable and toTorch:
+            try:
+                self.normStream = torch.cuda.Stream()
+                self.deviceType = "cuda"
+                self.cudaEnabled = True
+            except Exception as e:
+                logging.warning(
+                    f"CUDA stream init failed, falling back to CPU. Reason: {e}"
+                )
+                self.deviceType = "cpu"
+                self.cudaEnabled = False
+        else:
+            self.deviceType = "cpu"
+            self.cudaEnabled = False
+
+        self.backend = "pytorch" if toTorch else "numpy"
+
+    def __call__(self):
+        """
+        Decodes frames from the video and stores them in the decodeBuffer.
+        """
+        decodedFrames = 0
+        # Number of frames already pushed into the (concurrently-consumed)
+        # decodeBuffer this run; used to forbid a fallback re-decode that would
+        # duplicate frames after a mid-stream failure.
+        self._emittedFrames = 0
+        global CachedReader
+        global CachedReaderMethod
+
+        try:
+            decodedFrames += self._decodeWithnelux(self.decodeMethod)
+
+        except Exception as e:
+            logging.error(f"nelux decoding error: {e}")
+
+            # A fallback re-decode restarts from frame 0. If the failed attempt
+            # already emitted frames, re-decoding duplicates them, so only fall
+            # back when nothing has been queued yet.
+            if self._emittedFrames == 0 and self.decodeMethod != "cpu":
+                try:
+                    logging.warning(
+                        "nelux decode failed with non-CPU method; retrying with cpu."
+                    )
+                    decodedFrames += self._decodeWithnelux("cpu")
+                    self.decodeMethod = "cpu"
+                    return
+                except Exception as retry_e:
+                    logging.error(f"nelux CPU retry failed: {retry_e}")
+
+            if self._emittedFrames == 0:
+                logging.info("Attempting fallback to OpenCV decoder...")
+                try:
+                    decodedFrames += self.decodeWithOpenCV()
+                except Exception as fallback_e:
+                    logging.error(f"OpenCV fallback failed: {fallback_e}")
+            else:
+                logging.error(
+                    f"Decode failed after {self._emittedFrames} frame(s) were already "
+                    f"queued; skipping fallback to avoid duplicating frames."
+                )
+
+        finally:
+            self.decodeBuffer.put(None)
+            self._frameAvailable.set()
+
+            self.isFinished = True
+            logging.info(f"Decoded {decodedFrames} frames")
+
+    def _decodeWithnelux(self, decodeMethod: str) -> int:
+        """
+        Decode using nelux. Returns number of frames decoded.
+        """
+        global CachedReader
+        global CachedReaderMethod
+        global CachedReaderResize
+
+        resizeTarget = (self.width, self.height) if self.resize else None
+
+        if decodeMethod == "nvdec":
+            CachedReader = None
+            CachedReaderMethod = None
+            CachedReaderResize = None
+
+        if CachedReader is not None and CachedReaderMethod != decodeMethod:
+            CachedReader = None
+            CachedReaderMethod = None
+            CachedReaderResize = None
+
+        if CachedReader is not None and CachedReaderResize != resizeTarget:
+            CachedReader = None
+            CachedReaderMethod = None
+            CachedReaderResize = None
+
+        if CachedReader is not None:
+            try:
+                logging.info(f"Reconfiguring cached VideoReader for {self.videoInput}")
+                CachedReader.reconfigure(self.videoInput)
+            except Exception as e:
+                logging.warning(
+                    f"Failed to reconfigure VideoReader: {e}. Creating new instance."
+                )
+                CachedReader = None
+                CachedReaderMethod = None
+                CachedReaderResize = None
+
+        if CachedReader is None:
+            logging.info(
+                f"Initializing new VideoReader for {self.videoInput} ({decodeMethod})"
+                + (f" resize={resizeTarget}" if resizeTarget else "")
+            )
+            CachedReader = nelux.VideoReader(
+                self.videoInput,
+                decode_accelerator=decodeMethod,
+                backend=self.backend,
+                resize=resizeTarget,
+            )
+            CachedReaderMethod = decodeMethod
+            CachedReaderResize = resizeTarget
+
+        self._didDecoderResize = resizeTarget is not None
+
+        fps = CachedReader.fps or 0.0
+        startFrame = int(round(float(self.inpoint) * fps)) if self.inpoint > 0 else 0
+        endFrame = int(round(float(self.outpoint) * fps)) if self.outpoint > 0 else 0
+
+        decodedFrames = 0
+        frameIdx = 0
+        for frame in CachedReader:
+            if frameIdx < startFrame:
+                frameIdx += 1
+                continue
+            if endFrame > 0 and frameIdx >= endFrame:
+                break
+            if self.toTorch:
+                frame = self.processFrameToTorch(
+                    frame, self.normStream if self.cudaEnabled else None
+                )
+            self.decodeBuffer.put(frame)
+            self._frameAvailable.set()
+            decodedFrames += 1
+            self._emittedFrames += 1
+            frameIdx += 1
+
+        return decodedFrames
+
+    def decodeWithOpenCV(self):
+        """
+        Helper method to decode using OpenCV when nelux fails.
+        Returns the number of frames decoded.
+        """
+        logging.info(f"Initializing OpenCV VideoCapture for {self.videoInput}")
+
+        import cv2  # lazy: cv2 (~13ms) is only needed on the OpenCV decode fallback
+
+        cap = cv2.VideoCapture(self.videoInput)
+        if not cap.isOpened():
+            raise RuntimeError(f"Failed to open video with OpenCV: {self.videoInput}")
+
+        totalFramesDecoded = 0
+        startTime = float(self.inpoint)
+        endTime = float(self.outpoint)
+
+        try:
+            if startTime > 0:
+                cap.set(cv2.CAP_PROP_POS_MSEC, startTime * 1000.0)
+
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                ptsMillis = cap.get(cv2.CAP_PROP_POS_MSEC)
+                ptsSeconds = (ptsMillis / 1000.0) if ptsMillis and ptsMillis > 0 else None
+
+                if ptsSeconds is not None and endTime > 0 and ptsSeconds >= endTime:
+                    break
+
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame = torch.from_numpy(frame)
+
+                if self.toTorch:
+                    frame = self.processFrameToTorch(
+                        frame,
+                        self.normStream if self.cudaEnabled else None,
+                    )
+                else:
+                    frame = frame.numpy()
+
+                self.decodeBuffer.put(frame)
+                self._frameAvailable.set()
+                totalFramesDecoded += 1
+                self._emittedFrames += 1
+
+        except Exception as e:
+            logging.error(f"Error during OpenCV decoding loop: {e}")
+            raise
+        finally:
+            cap.release()
+
+        return totalFramesDecoded
+
+    def processFrameToTorch(self, frame, normStream=None):
+        """
+        Processes a single frame with optimized memory handling.
+
+        Args:
+            frame: The frame to process as nelux frame (HWC format).
+            normStream: The CUDA stream for normalization (if applicable).
+
+        Returns:
+            The processed frame as a torch tensor in BCHW format.
+        """
+        import torch
+        from torch.nn import functional as F
+
+
+        norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
+        if self.cudaEnabled:
+            with torch.cuda.stream(normStream):
+                try:
+                    frame = frame.pin_memory()
+                except Exception:
+                    pass
+                frame = frame.to(
+                    device="cuda",
+                    non_blocking=True,
+                    dtype=torch.float16 if self.half else torch.float32,
+                )
+
+                frame = frame.permute(2, 0, 1).mul(norm).clamp(0, 1)
+
+                if self.resize and not self._didDecoderResize:
+                    frame = F.interpolate(
+                        frame.unsqueeze(0),
+                        size=(self.height, self.width),
+                        mode="bicubic",
+                        align_corners=False,
+                    )
+                else:
+                    frame = frame.unsqueeze(0)
+
+            if normStream is not None:
+                normStream.synchronize()
+            return frame
+        else:
+            frame = frame.to(
+                device="cpu",
+                non_blocking=False,
+                dtype=torch.float16 if self.half else torch.float32,
+            )
+
+            frame = frame.permute(2, 0, 1)
+
+            frame.mul_(norm)
+            frame.clamp_(0, 1)
+
+            if self.resize and not self._didDecoderResize:
+                frame = F.interpolate(
+                    frame.unsqueeze(0),
+                    size=(self.height, self.width),
+                    mode="bicubic",
+                    align_corners=False,
+                )
+            else:
+                frame = frame.unsqueeze(0)
+
+            return frame
+
+    def read(self):
+        """
+        Reads a frame from the decodeBuffer.
+
+        Returns:
+            The next frame from the decodeBuffer.
+        """
+        return self.decodeBuffer.get()
+
+    def peek(self):
+        """
+        Peeks at the next frame in the decodeBuffer without removing it.
+
+        Returns:
+            The next frame from the decodeBuffer, or None if decoding is finished and queue is empty.
+        """
+        while True:
+            with self.decodeBuffer.mutex:
+                if len(self.decodeBuffer.queue) > 0:
+                    return self.decodeBuffer.queue[0]
+
+            if self.isFinished:
+                return None
+
+            self._frameAvailable.wait(timeout=0.1)
+            self._frameAvailable.clear()
+
+    def isReadFinished(self) -> bool:
+        """
+        Returns:
+            Whether the decoding process is finished.
+        """
+        return self.isFinished
+
+    def isQueueEmpty(self) -> bool:
+        """
+        Returns:
+            Whether the decoding buffer is empty.
+        """
+
+        if self.decodeBuffer.empty() and self.isFinished:
+            return True
+        else:
+            return False
+
+
+class WriteBuffer:
+    def __init__(
+        self,
+        input: str = "",
+        output: str = "",
+        encode_method: str = "x264",
+        custom_encoder: str = "",
+        width: int = 1920,
+        height: int = 1080,
+        fps: float = 60.0,
+        grayscale: bool = False,
+        transparent: bool = False,
+        benchmark: bool = False,
+        bitDepth: str = "8bit",
+        inpoint: float = 0.0,
+        outpoint: float = 0.0,
+        slowmo: bool = False,
+        output_scale_width: int = None,
+        output_scale_height: int = None,
+        enablePreview: bool = False,
+        single_image_output: bool = False,
+    ):
+        """
+        A class meant to Pipe the input to FFMPEG from a queue.
+
+        output: str - The path to the output video file.
+        encode_method: str - The method to use for encoding the video. Options include "x264", "x264_animation", "nvenc_h264", etc.
+        custom_encoder: str - A custom encoder string to use for encoding the video.
+        grayscale: bool - Whether to encode the video in grayscale.
+        width: int - The width of the output video in pixels.
+        height: int - The height of the output video in pixels.
+        fps: float - The frames per second of the output video.
+        transparent: bool - Whether to encode the video with transparency.
+        audio: bool - Whether to include audio in the output video.
+        benchmark: bool - Whether to benchmark the encoding process, this will not output any video.
+        bitDepth: str - The bit depth of the output video. Options include "8bit" and "10bit".
+        inpoint: float - The start time of the segment to encode, in seconds.
+        outpoint: float - The end time of the segment to encode, in seconds.
+        output_scale_width: int - The target width for output scaling (optional).
+        output_scale_height: int - The target height for output scaling (optional).
+        enablePreview: bool - Whether to enable FFmpeg-based preview output (optional).
+        """
+        self.input = input
+        self.output = os.path.normpath(output)
+        outputDir = os.path.dirname(self.output)
+        if outputDir:
+            os.makedirs(outputDir, exist_ok=True)
+        self.encode_method = encode_method
+        self.single_image_output = single_image_output
+
+        if self.encode_method == "png" and not self.single_image_output and "%" not in self.output:
+            _, ext = os.path.splitext(self.output)
+            if not ext:
+                self.output = os.path.join(self.output, "%08d.png")
+            else:
+                base, _ = os.path.splitext(self.output)
+                self.output = f"{base}_%08d.png"
+
+        if self.encode_method == "png" and self.single_image_output:
+            _, ext = os.path.splitext(self.output)
+            if not ext:
+                self.output = f"{self.output}.png"
+
+        self.custom_encoder = custom_encoder
+        self.grayscale = grayscale
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.transparent = transparent
+        self.benchmark = benchmark
+        self.bitDepth = bitDepth
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.slowmo = slowmo
+        self.output_scale_width = output_scale_width
+        self.output_scale_height = output_scale_height
+        self.enablePreview = enablePreview
+
+        self.writtenFrames = 0
+        self.writeBuffer = Queue(maxsize=32)
+
+        self.previewPath = (
+            os.path.join(cs.WHEREAMIRUNFROM, "preview.jpg") if enablePreview else None
+        )
+
+    def _shouldUseDirectPngSingleFrame(self) -> bool:
+        return (
+            self.encode_method == "png"
+            and self.single_image_output
+            and not self.custom_encoder
+            and not self.benchmark
+        )
+
+    def _writeSinglePngDirect(self, frameTensor, needsResize: bool, multiplier: int, dtype):
+        from torch.nn import functional as F
+
+        if needsResize:
+            frameTensor = F.interpolate(
+                frameTensor,
+                size=(self.height, self.width),
+                mode="bicubic",
+                align_corners=False,
+            )
+
+        frameArray = (
+            frameTensor.squeeze(0)
+            .permute(1, 2, 0)
+            .mul(multiplier)
+            .clamp(0, multiplier)
+            .to(dtype)
+            .contiguous()
+            .cpu()
+            .numpy()
+        )
+
+        if frameArray.ndim == 3 and frameArray.shape[2] == 1:
+            frameArray = frameArray[:, :, 0]
+
+        import cv2  # lazy: only needed for single-image (PNG) output
+
+        cvWriteFrame = frameArray
+        if frameArray.ndim == 3 and frameArray.shape[2] == 3:
+            cvWriteFrame = cv2.cvtColor(frameArray, cv2.COLOR_RGB2BGR)
+        elif frameArray.ndim == 3 and frameArray.shape[2] == 4:
+            cvWriteFrame = cv2.cvtColor(frameArray, cv2.COLOR_RGBA2BGRA)
+
+        writeOk = cv2.imwrite(self.output, cvWriteFrame)
+        if not writeOk:
+            from PIL import Image
+
+            Image.fromarray(frameArray).save(self.output, format="PNG")
+
+    def encodeSettings(self) -> list:
+        """
+        Simplified structure for setting input/output pix formats
+        and building FFMPEG command.
+        """
+        # Set environment variables
+        os.environ["FFREPORT"] = "file=FFmpeg-Log.log:level=32"
+        if any(m and "av1" in m for m in (self.encode_method, self.custom_encoder)):
+            os.environ["SVT_LOG"] = "0"
+
+        self.inputPixFmt, outputPixFmt, self.encode_method = getPixFMT(
+            self.encode_method, self.bitDepth, self.grayscale, self.transparent
+        )
+
+        if self.benchmark:
+            return self._buildBenchmarkCommand()
+        else:
+            return self._buildEncodingCommand(outputPixFmt)
+
+    def _buildBenchmarkCommand(self):
+        """Build FFmpeg command for benchmarking"""
+        return [
+            cs.FFMPEGPATH,
+            "-y",
+            "-hide_banner",
+            "-v",
+            "warning",
+            "-nostats",
+            "-f",
+            "rawvideo",
+            "-video_size",
+            f"{self.width}x{self.height}",
+            "-pix_fmt",
+            self.inputPixFmt,
+            "-r",
+            str(self.fps),
+            "-i",
+            "-",
+            "-benchmark",
+            "-f",
+            "null",
+            "-",
+        ]
+
+    def _isNvencEncoder(self):
+        """Check if the current encode method uses NVENC"""
+        nvenc_methods = [
+            "nvenc_h264",
+            "slow_nvenc_h264",
+            "nvenc_h265",
+            "slow_nvenc_h265",
+            "nvenc_h265_10bit",
+            "nvenc_av1",
+            "slow_nvenc_av1",
+            "lossless_nvenc",
+            "lossless_nvenc_h264",
+        ]
+        return self.encode_method in nvenc_methods
+
+    def _buildEncodingCommand(self, outputPixFmt):
+        """Build FFmpeg command for encoding"""
+        useHwUpload = self._isNvencEncoder() and not self.custom_encoder
+
+        command = [
+            cs.FFMPEGPATH,
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-nostats",
+            "-threads",
+            "0",
+            "-filter_threads",
+            "0",
+        ]
+
+        # Initialize CUDA device for hwupload when using NVENC
+        if useHwUpload:
+            command.extend(["-init_hw_device", "cuda=cu:0", "-filter_hw_device", "cu"])
+
+        command.extend(
+            [
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                self.inputPixFmt,
+                "-s",
+                f"{self.width}x{self.height}",
+                "-r",
+                str(self.fps),
+            ]
+        )
+
+        if self.outpoint != 0 and not self.slowmo:
+            command.extend(
+                [
+                    "-itsoffset",
+                    str(self.inpoint),
+                    "-i",
+                    "pipe:0",
+                    "-ss",
+                    str(self.inpoint),
+                    "-to",
+                    str(self.outpoint),
+                ]
+            )
+        else:
+            command.extend(["-i", "pipe:0"])
+
+        if cs.AUDIO:
+            command.extend(["-thread_queue_size", "1024", "-i", self.input])
+
+        filterList = self._buildFilterList()
+
+        if self.enablePreview:
+            filterComplexParts = []
+
+            if filterList:
+                baseFilters = ",".join(filterList)
+                filterComplexParts.append(f"[0:v]{baseFilters},split=2[main][preview]")
+            else:
+                filterComplexParts.append("[0:v]split=2[main][preview]")
+
+            filterComplexParts.append("[preview]fps=2[previewThrottled]")
+
+            combinedFilter = ";".join(filterComplexParts)
+            command.extend(
+                ["-filter_complex", combinedFilter, "-filter_complex_threads", "0"]
+            )
+
+            command.extend(["-map", "[main]"])
+
+            if not self.custom_encoder:
+                command.extend(matchEncoder(self.encode_method))
+                command.extend(["-pix_fmt", outputPixFmt])
+            else:
+                customArgs = self.custom_encoder.split()
+                if "-vf" in customArgs:
+                    vfIdx = customArgs.index("-vf")
+                    customArgs.pop(vfIdx)
+                    customArgs.pop(vfIdx)
+                if "-pix_fmt" not in customArgs:
+                    customArgs.extend(["-pix_fmt", outputPixFmt])
+                command.extend(customArgs)
+
+            if cs.AUDIO:
+                command.extend(self._buildAudioSettings())
+
+            if self.single_image_output:
+                command.extend(["-frames:v", "1"])
+
+            command.append(self.output)
+
+            command.extend(
+                [
+                    "-map",
+                    "[previewThrottled]",
+                    "-q:v",
+                    "2",
+                    "-update",
+                    "1",
+                    self.previewPath,
+                ]
+            )
+        else:
+            command.extend(["-map", "0:v"])
+
+            if not self.custom_encoder:
+                command.extend(matchEncoder(self.encode_method))
+
+                if useHwUpload:
+                    hwFilters = filterList.copy() if filterList else []
+                    hwFilters.append("format=nv12")
+                    hwFilters.append("hwupload_cuda")
+                    command.extend(["-vf", ",".join(hwFilters)])
+                else:
+                    if filterList:
+                        command.extend(["-vf", ",".join(filterList)])
+                    command.extend(["-pix_fmt", outputPixFmt])
+            else:
+                command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
+
+            if cs.AUDIO:
+                command.extend(self._buildAudioSettings())
+
+            if self.single_image_output:
+                command.extend(["-frames:v", "1"])
+
+            command.append(self.output)
+
+        return command
+
+    def _buildFilterList(self):
+        """Build list of video filters based on settings"""
+        filterList = []
+
+        if self.output_scale_width and self.output_scale_height:
+            filterList.append(
+                f"scale={self.output_scale_width}:{self.output_scale_height}:flags=bilinear"
+            )
+
+        if self.grayscale:
+            filterList.append(
+                "format=gray" if self.bitDepth == "8bit" else "format=gray16be"
+            )
+        if self.transparent:
+            filterList.append("format=yuva420p")
+
+        import json
+
+        if not self.grayscale and not self.transparent:
+            # RGB->YUV colorspace conversion + dithering.
+            #
+            # BT.709 (the common path; unknown/SD sources also default here):
+            # use swscale (`scale`) instead of `zscale`. zscale/zimg runs a
+            # float pipeline and costs ~3x the CPU of swscale's SIMD-integer
+            # path for a matrix-identical result (verified bit-for-bit on luma
+            # mean, black level, and banding across every test source/pixfmt).
+            # swscale only dithers on a bit-DEPTH reduction, so we route through
+            # a 16-bit working format (yuv444p16le); the downstream -pix_fmt /
+            # hwupload reduction then error-diffusion-dithers down to the target
+            # depth, matching zscale's banding exactly. `setparams` stamps the
+            # full color metadata (matrix + primaries + transfer + range) --
+            # swscale alone only tags the matrix.
+            #
+            # BT.2020 stays on zscale: swscale has no bt2020nc matrix and zimg's
+            # `norm=bt2020` does transfer handling swscale cannot replicate.
+            colorSPaceFilter = {
+                "bt709": (
+                    "scale=in_range=pc:out_range=tv:out_color_matrix=bt709,"
+                    "format=yuv444p16le,"
+                    "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv"
+                ),
+                "bt2020": "zscale=matrix=bt2020:norm=bt2020:dither=error_diffusion,format=yuv420p",
+            }
+
+            metadata = {}
+            if cs.METADATAPATH and os.path.exists(cs.METADATAPATH):
+                try:
+                    with open(cs.METADATAPATH, "r", encoding="utf-8") as f:
+                        metadata = json.load(f)
+                except Exception as e:
+                    logging.warning(f"Failed to read metadata for color space: {e}")
+
+            metadataFields = ["ColorSpace", "PixelFormat", "ColorTRT"]
+            detectedColorSpace = None
+
+            for field in metadataFields:
+                colorValue = metadata.get("metadata", {}).get(field, "unknown")
+                if colorValue in colorSPaceFilter:
+                    detectedColorSpace = colorValue
+                    break
+
+            filterList.append(
+                colorSPaceFilter.get(detectedColorSpace, colorSPaceFilter["bt709"])
+            )
+
+        return filterList
+
+    def _buildCustomEncoder(self, filterList, outputPixFmt):
+        """Apply custom encoder settings with filters"""
+        customEncoderArgs = self.custom_encoder.split()
+
+        if "-vf" in customEncoderArgs:
+            vfIndex = customEncoderArgs.index("-vf")
+            filterString = customEncoderArgs[vfIndex + 1]
+            for filterItem in filterList:
+                filterString += f",{filterItem}"
+            customEncoderArgs[vfIndex + 1] = filterString
+        elif filterList:
+            customEncoderArgs.extend(["-vf", ",".join(filterList)])
+
+        if "-pix_fmt" not in customEncoderArgs:
+            logging.info(f"-pix_fmt was not found, adding {outputPixFmt}.")
+            customEncoderArgs.extend(["-pix_fmt", outputPixFmt])
+
+        return customEncoderArgs
+
+    def _buildAudioSettings(self):
+        """Build audio encoding settings"""
+        audioSettings = ["-map", "1:a"]
+
+        audioCodec = "copy"
+        subCodec = "copy"
+        if self.output.endswith(".webm"):
+            audioCodec = "libopus"
+            subCodec = "webvtt"
+        elif self.output.endswith(".mov"):
+            # MOV cannot stream-copy opus/vorbis (FFmpeg aborts with
+            # "opus only supported in MP4"). The transparent/segment path
+            # always lands here as prores in a .mov, so transcode to a
+            # container-safe codec instead of dropping the muxer. mov_text is
+            # the MOV subtitle codec (copy of webvtt/srt fails the same way).
+            # MP4/M4V are left on copy — they accept opus natively.
+            audioCodec = "aac"
+            subCodec = "mov_text"
+        audioSettings.extend(["-c:a", audioCodec, "-map", "1:s?", "-c:s", subCodec])
+
+        if self.outpoint != 0:
+            audioSettings.extend(["-ss", str(self.inpoint), "-to", str(self.outpoint)])
+
+        return audioSettings
+
+    def __call__(self):
+        writtenFrames = 0
+
+        # Wait for at least one frame to be queued before starting encoding
+        while self.writeBuffer.empty():
+            try:
+                time.sleep(0.001)
+            except KeyboardInterrupt:
+                logging.warning("Encoding interrupted by user")
+                return
+
+        ffmpegProc = None
+        try:
+            import torch
+            from torch.nn import functional as F
+
+            initialFrame = self.writeBuffer.queue[0]
+
+            self.channels = 1 if self.grayscale else 4 if self.transparent else 3
+
+            isEightBit = self.bitDepth == "8bit"
+            multiplier = 255 if isEightBit else 65535
+            dtype = torch.uint8 if isEightBit else torch.uint16
+
+            needsResize = (
+                initialFrame.shape[2] != self.height
+                or initialFrame.shape[3] != self.width
+            )
+
+            if needsResize:
+                logging.info(
+                    f"Frame size mismatch. Frame: {initialFrame.shape[3]}x{initialFrame.shape[2]}, Output: {self.width}x{self.height}"
+                )
+
+            if self._shouldUseDirectPngSingleFrame():
+                logging.info(
+                    "Using direct single-frame PNG encoder (ffmpeg bypass)"
+                )
+
+                firstFrame = None
+                while firstFrame is None:
+                    try:
+                        firstFrame = self.writeBuffer.get(timeout=1.0)
+                    except Exception:
+                        time.sleep(0.001)
+                        continue
+
+                if firstFrame is not None:
+                    self._writeSinglePngDirect(
+                        firstFrame,
+                        needsResize=needsResize,
+                        multiplier=multiplier,
+                        dtype=dtype,
+                    )
+                    writtenFrames = 1
+
+                while True:
+                    try:
+                        frame = self.writeBuffer.get(timeout=1.0)
+                    except Exception:
+                        time.sleep(0.001)
+                        continue
+                    if frame is None:
+                        break
+
+                logging.info(f"Encoded {writtenFrames} frames")
+                return
+
+            command = self.encodeSettings()
+            logging.info(f"Encoding with: {' '.join(map(str, command))}")
+
+            if self.enablePreview:
+                logging.info(f"Preview enabled, writing to: {self.previewPath}")
+                from src.utils.logAndPrint import logAndPrint
+
+                logAndPrint(f"Preview will be saved to: {self.previewPath}", "cyan")
+
+            useCuda = False
+            transferStream = None
+            if checker.cudaAvailable:
+                try:
+                    transferStream = torch.cuda.Stream()
+                    useCuda = True
+                except Exception as e:
+                    logging.warning(
+                        f"CUDA init failed in writer, using CPU path. Reason: {e}"
+                    )
+                    useCuda = False
+
+            ffmpegProc = subprocess.Popen(
+                command,
+                stdin=subprocess.PIPE,
+                stdout=None,
+                stderr=subprocess.PIPE,
+                shell=False,
+                cwd=cs.WHEREAMIRUNFROM,
+            )
+
+            if ffmpegProc.poll() is not None:
+                stderr_out = ffmpegProc.stderr.read().decode(errors="replace") if ffmpegProc.stderr else ""
+                logging.error(f"FFmpeg exited immediately with code {ffmpegProc.returncode}: {stderr_out}")
+                return
+
+            logging.info(f"Encoding path: {'CUDA pinned' if useCuda else 'CPU'}")
+
+            if useCuda:
+                frameShape = (self.height, self.width, self.channels)
+                pinnedBuffers = [
+                    torch.empty(frameShape, dtype=dtype, pin_memory=True),
+                    torch.empty(frameShape, dtype=dtype, pin_memory=True),
+                ]
+                transferEvents = [torch.cuda.Event(), torch.cuda.Event()]
+                bufferIdx = 0
+                pendingBuffer = None
+                pendingEvent = None
+
+                while True:
+                    try:
+                        frame = self.writeBuffer.get(timeout=1.0)
+                    except Exception:
+                        time.sleep(0.001)
+                        continue
+                    if frame is None:
+                        if pendingBuffer is not None:
+                            pendingEvent.synchronize()
+                            ffmpegProc.stdin.write(pendingBuffer.numpy().tobytes())
+                            writtenFrames += 1
+                        break
+
+                    with torch.cuda.stream(transferStream):
+                        if needsResize:
+                            frame = F.interpolate(
+                                frame,
+                                size=(self.height, self.width),
+                                mode="bicubic",
+                                align_corners=False,
+                            )
+
+                        gpuTensor = (
+                            frame.squeeze(0)
+                            .permute(1, 2, 0)
+                            .mul(multiplier)
+                            .clamp(0, multiplier)
+                            .to(dtype)
+                            .contiguous()
+                        )
+
+                        currentBuffer = pinnedBuffers[bufferIdx]
+                        currentBuffer.copy_(gpuTensor, non_blocking=True)
+                        currentEvent = transferEvents[bufferIdx]
+                        currentEvent.record(transferStream)
+
+                    if pendingBuffer is not None:
+                        pendingEvent.synchronize()
+                        ffmpegProc.stdin.write(pendingBuffer.numpy().tobytes())
+                        writtenFrames += 1
+
+                    pendingBuffer = currentBuffer
+                    pendingEvent = currentEvent
+                    bufferIdx = 1 - bufferIdx
+
+            else:
+                while True:
+                    try:
+                        frame = self.writeBuffer.get(timeout=1.0)
+                    except Exception:
+                        time.sleep(0.001)
+                        continue
+                    if frame is None:
+                        break
+
+                    if needsResize:
+                        frame = F.interpolate(
+                            frame,
+                            size=(self.height, self.width),
+                            mode="bicubic",
+                            align_corners=False,
+                        )
+                    frameTensor = (
+                        frame.squeeze(0)
+                        .permute(1, 2, 0)
+                        .mul(multiplier)
+                        .clamp(0, multiplier)
+                        .to(dtype)
+                        .contiguous()
+                    )
+
+                    ffmpegProc.stdin.write(frameTensor.numpy().tobytes())
+                    writtenFrames += 1
+
+            logging.info(f"Encoded {writtenFrames} frames")
+
+        except Exception as e:
+            logging.error(f"Encoding error: {e}")
+            if ffmpegProc is not None:
+                rc = ffmpegProc.poll()
+                logging.error(f"FFmpeg exit code: {rc}")
+                if ffmpegProc.stderr:
+                    try:
+                        stderr_out = ffmpegProc.stderr.read().decode(errors="replace").strip()
+                        if stderr_out:
+                            logging.error(f"FFmpeg stderr: {stderr_out}")
+                    except Exception:
+                        pass
+        finally:
+            try:
+                if ffmpegProc is not None and ffmpegProc.stderr:
+                    ffmpegProc.stderr.close()
+                if ffmpegProc is not None and ffmpegProc.stdin:
+                    ffmpegProc.stdin.close()
+                if ffmpegProc is not None:
+                    ffmpegProc.wait(timeout=3)
+
+            except Exception as e:
+                logging.warning(f"Cleanup error: {e}")
+
+    def write(self, frame):
+        """
+        Add a frame to the queue. Must be in [B, C, H, W] format (BCHW).
+        Frame type is torch.Tensor when using PyTorch backend.
+        """
+        self.writeBuffer.put(frame)
+
+    def put(self, frame):
+        """
+        Equivalent to write()
+        Add a frame to the queue. Must be in [B, C, H, W] format (BCHW).
+        Frame type is torch.Tensor when using PyTorch backend.
+        """
+        self.writeBuffer.put(frame)
+
+    def close(self):
+        self.writeBuffer.put(None)
+
+        if self.previewPath and os.path.exists(self.previewPath):
+            try:
+                os.remove(self.previewPath)
+            except Exception as e:
+                logging.warning(f"Could not remove preview file: {e}")
+
+
+class NeluxWriteBuffer:
+    """
+    Write buffer that uses Nelux VideoEncoder for NVENC (hardware) or
+    libx264/libx265/libaom-av1 (software) encoding.
+    More efficient than FFmpeg pipe for GPU-resident frames.
+    """
+
+    def __init__(
+        self,
+        input: str = "",
+        output: str = "",
+        encode_method: str = "h264_nvenc_nelux",
+        width: int = 1920,
+        height: int = 1080,
+        fps: float = 60.0,
+        inpoint: float = 0.0,
+        outpoint: float = 0.0,
+        **kwargs,  # Accept and ignore other WriteBuffer params for compatibility
+    ):
+        """
+        Initialize Nelux-based encoder.
+
+        Args:
+            input: Source video path (audio/subtitle passthrough; see _setupPassthrough).
+            output: Output video path.
+            encode_method: One of nvenc_h264_nelux, nvenc_h265_nelux, nvenc_av1_nelux
+                (hardware) or x264_nelux, x265_nelux, av1_nelux (software).
+            width: Output width.
+            height: Output height.
+            fps: Output framerate.
+            inpoint: Trim start in seconds (--ss); applied to passthrough streams.
+            outpoint: Trim end in seconds (--to); applied to passthrough streams.
+        """
+        self.input = input
+        self.output = os.path.normpath(output)
+        self.width = width
+        self.height = height
+        self.fps = fps
+        self.inpoint = inpoint
+        self.outpoint = outpoint
+        self.writeBuffer = Queue(maxsize=32)
+        self.writtenFrames = 0
+        self.CudaStream = None
+        # Nelux does not produce an FFmpeg-based preview image. Define the
+        # attribute (matching WriteBuffer's None default) so main.py's preview
+        # setup -- which reads writeBuffer.previewPath -- doesn't AttributeError
+        # when --preview is combined with a *_nelux encoder.
+        self.previewPath = None
+
+        # Mirror the FFmpeg encoder targets in encodingSettings.matchEncoder
+        # one-for-one. Each entry is the full nelux.VideoEncoder kwarg set.
+        # nelux (==0.12.2, pinned) takes an INTEGER preset and maps it per-codec
+        # internally (Encoder.cpp): x264/x265 1=ultrafast..9=veryslow so 3=veryfast;
+        # libsvtav1 preset = 13-n so n=5 -> svt preset 8; NVENC -> p<n> so 1 -> p1.
+        # cq maps to `-crf` (software) / NVENC CQ; cq=15 == FFmpeg `-crf/-cq 15`.
+        # pixel_format is passed explicitly to match getPixFMT's 8-bit default
+        # (yuv420p) rather than relying on the encoder's internal default.
+        #   ffmpeg `x264`: -c:v libx264 -preset veryfast -crf 15  (yuv420p)
+        # Verified: x264 preset=3,cq=15 -> within ~2% of ffmpeg veryfast/crf15.
+        encoderSettings = {
+            "x264_nelux":       dict(codec="libx264",   preset=3, cq=15, pixel_format="yuv420p"),  # veryfast / crf 15
+            "x265_nelux":       dict(codec="libx265",   preset=3, cq=15, pixel_format="yuv420p"),  # veryfast / crf 15
+            "av1_nelux":        dict(codec="libsvtav1", preset=5, cq=15, pixel_format="yuv420p"),  # svt preset 8 / crf 15
+            "nvenc_h264_nelux": dict(codec="h264_nvenc", preset=1, cq=15, pixel_format="yuv420p"),  # p1 / cq 15
+            "nvenc_h265_nelux": dict(codec="hevc_nvenc", preset=1, cq=15, pixel_format="yuv420p"),  # p1 / cq 15
+            "nvenc_av1_nelux":  dict(codec="av1_nvenc",  preset=1, cq=15, pixel_format="yuv420p"),  # p1 / cq 15
+        }
+        self.encoderKwargs = encoderSettings.get(
+            encode_method, encoderSettings["nvenc_h264_nelux"]
+        )
+        self.codec = self.encoderKwargs["codec"]
+        # NVENC variants expect a hardware encoder; software (libx*/libsvtav1) do not.
+        self.expectHardware = self.codec.endswith("_nvenc")
+        self.encoder = None
+
+        if checker.cudaAvailable:
+            self.CudaStream = torch.cuda.Stream()
+
+        logging.info(
+            f"NeluxWriteBuffer initialized: {width}x{height}@{fps}fps, codec={self.codec}"
+        )
+
+    def _setupPassthrough(self):
+        """
+        Copy/transcode audio + subtitle streams from the source into the Nelux
+        output via VideoEncoder.add_passthrough, replacing the FFmpeg-subprocess
+        muxing the standard WriteBuffer uses (second `-i input`, `-map 1:a -c:a
+        copy`, `-map 1:s? -c:s copy`, with the webm `libopus`/`webvtt` fallback).
+        The --ss/--to trim (inpoint/outpoint) is honored: streams are packet-gated
+        and rebased so inpoint maps to output t=0, aligning with the first video
+        frame pushed (the decode side already trims the video to the same range).
+
+        Must run AFTER the encoder is constructed but BEFORE the first
+        encode_frame: Nelux writes the container header on the first frame and
+        every stream must exist by then.
+        """
+        encoder = self.encoder
+        if encoder is None or not cs.AUDIO:
+            return
+        if not self.input or "%" in self.input or not os.path.exists(self.input):
+            logging.info(
+                f"Nelux passthrough skipped: no usable source file ('{self.input}')."
+            )
+            return
+
+        end = self.outpoint if self.outpoint and self.outpoint > 0 else None
+        try:
+            # allow_transcode re-encodes streams the container cannot stream-copy
+            # (e.g. AAC->webm) to the container default instead of dropping them,
+            # mirroring the WriteBuffer webm path. The kwarg only exists in
+            # nelux >= 0.12.0; older builds fall back to copy-only.
+            try:
+                encoder.add_passthrough(
+                    self.input,
+                    audio=True,
+                    subtitles=True,
+                    start=float(self.inpoint),
+                    end=end,
+                    allow_transcode=True,
+                )
+            except TypeError:
+                encoder.add_passthrough(
+                    self.input,
+                    audio=True,
+                    subtitles=True,
+                    start=float(self.inpoint),
+                    end=end,
+                )
+            logging.info(
+                f"Nelux passthrough: audio+subtitles from '{self.input}' "
+                f"(start={self.inpoint}, end={end})"
+            )
+        except Exception as e:
+            logging.warning(f"Nelux passthrough failed, encoding video only: {e}")
+
+    def __call__(self):
+        """Process frames from writeBuffer and encode with Nelux."""
+        import torch
+
+        try:
+            while self.writeBuffer.empty():
+                time.sleep(0.001)
+
+            self.encoder = nelux.VideoEncoder(
+                self.output,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
+                **self.encoderKwargs,  # codec, preset, cq, pixel_format
+            )
+
+            if hasattr(self.encoder, "is_hardware_encoder"):
+                if self.encoder.is_hardware_encoder:
+                    logging.info(
+                        f"Nelux hardware encoder confirmed: {self.codec} -> {self.output}"
+                    )
+                elif self.expectHardware:
+                    logging.warning(
+                        f"Nelux encoder is NOT using hardware NVENC! Codec: {self.codec}"
+                    )
+                else:
+                    logging.info(
+                        f"Nelux software encoder: {self.codec} -> {self.output}"
+                    )
+            else:
+                logging.info(f"Nelux encoder created: {self.codec} -> {self.output}")
+
+            # Register audio/subtitle passthrough before the first encode_frame
+            # (the container header is written on that first frame).
+            self._setupPassthrough()
+
+            while True:
+                try:
+                    frame = self.writeBuffer.get(timeout=1.0)
+                except Exception:
+                    time.sleep(0.001)
+                    continue
+
+                if frame is None:
+                    break
+
+                if self.CudaStream is not None:
+                    with torch.cuda.stream(self.CudaStream):
+                        frame = frame.squeeze(0).permute(1, 2, 0)
+                        frame = frame.mul(255.0).clamp(0, 255).to(dtype=torch.uint8, non_blocking=True)
+                    self.CudaStream.synchronize()
+                else:
+                    # No CUDA stream on CPU/DirectML/MPS hosts; run the same
+                    # conversion directly (frame is already a CPU tensor here).
+                    frame = frame.squeeze(0).permute(1, 2, 0)
+                    frame = frame.mul(255.0).clamp(0, 255).to(dtype=torch.uint8)
+        
+                if not frame.is_contiguous():
+                    frame = frame.contiguous()
+
+                self.encoder.encode_frame(frame)
+                self.writtenFrames += 1
+
+            logging.info(f"Nelux encoded {self.writtenFrames} frames")
+
+        except Exception as e:
+            logging.error(f"Nelux encoding error: {e}")
+            import traceback
+
+            traceback.print_exc()
+        finally:
+            if self.encoder is not None:
+                try:
+                    self.encoder.close()
+                except Exception as e:
+                    logging.warning(f"Error closing Nelux encoder: {e}")
+
+    def write(self, frame):
+        """Add a frame to the queue. Must be in [H, W, 3] HWC format."""
+        self.writeBuffer.put(frame)
+
+    def put(self, frame):
+        """Equivalent to write(). Add a frame to the queue."""
+        self.writeBuffer.put(frame)
+
+    def close(self):
+        """Signal end of encoding."""
+        self.writeBuffer.put(None)
+
+
+def isNeluxEncoder(encode_method: str) -> bool:
+    """Check if the encode method uses Nelux NVENC."""
+    return encode_method.endswith("_nelux")
+
+
+def createWriteBuffer(encode_method: str, **kwargs):
+    """
+    Factory function to create the appropriate write buffer.
+
+    Args:
+        encode_method: The encoding method string.
+        **kwargs: Arguments passed to the buffer constructor.
+
+    Returns:
+        WriteBuffer or NeluxWriteBuffer instance.
+
+    Usage:
+        buffer = createWriteBuffer(
+            encode_method=args.encode_method,
+            input=args.input,
+            output=args.output,
+            width=width,
+            height=height,
+            fps=fps,
+            ...
+        )
+    """
+    if isNeluxEncoder(encode_method):
+        logging.info(f"Using NeluxWriteBuffer for {encode_method}")
+        return NeluxWriteBuffer(encode_method=encode_method, **kwargs)
+    else:
+        return WriteBuffer(encode_method=encode_method, **kwargs)
