@@ -22,6 +22,7 @@ _COLORS = {
     "light_blue": "\033[94m",
 }
 
+
 # Detect whether the output supports ANSI colors
 def _supportsColor():
     if os.environ.get("NO_COLOR"):

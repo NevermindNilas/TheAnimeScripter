@@ -287,7 +287,13 @@ def _adjustMethodsBasedOnCuda(args):
                 for method in currentMethod:
                     if any(
                         backend in method.lower()
-                        for backend in ["-directml", "-ncnn", "-tensorrt", "-mps", "-openvino"]
+                        for backend in [
+                            "-directml",
+                            "-ncnn",
+                            "-tensorrt",
+                            "-mps",
+                            "-openvino",
+                        ]
                     ):
                         logging.info(
                             f"{attr} method {method} already using non-default backend"
@@ -305,7 +311,13 @@ def _adjustMethodsBasedOnCuda(args):
             else:
                 if any(
                     backend in currentMethod.lower()
-                    for backend in ["-directml", "-ncnn", "-tensorrt", "-mps", "-openvino"]
+                    for backend in [
+                        "-directml",
+                        "-ncnn",
+                        "-tensorrt",
+                        "-mps",
+                        "-openvino",
+                    ]
                 ):
                     logging.info(
                         f"{attr} already using non-default backend: {currentMethod}"

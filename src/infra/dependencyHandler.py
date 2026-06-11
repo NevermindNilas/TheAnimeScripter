@@ -314,7 +314,9 @@ class DependencyChecker:
         try:
             requirementsFile = getRequirementsFileForProfile(storedProfile)
         except ValueError:
-            logging.warning(f"Stored profile '{storedProfile}' is invalid, re-prompting")
+            logging.warning(
+                f"Stored profile '{storedProfile}' is invalid, re-prompting"
+            )
             self.clearCache()
             return self._promptInstallAndStore()
 
@@ -332,8 +334,7 @@ class DependencyChecker:
             return True
 
         logAndPrint(
-            "Missing dependencies detected: "
-            + ", ".join(missing + notImportable),
+            "Missing dependencies detected: " + ", ".join(missing + notImportable),
             "yellow",
         )
         return self._promptInstallAndStore()

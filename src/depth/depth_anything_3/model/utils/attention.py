@@ -49,7 +49,11 @@ class Attention(nn.Module):
     def forward(self, x: Tensor, pos=None, attn_mask=None) -> Tensor:
         # Debug breakpoint removed for production
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
+        qkv = (
+            self.qkv(x)
+            .reshape(B, N, 3, self.num_heads, self.head_dim)
+            .permute(2, 0, 3, 1, 4)
+        )
         q, k, v = qkv.unbind(0)
         q, k = self.q_norm(q), self.k_norm(k)
         q = self.rope(q, pos) if self.rope is not None else q

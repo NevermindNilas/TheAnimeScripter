@@ -217,5 +217,3 @@ class softsplat_func(torch.autograd.Function):
 
         out.index_add_(0, indices, values)
         return out.view(n, height, width, channels).permute(0, 3, 1, 2)
-
-

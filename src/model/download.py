@@ -13,10 +13,17 @@ import zipfile
 from src.infra.logAndPrint import logAndPrint
 
 from .registry import (
-    weightsDir, TASURL, SUDOURL, TRANSNETV2URL,
-    DEPTHV2URLSMALL, DEPTHV2URLBASE, DEPTHV2URLLARGE, DEPTHV2URLGIANT,
+    weightsDir,
+    TASURL,
+    SUDOURL,
+    TRANSNETV2URL,
+    DEPTHV2URLSMALL,
+    DEPTHV2URLBASE,
+    DEPTHV2URLLARGE,
+    DEPTHV2URLGIANT,
     modelsMap,
 )
+
 
 def downloadAndLog(
     model: str, filename: str, download_url: str, folderPath: str, retries: int = 3
@@ -76,7 +83,9 @@ def downloadAndLog(
                 logging.error(e)
 
             loggedPercentages = set()
-            downloadedBytes = 0  # reset per attempt so the size check below is correct on retries
+            downloadedBytes = (
+                0  # reset per attempt so the size check below is correct on retries
+            )
 
             try:
                 with ProgressBarDownloadLogic(

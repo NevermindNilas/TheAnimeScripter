@@ -232,9 +232,7 @@ class IFNet(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)

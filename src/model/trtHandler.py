@@ -60,13 +60,13 @@ if hasattr(trt, "IProgressMonitor"):
 
         def _redraw(self, *, blank_lines=0):
             def clear_line():
-                print("\x1B[2K", end="")
+                print("\x1b[2K", end="")
 
             def move_to_start_of_line():
-                print("\x1B[0G", end="")
+                print("\x1b[0G", end="")
 
             def move_cursor_up(lines):
-                print("\x1B[{}A".format(lines), end="")
+                print("\x1b[{}A".format(lines), end="")
 
             def progress_bar(steps, num_steps):
                 INNER_WIDTH = 10
@@ -76,9 +76,7 @@ if hasattr(trt, "IProgressMonitor"):
                     "-" * (INNER_WIDTH - completed_bar_chars),
                 )
 
-            max_cols = (
-                os.get_terminal_size().columns if sys.stdout.isatty() else 200
-            )
+            max_cols = os.get_terminal_size().columns if sys.stdout.isatty() else 200
 
             move_to_start_of_line()
             for phase in self._active_phases.values():
@@ -90,9 +88,7 @@ if hasattr(trt, "IProgressMonitor"):
                 phase_suffix = "{steps}/{num_steps}".format(**phase)
                 allowable_prefix_chars = max_cols - len(phase_suffix) - 2
                 if allowable_prefix_chars < len(phase_prefix):
-                    phase_prefix = (
-                        phase_prefix[0 : allowable_prefix_chars - 3] + "..."
-                    )
+                    phase_prefix = phase_prefix[0 : allowable_prefix_chars - 3] + "..."
                 clear_line()
                 print(phase_prefix, phase_suffix)
             for _ in range(blank_lines):

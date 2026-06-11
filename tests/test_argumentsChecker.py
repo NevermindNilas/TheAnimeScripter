@@ -21,14 +21,24 @@ from src.cli.parser import (
     capabilityMethods,
     _listMethods,
 )
-from src.cli.validator import isAnyOtherProcessingMethodEnabled, _configureProcessingSettings
+from src.cli.validator import (
+    isAnyOtherProcessingMethodEnabled,
+    _configureProcessingSettings,
+)
 
 
 def makeArgs(**overrides):
     base = dict(
-        slowmo=False, static_step=False, interpolate_factor=2.0,
-        dedup=False, smooth_dedup=False, dedup_method="ssim", dedup_sens=35.0,
-        autoclip=False, autoclip_method="pyscenedetect", autoclip_sens=50.0,
+        slowmo=False,
+        static_step=False,
+        interpolate_factor=2.0,
+        dedup=False,
+        smooth_dedup=False,
+        dedup_method="ssim",
+        dedup_sens=35.0,
+        autoclip=False,
+        autoclip_method="pyscenedetect",
+        autoclip_sens=50.0,
         compile_mode="default",
     )
     base.update(overrides)
@@ -38,6 +48,7 @@ def makeArgs(**overrides):
 # --------------------------------------------------------------------------- #
 # str2bool
 # --------------------------------------------------------------------------- #
+
 
 @pytest.mark.parametrize("val", ["yes", "true", "t", "y", "1", "TRUE"])
 def testStr2boolTruthy(val):
@@ -55,6 +66,7 @@ def testStr2boolPassesThroughBool():
 
 def testStr2boolRejectsGarbage():
     import argparse
+
     with pytest.raises(argparse.ArgumentTypeError):
         str2bool("maybe")
 
@@ -63,11 +75,20 @@ def testStr2boolRejectsGarbage():
 # isAnyOtherProcessingMethodEnabled
 # --------------------------------------------------------------------------- #
 
+
 def fullFlags(**on):
     flags = dict(
-        interpolate=False, upscale=False, segment=False, restore=False,
-        stabilize=False, resize=False, dedup=False, depth=False,
-        autoclip=False, obj_detect=False, moblur=False,
+        interpolate=False,
+        upscale=False,
+        segment=False,
+        restore=False,
+        stabilize=False,
+        resize=False,
+        dedup=False,
+        depth=False,
+        autoclip=False,
+        obj_detect=False,
+        moblur=False,
     )
     flags.update(on)
     return types.SimpleNamespace(**flags)
@@ -84,6 +105,7 @@ def testSingleProcessingEnabled():
 # --------------------------------------------------------------------------- #
 # _configureProcessingSettings: sensitivity remapping
 # --------------------------------------------------------------------------- #
+
 
 def testSsimDedupSensRemapped():
     a = makeArgs(dedup=True, dedup_method="ssim", dedup_sens=35.0)
@@ -135,6 +157,7 @@ def testSmoothDedupKeepsAudio(monkeypatch):
 # DidYouMeanArgumentParser: fuzzy suggestions
 # --------------------------------------------------------------------------- #
 
+
 @pytest.fixture
 def parser():
     return DidYouMeanArgumentParser()
@@ -145,7 +168,9 @@ def testLevenshteinKnownDistance(parser):
 
 
 def testLevenshteinSymmetric(parser):
-    assert parser._levenshteinDistance("abc", "abcd") == parser._levenshteinDistance("abcd", "abc")
+    assert parser._levenshteinDistance("abc", "abcd") == parser._levenshteinDistance(
+        "abcd", "abc"
+    )
 
 
 def testLevenshteinIdenticalIsZero(parser):
@@ -173,6 +198,7 @@ def testSuggestionsRespectMax(parser):
 # TASHelpFormatter._group_choices: split method list by backend suffix
 # --------------------------------------------------------------------------- #
 
+
 def testGroupChoicesBucketsByBackend():
     groups = TASHelpFormatter._group_choices(
         ["span", "span-tensorrt", "span-ncnn", "rtmosr-directml"]
@@ -192,6 +218,7 @@ def testGroupChoicesUnknownSuffixFallsToCuda():
 # --------------------------------------------------------------------------- #
 # Family-aware scoring + invalid-choice error output
 # --------------------------------------------------------------------------- #
+
 
 def testFamilyBonusRanksSameBaseFirst(parser):
     # 'span-trt' shares the base 'span', so span-* should outrank unrelated names.
@@ -214,6 +241,7 @@ def testInvalidChoiceSuggestionNotDoubleQuoted(parser, capsys):
 # --------------------------------------------------------------------------- #
 # Misspelled option-name suggestions (new feature)
 # --------------------------------------------------------------------------- #
+
 
 def testSuggestOptionsClosestLongFlag(parser):
     parser.add_argument("--upscale", action="store_true")
@@ -264,6 +292,7 @@ def testGenericErrorUsesUnifiedStyle(parser, capsys):
 # --------------------------------------------------------------------------- #
 # capabilityMethods + --list_methods (single-source method registry / drift guard)
 # --------------------------------------------------------------------------- #
+
 
 @pytest.fixture
 def builtParser():

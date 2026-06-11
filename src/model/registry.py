@@ -13,7 +13,9 @@ from src.infra.logAndPrint import logAndPrint
 
 # Compute weightsBaseDir from this file's location (avoids importing src.constants)
 # This is equivalent to cs.WHEREAMIRUNFROM but without the dependency
-weightsBaseDir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+weightsBaseDir = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+)
 weightsDir = os.path.join(weightsBaseDir, "weights")
 
 TASURL = "https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/"
@@ -36,6 +38,8 @@ DEPTHV2URLGIANT = (
 )
 
 TRANSNETV2URL = "https://huggingface.co/Sn4kehead/TransNetV2/resolve/main/"
+
+
 def modelsList() -> list[str]:
     return [
         "animesr",
@@ -354,9 +358,7 @@ def modelsMap(
         # ArtCNN luma-only 2x SR. Single-channel (1,1,H,W) -> (1,1,2H,2W).
         # OpenVINO reuses the -directml filename (mapped upstream in the loader).
         case (
-            "artcnn_c4f16-tensorrt"
-            | "artcnn_c4f16-directml"
-            | "artcnn_c4f16-openvino"
+            "artcnn_c4f16-tensorrt" | "artcnn_c4f16-directml" | "artcnn_c4f16-openvino"
         ):
             return "ArtCNN_C4F16_fp16.onnx" if half else "ArtCNN_C4F16_fp32.onnx"
 
@@ -375,9 +377,7 @@ def modelsMap(
             return "ArtCNN_C4F16_DS_fp16.onnx" if half else "ArtCNN_C4F16_DS_fp32.onnx"
 
         case (
-            "artcnn_c4f32-tensorrt"
-            | "artcnn_c4f32-directml"
-            | "artcnn_c4f32-openvino"
+            "artcnn_c4f32-tensorrt" | "artcnn_c4f32-directml" | "artcnn_c4f32-openvino"
         ):
             return "ArtCNN_C4F32_fp16.onnx" if half else "ArtCNN_C4F32_fp32.onnx"
 
@@ -396,9 +396,7 @@ def modelsMap(
             return "ArtCNN_C4F32_DS_fp16.onnx" if half else "ArtCNN_C4F32_DS_fp32.onnx"
 
         case (
-            "artcnn_r8f64-tensorrt"
-            | "artcnn_r8f64-directml"
-            | "artcnn_r8f64-openvino"
+            "artcnn_r8f64-tensorrt" | "artcnn_r8f64-directml" | "artcnn_r8f64-openvino"
         ):
             return "ArtCNN_R8F64_fp16.onnx" if half else "ArtCNN_R8F64_fp32.onnx"
 
@@ -1016,7 +1014,11 @@ def modelsMap(
             | "yolov9_large-tensorrt"
         ):
             if modelType == "onnx":
-                modelName = model.replace("-directml", "").replace("-openvino", "").replace("-tensorrt", "")
+                modelName = (
+                    model.replace("-directml", "")
+                    .replace("-openvino", "")
+                    .replace("-tensorrt", "")
+                )
                 return f"{modelName}_mit.onnx"
             else:
                 raise ValueError(
@@ -1091,8 +1093,15 @@ def modelsMap(
 
 
 __all__ = [
-    "weightsBaseDir", "weightsDir",
-    "TASURL", "SUDOURL", "DEPTHV2URLSMALL", "DEPTHV2URLBASE",
-    "DEPTHV2URLLARGE", "DEPTHV2URLGIANT", "TRANSNETV2URL",
-    "modelsList", "modelsMap",
+    "weightsBaseDir",
+    "weightsDir",
+    "TASURL",
+    "SUDOURL",
+    "DEPTHV2URLSMALL",
+    "DEPTHV2URLBASE",
+    "DEPTHV2URLLARGE",
+    "DEPTHV2URLGIANT",
+    "TRANSNETV2URL",
+    "modelsList",
+    "modelsMap",
 ]

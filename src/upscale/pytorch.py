@@ -129,7 +129,9 @@ class UniversalPytorch:
                         f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
                     )
             else:
-                self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
+                self.model = torch.load(
+                    modelPath, map_location="cpu", weights_only=False
+                )
 
                 if isinstance(self.model, dict):
                     self.model = ModelLoader().load_from_state_dict(self.model)
@@ -258,6 +260,7 @@ class UniversalPytorch:
         self.stream.synchronize()
 
         return output
+
 
 class UniversalPytorchMPS:
     """
@@ -411,4 +414,3 @@ class UniversalPytorchMPS:
         output = self.model(frame)
         torch.mps.synchronize()
         return output
-

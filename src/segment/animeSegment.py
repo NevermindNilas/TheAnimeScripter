@@ -639,9 +639,7 @@ class AnimeSegmentOpenVino:
         method = "segment-directml"
         self.filename = modelsMap(method)
         folderName = "segment-onnx"
-        modelPath = resolveWeightPath(
-            folderName, self.filename, downloadModel=method
-        )
+        modelPath = resolveWeightPath(folderName, self.filename, downloadModel=method)
 
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width

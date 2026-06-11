@@ -21,6 +21,7 @@ logger = logging.getLogger("dinov2")
 
 try:
     from xformers.ops import memory_efficient_attention, unbind, fmha
+
     XFORMERS_AVAILABLE = True
 
 except ImportError:
@@ -50,12 +51,18 @@ class Attention(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        qkv = (
+            self.qkv(x)
+            .reshape(B, N, 3, self.num_heads, C // self.num_heads)
+            .permute(2, 0, 3, 1, 4)
+        )
 
         if x.dtype in (torch.float16, torch.bfloat16):
             q, k, v = qkv.unbind(0)
             x = F.scaled_dot_product_attention(
-                q, k, v,
+                q,
+                k,
+                v,
                 dropout_p=self.attn_drop_p if self.training else 0.0,
             )
             x = x.transpose(1, 2).reshape(B, N, C)
@@ -90,5 +97,3 @@ class MemEffAttention(Attention):
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
-
-        

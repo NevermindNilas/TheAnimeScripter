@@ -51,9 +51,7 @@ class AutoClipTransnetv2:
         if cs.ADOBE:
             from src.server.aeComms import progressState
 
-            progressState.update(
-                {"status": "Detecting scene changes (transnetv2)..."}
-            )
+            progressState.update({"status": "Detecting scene changes (transnetv2)..."})
             try:
                 self._run()
             except Exception as e:

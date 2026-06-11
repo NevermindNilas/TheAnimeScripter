@@ -1,17 +1,18 @@
-# Copyright (2025) Bytedance Ltd. and/or its affiliates 
+# Copyright (2025) Bytedance Ltd. and/or its affiliates
 
-# Licensed under the Apache License, Version 2.0 (the "License"); 
-# you may not use this file except in compliance with the License. 
-# You may obtain a copy of the License at 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 
-#     http://www.apache.org/licenses/LICENSE-2.0 
+#     http://www.apache.org/licenses/LICENSE-2.0
 
-# Unless required by applicable law or agreed to in writing, software 
-# distributed under the License is distributed on an "AS IS" BASIS, 
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-# See the License for the specific language governing permissions and 
-# limitations under the License. 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 import numpy as np
+
 
 def compute_scale_and_shift(prediction, target, mask, scale_only=False):
     if scale_only:
@@ -36,6 +37,7 @@ def compute_scale(prediction, target, mask):
     x_0 = b_0 / (a_00 + 1e-6)
 
     return x_0
+
 
 def compute_scale_and_shift_full(prediction, target, mask):
     # system matrix: A = [[a_00, a_01], [a_10, a_11]]
@@ -66,9 +68,14 @@ def get_interpolate_frames(frame_list_pre, frame_list_post):
     assert len(frame_list_pre) == len(frame_list_post)
     min_w = 0.0
     max_w = 1.0
-    step = (max_w - min_w) / (len(frame_list_pre)-1)
-    post_w_list = [min_w] + [i * step for i in range(1,len(frame_list_pre)-1)] + [max_w]
+    step = (max_w - min_w) / (len(frame_list_pre) - 1)
+    post_w_list = (
+        [min_w] + [i * step for i in range(1, len(frame_list_pre) - 1)] + [max_w]
+    )
     interpolated_frames = []
     for i in range(len(frame_list_pre)):
-        interpolated_frames.append(frame_list_pre[i] * (1-post_w_list[i]) + frame_list_post[i] * post_w_list[i])
+        interpolated_frames.append(
+            frame_list_pre[i] * (1 - post_w_list[i])
+            + frame_list_post[i] * post_w_list[i]
+        )
     return interpolated_frames

@@ -15,8 +15,16 @@ from src.io.encodingSettings import matchEncoder, getPixFMT
 # matchEncoder: name -> ffmpeg flag list
 # --------------------------------------------------------------------------- #
 
+
 def testX264Flags():
-    assert matchEncoder("x264") == ["-c:v", "libx264", "-preset", "veryfast", "-crf", "15"]
+    assert matchEncoder("x264") == [
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "15",
+    ]
 
 
 def testPngFlags():
@@ -42,9 +50,14 @@ def testUnknownEncoderReturnsEmpty():
 # getPixFMT: (in, out, encode_method) resolution
 # --------------------------------------------------------------------------- #
 
+
 def testTransparencyOverridesToProresSegment():
     # Transparency wins over everything and rewrites the encoder.
-    assert getPixFMT("x264", "8bit", False, True) == ("rgba", "yuva444p10le", "prores_segment")
+    assert getPixFMT("x264", "8bit", False, True) == (
+        "rgba",
+        "yuva444p10le",
+        "prores_segment",
+    )
 
 
 def testTransparencyDoesNotDoubleRewrite():
@@ -64,7 +77,11 @@ def testGrayscale(bitDepth, expected):
 
 
 def testTenBitMethodEightBitInput():
-    assert getPixFMT("x264_10bit", "8bit", False, False) == ("rgb24", "yuv420p10le", "x264_10bit")
+    assert getPixFMT("x264_10bit", "8bit", False, False) == (
+        "rgb24",
+        "yuv420p10le",
+        "x264_10bit",
+    )
 
 
 def testNvencH264SixteenBitDowngradesOutputToEightBit():
@@ -87,4 +104,8 @@ def testPngKeepsRgbInAndOut():
 
 
 def testProresPromotesEightBitOutputTo444p10():
-    assert getPixFMT("prores", "8bit", False, False) == ("rgb24", "yuv444p10le", "prores")
+    assert getPixFMT("prores", "8bit", False, False) == (
+        "rgb24",
+        "yuv444p10le",
+        "prores",
+    )

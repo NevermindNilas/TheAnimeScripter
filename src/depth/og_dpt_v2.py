@@ -191,6 +191,7 @@ class DepthAnythingV2(nn.Module):
         result = super().load_state_dict(state_dict, strict=strict, assign=assign)
         if not self._layerscale_folded:
             from .fold_layerscale import fold_layerscale_
+
             fold_layerscale_(self)
             self._layerscale_folded = True
         return result

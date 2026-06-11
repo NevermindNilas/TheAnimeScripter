@@ -257,7 +257,9 @@ class BuildBuffer:
                     break
 
                 ptsMillis = cap.get(cv2.CAP_PROP_POS_MSEC)
-                ptsSeconds = (ptsMillis / 1000.0) if ptsMillis and ptsMillis > 0 else None
+                ptsSeconds = (
+                    (ptsMillis / 1000.0) if ptsMillis and ptsMillis > 0 else None
+                )
 
                 if ptsSeconds is not None and endTime > 0 and ptsSeconds >= endTime:
                     break
@@ -299,7 +301,6 @@ class BuildBuffer:
         """
         import torch
         from torch.nn import functional as F
-
 
         norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
         if self.cudaEnabled:
@@ -449,7 +450,11 @@ class WriteBuffer:
         self.encode_method = encode_method
         self.single_image_output = single_image_output
 
-        if self.encode_method == "png" and not self.single_image_output and "%" not in self.output:
+        if (
+            self.encode_method == "png"
+            and not self.single_image_output
+            and "%" not in self.output
+        ):
             _, ext = os.path.splitext(self.output)
             if not ext:
                 self.output = os.path.join(self.output, "%08d.png")
@@ -492,7 +497,9 @@ class WriteBuffer:
             and not self.benchmark
         )
 
-    def _writeSinglePngDirect(self, frameTensor, needsResize: bool, multiplier: int, dtype):
+    def _writeSinglePngDirect(
+        self, frameTensor, needsResize: bool, multiplier: int, dtype
+    ):
         from torch.nn import functional as F
 
         if needsResize:
@@ -869,9 +876,7 @@ class WriteBuffer:
                 )
 
             if self._shouldUseDirectPngSingleFrame():
-                logging.info(
-                    "Using direct single-frame PNG encoder (ffmpeg bypass)"
-                )
+                logging.info("Using direct single-frame PNG encoder (ffmpeg bypass)")
 
                 firstFrame = None
                 while firstFrame is None:
@@ -933,8 +938,14 @@ class WriteBuffer:
             )
 
             if ffmpegProc.poll() is not None:
-                stderr_out = ffmpegProc.stderr.read().decode(errors="replace") if ffmpegProc.stderr else ""
-                logging.error(f"FFmpeg exited immediately with code {ffmpegProc.returncode}: {stderr_out}")
+                stderr_out = (
+                    ffmpegProc.stderr.read().decode(errors="replace")
+                    if ffmpegProc.stderr
+                    else ""
+                )
+                logging.error(
+                    f"FFmpeg exited immediately with code {ffmpegProc.returncode}: {stderr_out}"
+                )
                 return
 
             logging.info(f"Encoding path: {'CUDA pinned' if useCuda else 'CPU'}")
@@ -1033,7 +1044,9 @@ class WriteBuffer:
                 logging.error(f"FFmpeg exit code: {rc}")
                 if ffmpegProc.stderr:
                     try:
-                        stderr_out = ffmpegProc.stderr.read().decode(errors="replace").strip()
+                        stderr_out = (
+                            ffmpegProc.stderr.read().decode(errors="replace").strip()
+                        )
                         if stderr_out:
                             logging.error(f"FFmpeg stderr: {stderr_out}")
                     except Exception:
@@ -1135,12 +1148,24 @@ class NeluxWriteBuffer:
         #   ffmpeg `x264`: -c:v libx264 -preset veryfast -crf 15  (yuv420p)
         # Verified: x264 preset=3,cq=15 -> within ~2% of ffmpeg veryfast/crf15.
         encoderSettings = {
-            "x264_nelux":       dict(codec="libx264",   preset=3, cq=15, pixel_format="yuv420p"),  # veryfast / crf 15
-            "x265_nelux":       dict(codec="libx265",   preset=3, cq=15, pixel_format="yuv420p"),  # veryfast / crf 15
-            "av1_nelux":        dict(codec="libsvtav1", preset=5, cq=15, pixel_format="yuv420p"),  # svt preset 8 / crf 15
-            "nvenc_h264_nelux": dict(codec="h264_nvenc", preset=1, cq=15, pixel_format="yuv420p"),  # p1 / cq 15
-            "nvenc_h265_nelux": dict(codec="hevc_nvenc", preset=1, cq=15, pixel_format="yuv420p"),  # p1 / cq 15
-            "nvenc_av1_nelux":  dict(codec="av1_nvenc",  preset=1, cq=15, pixel_format="yuv420p"),  # p1 / cq 15
+            "x264_nelux": dict(
+                codec="libx264", preset=3, cq=15, pixel_format="yuv420p"
+            ),  # veryfast / crf 15
+            "x265_nelux": dict(
+                codec="libx265", preset=3, cq=15, pixel_format="yuv420p"
+            ),  # veryfast / crf 15
+            "av1_nelux": dict(
+                codec="libsvtav1", preset=5, cq=15, pixel_format="yuv420p"
+            ),  # svt preset 8 / crf 15
+            "nvenc_h264_nelux": dict(
+                codec="h264_nvenc", preset=1, cq=15, pixel_format="yuv420p"
+            ),  # p1 / cq 15
+            "nvenc_h265_nelux": dict(
+                codec="hevc_nvenc", preset=1, cq=15, pixel_format="yuv420p"
+            ),  # p1 / cq 15
+            "nvenc_av1_nelux": dict(
+                codec="av1_nvenc", preset=1, cq=15, pixel_format="yuv420p"
+            ),  # p1 / cq 15
         }
         self.encoderKwargs = encoderSettings.get(
             encode_method, encoderSettings["nvenc_h264_nelux"]
@@ -1259,14 +1284,18 @@ class NeluxWriteBuffer:
                 if self.CudaStream is not None:
                     with torch.cuda.stream(self.CudaStream):
                         frame = frame.squeeze(0).permute(1, 2, 0)
-                        frame = frame.mul(255.0).clamp(0, 255).to(dtype=torch.uint8, non_blocking=True)
+                        frame = (
+                            frame.mul(255.0)
+                            .clamp(0, 255)
+                            .to(dtype=torch.uint8, non_blocking=True)
+                        )
                     self.CudaStream.synchronize()
                 else:
                     # No CUDA stream on CPU/DirectML/MPS hosts; run the same
                     # conversion directly (frame is already a CPU tensor here).
                     frame = frame.squeeze(0).permute(1, 2, 0)
                     frame = frame.mul(255.0).clamp(0, 255).to(dtype=torch.uint8)
-        
+
                 if not frame.is_contiguous():
                     frame = frame.contiguous()
 

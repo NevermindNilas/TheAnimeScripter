@@ -1,5 +1,6 @@
 import os
 import sys
+
 os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
 import torch
@@ -139,6 +140,7 @@ def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
     logging.info(f"Depth Padding: {newWidth}x{newHeight}")
     return newHeight, newWidth
 
+
 class DepthCuda:
     def __init__(
         self,
@@ -190,7 +192,6 @@ class DepthCuda:
                 width=self.newWidth,
                 height=self.newHeight,
             )
-
 
             self.writeBuffer = WriteBuffer(
                 self.input,
@@ -375,7 +376,6 @@ class DepthCuda:
         logging.info(f"Processed {frameCount} frames")
 
         self.writeBuffer.close()
-
 
 
 class OGDepthV2CUDA:
@@ -609,7 +609,9 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
         from .. import depth_anything_3 as depth_anything_3_pkg
 
         sys.modules.setdefault("depth_anything_3", depth_anything_3_pkg)
-        MonocularDepthAnything3 = importlib.import_module("depth_anything_3.mono").MonocularDepthAnything3
+        MonocularDepthAnything3 = importlib.import_module(
+            "depth_anything_3.mono"
+        ).MonocularDepthAnything3
         toDownload = self.depth_method
         modelMap = {
             "small_v3": "da3-small",
@@ -634,6 +636,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
         ).to(checker.device)
 
         from ..fold_layerscale import fold_layerscale_
+
         fold_layerscale_(self.model)
 
         self.newHeight, self.newWidth = calculateAspectRatio(
@@ -642,7 +645,11 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
         self.processRes = calculateAspectRatio(
             self.width, self.height, self.depthQuality, True
         )
-        self.processResMethod = "lower_bound_resize" if self.depthQuality == "high" else "upper_bound_resize"
+        self.processResMethod = (
+            "lower_bound_resize"
+            if self.depthQuality == "high"
+            else "upper_bound_resize"
+        )
 
         if self.processResMethod == "upper_bound_resize":
             scale = self.processRes / max(self.width, self.height)
@@ -653,7 +660,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
         self._decodeWidth = tgt_w
         self._decodeHeight = tgt_h
         self._decodeResize = True
-        
+
         if self.compileMode != "default":
             try:
                 if self.compileMode == "max":
@@ -686,9 +693,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
 
             if validMask.sum() <= 10:
                 gray = np.zeros(depth.shape, dtype=np.uint8)
-                self.encodeBuffer.put(
-                    np.stack([gray] * 3, axis=-1)
-                )
+                self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
                 return
 
             disparity = np.zeros_like(depth, dtype=np.float32)
@@ -704,9 +709,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
                     disp_max += 1e-6
                 gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
             gray = (gray * 255.0).astype(np.uint8)
-            self.encodeBuffer.put(
-                np.stack([gray] * 3, axis=-1)
-            )
+            self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
@@ -726,5 +729,3 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
             self.output.write(frame)
 
         self.output.release()
-
-

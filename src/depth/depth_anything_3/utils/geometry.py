@@ -77,7 +77,9 @@ def affine_inverse_np(A: np.ndarray):
     P = A[..., 3:, :]
     return np.concatenate(
         [
-            np.concatenate([transpose_last_two_axes(R), -transpose_last_two_axes(R) @ T], axis=-1),
+            np.concatenate(
+                [transpose_last_two_axes(R), -transpose_last_two_axes(R) @ T], axis=-1
+            ),
             P,
         ],
         axis=-2,
@@ -174,9 +176,9 @@ def mat_to_quat(matrix: torch.Tensor) -> torch.Tensor:
 
     # if not for numerical problems, quat_candidates[i] should be same (up to a sign),
     # forall i; we pick the best-conditioned one (with the largest denominator)
-    out = quat_candidates[F.one_hot(q_abs.argmax(dim=-1), num_classes=4) > 0.5, :].reshape(
-        batch_dim + (4,)
-    )
+    out = quat_candidates[
+        F.one_hot(q_abs.argmax(dim=-1), num_classes=4) > 0.5, :
+    ].reshape(batch_dim + (4,))
 
     # Convert from rijk to ijkr
     out = out[..., [1, 2, 3, 0]]
@@ -238,12 +240,16 @@ def sample_image_grid(
     return coordinates, stacked_indices
 
 
-def homogenize_points(points: torch.Tensor) -> torch.Tensor:  # "*batch dim"  # "*batch dim+1"
+def homogenize_points(
+    points: torch.Tensor,
+) -> torch.Tensor:  # "*batch dim"  # "*batch dim+1"
     """Convert batched points (xyz) to (xyz1)."""
     return torch.cat([points, torch.ones_like(points[..., :1])], dim=-1)
 
 
-def homogenize_vectors(vectors: torch.Tensor) -> torch.Tensor:  #  "*batch dim"  # "*batch dim+1"
+def homogenize_vectors(
+    vectors: torch.Tensor,
+) -> torch.Tensor:  #  "*batch dim"  # "*batch dim+1"
     """Convert batched vectors (xyz) to (xyz0)."""
     return torch.cat([vectors, torch.zeros_like(vectors[..., :1])], dim=-1)
 
@@ -348,13 +354,16 @@ def map_pdf_to_opacity(
     # Map the probability density to an opacity.
     return 0.5 * (1 - (1 - pdf) ** exponent + pdf ** (1 / exponent))
 
+
 def normalize_homogenous_points(points):
     """Normalize the point vectors"""
     return points / points[..., -1:]
 
+
 def inverse_intrinsic_matrix(ixts):
     """ """
     return torch.inverse(ixts)
+
 
 def pixel_space_to_camera_space(pixel_space_points, depth, intrinsics):
     """
@@ -373,7 +382,9 @@ def pixel_space_to_camera_space(pixel_space_points, depth, intrinsics):
     #     "b v i j , h w j -> b v h w i", intrinsics.inverse(), pixel_space_points
     # )
     camera_space_points = torch.einsum(
-        "b v i j , h w j -> b v h w i", inverse_intrinsic_matrix(intrinsics), pixel_space_points
+        "b v i j , h w j -> b v h w i",
+        inverse_intrinsic_matrix(intrinsics),
+        pixel_space_points,
     )
     camera_space_points = camera_space_points * depth
     return camera_space_points
@@ -391,7 +402,9 @@ def camera_space_to_world_space(camera_space_points, c2w):
         torch.Tensor: World space points with shape (b, v, h, w, 3).
     """
     camera_space_points = homogenize_points(camera_space_points)
-    world_space_points = torch.einsum("b v i j , b v h w j -> b v h w i", c2w, camera_space_points)
+    world_space_points = torch.einsum(
+        "b v i j , b v h w j -> b v h w i", c2w, camera_space_points
+    )
     return world_space_points[..., :3]
 
 
@@ -432,7 +445,12 @@ def world_space_to_camera_space(world_space_points, c2w):
 
 
 def unproject_depth(
-    depth, intrinsics, c2w=None, ixt_normalized=False, num_patches_x=None, num_patches_y=None
+    depth,
+    intrinsics,
+    c2w=None,
+    ixt_normalized=False,
+    num_patches_x=None,
+    num_patches_y=None,
 ):
     """
     Turn the depth map into a 3D point cloud in world space

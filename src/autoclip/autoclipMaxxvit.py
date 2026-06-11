@@ -270,10 +270,14 @@ class AutoClipMaxxvit:
         prev = None
         idx = -1
 
-        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="autoclip-decode") as pool:
+        with ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="autoclip-decode"
+        ) as pool:
             future = pool.submit(self._decodeWorker, iterable, preprocess, queue)
             try:
-                with ProgressBarLogic(totalFrames, title=f"AutoClip ({self.method})") as pbar:
+                with ProgressBarLogic(
+                    totalFrames, title=f"AutoClip ({self.method})"
+                ) as pbar:
                     while True:
                         curr = queue.get()
                         if curr is _SENTINEL:

@@ -1,4 +1,5 @@
 import os
+
 os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
 import torch
@@ -133,6 +134,7 @@ def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
 
     logging.info(f"Depth Padding: {newWidth}x{newHeight}")
     return newHeight, newWidth
+
 
 class DepthTensorRTV2:
     def __init__(
@@ -368,7 +370,6 @@ class DepthTensorRTV2:
         self.writeBuffer.close()
 
 
-
 class OGDepthV2TensorRT:
     def __init__(
         self,
@@ -488,7 +489,9 @@ class OGDepthV2TensorRT:
             optInputShape=inputShape,
         )
 
-        if os.path.exists(enginePath) and os.path.getmtime(enginePath) < os.path.getmtime(self.modelPath):
+        if os.path.exists(enginePath) and os.path.getmtime(
+            enginePath
+        ) < os.path.getmtime(self.modelPath):
             try:
                 os.remove(enginePath)
             except Exception:
@@ -619,9 +622,7 @@ class OGDepthV2TensorRT:
     def normOutputFrame(self):
         if self.isVideoDepthTensorRT:
             depthTensor = self.dummyOutput[0, -1].float()
-            depthTensor = torch.nan_to_num(
-                depthTensor, nan=0.0, posinf=0.0, neginf=0.0
-            )
+            depthTensor = torch.nan_to_num(depthTensor, nan=0.0, posinf=0.0, neginf=0.0)
             flatTensor = depthTensor.flatten()
             lowerBound = torch.quantile(flatTensor, 0.01)
             upperBound = torch.quantile(flatTensor, 0.99)
@@ -674,5 +675,3 @@ class OGDepthV2TensorRT:
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
-
-

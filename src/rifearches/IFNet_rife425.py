@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from .warplayer import warp
 from .dynamic_scale import dynamicScale
 
+
 def get_drm_t(drm, t, precision=1e-3):
     """
     DRM is a tensor with dimensions b, 1, h, w, where for any value x (0 < x < 1).
@@ -58,6 +59,7 @@ def get_drm_t(drm, t, precision=1e-3):
 
     return x_drm.to(dtype)
 
+
 def calc_drm_rife(t, flow10, flow12, linear=False):
     # Compute the distance using the optical flow and distance calculator
     d10 = distance_calculator(flow10) + 1e-4
@@ -99,10 +101,12 @@ def calc_drm_rife(t, flow10, flow12, linear=False):
 
     return {"drm_t1_t01": drm_t1_t01, "drm_t1_t12": drm_t1_t12}
 
+
 def distance_calculator(_x):
     dtype = _x.dtype
     u, v = _x[:, 0:1].float(), _x[:, 1:].float()
     return torch.sqrt(u**2 + v**2).to(dtype)
+
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
@@ -117,6 +121,7 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
         ),
         nn.LeakyReLU(0.2, True),
     )
+
 
 class Head(nn.Module):
     def __init__(self):
@@ -139,6 +144,7 @@ class Head(nn.Module):
             return [x0, x1, x2, x3]
         return x3
 
+
 class ResConv(nn.Module):
     def __init__(self, c, dilation=1):
         super(ResConv, self).__init__()
@@ -148,6 +154,7 @@ class ResConv(nn.Module):
 
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
+
 
 class IFBlock(nn.Module):
     def __init__(self, in_planes, c=64):
@@ -193,6 +200,7 @@ class IFBlock(nn.Module):
         mask = tmp[:, 4:5]
         feat = tmp[:, 5:]
         return flow, mask, feat
+
 
 class IFNet(nn.Module):
     def __init__(

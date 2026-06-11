@@ -73,7 +73,9 @@ class InputProcessor:
             tensor shape: (1, N, 3, H, W)
         """
         _ = self._resolve_sequential(sequential, num_workers)
-        exts_list, ixts_list = self._validate_and_pack_meta(image, extrinsics, intrinsics)
+        exts_list, ixts_list = self._validate_and_pack_meta(
+            image, extrinsics, intrinsics
+        )
 
         results = []
         for index, item in enumerate(image):
@@ -90,7 +92,9 @@ class InputProcessor:
             )
 
         proc_imgs, out_sizes, out_ixts, out_exts = self._unpack_results(results)
-        proc_imgs, out_sizes, out_ixts = self._unify_batch_shapes(proc_imgs, out_sizes, out_ixts)
+        proc_imgs, out_sizes, out_ixts = self._unify_batch_shapes(
+            proc_imgs, out_sizes, out_ixts
+        )
 
         batch_tensor = self._stack_batch(proc_imgs)
         out_exts = (
@@ -138,7 +142,12 @@ class InputProcessor:
                 f"{type(results)} / sample: {results[0]}"
             ) from e
 
-        return list(processed_images), list(out_sizes), list(out_intrinsics), list(out_extrinsics)
+        return (
+            list(processed_images),
+            list(out_sizes),
+            list(out_intrinsics),
+            list(out_extrinsics),
+        )
 
     def _unify_batch_shapes(
         self,
@@ -210,7 +219,9 @@ class InputProcessor:
         # Convert to tensor & normalize
         img_tensor = self._normalize_image(pil_img)
         _, H, W = img_tensor.shape
-        assert (W, H) == (w, h), "Tensor size mismatch with PIL image size after processing."
+        assert (W, H) == (w, h), (
+            "Tensor size mismatch with PIL image size after processing."
+        )
 
         # Return: (img_tensor, (H, W), intrinsic, extrinsic)
         return img_tensor, (H, W), intrinsic, extrinsic
@@ -272,7 +283,9 @@ class InputProcessor:
     # -----------------------------
     # Boundary resizing
     # -----------------------------
-    def _resize_image(self, img: Image.Image, target_size: int, method: str) -> Image.Image:
+    def _resize_image(
+        self, img: Image.Image, target_size: int, method: str
+    ) -> Image.Image:
         if method in ("upper_bound_resize", "upper_bound_crop"):
             return self._resize_longest_side(img, target_size)
         elif method in ("lower_bound_resize", "lower_bound_crop"):
@@ -371,7 +384,9 @@ if __name__ == "__main__":
         Ks_out: Sequence[np.ndarray | None] | None = None,
     ):
         B, N, C, H, W = tensor.shape
-        print(f"[{tag}] shape={tuple(tensor.shape)}  HxW=({H},{W})  div14=({H%14==0},{W%14==0})")
+        print(
+            f"[{tag}] shape={tuple(tensor.shape)}  HxW=({H},{W})  div14=({H % 14 == 0},{W % 14 == 0})"
+        )
         assert H % 14 == 0 and W % 14 == 0, f"{tag}: output size not divisible by 14!"
         if Ks_in is not None or Ks_out is not None:
             Ks_in = Ks_in or [None] * N
@@ -381,7 +396,12 @@ if __name__ == "__main__":
 
     proc = InputProcessor()
     process_res = 504
-    methods = ["upper_bound_resize", "upper_bound_crop", "lower_bound_resize", "lower_bound_crop"]
+    methods = [
+        "upper_bound_resize",
+        "upper_bound_crop",
+        "lower_bound_resize",
+        "lower_bound_crop",
+    ]
 
     # Example sizes (two orientations)
     small_sizes = [(680, 1208), (1208, 680)]
@@ -436,7 +456,10 @@ if __name__ == "__main__":
     # Extra sanity for 504x376
     print("\n===== EXTRA sanity for 504x376 =====")
     img_example = Image.new("RGB", (504, 376), color=(10, 20, 30))
-    Ks_in_extra = [make_K(504, 376, fx=900.0, fy=900.0), make_K(504, 376, fx=900.0, fy=900.0)]
+    Ks_in_extra = [
+        make_K(504, 376, fx=900.0, fy=900.0),
+        make_K(504, 376, fx=900.0, fy=900.0),
+    ]
 
     out_r, _, Ks_out_r = proc(
         image=[img_example, img_example],

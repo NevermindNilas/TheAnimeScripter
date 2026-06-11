@@ -5,7 +5,7 @@ from src.constants import ADOBE
 
 
 if ADOBE:
-    from src.server.aeComms import progressState
+    pass
 
 checker = CudaChecker()
 
@@ -16,5 +16,3 @@ def calculatePadding(width, height, multiple=4):
     padW = (multiple - (width % multiple)) % multiple
     padH = (multiple - (height % multiple)) % multiple
     return (0, padW, 0, padH)
-
-

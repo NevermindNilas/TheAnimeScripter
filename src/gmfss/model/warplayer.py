@@ -47,7 +47,7 @@ def warp(tenInput, tenFlow):
     return torch.nn.functional.grid_sample(
         input=tenInput,
         grid=grid,
-        mode='bilinear',
-        padding_mode='border',
+        mode="bilinear",
+        padding_mode="border",
         align_corners=True,
     )

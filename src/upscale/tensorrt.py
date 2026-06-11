@@ -184,12 +184,14 @@ class UniversalTensorRT:
 
         return output
 
+
 # NVIDIA Works Notice (required by NVIDIA Software License Agreement
 # AI Product-Specific Terms §1.7.1 for distributed source files using
 # the NVIDIA Video Effects SDK / Maxine VSR):
 #
 #   This software contains source code provided by NVIDIA Corporation.
 #
+
 
 class AnimeSRTensorRT:
     def __init__(
@@ -431,5 +433,3 @@ class AnimeSRTensorRT:
         self.outputStream.synchronize()
 
         return output
-
-

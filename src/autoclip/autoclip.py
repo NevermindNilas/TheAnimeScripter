@@ -63,9 +63,7 @@ class AutoClip:
         if cs.ADOBE:
             startFrame = startTimecode.get_frames() if startTimecode else 0
             endFrame = (
-                endTimecode.get_frames()
-                if endTimecode
-                else video.duration.get_frames()
+                endTimecode.get_frames() if endTimecode else video.duration.get_frames()
             )
             totalFrames = max(1, endFrame - startFrame)
 
@@ -86,7 +84,9 @@ class AutoClip:
             )
             thread.start()
 
-            with ProgressBarLogic(totalFrames, title="AutoClip (pyscenedetect)") as pbar:
+            with ProgressBarLogic(
+                totalFrames, title="AutoClip (pyscenedetect)"
+            ) as pbar:
                 lastSeen = startFrame
                 while thread.is_alive():
                     sleep(self.POLL_INTERVAL)

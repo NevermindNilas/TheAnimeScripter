@@ -33,7 +33,9 @@ def extri_intri_to_pose_encoding(
     H, W = image_size_hw
     fov_h = 2 * torch.atan((H / 2) / intrinsics[..., 1, 1])
     fov_w = 2 * torch.atan((W / 2) / intrinsics[..., 0, 0])
-    pose_encoding = torch.cat([T, quat, fov_h[..., None], fov_w[..., None]], dim=-1).float()
+    pose_encoding = torch.cat(
+        [T, quat, fov_h[..., None], fov_w[..., None]], dim=-1
+    ).float()
 
     return pose_encoding
 
@@ -55,7 +57,9 @@ def pose_encoding_to_extri_intri(
     H, W = image_size_hw
     fy = (H / 2.0) / torch.clamp(torch.tan(fov_h / 2.0), 1e-6)
     fx = (W / 2.0) / torch.clamp(torch.tan(fov_w / 2.0), 1e-6)
-    intrinsics = torch.zeros(pose_encoding.shape[:2] + (3, 3), device=pose_encoding.device)
+    intrinsics = torch.zeros(
+        pose_encoding.shape[:2] + (3, 3), device=pose_encoding.device
+    )
     intrinsics[..., 0, 0] = fx
     intrinsics[..., 1, 1] = fy
     intrinsics[..., 0, 2] = W / 2
@@ -141,9 +145,9 @@ def mat_to_quat(matrix: torch.Tensor) -> torch.Tensor:
     flr = torch.tensor(0.1).to(dtype=q_abs.dtype, device=q_abs.device)
     quat_candidates = quat_by_rijk / (2.0 * q_abs[..., None].max(flr))
 
-    out = quat_candidates[F.one_hot(q_abs.argmax(dim=-1), num_classes=4) > 0.5, :].reshape(
-        batch_dim + (4,)
-    )
+    out = quat_candidates[
+        F.one_hot(q_abs.argmax(dim=-1), num_classes=4) > 0.5, :
+    ].reshape(batch_dim + (4,))
 
     out = out[..., [1, 2, 3, 0]]
 

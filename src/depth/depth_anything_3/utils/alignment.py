@@ -51,7 +51,9 @@ def least_squares_scale_scalar(
     return num / den
 
 
-def compute_sky_mask(sky_prediction: torch.Tensor, threshold: float = 0.3) -> torch.Tensor:
+def compute_sky_mask(
+    sky_prediction: torch.Tensor, threshold: float = 0.3
+) -> torch.Tensor:
     """
     Compute non-sky mask from sky prediction.
 
@@ -97,7 +99,9 @@ def compute_alignment_mask(
     )
 
 
-def sample_tensor_for_quantile(tensor: torch.Tensor, max_samples: int = 100000) -> torch.Tensor:
+def sample_tensor_for_quantile(
+    tensor: torch.Tensor, max_samples: int = 100000
+) -> torch.Tensor:
     """
     Sample tensor elements for quantile computation to reduce memory usage.
 

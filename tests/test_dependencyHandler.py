@@ -22,6 +22,7 @@ from src.infra.dependencyHandler import (
 # getDependencyProfile
 # --------------------------------------------------------------------------- #
 
+
 @pytest.mark.parametrize(
     "system,cuda,expected",
     [
@@ -29,7 +30,7 @@ from src.infra.dependencyHandler import (
         ("Windows", False, "windows-lite"),
         ("Linux", True, "linux-cuda"),
         ("Linux", False, "linux-lite"),
-        ("Darwin", True, "macos-mps"),   # macOS ignores cuda flag entirely
+        ("Darwin", True, "macos-mps"),  # macOS ignores cuda flag entirely
         ("Darwin", False, "macos-mps"),
     ],
 )
@@ -45,13 +46,17 @@ def testProfileIsCaseInsensitive():
 # getRequirementsFileForProfile
 # --------------------------------------------------------------------------- #
 
+
 def testEveryProfileMapsToARequirementsFile():
     for profile in DEPENDENCY_PROFILE_REQUIREMENTS:
         assert getRequirementsFileForProfile(profile).startswith("extra-requirements")
 
 
 def testProfileLookupTrimsAndLowercases():
-    assert getRequirementsFileForProfile("  WINDOWS-CUDA  ") == "extra-requirements-windows.txt"
+    assert (
+        getRequirementsFileForProfile("  WINDOWS-CUDA  ")
+        == "extra-requirements-windows.txt"
+    )
 
 
 def testUnknownProfileRaisesWithValidOptions():
@@ -64,6 +69,7 @@ def testUnknownProfileRaisesWithValidOptions():
 # --------------------------------------------------------------------------- #
 # _versionSatisfiesRequirement
 # --------------------------------------------------------------------------- #
+
 
 def testExactPinSatisfied():
     assert _versionSatisfiesRequirement("numpy==1.2.3", "1.2.3") is True
@@ -90,6 +96,7 @@ def testUnparseableSpecifierIsLenient():
 # --------------------------------------------------------------------------- #
 # pruneMaxineUnusedLibs — trims the TensorRT libs the Maxine VSR path never uses
 # --------------------------------------------------------------------------- #
+
 
 def _fakeLibsDir(tmp_path):
     """Build a stand-in nvvfx/libs with the TRT trio + one keep-file."""

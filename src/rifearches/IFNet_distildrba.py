@@ -12,6 +12,7 @@ import torch.nn.functional as F
 
 backwarpTenGrid = {}
 
+
 def warp(tenInput, tenFlow):
     """
     Backward warping using grid_sample.
@@ -56,6 +57,7 @@ def warp(tenInput, tenFlow):
         align_corners=True,
     )
 
+
 def conv(inPlanes, outPlanes, kernelSize=3, stride=1, padding=1, dilation=1):
     """Conv2d + LeakyReLU"""
     return nn.Sequential(
@@ -70,6 +72,7 @@ def conv(inPlanes, outPlanes, kernelSize=3, stride=1, padding=1, dilation=1):
         ),
         nn.LeakyReLU(0.2, True),
     )
+
 
 class Head(nn.Module):
     """
@@ -98,6 +101,7 @@ class Head(nn.Module):
             return [x0, x1, x2, x3]
         return x3
 
+
 class ResConv(nn.Module):
     """Residual convolution block with learnable scale parameter"""
 
@@ -109,6 +113,7 @@ class ResConv(nn.Module):
 
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
+
 
 class IFBlockV1(nn.Module):
     """
@@ -149,6 +154,7 @@ class IFBlockV1(nn.Module):
         tmap = torch.sigmoid(tmp[:, 13:])  # Must be in 0-1 range
         return flow, mask, feat, tmap
 
+
 class IFBlockV2Lite(nn.Module):
     """
     Flow estimation block for v2_lite model.
@@ -186,6 +192,7 @@ class IFBlockV2Lite(nn.Module):
         mask = tmp[:, 4:5]
         feat = tmp[:, 5:]
         return flow, mask, feat
+
 
 class IFNet(nn.Module):
     """

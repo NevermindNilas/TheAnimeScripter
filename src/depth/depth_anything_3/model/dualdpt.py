@@ -27,7 +27,6 @@ from depth_anything_3.model.utils.head_utils import (
 from src.depth.attr_dict import AttrDict as Dict
 
 
-
 class DualDPT(nn.Module):
     """
     Dual-head DPT for dense prediction with an always-on auxiliary head.
@@ -79,7 +78,10 @@ class DualDPT(nn.Module):
         # -------------------- token pre-norm + per-stage projection --------------------
         self.norm = nn.LayerNorm(dim_in)
         self.projects = nn.ModuleList(
-            [nn.Conv2d(dim_in, oc, kernel_size=1, stride=1, padding=0) for oc in out_channels]
+            [
+                nn.Conv2d(dim_in, oc, kernel_size=1, stride=1, padding=0)
+                for oc in out_channels
+            ]
         )
 
         # -------------------- spatial re-sizers (align to common scale before fusion) --------------------
@@ -93,7 +95,9 @@ class DualDPT(nn.Module):
                     out_channels[1], out_channels[1], kernel_size=2, stride=2, padding=0
                 ),
                 nn.Identity(),
-                nn.Conv2d(out_channels[3], out_channels[3], kernel_size=3, stride=2, padding=1),
+                nn.Conv2d(
+                    out_channels[3], out_channels[3], kernel_size=3, stride=2, padding=1
+                ),
             ]
         )
 
@@ -113,7 +117,13 @@ class DualDPT(nn.Module):
             head_features_1, head_features_1 // 2, kernel_size=3, stride=1, padding=1
         )
         self.scratch.output_conv2 = nn.Sequential(
-            nn.Conv2d(head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(
+                head_features_1 // 2,
+                head_features_2,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            ),
             nn.ReLU(inplace=True),
             nn.Conv2d(head_features_2, output_dim, kernel_size=1, stride=1, padding=0),
         )
@@ -132,7 +142,11 @@ class DualDPT(nn.Module):
         # Aux final projection per level
         use_ln = True
         ln_seq = (
-            [Permute((0, 2, 3, 1)), nn.LayerNorm(head_features_2), Permute((0, 3, 1, 2))]
+            [
+                Permute((0, 2, 3, 1)),
+                nn.LayerNorm(head_features_2),
+                Permute((0, 3, 1, 2)),
+            ]
             if use_ln
             else []
         )
@@ -140,7 +154,11 @@ class DualDPT(nn.Module):
             [
                 nn.Sequential(
                     nn.Conv2d(
-                        head_features_1 // 2, head_features_2, kernel_size=3, stride=1, padding=1
+                        head_features_1 // 2,
+                        head_features_2,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
                     ),
                     *ln_seq,
                     nn.ReLU(inplace=True),
@@ -256,7 +274,9 @@ class DualDPT(nn.Module):
         last_aux_logits = self.scratch.output_conv2_aux[-1](last_aux)
         fmap_last = last_aux_logits.permute(0, 2, 3, 1)
         aux_pred = self._apply_activation_single(fmap_last[..., :-1], "linear")
-        aux_conf = self._apply_activation_single(fmap_last[..., -1], self.conf_activation)
+        aux_conf = self._apply_activation_single(
+            fmap_last[..., -1], self.conf_activation
+        )
         return {
             self.head_main: main_pred.squeeze(-1),
             f"{self.head_main}_conf": main_conf,
@@ -268,7 +288,9 @@ class DualDPT(nn.Module):
     # Subroutines
     # -------------------------------------------------------------------------
 
-    def _fuse(self, feats: List[torch.Tensor]) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+    def _fuse(
+        self, feats: List[torch.Tensor]
+    ) -> Tuple[torch.Tensor, List[torch.Tensor]]:
         """
         Feature pyramid fusion.
         Returns:
@@ -307,11 +329,15 @@ class DualDPT(nn.Module):
         aux_list.append(aux_out)
 
         out = self.scratch.output_conv1(out)
-        aux_list = [self.scratch.output_conv1_aux[i](aux) for i, aux in enumerate(aux_list)]
+        aux_list = [
+            self.scratch.output_conv1_aux[i](aux) for i, aux in enumerate(aux_list)
+        ]
 
         return out, aux_list
 
-    def _add_pos_embed(self, x: torch.Tensor, W: int, H: int, ratio: float = 0.1) -> torch.Tensor:
+    def _add_pos_embed(
+        self, x: torch.Tensor, W: int, H: int, ratio: float = 0.1
+    ) -> torch.Tensor:
         """Simple UV positional embedding added to feature maps."""
         pw, ph = x.shape[-1], x.shape[-2]
         pe = create_uv_grid(pw, ph, aspect_ratio=W / H, dtype=x.dtype, device=x.device)

@@ -235,6 +235,7 @@ class ArtCNNTensorRT(_ArtCNNLumaMixin):
 
         return output
 
+
 class ArtCNNDirectML(_ArtCNNLumaMixin):
     """
     ArtCNN luma-only 2x upscaler (DirectML / OpenVINO via onnxruntime).

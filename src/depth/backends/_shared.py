@@ -1,4 +1,5 @@
 import os
+
 os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
 import torch
@@ -10,7 +11,7 @@ from src.constants import ADOBE
 
 
 if ADOBE:
-    from src.server.aeComms import progressState
+    pass
 
 from collections import deque
 import statistics
@@ -125,4 +126,3 @@ def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
 
     logging.info(f"Depth Padding: {newWidth}x{newHeight}")
     return newHeight, newWidth
-

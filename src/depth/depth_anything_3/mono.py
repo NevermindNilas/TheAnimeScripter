@@ -17,10 +17,16 @@ from depth_anything_3.model.da3 import DepthAnything3Net
 from depth_anything_3.model.dinov2.dinov2 import DinoV2
 from depth_anything_3.model.dpt import DPT
 from depth_anything_3.model.dualdpt import DualDPT
-from depth_anything_3.utils.alignment import compute_sky_mask, set_sky_regions_to_max_depth
+from depth_anything_3.utils.alignment import (
+    compute_sky_mask,
+    set_sky_regions_to_max_depth,
+)
 from depth_anything_3.utils.io.input_processor import InputProcessor
 from depth_anything_3.utils.io.output_processor import OutputProcessor
-from depth_anything_3.utils.model_loading import convert_general_state_dict, convert_metric_state_dict
+from depth_anything_3.utils.model_loading import (
+    convert_general_state_dict,
+    convert_metric_state_dict,
+)
 
 
 MONO_PRESETS: dict[str, dict[str, Any]] = {
@@ -131,7 +137,9 @@ def _build_model(model_name: str) -> DepthAnything3Net:
 def _load_checkpoint_payload(checkpoint_path: Path) -> dict[str, Any]:
     if checkpoint_path.suffix.lower() == ".safetensors":
         if load_safetensors_file is None:
-            raise ImportError("safetensors is required to load .safetensors checkpoints")
+            raise ImportError(
+                "safetensors is required to load .safetensors checkpoints"
+            )
         return load_safetensors_file(str(checkpoint_path), device="cpu")
     return torch.load(checkpoint_path, map_location="cpu")
 
@@ -147,11 +155,15 @@ def _unwrap_state_dict(payload: Any) -> dict[str, torch.Tensor]:
     raise TypeError("Checkpoint does not contain a state dict")
 
 
-def _prefix_state_dict(state_dict: dict[str, torch.Tensor], prefix: str) -> dict[str, torch.Tensor]:
+def _prefix_state_dict(
+    state_dict: dict[str, torch.Tensor], prefix: str
+) -> dict[str, torch.Tensor]:
     return {f"{prefix}{key}": value for key, value in state_dict.items()}
 
 
-def _normalize_state_dict(state_dict: dict[str, torch.Tensor], model_name: str) -> dict[str, torch.Tensor]:
+def _normalize_state_dict(
+    state_dict: dict[str, torch.Tensor], model_name: str
+) -> dict[str, torch.Tensor]:
     keys = tuple(state_dict.keys())
     if not keys:
         raise ValueError("Checkpoint state dict is empty")
@@ -195,12 +207,16 @@ class MonocularDepthAnything3(nn.Module):
     ) -> MonocularDepthAnything3:
         source = Path(model_path)
         if not source.exists():
-            raise FileNotFoundError(f"Monocular Depth Anything 3 checkpoint not found: {source}")
+            raise FileNotFoundError(
+                f"Monocular Depth Anything 3 checkpoint not found: {source}"
+            )
 
         resolved_model_name = _normalize_model_name(model_name or source.stem)
         instance = cls(resolved_model_name)
         payload = _load_checkpoint_payload(source)
-        state_dict = _normalize_state_dict(_unwrap_state_dict(payload), resolved_model_name)
+        state_dict = _normalize_state_dict(
+            _unwrap_state_dict(payload), resolved_model_name
+        )
         instance.load_state_dict(state_dict, strict=strict)
         del state_dict
         del payload
@@ -213,7 +229,9 @@ class MonocularDepthAnything3(nn.Module):
     def forward(self, image: torch.Tensor) -> dict[str, torch.Tensor]:
         use_autocast = image.device.type == "cuda"
         autocast_dtype = (
-            torch.bfloat16 if use_autocast and torch.cuda.is_bf16_supported() else torch.float16
+            torch.bfloat16
+            if use_autocast and torch.cuda.is_bf16_supported()
+            else torch.float16
         )
         with torch.no_grad():
             with torch.autocast(

@@ -12,7 +12,9 @@ import logging
 def buildUpscaleProcess(self):
     from src.unifiedUpscale import UniversalPytorch
 
-    logging.info(f"Upscaling to {self.width * self.upscaleFactor}x{self.height * self.upscaleFactor}")
+    logging.info(
+        f"Upscaling to {self.width * self.upscaleFactor}x{self.height * self.upscaleFactor}"
+    )
 
     match self.upscaleMethod:
         case (

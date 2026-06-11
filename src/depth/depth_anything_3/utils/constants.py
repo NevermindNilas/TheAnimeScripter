@@ -136,12 +136,31 @@ ETH3D_FILTER_KEYS = {
     "electro": ["9289.JPG", "9290.JPG", "9291.JPG", "9292.JPG", "9293.JPG", "9298.JPG"],
     "playground": ["587.JPG", "588.JPG", "589.JPG", "590.JPG", "591.JPG", "592.JPG"],
     "relief": [
-        "427.JPG", "428.JPG", "429.JPG", "430.JPG", "431.JPG", "432.JPG",
-        "433.JPG", "434.JPG", "435.JPG", "436.JPG", "437.JPG", "438.JPG",
+        "427.JPG",
+        "428.JPG",
+        "429.JPG",
+        "430.JPG",
+        "431.JPG",
+        "432.JPG",
+        "433.JPG",
+        "434.JPG",
+        "435.JPG",
+        "436.JPG",
+        "437.JPG",
+        "438.JPG",
     ],
     "relief_2": [
-        "458.JPG", "459.JPG", "460.JPG", "461.JPG", "462.JPG", "463.JPG",
-        "464.JPG", "465.JPG", "466.JPG", "467.JPG", "468.JPG",
+        "458.JPG",
+        "459.JPG",
+        "460.JPG",
+        "461.JPG",
+        "462.JPG",
+        "463.JPG",
+        "464.JPG",
+        "465.JPG",
+        "466.JPG",
+        "467.JPG",
+        "468.JPG",
     ],
 }
 
@@ -255,7 +274,9 @@ SCANNETPP_DOWN_SAMPLE = 0.02  # Voxel size for evaluation downsampling (meters)
 # Root directory for HiRoom evaluation data
 HIROOM_EVAL_DATA_ROOT = "workspace/benchmark_dataset/hiroom/data"
 HIROOM_GT_ROOT_PATH = "workspace/benchmark_dataset/hiroom/fused_pcd"
-HIROOM_SCENE_LIST_PATH = "workspace/benchmark_dataset/hiroom/selected_scene_list_val.txt"
+HIROOM_SCENE_LIST_PATH = (
+    "workspace/benchmark_dataset/hiroom/selected_scene_list_val.txt"
+)
 
 # TSDF fusion hyperparameters (indoor scenes)
 HIROOM_VOXEL_LENGTH = 4.0 / 512.0  # Voxel size for TSDF (meters)

@@ -149,7 +149,7 @@ class Conv3XC(nn.Module):
         if not self.training:
             self.eval_conv.weight.requires_grad = False
             self.eval_conv.bias.requires_grad = False  # type: ignore
-            
+
     def update_params(self):
         w1 = self.conv[0].weight.data.clone().detach()
         b1 = self.conv[0].bias.data.clone().detach()

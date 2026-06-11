@@ -11,7 +11,9 @@ SUPERPOINT_WEIGHTS_URL = "https://github.com/nagadomi/nunif/releases/download/0.
 class VGGBlock(nn.Sequential):
     def __init__(self, c_in, c_out, kernel_size, relu=True):
         padding = (kernel_size - 1) // 2
-        conv = nn.Conv2d(c_in, c_out, kernel_size=kernel_size, stride=1, padding=padding)
+        conv = nn.Conv2d(
+            c_in, c_out, kernel_size=kernel_size, stride=1, padding=padding
+        )
         act = nn.ReLU(inplace=True) if relu else nn.Identity()
         bn = nn.BatchNorm2d(c_out)
         super().__init__(conv, act, bn)
@@ -21,7 +23,9 @@ def batched_nms(scores, nms_radius):
     assert nms_radius >= 0
 
     def max_pool(x):
-        return F.max_pool2d(x, kernel_size=nms_radius * 2 + 1, stride=1, padding=nms_radius)
+        return F.max_pool2d(
+            x, kernel_size=nms_radius * 2 + 1, stride=1, padding=nms_radius
+        )
 
     zeros = torch.zeros_like(scores)
     max_mask = scores == max_pool(scores)
@@ -105,7 +109,9 @@ class SuperPoint(nn.Module):
         scores = F.softmax(scores, 1)[:, :-1]
         b, _, h, w = scores.shape
         scores = scores.permute(0, 2, 3, 1).reshape(b, h, w, self.stride, self.stride)
-        scores = scores.permute(0, 1, 3, 2, 4).reshape(b, h * self.stride, w * self.stride)
+        scores = scores.permute(0, 1, 3, 2, 4).reshape(
+            b, h * self.stride, w * self.stride
+        )
         scores = batched_nms(scores, self.conf.nms_radius)
 
         if self.conf.remove_borders:
@@ -143,7 +149,9 @@ class SuperPoint(nn.Module):
                     self.conf.max_num_keypoints,
                 )
 
-            descriptors_i = sample_descriptors(keypoints_i[None], descriptors_dense[i, None], self.stride)
+            descriptors_i = sample_descriptors(
+                keypoints_i[None], descriptors_dense[i, None], self.stride
+            )
             keypoints.append(keypoints_i)
             keypoint_scores.append(scores_i)
             descriptors.append(descriptors_i.squeeze(0).transpose(0, 1))
@@ -207,7 +215,9 @@ def find_match_index(kp1, kp2, threshold=0.3, return_score=False):
 
     cosine_similarity = d1 @ d2.t()
     match_index = torch.argmax(cosine_similarity, dim=-1)
-    max_similarity = torch.gather(cosine_similarity, dim=1, index=match_index.view(-1, 1)).view(-1)
+    max_similarity = torch.gather(
+        cosine_similarity, dim=1, index=match_index.view(-1, 1)
+    ).view(-1)
     keep = max_similarity > threshold
 
     idx1 = torch.arange(d1.shape[0], device=d1.device)[keep]
@@ -221,7 +231,9 @@ def find_match_index(kp1, kp2, threshold=0.3, return_score=False):
 def cosine_annealing(min_v, max_v, t, max_t):
     if max_t <= 0:
         return min_v
-    return min_v + 0.5 * (max_v - min_v) * (1.0 + math.cos((float(t) / float(max_t)) * math.pi))
+    return min_v + 0.5 * (max_v - min_v) * (
+        1.0 + math.cos((float(t) / float(max_t)) * math.pi)
+    )
 
 
 def find_transform(
@@ -252,15 +264,23 @@ def find_transform(
         xy2 = xy2.float()
 
     if mask is None:
-        mask = torch.ones((xy1.shape[0], xy1.shape[1]), dtype=torch.bool, device=xy1.device)
+        mask = torch.ones(
+            (xy1.shape[0], xy1.shape[1]), dtype=torch.bool, device=xy1.device
+        )
     elif mask.ndim == 3:
         mask = torch.logical_and(mask[:, :, 0], mask[:, :, 1])
 
     b = xy1.shape[0]
 
-    translation = torch.zeros((b, 1, 2), dtype=xy1.dtype, device=xy1.device, requires_grad=True)
-    scale = torch.ones((b, 1, 1), dtype=xy1.dtype, device=xy1.device, requires_grad=True)
-    rotation = torch.zeros((b, 1, 1), dtype=xy1.dtype, device=xy1.device, requires_grad=True)
+    translation = torch.zeros(
+        (b, 1, 2), dtype=xy1.dtype, device=xy1.device, requires_grad=True
+    )
+    scale = torch.ones(
+        (b, 1, 1), dtype=xy1.dtype, device=xy1.device, requires_grad=True
+    )
+    rotation = torch.zeros(
+        (b, 1, 1), dtype=xy1.dtype, device=xy1.device, requires_grad=True
+    )
 
     param_groups = []
     if not disable_shift:
@@ -302,7 +322,10 @@ def find_transform(
         rcos = torch.cos(rotation)
         rsin = torch.sin(rotation)
         xy = torch.cat(
-            [xy[:, :, :1] * rcos - xy[:, :, 1:] * rsin, xy[:, :, :1] * rsin + xy[:, :, 1:] * rcos],
+            [
+                xy[:, :, :1] * rcos - xy[:, :, 1:] * rsin,
+                xy[:, :, :1] * rsin + xy[:, :, 1:] * rcos,
+            ],
             dim=2,
         )
 
@@ -319,7 +342,9 @@ def find_transform(
             valid_mask_3d = mask.unsqueeze(-1).expand_as(loss_tmp)
             loss_tmp[torch.logical_not(valid_mask_3d)] = torch.nan
             mean = torch.nanmean(loss_tmp, dim=[1, 2], keepdim=True)
-            stdv = torch.sqrt(torch.nanmean((loss_tmp - mean).pow(2), dim=[1, 2], keepdim=True))
+            stdv = torch.sqrt(
+                torch.nanmean((loss_tmp - mean).pow(2), dim=[1, 2], keepdim=True)
+            )
             stdv = torch.nan_to_num(stdv, nan=1.0)
             stdv = torch.clamp(stdv, min=1e-6)
             outlier_mask = ((loss_tmp - mean) / stdv) < sigma_i

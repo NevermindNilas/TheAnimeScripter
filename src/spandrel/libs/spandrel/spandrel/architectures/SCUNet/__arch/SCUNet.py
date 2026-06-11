@@ -14,7 +14,6 @@ from ....util import store_hyperparameters
 from ....util.timm import DropPath, trunc_normal_
 
 
-
 # Borrowed from https://github.com/cszn/SCUNet/blob/main/models/network_scunet.py
 class WMSA(nn.Module):
     """Self-attention module in Swin Transformer"""
