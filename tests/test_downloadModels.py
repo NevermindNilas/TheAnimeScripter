@@ -49,7 +49,7 @@ def testTruncatedDownloadRaisesStringifiableRetryable(tmp_path, monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", lambda _url: _TruncatedResponse())
     monkeypatch.setattr(
-        "src.utils.progressBarLogic.ProgressBarDownloadLogic", _noopProgressBar
+        "src.infra.progressBarLogic.ProgressBarDownloadLogic", _noopProgressBar
     )
 
     with pytest.raises(Exception) as excInfo:
@@ -76,7 +76,7 @@ def testTruncatedDownloadDoesNotCommitPartialFile(tmp_path, monkeypatch):
 
     monkeypatch.setattr(urllib.request, "urlopen", lambda _url: _TruncatedResponse())
     monkeypatch.setattr(
-        "src.utils.progressBarLogic.ProgressBarDownloadLogic", _noopProgressBar
+        "src.infra.progressBarLogic.ProgressBarDownloadLogic", _noopProgressBar
     )
 
     with pytest.raises(ConnectionError):
