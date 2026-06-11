@@ -1,0 +1,156 @@
+import shutil
+import logging
+import os
+from urllib.request import urlopen
+from urllib.error import URLError, HTTPError
+
+import src.constants as cs
+
+
+def getFFMPEG():
+    ffmpegPath = downloadAndExtractFfmpeg(cs.FFMPEGPATH)
+    cs.FFMPEGPATH = ffmpegPath
+    ffProbeExe = "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe"
+    cs.FFPROBEPATH = os.path.join(os.path.dirname(ffmpegPath), ffProbeExe)
+
+
+def downloadAndExtractFfmpeg(ffmpegPath):
+    logging.info("Downloading FFMPEG")
+    extractFunc = extractFfmpegZip if cs.SYSTEM == "Windows" else extractFfmpegTar
+    ffmpegDir = os.path.dirname(ffmpegPath)
+    archiveExtension = "ffmpeg.zip" if cs.SYSTEM == "Windows" else "ffmpeg.tar.xz"
+    ffmpegArchivePath = os.path.join(ffmpegDir, archiveExtension)
+
+    os.makedirs(ffmpegDir, exist_ok=True)
+
+    ffmpegUrl = (
+        "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl-shared.zip"
+        if cs.SYSTEM == "Windows"
+        else "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz"
+    )
+
+    try:
+        from src.utils.progressBarLogic import ProgressBarDownloadLogic
+
+        response = urlopen(ffmpegUrl)
+
+        # Check for HTTP errors manually (like raise_for_status)
+        if response.getcode() != 200:
+            raise HTTPError(ffmpegUrl, response.getcode(), None, None, None)
+
+        totalSizeInBytes = int(response.headers.get("content-length", 0))
+
+        with (
+            ProgressBarDownloadLogic(totalSizeInBytes or 1, "Downloading FFmpeg") as bar,
+            open(ffmpegArchivePath, "wb") as file,
+        ):
+            while True:
+                data = response.read(1024 * 1024)
+                if not data:
+                    break
+                file.write(data)
+                bar(len(data))
+    except (URLError, HTTPError) as e:
+        logging.error(f"Failed to download FFMPEG: {e}")
+        raise
+
+    extractFunc(ffmpegArchivePath, ffmpegDir)
+    return str(ffmpegPath)
+
+
+def extractFfmpegZip(ffmpegZipPath, ffmpegDir):
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(ffmpegZipPath, "r") as zipRef:
+            zipRef.extractall(ffmpegDir)
+
+        extractedRoot = os.path.join(ffmpegDir, "ffmpeg-master-latest-win64-gpl-shared")
+        bin_dir = os.path.join(extractedRoot, "bin")
+
+        if os.path.exists(bin_dir):
+            for item in os.listdir(bin_dir):
+                s = os.path.join(bin_dir, item)
+                d = os.path.join(ffmpegDir, item)
+                if os.path.exists(d):
+                    try:
+                        if os.path.isdir(d):
+                            shutil.rmtree(d)
+                        else:
+                            os.remove(d)
+                    except Exception as e:
+                        logging.warning(f"Failed to remove existing file {d}: {e}")
+
+                shutil.move(s, d)
+
+        if os.path.exists(extractedRoot):
+            shutil.rmtree(extractedRoot, onerror=remove_readonly)
+
+    except zipfile.BadZipFile as e:
+        logging.error(f"Failed to extract ZIP: {e}")
+        raise
+    finally:
+        if os.path.exists(ffmpegZipPath):
+            os.remove(ffmpegZipPath)
+
+
+def extractFfmpegTar(ffmpegTarPath, ffmpegDir):
+    import tarfile
+    import stat
+
+    try:
+        with tarfile.open(ffmpegTarPath, "r:xz") as tarRef:
+            tarRef.extractall(ffmpegDir)
+
+        extracted_dir = None
+        for item in os.listdir(ffmpegDir):
+            fullPath = os.path.join(ffmpegDir, item)
+            if (
+                os.path.isdir(fullPath)
+                and item.startswith("ffmpeg-")
+                and item.endswith("-static")
+            ):
+                extracted_dir = fullPath
+                break
+
+        if extracted_dir:
+            ffmpeg_src = os.path.join(extracted_dir, "ffmpeg")
+            ffmpeg_dst = os.path.join(ffmpegDir, "ffmpeg")
+            if os.path.exists(ffmpeg_src) and not os.path.exists(ffmpeg_dst):
+                os.rename(ffmpeg_src, ffmpeg_dst)
+                os.chmod(ffmpeg_dst, os.stat(ffmpeg_dst).st_mode | stat.S_IEXEC)
+
+            ffprobe_src = os.path.join(extracted_dir, "ffprobe")
+            ffprobe_dst = os.path.join(ffmpegDir, "ffprobe")
+            if os.path.exists(ffprobe_src) and not os.path.exists(ffprobe_dst):
+                os.rename(ffprobe_src, ffprobe_dst)
+                os.chmod(ffprobe_dst, os.stat(ffprobe_dst).st_mode | stat.S_IEXEC)
+
+            shutil.rmtree(extracted_dir, onerror=remove_readonly)
+
+    except tarfile.TarError as e:
+        logging.error(f"Failed to extract TAR: {e}")
+        raise
+    finally:
+        if os.path.exists(ffmpegTarPath):
+            os.remove(ffmpegTarPath)
+
+
+def remove_readonly(func, path, excinfo):
+    import stat
+    import time
+    import logging
+
+    try:
+        os.chmod(path, stat.S_IWRITE)
+    except Exception:
+        pass
+
+    try:
+        func(path)
+    except Exception:
+        time.sleep(1)
+        try:
+            func(path)
+        except Exception as e:
+            logging.warning(f"Failed to remove {path}: {e}")
