@@ -8,7 +8,7 @@ import torch
 import nelux
 
 import src.constants as cs
-from src.model.downloadModels import downloadModels, weightsDir, modelsMap
+from src.model.registry import downloadModels, weightsDir, modelsMap
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
 

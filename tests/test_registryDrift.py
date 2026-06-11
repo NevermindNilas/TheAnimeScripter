@@ -26,7 +26,7 @@ mistake these guards exist to catch.
 import pytest
 
 from src.cli.parser import _buildParser, capabilityMethods
-from src.model.downloadModels import modelsList, modelsMap
+from src.model.registry import modelsList, modelsMap
 from src.io.encodingSettings import matchEncoder
 
 

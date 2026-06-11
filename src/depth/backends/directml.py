@@ -15,7 +15,8 @@ from src.io.ffmpegSettings import (
     BuildBuffer,
     WriteBuffer,
 )
-from src.model.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
+from src.model.download import downloadModels, resolveWeightPath
+from src.model.registry import weightsDir, modelsMap
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.infra.isCudaInit import CudaChecker
 from queue import Queue

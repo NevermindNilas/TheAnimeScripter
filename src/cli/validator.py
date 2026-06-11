@@ -252,7 +252,7 @@ def _adjustMethodsBasedOnCuda(args):
         needsFallback = not supportsCuda
 
     if needsFallback:
-        from src.model.downloadModels import modelsList
+        from src.model.registry import modelsList
 
         availableModels = modelsList()
         methodAttributes = [
@@ -333,7 +333,7 @@ def _adjustMethodsBasedOnCuda(args):
 
 
 def _downloadOfflineModels(args):
-    from src.model.downloadModels import downloadModels, modelsList
+    from src.model.registry import downloadModels, modelsList
 
     logAndPrint(
         f"Offline mode enabled, downloading {args.offline} model(s)...", "green"

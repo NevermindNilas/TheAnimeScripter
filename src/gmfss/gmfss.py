@@ -3,7 +3,7 @@ import torch
 import logging
 from contextlib import nullcontext
 
-from src.model.downloadModels import downloadModels, weightsDir
+from src.model.registry import downloadModels, weightsDir
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 
