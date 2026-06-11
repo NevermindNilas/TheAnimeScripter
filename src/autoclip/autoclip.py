@@ -7,8 +7,8 @@ from scenedetect import open_video, SceneManager, FrameTimecode
 from scenedetect.detectors import AdaptiveDetector
 
 import src.constants as cs
-from src.utils.progressBarLogic import ProgressBarLogic
-from src.utils.logAndPrint import logAndPrint
+from src.infra.progressBarLogic import ProgressBarLogic
+from src.infra.logAndPrint import logAndPrint
 
 
 class AutoClip:
@@ -31,7 +31,7 @@ class AutoClip:
         self.outPoint = outPoint
 
         if cs.ADOBE:
-            from src.utils.aeComms import progressState
+            from src.server.aeComms import progressState
 
             progressState.update(
                 {"status": "Detecting scene changes (pyscenedetect)..."}

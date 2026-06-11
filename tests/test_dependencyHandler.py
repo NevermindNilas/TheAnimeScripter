@@ -7,8 +7,8 @@ runtime stack, so the table is pinned exactly.
 
 import pytest
 
-import src.utils.dependencyHandler as dh
-from src.utils.dependencyHandler import (
+from src.infra import dependencyHandler as dh
+from src.infra.dependencyHandler import (
     getDependencyProfile,
     getRequirementsFileForProfile,
     _versionSatisfiesRequirement,

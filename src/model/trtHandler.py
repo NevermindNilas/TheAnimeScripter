@@ -5,11 +5,11 @@ import sys
 from pathlib import Path
 from typing import List, Tuple, Optional, Union
 
-from src.utils.logAndPrint import logAndPrint, coloredPrint
+from src.infra.logAndPrint import logAndPrint, coloredPrint
 from src.constants import ADOBE
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 
 if hasattr(trt, "IProgressMonitor"):

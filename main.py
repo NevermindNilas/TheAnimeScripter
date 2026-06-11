@@ -157,7 +157,7 @@ class VideoProcessor:
             args: Command line arguments containing inpoint and outpoint
         """
         # Lazy import to speed up startup for non-processing paths
-        from src.utils.getVideoMetadata import getVideoMetadata
+        from src.io.getVideoMetadata import getVideoMetadata
 
         videoMetadata = getVideoMetadata(
             self.input,
@@ -435,10 +435,10 @@ class VideoProcessor:
         Sets up input/output buffers, initializes AI models, and coordinates
         the multi-threaded processing workflow.
         """
-        from src.utils.ffmpegSettings import BuildBuffer, createWriteBuffer
-        from src.utils.progressBarLogic import ProgressBarLogic
-        from src.utils.aeComms import progressState
-        from src.utils.logAndPrint import logAndPrint
+        from src.io.ffmpegSettings import BuildBuffer, createWriteBuffer
+        from src.infra.progressBarLogic import ProgressBarLogic
+        from src.server.aeComms import progressState
+        from src.infra.logAndPrint import logAndPrint
 
         self.ProgressBarLogic = ProgressBarLogic
 
@@ -495,7 +495,7 @@ class VideoProcessor:
             )
 
             if self.preview and self.writeBuffer.previewPath is not None:
-                from src.utils.previewSettings import Preview
+                from src.server.previewSettings import Preview
 
                 self.preview = Preview(previewPath=self.writeBuffer.previewPath)
                 self.preview.start()
@@ -538,7 +538,7 @@ class VideoProcessor:
         """
         import torch
         from torch.profiler import profile, ProfilerActivity
-        from src.utils.logAndPrint import logAndPrint
+        from src.infra.logAndPrint import logAndPrint
 
         profilePath = os.path.join(cs.WHEREAMIRUNFROM, "profiler_trace")
         os.makedirs(profilePath, exist_ok=True)
@@ -670,14 +670,14 @@ def main():
         os.makedirs(cs.WHEREAMIRUNFROM, exist_ok=True)
 
         if any(flag in sys.argv for flag in ("-h", "--help", "-v", "--version")):
-            from src.utils.argumentsChecker import createParser
+            from src.cli.parser import createParser
 
             try:
                 createParser(outputPath=os.getcwd())
             except SystemExit:
                 return
 
-        from src.utils.logAndPrint import (
+        from src.infra.logAndPrint import (
             logInfo,
             logSuccess,
             logWarning,
@@ -701,13 +701,13 @@ def main():
         logging.info("=" * 80)
         logging.info(f"{' '.join(sys.argv)}\n")
 
-        from src.utils.argumentsChecker import createParser
-        from src.utils.argumentsChecker import isAnyOtherProcessingMethodEnabled
+        from src.cli.parser import createParser
+        from src.cli.validator import isAnyOtherProcessingMethodEnabled
 
         args = createParser(baseOutputPath)
         processingEnabled = isAnyOtherProcessingMethodEnabled(args)
         outputPath = os.path.join(baseOutputPath, "output")
-        from src.utils.inputOutputHandler import processInputOutputPaths
+        from src.io.inputOutputHandler import processInputOutputPaths
 
         results = processInputOutputPaths(args, outputPath)
 
@@ -745,7 +745,7 @@ def main():
                     logSuccess(f"PNG passthrough completed: {outputPath}")
 
                     if cs.ADOBE:
-                        from src.utils.aeComms import progressState
+                        from src.server.aeComms import progressState
 
                         progressState.update(
                             {

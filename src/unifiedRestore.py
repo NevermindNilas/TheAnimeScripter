@@ -8,7 +8,7 @@ from .utils.logAndPrint import logAndPrint
 from src.constants import ADOBE
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 checker = CudaChecker()
 

@@ -19,7 +19,7 @@ import pytest
 # torch/nelux importorskip in the other test modules).
 pytest.importorskip("barflow")
 
-from src.utils import downloadModels as dm  # noqa: E402
+import src.model.downloadModels as dm  # noqa: E402
 
 
 class _TruncatedResponse:

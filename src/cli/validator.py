@@ -4,7 +4,7 @@ import sys
 
 import src.constants as cs
 
-from src.utils.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint
 from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSelection
 
 
@@ -231,7 +231,7 @@ def _adjustMethodsBasedOnCuda(args):
     supportsCuda = getattr(args, "supportsCuda", None)
 
     if supportsCuda is None:
-        from src.utils.isCudaInit import CudaChecker, detectGPUArchitecture
+        from src.infra.isCudaInit import CudaChecker, detectGPUArchitecture
 
         isCuda = CudaChecker()
 
@@ -252,7 +252,7 @@ def _adjustMethodsBasedOnCuda(args):
         needsFallback = not supportsCuda
 
     if needsFallback:
-        from src.utils.downloadModels import modelsList
+        from src.model.downloadModels import modelsList
 
         availableModels = modelsList()
         methodAttributes = [
@@ -333,7 +333,7 @@ def _adjustMethodsBasedOnCuda(args):
 
 
 def _downloadOfflineModels(args):
-    from src.utils.downloadModels import downloadModels, modelsList
+    from src.model.downloadModels import downloadModels, modelsList
 
     logAndPrint(
         f"Offline mode enabled, downloading {args.offline} model(s)...", "green"
@@ -356,7 +356,7 @@ def _downloadOfflineModels(args):
 def processURL(args, outputPath):
     from urllib.parse import urlparse
     from src.ytdlp import VideoDownloader
-    from src.utils.inputOutputHandler import generateOutputName
+    from src.io.inputOutputHandler import generateOutputName
 
     result = urlparse(args.input)
 
@@ -406,7 +406,7 @@ def argumentsChecker(args, outputPath, parser):
     args.single_image_input = False
 
     if args.list_presets:
-        from src.utils.presetLogic import listPresets
+        from src.server.presetLogic import listPresets
 
         listPresets()
         sys.exit()
@@ -417,7 +417,7 @@ def argumentsChecker(args, outputPath, parser):
         sys.exit(_listMethods(parser, args.list_methods))
 
     if args.preset:
-        from src.utils.presetLogic import createPreset
+        from src.server.presetLogic import createPreset
 
         args = createPreset(args)
 
@@ -428,7 +428,7 @@ def argumentsChecker(args, outputPath, parser):
     _autoEnableParentFlags(args)
 
     if args.download_requirements is not None:
-        from src.utils.dependencyHandler import DependencyChecker
+        from src.infra.dependencyHandler import DependencyChecker
 
         _handleDependencies(args)
         selectedProfile = args.download_requirements.strip().lower()
@@ -446,7 +446,7 @@ def argumentsChecker(args, outputPath, parser):
         sys.exit()
 
     if args.cleanup:
-        from src.utils.dependencyHandler import (
+        from src.infra.dependencyHandler import (
             DependencyChecker,
             uninstallDependencies,
             getRequirementsFileForProfile,
@@ -463,7 +463,7 @@ def argumentsChecker(args, outputPath, parser):
                 storedProfile = None
 
         if not storedProfile:
-            from src.utils.isCudaInit import detectNVidiaGPU, detectGPUArchitecture
+            from src.infra.isCudaInit import detectNVidiaGPU, detectGPUArchitecture
 
             isNvidia = detectNVidiaGPU()
             supportsCuda = False
@@ -508,7 +508,7 @@ def argumentsChecker(args, outputPath, parser):
             logging.info(f"{arg.upper()}: {value}")
 
     if not args.benchmark:
-        from src.utils.checkSpecs import checkSystem
+        from src.infra.checkSpecs import checkSystem
 
         checkSystem()
 
@@ -522,7 +522,7 @@ def argumentsChecker(args, outputPath, parser):
     if args.ae:
         logging.info("After Effects interface detected")
         cs.ADOBE = True
-        from src.utils.aeComms import startServerInThread
+        from src.server.aeComms import startServerInThread
 
         try:
             startServerInThread(

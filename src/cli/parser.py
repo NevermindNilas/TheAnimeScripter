@@ -10,7 +10,7 @@ _logAndPrint = None
 def logAndPrint(message, colorFunc="cyan", level="INFO"):
     global _logAndPrint
     if _logAndPrint is None:
-        from src.utils.logAndPrint import logAndPrint as _lap
+        from src.infra.logAndPrint import logAndPrint as _lap
         _logAndPrint = _lap
     _logAndPrint(message, colorFunc, level)
 

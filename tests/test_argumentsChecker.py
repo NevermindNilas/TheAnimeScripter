@@ -13,16 +13,15 @@ import types
 import pytest
 
 import src.constants as cs
-from src.utils.argumentsChecker import (
+from src.cli.parser import (
     str2bool,
-    isAnyOtherProcessingMethodEnabled,
-    _configureProcessingSettings,
     DidYouMeanArgumentParser,
     TASHelpFormatter,
     _buildParser,
     capabilityMethods,
     _listMethods,
 )
+from src.cli.validator import isAnyOtherProcessingMethodEnabled, _configureProcessingSettings
 
 
 def makeArgs(**overrides):

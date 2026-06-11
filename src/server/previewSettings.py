@@ -3,7 +3,7 @@ import os
 import logging
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-from src.utils.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint
 
 
 class PreviewHTTPHandler(SimpleHTTPRequestHandler):

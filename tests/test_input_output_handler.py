@@ -10,7 +10,7 @@ import types
 
 import pytest
 
-from src.utils import inputOutputHandler as io
+from src.io import inputOutputHandler as io
 
 
 def make_args(**overrides):

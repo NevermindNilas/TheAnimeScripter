@@ -8,11 +8,11 @@ import cv2
 import torch
 
 from src.constants import ADOBE
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.utils.progressBarLogic import ProgressBarLogic
+from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.infra.progressBarLogic import ProgressBarLogic
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 
 def generateWeights(numSamples, scheme="gaussian_sym"):

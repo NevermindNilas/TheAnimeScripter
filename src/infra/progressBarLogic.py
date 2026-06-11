@@ -12,7 +12,7 @@ from barflow.columns import (
 import src.constants as cs
 from time import time
 from random import choice
-from src.utils.aeComms import progressState
+from src.server.aeComms import progressState
 
 import logging
 
