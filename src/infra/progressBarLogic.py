@@ -8,8 +8,10 @@ from barflow.columns import (
     EtaColumn,
     CountColumn,
     CallbackColumn,
+    SpinnerColumn,
 )
 import src.constants as cs
+import os
 from time import time
 from random import choice
 from src.utils.aeComms import progressState
@@ -59,8 +61,45 @@ def _byteCountRender(task):
     return f"{task.completed / mb:6.2f}/{task.total / mb:.2f} MB"
 
 
-def _frameColumns():
-    return (
+def _outputInfoRender(outputPath, videoFps=None):
+    """Callback factory: current output filesize + estimated bitrate.
+
+    Runs on the render thread at the bar's refresh rate (10 Hz) — one
+    os.path.getsize per render, no cost on the frame loop. Returns ""
+    until the encoder creates the file.
+
+    With `videoFps`, bitrate is the encoded content's average bitrate
+    (size over `completed / videoFps` seconds of output video). Without
+    it, falls back to write throughput (size over wall elapsed), which
+    says how fast bytes hit the disk, not how heavy the video is.
+    """
+
+    def render(task):
+        try:
+            size = os.path.getsize(outputPath)
+        except OSError:
+            # Encoder hasn't created the file yet — render nothing,
+            # including the separator (it lives here, not in the column
+            # list, so no dangling "│" before the first write).
+            return ""
+        if videoFps and task.completed > 0:
+            duration = task.completed / videoFps
+        else:
+            duration = task.elapsed
+        mbps = (size * 8 / duration / 1e6) if duration > 0 else 0.0
+        if size >= 1024**3:
+            sz = f"{size / 1024**3:.2f} GB"
+        else:
+            sz = f"{size / (1024 * 1024):.1f} MB"
+        return f" │ {sz} ~{mbps:.1f}Mbps"
+
+    return render
+
+
+def _frameColumns(outputPath=None, videoFps=None):
+    cols = [
+        SpinnerColumn(name="dots", style="bold bright_cyan"),
+        TextColumn(" "),
         DescriptionColumn(style="bold bright_cyan"),
         TextColumn(" "),
         BarColumn(width=None, style="bright_cyan", glyphs="smooth"),
@@ -74,11 +113,18 @@ def _frameColumns():
         CallbackColumn(_fpsRender, style="magenta"),
         _SEP,
         CountColumn(style="green"),
-    )
+    ]
+    if outputPath:
+        cols.append(
+            CallbackColumn(_outputInfoRender(outputPath, videoFps), style="cyan")
+        )
+    return tuple(cols)
 
 
 def _byteColumns():
     return (
+        SpinnerColumn(name="dots", style="bold bright_cyan"),
+        TextColumn(" "),
         DescriptionColumn(style="bold bright_cyan"),
         TextColumn(" "),
         BarColumn(width=None, style="bright_cyan", glyphs="smooth"),
@@ -100,6 +146,8 @@ class ProgressBarLogic:
         self,
         totalFrames: int,
         title: str = None,
+        outputPath: str = None,
+        videoFps: float = None,
     ):
         """
         Initializes the progress bar for the given range of frames.
@@ -107,9 +155,16 @@ class ProgressBarLogic:
         Args:
             totalFrames (int): The total number of frames to process
             title (str): Description shown at the head of the bar
+            outputPath (str): When set, the bar appends a live
+                "filesize ~bitrate" column polled from this file
+            videoFps (float): Output video fps; when set, the bitrate is
+                the encoded content's average (size / output seconds)
+                instead of raw write throughput
         """
         self.totalFrames = totalFrames
         self.title = title or choice(TITLES)
+        self.outputPath = outputPath
+        self.videoFps = videoFps
         self.completed = 0
 
     def __enter__(self):
@@ -131,7 +186,7 @@ class ProgressBarLogic:
 
         else:
             self.progress = Progress(
-                *_frameColumns(),
+                *_frameColumns(self.outputPath, self.videoFps),
                 total=self.totalFrames,
                 desc=self.title,
                 min_interval=_minInterval,
