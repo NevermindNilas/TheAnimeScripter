@@ -6,8 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
-- **Progress bar: leading spinner + completion receipt.** Both the frame and download bars open with an animated braille spinner that flips to a `✔` once the task completes (barflow 0.4.1's receipt). The bar body is unchanged — fill moves only with real progress.
-- **Progress bar: live output filesize + bitrate.** The main pipeline bar shows the growing output file and the encoded content's average bitrate (`… │ 512.3 MB ~12.4Mbps`), polled once per bar refresh on the render thread — zero cost on the frame loop. The in-bar number is a live approximation (the encoder still holds queued frames and the container trailer at that point); the authoritative final size is logged once the writer finishes (`Output Size: 29.5 MB`).
+- Progress bar: leading spinner that turns into a `✔` on completion.
+- Progress bar: live output filesize + bitrate column on the main pipeline bar; exact final size logged after encode (`Output Size: 29.5 MB`).
 - **`--moblur_method`** — pick the motion-blur interpolation model + backend: `rife4.6` / `rife4.25` (CUDA) and their `-tensorrt` / `-directml` variants. Default `rife4.25` (rife4.6 is faster). Previously motion blur reused `--interpolate_method`.
 - Added `smosr` 2x upscale model ([umzi2/SMoSR](https://github.com/umzi2/SMoSR), MIT) across CUDA, MPS, TensorRT, DirectML, and OpenVINO backends. Special thanks to UMZI.
 
