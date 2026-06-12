@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 ### Changed
 - Bumped `barflow` `0.4.0` → `0.4.1`.
 - Frame-processing loops (main pipeline, depth, object detection, segment) now terminate on the decoder's end-of-stream sentinel instead of polling queue state every frame; main loop uses a one-frame lookahead instead of queue peeking (#329). Thanks @KRRT7.
-- Bumped `nelux` `0.12.4` → `0.12.6`.
+- Bumped `nelux` `0.12.4` → `0.12.7`.
 
 ### Fixed
 - `--interpolate_method rife4.16-lite` crashed at model download (`ValueError: Model rife4.16-lite not found.`) — the method was wired through the CLI, model init and the arch table but had no `modelsMap` weight mapping. Mapping added (`rife416_lite.pth` / NCNN zips); new registry drift-guard tests (`tests/test_registryDrift.py`) now enforce the choices ↔ registry ↔ `modelsMap` sync so this class of gap fails tests instead of crashing users.
