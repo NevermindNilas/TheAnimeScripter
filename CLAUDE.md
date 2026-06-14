@@ -26,8 +26,8 @@ Standard-loop model/backend selection: `initializeModels(self)` (`src/initialize
 
 | Capability | File | Backends |
 |---|---|---|
-| Upscale | `src/unifiedUpscale.py` | CUDA, TensorRT, DirectML, OpenVINO, NCNN, MPS |
-| Interpolate (RIFE) | `src/unifiedInterpolate.py` | CUDA, TensorRT, DirectML, OpenVINO, NCNN, MPS |
+| Upscale | `src/upscale/` | CUDA, TensorRT, DirectML, OpenVINO, NCNN, MPS |
+| Interpolate (RIFE) | `src/interpolate/` | CUDA, TensorRT, DirectML, OpenVINO, NCNN, MPS |
 | Restore/denoise | `src/unifiedRestore.py` | CUDA, TensorRT, DirectML, OpenVINO, Maxine, MPS |
 | Dedup | `src/dedup/dedup.py` | CUDA, CPU (SSIM/MSE/flownets). Knob `--dedup_sens` raw default **35**, remapped: ssim→`1−s/1000`, flownets→`s/100` |
 | Depth | `src/depth/depth.py` | CUDA, TensorRT, DirectML (incl. VideoDepthAnything temporal family) |

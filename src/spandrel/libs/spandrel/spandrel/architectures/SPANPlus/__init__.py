@@ -37,7 +37,6 @@ class SPANPlusArch(Architecture[SPANPlus]):
             )
         else:
             upsampler = "dys"
-            state_dict["upsampler.end_conv.weight"].shape[0]
             upscale = int((state_dict["upsampler.offset.weight"].shape[0] // 8) ** 0.5)
 
         if num_in_ch == 12:
