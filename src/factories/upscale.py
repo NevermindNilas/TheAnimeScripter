@@ -233,7 +233,7 @@ def buildUpscaleProcess(self):
             | "maxine-highbitrate_high"
             | "maxine-highbitrate_ultra"
         ):
-            from src.upscale.misc import NvidiaVSR
+            from src.upscale.nvidiavsr import NvidiaVSR
 
             return NvidiaVSR(
                 self.upscaleMethod,
