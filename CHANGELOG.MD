@@ -15,7 +15,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Bumped `barflow` `0.4.0` → `0.4.1`.
 - Frame-processing loops (main pipeline, depth, object detection, segment) now terminate on the decoder's end-of-stream sentinel instead of polling queue state every frame; main loop uses a one-frame lookahead instead of queue peeking (#329). Thanks @KRRT7.
 - Bumped `nelux` `0.12.4` → `0.12.7`.
-- AnimeSR (`MSRSWVSR`) CUDA inference path: **~+7% throughput** (RTX 3090, fp16, 360/720/1080p; ~+5–6% fp32) at **bit-identical output**. Removed a model↔input memory-layout mismatch (`channels_last` inputs fed to an NCHW model) that burned ~18% of CUDA time on per-conv layout conversions; dropped the no-op `res_scale == 1` multiply and the 9 `+ 0` multi-scale adds per forward. Peak reserved VRAM unchanged.
 
 ### Fixed
 - `--interpolate_method rife4.16-lite` crashed at model download (`ValueError: Model rife4.16-lite not found.`) — the method was wired through the CLI, model init and the arch table but had no `modelsMap` weight mapping. Mapping added (`rife416_lite.pth` / NCNN zips); new registry drift-guard tests (`tests/test_registryDrift.py`) now enforce the choices ↔ registry ↔ `modelsMap` sync so this class of gap fails tests instead of crashing users.
@@ -25,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - CI test job failed at collection: the registry drift-guard tests import `downloadModels`, which pulled in `barflow` (absent from the minimal CI env) at module level via `progressBarLogic`. The progress-bar import is now lazy inside `downloadAndLog`, so registry-only consumers (`modelsList`/`modelsMap`) import clean.
 
 ### Performance
+- **AnimeSR (`MSRSWVSR`) CUDA inference path ~+7% faster** (RTX 3090, fp16, 360/720/1080p; ~+5–6% fp32) at **bit-identical output**. Removed a model↔input memory-layout mismatch (`channels_last` inputs fed to an NCHW model) that burned ~18% of CUDA time on per-conv layout conversions; dropped the no-op `res_scale == 1` multiply and the 9 `+ 0` multi-scale adds per forward. Peak reserved VRAM unchanged.
 - **Motion blur is faster on CUDA** — only the frames inside the shutter window are interpolated. ~1.5× faster at the default shutter 180, up to ~3× at shutter 90. Output is unchanged; TensorRT/DirectML and shutter 360 are unaffected.
 - **Upscale cold start ~30% faster** (launch → first frame on the CUDA/PyTorch path, e.g. `shufflecugan`; measured ~3.5s → ~2.5s at 720p on an RTX 3090). Output is byte-identical and all backends are unaffected. Five independent startup wins:
   - Made the `torchvision` imports in the vendored spandrel `LaMa`/`RestoreFormer` arches lazy (moved to call-site). The eager architecture registry imported `torchvision` (which drags in `torch._dynamo`, ~1s) at every startup even though the upscale model in use almost never touches those arches (~−740ms).

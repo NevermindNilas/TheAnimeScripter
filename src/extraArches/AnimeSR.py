@@ -162,7 +162,7 @@ class RightAlignMSConvResidualBlocks(nn.Module):
                 inp_s1 = inp_s1 + self.up(x_s4, 4)
             x_s1 = self.body_s1_first[i](inp_s1)
             if i >= self.num_block[0] - self.num_block[1]:
-                inp_s2 = x_s2 + self.up(x_s4, 2) if flag_s4 else x_s2
+                inp_s2 = (x_s2 + self.up(x_s4, 2)) if flag_s4 else x_s2
                 x_s2 = self.body_s2_first[i - self.num_block[0] + self.num_block[1]](
                     inp_s2
                 )
