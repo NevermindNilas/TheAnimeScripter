@@ -59,6 +59,10 @@ class ResidualBlockNoBN(nn.Module):
     def forward(self, x):
         identity = x
         out = self.conv2(self.relu(self.conv1(x)))
+        # res_scale == 1 in this arch -> the multiply is identity; skip the
+        # extra elementwise kernel (bit-identical output).
+        if self.res_scale == 1:
+            return identity + out
         return identity + out * self.res_scale
 
 
@@ -148,14 +152,19 @@ class RightAlignMSConvResidualBlocks(nn.Module):
         flag_s2 = False
         flag_s4 = False
         for i in range(0, self.num_block[0]):
-            x_s1 = self.body_s1_first[i](
-                x_s1
-                + (self.up(x_s2, 2) if flag_s2 else 0)
-                + (self.up(x_s4, 4) if flag_s4 else 0)
-            )
+            # Only add the active multi-scale terms; the original `+ 0` for
+            # inactive scales dispatched a wasted elementwise-add kernel.
+            # Accumulation order is preserved -> bit-identical.
+            inp_s1 = x_s1
+            if flag_s2:
+                inp_s1 = inp_s1 + self.up(x_s2, 2)
+            if flag_s4:
+                inp_s1 = inp_s1 + self.up(x_s4, 4)
+            x_s1 = self.body_s1_first[i](inp_s1)
             if i >= self.num_block[0] - self.num_block[1]:
+                inp_s2 = (x_s2 + self.up(x_s4, 2)) if flag_s4 else x_s2
                 x_s2 = self.body_s2_first[i - self.num_block[0] + self.num_block[1]](
-                    x_s2 + (self.up(x_s4, 2) if flag_s4 else 0)
+                    inp_s2
                 )
                 flag_s2 = True
             if i >= self.num_block[0] - self.num_block[2]:
