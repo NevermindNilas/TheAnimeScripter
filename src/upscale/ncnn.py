@@ -1,15 +1,16 @@
 import os
-import torch
-import logging
 
-from src.utils.modelOptimizer import ModelOptimizer
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
-from src.utils.isCudaInit import CudaChecker
-from src.utils.logAndPrint import logAndPrint
+import torch
+
 from src.constants import ADOBE
+from src.utils.downloadModels import (
+    modelsMap,
+    resolveWeightPath,
+)
+from src.utils.isCudaInit import CudaChecker
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    pass
 
 checker = CudaChecker()
 
@@ -64,9 +65,13 @@ class UniversalNCNN:
     def __call__(self, frame, nextFrame: None) -> torch.tensor:
         iniFrameDtype = frame.dtype
         frame = self.model.process_torch(
-            frame.mul(255).clamp(0, 255).to(torch.uint8).squeeze(0).permute(1, 2, 0).cpu()
+            frame.mul(255)
+            .clamp(0, 255)
+            .to(torch.uint8)
+            .squeeze(0)
+            .permute(1, 2, 0)
+            .cpu()
         )
 
         frame = frame.to(iniFrameDtype).mul(1 / 255).permute(2, 0, 1).unsqueeze(0)
         return frame
-

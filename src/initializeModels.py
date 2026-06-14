@@ -10,17 +10,8 @@ if ADOBE:
     from src.utils.aeComms import progressState
 
 # Re-export standalone drivers so existing call sites (main.py) don't change.
-from src.factories.standalone import (
-    objectDetection,
-    autoClip,
-    segment,
-    depth,
-    motionBlur,
-    stabilize,
-)
 
 # Re-export RestoreChain for any code that references it via this module.
-from src.factories.restore import RestoreChain
 
 
 def initializeModels(self):

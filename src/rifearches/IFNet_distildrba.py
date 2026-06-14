@@ -12,6 +12,7 @@ import torch.nn.functional as F
 
 backwarpTenGrid = {}
 
+
 def warp(tenInput, tenFlow):
     """
     Backward warping using grid_sample.
@@ -56,6 +57,7 @@ def warp(tenInput, tenFlow):
         align_corners=True,
     )
 
+
 def conv(inPlanes, outPlanes, kernelSize=3, stride=1, padding=1, dilation=1):
     """Conv2d + LeakyReLU"""
     return nn.Sequential(
@@ -71,6 +73,7 @@ def conv(inPlanes, outPlanes, kernelSize=3, stride=1, padding=1, dilation=1):
         nn.LeakyReLU(0.2, True),
     )
 
+
 class Head(nn.Module):
     """
     Feature encoder head.
@@ -79,7 +82,7 @@ class Head(nn.Module):
     """
 
     def __init__(self):
-        super(Head, self).__init__()
+        super().__init__()
         self.cnn0 = nn.Conv2d(3, 16, 3, 2, 1)
         self.cnn1 = nn.Conv2d(16, 16, 3, 1, 1)
         self.cnn2 = nn.Conv2d(16, 16, 3, 1, 1)
@@ -98,17 +101,19 @@ class Head(nn.Module):
             return [x0, x1, x2, x3]
         return x3
 
+
 class ResConv(nn.Module):
     """Residual convolution block with learnable scale parameter"""
 
     def __init__(self, c, dilation=1):
-        super(ResConv, self).__init__()
+        super().__init__()
         self.conv = nn.Conv2d(c, c, 3, 1, dilation, dilation=dilation, groups=1)
         self.beta = nn.Parameter(torch.ones((1, c, 1, 1)), requires_grad=True)
         self.relu = nn.LeakyReLU(0.2, True)
 
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
+
 
 class IFBlockV1(nn.Module):
     """
@@ -117,7 +122,7 @@ class IFBlockV1(nn.Module):
     """
 
     def __init__(self, inPlanes, c=64):
-        super(IFBlockV1, self).__init__()
+        super().__init__()
         self.conv0 = nn.Sequential(
             conv(inPlanes, c // 2, 3, 2, 1),
             conv(c // 2, c, 3, 2, 1),
@@ -149,6 +154,7 @@ class IFBlockV1(nn.Module):
         tmap = torch.sigmoid(tmp[:, 13:])  # Must be in 0-1 range
         return flow, mask, feat, tmap
 
+
 class IFBlockV2Lite(nn.Module):
     """
     Flow estimation block for v2_lite model.
@@ -156,7 +162,7 @@ class IFBlockV2Lite(nn.Module):
     """
 
     def __init__(self, inPlanes, c=64):
-        super(IFBlockV2Lite, self).__init__()
+        super().__init__()
         self.conv0 = nn.Sequential(
             conv(inPlanes, c // 2, 3, 2, 1),
             conv(c // 2, c, 3, 2, 1),
@@ -187,6 +193,7 @@ class IFBlockV2Lite(nn.Module):
         feat = tmp[:, 5:]
         return flow, mask, feat
 
+
 class IFNet(nn.Module):
     """
     DistilDRBA IFNet - main interpolation network.
@@ -200,7 +207,7 @@ class IFNet(nn.Module):
     """
 
     def __init__(self, lite=False, scale=1.0):
-        super(IFNet, self).__init__()
+        super().__init__()
         self.lite = lite
         self.scale = scale
 

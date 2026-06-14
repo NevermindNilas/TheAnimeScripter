@@ -27,12 +27,12 @@ EPSILON = 1e-6
 # knobs: fit them once to your pipeline with calibrate.py. They replace the
 # end-user `amount` slider, they do not add a new one.
 # ---------------------------------------------------------------------------
-AMOUNT_MAX = 0.9          # hard ceiling so a mis-estimate can never fully over-sharpen
+AMOUNT_MAX = 0.9  # hard ceiling so a mis-estimate can never fully over-sharpen
 # Blur band calibrated on D:\sisr\v3\sr_out (clean anime 2x SR), 2026-05-29.
-LO, HI = -2.31, -1.19     # log blur-score band, fitted to the p5/p95 of that set
-GAMMA = 1.0               # blur-demand curve shape (raise to be more conservative)
-K = 7                     # local-contrast window (odd)
-C0 = 1e-3                 # contrast-normalization floor
+LO, HI = -2.31, -1.19  # log blur-score band, fitted to the p5/p95 of that set
+GAMMA = 1.0  # blur-demand curve shape (raise to be more conservative)
+K = 7  # local-contrast window (odd)
+C0 = 1e-3  # contrast-normalization floor
 # NOTE: CAS is a sharpener, not a denoiser. The amount is auto-tuned purely from a
 # blur signal; there is deliberately no noise estimate or noise gate. Broadband noise
 # self-limits (it inflates the blur score -> reads as sharp -> demand drops). Structured
@@ -45,11 +45,11 @@ C0 = 1e-3                 # contrast-normalization floor
 # ---------------------------------------------------------------------------
 def _to_4d(x):
     nd = x.dim()
-    if nd == 2:      # [H, W]            -> [1, 1, H, W]
+    if nd == 2:  # [H, W]            -> [1, 1, H, W]
         return x[None, None], nd
-    if nd == 3:      # [C, H, W]         -> [1, C, H, W]
+    if nd == 3:  # [C, H, W]         -> [1, C, H, W]
         return x[None], nd
-    return x, nd     # [B, C, H, W]
+    return x, nd  # [B, C, H, W]
 
 
 def _from_4d(x, nd):
@@ -69,7 +69,7 @@ def _luma(x):
 
 
 def _rep(t, p):
-    return F.pad(t, (p, p, p, p), mode='replicate')
+    return F.pad(t, (p, p, p, p), mode="replicate")
 
 
 def _box(t, k):
@@ -78,11 +78,15 @@ def _box(t, k):
 
 # Fused Laplacian-of-(1-2-1 smooth). The old estimator ran 3 separable convs
 # (1-2-1 h, 1-2-1 v, 3x3 Laplacian); all linear -> one 5x5 = lap (X) smooth2d.
-_LAP5 = th.tensor([[0.,    0.0625,  0.125,  0.0625, 0.],
-                   [0.0625, 0.,    -0.125,  0.,     0.0625],
-                   [0.125, -0.125, -0.5,   -0.125,  0.125],
-                   [0.0625, 0.,    -0.125,  0.,     0.0625],
-                   [0.,     0.0625, 0.125,  0.0625, 0.]]).view(1, 1, 5, 5)
+_LAP5 = th.tensor(
+    [
+        [0.0, 0.0625, 0.125, 0.0625, 0.0],
+        [0.0625, 0.0, -0.125, 0.0, 0.0625],
+        [0.125, -0.125, -0.5, -0.125, 0.125],
+        [0.0625, 0.0, -0.125, 0.0, 0.0625],
+        [0.0, 0.0625, 0.125, 0.0625, 0.0],
+    ]
+).view(1, 1, 5, 5)
 
 
 def _feature_maps(x4):
@@ -120,7 +124,7 @@ def _to_amount(score):
     the blur score, so demand drops); structured/chroma noise belongs to an upstream stage.
     """
     t = th.clamp((th.log(score + 1e-4) - LO) / (HI - LO), 0.0, 1.0)
-    demand = th.clamp(1.0 - t, 0.0, 1.0) ** GAMMA           # blurrier -> more demand
+    demand = th.clamp(1.0 - t, 0.0, 1.0) ** GAMMA  # blurrier -> more demand
     return th.clamp(demand, 0.0, AMOUNT_MAX)
 
 
@@ -137,18 +141,22 @@ def estimate_amount(x4, tiles=0):
         # too small to measure; fall back to a conservative constant.
         return x4.new_full((x4.shape[0], 1, 1, 1), min(0.5, AMOUNT_MAX))
 
-    hf, contrast = _feature_maps(x4)                        # computed in fp32
+    hf, contrast = _feature_maps(x4)  # computed in fp32
 
     if tiles > 0:
         num = F.adaptive_avg_pool2d(hf * contrast, tiles)
         den = F.adaptive_avg_pool2d(contrast, tiles) + EPSILON
-        amt = _to_amount(num / den)                         # per-tile blur demand
-        amt = F.interpolate(amt, size=x4.shape[-2:], mode='bilinear', align_corners=False)
+        amt = _to_amount(num / den)  # per-tile blur demand
+        amt = F.interpolate(
+            amt, size=x4.shape[-2:], mode="bilinear", align_corners=False
+        )
         return amt.to(dt)
 
     # contrast-weighted pooling so flat regions don't dominate the score.
-    score = (hf * contrast).sum((1, 2, 3), keepdim=True) / (contrast.sum((1, 2, 3), keepdim=True) + EPSILON)
-    return _to_amount(score).to(dt)                         # [B,1,1,1]
+    score = (hf * contrast).sum((1, 2, 3), keepdim=True) / (
+        contrast.sum((1, 2, 3), keepdim=True) + EPSILON
+    )
+    return _to_amount(score).to(dt)  # [B,1,1,1]
 
 
 def contrast_adaptive_sharpening(x, amount=0.8, better_diagonals=True, auto_tiles=0):
@@ -186,7 +194,7 @@ def contrast_adaptive_sharpening(x, amount=0.8, better_diagonals=True, auto_tile
     # Reference samples the 3x3 neighborhood with CLAMP-TO-EDGE addressing.
     # torch's default pad mode is constant-zero, which injects a fake black
     # border; 'replicate' matches the GPU behaviour.
-    x_padded = F.pad(x4, pad=(1, 1, 1, 1), mode='replicate')
+    x_padded = F.pad(x4, pad=(1, 1, 1, 1), mode="replicate")
 
     # Extracting the 3x3 neighborhood around each pixel
     # a b c
@@ -194,7 +202,7 @@ def contrast_adaptive_sharpening(x, amount=0.8, better_diagonals=True, auto_tile
     # g h i
     b = x_padded[..., :-2, 1:-1]
     d = x_padded[..., 1:-1, :-2]
-    e = x4                          # center == input interior (replicate pad leaves it unchanged)
+    e = x4  # center == input interior (replicate pad leaves it unchanged)
     f = x_padded[..., 1:-1, 2:]
     h = x_padded[..., 2:, 1:-1]
 
@@ -215,8 +223,8 @@ def contrast_adaptive_sharpening(x, amount=0.8, better_diagonals=True, auto_tile
     if better_diagonals:
         mn_d = th.minimum(th.minimum(th.minimum(a, c), g), i)
         mx_d = th.maximum(th.maximum(th.maximum(a, c), g), i)
-        mn = mn + th.minimum(mn, mn_d)     # == cross5 + min(all9), matching ffx_cas.h
-        mx = mx + th.maximum(mx, mx_d)     # == cross5 + max(all9)
+        mn = mn + th.minimum(mn, mn_d)  # == cross5 + min(all9), matching ffx_cas.h
+        mx = mx + th.maximum(mx, mx_d)  # == cross5 + max(all9)
         lim = 2 - mx
     else:
         lim = 1 - mx
@@ -252,8 +260,8 @@ def contrast_adaptive_sharpening(x, amount=0.8, better_diagonals=True, auto_tile
     # w = -amp/(8-3a) in [-0.2, 0] (amp<=1, 8-3a in [5,8]) -> 1+4w in [0.2, 1] > 0, so
     # the divide is always safe with no EPSILON, matching ffx_cas.h.
     sum4 = b + d + f + h
-    den = w.mul(4.0).add_(1.0)                     # 1 + 4w
-    output = th.addcmul(e, sum4, w).div_(den)      # in-place div: no extra peak buffer
+    den = w.mul(4.0).add_(1.0)  # 1 + 4w
+    output = th.addcmul(e, sum4, w).div_(den)  # in-place div: no extra peak buffer
 
     # Clipping between 0 and 1. It fixes previous divisions by 0 too. In-place: output
     # is the private div_ result, so the final saturate needs no new full-tensor buffer.

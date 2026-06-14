@@ -1,9 +1,9 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.functional import interpolate
-
-import math
 
 from .rife_fast import _repackDeconv
 
@@ -25,7 +25,7 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
 
 class Head(nn.Module):
     def __init__(self):
-        super(Head, self).__init__()
+        super().__init__()
         self.cnn0 = nn.Conv2d(3, 16, 3, 2, 1)
         self.cnn1 = nn.Conv2d(16, 16, 3, 1, 1)
         self.cnn2 = nn.Conv2d(16, 16, 3, 1, 1)
@@ -49,7 +49,7 @@ class Head(nn.Module):
 
 class ResConv(nn.Module):
     def __init__(self, c):
-        super(ResConv, self).__init__()
+        super().__init__()
         self.conv = nn.Conv2d(c, c, 3, 1, padding=1)
         self.beta = nn.Parameter(torch.ones((1, c, 1, 1)), requires_grad=True)
         self.relu = nn.LeakyReLU(0.2, True)
@@ -60,7 +60,7 @@ class ResConv(nn.Module):
 
 class IFBlock(nn.Module):
     def __init__(self, in_planes, c=64):
-        super(IFBlock, self).__init__()
+        super().__init__()
         self.conv0 = nn.Sequential(
             conv(in_planes, out_planes=c // 2, kernel_size=3, stride=2, padding=1),
             conv(c // 2, out_planes=c, kernel_size=3, stride=2, padding=1),
@@ -115,7 +115,7 @@ class IFNet(nn.Module):
         width=1920,
         height=1080,
     ):
-        super(IFNet, self).__init__()
+        super().__init__()
         self.block0 = IFBlock(7 + 8, c=192 * 2)
         self.block1 = IFBlock(8 + 4 + 8 + 8, c=128 * 2)
         self.block2 = IFBlock(8 + 4 + 8 + 8, c=96 * 2)
@@ -185,7 +185,7 @@ class IFNet(nn.Module):
             imgs_rev = torch.cat([img1, img0], dim=1)
 
         flows = None
-        for block, scale in zip(self.blocks, self.scaleList):
+        for block, scale in zip(self.blocks, self.scaleList, strict=False):
             if flows is None:
                 if self.ensemble:
                     temp = torch.cat((imgs, fs, timeStep), 1)
@@ -232,9 +232,7 @@ class IFNet(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)

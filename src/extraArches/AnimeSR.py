@@ -47,7 +47,7 @@ class ResidualBlockNoBN(nn.Module):
     """
 
     def __init__(self, num_feat=64, res_scale=1, pytorch_init=False):
-        super(ResidualBlockNoBN, self).__init__()
+        super().__init__()
         self.res_scale = res_scale
         self.conv1 = nn.Conv2d(num_feat, num_feat, 3, 1, 1, bias=True)
         self.conv2 = nn.Conv2d(num_feat, num_feat, 3, 1, 1, bias=True)
@@ -187,7 +187,7 @@ class MSRSWVSR(nn.Module):
     """
 
     def __init__(self, num_feat=64, num_block=(5, 3, 2), netscale=4):
-        super(MSRSWVSR, self).__init__()
+        super().__init__()
         self.num_feat = num_feat
 
         # 3(img channel) * 3(prev cur nxt 3 imgs) + 3(hr img channel) * netscale * netscale + num_feat

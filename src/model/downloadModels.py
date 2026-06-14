@@ -1,9 +1,9 @@
-import os
 import logging
-from src.utils.logAndPrint import logAndPrint
-import src.constants as cs
+import os
 
+import src.constants as cs
 from src.constants import ADOBE
+from src.utils.logAndPrint import logAndPrint
 
 if ADOBE:
     from src.utils.aeComms import progressState
@@ -352,9 +352,7 @@ def modelsMap(
         # ArtCNN luma-only 2x SR. Single-channel (1,1,H,W) -> (1,1,2H,2W).
         # OpenVINO reuses the -directml filename (mapped upstream in the loader).
         case (
-            "artcnn_c4f16-tensorrt"
-            | "artcnn_c4f16-directml"
-            | "artcnn_c4f16-openvino"
+            "artcnn_c4f16-tensorrt" | "artcnn_c4f16-directml" | "artcnn_c4f16-openvino"
         ):
             return "ArtCNN_C4F16_fp16.onnx" if half else "ArtCNN_C4F16_fp32.onnx"
 
@@ -373,9 +371,7 @@ def modelsMap(
             return "ArtCNN_C4F16_DS_fp16.onnx" if half else "ArtCNN_C4F16_DS_fp32.onnx"
 
         case (
-            "artcnn_c4f32-tensorrt"
-            | "artcnn_c4f32-directml"
-            | "artcnn_c4f32-openvino"
+            "artcnn_c4f32-tensorrt" | "artcnn_c4f32-directml" | "artcnn_c4f32-openvino"
         ):
             return "ArtCNN_C4F32_fp16.onnx" if half else "ArtCNN_C4F32_fp32.onnx"
 
@@ -394,9 +390,7 @@ def modelsMap(
             return "ArtCNN_C4F32_DS_fp16.onnx" if half else "ArtCNN_C4F32_DS_fp32.onnx"
 
         case (
-            "artcnn_r8f64-tensorrt"
-            | "artcnn_r8f64-directml"
-            | "artcnn_r8f64-openvino"
+            "artcnn_r8f64-tensorrt" | "artcnn_r8f64-directml" | "artcnn_r8f64-openvino"
         ):
             return "ArtCNN_R8F64_fp16.onnx" if half else "ArtCNN_R8F64_fp32.onnx"
 
@@ -1026,7 +1020,11 @@ def modelsMap(
             | "yolov9_large-tensorrt"
         ):
             if modelType == "onnx":
-                modelName = model.replace("-directml", "").replace("-openvino", "").replace("-tensorrt", "")
+                modelName = (
+                    model.replace("-directml", "")
+                    .replace("-openvino", "")
+                    .replace("-tensorrt", "")
+                )
                 return f"{modelName}_mit.onnx"
             else:
                 raise ValueError(
@@ -1103,10 +1101,10 @@ def modelsMap(
 def downloadAndLog(
     model: str, filename: str, download_url: str, folderPath: str, retries: int = 3
 ):
-    from urllib.request import urlopen
-    from urllib.error import URLError, HTTPError
-    from http.client import IncompleteRead
     import zipfile
+    from http.client import IncompleteRead
+    from urllib.error import HTTPError, URLError
+    from urllib.request import urlopen
 
     # Imported lazily so registry-only consumers (modelsList/modelsMap, the
     # drift-guard tests) don't drag in barflow at module import.
@@ -1154,7 +1152,9 @@ def downloadAndLog(
                 logging.error(e)
 
             loggedPercentages = set()
-            downloadedBytes = 0  # reset per attempt so the size check below is correct on retries
+            downloadedBytes = (
+                0  # reset per attempt so the size check below is correct on retries
+            )
 
             try:
                 with ProgressBarDownloadLogic(

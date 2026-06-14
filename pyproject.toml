@@ -1,0 +1,28 @@
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+# Vendored / generated trees are third-party — not ours to reformat or lint.
+extend-exclude = [
+    "src/spandrel",                    # vendored fork of TNTwise/spandrel @ e747f27 — keep diff-clean vs upstream
+    "src/gmfss",                       # vendored GMFSS interpolation arch
+    "src/depth/distillanydepth",       # vendored DistillAnyDepth arch
+    "src/depth/depth_anything_3",      # vendored Depth-Anything-3 arch
+    "src/depth/video_depth_anything",  # vendored Video-Depth-Anything arch
+    "src/depth/dinov2_layers",         # vendored DINOv2 layers
+    "dist-portable",                   # portable-Python build output (also gitignored)
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    "E501", # line length is enforced by the formatter, not the linter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]                 # tests import modules after pytest.importorskip() guards
+"src/depth/dpt_v2.py" = ["B006"]     # vendored DPT arch — keep upstream signatures intact
+"src/depth/og_dpt_v2.py" = ["B006"]  # vendored DPT arch — keep upstream signatures intact
+"src/segment/train.py" = ["F821"]    # training-only path; InSPyReNet arch not vendored for inference
+
+[tool.ruff.format]
+# Defaults: double quotes, 4-space indent, magic trailing comma.

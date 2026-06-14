@@ -6,8 +6,8 @@ Ensures consistent message formatting and logging throughout the application.
 """
 
 import logging
-import sys
 import os
+import sys
 
 # ANSI escape codes - works on modern terminals (Windows 10+, Linux, macOS)
 _RESET = "\033[0m"
@@ -21,6 +21,7 @@ _COLORS = {
     "cyan": "\033[96m",
     "light_blue": "\033[94m",
 }
+
 
 # Detect whether the output supports ANSI colors
 def _supportsColor():

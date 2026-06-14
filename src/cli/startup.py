@@ -5,9 +5,11 @@ import src.constants as cs
 
 
 def _promptDownloadRequirementsSelection() -> str:
-    from inquirer import List, prompt
-    from src.utils.logAndPrint import logAndPrint
     import sys
+
+    from inquirer import List, prompt
+
+    from src.utils.logAndPrint import logAndPrint
 
     if cs.SYSTEM == "Darwin":
         return "macos-mps"
@@ -44,6 +46,7 @@ def _promptDownloadRequirementsSelection() -> str:
 
 def _handleDependencies(args):
     import shutil
+
     from src.utils.getFFMPEG import remove_readonly
 
     legacyFFMPEG = os.path.join(cs.WHEREAMIRUNFROM, "ffmpeg")
@@ -89,7 +92,7 @@ def _handleDependencies(args):
                 logging.warning(f"Failed to add FFmpeg to DLL search path: {e}")
 
     try:
-        from src.utils.isCudaInit import detectNVidiaGPU, detectGPUArchitecture
+        from src.utils.isCudaInit import detectGPUArchitecture, detectNVidiaGPU
 
         isNvidia = detectNVidiaGPU()
         supportsCuda = False

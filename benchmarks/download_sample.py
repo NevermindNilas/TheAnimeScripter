@@ -31,7 +31,9 @@ def main() -> int:
     print(f"Downloading {VIDEO_URL}\n            -> {DEST}")
     tmp = DEST.with_suffix(DEST.suffix + ".part")
     # Custom UA: some mirrors 403 the default urllib agent.
-    req = urllib.request.Request(VIDEO_URL, headers={"User-Agent": "Mozilla/5.0 (TAS-benchmark)"})
+    req = urllib.request.Request(
+        VIDEO_URL, headers={"User-Agent": "Mozilla/5.0 (TAS-benchmark)"}
+    )
     try:
         with urllib.request.urlopen(req) as resp:
             total = int(resp.headers.get("Content-Length", 0))

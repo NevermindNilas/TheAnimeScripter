@@ -3,9 +3,8 @@ import os
 import sys
 
 import src.constants as cs
-
-from src.utils.logAndPrint import logAndPrint
 from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSelection
+from src.utils.logAndPrint import logAndPrint
 
 
 def isAnyOtherProcessingMethodEnabled(args):
@@ -287,7 +286,13 @@ def _adjustMethodsBasedOnCuda(args):
                 for method in currentMethod:
                     if any(
                         backend in method.lower()
-                        for backend in ["-directml", "-ncnn", "-tensorrt", "-mps", "-openvino"]
+                        for backend in [
+                            "-directml",
+                            "-ncnn",
+                            "-tensorrt",
+                            "-mps",
+                            "-openvino",
+                        ]
                     ):
                         logging.info(
                             f"{attr} method {method} already using non-default backend"
@@ -305,7 +310,13 @@ def _adjustMethodsBasedOnCuda(args):
             else:
                 if any(
                     backend in currentMethod.lower()
-                    for backend in ["-directml", "-ncnn", "-tensorrt", "-mps", "-openvino"]
+                    for backend in [
+                        "-directml",
+                        "-ncnn",
+                        "-tensorrt",
+                        "-mps",
+                        "-openvino",
+                    ]
                 ):
                     logging.info(
                         f"{attr} already using non-default backend: {currentMethod}"
@@ -355,8 +366,9 @@ def _downloadOfflineModels(args):
 
 def processURL(args, outputPath):
     from urllib.parse import urlparse
-    from src.ytdlp import VideoDownloader
+
     from src.utils.inputOutputHandler import generateOutputName
+    from src.ytdlp import VideoDownloader
 
     result = urlparse(args.input)
 
@@ -448,9 +460,9 @@ def argumentsChecker(args, outputPath, parser):
     if args.cleanup:
         from src.utils.dependencyHandler import (
             DependencyChecker,
-            uninstallDependencies,
-            getRequirementsFileForProfile,
             getDependencyProfile,
+            getRequirementsFileForProfile,
+            uninstallDependencies,
         )
 
         checker = DependencyChecker()
@@ -463,7 +475,7 @@ def argumentsChecker(args, outputPath, parser):
                 storedProfile = None
 
         if not storedProfile:
-            from src.utils.isCudaInit import detectNVidiaGPU, detectGPUArchitecture
+            from src.utils.isCudaInit import detectGPUArchitecture, detectNVidiaGPU
 
             isNvidia = detectNVidiaGPU()
             supportsCuda = False
@@ -497,7 +509,7 @@ def argumentsChecker(args, outputPath, parser):
 
     cliArgs = sys.argv[1:]
     providedArgs = set()
-    for i, arg in enumerate(cliArgs):
+    for _i, arg in enumerate(cliArgs):
         if arg.startswith("--"):
             argName = arg[2:]
             providedArgs.add(argName)
@@ -601,7 +613,7 @@ def argumentsChecker(args, outputPath, parser):
             raise Exception(
                 "Single image input is not supported for this format. For image sequences, use a pattern like 'frames_%05d.png' or provide a folder containing PNG files."
             )
-    elif args.input.lower().endswith((".gif")):
+    elif args.input.lower().endswith(".gif"):
         if args.encode_method != "gif":
             logging.error(
                 "GIF input detected but encoding method is not set to GIF, defaulting to GIF encoding"
@@ -624,7 +636,7 @@ def argumentsChecker(args, outputPath, parser):
             logging.info(
                 f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
             )
-        except (ValueError, AttributeError):
+        except ValueError, AttributeError:
             logAndPrint(
                 f"Invalid output_scale format: {args.output_scale}. Expected format: WIDTHxHEIGHT (e.g., 2560x1440)"
             )
@@ -689,7 +701,7 @@ def _loadJsonConfig(args, parser):
         sys.exit()
 
     try:
-        with open(jsonPath, "r", encoding="utf-8") as f:
+        with open(jsonPath, encoding="utf-8") as f:
             jsonConfig = json.load(f)
     except json.JSONDecodeError as e:
         logAndPrint(f"Invalid JSON format in config file: {e}", "red")

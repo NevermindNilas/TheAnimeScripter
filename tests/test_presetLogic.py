@@ -40,7 +40,7 @@ def makeArgs(**overrides):
 
 
 def _stored(presetDir):
-    with open(os.path.join(presetDir, "presets.json"), "r") as f:
+    with open(os.path.join(presetDir, "presets.json")) as f:
         return json.load(f)["Presets"]
 
 

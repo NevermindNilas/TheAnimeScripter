@@ -1,10 +1,9 @@
 import logging
-from threading import Lock
 from multiprocessing import get_context
 from queue import Empty
-from urllib.parse import urlparse
+from threading import Lock
 from time import time
-
+from urllib.parse import urlparse
 
 socketio = None
 app = None
@@ -222,7 +221,7 @@ def runServer(host, queue=None):
     # threading-mode async) requires to upgrade HTTP -> WebSocket. wsgiref
     # provides no such hook, so the upgrade dies with
     # "Cannot obtain socket from WSGI environment.".
-    from werkzeug.serving import make_server, WSGIRequestHandler
+    from werkzeug.serving import WSGIRequestHandler, make_server
 
     class QuietHandler(WSGIRequestHandler):
         def log_request(self, *args, **kwargs):

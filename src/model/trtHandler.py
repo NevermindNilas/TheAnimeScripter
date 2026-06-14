@@ -1,12 +1,12 @@
-import tensorrt as trt
-import os
 import logging
+import os
 import sys
 from pathlib import Path
-from typing import List, Tuple, Optional, Union
 
-from src.utils.logAndPrint import logAndPrint, coloredPrint
+import tensorrt as trt
+
 from src.constants import ADOBE
+from src.utils.logAndPrint import coloredPrint, logAndPrint
 
 if ADOBE:
     from src.utils.aeComms import progressState
@@ -60,13 +60,13 @@ if hasattr(trt, "IProgressMonitor"):
 
         def _redraw(self, *, blank_lines=0):
             def clear_line():
-                print("\x1B[2K", end="")
+                print("\x1b[2K", end="")
 
             def move_to_start_of_line():
-                print("\x1B[0G", end="")
+                print("\x1b[0G", end="")
 
             def move_cursor_up(lines):
-                print("\x1B[{}A".format(lines), end="")
+                print(f"\x1b[{lines}A", end="")
 
             def progress_bar(steps, num_steps):
                 INNER_WIDTH = 10
@@ -76,9 +76,7 @@ if hasattr(trt, "IProgressMonitor"):
                     "-" * (INNER_WIDTH - completed_bar_chars),
                 )
 
-            max_cols = (
-                os.get_terminal_size().columns if sys.stdout.isatty() else 200
-            )
+            max_cols = os.get_terminal_size().columns if sys.stdout.isatty() else 200
 
             move_to_start_of_line()
             for phase in self._active_phases.values():
@@ -90,9 +88,7 @@ if hasattr(trt, "IProgressMonitor"):
                 phase_suffix = "{steps}/{num_steps}".format(**phase)
                 allowable_prefix_chars = max_cols - len(phase_suffix) - 2
                 if allowable_prefix_chars < len(phase_prefix):
-                    phase_prefix = (
-                        phase_prefix[0 : allowable_prefix_chars - 3] + "..."
-                    )
+                    phase_prefix = phase_prefix[0 : allowable_prefix_chars - 3] + "..."
                 clear_line()
                 print(phase_prefix, phase_suffix)
             for _ in range(blank_lines):
@@ -126,7 +122,7 @@ def _attachProgressMonitor(config: trt.IBuilderConfig) -> None:
 def createNetworkAndConfig(
     builder: trt.Builder,
     maxWorkspaceSize: int,
-) -> Tuple[trt.INetworkDefinition, trt.IBuilderConfig]:
+) -> tuple[trt.INetworkDefinition, trt.IBuilderConfig]:
     """Create TensorRT network and builder configuration."""
     networkFlags = 0
     networkFlags |= 1 << int(trt.NetworkDefinitionCreationFlag.STRONGLY_TYPED)
@@ -164,10 +160,10 @@ def parseModel(parser: trt.OnnxParser, modelPath: str) -> bool:
 def setOptimizationProfile(
     builder: trt.Builder,
     config: trt.IBuilderConfig,
-    inputName: List[str],
-    inputsMin: Union[List[Tuple[int, ...]], Tuple[int, ...]],
-    inputsOpt: Union[List[Tuple[int, ...]], Tuple[int, ...]],
-    inputsMax: Union[List[Tuple[int, ...]], Tuple[int, ...]],
+    inputName: list[str],
+    inputsMin: list[tuple[int, ...]] | tuple[int, ...],
+    inputsOpt: list[tuple[int, ...]] | tuple[int, ...],
+    inputsMax: list[tuple[int, ...]] | tuple[int, ...],
     isMultiInput: bool,
     fp16: bool = False,
 ) -> bool:
@@ -187,7 +183,7 @@ def setOptimizationProfile(
                 return False
 
             for name, minShape, optShape, maxShape in zip(
-                inputName, inputsMin, inputsOpt, inputsMax
+                inputName, inputsMin, inputsOpt, inputsMax, strict=False
             ):
                 profile.set_shape(
                     name, tuple(minShape), tuple(optShape), tuple(maxShape)
@@ -230,15 +226,15 @@ def tensorRTEngineCreator(
     modelPath: str = "",
     enginePath: str = "model.engine",
     fp16: bool = False,
-    inputsMin: Union[List[Tuple[int, ...]], Tuple[int, ...]] = [],
-    inputsOpt: Union[List[Tuple[int, ...]], Tuple[int, ...]] = [],
-    inputsMax: Union[List[Tuple[int, ...]], Tuple[int, ...]] = [],
-    inputName: Optional[List[str]] = None,
+    inputsMin: list[tuple[int, ...]] | tuple[int, ...] | None = None,
+    inputsOpt: list[tuple[int, ...]] | tuple[int, ...] | None = None,
+    inputsMax: list[tuple[int, ...]] | tuple[int, ...] | None = None,
+    inputName: list[str] | None = None,
     maxWorkspaceSize: int = (1 << 30),
     forceStatic: bool = False,
     isMultiInput: bool = False,
     isRife: bool = False,
-) -> Tuple[Optional[trt.ICudaEngine], Optional[trt.IExecutionContext]]:
+) -> tuple[trt.ICudaEngine | None, trt.IExecutionContext | None]:
     """
     Create a TensorRT engine from an ONNX model with enhanced validation and error handling.
 
@@ -262,6 +258,13 @@ def tensorRTEngineCreator(
     if not modelPath or not os.path.exists(modelPath):
         logAndPrint(f"Invalid model path: {modelPath}", "red")
         return None, None
+
+    if inputsMin is None:
+        inputsMin = []
+    if inputsOpt is None:
+        inputsOpt = []
+    if inputsMax is None:
+        inputsMax = []
 
     if inputName is None:
         inputName = ["input"]
@@ -346,7 +349,7 @@ def tensorRTEngineCreator(
 
 def tensorRTEngineLoader(
     enginePath: str,
-) -> Tuple[Optional[trt.ICudaEngine], Optional[trt.IExecutionContext]]:
+) -> tuple[trt.ICudaEngine | None, trt.IExecutionContext | None]:
     """
     Load a TensorRT engine from a file with enhanced error handling.
 
@@ -395,7 +398,7 @@ def tensorRTEngineLoader(
 def tensorRTEngineNameHandler(
     modelPath: str = "",
     fp16: bool = False,
-    optInputShape: List[int] = None,
+    optInputShape: list[int] = None,
     ensemble: bool = False,
     isRife: bool = False,
 ) -> str:

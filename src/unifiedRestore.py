@@ -1,11 +1,16 @@
-import os
-import torch
 import logging
+import os
 
-from .utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
+import torch
+
+from src.constants import ADOBE
+
+from .utils.downloadModels import (
+    modelsMap,
+    resolveWeightPath,
+)
 from .utils.isCudaInit import CudaChecker
 from .utils.logAndPrint import logAndPrint
-from src.constants import ADOBE
 
 if ADOBE:
     from src.utils.aeComms import progressState
@@ -46,7 +51,9 @@ class UnifiedRestoreCuda:
 
         if self.model in ["deepdeband-f"]:
             self.half = False
-            print(f"{self.model} does not support half precision, using float32 instead")
+            print(
+                f"{self.model} does not support half precision, using float32 instead"
+            )
 
         self.filename = modelsMap(self.model)
         modelPath = resolveWeightPath(self.model, self.filename)
@@ -62,6 +69,7 @@ class UnifiedRestoreCuda:
         else:
             if self.model == "gater3":
                 from safetensors.torch import load_file
+
                 from src.extraArches.gaterv3 import GateRV3
 
                 self.CHANNELSLAST = False
@@ -182,8 +190,14 @@ class MaxineRestore:
     """
 
     _VALID_QUALITIES = {
-        "DENOISE_LOW", "DENOISE_MEDIUM", "DENOISE_HIGH", "DENOISE_ULTRA",
-        "DEBLUR_LOW", "DEBLUR_MEDIUM", "DEBLUR_HIGH", "DEBLUR_ULTRA",
+        "DENOISE_LOW",
+        "DENOISE_MEDIUM",
+        "DENOISE_HIGH",
+        "DENOISE_ULTRA",
+        "DEBLUR_LOW",
+        "DEBLUR_MEDIUM",
+        "DEBLUR_HIGH",
+        "DEBLUR_ULTRA",
     }
 
     def __init__(
@@ -235,11 +249,7 @@ class MaxineRestore:
         self.nvvfx = nvvfx
 
         quality = VideoSuperRes.QualityLevel[self.qualityName]
-        deviceIdx = (
-            checker.device.index
-            if checker.device.index is not None
-            else 0
-        )
+        deviceIdx = checker.device.index if checker.device.index is not None else 0
 
         self.sdkModel = VideoSuperRes(quality=quality, device=deviceIdx)
         self.sdkModel.output_width = self.width
@@ -279,7 +289,9 @@ class MaxineRestore:
 
     @torch.inference_mode()
     def __call__(self, frame: torch.Tensor) -> torch.Tensor:
-        src = frame.squeeze(0) # We are always using 4 dim throughout the process, but Maxine API expects 3 dim (C,H,W), so remove batch dim here.
+        src = frame.squeeze(
+            0
+        )  # We are always using 4 dim throughout the process, but Maxine API expects 3 dim (C,H,W), so remove batch dim here.
         self.dummyInput.copy_(src.contiguous(), non_blocking=False)
         outCapsule = self.sdkModel.run(self.dummyInput, stream_ptr=0)
         restored = torch.from_dlpack(outCapsule.image)  # (3, H, W)
@@ -393,6 +405,7 @@ class UnifiedRestoreTensorRT:
         # Attempt to lazy load for faster startup
 
         import tensorrt as trt
+
         from .utils.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
@@ -577,8 +590,8 @@ class UnifiedRestoreDirectML:
             )
             import openvino  # noqa: F401
 
-        import onnxruntime as ort
         import numpy as np
+        import onnxruntime as ort
 
         self.ort = ort
         self.np = np
@@ -621,7 +634,10 @@ class UnifiedRestoreDirectML:
         providers = self.ort.get_available_providers()
         logging.info(f"Available ONNX Runtime providers: {providers}")
 
-        if "DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in providers:
+        if (
+            "DmlExecutionProvider" in providers
+            or "OpenVINOExecutionProvider" in providers
+        ):
             if "directml" in self.restoreMethod:
                 logging.info("Using DirectML model")
                 self.model = self.ort.InferenceSession(
@@ -690,7 +706,6 @@ class UnifiedRestoreDirectML:
 
         self.IoBinding = self.model.io_binding()
 
-
         self.usingCpuFallback = True
 
     @torch.inference_mode()
@@ -731,7 +746,9 @@ class UnifiedRestoreDirectML:
 
         except Exception as e:
             if not self.usingCpuFallback:
-                logging.warning(f"DirectML/OpenVINO inference failed, falling back to CPU: {e}")
+                logging.warning(
+                    f"DirectML/OpenVINO inference failed, falling back to CPU: {e}"
+                )
                 self._fallbackToCpu()
                 return self.__call__(frame)
             else:
