@@ -1,16 +1,13 @@
 import torch
 import logging
 
-from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.constants import ADOBE
 
+from ._shared import checker
+
 if ADOBE:
     from src.server.aeComms import progressState
-
-checker = CudaChecker()
-
-torch.set_float32_matmul_precision("medium")
 
 
 class NvidiaVSR:

@@ -1,7 +1,6 @@
 import torch
 
 from src.infra.isCudaInit import CudaChecker
-from src.constants import ADOBE
 
 checker = CudaChecker()
 

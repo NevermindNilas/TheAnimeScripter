@@ -3,12 +3,9 @@ import logging
 
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
-from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 
-checker = CudaChecker()
-
-torch.set_float32_matmul_precision("medium")
+from ._shared import checker
 
 
 class AnimeSR:
