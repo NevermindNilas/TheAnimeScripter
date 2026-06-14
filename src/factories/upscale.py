@@ -151,7 +151,7 @@ def buildUpscaleProcess(self):
             )
 
         case "animesr":
-            from src.upscale.misc import AnimeSR
+            from src.upscale.animesr import AnimeSR
 
             return AnimeSR(
                 2,

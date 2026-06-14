@@ -4,7 +4,7 @@ from .directml import UniversalDirectML, AnimeSRDirectML
 from .artcnn import _ArtCNNLumaMixin, ArtCNNTensorRT, ArtCNNDirectML
 from .ncnn import UniversalNCNN
 from .nvidiavsr import NvidiaVSR
-from .misc import AnimeSR
+from .animesr import AnimeSR
 
 __all__ = [
     "UniversalPytorch",
