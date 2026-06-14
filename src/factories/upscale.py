@@ -107,7 +107,7 @@ def buildUpscaleProcess(self):
             )
 
         case "animesr-openvino" | "animesr-directml":
-            from src.upscale.directml import AnimeSRDirectML
+            from src.upscale.animesr import AnimeSRDirectML
 
             return AnimeSRDirectML(
                 self.upscaleMethod,
@@ -162,7 +162,7 @@ def buildUpscaleProcess(self):
             )
 
         case "animesr-tensorrt":
-            from src.upscale.tensorrt import AnimeSRTensorRT
+            from src.upscale.animesr import AnimeSRTensorRT
 
             return AnimeSRTensorRT(
                 2,

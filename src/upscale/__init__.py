@@ -1,10 +1,10 @@
 from .pytorch import UniversalPytorch, UniversalPytorchMPS
-from .tensorrt import UniversalTensorRT, AnimeSRTensorRT
-from .directml import UniversalDirectML, AnimeSRDirectML
+from .tensorrt import UniversalTensorRT
+from .directml import UniversalDirectML
 from .artcnn import _ArtCNNLumaMixin, ArtCNNTensorRT, ArtCNNDirectML
 from .ncnn import UniversalNCNN
 from .nvidiavsr import NvidiaVSR
-from .animesr import AnimeSR
+from .animesr import AnimeSR, AnimeSRTensorRT, AnimeSRDirectML
 
 __all__ = [
     "UniversalPytorch",
