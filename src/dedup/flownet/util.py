@@ -1,7 +1,14 @@
 import torch.nn as nn
 from torch import Tensor
 
-def conv(batchNorm: bool, in_planes: int, out_planes: int, kernel_size: int = 3, stride: int = 1) -> nn.Sequential:
+
+def conv(
+    batchNorm: bool,
+    in_planes: int,
+    out_planes: int,
+    kernel_size: int = 3,
+    stride: int = 1,
+) -> nn.Sequential:
     if batchNorm:
         return nn.Sequential(
             nn.Conv2d(

@@ -19,7 +19,7 @@ pytest.importorskip("nelux", exc_type=ImportError)
 pytest.importorskip("cv2")
 
 import src.constants as cs
-from src.utils.ffmpegSettings import WriteBuffer
+from src.io.ffmpegSettings import WriteBuffer
 
 
 def _colorFilter(filterList) -> str:
@@ -53,13 +53,20 @@ def testBt709FullyTagged(monkeypatch):
     f = _colorFilter(wb._buildFilterList())
     assert f is not None
     assert "setparams=" in f
-    for tag in ("colorspace=bt709", "color_primaries=bt709", "color_trc=bt709", "range=tv"):
+    for tag in (
+        "colorspace=bt709",
+        "color_primaries=bt709",
+        "color_trc=bt709",
+        "range=tv",
+    ):
         assert tag in f
 
 
 def testBt2020KeepsZscale(tmp_path, monkeypatch):
     meta = tmp_path / "meta.json"
-    meta.write_text(json.dumps({"metadata": {"ColorSpace": "bt2020"}}), encoding="utf-8")
+    meta.write_text(
+        json.dumps({"metadata": {"ColorSpace": "bt2020"}}), encoding="utf-8"
+    )
     monkeypatch.setattr(cs, "METADATAPATH", str(meta))
     wb = WriteBuffer(output="")
     f = _colorFilter(wb._buildFilterList())

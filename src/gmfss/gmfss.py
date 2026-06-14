@@ -3,14 +3,15 @@ import torch
 import logging
 from contextlib import nullcontext
 
-from src.utils.downloadModels import downloadModels, weightsDir
-from src.utils.isCudaInit import CudaChecker
-from src.utils.logAndPrint import logAndPrint
+from src.model.download import downloadModels
+from src.model.registry import weightsDir
+from src.infra.isCudaInit import CudaChecker
+from src.infra.logAndPrint import logAndPrint
 
 checker = CudaChecker()
 
 torch.set_float32_matmul_precision("medium")
-# from: https://github.com/HolyWu/vs-gmfss_fortuna/blob/master/vsgmfss_fortuna/__init__.py  
+# from: https://github.com/HolyWu/vs-gmfss_fortuna/blob/master/vsgmfss_fortuna/__init__.py
 
 
 def get_gmfss_model_dir():
@@ -172,7 +173,9 @@ class GMFSS:
 
                 timestep = float(t)
                 if not 0.0 <= timestep <= 1.0:
-                    raise ValueError(f"GMFSS timestep must be within [0, 1], got {timestep}")
+                    raise ValueError(
+                        f"GMFSS timestep must be within [0, 1], got {timestep}"
+                    )
                 self._timestep_buffer.fill_(timestep)
                 outputs.append(
                     self.model.forward_from_reuse(reuse_cache, self._timestep_buffer)[
@@ -187,4 +190,3 @@ class GMFSS:
                 interpQueue.put(output)
 
             self.cacheFrame()
-

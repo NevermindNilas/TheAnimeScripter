@@ -22,7 +22,9 @@ import torch.nn.functional as F
 # -----------------------------------------------------------------------------
 
 
-def activate_head_gs(out, activation="norm_exp", conf_activation="expp1", conf_dim=None):
+def activate_head_gs(
+    out, activation="norm_exp", conf_activation="expp1", conf_dim=None
+):
     """
     Process network output to extract GS params and density values.
     Density could be view-dependent as SH coefficient
@@ -111,8 +113,12 @@ def position_grid_to_embed(
     pos_flat = pos_grid.reshape(-1, grid_dim)  # Flatten to (H*W, 2)
 
     # Process x and y coordinates separately
-    emb_x = make_sincos_pos_embed(embed_dim // 2, pos_flat[:, 0], omega_0=omega_0)  # [1, H*W, D/2]
-    emb_y = make_sincos_pos_embed(embed_dim // 2, pos_flat[:, 1], omega_0=omega_0)  # [1, H*W, D/2]
+    emb_x = make_sincos_pos_embed(
+        embed_dim // 2, pos_flat[:, 0], omega_0=omega_0
+    )  # [1, H*W, D/2]
+    emb_y = make_sincos_pos_embed(
+        embed_dim // 2, pos_flat[:, 1], omega_0=omega_0
+    )  # [1, H*W, D/2]
 
     # Combine and reshape
     emb = torch.cat([emb_x, emb_y], dim=-1)  # [1, H*W, D]
@@ -120,7 +126,9 @@ def position_grid_to_embed(
     return emb.view(H, W, embed_dim)  # [H, W, D]
 
 
-def make_sincos_pos_embed(embed_dim: int, pos: torch.Tensor, omega_0: float = 100) -> torch.Tensor:
+def make_sincos_pos_embed(
+    embed_dim: int, pos: torch.Tensor, omega_0: float = 100
+) -> torch.Tensor:
     """
     This function generates a 1D positional embedding from a given grid using sine and cosine functions. # noqa
 
@@ -222,9 +230,13 @@ def custom_interpolate(
     if total > INT_MAX:
         chunks = torch.chunk(x, chunks=(total // INT_MAX) + 1, dim=0)
         outs = [
-            nn.functional.interpolate(c, size=size, mode=mode, align_corners=align_corners)
+            nn.functional.interpolate(
+                c, size=size, mode=mode, align_corners=align_corners
+            )
             for c in chunks
         ]
         return torch.cat(outs, dim=0).contiguous()
 
-    return nn.functional.interpolate(x, size=size, mode=mode, align_corners=align_corners)
+    return nn.functional.interpolate(
+        x, size=size, mode=mode, align_corners=align_corners
+    )

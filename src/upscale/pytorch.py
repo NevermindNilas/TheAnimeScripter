@@ -2,24 +2,16 @@ import os
 import torch
 import logging
 
-from src.utils.modelOptimizer import ModelOptimizer
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
-from src.utils.isCudaInit import CudaChecker
-from src.utils.logAndPrint import logAndPrint
+from src.model.modelOptimizer import ModelOptimizer
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
+from src.infra.logAndPrint import logAndPrint
 from src.constants import ADOBE
 
+from ._shared import checker
+
 if ADOBE:
-    from src.utils.aeComms import progressState
-
-checker = CudaChecker()
-
-torch.set_float32_matmul_precision("medium")
-
-
-def calculatePadding(width, height, multiple=4):
-    padW = (multiple - (width % multiple)) % multiple
-    padH = (multiple - (height % multiple)) % multiple
-    return (0, padW, 0, padH)
+    from src.server.aeComms import progressState
 
 
 class UniversalPytorch:
@@ -128,7 +120,9 @@ class UniversalPytorch:
                         f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
                     )
             else:
-                self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
+                self.model = torch.load(
+                    modelPath, map_location="cpu", weights_only=False
+                )
 
                 if isinstance(self.model, dict):
                     self.model = ModelLoader().load_from_state_dict(self.model)
@@ -257,6 +251,7 @@ class UniversalPytorch:
         self.stream.synchronize()
 
         return output
+
 
 class UniversalPytorchMPS:
     """
@@ -410,4 +405,3 @@ class UniversalPytorchMPS:
         output = self.model(frame)
         torch.mps.synchronize()
         return output
-

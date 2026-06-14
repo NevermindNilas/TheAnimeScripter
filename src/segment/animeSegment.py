@@ -4,16 +4,17 @@ import os
 import torch
 import torch.nn.functional as F
 
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
+from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
 from concurrent.futures import ThreadPoolExecutor
-from src.utils.progressBarLogic import ProgressBarLogic
-from src.utils.isCudaInit import CudaChecker
-from src.utils.logAndPrint import logAndPrint
+from src.infra.progressBarLogic import ProgressBarLogic
+from src.infra.isCudaInit import CudaChecker
+from src.infra.logAndPrint import logAndPrint
 from src.constants import ADOBE
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 checker = CudaChecker()
 
@@ -173,7 +174,7 @@ class AnimeSegmentTensorRT:
         self.totalFrames = totalFrames
 
         import tensorrt as trt
-        from src.utils.trtHandler import (
+        from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
@@ -638,9 +639,7 @@ class AnimeSegmentOpenVino:
         method = "segment-directml"
         self.filename = modelsMap(method)
         folderName = "segment-onnx"
-        modelPath = resolveWeightPath(
-            folderName, self.filename, downloadModel=method
-        )
+        modelPath = resolveWeightPath(folderName, self.filename, downloadModel=method)
 
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width

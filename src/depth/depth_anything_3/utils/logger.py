@@ -26,7 +26,12 @@ class Color:
 
 LOG_LEVELS = {"ERROR": 0, "WARN": 1, "INFO": 2, "DEBUG": 3}
 
-COLOR_MAP = {"ERROR": Color.RED, "WARN": Color.YELLOW, "INFO": Color.WHITE, "DEBUG": Color.GREEN}
+COLOR_MAP = {
+    "ERROR": Color.RED,
+    "WARN": Color.YELLOW,
+    "INFO": Color.WHITE,
+    "DEBUG": Color.GREEN,
+}
 
 
 def get_env_log_level():

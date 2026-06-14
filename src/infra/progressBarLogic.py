@@ -14,7 +14,7 @@ import src.constants as cs
 import os
 from time import time
 from random import choice
-from src.utils.aeComms import progressState
+from src.server.aeComms import progressState
 
 import logging
 
@@ -218,7 +218,10 @@ class ProgressBarLogic:
         if cs.ADOBE:
             self.completed += advance
 
-            if self.completed >= getattr(self, "nextUpdateFrame", self.updateInterval) or self.completed >= self.totalFrames:
+            if (
+                self.completed >= getattr(self, "nextUpdateFrame", self.updateInterval)
+                or self.completed >= self.totalFrames
+            ):
                 currentTime = time()
                 elapsedTime = currentTime - self.startTime
                 fps_val = self.completed / elapsedTime if elapsedTime > 0 else 0.0

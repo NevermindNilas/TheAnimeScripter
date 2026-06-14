@@ -63,7 +63,12 @@ class _UnetSkipConnectionBlock(nn.Module):
             model = [downrelu, downconv, uprelu, upconv, upnorm]
         else:
             upconv = nn.ConvTranspose2d(
-                inner_nc * 2, outer_nc, kernel_size=4, stride=2, padding=1, bias=use_bias
+                inner_nc * 2,
+                outer_nc,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                bias=use_bias,
             )
             model = [downrelu, downconv, downnorm, submodule, uprelu, upconv, upnorm]
             if use_dropout:

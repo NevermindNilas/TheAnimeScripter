@@ -57,7 +57,11 @@ class PositionGetter:
             self.position_cache[height, width] = positions
 
         cached_positions = self.position_cache[height, width]
-        return cached_positions.view(1, height * width, 2).expand(batch_size, -1, -1).clone()
+        return (
+            cached_positions.view(1, height * width, 2)
+            .expand(batch_size, -1, -1)
+            .clone()
+        )
 
 
 class RotaryPositionEmbedding2D(nn.Module):
@@ -172,9 +176,9 @@ class RotaryPositionEmbedding2D(nn.Module):
         """
         # Validate inputs
         assert tokens.size(-1) % 2 == 0, "Feature dimension must be even"
-        assert (
-            positions.ndim == 3 and positions.shape[-1] == 2
-        ), "Positions must have shape (batch_size, n_tokens, 2)"
+        assert positions.ndim == 3 and positions.shape[-1] == 2, (
+            "Positions must have shape (batch_size, n_tokens, 2)"
+        )
 
         # Compute feature dimension for each spatial direction
         feature_dim = tokens.size(-1) // 2

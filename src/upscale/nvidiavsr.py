@@ -1,0 +1,170 @@
+import torch
+import logging
+
+from src.infra.logAndPrint import logAndPrint
+from src.constants import ADOBE
+
+from ._shared import checker
+
+if ADOBE:
+    from src.server.aeComms import progressState
+
+
+# NVIDIA Works Notice (required by NVIDIA Software License Agreement
+# AI Product-Specific Terms §1.7.1 for distributed source files using
+# the NVIDIA Video Effects SDK / Maxine VSR):
+#
+#   This software contains source code provided by NVIDIA Corporation.
+#
+
+
+class NvidiaVSR:
+    """
+    NVIDIA Maxine Video Super Resolution (RTX VSR).
+
+    Quality preset is parsed from `upscaleMethod` suffix, e.g.
+    `maxine-ultra` -> ULTRA. Default `maxine` -> HIGH.
+    Supported: BICUBIC, LOW, MEDIUM, HIGH, ULTRA, HIGHBITRATE_{LOW..ULTRA}.
+
+    API hard limits (Maxine 1.2.0):
+      - Input dtype must be float32 (no fp16/bf16)
+      - Input shape must be (3, H, W) (no batch, no channels_last)
+      - Scale factor must be 1..4
+
+    """
+
+    _VALID_QUALITIES = {
+        "BICUBIC",
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "ULTRA",
+        "HIGHBITRATE_LOW",
+        "HIGHBITRATE_MEDIUM",
+        "HIGHBITRATE_HIGH",
+        "HIGHBITRATE_ULTRA",
+    }
+
+    def __init__(
+        self,
+        upscaleMethod: str = "maxine-high",
+        upscaleFactor: int = 2,
+        half: bool = False,
+        width: int = 1920,
+        height: int = 1080,
+        customModel: str = None,
+        compileMode: str = "default",
+    ):
+        self.upscaleMethod = upscaleMethod
+        self.upscaleFactor = upscaleFactor
+        self.half = half
+        self.width = width
+        self.height = height
+        self.customModel = customModel
+        self.compileMode = compileMode
+
+        if not checker.cudaAvailable:
+            raise RuntimeError("NvidiaVSR requires a CUDA-capable NVIDIA GPU")
+
+        if self.half:
+            logAndPrint(
+                "NVIDIA VSR API requires float32 input; forcing half=False.",
+                "yellow",
+            )
+            self.half = False
+
+        if self.customModel:
+            logAndPrint(
+                "NVIDIA VSR does not support custom models (bundled in wheel); "
+                "ignoring customModel.",
+                "yellow",
+            )
+            self.customModel = None
+
+        if self.compileMode != "default":
+            logAndPrint(
+                f"compileMode '{self.compileMode}' ignored on NVIDIA VSR backend.",
+                "yellow",
+            )
+            self.compileMode = "default"
+
+        self.qualityName = self._parseQuality(self.upscaleMethod)
+
+        self.handleModel()
+
+    @classmethod
+    def _parseQuality(cls, method: str) -> str:
+        suffix = method.lower().replace("maxine", "", 1).lstrip("-")
+        name = suffix.upper() if suffix else "HIGH"
+        if name not in cls._VALID_QUALITIES:
+            raise ValueError(
+                f"Unknown Maxine VSR quality '{name}' in upscaleMethod "
+                f"'{method}'. Valid: {sorted(cls._VALID_QUALITIES)}"
+            )
+        return name
+
+    def handleModel(self):
+        if ADOBE:
+            progressState.update(
+                {"status": f"Loading NVIDIA VSR ({self.qualityName})..."}
+            )
+
+        import nvvfx
+        from nvvfx import VideoSuperRes
+
+        self.nvvfx = nvvfx
+
+        quality = VideoSuperRes.QualityLevel[self.qualityName]
+        deviceIdx = checker.device.index if checker.device.index is not None else 0
+
+        self.model = VideoSuperRes(quality=quality, device=deviceIdx)
+        self.model.output_width = self.width * self.upscaleFactor
+        self.model.output_height = self.height * self.upscaleFactor
+
+        try:
+            self.model.load()
+        except Exception as e:
+            logging.error(f"NVIDIA VSR load failed: {e}")
+            raise
+
+        self.dummyInput = torch.zeros(
+            (3, self.height, self.width),
+            device=checker.device,
+            dtype=torch.float32,
+        ).contiguous()
+
+        self.dummyOutput = torch.zeros(
+            (
+                1,
+                3,
+                self.height * self.upscaleFactor,
+                self.width * self.upscaleFactor,
+            ),
+            device=checker.device,
+            dtype=torch.float32,
+        ).contiguous()
+
+        for _ in range(5):
+            _out = self.model.run(self.dummyInput, stream_ptr=0)
+            _ = torch.from_dlpack(_out.image).clone()
+        self.dummyInput.uniform_(0.0, 1.0)
+        for _ in range(5):
+            _out = self.model.run(self.dummyInput, stream_ptr=0)
+            _ = torch.from_dlpack(_out.image).clone()
+        self.dummyInput.zero_()
+        torch.cuda.synchronize()
+
+    @torch.inference_mode()
+    def __call__(
+        self, frame: torch.Tensor, nextFrame: torch.Tensor = None
+    ) -> torch.Tensor:
+        src = frame.squeeze(
+            0
+        )  # We are always using 4 dim throughout the process, but Maxine API expects 3 dim (C,H,W), so remove batch dim here.
+        self.dummyInput.copy_(src.contiguous(), non_blocking=False)
+        outCapsule = self.model.run(self.dummyInput, stream_ptr=0)
+        upscaled = torch.from_dlpack(outCapsule.image)  # (3, H', W')
+        self.dummyOutput[0].copy_(upscaled, non_blocking=False)
+        output = self.dummyOutput.clone()
+        torch.cuda.synchronize()
+        return output

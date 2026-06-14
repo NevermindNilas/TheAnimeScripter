@@ -28,7 +28,6 @@ from depth_anything_3.specs import Prediction
 from src.depth.attr_dict import AttrDict as AddictDict
 
 
-
 class OutputProcessor:
     """
     Output processor for converting model outputs to Prediction objects.
@@ -103,7 +102,9 @@ class OutputProcessor:
             conf = conf.squeeze(0).cpu().numpy()  # (N, H, W)
         return conf
 
-    def _extract_extrinsics(self, model_output: dict[str, torch.Tensor]) -> np.ndarray | None:
+    def _extract_extrinsics(
+        self, model_output: dict[str, torch.Tensor]
+    ) -> np.ndarray | None:
         """
         Extract extrinsics tensor from model output and convert to numpy.
 
@@ -118,7 +119,9 @@ class OutputProcessor:
             extrinsics = extrinsics.squeeze(0).cpu().numpy()  # (N, 4, 4)
         return extrinsics
 
-    def _extract_intrinsics(self, model_output: dict[str, torch.Tensor]) -> np.ndarray | None:
+    def _extract_intrinsics(
+        self, model_output: dict[str, torch.Tensor]
+    ) -> np.ndarray | None:
         """
         Extract intrinsics tensor from model output and convert to numpy.
 

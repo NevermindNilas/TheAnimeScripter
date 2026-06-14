@@ -1,18 +1,16 @@
-import os
 import torch
 import logging
 import torch.nn.functional as F
-import math
-import numpy as np
 
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
-from src.utils.isCudaInit import CudaChecker
-from src.utils.logAndPrint import logAndPrint
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
+from src.infra.isCudaInit import CudaChecker
+from src.infra.logAndPrint import logAndPrint
 
 from src.constants import ADOBE
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 
 checker = CudaChecker()
@@ -21,20 +19,20 @@ torch.set_float32_matmul_precision("medium")
 
 
 _RIFE_V1 = {
-    "rife":           ("IFNet425",      "IFNet_rife425"),
-    "rife4.25":       ("IFNet425",      "IFNet_rife425"),
+    "rife": ("IFNet425", "IFNet_rife425"),
+    "rife4.25": ("IFNet425", "IFNet_rife425"),
     "rife4.25-heavy": ("IFNet425Heavy", "IFNet_rife425heavy"),
-    "rife4.25-lite":  ("IFNet425Lite",  "IFNet_rife425lite"),
-    "rife4.22":       ("IFNet422",      "IFNet_rife422"),
-    "rife4.22-lite":  ("IFNet422Lite",  "IFNet_rife422lite"),
-    "rife4.21":       ("IFNet421",      "IFNet_rife421"),
-    "rife4.20":       ("IFNet420",      "IFNet_rife420"),
-    "rife4.18":       ("IFNet418",      "IFNet_rife418"),
-    "rife4.17":       ("IFNet417",      "IFNet_rife417"),
-    "rife4.15-lite":  ("IFNet415Lite",  "IFNet_rife415lite"),
-    "rife4.16-lite":  ("IFNet416Lite",  "IFNet_rife416lite"),
-    "rife4.6":        ("IFNet46",       "IFNet_rife46"),
-    "rife_elexor":    (None,            "IFNet_elexor_cuda"),
+    "rife4.25-lite": ("IFNet425Lite", "IFNet_rife425lite"),
+    "rife4.22": ("IFNet422", "IFNet_rife422"),
+    "rife4.22-lite": ("IFNet422Lite", "IFNet_rife422lite"),
+    "rife4.21": ("IFNet421", "IFNet_rife421"),
+    "rife4.20": ("IFNet420", "IFNet_rife420"),
+    "rife4.18": ("IFNet418", "IFNet_rife418"),
+    "rife4.17": ("IFNet417", "IFNet_rife417"),
+    "rife4.15-lite": ("IFNet415Lite", "IFNet_rife415lite"),
+    "rife4.16-lite": ("IFNet416Lite", "IFNet_rife416lite"),
+    "rife4.6": ("IFNet46", "IFNet_rife46"),
+    "rife_elexor": (None, "IFNet_elexor_cuda"),
 }
 
 
@@ -42,6 +40,7 @@ def _loadV1(method, half):
     fastName, baseMod = _RIFE_V1[method]
     if half and fastName:
         from src.rifearches import rife_fast
+
         return getattr(rife_fast, fastName)
     mod = __import__(f"src.rifearches.{baseMod}", fromlist=["IFNet"])
     return mod.IFNet
@@ -148,7 +147,6 @@ def importRifeArch(interpolateMethod, version, half=True):
 
                     Head = True
             return IFNet, Head
-
 
 
 class RifeCuda:
@@ -540,9 +538,7 @@ class RifeMPS:
     def handleModel(self):
         if ADOBE:
             progressState.update(
-                {
-                    "status": f"Loading MPS RIFE model: {self.interpolateMethod}..."
-                }
+                {"status": f"Loading MPS RIFE model: {self.interpolateMethod}..."}
             )
 
         self.filename = modelsMap(self.baseMethod)
@@ -713,5 +709,3 @@ class RifeMPS:
             interpQueue.put(output)
 
         self.processFrame(None, "cache")
-
-

@@ -1,11 +1,10 @@
-import numpy as np
 import torch
-import os
 
 from torch.functional import F
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
-from src.utils.isCudaInit import CudaChecker
-from src.utils.modelOptimizer import ModelOptimizer
+from src.model.registry import modelsMap
+from src.model.download import resolveWeightPath
+from src.infra.isCudaInit import CudaChecker
+from src.model.modelOptimizer import ModelOptimizer
 
 checker = CudaChecker()
 
@@ -328,7 +327,7 @@ class DedupFlownetS:
 class DedupVMAF:
     def __init__(
         self,
-        dedupMethod = "vmaf", 
+        dedupMethod="vmaf",
         treshold=90,
         sampleSize=224,
         half=True,
@@ -390,9 +389,6 @@ class DedupVMAF:
     def to_y(self, tensor):
         if tensor.shape[1] == 3:
             return (
-                0.299 * tensor[:, 0:1]
-                + 0.587 * tensor[:, 1:2]
-                + 0.114 * tensor[:, 2:3]
+                0.299 * tensor[:, 0:1] + 0.587 * tensor[:, 1:2] + 0.114 * tensor[:, 2:3]
             )
         return tensor
-

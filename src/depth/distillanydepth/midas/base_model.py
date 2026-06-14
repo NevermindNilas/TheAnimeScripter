@@ -1,5 +1,5 @@
 import torch
-from huggingface_hub import PyTorchModelHubMixin, hf_hub_download
+from huggingface_hub import PyTorchModelHubMixin
 
 
 class BaseModel(torch.nn.Module, PyTorchModelHubMixin):
@@ -9,7 +9,7 @@ class BaseModel(torch.nn.Module, PyTorchModelHubMixin):
         Args:
             path (str): file path
         """
-        parameters = torch.load(path, map_location=torch.device('cpu'))
+        parameters = torch.load(path, map_location=torch.device("cpu"))
 
         if "optimizer" in parameters:
             parameters = parameters["model"]

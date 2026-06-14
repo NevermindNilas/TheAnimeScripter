@@ -16,6 +16,7 @@ from .grid_sample_directml import grid_sample_directml
 # Shared utilities
 # =============================================================================
 
+
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
         nn.Conv2d(
@@ -29,6 +30,7 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
         ),
         nn.LeakyReLU(0.2, True),
     )
+
 
 class Head8(nn.Module):
     """Feature encoder that produces 8-channel features (for RIFE 4.15-4.22)."""
@@ -53,6 +55,7 @@ class Head8(nn.Module):
             return [x0, x1, x2, x3]
         return x3
 
+
 class Head4(nn.Module):
     """Feature encoder that produces 4-channel features (for RIFE 4.22-lite, 4.25)."""
 
@@ -76,6 +79,7 @@ class Head4(nn.Module):
             return [x0, x1, x2, x3]
         return x3
 
+
 class ResConv(nn.Module):
     def __init__(self, c):
         super(ResConv, self).__init__()
@@ -85,6 +89,7 @@ class ResConv(nn.Module):
 
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
+
 
 class IFBlock415(nn.Module):
     """IFBlock for RIFE 4.15-4.21 (returns flow and mask only)."""
@@ -117,6 +122,7 @@ class IFBlock415(nn.Module):
         if scale != 1:
             flow = flow * scale
         return flow, mask
+
 
 class IFBlock422(nn.Module):
     """IFBlock for RIFE 4.22+ (returns flow, mask, and feat)."""
@@ -151,6 +157,7 @@ class IFBlock422(nn.Module):
             flow = flow * scale
         return flow, mask, feat
 
+
 # =============================================================================
 # RIFE 4.6 DirectML (non-head)
 # =============================================================================
@@ -163,6 +170,7 @@ class ResConv46(nn.Module):
 
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
+
 
 class IFBlock46(nn.Module):
     def __init__(self, in_planes, c=64):
@@ -195,6 +203,7 @@ class IFBlock46(nn.Module):
         mask = tmp[:, 4:5]
         return flow, mask
 
+
 def warp_directml_46(tenInput, tenFlow, tenFlowDiv, backWarp):
     # Normalize flow (pixel units -> grid units) then build sampling grid.
     tenFlow = torch.cat(
@@ -207,6 +216,7 @@ def warp_directml_46(tenInput, tenFlow, tenFlowDiv, backWarp):
         padding_mode="border",
         align_corners=True,
     )
+
 
 class IFNet_46(nn.Module):
     """RIFE 4.6 DirectML - 4 blocks, flow/mask based, no head features."""
@@ -315,6 +325,7 @@ class IFNet_46(nn.Module):
         return (warpedImg0 * temp + warpedImg1 * (1 - temp))[
             :, :, : self.height, : self.width
         ]
+
 
 # =============================================================================
 # RIFE 4.15/4.17/4.18 DirectML (8ch features, 4 blocks, no feat output)
@@ -480,6 +491,7 @@ class IFNet_415(nn.Module):
             :, :, : self.height, : self.width
         ]
 
+
 # =============================================================================
 # RIFE 4.22 DirectML (full)
 # =============================================================================
@@ -594,9 +606,7 @@ class IFNet_422(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)
@@ -656,6 +666,7 @@ class IFNet_422(nn.Module):
         return (warpedImg0 * mask + warpedImg1 * (1 - mask))[
             :, :, : self.height, : self.width
         ]
+
 
 # =============================================================================
 # RIFE 4.20/4.21 DirectML (8ch features, 4 blocks, larger first block)
@@ -821,6 +832,7 @@ class IFNet_420(nn.Module):
             :, :, : self.height, : self.width
         ]
 
+
 # =============================================================================
 # RIFE 4.22-lite DirectML (4ch features, 4 blocks, feat passthrough)
 # =============================================================================
@@ -934,9 +946,7 @@ class IFNet_422_lite(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)
@@ -995,6 +1005,7 @@ class IFNet_422_lite(nn.Module):
         return (warpedImg0 * mask + warpedImg1 * (1 - mask))[
             :, :, : self.height, : self.width
         ]
+
 
 # =============================================================================
 # RIFE 4.25 DirectML (4ch features, 5 blocks, mul=64)
@@ -1110,9 +1121,7 @@ class IFNet_425(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)
@@ -1171,6 +1180,7 @@ class IFNet_425(nn.Module):
         return (warpedImg0 * mask + warpedImg1 * (1 - mask))[
             :, :, : self.height, : self.width
         ]
+
 
 # =============================================================================
 # RIFE 4.25-lite DirectML (4ch features, 5 blocks, mul=128)
@@ -1286,9 +1296,7 @@ class IFNet_425_lite(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)
@@ -1347,6 +1355,7 @@ class IFNet_425_lite(nn.Module):
         return (warpedImg0 * mask + warpedImg1 * (1 - mask))[
             :, :, : self.height, : self.width
         ]
+
 
 # =============================================================================
 # RIFE 4.25-heavy DirectML (4ch features, 5 blocks, 2x channels, mul=64)
@@ -1462,9 +1471,7 @@ class IFNet_425_heavy(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)

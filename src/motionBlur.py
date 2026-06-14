@@ -8,11 +8,11 @@ import cv2
 import torch
 
 from src.constants import ADOBE
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.utils.progressBarLogic import ProgressBarLogic
+from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.infra.progressBarLogic import ProgressBarLogic
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 
 def generateWeights(numSamples, scheme="gaussian_sym"):
@@ -33,8 +33,7 @@ def generateWeights(numSamples, scheme="gaussian_sym"):
     elif scheme == "pyramid":
         center = (numSamples - 1) / 2.0
         weights = [
-            max(0.0, 1.0 - abs(i - center) / (center + 1.0))
-            for i in range(numSamples)
+            max(0.0, 1.0 - abs(i - center) / (center + 1.0)) for i in range(numSamples)
         ]
     elif scheme == "ascending":
         weights = [float(i + 1) for i in range(numSamples)]
@@ -74,9 +73,8 @@ class GammaCorrectBlender:
     INV_GAMMA = 1.0 / 2.2
 
     def __init__(self, weights, dtype, device, gamma=True):
-        self.weightTensor = (
-            torch.tensor(weights, dtype=dtype, device=device)
-            .view(-1, 1, 1, 1)
+        self.weightTensor = torch.tensor(weights, dtype=dtype, device=device).view(
+            -1, 1, 1, 1
         )
         self.gamma = gamma
         self.isEqual = len(weights) > 0 and all(
@@ -180,7 +178,9 @@ class MotionBlurPipeline:
     def _initInterpolationModel(self):
         if ADOBE:
             progressState.update(
-                {"status": f"Initializing interpolation model: {self.interpolateMethod}..."}
+                {
+                    "status": f"Initializing interpolation model: {self.interpolateMethod}..."
+                }
             )
 
         match self.interpolateMethod:
@@ -200,7 +200,7 @@ class MotionBlurPipeline:
                 | "rife_elexor"
                 | "rife4.25-heavy"
             ):
-                from src.unifiedInterpolate import RifeCuda
+                from src.interpolate.rife import RifeCuda
 
                 self.interpolateProcess = RifeCuda(
                     self.half,
@@ -235,7 +235,7 @@ class MotionBlurPipeline:
                 | "rife4.22-ncnn"
                 | "rife4.22-lite-ncnn"
             ):
-                from src.unifiedInterpolate import RifeNCNN
+                from src.interpolate.rife_ncnn import RifeNCNN
 
                 self.interpolateProcess = RifeNCNN(
                     self.interpolateMethod,
@@ -262,7 +262,7 @@ class MotionBlurPipeline:
                 | "rife_elexor-tensorrt"
                 | "rife4.25-heavy-tensorrt"
             ):
-                from src.unifiedInterpolate import RifeTensorRT
+                from src.interpolate.rife_tensorrt import RifeTensorRT
 
                 self.interpolateProcess = RifeTensorRT(
                     self.interpolateMethod,
@@ -309,7 +309,7 @@ class MotionBlurPipeline:
                 | "rife4.25-lite-openvino"
                 | "rife4.25-heavy-openvino"
             ):
-                from src.unifiedInterpolate import RifeDirectML
+                from src.interpolate.rife_directml import RifeDirectML
 
                 self.interpolateProcess = RifeDirectML(
                     self.interpolateMethod,
@@ -435,9 +435,7 @@ class MotionBlurPipeline:
         protection = protection.clamp_(0.0, 1.0)
         weightTensor = (1.0 - protection).view(1, 1, self.height, self.width)
 
-        logging.info(
-            f"Loaded motion blur mask: {self.moblurMaskPath} ({channels})"
-        )
+        logging.info(f"Loaded motion blur mask: {self.moblurMaskPath} ({channels})")
         return weightTensor
 
     def _computeWindow(self):
@@ -464,7 +462,14 @@ class MotionBlurPipeline:
 
         totalSamples = leftCount + 1 + nextSegCount
         noBlur = leftCount == 0 and nextSegCount == 0
-        return framesToInsert, prevSegStart, leftCount, nextSegCount, totalSamples, noBlur
+        return (
+            framesToInsert,
+            prevSegStart,
+            leftCount,
+            nextSegCount,
+            totalSamples,
+            noBlur,
+        )
 
     def _processFrames(self):
         (
@@ -508,7 +513,11 @@ class MotionBlurPipeline:
         logging.info(
             f"Motion blur window: {totalSamples} samples "
             f"({leftCount} prev + 1 curr + {nextSegCount} next)"
-            + (f" [windowed: {nSamples}/{framesToInsert} interpolated]" if self.windowed else "")
+            + (
+                f" [windowed: {nSamples}/{framesToInsert} interpolated]"
+                if self.windowed
+                else ""
+            )
             + (" [no-blur pass-through]" if noBlur else "")
             + (" [masked]" if self.mask is not None else "")
         )

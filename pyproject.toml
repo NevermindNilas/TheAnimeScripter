@@ -1,0 +1,8 @@
+[project]
+name = "theanimescripter"
+# Keep in sync with src/version.py (the canonical version source).
+version = "2.7.7"
+requires-python = ">=3.14"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

@@ -21,12 +21,16 @@ try:
 except ImportError:
     from depth_anything_3.utils.logger import logger
 
-    logger.warn("Dependency 'e3nn' not found. Required for rotating the camera space SH coeff")
+    logger.warn(
+        "Dependency 'e3nn' not found. Required for rotating the camera space SH coeff"
+    )
 
 
 def project_to_so3_strict(M: torch.Tensor) -> torch.Tensor:
     if M.shape[-2:] != (3, 3):
-        raise ValueError("Input must be a batch of 3x3 matrices (i.e., shape [..., 3, 3]).")
+        raise ValueError(
+            "Input must be a batch of 3x3 matrices (i.e., shape [..., 3, 3])."
+        )
 
     # 1. Compute SVD
     U, S, Vh = torch.linalg.svd(M)
@@ -67,7 +71,11 @@ def rotate_sh(
         rotations_float32 = rotations.to(torch.float32)
 
         # switch axes: yzx -> xyz
-        P = torch.tensor([[0, 0, 1], [1, 0, 0], [0, 1, 0]]).unsqueeze(0).to(rotations_float32)
+        P = (
+            torch.tensor([[0, 0, 1], [1, 0, 0], [0, 1, 0]])
+            .unsqueeze(0)
+            .to(rotations_float32)
+        )
         permuted_rotations = torch.linalg.inv(P) @ rotations_float32 @ P
 
         # ensure rotation has det == 1 in float32 type

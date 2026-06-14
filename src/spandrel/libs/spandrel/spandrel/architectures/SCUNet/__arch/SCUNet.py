@@ -13,8 +13,6 @@ from einops.layers.torch import Rearrange
 from ....util import store_hyperparameters
 from ....util.timm import DropPath, trunc_normal_
 
-from ...__arch_helpers.padding import pad_to_multiple
-
 
 # Borrowed from https://github.com/cszn/SCUNet/blob/main/models/network_scunet.py
 class WMSA(nn.Module):

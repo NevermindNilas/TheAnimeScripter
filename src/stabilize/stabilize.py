@@ -8,12 +8,12 @@ import torch
 
 from src.constants import ADOBE
 from src.stabilize.superpoint import SuperPoint, find_match_index, find_transform
-import src.utils.ffmpegSettings as ffmpegSettings
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.utils.progressBarLogic import ProgressBarLogic
+import src.io.ffmpegSettings as ffmpegSettings
+from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.infra.progressBarLogic import ProgressBarLogic
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 
 class VideoStabilize:
@@ -107,7 +107,9 @@ class VideoStabilize:
 
     def analyzeMotion(self, progressBar=None, advance=1):
         if ADOBE:
-            progressState.update({"status": "Analyzing camera motion for stabilization..."})
+            progressState.update(
+                {"status": "Analyzing camera motion for stabilization..."}
+            )
 
         self._clearReaderCache()
 
@@ -256,7 +258,9 @@ class VideoStabilize:
                 else nullcontext()
             )
             with torch.inference_mode(), autocastCtx:
-                kpBatch = self.superPointModel.infer(torch.cat([prevTensor, currTensor], dim=0))
+                kpBatch = self.superPointModel.infer(
+                    torch.cat([prevTensor, currTensor], dim=0)
+                )
 
             kp1 = kpBatch[0]
             kp2 = kpBatch[1]
@@ -276,7 +280,10 @@ class VideoStabilize:
             pts1Torch = kp1["keypoints"][idx1].detach().float()
             pts2Torch = kp2["keypoints"][idx2].detach().float()
             scoreVals = scores.detach().float().cpu().numpy()
-            center = [float(prevTensor.shape[3]) * 0.5, float(prevTensor.shape[2]) * 0.5]
+            center = [
+                float(prevTensor.shape[3]) * 0.5,
+                float(prevTensor.shape[2]) * 0.5,
+            ]
 
             try:
                 shift, _, angle, _ = find_transform(
@@ -323,7 +330,9 @@ class VideoStabilize:
             )
             return dx, dy, da, matchScore
         except Exception as e:
-            logging.warning(f"SuperPoint estimation failed, using ORB/LK fallback ({e})")
+            logging.warning(
+                f"SuperPoint estimation failed, using ORB/LK fallback ({e})"
+            )
             return None
 
     def _estimateTransformORB(self, prevGray, currGray):
@@ -610,7 +619,9 @@ class VideoStabilize:
 
     def renderStabilized(self, progressBar=None, advance=1):
         if ADOBE:
-            progressState.update({"status": "Applying stabilization and encoding video..."})
+            progressState.update(
+                {"status": "Applying stabilization and encoding video..."}
+            )
 
         self._clearReaderCache()
 
@@ -663,7 +674,9 @@ class VideoStabilize:
                 else:
                     dx, dy, da = (0.0, 0.0, 0.0)
 
-                transform = self._buildAffineFromCorrection(dx, dy, da, centerX, centerY)
+                transform = self._buildAffineFromCorrection(
+                    dx, dy, da, centerX, centerY
+                )
 
                 stabilized = cv2.warpAffine(
                     frame,

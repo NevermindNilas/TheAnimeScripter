@@ -24,7 +24,6 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     )
 
 
-
 class Head(nn.Module):
     def __init__(self):
         super(Head, self).__init__()

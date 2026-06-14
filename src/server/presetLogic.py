@@ -1,6 +1,6 @@
 import json
 import os
-from src.utils.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint
 import src.constants as cs
 
 

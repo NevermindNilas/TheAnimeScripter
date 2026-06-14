@@ -118,7 +118,9 @@ def render_3dgs(
         i_quats = index_i_gs_attr(gaussian_quats, i)
         i_opacities = index_i_gs_attr(gaussian_opacities, i)  # [N,]
         i_colors = index_i_gs_attr(shs, i)  # [N, K, 3]
-        i_viewmats = rearrange(view_matrix, "(b v) ... -> b v ...", v=num_view)[i]  # [v, 4, 4]
+        i_viewmats = rearrange(view_matrix, "(b v) ... -> b v ...", v=num_view)[
+            i
+        ]  # [v, 4, 4]
         i_backgrounds = rearrange(background_color, "(b v) ... -> b v ...", v=num_view)[
             i
         ]  # [v, 3]
@@ -217,7 +219,9 @@ def run_renderer_in_chunk_w_trj_mode(
             inter_len = max(1, 24 * 2 // (cam2world.shape[1] - 1))
 
         if inter_len > 2:
-            t = torch.linspace(0, 1, inter_len, dtype=torch.float32, device=cam2world.device)
+            t = torch.linspace(
+                0, 1, inter_len, dtype=torch.float32, device=cam2world.device
+            )
             t = (torch.cos(torch.pi * (t + 1)) + 1) / 2
             tgt_c2w_b = []
             tgt_intr_b = []
@@ -232,7 +236,9 @@ def run_renderer_in_chunk_w_trj_mode(
                     )
                     tgt_intr.append(
                         interpolate_intrinsics(
-                            intr_normed[b_idx, cur_idx], intr_normed[b_idx, cur_idx + 1], t
+                            intr_normed[b_idx, cur_idx],
+                            intr_normed[b_idx, cur_idx + 1],
+                            t,
                         )[(0 if cur_idx == 0 else 1) :]
                     )
                 tgt_c2w_b.append(torch.cat(tgt_c2w))
@@ -246,7 +252,9 @@ def run_renderer_in_chunk_w_trj_mode(
             tgt_c2w = _smooth_trj_fn_batch(tgt_c2w)
         if trj_mode == "extend":
             # apply dolly_zoom and wander in the middle frame
-            assert cam2world.shape[0] == 1, "extend only supports for batch_size=1 currently."
+            assert cam2world.shape[0] == 1, (
+                "extend only supports for batch_size=1 currently."
+            )
             mid_idx = tgt_c2w.shape[1] // 2
             c2w_wd, intr_wd = render_wander_path(
                 tgt_c2w[0, mid_idx],
@@ -292,7 +300,11 @@ def run_renderer_in_chunk_w_trj_mode(
         tgt_intr = []
         for b_idx in range(cam2world.shape[0]):
             c2w_i, intr_i = render_fn(
-                cam2world[b_idx, 0], intr_normed[b_idx, 0], h=in_h, w=in_w, **extra_kwargs
+                cam2world[b_idx, 0],
+                intr_normed[b_idx, 0],
+                h=in_h,
+                w=in_w,
+                **extra_kwargs,
             )
             tgt_c2w.append(c2w_i)
             tgt_intr.append(intr_i)

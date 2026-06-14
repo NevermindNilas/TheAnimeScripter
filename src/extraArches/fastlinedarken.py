@@ -3,8 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.utils.downloadModels import weightsDir
-from src.utils.isCudaInit import CudaChecker
+from src.model.registry import weightsDir
+from src.infra.isCudaInit import CudaChecker
 
 checker = CudaChecker()
 

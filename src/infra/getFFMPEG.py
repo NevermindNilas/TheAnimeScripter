@@ -30,7 +30,7 @@ def downloadAndExtractFfmpeg(ffmpegPath):
     )
 
     try:
-        from src.utils.progressBarLogic import ProgressBarDownloadLogic
+        from src.infra.progressBarLogic import ProgressBarDownloadLogic
 
         response = urlopen(ffmpegUrl)
 
@@ -41,7 +41,9 @@ def downloadAndExtractFfmpeg(ffmpegPath):
         totalSizeInBytes = int(response.headers.get("content-length", 0))
 
         with (
-            ProgressBarDownloadLogic(totalSizeInBytes or 1, "Downloading FFmpeg") as bar,
+            ProgressBarDownloadLogic(
+                totalSizeInBytes or 1, "Downloading FFmpeg"
+            ) as bar,
             open(ffmpegArchivePath, "wb") as file,
         ):
             while True:

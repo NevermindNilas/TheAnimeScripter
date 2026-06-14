@@ -1,28 +1,25 @@
 import os
-import sys
+
 os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
 import torch
 import logging
 import numpy as np
 import torch.nn.functional as F
-import cv2
-import importlib
 
-from src.utils.logAndPrint import logAndPrint
 from concurrent.futures import ThreadPoolExecutor
-from src.utils.ffmpegSettings import (
+from src.io.ffmpegSettings import (
     BuildBuffer,
     WriteBuffer,
 )
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
-from src.utils.progressBarLogic import ProgressBarLogic
-from src.utils.isCudaInit import CudaChecker
-from queue import Queue
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
+from src.infra.progressBarLogic import ProgressBarLogic
+from src.infra.isCudaInit import CudaChecker
 from src.constants import ADOBE
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 from collections import deque
 import statistics
@@ -138,6 +135,7 @@ def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
     logging.info(f"Depth Padding: {newWidth}x{newHeight}")
     return newHeight, newWidth
 
+
 class DepthTensorRTV2:
     def __init__(
         self,
@@ -176,7 +174,7 @@ class DepthTensorRTV2:
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
         import tensorrt as trt
-        from src.utils.trtHandler import (
+        from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
@@ -372,7 +370,6 @@ class DepthTensorRTV2:
         self.writeBuffer.close()
 
 
-
 class OGDepthV2TensorRT:
     def __init__(
         self,
@@ -411,7 +408,7 @@ class OGDepthV2TensorRT:
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
         import tensorrt as trt
-        from src.utils.trtHandler import (
+        from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
@@ -492,7 +489,9 @@ class OGDepthV2TensorRT:
             optInputShape=inputShape,
         )
 
-        if os.path.exists(enginePath) and os.path.getmtime(enginePath) < os.path.getmtime(self.modelPath):
+        if os.path.exists(enginePath) and os.path.getmtime(
+            enginePath
+        ) < os.path.getmtime(self.modelPath):
             try:
                 os.remove(enginePath)
             except Exception:
@@ -623,9 +622,7 @@ class OGDepthV2TensorRT:
     def normOutputFrame(self):
         if self.isVideoDepthTensorRT:
             depthTensor = self.dummyOutput[0, -1].float()
-            depthTensor = torch.nan_to_num(
-                depthTensor, nan=0.0, posinf=0.0, neginf=0.0
-            )
+            depthTensor = torch.nan_to_num(depthTensor, nan=0.0, posinf=0.0, neginf=0.0)
             flatTensor = depthTensor.flatten()
             lowerBound = torch.quantile(flatTensor, 0.01)
             upperBound = torch.quantile(flatTensor, 0.99)
@@ -678,5 +675,3 @@ class OGDepthV2TensorRT:
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
-
-

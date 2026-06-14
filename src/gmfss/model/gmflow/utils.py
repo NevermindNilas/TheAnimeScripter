@@ -79,8 +79,12 @@ def normalize_img(img0, img1):
 
     if cached is None:
         cached = (
-            torch.tensor([0.485, 0.456, 0.406], dtype=img1.dtype, device=img1.device).view(1, 3, 1, 1),
-            torch.tensor([0.229, 0.224, 0.225], dtype=img1.dtype, device=img1.device).view(1, 3, 1, 1),
+            torch.tensor(
+                [0.485, 0.456, 0.406], dtype=img1.dtype, device=img1.device
+            ).view(1, 3, 1, 1),
+            torch.tensor(
+                [0.229, 0.224, 0.225], dtype=img1.dtype, device=img1.device
+            ).view(1, 3, 1, 1),
         )
         normalize_img_cache[key] = cached
 

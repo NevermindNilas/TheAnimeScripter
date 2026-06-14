@@ -26,7 +26,14 @@ default_models = {
 }
 
 
-def load_model(device, model_path, model_type="dpt_large_384", optimize=True, height=None, square=False):
+def load_model(
+    device,
+    model_path,
+    model_type="dpt_large_384",
+    optimize=True,
+    height=None,
+    square=False,
+):
     """Load the specified network.
 
     Args:
@@ -176,8 +183,14 @@ def load_model(device, model_path, model_type="dpt_large_384", optimize=True, he
         )
 
     elif model_type == "midas_v21_small_256":
-        model = MidasNet_small(model_path, features=64, backbone="efficientnet_lite3", exportable=True,
-                               non_negative=True, blocks={'expand': True})
+        model = MidasNet_small(
+            model_path,
+            features=64,
+            backbone="efficientnet_lite3",
+            exportable=True,
+            non_negative=True,
+            blocks={"expand": True},
+        )
         net_w, net_h = 256, 256
         resize_mode = "upper_bound"
         normalization = NormalizeImage(
@@ -198,8 +211,12 @@ def load_model(device, model_path, model_type="dpt_large_384", optimize=True, he
         print(f"model_type '{model_type}' not implemented, use: --model_type large")
         assert False
 
-    if not "openvino" in model_type:
-        print("Model loaded, number of parameters = {:.0f}M".format(sum(p.numel() for p in model.parameters()) / 1e6))
+    if "openvino" not in model_type:
+        print(
+            "Model loaded, number of parameters = {:.0f}M".format(
+                sum(p.numel() for p in model.parameters()) / 1e6
+            )
+        )
     else:
         print("Model loaded, optimized with OpenVINO")
 
@@ -225,18 +242,20 @@ def load_model(device, model_path, model_type="dpt_large_384", optimize=True, he
         ]
     )
 
-    if not "openvino" in model_type:
+    if "openvino" not in model_type:
         model.eval()
 
     if optimize and (device == torch.device("cuda")):
-        if not "openvino" in model_type:
+        if "openvino" not in model_type:
             model = model.to(memory_format=torch.channels_last)
             model = model.half()
         else:
-            print("Error: OpenVINO models are already optimized. No optimization to half-float possible.")
+            print(
+                "Error: OpenVINO models are already optimized. No optimization to half-float possible."
+            )
             exit()
 
-    if not "openvino" in model_type:
+    if "openvino" not in model_type:
         model.to(device)
 
     return model, transform, net_w, net_h

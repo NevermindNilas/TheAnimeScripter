@@ -2,13 +2,14 @@ import os
 import torch
 import logging
 
-from .utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
-from .utils.isCudaInit import CudaChecker
-from .utils.logAndPrint import logAndPrint
+from src.model.download import downloadModels, resolveWeightPath
+from src.model.registry import weightsDir, modelsMap
+from src.infra.isCudaInit import CudaChecker
+from src.infra.logAndPrint import logAndPrint
 from src.constants import ADOBE
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 checker = CudaChecker()
 

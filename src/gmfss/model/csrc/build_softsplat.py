@@ -44,7 +44,8 @@ ext = load(
     extra_cuda_cflags=[
         "-O3",
         "--use_fast_math",
-        "-Xcompiler", "/Zc:preprocessor",
+        "-Xcompiler",
+        "/Zc:preprocessor",
     ],
     verbose=True,
 )
