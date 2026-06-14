@@ -396,6 +396,8 @@ class VideoProcessor:
 
             with self.ProgressBarLogic(
                 self.totalFrames * increment,
+                outputPath=self.output,
+                videoFps=self.outputFPS,
             ) as bar:
                 while currentFrame is not None:
                     if self.upscaleMethod == "animesr" or (
@@ -522,6 +524,20 @@ class VideoProcessor:
                 f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}",
                 colorFunc="green",
             )
+            # The bar's last filesize sample lands before the encoder
+            # drains its queue and writes the container trailer; this is
+            # the real, final number.
+            try:
+                finalSize = os.path.getsize(self.output)
+            except (OSError, TypeError):
+                finalSize = None
+            if finalSize is not None:
+                sz = (
+                    f"{finalSize / 1024**3:.2f} GB"
+                    if finalSize >= 1024**3
+                    else f"{finalSize / (1024 * 1024):.1f} MB"
+                )
+                logAndPrint(f"Output Size: {sz}", colorFunc="green")
 
             if cs.ADOBE:
                 progressState.setCompleted(outputPath=self.output)
