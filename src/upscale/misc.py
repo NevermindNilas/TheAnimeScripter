@@ -254,7 +254,7 @@ class AnimeSR:
             ),
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
-        ).to(memory_format=torch.channels_last)
+        )
         self.nextFrame = torch.zeros(
             (
                 1,
@@ -264,11 +264,11 @@ class AnimeSR:
             ),
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
-        ).to(memory_format=torch.channels_last)
+        )
 
         self.dummyOutput = self.prevFrame.new_zeros(
             1, 3, self.height * 4, self.width * 4
-        ).to(memory_format=torch.channels_last)
+        )
 
         # The model has some caching functionality that requires a state
         self.state = self.prevFrame.new_zeros(1, 64, self.height, self.width)
@@ -287,21 +287,17 @@ class AnimeSR:
         if self.firstRun:
             with torch.cuda.stream(self.normStream):
                 self.prevFrame.copy_(
-                    frame.to(dtype=frame.dtype).to(memory_format=torch.channels_last),
+                    frame.to(dtype=frame.dtype),
                     non_blocking=False,
                 )
                 if nextFrame is None:
                     self.nextFrame.copy_(
-                        frame.to(dtype=frame.dtype).to(
-                            memory_format=torch.channels_last
-                        ),
+                        frame.to(dtype=frame.dtype),
                         non_blocking=False,
                     )
                 else:
                     self.nextFrame.copy_(
-                        nextFrame.to(dtype=frame.dtype).to(
-                            memory_format=torch.channels_last
-                        ),
+                        nextFrame.to(dtype=frame.dtype),
                         non_blocking=False,
                     )
             self.normStream.synchronize()
@@ -311,16 +307,12 @@ class AnimeSR:
             with torch.cuda.stream(self.normStream):
                 if nextFrame is None:
                     self.nextFrame.copy_(
-                        frame.to(dtype=frame.dtype).to(
-                            memory_format=torch.channels_last
-                        ),
+                        frame.to(dtype=frame.dtype),
                         non_blocking=False,
                     )
                 else:
                     self.nextFrame.copy_(
-                        nextFrame.to(dtype=frame.dtype).to(
-                            memory_format=torch.channels_last
-                        ),
+                        nextFrame.to(dtype=frame.dtype),
                         non_blocking=False,
                     )
             self.normStream.synchronize()
