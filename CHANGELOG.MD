@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Bumped `barflow` `0.4.0` → `0.4.1`.
 - Frame-processing loops (main pipeline, depth, object detection, segment) now terminate on the decoder's end-of-stream sentinel instead of polling queue state every frame; main loop uses a one-frame lookahead instead of queue peeking (#329). Thanks @KRRT7.
 - Bumped `nelux` `0.12.4` → `0.12.7`.
+- AnimeSR (`MSRSWVSR`) CUDA inference path: **~+7% throughput** (RTX 3090, fp16, 360/720/1080p; ~+5–6% fp32) at **bit-identical output**. Removed a model↔input memory-layout mismatch (`channels_last` inputs fed to an NCHW model) that burned ~18% of CUDA time on per-conv layout conversions; dropped the no-op `res_scale == 1` multiply and the 9 `+ 0` multi-scale adds per forward. Peak reserved VRAM unchanged.
 
 ### Fixed
 - `--interpolate_method rife4.16-lite` crashed at model download (`ValueError: Model rife4.16-lite not found.`) — the method was wired through the CLI, model init and the arch table but had no `modelsMap` weight mapping. Mapping added (`rife416_lite.pth` / NCNN zips); new registry drift-guard tests (`tests/test_registryDrift.py`) now enforce the choices ↔ registry ↔ `modelsMap` sync so this class of gap fails tests instead of crashing users.
