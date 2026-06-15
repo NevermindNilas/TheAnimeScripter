@@ -1,7 +1,7 @@
 setuptools==81.0.0
 wheel-stub==0.5.0
 numpy==2.3.2
-omegaconf==2.3.0
+omegaconf==2.3.1
 psutil==7.2.2
 inquirer==3.4.1
 colored==2.3.2
