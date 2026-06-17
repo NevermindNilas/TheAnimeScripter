@@ -1,12 +1,15 @@
-import os
-import torch
 import logging
+import os
 
-from src.utils.modelOptimizer import ModelOptimizer
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
+import torch
+
+from src.constants import ADOBE
+from src.utils.downloadModels import (
+    modelsMap,
+    resolveWeightPath,
+)
 from src.utils.isCudaInit import CudaChecker
 from src.utils.logAndPrint import logAndPrint
-from src.constants import ADOBE
 
 if ADOBE:
     from src.utils.aeComms import progressState
@@ -44,8 +47,8 @@ class UniversalDirectML:
             customModel (str): The path to a custom model file
         """
 
-        import onnxruntime as ort
         import numpy as np
+        import onnxruntime as ort
 
         if "openvino" in upscaleMethod:
             logAndPrint(
@@ -161,8 +164,6 @@ class UniversalDirectML:
             dtype=self.torchDType,
         ).contiguous()
 
-
-
         self.usingCpuFallback = False
         self.modelPath = modelPath
 
@@ -210,7 +211,6 @@ class UniversalDirectML:
 
             self.dummyInput.copy_(frame.contiguous(), non_blocking=False)
 
-
             self.IoBinding.bind_input(
                 name="input",
                 device_type=self.deviceType,
@@ -228,7 +228,6 @@ class UniversalDirectML:
                 shape=self.dummyOutput.shape,
                 buffer_ptr=self.dummyOutput.data_ptr(),
             )
-
 
             self.model.run_with_iobinding(self.IoBinding)
             frame = self.dummyOutput.contiguous()
@@ -262,8 +261,8 @@ class AnimeSRDirectML:
         width: int,
         height: int,
     ):
-        import onnxruntime as ort
         import numpy as np
+        import onnxruntime as ort
 
         if "openvino" in upscaleMethod:
             logAndPrint(
@@ -423,5 +422,3 @@ class AnimeSRDirectML:
             mode="bicubic",
             align_corners=False,
         )
-
-

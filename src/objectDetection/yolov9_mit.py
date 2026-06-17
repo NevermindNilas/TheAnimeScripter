@@ -5,6 +5,7 @@ https://github.com/ibaiGorordo/ONNX-YOLOv9-MIT-Object-Detection/blob/main/yolov9
 """
 
 import time
+
 import cv2
 import numpy as np
 import onnxruntime
@@ -116,7 +117,7 @@ def draw_detections(image, boxes, scores, class_ids, mask_alpha=0.3):
     det_img = draw_masks(det_img, boxes, class_ids, mask_alpha)
 
     # Draw bounding boxes and labels of detections
-    for class_id, box, score in zip(class_ids, boxes, scores):
+    for class_id, box, score in zip(class_ids, boxes, scores, strict=False):
         color = colors[class_id]
 
         draw_box(det_img, box, color)
@@ -175,7 +176,7 @@ def draw_masks(
     mask_img = image.copy()
 
     # Draw bounding boxes and labels of detections
-    for box, class_id in zip(boxes, classes):
+    for box, class_id in zip(boxes, classes, strict=False):
         color = colors[class_id]
 
         x1, y1, x2, y2 = box.astype(int)
@@ -266,8 +267,8 @@ class YOLOv9:
         self.input_names = [model_inputs[i].name for i in range(len(model_inputs))]
 
         input_shape = model_inputs[0].shape
-        self.input_height = input_shape[2] if type(input_shape[2]) == int else 640
-        self.input_width = input_shape[3] if type(input_shape[3]) == int else 640
+        self.input_height = input_shape[2] if isinstance(input_shape[2], int) else 640
+        self.input_width = input_shape[3] if isinstance(input_shape[3], int) else 640
 
     def get_output_details(self):
         model_outputs = self.session.get_outputs()

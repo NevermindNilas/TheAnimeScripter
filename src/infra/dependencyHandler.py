@@ -1,19 +1,18 @@
+import json
+import logging
+import os
+import re
 import subprocess
 import sys
-import os
-import logging
 import sysconfig
-import src.constants as cs
-import json
-import re
-
-from pathlib import Path
-from typing import Iterable, Tuple
-from src.utils.logAndPrint import logAndPrint
+from collections.abc import Iterable
 from importlib import invalidate_caches
-from importlib.metadata import version, PackageNotFoundError
+from importlib.metadata import PackageNotFoundError, version
 from importlib.util import find_spec
+from pathlib import Path
 
+import src.constants as cs
+from src.utils.logAndPrint import logAndPrint
 
 KNOWN_MODULE_ALIASES = {
     "opencv-python": "cv2",
@@ -79,7 +78,7 @@ def _getRuntimeRoot() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _resolveRequirementsPath(extension: str) -> Tuple[bool, str]:
+def _resolveRequirementsPath(extension: str) -> tuple[bool, str]:
     """Resolve a requirements file path based on the Python executable and runtime root."""
     pythonPath = getPythonExecutable()
     if not pythonPath:
@@ -111,7 +110,7 @@ def _versionSatisfiesRequirement(specifier: str, installedVersion: str) -> bool:
         return True
 
 
-def _runPipCommand(pythonPath: str, args: list[str], action: str) -> Tuple[bool, str]:
+def _runPipCommand(pythonPath: str, args: list[str], action: str) -> tuple[bool, str]:
     """Run pip with streamed output and return (success, message)."""
     try:
         logging.info("Using Python executable: %s", pythonPath)
@@ -144,7 +143,7 @@ def _runPipCommand(pythonPath: str, args: list[str], action: str) -> Tuple[bool,
         return False, errorMsg
 
 
-def uninstallDependencies(extension: str = "") -> Tuple[bool, str]:
+def uninstallDependencies(extension: str = "") -> tuple[bool, str]:
     """Uninstall dependencies from the selected requirements file."""
     pythonPath = getPythonExecutable()
     ok, requirementsPath = _resolveRequirementsPath(extension)
@@ -168,7 +167,7 @@ def uninstallDependencies(extension: str = "") -> Tuple[bool, str]:
     )
 
 
-def installDependencies(extension: str = "", isNvidia: bool = True) -> Tuple[bool, str]:
+def installDependencies(extension: str = "", isNvidia: bool = True) -> tuple[bool, str]:
     """Install dependencies from the selected requirements file."""
     pythonPath = getPythonExecutable()
     ok, requirementsPath = _resolveRequirementsPath(extension)
@@ -234,7 +233,7 @@ def _locateNvvfxLibsDir() -> Path | None:
     return None
 
 
-def pruneMaxineUnusedLibs() -> Tuple[int, int]:
+def pruneMaxineUnusedLibs() -> tuple[int, int]:
     """Delete the TensorRT runtime libs the Maxine VSR path never uses.
 
     Trims files from the *locally installed* nvidia-vfx package only — no
@@ -314,7 +313,9 @@ class DependencyChecker:
         try:
             requirementsFile = getRequirementsFileForProfile(storedProfile)
         except ValueError:
-            logging.warning(f"Stored profile '{storedProfile}' is invalid, re-prompting")
+            logging.warning(
+                f"Stored profile '{storedProfile}' is invalid, re-prompting"
+            )
             self.clearCache()
             return self._promptInstallAndStore()
 
@@ -332,8 +333,7 @@ class DependencyChecker:
             return True
 
         logAndPrint(
-            "Missing dependencies detected: "
-            + ", ".join(missing + notImportable),
+            "Missing dependencies detected: " + ", ".join(missing + notImportable),
             "yellow",
         )
         return self._promptInstallAndStore()
@@ -378,7 +378,7 @@ class DependencyChecker:
     def iterRequirements(self, requirementsPath: str):
         """Yield (name, rawSpecifier) pairs from a requirements.txt file."""
         try:
-            with open(requirementsPath, "r", encoding="utf-8") as f:
+            with open(requirementsPath, encoding="utf-8") as f:
                 for raw in f:
                     line = raw.strip()
                     if not line or line.startswith("#"):
@@ -455,7 +455,7 @@ class DependencyChecker:
             return self._cache
 
         try:
-            with open(self.cachePath, "r") as f:
+            with open(self.cachePath) as f:
                 self._cache = json.load(f)
             return self._cache
         except Exception as e:

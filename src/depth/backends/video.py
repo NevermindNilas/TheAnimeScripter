@@ -1,31 +1,31 @@
 import os
-import sys
+
 os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
-import torch
 import logging
-import numpy as np
-import torch.nn.functional as F
-import cv2
-import importlib
-
-from src.utils.logAndPrint import logAndPrint
 from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
+
+import cv2
+import numpy as np
+import torch
+
+from src.constants import ADOBE
+from src.utils.downloadModels import (
+    modelsMap,
+    resolveWeightPath,
+)
 from src.utils.ffmpegSettings import (
     BuildBuffer,
-    WriteBuffer,
 )
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
-from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.isCudaInit import CudaChecker
-from queue import Queue
-from src.constants import ADOBE
+from src.utils.progressBarLogic import ProgressBarLogic
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    pass
 
-from collections import deque
 import statistics
+from collections import deque
 
 checker = CudaChecker()
 
@@ -138,6 +138,7 @@ def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
     logging.info(f"Depth Padding: {newWidth}x{newHeight}")
     return newHeight, newWidth
 
+
 class VideoDepthAnythingCUDA:
     def __init__(
         self,
@@ -224,7 +225,11 @@ class VideoDepthAnythingCUDA:
                 "features": 64,
                 "out_channels": [48, 96, 192, 384],
             },
-            'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
+            "vitb": {
+                "encoder": "vitb",
+                "features": 128,
+                "out_channels": [96, 192, 384, 768],
+            },
             "vitl": {
                 "encoder": "vitl",
                 "features": 256,
@@ -238,16 +243,15 @@ class VideoDepthAnythingCUDA:
             encoder = "vitb"
         elif self.depth_method == "og_video_large_v2":
             encoder = "vitl"
-            
+
         self.model = VideoDepthAnything(**model_configs[encoder])
 
         self.model.load_state_dict(
             torch.load(modelPath, map_location="cpu"), strict=True
         )
 
-
         self.model = self.model.to(checker.device).eval()
-        #self.model.half() if self.half else self.model.float()
+        # self.model.half() if self.half else self.model.float()
         self.device = "cuda" if checker.cudaAvailable else "cpu"
 
     def _resetVideoDepthState(self):
@@ -285,7 +289,6 @@ class VideoDepthAnythingCUDA:
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
 
-
     def encodeThread(self):
         while True:
             frame = self.encodeBuffer.get()
@@ -296,7 +299,7 @@ class VideoDepthAnythingCUDA:
 
 class VideoDepthAnythingTorch:
     """Video Depth pipeline using Nelux-backed decoding and PyTorch for processing."""
-    
+
     def __init__(
         self,
         input,
@@ -367,9 +370,7 @@ class VideoDepthAnythingTorch:
 
         # Map video_small_v2 -> og_video_small_v2 weights
         weights_model = self.depth_method.replace("video_", "og_video_")
-        self.filename = modelsMap(
-            model=weights_model, modelType="pth", half=self.half
-        )
+        self.filename = modelsMap(model=weights_model, modelType="pth", half=self.half)
 
         modelPath = resolveWeightPath(
             weights_model,
@@ -384,7 +385,11 @@ class VideoDepthAnythingTorch:
                 "features": 64,
                 "out_channels": [48, 96, 192, 384],
             },
-            'vitb': {'encoder': 'vitb', 'features': 128, 'out_channels': [96, 192, 384, 768]},
+            "vitb": {
+                "encoder": "vitb",
+                "features": 128,
+                "out_channels": [96, 192, 384, 768],
+            },
             "vitl": {
                 "encoder": "vitl",
                 "features": 256,
@@ -398,7 +403,7 @@ class VideoDepthAnythingTorch:
             encoder = "vitl"
         else:
             encoder = "vits"
-            
+
         self.model = VideoDepthAnything(**model_configs[encoder])
 
         self.model.load_state_dict(
@@ -424,11 +429,11 @@ class VideoDepthAnythingTorch:
                     frame = frame.permute(1, 2, 0).cpu().numpy()
                 elif frame.dim() == 4:  # B, C, H, W
                     frame = frame.squeeze(0).permute(1, 2, 0).cpu().numpy()
-            
+
             # Ensure RGB format and uint8
             if frame.dtype != np.uint8:
                 frame = (frame * 255).astype(np.uint8)
-            
+
             depth = self.model.infer_video_depth_one(frame, 518, self.device, True)
             min_val, max_val = depth.min(), depth.max()
             depth = ((depth - min_val) / (max_val - min_val) * 255).astype(np.uint8)

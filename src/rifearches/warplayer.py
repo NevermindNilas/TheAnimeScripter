@@ -4,6 +4,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 tenGrid = {}
 tenFlowDiv = {}  # precomputed inverse divisors [2/(W-1), 2/(H-1)] per (device, size, dtype)
 
+
 def warp(tenInput, tenFlow):
     k = (str(tenFlow.device), str(tenFlow.size()), str(tenFlow.dtype))
     if k not in tenGrid:

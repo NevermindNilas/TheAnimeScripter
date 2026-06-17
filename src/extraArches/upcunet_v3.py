@@ -4,8 +4,7 @@ The fallin models from Renarchi also use this architecture.
 """
 
 import torch
-from torch import Tensor
-from torch import nn
+from torch import Tensor, nn
 from torch.nn import functional as F
 
 

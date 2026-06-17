@@ -92,9 +92,9 @@ class DySample(nn.Module):
             .type(x.dtype)
             .to(x.device, non_blocking=True)
         )
-        normalizer = torch.tensor(
-            [W, H], dtype=x.dtype, device=x.device
-        ).view(1, 2, 1, 1, 1)
+        normalizer = torch.tensor([W, H], dtype=x.dtype, device=x.device).view(
+            1, 2, 1, 1, 1
+        )
         coords = 2 * (coords + offset) / normalizer - 1
 
         coords = (
@@ -217,7 +217,9 @@ class LDA_AQU(nn.Module):
         device = offset.device
         row_indices = torch.arange(Hout, device=device)
         col_indices = torch.arange(Wout, device=device)
-        row_indices, col_indices = torch.meshgrid(row_indices, col_indices, indexing="ij")
+        row_indices, col_indices = torch.meshgrid(
+            row_indices, col_indices, indexing="ij"
+        )
         index_tensor = torch.stack((row_indices, col_indices), dim=-1).view(
             1, Hout, Wout, 2
         )

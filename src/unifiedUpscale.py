@@ -9,12 +9,12 @@ Backward-compatibility shim. Import from src.upscale.* directly.
   src.upscale.misc      -- NvidiaVSR, AnimeSR
 """
 
-from src.upscale.pytorch import UniversalPytorch, UniversalPytorchMPS
-from src.upscale.tensorrt import UniversalTensorRT, AnimeSRTensorRT
-from src.upscale.directml import UniversalDirectML, AnimeSRDirectML
-from src.upscale.artcnn import _ArtCNNLumaMixin, ArtCNNTensorRT, ArtCNNDirectML
+from src.upscale.artcnn import ArtCNNDirectML, ArtCNNTensorRT, _ArtCNNLumaMixin
+from src.upscale.directml import AnimeSRDirectML, UniversalDirectML
+from src.upscale.misc import AnimeSR, NvidiaVSR
 from src.upscale.ncnn import UniversalNCNN
-from src.upscale.misc import NvidiaVSR, AnimeSR
+from src.upscale.pytorch import UniversalPytorch, UniversalPytorchMPS
+from src.upscale.tensorrt import AnimeSRTensorRT, UniversalTensorRT
 
 __all__ = [
     "UniversalPytorch",

@@ -1,4 +1,5 @@
 import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,7 +19,7 @@ class FastLineDarkenWithStreams(nn.Module):
         gaussian: bool = True,
         darkenStrength: float = 0.7,
     ):
-        super(FastLineDarkenWithStreams, self).__init__()
+        super().__init__()
         self.half = half
         self.thinEdges = thinEdges
         self.gaussian = gaussian
@@ -136,7 +137,7 @@ class FastLineDarken(nn.Module):
         gaussian: bool = True,
         darkenStrength: float = 0.8,
     ):
-        super(FastLineDarken, self).__init__()
+        super().__init__()
         self.half = half
         self.thinEdges = thinEdges
         self.gaussian = gaussian
@@ -250,6 +251,7 @@ class FastLineDarkenTRT(FastLineDarken):
     ):
         super().__init__(half)
         import tensorrt as trt
+
         from ..utils.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,

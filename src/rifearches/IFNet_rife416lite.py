@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .warplayer import warp
+
 from .dynamic_scale import dynamicScale
+from .warplayer import warp
+
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
@@ -18,9 +20,10 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
         nn.LeakyReLU(0.2, True),
     )
 
+
 class Head(nn.Module):
     def __init__(self):
-        super(Head, self).__init__()
+        super().__init__()
         self.cnn0 = nn.Conv2d(3, 16, 3, 2, 1)
         self.cnn1 = nn.Conv2d(16, 16, 3, 1, 1)
         self.cnn2 = nn.Conv2d(16, 16, 3, 1, 1)
@@ -39,9 +42,10 @@ class Head(nn.Module):
             return [x0, x1, x2, x3]
         return x3
 
+
 class ResConv(nn.Module):
     def __init__(self, c, dilation=1):
-        super(ResConv, self).__init__()
+        super().__init__()
         self.conv = nn.Conv2d(c, c, 3, 1, dilation, dilation=dilation, groups=1)
         self.beta = nn.Parameter(torch.ones((1, c, 1, 1)), requires_grad=True)
         self.relu = nn.LeakyReLU(0.2, True)
@@ -49,9 +53,10 @@ class ResConv(nn.Module):
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
 
+
 class IFBlock(nn.Module):
     def __init__(self, in_planes, c=64):
-        super(IFBlock, self).__init__()
+        super().__init__()
         self.conv0 = nn.Sequential(
             conv(in_planes, c // 2, 3, 2, 1),
             conv(c // 2, c, 3, 2, 1),
@@ -93,6 +98,7 @@ class IFBlock(nn.Module):
         mask = tmp[:, 4:5]
         return flow, mask
 
+
 class IFNet(nn.Module):
     def __init__(
         self,
@@ -102,7 +108,7 @@ class IFNet(nn.Module):
         interpolateFactor=2,
         staticStep=False,
     ):
-        super(IFNet, self).__init__()
+        super().__init__()
         self.block0 = IFBlock(7 + 8, c=128)
         self.block1 = IFBlock(8 + 4 + 8, c=96)
         self.block2 = IFBlock(8 + 4 + 8, c=64)

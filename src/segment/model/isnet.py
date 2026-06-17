@@ -65,7 +65,7 @@ def muti_loss_fusion_kl(preds, target, dfs, fs, mode="MSE"):
 
 class REBNCONV(nn.Module):
     def __init__(self, in_ch=3, out_ch=3, dirate=1, stride=1):
-        super(REBNCONV, self).__init__()
+        super().__init__()
 
         self.conv_s1 = nn.Conv2d(
             in_ch, out_ch, 3, padding=1 * dirate, dilation=1 * dirate, stride=stride
@@ -90,7 +90,7 @@ def _upsample_like(src, tar):
 ### RSU-7 ###
 class RSU7(nn.Module):
     def __init__(self, in_ch=3, mid_ch=12, out_ch=3, img_size=512):
-        super(RSU7, self).__init__()
+        super().__init__()
 
         self.in_ch = in_ch
         self.mid_ch = mid_ch
@@ -172,7 +172,7 @@ class RSU7(nn.Module):
 ### RSU-6 ###
 class RSU6(nn.Module):
     def __init__(self, in_ch=3, mid_ch=12, out_ch=3):
-        super(RSU6, self).__init__()
+        super().__init__()
 
         self.rebnconvin = REBNCONV(in_ch, out_ch, dirate=1)
 
@@ -239,7 +239,7 @@ class RSU6(nn.Module):
 ### RSU-5 ###
 class RSU5(nn.Module):
     def __init__(self, in_ch=3, mid_ch=12, out_ch=3):
-        super(RSU5, self).__init__()
+        super().__init__()
 
         self.rebnconvin = REBNCONV(in_ch, out_ch, dirate=1)
 
@@ -296,7 +296,7 @@ class RSU5(nn.Module):
 ### RSU-4 ###
 class RSU4(nn.Module):
     def __init__(self, in_ch=3, mid_ch=12, out_ch=3):
-        super(RSU4, self).__init__()
+        super().__init__()
 
         self.rebnconvin = REBNCONV(in_ch, out_ch, dirate=1)
 
@@ -343,7 +343,7 @@ class RSU4(nn.Module):
 ### RSU-4F ###
 class RSU4F(nn.Module):
     def __init__(self, in_ch=3, mid_ch=12, out_ch=3):
-        super(RSU4F, self).__init__()
+        super().__init__()
 
         self.rebnconvin = REBNCONV(in_ch, out_ch, dirate=1)
 
@@ -386,7 +386,7 @@ class myrebnconv(nn.Module):
         dilation=1,
         groups=1,
     ):
-        super(myrebnconv, self).__init__()
+        super().__init__()
 
         self.conv = nn.Conv2d(
             in_ch,
@@ -406,7 +406,7 @@ class myrebnconv(nn.Module):
 
 class ISNetGTEncoder(nn.Module):
     def __init__(self, in_ch=1, out_ch=1):
-        super(ISNetGTEncoder, self).__init__()
+        super().__init__()
 
         self.conv_in = myrebnconv(
             in_ch, 16, 3, stride=2, padding=1
@@ -497,7 +497,7 @@ class ISNetGTEncoder(nn.Module):
 
 class ISNetDIS(nn.Module):
     def __init__(self, in_ch=3, out_ch=1):
-        super(ISNetDIS, self).__init__()
+        super().__init__()
 
         self.conv_in = nn.Conv2d(in_ch, 64, 3, stride=2, padding=1)
         self.pool_in = nn.MaxPool2d(2, stride=2, ceil_mode=True)

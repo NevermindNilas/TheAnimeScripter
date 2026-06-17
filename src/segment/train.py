@@ -5,7 +5,6 @@ from .model import (
     ISNetGTEncoder,
 )
 
-
 # warnings.filterwarnings("ignore")
 
 net_names = [

@@ -1,7 +1,9 @@
 import logging
 import os
-import psutil
 import platform
+
+import psutil
+
 from src.constants import SYSTEM
 
 

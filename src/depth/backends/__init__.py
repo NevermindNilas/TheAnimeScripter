@@ -1,6 +1,6 @@
 from .cuda import DepthCuda, OGDepthV2CUDA, OGDepthV3Cuda
-from .tensorrt import DepthTensorRTV2, OGDepthV2TensorRT
 from .directml import DepthDirectMLV2, OGDepthV2DirectML
+from .tensorrt import DepthTensorRTV2, OGDepthV2TensorRT
 from .video import VideoDepthAnythingCUDA, VideoDepthAnythingTorch
 
 __all__ = [

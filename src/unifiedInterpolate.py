@@ -8,11 +8,11 @@ Backward-compatibility shim. Import from src.interpolate.* directly.
   src.interpolate.distildrba    -- DistilDRBACuda, DistilDRBATensorRT
 """
 
-from src.interpolate.rife import RifeCuda, RifeMPS
-from src.interpolate.rife_tensorrt import RifeTensorRT
-from src.interpolate.rife_ncnn import RifeNCNN
-from src.interpolate.rife_directml import RifeDirectML
 from src.interpolate.distildrba import DistilDRBACuda, DistilDRBATensorRT
+from src.interpolate.rife import RifeCuda, RifeMPS
+from src.interpolate.rife_directml import RifeDirectML
+from src.interpolate.rife_ncnn import RifeNCNN
+from src.interpolate.rife_tensorrt import RifeTensorRT
 
 __all__ = [
     "RifeCuda",

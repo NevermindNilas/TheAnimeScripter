@@ -5,16 +5,18 @@ This module provides DirectML-compatible versions of all RIFE architectures
 using decomposed grid_sample operations.
 """
 
+import math
+
 import torch
 import torch.nn as nn
 from torch.nn.functional import interpolate
-import math
 
 from .grid_sample_directml import grid_sample_directml
 
 # =============================================================================
 # Shared utilities
 # =============================================================================
+
 
 def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
@@ -30,11 +32,12 @@ def conv(in_planes, out_planes, kernel_size=3, stride=1, padding=1, dilation=1):
         nn.LeakyReLU(0.2, True),
     )
 
+
 class Head8(nn.Module):
     """Feature encoder that produces 8-channel features (for RIFE 4.15-4.22)."""
 
     def __init__(self):
-        super(Head8, self).__init__()
+        super().__init__()
         self.cnn0 = nn.Conv2d(3, 32, 3, 2, 1)
         self.cnn1 = nn.Conv2d(32, 32, 3, 1, 1)
         self.cnn2 = nn.Conv2d(32, 32, 3, 1, 1)
@@ -53,11 +56,12 @@ class Head8(nn.Module):
             return [x0, x1, x2, x3]
         return x3
 
+
 class Head4(nn.Module):
     """Feature encoder that produces 4-channel features (for RIFE 4.22-lite, 4.25)."""
 
     def __init__(self):
-        super(Head4, self).__init__()
+        super().__init__()
         self.cnn0 = nn.Conv2d(3, 16, 3, 2, 1)
         self.cnn1 = nn.Conv2d(16, 16, 3, 1, 1)
         self.cnn2 = nn.Conv2d(16, 16, 3, 1, 1)
@@ -76,9 +80,10 @@ class Head4(nn.Module):
             return [x0, x1, x2, x3]
         return x3
 
+
 class ResConv(nn.Module):
     def __init__(self, c):
-        super(ResConv, self).__init__()
+        super().__init__()
         self.conv = nn.Conv2d(c, c, 3, 1, padding=1)
         self.beta = nn.Parameter(torch.ones((1, c, 1, 1)), requires_grad=True)
         self.relu = nn.LeakyReLU(0.2, True)
@@ -86,11 +91,12 @@ class ResConv(nn.Module):
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
 
+
 class IFBlock415(nn.Module):
     """IFBlock for RIFE 4.15-4.21 (returns flow and mask only)."""
 
     def __init__(self, in_planes, c=64):
-        super(IFBlock415, self).__init__()
+        super().__init__()
         self.conv0 = nn.Sequential(
             conv(in_planes, c // 2, 3, 2, 1),
             conv(c // 2, c, 3, 2, 1),
@@ -118,11 +124,12 @@ class IFBlock415(nn.Module):
             flow = flow * scale
         return flow, mask
 
+
 class IFBlock422(nn.Module):
     """IFBlock for RIFE 4.22+ (returns flow, mask, and feat)."""
 
     def __init__(self, in_planes, c=64):
-        super(IFBlock422, self).__init__()
+        super().__init__()
         self.conv0 = nn.Sequential(
             conv(in_planes, c // 2, 3, 2, 1),
             conv(c // 2, c, 3, 2, 1),
@@ -151,12 +158,13 @@ class IFBlock422(nn.Module):
             flow = flow * scale
         return flow, mask, feat
 
+
 # =============================================================================
 # RIFE 4.6 DirectML (non-head)
 # =============================================================================
 class ResConv46(nn.Module):
     def __init__(self, c, dilation=1):
-        super(ResConv46, self).__init__()
+        super().__init__()
         self.conv = nn.Conv2d(c, c, 3, 1, dilation, dilation=dilation, groups=1)
         self.beta = nn.Parameter(torch.ones((1, c, 1, 1)), requires_grad=True)
         self.relu = nn.LeakyReLU(0.2, True)
@@ -164,9 +172,10 @@ class ResConv46(nn.Module):
     def forward(self, x):
         return self.relu(self.conv(x) * self.beta + x)
 
+
 class IFBlock46(nn.Module):
     def __init__(self, in_planes, c=64):
-        super(IFBlock46, self).__init__()
+        super().__init__()
         self.conv0 = nn.Sequential(
             conv(in_planes, c // 2, 3, 2, 1),
             conv(c // 2, c, 3, 2, 1),
@@ -195,6 +204,7 @@ class IFBlock46(nn.Module):
         mask = tmp[:, 4:5]
         return flow, mask
 
+
 def warp_directml_46(tenInput, tenFlow, tenFlowDiv, backWarp):
     # Normalize flow (pixel units -> grid units) then build sampling grid.
     tenFlow = torch.cat(
@@ -208,6 +218,7 @@ def warp_directml_46(tenInput, tenFlow, tenFlowDiv, backWarp):
         align_corners=True,
     )
 
+
 class IFNet_46(nn.Module):
     """RIFE 4.6 DirectML - 4 blocks, flow/mask based, no head features."""
 
@@ -220,7 +231,7 @@ class IFNet_46(nn.Module):
         width=1920,
         height=1080,
     ):
-        super(IFNet_46, self).__init__()
+        super().__init__()
         self.block0 = IFBlock46(7, c=192)
         self.block1 = IFBlock46(8 + 4, c=128)
         self.block2 = IFBlock46(8 + 4, c=96)
@@ -316,6 +327,7 @@ class IFNet_46(nn.Module):
             :, :, : self.height, : self.width
         ]
 
+
 # =============================================================================
 # RIFE 4.15/4.17/4.18 DirectML (8ch features, 4 blocks, no feat output)
 # =============================================================================
@@ -331,7 +343,7 @@ class IFNet_415(nn.Module):
         width=1920,
         height=1080,
     ):
-        super(IFNet_415, self).__init__()
+        super().__init__()
         self.block0 = IFBlock415(7 + 16, c=192)
         self.block1 = IFBlock415(8 + 4 + 16, c=128)
         self.block2 = IFBlock415(8 + 4 + 16, c=96)
@@ -382,7 +394,7 @@ class IFNet_415(nn.Module):
         wf = None
 
         flows = None
-        for block, scale in zip(self.blocks, self.scaleList):
+        for block, scale in zip(self.blocks, self.scaleList, strict=False):
             if flows is None:
                 if self.ensemble:
                     temp = torch.cat((imgs, fs, timestep), 1)
@@ -480,6 +492,7 @@ class IFNet_415(nn.Module):
             :, :, : self.height, : self.width
         ]
 
+
 # =============================================================================
 # RIFE 4.22 DirectML (full)
 # =============================================================================
@@ -495,7 +508,7 @@ class IFNet_422(nn.Module):
         width=1920,
         height=1080,
     ):
-        super(IFNet_422, self).__init__()
+        super().__init__()
         self.block0 = IFBlock422(7 + 16, c=256)
         self.block1 = IFBlock422(8 + 4 + 16 + 8, c=192)
         self.block2 = IFBlock422(8 + 4 + 16 + 8, c=96)
@@ -547,7 +560,7 @@ class IFNet_422(nn.Module):
         wf = None
 
         flows = None
-        for block, scale in zip(self.blocks, self.scaleList):
+        for block, scale in zip(self.blocks, self.scaleList, strict=False):
             if flows is None:
                 if self.ensemble:
                     temp = torch.cat((imgs, fs, timestep), 1)
@@ -594,9 +607,7 @@ class IFNet_422(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)
@@ -657,6 +668,7 @@ class IFNet_422(nn.Module):
             :, :, : self.height, : self.width
         ]
 
+
 # =============================================================================
 # RIFE 4.20/4.21 DirectML (8ch features, 4 blocks, larger first block)
 # =============================================================================
@@ -672,7 +684,7 @@ class IFNet_420(nn.Module):
         width=1920,
         height=1080,
     ):
-        super(IFNet_420, self).__init__()
+        super().__init__()
         self.block0 = IFBlock415(7 + 16, c=384)
         self.block1 = IFBlock415(8 + 4 + 16, c=192)
         self.block2 = IFBlock415(8 + 4 + 16, c=96)
@@ -723,7 +735,7 @@ class IFNet_420(nn.Module):
         wf = None
 
         flows = None
-        for block, scale in zip(self.blocks, self.scaleList):
+        for block, scale in zip(self.blocks, self.scaleList, strict=False):
             if flows is None:
                 if self.ensemble:
                     temp = torch.cat((imgs, fs, timestep), 1)
@@ -821,6 +833,7 @@ class IFNet_420(nn.Module):
             :, :, : self.height, : self.width
         ]
 
+
 # =============================================================================
 # RIFE 4.22-lite DirectML (4ch features, 4 blocks, feat passthrough)
 # =============================================================================
@@ -836,7 +849,7 @@ class IFNet_422_lite(nn.Module):
         width=1920,
         height=1080,
     ):
-        super(IFNet_422_lite, self).__init__()
+        super().__init__()
         self.block0 = IFBlock422(7 + 8, c=192)
         self.block1 = IFBlock422(8 + 4 + 8 + 8, c=128)
         self.block2 = IFBlock422(8 + 4 + 8 + 8, c=64)
@@ -887,7 +900,7 @@ class IFNet_422_lite(nn.Module):
         wf = None
 
         flows = None
-        for block, scale in zip(self.blocks, self.scaleList):
+        for block, scale in zip(self.blocks, self.scaleList, strict=False):
             if flows is None:
                 if self.ensemble:
                     temp = torch.cat((imgs, fs, timestep), 1)
@@ -934,9 +947,7 @@ class IFNet_422_lite(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)
@@ -996,6 +1007,7 @@ class IFNet_422_lite(nn.Module):
             :, :, : self.height, : self.width
         ]
 
+
 # =============================================================================
 # RIFE 4.25 DirectML (4ch features, 5 blocks, mul=64)
 # =============================================================================
@@ -1011,7 +1023,7 @@ class IFNet_425(nn.Module):
         width=1920,
         height=1080,
     ):
-        super(IFNet_425, self).__init__()
+        super().__init__()
         self.block0 = IFBlock422(7 + 8, c=192)
         self.block1 = IFBlock422(8 + 4 + 8 + 8, c=128)
         self.block2 = IFBlock422(8 + 4 + 8 + 8, c=96)
@@ -1063,7 +1075,7 @@ class IFNet_425(nn.Module):
         wf = None
 
         flows = None
-        for block, scale in zip(self.blocks, self.scaleList):
+        for block, scale in zip(self.blocks, self.scaleList, strict=False):
             if flows is None:
                 if self.ensemble:
                     temp = torch.cat((imgs, fs, timestep), 1)
@@ -1110,9 +1122,7 @@ class IFNet_425(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)
@@ -1172,6 +1182,7 @@ class IFNet_425(nn.Module):
             :, :, : self.height, : self.width
         ]
 
+
 # =============================================================================
 # RIFE 4.25-lite DirectML (4ch features, 5 blocks, mul=128)
 # =============================================================================
@@ -1187,7 +1198,7 @@ class IFNet_425_lite(nn.Module):
         width=1920,
         height=1080,
     ):
-        super(IFNet_425_lite, self).__init__()
+        super().__init__()
         self.block0 = IFBlock422(7 + 8, c=192)
         self.block1 = IFBlock422(8 + 4 + 8 + 8, c=128)
         self.block2 = IFBlock422(8 + 4 + 8 + 8, c=96)
@@ -1239,7 +1250,7 @@ class IFNet_425_lite(nn.Module):
         wf = None
 
         flows = None
-        for block, scale in zip(self.blocks, self.scaleList):
+        for block, scale in zip(self.blocks, self.scaleList, strict=False):
             if flows is None:
                 if self.ensemble:
                     temp = torch.cat((imgs, fs, timestep), 1)
@@ -1286,9 +1297,7 @@ class IFNet_425_lite(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)
@@ -1348,6 +1357,7 @@ class IFNet_425_lite(nn.Module):
             :, :, : self.height, : self.width
         ]
 
+
 # =============================================================================
 # RIFE 4.25-heavy DirectML (4ch features, 5 blocks, 2x channels, mul=64)
 # =============================================================================
@@ -1363,7 +1373,7 @@ class IFNet_425_heavy(nn.Module):
         width=1920,
         height=1080,
     ):
-        super(IFNet_425_heavy, self).__init__()
+        super().__init__()
         self.block0 = IFBlock422(7 + 8, c=192 * 2)
         self.block1 = IFBlock422(8 + 4 + 8 + 8, c=128 * 2)
         self.block2 = IFBlock422(8 + 4 + 8 + 8, c=96 * 2)
@@ -1415,7 +1425,7 @@ class IFNet_425_heavy(nn.Module):
         wf = None
 
         flows = None
-        for block, scale in zip(self.blocks, self.scaleList):
+        for block, scale in zip(self.blocks, self.scaleList, strict=False):
             if flows is None:
                 if self.ensemble:
                     temp = torch.cat((imgs, fs, timestep), 1)
@@ -1462,9 +1472,7 @@ class IFNet_425_heavy(nn.Module):
                         ),
                         1,
                     )
-                    fdss, masks, feats = block(
-                        torch.cat((temp, temp_), 0), scale=scale
-                    )
+                    fdss, masks, feats = block(torch.cat((temp, temp_), 0), scale=scale)
                     fds, fds_ = torch.split(fdss, [1, 1], dim=0)
                     mask, mask_ = torch.split(masks, [1, 1], dim=0)
                     feat, feat_ = torch.split(feats, [1, 1], dim=0)

@@ -1,12 +1,15 @@
-import os
-import torch
 import logging
+import os
 
-from src.utils.modelOptimizer import ModelOptimizer
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
+import torch
+
+from src.constants import ADOBE
+from src.utils.downloadModels import (
+    modelsMap,
+    resolveWeightPath,
+)
 from src.utils.isCudaInit import CudaChecker
 from src.utils.logAndPrint import logAndPrint
-from src.constants import ADOBE
 
 if ADOBE:
     from src.utils.aeComms import progressState
@@ -93,6 +96,7 @@ class ArtCNNTensorRT(_ArtCNNLumaMixin):
         forceStatic: bool = False,
     ):
         import tensorrt as trt
+
         from src.utils.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
@@ -235,6 +239,7 @@ class ArtCNNTensorRT(_ArtCNNLumaMixin):
 
         return output
 
+
 class ArtCNNDirectML(_ArtCNNLumaMixin):
     """
     ArtCNN luma-only 2x upscaler (DirectML / OpenVINO via onnxruntime).
@@ -253,8 +258,8 @@ class ArtCNNDirectML(_ArtCNNLumaMixin):
         height: int,
         customModel: str,
     ):
-        import onnxruntime as ort
         import numpy as np
+        import onnxruntime as ort
 
         if "openvino" in upscaleMethod:
             logAndPrint(

@@ -114,7 +114,7 @@ def queryNvidiaSmiGpus():
             text=True,
             check=False,
         )
-    except (subprocess.SubprocessError, FileNotFoundError):
+    except subprocess.SubprocessError, FileNotFoundError:
         logging.info("nvidia-smi not found or failed to run")
         return ()
     if result.returncode != 0 or not result.stdout.strip():
@@ -143,7 +143,7 @@ def checkWindowsAdapters():
         if result.returncode == 0 and result.stdout:
             adapters = result.stdout.lower()
             return "nvidia" in adapters
-    except (subprocess.SubprocessError, FileNotFoundError):
+    except subprocess.SubprocessError, FileNotFoundError:
         pass
     return False
 
@@ -152,7 +152,7 @@ def checkLinuxPci():
     vendorPaths = glob.glob("/sys/bus/pci/devices/*/vendor")
     for vendorPath in vendorPaths:
         try:
-            with open(vendorPath, "r", encoding="utf-8") as handle:
+            with open(vendorPath, encoding="utf-8") as handle:
                 if handle.read().strip().lower() == "0x10de":
                     return True
         except OSError:
@@ -161,7 +161,7 @@ def checkLinuxPci():
         result = subprocess.run(["lspci"], capture_output=True, text=True, check=False)
         if result.returncode == 0 and "nvidia" in result.stdout.lower():
             return True
-    except (subprocess.SubprocessError, FileNotFoundError):
+    except subprocess.SubprocessError, FileNotFoundError:
         pass
     return False
 
@@ -172,7 +172,7 @@ def parseComputeCapability(value):
         major = int(parts[0])
         minor = int(parts[1]) if len(parts) > 1 else 0
         return major, minor
-    except (ValueError, AttributeError):
+    except ValueError, AttributeError:
         return None, None
 
 

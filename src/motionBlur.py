@@ -1,8 +1,8 @@
 import logging
 import math
 import os
-from time import time
 from concurrent.futures import ThreadPoolExecutor
+from time import time
 
 import cv2
 import torch
@@ -33,8 +33,7 @@ def generateWeights(numSamples, scheme="gaussian_sym"):
     elif scheme == "pyramid":
         center = (numSamples - 1) / 2.0
         weights = [
-            max(0.0, 1.0 - abs(i - center) / (center + 1.0))
-            for i in range(numSamples)
+            max(0.0, 1.0 - abs(i - center) / (center + 1.0)) for i in range(numSamples)
         ]
     elif scheme == "ascending":
         weights = [float(i + 1) for i in range(numSamples)]
@@ -74,9 +73,8 @@ class GammaCorrectBlender:
     INV_GAMMA = 1.0 / 2.2
 
     def __init__(self, weights, dtype, device, gamma=True):
-        self.weightTensor = (
-            torch.tensor(weights, dtype=dtype, device=device)
-            .view(-1, 1, 1, 1)
+        self.weightTensor = torch.tensor(weights, dtype=dtype, device=device).view(
+            -1, 1, 1, 1
         )
         self.gamma = gamma
         self.isEqual = len(weights) > 0 and all(
@@ -180,7 +178,9 @@ class MotionBlurPipeline:
     def _initInterpolationModel(self):
         if ADOBE:
             progressState.update(
-                {"status": f"Initializing interpolation model: {self.interpolateMethod}..."}
+                {
+                    "status": f"Initializing interpolation model: {self.interpolateMethod}..."
+                }
             )
 
         match self.interpolateMethod:
@@ -435,9 +435,7 @@ class MotionBlurPipeline:
         protection = protection.clamp_(0.0, 1.0)
         weightTensor = (1.0 - protection).view(1, 1, self.height, self.width)
 
-        logging.info(
-            f"Loaded motion blur mask: {self.moblurMaskPath} ({channels})"
-        )
+        logging.info(f"Loaded motion blur mask: {self.moblurMaskPath} ({channels})")
         return weightTensor
 
     def _computeWindow(self):
@@ -464,7 +462,14 @@ class MotionBlurPipeline:
 
         totalSamples = leftCount + 1 + nextSegCount
         noBlur = leftCount == 0 and nextSegCount == 0
-        return framesToInsert, prevSegStart, leftCount, nextSegCount, totalSamples, noBlur
+        return (
+            framesToInsert,
+            prevSegStart,
+            leftCount,
+            nextSegCount,
+            totalSamples,
+            noBlur,
+        )
 
     def _processFrames(self):
         (
@@ -508,7 +513,11 @@ class MotionBlurPipeline:
         logging.info(
             f"Motion blur window: {totalSamples} samples "
             f"({leftCount} prev + 1 curr + {nextSegCount} next)"
-            + (f" [windowed: {nSamples}/{framesToInsert} interpolated]" if self.windowed else "")
+            + (
+                f" [windowed: {nSamples}/{framesToInsert} interpolated]"
+                if self.windowed
+                else ""
+            )
             + (" [no-blur pass-through]" if noBlur else "")
             + (" [masked]" if self.mask is not None else "")
         )

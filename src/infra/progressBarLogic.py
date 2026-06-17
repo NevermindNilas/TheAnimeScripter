@@ -1,22 +1,23 @@
+import logging
+import os
+from random import choice
+from time import time
+
 from barflow import Progress
 from barflow.columns import (
     BarColumn,
-    TextColumn,
+    CallbackColumn,
+    CountColumn,
     DescriptionColumn,
-    PercentColumn,
     ElapsedColumn,
     EtaColumn,
-    CountColumn,
-    CallbackColumn,
+    PercentColumn,
     SpinnerColumn,
+    TextColumn,
 )
-import src.constants as cs
-import os
-from time import time
-from random import choice
-from src.utils.aeComms import progressState
 
-import logging
+import src.constants as cs
+from src.utils.aeComms import progressState
 
 TITLES = [
     "Handling",
@@ -218,7 +219,10 @@ class ProgressBarLogic:
         if cs.ADOBE:
             self.completed += advance
 
-            if self.completed >= getattr(self, "nextUpdateFrame", self.updateInterval) or self.completed >= self.totalFrames:
+            if (
+                self.completed >= getattr(self, "nextUpdateFrame", self.updateInterval)
+                or self.completed >= self.totalFrames
+            ):
                 currentTime = time()
                 elapsedTime = currentTime - self.startTime
                 fps_val = self.completed / elapsedTime if elapsedTime > 0 else 0.0

@@ -1,0 +1,35 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Cancel an in-flight run when a newer commit lands on the same ref.
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ruff:
+    # Ruff is a standalone binary and the checks are platform-agnostic, so the
+    # cheaper/faster Linux runner is fine even though the test matrix is Windows.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # Pin ruff: formatter output and lint rules can shift between releases, so
+      # the version here must match what contributors run locally.
+      - name: Install ruff
+        run: pipx install ruff==0.15.16
+
+      # Discovery mode (no explicit paths) so the excludes in pyproject.toml apply.
+      - name: Lint
+        run: ruff check --output-format=github
+
+      - name: Format check
+        run: ruff format --check

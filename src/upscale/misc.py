@@ -1,12 +1,14 @@
-import os
-import torch
 import logging
 
-from src.utils.modelOptimizer import ModelOptimizer
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
+import torch
+
+from src.constants import ADOBE
+from src.utils.downloadModels import (
+    modelsMap,
+    resolveWeightPath,
+)
 from src.utils.isCudaInit import CudaChecker
 from src.utils.logAndPrint import logAndPrint
-from src.constants import ADOBE
 
 if ADOBE:
     from src.utils.aeComms import progressState
@@ -38,9 +40,15 @@ class NvidiaVSR:
     """
 
     _VALID_QUALITIES = {
-        "BICUBIC", "LOW", "MEDIUM", "HIGH", "ULTRA",
-        "HIGHBITRATE_LOW", "HIGHBITRATE_MEDIUM",
-        "HIGHBITRATE_HIGH", "HIGHBITRATE_ULTRA",
+        "BICUBIC",
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "ULTRA",
+        "HIGHBITRATE_LOW",
+        "HIGHBITRATE_MEDIUM",
+        "HIGHBITRATE_HIGH",
+        "HIGHBITRATE_ULTRA",
     }
 
     def __init__(
@@ -113,11 +121,7 @@ class NvidiaVSR:
         self.nvvfx = nvvfx
 
         quality = VideoSuperRes.QualityLevel[self.qualityName]
-        deviceIdx = (
-            checker.device.index
-            if checker.device.index is not None
-            else 0
-        )
+        deviceIdx = checker.device.index if checker.device.index is not None else 0
 
         self.model = VideoSuperRes(quality=quality, device=deviceIdx)
         self.model.output_width = self.width * self.upscaleFactor
@@ -160,7 +164,9 @@ class NvidiaVSR:
     def __call__(
         self, frame: torch.Tensor, nextFrame: torch.Tensor = None
     ) -> torch.Tensor:
-        src = frame.squeeze(0) # We are always using 4 dim throughout the process, but Maxine API expects 3 dim (C,H,W), so remove batch dim here.
+        src = frame.squeeze(
+            0
+        )  # We are always using 4 dim throughout the process, but Maxine API expects 3 dim (C,H,W), so remove batch dim here.
         self.dummyInput.copy_(src.contiguous(), non_blocking=False)
         outCapsule = self.model.run(self.dummyInput, stream_ptr=0)
         upscaled = torch.from_dlpack(outCapsule.image)  # (3, H', W')
@@ -349,5 +355,3 @@ class AnimeSR:
         self.outputStream.synchronize()
 
         return output
-
-

@@ -1,11 +1,11 @@
-import os
 import logging
+import os
 
-import torch
 import nelux
+import torch
 
 import src.constants as cs
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
+from src.utils.downloadModels import downloadModels, modelsMap, weightsDir
 from src.utils.logAndPrint import logAndPrint
 from src.utils.progressBarLogic import ProgressBarLogic
 
@@ -50,9 +50,7 @@ class AutoClipTransnetv2:
         if cs.ADOBE:
             from src.utils.aeComms import progressState
 
-            progressState.update(
-                {"status": "Detecting scene changes (transnetv2)..."}
-            )
+            progressState.update({"status": "Detecting scene changes (transnetv2)..."})
             try:
                 self._run()
             except Exception as e:

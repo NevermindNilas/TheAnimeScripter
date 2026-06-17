@@ -1,17 +1,16 @@
-import os
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 
+import nelux
 import numpy as np
 import torch
-import nelux
 
 import src.constants as cs
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
+from src.utils.downloadModels import downloadModels, modelsMap, weightsDir
 from src.utils.logAndPrint import logAndPrint
 from src.utils.progressBarLogic import ProgressBarLogic
-
 
 _SENTINEL = object()
 
@@ -110,6 +109,7 @@ class AutoClipMaxxvit:
 
     def _loadTensorRT(self):
         import tensorrt as trt
+
         from src.utils.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
@@ -269,10 +269,14 @@ class AutoClipMaxxvit:
         prev = None
         idx = -1
 
-        with ThreadPoolExecutor(max_workers=1, thread_name_prefix="autoclip-decode") as pool:
+        with ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="autoclip-decode"
+        ) as pool:
             future = pool.submit(self._decodeWorker, iterable, preprocess, queue)
             try:
-                with ProgressBarLogic(totalFrames, title=f"AutoClip ({self.method})") as pbar:
+                with ProgressBarLogic(
+                    totalFrames, title=f"AutoClip ({self.method})"
+                ) as pbar:
                     while True:
                         curr = queue.get()
                         if curr is _SENTINEL:

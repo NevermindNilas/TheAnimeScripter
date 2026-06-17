@@ -4,6 +4,7 @@ Block does: x = x + ls1(attn(norm1(x)));  x = x + ls2(mlp(norm2(x)))
 ls(y) = y * gamma → fold gamma into attn.proj and mlp.fc2 / mlp.w3.
 After fold ls1/ls2 = Identity. Math identical in fp32, near-identical in fp16.
 """
+
 import torch
 from torch import nn
 
@@ -13,6 +14,7 @@ from .dinov2_layers.swiglu_ffn import SwiGLUFFN
 
 try:
     from xformers.ops import SwiGLU as _XSwiGLU
+
     _SWIGLU_TYPES = (SwiGLUFFN, _XSwiGLU)
 except ImportError:
     _SWIGLU_TYPES = (SwiGLUFFN,)

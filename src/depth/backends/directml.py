@@ -1,31 +1,34 @@
 import os
-import sys
+
 os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
-import torch
 import logging
-import numpy as np
-import torch.nn.functional as F
-import cv2
-import importlib
-
-from src.utils.logAndPrint import logAndPrint
 from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
+
+import cv2
+import numpy as np
+import torch
+import torch.nn.functional as F
+
+from src.constants import ADOBE
+from src.utils.downloadModels import (
+    modelsMap,
+    resolveWeightPath,
+)
 from src.utils.ffmpegSettings import (
     BuildBuffer,
     WriteBuffer,
 )
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
-from src.utils.progressBarLogic import ProgressBarLogic
 from src.utils.isCudaInit import CudaChecker
-from queue import Queue
-from src.constants import ADOBE
+from src.utils.logAndPrint import logAndPrint
+from src.utils.progressBarLogic import ProgressBarLogic
 
 if ADOBE:
     from src.utils.aeComms import progressState
 
-from collections import deque
 import statistics
+from collections import deque
 
 checker = CudaChecker()
 
@@ -137,6 +140,7 @@ def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
 
     logging.info(f"Depth Padding: {newWidth}x{newHeight}")
     return newHeight, newWidth
+
 
 class DepthDirectMLV2:
     def __init__(
@@ -423,7 +427,6 @@ class DepthDirectMLV2:
         self.writeBuffer.close()
 
 
-
 class OGDepthV2DirectML:
     def __init__(
         self,
@@ -631,7 +634,9 @@ class OGDepthV2DirectML:
                 depth = self.normalizer.normalize(depth)
                 depth = (depth * 255.0).astype(np.uint8)
             else:
-                depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6) * 255.0
+                depth = (
+                    (depth - depth.min()) / (depth.max() - depth.min() + 1e-6) * 255.0
+                )
                 depth = depth.astype(np.uint8)
 
             self.encodeBuffer.put(depth)
@@ -669,5 +674,3 @@ class OGDepthV2DirectML:
             )
             self.outputWriter.write(frame)
         self.outputWriter.release()
-
-

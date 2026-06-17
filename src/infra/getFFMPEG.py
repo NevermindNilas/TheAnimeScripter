@@ -1,8 +1,8 @@
-import shutil
 import logging
 import os
+import shutil
+from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
-from urllib.error import URLError, HTTPError
 
 import src.constants as cs
 
@@ -41,7 +41,9 @@ def downloadAndExtractFfmpeg(ffmpegPath):
         totalSizeInBytes = int(response.headers.get("content-length", 0))
 
         with (
-            ProgressBarDownloadLogic(totalSizeInBytes or 1, "Downloading FFmpeg") as bar,
+            ProgressBarDownloadLogic(
+                totalSizeInBytes or 1, "Downloading FFmpeg"
+            ) as bar,
             open(ffmpegArchivePath, "wb") as file,
         ):
             while True:
@@ -95,8 +97,8 @@ def extractFfmpegZip(ffmpegZipPath, ffmpegDir):
 
 
 def extractFfmpegTar(ffmpegTarPath, ffmpegDir):
-    import tarfile
     import stat
+    import tarfile
 
     try:
         with tarfile.open(ffmpegTarPath, "r:xz") as tarRef:
@@ -137,9 +139,9 @@ def extractFfmpegTar(ffmpegTarPath, ffmpegDir):
 
 
 def remove_readonly(func, path, excinfo):
+    import logging
     import stat
     import time
-    import logging
 
     try:
         os.chmod(path, stat.S_IWRITE)

@@ -10,17 +10,17 @@ if ADOBE:
     from src.utils.aeComms import progressState
 
 # Re-export standalone drivers so existing call sites (main.py) don't change.
-from src.factories.standalone import (
-    objectDetection,
+# noqa keeps ruff from stripping these "unused-in-module" re-exports.
+# Re-export RestoreChain for any code that references it via this module.
+from src.factories.restore import RestoreChain  # noqa: F401
+from src.factories.standalone import (  # noqa: F401
     autoClip,
-    segment,
     depth,
     motionBlur,
+    objectDetection,
+    segment,
     stabilize,
 )
-
-# Re-export RestoreChain for any code that references it via this module.
-from src.factories.restore import RestoreChain
 
 
 def initializeModels(self):

@@ -2,8 +2,9 @@
 
 import torch
 import torch.nn as nn
-from torch.nn.init import kaiming_normal_, constant_
-from .util import conv, predict_flow, deconv, crop_like
+from torch.nn.init import constant_, kaiming_normal_
+
+from .util import conv, crop_like, deconv, predict_flow
 
 __all__ = ["flownets", "flownets_bn"]
 
@@ -12,7 +13,7 @@ class FlowNetS(nn.Module):
     expansion = 1
 
     def __init__(self, batchNorm=True):
-        super(FlowNetS, self).__init__()
+        super().__init__()
 
         self.batchNorm = batchNorm
         self.conv1 = conv(self.batchNorm, 6, 64, kernel_size=7, stride=2)

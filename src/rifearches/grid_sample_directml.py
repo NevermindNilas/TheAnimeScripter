@@ -1,5 +1,6 @@
 import torch
 
+
 def grid_sample_directml(
     input_tensor: torch.Tensor,
     grid: torch.Tensor,
@@ -61,4 +62,3 @@ def grid_sample_directml(
     v11 = torch.gather(input_flat, 2, idx11).view(B, C, H_out, W_out)
 
     return w00 * v00 + w01 * v01 + w10 * v10 + w11 * v11
-

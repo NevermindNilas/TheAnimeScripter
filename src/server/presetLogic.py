@@ -1,7 +1,8 @@
 import json
 import os
-from src.utils.logAndPrint import logAndPrint
+
 import src.constants as cs
+from src.utils.logAndPrint import logAndPrint
 
 
 def createPreset(args):
@@ -44,7 +45,7 @@ def listPresets():
         print("No presets found")
         return
 
-    with open(presetsPath, "r") as file:
+    with open(presetsPath) as file:
         data = json.load(file)
         presets = data.get("Presets", {})
 
