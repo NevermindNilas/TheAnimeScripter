@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased] - YYYY-MM-DD
+
+## [2.7.8] - 2026-06-17
 ### Added
 - Progress bar: leading spinner that turns into a `✔` on completion.
 - Progress bar: live output filesize + bitrate column on the main pipeline bar; exact final size logged after encode (`Output Size: 29.5 MB`).
@@ -12,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Added `smosr` 2x upscale model ([umzi2/SMoSR](https://github.com/umzi2/SMoSR), MIT) across CUDA, MPS, TensorRT, DirectML, and OpenVINO backends. Special thanks to UMZI.
 
 ### Changed
+- Adopted **ruff** as the repo formatter + linter with a blocking CI lint gate (`ruff check` rules `E,F,I,UP,B` + `ruff format --check`); config in `pyproject.toml`, workflow `.github/workflows/lint.yaml`. Vendored trees are excluded to stay diff-clean vs upstream (#355).
 - Bumped `barflow` `0.4.0` → `0.4.1`.
 - Frame-processing loops (main pipeline, depth, object detection, segment) now terminate on the decoder's end-of-stream sentinel instead of polling queue state every frame; main loop uses a one-frame lookahead instead of queue peeking (#329). Thanks @KRRT7.
 - Bumped `nelux` `0.12.4` → `0.12.7`.
