@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from torch import nn
 from torch.nn.init import trunc_normal_
 
+
 class CSELayer(nn.Module):
     def __init__(self, num_channels: int = 48, reduction_ratio: int = 2) -> None:
         super().__init__()
@@ -17,6 +18,7 @@ class CSELayer(nn.Module):
     def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
         squeeze_tensor = torch.mean(input_tensor, dim=(2, 3), keepdim=True)
         return input_tensor * self.squeezing(squeeze_tensor)
+
 
 class RMSNorm(nn.Module):
     """RMSNorm for NCHW tensors (channels_first)."""
@@ -33,6 +35,7 @@ class RMSNorm(nn.Module):
         rms_x = norm_x * (d_x ** (-0.5))
         x_normed = x / (rms_x + self.eps)
         return self.scale * x_normed + self.offset
+
 
 class Conv3XC(nn.Module):
     def __init__(
@@ -56,10 +59,18 @@ class Conv3XC(nn.Module):
         w2, b2 = self.conv[1].weight.data, self.conv[1].bias.data
         w3, b3 = self.conv[2].weight.data, self.conv[2].bias.data
 
-        w = F.conv2d(w1.flip(2, 3).permute(1, 0, 2, 3), w2, padding=2).flip(2, 3).permute(1, 0, 2, 3)
+        w = (
+            F.conv2d(w1.flip(2, 3).permute(1, 0, 2, 3), w2, padding=2)
+            .flip(2, 3)
+            .permute(1, 0, 2, 3)
+        )
         b = (w2 * b1.reshape(1, -1, 1, 1)).sum((1, 2, 3)) + b2
 
-        self.weight_concat = F.conv2d(w.flip(2, 3).permute(1, 0, 2, 3), w3, padding=0).flip(2, 3).permute(1, 0, 2, 3)
+        self.weight_concat = (
+            F.conv2d(w.flip(2, 3).permute(1, 0, 2, 3), w3, padding=0)
+            .flip(2, 3)
+            .permute(1, 0, 2, 3)
+        )
         self.bias_concat = (w3 * b.reshape(1, -1, 1, 1)).sum((1, 2, 3)) + b3
 
         sk_w, sk_b = self.sk.weight.data, self.sk.bias.data
@@ -72,8 +83,11 @@ class Conv3XC(nn.Module):
         x_pad = F.pad(x, (1, 1, 1, 1), "constant", 0)
         return self.conv(x_pad) + self.sk(x)
 
+
 class SeqConv3x3(nn.Module):
-    def __init__(self, inp_planes: int, out_planes: int, depth_multiplier: float) -> None:
+    def __init__(
+        self, inp_planes: int, out_planes: int, depth_multiplier: float
+    ) -> None:
         super().__init__()
         self.mid_planes = int(out_planes * depth_multiplier)
         conv0 = nn.Conv2d(inp_planes, self.mid_planes, 1, padding=0)
@@ -85,14 +99,22 @@ class SeqConv3x3(nn.Module):
         y0 = F.conv2d(x, self.k0, self.b0)
         y0 = F.pad(y0, (1, 1, 1, 1), "constant", 0)
         b0_pad = self.b0.view(1, -1, 1, 1)
-        y0[:, :, 0:1, :], y0[:, :, -1:, :], y0[:, :, :, 0:1], y0[:, :, :, -1:] = b0_pad, b0_pad, b0_pad, b0_pad
+        y0[:, :, 0:1, :], y0[:, :, -1:, :], y0[:, :, :, 0:1], y0[:, :, :, -1:] = (
+            b0_pad,
+            b0_pad,
+            b0_pad,
+            b0_pad,
+        )
         return F.conv2d(y0, self.k1, self.b1)
 
     def rep_params(self) -> tuple[torch.Tensor, torch.Tensor]:
         rk = F.conv2d(self.k1, self.k0.permute(1, 0, 2, 3))
-        rb = torch.ones(1, self.mid_planes, 3, 3, device=self.k0.device, dtype=self.k0.dtype) * self.b0.view(1, -1, 1, 1)
+        rb = torch.ones(
+            1, self.mid_planes, 3, 3, device=self.k0.device, dtype=self.k0.dtype
+        ) * self.b0.view(1, -1, 1, 1)
         rb = F.conv2d(rb, self.k1).view(-1) + self.b1
         return rk, rb
+
 
 class RepConv(nn.Module):
     def __init__(self, in_dim: int = 3, out_dim: int = 32) -> None:
@@ -108,13 +130,22 @@ class RepConv(nn.Module):
         w2, b2 = self.conv2.weight.data, self.conv2.bias.data
         self.conv3.update_params()
         w3, b3 = self.conv3.eval_conv.weight.data, self.conv3.eval_conv.bias.data
-        self.conv_3x3_rep.weight.data = self.alpha[0] * w1 + self.alpha[1] * w2 + self.alpha[2] * w3
-        self.conv_3x3_rep.bias.data = self.alpha[0] * b1 + self.alpha[1] * b2 + self.alpha[2] * b3
+        self.conv_3x3_rep.weight.data = (
+            self.alpha[0] * w1 + self.alpha[1] * w2 + self.alpha[2] * w3
+        )
+        self.conv_3x3_rep.bias.data = (
+            self.alpha[0] * b1 + self.alpha[1] * b2 + self.alpha[2] * b3
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.training:
-            return self.alpha[0] * self.conv1(x) + self.alpha[1] * self.conv2(x) + self.alpha[2] * self.conv3(x)
+            return (
+                self.alpha[0] * self.conv1(x)
+                + self.alpha[1] * self.conv2(x)
+                + self.alpha[2] * self.conv3(x)
+            )
         return self.conv_3x3_rep(x)
+
 
 class OmniShift(nn.Module):
     def __init__(self, dim: int = 48) -> None:
@@ -129,21 +160,38 @@ class OmniShift(nn.Module):
         self.conv5x5_reparam = nn.Conv2d(dim, dim, 5, padding=2, groups=dim)
 
     def reparam_5x5(self) -> None:
-        w1, w3, w5 = self.conv1x1.weight.data, self.conv3x3.weight.data, self.conv5x5.weight.data
+        w1, w3, w5 = (
+            self.conv1x1.weight.data,
+            self.conv3x3.weight.data,
+            self.conv5x5.weight.data,
+        )
         id_w = torch.ones_like(w1)
-        combined_w = (self.alpha1.transpose(0, 1) * F.pad(id_w, (2, 2, 2, 2)) +
-                      self.alpha2.transpose(0, 1) * F.pad(w1, (2, 2, 2, 2)) +
-                      self.alpha3.transpose(0, 1) * F.pad(w3, (1, 1, 1, 1)) +
-                      self.alpha4.transpose(0, 1) * w5)
-        combined_b = (self.alpha2.squeeze() * self.conv1x1.bias.data +
-                      self.alpha3.squeeze() * self.conv3x3.bias.data +
-                      self.alpha4.squeeze() * self.conv5x5.bias.data)
-        self.conv5x5_reparam.weight.data, self.conv5x5_reparam.bias.data = combined_w, combined_b
+        combined_w = (
+            self.alpha1.transpose(0, 1) * F.pad(id_w, (2, 2, 2, 2))
+            + self.alpha2.transpose(0, 1) * F.pad(w1, (2, 2, 2, 2))
+            + self.alpha3.transpose(0, 1) * F.pad(w3, (1, 1, 1, 1))
+            + self.alpha4.transpose(0, 1) * w5
+        )
+        combined_b = (
+            self.alpha2.squeeze() * self.conv1x1.bias.data
+            + self.alpha3.squeeze() * self.conv3x3.bias.data
+            + self.alpha4.squeeze() * self.conv5x5.bias.data
+        )
+        self.conv5x5_reparam.weight.data, self.conv5x5_reparam.bias.data = (
+            combined_w,
+            combined_b,
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.training:
-            return self.alpha1 * x + self.alpha2 * self.conv1x1(x) + self.alpha3 * self.conv3x3(x) + self.alpha4 * self.conv5x5(x)
+            return (
+                self.alpha1 * x
+                + self.alpha2 * self.conv1x1(x)
+                + self.alpha3 * self.conv3x3(x)
+                + self.alpha4 * self.conv5x5(x)
+            )
         return self.conv5x5_reparam(x)
+
 
 class ParPixelUnshuffle(nn.Module):
     def __init__(self, in_dim: int, out_dim: int, down: int) -> None:
@@ -154,16 +202,27 @@ class ParPixelUnshuffle(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.pu(x) + self.poll(x)
 
+
 class GatedCNNBlock(nn.Module):
-    def __init__(self, dim: int = 64, expansion_ratio: float = 2.0, dccm: bool = True, se: bool = False) -> None:
+    def __init__(
+        self,
+        dim: int = 64,
+        expansion_ratio: float = 2.0,
+        dccm: bool = True,
+        se: bool = False,
+    ) -> None:
         super().__init__()
         self.norm = RMSNorm(dim)
         hidden = int(expansion_ratio * dim)
         self.fc1 = RepConv(dim, hidden * 2)
         self.act = nn.Mish()
         self.split_indices = [hidden, hidden - dim, dim]
-        self.conv = nn.Sequential(ParPixelUnshuffle(dim, dim * 4, 2), OmniShift(dim * 4),
-                                  CSELayer(dim * 4) if se else nn.Identity(), nn.PixelShuffle(2))
+        self.conv = nn.Sequential(
+            ParPixelUnshuffle(dim, dim * 4, 2),
+            OmniShift(dim * 4),
+            CSELayer(dim * 4) if se else nn.Identity(),
+            nn.PixelShuffle(2),
+        )
         self.fc2 = RepConv(hidden, dim) if dccm else nn.Conv2d(hidden, dim, 1, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -173,9 +232,18 @@ class GatedCNNBlock(nn.Module):
         x = self.act(self.fc2(self.act(g) * torch.cat((i, self.conv(c)), dim=1)))
         return x + shortcut
 
+
 class RTMoSR(nn.Module):
-    def __init__(self, scale: int = 2, dim: int = 32, ffn_expansion: float = 2.0, n_blocks: int = 2,
-                 unshuffle_mod: bool = False, dccm: bool = True, se: bool = True) -> None:
+    def __init__(
+        self,
+        scale: int = 2,
+        dim: int = 32,
+        ffn_expansion: float = 2.0,
+        n_blocks: int = 2,
+        unshuffle_mod: bool = False,
+        dccm: bool = True,
+        se: bool = True,
+    ) -> None:
         super().__init__()
         self.scale = scale
         unshuffle, inner_scale = 0, scale
@@ -186,10 +254,16 @@ class RTMoSR(nn.Module):
         if unshuffle == 0:
             self.to_feat = RepConv(3, dim)
         else:
-            self.to_feat = nn.Sequential(nn.PixelUnshuffle(unshuffle), RepConv(3 * unshuffle**2, dim))
+            self.to_feat = nn.Sequential(
+                nn.PixelUnshuffle(unshuffle), RepConv(3 * unshuffle**2, dim)
+            )
 
-        self.body = nn.Sequential(*[GatedCNNBlock(dim, ffn_expansion, dccm, se) for _ in range(n_blocks)])
-        self.to_img = nn.Sequential(RepConv(dim, 3 * inner_scale**2), nn.PixelShuffle(inner_scale))
+        self.body = nn.Sequential(
+            *[GatedCNNBlock(dim, ffn_expansion, dccm, se) for _ in range(n_blocks)]
+        )
+        self.to_img = nn.Sequential(
+            RepConv(dim, 3 * inner_scale**2), nn.PixelShuffle(inner_scale)
+        )
         self.apply(self._init_weights)
 
     @staticmethod
@@ -201,8 +275,10 @@ class RTMoSR(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         h, w = x.shape[2:]
-        ph, pw = (self.pad - h % self.pad) % self.pad, (self.pad - w % self.pad) % self.pad
+        ph, pw = (
+            (self.pad - h % self.pad) % self.pad,
+            (self.pad - w % self.pad) % self.pad,
+        )
         out = self.to_feat(F.pad(x, (0, pw, 0, ph), "reflect"))
-        out = self.to_img(self.body(out))[:, :, :h * self.scale, :w * self.scale]
+        out = self.to_img(self.body(out))[:, :, : h * self.scale, : w * self.scale]
         return out + F.interpolate(x, scale_factor=self.scale, mode="nearest")
-

@@ -1,8 +1,9 @@
-import os
 import logging
+import os
 
 from inquirer import List, prompt
 from yt_dlp import YoutubeDL
+
 from src.constants import ADOBE, FFMPEGPATH
 
 
@@ -172,7 +173,7 @@ class VideoDownloader:
                 ydl.download([self.link])
         except Exception as e:
             logging.error(f"Failed to download video: {e}")
-            raise Exception(f"Error downloading video: {e}")
+            raise Exception(f"Error downloading video: {e}") from e
 
     def getOptions(self):
         if self.height > 1080 and ADOBE:

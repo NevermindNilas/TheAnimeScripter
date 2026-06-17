@@ -1,8 +1,10 @@
-import numpy as np
-import os
 import logging
+import os
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
+
+import numpy as np
+
 from src.utils.logAndPrint import logAndPrint
 
 

@@ -1,12 +1,14 @@
 import os
-import torch
-import logging
 
-from src.utils.modelOptimizer import ModelOptimizer
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
+import torch
+
+from src.constants import ADOBE
+from src.utils.downloadModels import (
+    modelsMap,
+    resolveWeightPath,
+)
 from src.utils.isCudaInit import CudaChecker
 from src.utils.logAndPrint import logAndPrint
-from src.constants import ADOBE
 
 if ADOBE:
     from src.utils.aeComms import progressState
@@ -45,6 +47,7 @@ class UniversalTensorRT:
             customModel (str): The path to a custom model file
         """
         import tensorrt as trt
+
         from src.utils.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
@@ -185,12 +188,14 @@ class UniversalTensorRT:
 
         return output
 
+
 # NVIDIA Works Notice (required by NVIDIA Software License Agreement
 # AI Product-Specific Terms §1.7.1 for distributed source files using
 # the NVIDIA Video Effects SDK / Maxine VSR):
 #
 #   This software contains source code provided by NVIDIA Corporation.
 #
+
 
 class AnimeSRTensorRT:
     def __init__(
@@ -210,6 +215,7 @@ class AnimeSRTensorRT:
             height (int): The height of the input frame
         """
         import tensorrt as trt
+
         from src.utils.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
@@ -432,5 +438,3 @@ class AnimeSRTensorRT:
         self.outputStream.synchronize()
 
         return output
-
-

@@ -1,7 +1,7 @@
-import os
-import logging
-import re
 import glob
+import logging
+import os
+import re
 
 EXTENSIONS = [".mp4", ".mkv", ".webm", ".avi", ".mov", ".gif"]
 IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".tiff", ".tif", ".exr", ".dpx"]
@@ -282,7 +282,7 @@ def getVideoFiles(videosInput):
 
     if os.path.isfile(absPath):
         if absPath.endswith(".txt"):
-            with open(absPath, "r") as f:
+            with open(absPath) as f:
                 return [
                     os.path.abspath(line.strip().strip('"'))
                     for line in f

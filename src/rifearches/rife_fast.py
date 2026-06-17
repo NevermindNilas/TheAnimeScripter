@@ -24,12 +24,21 @@ import torch.nn.functional as F
 # shared modules
 # -----------------------------------------------------------------------------
 
+
 def _conv(inPlanes, outPlanes, kernelSize=3, stride=1, padding=1, dilation=1):
     return nn.Sequential(
-        nn.Conv2d(inPlanes, outPlanes, kernel_size=kernelSize, stride=stride,
-                  padding=padding, dilation=dilation, bias=True),
+        nn.Conv2d(
+            inPlanes,
+            outPlanes,
+            kernel_size=kernelSize,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            bias=True,
+        ),
         nn.LeakyReLU(0.2, inplace=True),
     )
+
 
 _DECONV_MAPPING = {
     (0, 0): [((0, 0), (3, 3)), ((0, 1), (3, 1)), ((1, 0), (1, 3)), ((1, 1), (1, 1))],
@@ -38,12 +47,17 @@ _DECONV_MAPPING = {
     (1, 1): [((1, 1), (2, 2)), ((1, 2), (2, 0)), ((2, 1), (0, 2)), ((2, 2), (0, 0))],
 }
 
+
 def _repackDeconv(deconvW, deconvB):
     """ConvTranspose2d(Cin, Cout, 4, 2, 1) -> Conv2d(Cin, 4*Cout, 3, 1, 1)."""
     Cin, Cout, _, _ = deconvW.shape
     device, dtype = deconvW.device, deconvW.dtype
     newK = torch.zeros(4 * Cout, Cin, 3, 3, dtype=dtype, device=device)
-    newB = torch.zeros(4 * Cout, dtype=dtype, device=device) if deconvB is not None else None
+    newB = (
+        torch.zeros(4 * Cout, dtype=dtype, device=device)
+        if deconvB is not None
+        else None
+    )
     for (s, t), positions in _DECONV_MAPPING.items():
         sub = s * 2 + t
         for (a, b), (ky, kx) in positions:
@@ -51,6 +65,7 @@ def _repackDeconv(deconvW, deconvB):
         if deconvB is not None:
             newB[sub::4] = deconvB
     return newK, newB
+
 
 class _ResConv(nn.Module):
     def __init__(self, c, dilation=1):
@@ -74,6 +89,7 @@ class _ResConv(nn.Module):
             self.conv.bias.mul_(bf)
         self._betaFolded = True
 
+
 class _IFBlock(nn.Module):
     """IFBlock with deconv->Conv2d+double-PS rewrite. lastOutCh: 6 or 13."""
 
@@ -93,10 +109,14 @@ class _IFBlock(nn.Module):
 
     def forward(self, x, flow=None, scale=1):
         if scale != 1:
-            x = F.interpolate(x, scale_factor=1.0 / scale, mode="bilinear", align_corners=False)
+            x = F.interpolate(
+                x, scale_factor=1.0 / scale, mode="bilinear", align_corners=False
+            )
         if flow is not None:
             if scale != 1:
-                flow = F.interpolate(flow, scale_factor=1.0 / scale, mode="bilinear", align_corners=False) * (1.0 / scale)
+                flow = F.interpolate(
+                    flow, scale_factor=1.0 / scale, mode="bilinear", align_corners=False
+                ) * (1.0 / scale)
             x = torch.cat((x, flow), 1)
         return self._tail(x, scale)
 
@@ -110,7 +130,9 @@ class _IFBlock(nn.Module):
         feat = self.convblock(feat)
         tmp = self.lastps1(self.lastps0(self.lastconv(feat)))
         if scale != 1:
-            tmp = F.interpolate(tmp, scale_factor=scale, mode="bilinear", align_corners=False)
+            tmp = F.interpolate(
+                tmp, scale_factor=scale, mode="bilinear", align_corners=False
+            )
         flow_out = tmp[:, :4]
         if scale != 1:
             flow_out = flow_out * scale
@@ -119,6 +141,7 @@ class _IFBlock(nn.Module):
             feat_out = tmp[:, 5:]  # 8 ch
             return flow_out, mask, feat_out
         return flow_out, mask
+
 
 class _Head(nn.Module):
     """Head encoder. midC=16/32, outC=4/8. cnn3 is deconv replaced with Conv2d+PS."""
@@ -144,9 +167,11 @@ class _Head(nn.Module):
             return [x0, x1, x2, x3]
         return x3
 
+
 # -----------------------------------------------------------------------------
 # generic fast IFNet, parameterized by config
 # -----------------------------------------------------------------------------
+
 
 class _FastIFNet(nn.Module):
     """Generic fast IFNet supporting all RIFE 4.x variants.
@@ -162,9 +187,23 @@ class _FastIFNet(nn.Module):
         maskMode:     "replace" (most) or "add" (rife4.6 only)
     """
 
-    def __init__(self, *, channels, inPlanesList, lastOutCh, hasHead, headMidC,
-                 headOutC, scaleBase, maskMode, ensemble=False, dynamicScale=False,
-                 scale=1, interpolateFactor=2, staticStep=False):
+    def __init__(
+        self,
+        *,
+        channels,
+        inPlanesList,
+        lastOutCh,
+        hasHead,
+        headMidC,
+        headOutC,
+        scaleBase,
+        maskMode,
+        ensemble=False,
+        dynamicScale=False,
+        scale=1,
+        interpolateFactor=2,
+        staticStep=False,
+    ):
         super().__init__()
         assert len(channels) == len(inPlanesList) == len(scaleBase)
         self._hasHead = hasHead
@@ -172,7 +211,7 @@ class _FastIFNet(nn.Module):
         self._maskMode = maskMode
         self._headOutC = headOutC if hasHead else 0
 
-        for i, (cin, c) in enumerate(zip(inPlanesList, channels)):
+        for i, (cin, c) in enumerate(zip(inPlanesList, channels, strict=False)):
             setattr(self, f"block{i}", _IFBlock(cin, c=c, lastOutCh=lastOutCh))
         self.blocks = [getattr(self, f"block{i}") for i in range(len(channels))]
 
@@ -262,16 +301,28 @@ class _FastIFNet(nn.Module):
             return
         hMul = 2.0 / (pw - 1)
         vMul = 2.0 / (ph - 1)
-        self._tenFlow = torch.tensor([hMul, vMul], dtype=dtype, device=device).view(1, 2, 1, 1)
-        bx32 = torch.linspace(-1.0, 1.0, pw, device=device, dtype=torch.float32).view(1, 1, 1, -1).expand(-1, -1, ph, -1)
-        by32 = torch.linspace(-1.0, 1.0, ph, device=device, dtype=torch.float32).view(1, 1, -1, 1).expand(-1, -1, -1, pw)
+        self._tenFlow = torch.tensor([hMul, vMul], dtype=dtype, device=device).view(
+            1, 2, 1, 1
+        )
+        bx32 = (
+            torch.linspace(-1.0, 1.0, pw, device=device, dtype=torch.float32)
+            .view(1, 1, 1, -1)
+            .expand(-1, -1, ph, -1)
+        )
+        by32 = (
+            torch.linspace(-1.0, 1.0, ph, device=device, dtype=torch.float32)
+            .view(1, 1, -1, 1)
+            .expand(-1, -1, -1, pw)
+        )
         self._backWarp = torch.cat([bx32, by32], dim=1).to(dtype=dtype)
         self._gridShape = key
 
     def _warp(self, inp, flow2):
         # addcmul fuses backWarp + flow*tenFlow into one elementwise pass
         grid = torch.addcmul(self._backWarp, flow2, self._tenFlow).permute(0, 2, 3, 1)
-        return F.grid_sample(inp, grid, mode="bilinear", padding_mode="border", align_corners=True)
+        return F.grid_sample(
+            inp, grid, mode="bilinear", padding_mode="border", align_corners=True
+        )
 
     def cache(self):
         if self._hasHead and self.f0 is not None and self.f1 is not None:
@@ -327,8 +378,12 @@ class _FastIFNet(nn.Module):
             inv = 1.0 / scale
 
             def ds(t):
+                # B023: `inv` is read immediately within this iteration, never deferred.
                 return F.interpolate(
-                    t, scale_factor=inv, mode="bilinear", align_corners=False
+                    t,
+                    scale_factor=inv,  # noqa: B023
+                    mode="bilinear",
+                    align_corners=False,
                 )
 
             if flow is None:
@@ -367,7 +422,9 @@ class _FastIFNet(nn.Module):
             else:
                 if lowResCat:
                     if self._hasHead:
-                        a, b = ds(w0), ds(w1)
+                        # w0/w1 are loop-carried from the prior block iteration (set below);
+                        # iteration 0 takes the `flow is None` branch and never reaches here.
+                        a, b = ds(w0), ds(w1)  # noqa: F821
                         parts = [a[:, :3], b[:, :3], a[:, 3:], b[:, 3:]]
                     else:
                         parts = [ds(warped_img0[:, :3]), ds(warped_img1[:, :3])]
@@ -430,120 +487,188 @@ class _FastIFNet(nn.Module):
         # lerp(b, a, m) == a*m + b*(1-m): two elementwise passes instead of four
         return torch.lerp(warped_img1, warped_img0, mask)
 
+
 # -----------------------------------------------------------------------------
 # concrete variants
 # -----------------------------------------------------------------------------
 
-def _make(channels, inPlanesList, lastOutCh, hasHead, headMidC, headOutC, scaleBase, maskMode):
+
+def _make(
+    channels, inPlanesList, lastOutCh, hasHead, headMidC, headOutC, scaleBase, maskMode
+):
     """Factory that returns a class binding the config to __init__ defaults."""
     cfg = dict(
-        channels=channels, inPlanesList=inPlanesList, lastOutCh=lastOutCh,
-        hasHead=hasHead, headMidC=headMidC, headOutC=headOutC,
-        scaleBase=scaleBase, maskMode=maskMode,
+        channels=channels,
+        inPlanesList=inPlanesList,
+        lastOutCh=lastOutCh,
+        hasHead=hasHead,
+        headMidC=headMidC,
+        headOutC=headOutC,
+        scaleBase=scaleBase,
+        maskMode=maskMode,
     )
 
     class _Concrete(_FastIFNet):
-        def __init__(self, ensemble=False, dynamicScale=False, scale=1,
-                     interpolateFactor=2, staticStep=False):
+        def __init__(
+            self,
+            ensemble=False,
+            dynamicScale=False,
+            scale=1,
+            interpolateFactor=2,
+            staticStep=False,
+        ):
             super().__init__(
-                **cfg, ensemble=ensemble, dynamicScale=dynamicScale, scale=scale,
-                interpolateFactor=interpolateFactor, staticStep=staticStep,
+                **cfg,
+                ensemble=ensemble,
+                dynamicScale=dynamicScale,
+                scale=scale,
+                interpolateFactor=interpolateFactor,
+                staticStep=staticStep,
             )
 
     return _Concrete
+
 
 # rife4.6: 4 blocks, no Head, lastOutCh=6, additive mask
 IFNet46 = _make(
     channels=[192, 128, 96, 64],
     inPlanesList=[7, 8 + 4, 8 + 4, 8 + 4],
-    lastOutCh=6, hasHead=False, headMidC=0, headOutC=0,
-    scaleBase=[8, 4, 2, 1], maskMode="add",
+    lastOutCh=6,
+    hasHead=False,
+    headMidC=0,
+    headOutC=0,
+    scaleBase=[8, 4, 2, 1],
+    maskMode="add",
 )
 
 # rife4.15-lite: 4 blocks, Head(16,4), lastOutCh=6, no feat, replace mask
 IFNet415Lite = _make(
     channels=[128, 96, 64, 48],
     inPlanesList=[7 + 8, 8 + 4 + 8, 8 + 4 + 8, 8 + 4 + 8],
-    lastOutCh=6, hasHead=True, headMidC=16, headOutC=4,
-    scaleBase=[8, 4, 2, 1], maskMode="replace",
+    lastOutCh=6,
+    hasHead=True,
+    headMidC=16,
+    headOutC=4,
+    scaleBase=[8, 4, 2, 1],
+    maskMode="replace",
 )
 
 # rife4.16-lite: same as 4.15-lite
 IFNet416Lite = _make(
     channels=[128, 96, 64, 48],
     inPlanesList=[7 + 8, 8 + 4 + 8, 8 + 4 + 8, 8 + 4 + 8],
-    lastOutCh=6, hasHead=True, headMidC=16, headOutC=4,
-    scaleBase=[8, 4, 2, 1], maskMode="replace",
+    lastOutCh=6,
+    hasHead=True,
+    headMidC=16,
+    headOutC=4,
+    scaleBase=[8, 4, 2, 1],
+    maskMode="replace",
 )
 
 # rife4.17: 4 blocks, Head(32,8), lastOutCh=6, no feat
 IFNet417 = _make(
     channels=[192, 128, 96, 64],
     inPlanesList=[7 + 16, 8 + 4 + 16, 8 + 4 + 16, 8 + 4 + 16],
-    lastOutCh=6, hasHead=True, headMidC=32, headOutC=8,
-    scaleBase=[8, 4, 2, 1], maskMode="replace",
+    lastOutCh=6,
+    hasHead=True,
+    headMidC=32,
+    headOutC=8,
+    scaleBase=[8, 4, 2, 1],
+    maskMode="replace",
 )
 
 # rife4.18: same as 4.17
 IFNet418 = _make(
     channels=[192, 128, 96, 64],
     inPlanesList=[7 + 16, 8 + 4 + 16, 8 + 4 + 16, 8 + 4 + 16],
-    lastOutCh=6, hasHead=True, headMidC=32, headOutC=8,
-    scaleBase=[8, 4, 2, 1], maskMode="replace",
+    lastOutCh=6,
+    hasHead=True,
+    headMidC=32,
+    headOutC=8,
+    scaleBase=[8, 4, 2, 1],
+    maskMode="replace",
 )
 
 # rife4.20: 4 blocks, Head(32,8), block0 c=384, lastOutCh=6, no feat
 IFNet420 = _make(
     channels=[384, 192, 96, 48],
     inPlanesList=[7 + 16, 8 + 4 + 16, 8 + 4 + 16, 8 + 4 + 16],
-    lastOutCh=6, hasHead=True, headMidC=32, headOutC=8,
-    scaleBase=[8, 4, 2, 1], maskMode="replace",
+    lastOutCh=6,
+    hasHead=True,
+    headMidC=32,
+    headOutC=8,
+    scaleBase=[8, 4, 2, 1],
+    maskMode="replace",
 )
 
 # rife4.21: 4 blocks, Head(32,8), c=[256,192,96,48], lastOutCh=13, feat used
 IFNet421 = _make(
     channels=[256, 192, 96, 48],
     inPlanesList=[7 + 16, 8 + 4 + 16 + 8, 8 + 4 + 16 + 8, 8 + 4 + 16 + 8],
-    lastOutCh=13, hasHead=True, headMidC=32, headOutC=8,
-    scaleBase=[8, 4, 2, 1], maskMode="replace",
+    lastOutCh=13,
+    hasHead=True,
+    headMidC=32,
+    headOutC=8,
+    scaleBase=[8, 4, 2, 1],
+    maskMode="replace",
 )
 
 # rife4.22: same channel/in as 4.21
 IFNet422 = _make(
     channels=[256, 192, 96, 48],
     inPlanesList=[7 + 16, 8 + 4 + 16 + 8, 8 + 4 + 16 + 8, 8 + 4 + 16 + 8],
-    lastOutCh=13, hasHead=True, headMidC=32, headOutC=8,
-    scaleBase=[8, 4, 2, 1], maskMode="replace",
+    lastOutCh=13,
+    hasHead=True,
+    headMidC=32,
+    headOutC=8,
+    scaleBase=[8, 4, 2, 1],
+    maskMode="replace",
 )
 
 # rife4.22-lite: 4 blocks, Head(16,4), c=[192,128,64,32], lastOutCh=13, feat used
 IFNet422Lite = _make(
     channels=[192, 128, 64, 32],
     inPlanesList=[7 + 8, 8 + 4 + 8 + 8, 8 + 4 + 8 + 8, 8 + 4 + 8 + 8],
-    lastOutCh=13, hasHead=True, headMidC=16, headOutC=4,
-    scaleBase=[8, 4, 2, 1], maskMode="replace",
+    lastOutCh=13,
+    hasHead=True,
+    headMidC=16,
+    headOutC=4,
+    scaleBase=[8, 4, 2, 1],
+    maskMode="replace",
 )
 
 # rife4.25: 5 blocks, Head(16,4), c=[192,128,96,64,32], lastOutCh=13
 IFNet425 = _make(
     channels=[192, 128, 96, 64, 32],
     inPlanesList=[7 + 8, 8 + 4 + 8 + 8, 8 + 4 + 8 + 8, 8 + 4 + 8 + 8, 8 + 4 + 8 + 8],
-    lastOutCh=13, hasHead=True, headMidC=16, headOutC=4,
-    scaleBase=[16, 8, 4, 2, 1], maskMode="replace",
+    lastOutCh=13,
+    hasHead=True,
+    headMidC=16,
+    headOutC=4,
+    scaleBase=[16, 8, 4, 2, 1],
+    maskMode="replace",
 )
 
 # rife4.25-lite: 5 blocks, smaller last channel
 IFNet425Lite = _make(
     channels=[192, 128, 96, 64, 24],
     inPlanesList=[7 + 8, 8 + 4 + 8 + 8, 8 + 4 + 8 + 8, 8 + 4 + 8 + 8, 8 + 4 + 8 + 8],
-    lastOutCh=13, hasHead=True, headMidC=16, headOutC=4,
-    scaleBase=[16, 8, 4, 2, 1], maskMode="replace",
+    lastOutCh=13,
+    hasHead=True,
+    headMidC=16,
+    headOutC=4,
+    scaleBase=[16, 8, 4, 2, 1],
+    maskMode="replace",
 )
 
 # rife4.25-heavy: 5 blocks, channels x2
 IFNet425Heavy = _make(
     channels=[384, 256, 192, 128, 64],
     inPlanesList=[7 + 8, 8 + 4 + 8 + 8, 8 + 4 + 8 + 8, 8 + 4 + 8 + 8, 8 + 4 + 8 + 8],
-    lastOutCh=13, hasHead=True, headMidC=16, headOutC=4,
-    scaleBase=[16, 8, 4, 2, 1], maskMode="replace",
+    lastOutCh=13,
+    hasHead=True,
+    headMidC=16,
+    headOutC=4,
+    scaleBase=[16, 8, 4, 2, 1],
+    maskMode="replace",
 )

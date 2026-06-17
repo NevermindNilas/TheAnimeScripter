@@ -1,31 +1,20 @@
 import os
-import sys
+
 os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
-import torch
 import logging
-import numpy as np
-import torch.nn.functional as F
-import cv2
-import importlib
 
-from src.utils.logAndPrint import logAndPrint
-from concurrent.futures import ThreadPoolExecutor
-from src.utils.ffmpegSettings import (
-    BuildBuffer,
-    WriteBuffer,
-)
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
-from src.utils.progressBarLogic import ProgressBarLogic
-from src.utils.isCudaInit import CudaChecker
-from queue import Queue
+import numpy as np
+import torch
+
 from src.constants import ADOBE
+from src.utils.isCudaInit import CudaChecker
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    pass
 
-from collections import deque
 import statistics
+from collections import deque
 
 checker = CudaChecker()
 
@@ -137,4 +126,3 @@ def calculateAspectRatio(width, height, depthQuality="high", isV3=False):
 
     logging.info(f"Depth Padding: {newWidth}x{newHeight}")
     return newHeight, newWidth
-

@@ -1,12 +1,16 @@
-import os
-import torch
 import logging
+import os
 
-from src.utils.modelOptimizer import ModelOptimizer
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap, resolveWeightPath
+import torch
+
+from src.constants import ADOBE
+from src.utils.downloadModels import (
+    modelsMap,
+    resolveWeightPath,
+)
 from src.utils.isCudaInit import CudaChecker
 from src.utils.logAndPrint import logAndPrint
-from src.constants import ADOBE
+from src.utils.modelOptimizer import ModelOptimizer
 
 if ADOBE:
     from src.utils.aeComms import progressState
@@ -113,8 +117,9 @@ class UniversalPytorch:
                 )
             self.model = self.model.model
         elif self.upscaleMethod == "gauss":
-            from src.extraArches.DIS import DIS
             from safetensors.torch import load_file
+
+            from src.extraArches.DIS import DIS
 
             self.model = DIS(scale=2, num_features=32, num_blocks=12)
             stateDict = load_file(modelPath)
@@ -128,7 +133,9 @@ class UniversalPytorch:
                         f"Custom upscale model {modelPath} did not resolve to an image model descriptor"
                     )
             else:
-                self.model = torch.load(modelPath, map_location="cpu", weights_only=False)
+                self.model = torch.load(
+                    modelPath, map_location="cpu", weights_only=False
+                )
 
                 if isinstance(self.model, dict):
                     self.model = ModelLoader().load_from_state_dict(self.model)
@@ -258,6 +265,7 @@ class UniversalPytorch:
 
         return output
 
+
 class UniversalPytorchMPS:
     """
     Apple Silicon (MPS) PyTorch upscaler. Mirrors UniversalPytorch but without
@@ -339,8 +347,9 @@ class UniversalPytorchMPS:
                 )
             self.model = self.model.model
         elif self.baseMethod == "gauss":
-            from src.extraArches.DIS import DIS
             from safetensors.torch import load_file
+
+            from src.extraArches.DIS import DIS
 
             self.model = DIS(scale=2, num_features=32, num_blocks=12)
             stateDict = load_file(modelPath)
@@ -410,4 +419,3 @@ class UniversalPytorchMPS:
         output = self.model(frame)
         torch.mps.synchronize()
         return output
-

@@ -36,7 +36,7 @@ def testDedupMSEProcessFrameReturnsResizedTensor():
 def testDedupMSEFlagsIdenticalFramesAsDuplicates():
     d = DedupMSE(mseThreshold=10.0)
     assert d(_frame(0.5)) is False  # first frame: nothing to compare against
-    assert d(_frame(0.5)) is True   # identical -> MSE 0 -> duplicate
+    assert d(_frame(0.5)) is True  # identical -> MSE 0 -> duplicate
     assert d(_frame(0.0)) is False  # black vs 0.5 reference -> distinct -> keep
 
 
@@ -44,9 +44,9 @@ def testDedupMSEKeepsReferenceOnDuplicate():
     # After a duplicate, the reference frame must NOT advance, so a later frame
     # is still compared against the original kept frame.
     d = DedupMSE(mseThreshold=10.0)
-    d(_frame(0.5))                  # keep (first)
-    assert d(_frame(0.5)) is True   # duplicate, reference stays at 0.5
-    assert d(_frame(0.5)) is True   # still a duplicate of the 0.5 reference
+    d(_frame(0.5))  # keep (first)
+    assert d(_frame(0.5)) is True  # duplicate, reference stays at 0.5
+    assert d(_frame(0.5)) is True  # still a duplicate of the 0.5 reference
 
 
 def testDedupMSECudaExistsWithExpectedInterface():
@@ -70,6 +70,7 @@ def testDedupMSECudaLogicOnCpu():
 # backend can never sneak into the SSIM one.
 # --------------------------------------------------------------------------- #
 
+
 def _noisyFrame(seed, h=64, w=64):
     g = torch.Generator().manual_seed(seed)
     return torch.rand((1, 3, h, w), generator=g, dtype=torch.float32)
@@ -78,8 +79,8 @@ def _noisyFrame(seed, h=64, w=64):
 def testDedupSSIMFlagsIdenticalFramesAsDuplicates():
     d = DedupSSIM(ssimThreshold=0.9)
     f = _noisyFrame(0)
-    assert d(f) is False           # first frame: nothing to compare against
-    assert d(f.clone()) is True    # identical -> SSIM 1.0 -> duplicate
+    assert d(f) is False  # first frame: nothing to compare against
+    assert d(f.clone()) is True  # identical -> SSIM 1.0 -> duplicate
 
 
 def testDedupSSIMKeepsDistinctFrames():
@@ -102,6 +103,5 @@ def testDedupSSIMAdvancesReferenceOnKeptFrame():
     d = DedupSSIM(ssimThreshold=0.9)
     a, b = _noisyFrame(0), _noisyFrame(1)
     d(a)
-    assert d(b) is False           # distinct -> kept -> becomes the reference
-    assert d(b.clone()) is True    # duplicate of the NEW reference
-
+    assert d(b) is False  # distinct -> kept -> becomes the reference
+    assert d(b.clone()) is True  # duplicate of the NEW reference

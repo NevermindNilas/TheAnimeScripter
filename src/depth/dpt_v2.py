@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .dinov2 import DINOv2
 from .blocks_v2 import FeatureFusionBlock, _make_scratch
+from .dinov2 import DINOv2
 
 
 def _make_fusion_block(features, use_bn, size=None):
@@ -27,7 +27,7 @@ class DPTHead(nn.Module):
         out_channels=[256, 512, 1024, 1024],
         use_clstoken=False,
     ):
-        super(DPTHead, self).__init__()
+        super().__init__()
 
         self.use_clstoken = use_clstoken
 
@@ -162,7 +162,7 @@ class DepthAnythingV2(nn.Module):
         use_bn=False,
         use_clstoken=False,
     ):
-        super(DepthAnythingV2, self).__init__()
+        super().__init__()
 
         self.intermediate_layer_idx = {
             "vits": [2, 5, 8, 11],
@@ -188,6 +188,7 @@ class DepthAnythingV2(nn.Module):
         result = super().load_state_dict(state_dict, strict=strict, assign=assign)
         if not self._layerscale_folded:
             from .fold_layerscale import fold_layerscale_
+
             fold_layerscale_(self)
             self._layerscale_folded = True
         return result

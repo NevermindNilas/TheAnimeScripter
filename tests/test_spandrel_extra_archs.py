@@ -45,6 +45,7 @@ def _assert_forward(desc, in_ch, scale, size=16):
 # DIS — Direct Image Supersampling (ported from chaiNNer-org mainstream)
 # --------------------------------------------------------------------------- #
 
+
 def testDISFastResBlockSR():
     from src.extraArches.DIS import DIS
 
@@ -75,6 +76,7 @@ def testDISRestorationScale1():
 # FIGSR — Fourier Inception Gated SR
 # --------------------------------------------------------------------------- #
 
+
 def testFIGSRPixelShuffleDirect():
     from src.extraArches.figsr import FIGSR
 
@@ -96,6 +98,7 @@ def testFIGSRPixelShuffleDirect():
 # SMoSR — Spatial Modulation SR (Umzi). Reparameterizable: .eval() fuses the
 # ConvNXC/DOConv2d branches, so the detector must round-trip both rep variants.
 # --------------------------------------------------------------------------- #
+
 
 def testSMoSRRepPixelShuffleDirect():
     from spandrel.architectures.SMoSR import SMoSR
@@ -119,6 +122,7 @@ def testSMoSRNoRep():
 # --------------------------------------------------------------------------- #
 # GateRV3
 # --------------------------------------------------------------------------- #
+
 
 def testGateRV3SR():
     from src.extraArches.gaterv3 import GateRV3

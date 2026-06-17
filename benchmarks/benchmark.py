@@ -101,8 +101,8 @@ class ResourceMonitor(threading.Thread):
         self.interval = interval
         self._stop = threading.Event()
         self.cpu_samples: list[float] = []
-        self.perpid_samples: list[float] = []   # per-process VRAM (unavailable on WDDM)
-        self.total_samples: list[float] = []     # total GPU mem used
+        self.perpid_samples: list[float] = []  # per-process VRAM (unavailable on WDDM)
+        self.total_samples: list[float] = []  # total GPU mem used
         self._nvsmi = self._find_nvsmi()
         # Baseline total VRAM before the process allocates -> attribute the delta to it.
         base = self._query_total()
@@ -119,11 +119,16 @@ class ResourceMonitor(threading.Thread):
             return None
         try:
             out = subprocess.run(
-                [self._nvsmi, "--query-gpu=memory.used",
-                 "--format=csv,noheader,nounits"],
-                capture_output=True, text=True, timeout=5,
+                [
+                    self._nvsmi,
+                    "--query-gpu=memory.used",
+                    "--format=csv,noheader,nounits",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
             ).stdout
-        except (subprocess.SubprocessError, OSError):
+        except subprocess.SubprocessError, OSError:
             return None
         for line in out.splitlines():
             try:
@@ -151,11 +156,16 @@ class ResourceMonitor(threading.Thread):
             return None
         try:
             out = subprocess.run(
-                [self._nvsmi, "--query-compute-apps=pid,used_memory",
-                 "--format=csv,noheader,nounits"],
-                capture_output=True, text=True, timeout=5,
+                [
+                    self._nvsmi,
+                    "--query-compute-apps=pid,used_memory",
+                    "--format=csv,noheader,nounits",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
             ).stdout
-        except (subprocess.SubprocessError, OSError):
+        except subprocess.SubprocessError, OSError:
             return None
         total = 0.0
         found = False
@@ -218,8 +228,12 @@ class ResourceMonitor(threading.Thread):
         else:
             vram = math.nan
         return {
-            "cpu_pct": float(np.mean(self.cpu_samples)) if self.cpu_samples else math.nan,
-            "cpu_pct_peak": float(np.max(self.cpu_samples)) if self.cpu_samples else math.nan,
+            "cpu_pct": float(np.mean(self.cpu_samples))
+            if self.cpu_samples
+            else math.nan,
+            "cpu_pct_peak": float(np.max(self.cpu_samples))
+            if self.cpu_samples
+            else math.nan,
             "vram_mb": vram,
         }
 
@@ -300,7 +314,7 @@ def quality_vs_input(input_path: Path, output_path: Path, n_samples: int = 30) -
             of = cv2.resize(of, (in_w, in_h), interpolation=cv2.INTER_AREA)
         mse = float(np.mean((of.astype(np.float64) - inf.astype(np.float64)) ** 2))
         mses.append(mse)
-        psnrs.append(99.0 if mse == 0 else 10.0 * math.log10((255.0 ** 2) / mse))
+        psnrs.append(99.0 if mse == 0 else 10.0 * math.log10((255.0**2) / mse))
         ssims.append(_ssim(of, inf))
 
     if not ssims:
@@ -315,33 +329,46 @@ def quality_vs_input(input_path: Path, output_path: Path, n_samples: int = 30) -
 # --------------------------------------------------------------------------- #
 # Run one method
 # --------------------------------------------------------------------------- #
-def run_method(group: str, cfg: dict, method: str, input_path: Path,
-               warmup: int, n_samples: int) -> dict:
+def run_method(
+    group: str, cfg: dict, method: str, input_path: Path, warmup: int, n_samples: int
+) -> dict:
     safe = re.sub(r"[^a-zA-Z0-9._-]", "_", f"{group}_{method}")
     out_path = TMP_DIR / f"{safe}.mp4"
     base_cmd = [
-        sys.executable, "main.py",
-        "--input", str(input_path),
-        "--output", str(out_path),
+        sys.executable,
+        "main.py",
+        "--input",
+        str(input_path),
+        "--output",
+        str(out_path),
         cfg["enable_flag"],
-        cfg["method_flag"], method,
+        cfg["method_flag"],
+        method,
     ]
 
     # Warmup runs (build TRT engines, warm cudnn/caches) — timing discarded.
     for _ in range(warmup):
         if out_path.exists():
             out_path.unlink()
-        subprocess.run(base_cmd, cwd=REPO_ROOT, capture_output=True,
-                       encoding="utf-8", errors="replace")
+        subprocess.run(
+            base_cmd,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
 
     if out_path.exists():
         out_path.unlink()
 
     # utf-8/replace: main.py emits colored/unicode logs that crash the default cp1252 decode.
     proc = subprocess.Popen(
-        base_cmd, cwd=REPO_ROOT,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        encoding="utf-8", errors="replace",
+        base_cmd,
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        encoding="utf-8",
+        errors="replace",
     )
     mon = ResourceMonitor(proc.pid)
     mon.start()
@@ -350,10 +377,17 @@ def run_method(group: str, cfg: dict, method: str, input_path: Path,
     ok = proc.returncode == 0
 
     fps = parse_fps(out_text)
-    elapsed = float(TIME_RE.search(out_text).group(1)) if TIME_RE.search(out_text) else math.nan
+    elapsed = (
+        float(TIME_RE.search(out_text).group(1))
+        if TIME_RE.search(out_text)
+        else math.nan
+    )
 
-    quality = quality_vs_input(input_path, out_path, n_samples) if ok else {
-        "ssim": math.nan, "psnr": math.nan, "mse": math.nan}
+    quality = (
+        quality_vs_input(input_path, out_path, n_samples)
+        if ok
+        else {"ssim": math.nan, "psnr": math.nan, "mse": math.nan}
+    )
 
     if not ok:
         tail = "\n".join(out_text.strip().splitlines()[-5:])
@@ -378,6 +412,7 @@ def run_method(group: str, cfg: dict, method: str, input_path: Path,
 def make_graph(group: str, rows: list[dict], out_png: Path) -> bool:
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
@@ -387,18 +422,28 @@ def make_graph(group: str, rows: list[dict], out_png: Path) -> bool:
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
     fig.suptitle(f"TAS benchmark — {group}", fontsize=15, fontweight="bold")
 
-    for ax, (key, (label, higher)) in zip(axes.flat, METRICS.items()):
+    for ax, (key, (label, higher)) in zip(axes.flat, METRICS.items(), strict=False):
         vals = [r.get(key, math.nan) for r in rows]
         plot_vals = [0 if (v is None or math.isnan(v)) else v for v in vals]
         bars = ax.bar(methods, plot_vals, color="#4C72B0")
-        ax.set_title(label + ("  (higher better)" if higher else "  (lower better)"),
-                     fontsize=10)
+        ax.set_title(
+            label + ("  (higher better)" if higher else "  (lower better)"), fontsize=10
+        )
         ax.tick_params(axis="x", labelrotation=20, labelsize=8)
-        for b, v in zip(bars, vals):
-            txt = "FAIL" if (v is None or math.isnan(v)) else (
-                f"{v:.3f}" if abs(v) < 100 else f"{v:.0f}")
-            ax.text(b.get_x() + b.get_width() / 2, b.get_height(), txt,
-                    ha="center", va="bottom", fontsize=8)
+        for b, v in zip(bars, vals, strict=False):
+            txt = (
+                "FAIL"
+                if (v is None or math.isnan(v))
+                else (f"{v:.3f}" if abs(v) < 100 else f"{v:.0f}")
+            )
+            ax.text(
+                b.get_x() + b.get_width() / 2,
+                b.get_height(),
+                txt,
+                ha="center",
+                va="bottom",
+                fontsize=8,
+            )
 
     fig.tight_layout(rect=(0, 0, 1, 0.96))
     fig.savefig(out_png, dpi=120)
@@ -409,18 +454,37 @@ def make_graph(group: str, rows: list[dict], out_png: Path) -> bool:
 # --------------------------------------------------------------------------- #
 def main() -> int:
     ap = argparse.ArgumentParser(description="TAS end-to-end benchmark")
-    ap.add_argument("--input", type=Path, default=DEFAULT_INPUT,
-                    help="Input clip (default: benchmarks/bigbugsbunny.mp4)")
-    ap.add_argument("--groups", nargs="+", choices=list(BENCHMARKS),
-                    default=list(BENCHMARKS), help="Which capability groups to run")
-    ap.add_argument("--warmup", type=int, default=1,
-                    help="Warmup runs per method (TRT engine build/cudnn warm); default 1")
-    ap.add_argument("--samples", type=int, default=30,
-                    help="Frames sampled per video for quality metrics")
+    ap.add_argument(
+        "--input",
+        type=Path,
+        default=DEFAULT_INPUT,
+        help="Input clip (default: benchmarks/bigbugsbunny.mp4)",
+    )
+    ap.add_argument(
+        "--groups",
+        nargs="+",
+        choices=list(BENCHMARKS),
+        default=list(BENCHMARKS),
+        help="Which capability groups to run",
+    )
+    ap.add_argument(
+        "--warmup",
+        type=int,
+        default=1,
+        help="Warmup runs per method (TRT engine build/cudnn warm); default 1",
+    )
+    ap.add_argument(
+        "--samples",
+        type=int,
+        default=30,
+        help="Frames sampled per video for quality metrics",
+    )
     args = ap.parse_args()
 
     if not args.input.exists():
-        print(f"Input not found: {args.input}\nRun: python benchmarks/download_sample.py")
+        print(
+            f"Input not found: {args.input}\nRun: python benchmarks/download_sample.py"
+        )
         return 1
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -436,24 +500,37 @@ def main() -> int:
             print(f"- {method} ...")
             row = run_method(group, cfg, method, args.input, args.warmup, args.samples)
             tag = "ok" if row["ok"] else "FAIL"
-            print(f"    [{tag}] fps={row['fps']:.2f} ssim={row['ssim']:.4f} "
-                  f"psnr={row['psnr']:.2f} mse={row['mse']:.2f} "
-                  f"vram={row['vram_mb']:.0f}MB cpu={row['cpu_pct']:.0f}%")
+            print(
+                f"    [{tag}] fps={row['fps']:.2f} ssim={row['ssim']:.4f} "
+                f"psnr={row['psnr']:.2f} mse={row['mse']:.2f} "
+                f"vram={row['vram_mb']:.0f}MB cpu={row['cpu_pct']:.0f}%"
+            )
             rows.append(row)
         all_results[group] = rows
         if not make_graph(group, rows, RESULTS_DIR / f"{group}.png"):
             graph_ok = False
 
     json_path = RESULTS_DIR / "results.json"
-    json_path.write_text(json.dumps(
-        {"input": str(args.input), "timestamp": time.time(), "results": all_results},
-        indent=2))
+    json_path.write_text(
+        json.dumps(
+            {
+                "input": str(args.input),
+                "timestamp": time.time(),
+                "results": all_results,
+            },
+            indent=2,
+        )
+    )
     print(f"\nWrote {json_path}")
     if graph_ok:
-        print(f"Wrote graphs: {', '.join(g + '.png' for g in args.groups)} in {RESULTS_DIR}")
+        print(
+            f"Wrote graphs: {', '.join(g + '.png' for g in args.groups)} in {RESULTS_DIR}"
+        )
     else:
-        print("matplotlib missing -> graphs skipped. "
-              "pip install -r benchmarks/requirements.txt")
+        print(
+            "matplotlib missing -> graphs skipped. "
+            "pip install -r benchmarks/requirements.txt"
+        )
     return 0
 
 

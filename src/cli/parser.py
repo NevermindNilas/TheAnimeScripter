@@ -11,6 +11,7 @@ def logAndPrint(message, colorFunc="cyan", level="INFO"):
     global _logAndPrint
     if _logAndPrint is None:
         from src.utils.logAndPrint import logAndPrint as _lap
+
         _logAndPrint = _lap
     _logAndPrint(message, colorFunc, level)
 
@@ -111,7 +112,10 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
 
     def _palette(self):
         useColor = _supportsColorStdout()
-        code = lambda c: c if useColor else ""
+
+        def code(c):
+            return c if useColor else ""
+
         return {
             "RED": code("\x1b[1;31m"),
             "YELLOW": code("\x1b[1;33m"),
@@ -135,13 +139,15 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
         for option in validOptions:
             if option.startswith("--") != isLong:
                 continue
-            scored.append((option, self.similarityScore(invalidCore, option.lstrip("-"))))
+            scored.append(
+                (option, self.similarityScore(invalidCore, option.lstrip("-")))
+            )
 
         scored.sort(key=lambda x: (-x[1], len(x[0])))
         return [option for option, score in scored if score > 0.4][:maxSuggestions]
 
     def _suggestOptionNames(self, message):
-        tokens = message[len("unrecognized arguments:"):].split()
+        tokens = message[len("unrecognized arguments:") :].split()
         badOptions = [t for t in tokens if t.startswith("-") and len(t) > 1]
         if not badOptions:
             return False
@@ -181,7 +187,7 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
 
             match = re.search(
                 r"argument (--?[\w-]+):\s*invalid choice:\s*'([^']+)'\s*\(choose from\s*(.+)\)",
-                message
+                message,
             )
 
             if match:
@@ -189,7 +195,9 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
                 invalidValue = match.group(2)
                 choicesStr = match.group(3)
 
-                choices = [c.strip().strip("'\"") for c in choicesStr.split(',') if c.strip()]
+                choices = [
+                    c.strip().strip("'\"") for c in choicesStr.split(",") if c.strip()
+                ]
 
                 if choices:
                     suggestions = self.getSuggestions(invalidValue, choices)
@@ -216,7 +224,7 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
                         )
 
                     displayedChoices = choices[:10]
-                    choicesStrDisplay = ', '.join(repr(c) for c in displayedChoices)
+                    choicesStrDisplay = ", ".join(repr(c) for c in displayedChoices)
                     if len(choices) > 10:
                         choicesStrDisplay += f", ... ({len(choices) - 10} more)"
                     print(
@@ -245,7 +253,7 @@ class TASHelpFormatter(argparse.HelpFormatter):
         if width is None:
             try:
                 width = os.get_terminal_size().columns
-            except (ValueError, OSError):
+            except ValueError, OSError:
                 width = 100
         super().__init__(
             prog, indent_increment, max_help_position, min(max(width, 60), 120)
@@ -257,7 +265,7 @@ class TASHelpFormatter(argparse.HelpFormatter):
             if len(choices) > self._INLINE_THRESHOLD:
                 result = action.dest.upper().rsplit("_", 1)[-1]
             else:
-                result = "{%s}" % ", ".join(choices)
+                result = "{{{}}}".format(", ".join(choices))
 
             def format(tuple_size):
                 return (result,) * tuple_size
@@ -281,9 +289,9 @@ class TASHelpFormatter(argparse.HelpFormatter):
                 default_str = ", ".join(str(d) for d in action.default)
             else:
                 default_str = str(action.default)
-            extras.append("default: %s" % default_str)
+            extras.append(f"default: {default_str}")
         if extras:
-            help_text += " (%s)" % ", ".join(extras)
+            help_text += " ({})".format(", ".join(extras))
         return help_text
 
     def _format_action(self, action):
@@ -298,7 +306,7 @@ class TASHelpFormatter(argparse.HelpFormatter):
             lines.append(indent + items_str)
         else:
             for backend, items in groups.items():
-                label = "%-10s " % ("[%s]" % backend)
+                label = f"{f'[{backend}]':<10} "
                 items_str = ", ".join(items)
                 lines.append(indent + label + items_str)
         return result + "\n".join(lines) + "\n"
@@ -420,9 +428,7 @@ def _listMethods(parser, requested):
         return 2
 
     targets = (
-        capabilities
-        if requested == "all"
-        else {requested: capabilities[requested]}
+        capabilities if requested == "all" else {requested: capabilities[requested]}
     )
 
     for capability, methods in targets.items():
@@ -432,7 +438,7 @@ def _listMethods(parser, requested):
             print("  " + ", ".join(next(iter(groups.values()))))
         else:
             for backend, items in groups.items():
-                label = "%-10s" % ("[%s]" % backend)
+                label = f"{f'[{backend}]':<10}"
                 print(f"  {DIM}{label}{RESET} {', '.join(items)}")
 
     return 0

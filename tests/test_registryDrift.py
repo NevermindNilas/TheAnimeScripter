@@ -39,6 +39,7 @@ def methodChoices():
 # encode_method choices <-> matchEncoder arms
 # --------------------------------------------------------------------------- #
 
+
 def testEveryEncodeChoiceHasEncoderFlags(methodChoices):
     # *_nelux methods never reach matchEncoder; NeluxWriteBuffer maps them to
     # native encoder settings in ffmpegSettings instead.
@@ -61,6 +62,7 @@ def testUnknownEncoderStillReturnsEmpty():
 # --------------------------------------------------------------------------- #
 # modelsList() internal consistency
 # --------------------------------------------------------------------------- #
+
 
 def testModelsListHasNoDuplicates():
     names = modelsList()
@@ -127,37 +129,68 @@ KNOWN_UNREGISTERED_METHODS = {
     },
     "dedup": {
         # algorithmic comparators, no weights (only flownets downloads)
-        "ssim", "mse", "ssim-cuda", "mse-cuda", "vmaf", "vmaf-cuda",
+        "ssim",
+        "mse",
+        "ssim-cuda",
+        "mse-cuda",
+        "vmaf",
+        "vmaf-cuda",
     },
     "interpolate": {
-        "rife-ncnn",                 # generic alias resolved to a default version
-        "rife-tensorrt",             # generic alias resolved to a default version
-        "rife4.15-tensorrt",         # modelsMap arm exists; absent from modelsList (--offline gap)
-        "rife4.15-directml",         # rides the rife4.15 ONNX via suffix replace
-        "rife4.15-openvino",         # rides the rife4.15 ONNX via suffix replace
-        "distildrba-tensorrt",       # weights ship via the base distildrba entry
+        "rife-ncnn",  # generic alias resolved to a default version
+        "rife-tensorrt",  # generic alias resolved to a default version
+        "rife4.15-tensorrt",  # modelsMap arm exists; absent from modelsList (--offline gap)
+        "rife4.15-directml",  # rides the rife4.15 ONNX via suffix replace
+        "rife4.15-openvino",  # rides the rife4.15 ONNX via suffix replace
+        "distildrba-tensorrt",  # weights ship via the base distildrba entry
         "distildrba-lite-tensorrt",  # weights ship via the base distildrba-lite entry
     },
     "restore": {
         # registered under their -mps/-tensorrt siblings or external SDKs
-        "fastlinedarken", "fastlinedarken-tensorrt",
+        "fastlinedarken",
+        "fastlinedarken-tensorrt",
         "autocas",  # sharpening kernel, no weights
-        "deh264_real", "deh264_real-tensorrt", "deh264_real-directml", "deh264_real-openvino",
-        "deh264_span", "deh264_span-tensorrt", "deh264_span-directml", "deh264_span-openvino",
-        "linethinner-lite", "linethinner-medium", "linethinner-heavy",
-        "linethinner-lite-cuda", "linethinner-medium-cuda", "linethinner-heavy-cuda",
-        "maxine-denoise_low", "maxine-denoise_medium", "maxine-denoise_high", "maxine-denoise_ultra",
-        "maxine-deblur_low", "maxine-deblur_medium", "maxine-deblur_high", "maxine-deblur_ultra",
+        "deh264_real",
+        "deh264_real-tensorrt",
+        "deh264_real-directml",
+        "deh264_real-openvino",
+        "deh264_span",
+        "deh264_span-tensorrt",
+        "deh264_span-directml",
+        "deh264_span-openvino",
+        "linethinner-lite",
+        "linethinner-medium",
+        "linethinner-heavy",
+        "linethinner-lite-cuda",
+        "linethinner-medium-cuda",
+        "linethinner-heavy-cuda",
+        "maxine-denoise_low",
+        "maxine-denoise_medium",
+        "maxine-denoise_high",
+        "maxine-denoise_ultra",
+        "maxine-deblur_low",
+        "maxine-deblur_medium",
+        "maxine-deblur_high",
+        "maxine-deblur_ultra",
     },
     "segment": {
         # choices use the user-facing names; weights live under "segment*"
-        "anime", "anime-tensorrt", "anime-directml", "cartoon",
+        "anime",
+        "anime-tensorrt",
+        "anime-directml",
+        "cartoon",
     },
     "upscale": {
         # NVIDIA Maxine SDK effects, no downloadable weights
-        "maxine-bicubic", "maxine-low", "maxine-medium", "maxine-high", "maxine-ultra",
-        "maxine-highbitrate_low", "maxine-highbitrate_medium",
-        "maxine-highbitrate_high", "maxine-highbitrate_ultra",
+        "maxine-bicubic",
+        "maxine-low",
+        "maxine-medium",
+        "maxine-high",
+        "maxine-ultra",
+        "maxine-highbitrate_low",
+        "maxine-highbitrate_medium",
+        "maxine-highbitrate_high",
+        "maxine-highbitrate_ultra",
     },
 }
 
@@ -186,9 +219,7 @@ def testEveryMethodChoiceIsRegisteredOrKnownException(methodChoices):
         if capability == "encode":  # guarded against matchEncoder above
             continue
         allowed = KNOWN_UNREGISTERED_METHODS.get(capability, set())
-        unregistered = {
-            m for m in methods if not (_registeredVariants(m) & registry)
-        }
+        unregistered = {m for m in methods if not (_registeredVariants(m) & registry)}
         new = sorted(unregistered - allowed)
         if new:
             problems[capability] = new

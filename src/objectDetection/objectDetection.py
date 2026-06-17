@@ -1,17 +1,19 @@
+import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
+
 import cv2
 import numpy as np
 import torch
-import logging
-from concurrent.futures import ThreadPoolExecutor
 
-from src.utils.logAndPrint import logAndPrint
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.utils.progressBarLogic import ProgressBarLogic
-from src.utils.downloadModels import downloadModels, weightsDir, modelsMap
-from src.utils.isCudaInit import CudaChecker
-from .yolov9_mit import draw_detections, draw_masks, draw_box, colors
 from src.constants import ADOBE
+from src.utils.downloadModels import downloadModels, modelsMap, weightsDir
+from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.utils.isCudaInit import CudaChecker
+from src.utils.logAndPrint import logAndPrint
+from src.utils.progressBarLogic import ProgressBarLogic
+
+from .yolov9_mit import colors, draw_box, draw_detections, draw_masks
 
 if ADOBE:
     from src.utils.aeComms import progressState
@@ -211,7 +213,7 @@ class ObjectDetectionDML:
             if self.disableAnnotations:
                 outputImg = frameNp.copy()
                 outputImg = draw_masks(outputImg, boxes, classIds, mask_alpha=0.3)
-                for classId, box in zip(classIds, boxes):
+                for classId, box in zip(classIds, boxes, strict=False):
                     color = colors[classId]
                     draw_box(outputImg, box, color)
             else:
@@ -265,6 +267,7 @@ class ObjectDetectionTensorRT:
         disableAnnotations=False,
     ):
         import tensorrt as trt
+
         from src.utils.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
@@ -338,7 +341,9 @@ class ObjectDetectionTensorRT:
     def handleModels(self):
         if ADOBE:
             progressState.update(
-                {"status": f"Loading TensorRT object detection model: {self.objDetectMethod}..."}
+                {
+                    "status": f"Loading TensorRT object detection model: {self.objDetectMethod}..."
+                }
             )
 
         folderName = self.objDetectMethod.replace("-tensorrt", "-onnx")
@@ -360,6 +365,7 @@ class ObjectDetectionTensorRT:
         logging.info("Using TensorRT for object detection")
 
         import onnx
+
         onnxModel = onnx.load(self.modelPath)
         inputName = onnxModel.graph.input[0].name
         outputName = onnxModel.graph.output[0].name
@@ -377,7 +383,11 @@ class ObjectDetectionTensorRT:
         )
 
         self.engine, self.context = self.tensorRTEngineLoader(enginePath)
-        if self.engine is None or self.context is None or not os.path.exists(enginePath):
+        if (
+            self.engine is None
+            or self.context is None
+            or not os.path.exists(enginePath)
+        ):
             self.engine, self.context = self.tensorRTEngineCreator(
                 modelPath=self.modelPath,
                 enginePath=enginePath,
@@ -415,7 +425,9 @@ class ObjectDetectionTensorRT:
 
         for i in range(self.engine.num_io_tensors):
             tensorName = self.engine.get_tensor_name(i)
-            logging.info(f"Tensor {i}: {tensorName}, mode: {self.engine.get_tensor_mode(tensorName)}")
+            logging.info(
+                f"Tensor {i}: {tensorName}, mode: {self.engine.get_tensor_mode(tensorName)}"
+            )
             if self.engine.get_tensor_mode(tensorName) == self.trt.TensorIOMode.INPUT:
                 self.context.set_input_shape(tensorName, self.dummyInput.shape)
                 self.context.set_tensor_address(tensorName, self.dummyInput.data_ptr())
@@ -456,11 +468,13 @@ class ObjectDetectionTensorRT:
         classIds = np.clip(classIds, 0, len(colors) - 1)
 
         boxes = self.rescaleBoxes(boxes)
-        
+
         logging.debug(f"Detected {boxes.shape[0]} objects")
         if boxes.shape[0] > 0:
-            logging.debug(f"First box: {boxes[0]}, confidence: {confidences[0]}, class: {classIds[0]}")
-        
+            logging.debug(
+                f"First box: {boxes[0]}, confidence: {confidences[0]}, class: {classIds[0]}"
+            )
+
         return classIds, boxes, confidences
 
     @torch.inference_mode()
@@ -483,7 +497,7 @@ class ObjectDetectionTensorRT:
             non_blocking=True,
         )
         self.dummyOutput.zero_()
-        
+
         with torch.cuda.stream(self.normStream):
             self.dummyInput.copy_(inputTensorTorch, non_blocking=True)
             self.normStream.synchronize()
@@ -495,8 +509,12 @@ class ObjectDetectionTensorRT:
         if self.dummyOutput.numel() > 0:
             output = self.dummyOutput.view(-1, 6).detach().cpu().numpy()
             return self.processOutput(output)
-        
-        return np.array([], dtype=np.int32), np.empty((0, 4), dtype=np.float32), np.array([], dtype=np.float32)
+
+        return (
+            np.array([], dtype=np.int32),
+            np.empty((0, 4), dtype=np.float32),
+            np.array([], dtype=np.float32),
+        )
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -508,7 +526,7 @@ class ObjectDetectionTensorRT:
             if self.disableAnnotations:
                 outputImg = frameNp.copy()
                 outputImg = draw_masks(outputImg, boxes, classIds, mask_alpha=0.3)
-                for classId, box in zip(classIds, boxes):
+                for classId, box in zip(classIds, boxes, strict=False):
                     color = colors[classId]
                     draw_box(outputImg, box, color)
             else:

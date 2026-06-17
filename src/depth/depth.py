@@ -8,8 +8,8 @@ Backward-compatibility shim. Import from src.depth.backends.* directly.
 """
 
 from src.depth.backends.cuda import DepthCuda, OGDepthV2CUDA, OGDepthV3Cuda
-from src.depth.backends.tensorrt import DepthTensorRTV2, OGDepthV2TensorRT
 from src.depth.backends.directml import DepthDirectMLV2, OGDepthV2DirectML
+from src.depth.backends.tensorrt import DepthTensorRTV2, OGDepthV2TensorRT
 from src.depth.backends.video import VideoDepthAnythingCUDA, VideoDepthAnythingTorch
 
 __all__ = [

@@ -72,7 +72,7 @@ def rife_1080p_fp32() -> RifeCuda:
     return _build_rife(width=w, height=h, half=False)
 
 
-def _run_interp(rife: RifeCuda, frame: torch.Tensor, q: "queue.Queue") -> None:
+def _run_interp(rife: RifeCuda, frame: torch.Tensor, q: queue.Queue) -> None:
     """One I1/infer/cache cycle producing `framesToInsert` synthesized frames."""
     rife(frame, q, framesToInsert=1)
     while not q.empty():
@@ -83,7 +83,7 @@ def test_benchmark_rife46_720p_fp16(benchmark, rife_720p_fp16) -> None:
     """1280x720 fp16, 1 inserted midframe per call (2x interpolation)."""
     h, w = _RES_720P
     frame = _make_frame(h, w, torch.float16)
-    q: "queue.Queue" = queue.Queue()
+    q: queue.Queue = queue.Queue()
     benchmark.pedantic(
         _run_interp,
         args=(rife_720p_fp16, frame, q),
@@ -97,7 +97,7 @@ def test_benchmark_rife46_1080p_fp16(benchmark, rife_1080p_fp16) -> None:
     """1920x1080 fp16, 1 inserted midframe per call (2x interpolation)."""
     h, w = _RES_1080P
     frame = _make_frame(h, w, torch.float16)
-    q: "queue.Queue" = queue.Queue()
+    q: queue.Queue = queue.Queue()
     benchmark.pedantic(
         _run_interp,
         args=(rife_1080p_fp16, frame, q),
@@ -111,7 +111,7 @@ def test_benchmark_rife46_1080p_fp32(benchmark, rife_1080p_fp32) -> None:
     """1920x1080 fp32 — slow-path baseline for relative comparison."""
     h, w = _RES_1080P
     frame = _make_frame(h, w, torch.float32)
-    q: "queue.Queue" = queue.Queue()
+    q: queue.Queue = queue.Queue()
     benchmark.pedantic(
         _run_interp,
         args=(rife_1080p_fp32, frame, q),
@@ -125,7 +125,7 @@ def test_benchmark_rife46_720p_fp16_4x(benchmark, rife_720p_fp16) -> None:
     """1280x720 fp16, 3 inserted midframes per call (4x interpolation factor)."""
     h, w = _RES_720P
     frame = _make_frame(h, w, torch.float16)
-    q: "queue.Queue" = queue.Queue()
+    q: queue.Queue = queue.Queue()
 
     def _run_4x() -> None:
         rife_720p_fp16(frame, q, framesToInsert=3)

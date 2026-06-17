@@ -23,15 +23,17 @@ Home: https://github.com/NevermindNilas/TheAnimeScripter
 """
 
 import os
+
 os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
 
-import sys
 import logging
+import sys
 import warnings
-from queue import Empty, Queue
-from time import time
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
+from queue import Empty, Queue
+from time import time
+
 import src.constants as cs
 
 warnings.filterwarnings("ignore")
@@ -130,7 +132,6 @@ class VideoProcessor:
         self.depthQuality: str = args.depth_quality
         self.depthNorm: bool = args.depth_norm
 
-
         self.moblur: bool = args.moblur
         self.moblurMethod: str = args.moblur_method
         self.moblurFactor: int = args.moblur_factor
@@ -147,7 +148,6 @@ class VideoProcessor:
         self.preview: bool = args.preview
         self.profile: bool = args.profile
         self.singleImageInput: bool = getattr(args, "single_image_input", False)
-
 
     def _initVideoMetadata(self, args) -> None:
         """
@@ -301,7 +301,7 @@ class VideoProcessor:
             frame: Input video frame tensor
         """
         if self.interpolate:
-            if self.interpolateMethod.startswith(("distildrba")):
+            if self.interpolateMethod.startswith("distildrba"):
                 self.interpolate_process(
                     frame,
                     self.nextFrame,
@@ -344,7 +344,7 @@ class VideoProcessor:
             frame = self.upscale_process(frame, self.nextFrame)
 
         if self.interpolate:
-            if self.interpolateMethod.startswith(("distildrba")):
+            if self.interpolateMethod.startswith("distildrba"):
                 self.interpolate_process(
                     frame,
                     self.nextFrame,
@@ -402,7 +402,7 @@ class VideoProcessor:
                 while currentFrame is not None:
                     if self.upscaleMethod == "animesr" or (
                         self.interpolate
-                        and self.interpolateMethod.startswith(("distildrba"))
+                        and self.interpolateMethod.startswith("distildrba")
                     ):
                         self.nextFrame = nextFrame
                     self.processFrame(currentFrame)
@@ -437,10 +437,10 @@ class VideoProcessor:
         Sets up input/output buffers, initializes AI models, and coordinates
         the multi-threaded processing workflow.
         """
-        from src.utils.ffmpegSettings import BuildBuffer, createWriteBuffer
-        from src.utils.progressBarLogic import ProgressBarLogic
         from src.utils.aeComms import progressState
+        from src.utils.ffmpegSettings import BuildBuffer, createWriteBuffer
         from src.utils.logAndPrint import logAndPrint
+        from src.utils.progressBarLogic import ProgressBarLogic
 
         self.ProgressBarLogic = ProgressBarLogic
 
@@ -529,7 +529,7 @@ class VideoProcessor:
             # the real, final number.
             try:
                 finalSize = os.path.getsize(self.output)
-            except (OSError, TypeError):
+            except OSError, TypeError:
                 finalSize = None
             if finalSize is not None:
                 sz = (
@@ -553,7 +553,8 @@ class VideoProcessor:
         Uses a simplified approach compatible with multi-threaded execution on Windows.
         """
         import torch
-        from torch.profiler import profile, ProfilerActivity
+        from torch.profiler import ProfilerActivity, profile
+
         from src.utils.logAndPrint import logAndPrint
 
         profilePath = os.path.join(cs.WHEREAMIRUNFROM, "profiler_trace")
@@ -634,9 +635,9 @@ def _runPngPassthrough(inputPath: str, outputPath: str) -> None:
 
     except Exception as cvError:
         logging.warning(f"OpenCV decode failed, trying Pillow fallback: {cvError}")
-        from PIL import Image
         import numpy as np
         import torch
+        from PIL import Image
 
         pilImage = Image.open(inputPath).convert("RGB")
         tensorFrame = torch.from_numpy(np.array(pilImage))
@@ -675,7 +676,7 @@ def main():
         try:
             sys.stdout.reconfigure(encoding="utf-8")
             sys.stderr.reconfigure(encoding="utf-8")
-        except (AttributeError, Exception):
+        except AttributeError, Exception:
             pass
 
     try:
@@ -694,10 +695,10 @@ def main():
                 return
 
         from src.utils.logAndPrint import (
+            logError,
             logInfo,
             logSuccess,
             logWarning,
-            logError,
             printSectionHeader,
             printSubsectionHeader,
         )
@@ -717,8 +718,10 @@ def main():
         logging.info("=" * 80)
         logging.info(f"{' '.join(sys.argv)}\n")
 
-        from src.utils.argumentsChecker import createParser
-        from src.utils.argumentsChecker import isAnyOtherProcessingMethodEnabled
+        from src.utils.argumentsChecker import (
+            createParser,
+            isAnyOtherProcessingMethodEnabled,
+        )
 
         args = createParser(baseOutputPath)
         processingEnabled = isAnyOtherProcessingMethodEnabled(args)
@@ -745,7 +748,9 @@ def main():
                 if len(_videoName) > 60:
                     _videoName = _videoName[:57] + "..."
                 if totalVideos > 1:
-                    _setTerminalTitle(f"\u2605 Processing - {_videoName} [{idx}/{totalVideos}]")
+                    _setTerminalTitle(
+                        f"\u2605 Processing - {_videoName} [{idx}/{totalVideos}]"
+                    )
                 else:
                     _setTerminalTitle(f"\u2605 Processing - {_videoName}")
                 if totalVideos > 1:
