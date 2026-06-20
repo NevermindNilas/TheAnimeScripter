@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 
+## [2.7.9] - 2026-06-20
+### Fixed
+- Windows startup could fail with Nelux reporting `PyTorch must be imported before Nelux.` even when startup had already prepared the FFmpeg DLL search path. `src/io/ffmpegSettings.py` now imports `torch` before `nelux`, which matches Nelux's required import order and fixes the controlling startup failure; the FFmpeg DLL registration remains centralized in the bootstrap path.
+
 ## [2.7.8] - 2026-06-17
 ### Added
 - Progress bar: leading spinner that turns into a `✔` on completion.
