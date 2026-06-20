@@ -2,6 +2,7 @@ import logging
 import math
 import os
 from concurrent.futures import ThreadPoolExecutor
+from queue import Empty
 from time import time
 
 import cv2
@@ -535,71 +536,89 @@ class MotionBlurPipeline:
         prevSegs = None
 
         with ProgressBarLogic(self.totalFrames, title=self.input) as bar:
-            for _ in range(self.totalFrames):
-                nextFrame = self.readBuffer.read()
-                if nextFrame is None:
-                    break
+            try:
+                for _ in range(self.totalFrames):
+                    nextFrame = self.readBuffer.read()
+                    if nextFrame is None:
+                        break
 
-                if prevFrame is None:
-                    # Prime interp state (firstRun stores I0, returns nothing).
+                    if prevFrame is None:
+                        # Prime interp state (firstRun stores I0, returns nothing).
+                        collector.clear()
+                        self.interpolateProcess(
+                            nextFrame, collector, nSamples, sampleTs
+                        )
+                        prevFrame = nextFrame
+                        self.writeBuffer.write(nextFrame)
+                        bar(1)
+                        continue
+
                     collector.clear()
                     self.interpolateProcess(nextFrame, collector, nSamples, sampleTs)
-                    prevFrame = nextFrame
-                    self.writeBuffer.write(nextFrame)
+                    # segs[i] is the interpolated sample at neededKs[i]; kPos maps a
+                    # k back to its position. Keep the whole list alive (see prevSegs).
+                    # Move to the blend device: CPU-output backends (directml /
+                    # openvino) return CPU tensors, but currFrame and the blender
+                    # weights live on `device`; mixing them blows up torch.cat. For
+                    # the CUDA backends the tensors are already on `device`, so .to()
+                    # is a no-op.
+                    segs = [s.to(device) for s in collector.frames]
+
+                    if currFrame is None:
+                        # Bootstrap: need both neighboring segments before first blur.
+                        prevSegs = segs
+                        currFrame = nextFrame
+                        continue
+
+                    if noBlur:
+                        self.writeBuffer.write(currFrame)
+                    else:
+                        window = []
+                        if leftCount > 0 and prevSegs is not None:
+                            # trailing edge: large-t samples of the PREVIOUS segment
+                            window.extend(prevSegs[kPos[k]] for k in largeKs)
+                        window.append(currFrame)
+                        if nextSegCount > 0:
+                            # leading edge: small-t samples of the CURRENT segment
+                            window.extend(segs[kPos[k]] for k in smallKs)
+
+                        blended = blender(window)
+
+                        if self.mask is not None:
+                            blended = blended * self.mask + currFrame * (
+                                1.0 - self.mask
+                            )
+
+                        if self.useCuda:
+                            torch.cuda.current_stream().synchronize()
+
+                        self.writeBuffer.write(blended)
+
                     bar(1)
-                    continue
 
-                collector.clear()
-                self.interpolateProcess(nextFrame, collector, nSamples, sampleTs)
-                # segs[i] is the interpolated sample at neededKs[i]; kPos maps a
-                # k back to its position. Keep the whole list alive (see prevSegs).
-                # Move to the blend device: CPU-output backends (directml /
-                # openvino) return CPU tensors, but currFrame and the blender
-                # weights live on `device`; mixing them blows up torch.cat. For
-                # the CUDA backends the tensors are already on `device`, so .to()
-                # is a no-op.
-                segs = [s.to(device) for s in collector.frames]
-
-                if currFrame is None:
-                    # Bootstrap: need both neighboring segments before first blur.
-                    prevSegs = segs
+                    prevFrame = currFrame
                     currFrame = nextFrame
-                    continue
+                    prevSegs = segs
 
-                if noBlur:
+                    if (
+                        self.readBuffer.isReadFinished()
+                        and self.readBuffer.isQueueEmpty()
+                    ):
+                        break
+
+                # Final frame: no nextSeg available, emit pristine.
+                if currFrame is not None:
                     self.writeBuffer.write(currFrame)
-                else:
-                    window = []
-                    if leftCount > 0 and prevSegs is not None:
-                        # trailing edge: large-t samples of the PREVIOUS segment
-                        window.extend(prevSegs[kPos[k]] for k in largeKs)
-                    window.append(currFrame)
-                    if nextSegCount > 0:
-                        # leading edge: small-t samples of the CURRENT segment
-                        window.extend(segs[kPos[k]] for k in smallKs)
-
-                    blended = blender(window)
-
-                    if self.mask is not None:
-                        blended = blended * self.mask + currFrame * (1.0 - self.mask)
-
-                    if self.useCuda:
-                        torch.cuda.current_stream().synchronize()
-
-                    self.writeBuffer.write(blended)
-
-                bar(1)
-
-                prevFrame = currFrame
-                currFrame = nextFrame
-                prevSegs = segs
-
-                if self.readBuffer.isReadFinished() and self.readBuffer.isQueueEmpty():
-                    break
-
-            # Final frame: no nextSeg available, emit pristine.
-            if currFrame is not None:
-                self.writeBuffer.write(currFrame)
-                bar(1)
-
-        self.writeBuffer.close()
+                    bar(1)
+            finally:
+                self.writeBuffer.close()
+                # Drain the decode buffer so the producer's blocking put() returns
+                # and the reader thread can reach its sentinel-enqueue finally.
+                # Without this, an exception in _processFrames leaves the read
+                # thread blocked on put() to a full queue -> the ThreadPoolExecutor
+                # __exit__ in the caller hangs.
+                while not self.readBuffer.isReadFinished():
+                    try:
+                        self.readBuffer.decodeBuffer.get(timeout=0.1)
+                    except Empty:
+                        continue

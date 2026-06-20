@@ -5,6 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased] - YYYY-MM-DD
+### Fixed
+- Pipeline (`main.py` `process()`) and motion-blur (`src/motionBlur.py` `_processFrames`) deadlocked the `ThreadPoolExecutor` when `processFrame` raised mid-run (CUDA OOM, TRT engine mismatch, corrupt frame, etc.). The `finally` only closed the write buffer, leaving the read-thread blocked on `put()` to a full `decodeBuffer` — so `ThreadPoolExecutor.__exit__` waited forever and only a `KeyboardInterrupt` (`os._exit(130)`) could escape. Both loops now drain `readBuffer.decodeBuffer` in a `finally` block so the decoder's blocking `put()` returns and the reader thread reaches its sentinel-enqueue; motion-blur's loop body is also wrapped in `try/finally` (the success-only `writeBuffer.close()` at the end was insufficient).
+- `--interpolate_method rife*-tensorrt` with `--half` corrupted every later tensor in the process. `RifeTensorRT.handleModel` called `torch.set_default_dtype(torch.float16)` and never restored it, so any subsequent `torch.zeros`/`torch.tensor`/`torch.full` (dedup SSIM init, restore model load, depth normalizer, writeBuffer frame conversion, …) silently became fp16. The line was redundant — every tensor creation in the file already passes an explicit `dtype=` — and is now removed.
+- Removed the dead `--demo` code path (`main.py` `elif self.demo:` + the `self.demo` attribute). The branch imported `src.neluxDemo`, whose source was deleted (only a stale `cp313` `.pyc` remained, un-loadable on cp314); argparse had no `--demo` flag either, so the branch was unreachable and would have raised `ModuleNotFoundError` if ever hit.
 
 ## [2.7.9] - 2026-06-20
 ### Fixed

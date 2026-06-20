@@ -140,8 +140,6 @@ class VideoProcessor:
         self.moblurLinearBlend: bool = not args.moblur_no_linear_blend
         self.moblurMask: str = args.moblur_mask
 
-        self.demo: bool = getattr(args, "demo", False)
-
         # Utility settings
         self.customModel: str = args.custom_model
         self.benchmark: bool = args.benchmark
@@ -232,15 +230,6 @@ class VideoProcessor:
             from src.initializeModels import motionBlur
 
             motionBlur(self)
-
-        elif self.demo:
-            logging.info(
-                "NELUX Parallel-Stream Upscale Benchmark "
-                "(num_streams sweep 2/3/4 x cpu-cpu/gpu-gpu)"
-            )
-            from src.neluxDemo import run_parallel_stream_benchmark
-
-            run_parallel_stream_benchmark(self, num_streams_values=(1, 2, 3))
 
         else:
             self.start()
@@ -425,6 +414,16 @@ class VideoProcessor:
             if self.preview:
                 self.preview.close()
             self.writeBuffer.close()
+            # Drain the decode buffer so the producer's blocking put() returns
+            # and the reader thread can reach its sentinel-enqueue finally.
+            # Without this, an exception in processFrame leaves the read thread
+            # blocked on put() to a full queue -> ThreadPoolExecutor.__exit__
+            # hangs (only KeyboardInterrupt escapes today, via os._exit).
+            while not self.readBuffer.isReadFinished():
+                try:
+                    self.readBuffer.decodeBuffer.get(timeout=0.1)
+                except Empty:
+                    continue
 
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
