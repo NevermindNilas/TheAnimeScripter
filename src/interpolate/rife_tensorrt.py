@@ -212,8 +212,6 @@ class RifeTensorRT:
         self.handleModel()
 
     def handleModel(self):
-        if self.half:
-            torch.set_default_dtype(torch.float16)
         self.filename = modelsMap(
             self.interpolateMethod.replace("-tensorrt", ""),
             modelType="pth",
