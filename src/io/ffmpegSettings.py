@@ -5,8 +5,8 @@ import threading
 import time
 from queue import Queue
 
+import torch # this has to be always before nelux!
 import nelux
-import torch
 
 import src.constants as cs
 from src.utils.encodingSettings import getPixFMT, matchEncoder

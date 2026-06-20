@@ -47,7 +47,7 @@ def _promptDownloadRequirementsSelection() -> str:
 def _handleDependencies(args):
     import shutil
 
-    from src.utils.getFFMPEG import remove_readonly
+    from src.utils.getFFMPEG import addFfmpegToDllSearchPath, remove_readonly
 
     legacyFFMPEG = os.path.join(cs.WHEREAMIRUNFROM, "ffmpeg")
     if os.path.isdir(legacyFFMPEG):
@@ -81,15 +81,8 @@ def _handleDependencies(args):
         from src.utils.getFFMPEG import getFFMPEG
 
         getFFMPEG()
-
-    if cs.SYSTEM == "Windows":
-        ffmpeg_dir = os.path.dirname(cs.FFMPEGPATH)
-        if os.path.exists(ffmpeg_dir):
-            try:
-                os.add_dll_directory(ffmpeg_dir)
-                logging.info(f"Added FFmpeg directory to DLL search path: {ffmpeg_dir}")
-            except Exception as e:
-                logging.warning(f"Failed to add FFmpeg to DLL search path: {e}")
+    else:
+        addFfmpegToDllSearchPath(cs.FFMPEGPATH)
 
     try:
         from src.utils.isCudaInit import detectGPUArchitecture, detectNVidiaGPU

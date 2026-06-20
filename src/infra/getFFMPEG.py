@@ -7,11 +7,28 @@ from urllib.request import urlopen
 import src.constants as cs
 
 
+def addFfmpegToDllSearchPath(ffmpegPath: str | None = None) -> None:
+    if cs.SYSTEM != "Windows":
+        return
+
+    ffmpegPath = ffmpegPath or cs.FFMPEGPATH
+    ffmpeg_dir = os.path.dirname(ffmpegPath)
+    if not ffmpeg_dir or not os.path.exists(ffmpeg_dir):
+        return
+
+    try:
+        os.add_dll_directory(ffmpeg_dir)
+        logging.info(f"Added FFmpeg directory to DLL search path: {ffmpeg_dir}")
+    except Exception as e:
+        logging.warning(f"Failed to add FFmpeg to DLL search path: {e}")
+
+
 def getFFMPEG():
     ffmpegPath = downloadAndExtractFfmpeg(cs.FFMPEGPATH)
     cs.FFMPEGPATH = ffmpegPath
     ffProbeExe = "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe"
     cs.FFPROBEPATH = os.path.join(os.path.dirname(ffmpegPath), ffProbeExe)
+    addFfmpegToDllSearchPath(cs.FFMPEGPATH)
 
 
 def downloadAndExtractFfmpeg(ffmpegPath):
