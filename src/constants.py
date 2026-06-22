@@ -9,6 +9,9 @@ and to improve code readability.
 # Core system paths
 WHEREAMIRUNFROM: str = ""  # Path to the main script directory
 SYSTEM: str = ""  # Operating system identifier (Windows/Linux/macOS)
+LOG_PATH: str = (
+    ""  # Per-run log file path (PID-suffixed to avoid concurrent-run interleaving)
+)
 
 # FFmpeg executable paths
 FFMPEGPATH: str = ""  # Path to FFmpeg executable

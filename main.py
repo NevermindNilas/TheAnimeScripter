@@ -75,6 +75,13 @@ class VideoProcessor:
         self._configureProcessingOptions(args)
         self._selectProcessingMethod()
 
+        # Cleared at start(), set by process() if the frame loop raises.
+        # start() reads this to decide whether FPS/Output-Size stats are
+        # meaningful or should be suppressed (they are computed from a tiny
+        # sample that includes startup + the failing frame, so reporting them
+        # is misleading).
+        self.processingError: Exception | None = None
+
     def _initProcessingParams(self, args):
         """
         Initialize processing parameters from command line arguments.
@@ -406,6 +413,7 @@ class VideoProcessor:
                     bar.updateTotal(frameCount * increment)
 
         except Exception as e:
+            self.processingError = e
             logging.exception(f"Something went wrong while processing the frames, {e}")
         finally:
             # Always enqueue the writer's None sentinel (and close preview) even
@@ -514,29 +522,47 @@ class VideoProcessor:
                     executor.submit(self.process)
 
             elapsedTime: float = time() - starTime
-            totalFPS: float = (
-                self.totalFrames
-                / elapsedTime
-                * (1 if not self.interpolate else self.interpolateFactor)
-            )
-            logAndPrint(
-                f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}",
-                colorFunc="green",
-            )
-            # The bar's last filesize sample lands before the encoder
-            # drains its queue and writes the container trailer; this is
-            # the real, final number.
-            try:
-                finalSize = os.path.getsize(self.output)
-            except OSError, TypeError:
-                finalSize = None
-            if finalSize is not None:
-                sz = (
-                    f"{finalSize / 1024**3:.2f} GB"
-                    if finalSize >= 1024**3
-                    else f"{finalSize / (1024 * 1024):.1f} MB"
+            if self.processingError is not None:
+                # process() caught a per-frame exception. Computing FPS from
+                # frameCount over elapsedTime is meaningless (frameCount is
+                # usually 0 or 1, elapsedTime includes startup + model init),
+                # and the output file is typically missing/empty because the
+                # encoder pipe was starved. Report failure clearly instead.
+                logAndPrint(
+                    f"Processing FAILED after {elapsedTime:.2f}s: {self.processingError}",
+                    colorFunc="red",
+                    level="ERROR",
                 )
-                logAndPrint(f"Output Size: {sz}", colorFunc="green")
+            else:
+                totalFPS: float = (
+                    self.totalFrames
+                    / elapsedTime
+                    * (1 if not self.interpolate else self.interpolateFactor)
+                )
+                logAndPrint(
+                    f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}",
+                    colorFunc="green",
+                )
+                # The bar's last filesize sample lands before the encoder
+                # drains its queue and writes the container trailer; this is
+                # the real, final number.
+                try:
+                    finalSize = os.path.getsize(self.output)
+                except OSError, TypeError:
+                    finalSize = None
+                if finalSize is not None and finalSize > 0:
+                    sz = (
+                        f"{finalSize / 1024**3:.2f} GB"
+                        if finalSize >= 1024**3
+                        else f"{finalSize / (1024 * 1024):.1f} MB"
+                    )
+                    logAndPrint(f"Output Size: {sz}", colorFunc="green")
+                else:
+                    logAndPrint(
+                        "Output Size: 0 bytes (encoder produced no frames)",
+                        colorFunc="yellow",
+                        level="WARNING",
+                    )
 
             if cs.ADOBE:
                 progressState.setCompleted(outputPath=self.output)
@@ -704,8 +730,18 @@ def main():
 
         baseOutputPath = os.path.dirname(os.path.abspath(__file__))
 
+        # Per-run log file keyed by PID. The AE bridge (and batch usage) can
+        # launch multiple TAS workers against the same cs.WHEREAMIRUNFROM
+        # directory; with the old fixed name + filemode="w", each worker
+        # truncated the same TAS-Log.log and their outputs interleaved at the
+        # line level (init block + "Processed/Encoded N frames" appearing
+        # twice per run). A PID-suffixed name gives each worker its own file
+        # so concurrent runs no longer pollute each other. The AE frontend
+        # receives progress over Socket.IO, not by tailing this file, so the
+        # rename is transparent to it.
+        cs.LOG_PATH = os.path.join(cs.WHEREAMIRUNFROM, f"TAS-Log-{os.getpid()}.log")
         logging.basicConfig(
-            filename=os.path.join(cs.WHEREAMIRUNFROM, "TAS-Log.log"),
+            filename=cs.LOG_PATH,
             filemode="w",
             format="[%(asctime)s] [%(levelname)s] %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
@@ -716,6 +752,7 @@ def main():
         logging.info("Command Line Arguments".center(80))
         logging.info("=" * 80)
         logging.info(f"{' '.join(sys.argv)}\n")
+        logging.info(f"Log file: {cs.LOG_PATH}")
 
         from src.utils.argumentsChecker import (
             createParser,
