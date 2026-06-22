@@ -10,7 +10,7 @@ einops==0.8.2
 triton-windows==3.7.0.post26
 safetensors==0.7.0
 scenedetect[opencv]
-yt-dlp==2026.3.17
+yt-dlp==2026.6.9
 onnx==1.21.0
 openvino==2026.2.0
 onnxscript==0.7.0
