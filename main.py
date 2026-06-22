@@ -120,7 +120,12 @@ class VideoProcessor:
         self.dynamicScale: bool = args.dynamic_scale
         self.staticStep: bool = args.static_step
         self.compileMode: str = args.compile_mode
-        self.decodeMethod: str = args.decode_method
+        # Normalize: argparse choices=["cpu","nvdec"] enforces lowercase on the
+        # CLI path, but --json passes the value through verbatim and the AE
+        # bridge emits uppercase "NVDEC". nelux normalizes internally via
+        # .lower(), but our cache-invalidation guard in BuildBuffer does not,
+        # so normalize once here at the source.
+        self.decodeMethod: str = (args.decode_method or "cpu").lower()
 
         # Video processing settings
         self.inpoint: float = args.inpoint
@@ -174,6 +179,27 @@ class VideoProcessor:
         self.height: int = videoMetadata["Height"]
         self.fps: float = videoMetadata["FPS"]
         self.totalFrames: int = videoMetadata["TotalFramesToBeProcessed"]
+
+        # NVDEC's cuvid decoders only handle compressed codecs (H.264/HEVC/VP9/
+        # AV1/...) with YUV-family pix_fmts. AE-bridge prerender AVIs are
+        # typically `codec=rawvideo, pix_fmt=bgr24` (uncompressed RGB), which
+        # has no cuvid decoder: nelux.VideoReader(decode_accelerator="nvdec")
+        # then deadlocks or fails opaquely at construction, and the CPU
+        # fallback in BuildBuffer.__call__ never fires because the constructor
+        # hangs rather than raising. Detect it up front and downgrade.
+        if self.decodeMethod == "nvdec":
+            from src.io.getVideoMetadata import isNvdecCompatible
+
+            codec = videoMetadata["Codec"]
+            pixFmt = videoMetadata["ColorFormat"]
+            if not isNvdecCompatible(codec, pixFmt):
+                logging.warning(
+                    f"NVDEC cannot decode this source (codec='{codec}', "
+                    f"pix_fmt='{pixFmt}'); NVDEC supports common compressed "
+                    f"codecs (H.264, HEVC, VP9, AV1, MPEG-2/4, VC1, VP8, MJPEG) "
+                    f"with YUV-family pixel formats. Falling back to CPU decode."
+                )
+                self.decodeMethod = "cpu"
 
     def _configureProcessingOptions(self, args) -> None:
         """

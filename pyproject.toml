@@ -23,6 +23,7 @@ ignore = [
 "src/depth/dpt_v2.py" = ["B006"]     # vendored DPT arch — keep upstream signatures intact
 "src/depth/og_dpt_v2.py" = ["B006"]  # vendored DPT arch — keep upstream signatures intact
 "src/segment/train.py" = ["F821"]    # training-only path; InSPyReNet arch not vendored for inference
+"src/io/ffmpegSettings.py" = ["I001"]  # nelux raises if imported before torch; ruff would sort nelux first
 
 [tool.ruff.format]
 # Defaults: double quotes, 4-space indent, magic trailing comma.

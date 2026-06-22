@@ -6,6 +6,60 @@ import textwrap
 
 import src.constants as cs
 
+# Codecs nelux's NVDEC path cannot decode. NVDEC's cuvid covers compressed
+# streams only (H.264/HEVC/VP9/AV1/MPEG2/MPEG4/VC1/VP8/MJPEG); uncompressed
+# and lossless-intermediate codecs have no cuvid decoder and either fail
+# opaquely or deadlock the parser. Sourced from the nelux README codec table
+# (https://github.com/NevermindNilas/Nelux#supported-codecs--formats).
+_NVDEC_UNSUPPORTED_CODECS: frozenset[str] = frozenset(
+    {
+        "rawvideo",
+        "ffv1",
+        "ffvhuff",
+        "huffyuv",
+        "lagarith",
+        "utvideo",
+        "qtrle",
+        "qdraw",
+        "8bps",
+        "cinepak",
+        "msrle",
+        "msvideo1",
+        "rle",
+        "vp6",
+        "vp6a",
+        "vp6f",
+    }
+)
+
+# NVDEC outputs YUV-family pix_fmts only (NV12/P010/P016/YUV444 8/10/12/16-bit).
+# Packed RGB/BGR/GBR/palette/gray-alpha sources have no NVDEC path.
+_NVDEC_UNSUPPORTED_PIXFMT_PREFIXES: tuple[str, ...] = (
+    "bgr",
+    "rgb",
+    "gbr",
+    "pal",
+    "ya",
+)
+
+
+def isNvdecCompatible(codec: str | None, pixFmt: str | None) -> bool:
+    """Return True if the source codec + pix_fmt can be decoded by NVDEC.
+
+    Conservative: only rules out cases the NVDEC path provably cannot handle
+    (raw/uncompressed codecs, packed RGB/BGR/GBR pixel formats). Anything
+    unclear is allowed through so valid hardware-decodable input is not
+    surprise-downgraded to CPU. ``None``/empty inputs are treated as
+    "unknown" and allowed through.
+    """
+    codecNorm = (codec or "").lower()
+    pixFmtNorm = (pixFmt or "").lower()
+    if codecNorm in _NVDEC_UNSUPPORTED_CODECS:
+        return False
+    if pixFmtNorm.startswith(_NVDEC_UNSUPPORTED_PIXFMT_PREFIXES):
+        return False
+    return True
+
 
 def saveMetadata(metadata, videoDataDump=None):
     metadataPath = os.path.join(cs.WHEREAMIRUNFROM, "metadata.json")
