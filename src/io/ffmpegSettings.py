@@ -164,7 +164,7 @@ class BuildBuffer:
 
         resizeTarget = (self.width, self.height) if self.resize else None
 
-        if decodeMethod == "nvdec":
+        if decodeMethod.lower() == "nvdec":
             CachedReader = None
             CachedReaderMethod = None
             CachedReaderResize = None
