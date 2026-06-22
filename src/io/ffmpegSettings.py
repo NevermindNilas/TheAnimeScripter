@@ -5,7 +5,7 @@ import threading
 import time
 from queue import Queue
 
-import torch # this has to be always before nelux!
+import torch  # this has to be always before nelux!
 import nelux
 
 import src.constants as cs
@@ -1059,7 +1059,21 @@ class WriteBuffer:
                 if ffmpegProc is not None and ffmpegProc.stdin:
                     ffmpegProc.stdin.close()
                 if ffmpegProc is not None:
-                    ffmpegProc.wait(timeout=3)
+                    # 3s was too short: when the worker died early the encoder
+                    # pipe still had buffered data + an audio input file to
+                    # finalize, routinely blowing past 3s and spamming a
+                    # "Cleanup error" warning that looked like a bug. 30s is a
+                    # safe upper bound for any real finalize; if we still hit
+                    # it, force-kill and log at DEBUG (this is expected when
+                    # the upstream processing already errored).
+                    try:
+                        ffmpegProc.wait(timeout=30)
+                    except subprocess.TimeoutExpired:
+                        logging.debug(
+                            "FFmpeg did not exit within 30s after stdin close, killing"
+                        )
+                        ffmpegProc.kill()
+                        ffmpegProc.wait()
 
             except Exception as e:
                 logging.warning(f"Cleanup error: {e}")

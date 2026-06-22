@@ -57,7 +57,7 @@ Deviations to expect: **OpenVINO is usually a branch inside the DirectML/ORT cla
 - **Global singletons** (`WHEREAMIRUNFROM`, `SYSTEM`, `FFMPEGPATH`, `FFPROBEPATH`, `METADATAPATH`, `ADOBE`, `AUDIO`): `src/constants.py`, set once in argumentsChecker, read everywhere as `import src.constants as cs`.
 - **Runtime deps install**: `dependencyHandler.py` picks the per-platform `extra-requirements-*.txt` and pip-installs. FFmpeg auto-download: `getFFMPEG.py`. Hardware probe: `checkSpecs.py`.
 - **AE bridge**: `--ae` starts a Socket.IO server (`aeComms.py`); `cs.ADOBE` mode. Live frame preview server: `previewSettings.py`. Preset save/load (`--preset`): `presetLogic.py`. Video metadata probe: `getVideoMetadata.py`.
-- **Logs**: `TAS-Log.log` in `cs.WHEREAMIRUNFROM` (configured ~`main.py:676`); colored-print helper `logAndPrint.py` (wraps stdlib logging — it does NOT own the file path).
+- **Logs**: per-run `TAS-Log-<pid>.log` in `cs.WHEREAMIRUNFROM` (PID-suffixed so concurrent AE-bridge workers don't interleave); path stored in `cs.LOG_PATH`, configured in `main.py` `main()`. Colored-print helper `logAndPrint.py` (wraps stdlib logging — it does NOT own the file path).
 
 ### Supporting code
 
