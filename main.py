@@ -195,8 +195,9 @@ class VideoProcessor:
             if not isNvdecCompatible(codec, pixFmt):
                 logging.warning(
                     f"NVDEC cannot decode this source (codec='{codec}', "
-                    f"pix_fmt='{pixFmt}'); NVDEC only handles H.264/HEVC/VP9/AV1 "
-                    f"with YUV pix_fmts. Falling back to CPU decode."
+                    f"pix_fmt='{pixFmt}'); NVDEC supports common compressed "
+                    f"codecs (H.264, HEVC, VP9, AV1, MPEG-2/4, VC1, VP8, MJPEG) "
+                    f"with YUV-family pixel formats. Falling back to CPU decode."
                 )
                 self.decodeMethod = "cpu"
 

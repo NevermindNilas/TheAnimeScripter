@@ -16,7 +16,6 @@ _NVDEC_UNSUPPORTED_CODECS: frozenset[str] = frozenset(
         "rawvideo",
         "ffv1",
         "ffvhuff",
-        "huffyuf",
         "huffyuv",
         "lagarith",
         "utvideo",
@@ -44,13 +43,14 @@ _NVDEC_UNSUPPORTED_PIXFMT_PREFIXES: tuple[str, ...] = (
 )
 
 
-def isNvdecCompatible(codec: str, pixFmt: str) -> bool:
+def isNvdecCompatible(codec: str | None, pixFmt: str | None) -> bool:
     """Return True if the source codec + pix_fmt can be decoded by NVDEC.
 
     Conservative: only rules out cases the NVDEC path provably cannot handle
     (raw/uncompressed codecs, packed RGB/BGR/GBR pixel formats). Anything
     unclear is allowed through so valid hardware-decodable input is not
-    surprise-downgraded to CPU.
+    surprise-downgraded to CPU. ``None``/empty inputs are treated as
+    "unknown" and allowed through.
     """
     codecNorm = (codec or "").lower()
     pixFmtNorm = (pixFmt or "").lower()
