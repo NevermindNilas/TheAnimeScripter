@@ -15,7 +15,7 @@ import types
 import pytest
 
 import src.constants as cs
-from src.utils.presetLogic import createPreset, listPresets
+from src.server.presetLogic import createPreset, listPresets
 
 
 @pytest.fixture

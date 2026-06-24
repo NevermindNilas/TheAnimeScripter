@@ -6,8 +6,12 @@ from urllib.request import urlopen
 
 import src.constants as cs
 
+_ffmpegDllDirectoryHandle = None
+
 
 def addFfmpegToDllSearchPath(ffmpegPath: str | None = None) -> None:
+    global _ffmpegDllDirectoryHandle
+
     if cs.SYSTEM != "Windows":
         return
 
@@ -17,7 +21,7 @@ def addFfmpegToDllSearchPath(ffmpegPath: str | None = None) -> None:
         return
 
     try:
-        os.add_dll_directory(ffmpeg_dir)
+        _ffmpegDllDirectoryHandle = os.add_dll_directory(ffmpeg_dir)
         logging.info(f"Added FFmpeg directory to DLL search path: {ffmpeg_dir}")
     except Exception as e:
         logging.warning(f"Failed to add FFmpeg to DLL search path: {e}")
@@ -47,7 +51,7 @@ def downloadAndExtractFfmpeg(ffmpegPath):
     )
 
     try:
-        from src.utils.progressBarLogic import ProgressBarDownloadLogic
+        from src.infra.progressBarLogic import ProgressBarDownloadLogic
 
         response = urlopen(ffmpegUrl)
 

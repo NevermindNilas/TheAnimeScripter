@@ -3,18 +3,13 @@ import os
 os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
 import logging
+import statistics
+from collections import deque
 
 import numpy as np
 import torch
 
-from src.constants import ADOBE
-from src.utils.isCudaInit import CudaChecker
-
-if ADOBE:
-    pass
-
-import statistics
-from collections import deque
+from src.infra.isCudaInit import CudaChecker
 
 checker = CudaChecker()
 

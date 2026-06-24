@@ -4,17 +4,12 @@ import os
 import torch
 import torch.nn.functional as F
 
-from src.constants import ADOBE
-from src.utils.downloadModels import (
+from src.infra.isCudaInit import CudaChecker
+from src.model.downloadModels import (
     downloadModels,
     modelsMap,
     weightsDir,
 )
-from src.utils.isCudaInit import CudaChecker
-
-if ADOBE:
-    pass
-
 
 checker = CudaChecker()
 
@@ -414,7 +409,7 @@ class DistilDRBATensorRT:
         """
         import tensorrt as trt
 
-        from src.utils.trtHandler import (
+        from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
         )

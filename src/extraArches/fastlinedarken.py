@@ -4,8 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from src.utils.downloadModels import weightsDir
-from src.utils.isCudaInit import CudaChecker
+from src.infra.isCudaInit import CudaChecker
+from src.model.downloadModels import weightsDir
 
 checker = CudaChecker()
 
@@ -252,7 +252,7 @@ class FastLineDarkenTRT(FastLineDarken):
         super().__init__(half)
         import tensorrt as trt
 
-        from ..utils.trtHandler import (
+        from ..model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,

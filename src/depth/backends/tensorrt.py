@@ -10,19 +10,19 @@ import torch
 import torch.nn.functional as F
 
 from src.constants import ADOBE
-from src.utils.downloadModels import (
-    modelsMap,
-    resolveWeightPath,
-)
-from src.utils.ffmpegSettings import (
+from src.infra.isCudaInit import CudaChecker
+from src.infra.progressBarLogic import ProgressBarLogic
+from src.io.ffmpegSettings import (
     BuildBuffer,
     WriteBuffer,
 )
-from src.utils.isCudaInit import CudaChecker
-from src.utils.progressBarLogic import ProgressBarLogic
+from src.model.downloadModels import (
+    modelsMap,
+    resolveWeightPath,
+)
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 import statistics
 from collections import deque
@@ -178,7 +178,7 @@ class DepthTensorRTV2:
 
         import tensorrt as trt
 
-        from src.utils.trtHandler import (
+        from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
@@ -413,7 +413,7 @@ class OGDepthV2TensorRT:
 
         import tensorrt as trt
 
-        from src.utils.trtHandler import (
+        from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,

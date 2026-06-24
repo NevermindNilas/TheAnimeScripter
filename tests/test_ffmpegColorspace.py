@@ -19,7 +19,7 @@ pytest.importorskip("nelux", exc_type=ImportError)
 pytest.importorskip("cv2")
 
 import src.constants as cs
-from src.utils.ffmpegSettings import WriteBuffer
+from src.io.ffmpegSettings import WriteBuffer
 
 
 def _colorFilter(filterList) -> str:

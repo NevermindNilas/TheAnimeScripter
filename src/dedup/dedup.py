@@ -1,12 +1,12 @@
 import torch
 from torch.functional import F
 
-from src.utils.downloadModels import (
+from src.infra.isCudaInit import CudaChecker
+from src.model.downloadModels import (
     modelsMap,
     resolveWeightPath,
 )
-from src.utils.isCudaInit import CudaChecker
-from src.utils.modelOptimizer import ModelOptimizer
+from src.model.modelOptimizer import ModelOptimizer
 
 checker = CudaChecker()
 

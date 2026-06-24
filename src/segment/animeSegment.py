@@ -7,17 +7,17 @@ import torch
 import torch.nn.functional as F
 
 from src.constants import ADOBE
-from src.utils.downloadModels import (
+from src.infra.isCudaInit import CudaChecker
+from src.infra.logAndPrint import logAndPrint
+from src.infra.progressBarLogic import ProgressBarLogic
+from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.model.downloadModels import (
     modelsMap,
     resolveWeightPath,
 )
-from src.utils.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.utils.isCudaInit import CudaChecker
-from src.utils.logAndPrint import logAndPrint
-from src.utils.progressBarLogic import ProgressBarLogic
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 checker = CudaChecker()
 
@@ -178,7 +178,7 @@ class AnimeSegmentTensorRT:
 
         import tensorrt as trt
 
-        from src.utils.trtHandler import (
+        from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,

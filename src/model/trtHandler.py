@@ -6,10 +6,10 @@ from pathlib import Path
 import tensorrt as trt
 
 from src.constants import ADOBE
-from src.utils.logAndPrint import coloredPrint, logAndPrint
+from src.infra.logAndPrint import coloredPrint, logAndPrint
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 
 if hasattr(trt, "IProgressMonitor"):

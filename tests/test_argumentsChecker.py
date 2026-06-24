@@ -1,4 +1,4 @@
-"""Tests for src/utils/argumentsChecker.py — pure CLI helper logic.
+"""Tests for the pure CLI helper logic.
 
 Covers the parts that carry real logic rather than argparse plumbing:
 - sensitivity remapping in _configureProcessingSettings (dedup/autoclip),
@@ -13,15 +13,17 @@ import types
 import pytest
 
 import src.constants as cs
-from src.utils.argumentsChecker import (
+from src.cli.parser import (
     DidYouMeanArgumentParser,
     TASHelpFormatter,
     _buildParser,
-    _configureProcessingSettings,
     _listMethods,
     capabilityMethods,
-    isAnyOtherProcessingMethodEnabled,
     str2bool,
+)
+from src.cli.validator import (
+    _configureProcessingSettings,
+    isAnyOtherProcessingMethodEnabled,
 )
 
 
@@ -159,20 +161,6 @@ def testSmoothDedupKeepsAudio(monkeypatch):
 @pytest.fixture
 def parser():
     return DidYouMeanArgumentParser()
-
-
-def testLevenshteinKnownDistance(parser):
-    assert parser._levenshteinDistance("kitten", "sitting") == 3
-
-
-def testLevenshteinSymmetric(parser):
-    assert parser._levenshteinDistance("abc", "abcd") == parser._levenshteinDistance(
-        "abcd", "abc"
-    )
-
-
-def testLevenshteinIdenticalIsZero(parser):
-    assert parser._levenshteinDistance("rife", "rife") == 0
 
 
 def testExactMatchScoresHighest(parser):

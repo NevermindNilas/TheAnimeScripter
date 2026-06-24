@@ -231,7 +231,7 @@ def validateEncoder(video, encodeMethod, customEncoder):
         and not customEncoder
         and encodeMethod not in WEBM_COMPATIBLE_ENCODERS
     ):
-        from src.utils.logAndPrint import logAndPrint
+        from src.infra.logAndPrint import logAndPrint
 
         logAndPrint(
             f"Video {video} is a Webm file, encode method was not set to {list(WEBM_COMPATIBLE_ENCODERS)} and `--custom_encoder` is None, defaulting to 'vp9'.",

@@ -1,16 +1,11 @@
 import numpy as np
 import torch
 
-from src.constants import ADOBE
-from src.utils.downloadModels import (
+from src.infra.isCudaInit import CudaChecker
+from src.model.downloadModels import (
     modelsMap,
     resolveWeightPath,
 )
-from src.utils.isCudaInit import CudaChecker
-
-if ADOBE:
-    pass
-
 
 checker = CudaChecker()
 

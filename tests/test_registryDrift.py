@@ -25,9 +25,9 @@ mistake these guards exist to catch.
 
 import pytest
 
-from src.utils.argumentsChecker import _buildParser, capabilityMethods
-from src.utils.downloadModels import modelsList, modelsMap
-from src.utils.encodingSettings import matchEncoder
+from src.cli.parser import _buildParser, capabilityMethods
+from src.io.encodingSettings import matchEncoder
+from src.model.downloadModels import modelsList, modelsMap
 
 
 @pytest.fixture(scope="module")

@@ -8,7 +8,7 @@ bit depth (NVENC H.264 has no 10-bit path). These pin the resolved tuples.
 
 import pytest
 
-from src.utils.encodingSettings import getPixFMT, matchEncoder
+from src.io.encodingSettings import getPixFMT, matchEncoder
 
 # --------------------------------------------------------------------------- #
 # matchEncoder: name -> ffmpeg flag list

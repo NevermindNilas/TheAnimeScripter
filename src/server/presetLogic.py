@@ -2,7 +2,7 @@ import json
 import os
 
 import src.constants as cs
-from src.utils.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint
 
 
 def createPreset(args):

@@ -16,7 +16,7 @@ import queue
 import pytest
 import torch
 
-from src.unifiedInterpolate import RifeCuda
+from src.interpolate.rife import RifeCuda
 
 pytestmark = pytest.mark.cuda
 

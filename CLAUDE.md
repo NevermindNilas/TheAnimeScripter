@@ -26,8 +26,8 @@ python build.py
 
 | Capability | Implementation | Backends/details |
 |---|---|---|
-| Upscale | `src/unifiedUpscale.py`, `src/upscale/` | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
-| Interpolate | `src/unifiedInterpolate.py`, `src/interpolate/` | RIFE; CUDA, TRT, DML, OpenVINO, NCNN, MPS |
+| Upscale | `src/upscale/` | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
+| Interpolate | `src/interpolate/` | RIFE; CUDA, TRT, DML, OpenVINO, NCNN, MPS |
 | Restore | `src/unifiedRestore.py` | CUDA, TRT, DML, OpenVINO, Maxine, MPS |
 | Dedup | `src/dedup/dedup.py` | CUDA/CPU SSIM, MSE, flownets; `--dedup_sens` default 35 maps to SSIM `1-s/1000`, flownets `s/100` |
 | Depth | `src/depth/depth.py`, `src/depth/backends/` | CUDA, TRT, DML; includes temporal VideoDepthAnything |
