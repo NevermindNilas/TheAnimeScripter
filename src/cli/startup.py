@@ -9,7 +9,7 @@ def _promptDownloadRequirementsSelection() -> str:
 
     from inquirer import List, prompt
 
-    from src.utils.logAndPrint import logAndPrint
+    from src.infra.logAndPrint import logAndPrint
 
     if cs.SYSTEM == "Darwin":
         return "macos-mps"
@@ -47,7 +47,7 @@ def _promptDownloadRequirementsSelection() -> str:
 def _handleDependencies(args):
     import shutil
 
-    from src.utils.getFFMPEG import addFfmpegToDllSearchPath, remove_readonly
+    from src.infra.getFFMPEG import addFfmpegToDllSearchPath, remove_readonly
 
     legacyFFMPEG = os.path.join(cs.WHEREAMIRUNFROM, "ffmpeg")
     if os.path.isdir(legacyFFMPEG):
@@ -78,14 +78,14 @@ def _handleDependencies(args):
             os.environ["PATH"] += os.pathsep + os.path.dirname(cs.FFPROBEPATH)
 
     if not os.path.exists(cs.FFMPEGPATH) or not os.path.exists(cs.FFPROBEPATH):
-        from src.utils.getFFMPEG import getFFMPEG
+        from src.infra.getFFMPEG import getFFMPEG
 
         getFFMPEG()
     else:
         addFfmpegToDllSearchPath(cs.FFMPEGPATH)
 
     try:
-        from src.utils.isCudaInit import detectGPUArchitecture, detectNVidiaGPU
+        from src.infra.isCudaInit import detectGPUArchitecture, detectNVidiaGPU
 
         isNvidia = detectNVidiaGPU()
         supportsCuda = False
@@ -97,12 +97,12 @@ def _handleDependencies(args):
         supportsCuda = False
         args.supportsCuda = False
 
-    from src.utils.dependencyHandler import getDependencyProfile
+    from src.infra.dependencyHandler import getDependencyProfile
 
     args.dependency_profile = getDependencyProfile(cs.SYSTEM, supportsCuda)
 
     if args.download_requirements is None and not args.cleanup:
-        from src.utils.dependencyHandler import DependencyChecker
+        from src.infra.dependencyHandler import DependencyChecker
 
         checker = DependencyChecker()
         checker.ensureDependencies()

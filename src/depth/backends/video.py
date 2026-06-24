@@ -3,6 +3,8 @@ import os
 os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
 import logging
+import statistics
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 
@@ -10,22 +12,15 @@ import cv2
 import numpy as np
 import torch
 
-from src.constants import ADOBE
-from src.utils.downloadModels import (
+from src.infra.isCudaInit import CudaChecker
+from src.infra.progressBarLogic import ProgressBarLogic
+from src.io.ffmpegSettings import (
+    BuildBuffer,
+)
+from src.model.downloadModels import (
     modelsMap,
     resolveWeightPath,
 )
-from src.utils.ffmpegSettings import (
-    BuildBuffer,
-)
-from src.utils.isCudaInit import CudaChecker
-from src.utils.progressBarLogic import ProgressBarLogic
-
-if ADOBE:
-    pass
-
-import statistics
-from collections import deque
 
 checker = CudaChecker()
 

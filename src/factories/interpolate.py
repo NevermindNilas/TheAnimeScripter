@@ -31,7 +31,7 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             | "rife_elexor"
             | "rife4.25-heavy"
         ):
-            from src.unifiedInterpolate import RifeCuda
+            from src.interpolate.rife import RifeCuda
 
             return RifeCuda(
                 self.half,
@@ -61,7 +61,7 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             | "rife_elexor-mps"
             | "rife4.25-heavy-mps"
         ):
-            from src.unifiedInterpolate import RifeMPS
+            from src.interpolate.rife import RifeMPS
 
             return RifeMPS(
                 self.half,
@@ -76,7 +76,7 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             )
 
         case "rife4.25-depth":
-            from src.unifiedInterpolate import DepthGuidedRifeCuda
+            from src.interpolate.rife import DepthGuidedRifeCuda
 
             return DepthGuidedRifeCuda(
                 width=self.width,
@@ -100,7 +100,7 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             | "rife4.22-ncnn"
             | "rife4.22-lite-ncnn"
         ):
-            from src.unifiedInterpolate import RifeNCNN
+            from src.interpolate.rife_ncnn import RifeNCNN
 
             return RifeNCNN(
                 self.interpolateMethod,
@@ -127,7 +127,7 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             | "rife_elexor-tensorrt"
             | "rife4.25-heavy-tensorrt"
         ):
-            from src.unifiedInterpolate import RifeTensorRT
+            from src.interpolate.rife_tensorrt import RifeTensorRT
 
             return RifeTensorRT(
                 self.interpolateMethod,
@@ -174,7 +174,7 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             | "rife4.25-lite-openvino"
             | "rife4.25-heavy-openvino"
         ):
-            from src.unifiedInterpolate import RifeDirectML
+            from src.interpolate.rife_directml import RifeDirectML
 
             return RifeDirectML(
                 self.interpolateMethod,
@@ -186,7 +186,7 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             )
 
         case "distildrba" | "distildrba-lite":
-            from src.unifiedInterpolate import DistilDRBACuda
+            from src.interpolate.distildrba import DistilDRBACuda
 
             return DistilDRBACuda(
                 self.half,
@@ -198,7 +198,7 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             )
 
         case "distildrba-lite-tensorrt" | "distildrba-tensorrt":
-            from src.unifiedInterpolate import DistilDRBATensorRT
+            from src.interpolate.distildrba import DistilDRBATensorRT
 
             return DistilDRBATensorRT(
                 self.half,

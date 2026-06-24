@@ -167,7 +167,7 @@ class VideoProcessor:
             args: Command line arguments containing inpoint and outpoint
         """
         # Lazy import to speed up startup for non-processing paths
-        from src.utils.getVideoMetadata import getVideoMetadata
+        from src.io.getVideoMetadata import getVideoMetadata
 
         videoMetadata = getVideoMetadata(
             self.input,
@@ -234,33 +234,33 @@ class VideoProcessor:
         """
         if self.autoclip:
             logging.info("Detecting scene changes")
-            from src.initializeModels import autoClip
+            from src.factories.standalone import autoClip
 
             autoClip(self)
         elif self.depth:
             logging.info("Depth Estimation")
-            from src.initializeModels import depth
+            from src.factories.standalone import depth
 
             depth(self)
         elif self.segment:
             logging.info("Segmenting video")
-            from src.initializeModels import segment
+            from src.factories.standalone import segment
 
             segment(self)
         elif self.objDetect:
             logging.info("Object Detection")
-            from src.initializeModels import objectDetection
+            from src.factories.standalone import objectDetection
 
             objectDetection(self)
         elif self.stabilize:
             logging.info("Stabilizing video")
-            from src.initializeModels import stabilize
+            from src.factories.standalone import stabilize
 
             stabilize(self)
 
         elif self.moblur:
             logging.info("Applying motion blur")
-            from src.initializeModels import motionBlur
+            from src.factories.standalone import motionBlur
 
             motionBlur(self)
 
@@ -470,10 +470,10 @@ class VideoProcessor:
         Sets up input/output buffers, initializes AI models, and coordinates
         the multi-threaded processing workflow.
         """
-        from src.utils.aeComms import progressState
-        from src.utils.ffmpegSettings import BuildBuffer, createWriteBuffer
-        from src.utils.logAndPrint import logAndPrint
-        from src.utils.progressBarLogic import ProgressBarLogic
+        from src.infra.logAndPrint import logAndPrint
+        from src.infra.progressBarLogic import ProgressBarLogic
+        from src.io.ffmpegSettings import BuildBuffer, createWriteBuffer
+        from src.server.aeComms import progressState
 
         self.ProgressBarLogic = ProgressBarLogic
 
@@ -530,7 +530,7 @@ class VideoProcessor:
             )
 
             if self.preview and self.writeBuffer.previewPath is not None:
-                from src.utils.previewSettings import Preview
+                from src.server.previewSettings import Preview
 
                 self.preview = Preview(previewPath=self.writeBuffer.previewPath)
                 self.preview.start()
@@ -606,7 +606,7 @@ class VideoProcessor:
         import torch
         from torch.profiler import ProfilerActivity, profile
 
-        from src.utils.logAndPrint import logAndPrint
+        from src.infra.logAndPrint import logAndPrint
 
         profilePath = os.path.join(cs.WHEREAMIRUNFROM, "profiler_trace")
         os.makedirs(profilePath, exist_ok=True)
@@ -738,14 +738,14 @@ def main():
         os.makedirs(cs.WHEREAMIRUNFROM, exist_ok=True)
 
         if any(flag in sys.argv for flag in ("-h", "--help", "-v", "--version")):
-            from src.utils.argumentsChecker import createParser
+            from src.cli.parser import createParser
 
             try:
                 createParser(outputPath=os.getcwd())
             except SystemExit:
                 return
 
-        from src.utils.logAndPrint import (
+        from src.infra.logAndPrint import (
             logError,
             logInfo,
             logSuccess,
@@ -780,15 +780,13 @@ def main():
         logging.info(f"{' '.join(sys.argv)}\n")
         logging.info(f"Log file: {cs.LOG_PATH}")
 
-        from src.utils.argumentsChecker import (
-            createParser,
-            isAnyOtherProcessingMethodEnabled,
-        )
+        from src.cli.parser import createParser
+        from src.cli.validator import isAnyOtherProcessingMethodEnabled
 
         args = createParser(baseOutputPath)
         processingEnabled = isAnyOtherProcessingMethodEnabled(args)
         outputPath = os.path.join(baseOutputPath, "output")
-        from src.utils.inputOutputHandler import processInputOutputPaths
+        from src.io.inputOutputHandler import processInputOutputPaths
 
         results = processInputOutputPaths(args, outputPath)
 
@@ -828,7 +826,7 @@ def main():
                     logSuccess(f"PNG passthrough completed: {outputPath}")
 
                     if cs.ADOBE:
-                        from src.utils.aeComms import progressState
+                        from src.server.aeComms import progressState
 
                         progressState.update(
                             {

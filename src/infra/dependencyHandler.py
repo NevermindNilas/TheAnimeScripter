@@ -12,7 +12,7 @@ from importlib.util import find_spec
 from pathlib import Path
 
 import src.constants as cs
-from src.utils.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint
 
 KNOWN_MODULE_ALIASES = {
     "opencv-python": "cv2",
@@ -436,7 +436,7 @@ class DependencyChecker:
 
     def _promptInstallAndStore(self) -> bool:
         """Show the inquirer prompt, install, and store the chosen profile."""
-        from src.utils.argumentsChecker import _promptDownloadRequirementsSelection
+        from src.cli.startup import _promptDownloadRequirementsSelection
 
         try:
             selectedProfile = _promptDownloadRequirementsSelection()

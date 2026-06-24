@@ -1,4 +1,4 @@
-from src.utils.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint
 
 
 def matchEncoder(encode_method: str):

@@ -5,7 +5,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 
 import numpy as np
 
-from src.utils.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint
 
 
 class PreviewHTTPHandler(SimpleHTTPRequestHandler):

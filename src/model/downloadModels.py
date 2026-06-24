@@ -3,10 +3,10 @@ import os
 
 import src.constants as cs
 from src.constants import ADOBE
-from src.utils.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 
 weightsBaseDir = cs.WHEREAMIRUNFROM
@@ -1108,7 +1108,7 @@ def downloadAndLog(
 
     # Imported lazily so registry-only consumers (modelsList/modelsMap, the
     # drift-guard tests) don't drag in barflow at module import.
-    from src.utils.progressBarLogic import ProgressBarDownloadLogic
+    from src.infra.progressBarLogic import ProgressBarDownloadLogic
 
     tempFolder = os.path.join(folderPath, "TEMP")
     os.makedirs(tempFolder, exist_ok=True)

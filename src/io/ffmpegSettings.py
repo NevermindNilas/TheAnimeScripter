@@ -9,8 +9,8 @@ import torch  # this has to be always before nelux!
 import nelux
 
 import src.constants as cs
-from src.utils.encodingSettings import getPixFMT, matchEncoder
-from src.utils.isCudaInit import CudaChecker
+from src.io.encodingSettings import getPixFMT, matchEncoder
+from src.infra.isCudaInit import CudaChecker
 
 checker = CudaChecker()
 
@@ -913,7 +913,7 @@ class WriteBuffer:
 
             if self.enablePreview:
                 logging.info(f"Preview enabled, writing to: {self.previewPath}")
-                from src.utils.logAndPrint import logAndPrint
+                from src.infra.logAndPrint import logAndPrint
 
                 logAndPrint(f"Preview will be saved to: {self.previewPath}", "cyan")
 

@@ -5,15 +5,15 @@ import torch
 
 from src.constants import ADOBE
 
-from .utils.downloadModels import (
+from .infra.isCudaInit import CudaChecker
+from .infra.logAndPrint import logAndPrint
+from .model.downloadModels import (
     modelsMap,
     resolveWeightPath,
 )
-from .utils.isCudaInit import CudaChecker
-from .utils.logAndPrint import logAndPrint
 
 if ADOBE:
-    from src.utils.aeComms import progressState
+    from src.server.aeComms import progressState
 
 checker = CudaChecker()
 
@@ -406,7 +406,7 @@ class UnifiedRestoreTensorRT:
 
         import tensorrt as trt
 
-        from .utils.trtHandler import (
+        from .model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,

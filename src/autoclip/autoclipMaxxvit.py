@@ -8,9 +8,9 @@ import numpy as np
 import torch
 
 import src.constants as cs
-from src.utils.downloadModels import downloadModels, modelsMap, weightsDir
-from src.utils.logAndPrint import logAndPrint
-from src.utils.progressBarLogic import ProgressBarLogic
+from src.infra.logAndPrint import logAndPrint
+from src.infra.progressBarLogic import ProgressBarLogic
+from src.model.downloadModels import downloadModels, modelsMap, weightsDir
 
 _SENTINEL = object()
 
@@ -50,7 +50,7 @@ class AutoClipMaxxvit:
         self._loadModel()
 
         if cs.ADOBE:
-            from src.utils.aeComms import progressState
+            from src.server.aeComms import progressState
 
             progressState.update(
                 {"status": f"Detecting scene changes ({self.method})..."}
@@ -110,7 +110,7 @@ class AutoClipMaxxvit:
     def _loadTensorRT(self):
         import tensorrt as trt
 
-        from src.utils.trtHandler import (
+        from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,

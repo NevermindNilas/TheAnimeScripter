@@ -178,7 +178,7 @@ def depth(self):
             | "distill_base_v2"
             | "distill_large_v2"
         ):
-            from src.depth.depth import DepthCuda
+            from src.depth.backends.cuda import DepthCuda
 
             DepthCuda(
                 self.input,
@@ -208,7 +208,7 @@ def depth(self):
             | "distill_base_v2-tensorrt"
             | "distill_large_v2-tensorrt"
         ):
-            from src.depth.depth import DepthTensorRTV2
+            from src.depth.backends.tensorrt import DepthTensorRTV2
 
             DepthTensorRTV2(
                 self.input,
@@ -243,7 +243,7 @@ def depth(self):
             | "distill_base_v2-openvino"
             | "distill_large_v2-openvino"
         ):
-            from src.depth.depth import DepthDirectMLV2
+            from src.depth.backends.directml import DepthDirectMLV2
 
             DepthDirectMLV2(
                 self.input,
@@ -273,7 +273,7 @@ def depth(self):
             | "og_distill_base_v2"
             | "og_distill_large_v2"
         ):
-            from src.depth.depth import OGDepthV2CUDA
+            from src.depth.backends.cuda import OGDepthV2CUDA
 
             OGDepthV2CUDA(
                 self.input,
@@ -296,7 +296,7 @@ def depth(self):
             )
 
         case "og_video_small_v2" | "og_video_base_v2" | "og_video_large_v2":
-            from src.depth.depth import VideoDepthAnythingCUDA
+            from src.depth.backends.video import VideoDepthAnythingCUDA
 
             VideoDepthAnythingCUDA(
                 self.input,
@@ -318,7 +318,7 @@ def depth(self):
             )
 
         case "video_small_v2" | "video_large_v2":
-            from src.depth.depth import VideoDepthAnythingTorch
+            from src.depth.backends.video import VideoDepthAnythingTorch
 
             VideoDepthAnythingTorch(
                 self.input,
@@ -347,7 +347,7 @@ def depth(self):
             | "og_distill_base_v2-tensorrt"
             | "og_distill_large_v2-tensorrt"
         ):
-            from src.depth.depth import OGDepthV2TensorRT
+            from src.depth.backends.tensorrt import OGDepthV2TensorRT
 
             OGDepthV2TensorRT(
                 self.input,
@@ -376,7 +376,7 @@ def depth(self):
             | "og_base_v2-openvino"
             | "og_large_v2-openvino"
         ):
-            from src.depth.depth import OGDepthV2DirectML
+            from src.depth.backends.directml import OGDepthV2DirectML
 
             OGDepthV2DirectML(
                 self.input,
@@ -398,7 +398,7 @@ def depth(self):
             )
 
         case "small_v3" | "base_v3" | "og_large_v3":
-            from src.depth.depth import OGDepthV3Cuda
+            from src.depth.backends.cuda import OGDepthV3Cuda
 
             OGDepthV3Cuda(
                 self.input,
@@ -426,7 +426,7 @@ def depth(self):
             | "small_v3-openvino"
             | "base_v3-openvino"
         ):
-            from src.depth.depth import DepthDirectMLV3
+            from src.depth.backends.directml import DepthDirectMLV3
 
             DepthDirectMLV3(
                 self.input,
@@ -447,7 +447,7 @@ def depth(self):
             )
 
         case "small_v3-tensorrt" | "base_v3-tensorrt":
-            from src.depth.depth import DepthTensorRTV3
+            from src.depth.backends.tensorrt import DepthTensorRTV3
 
             DepthTensorRTV3(
                 self.input,

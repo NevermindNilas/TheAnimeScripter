@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from difflib import get_close_matches
 
 from src.version import __version__
 
@@ -10,7 +11,7 @@ _logAndPrint = None
 def logAndPrint(message, colorFunc="cyan", level="INFO"):
     global _logAndPrint
     if _logAndPrint is None:
-        from src.utils.logAndPrint import logAndPrint as _lap
+        from src.infra.logAndPrint import logAndPrint as _lap
 
         _logAndPrint = _lap
     _logAndPrint(message, colorFunc, level)
@@ -45,70 +46,12 @@ def str2bool(arg):
 class DidYouMeanArgumentParser(argparse.ArgumentParser):
     """Custom ArgumentParser that provides "did you mean?" suggestions for invalid choices."""
 
-    def _levenshteinDistance(self, s1, s2):
-        if len(s1) < len(s2):
-            return self._levenshteinDistance(s2, s1)
-
-        if len(s2) == 0:
-            return len(s1)
-
-        previousRow = range(len(s2) + 1)
-        for i, c1 in enumerate(s1):
-            currentRow = [i + 1]
-            for j, c2 in enumerate(s2):
-                insertions = previousRow[j + 1] + 1
-                deletions = currentRow[j] + 1
-                substitutions = previousRow[j] + (c1 != c2)
-                currentRow.append(min(insertions, deletions, substitutions))
-            previousRow = currentRow
-
-        return previousRow[-1]
-
-    def similarityScore(self, invalidValue, choice):
-        invalidLower = invalidValue.lower()
-        choiceLower = choice.lower()
-
-        distance = self._levenshteinDistance(invalidLower, choiceLower)
-        maxLen = max(len(invalidLower), len(choiceLower))
-        baseSimilarity = 1.0 - (distance / maxLen) if maxLen > 0 else 0
-
-        bonus = 0.0
-
-        if choiceLower.startswith(invalidLower) or invalidLower.startswith(choiceLower):
-            bonus += 0.4
-
-        commonPrefixLen = 0
-        for i in range(min(len(invalidLower), len(choiceLower))):
-            if invalidLower[i] == choiceLower[i]:
-                commonPrefixLen += 1
-            else:
-                break
-        bonus += (commonPrefixLen / max(len(invalidLower), len(choiceLower))) * 0.2
-
-        if invalidLower in choiceLower:
-            bonus += 0.15
-
-        # Family awareness: reward sharing the base name before a backend suffix.
-        if "-" in invalidLower and "-" in choiceLower:
-            if invalidLower.rsplit("-", 1)[0] == choiceLower.rsplit("-", 1)[0]:
-                bonus += 0.15
-
-        return baseSimilarity + bonus
-
     def getSuggestions(self, invalidValue, validChoices, maxSuggestions=5):
-        scoredChoices = [
-            (choice, self.similarityScore(invalidValue, choice))
-            for choice in validChoices
-        ]
-
-        scoredChoices.sort(key=lambda x: (-x[1], len(x[0])))
-
-        suggestions = []
-        for choice, score in scoredChoices:
-            if score > 0.3 and len(suggestions) < maxSuggestions:
-                suggestions.append(choice)
-
-        return suggestions
+        choices = {choice.lower(): choice for choice in validChoices}
+        matches = get_close_matches(
+            invalidValue.lower(), choices, n=maxSuggestions, cutoff=0.3
+        )
+        return [choices[match] for match in matches]
 
     def _palette(self):
         useColor = _supportsColorStdout()
@@ -134,17 +77,15 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
     def _suggestOptions(self, invalidOption, validOptions, maxSuggestions=3):
         isLong = invalidOption.startswith("--")
         invalidCore = invalidOption.lstrip("-")
-
-        scored = []
-        for option in validOptions:
-            if option.startswith("--") != isLong:
-                continue
-            scored.append(
-                (option, self.similarityScore(invalidCore, option.lstrip("-")))
-            )
-
-        scored.sort(key=lambda x: (-x[1], len(x[0])))
-        return [option for option, score in scored if score > 0.4][:maxSuggestions]
+        options = {
+            option.lstrip("-").lower(): option
+            for option in validOptions
+            if option.startswith("--") == isLong
+        }
+        matches = get_close_matches(
+            invalidCore.lower(), options, n=maxSuggestions, cutoff=0.4
+        )
+        return [options[match] for match in matches]
 
     def _suggestOptionNames(self, message):
         tokens = message[len("unrecognized arguments:") :].split()

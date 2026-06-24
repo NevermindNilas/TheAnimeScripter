@@ -1,27 +1,9 @@
-"""
-Thin coordinator: wires up per-capability factories and re-exports the
-standalone driver functions so callers that import from this module keep
-working without change.
-"""
+"""Wire enabled processing capabilities to their backends."""
 
 from src.constants import ADOBE
 
 if ADOBE:
-    from src.utils.aeComms import progressState
-
-# Re-export standalone drivers so existing call sites (main.py) don't change.
-# noqa keeps ruff from stripping these "unused-in-module" re-exports.
-# Re-export RestoreChain for any code that references it via this module.
-from src.factories.restore import RestoreChain  # noqa: F401
-from src.factories.standalone import (  # noqa: F401
-    autoClip,
-    depth,
-    motionBlur,
-    objectDetection,
-    segment,
-    stabilize,
-)
-
+    from src.server.aeComms import progressState
 
 def initializeModels(self):
     outputWidth = self.width
