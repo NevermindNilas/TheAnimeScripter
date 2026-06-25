@@ -15,6 +15,7 @@ def testCliAndInfraEntryModulesCompile():
         root / "src" / "infra" / "backendFallback.py",
         root / "src" / "infra" / "dependencyHandler.py",
         root / "src" / "infra" / "isCudaInit.py",
+        root / "src" / "io" / "inputNormalization.py",
     ]
     for module in modules:
         py_compile.compile(str(module), doraise=True)
@@ -34,6 +35,7 @@ for module in (
     "src.infra.backendFallback",
     "src.infra.dependencyHandler",
     "src.infra.isCudaInit",
+    "src.io.inputNormalization",
 ):
     importlib.import_module(module)
 

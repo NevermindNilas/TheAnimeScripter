@@ -7,6 +7,7 @@ from src.cli.config import normalizeCliConfig
 from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSelection
 from src.cli.validation import CliValidationError, applyRuntimeValidation
 from src.infra.logAndPrint import logAndPrint
+from src.io.inputNormalization import InputNormalizationError, normalizeInputArgs
 
 
 def isAnyOtherProcessingMethodEnabled(args):
@@ -159,53 +160,6 @@ def _downloadOfflineModels(args):
     logAndPrint(
         f"Offline model(s) {', '.join(options)} downloaded successfully!", "green"
     )
-
-
-def processURL(args, outputPath):
-    from urllib.parse import urlparse
-
-    from src.io.inputOutputHandler import generateOutputName
-    from src.ytdlp import VideoDownloader
-
-    result = urlparse(args.input)
-
-    if result.netloc.lower() in ["www.youtube.com", "youtube.com", "youtu.be"]:
-        logging.info("URL is valid and will be used for processing")
-
-        if args.output is None:
-            outputFolder = os.path.join(outputPath, "output")
-            os.makedirs(os.path.join(outputFolder), exist_ok=True)
-            args.output = os.path.join(
-                outputFolder, generateOutputName(args, args.input)
-            )
-        elif os.path.isdir(args.output):
-            outputFolder = args.output
-            os.makedirs(os.path.join(outputFolder), exist_ok=True)
-        else:
-            outputFolder = os.path.dirname(args.output)
-            os.makedirs(os.path.join(outputFolder), exist_ok=True)
-
-        tempOutput = os.path.join(outputFolder, generateOutputName(args, args.input))
-
-        VideoDownloader(args.input, tempOutput, args.encode_method, args.custom_encoder)
-        logAndPrint(
-            f"Video downloaded successfully to {tempOutput}",
-            "green",
-        )
-
-        if not isAnyOtherProcessingMethodEnabled(args):
-            if tempOutput != args.output:
-                os.rename(tempOutput, args.output)
-                logging.info(f"Renamed output to: {args.output}")
-            sys.exit()
-
-        args.input = str(tempOutput)
-        logging.info(f"New input path: {args.input}")
-    else:
-        logging.error(
-            "URL is invalid or not a YouTube URL, please check the URL and try again"
-        )
-        sys.exit()
 
 
 def prepareRuntimeArgs(args, outputPath, parser):
@@ -373,44 +327,19 @@ def prepareRuntimeArgs(args, outputPath, parser):
         )
         cs.AUDIO = False
 
-    if not args.input:
-        logging.error("No input specified")
+    try:
+        shouldContinue = normalizeInputArgs(
+            args,
+            outputPath,
+            isAnyOtherProcessingMethodEnabled(args),
+        )
+    except InputNormalizationError as e:
+        logging.error(str(e))
+        logAndPrint(str(e), "red")
         sys.exit()
-    elif args.input.startswith(("http", "www")):
-        processURL(args, outputPath)
-    elif args.input.lower().endswith((".png", ".jpg", ".jpeg")):
-        if "%" in args.input:
-            logging.info(f"Image sequence pattern detected: {args.input}")
-            args.input = os.path.abspath(args.input)
-            cs.AUDIO = False
-        elif args.input.lower().endswith(".png"):
-            args.input = os.path.abspath(args.input)
-            cs.AUDIO = False
-            args.single_image_input = True
-            args.png_passthrough = True
-            logging.info("Single PNG input detected, enabling PNG passthrough mode")
 
-            if isAnyOtherProcessingMethodEnabled(args) and args.encode_method != "png":
-                logging.info(
-                    "Single PNG with processing detected; forcing --encode_method png for valid image output"
-                )
-                args.encode_method = "png"
-        else:
-            raise Exception(
-                "Single image input is not supported for this format. For image sequences, use a pattern like 'frames_%05d.png' or provide a folder containing PNG files."
-            )
-    elif args.input.lower().endswith(".gif"):
-        if args.encode_method != "gif":
-            logging.error(
-                "GIF input detected but encoding method is not set to GIF, defaulting to GIF encoding"
-            )
-            args.encode_method = "gif"
-    else:
-        try:
-            args.input = os.path.abspath(args.input)
-        except Exception:
-            logging.error("Error processing input")
-            sys.exit()
+    if not shouldContinue:
+        sys.exit()
 
     try:
         warning = applyRuntimeValidation(args)
