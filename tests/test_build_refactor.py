@@ -34,6 +34,15 @@ def test_resolve_output_dir_uses_linux_develop_path(monkeypatch, tmp_path):
     )
 
 
+def test_resolve_output_dir_uses_windows_user_roaming_path(monkeypatch, tmp_path):
+    context = make_context(tmp_path, system="Windows")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "Users" / "alice")
+
+    assert paths.resolve_output_dir(context, develop=True) == (
+        tmp_path / "Users" / "alice" / "AppData" / "Roaming" / "TheAnimeScripter"
+    )
+
+
 def test_build_portable_runs_steps_in_order(monkeypatch, tmp_path):
     requirements = tmp_path / "requirements.txt"
     requirements.write_text("")
