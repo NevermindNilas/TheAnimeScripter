@@ -12,9 +12,8 @@ def main() -> None:
         "--develop",
         action="store_true",
         help=(
-            "If active, it will overwrite the contents of "
-            "F:\\TheAnimeScripter\\dist-portable\\main with the newly generated "
-            "build. ONLY USE IN DEVELOPMENT!"
+            "If active, it will overwrite the platform development install "
+            "directory with the newly generated build. ONLY USE IN DEVELOPMENT!"
         ),
     )
     args = parser.parse_args()

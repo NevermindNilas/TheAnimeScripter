@@ -10,7 +10,10 @@ def resolve_output_dir(context: BuildContext, develop: bool) -> Path:
         return context.dist_path / "main"
 
     if context.system == "Windows":
-        return Path.home() / "AppData" / "Roaming" / "TheAnimeScripter"
+        return (
+            Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
+            / "TheAnimeScripter"
+        )
     if context.system == "Darwin":
         return (
             Path.home()

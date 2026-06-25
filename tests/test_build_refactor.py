@@ -2,6 +2,7 @@ from pathlib import Path
 
 from tools.build_support import paths, pipeline
 from tools.build_support.context import BuildContext
+from tools.build_support.python_runtime import _safe_archive_target
 
 
 def make_context(tmp_path, system="Linux"):
@@ -34,13 +35,26 @@ def test_resolve_output_dir_uses_linux_develop_path(monkeypatch, tmp_path):
     )
 
 
-def test_resolve_output_dir_uses_windows_user_roaming_path(monkeypatch, tmp_path):
+def test_resolve_output_dir_uses_windows_appdata(monkeypatch, tmp_path):
     context = make_context(tmp_path, system="Windows")
+    appdata = tmp_path / "Roaming"
+    monkeypatch.setenv("APPDATA", str(appdata))
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "Users" / "alice")
 
-    assert paths.resolve_output_dir(context, develop=True) == (
-        tmp_path / "Users" / "alice" / "AppData" / "Roaming" / "TheAnimeScripter"
+    assert (
+        paths.resolve_output_dir(context, develop=True) == appdata / "TheAnimeScripter"
     )
+
+
+def test_safe_archive_target_rejects_path_traversal(tmp_path):
+    _safe_archive_target(tmp_path, "python/bin/python3")
+
+    try:
+        _safe_archive_target(tmp_path, "../outside")
+    except ValueError:
+        return
+
+    raise AssertionError("path traversal was not rejected")
 
 
 def test_build_portable_runs_steps_in_order(monkeypatch, tmp_path):

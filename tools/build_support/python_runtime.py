@@ -10,6 +10,26 @@ from tools.build_support.context import BuildContext
 from tools.build_support.process import run_subprocess
 
 
+def _safe_archive_target(destination: Path, member_name: str) -> None:
+    target = (destination / member_name).resolve()
+    target.relative_to(destination.resolve())
+
+
+def _safe_extract_zip(archive: zipfile.ZipFile, destination: Path) -> None:
+    for member in archive.infolist():
+        _safe_archive_target(destination, member.filename)
+    archive.extractall(destination)
+
+
+def _safe_extract_tar(archive: tarfile.TarFile, destination: Path) -> None:
+    try:
+        archive.extractall(destination, filter="data")
+    except TypeError:
+        for member in archive.getmembers():
+            _safe_archive_target(destination, member.name)
+        archive.extractall(destination)
+
+
 def download_portable_python(context: BuildContext) -> Path:
     """Download and set up Python for the target platform."""
     print(
@@ -41,7 +61,7 @@ def download_portable_python_windows(context: BuildContext) -> Path:
     if not python_exe.exists():
         print("Extracting Python...")
         with zipfile.ZipFile(python_zip, "r") as zip_ref:
-            zip_ref.extractall(context.portable_python_dir)
+            _safe_extract_zip(zip_ref, context.portable_python_dir)
 
     get_pip_path = context.portable_python_dir / "get-pip.py"
     if not get_pip_path.exists():
@@ -98,7 +118,7 @@ def download_portable_python_linux(context: BuildContext) -> Path:
     if not python_exe.exists():
         print("Extracting Python...")
         with tarfile.open(python_tar, "r:gz") as tar_ref:
-            tar_ref.extractall(context.portable_python_dir)
+            _safe_extract_tar(tar_ref, context.portable_python_dir)
 
         flatten_standalone_python_dir(context.portable_python_dir)
 
@@ -143,7 +163,7 @@ def download_portable_python_macos(context: BuildContext) -> Path:
     if not python_exe.exists():
         print("Extracting Python...")
         with tarfile.open(python_tar, "r:gz") as tar_ref:
-            tar_ref.extractall(context.portable_python_dir)
+            _safe_extract_tar(tar_ref, context.portable_python_dir)
 
         flatten_standalone_python_dir(context.portable_python_dir)
 
