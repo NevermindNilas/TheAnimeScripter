@@ -13,6 +13,12 @@ import types
 import pytest
 
 import src.constants as cs
+from src.cli.config import (
+    autoEnableParentFlags,
+    normalizeCliConfig,
+    optionWasProvided,
+    providedOptions,
+)
 from src.cli.parser import (
     DidYouMeanArgumentParser,
     TASHelpFormatter,
@@ -21,9 +27,7 @@ from src.cli.parser import (
     capabilityMethods,
     str2bool,
 )
-from src.cli.sources import providedCliOptions, wasProvided
 from src.cli.validator import (
-    _autoEnableParentFlags,
     _configureProcessingSettings,
     isAnyOtherProcessingMethodEnabled,
 )
@@ -162,22 +166,46 @@ def testSmoothDedupKeepsAudio(monkeypatch):
 
 
 def testProvidedCliOptionsNormalizesLongFlags():
-    assert providedCliOptions(["--upscale-method=span", "--interpolate"]) == {
+    assert providedOptions(["--upscale-method=span", "--interpolate"]) == {
         "upscale_method",
         "interpolate",
     }
 
 
 def testWasProvidedIncludesJsonKeys():
-    args = types.SimpleNamespace(_json_keys={"interpolate_method"})
-    assert wasProvided(args, "interpolate_method", set()) is True
+    assert optionWasProvided("interpolate_method", set(), {"interpolate_method"})
 
 
 def testAutoEnableParentFlagsUsesProvidedOptions():
     args = fullFlags()
     args.interpolate_method = "rife4.6"
-    _autoEnableParentFlags(args, {"interpolate_method"})
+    autoEnableParentFlags(args, {"interpolate_method"})
     assert args.interpolate is True
+
+
+def testNormalizeCliConfigLoadsJsonAndAutoEnablesParent(tmp_path, builtParser):
+    configPath = tmp_path / "tas.json"
+    configPath.write_text('{"upscale_method": "span"}', encoding="utf-8")
+    args = builtParser.parse_args(["--json", str(configPath)])
+
+    cliConfig = normalizeCliConfig(args, builtParser, ["--json", str(configPath)])
+
+    assert cliConfig.jsonKeys == {"upscale_method"}
+    assert args.upscale_method == "span"
+    assert args.upscale is True
+
+
+def testNormalizeCliConfigRejectsJsonMixedWithOtherOptions(tmp_path, builtParser):
+    configPath = tmp_path / "tas.json"
+    configPath.write_text("{}", encoding="utf-8")
+    args = builtParser.parse_args(["--json", str(configPath), "--upscale"])
+
+    with pytest.raises(SystemExit):
+        normalizeCliConfig(
+            args,
+            builtParser,
+            ["--json", str(configPath), "--upscale"],
+        )
 
 
 def testFallbackMethodPrefersMpsWhenAvailable():

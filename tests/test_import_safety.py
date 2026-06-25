@@ -8,8 +8,8 @@ def testCliAndInfraEntryModulesCompile():
     root = Path(__file__).resolve().parents[1]
     modules = [
         root / "main.py",
+        root / "src" / "cli" / "config.py",
         root / "src" / "cli" / "parser.py",
-        root / "src" / "cli" / "sources.py",
         root / "src" / "cli" / "validator.py",
         root / "src" / "infra" / "backendFallback.py",
         root / "src" / "infra" / "dependencyHandler.py",
@@ -27,7 +27,7 @@ import sys
 
 for module in (
     "src.cli.parser",
-    "src.cli.sources",
+    "src.cli.config",
     "src.cli.validator",
     "src.infra.backendFallback",
     "src.infra.dependencyHandler",

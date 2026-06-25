@@ -3,7 +3,7 @@ import os
 import sys
 
 import src.constants as cs
-from src.cli.sources import providedCliOptions, wasProvided
+from src.cli.config import normalizeCliConfig
 from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSelection
 from src.infra.logAndPrint import logAndPrint
 
@@ -24,60 +24,6 @@ def isAnyOtherProcessingMethodEnabled(args):
             args.moblur,
         ]
     )
-
-
-def _autoEnableParentFlags(args, cliOptions=None):
-    logging.info(f"[DEBUG] hasattr(args, '_json_keys'): {hasattr(args, '_json_keys')}")
-    if hasattr(args, "_json_keys"):
-        logging.info(f"[DEBUG] args._json_keys: {args._json_keys}")
-
-    methodToFlagMapping = {
-        "interpolate_method": ("interpolate", "rife4.6"),
-        "interpolate_factor": ("interpolate", 2.0),
-        "upscale_method": ("upscale", "shufflecugan"),
-        "upscale_factor": ("upscale", 2),
-        "dedup_method": ("dedup", "ssim"),
-        "dedup_sens": ("dedup", 35.0),
-        "restore_method": ("restore", ["anime1080fixer"]),
-        "segment_method": ("segment", "anime"),
-        "depth_method": ("depth", "small_v2"),
-        "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
-        "resize_factor": ("resize", 2),
-        "output_scale": ("resize", ""),
-        "moblur_method": ("moblur", "rife4.25"),
-        "moblur_factor": ("moblur", 8),
-        "moblur_strength": ("moblur", "gaussian_sym"),
-        "moblur_shutter_angle": ("moblur", 180.0),
-    }
-
-    if cliOptions is None:
-        cliOptions = providedCliOptions(sys.argv[1:])
-
-    for methodArg, (parentFlag, defaultValue) in methodToFlagMapping.items():
-        if hasattr(args, methodArg):
-            currentValue = getattr(args, methodArg)
-
-            providedOnCLI = methodArg in cliOptions
-            isExplicitlyProvided = wasProvided(args, methodArg, cliOptions)
-
-            if methodArg == "interpolate_method":
-                logging.info(
-                    f"[DEBUG] interpolate_method - providedOnCLI: {providedOnCLI}, isExplicitlyProvided: {isExplicitlyProvided}"
-                )
-
-            if isExplicitlyProvided:
-                if not getattr(args, parentFlag):
-                    setattr(args, parentFlag, True)
-                    logging.info(
-                        f"Auto-enabling --{parentFlag} because --{methodArg} was provided"
-                    )
-            else:
-                if currentValue != defaultValue:
-                    if not getattr(args, parentFlag):
-                        setattr(args, parentFlag, True)
-                        logging.info(
-                            f"Auto-enabling --{parentFlag} because {methodArg} differs from default"
-                        )
 
 
 def _handleDepthSettings(args):
@@ -310,7 +256,7 @@ def processURL(args, outputPath):
         sys.exit()
 
 
-def argumentsChecker(args, outputPath, parser):
+def prepareRuntimeArgs(args, outputPath, parser):
     from src.version import __version__
 
     args.png_passthrough = False
@@ -332,13 +278,8 @@ def argumentsChecker(args, outputPath, parser):
 
         args = createPreset(args)
 
-    if args.json:
-        args, loadedKeys = _loadJsonConfig(args, parser)
-        args._json_keys = loadedKeys
-
-    cliOptions = providedCliOptions(sys.argv[1:])
-
-    _autoEnableParentFlags(args, cliOptions)
+    cliConfig = normalizeCliConfig(args, parser, sys.argv[1:])
+    args = cliConfig.args
 
     if args.download_requirements is not None:
         from src.infra.dependencyHandler import DependencyChecker
@@ -410,7 +351,7 @@ def argumentsChecker(args, outputPath, parser):
 
     logging.info("============== Arguments ==============")
     for arg, value in vars(args).items():
-        if arg in cliOptions and value not in [None, "", "none"]:
+        if arg in cliConfig.providedOptions and value not in [None, "", "none"]:
             logging.info(f"{arg.upper()}: {value}")
 
     if not args.benchmark:
@@ -570,59 +511,3 @@ def argumentsChecker(args, outputPath, parser):
         sys.exit()
 
     return args
-
-
-def _loadJsonConfig(args, parser):
-    import json
-
-    cliProvidedArgs = set()
-    for arg in sys.argv[1:]:
-        if arg.startswith("--") and arg != "--json":
-            argName = arg[2:].replace("-", "_")
-            cliProvidedArgs.add(argName)
-
-    if len(cliProvidedArgs) > 0:
-        logAndPrint(
-            "Cannot use --json with other command line arguments. Use --json alone.",
-            "red",
-        )
-        sys.exit()
-
-    jsonPath = os.path.abspath(args.json)
-
-    if not os.path.exists(jsonPath):
-        logAndPrint(f"JSON config file not found: {jsonPath}", "red")
-        sys.exit()
-
-    try:
-        with open(jsonPath, encoding="utf-8") as f:
-            jsonConfig = json.load(f)
-    except json.JSONDecodeError as e:
-        logAndPrint(f"Invalid JSON format in config file: {e}", "red")
-        sys.exit()
-    except Exception as e:
-        logAndPrint(f"Error reading JSON config: {e}", "red")
-        sys.exit()
-
-    defaults = {}
-    for action in parser._actions:
-        if action.dest not in ["help", "version", "json"]:
-            defaults[action.dest] = action.default
-
-    loadedKeys = set()
-    for key, value in jsonConfig.items():
-        if key == "json":
-            continue
-
-        if hasattr(args, key):
-            currentValue = getattr(args, key)
-            defaultValue = defaults.get(key)
-
-            if currentValue == defaultValue:
-                setattr(args, key, value)
-                logging.info(f"Loaded from JSON: {key} = {value}")
-            loadedKeys.add(key)
-        else:
-            logging.warning(f"Unknown option in JSON config: {key}")
-
-    return args, loadedKeys
