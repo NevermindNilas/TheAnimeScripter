@@ -340,7 +340,7 @@ def repairNeluxMacosFfmpegLinks() -> int:
                 text=True,
                 check=False,
             )
-        except (OSError, subprocess.SubprocessError):
+        except (OSError, subprocess.SubprocessError) as _e:
             continue
 
         if result.returncode != 0:

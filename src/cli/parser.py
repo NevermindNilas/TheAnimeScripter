@@ -194,7 +194,7 @@ class TASHelpFormatter(argparse.HelpFormatter):
         if width is None:
             try:
                 width = os.get_terminal_size().columns
-            except (ValueError, OSError):
+            except (ValueError, OSError) as _e:
                 width = 100
         super().__init__(
             prog, indent_increment, max_help_position, min(max(width, 60), 120)

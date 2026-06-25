@@ -335,8 +335,7 @@ def _adjustMethodsBasedOnCuda(args):
         if getattr(args, "moblur", False):
             mob = args.moblur_method
             if not any(
-                backend in mob
-                for backend in ("-directml", "-openvino", "-mps")
+                backend in mob for backend in ("-directml", "-openvino", "-mps")
             ):
                 base = mob.replace("-tensorrt", "")
                 if isDarwin and f"{base}-mps" in availableModels:
@@ -642,7 +641,7 @@ def argumentsChecker(args, outputPath, parser):
             logging.info(
                 f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
             )
-        except (ValueError, AttributeError):
+        except (ValueError, AttributeError) as _e:
             logAndPrint(
                 f"Invalid output_scale format: {args.output_scale}. Expected format: WIDTHxHEIGHT (e.g., 2560x1440)"
             )
