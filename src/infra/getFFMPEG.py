@@ -30,15 +30,76 @@ def addFfmpegToDllSearchPath(ffmpegPath: str | None = None) -> None:
 def getFFMPEG():
     ffmpegPath = downloadAndExtractFfmpeg(cs.FFMPEGPATH)
     cs.FFMPEGPATH = ffmpegPath
-    ffProbeExe = "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe"
-    cs.FFPROBEPATH = os.path.join(os.path.dirname(ffmpegPath), ffProbeExe)
+    if not cs.FFPROBEPATH or not os.path.exists(cs.FFPROBEPATH):
+        ffProbeExe = "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe"
+        cs.FFPROBEPATH = os.path.join(os.path.dirname(ffmpegPath), ffProbeExe)
     addFfmpegToDllSearchPath(cs.FFMPEGPATH)
+
+
+def findSystemFfmpeg() -> tuple[str, str] | None:
+    """Return system ffmpeg/ffprobe when both are available."""
+    searchPaths = [
+        None,
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/bin",
+    ]
+
+    ffmpegPath = None
+    ffprobePath = None
+    for searchPath in searchPaths:
+        ffmpegCandidate = shutil.which("ffmpeg", path=searchPath)
+        ffprobeCandidate = shutil.which("ffprobe", path=searchPath)
+        if ffmpegCandidate and ffprobeCandidate:
+            ffmpegPath = ffmpegCandidate
+            ffprobePath = ffprobeCandidate
+            break
+
+    if ffmpegPath and ffprobePath:
+        return ffmpegPath, ffprobePath
+    return None
+
+
+def _downloadFile(url: str, destination: str, label: str) -> None:
+    from src.infra.progressBarLogic import ProgressBarDownloadLogic
+
+    response = urlopen(url)
+
+    # Check for HTTP errors manually (like raise_for_status)
+    if response.getcode() != 200:
+        raise HTTPError(url, response.getcode(), None, None, None)
+
+    totalSizeInBytes = int(response.headers.get("content-length", 0))
+
+    with (
+        ProgressBarDownloadLogic(totalSizeInBytes or 1, label) as bar,
+        open(destination, "wb") as file,
+    ):
+        while True:
+            data = response.read(1024 * 1024)
+            if not data:
+                break
+            file.write(data)
+            bar(len(data))
 
 
 def downloadAndExtractFfmpeg(ffmpegPath):
     logging.info("Downloading FFMPEG")
-    extractFunc = extractFfmpegZip if cs.SYSTEM == "Windows" else extractFfmpegTar
     ffmpegDir = os.path.dirname(ffmpegPath)
+    if cs.SYSTEM == "Darwin":
+        systemFfmpeg = findSystemFfmpeg()
+        if systemFfmpeg is not None:
+            cs.FFPROBEPATH = systemFfmpeg[1]
+            logging.info(f"Using system FFmpeg: {systemFfmpeg[0]}")
+            return systemFfmpeg[0]
+
+        raise RuntimeError(
+            "FFmpeg and FFprobe are required on macOS. Install native Apple "
+            "Silicon FFmpeg with `brew install ffmpeg`, or place ffmpeg and "
+            "ffprobe on PATH."
+        )
+
+    extractFunc = extractFfmpegZip if cs.SYSTEM == "Windows" else extractFfmpegTar
     archiveExtension = "ffmpeg.zip" if cs.SYSTEM == "Windows" else "ffmpeg.tar.xz"
     ffmpegArchivePath = os.path.join(ffmpegDir, archiveExtension)
 
@@ -51,28 +112,7 @@ def downloadAndExtractFfmpeg(ffmpegPath):
     )
 
     try:
-        from src.infra.progressBarLogic import ProgressBarDownloadLogic
-
-        response = urlopen(ffmpegUrl)
-
-        # Check for HTTP errors manually (like raise_for_status)
-        if response.getcode() != 200:
-            raise HTTPError(ffmpegUrl, response.getcode(), None, None, None)
-
-        totalSizeInBytes = int(response.headers.get("content-length", 0))
-
-        with (
-            ProgressBarDownloadLogic(
-                totalSizeInBytes or 1, "Downloading FFmpeg"
-            ) as bar,
-            open(ffmpegArchivePath, "wb") as file,
-        ):
-            while True:
-                data = response.read(1024 * 1024)
-                if not data:
-                    break
-                file.write(data)
-                bar(len(data))
+        _downloadFile(ffmpegUrl, ffmpegArchivePath, "Downloading FFmpeg")
     except (URLError, HTTPError) as e:
         logging.error(f"Failed to download FFMPEG: {e}")
         raise

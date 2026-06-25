@@ -69,18 +69,14 @@ class VideoProcessor:
         self.output = results["outputPath"]
         self.encodeMethod = results["encodeMethod"]
         self.customEncoder = results["customEncoder"]
+        # Set by process() if the frame loop raises. start() reads this to
+        # decide whether success stats are meaningful.
+        self.processingError: Exception | None = None
 
         self._initProcessingParams(args)
         self._initVideoMetadata(args)
         self._configureProcessingOptions(args)
         self._selectProcessingMethod()
-
-        # Cleared at start(), set by process() if the frame loop raises.
-        # start() reads this to decide whether FPS/Output-Size stats are
-        # meaningful or should be suppressed (they are computed from a tiny
-        # sample that includes startup + the failing frame, so reporting them
-        # is misleading).
-        self.processingError: Exception | None = None
 
     def _initProcessingParams(self, args):
         """
@@ -574,7 +570,7 @@ class VideoProcessor:
                 # the real, final number.
                 try:
                     finalSize = os.path.getsize(self.output)
-                except OSError, TypeError:
+                except (OSError, TypeError):
                     finalSize = None
                 if finalSize is not None and finalSize > 0:
                     sz = (
@@ -727,7 +723,7 @@ def main():
         try:
             sys.stdout.reconfigure(encoding="utf-8")
             sys.stderr.reconfigure(encoding="utf-8")
-        except AttributeError, Exception:
+        except (AttributeError, Exception):
             pass
 
     try:

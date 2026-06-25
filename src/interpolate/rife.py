@@ -679,7 +679,7 @@ class RifeMPS:
                         :, :, : self.height, : self.width
                     ].clone()
                 torch.mps.synchronize()
-                return output
+                return output.contiguous().cpu()
 
             case "model":
                 self.model.cacheReset(frame)

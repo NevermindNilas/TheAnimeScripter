@@ -194,7 +194,7 @@ class TASHelpFormatter(argparse.HelpFormatter):
         if width is None:
             try:
                 width = os.get_terminal_size().columns
-            except ValueError, OSError:
+            except (ValueError, OSError):
                 width = 100
         super().__init__(
             prog, indent_increment, max_help_position, min(max(width, 60), 120)
@@ -923,11 +923,13 @@ def _addMotionBlurOptions(argParser):
             "rife4.25-directml",
             "rife4.6-tensorrt",
             "rife4.25-tensorrt",
+            "rife4.6-mps",
+            "rife4.25-mps",
         ],
         help="Interpolation model + backend used to synthesize the motion-blur samples. "
         "rife4.25 is sharper/slower, rife4.6 is faster. Suffix picks the backend: "
         "none = CUDA (NVIDIA; the only path that gets the windowed-sample speedup), "
-        "-tensorrt = CUDA via TensorRT, -directml = AMD/Intel GPUs.",
+        "-tensorrt = CUDA via TensorRT, -directml = AMD/Intel GPUs, -mps = Apple Silicon.",
     )
     moblurGroup.add_argument(
         "--moblur_factor",

@@ -6,6 +6,11 @@ import time
 from queue import Queue
 
 import torch  # this has to be always before nelux!
+
+from src.infra.dependencyHandler import repairNeluxMacosFfmpegLinks
+
+repairNeluxMacosFfmpegLinks()
+
 import nelux
 
 import src.constants as cs

@@ -1,6 +1,8 @@
 import argparse
+import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import tarfile
@@ -11,6 +13,9 @@ from pathlib import Path
 baseDir = Path(__file__).resolve().parent
 distPath = baseDir / "dist-portable"
 requirementsPath = baseDir / "requirements.txt"
+extraRequirementsBySystem = {
+    "Darwin": baseDir / "extra-requirements-macos.txt",
+}
 requirementsFiles = [
     requirementsPath,
     baseDir / "extra-requirements-windows.txt",
@@ -45,6 +50,219 @@ def runSubprocess(command, shell=False, cwd=None, stdout=None, env=None):
     except subprocess.CalledProcessError as e:
         print(f"Error while running command {command}: {e}")
         raise
+
+
+def runSubprocessResult(command):
+    return subprocess.run(command, capture_output=True, text=True, check=False)
+
+
+def parseMacosDylibDependencies(binaryPath: Path) -> list[str]:
+    result = runSubprocessResult(["otool", "-L", str(binaryPath)])
+    if result.returncode != 0:
+        raise RuntimeError(f"otool failed for {binaryPath}: {result.stderr}")
+
+    deps = []
+    for line in result.stdout.splitlines()[1:]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        deps.append(stripped.split(" ", 1)[0])
+    return deps
+
+
+def isBundledMacosDependency(dep: str) -> bool:
+    if not dep.endswith(".dylib"):
+        return False
+    return dep.startswith(("/opt/homebrew/", "/usr/local/"))
+
+
+def resolveMacosDependency(dep: str) -> Path:
+    path = Path(dep)
+    if path.exists():
+        return path
+    resolved = shutil.which(path.name)
+    if resolved:
+        return Path(resolved)
+    raise FileNotFoundError(f"Could not resolve macOS dependency: {dep}")
+
+
+def collectMacosDylibClosure(entryPoints: list[Path]) -> dict[str, Path]:
+    """Return install-name -> source path for Homebrew dylibs used by entries."""
+    collected = {}
+    queue = list(entryPoints)
+    seenBinaries = set()
+
+    while queue:
+        current = queue.pop(0)
+        currentKey = str(current)
+        if currentKey in seenBinaries:
+            continue
+        seenBinaries.add(currentKey)
+
+        for dep in parseMacosDylibDependencies(current):
+            if not isBundledMacosDependency(dep) or dep in collected:
+                continue
+            source = resolveMacosDependency(dep)
+            collected[dep] = source
+            queue.append(source)
+
+    return collected
+
+
+def signMacosBinary(path: Path):
+    result = runSubprocessResult(["codesign", "--force", "--sign", "-", str(path)])
+    if result.returncode != 0:
+        raise RuntimeError(f"codesign failed for {path}: {result.stderr}")
+
+
+def patchMacosInstallNames(
+    binaryPath: Path,
+    replacements: dict[str, str],
+    idName: str | None = None,
+):
+    if idName is not None:
+        result = runSubprocessResult(
+            ["install_name_tool", "-id", idName, str(binaryPath)]
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"install_name_tool -id failed for {binaryPath}: {result.stderr}"
+            )
+
+    deps = set(parseMacosDylibDependencies(binaryPath))
+    for oldName, newName in replacements.items():
+        if oldName not in deps:
+            continue
+        result = runSubprocessResult(
+            ["install_name_tool", "-change", oldName, newName, str(binaryPath)]
+        )
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"install_name_tool -change failed for {binaryPath}: {result.stderr}"
+            )
+
+    signMacosBinary(binaryPath)
+
+
+def findMacosFfmpegTools() -> tuple[Path, Path]:
+    ffmpeg = shutil.which("ffmpeg")
+    ffprobe = shutil.which("ffprobe")
+    if ffmpeg and ffprobe:
+        return Path(ffmpeg), Path(ffprobe)
+
+    for binDir in (Path("/opt/homebrew/bin"), Path("/usr/local/bin")):
+        ffmpegPath = binDir / "ffmpeg"
+        ffprobePath = binDir / "ffprobe"
+        if ffmpegPath.exists() and ffprobePath.exists():
+            return ffmpegPath, ffprobePath
+
+    raise RuntimeError(
+        "macOS portable builds require native ffmpeg and ffprobe. "
+        "Install them with `brew install ffmpeg`."
+    )
+
+
+def iterBundleNeluxBinaries(bundleDir: Path) -> list[Path]:
+    binaries = []
+    for neluxDir in bundleDir.glob("lib/python*/site-packages/nelux"):
+        binaries.extend(
+            path
+            for path in neluxDir.rglob("*")
+            if path.is_file() and path.suffix in {".so", ".dylib"}
+        )
+    return binaries
+
+
+def bundleMacosFfmpeg(targetDir: Path):
+    if system != "Darwin":
+        return
+
+    print("Bundling macOS FFmpeg executables and dylibs...")
+    ffmpegPath, ffprobePath = findMacosFfmpegTools()
+    ffmpegDir = targetDir / "ffmpeg_shared"
+    libDir = ffmpegDir / "lib"
+    libDir.mkdir(parents=True, exist_ok=True)
+
+    bundledExecutables = []
+    for source in (ffmpegPath, ffprobePath):
+        destination = ffmpegDir / source.name
+        shutil.copy2(source, destination)
+        os.chmod(destination, 0o755)
+        bundledExecutables.append(destination)
+
+    dylibs = collectMacosDylibClosure([ffmpegPath, ffprobePath])
+    installNameToBasename = {}
+    for installName, source in dylibs.items():
+        destination = libDir / Path(installName).name
+        shutil.copy2(source, destination)
+        os.chmod(destination, 0o755)
+        installNameToBasename[installName] = destination.name
+
+    executableReplacements = {
+        old: f"@executable_path/lib/{name}"
+        for old, name in installNameToBasename.items()
+    }
+    libraryReplacements = {
+        old: f"@loader_path/{name}" for old, name in installNameToBasename.items()
+    }
+
+    for executable in bundledExecutables:
+        patchMacosInstallNames(executable, executableReplacements)
+
+    for libraryName in installNameToBasename.values():
+        libraryPath = libDir / libraryName
+        patchMacosInstallNames(
+            libraryPath,
+            libraryReplacements,
+            idName=f"@rpath/{libraryName}",
+        )
+
+    patchNeluxForBundledMacosFfmpeg(targetDir, installNameToBasename)
+
+
+def patchNeluxForBundledMacosFfmpeg(
+    targetDir: Path, installNameToBasename: dict[str, str]
+):
+    neluxBinaries = iterBundleNeluxBinaries(targetDir)
+    if not neluxBinaries:
+        print("Skipping nelux FFmpeg patch; nelux package not found in bundle.")
+        return
+
+    ffmpegLibDir = targetDir / "ffmpeg_shared" / "lib"
+    for neluxDir in targetDir.glob("lib/python*/site-packages/nelux"):
+        neluxDylibDir = neluxDir / ".dylibs"
+        neluxDylibDir.mkdir(exist_ok=True)
+        for libraryName in set(installNameToBasename.values()):
+            source = ffmpegLibDir / libraryName
+            if source.exists():
+                shutil.copy2(source, neluxDylibDir / libraryName)
+
+    cellarPattern = re.compile(
+        r"/(?:opt/homebrew|usr/local)/Cellar/ffmpeg/[^/\s]+/lib/(lib(?:av|sw)[^/\s]+\.dylib)"
+    )
+    optPattern = re.compile(
+        r"/(?:opt/homebrew|usr/local)/opt/ffmpeg/lib/(lib(?:av|sw)[^/\s]+\.dylib)"
+    )
+
+    for binaryPath in neluxBinaries:
+        deps = parseMacosDylibDependencies(binaryPath)
+        replacements = {}
+        for dep in deps:
+            match = cellarPattern.match(dep) or optPattern.match(dep)
+            if not match:
+                continue
+            libName = match.group(1)
+            if (binaryPath.parent / libName).exists():
+                replacements[dep] = f"@loader_path/{libName}"
+            else:
+                replacements[dep] = f"@loader_path/.dylibs/{libName}"
+
+        idName = None
+        if binaryPath.suffix == ".dylib":
+            idName = f"@rpath/{binaryPath.name}"
+
+        if replacements or idName is not None:
+            patchMacosInstallNames(binaryPath, replacements, idName=idName)
 
 
 def downloadPortablePython():
@@ -234,7 +452,28 @@ def installRequirements():
             "--disable-pip-version-check",
         ],
     )
-    print("Core requirements installed successfully!")
+
+    extraRequirementsPath = extraRequirementsBySystem.get(system)
+    if extraRequirementsPath is not None:
+        print(f"Installing {system} runtime requirements...")
+        runSubprocess(
+            [
+                str(pythonExecutable),
+                "-I",
+                "-m",
+                "pip",
+                "install",
+                "-c",
+                str(requirementsPath),
+                "-r",
+                str(extraRequirementsPath),
+                "--no-build-isolation",
+                "--no-cache-dir",
+                "--disable-pip-version-check",
+            ],
+        )
+
+    print("Requirements installed successfully!")
 
 
 def bundleFiles(targetDir):
@@ -311,6 +550,14 @@ def moveExtras(targetDir):
             continue
 
         shutil.copy(sourcePath, bundleDir)
+
+
+def seedDependencyProfile(targetDir: Path):
+    if system != "Darwin":
+        return
+
+    cachePath = targetDir / ".dependencyCache.json"
+    cachePath.write_text(json.dumps({"profile": "macos-mps"}), encoding="utf-8")
 
 
 def cleanupTempFiles(targetDir):
@@ -396,6 +643,8 @@ if __name__ == "__main__":
     pythonExe = downloadPortablePython()
     installRequirements()
     bundleFiles(finalOutputDir)
+    bundleMacosFfmpeg(finalOutputDir)
+    seedDependencyProfile(finalOutputDir)
     moveExtras(finalOutputDir)
     cleanupTempFiles(finalOutputDir)
     removePortablePython()

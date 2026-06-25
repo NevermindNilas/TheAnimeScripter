@@ -22,6 +22,7 @@ from src.cli.parser import (
     str2bool,
 )
 from src.cli.validator import (
+    _adjustMethodsBasedOnCuda,
     _configureProcessingSettings,
     isAnyOtherProcessingMethodEnabled,
 )
@@ -100,6 +101,54 @@ def testNoProcessingEnabled():
 
 def testSingleProcessingEnabled():
     assert isAnyOtherProcessingMethodEnabled(fullFlags(upscale=True)) is True
+
+
+def fallbackArgs(**overrides):
+    base = dict(
+        supportsCuda=False,
+        interpolate=False,
+        interpolate_method="rife4.25",
+        upscale=False,
+        upscale_method="shufflecugan",
+        segment=False,
+        segment_method="anime",
+        depth=False,
+        depth_method="small_v2",
+        restore=False,
+        restore_method=["anime1080fixer"],
+        dedup=False,
+        dedup_method="ssim",
+        obj_detect=False,
+        obj_detect_method="yolov9_small-directml",
+        moblur=False,
+        moblur_method="rife4.25",
+    )
+    base.update(overrides)
+    return types.SimpleNamespace(**base)
+
+
+def testDarwinFallbackUsesMpsForMoblur(monkeypatch):
+    monkeypatch.setattr(cs, "SYSTEM", "Darwin", raising=False)
+    args = fallbackArgs(moblur=True, moblur_method="rife4.25")
+
+    _adjustMethodsBasedOnCuda(args)
+
+    assert args.moblur_method == "rife4.25-mps"
+
+
+def testDarwinFallbackRewritesMoblurTensorRtToMps(monkeypatch):
+    monkeypatch.setattr(cs, "SYSTEM", "Darwin", raising=False)
+    args = fallbackArgs(moblur=True, moblur_method="rife4.6-tensorrt")
+
+    _adjustMethodsBasedOnCuda(args)
+
+    assert args.moblur_method == "rife4.6-mps"
+
+
+def testMoblurParserIncludesMpsChoices():
+    methods = capabilityMethods(_buildParser("."))["moblur"]
+    assert "rife4.6-mps" in methods
+    assert "rife4.25-mps" in methods
 
 
 # --------------------------------------------------------------------------- #
