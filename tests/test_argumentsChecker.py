@@ -21,10 +21,13 @@ from src.cli.parser import (
     capabilityMethods,
     str2bool,
 )
+from src.cli.sources import providedCliOptions, wasProvided
 from src.cli.validator import (
+    _autoEnableParentFlags,
     _configureProcessingSettings,
     isAnyOtherProcessingMethodEnabled,
 )
+from src.infra.backendFallback import applyBackendFallbacks, fallbackMethod
 
 
 def makeArgs(**overrides):
@@ -151,6 +154,54 @@ def testSmoothDedupKeepsAudio(monkeypatch):
     a = makeArgs(dedup=True, smooth_dedup=True, dedup_method="mse")
     _configureProcessingSettings(a)
     assert cs.AUDIO is True
+
+
+# --------------------------------------------------------------------------- #
+# CLI source tracking and backend fallback
+# --------------------------------------------------------------------------- #
+
+
+def testProvidedCliOptionsNormalizesLongFlags():
+    assert providedCliOptions(["--upscale-method=span", "--interpolate"]) == {
+        "upscale_method",
+        "interpolate",
+    }
+
+
+def testWasProvidedIncludesJsonKeys():
+    args = types.SimpleNamespace(_json_keys={"interpolate_method"})
+    assert wasProvided(args, "interpolate_method", set()) is True
+
+
+def testAutoEnableParentFlagsUsesProvidedOptions():
+    args = fullFlags()
+    args.interpolate_method = "rife4.6"
+    _autoEnableParentFlags(args, {"interpolate_method"})
+    assert args.interpolate is True
+
+
+def testFallbackMethodPrefersMpsWhenAvailable():
+    models = {"rife4.6-mps", "rife4.6-directml", "rife4.6-ncnn"}
+    assert fallbackMethod("rife4.6", models, preferMps=True) == "rife4.6-mps"
+
+
+def testFallbackMethodUsesDirectmlBeforeNcnn():
+    models = {"rife4.6-directml", "rife4.6-ncnn"}
+    assert fallbackMethod("rife4.6", models) == "rife4.6-directml"
+
+
+def testApplyBackendFallbackSkipsExplicitBackend():
+    args = fullFlags(upscale=True)
+    args.upscale_method = "span-tensorrt"
+    applyBackendFallbacks(args, {"span-directml"})
+    assert args.upscale_method == "span-tensorrt"
+
+
+def testApplyBackendFallbackHandlesRestoreLists():
+    args = fullFlags(restore=True)
+    args.restore_method = ["anime1080fixer", "scunet-directml"]
+    applyBackendFallbacks(args, {"anime1080fixer-ncnn", "scunet-ncnn"})
+    assert args.restore_method == ["anime1080fixer-ncnn", "scunet-directml"]
 
 
 # --------------------------------------------------------------------------- #

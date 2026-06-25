@@ -1,0 +1,49 @@
+import py_compile
+import subprocess
+import sys
+from pathlib import Path
+
+
+def testCliAndInfraEntryModulesCompile():
+    root = Path(__file__).resolve().parents[1]
+    modules = [
+        root / "main.py",
+        root / "src" / "cli" / "parser.py",
+        root / "src" / "cli" / "sources.py",
+        root / "src" / "cli" / "validator.py",
+        root / "src" / "infra" / "backendFallback.py",
+        root / "src" / "infra" / "dependencyHandler.py",
+        root / "src" / "infra" / "isCudaInit.py",
+    ]
+    for module in modules:
+        py_compile.compile(str(module), doraise=True)
+
+
+def testLightCliInfraImportsDoNotLoadRuntimeStacks():
+    root = Path(__file__).resolve().parents[1]
+    code = """
+import importlib
+import sys
+
+for module in (
+    "src.cli.parser",
+    "src.cli.sources",
+    "src.cli.validator",
+    "src.infra.backendFallback",
+    "src.infra.dependencyHandler",
+    "src.infra.isCudaInit",
+):
+    importlib.import_module(module)
+
+loaded = sorted({"torch", "cv2", "nelux"} & set(sys.modules))
+if loaded:
+    raise SystemExit(f"heavy runtime modules imported at startup: {loaded}")
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout

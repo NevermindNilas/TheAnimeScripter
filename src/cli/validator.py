@@ -3,6 +3,7 @@ import os
 import sys
 
 import src.constants as cs
+from src.cli.sources import providedCliOptions, wasProvided
 from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSelection
 from src.infra.logAndPrint import logAndPrint
 
@@ -25,7 +26,7 @@ def isAnyOtherProcessingMethodEnabled(args):
     )
 
 
-def _autoEnableParentFlags(args):
+def _autoEnableParentFlags(args, cliOptions=None):
     logging.info(f"[DEBUG] hasattr(args, '_json_keys'): {hasattr(args, '_json_keys')}")
     if hasattr(args, "_json_keys"):
         logging.info(f"[DEBUG] args._json_keys: {args._json_keys}")
@@ -49,23 +50,15 @@ def _autoEnableParentFlags(args):
         "moblur_shutter_angle": ("moblur", 180.0),
     }
 
-    cliProvided = set()
-    for a in sys.argv[1:]:
-        if a.startswith("--"):
-            name = a[2:].split("=")[0]
-            cliProvided.add(name)
+    if cliOptions is None:
+        cliOptions = providedCliOptions(sys.argv[1:])
 
     for methodArg, (parentFlag, defaultValue) in methodToFlagMapping.items():
         if hasattr(args, methodArg):
             currentValue = getattr(args, methodArg)
 
-            providedOnCLI = (
-                methodArg in cliProvided or methodArg.replace("_", "-") in cliProvided
-            )
-
-            isExplicitlyProvided = providedOnCLI or (
-                hasattr(args, "_json_keys") and methodArg in args._json_keys
-            )
+            providedOnCLI = methodArg in cliOptions
+            isExplicitlyProvided = wasProvided(args, methodArg, cliOptions)
 
             if methodArg == "interpolate_method":
                 logging.info(
@@ -210,23 +203,7 @@ def _validateCustomUpscaleModel(args):
     sys.exit()
 
 
-def _adjustMethodsBasedOnCuda(args):
-    isDarwin = cs.SYSTEM == "Darwin"
-
-    def adjustMethod(method, modelsList):
-        base = method.lower()
-        if isDarwin:
-            mpsMethod = f"{base}-mps"
-            if mpsMethod in modelsList:
-                return mpsMethod
-        directML = f"{base}-directml"
-        if directML in modelsList:
-            return directML
-        newMethod = f"{base}-ncnn"
-        if newMethod in modelsList:
-            return newMethod
-        return method
-
+def _adjustMethodsBasedOnCuda(args, availableModels=None):
     supportsCuda = getattr(args, "supportsCuda", None)
 
     if supportsCuda is None:
@@ -251,96 +228,18 @@ def _adjustMethodsBasedOnCuda(args):
         needsFallback = not supportsCuda
 
     if needsFallback:
-        from src.model.downloadModels import modelsList
+        from src.infra.backendFallback import applyBackendFallbacks
 
-        availableModels = modelsList()
-        methodAttributes = [
-            "interpolate_method",
-            "upscale_method",
-            "segment_method",
-            "depth_method",
-            "restore_method",
-            "dedup_method",
-            "obj_detect_method",
-        ]
+        if availableModels is None:
+            from src.model.downloadModels import modelsList
 
-        methodToFlag = {
-            "interpolate_method": "interpolate",
-            "upscale_method": "upscale",
-            "segment_method": "segment",
-            "depth_method": "depth",
-            "restore_method": "restore",
-            "dedup_method": "dedup",
-            "obj_detect_method": "obj_detect",
-        }
+            availableModels = modelsList()
 
-        for attr in methodAttributes:
-            flagName = methodToFlag.get(attr)
-            if flagName and not getattr(args, flagName):
-                continue
-
-            currentMethod = getattr(args, attr)
-
-            if attr == "restore_method" and isinstance(currentMethod, list):
-                adjusted = []
-                for method in currentMethod:
-                    if any(
-                        backend in method.lower()
-                        for backend in [
-                            "-directml",
-                            "-ncnn",
-                            "-tensorrt",
-                            "-mps",
-                            "-openvino",
-                        ]
-                    ):
-                        logging.info(
-                            f"{attr} method {method} already using non-default backend"
-                        )
-                        adjusted.append(method)
-                        continue
-
-                    newMethod = adjustMethod(method, availableModels)
-                    if newMethod != method:
-                        logging.info(
-                            f"Adjusted {attr} method from {method} to {newMethod}"
-                        )
-                    adjusted.append(newMethod)
-                setattr(args, attr, adjusted)
-            else:
-                if any(
-                    backend in currentMethod.lower()
-                    for backend in [
-                        "-directml",
-                        "-ncnn",
-                        "-tensorrt",
-                        "-mps",
-                        "-openvino",
-                    ]
-                ):
-                    logging.info(
-                        f"{attr} already using non-default backend: {currentMethod}"
-                    )
-                    continue
-
-                newMethod = adjustMethod(currentMethod, availableModels)
-                if newMethod != currentMethod:
-                    logging.info(f"Adjusted {attr} from {currentMethod} to {newMethod}")
-                    setattr(args, attr, newMethod)
-                else:
-                    logging.info(
-                        f"No adjustment for {attr} ({currentMethod} remains unchanged)"
-                    )
-
-        if getattr(args, "moblur", False):
-            mob = args.moblur_method
-            if not any(backend in mob for backend in ("-directml", "-openvino")):
-                base = mob.replace("-tensorrt", "")
-                args.moblur_method = f"{base}-directml"
-                logging.info(
-                    f"Adjusted moblur_method from {mob} to {args.moblur_method} "
-                    f"(no CUDA available)"
-                )
+        applyBackendFallbacks(
+            args,
+            availableModels,
+            preferMps=cs.SYSTEM == "Darwin",
+        )
 
 
 def _downloadOfflineModels(args):
@@ -437,7 +336,9 @@ def argumentsChecker(args, outputPath, parser):
         args, loadedKeys = _loadJsonConfig(args, parser)
         args._json_keys = loadedKeys
 
-    _autoEnableParentFlags(args)
+    cliOptions = providedCliOptions(sys.argv[1:])
+
+    _autoEnableParentFlags(args, cliOptions)
 
     if args.download_requirements is not None:
         from src.infra.dependencyHandler import DependencyChecker
@@ -507,16 +408,9 @@ def argumentsChecker(args, outputPath, parser):
     logging.info("============== Version ==============")
     logging.info(f"TAS: {__version__}\n")
 
-    cliArgs = sys.argv[1:]
-    providedArgs = set()
-    for _i, arg in enumerate(cliArgs):
-        if arg.startswith("--"):
-            argName = arg[2:]
-            providedArgs.add(argName)
-
     logging.info("============== Arguments ==============")
     for arg, value in vars(args).items():
-        if arg in providedArgs and value not in [None, "", "none"]:
+        if arg in cliOptions and value not in [None, "", "none"]:
             logging.info(f"{arg.upper()}: {value}")
 
     if not args.benchmark:
@@ -636,7 +530,7 @@ def argumentsChecker(args, outputPath, parser):
             logging.info(
                 f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
             )
-        except ValueError, AttributeError:
+        except (ValueError, AttributeError) as _e:
             logAndPrint(
                 f"Invalid output_scale format: {args.output_scale}. Expected format: WIDTHxHEIGHT (e.g., 2560x1440)"
             )
