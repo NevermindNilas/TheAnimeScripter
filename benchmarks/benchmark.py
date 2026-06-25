@@ -141,7 +141,7 @@ class ResourceMonitor(threading.Thread):
                 text=True,
                 timeout=5,
             ).stdout
-        except subprocess.SubprocessError, OSError:
+        except (subprocess.SubprocessError, OSError) as _err:
             return None
         for line in out.splitlines():
             try:
@@ -178,7 +178,7 @@ class ResourceMonitor(threading.Thread):
                 text=True,
                 timeout=5,
             ).stdout
-        except subprocess.SubprocessError, OSError:
+        except (subprocess.SubprocessError, OSError) as _err:
             return None
         total = 0.0
         found = False
