@@ -3,7 +3,7 @@ import os
 import sys
 
 import src.constants as cs
-from src.cli.config import normalizeCliConfig
+from src.cli.config import CliConfig
 from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSelection
 from src.cli.validation import CliValidationError, applyRuntimeValidation
 from src.infra.logAndPrint import logAndPrint
@@ -184,7 +184,7 @@ def prepareRuntimeArgs(args, outputPath, parser):
 
         args = createPreset(args)
 
-    cliConfig = normalizeCliConfig(args, parser, sys.argv[1:])
+    cliConfig = CliConfig.fromArgs(args, parser, sys.argv[1:])
     args = cliConfig.args
 
     if args.download_requirements is not None:

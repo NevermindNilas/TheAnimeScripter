@@ -13,12 +13,7 @@ import types
 import pytest
 
 import src.constants as cs
-from src.cli.config import (
-    autoEnableParentFlags,
-    normalizeCliConfig,
-    optionWasProvided,
-    providedOptions,
-)
+from src.cli.config import CliConfig
 from src.cli.parser import (
     DidYouMeanArgumentParser,
     TASHelpFormatter,
@@ -173,20 +168,36 @@ def testSmoothDedupKeepsAudio(monkeypatch):
 
 
 def testProvidedCliOptionsNormalizesLongFlags():
-    assert providedOptions(["--upscale-method=span", "--interpolate"]) == {
+    assert CliConfig.collectProvidedOptions(
+        ["--upscale-method=span", "--interpolate"]
+    ) == {
         "upscale_method",
         "interpolate",
     }
 
 
 def testWasProvidedIncludesJsonKeys():
-    assert optionWasProvided("interpolate_method", set(), {"interpolate_method"})
+    config = CliConfig(
+        args=None,
+        parser=None,
+        argv=[],
+        providedOptions=set(),
+        jsonKeys={"interpolate_method"},
+    )
+    assert config.optionWasProvided("interpolate_method")
 
 
 def testAutoEnableParentFlagsUsesProvidedOptions():
     args = fullFlags()
     args.interpolate_method = "rife4.6"
-    autoEnableParentFlags(args, {"interpolate_method"})
+    config = CliConfig(
+        args=args,
+        parser=None,
+        argv=[],
+        providedOptions={"interpolate_method"},
+        jsonKeys=set(),
+    )
+    config.autoEnableParentFlags()
     assert args.interpolate is True
 
 
@@ -195,7 +206,7 @@ def testNormalizeCliConfigLoadsJsonAndAutoEnablesParent(tmp_path, builtParser):
     configPath.write_text('{"upscale_method": "span"}', encoding="utf-8")
     args = builtParser.parse_args(["--json", str(configPath)])
 
-    cliConfig = normalizeCliConfig(args, builtParser, ["--json", str(configPath)])
+    cliConfig = CliConfig.fromArgs(args, builtParser, ["--json", str(configPath)])
 
     assert cliConfig.jsonKeys == {"upscale_method"}
     assert args.upscale_method == "span"
@@ -208,7 +219,7 @@ def testNormalizeCliConfigRejectsJsonMixedWithOtherOptions(tmp_path, builtParser
     args = builtParser.parse_args(["--json", str(configPath), "--upscale"])
 
     with pytest.raises(SystemExit):
-        normalizeCliConfig(
+        CliConfig.fromArgs(
             args,
             builtParser,
             ["--json", str(configPath), "--upscale"],
