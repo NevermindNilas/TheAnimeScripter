@@ -27,6 +27,13 @@ from src.cli.parser import (
     capabilityMethods,
     str2bool,
 )
+from src.cli.validation import (
+    CliValidationError,
+    normalizeUpscaleFactor,
+    parseOutputScale,
+    selectedUpscaleBackend,
+    validateCustomUpscaleModel,
+)
 from src.cli.validator import (
     _configureProcessingSettings,
     isAnyOtherProcessingMethodEnabled,
@@ -230,6 +237,70 @@ def testApplyBackendFallbackHandlesRestoreLists():
     args.restore_method = ["anime1080fixer", "scunet-directml"]
     applyBackendFallbacks(args, {"anime1080fixer-ncnn", "scunet-ncnn"})
     assert args.restore_method == ["anime1080fixer-ncnn", "scunet-directml"]
+
+
+# --------------------------------------------------------------------------- #
+# CLI validation helpers
+# --------------------------------------------------------------------------- #
+
+
+def testParseOutputScaleAcceptsWidthByHeight():
+    assert parseOutputScale("2560x1440") == (2560, 1440)
+
+
+@pytest.mark.parametrize("value", ["bad", "0x1080", "1920x0", "1920xabc"])
+def testParseOutputScaleRejectsInvalidValues(value):
+    with pytest.raises(CliValidationError):
+        parseOutputScale(value)
+
+
+def testNormalizeUpscaleFactorClampsTooSmall():
+    args = types.SimpleNamespace(upscale=True, upscale_factor=1)
+    warning = normalizeUpscaleFactor(args)
+    assert args.upscale_factor == 2
+    assert "at least 2" in warning
+
+
+def testNormalizeUpscaleFactorClampsInvalidValue():
+    args = types.SimpleNamespace(upscale=True, upscale_factor="abc")
+    warning = normalizeUpscaleFactor(args)
+    assert args.upscale_factor == 2
+    assert "Invalid upscale_factor" in warning
+
+
+def testSelectedUpscaleBackendSplitsBackendSuffix():
+    assert selectedUpscaleBackend("span-directml") == ("directml", "span")
+    assert selectedUpscaleBackend("span") == ("pytorch", "span")
+
+
+def testValidateCustomUpscaleModelAcceptsOnnxBackend(tmp_path):
+    model = tmp_path / "custom.onnx"
+    model.write_bytes(b"model")
+    args = types.SimpleNamespace(
+        custom_model=str(model),
+        upscale_method="span-directml",
+    )
+    validateCustomUpscaleModel(args)
+    assert args.custom_model == str(model.resolve())
+
+
+def testValidateCustomUpscaleModelRejectsOnnxWithoutOnnxBackend(tmp_path):
+    model = tmp_path / "custom.onnx"
+    model.write_bytes(b"model")
+    args = types.SimpleNamespace(custom_model=str(model), upscale_method="span")
+    with pytest.raises(CliValidationError):
+        validateCustomUpscaleModel(args)
+
+
+def testValidateCustomUpscaleModelRejectsPytorchWithOnnxBackend(tmp_path):
+    model = tmp_path / "custom.pth"
+    model.write_bytes(b"model")
+    args = types.SimpleNamespace(
+        custom_model=str(model),
+        upscale_method="span-directml",
+    )
+    with pytest.raises(CliValidationError):
+        validateCustomUpscaleModel(args)
 
 
 # --------------------------------------------------------------------------- #

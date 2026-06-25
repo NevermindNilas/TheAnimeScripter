@@ -5,6 +5,7 @@ import sys
 import src.constants as cs
 from src.cli.config import normalizeCliConfig
 from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSelection
+from src.cli.validation import CliValidationError, applyRuntimeValidation
 from src.infra.logAndPrint import logAndPrint
 
 
@@ -98,55 +99,6 @@ def _configureProcessingSettings(args):
         logging.info(
             f"Pytorch Compile mode is set to {args.compile_mode}, this will increase startup time and memory usage and may lead to instability with some models"
         )
-
-
-def _validateCustomUpscaleModel(args):
-    if not args.custom_model:
-        return
-
-    args.custom_model = os.path.abspath(args.custom_model)
-    if not os.path.isfile(args.custom_model):
-        logAndPrint(f"Custom model file not found: {args.custom_model}", "red")
-        sys.exit()
-
-    extension = os.path.splitext(args.custom_model)[1].lower()
-    pytorchExtensions = {".pt", ".pth", ".ckpt", ".safetensors"}
-    onnxExtensions = {".onnx"}
-    backendSuffixes = ("-directml", "-openvino", "-tensorrt", "-ncnn")
-
-    selectedBackend = "pytorch"
-    baseMethod = args.upscale_method
-    for suffix in backendSuffixes:
-        if args.upscale_method.endswith(suffix):
-            selectedBackend = suffix[1:]
-            baseMethod = args.upscale_method[: -len(suffix)]
-            break
-
-    if extension in onnxExtensions:
-        if selectedBackend not in {"directml", "openvino", "tensorrt"}:
-            logAndPrint(
-                "Custom ONNX upscale models require an ONNX backend. Use an upscale method ending in -directml, -openvino, or -tensorrt, for example "
-                f"{baseMethod}-directml.",
-                "red",
-            )
-            sys.exit()
-        return
-
-    if extension in pytorchExtensions:
-        if selectedBackend != "pytorch":
-            logAndPrint(
-                "Custom PyTorch upscale models require a CUDA/PyTorch upscale method without a backend suffix. "
-                f"Use {baseMethod} for .pt/.pth/.ckpt/.safetensors files.",
-                "red",
-            )
-            sys.exit()
-        return
-
-    logAndPrint(
-        "Unsupported custom upscale model format. Supported extensions are .pt, .pth, .ckpt, .safetensors, and .onnx.",
-        "red",
-    )
-    sys.exit()
 
 
 def _adjustMethodsBasedOnCuda(args, availableModels=None):
@@ -400,7 +352,6 @@ def prepareRuntimeArgs(args, outputPath, parser):
     _configureProcessingSettings(args)
 
     _adjustMethodsBasedOnCuda(args)
-    _validateCustomUpscaleModel(args)
 
     if args.custom_encoder:
         logging.info("Custom encoder specified, use with caution")
@@ -461,43 +412,20 @@ def prepareRuntimeArgs(args, outputPath, parser):
             logging.error("Error processing input")
             sys.exit()
 
-    if args.output_scale:
-        try:
-            width, height = args.output_scale.split("x")
-            args.output_scale_width = int(width)
-            args.output_scale_height = int(height)
-            if args.output_scale_width <= 0 or args.output_scale_height <= 0:
-                raise ValueError("Width and height must be positive integers")
-            logging.info(
-                f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
-            )
-        except (ValueError, AttributeError) as _e:
-            logAndPrint(
-                f"Invalid output_scale format: {args.output_scale}. Expected format: WIDTHxHEIGHT (e.g., 2560x1440)"
-            )
-            sys.exit()
-    else:
-        args.output_scale_width = None
-        args.output_scale_height = None
+    try:
+        warning = applyRuntimeValidation(args)
+    except CliValidationError as e:
+        logAndPrint(str(e), "red")
+        sys.exit()
 
-    if args.upscale and hasattr(args, "upscale_factor"):
-        try:
-            if int(args.upscale_factor) < 2:
-                logAndPrint(
-                    "Upscale factor must be at least 2 when --upscale is enabled; defaulting to 2",
-                    "yellow",
-                )
-                logging.info(
-                    f"Adjusted upscale_factor from {args.upscale_factor} to 2 to satisfy minimum requirement"
-                )
-                args.upscale_factor = 2
-        except Exception:
-            logAndPrint(
-                "Invalid upscale_factor provided; defaulting to 2",
-                "yellow",
-            )
-            logging.info("Invalid upscale_factor value encountered; set to 2")
-            args.upscale_factor = 2
+    if args.output_scale_width and args.output_scale_height:
+        logging.info(
+            f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
+        )
+
+    if warning:
+        logAndPrint(warning, "yellow")
+        logging.info(warning)
 
     logging.info(
         f"[DEBUG] Before processing check - args.interpolate: {args.interpolate}"
