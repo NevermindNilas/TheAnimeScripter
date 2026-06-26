@@ -1,6 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cu132
 --extra-index-url https://pypi.nvidia.com
-torch==2.12.0+cu132
+torch==2.12.1+cu132
 torchvision==0.27.1+cu132
 https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/tensorrt-10.16.1.11-cp314-cp314-win_amd64.whl
 nvidia-vfx==0.1.0.1
