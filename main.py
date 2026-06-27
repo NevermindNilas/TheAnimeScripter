@@ -574,7 +574,7 @@ class VideoProcessor:
                 # the real, final number.
                 try:
                     finalSize = os.path.getsize(self.output)
-                except OSError, TypeError:
+                except (OSError, TypeError) as _e:
                     finalSize = None
                 if finalSize is not None and finalSize > 0:
                     sz = (
@@ -727,7 +727,7 @@ def main():
         try:
             sys.stdout.reconfigure(encoding="utf-8")
             sys.stderr.reconfigure(encoding="utf-8")
-        except AttributeError, Exception:
+        except (AttributeError, Exception) as _e:
             pass
 
     try:

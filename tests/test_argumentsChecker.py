@@ -13,6 +13,7 @@ import types
 import pytest
 
 import src.constants as cs
+from src.cli.config import CliConfig
 from src.cli.parser import (
     DidYouMeanArgumentParser,
     TASHelpFormatter,
@@ -21,10 +22,18 @@ from src.cli.parser import (
     capabilityMethods,
     str2bool,
 )
+from src.cli.validation import (
+    CliValidationError,
+    normalizeUpscaleFactor,
+    parseOutputScale,
+    selectedUpscaleBackend,
+    validateCustomUpscaleModel,
+)
 from src.cli.validator import (
     _configureProcessingSettings,
     isAnyOtherProcessingMethodEnabled,
 )
+from src.infra.backendFallback import applyBackendFallbacks, fallbackMethod
 
 
 def makeArgs(**overrides):
@@ -151,6 +160,158 @@ def testSmoothDedupKeepsAudio(monkeypatch):
     a = makeArgs(dedup=True, smooth_dedup=True, dedup_method="mse")
     _configureProcessingSettings(a)
     assert cs.AUDIO is True
+
+
+# --------------------------------------------------------------------------- #
+# CLI source tracking and backend fallback
+# --------------------------------------------------------------------------- #
+
+
+def testProvidedCliOptionsNormalizesLongFlags():
+    assert CliConfig.collectProvidedOptions(
+        ["--upscale-method=span", "--interpolate"]
+    ) == {
+        "upscale_method",
+        "interpolate",
+    }
+
+
+def testWasProvidedIncludesJsonKeys():
+    config = CliConfig(
+        args=None,
+        parser=None,
+        argv=[],
+        providedOptions=set(),
+        jsonKeys={"interpolate_method"},
+    )
+    assert config.optionWasProvided("interpolate_method")
+
+
+def testAutoEnableParentFlagsUsesProvidedOptions():
+    args = fullFlags()
+    args.interpolate_method = "rife4.6"
+    config = CliConfig(
+        args=args,
+        parser=None,
+        argv=[],
+        providedOptions={"interpolate_method"},
+        jsonKeys=set(),
+    )
+    config.autoEnableParentFlags()
+    assert args.interpolate is True
+
+
+def testNormalizeCliConfigLoadsJsonAndAutoEnablesParent(tmp_path, builtParser):
+    configPath = tmp_path / "tas.json"
+    configPath.write_text('{"upscale_method": "span"}', encoding="utf-8")
+    args = builtParser.parse_args(["--json", str(configPath)])
+
+    cliConfig = CliConfig.fromArgs(args, builtParser, ["--json", str(configPath)])
+
+    assert cliConfig.jsonKeys == {"upscale_method"}
+    assert args.upscale_method == "span"
+    assert args.upscale is True
+
+
+def testNormalizeCliConfigRejectsJsonMixedWithOtherOptions(tmp_path, builtParser):
+    configPath = tmp_path / "tas.json"
+    configPath.write_text("{}", encoding="utf-8")
+    args = builtParser.parse_args(["--json", str(configPath), "--upscale"])
+
+    with pytest.raises(SystemExit):
+        CliConfig.fromArgs(
+            args,
+            builtParser,
+            ["--json", str(configPath), "--upscale"],
+        )
+
+
+def testFallbackMethodPrefersMpsWhenAvailable():
+    models = {"rife4.6-mps", "rife4.6-directml", "rife4.6-ncnn"}
+    assert fallbackMethod("rife4.6", models, preferMps=True) == "rife4.6-mps"
+
+
+def testFallbackMethodUsesDirectmlBeforeNcnn():
+    models = {"rife4.6-directml", "rife4.6-ncnn"}
+    assert fallbackMethod("rife4.6", models) == "rife4.6-directml"
+
+
+def testApplyBackendFallbackSkipsExplicitBackend():
+    args = fullFlags(upscale=True)
+    args.upscale_method = "span-tensorrt"
+    applyBackendFallbacks(args, {"span-directml"})
+    assert args.upscale_method == "span-tensorrt"
+
+
+def testApplyBackendFallbackHandlesRestoreLists():
+    args = fullFlags(restore=True)
+    args.restore_method = ["anime1080fixer", "scunet-directml"]
+    applyBackendFallbacks(args, {"anime1080fixer-ncnn", "scunet-ncnn"})
+    assert args.restore_method == ["anime1080fixer-ncnn", "scunet-directml"]
+
+
+# --------------------------------------------------------------------------- #
+# CLI validation helpers
+# --------------------------------------------------------------------------- #
+
+
+def testParseOutputScaleAcceptsWidthByHeight():
+    assert parseOutputScale("2560x1440") == (2560, 1440)
+
+
+@pytest.mark.parametrize("value", ["bad", "0x1080", "1920x0", "1920xabc"])
+def testParseOutputScaleRejectsInvalidValues(value):
+    with pytest.raises(CliValidationError):
+        parseOutputScale(value)
+
+
+def testNormalizeUpscaleFactorClampsTooSmall():
+    args = types.SimpleNamespace(upscale=True, upscale_factor=1)
+    warning = normalizeUpscaleFactor(args)
+    assert args.upscale_factor == 2
+    assert "at least 2" in warning
+
+
+def testNormalizeUpscaleFactorClampsInvalidValue():
+    args = types.SimpleNamespace(upscale=True, upscale_factor="abc")
+    warning = normalizeUpscaleFactor(args)
+    assert args.upscale_factor == 2
+    assert "Invalid upscale_factor" in warning
+
+
+def testSelectedUpscaleBackendSplitsBackendSuffix():
+    assert selectedUpscaleBackend("span-directml") == ("directml", "span")
+    assert selectedUpscaleBackend("span") == ("pytorch", "span")
+
+
+def testValidateCustomUpscaleModelAcceptsOnnxBackend(tmp_path):
+    model = tmp_path / "custom.onnx"
+    model.write_bytes(b"model")
+    args = types.SimpleNamespace(
+        custom_model=str(model),
+        upscale_method="span-directml",
+    )
+    validateCustomUpscaleModel(args)
+    assert args.custom_model == str(model.resolve())
+
+
+def testValidateCustomUpscaleModelRejectsOnnxWithoutOnnxBackend(tmp_path):
+    model = tmp_path / "custom.onnx"
+    model.write_bytes(b"model")
+    args = types.SimpleNamespace(custom_model=str(model), upscale_method="span")
+    with pytest.raises(CliValidationError):
+        validateCustomUpscaleModel(args)
+
+
+def testValidateCustomUpscaleModelRejectsPytorchWithOnnxBackend(tmp_path):
+    model = tmp_path / "custom.pth"
+    model.write_bytes(b"model")
+    args = types.SimpleNamespace(
+        custom_model=str(model),
+        upscale_method="span-directml",
+    )
+    with pytest.raises(CliValidationError):
+        validateCustomUpscaleModel(args)
 
 
 # --------------------------------------------------------------------------- #
