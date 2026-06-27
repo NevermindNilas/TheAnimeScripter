@@ -121,7 +121,7 @@ class CliConfig:
             sys.exit()
 
     def autoEnableParentFlags(self):
-        logging.info(f"[DEBUG] jsonKeys: {self.jsonKeys}")
+        logging.debug("jsonKeys: %s", self.jsonKeys)
 
         for optionName, (parentFlag, defaultValue) in PARENT_FLAG_DEFAULTS.items():
             if not hasattr(self.args, optionName):
