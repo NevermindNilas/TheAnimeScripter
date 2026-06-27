@@ -5,6 +5,7 @@ from src.constants import ADOBE
 if ADOBE:
     from src.server.aeComms import progressState
 
+
 def initializeModels(self):
     outputWidth = self.width
     outputHeight = self.height
