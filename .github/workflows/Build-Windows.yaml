@@ -1,0 +1,49 @@
+name: Build-Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "build.py"
+      - "extra-requirements-windows.txt"
+      - "requirements.txt"
+
+permissions:
+  contents: read
+
+jobs:
+  build_windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14.5"
+
+      - name: Extract version
+        id: get_version
+        run: |
+          $version = python -c "import src.version; print(src.version.__version__)"
+          $versionNoDots = $version -replace '\.', ''
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "version_nodots=$versionNoDots" >> $env:GITHUB_OUTPUT
+
+      - name: Run full build script
+        run: python build.py
+
+      - name: Compress full directory
+        run: |
+          cd ${{ github.workspace }}/dist-portable/main/
+          Compress-Archive -Path * -DestinationPath ../../TAS-${{ steps.get_version.outputs.version_nodots }}-Windows.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TAS-${{ steps.get_version.outputs.version_nodots }}-Windows
+          path: TAS-${{ steps.get_version.outputs.version_nodots }}-Windows.zip
+          if-no-files-found: error
