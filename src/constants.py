@@ -1,7 +1,7 @@
 """
 Global Constants Configuration
 
-These constants should not change their values once past argumentsChecker.py.
+These constants should not change their values once runtime arguments are prepared.
 They're defined here to avoid populating the code with excessive arguments
 and to improve code readability.
 """

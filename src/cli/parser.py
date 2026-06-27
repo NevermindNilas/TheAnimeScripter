@@ -515,11 +515,11 @@ def _buildParser(outputPath):
 
 
 def createParser(outputPath):
-    from src.cli.validator import argumentsChecker
+    from src.cli.validator import prepareRuntimeArgs
 
     argParser = _buildParser(outputPath)
     args = argParser.parse_args()
-    return argumentsChecker(args, outputPath, argParser)
+    return prepareRuntimeArgs(args, outputPath, argParser)
 
 
 def _addInterpolationOptions(argParser):

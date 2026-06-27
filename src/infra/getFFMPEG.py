@@ -63,24 +63,23 @@ def findSystemFfmpeg() -> tuple[str, str] | None:
 def _downloadFile(url: str, destination: str, label: str) -> None:
     from src.infra.progressBarLogic import ProgressBarDownloadLogic
 
-    response = urlopen(url)
+    with urlopen(url) as response:
+        # Check for HTTP errors manually (like raise_for_status)
+        if response.getcode() != 200:
+            raise HTTPError(url, response.getcode(), None, None, None)
 
-    # Check for HTTP errors manually (like raise_for_status)
-    if response.getcode() != 200:
-        raise HTTPError(url, response.getcode(), None, None, None)
+        totalSizeInBytes = int(response.headers.get("content-length", 0))
 
-    totalSizeInBytes = int(response.headers.get("content-length", 0))
-
-    with (
-        ProgressBarDownloadLogic(totalSizeInBytes or 1, label) as bar,
-        open(destination, "wb") as file,
-    ):
-        while True:
-            data = response.read(1024 * 1024)
-            if not data:
-                break
-            file.write(data)
-            bar(len(data))
+        with (
+            ProgressBarDownloadLogic(totalSizeInBytes or 1, label) as bar,
+            open(destination, "wb") as file,
+        ):
+            while True:
+                data = response.read(1024 * 1024)
+                if not data:
+                    break
+                file.write(data)
+                bar(len(data))
 
 
 def downloadAndExtractFfmpeg(ffmpegPath):

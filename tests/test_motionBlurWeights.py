@@ -11,7 +11,7 @@ import pytest
 # motionBlur pulls in torch/cv2/nelux at import time; skip cleanly where the
 # heavy runtime stack isn't installed (e.g. a torch-free CI job). nelux can be
 # installed yet still raise ImportError (FFmpeg DLLs are only put on the search
-# path at runtime by argumentsChecker), hence exc_type=ImportError.
+# path during runtime argument preparation), hence exc_type=ImportError.
 pytest.importorskip("torch")
 pytest.importorskip("cv2")
 pytest.importorskip("nelux", exc_type=ImportError)

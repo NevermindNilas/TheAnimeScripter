@@ -1,7 +1,21 @@
 import json
-from pathlib import Path
 
-import build
+from tools.build_support import bundle as build_bundle
+from tools.build_support import requirements
+from tools.build_support.context import BuildContext
+
+
+def make_context(tmp_path, system="Darwin"):
+    return BuildContext(
+        base_dir=tmp_path,
+        dist_path=tmp_path / "dist-portable",
+        requirements_path=tmp_path / "requirements.txt",
+        requirements_files=[tmp_path / "requirements.txt"],
+        portable_python_dir=tmp_path / "portable-python",
+        python_version="3.14.5",
+        standalone_release="20260510",
+        system=system,
+    )
 
 
 def test_macos_build_installs_mps_runtime_requirements(monkeypatch, tmp_path):
@@ -9,30 +23,32 @@ def test_macos_build_installs_mps_runtime_requirements(monkeypatch, tmp_path):
     python_executable = portable / "bin" / "python3"
     python_executable.parent.mkdir(parents=True)
     python_executable.write_text("")
+    context = make_context(tmp_path)
+    context.requirements_path.write_text("")
+    extra_requirements = tmp_path / "extra-requirements-macos.txt"
+    extra_requirements.write_text("")
 
     commands = []
-    monkeypatch.setattr(build, "system", "Darwin")
-    monkeypatch.setattr(build, "portablePythonDir", portable)
     monkeypatch.setattr(
-        build,
-        "runSubprocess",
+        requirements,
+        "run_subprocess",
         lambda command, **kwargs: commands.append((command, kwargs)),
     )
 
-    build.installRequirements()
+    requirements.install_requirements(context)
 
     requirement_args = [
         command[command.index("-r") + 1] for command, _ in commands if "-r" in command
     ]
-    assert str(build.requirementsPath) in requirement_args
-    assert str(Path(build.baseDir) / "extra-requirements-macos.txt") in requirement_args
+    assert str(context.requirements_path) in requirement_args
+    assert str(extra_requirements) in requirement_args
 
     macos_install = next(
-        command
-        for command, _ in commands
-        if str(Path(build.baseDir) / "extra-requirements-macos.txt") in command
+        command for command, _ in commands if str(extra_requirements) in command
     )
-    assert macos_install[macos_install.index("-c") + 1] == str(build.requirementsPath)
+    assert macos_install[macos_install.index("-c") + 1] == str(
+        context.requirements_path
+    )
 
 
 def test_macos_ffmpeg_bundle_copies_tools_libs_and_patches(monkeypatch, tmp_path):
@@ -46,27 +62,31 @@ def test_macos_ffmpeg_bundle_copies_tools_libs_and_patches(monkeypatch, tmp_path
 
     target = tmp_path / "bundle"
     target.mkdir()
+    context = make_context(tmp_path)
     patched = []
 
-    monkeypatch.setattr(build, "system", "Darwin")
-    monkeypatch.setattr(build, "findMacosFfmpegTools", lambda: (ffmpeg, ffprobe))
     monkeypatch.setattr(
-        build,
-        "collectMacosDylibClosure",
+        build_bundle, "find_macos_ffmpeg_tools", lambda: (ffmpeg, ffprobe)
+    )
+    monkeypatch.setattr(
+        build_bundle,
+        "collect_macos_dylib_closure",
         lambda entries: {
             "/opt/homebrew/Cellar/ffmpeg/8.1.2/lib/libavutil.60.dylib": avutil
         },
     )
     monkeypatch.setattr(
-        build,
-        "patchMacosInstallNames",
-        lambda binary, replacements, idName=None: patched.append(
-            (binary, replacements, idName)
+        build_bundle,
+        "patch_macos_install_names",
+        lambda binary, replacements, id_name=None: patched.append(
+            (binary, replacements, id_name)
         ),
     )
-    monkeypatch.setattr(build, "patchNeluxForBundledMacosFfmpeg", lambda *_args: None)
+    monkeypatch.setattr(
+        build_bundle, "patch_nelux_for_bundled_macos_ffmpeg", lambda *_args: None
+    )
 
-    build.bundleMacosFfmpeg(target)
+    build_bundle.bundle_macos_ffmpeg(context, target)
 
     assert (target / "ffmpeg_shared" / "ffmpeg").exists()
     assert (target / "ffmpeg_shared" / "ffprobe").exists()
@@ -82,31 +102,33 @@ def test_macos_ffmpeg_bundle_copies_tools_libs_and_patches(monkeypatch, tmp_path
 
 
 def test_patch_nelux_uses_loader_path_for_bundled_ffmpeg(monkeypatch, tmp_path):
-    bundle = tmp_path / "bundle"
-    nelux = bundle / "lib" / "python3.13" / "site-packages" / "nelux"
+    bundle_dir = tmp_path / "bundle"
+    nelux = bundle_dir / "lib" / "python3.13" / "site-packages" / "nelux"
     dylibs = nelux / ".dylibs"
     dylibs.mkdir(parents=True)
     binary = nelux / "_nelux.so"
     binary.write_bytes(b"binary")
 
-    ffmpegLib = bundle / "ffmpeg_shared" / "lib"
-    ffmpegLib.mkdir(parents=True)
-    (ffmpegLib / "libavutil.60.dylib").write_bytes(b"lib")
+    ffmpeg_lib = bundle_dir / "ffmpeg_shared" / "lib"
+    ffmpeg_lib.mkdir(parents=True)
+    (ffmpeg_lib / "libavutil.60.dylib").write_bytes(b"lib")
 
     old = "/opt/homebrew/Cellar/ffmpeg/8.1.2/lib/libavutil.60.dylib"
     patched = []
 
-    monkeypatch.setattr(build, "parseMacosDylibDependencies", lambda _path: [old])
     monkeypatch.setattr(
-        build,
-        "patchMacosInstallNames",
-        lambda binary_path, replacements, idName=None: patched.append(
-            (binary_path, replacements, idName)
+        build_bundle, "parse_macos_dylib_dependencies", lambda _path: [old]
+    )
+    monkeypatch.setattr(
+        build_bundle,
+        "patch_macos_install_names",
+        lambda binary_path, replacements, id_name=None: patched.append(
+            (binary_path, replacements, id_name)
         ),
     )
 
-    build.patchNeluxForBundledMacosFfmpeg(
-        bundle,
+    build_bundle.patch_nelux_for_bundled_macos_ffmpeg(
+        bundle_dir,
         {old: "libavutil.60.dylib"},
     )
 
@@ -120,19 +142,19 @@ def test_patch_nelux_uses_loader_path_for_bundled_ffmpeg(monkeypatch, tmp_path):
     ]
 
 
-def test_macos_build_seeds_dependency_profile(monkeypatch, tmp_path):
-    monkeypatch.setattr(build, "system", "Darwin")
+def test_macos_build_seeds_dependency_profile(tmp_path):
+    context = make_context(tmp_path)
 
-    build.seedDependencyProfile(tmp_path)
+    build_bundle.seed_dependency_profile(context, tmp_path)
 
     assert json.loads((tmp_path / ".dependencyCache.json").read_text()) == {
         "profile": "macos-mps"
     }
 
 
-def test_non_macos_build_does_not_seed_dependency_profile(monkeypatch, tmp_path):
-    monkeypatch.setattr(build, "system", "Linux")
+def test_non_macos_build_does_not_seed_dependency_profile(tmp_path):
+    context = make_context(tmp_path, system="Linux")
 
-    build.seedDependencyProfile(tmp_path)
+    build_bundle.seed_dependency_profile(context, tmp_path)
 
     assert not (tmp_path / ".dependencyCache.json").exists()

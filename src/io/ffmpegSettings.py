@@ -7,11 +7,21 @@ from queue import Queue
 
 import torch  # this has to be always before nelux!
 
-from src.infra.dependencyHandler import repairNeluxMacosFfmpegLinks
 
-repairNeluxMacosFfmpegLinks()
+def _repair_nelux_macos_ffmpeg_links() -> None:
+    from src.infra.dependencyHandler import repairNeluxMacosFfmpegLinks
 
-import nelux
+    repairNeluxMacosFfmpegLinks()
+
+
+try:
+    import nelux
+except ImportError:
+    _repair_nelux_macos_ffmpeg_links()
+    import nelux
+except OSError:
+    _repair_nelux_macos_ffmpeg_links()
+    import nelux
 
 import src.constants as cs
 from src.io.encodingSettings import getPixFMT, matchEncoder

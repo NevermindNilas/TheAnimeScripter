@@ -12,8 +12,8 @@ import json
 import pytest
 
 # ffmpegSettings imports torch/nelux/cv2 at module load; skip cleanly without them.
-# nelux can be installed yet still raise ImportError (FFmpeg DLLs are only put on
-# the search path at runtime by argumentsChecker), hence exc_type=ImportError.
+# nelux can be installed yet still raise ImportError because FFmpeg DLLs are only
+# put on the search path during runtime argument preparation.
 torch = pytest.importorskip("torch")
 pytest.importorskip("nelux", exc_type=ImportError)
 pytest.importorskip("cv2")
