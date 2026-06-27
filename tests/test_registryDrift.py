@@ -1,7 +1,7 @@
 """Drift guards between the hand-maintained registries.
 
 Adding a model takes TWO edits (CLAUDE.md): the weight mapping in
-``downloadModels.modelsMap()`` AND the flag choices in ``argumentsChecker``.
+``downloadModels.modelsMap()`` AND the flag choices in the CLI parser.
 Same story for encoders: the argparse ``encode_method`` choices and the
 ``match`` arms in ``encodingSettings.matchEncoder()``. Nothing enforced these
 until now, and both had already drifted when these tests were written:
