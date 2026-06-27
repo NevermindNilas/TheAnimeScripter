@@ -194,7 +194,7 @@ class TASHelpFormatter(argparse.HelpFormatter):
         if width is None:
             try:
                 width = os.get_terminal_size().columns
-            except ValueError, OSError:
+            except (ValueError, OSError) as _e:
                 width = 100
         super().__init__(
             prog, indent_increment, max_help_position, min(max(width, 60), 120)
@@ -515,11 +515,11 @@ def _buildParser(outputPath):
 
 
 def createParser(outputPath):
-    from src.cli.validator import argumentsChecker
+    from src.cli.validator import prepareRuntimeArgs
 
     argParser = _buildParser(outputPath)
     args = argParser.parse_args()
-    return argumentsChecker(args, outputPath, argParser)
+    return prepareRuntimeArgs(args, outputPath, argParser)
 
 
 def _addInterpolationOptions(argParser):
