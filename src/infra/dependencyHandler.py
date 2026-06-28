@@ -38,6 +38,7 @@ DEPENDENCY_PROFILE_REQUIREMENTS = {
     "windows-lite": "extra-requirements-windows-lite.txt",
     "linux-cuda": "extra-requirements-linux.txt",
     "linux-lite": "extra-requirements-linux-lite.txt",
+    "macos-lite": "extra-requirements-macos-lite.txt",
     "macos-mps": "extra-requirements-macos.txt",
 }
 

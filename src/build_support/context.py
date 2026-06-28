@@ -25,6 +25,7 @@ def create_build_context(base_dir: Path | None = None) -> BuildContext:
         root / "extra-requirements-linux.txt",
         root / "extra-requirements-linux-lite.txt",
         root / "extra-requirements-macos.txt",
+        root / "extra-requirements-macos-lite.txt",
         root / "deprecated-requirements.txt",
     ]
 

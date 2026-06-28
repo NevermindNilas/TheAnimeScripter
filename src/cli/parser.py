@@ -1178,10 +1178,11 @@ def _addMiscOptions(argParser):
         metavar="PROFILE",
         help=(
             "Download dependencies for a runtime profile. Supported profiles: "
-            "windows-cuda, windows-lite, linux-cuda, linux-lite. When used "
+            "windows-cuda, windows-lite, linux-cuda, linux-lite, macos-mps, "
+            "macos-lite. When used "
             "without a profile, prompts for the current OS full CUDA / TensorRT "
-            "or lite dependencies, with guidance for newer NVIDIA GPUs vs "
-            "GTX 10xx, AMD, and Intel hardware."
+            "or lite dependencies, with guidance for newer NVIDIA GPUs, Apple "
+            "Silicon MPS, and CPU-only hardware."
         ),
     )
     miscGroup.add_argument(
