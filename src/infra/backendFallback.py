@@ -72,9 +72,14 @@ def applyBackendFallbacks(args, availableModels, preferMps=False):
 
     if getattr(args, "moblur", False):
         moblurMethod = args.moblur_method
-        if not any(backend in moblurMethod for backend in ("-directml", "-openvino")):
+        if not any(
+            backend in moblurMethod for backend in ("-directml", "-openvino", "-mps")
+        ):
             base = moblurMethod.replace("-tensorrt", "")
-            args.moblur_method = f"{base}-directml"
+            if preferMps and f"{base}-mps" in availableModels:
+                args.moblur_method = f"{base}-mps"
+            else:
+                args.moblur_method = f"{base}-directml"
             logging.info(
                 f"Adjusted moblur_method from {moblurMethod} to {args.moblur_method} "
                 "because CUDA is unavailable"

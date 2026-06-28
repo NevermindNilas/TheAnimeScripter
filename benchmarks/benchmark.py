@@ -33,6 +33,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from platform import system
 
 import cv2
 import numpy as np
@@ -62,6 +63,18 @@ BENCHMARKS = {
         "method_flag": "--depth_method",
         "methods": ["small_v2", "small_v2-directml", "small_v2-tensorrt"],
     },
+}
+
+PLATFORM_BENCHMARKS = {
+    "Darwin": {
+        "groups": ["interpolate", "upscale"],
+        "interpolate": {
+            "methods": ["rife4.6-mps", "rife4.25-mps"],
+        },
+        "upscale": {
+            "methods": ["shufflecugan-mps", "span-mps", "rtmosr-mps"],
+        },
+    }
 }
 
 # metric -> (pretty label, True if higher-is-better)
@@ -128,7 +141,7 @@ class ResourceMonitor(threading.Thread):
                 text=True,
                 timeout=5,
             ).stdout
-        except subprocess.SubprocessError, OSError:
+        except (subprocess.SubprocessError, OSError) as _err:
             return None
         for line in out.splitlines():
             try:
@@ -165,7 +178,7 @@ class ResourceMonitor(threading.Thread):
                 text=True,
                 timeout=5,
             ).stdout
-        except subprocess.SubprocessError, OSError:
+        except (subprocess.SubprocessError, OSError) as _err:
             return None
         total = 0.0
         found = False
@@ -374,7 +387,7 @@ def run_method(
     mon.start()
     out_text = ANSI_RE.sub("", proc.communicate()[0] or "")
     res = mon.stop()
-    ok = proc.returncode == 0
+    output_exists = out_path.exists() and out_path.stat().st_size > 0
 
     fps = parse_fps(out_text)
     elapsed = (
@@ -385,13 +398,28 @@ def run_method(
 
     quality = (
         quality_vs_input(input_path, out_path, n_samples)
-        if ok
+        if proc.returncode == 0 and output_exists
         else {"ssim": math.nan, "psnr": math.nan, "mse": math.nan}
+    )
+    ok = (
+        proc.returncode == 0
+        and output_exists
+        and not math.isnan(fps)
+        and not math.isnan(quality["ssim"])
     )
 
     if not ok:
         tail = "\n".join(out_text.strip().splitlines()[-5:])
-        print(f"  ! {method} FAILED (exit {proc.returncode}). Last lines:\n{tail}")
+        reason = []
+        if proc.returncode != 0:
+            reason.append(f"exit {proc.returncode}")
+        if not output_exists:
+            reason.append("no output file")
+        if math.isnan(fps):
+            reason.append("no FPS parsed")
+        if math.isnan(quality["ssim"]):
+            reason.append("no quality metrics")
+        print(f"  ! {method} FAILED ({', '.join(reason)}). Last lines:\n{tail}")
 
     return {
         "method": method,
@@ -453,6 +481,9 @@ def make_graph(group: str, rows: list[dict], out_png: Path) -> bool:
 
 # --------------------------------------------------------------------------- #
 def main() -> int:
+    platformOverrides = PLATFORM_BENCHMARKS.get(system(), {})
+    defaultGroups = platformOverrides.get("groups", list(BENCHMARKS))
+
     ap = argparse.ArgumentParser(description="TAS end-to-end benchmark")
     ap.add_argument(
         "--input",
@@ -464,7 +495,7 @@ def main() -> int:
         "--groups",
         nargs="+",
         choices=list(BENCHMARKS),
-        default=list(BENCHMARKS),
+        default=defaultGroups,
         help="Which capability groups to run",
     )
     ap.add_argument(
@@ -490,10 +521,17 @@ def main() -> int:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     TMP_DIR.mkdir(parents=True, exist_ok=True)
 
+    benchmarkMatrix = BENCHMARKS
+    if platformOverrides:
+        benchmarkMatrix = {
+            group: {**cfg, **platformOverrides.get(group, {})}
+            for group, cfg in BENCHMARKS.items()
+        }
+
     all_results: dict[str, list[dict]] = {}
     graph_ok = True
     for group in args.groups:
-        cfg = BENCHMARKS[group]
+        cfg = benchmarkMatrix[group]
         print(f"\n=== {group} ===")
         rows = []
         for method in cfg["methods"]:

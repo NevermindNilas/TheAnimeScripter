@@ -5,6 +5,8 @@ based on OS + CUDA support. A wrong mapping here silently installs the wrong
 runtime stack, so the table is pinned exactly.
 """
 
+from types import SimpleNamespace
+
 import pytest
 
 import src.infra.dependencyHandler as dh
@@ -15,6 +17,7 @@ from src.infra.dependencyHandler import (
     getDependencyProfile,
     getRequirementsFileForProfile,
     pruneMaxineUnusedLibs,
+    repairNeluxMacosFfmpegLinks,
 )
 
 # --------------------------------------------------------------------------- #
@@ -147,3 +150,46 @@ def testPruneNoopWhenPackageAbsent(monkeypatch):
     # No nvidia-vfx installed -> locate returns None -> clean no-op, no raise.
     monkeypatch.setattr(dh, "_locateNvvfxLibsDir", lambda: None)
     assert pruneMaxineUnusedLibs() == (0, 0)
+
+
+# --------------------------------------------------------------------------- #
+# repairNeluxMacosFfmpegLinks
+# --------------------------------------------------------------------------- #
+
+
+def testRepairNeluxMacosFfmpegLinksRewritesCellarPaths(tmp_path, monkeypatch):
+    neluxDir = tmp_path / "nelux"
+    neluxDir.mkdir()
+    binary = neluxDir / "_nelux.so"
+    binary.write_bytes(b"binary")
+
+    oldPath = "/opt/homebrew/Cellar/ffmpeg/8.1.1/lib/libavutil.60.dylib"
+    newPath = "/opt/homebrew/opt/ffmpeg/lib/libavutil.60.dylib"
+    calls = []
+
+    def fakeRun(command, **_kwargs):
+        calls.append(command)
+        if command[:2] == ["otool", "-L"]:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=f"{binary}:\n\t{oldPath} (compatibility version 60.0.0)\n",
+                stderr="",
+            )
+        if command[:2] == ["install_name_tool", "-change"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if command[:3] == ["codesign", "--force", "--sign"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        raise AssertionError(f"Unexpected command: {command}")
+
+    monkeypatch.setattr(dh.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        dh,
+        "find_spec",
+        lambda name: SimpleNamespace(origin=str(neluxDir / "__init__.py")),
+    )
+    monkeypatch.setattr(dh, "_resolveMacosFfmpegLib", lambda lib_name: newPath)
+    monkeypatch.setattr(dh.subprocess, "run", fakeRun)
+
+    assert repairNeluxMacosFfmpegLinks() == 1
+    assert ["install_name_tool", "-change", oldPath, newPath, str(binary)] in calls
+    assert ["codesign", "--force", "--sign", "-", str(binary)] in calls

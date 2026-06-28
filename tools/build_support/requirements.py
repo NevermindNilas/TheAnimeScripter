@@ -1,6 +1,10 @@
 from tools.build_support.context import BuildContext
 from tools.build_support.process import run_subprocess
 
+EXTRA_REQUIREMENTS_BY_SYSTEM = {
+    "Darwin": "extra-requirements-macos.txt",
+}
+
 
 def install_requirements(context: BuildContext) -> None:
     print("Installing core requirements into the portable Python...")
@@ -45,4 +49,26 @@ def install_requirements(context: BuildContext) -> None:
             "--disable-pip-version-check",
         ],
     )
-    print("Core requirements installed successfully!")
+
+    extra_requirements_name = EXTRA_REQUIREMENTS_BY_SYSTEM.get(context.system)
+    if extra_requirements_name is not None:
+        extra_requirements_path = context.base_dir / extra_requirements_name
+        print(f"Installing {context.system} runtime requirements...")
+        run_subprocess(
+            [
+                str(python_executable),
+                "-I",
+                "-m",
+                "pip",
+                "install",
+                "-c",
+                str(context.requirements_path),
+                "-r",
+                str(extra_requirements_path),
+                "--no-build-isolation",
+                "--no-cache-dir",
+                "--disable-pip-version-check",
+            ],
+        )
+
+    print("Requirements installed successfully!")

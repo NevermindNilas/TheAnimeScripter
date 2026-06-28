@@ -1,7 +1,9 @@
 import json
 import logging
 import os
+import platform
 import re
+import shutil
 import subprocess
 import sys
 import sysconfig
@@ -268,6 +270,142 @@ def pruneMaxineUnusedLibs() -> tuple[int, int]:
     return removed, freed
 
 
+_HOMEBREW_FFMPEG_CELLAR_RE = re.compile(
+    r"(/(?:opt/homebrew|usr/local)/Cellar/ffmpeg/[^/\s]+/lib/(lib(?:av|sw)[^/\s]+\.dylib))"
+)
+
+
+def _candidateMacosFfmpegLibDirs() -> list[Path]:
+    dirs = []
+    ffmpegExe = shutil.which("ffmpeg")
+    if ffmpegExe:
+        dirs.append(Path(ffmpegExe).resolve().parent.parent / "lib")
+
+    dirs.extend(
+        [
+            Path("/opt/homebrew/opt/ffmpeg/lib"),
+            Path("/usr/local/opt/ffmpeg/lib"),
+        ]
+    )
+
+    seen = set()
+    uniqueDirs = []
+    for libDir in dirs:
+        libDirStr = str(libDir)
+        if libDirStr not in seen:
+            seen.add(libDirStr)
+            uniqueDirs.append(libDir)
+    return uniqueDirs
+
+
+def _resolveMacosFfmpegLib(libName: str) -> str | None:
+    for libDir in _candidateMacosFfmpegLibDirs():
+        candidate = libDir / libName
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
+def repairNeluxMacosFfmpegLinks() -> int:
+    """Rewrite fragile Homebrew Cellar FFmpeg links in nelux binaries.
+
+    Some macOS nelux wheels contain install names that point to an exact
+    Homebrew FFmpeg Cellar version. Homebrew upgrades keep stable links under
+    opt/ffmpeg/lib, so prefer those at runtime.
+    """
+    if platform.system() != "Darwin":
+        return 0
+
+    try:
+        invalidate_caches()
+        spec = find_spec("nelux")
+        if spec is None or spec.origin is None:
+            return 0
+    except Exception as e:
+        logging.debug(f"Could not locate nelux for macOS dylib repair: {e}")
+        return 0
+
+    neluxDir = Path(spec.origin).parent
+    binaryPaths = [
+        path
+        for path in neluxDir.rglob("*")
+        if path.is_file() and path.suffix in {".so", ".dylib"}
+    ]
+
+    repaired = 0
+    for binaryPath in binaryPaths:
+        try:
+            result = subprocess.run(
+                ["otool", "-L", str(binaryPath)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError) as _e:
+            continue
+
+        if result.returncode != 0:
+            continue
+
+        replacements = []
+        for oldPath, libName in _HOMEBREW_FFMPEG_CELLAR_RE.findall(result.stdout):
+            newPath = _resolveMacosFfmpegLib(libName)
+            if newPath:
+                replacements.append((oldPath, newPath))
+
+        binaryRepaired = False
+        for oldPath, newPath in replacements:
+            try:
+                change = subprocess.run(
+                    [
+                        "install_name_tool",
+                        "-change",
+                        oldPath,
+                        newPath,
+                        str(binaryPath),
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+            except (OSError, subprocess.SubprocessError) as e:
+                logging.warning(
+                    f"Could not repair nelux FFmpeg link in {binaryPath}: {e}"
+                )
+                continue
+
+            if change.returncode == 0:
+                repaired += 1
+                binaryRepaired = True
+            else:
+                logging.warning(
+                    "Could not repair nelux FFmpeg link in %s: %s",
+                    binaryPath,
+                    change.stderr.strip(),
+                )
+
+        if binaryRepaired:
+            try:
+                sign = subprocess.run(
+                    ["codesign", "--force", "--sign", "-", str(binaryPath)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if sign.returncode != 0:
+                    logging.warning(
+                        "Could not ad-hoc sign repaired nelux binary %s: %s",
+                        binaryPath,
+                        sign.stderr.strip(),
+                    )
+            except (OSError, subprocess.SubprocessError) as e:
+                logging.warning(
+                    f"Could not ad-hoc sign repaired nelux binary {binaryPath}: {e}"
+                )
+
+    return repaired
+
+
 class DependencyChecker:
     def __init__(self):
         self.cachePath = _getRuntimeRoot() / ".dependencyCache.json"
@@ -365,6 +503,17 @@ class DependencyChecker:
                     )
             except Exception as e:
                 logging.warning(f"Maxine lib prune skipped: {e}")
+
+        if profile == "macos-mps":
+            try:
+                repaired = repairNeluxMacosFfmpegLinks()
+                if repaired:
+                    logAndPrint(
+                        f"Repaired {repaired} nelux FFmpeg library reference(s).",
+                        "green",
+                    )
+            except Exception as e:
+                logging.warning(f"nelux macOS FFmpeg link repair skipped: {e}")
 
         self.storeProfile(profile)
 

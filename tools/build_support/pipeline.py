@@ -2,9 +2,11 @@ from pathlib import Path
 
 from tools.build_support.bundle import (
     bundle_files,
+    bundle_macos_ffmpeg,
     cleanup_temp_files,
     move_extras,
     remove_portable_python,
+    seed_dependency_profile,
 )
 from tools.build_support.context import BuildContext, validate_requirements_files
 from tools.build_support.paths import prepare_output_dir, resolve_output_dir
@@ -20,6 +22,8 @@ def build_portable(context: BuildContext, develop: bool = False) -> Path:
     download_portable_python(context)
     install_requirements(context)
     bundle_files(context, final_output_dir)
+    bundle_macos_ffmpeg(context, final_output_dir)
+    seed_dependency_profile(context, final_output_dir)
     move_extras(context, final_output_dir)
     cleanup_temp_files(context, final_output_dir)
     remove_portable_python(context)
