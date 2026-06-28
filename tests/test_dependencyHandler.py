@@ -29,7 +29,7 @@ from src.infra.dependencyHandler import (
         ("Windows", False, "windows-lite"),
         ("Linux", True, "linux-cuda"),
         ("Linux", False, "linux-lite"),
-        ("Darwin", True, "macos-mps"),  # macOS ignores cuda flag entirely
+        ("Darwin", True, "macos-mps"),  # macOS defaults to the full Apple GPU stack
         ("Darwin", False, "macos-mps"),
     ],
 )

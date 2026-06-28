@@ -11,20 +11,24 @@ def _promptDownloadRequirementsSelection() -> str:
 
     from src.infra.logAndPrint import logAndPrint
 
-    if cs.SYSTEM == "Darwin":
-        return "macos-mps"
-
     currentPlatform = "windows" if cs.SYSTEM == "Windows" else "linux"
-    choices = [
-        (
-            "Full CUDA / TensorRT dependencies (GTX 16xx, RTX 20xx+, newer NVIDIA)",
-            f"{currentPlatform}-cuda",
-        ),
-        (
-            "Lite dependencies (GTX 10xx, AMD, Intel)",
-            f"{currentPlatform}-lite",
-        ),
-    ]
+    if cs.SYSTEM == "Darwin":
+        currentPlatform = "macos"
+        choices = [
+            ("Full MPS dependencies (Apple Silicon GPU)", "macos-mps"),
+            ("Lite CPU dependencies (no MPS)", "macos-lite"),
+        ]
+    else:
+        choices = [
+            (
+                "Full CUDA / TensorRT dependencies (GTX 16xx, RTX 20xx+, newer NVIDIA)",
+                f"{currentPlatform}-cuda",
+            ),
+            (
+                "Lite dependencies (GTX 10xx, AMD, Intel)",
+                f"{currentPlatform}-lite",
+            ),
+        ]
     answers = prompt(
         [
             List(
