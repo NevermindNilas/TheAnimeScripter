@@ -418,4 +418,4 @@ class UniversalPytorchMPS:
             frame = frame.to(device=self.device, dtype=self.dtype)
         output = self.model(frame)
         torch.mps.synchronize()
-        return output
+        return output.cpu()

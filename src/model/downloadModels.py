@@ -1301,47 +1301,49 @@ def downloadModels(
     """
     os.makedirs(weightsDir, exist_ok=True)
 
-    filename = modelsMap(model, upscaleFactor, modelType, half, ensemble)
-    if model.endswith("-tensorrt") or model.endswith("-directml"):
-        if "rife" in model:
-            folderName = model.replace("-tensorrt", "")
+    downloadModel = model.removesuffix("-mps") if model.endswith("-mps") else model
+
+    filename = modelsMap(downloadModel, upscaleFactor, modelType, half, ensemble)
+    if downloadModel.endswith("-tensorrt") or downloadModel.endswith("-directml"):
+        if "rife" in downloadModel:
+            folderName = downloadModel.replace("-tensorrt", "")
 
         else:
-            folderName = model.replace("-tensorrt", "-onnx").replace(
+            folderName = downloadModel.replace("-tensorrt", "-onnx").replace(
                 "-directml", "-onnx"
             )
     else:
-        folderName = model
+        folderName = downloadModel
 
     folderPath = os.path.join(weightsDir, folderName)
     os.makedirs(folderPath, exist_ok=True)
 
-    if model in [
+    if downloadModel in [
         "shift_lpips-tensorrt",
         "shift_lpips-directml",
     ]:
         fullUrl = f"{SUDOURL}{filename}"
         try:
             # Just adds a redundant check if sudo decides to nuke his models.
-            return downloadAndLog(model, filename, fullUrl, folderPath)
+            return downloadAndLog(downloadModel, filename, fullUrl, folderPath)
         except Exception as e:
             logging.warning(f"Failed to download from SUDOURL: {e}")
             fullUrl = f"{TASURL}{filename}"
-            return downloadAndLog(model, filename, fullUrl, folderPath)
+            return downloadAndLog(downloadModel, filename, fullUrl, folderPath)
 
-    elif model == "transnetv2":
+    elif downloadModel == "transnetv2":
         fullUrl = f"{TRANSNETV2URL}{filename}"
 
-    elif model == "small_v2":
+    elif downloadModel == "small_v2":
         fullUrl = f"{DEPTHV2URLSMALL}{filename}"
-    elif model == "base_v2":
+    elif downloadModel == "base_v2":
         fullUrl = f"{DEPTHV2URLBASE}{filename}"
-    elif model == "large_v2":
+    elif downloadModel == "large_v2":
         fullUrl = f"{DEPTHV2URLLARGE}{filename}"
-    elif model == "giant_v2":
+    elif downloadModel == "giant_v2":
         fullUrl = f"{DEPTHV2URLGIANT}{filename}"
 
     else:
         fullUrl = f"{TASURL}{filename}"
 
-    return downloadAndLog(model, filename, fullUrl, folderPath)
+    return downloadAndLog(downloadModel, filename, fullUrl, folderPath)

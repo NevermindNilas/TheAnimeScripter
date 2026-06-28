@@ -146,7 +146,15 @@ python -m pip install -r requirements.txt -r extra-requirements-windows-lite.txt
 python main.py -h
 ```
 
-Swap `extra-requirements-windows-lite.txt` for the matching Windows/Linux and CUDA/lite profile you want to test.
+On Apple Silicon macOS, install FFmpeg first and use the MPS profile:
+
+```sh
+brew install ffmpeg
+python -m pip install -r requirements.txt -r extra-requirements-macos.txt
+python main.py -h
+```
+
+Swap `extra-requirements-windows-lite.txt` for the matching Windows/Linux CUDA/lite profile or `extra-requirements-macos.txt` for Apple Silicon.
 
 #### Windows CLI Installer
 

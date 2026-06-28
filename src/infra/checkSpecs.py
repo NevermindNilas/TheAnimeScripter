@@ -4,7 +4,7 @@ import platform
 
 import psutil
 
-from src.constants import SYSTEM
+import src.constants as cs
 
 
 def getWindowsInfo():
@@ -36,13 +36,28 @@ def getLinuxInfo():
     logging.info(f"Total RAM: {totalRam} GB")
 
 
+def getMacosInfo():
+    osName = platform.system()
+    osVersion = platform.mac_ver()[0] or platform.release()
+
+    cpuInfo = platform.processor() or platform.machine()
+    ramInfo = psutil.virtual_memory()
+    totalRam = round(ramInfo.total / (1024.0**3), 2)
+
+    logging.info(f"OS: {osName} {osVersion}")
+    logging.info(f"CPU: {cpuInfo}")
+    logging.info(f"Total RAM: {totalRam} GB")
+
+
 def checkSystem():
     logging.info("\n============== System Checker ==============")
     try:
-        if SYSTEM == "Windows":
+        if cs.SYSTEM == "Windows":
             getWindowsInfo()
-        elif SYSTEM == "Linux":
+        elif cs.SYSTEM == "Linux":
             getLinuxInfo()
+        elif cs.SYSTEM == "Darwin":
+            getMacosInfo()
         else:
             logging.error("Unsupported OS")
     except Exception as e:

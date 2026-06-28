@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from typing import Literal
-import sys
 
 import torch
 import torch.nn.functional as F
@@ -150,7 +149,7 @@ class Conv3XC(nn.Module):
         if not self.training:
             self.eval_conv.weight.requires_grad = False
             self.eval_conv.bias.requires_grad = False  # type: ignore
-            
+
     def update_params(self):
         w1 = self.conv[0].weight.data.clone().detach()
         b1 = self.conv[0].bias.data.clone().detach()
@@ -254,8 +253,9 @@ class SPAN(nn.Module):
         self.in_channels = num_in_ch
         self.out_channels = num_out_ch
         self.img_range = img_range
-        self.mean_half = torch.Tensor(rgb_mean).view(1, 3, 1, 1).cuda().half()
-        self.mean_float = torch.Tensor(rgb_mean).view(1, 3, 1, 1).cuda().float()
+        mean = torch.Tensor(rgb_mean).view(1, 3, 1, 1)
+        self.register_buffer("mean_half", mean.half(), persistent=False)
+        self.register_buffer("mean_float", mean.float(), persistent=False)
 
         self.no_norm: torch.Tensor | None
         if not norm:
@@ -292,7 +292,7 @@ class SPAN(nn.Module):
         else:
             self.mean = self.mean_float
         if self.is_norm:
-            self.mean = self.mean.type_as(x)
+            self.mean = self.mean.to(device=x.device, dtype=x.dtype)
             x = (x - self.mean) * self.img_range
 
         out_feature = self.conv_1(x)
