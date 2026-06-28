@@ -8,6 +8,7 @@ on:
     paths:
       - "build.py"
       - "extra-requirements-macos.txt"
+      - "extra-requirements-macos-lite.txt"
       - "requirements.txt"
 
 permissions:
