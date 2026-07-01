@@ -153,3 +153,38 @@ def testGateRV3RestorationScale1():
     desc = _roundtrip(model, "GateRV3", 1, 3, 3)
     assert desc.purpose == "Restoration"
     _assert_forward(desc, 3, 1)
+
+
+# --------------------------------------------------------------------------- #
+# SeedVR2 — ByteDance deferred-loading restoration DiT. The full forward needs
+# CUDA + VAE/text sidecar weights, so this is a detection-only regression: the
+# detect condition must match the keys shipped in the real checkpoint. An earlier
+# detect key (`emb_in.in_layer.weight`) existed in neither the module
+# (TimeEmbedding uses proj_in/proj_hid/proj_out) nor the released safetensors,
+# so the registry raised a message-less UnsupportedModelError and the restore
+# pipeline crashed with a misleading `'str' object has no attribute 'eval'`.
+# --------------------------------------------------------------------------- #
+
+
+def _seedvr2_sd(vid_dim: int) -> dict:
+    # Keys mirror the released seedvr2_ema_{3b,7b}_fp16.safetensors; only the
+    # three detect keys are needed, plus vid_in.proj.weight whose shape[0]
+    # selects the variant (>=3000 -> 7b).
+    return {
+        "vid_in.proj.weight": torch.empty(vid_dim, 33),
+        "blocks.0.attn.proj_qkv.vid.weight": torch.empty(vid_dim * 3, vid_dim),
+        "emb_in.proj_in.weight": torch.empty(vid_dim, vid_dim),
+    }
+
+
+def testSeedVR2Detect3B():
+    desc = ModelLoader().load_from_state_dict(_seedvr2_sd(2560))
+    assert desc.architecture.id == "SeedVR2"
+    assert desc.purpose == "Restoration"
+    assert "3b" in desc.tags
+
+
+def testSeedVR2Detect7B():
+    desc = ModelLoader().load_from_state_dict(_seedvr2_sd(3072))
+    assert desc.architecture.id == "SeedVR2"
+    assert "7b" in desc.tags

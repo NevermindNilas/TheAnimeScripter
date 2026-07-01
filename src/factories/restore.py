@@ -45,6 +45,8 @@ def buildRestoreProcess(self):
                 | "deh264_span"
                 | "hurrdeblur"
                 | "dehalo"
+                | "seedvr2-3b"
+                | "seedvr2-7b"
                 | "scunet-openvino"
                 | "anime1080fixer-openvino"
                 | "gater3-openvino"

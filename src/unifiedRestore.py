@@ -54,6 +54,8 @@ class UnifiedRestoreCuda:
             print(
                 f"{self.model} does not support half precision, using float32 instead"
             )
+        if self.model.startswith("seedvr2-"):
+            self.half = False
 
         self.filename = modelsMap(self.model)
         modelPath = resolveWeightPath(self.model, self.filename)
@@ -65,7 +67,9 @@ class UnifiedRestoreCuda:
                 if isinstance(self.model, dict):
                     self.model = ModelLoader().load_from_state_dict(self.model)
             except Exception as e:
-                logging.error(f"Error loading model: {e}")
+                raise RuntimeError(
+                    f"Failed to load restore model '{self.model}' from {modelPath}: {e}"
+                ) from e
         else:
             if self.model == "gater3":
                 from safetensors.torch import load_file
@@ -336,7 +340,9 @@ class UnifiedRestoreMPS:
                 if isinstance(self.model, dict):
                     self.model = ModelLoader().load_from_state_dict(self.model)
             except Exception as e:
-                logging.error(f"Error loading model: {e}")
+                raise RuntimeError(
+                    f"Failed to load restore model '{self.model}' from {modelPath}: {e}"
+                ) from e
         else:
             from safetensors.torch import load_file
 

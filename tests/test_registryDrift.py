@@ -24,10 +24,12 @@ mistake these guards exist to catch.
 """
 
 import pytest
+import torch
 
 from src.cli.parser import _buildParser, capabilityMethods
 from src.io.encodingSettings import matchEncoder
 from src.model.downloadModels import modelsList, modelsMap
+from src.spandrelCompat import ModelLoader
 
 
 @pytest.fixture(scope="module")
@@ -115,6 +117,19 @@ def testEveryModelsListEntryHasModelsMapArm():
         f"These now resolve fine — remove them from KNOWN_MISSING_MODELSMAP_ARM: "
         f"{sorted(fixed)}"
     )
+
+
+def testSeedVR2RegistersAsSpandrelRestoration():
+    state = {
+        "vid_in.proj.weight": torch.empty(2560, 33, 1, 2, 2),
+        "blocks.0.attn.proj_qkv.vid.weight": torch.empty(7680, 2560),
+        "emb_in.proj_in.weight": torch.empty(2560, 256),
+    }
+    model = ModelLoader().load_from_state_dict(state)
+
+    assert model.architecture.id == "SeedVR2"
+    assert model.scale == 1
+    assert model.tags == ["3b"]
 
 
 # --------------------------------------------------------------------------- #

@@ -878,6 +878,8 @@ def _addVideoProcessingOptions(argParser):
         "maxine-deblur_medium",
         "maxine-deblur_high",
         "maxine-deblur_ultra",
+        "seedvr2-3b",
+        "seedvr2-7b",
     ]
 
     processingGroup.add_argument(

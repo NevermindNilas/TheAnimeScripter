@@ -32,6 +32,9 @@ DEPTHV2URLGIANT = (
 )
 
 TRANSNETV2URL = "https://huggingface.co/Sn4kehead/TransNetV2/resolve/main/"
+SEEDVR2URL3B = "https://huggingface.co/ByteDance-Seed/SeedVR2-3B/resolve/main/"
+SEEDVR2URL7B = "https://huggingface.co/ByteDance-Seed/SeedVR2-7B/resolve/main/"
+SEEDVR2COMFYURL = "https://huggingface.co/numz/SeedVR2_comfyUI/resolve/main/"
 
 
 def modelsList() -> list[str]:
@@ -219,6 +222,8 @@ def modelsList() -> list[str]:
         "shift_lpips-tensorrt",
         "shift_lpips-directml",
         "differential-tensorrt",
+        "seedvr2-3b",
+        "seedvr2-7b",
         "transnetv2",
         "gmfss",
         "flownets",
@@ -571,6 +576,12 @@ def modelsMap(
 
         case "deepdeband-f":
             return "deepdeband_f.pth"
+
+        case "seedvr2-3b":
+            return "seedvr2_ema_3b_fp16.safetensors"
+
+        case "seedvr2-7b":
+            return "seedvr2_ema_7b_fp16.safetensors"
 
         case "gmfss":
             return "gmfss-fortuna-union.zip"
@@ -1289,6 +1300,18 @@ def resolveWeightPath(
     )
 
 
+def resolveSeedVR2Sidecar(model: str, filename: str) -> str:
+    folderPath = os.path.join(weightsDir, model)
+    path = os.path.join(folderPath, filename)
+    if os.path.exists(path):
+        return path
+    os.makedirs(folderPath, exist_ok=True)
+    baseUrl = SEEDVR2URL7B if model == "seedvr2-7b" else SEEDVR2URL3B
+    if filename == "ema_vae_fp16.safetensors":
+        baseUrl = SEEDVR2COMFYURL
+    return downloadAndLog(model, filename, f"{baseUrl}{filename}", folderPath)
+
+
 def downloadModels(
     model: str = None,
     upscaleFactor: int = 2,
@@ -1331,6 +1354,8 @@ def downloadModels(
 
     elif model == "transnetv2":
         fullUrl = f"{TRANSNETV2URL}{filename}"
+    elif model in ("seedvr2-3b", "seedvr2-7b"):
+        fullUrl = f"{SEEDVR2COMFYURL}{filename}"
 
     elif model == "small_v2":
         fullUrl = f"{DEPTHV2URLSMALL}{filename}"

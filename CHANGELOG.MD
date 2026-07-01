@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased] - YYYY-MM-DD
+### Added
+- Apple Silicon portable support: macOS builds now install the macOS runtime requirements, bundle FFmpeg/ffprobe plus their Homebrew dylib closure, patch bundled FFmpeg install names for portable loading, repair Nelux FFmpeg dylib references, seed the bundled dependency profile as `macos-mps`, and expose MPS motion-blur interpolation methods (`rife4.6-mps`, `rife4.25-mps`).
+- `--download_requirements macos-lite` for CPU-only macOS installs, alongside the existing full `macos-mps` profile. The interactive macOS prompt now offers both full MPS and lite CPU dependency sets, and portable builds copy the new `extra-requirements-macos-lite.txt`.
+
+### Changed
+- macOS PyTorch requirements now use the normal `torchvision==0.27.1` wheel instead of the CUDA-tagged `0.27.1+cu132` pin.
+
+### Fixed
+- `--restore_method seedvr2-3b` / `seedvr2-7b` crashed at model init with `AttributeError: 'str' object has no attribute 'eval'`. The `SeedVR2Arch` detect condition keyed on `emb_in.in_layer.weight`, a name that exists in neither the `NaDiT` module (`emb_in` is a `TimeEmbedding` exposing `proj_in`/`proj_hid`/`proj_out`) nor the released `seedvr2_ema_{3b,7b}_fp16.safetensors` (which ship `emb_in.proj_in.weight`), so the spandrel registry raised a message-less `UnsupportedModelError`. `UnifiedRestoreCuda/MPS.handleModel` swallowed that exception with only a log line and left `self.model` as the original method string, so the next line (`self.model.eval()`) blew up far from the real cause. The detect key is now `emb_in.proj_in.weight` (verified against the real checkpoint), and the restore loaders re-raise with the model name + path instead of swallowing, so any future load failure surfaces clearly. The pre-existing `testSeedVR2RegistersAsSpandrelRestoration` regression used the same phantom key and so gave false confidence; it now mirrors the real checkpoint and 7B variant inference is covered too.
 
 ## [2.7.10] - 2026-06-25
 ### Changed
