@@ -7,9 +7,19 @@ import pytest
 
 
 def _loadTensorrtUpscale(monkeypatch):
+    def inferenceMode():
+        def decorator(func):
+            return func
+
+        return decorator
+
     if importlib.util.find_spec("torch") is None:
         fakeTorch = SimpleNamespace(
             __version__="test",
+            float16="float16",
+            float32="float32",
+            tensor=object,
+            inference_mode=inferenceMode,
             set_float32_matmul_precision=lambda *_args, **_kwargs: None,
             device=lambda name: name,
             cuda=SimpleNamespace(is_available=lambda: False),
