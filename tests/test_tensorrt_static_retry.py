@@ -1,9 +1,35 @@
+import importlib.util
+import sys
+from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
 
-from src.upscale import tensorrt as tensorrt_upscale
+
+def _loadTensorrtUpscale(monkeypatch):
+    if importlib.util.find_spec("torch") is None:
+        fakeTorch = SimpleNamespace(
+            __version__="test",
+            set_float32_matmul_precision=lambda *_args, **_kwargs: None,
+            device=lambda name: name,
+            cuda=SimpleNamespace(is_available=lambda: False),
+            backends=SimpleNamespace(
+                mps=SimpleNamespace(is_available=lambda: False, is_built=lambda: False),
+                cudnn=SimpleNamespace(benchmark=False, enabled=False),
+            ),
+        )
+        monkeypatch.setitem(sys.modules, "torch", fakeTorch)
+
+    modulePath = Path(__file__).resolve().parents[1] / "src" / "upscale" / "tensorrt.py"
+    spec = importlib.util.spec_from_file_location("test_tensorrt_upscale", modulePath)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
 
 def _makeUniversalTensorRT(monkeypatch, creator):
+    tensorrt_upscale = _loadTensorrtUpscale(monkeypatch)
     monkeypatch.setattr(tensorrt_upscale, "logAndPrint", lambda *args, **kwargs: None)
     instance = tensorrt_upscale.UniversalTensorRT.__new__(
         tensorrt_upscale.UniversalTensorRT

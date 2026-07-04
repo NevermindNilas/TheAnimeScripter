@@ -65,17 +65,29 @@ def _wall_ms(fn, iterations: int) -> float:
 
 def calibrate(fn, target_ms: float = 7000.0, max_iterations: int = 240) -> TimedRun:
     iterations = 1
-    elapsed = _event_ms(fn, iterations) if torch.cuda.is_available() else _wall_ms(fn, iterations)
+    elapsed = (
+        _event_ms(fn, iterations)
+        if torch.cuda.is_available()
+        else _wall_ms(fn, iterations)
+    )
     while elapsed < target_ms / 4 and iterations < max_iterations:
         next_iterations = min(max_iterations, iterations * 2)
         if next_iterations == iterations:
             break
         iterations = next_iterations
-        elapsed = _event_ms(fn, iterations) if torch.cuda.is_available() else _wall_ms(fn, iterations)
+        elapsed = (
+            _event_ms(fn, iterations)
+            if torch.cuda.is_available()
+            else _wall_ms(fn, iterations)
+        )
     # If calibration overshot, scale down and remeasure once.
     if elapsed > target_ms and iterations > 1:
         iterations = max(1, int(iterations * target_ms / elapsed))
-        elapsed = _event_ms(fn, iterations) if torch.cuda.is_available() else _wall_ms(fn, iterations)
+        elapsed = (
+            _event_ms(fn, iterations)
+            if torch.cuda.is_available()
+            else _wall_ms(fn, iterations)
+        )
     return TimedRun(
         iterations=iterations,
         elapsed_ms=elapsed,
@@ -121,7 +133,9 @@ def bench_rife(args: argparse.Namespace) -> dict:
         def step(interp_sink=sink) -> None:
             rife(frame, interp_sink, framesToInsert=args.factor - 1)
 
-        result = calibrate(step, target_ms=args.target_ms, max_iterations=args.max_iterations)
+        result = calibrate(
+            step, target_ms=args.target_ms, max_iterations=args.max_iterations
+        )
         samples.append(result)
 
     return {
