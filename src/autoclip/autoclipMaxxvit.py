@@ -10,7 +10,8 @@ import torch
 import src.constants as cs
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
-from src.model.downloadModels import downloadModels, modelsMap, weightsDir
+from src.model.download import downloadModels
+from src.model.registry import modelsMap, weightsDir
 
 _SENTINEL = object()
 

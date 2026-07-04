@@ -1,4 +1,4 @@
-from src.model import downloadModels as dm
+import src.model.download as dm
 
 
 def test_mps_download_reuses_base_weight_folder(tmp_path, monkeypatch):

@@ -1,4 +1,4 @@
-"""Tests for src/utils/dependencyHandler.py — profile/requirements resolution.
+"""Tests for src.infra.dependencyHandler — profile/requirements resolution.
 
 Pure mapping logic that decides which extra-requirements file an install pulls
 based on OS + CUDA support. A wrong mapping here silently installs the wrong

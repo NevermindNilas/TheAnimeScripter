@@ -2,11 +2,9 @@ import torch
 from torch.functional import F
 
 from src.infra.isCudaInit import CudaChecker
-from src.model.downloadModels import (
-    modelsMap,
-    resolveWeightPath,
-)
+from src.model.download import resolveWeightPath
 from src.model.modelOptimizer import ModelOptimizer
+from src.model.registry import modelsMap
 
 checker = CudaChecker()
 
