@@ -1,0 +1,52 @@
+import pytest
+
+from src.upscale import tensorrt as tensorrt_upscale
+
+
+def _makeUniversalTensorRT(monkeypatch, creator):
+    monkeypatch.setattr(tensorrt_upscale, "logAndPrint", lambda *args, **kwargs: None)
+    instance = tensorrt_upscale.UniversalTensorRT.__new__(
+        tensorrt_upscale.UniversalTensorRT
+    )
+    instance.modelPath = "model.onnx"
+    instance.half = True
+    instance.height = 720
+    instance.width = 960
+    instance.forceStatic = False
+    instance.tensorRTEngineCreator = creator
+    return instance
+
+
+def testUniversalTensorRTRetriesStaticProfileAfterDynamicBuildFailure(monkeypatch):
+    calls = []
+
+    def creator(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            return None, None
+        return object(), object()
+
+    instance = _makeUniversalTensorRT(monkeypatch, creator)
+
+    instance._createEngineWithStaticRetry("model.engine")
+
+    assert instance.engine is not None
+    assert instance.context is not None
+    assert calls[0]["forceStatic"] is False
+    assert calls[0]["inputsMin"] == [1, 3, 8, 8]
+    assert calls[0]["inputsOpt"] == [1, 3, 720, 960]
+    assert calls[0]["inputsMax"] == [1, 3, 1080, 1920]
+    assert calls[1]["forceStatic"] is True
+    assert calls[1]["inputsMin"] == [1, 3, 720, 960]
+    assert calls[1]["inputsOpt"] == [1, 3, 720, 960]
+    assert calls[1]["inputsMax"] == [1, 3, 720, 960]
+
+
+def testUniversalTensorRTRaisesClearErrorWhenStaticRetryFails(monkeypatch):
+    def creator(**_kwargs):
+        return None, None
+
+    instance = _makeUniversalTensorRT(monkeypatch, creator)
+
+    with pytest.raises(RuntimeError, match="Failed to build TensorRT engine"):
+        instance._createEngineWithStaticRetry("model.engine")

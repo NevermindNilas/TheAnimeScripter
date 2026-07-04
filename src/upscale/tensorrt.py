@@ -18,6 +18,16 @@ checker = CudaChecker()
 torch.set_float32_matmul_precision("medium")
 
 
+def _tensorRTBuildFailureMessage(modelPath: str) -> str:
+    return (
+        f"Failed to build TensorRT engine for {modelPath}. "
+        "This is commonly caused by insufficient free VRAM during TensorRT engine "
+        "generation or an incompatible NVIDIA driver/CUDA/TensorRT stack. "
+        "Close GPU-heavy apps, update the NVIDIA driver, use --static, or choose a "
+        "non-TensorRT backend such as CUDA, DirectML, or OpenVINO."
+    )
+
+
 def calculatePadding(width, height, multiple=4):
     padW = (multiple - (width % multiple)) % multiple
     padH = (multiple - (height % multiple)) % multiple
@@ -69,6 +79,40 @@ class UniversalTensorRT:
 
         self.handleModel()
 
+    def _createEngineWithStaticRetry(self, enginePath: str):
+        inputShape = [1, 3, self.height, self.width]
+        self.engine, self.context = self.tensorRTEngineCreator(
+            modelPath=self.modelPath,
+            enginePath=enginePath,
+            fp16=self.half,
+            inputsMin=[1, 3, 8, 8],
+            inputsOpt=inputShape,
+            inputsMax=[1, 3, 1080, 1920],
+            forceStatic=self.forceStatic,
+        )
+        if self.engine is not None and self.context is not None:
+            return
+
+        if self.forceStatic:
+            raise RuntimeError(_tensorRTBuildFailureMessage(self.modelPath))
+
+        logAndPrint(
+            "TensorRT dynamic engine build failed; retrying with a static input "
+            f"profile for {self.height}x{self.width} to reduce build VRAM usage.",
+            "yellow",
+        )
+        self.engine, self.context = self.tensorRTEngineCreator(
+            modelPath=self.modelPath,
+            enginePath=enginePath,
+            fp16=self.half,
+            inputsMin=inputShape,
+            inputsOpt=inputShape,
+            inputsMax=inputShape,
+            forceStatic=True,
+        )
+        if self.engine is None or self.context is None:
+            raise RuntimeError(_tensorRTBuildFailureMessage(self.modelPath))
+
     def handleModel(self):
         if ADOBE:
             progressState.update(
@@ -118,15 +162,7 @@ class UniversalTensorRT:
             or self.context is None
             or not os.path.exists(enginePath)
         ):
-            self.engine, self.context = self.tensorRTEngineCreator(
-                modelPath=self.modelPath,
-                enginePath=enginePath,
-                fp16=self.half,
-                inputsMin=[1, 3, 8, 8],
-                inputsOpt=[1, 3, self.height, self.width],
-                inputsMax=[1, 3, 1080, 1920],
-                forceStatic=self.forceStatic,
-            )
+            self._createEngineWithStaticRetry(enginePath)
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
@@ -305,6 +341,8 @@ class AnimeSRTensorRT:
                 inputName=inputNames,
                 isMultiInput=True,
             )
+            if self.engine is None or self.context is None:
+                raise RuntimeError(_tensorRTBuildFailureMessage(self.modelPath))
 
         self.prevFrame = torch.zeros(
             (1, 3, self.paddedHeight, self.paddedWidth),

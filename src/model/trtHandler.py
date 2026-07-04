@@ -1,5 +1,7 @@
 import logging
 import os
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -133,6 +135,71 @@ def createNetworkAndConfig(
     _attachProgressMonitor(config)
     config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, maxWorkspaceSize)
     return network, config
+
+
+def _formatShape(shape) -> str:
+    if isinstance(shape, list) and shape and isinstance(shape[0], list):
+        return "[" + ", ".join(str(tuple(item)) for item in shape) + "]"
+    return str(tuple(shape)) if shape else "[]"
+
+
+def _logTensorRTBuildDiagnostics(
+    modelPath: str,
+    enginePath: str,
+    fp16: bool,
+    inputsMin,
+    inputsOpt,
+    inputsMax,
+    maxWorkspaceSize: int,
+    forceStatic: bool,
+) -> None:
+    diagnostics = [
+        f"TensorRT build diagnostics: trt={getattr(trt, '__version__', 'unknown')}",
+        f"precision={'fp16' if fp16 else 'fp32'}",
+        f"force_static={forceStatic}",
+        f"workspace_mib={maxWorkspaceSize // (1024 * 1024)}",
+        f"min={_formatShape(inputsMin)}",
+        f"opt={_formatShape(inputsOpt)}",
+        f"max={_formatShape(inputsMax)}",
+        f"model={modelPath}",
+        f"engine={enginePath}",
+    ]
+
+    try:
+        import torch
+
+        diagnostics.append(f"torch={torch.__version__}")
+        diagnostics.append(f"torch_cuda={torch.version.cuda}")
+        if torch.cuda.is_available():
+            diagnostics.append(f"gpu={torch.cuda.get_device_name(0)}")
+            freeBytes, totalBytes = torch.cuda.mem_get_info()
+            diagnostics.append(f"torch_vram_free_mib={freeBytes // (1024 * 1024)}")
+            diagnostics.append(f"torch_vram_total_mib={totalBytes // (1024 * 1024)}")
+    except Exception as error:
+        diagnostics.append(f"torch_diagnostics_error={error}")
+
+    smiPath = shutil.which("nvidia-smi")
+    if smiPath:
+        try:
+            result = subprocess.run(
+                [
+                    smiPath,
+                    "--query-gpu=name,memory.total,memory.used,memory.free,driver_version,compute_cap",
+                    "--format=csv,noheader,nounits",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                diagnostics.append(f"nvidia_smi={result.stdout.strip()}")
+            elif result.stderr.strip():
+                diagnostics.append(f"nvidia_smi_error={result.stderr.strip()}")
+        except Exception as error:
+            diagnostics.append(f"nvidia_smi_error={error}")
+
+    logging.info(" | ".join(diagnostics))
 
 
 def parseModel(parser: trt.OnnxParser, modelPath: str) -> bool:
@@ -292,6 +359,17 @@ def tensorRTEngineCreator(
     if forceStatic:
         inputsMin = inputsOpt
         inputsMax = inputsOpt
+
+    _logTensorRTBuildDiagnostics(
+        modelPath,
+        enginePath,
+        fp16,
+        inputsMin,
+        inputsOpt,
+        inputsMax,
+        maxWorkspaceSize,
+        forceStatic,
+    )
 
     try:
         TRTLOGGER = trt.Logger(trt.Logger.INFO)
