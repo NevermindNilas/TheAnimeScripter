@@ -6,6 +6,7 @@ import time
 from queue import Queue
 
 import torch  # this has to be always before nelux!
+from torch.nn import functional as F
 
 
 def _repair_nelux_macos_ffmpeg_links() -> None:
@@ -315,23 +316,18 @@ class BuildBuffer:
         Returns:
             The processed frame as a torch tensor in BCHW format.
         """
-        import torch
-        from torch.nn import functional as F
-
         norm = 1 / 255.0 if frame.dtype == torch.uint8 else 1 / 65535.0
         if self.cudaEnabled:
             with torch.cuda.stream(normStream):
-                try:
-                    frame = frame.pin_memory()
-                except Exception:
-                    pass
                 frame = frame.to(
                     device="cuda",
                     non_blocking=True,
                     dtype=torch.float16 if self.half else torch.float32,
                 )
 
-                frame = frame.permute(2, 0, 1).mul(norm).clamp(0, 1)
+                frame = frame.permute(2, 0, 1)
+                frame.mul_(norm)
+                frame.clamp_(0, 1)
 
                 if self.resize and not self._didDecoderResize:
                     frame = F.interpolate(

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased] - YYYY-MM-DD
+### Performance
+- CUDA frame normalization is faster in the `main.py` hot loop: `BuildBuffer.processFrameToTorch` no longer pins each decoded frame ad hoc before the CPU→GPU copy, and normalizes the fresh CUDA tensor in-place. On an RTX 3090 with PyTorch 2.12/cu132, the 640x360 `rife4.6` 2x benchmark slice improved from ~890→~994 FPS in fp16 and ~516→~579 FPS in fp32; pixel output was verified unchanged against the old normalization expression.
+- RIFE CUDA avoids refilling the full timestep tensor when the timestep value is unchanged, trimming steady-state overhead for common 2x interpolation. The isolated 640x360 `rife4.6` hot loop improved from ~1.66ms→~1.59ms per fp16 call and ~3.11ms→~3.08ms per fp32 call.
+
+### Fixed
+- TensorRT upscale engine creation now logs GPU/driver/VRAM/runtime diagnostics, retries a failed dynamic build once with a static input profile to reduce build-time VRAM pressure, and raises a clear TensorRT build failure instead of crashing later with `'NoneType' object has no attribute 'num_io_tensors'`.
 
 ## [2.7.10] - 2026-06-25
 ### Changed

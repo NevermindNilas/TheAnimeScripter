@@ -333,6 +333,7 @@ class RifeCuda:
             dtype=self.dType,
             device=checker.device,
         )
+        self._cachedTimestepValue = None
 
         self._setupCudaGraph()
 
@@ -485,8 +486,11 @@ class RifeCuda:
             else:
                 t = (i + 1) * 1 / (framesToInsert + 1)
 
-            # Use pre-allocated buffer and fill in-place
-            self._timestep_buffer.fill_(t)
+            # The common 2x path uses the same 0.5 timestep every frame. Avoid
+            # refilling the full HxW tensor unless the requested timestep changes.
+            if self._cachedTimestepValue != t:
+                self._timestep_buffer.fill_(t)
+                self._cachedTimestepValue = t
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
 
