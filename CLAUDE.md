@@ -51,7 +51,7 @@ URL input is handled by `src/ytdlp.py`.
 - Global runtime state: `src/constants.py` (`WHEREAMIRUNFROM`, `SYSTEM`, `FFMPEGPATH`, `FFPROBEPATH`, `METADATAPATH`, `ADOBE`, `AUDIO`), initialized by CLI startup/validation and imported as `cs`.
 - Dependencies/FFmpeg/hardware: `src/infra/{dependencyHandler,getFFMPEG,checkSpecs}.py`.
 - AE bridge/preview/presets: `src/server/{aeComms,previewSettings,presetLogic}.py`; metadata: `src/io/getVideoMetadata.py`.
-- Logs: `main()` sets `cs.LOG_PATH` to per-process `TAS-Log-<pid>.log`; `src/infra/logAndPrint.py` wraps stdlib logging but does not choose the path.
+- Logs: `main()` sets `cs.LOG_PATH` to `TAS-Log.log` with overwrite mode; `src/infra/logAndPrint.py` wraps stdlib logging but does not choose the path.
 
 `src/utils/` contains compatibility shims; new code should import the canonical modules above.
 

@@ -23,11 +23,39 @@ Home: https://github.com/NevermindNilas/TheAnimeScripter
 """
 
 import os
+import sys
 
 os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
+os.environ.setdefault("PYTHONNOUSERSITE", "1")
+
+
+def _disableUserSitePackages() -> None:
+    """Keep bundled/runtime dependencies ahead of per-user Python packages."""
+    try:
+        import site
+
+        userSite = site.getusersitepackages()
+        if isinstance(userSite, str):
+            userSitePaths = {userSite}
+        else:
+            userSitePaths = set(userSite or [])
+        normalizedUserSites = {
+            os.path.normcase(os.path.abspath(path)) for path in userSitePaths if path
+        }
+        if normalizedUserSites:
+            sys.path[:] = [
+                path
+                for path in sys.path
+                if os.path.normcase(os.path.abspath(path)) not in normalizedUserSites
+            ]
+        site.ENABLE_USER_SITE = False
+    except Exception:
+        pass
+
+
+_disableUserSitePackages()
 
 import logging
-import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
@@ -752,16 +780,23 @@ def main():
 
         baseOutputPath = os.path.dirname(os.path.abspath(__file__))
 
-        # Per-run log file keyed by PID. The AE bridge (and batch usage) can
-        # launch multiple TAS workers against the same cs.WHEREAMIRUNFROM
-        # directory; with the old fixed name + filemode="w", each worker
-        # truncated the same TAS-Log.log and their outputs interleaved at the
-        # line level (init block + "Processed/Encoded N frames" appearing
-        # twice per run). A PID-suffixed name gives each worker its own file
-        # so concurrent runs no longer pollute each other. The AE frontend
-        # receives progress over Socket.IO, not by tailing this file, so the
-        # rename is transparent to it.
-        cs.LOG_PATH = os.path.join(cs.WHEREAMIRUNFROM, f"TAS-Log-{os.getpid()}.log")
+        # Keep a single backend log in the runtime directory. Adobe Edition can
+        # launch TAS repeatedly while rendering, so PID-suffixed logs quickly
+        # accumulate and make support archives noisy. filemode="w" below keeps
+        # the latest backend launch only.
+        for filename in os.listdir(cs.WHEREAMIRUNFROM):
+            suffix = filename.removeprefix("TAS-Log-").removesuffix(".log")
+            if (
+                filename.startswith("TAS-Log-")
+                and filename.endswith(".log")
+                and suffix.isdigit()
+            ):
+                try:
+                    os.remove(os.path.join(cs.WHEREAMIRUNFROM, filename))
+                except OSError:
+                    pass
+
+        cs.LOG_PATH = os.path.join(cs.WHEREAMIRUNFROM, "TAS-Log.log")
         logging.basicConfig(
             filename=cs.LOG_PATH,
             filemode="w",
