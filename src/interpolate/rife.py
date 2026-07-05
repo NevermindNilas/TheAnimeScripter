@@ -6,10 +6,8 @@ import torch.nn.functional as F
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
-from src.model.downloadModels import (
-    modelsMap,
-    resolveWeightPath,
-)
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
 
 if ADOBE:
     from src.server.aeComms import progressState

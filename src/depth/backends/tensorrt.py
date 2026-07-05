@@ -22,10 +22,8 @@ from src.io.ffmpegSettings import (
     BuildBuffer,
     WriteBuffer,
 )
-from src.model.downloadModels import (
-    modelsMap,
-    resolveWeightPath,
-)
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
 
 if ADOBE:
     from src.server.aeComms import progressState

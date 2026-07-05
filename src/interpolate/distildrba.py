@@ -5,11 +5,8 @@ import torch
 import torch.nn.functional as F
 
 from src.infra.isCudaInit import CudaChecker
-from src.model.downloadModels import (
-    downloadModels,
-    modelsMap,
-    weightsDir,
-)
+from src.model.download import downloadModels
+from src.model.registry import modelsMap, weightsDir
 
 checker = CudaChecker()
 

@@ -130,7 +130,7 @@ def _adjustMethodsBasedOnCuda(args, availableModels=None):
         from src.infra.backendFallback import applyBackendFallbacks
 
         if availableModels is None:
-            from src.model.downloadModels import modelsList
+            from src.model.registry import modelsList
 
             availableModels = modelsList()
 
@@ -142,7 +142,8 @@ def _adjustMethodsBasedOnCuda(args, availableModels=None):
 
 
 def _downloadOfflineModels(args):
-    from src.model.downloadModels import downloadModels, modelsList
+    from src.model.download import downloadModels
+    from src.model.registry import modelsList
 
     logAndPrint(
         f"Offline mode enabled, downloading {args.offline} model(s)...", "green"
