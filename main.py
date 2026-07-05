@@ -22,8 +22,14 @@ along with this program.  If not, see {http://www.gnu.org/licenses/}.
 Home: https://github.com/NevermindNilas/TheAnimeScripter
 """
 
+import logging
 import os
 import sys
+import warnings
+from concurrent.futures import ThreadPoolExecutor
+from fractions import Fraction
+from queue import Empty, Queue
+from time import time
 
 os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
 os.environ.setdefault("PYTHONNOUSERSITE", "1")
@@ -55,14 +61,7 @@ def _disableUserSitePackages() -> None:
 
 _disableUserSitePackages()
 
-import logging
-import warnings
-from concurrent.futures import ThreadPoolExecutor
-from fractions import Fraction
-from queue import Empty, Queue
-from time import time
-
-import src.constants as cs
+import src.constants as cs  # noqa: E402
 
 warnings.filterwarnings("ignore")
 
