@@ -15,10 +15,8 @@ from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import (
     BuildBuffer,
 )
-from src.model.downloadModels import (
-    modelsMap,
-    resolveWeightPath,
-)
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
 
 checker = CudaChecker()
 

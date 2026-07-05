@@ -1,4 +1,4 @@
-"""Regression tests for src/utils/downloadModels.py download-failure handling.
+"""Regression tests for src.model.download download-failure handling.
 
 Covers the truncated-download path: when the server advertises a content-length
 the read loop never fully receives, downloadAndLog must surface a clean,
@@ -19,7 +19,7 @@ import pytest
 # torch/nelux importorskip in the other test modules).
 pytest.importorskip("barflow")
 
-from src.model import downloadModels as dm  # noqa: E402
+import src.model.download as dm  # noqa: E402
 
 
 class _TruncatedResponse:

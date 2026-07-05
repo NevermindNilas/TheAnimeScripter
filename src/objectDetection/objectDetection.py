@@ -11,7 +11,8 @@ from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.model.downloadModels import downloadModels, modelsMap, weightsDir
+from src.model.download import downloadModels
+from src.model.registry import modelsMap, weightsDir
 
 from .yolov9_mit import colors, draw_box, draw_detections, draw_masks
 

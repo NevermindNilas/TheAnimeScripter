@@ -7,10 +7,8 @@ from src.constants import ADOBE
 
 from .infra.isCudaInit import CudaChecker
 from .infra.logAndPrint import logAndPrint
-from .model.downloadModels import (
-    modelsMap,
-    resolveWeightPath,
-)
+from .model.download import resolveWeightPath
+from .model.registry import modelsMap
 
 if ADOBE:
     from src.server.aeComms import progressState

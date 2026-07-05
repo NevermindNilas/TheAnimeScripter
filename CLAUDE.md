@@ -41,7 +41,7 @@ URL input is handled by `src/ytdlp.py`.
 
 ## Change map
 
-- **Add a model = TWO edits:** add its weight mapping to `src/model/downloadModels.py:modelsMap()` and its CLI choice to `src/cli/parser.py`. `modelsList()` is the canonical method registry used by `--offline`.
+- **Add a model = TWO edits:** add its weight mapping to `src/model/registry.py:modelsMap()` and its CLI choice to `src/cli/parser.py`. `modelsList()` is the canonical method registry used by `--offline`.
 - **Add a backend:** add a sibling backend class, a `match` arm in `src/initializeModels.py`, CLI choices, and `modelsList()`/`modelsMap()` entries. Never rewrite the CUDA path.
 - Backend classes follow convention, not an ABC: dashless class suffixes (`UniversalPytorch`/`UniversalTensorRT`/`UniversalDirectML`/`UniversalNCNN`/`UniversalPytorchMPS`; `RifeCuda`/`RifeTensorRT`/etc.) implementing `__call__()` and `handleModel()`. Method strings alone use `-<backend>`.
 - OpenVINO is normally handled inside the DirectML/ORT class; only Segment has `AnimeSegmentOpenVino`. Model-specific exceptions include `AnimeSR*`, `ArtCNN*`, `DistilDRBA*`, `NvidiaVSR`, and `DepthGuidedRife*`.
@@ -53,7 +53,7 @@ URL input is handled by `src/ytdlp.py`.
 - AE bridge/preview/presets: `src/server/{aeComms,previewSettings,presetLogic}.py`; metadata: `src/io/getVideoMetadata.py`.
 - Logs: `main()` sets `cs.LOG_PATH` to `TAS-Log.log` with overwrite mode; `src/infra/logAndPrint.py` wraps stdlib logging but does not choose the path.
 
-`src/utils/` contains compatibility shims; new code should import the canonical modules above.
+Legacy `src/utils/` compatibility shims are gone; import the canonical modules above.
 
 ## Vendored/model code boundary
 

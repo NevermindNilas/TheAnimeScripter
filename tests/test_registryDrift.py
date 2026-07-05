@@ -1,7 +1,7 @@
 """Drift guards between the hand-maintained registries.
 
 Adding a model takes TWO edits (CLAUDE.md): the weight mapping in
-``downloadModels.modelsMap()`` AND the flag choices in the CLI parser.
+``registry.modelsMap()`` AND the flag choices in the CLI parser.
 Same story for encoders: the argparse ``encode_method`` choices and the
 ``match`` arms in ``encodingSettings.matchEncoder()``. Nothing enforced these
 until now, and both had already drifted when these tests were written:
@@ -27,7 +27,7 @@ import pytest
 
 from src.cli.parser import _buildParser, capabilityMethods
 from src.io.encodingSettings import matchEncoder
-from src.model.downloadModels import modelsList, modelsMap
+from src.model.registry import modelsList, modelsMap
 
 
 @pytest.fixture(scope="module")
@@ -229,7 +229,7 @@ def testEveryMethodChoiceIsRegisteredOrKnownException(methodChoices):
 
     assert problems == {}, (
         f"Method choices with no modelsList entry (any backend variant): {problems}. "
-        "Register the model in downloadModels.modelsList()/modelsMap() or, if it "
+        "Register the model in registry.modelsList()/modelsMap() or, if it "
         "genuinely needs no weights, add it to KNOWN_UNREGISTERED_METHODS with a reason."
     )
     assert stale == {}, (

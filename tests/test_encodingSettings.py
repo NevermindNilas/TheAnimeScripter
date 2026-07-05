@@ -1,4 +1,4 @@
-"""Tests for src/utils/encodingSettings.py — FFmpeg encoder flags and pixel formats.
+"""Tests for src.io.encodingSettings — FFmpeg encoder flags and pixel formats.
 
 getPixFMT is the bug-prone bit: a chain of mutually-exclusive branches that pick
 input/output pixel formats from (encode_method, bitDepth, grayscale, transparent)

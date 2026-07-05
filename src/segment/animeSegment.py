@@ -11,10 +11,8 @@ from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
-from src.model.downloadModels import (
-    modelsMap,
-    resolveWeightPath,
-)
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
 
 if ADOBE:
     from src.server.aeComms import progressState

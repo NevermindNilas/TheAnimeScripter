@@ -1,4 +1,4 @@
-"""Tests for src/utils/inputOutputHandler.py — output naming and path resolution.
+"""Tests for src.io.inputOutputHandler — output naming and path resolution.
 
 Covers the I/O overhaul: collision-safe naming, Windows sequence de-duplication,
 deterministic batch order, extension/feature resolution for URLs and sequences,

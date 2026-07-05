@@ -3,10 +3,8 @@ import os
 import torch
 
 from src.infra.isCudaInit import CudaChecker
-from src.model.downloadModels import (
-    modelsMap,
-    resolveWeightPath,
-)
+from src.model.download import resolveWeightPath
+from src.model.registry import modelsMap
 
 checker = CudaChecker()
 
