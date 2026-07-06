@@ -7,5 +7,5 @@ onnx==1.22.0
 onnxruntime==1.27.0
 safetensors==0.8.0
 scenedetect[opencv]
-yt-dlp==2026.6.9
+yt-dlp==2026.7.4
 vmaf-torch
