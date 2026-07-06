@@ -870,6 +870,10 @@ class WriteBuffer:
             from torch.nn import functional as F
 
             initialFrame = self.writeBuffer.queue[0]
+            if initialFrame is None:
+                self.writeBuffer.get()
+                logging.info("Encoded 0 frames")
+                return
 
             self.channels = 1 if self.grayscale else 4 if self.transparent else 3
 
