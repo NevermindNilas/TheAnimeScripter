@@ -78,6 +78,19 @@ def detectImageSequence(folderPath):
         return None
 
     frameNumbers = sorted(frameNumbers)
+    expectedFrames = set(range(frameNumbers[0], frameNumbers[-1] + 1))
+    missingFrames = sorted(expectedFrames.difference(frameNumbers))
+    if missingFrames:
+        preview = ", ".join(str(frame) for frame in missingFrames[:10])
+        if len(missingFrames) > 10:
+            preview = f"{preview}, ..."
+        logging.warning(
+            "Rejected image sequence %s: missing frame number(s): %s",
+            folderPath,
+            preview,
+        )
+        return None
+
     sequencePath = os.path.join(folderPath, expectedPattern)
     return (sequencePath, frameNumbers[0], frameNumbers[-1], len(frameNumbers))
 
