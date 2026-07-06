@@ -11,7 +11,8 @@ the gate doesn't silently regress.
 
 import pytest
 
-from src.io.getVideoMetadata import isNvdecCompatible
+import src.constants as cs
+from src.io.getVideoMetadata import getVideoMetadata, isNvdecCompatible
 
 
 @pytest.mark.parametrize(
@@ -71,3 +72,18 @@ def test_isNvdecCompatible_handles_empty_or_unknown():
     # Unknown codec/pix_fmt is allowed through (conservative: only rule out
     # what NVDEC provably cannot handle).
     assert isNvdecCompatible("somefuturecodec", "somefuturepixfmt") is True
+
+
+def test_getVideoMetadata_validates_ffprobe_path(monkeypatch, tmp_path):
+    inputPath = tmp_path / "clip.mp4"
+    ffmpegPath = tmp_path / "ffmpeg.exe"
+    inputPath.write_bytes(b"not a real video")
+    ffmpegPath.write_bytes(b"")
+
+    monkeypatch.setattr(cs, "FFMPEGPATH", str(ffmpegPath), raising=False)
+    monkeypatch.setattr(
+        cs, "FFPROBEPATH", str(tmp_path / "missing-ffprobe.exe"), raising=False
+    )
+
+    with pytest.raises(FileNotFoundError, match="ffprobe path not found"):
+        getVideoMetadata(str(inputPath), 0, 0)

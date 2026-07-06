@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Startup now disables per-user Python site packages before importing runtime dependencies, keeping bundled TAS dependencies ahead of user-installed packages that can otherwise shadow the packaged environment.
 - Backend logging now writes to a stable `TAS-Log.log` with overwrite mode again instead of creating PID-suffixed files for every launch, preventing Adobe Edition render sessions from accumulating hundreds of stale logs.
 - TensorRT upscale engine creation now logs GPU/driver/VRAM/runtime diagnostics, retries a failed dynamic build once with a static input profile to reduce build-time VRAM pressure, and raises a clear TensorRT build failure instead of crashing later with `'NoneType' object has no attribute 'num_io_tensors'`.
+- Metadata probing now validates the configured `ffprobe` binary before startup probing instead of checking `ffmpeg` and then failing later with a less useful subprocess error.
+- Invalid trim ranges now fail during runtime validation when `--outpoint` is nonzero and not greater than `--inpoint`; the FFmpeg writer also exits cleanly if no frames reach the output queue.
 
 ## [2.7.10] - 2026-06-25
 ### Changed

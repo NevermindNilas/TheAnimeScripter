@@ -32,6 +32,17 @@ def applyOutputScale(args):
     )
 
 
+def validateTrimRange(args):
+    inpoint = float(getattr(args, "inpoint", 0) or 0)
+    outpoint = float(getattr(args, "outpoint", 0) or 0)
+
+    if outpoint != 0 and outpoint <= inpoint:
+        raise CliValidationError(
+            f"Invalid trim range: outpoint must be greater than inpoint when set "
+            f"(inpoint={inpoint}, outpoint={outpoint})"
+        )
+
+
 def normalizeUpscaleFactor(args):
     if not args.upscale or not hasattr(args, "upscale_factor"):
         return None
@@ -96,4 +107,5 @@ def validateCustomUpscaleModel(args):
 def applyRuntimeValidation(args):
     validateCustomUpscaleModel(args)
     applyOutputScale(args)
+    validateTrimRange(args)
     return normalizeUpscaleFactor(args)

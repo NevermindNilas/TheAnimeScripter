@@ -24,6 +24,7 @@ from src.cli.parser import (
 )
 from src.cli.validation import (
     CliValidationError,
+    applyRuntimeValidation,
     normalizeUpscaleFactor,
     parseOutputScale,
     selectedUpscaleBackend,
@@ -361,6 +362,32 @@ def testValidateCustomUpscaleModelRejectsPytorchWithOnnxBackend(tmp_path):
     )
     with pytest.raises(CliValidationError):
         validateCustomUpscaleModel(args)
+
+
+@pytest.mark.parametrize("outpoint", [5.0, 4.0])
+def testRuntimeValidationRejectsOutpointNotAfterInpoint(outpoint):
+    args = types.SimpleNamespace(
+        custom_model=None,
+        output_scale=None,
+        upscale=False,
+        inpoint=5.0,
+        outpoint=outpoint,
+    )
+
+    with pytest.raises(CliValidationError, match="outpoint must be greater"):
+        applyRuntimeValidation(args)
+
+
+def testRuntimeValidationAllowsZeroOutpoint():
+    args = types.SimpleNamespace(
+        custom_model=None,
+        output_scale=None,
+        upscale=False,
+        inpoint=5.0,
+        outpoint=0.0,
+    )
+
+    applyRuntimeValidation(args)
 
 
 # --------------------------------------------------------------------------- #

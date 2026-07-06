@@ -87,7 +87,7 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     tuple: (width, height, fps, totalFramesToProcess, hasAudio)
     """
     try:
-        if not os.path.exists(cs.FFMPEGPATH):
+        if not os.path.exists(cs.FFPROBEPATH):
             logging.error("ffprobe not found")
             raise FileNotFoundError("ffprobe path not found")
         if not os.path.exists(inputPath):
