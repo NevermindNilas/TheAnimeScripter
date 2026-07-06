@@ -174,13 +174,12 @@ class AnimeSegmentTensorRT:
         self.benchmark = benchmark
         self.totalFrames = totalFrames
 
-        import tensorrt as trt
-
         from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
         )
+        from src.utils.tensorrt_import import trt
 
         self.trt = trt
         self.tensorRTEngineCreator = tensorRTEngineCreator

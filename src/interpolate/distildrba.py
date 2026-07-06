@@ -404,12 +404,11 @@ class DistilDRBATensorRT:
             interpolateMethod: "distildrba-tensorrt" or "distildrba-lite-tensorrt"
             interpolateFactor: Interpolation factor
         """
-        import tensorrt as trt
-
         from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
         )
+        from src.utils.tensorrt_import import trt
 
         self.tensorRTEngineCreator = tensorRTEngineCreator
         self.tensorRTEngineLoader = tensorRTEngineLoader
