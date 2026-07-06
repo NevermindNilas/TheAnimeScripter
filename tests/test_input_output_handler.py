@@ -166,6 +166,13 @@ def test_sequence_detection_none_for_single_image(tmp_path):
     assert io.detectImageSequence(str(tmp_path)) is None
 
 
+def test_sequence_detection_rejects_missing_frames(tmp_path):
+    (tmp_path / "frame_001.png").touch()
+    (tmp_path / "frame_003.png").touch()
+
+    assert io.detectImageSequence(str(tmp_path)) is None
+
+
 # --------------------------------------------------------------------------- #
 # generateOutputPath: collision-safe naming (#2 #3 #4 + explicit output)
 # --------------------------------------------------------------------------- #
