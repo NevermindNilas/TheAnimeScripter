@@ -172,13 +172,12 @@ class RifeTensorRT:
             half (bool, optional): Half resolution. Defaults to True.
             ensemble (bool, optional): Ensemble. Defaults to False.
         """
-        import tensorrt as trt
-
         from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
         )
+        from src.utils.tensorrt_import import trt
 
         self.tensorRTEngineCreator = tensorRTEngineCreator
         self.tensorRTEngineLoader = tensorRTEngineLoader

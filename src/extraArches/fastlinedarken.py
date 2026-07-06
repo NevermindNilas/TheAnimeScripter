@@ -250,7 +250,7 @@ class FastLineDarkenTRT(FastLineDarken):
         forceStatic: bool = False,
     ):
         super().__init__(half)
-        import tensorrt as trt
+        from src.utils.tensorrt_import import trt
 
         from ..model.trtHandler import (
             tensorRTEngineCreator,

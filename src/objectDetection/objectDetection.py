@@ -267,13 +267,12 @@ class ObjectDetectionTensorRT:
         totalFrames=0,
         disableAnnotations=False,
     ):
-        import tensorrt as trt
-
         from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
         )
+        from src.utils.tensorrt_import import trt
 
         self.trt = trt
         self.tensorRTEngineCreator = tensorRTEngineCreator

@@ -402,7 +402,7 @@ class UnifiedRestoreTensorRT:
 
         # Attempt to lazy load for faster startup
 
-        import tensorrt as trt
+        from src.utils.tensorrt_import import trt
 
         from .model.trtHandler import (
             tensorRTEngineCreator,

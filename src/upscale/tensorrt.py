@@ -54,13 +54,12 @@ class UniversalTensorRT:
             height (int): The height of the input frame
             customModel (str): The path to a custom model file
         """
-        import tensorrt as trt
-
         from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
         )
+        from src.utils.tensorrt_import import trt
 
         self.trt = trt
         self.tensorRTEngineCreator = tensorRTEngineCreator
@@ -248,13 +247,12 @@ class AnimeSRTensorRT:
             width (int): The width of the input frame
             height (int): The height of the input frame
         """
-        import tensorrt as trt
-
         from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
         )
+        from src.utils.tensorrt_import import trt
 
         self.trt = trt
         self.tensorRTEngineCreator = tensorRTEngineCreator

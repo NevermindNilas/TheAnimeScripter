@@ -5,10 +5,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-import tensorrt as trt
-
 from src.constants import ADOBE
 from src.infra.logAndPrint import coloredPrint, logAndPrint
+from src.utils.tensorrt_import import trt
 
 if ADOBE:
     from src.server.aeComms import progressState

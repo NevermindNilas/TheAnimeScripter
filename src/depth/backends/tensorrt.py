@@ -68,13 +68,12 @@ class DepthTensorRTV2:
         self.depthQuality = depthQuality
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
-        import tensorrt as trt
-
         from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
         )
+        from src.utils.tensorrt_import import trt
 
         self.trt = trt
         self.tensorRTEngineCreator = tensorRTEngineCreator
@@ -303,13 +302,12 @@ class OGDepthV2TensorRT:
         self.depthQuality = depthQuality
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
 
-        import tensorrt as trt
-
         from src.model.trtHandler import (
             tensorRTEngineCreator,
             tensorRTEngineLoader,
             tensorRTEngineNameHandler,
         )
+        from src.utils.tensorrt_import import trt
 
         self.trt = trt
         self.tensorRTEngineCreator = tensorRTEngineCreator
