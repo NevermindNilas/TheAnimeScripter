@@ -1,4 +1,4 @@
-setuptools==83.0.0
+setuptools==81.0.0
 wheel-stub==0.5.0
 numpy==2.3.2
 psutil==7.2.2
