@@ -986,7 +986,7 @@ class WriteBuffer:
                     if frame is None:
                         if pendingBuffer is not None:
                             pendingEvent.synchronize()
-                            ffmpegProc.stdin.write(pendingBuffer.numpy().tobytes())
+                            ffmpegProc.stdin.write(pendingBuffer.numpy())
                             writtenFrames += 1
                         break
 
@@ -1015,7 +1015,7 @@ class WriteBuffer:
 
                     if pendingBuffer is not None:
                         pendingEvent.synchronize()
-                        ffmpegProc.stdin.write(pendingBuffer.numpy().tobytes())
+                        ffmpegProc.stdin.write(pendingBuffer.numpy())
                         writtenFrames += 1
 
                     pendingBuffer = currentBuffer
@@ -1048,7 +1048,7 @@ class WriteBuffer:
                         .contiguous()
                     )
 
-                    ffmpegProc.stdin.write(frameTensor.numpy().tobytes())
+                    ffmpegProc.stdin.write(frameTensor.numpy())
                     writtenFrames += 1
 
             logging.info(f"Encoded {writtenFrames} frames")
