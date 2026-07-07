@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
+- NCNN (Vulkan) RIFE interpolation backend re-added for cp314: `--interpolate_method rife*-ncnn` (`rife4.6` through `rife4.22`, plus lite/ensemble variants) runs frame interpolation on any Vulkan-capable GPU with no CUDA/TensorRT dependency, so it is available in both the full and lite Windows profiles. Backed by a Python 3.14 rebuild of the `rife-ncnn-vulkan-python` SWIG wrapper (media2x wrapper + nihui core + TNTwise's newer-model fork, carrying TAS's dynamic-padding patch), hosted on TAS-Models-Host; the `-ncnn` model weights auto-download as `rife-v*-ncnn.zip`. The wrapper API is unchanged, so `src/interpolate/rife_ncnn.py` (including the `--scenechange` `cacheFrameReset` hook) needed no code changes.
 - Scene-cut-aware interpolation (`--scenechange`, opt-in): a per-frame-pair detector holds the frame at hard cuts instead of letting RIFE morph across them (inspired by vs-rife `sc`). `--scenechange_method` picks the detector — cheap `ssim`/`mse` or the `maxxvit` classifier (shared with the autoclip prepass) — and `--scenechange_sens` the threshold. Drives a unified `cacheFrameReset` across all interpolation backends; output frame count is unchanged.
 
 ### Changed
@@ -23,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - TensorRT upscale engine creation now logs GPU/driver/VRAM/runtime diagnostics, retries a failed dynamic build once with a static input profile to reduce build-time VRAM pressure, and raises a clear TensorRT build failure instead of crashing later with `'NoneType' object has no attribute 'num_io_tensors'`.
 - Metadata probing now validates the configured `ffprobe` binary before startup probing instead of checking `ffmpeg` and then failing later with a less useful subprocess error.
 - Invalid trim ranges now fail during runtime validation when `--outpoint` is nonzero and not greater than `--inpoint`; the FFmpeg writer also exits cleanly if no frames reach the output queue.
+- TensorRT engine builds no longer abort on legacy Windows code pages (e.g. cp1252): the input-shape box-draw log raised `UnicodeEncodeError` mid-build, which was caught as an optimization-profile failure and surfaced later as `'NoneType' object has no attribute 'num_io_tensors'`. Console streams are now reconfigured to UTF-8 (with replacement) in `logAndPrint`, covering non-CLI entry points, and the cosmetic shape print can no longer abort a build.
 
 ## [2.7.10] - 2026-06-25
 ### Changed

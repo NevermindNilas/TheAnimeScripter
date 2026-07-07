@@ -9,6 +9,22 @@ import logging
 import os
 import sys
 
+# On legacy Windows code pages (e.g. cp1252) the default stdout/stderr encoding
+# raises UnicodeEncodeError on the Unicode we print (box-draw glyphs, arrows).
+# That exception can bubble up and abort real work -- e.g. a cosmetic input-shape
+# log killing a TensorRT engine build. Force UTF-8 with replacement so a print
+# can never crash a caller. main.py does the same for the CLI entry point; doing
+# it here also covers non-CLI entry points (AE server, tests, direct module use)
+# and adds errors="replace" as a last-resort guard.
+if sys.platform == "win32":
+    for _stream in (sys.stdout, sys.stderr):
+        _reconfigure = getattr(_stream, "reconfigure", None)
+        if _reconfigure is not None:
+            try:
+                _reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
 # ANSI escape codes - works on modern terminals (Windows 10+, Linux, macOS)
 _RESET = "\033[0m"
 
