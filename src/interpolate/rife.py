@@ -401,8 +401,40 @@ class RifeCuda:
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
-        self.processFrame(frame, "cache")
-        self.processFrame(self.I0, "model")
+        """
+        Scene-cut reset: make ``frame`` the sole anchor (I0) and re-seed the
+        encoder feature ``f0 = encode(frame)``, so the next call interpolates
+        ``frame`` <-> next-frame with no bleed from the previous scene. Leaves
+        ``firstRun`` False (we already have an anchor) — the next ``__call__``
+        takes the normal I1/interpolate path.
+
+        GRAPH-SAFE: the forward is captured in a CUDA graph that reads ``I0`` and
+        ``self.model.f0`` at FIXED addresses. Both are updated IN-PLACE via
+        ``copy_`` — never reassigned. The arch's own ``cacheReset`` does
+        ``self.f0 = self.encode(...)`` (a reassignment), which would leave graph
+        replay reading the stale captured tensor; that is why we do not call it
+        here when the graph is active.
+        """
+        with torch.cuda.stream(self.normStream):
+            padded = self.padFrame(
+                frame.to(device=checker.device, dtype=self.dType, non_blocking=True)
+            )
+            self.I0.copy_(padded, non_blocking=True)
+            if getattr(self.model, "encode", None) is not None:
+                if getattr(self.model, "f0", None) is not None:
+                    # In-place re-seed of the persistent (graph-captured) f0.
+                    self.model.f0.copy_(
+                        self.model.encode(padded[:, :3]), non_blocking=True
+                    )
+                else:
+                    # No forward has run yet (eager path, graph disabled): the
+                    # next forward lazily encodes img0=I0, so leaving f0 None is
+                    # correct.
+                    self.model.f0 = None
+            # Re-arm the arch's ensemble/factor counter to its initial state.
+            if hasattr(self.model, "counter"):
+                self.model.counter = 1
+        self.normStream.synchronize()
 
     @torch.inference_mode()
     def processFrame(self, frame, toNorm):
@@ -653,7 +685,10 @@ class RifeMPS:
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
-        self.processFrame(frame, "cache")
+        # Scene-cut reset: anchor I0 = frame and re-seed the encoder feature
+        # f0 = encode(frame). MPS runs eager (no CUDA graph), so the arch's
+        # cacheReset reassigning f0 is fine. firstRun stays False.
+        self.processFrame(frame, "I0")
         self.processFrame(self.I0, "model")
 
     @torch.inference_mode()

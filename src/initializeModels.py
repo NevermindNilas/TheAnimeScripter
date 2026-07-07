@@ -13,6 +13,7 @@ def initializeModels(self):
     interpolateProcess = None
     restoreProcess = None
     dedupProcess = None
+    sceneChangeProcess = None
 
     if self.upscale:
         if ADOBE:
@@ -58,6 +59,18 @@ def initializeModels(self):
 
         dedupProcess = buildDedupProcess(self)
 
+    if self.interpolate and getattr(self, "sceneChange", False):
+        if ADOBE:
+            progressState.update(
+                {
+                    "status": f"Initializing scene-cut detector: {self.sceneChangeMethod}..."
+                }
+            )
+
+        from src.factories.sceneChange import buildSceneChangeProcess
+
+        sceneChangeProcess = buildSceneChangeProcess(self)
+
     return (
         outputWidth,
         outputHeight,
@@ -65,4 +78,5 @@ def initializeModels(self):
         interpolateProcess,
         restoreProcess,
         dedupProcess,
+        sceneChangeProcess,
     )

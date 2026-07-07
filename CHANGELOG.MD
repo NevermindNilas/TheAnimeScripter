@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased] - YYYY-MM-DD
+### Added
+- Scene-cut-aware interpolation (`--scenechange`, opt-in): a per-frame-pair detector holds the frame at hard cuts instead of letting RIFE morph across them (inspired by vs-rife `sc`). `--scenechange_method` picks the detector — cheap `ssim`/`mse` or the `maxxvit` classifier (shared with the autoclip prepass) — and `--scenechange_sens` the threshold. Drives a unified `cacheFrameReset` across all interpolation backends; output frame count is unchanged.
+
 ### Changed
 - Bumped TensorRT `10.16.1.11` -> `11.1.0.106` in the full Windows/Linux requirement profiles, switching from the hosted cp314 wheels to NVIDIA's current PyPI metapackage. TensorRT imports now go through a small compatibility helper so the code works with both the traditional `tensorrt` API module and the TensorRT 11.1 cp314 layout that exposes the API through `tensorrt_bindings`.
 

@@ -529,7 +529,15 @@ class RifeTensorRT:
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
+        # Scene-cut reset: re-anchor I0 = frame and, for Head models, re-seed the
+        # encoder embedding f0 = encode(frame) IN-PLACE. The engine reads f0 as a
+        # fixed binding and otherwise carries it across frames via the "f0-copy"
+        # step, so without re-seeding here the previous scene's embedding bleeds
+        # into the first interpolation after the cut. Both "I0" and "f0"
+        # processFrame cases copy into the fixed buffers (graph/binding-safe).
         self.processFrame(frame, "I0")
+        if self.norm is not None:
+            self.processFrame(frame, "f0")
 
     @torch.inference_mode()
     def __call__(self, frame, interpQueue, framesToInsert=1, timesteps=None):

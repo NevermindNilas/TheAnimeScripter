@@ -34,6 +34,7 @@ python build.py
 | Segment | `src/segment/animeSegment.py` | CUDA, TRT, DML, OpenVINO |
 | Object detect | `src/objectDetection/objectDetection.py` | CUDA, TRT, DML |
 | Autoclip | `src/autoclip/` | PySceneDetect CPU, TRT, DML, TransNetV2 |
+| Scene-cut (interp) | `src/sceneChange/` | streaming per-pair cut detector for `--scenechange`; ssim/mse + maxxvit 6ch (shared `scorer6ch.py`); holds instead of morphing across cuts |
 | Stabilize | `src/stabilize/` | SuperPoint with ORB/LK fallback |
 | Motion blur | `src/motionBlur.py` | `MotionBlurPipeline` |
 
@@ -47,6 +48,7 @@ URL input is handled by `src/ytdlp.py`.
 - OpenVINO is normally handled inside the DirectML/ORT class; only Segment has `AnimeSegmentOpenVino`. Model-specific exceptions include `AnimeSR*`, `ArtCNN*`, `DistilDRBA*`, `NvidiaVSR`, and `DepthGuidedRife*`.
 - Weights: `modelsMap()` resolves name/scale/dtype; `resolveWeightPath()` uses `weights/{model}/`. TRT/DML/OpenVINO use `weights/{model}-onnx/`, except RIFE keeps its base folder. Downloads come from TAS-Models-Host.
 - Output naming: `src/io/inputOutputHandler.py:generateOutputName()`; encoders: `src/io/encodingSettings.py:matchEncoder()` plus mirrored CLI choices.
+- Scene-cut skip (`--scenechange`): `main.py:processFrame` runs a `src/sceneChange/` detector; on a cut it emits held frames and calls `interpolate_process.cacheFrameReset(frame)`. One contract across ALL interp backends: re-anchor `I0=frame`, re-seed encoder feature, keep `firstRun` false. GRAPH/binding-safe on `RifeCuda`/`RifeTensorRT` — re-seed `I0`/`f0` in-place, never reassign (arch `cacheReset` reassigns `f0` → would break CUDA-graph replay). Only the (nonexistent) `DepthGuidedRifeCuda` lacks the hook.
 - ONNX export: `tools/onnxConverter.py`; TensorRT engine build/cache: `src/model/trtHandler.py`.
 - Global runtime state: `src/constants.py` (`WHEREAMIRUNFROM`, `SYSTEM`, `FFMPEGPATH`, `FFPROBEPATH`, `METADATAPATH`, `ADOBE`, `AUDIO`), initialized by CLI startup/validation and imported as `cs`.
 - Dependencies/FFmpeg/hardware: `src/infra/{dependencyHandler,getFFMPEG,checkSpecs}.py`.

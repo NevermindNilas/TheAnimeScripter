@@ -145,6 +145,14 @@ KNOWN_UNREGISTERED_METHODS = {
         "distildrba-tensorrt",  # weights ship via the base distildrba entry
         "distildrba-lite-tensorrt",  # weights ship via the base distildrba-lite entry
     },
+    "scenechange": {
+        # streaming scene-cut detectors; the cheap tier is algorithmic (no
+        # weights). maxxvit-* ride the registered maxxvit ONNX entries.
+        "ssim",
+        "mse",
+        "ssim-cuda",
+        "mse-cuda",
+    },
     "restore": {
         # registered under their -mps/-tensorrt siblings or external SDKs
         "fastlinedarken",
