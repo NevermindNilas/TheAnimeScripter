@@ -1,6 +1,6 @@
 # TheAnimeScripter
 
-TAS is a Python 3.14 (cp314) video-enhancement CLI and After Effects server for upscale, interpolation, restore/denoise, dedup, depth, segmentation, object detection, stabilization, autoclip, and motion blur. Backends: CUDA, TensorRT, DirectML, OpenVINO, NCNN, and partial MPS. The `.jsx` UI is in another repo. Version: `src/version.py`.
+TAS is a Python 3.14 (cp314) video-enhancement CLI and After Effects server for upscale, interpolation, restore/denoise, dedup, depth, segmentation, object detection, stabilization, autoclip, and motion blur. Backends: CUDA, TensorRT, DirectML, OpenVINO, NCNN, and MPS (Apple Silicon). MPS coverage is upscale, interpolate, restore, and motion blur (via RIFE) — depth, segment, autoclip, obj_detect, dedup, and stabilize have no MPS path yet. The `.jsx` UI is in another repo. Version: `src/version.py`.
 
 ## Commands
 
@@ -22,7 +22,7 @@ python build.py
 - Specialized autoclip/depth/segment/obj_detect/stabilize/motion_blur operations bypass that loop through `_selectProcessingMethod()`; their drivers are in `src/initializeModels.py`.
 - `initializeModels()` matches backend-suffixed method strings, lazy-imports the backend, and returns inference callables.
 - I/O: `src/io/ffmpegSettings.py`. `BuildBuffer` uses `nelux.VideoReader`; `createWriteBuffer()` selects `NeluxWriteBuffer` or legacy FFmpeg-subprocess `WriteBuffer`. Nelux handles audio/subtitle passthrough in `_setupPassthrough` and needs FFmpeg DLLs registered by `src/infra/getFFMPEG.py`.
-- `requirements.txt` pins `nelux==0.12.7`; on cu132, verify `import nelux` because a wheel can be torch-ABI-incompatible.
+- `requirements.txt` pins `nelux==0.14.1`; on cu132, verify `import nelux` because a wheel can be torch-ABI-incompatible.
 
 | Capability | Implementation | Backends/details |
 |---|---|---|
