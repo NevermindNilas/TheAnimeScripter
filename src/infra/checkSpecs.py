@@ -7,6 +7,23 @@ import psutil
 import src.constants as cs
 
 
+def _windowsCpuName():
+    # Registry holds the marketing name ("13th Gen Intel Core i7-13700K"); it is
+    # a sub-millisecond read vs platform.processor()'s WMI shell-out, which only
+    # returns the cryptic PROCESSOR_IDENTIFIER string anyway.
+    try:
+        import winreg
+
+        with winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"HARDWARE\DESCRIPTION\System\CentralProcessor\0",
+        ) as key:
+            name, _ = winreg.QueryValueEx(key, "ProcessorNameString")
+            return name.strip()
+    except OSError:
+        return None
+
+
 def getWindowsInfo():
     osName = platform.system()
     osVersion = platform.release()
@@ -14,13 +31,21 @@ def getWindowsInfo():
     ramInfo = psutil.virtual_memory()
     totalRam = round(ramInfo.total / (1024.0**3), 2)
 
-    # platform.processor() shells out to WMI/registry (~12-28ms) and returns
-    # exactly PROCESSOR_IDENTIFIER on Windows; read the env directly when set.
-    cpuInfo = os.environ.get("PROCESSOR_IDENTIFIER") or platform.processor()
+    cpuInfo = (
+        _windowsCpuName()
+        or os.environ.get("PROCESSOR_IDENTIFIER")
+        or platform.processor()
+    )
 
     logging.info(f"OS: {osName} {osVersion}")
     logging.info(f"CPU: {cpuInfo}")
     logging.info(f"Total RAM: {totalRam:.2f} GB")
+
+    from src.infra.isCudaInit import listWindowsGpuNames
+
+    gpus = listWindowsGpuNames()
+    if gpus:
+        logging.info(f"GPU(s): {', '.join(gpus)}")
 
 
 def getLinuxInfo():
