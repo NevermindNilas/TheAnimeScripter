@@ -682,6 +682,7 @@ class RifeMPS:
             dtype=self.dType,
             device=self.device,
         )
+        self._cachedTimestepValue = None
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
@@ -743,7 +744,9 @@ class RifeMPS:
             else:
                 t = (i + 1) * 1 / (framesToInsert + 1)
 
-            self._timestep_buffer.fill_(t)
+            if self._cachedTimestepValue != t:
+                self._timestep_buffer.fill_(t)
+                self._cachedTimestepValue = t
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
 
