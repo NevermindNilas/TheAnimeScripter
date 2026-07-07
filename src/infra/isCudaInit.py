@@ -127,25 +127,131 @@ def queryNvidiaSmiGpus():
     return tuple(gpus)
 
 
-def checkWindowsAdapters():
+def _loadNvml():
+    """Load the NVIDIA Management Library shipped with the driver, or None."""
+    import ctypes
+
+    candidates = [
+        "nvml.dll",
+        os.path.join(
+            os.environ.get("ProgramFiles", ""),
+            "NVIDIA Corporation",
+            "NVSMI",
+            "nvml.dll",
+        ),
+        "libnvidia-ml.so.1",
+        "libnvidia-ml.so",
+    ]
+    for name in candidates:
+        if not name:
+            continue
+        try:
+            return ctypes.CDLL(name)
+        except OSError:
+            continue
+    return None
+
+
+@lru_cache(maxsize=1)
+def queryNvmlGpus():
+    """
+    Query GPUs through NVML directly (no subprocess) for name + compute_cap.
+
+    nvml.dll/libnvidia-ml ships with the NVIDIA driver, so this needs neither
+    torch nor nvidia-smi on PATH and answers in ~one nvmlInit (much faster than
+    spawning nvidia-smi, and pre-torch). Returns the same shape as
+    queryNvidiaSmiGpus: (name, compute_cap) per GPU, empty on any failure (e.g.
+    no NVIDIA driver -> nvml absent).
+    """
+    import ctypes
+
+    lib = _loadNvml()
+    if lib is None:
+        return ()
     try:
-        result = subprocess.run(
-            [
-                "powershell",
-                "-NoProfile",
-                "-Command",
-                "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.returncode == 0 and result.stdout:
-            adapters = result.stdout.lower()
-            return "nvidia" in adapters
-    except (subprocess.SubprocessError, FileNotFoundError) as _e:
-        pass
-    return False
+        if lib.nvmlInit_v2() != 0:
+            return ()
+    except Exception:
+        return ()
+    try:
+        count = ctypes.c_uint()
+        if lib.nvmlDeviceGetCount_v2(ctypes.byref(count)) != 0:
+            return ()
+        gpus = []
+        for i in range(count.value):
+            handle = ctypes.c_void_p()
+            if lib.nvmlDeviceGetHandleByIndex_v2(i, ctypes.byref(handle)) != 0:
+                continue
+            buf = ctypes.create_string_buffer(96)
+            name = ""
+            if lib.nvmlDeviceGetName(handle, buf, 96) == 0:
+                name = buf.value.decode(errors="replace")
+            major = ctypes.c_int()
+            minor = ctypes.c_int()
+            cap = "unknown"
+            if (
+                lib.nvmlDeviceGetCudaComputeCapability(
+                    handle, ctypes.byref(major), ctypes.byref(minor)
+                )
+                == 0
+            ):
+                cap = f"{major.value}.{minor.value}"
+            if name:
+                gpus.append((name, cap))
+        return tuple(gpus)
+    except Exception:
+        return ()
+    finally:
+        try:
+            lib.nvmlShutdown()
+        except Exception:
+            pass
+
+
+def queryGpus():
+    """NVML first (no subprocess, pre-torch); nvidia-smi as fallback."""
+    gpus = queryNvmlGpus()
+    if gpus:
+        return gpus
+    return queryNvidiaSmiGpus()
+
+
+def listWindowsGpuNames():
+    """All display-adapter names from the registry (any vendor, no WMI)."""
+    if platform.system().lower() != "windows":
+        return []
+    import winreg
+
+    base = (
+        r"SYSTEM\CurrentControlSet\Control\Class"
+        r"\{4d36e968-e325-11ce-bfc1-08002be10318}"
+    )
+    names = []
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, base) as root:
+            i = 0
+            while True:
+                try:
+                    sub = winreg.EnumKey(root, i)
+                except OSError:
+                    break
+                i += 1
+                if not sub.isdigit():
+                    continue
+                try:
+                    with winreg.OpenKey(root, sub) as key:
+                        desc, _ = winreg.QueryValueEx(key, "DriverDesc")
+                        names.append(desc)
+                except OSError:
+                    continue
+    except OSError:
+        return []
+    return names
+
+
+def checkWindowsAdapters():
+    """True if any display adapter is NVIDIA (registry scan, no WMI/subprocess)."""
+    return any("nvidia" in name.lower() for name in listWindowsGpuNames())
 
 
 def checkLinuxPci():
@@ -187,7 +293,7 @@ def isTuringOrNewer(major, minor):
 
 
 def detectNVidiaGPU():
-    gpus = queryNvidiaSmiGpus()
+    gpus = queryGpus()
     if gpus:
         logging.info(f"NVIDIA GPUs detected: {', '.join(name for name, _ in gpus)}")
         return True
@@ -208,7 +314,7 @@ def detectGPUArchitecture():
         tuple: (isModernGPU: bool, gpuName: str, computeCapability: str)
                isModernGPU is True for Turing (compute 7.5) and newer architectures
     """
-    gpus = queryNvidiaSmiGpus()
+    gpus = queryGpus()
     if gpus:
         gpuName, computeCap = gpus[0]
         major, minor = parseComputeCapability(computeCap)
@@ -223,9 +329,9 @@ def detectGPUArchitecture():
             )
         return isModern, gpuName, computeCap
 
-    # nvidia-smi could not report compute_cap (absent, or a driver too old to
-    # support --query-gpu=compute_cap). If an NVIDIA GPU is still detected by
-    # other means, assume a modern (Turing+) arch rather than silently picking
+    # Neither NVML nor nvidia-smi could report compute_cap (driver absent or too
+    # old). If an NVIDIA GPU is still detected by other means, assume a modern
+    # (Turing+) arch rather than silently picking
     # the lite/DirectML dependency profile -- the removed `nvidia-smi -L`
     # heuristic likewise defaulted unrecognized NVIDIA GPUs to modern.
     if detectNVidiaGPU():
