@@ -18,10 +18,6 @@ cut-probability exceeds the threshold.
 import torch
 import torch.nn.functional as F
 
-from src.infra.isCudaInit import CudaChecker
-
-checker = CudaChecker()
-
 
 class _SSIMBase:
     """Shared SSIM cut logic; subclasses set device/dtype and resize mode."""

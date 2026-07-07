@@ -109,6 +109,27 @@ def _configureProcessingSettings(args):
         else:
             method = args.scenechange_method
             sens = args.scenechange_sens
+            # Device guard: the default (ssim-cuda) and the other CUDA/TensorRT
+            # detectors initialize on torch.device("cuda"); downgrade to a
+            # CPU/DML equivalent when CUDA is unavailable (CPU/MPS boxes) so
+            # enabling --scenechange there does not crash at detector init. The
+            # threshold formula is grouped by metric, so remapping here first is
+            # threshold-neutral.
+            from src.infra.isCudaInit import CudaChecker
+
+            if not CudaChecker().cudaAvailable:
+                downgrade = {
+                    "ssim-cuda": "ssim",
+                    "mse-cuda": "mse",
+                    "maxxvit-tensorrt": "maxxvit-directml",
+                }
+                if method in downgrade:
+                    logging.warning(
+                        f"CUDA unavailable; scenechange_method {method} -> "
+                        f"{downgrade[method]}"
+                    )
+                    method = downgrade[method]
+                    args.scenechange_method = method
             if method in ("ssim", "ssim-cuda"):
                 # cut when ssim < threshold; higher sensitivity -> higher threshold
                 args.scenechange_threshold = sens / 100.0

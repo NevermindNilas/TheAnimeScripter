@@ -116,3 +116,55 @@ def testFactoryMapsMethods():
     fake.sceneChangeMethod = "bogus"
     with pytest.raises(ValueError):
         buildSceneChangeProcess(fake)
+
+
+def _scArgs(method):
+    import argparse
+
+    return argparse.Namespace(
+        slowmo=False,
+        static_step=False,
+        interpolate_factor=2,
+        dedup=False,
+        autoclip=False,
+        compile_mode="default",
+        interpolate=True,
+        scenechange=True,
+        scenechange_method=method,
+        scenechange_sens=50.0,
+    )
+
+
+def testValidatorDowngradesCudaMethodsWithoutCuda(monkeypatch):
+    # On a box without CUDA, the default ssim-cuda (and other CUDA/TRT
+    # detectors) would crash at device init; the validator must downgrade them.
+    import src.infra.isCudaInit as ic
+    from src.cli.validator import _configureProcessingSettings
+
+    class FakeChecker:
+        cudaAvailable = False
+
+    monkeypatch.setattr(ic, "CudaChecker", FakeChecker)
+
+    for src_m, dst_m in (
+        ("ssim-cuda", "ssim"),
+        ("mse-cuda", "mse"),
+        ("maxxvit-tensorrt", "maxxvit-directml"),
+    ):
+        a = _scArgs(src_m)
+        _configureProcessingSettings(a)
+        assert a.scenechange_method == dst_m, f"{src_m} should downgrade to {dst_m}"
+        assert a.scenechange_threshold is not None
+
+
+def testValidatorKeepsCudaMethodsWithCuda(monkeypatch):
+    import src.infra.isCudaInit as ic
+    from src.cli.validator import _configureProcessingSettings
+
+    class FakeChecker:
+        cudaAvailable = True
+
+    monkeypatch.setattr(ic, "CudaChecker", FakeChecker)
+    a = _scArgs("ssim-cuda")
+    _configureProcessingSettings(a)
+    assert a.scenechange_method == "ssim-cuda"  # unchanged when CUDA present
