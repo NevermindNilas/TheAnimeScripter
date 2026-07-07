@@ -269,15 +269,17 @@ class DistilDRBACuda:
     @torch.inference_mode()
     def cacheFrameReset(self, frame: torch.Tensor):
         """
-        Reset feature cache on scene change.
-        Called when scene detection triggers a scene change.
+        Scene-cut reset: anchor I0 = frame and clear the 3-frame feature cache
+        so the next interpolation starts fresh in the new scene. firstRun stays
+        False: the loop already emitted the held frames, and the next __call__
+        must interpolate I0(=this frame) <-> next frame (a firstRun path would
+        instead swallow that frame's interpolation).
         """
         self.f0 = None
         self.f1 = None
         self.f2 = None
-        # Reset frame buffers - start fresh with this frame as I0
         self.I0 = self.prepareFrame(frame)
-        self.firstRun = True
+        self.firstRun = False
 
     @torch.inference_mode()
     def __call__(
@@ -654,10 +656,12 @@ class DistilDRBATensorRT:
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame: torch.Tensor):
-        """Reset cache on scene change."""
+        """Scene-cut reset: anchor I0 = frame (I0 python state + tImg0 binding).
+        firstRun stays False so the next __call__ interpolates this frame <->
+        the next frame instead of swallowing it (see DistilDRBACuda)."""
         self.I0 = frame.to(dtype=self.dtype, device=self.device, non_blocking=True)
         self.processFrame(frame, "img0")
-        self.firstRun = True
+        self.firstRun = False
 
     @torch.inference_mode()
     def __call__(

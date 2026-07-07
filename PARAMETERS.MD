@@ -346,6 +346,18 @@ C:\Videos\episode3.mp4
 | `--static_step` | flag | False | **Static timestep** - Force static timestep for RIFE CUDA |
 | `--interpolate_first` | bool | True | **Processing order** - Write interpolated frames to queue immediately |
 
+#### ✂️ Scene-Cut-Aware Interpolation
+
+Interpolating across a hard scene cut produces a melt/ghost frame. When enabled, TAS detects the cut and **holds** (duplicates) the frame instead of morphing across it. Opt-in; off by default; output frame count is unchanged.
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `--scenechange` | flag | False | - | **Skip interpolation across hard cuts** (requires `--interpolate`) |
+| `--scenechange_method` | str | "ssim-cuda" | ssim, ssim-cuda, mse, mse-cuda, maxxvit-tensorrt, maxxvit-directml | **Streaming cut detector** — cheap `ssim`/`mse` (no model) or the `maxxvit` classifier |
+| `--scenechange_sens` | float | 50 | 0-100 | **Cut sensitivity** (higher = more cuts detected); mapped to a per-method threshold |
+
+> **Note:** `transnetv2` and `pyscenedetect` are prepass-only (windowed / whole-file) and are not available here — use `--autoclip` for those.
+
 ### 🔄 Deduplication
 
 | Parameter | Type | Default | Range | Description |

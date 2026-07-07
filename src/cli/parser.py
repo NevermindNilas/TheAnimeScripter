@@ -999,6 +999,34 @@ def _addSceneDetectionOptions(argParser):
     sceneGroup.add_argument(
         "--autoclip_sens", type=float, default=50, help="Autoclip sensitivity"
     )
+    sceneGroup.add_argument(
+        "--scenechange",
+        action="store_true",
+        help="Skip interpolating across hard scene cuts (hold the frame instead "
+        "of morphing across the cut). Requires --interpolate.",
+    )
+    sceneGroup.add_argument(
+        "--scenechange_method",
+        type=str,
+        default="ssim-cuda",
+        choices=[
+            "ssim",
+            "ssim-cuda",
+            "mse",
+            "mse-cuda",
+            "maxxvit-tensorrt",
+            "maxxvit-directml",
+        ],
+        help="Streaming scene-cut detector for --scenechange. Cheap: "
+        "ssim/mse (no model). Classifier: maxxvit-tensorrt/-directml.",
+    )
+    sceneGroup.add_argument(
+        "--scenechange_sens",
+        type=float,
+        default=50,
+        help="Scene-cut sensitivity for --scenechange (0-100, higher = more "
+        "cuts detected). Mapped to a per-method threshold.",
+    )
 
 
 def _addDepthOptions(argParser):

@@ -133,6 +133,17 @@ class GMFSS:
         self.I0.copy_(self.I1, non_blocking=self.use_cuda_stream)
 
     @torch.inference_mode()
+    def cacheFrameReset(self, frame):
+        # Scene-cut reset: anchor I0 = frame. GMFSS's only cross-frame state is
+        # I0 (the per-pair `reuse` cache in __call__ is a local, recomputed every
+        # call), so staging the new frame into I0 is a complete reset. firstRun
+        # stays False.
+        with self.stream_context():
+            self.stageFrame(frame, self.I0)
+        if self.stream is not None:
+            self.stream.synchronize()
+
+    @torch.inference_mode()
     def processFrame(self, frame):
         self.validateFrame(frame)
         return frame.to(

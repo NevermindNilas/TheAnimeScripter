@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 
 from src.infra.isCudaInit import CudaChecker
@@ -242,13 +241,10 @@ class RifeNCNN:
         self._frame0Idx = 1 - self._frame0Idx
 
     def cacheFrameReset(self, frame):
-        arr = (
-            frame.cpu().numpy().astype("uint8")
-            if torch.is_tensor(frame)
-            else np.asarray(frame).astype("uint8")
-        )
-        arr = np.ascontiguousarray(arr).reshape(self.height, self.width, 3)
-        self._frameBytes[self._frame0Idx][:] = arr.tobytes()
+        # Scene-cut reset: make `frame` the anchor (frame0 slot). Reuse the
+        # normal 0..1-float -> HWC-uint8 conversion (_writeFrameInto); NCNN is
+        # stateless per pair, so there is no feature cache to clear.
+        self._writeFrameInto(frame, self._frame0Idx)
         self._firstFrame = False
 
     def __call__(self, frame, interpQueue, framesToInsert=1, timesteps=None):

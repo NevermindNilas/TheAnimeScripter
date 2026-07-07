@@ -164,6 +164,11 @@ class VideoProcessor:
         # Enhancement settings
         self.autoclipSens: float = args.autoclip_sens
         self.autoclipMethod: str = args.autoclip_method
+
+        # Streaming scene-cut skip for the interpolation path (opt-in).
+        self.sceneChange: bool = getattr(args, "scenechange", False)
+        self.sceneChangeMethod: str = getattr(args, "scenechange_method", "ssim-cuda")
+        self.sceneChangeThreshold = getattr(args, "scenechange_threshold", None)
         self.depthQuality: str = args.depth_quality
         self.depthNorm: bool = args.depth_norm
 
@@ -325,10 +330,39 @@ class VideoProcessor:
                 self.framesToInsert = int(self.interpolateFactor) - 1
                 self.timesteps = None
 
+        # Hard-cut detection: if this frame is a scene cut relative to the
+        # previous kept frame, hold (duplicate) instead of morphing across it.
+        # Evaluated on the post-restore frame; the detector downsamples anyway.
+        self._isCut = bool(
+            self.interpolate
+            and self.sceneChange_process is not None
+            and self.sceneChange_process(frame)
+        )
+
         if self.interpolateFirst:
             self.ifInterpolateFirst(frame)
         else:
             self.ifInterpolateLast(frame)
+
+    def _interpolateOrHold(self, frame: any, sink: any) -> None:
+        """
+        Feed the interpolation driver, or on a detected scene cut emit
+        ``framesToInsert`` duplicates of the current frame into ``sink`` and
+        reset the driver's frame/feature cache (via ``cacheFrameReset``) so the
+        next interpolation anchors on this frame with no bleed from the previous
+        scene. ``sink`` is ``self.interpQueue`` (interpolate-first) or
+        ``self.writeBuffer`` (interpolate-last); both expose ``put``.
+        """
+        if self._isCut:
+            for _ in range(self.framesToInsert):
+                sink.put(frame.clone())
+            self.interpolate_process.cacheFrameReset(frame)
+        elif self.interpolateMethod.startswith("distildrba"):
+            self.interpolate_process(
+                frame, self.nextFrame, sink, self.framesToInsert, self.timesteps
+            )
+        else:
+            self.interpolate_process(frame, sink, self.framesToInsert, self.timesteps)
 
     def _drainInterpQueue(self) -> None:
         while True:
@@ -346,18 +380,7 @@ class VideoProcessor:
             frame: Input video frame tensor
         """
         if self.interpolate:
-            if self.interpolateMethod.startswith("distildrba"):
-                self.interpolate_process(
-                    frame,
-                    self.nextFrame,
-                    self.interpQueue,
-                    self.framesToInsert,
-                    self.timesteps,
-                )
-            else:
-                self.interpolate_process(
-                    frame, self.interpQueue, self.framesToInsert, self.timesteps
-                )
+            self._interpolateOrHold(frame, self.interpQueue)
 
         if self.upscale:
             if self.interpolate:
@@ -389,18 +412,7 @@ class VideoProcessor:
             frame = self.upscale_process(frame, self.nextFrame)
 
         if self.interpolate:
-            if self.interpolateMethod.startswith("distildrba"):
-                self.interpolate_process(
-                    frame,
-                    self.nextFrame,
-                    self.writeBuffer,
-                    self.framesToInsert,
-                    self.timesteps,
-                )
-            else:
-                self.interpolate_process(
-                    frame, self.writeBuffer, self.framesToInsert, self.timesteps
-                )
+            self._interpolateOrHold(frame, self.writeBuffer)
 
         self.writeBuffer.write(frame)
 
@@ -513,6 +525,7 @@ class VideoProcessor:
                 self.interpolate_process,
                 self.restore_process,
                 self.dedup_process,
+                self.sceneChange_process,
             ) = initializeModels(self)
 
             starTime: float = time()
