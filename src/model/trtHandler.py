@@ -277,14 +277,20 @@ def setOptimizationProfile(
 def _logInputShapes(name: str, minShape, optShape, maxShape, fp16) -> None:
     """Helper function to log input shapes consistently."""
     if not ADOBE:
-        # UTF8 Parsing of those lines sucks
         precision = "FP16" if fp16 else "FP32"
-        coloredPrint(
-            f"╭─ Input: {name} | {precision} \n"
-            f"├─ Min: {minShape}\n"
-            f"├─ Opt: {optShape}\n"
-            f"╰─ Max: {maxShape}",
-        )
+        # A cosmetic console print must never abort the engine build. On a legacy
+        # code page the box-draw glyphs can still raise (belt-and-suspenders with
+        # the UTF-8 reconfigure in logAndPrint); swallow any console failure --
+        # the logging.info below records the shapes regardless.
+        try:
+            coloredPrint(
+                f"╭─ Input: {name} | {precision} \n"
+                f"├─ Min: {minShape}\n"
+                f"├─ Opt: {optShape}\n"
+                f"╰─ Max: {maxShape}",
+            )
+        except Exception:
+            pass
     logging.info(f"Input: {name} - Min: {minShape}, Opt: {optShape}, Max: {maxShape}")
 
 
