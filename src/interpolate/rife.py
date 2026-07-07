@@ -643,10 +643,23 @@ class RifeMPS:
         self.model = self.model.to(memory_format=torch.channels_last)
 
         if self.compileMode != "default":
-            logAndPrint(
-                f"compileMode '{self.compileMode}' ignored on MPS backend (unsupported).",
-                "yellow",
-            )
+            try:
+                if self.compileMode == "max":
+                    self.model.compile(mode="max-autotune-no-cudagraphs")
+                elif self.compileMode == "max-graphs":
+                    self.model.compile(
+                        mode="max-autotune-no-cudagraphs", fullgraph=True
+                    )
+            except Exception as e:
+                logging.error(
+                    f"Error compiling MPS RIFE model {self.interpolateMethod} "
+                    f"with mode {self.compileMode}: {e}"
+                )
+                logAndPrint(
+                    f"Error compiling MPS RIFE model {self.interpolateMethod} "
+                    f"with mode {self.compileMode}: {e}",
+                    "red",
+                )
             self.compileMode = "default"
 
         if self.baseMethod in ["rife4.25", "rife4.25-heavy", "rife4.25-lite"]:
@@ -716,7 +729,7 @@ class RifeMPS:
                     output = self.model(self.I0, self.I1, frame)[
                         :, :, : self.height, : self.width
                     ].clone()
-                torch.mps.synchronize()
+                # `output.cpu()` will wait for the pending MPS work to finish.
                 return output.contiguous().cpu()
 
             case "model":
