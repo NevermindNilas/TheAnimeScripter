@@ -96,6 +96,37 @@ def _configureProcessingSettings(args):
             f"New autoclip sensitivity for {args.autoclip_method} is: {args.autoclip_sens}"
         )
 
+    # Streaming scene-cut skip for the interpolation path. Map the 0-100
+    # sensitivity to a per-method threshold (see src/sceneChange/detector.py for
+    # the compare direction of each metric). Only meaningful with --interpolate.
+    args.scenechange_threshold = None
+    if getattr(args, "scenechange", False):
+        if not args.interpolate:
+            logging.warning(
+                "--scenechange has no effect without --interpolate; disabling it"
+            )
+            args.scenechange = False
+        else:
+            method = args.scenechange_method
+            sens = args.scenechange_sens
+            if method in ("ssim", "ssim-cuda"):
+                # cut when ssim < threshold; higher sensitivity -> higher threshold
+                args.scenechange_threshold = sens / 100.0
+            elif method in ("mse", "mse-cuda"):
+                # cut when mse > threshold; higher sensitivity -> lower threshold
+                args.scenechange_threshold = (100.0 - sens) * 50.0
+            elif method in ("maxxvit-tensorrt", "maxxvit-directml"):
+                # cut when cut-prob > threshold; mirrors autoclip maxxvit mapping
+                args.scenechange_threshold = 1.0 - (sens / 100.0)
+            else:
+                raise ValueError(
+                    f"Unsupported scenechange_method: {method}. "
+                    f"transnetv2/pyscenedetect are prepass-only; use --autoclip."
+                )
+            logging.info(
+                f"scenechange threshold for {method} is: {args.scenechange_threshold}"
+            )
+
     if args.compile_mode != "default":
         logging.info(
             f"Pytorch Compile mode is set to {args.compile_mode}, this will increase startup time and memory usage and may lead to instability with some models"
