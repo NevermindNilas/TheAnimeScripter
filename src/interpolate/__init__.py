@@ -1,15 +1,7 @@
-from .distildrba import DistilDRBACuda, DistilDRBATensorRT
-from .rife import RifeCuda, RifeMPS
-from .rife_directml import RifeDirectML
-from .rife_ncnn import RifeNCNN
-from .rife_tensorrt import RifeTensorRT
+"""Interpolation backends.
 
-__all__ = [
-    "RifeCuda",
-    "RifeMPS",
-    "RifeTensorRT",
-    "RifeNCNN",
-    "RifeDirectML",
-    "DistilDRBACuda",
-    "DistilDRBATensorRT",
-]
+Import concrete backend modules directly so optional ML dependencies remain
+scoped to the backend that needs them.
+"""
+
+__all__ = []

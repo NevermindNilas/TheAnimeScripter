@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
+from src.interpolate._timesteps import fillTimestepBuffer, interpolateTimestep
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -511,16 +512,12 @@ class RifeCuda:
         self.processFrame(frame, "I1")
 
         for i in range(framesToInsert):
-            if timesteps is not None and i < len(timesteps):
-                t = timesteps[i]
-            else:
-                t = (i + 1) * 1 / (framesToInsert + 1)
-
+            t = interpolateTimestep(i, framesToInsert, timesteps)
             # The common 2x path uses the same 0.5 timestep every frame. Avoid
             # refilling the full HxW tensor unless the requested timestep changes.
-            if self._cachedTimestepValue != t:
-                self._timestep_buffer.fill_(t)
-                self._cachedTimestepValue = t
+            self._cachedTimestepValue = fillTimestepBuffer(
+                self._timestep_buffer, self._cachedTimestepValue, t
+            )
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
 
@@ -752,14 +749,10 @@ class RifeMPS:
         self.processFrame(frame, "I1")
 
         for i in range(framesToInsert):
-            if timesteps is not None and i < len(timesteps):
-                t = timesteps[i]
-            else:
-                t = (i + 1) * 1 / (framesToInsert + 1)
-
-            if self._cachedTimestepValue != t:
-                self._timestep_buffer.fill_(t)
-                self._cachedTimestepValue = t
+            t = interpolateTimestep(i, framesToInsert, timesteps)
+            self._cachedTimestepValue = fillTimestepBuffer(
+                self._timestep_buffer, self._cachedTimestepValue, t
+            )
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
 
