@@ -1,9 +1,5 @@
 from queue import Queue
 
-import pytest
-
-pytest.importorskip("torch")
-
 from src.interpolate.rife import RifeMPS
 
 
