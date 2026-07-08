@@ -11,7 +11,7 @@ from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint, logWarning
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.infra.providerCheck import warnIfProviderMissing
-from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.io.ffmpegSettings import BuildBuffer, createWriteBuffer
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
 
@@ -28,6 +28,56 @@ __all__ = [
     "ObjectDetectionTensorRT",
     "draw_detections",
 ]
+
+
+_INV_255 = 1.0 / 255.0
+
+
+def _writeRgbFrame(
+    writeBuffer, outputImg, writeHwcUint8: bool, copyHwc: bool = False
+) -> None:
+    if writeHwcUint8:
+        outputImg = (
+            np.array(outputImg, copy=True, order="C")
+            if copyHwc
+            else np.ascontiguousarray(outputImg)
+        )
+        writeBuffer.write(torch.from_numpy(outputImg))
+        return
+
+    outputTensor = (
+        torch.from_numpy(outputImg).permute(2, 0, 1).unsqueeze(0).to(torch.float32)
+    )
+    outputTensor.mul_(_INV_255)
+    writeBuffer.write(outputTensor)
+
+
+def _writeOutputFrame(writeBuffer, outputImgBgr, writeHwcUint8: bool) -> None:
+    _writeRgbFrame(
+        writeBuffer,
+        cv2.cvtColor(outputImgBgr, cv2.COLOR_BGR2RGB),
+        writeHwcUint8,
+    )
+
+
+def _rescaleBoxes(owner, boxes):
+    if boxes.size == 0:
+        return boxes.reshape(0, 4)
+    shape = (owner.imgWidth, owner.imgHeight)
+    if getattr(owner, "_boxScaleShape", None) != shape:
+        owner._boxScale = np.array(
+            [
+                owner.imgWidth / owner.inputWidth,
+                owner.imgHeight / owner.inputHeight,
+                owner.imgWidth / owner.inputWidth,
+                owner.imgHeight / owner.inputHeight,
+            ],
+            dtype=np.float32,
+        )
+        owner._boxScaleShape = shape
+    boxes = boxes.astype(np.float32, copy=False)
+    boxes *= owner._boxScale
+    return boxes
 
 
 class ObjectDetectionDML:
@@ -88,17 +138,18 @@ class ObjectDetectionDML:
                 toTorch=False,
             )
 
-            self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
-                self.encodeMethod,
-                self.customEncoder,
-                self.width,
-                self.height,
-                self.fps,
+            self.writeBuffer = createWriteBuffer(
+                input=self.input,
+                output=self.output,
+                encode_method=self.encodeMethod,
+                custom_encoder=self.customEncoder,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
                 grayscale=False,
                 benchmark=self.benchmark,
             )
+            self.writeHwcUint8 = getattr(self.writeBuffer, "acceptsHwcUint8", False)
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
@@ -175,38 +226,30 @@ class ObjectDetectionDML:
         inputShape = modelInputs[0].shape
         self.inputHeight = inputShape[2] if isinstance(inputShape[2], int) else 640
         self.inputWidth = inputShape[3] if isinstance(inputShape[3], int) else 640
+        self._boxScale = None
+        self._boxScaleShape = None
 
     def prepareInput(self, image):
         self.imgHeight, self.imgWidth = image.shape[:2]
-        inputImg = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        inputImg = cv2.resize(inputImg, (self.inputWidth, self.inputHeight))
-        inputImg = inputImg / 255.0
-        inputImg = inputImg.transpose(2, 0, 1)
-        inputTensor = inputImg[np.newaxis, :, :, :].astype(np.float32)
+        inputImg = cv2.resize(image, (self.inputWidth, self.inputHeight))
+        inputTensor = inputImg.transpose(2, 0, 1)[np.newaxis, :, :, :].astype(
+            np.float32
+        )
+        inputTensor *= _INV_255
         return inputTensor
 
     def processOutput(self, output):
-        boxes = output[:, :-2]
         confidences = output[:, -2]
-        classIds = output[:, -1].astype(int)
-
         mask = confidences > self.confThreshold
-        boxes = boxes[mask, :]
+        boxes = output[mask, :-2]
         confidences = confidences[mask]
-        classIds = classIds[mask]
+        classIds = output[mask, -1].astype(int)
 
         boxes = self.rescaleBoxes(boxes)
         return classIds, boxes, confidences
 
     def rescaleBoxes(self, boxes):
-        inputShape = np.array(
-            [self.inputWidth, self.inputHeight, self.inputWidth, self.inputHeight]
-        )
-        boxes = np.divide(boxes, inputShape, dtype=np.float32)
-        boxes *= np.array(
-            [self.imgWidth, self.imgHeight, self.imgWidth, self.imgHeight]
-        )
-        return boxes
+        return _rescaleBoxes(self, boxes)
 
     def detect(self, image):
         inputTensor = self.prepareInput(image)
@@ -216,9 +259,14 @@ class ObjectDetectionDML:
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            frameNp = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            classIds, boxes, confidences = self.detect(frame)
+            if boxes.size == 0:
+                _writeRgbFrame(
+                    self.writeBuffer, frame, self.writeHwcUint8, copyHwc=True
+                )
+                return
 
-            classIds, boxes, confidences = self.detect(frameNp)
+            frameNp = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
             if self.disableAnnotations:
                 outputImg = frameNp.copy()
@@ -229,13 +277,7 @@ class ObjectDetectionDML:
             else:
                 outputImg = draw_detections(frameNp, boxes, confidences, classIds)
 
-            outputImg = cv2.cvtColor(outputImg, cv2.COLOR_BGR2RGB)
-            outputTensor = (
-                torch.from_numpy(outputImg).permute(2, 0, 1).unsqueeze(0).float()
-                / 255.0
-            )
-
-            self.writeBuffer.write(outputTensor)
+            _writeOutputFrame(self.writeBuffer, outputImg, self.writeHwcUint8)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -311,17 +353,18 @@ class ObjectDetectionTensorRT:
                 toTorch=False,
             )
 
-            self.writeBuffer = WriteBuffer(
-                self.input,
-                self.output,
-                self.encodeMethod,
-                self.customEncoder,
-                self.width,
-                self.height,
-                self.fps,
+            self.writeBuffer = createWriteBuffer(
+                input=self.input,
+                output=self.output,
+                encode_method=self.encodeMethod,
+                custom_encoder=self.customEncoder,
+                width=self.width,
+                height=self.height,
+                fps=self.fps,
                 grayscale=False,
                 benchmark=self.benchmark,
             )
+            self.writeHwcUint8 = getattr(self.writeBuffer, "acceptsHwcUint8", False)
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
@@ -426,6 +469,8 @@ class ObjectDetectionTensorRT:
 
         self.inputName = inputName
         self.outputName = outputName
+        self._boxScale = None
+        self._boxScaleShape = None
 
         for i in range(self.engine.num_io_tensors):
             tensorName = self.engine.get_tensor_name(i)
@@ -446,11 +491,11 @@ class ObjectDetectionTensorRT:
     @torch.inference_mode()
     def prepareInput(self, image):
         self.imgHeight, self.imgWidth = image.shape[:2]
-        inputImg = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        inputImg = cv2.resize(inputImg, (self.inputWidth, self.inputHeight))
-        inputImg = inputImg / 255.0
-        inputImg = inputImg.transpose(2, 0, 1)
-        inputTensor = inputImg[np.newaxis, :, :, :].astype(np.float32)
+        inputImg = cv2.resize(image, (self.inputWidth, self.inputHeight))
+        inputTensor = inputImg.transpose(2, 0, 1)[np.newaxis, :, :, :].astype(
+            np.float32
+        )
+        inputTensor *= _INV_255
         return inputTensor
 
     @torch.inference_mode()
@@ -461,14 +506,11 @@ class ObjectDetectionTensorRT:
         if output.ndim == 3:
             output = output.squeeze(0)
 
-        boxes = output[:, :-2]
         confidences = output[:, -2]
-        classIds = output[:, -1].astype(int)
-
         mask = confidences > self.confThreshold
-        boxes = boxes[mask, :]
+        boxes = output[mask, :-2]
         confidences = confidences[mask]
-        classIds = classIds[mask]
+        classIds = output[mask, -1].astype(int)
         classIds = np.clip(classIds, 0, len(colors) - 1)
 
         boxes = self.rescaleBoxes(boxes)
@@ -483,14 +525,7 @@ class ObjectDetectionTensorRT:
 
     @torch.inference_mode()
     def rescaleBoxes(self, boxes):
-        inputShape = np.array(
-            [self.inputWidth, self.inputHeight, self.inputWidth, self.inputHeight]
-        )
-        boxes = np.divide(boxes, inputShape, dtype=np.float32)
-        boxes *= np.array(
-            [self.imgWidth, self.imgHeight, self.imgWidth, self.imgHeight]
-        )
-        return boxes
+        return _rescaleBoxes(self, boxes)
 
     @torch.inference_mode()
     def detect(self, image):
@@ -523,9 +558,14 @@ class ObjectDetectionTensorRT:
     @torch.inference_mode()
     def processFrame(self, frame):
         try:
-            frameNp = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            classIds, boxes, confidences = self.detect(frame)
+            if boxes.size == 0:
+                _writeRgbFrame(
+                    self.writeBuffer, frame, self.writeHwcUint8, copyHwc=True
+                )
+                return
 
-            classIds, boxes, confidences = self.detect(frameNp)
+            frameNp = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
             if self.disableAnnotations:
                 outputImg = frameNp.copy()
@@ -536,13 +576,7 @@ class ObjectDetectionTensorRT:
             else:
                 outputImg = draw_detections(frameNp, boxes, confidences, classIds)
 
-            outputImg = cv2.cvtColor(outputImg, cv2.COLOR_BGR2RGB)
-            outputTensor = (
-                torch.from_numpy(outputImg).permute(2, 0, 1).unsqueeze(0).float()
-                / 255.0
-            )
-
-            self.writeBuffer.write(outputTensor)
+            _writeOutputFrame(self.writeBuffer, outputImg, self.writeHwcUint8)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
