@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 ### Added
-- NCNN (Vulkan) RIFE interpolation backend re-added for cp314: `--interpolate_method rife*-ncnn` (`rife4.6` through `rife4.22`, plus lite/ensemble variants) runs frame interpolation on any Vulkan-capable GPU with no CUDA/TensorRT dependency, so it is available in both the full and lite Windows profiles. Backed by a Python 3.14 rebuild of the `rife-ncnn-vulkan-python` SWIG wrapper (media2x wrapper + nihui core + TNTwise's newer-model fork, carrying TAS's dynamic-padding patch), hosted on TAS-Models-Host; the `-ncnn` model weights auto-download as `rife-v*-ncnn.zip`. The wrapper API is unchanged, so `src/interpolate/rife_ncnn.py` (including the `--scenechange` `cacheFrameReset` hook) needed no code changes.
+- NCNN (Vulkan) RIFE interpolation restored on cp314: `--interpolate_method rife*-ncnn` (rife4.6–rife4.22, lite/ensemble variants) runs on any Vulkan GPU with no CUDA/TensorRT dependency — Windows, Linux, and macOS (Apple Silicon). Ships via a Python 3.14 rebuild of the `rife-ncnn-vulkan-python` wrapper (media2x/nihui/TNTwise) hosted on TAS-Models-Host; weights auto-download as `rife-v*-ncnn.zip`.
 - Scene-cut-aware interpolation (`--scenechange`, opt-in): a per-frame-pair detector holds the frame at hard cuts instead of letting RIFE morph across them (inspired by vs-rife `sc`). `--scenechange_method` picks the detector — cheap `ssim`/`mse` or the `maxxvit` classifier (shared with the autoclip prepass) — and `--scenechange_sens` the threshold. Drives a unified `cacheFrameReset` across all interpolation backends; output frame count is unchanged.
 
 ### Changed

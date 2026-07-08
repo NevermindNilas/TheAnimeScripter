@@ -9,3 +9,4 @@ safetensors==0.8.0
 scenedetect[opencv]
 yt-dlp==2026.7.4
 vmaf-torch
+https://github.com/NevermindNilas/TAS-Models-Host/releases/download/main/rife_ncnn_vulkan_python_tntwise-1.4.5-cp314-cp314-macosx_14_0_arm64.whl ; platform_machine == "arm64"
