@@ -28,7 +28,7 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 - [📈 Performance Benchmarks](#-performance-benchmarks)
 - [👨‍ Contributors](#-contributors)
 - [⭐ Project Growth](#-project-growth)
-- [🎥 Demo & Examples](#-demo--examples)
+- [👥 Code Contributors](#-code-contributors)
 
 ## 🚀 Key Features
 
@@ -311,7 +311,21 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 [![Star History Chart](https://api.star-history.com/svg?repos=NevermindNilas/TheAnimeScripter&type=Date)](https://star-history.com/#NevermindNilas/TheAnimeScripter&Date)
 
-## 🎥 Promo Video
+## 👥 Code Contributors
 
-[![Promo Video](https://img.youtube.com/vi/V7ryKMezqeQ/0.jpg)](https://youtu.be/V7ryKMezqeQ)
-**
+<div align="center">
+
+<!--
+Repobeats analytics dashboard (the stats panel: 30-day contributions, issue ratio,
+PRs, pushes). Requires a free, repo-specific embed hash — sign up at
+https://repobeats.axiom.co, add this repo, then replace REPLACE_WITH_YOUR_HASH below
+and uncomment the line to render it.
+
+![Repobeats analytics image](https://repobeats.axiom.co/api/embed/REPLACE_WITH_YOUR_HASH.svg "Repobeats analytics image")
+-->
+
+<a href="https://github.com/NevermindNilas/TheAnimeScripter/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=NevermindNilas/TheAnimeScripter" alt="TheAnimeScripter contributors" />
+</a>
+
+</div>
