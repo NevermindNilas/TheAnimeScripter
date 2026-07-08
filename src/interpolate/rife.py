@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
+from src.interpolate._timesteps import fillTimestepBuffer, interpolateTimestep
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -511,16 +512,12 @@ class RifeCuda:
         self.processFrame(frame, "I1")
 
         for i in range(framesToInsert):
-            if timesteps is not None and i < len(timesteps):
-                t = timesteps[i]
-            else:
-                t = (i + 1) * 1 / (framesToInsert + 1)
-
+            t = interpolateTimestep(i, framesToInsert, timesteps)
             # The common 2x path uses the same 0.5 timestep every frame. Avoid
             # refilling the full HxW tensor unless the requested timestep changes.
-            if self._cachedTimestepValue != t:
-                self._timestep_buffer.fill_(t)
-                self._cachedTimestepValue = t
+            self._cachedTimestepValue = fillTimestepBuffer(
+                self._timestep_buffer, self._cachedTimestepValue, t
+            )
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
 
@@ -643,10 +640,23 @@ class RifeMPS:
         self.model = self.model.to(memory_format=torch.channels_last)
 
         if self.compileMode != "default":
-            logAndPrint(
-                f"compileMode '{self.compileMode}' ignored on MPS backend (unsupported).",
-                "yellow",
-            )
+            try:
+                if self.compileMode == "max":
+                    self.model.compile(mode="max-autotune-no-cudagraphs")
+                elif self.compileMode == "max-graphs":
+                    self.model.compile(
+                        mode="max-autotune-no-cudagraphs", fullgraph=True
+                    )
+            except Exception as e:
+                logging.error(
+                    f"Error compiling MPS RIFE model {self.interpolateMethod} "
+                    f"with mode {self.compileMode}: {e}"
+                )
+                logAndPrint(
+                    f"Error compiling MPS RIFE model {self.interpolateMethod} "
+                    f"with mode {self.compileMode}: {e}",
+                    "red",
+                )
             self.compileMode = "default"
 
         if self.baseMethod in ["rife4.25", "rife4.25-heavy", "rife4.25-lite"]:
@@ -682,6 +692,7 @@ class RifeMPS:
             dtype=self.dType,
             device=self.device,
         )
+        self._cachedTimestepValue = None
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
@@ -715,7 +726,7 @@ class RifeMPS:
                     output = self.model(self.I0, self.I1, frame)[
                         :, :, : self.height, : self.width
                     ].clone()
-                torch.mps.synchronize()
+                # `output.cpu()` will wait for the pending MPS work to finish.
                 return output.contiguous().cpu()
 
             case "model":
@@ -738,12 +749,10 @@ class RifeMPS:
         self.processFrame(frame, "I1")
 
         for i in range(framesToInsert):
-            if timesteps is not None and i < len(timesteps):
-                t = timesteps[i]
-            else:
-                t = (i + 1) * 1 / (framesToInsert + 1)
-
-            self._timestep_buffer.fill_(t)
+            t = interpolateTimestep(i, framesToInsert, timesteps)
+            self._cachedTimestepValue = fillTimestepBuffer(
+                self._timestep_buffer, self._cachedTimestepValue, t
+            )
             output = self.processFrame(self._timestep_buffer, "infer")
             interpQueue.put(output)
 
