@@ -287,7 +287,9 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [YT-DLP Team](https://github.com/yt-dlp)        | Media download capabilities            | [yt-dlp](https://github.com/yt-dlp/yt-dlp)                     |
 | [Breakthrough](https://github.com/Breakthrough) | Scene detection algorithms             | [PySceneDetect](https://github.com/Breakthrough/PySceneDetect) |
 | [Chainner-org](https://github.com/chaiNNer-org) | Neural network architecture (vendored fork) | [spandrel](https://github.com/chaiNNer-org/spandrel)           |
-| [TNTWise](https://github.com/TNTwise)           | RIFE ONNX optimizations           | [GitHub](https://github.com/TNTwise)                           |
+| [TNTWise](https://github.com/TNTwise)           | RIFE ONNX optimizations & NCNN model fork | [rife-ncnn-vulkan](https://github.com/TNTwise/rife-ncnn-vulkan) |
+| [Media2x](https://github.com/media2x)           | RIFE NCNN Python (SWIG) wrapper        | [rife-ncnn-vulkan-python](https://github.com/media2x/rife-ncnn-vulkan-python) |
+| [nihui](https://github.com/nihui)               | RIFE NCNN Vulkan implementation        | [rife-ncnn-vulkan](https://github.com/nihui/rife-ncnn-vulkan)  |
 | [Hyperbrew](https://github.com/hyperbrew)       | Adobe integration framework            | [bolt-cep](https://github.com/hyperbrew/bolt-cep)              |
 | [NVIDIA](https://github.com/NVIDIA)             | Maxine Video Effects SDK (RTX VSR) via `nvidia-vfx` | [MAXINE-VFX-SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)      |
 

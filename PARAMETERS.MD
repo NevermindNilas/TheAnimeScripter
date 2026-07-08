@@ -320,19 +320,19 @@ C:\Videos\episode3.mp4
 
 | Model | Speed | Quality | VRAM | Best For | Acceleration |
 |-------|-------|---------|------|----------|--------------|
-| **rife4.22** | ⚡⚡ | ⭐⭐⭐ | 4GB | General use | CUDA, TRT |
+| **rife4.22** | ⚡⚡ | ⭐⭐⭐ | 4GB | General use | CUDA, TRT, NCNN |
 | **rife4.25** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | High quality | CUDA, TRT |
 | **rife4.25-lite** | ⚡⚡⚡ | ⭐⭐ | 3GB | Balanced performance | CUDA, TRT |
 | **rife4.25-heavy** | ⚡ | ⭐⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
-| **rife4.22-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, TRT |
-| **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice | CUDA, TRT |
-| **rife4.15-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, TRT |
+| **rife4.22-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Low-end GPUs | CUDA, TRT, NCNN |
+| **rife4.6** | ⚡⚡⚡⚡ | ⭐⭐ | 4GB | Stable choice | CUDA, TRT, NCNN |
+| **rife4.15-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, TRT, NCNN |
 | **rife4.15** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
-| **rife4.16-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA |
-| **rife4.17** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
-| **rife4.18** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
-| **rife4.20** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
-| **rife4.21** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT |
+| **rife4.16-lite** | ⚡⚡⚡ | ⭐⭐ | 2GB | Legacy lite | CUDA, NCNN |
+| **rife4.17** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
+| **rife4.18** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
+| **rife4.20** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
+| **rife4.21** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
 | **gmfss** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Alternative method | CUDA, TRT |
 | **rife_elexor** | ⚡ | ⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
 
