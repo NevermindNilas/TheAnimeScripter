@@ -28,7 +28,7 @@ import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
-from queue import Empty, Queue
+from queue import Empty
 from time import time
 
 os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
@@ -65,6 +65,21 @@ import src.constants as cs  # noqa: E402
 from src.io.frameWindow import FrameSlot  # noqa: E402
 
 warnings.filterwarnings("ignore")
+
+
+class _FrameCollector:
+    """Small same-thread sink for interpolation outputs."""
+
+    __slots__ = ("frames",)
+
+    def __init__(self) -> None:
+        self.frames = []
+
+    def put(self, frame) -> None:
+        self.frames.append(frame)
+
+    def clear(self) -> None:
+        self.frames.clear()
 
 
 def _setTerminalTitle(title: str) -> None:
@@ -447,12 +462,9 @@ class VideoProcessor:
         self.maskAnchor = frame
 
     def _drainInterpQueue(self) -> None:
-        while True:
-            try:
-                item = self.interpQueue.get_nowait()
-            except Empty:
-                break
+        for item in self.interpQueue.frames:
             self.writeBuffer.write(item)
+        self.interpQueue.clear()
 
     def ifInterpolateFirst(self, frame: any) -> None:
         """
@@ -471,16 +483,14 @@ class VideoProcessor:
         nextFrame = self.frameWindow.successorFrame()
 
         if self.interpolate:
+            self.interpQueue.clear()
             self._interpolateOrHold(frame, self.interpQueue, nextFrame)
 
         if self.upscale:
             if self.interpolate:
-                while True:
-                    try:
-                        item = self.interpQueue.get_nowait()
-                    except Empty:
-                        break
+                for item in self.interpQueue.frames:
                     self.writeBuffer.write(self.upscale_process(item, nextFrame))
+                self.interpQueue.clear()
 
                 self.writeBuffer.write(self.upscale_process(frame, nextFrame))
 
@@ -559,7 +569,7 @@ class VideoProcessor:
         self.framesToInsert = self.interpolateFactor - 1 if self.interpolate else 0
 
         if self.interpolate and self.interpolateFirst:
-            self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
+            self.interpQueue = _FrameCollector()
 
         # Drivers declare how many neighbouring frames they need handed to them.
         # Restore runs at window entry, so every slot already shares its domain
