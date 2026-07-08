@@ -20,21 +20,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           python-version: "3.14.5"
+          version: "0.11.28"
+          enable-cache: true
 
       - name: Extract version
         id: get_version
         run: |
-          $version = python -c "import src.version; print(src.version.__version__)"
+          $version = uv run --no-project python -c "import src.version; print(src.version.__version__)"
           $versionNoDots = $version -replace '\.', ''
           "version=$version" >> $env:GITHUB_OUTPUT
           "version_nodots=$versionNoDots" >> $env:GITHUB_OUTPUT
 
       - name: Run full build script
-        run: python build.py
+        run: uv run --no-project python build.py
 
       - name: Compress full directory
         run: |

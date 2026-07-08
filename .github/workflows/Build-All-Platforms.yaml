@@ -16,15 +16,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           python-version: "3.14.5"
+          version: "0.11.28"
+          enable-cache: true
 
       - name: Extract version
         id: get_version
         run: |
-          version=$(python -c 'import src.version; print(src.version.__version__)')
+          version=$(uv run --no-project python -c 'import src.version; print(src.version.__version__)')
           version_nodots=${version//./}
           echo "version=${version}" >> $GITHUB_ENV
           echo "version_nodots=${version_nodots}" >> $GITHUB_ENV
@@ -41,7 +43,7 @@ jobs:
           version="${{ steps.get_version.outputs.version }}"
           # Extract changelog content for the current version
           # Falls back to [Unreleased] section if version not found
-          changelog=$(python -c "
+          changelog=$(uv run --no-project python -c "
           import re
           
           version = '${version}'
@@ -90,13 +92,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           python-version: "3.14.5"
+          version: "0.11.28"
+          enable-cache: true
 
       - name: Run full build script
-        run: python build.py
+        run: uv run --no-project python build.py
 
       - name: Compress full directory
         run: |
@@ -120,13 +124,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           python-version: "3.14.5"
+          version: "0.11.28"
+          enable-cache: true
 
       - name: Run full build script
-        run: python build.py
+        run: uv run --no-project python build.py
 
       - name: Compress full directory
         run: |
@@ -151,13 +157,15 @@ jobs:
   #      with:
   #        submodules: recursive
 #
-  #    - name: Set up Python
-  #      uses: actions/setup-python@v2
+  #    - name: Install uv and Python
+  #      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
   #      with:
   #        python-version: "3.13.3"
+  #        version: "0.11.28"
+  #        enable-cache: true
 #
   #    - name: Run lite build script
-  #      run: python build-lite.py
+  #      run: uv run --no-project python build-lite.py
 #
   #    - name: Compress lite directory
   #      run: |
@@ -184,13 +192,15 @@ jobs:
   #      with:
   #        submodules: recursive
 #
-  #    - name: Set up Python
-  #      uses: actions/setup-python@v2
+  #    - name: Install uv and Python
+  #      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
   #      with:
   #        python-version: "3.13.3"
+  #        version: "0.11.28"
+  #        enable-cache: true
 #
   #    - name: Run lite build script
-  #      run: python build-linux-lite.py
+  #      run: uv run --no-project python build-linux-lite.py
 #
   #    - name: Compress lite directory
   #      run: |
