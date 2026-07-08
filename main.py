@@ -171,6 +171,7 @@ class VideoProcessor:
         self.sceneChangeThreshold = getattr(args, "scenechange_threshold", None)
         self.depthQuality: str = args.depth_quality
         self.depthNorm: bool = args.depth_norm
+        self.depthWindow: int = getattr(args, "depth_window", 32)
 
         self.moblur: bool = args.moblur
         self.moblurMethod: str = args.moblur_method

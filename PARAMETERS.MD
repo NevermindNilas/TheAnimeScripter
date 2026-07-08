@@ -413,6 +413,7 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) — specifying a non-default method auto-enables depth estimation |
 | `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. |
 | `--depth_norm` | flag | False | **Temporal depth normalization** — stabilizes the normalization range using a causal sliding-window median of per-frame percentiles (no pixel blending, so no motion ghosting). Auto-resets on scene cuts. Not compatible with video depth methods (`video_small_v2`, `video_large_v2`, `og_video_*`). |
+| `--depth_window` | int | 32 | **Temporal attention window** (frames attended) for the video depth methods (`video_small_v2`/`video_large_v2`); one of `32/16/8/4`. `32` = full-quality streaming; `16` gives ~+24% forward throughput (~+14% end-to-end) with no added flicker and SSIM 0.997 / VMAF 98.1 vs the full window; `8`/`4` trade more fidelity for more speed. Frame storage is unchanged (32 retained); only the attended window shrinks. CUDA-only; ignored by other depth methods. |
 
 #### 🎯 Segmentation Methods
 

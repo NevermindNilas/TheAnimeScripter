@@ -1113,6 +1113,15 @@ def _addDepthOptions(argParser):
         action="store_true",
         help="Apply sliding window normalization to reduce flickering in depth maps, not compatible with video depth methods",
     )
+    depthGroup.add_argument(
+        "--depth_window",
+        type=int,
+        choices=[4, 8, 16, 32],
+        default=32,
+        help="Temporal attention window (frames) for video depth methods (video_*). "
+        "32 = full quality (default); 16 is ~1.24x faster forward with no added "
+        "flicker at a slight quality tradeoff; 8 is faster still. CUDA-only, video_* methods.",
+    )
 
 
 def _addEncodingOptions(argParser):
