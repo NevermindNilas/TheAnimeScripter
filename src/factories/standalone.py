@@ -337,6 +337,7 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
+                depth_window=self.depthWindow,
             )
 
         case (

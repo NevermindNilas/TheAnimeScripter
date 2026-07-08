@@ -4,9 +4,7 @@ os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from queue import Queue
 
-import cv2
 import numpy as np
 import torch
 
@@ -14,6 +12,7 @@ from src.infra.isCudaInit import CudaChecker
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import (
     BuildBuffer,
+    WriteBuffer,
 )
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
@@ -57,7 +56,6 @@ class VideoDepthAnythingCUDA:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
-        self.encodeBuffer = Queue(maxsize=10)
 
         self.handleModels()
         try:
@@ -72,16 +70,22 @@ class VideoDepthAnythingCUDA:
                 toTorch=False,
             )
 
-            self.output = cv2.VideoWriter(
+            self.writeBuffer = WriteBuffer(
+                self.input,
                 self.output,
-                cv2.VideoWriter_fourcc(*"mp4v"),
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
                 self.fps,
-                (self.width, self.height),
+                grayscale=True,
+                benchmark=self.benchmark,
+                bitDepth=self.bitDepth,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
-                executor.submit(self.encodeThread)
+                executor.submit(self.writeBuffer)
                 executor.submit(self.process_nelux)
 
         except Exception as e:
@@ -145,10 +149,10 @@ class VideoDepthAnythingCUDA:
     def processFrame(self, frame):
         try:
             depth = self.model.infer_video_depth_one(frame, 518, self.device, True)
-            min_val, max_val = depth.min(), depth.max()
-            depth = ((depth - min_val) / (max_val - min_val) * 255).astype(np.uint8)
-            depth = np.stack([depth] * 3, axis=-1)
-            self.encodeBuffer.put(depth)
+            depth = torch.from_numpy(depth)
+            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
+            depth = depth.unsqueeze(0).unsqueeze(0)
+            self.writeBuffer.write(depth)
         except Exception as e:
             self._resetVideoDepthState()
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -169,14 +173,7 @@ class VideoDepthAnythingCUDA:
                     nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
-        self.encodeBuffer.put(None)
-
-    def encodeThread(self):
-        while True:
-            frame = self.encodeBuffer.get()
-            if frame is None:
-                break
-            self.output.write(frame)
+        self.writeBuffer.close()
 
 
 class VideoDepthAnythingTorch:
@@ -200,6 +197,7 @@ class VideoDepthAnythingTorch:
         bitDepth: str = "16bit",
         depthQuality: str = "high",
         compileMode: str = "default",
+        depth_window: int = 32,
     ):
         self.input = input
         self.output = output
@@ -217,7 +215,7 @@ class VideoDepthAnythingTorch:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
-        self.encodeBuffer = Queue(maxsize=10)
+        self.depthWindow = depth_window
 
         self.handleModels()
         try:
@@ -232,16 +230,22 @@ class VideoDepthAnythingTorch:
                 toTorch=False,
             )
 
-            self.output = cv2.VideoWriter(
+            self.writeBuffer = WriteBuffer(
+                self.input,
                 self.output,
-                cv2.VideoWriter_fourcc(*"mp4v"),
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
                 self.fps,
-                (self.width, self.height),
+                grayscale=True,
+                benchmark=self.benchmark,
+                bitDepth=self.bitDepth,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
-                executor.submit(self.encodeThread)
+                executor.submit(self.writeBuffer)
                 executor.submit(self.process_nelux)
 
         except Exception as e:
@@ -293,6 +297,21 @@ class VideoDepthAnythingTorch:
         )
 
         self.model = self.model.to(checker.device).eval()
+
+        from ..video_depth_anything.optimizations import (
+            apply_optimizations,
+            keep_fp32_islands,
+        )
+
+        counts = apply_optimizations(self.model, window=self.depthWindow)
+        if self.half and checker.cudaAvailable:
+            self.model = self.model.half()
+            keep_fp32_islands(self.model)
+        logging.info(
+            f"VideoDepthAnything optimized ({counts}), "
+            f"window={self.depthWindow}, half={self.half}"
+        )
+
         self.device = "cuda" if checker.cudaAvailable else "cpu"
 
     def _resetVideoDepthState(self):
@@ -317,10 +336,10 @@ class VideoDepthAnythingTorch:
                 frame = (frame * 255).astype(np.uint8)
 
             depth = self.model.infer_video_depth_one(frame, 518, self.device, True)
-            min_val, max_val = depth.min(), depth.max()
-            depth = ((depth - min_val) / (max_val - min_val) * 255).astype(np.uint8)
-            depth = np.stack([depth] * 3, axis=-1)
-            self.encodeBuffer.put(depth)
+            depth = torch.from_numpy(depth)
+            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
+            depth = depth.unsqueeze(0).unsqueeze(0)
+            self.writeBuffer.write(depth)
         except Exception as e:
             self._resetVideoDepthState()
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -343,13 +362,4 @@ class VideoDepthAnythingTorch:
                     nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
-        self.encodeBuffer.put(None)
-
-    def encodeThread(self):
-        while True:
-            frame = self.encodeBuffer.get()
-            if frame is None:
-                break
-            self.output.write(frame)
-
-        self.output.release()
+        self.writeBuffer.close()
