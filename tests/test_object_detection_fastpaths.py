@@ -1,6 +1,6 @@
-import numpy as np
 import pytest
 
+np = pytest.importorskip("numpy")
 torch = pytest.importorskip("torch")
 pytest.importorskip("cv2")
 pytest.importorskip("onnxruntime")
