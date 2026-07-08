@@ -397,7 +397,7 @@ def depth(self):
                 depthNorm=self.depthNorm,
             )
 
-        case "small_v3" | "base_v3" | "og_large_v3":
+        case "small_v3" | "base_v3" | "large_v3" | "og_large_v3":
             from src.depth.backends.cuda import OGDepthV3Cuda
 
             OGDepthV3Cuda(

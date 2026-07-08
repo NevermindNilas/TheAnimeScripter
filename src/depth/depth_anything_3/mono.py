@@ -75,6 +75,23 @@ MONO_PRESETS: dict[str, dict[str, Any]] = {
             "out_channels": [256, 512, 1024, 1024],
         },
     },
+    "da3mono-large": {
+        "backbone": {
+            "name": "vitl",
+            "out_layers": [4, 11, 17, 23],
+            "alt_start": -1,
+            "qknorm_start": -1,
+            "rope_start": -1,
+            "cat_token": False,
+        },
+        "head": {
+            "kind": "dpt",
+            "dim_in": 1024,
+            "output_dim": 1,
+            "features": 256,
+            "out_channels": [256, 512, 1024, 1024],
+        },
+    },
 }
 
 MODEL_ALIASES = {

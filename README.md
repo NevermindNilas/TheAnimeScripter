@@ -18,16 +18,16 @@
 
 TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit specialized for anime and general video content. It seamlessly integrates with Adobe After Effects while also offering standalone functionality, bringing professional-grade AI upscaling, interpolation, and restoration to creators.
 
-##  Table of Contents
+## 📖 Table of Contents
 
-- [ Key Features](#-key-features)
+- [📋 Overview](#-overview)
+- [🚀 Key Features](#-key-features)
 - [🖥️ User Interfaces](#️-user-interfaces)
-- [🛠️ Installation Guide](#️-installation-guide)
-- [📚 Command Reference](#-command-reference)
-- [📁 Supported Models](#-supported-models)
-- [📈 Performance Benchmarks](#-performance-benchmarks)
-- [👨‍ Contributors](#-contributors)
-- [⭐ Project Growth](#-project-growth)
+- [🛠️ Getting Started](#️-getting-started)
+- [📚 Available Inputs](#-available-inputs)
+- [📁 Available Models](#-available-models)
+- [🙏 Project Contributors](#-project-contributors)
+- [🌟 Star History](#-star-history)
 - [👥 Code Contributors](#-code-contributors)
 
 ## 🚀 Key Features
@@ -275,10 +275,9 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [Elexor](https://github.com/elexor)               | Custom RIFE modifications    | [Modded Rife Experiment(s)](https://github.com/elexor)                                 |
 | [Zarxrax](https://github.com/Zarxrax)             | Anime1080Fixer restoration   | [GitHub](https://github.com/Zarxrax)                                                   |
 | [umzi](https://github.com/umzi2)                  | RTMOSR & GaterV3 Models      | [GitHub](https://github.com/umzi2)                                                     |
-| [Phhofm](https://github.com/Phhofm/models) | DeJpeg & DeH264 restoration |
+| [Phhofm](https://github.com/Phhofm/models)        | DeJpeg & DeH264 restoration  | [Phhofm/models](https://github.com/Phhofm/models)                                      |
 | [Kim2091](https://github.com/Kim2091)             | DIS Architecture (Gauss)  | [DIS](https://github.com/Kim2091/DIS)                                                  |
 | [Raymond Zhou et al.](https://github.com/RaymondLZhou) | deepDeband (ICIP 2022) debanding | [deepDeband](https://github.com/RaymondLZhou/deepDeband)                          |
-****
 
 ### 🛠️ Framework & Tool Contributors
 | Contributor                                     | Contribution                           | Repository                                                     |
@@ -291,7 +290,7 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | [Media2x](https://github.com/media2x)           | RIFE NCNN Python (SWIG) wrapper        | [rife-ncnn-vulkan-python](https://github.com/media2x/rife-ncnn-vulkan-python) |
 | [nihui](https://github.com/nihui)               | RIFE NCNN Vulkan implementation        | [rife-ncnn-vulkan](https://github.com/nihui/rife-ncnn-vulkan)  |
 | [Hyperbrew](https://github.com/hyperbrew)       | Adobe integration framework            | [bolt-cep](https://github.com/hyperbrew/bolt-cep)              |
-| [NVIDIA](https://github.com/NVIDIA)             | Maxine Video Effects SDK (RTX VSR) via `nvidia-vfx` | [MAXINE-VFX-SDK](https://github.com/NVIDIA/MAXINE-VFX-SDK)      |
+| [NVIDIA](https://github.com/NVIDIA)             | Maxine Video Effects SDK (RTX VSR) via `nvidia-vfx` | [NVIDIA Maxine](https://developer.nvidia.com/maxine)           |
 
 
 ### 🌟 TAS Collaborators
@@ -313,16 +312,9 @@ All available parameters for interacting with the CLI or directly with `main.py`
 
 ## 👥 Code Contributors
 
+A huge thank you to everyone who has contributed code to TheAnimeScripter.
+
 <div align="center">
-
-<!--
-Repobeats analytics dashboard (the stats panel: 30-day contributions, issue ratio,
-PRs, pushes). Requires a free, repo-specific embed hash — sign up at
-https://repobeats.axiom.co, add this repo, then replace REPLACE_WITH_YOUR_HASH below
-and uncomment the line to render it.
-
-![Repobeats analytics image](https://repobeats.axiom.co/api/embed/REPLACE_WITH_YOUR_HASH.svg "Repobeats analytics image")
--->
 
 <a href="https://github.com/NevermindNilas/TheAnimeScripter/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=NevermindNilas/TheAnimeScripter" alt="TheAnimeScripter contributors" />

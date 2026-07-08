@@ -513,6 +513,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
         modelMap = {
             "small_v3": "da3-small",
             "base_v3": "da3-base",
+            "large_v3": "da3mono-large",
             "og_large_v3": "da3metric-large",
         }
         modelName = modelMap[self.depth_method]
