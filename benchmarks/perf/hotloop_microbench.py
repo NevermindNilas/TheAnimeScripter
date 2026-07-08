@@ -174,11 +174,15 @@ def bench_queue(args: argparse.Namespace) -> dict:
     else:
         device = "cpu"
     tensor = torch.empty((1, 3, args.height, args.width), device=device)
+    q = queue.Queue()
 
     def queue_step() -> None:
-        q = queue.Queue()
         q.put(tensor)
-        q.get_nowait()
+        while True:
+            try:
+                q.get_nowait()
+            except queue.Empty:
+                break
 
     collector = Collector()
 

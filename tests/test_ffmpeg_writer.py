@@ -38,3 +38,21 @@ def testWriteBufferInitialNoneSentinelExitsCleanly(monkeypatch, tmp_path):
     wb.writeBuffer.put(None)
 
     wb()
+
+
+def testNeluxWriteBufferBenchmarkConsumesFramesWithoutEncoder(monkeypatch, tmp_path):
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    wb = ffmpegSettings.NeluxWriteBuffer(
+        output=str(tmp_path / "out.mp4"),
+        benchmark=True,
+    )
+    wb.writeBuffer.put(object())
+    wb.writeBuffer.put(None)
+
+    wb()
+
+    assert wb.writtenFrames == 1
+    assert wb.encoder is None
