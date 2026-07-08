@@ -1161,6 +1161,7 @@ class NeluxWriteBuffer:
         self.writeBuffer = Queue(maxsize=32)
         self.writtenFrames = 0
         self.CudaStream = None
+        self.acceptsHwcUint8 = True
         # Nelux does not produce an FFmpeg-based preview image. Define the
         # attribute (matching WriteBuffer's None default) so main.py's preview
         # setup -- which reads writeBuffer.previewPath -- doesn't AttributeError
@@ -1310,6 +1311,18 @@ class NeluxWriteBuffer:
 
                 if frame is None:
                     break
+
+                if (
+                    isinstance(frame, torch.Tensor)
+                    and frame.ndim == 3
+                    and frame.dtype == torch.uint8
+                    and frame.shape[2] == 3
+                ):
+                    if not frame.is_contiguous():
+                        frame = frame.contiguous()
+                    self.encoder.encode_frame(frame)
+                    self.writtenFrames += 1
+                    continue
 
                 if self.CudaStream is not None:
                     with torch.cuda.stream(self.CudaStream):

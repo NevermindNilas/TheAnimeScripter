@@ -28,7 +28,7 @@ import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
-from queue import Empty, Queue
+from queue import Empty
 from time import time
 
 os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
@@ -64,6 +64,21 @@ _disableUserSitePackages()
 import src.constants as cs  # noqa: E402
 
 warnings.filterwarnings("ignore")
+
+
+class _FrameCollector:
+    """Small same-thread sink for interpolation outputs."""
+
+    __slots__ = ("frames",)
+
+    def __init__(self) -> None:
+        self.frames = []
+
+    def put(self, frame) -> None:
+        self.frames.append(frame)
+
+    def clear(self) -> None:
+        self.frames.clear()
 
 
 def _setTerminalTitle(title: str) -> None:
@@ -365,12 +380,9 @@ class VideoProcessor:
             self.interpolate_process(frame, sink, self.framesToInsert, self.timesteps)
 
     def _drainInterpQueue(self) -> None:
-        while True:
-            try:
-                item = self.interpQueue.get_nowait()
-            except Empty:
-                break
+        for item in self.interpQueue.frames:
             self.writeBuffer.write(item)
+        self.interpQueue.clear()
 
     def ifInterpolateFirst(self, frame: any) -> None:
         """
@@ -380,16 +392,14 @@ class VideoProcessor:
             frame: Input video frame tensor
         """
         if self.interpolate:
+            self.interpQueue.clear()
             self._interpolateOrHold(frame, self.interpQueue)
 
         if self.upscale:
             if self.interpolate:
-                while True:
-                    try:
-                        item = self.interpQueue.get_nowait()
-                    except Empty:
-                        break
+                for item in self.interpQueue.frames:
                     self.writeBuffer.write(self.upscale_process(item, self.nextFrame))
+                self.interpQueue.clear()
 
                 self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
 
@@ -445,7 +455,7 @@ class VideoProcessor:
         self.framesToInsert = self.interpolateFactor - 1 if self.interpolate else 0
 
         if self.interpolate and self.interpolateFirst:
-            self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
+            self.interpQueue = _FrameCollector()
 
         try:
             currentFrame = self.readBuffer.read()

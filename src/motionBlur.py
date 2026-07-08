@@ -10,7 +10,7 @@ import torch
 
 from src.constants import ADOBE
 from src.infra.progressBarLogic import ProgressBarLogic
-from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.io.ffmpegSettings import BuildBuffer, createWriteBuffer
 
 if ADOBE:
     from src.server.aeComms import progressState
@@ -346,14 +346,14 @@ class MotionBlurPipeline:
             decode_method=self.decodeMethod,
         )
 
-        self.writeBuffer = WriteBuffer(
-            self.input,
-            self.output,
-            self.encode_method,
-            self.custom_encoder,
-            self.width,
-            self.height,
-            self.fps,
+        self.writeBuffer = createWriteBuffer(
+            input=self.input,
+            output=self.output,
+            encode_method=self.encode_method,
+            custom_encoder=self.custom_encoder,
+            width=self.width,
+            height=self.height,
+            fps=self.fps,
             grayscale=False,
             benchmark=self.benchmark,
             bitDepth=self.bitDepth,
