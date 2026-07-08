@@ -22,14 +22,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.28"
+          enable-cache: true
+
+      - name: Create lint environment
+        run: uv venv
+
       # Pin ruff: formatter output and lint rules can shift between releases, so
       # the version here must match what contributors run locally.
       - name: Install ruff
-        run: pipx install ruff==0.15.16
+        run: uv pip install ruff==0.15.16
 
       # Discovery mode (no explicit paths) so the excludes in pyproject.toml apply.
       - name: Lint
-        run: ruff check --output-format=github
+        run: uv run ruff check --output-format=github
 
       - name: Format check
-        run: ruff format --check
+        run: uv run ruff format --check
