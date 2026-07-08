@@ -1148,6 +1148,7 @@ class NeluxWriteBuffer:
         fps: float = 60.0,
         inpoint: float = 0.0,
         outpoint: float = 0.0,
+        benchmark: bool = False,
         **kwargs,  # Accept and ignore other WriteBuffer params for compatibility
     ):
         """
@@ -1171,6 +1172,7 @@ class NeluxWriteBuffer:
         self.fps = fps
         self.inpoint = inpoint
         self.outpoint = outpoint
+        self.benchmark = benchmark
         self.writeBuffer = Queue(maxsize=32)
         self.writtenFrames = 0
         self.CudaStream = None
@@ -1286,6 +1288,15 @@ class NeluxWriteBuffer:
         import torch
 
         try:
+            if self.benchmark:
+                while True:
+                    frame = self.writeBuffer.get()
+                    if frame is None:
+                        break
+                    self.writtenFrames += 1
+                logging.info(f"Nelux benchmark consumed {self.writtenFrames} frames")
+                return
+
             while self.writeBuffer.empty():
                 time.sleep(0.001)
 
