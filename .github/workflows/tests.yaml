@@ -20,22 +20,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          # Float the patch so setup-python hits the runner's pre-baked
-          # interpreter (instant) instead of downloading an exact build (~1 min).
+          # Float the patch while letting setup-uv select the runner Python.
           python-version: "3.14"
-          # Cache pip's wheel store; key tracks this workflow (where deps are pinned).
-          cache: pip
-          cache-dependency-path: .github/workflows/tests.yaml
+          version: "0.11.28"
+          enable-cache: true
+
+      - name: Create test environment
+        run: uv venv
 
       # Pure-logic tests need only the standard library plus packaging (for the
       # dependency version checks). barflow is required by downloadModels via
-      # progressBarLogic (registry-drift tests). Pinned so the pip cache key stays stable.
+      # progressBarLogic (registry-drift tests). Pinned so the uv cache stays stable.
       # The torch/cv2-backed motion-blur tests skip themselves via importorskip.
       - name: Install test dependencies
-        run: pip install pytest==9.0.3 packaging==26.0 barflow==0.4.0
+        run: uv pip install pytest==9.0.3 packaging==26.0 barflow==0.4.0
 
       - name: Run unit tests
-        run: python -m pytest tests/ -q
+        run: uv run python -m pytest tests/ -q
