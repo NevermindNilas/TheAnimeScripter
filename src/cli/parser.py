@@ -1122,6 +1122,18 @@ def _addDepthOptions(argParser):
         "32 = full quality (default); 16 is ~1.24x faster forward with no added "
         "flicker at a slight quality tradeoff; 8 is faster still. CUDA-only, video_* methods.",
     )
+    depthGroup.add_argument(
+        "--depth_batch",
+        type=int,
+        default=1,
+        help="Number of frames processed per model forward for the image depth "
+        "methods. 1 = default (one frame at a time). Higher values raise "
+        "throughput at lower resolutions where the model is launch-bound "
+        "(e.g. --depth_quality low/medium) at a small VRAM cost; negligible "
+        "gain at high quality. Supported on the CUDA backends and the "
+        "TensorRT image engines; forced to 1 for video_* methods, "
+        "distill TensorRT, and the DirectML/OpenVINO backends.",
+    )
 
 
 def _addEncodingOptions(argParser):

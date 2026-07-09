@@ -508,7 +508,11 @@ def tensorRTEngineNameHandler(
         raise ValueError("optInputShape must have at least 4 dimensions")
 
     enginePrecision = "fp16" if fp16 else "fp32"
-    height, width = optInputShape[2], optInputShape[3]
+    # Spatial dims are always the trailing two, so this also names the 5D
+    # temporal video engine ([1, T, 3, H, W]) correctly instead of encoding
+    # "3xH" and colliding across widths.
+    height, width = optInputShape[-2], optInputShape[-1]
+    batch = optInputShape[0]
 
     modelPath = Path(modelPath)
     if modelPath.suffix not in [".onnx", ".pth"]:
@@ -517,6 +521,12 @@ def tensorRTEngineNameHandler(
         )
 
     nameParts = [f"_{enginePrecision}_{height}x{width}"]
+
+    # Batch-aware suffix so a batch>1 engine never collides with the batch-1
+    # cache (which would silently load a static batch-1 engine). batch==1 keeps
+    # the historical name so existing engines still load.
+    if isinstance(batch, int) and batch > 1:
+        nameParts.append(f"_b{batch}")
 
     if isRife and ensemble:
         nameParts.append("_ensemble")

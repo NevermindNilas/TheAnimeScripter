@@ -50,6 +50,7 @@ class DepthTensorRTV2:
         bitDepth: str = "16bit",
         depthQuality: str = "high",
         depthNorm: bool = False,
+        depth_batch: int = 1,
     ):
         self.input = input
         self.output = output
@@ -67,6 +68,7 @@ class DepthTensorRTV2:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
+        self._reqBatch = max(1, int(depth_batch))
 
         from src.model.trtHandler import (
             tensorRTEngineCreator,
@@ -136,10 +138,15 @@ class DepthTensorRTV2:
             self.width, self.height, self.depthQuality
         )
 
+        # distill is multi-input (needs a paired const), so batching stays at 1;
+        # the single-input image engines batch the frame axis.
+        B = 1 if "distill" in self.depth_method else self._reqBatch
+        self._batch = B
+
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
-            optInputShape=[1, 3, self.newHeight, self.newWidth],
+            optInputShape=[B, 3, self.newHeight, self.newWidth],
         )
 
         self.engine, self.context = self.tensorRTEngineLoader(enginePath)
@@ -154,20 +161,20 @@ class DepthTensorRTV2:
                 enginePath=enginePath,
                 fp16=self.half,
                 inputsMin=[1, 3, self.newHeight, self.newWidth],
-                inputsOpt=[1, 3, self.newHeight, self.newWidth],
-                inputsMax=[1, 3, self.newHeight, self.newWidth],
+                inputsOpt=[B, 3, self.newHeight, self.newWidth],
+                inputsMax=[B, 3, self.newHeight, self.newWidth],
                 inputName=[inputName],
             )
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
-            (1, 3, self.newHeight, self.newWidth),
+            (B, 3, self.newHeight, self.newWidth),
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
 
         self.dummyOutput = torch.zeros(
-            (1, 1, self.newHeight, self.newWidth),
+            (B, 1, self.newHeight, self.newWidth),
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
@@ -199,30 +206,40 @@ class DepthTensorRTV2:
 
     @torch.inference_mode()
     def initTorchCudaGraph(self):
+        # A dynamic-batch engine lazily allocates device memory on its first
+        # execute; that cudaMalloc must happen BEFORE graph capture or the
+        # capture is invalidated. Warm up once, then capture.
+        with torch.cuda.stream(self.stream):
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+        self.stream.synchronize()
         with torch.cuda.graph(self.cudaGraph, stream=self.stream):
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
         self.stream.synchronize()
 
     @torch.inference_mode()
-    def normFrame(self, frame):
+    def normFrame(self, frames):
+        # frames: list of B decoded tensors [1, 3, H, W]; build the [B,3,H,W] input
         with torch.cuda.stream(self.normStream):
-            frame = F.interpolate(
-                frame.float(),
+            batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
+            batch = F.interpolate(
+                batch.float(),
                 (self.newHeight, self.newWidth),
                 mode="bilinear",
                 align_corners=True,
             )
-            frame = (frame - MEANTENSOR) / STDTENSOR
+            batch = (batch - MEANTENSOR) / STDTENSOR
             if self.half:
-                frame = frame.half()
-            self.dummyInput.copy_(frame, non_blocking=True)
+                batch = batch.half()
+            self.dummyInput.copy_(batch, non_blocking=True)
         self.normStream.synchronize()
 
     @torch.inference_mode()
-    def normOutputFrame(self):
+    def normOutputFrame(self, i):
+        # per-frame min-max (or normalizer) on slice i so a batched forward is
+        # bit-equivalent to one-frame-at-a-time
         with torch.cuda.stream(self.outputNormStream):
             depth = F.interpolate(
-                self.dummyOutput,
+                self.dummyOutput[i : i + 1],
                 size=[self.height, self.width],
                 mode="bilinear",
                 align_corners=True,
@@ -235,31 +252,37 @@ class DepthTensorRTV2:
         return depth
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processBatch(self, frames):
         try:
-            self.normFrame(frame)
+            real = len(frames)
+            # a static-shape CUDA graph runs exactly B frames; pad a short final
+            # batch with the last frame and drop the padded outputs
+            if real < self._batch:
+                frames = frames + [frames[-1]] * (self._batch - real)
+            self.normFrame(frames)
             with torch.cuda.stream(self.stream):
                 self.cudaGraph.replay()
             self.stream.synchronize()
-            depth = self.normOutputFrame()
-
-            self.writeBuffer.write(depth)
+            for i in range(real):
+                self.writeBuffer.write(self.normOutputFrame(i))
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
         frameCount = 0
-
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
         with ProgressBarLogic(self.totalFrames) as bar:
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
-                frameCount += 1
-                bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
+            while True:
+                frames = []
+                for _ in range(self._batch):
+                    frame = self.readBuffer.read()
+                    if frame is None:
+                        break
+                    frames.append(frame)
+                if not frames:
+                    break
+                self.processBatch(frames)
+                frameCount += len(frames)
+                bar(len(frames))
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
@@ -284,6 +307,7 @@ class OGDepthV2TensorRT:
         bitDepth: str = "16bit",
         depthQuality: str = "high",
         depthNorm: bool = False,
+        depth_batch: int = 1,
     ):
         self.input = input
         self.output = output
@@ -301,6 +325,7 @@ class OGDepthV2TensorRT:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
+        self._reqBatch = max(1, int(depth_batch))
 
         from src.model.trtHandler import (
             tensorRTEngineCreator,
@@ -374,9 +399,20 @@ class OGDepthV2TensorRT:
         self.isVideoDepthTensorRT = "video_small_v2" in self.depth_method
         self.temporalWindowSize = 32
 
-        inputShape = [1, 3, self.newHeight, self.newWidth]
+        # distill (multi-input) and the temporal video engine can't batch the
+        # frame axis; only the single-input image engines do.
+        self._batch = (
+            1
+            if (self.isVideoDepthTensorRT or "distill" in self.depth_method)
+            else self._reqBatch
+        )
+        B = self._batch
+
+        inputShape = [B, 3, self.newHeight, self.newWidth]
+        inputsMinShape = [1, 3, self.newHeight, self.newWidth]
         if self.isVideoDepthTensorRT:
             inputShape = [1, self.temporalWindowSize, 3, self.newHeight, self.newWidth]
+            inputsMinShape = inputShape
 
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
@@ -406,7 +442,7 @@ class OGDepthV2TensorRT:
                 modelPath=self.modelPath,
                 enginePath=enginePath,
                 fp16=self.half,
-                inputsMin=inputShape,
+                inputsMin=inputsMinShape,
                 inputsOpt=inputShape,
                 inputsMax=inputShape,
                 inputName=[inputName],
@@ -419,8 +455,8 @@ class OGDepthV2TensorRT:
             )
 
         self.stream = torch.cuda.Stream()
-        inputTensorShape = (1, 3, self.newHeight, self.newWidth)
-        outputTensorShape = (1, 1, self.newHeight, self.newWidth)
+        inputTensorShape = (B, 3, self.newHeight, self.newWidth)
+        outputTensorShape = (B, 1, self.newHeight, self.newWidth)
         if self.isVideoDepthTensorRT:
             inputTensorShape = (
                 1,
@@ -475,6 +511,11 @@ class OGDepthV2TensorRT:
 
     @torch.inference_mode()
     def initTorchCudaGraph(self):
+        # warm up once so a dynamic-batch engine's lazy device-memory alloc
+        # happens before capture (a cudaMalloc during capture invalidates it)
+        with torch.cuda.stream(self.stream):
+            self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
+        self.stream.synchronize()
         with torch.cuda.graph(self.cudaGraph, stream=self.stream):
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
         self.stream.synchronize()
@@ -506,7 +547,10 @@ class OGDepthV2TensorRT:
                         self.temporalWindowSize, 1, 1, 1
                     )
                 else:
-                    self.frameWindow[:-1].copy_(self.frameWindow[1:])
+                    # shift the window left by one; clone the source slice first
+                    # because frameWindow[:-1] and frameWindow[1:] alias overlapping
+                    # memory (copy_ rejects a self-overlapping src/dst).
+                    self.frameWindow[:-1].copy_(self.frameWindow[1:].clone())
                     self.frameWindow[-1].copy_(frame)
                 self.dummyInput.copy_(self.frameWindow.unsqueeze(0), non_blocking=True)
             else:
@@ -555,18 +599,84 @@ class OGDepthV2TensorRT:
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
+    @torch.inference_mode()
+    def normFrameBatch(self, frames):
+        # frames: list of B decoded numpy HWC frames -> [B,3,newH,newW] input.
+        # image path only (video/distill run one-at-a-time via processFrame).
+        with torch.cuda.stream(self.normStream):
+            tensors = []
+            for f in frames:
+                t = torch.from_numpy(f).to(checker.device).permute(2, 0, 1).unsqueeze(0)
+                t = (t.half() if self.half else t.float()).mul(1 / 255)
+                tensors.append(t)
+            batch = tensors[0] if len(tensors) == 1 else torch.cat(tensors, dim=0)
+            batch = F.interpolate(
+                batch.float(),
+                (self.newHeight, self.newWidth),
+                mode="bilinear",
+                align_corners=True,
+            )
+            batch = (batch - MEANTENSOR) / STDTENSOR
+            if self.half:
+                batch = batch.half()
+            self.dummyInput.copy_(batch, non_blocking=True)
+        self.normStream.synchronize()
+
+    @torch.inference_mode()
+    def normOutputFrameAt(self, i):
+        depth = self.dummyOutput[i].cpu().numpy()
+        depth = np.reshape(depth, (self.newHeight, self.newWidth))
+        if self.normalizer is not None:
+            depth = self.normalizer.normalize(depth)
+            depth = (depth * 255.0).astype(np.uint8)
+        else:
+            depth = (depth - depth.min()) / (depth.max() - depth.min()) * 255.0
+            depth = depth.astype(np.uint8)
+        return depth
+
+    @torch.inference_mode()
+    def processBatch(self, frames):
+        try:
+            real = len(frames)
+            if real < self._batch:
+                frames = frames + [frames[-1]] * (self._batch - real)
+            self.normFrameBatch(frames)
+            with torch.cuda.stream(self.stream):
+                self.cudaGraph.replay()
+            self.stream.synchronize()
+            for i in range(real):
+                depth = self.normOutputFrameAt(i)
+                depthTensor = (
+                    torch.from_numpy(depth)
+                    .to(checker.device, dtype=torch.float32)
+                    .unsqueeze(0)
+                    .unsqueeze(0)
+                    .mul(1 / 255)
+                )
+                self.writeBuffer.write(depthTensor)
+        except Exception as e:
+            logging.exception(f"Something went wrong while processing the frame, {e}")
+
     def process(self):
         frameCount = 0
         with ProgressBarLogic(self.totalFrames) as bar:
-            currentFrame = self.readBuffer.read()
-            nextFrame = self.readBuffer.read() if currentFrame is not None else None
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
-                frameCount += 1
-                bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
+            while True:
+                frames = []
+                for _ in range(self._batch):
+                    frame = self.readBuffer.read()
+                    if frame is None:
+                        break
+                    frames.append(frame)
+                if not frames:
+                    break
+                # B==1 keeps the exact single-frame path (handles video/distill);
+                # B>1 is the batched single-input image path
+                if self._batch == 1:
+                    self.processFrame(frames[0])
+                else:
+                    self.processBatch(frames)
+                frameCount += len(frames)
+                bar(len(frames))
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
