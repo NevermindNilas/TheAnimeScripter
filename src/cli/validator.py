@@ -50,6 +50,26 @@ def _handleDepthSettings(args):
         )
         args.depth_norm = False
 
+    # Normalize once so every later read is safe, including for args objects
+    # built by other entrypoints that never define depth_batch.
+    args.depth_batch = max(1, int(getattr(args, "depth_batch", 1)))
+
+    if args.depth_batch > 1:
+        backend = args.depth_method.split("-")[-1]
+        if "video" in args.depth_method:
+            logAndPrint(
+                "--depth_batch is not supported for video depth methods, using 1",
+                "yellow",
+            )
+            args.depth_batch = 1
+        elif backend in ["directml", "openvino"]:
+            logAndPrint(
+                f"--depth_batch is not implemented for the {backend} depth backend, "
+                f"using 1",
+                "yellow",
+            )
+            args.depth_batch = 1
+
     if args.depth_method in ["giant_v2", "og_giant_v2"]:
         logAndPrint(
             f"{args.depth_method} is a very large model and may cause out of memory errors on GPUs with less than 16GB of VRAM",
