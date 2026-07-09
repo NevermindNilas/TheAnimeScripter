@@ -198,6 +198,7 @@ def depth(self):
                 self.depthQuality,
                 compileMode=self.compileMode,
                 depthNorm=self.depthNorm,
+                depth_batch=self.depthBatch,
             )
 
         case (
@@ -227,6 +228,7 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 depthNorm=self.depthNorm,
+                depth_batch=self.depthBatch,
             )
 
         case (
@@ -293,6 +295,7 @@ def depth(self):
                 self.depthQuality,
                 compileMode=self.compileMode,
                 depthNorm=self.depthNorm,
+                depth_batch=self.depthBatch,
             )
 
         case "og_video_small_v2" | "og_video_base_v2" | "og_video_large_v2":
@@ -367,6 +370,7 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 depthNorm=self.depthNorm,
+                depth_batch=self.depthBatch,
             )
 
         case (
@@ -419,6 +423,7 @@ def depth(self):
                 self.depthQuality,
                 compileMode=self.compileMode,
                 depthNorm=self.depthNorm,
+                depth_batch=self.depthBatch,
             )
 
         case (

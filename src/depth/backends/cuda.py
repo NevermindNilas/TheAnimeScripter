@@ -58,6 +58,7 @@ class DepthCuda:
         depthQuality: str = "high",
         compileMode: str = "default",
         depthNorm: bool = False,
+        depth_batch: int = 1,
     ):
         self.input = input
         self.output = output
@@ -76,6 +77,7 @@ class DepthCuda:
         self.depthQuality = depthQuality
         self.compileMode = compileMode
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
+        self.depthBatch = max(1, int(depth_batch))
 
         self.handleModels()
 
@@ -233,42 +235,51 @@ class DepthCuda:
         return (frame - MEANTENSOR) / STDTENSOR
 
     @torch.inference_mode()
-    def outputFrameNorm(self, depth):
-        depth = F.interpolate(
-            depth,
-            (self.height, self.width),
-            mode="bilinear",
-            align_corners=True,
-        )
+    def _normalizeDepth(self, depth):
+        """Normalize a single already-upscaled depth frame [1, C, H, W].
+        Per-frame min-max (or sliding-window normalizer) so a batched forward
+        stays bit-identical to one-frame-at-a-time."""
         if self.normalizer is not None:
             return self.normalizer.normalize(depth)
         return (depth - depth.min()) / (depth.max() - depth.min())
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processBatch(self, frames):
         try:
+            batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
             with torch.cuda.stream(self.stream):
-                frame = self.normFrame(frame)
-                depth = self.model(frame)
-                depth = self.outputFrameNorm(depth)
+                batch = self.normFrame(batch)
+                depth = self.model(batch)
+                depth = F.interpolate(
+                    depth,
+                    (self.height, self.width),
+                    mode="bilinear",
+                    align_corners=True,
+                )
             self.stream.synchronize()
-            self.writeBuffer.write(depth)
-
+            # normalize + write each frame in decode order (sliding-window
+            # normalizer, if any, must see frames sequentially)
+            for i in range(depth.shape[0]):
+                self.writeBuffer.write(self._normalizeDepth(depth[i : i + 1]))
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
         frameCount = 0
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
+        batchSize = self.depthBatch
         with ProgressBarLogic(self.totalFrames) as bar:
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
-                frameCount += 1
-                bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
+            while True:
+                frames = []
+                for _ in range(batchSize):
+                    frame = self.readBuffer.read()
+                    if frame is None:
+                        break
+                    frames.append(frame)
+                if not frames:
+                    break
+                self.processBatch(frames)
+                frameCount += len(frames)
+                bar(len(frames))
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -295,6 +306,7 @@ class OGDepthV2CUDA:
         depthQuality: str = "high",
         compileMode: str = "default",
         depthNorm: bool = False,
+        depth_batch: int = 1,
     ):
         self.input = input
         self.output = output
@@ -313,6 +325,7 @@ class OGDepthV2CUDA:
         self.depthQuality = depthQuality
         self.compileMode = compileMode
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
+        self.depthBatch = max(1, int(depth_batch))
         self.encodeBuffer = Queue(maxsize=10)
 
         self.handleModels()
@@ -455,38 +468,56 @@ class OGDepthV2CUDA:
             self.compileMode = "default"
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processBatch(self, frames):
         try:
-            if self.normalizer is not None:
+            # per-frame preprocess (cv2 resize/normalize), then one batched forward
+            tensors = []
+            sizes = []
+            for frame in frames:
                 image, (h, w) = self.model.image2tensor(frame, self.newHeight)
                 image = image.half() if self.half else image.float()
-                depth = self.model.forward(image)
+                tensors.append(image)
+                sizes.append((h, w))
+
+            batch = tensors[0] if len(tensors) == 1 else torch.cat(tensors, dim=0)
+            depth = self.model.forward(batch)
+            # og DepthAnythingV2 squeezes to [B,H,W]; distill DAM keeps [B,C,H,W]
+            if depth.dim() == 3:
                 depth = depth.unsqueeze(1)
-                depth = F.interpolate(
-                    depth, (h, w), mode="bilinear", align_corners=True
-                )
-                depth = self.normalizer.normalize(depth[0, 0])
-                depth = (depth * 255.0).byte()
-                depth = depth.repeat(3, 1, 1).permute(1, 2, 0).cpu().numpy()
             else:
-                depth = self.model.infer_image(frame, self.newHeight, self.half)
-            self.encodeBuffer.put(depth)
+                depth = depth[:, :1]
+
+            for i, (h, w) in enumerate(sizes):
+                d = F.interpolate(
+                    depth[i : i + 1], (h, w), mode="bilinear", align_corners=True
+                )
+                d = d[0, 0]
+                if self.normalizer is not None:
+                    d = self.normalizer.normalize(d)
+                else:
+                    d = (d - d.min()) / (d.max() - d.min())
+                d = (d * 255.0).byte()
+                d = d.repeat(3, 1, 1).permute(1, 2, 0).cpu().numpy()
+                self.encodeBuffer.put(d)
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
         frameCount = 0
-
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
+        batchSize = self.depthBatch
         with ProgressBarLogic(self.totalFrames) as bar:
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
-                frameCount += 1
-                bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
+            while True:
+                frames = []
+                for _ in range(batchSize):
+                    frame = self.readBuffer.read()
+                    if frame is None:
+                        break
+                    frames.append(frame)
+                if not frames:
+                    break
+                self.processBatch(frames)
+                frameCount += len(frames)
+                bar(len(frames))
 
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
@@ -579,37 +610,72 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
             self.compileMode = "default"
 
     @torch.inference_mode()
-    def processFrame(self, frame):
-        try:
-            depth = self.model.infer_image(
-                frame,
-                process_res=self.processRes,
-                process_res_method=self.processResMethod,
+    def _inferBatch(self, frames):
+        """DA3 mono depth for a list of frames in ONE forward. Each frame is a
+        separate scene with a single view ([B, 1, C, H, W]); the batch dim is
+        per-frame independent (no cross-view attention couples them, verified
+        empirically incl. sky-mask models). Returns a list of raw depth maps
+        (np float32) resized to each frame's original resolution."""
+        imgsList = []
+        sizes = []
+        for frame in frames:
+            imgsCpu, _, _ = self.model.input_processor(
+                [frame], None, None, self.processRes, self.processResMethod
             )
-            depth = np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0)
-            validMask = depth > 0
+            imgsList.append(imgsCpu)  # [1, C, H, W]
+            sizes.append(frame.shape[:2])  # (H, W)
 
-            if validMask.sum() <= 10:
-                gray = np.zeros(depth.shape, dtype=np.uint8)
-                self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
-                return
+        device = self.model._get_model_device()
+        batch = torch.stack(imgsList, dim=0).to(device, non_blocking=True).float()
+        prediction = self.model.output_processor(self.model.forward(batch))
 
-            disparity = np.zeros_like(depth, dtype=np.float32)
-            disparity[validMask] = 1.0 / depth[validMask]
+        depths = []
+        for i, (h, w) in enumerate(sizes):
+            depth = np.asarray(prediction.depth[i]).squeeze()  # [h', w']
+            if depth.shape[0] != h or depth.shape[1] != w:
+                depth = cv2.resize(depth, (w, h), interpolation=cv2.INTER_LINEAR)
+            depths.append(
+                np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+            )
+        return depths
 
-            if self.normalizer is not None:
-                gray = self.normalizer.normalize(disparity)
-            else:
-                disp_min = np.percentile(disparity[validMask], 2)
-                disp_max = np.percentile(disparity[validMask], 98)
-                if disp_min == disp_max:
-                    disp_min -= 1e-6
-                    disp_max += 1e-6
-                gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
-            gray = (gray * 255.0).astype(np.uint8)
-            self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
+    @torch.inference_mode()
+    def processBatch(self, frames):
+        try:
+            rawDepths = self._inferBatch(frames)
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
+            return
+
+        # per-frame disparity + percentile postproc (unchanged), in decode order
+        for depth in rawDepths:
+            try:
+                depth = np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0)
+                validMask = depth > 0
+
+                if validMask.sum() <= 10:
+                    gray = np.zeros(depth.shape, dtype=np.uint8)
+                    self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
+                    continue
+
+                disparity = np.zeros_like(depth, dtype=np.float32)
+                disparity[validMask] = 1.0 / depth[validMask]
+
+                if self.normalizer is not None:
+                    gray = self.normalizer.normalize(disparity)
+                else:
+                    disp_min = np.percentile(disparity[validMask], 2)
+                    disp_max = np.percentile(disparity[validMask], 98)
+                    if disp_min == disp_max:
+                        disp_min -= 1e-6
+                        disp_max += 1e-6
+                    gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
+                gray = (gray * 255.0).astype(np.uint8)
+                self.encodeBuffer.put(np.stack([gray] * 3, axis=-1))
+            except Exception as e:
+                logging.exception(
+                    f"Something went wrong while processing the frame, {e}"
+                )
 
     def encodeThread(self):
         while True:
