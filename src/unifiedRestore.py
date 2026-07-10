@@ -6,7 +6,8 @@ import torch
 from src.constants import ADOBE
 
 from .infra.isCudaInit import CudaChecker
-from .infra.logAndPrint import logAndPrint
+from .infra.logAndPrint import logAndPrint, logWarning
+from .infra.providerCheck import warnIfProviderMissing
 from .model.download import resolveWeightPath
 from .model.registry import modelsMap
 
@@ -641,6 +642,9 @@ class UnifiedRestoreDirectML:
                 self.model = self.ort.InferenceSession(
                     modelPath, providers=["DmlExecutionProvider"]
                 )
+                warnIfProviderMissing(
+                    self.model, "DmlExecutionProvider", "DirectML restore"
+                )
             elif "openvino" in self.restoreMethod:
                 self.model = self.ort.InferenceSession(
                     modelPath,
@@ -648,8 +652,11 @@ class UnifiedRestoreDirectML:
                         ("OpenVINOExecutionProvider", {"device_type": "AUTO:GPU,CPU"})
                     ],
                 )
+                warnIfProviderMissing(
+                    self.model, "OpenVINOExecutionProvider", "OpenVINO restore"
+                )
         else:
-            logging.info(
+            logWarning(
                 f"{self.restoreMethod} provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = self.ort.InferenceSession(
@@ -744,7 +751,7 @@ class UnifiedRestoreDirectML:
 
         except Exception as e:
             if not self.usingCpuFallback:
-                logging.warning(
+                logWarning(
                     f"DirectML/OpenVINO inference failed, falling back to CPU: {e}"
                 )
                 self._fallbackToCpu()

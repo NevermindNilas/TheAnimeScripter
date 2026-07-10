@@ -5,7 +5,8 @@ import torch
 
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint, logWarning
+from src.infra.providerCheck import warnIfProviderMissing
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -318,6 +319,9 @@ class ArtCNNDirectML(_ArtCNNLumaMixin):
             self.model = self.ort.InferenceSession(
                 modelPath, providers=["DmlExecutionProvider"]
             )
+            warnIfProviderMissing(
+                self.model, "DmlExecutionProvider", "DirectML ArtCNN upscale"
+            )
         elif (
             "OpenVINOExecutionProvider" in providers
             and "openvino" in self.upscaleMethod
@@ -329,8 +333,11 @@ class ArtCNNDirectML(_ArtCNNLumaMixin):
                     ("OpenVINOExecutionProvider", {"device_type": "AUTO:GPU,CPU"})
                 ],
             )
+            warnIfProviderMissing(
+                self.model, "OpenVINOExecutionProvider", "OpenVINO ArtCNN upscale"
+            )
         else:
-            logging.info(
+            logWarning(
                 "DirectML/OpenVINO provider not available, falling back to CPU, expect significantly worse performance"
             )
             self.model = self.ort.InferenceSession(

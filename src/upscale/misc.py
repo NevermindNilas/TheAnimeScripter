@@ -175,6 +175,10 @@ class NvidiaVSR:
 
 
 class AnimeSR:
+    # Recurrent arch: needs the next source frame handed to it. The previous
+    # frame is cached internally (padded), so it is not requested here.
+    temporalWindow = (0, 1)
+
     def __init__(
         self,
         upscaleFactor: int = 2,

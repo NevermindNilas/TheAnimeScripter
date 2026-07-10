@@ -8,7 +8,8 @@ import torch.nn.functional as F
 
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint, logWarning
+from src.infra.providerCheck import warnIfProviderMissing
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -354,6 +355,9 @@ class RifeDirectML:
                 self.model = self.ort.InferenceSession(
                     self.modelPath, providers=["DmlExecutionProvider"]
                 )
+                warnIfProviderMissing(
+                    self.model, "DmlExecutionProvider", "DirectML interpolate"
+                )
             elif "openvino" in self.interpolateMethod:
                 logging.info("Using OpenVINO model")
                 self.model = self.ort.InferenceSession(
@@ -362,8 +366,11 @@ class RifeDirectML:
                         ("OpenVINOExecutionProvider", {"device_type": "AUTO:GPU,CPU"})
                     ],
                 )
+                warnIfProviderMissing(
+                    self.model, "OpenVINOExecutionProvider", "OpenVINO interpolate"
+                )
         else:
-            logging.info(
+            logWarning(
                 "DirectML/OpenVINO provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = self.ort.InferenceSession(

@@ -5,7 +5,8 @@ import torch
 
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint, logWarning
+from src.infra.providerCheck import warnIfProviderMissing
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -123,6 +124,9 @@ class UniversalDirectML:
                 self.model = self.ort.InferenceSession(
                     modelPath, providers=["DmlExecutionProvider"]
                 )
+                warnIfProviderMissing(
+                    self.model, "DmlExecutionProvider", "DirectML upscale"
+                )
             elif "openvino" in self.upscaleMethod:
                 logging.info("Using OpenVINO model")
                 self.model = self.ort.InferenceSession(
@@ -131,8 +135,11 @@ class UniversalDirectML:
                         ("OpenVINOExecutionProvider", {"device_type": "AUTO:GPU,CPU"})
                     ],
                 )
+                warnIfProviderMissing(
+                    self.model, "OpenVINOExecutionProvider", "OpenVINO upscale"
+                )
         else:
-            logging.info(
+            logWarning(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = self.ort.InferenceSession(
@@ -234,7 +241,7 @@ class UniversalDirectML:
 
         except Exception as e:
             if not self.usingCpuFallback:
-                logging.warning(
+                logWarning(
                     f"DirectML/OpenVINO inference failed ({e}); falling back to CPU provider."
                 )
                 self._fallbackToCpu()
@@ -251,6 +258,10 @@ class AnimeSRDirectML:
     AnimeSR DirectML/OpenVINO implementation with 5-input architecture.
     This handles the multi-input/multi-output nature of AnimeSR.
     """
+
+    # Recurrent arch: needs the next source frame handed to it. The previous
+    # frame is cached internally (padded), so it is not requested here.
+    temporalWindow = (0, 1)
 
     def __init__(
         self,
@@ -310,6 +321,9 @@ class AnimeSRDirectML:
             self.model = self.ort.InferenceSession(
                 modelPath, providers=["DmlExecutionProvider"]
             )
+            warnIfProviderMissing(
+                self.model, "DmlExecutionProvider", "DirectML AnimeSR upscale"
+            )
         elif (
             "OpenVINOExecutionProvider" in providers
             and "openvino" in self.upscaleMethod
@@ -321,10 +335,11 @@ class AnimeSRDirectML:
                     ("OpenVINOExecutionProvider", {"device_type": "AUTO:GPU,CPU"})
                 ],
             )
-        else:
-            logging.info(
-                "DirectML/OpenVINO provider not available, falling back to CPU"
+            warnIfProviderMissing(
+                self.model, "OpenVINOExecutionProvider", "OpenVINO AnimeSR upscale"
             )
+        else:
+            logWarning("DirectML/OpenVINO provider not available, falling back to CPU")
             self.model = self.ort.InferenceSession(
                 modelPath, providers=["CPUExecutionProvider"]
             )

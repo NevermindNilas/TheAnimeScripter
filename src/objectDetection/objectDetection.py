@@ -8,8 +8,9 @@ import torch
 
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint, logWarning
 from src.infra.progressBarLogic import ProgressBarLogic
+from src.infra.providerCheck import warnIfProviderMissing
 from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
@@ -144,13 +145,21 @@ class ObjectDetectionDML:
                 self.session = self.ort.InferenceSession(
                     self.modelPath, providers=["DmlExecutionProvider"]
                 )
+                warnIfProviderMissing(
+                    self.session, "DmlExecutionProvider", "DirectML object detection"
+                )
             elif "openvino" in self.objDetectMethod:
                 logging.info("Using OpenVINO for object detection")
                 self.session = self.ort.InferenceSession(
                     self.modelPath, providers=["OpenVINOExecutionProvider"]
                 )
+                warnIfProviderMissing(
+                    self.session,
+                    "OpenVINOExecutionProvider",
+                    "OpenVINO object detection",
+                )
         else:
-            logging.info(
+            logWarning(
                 "DirectML provider not available, falling back to CPU for object detection"
             )
             self.session = self.ort.InferenceSession(
@@ -233,17 +242,12 @@ class ObjectDetectionDML:
 
     def process(self):
         frameCount = 0
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
 
         with ProgressBarLogic(self.totalFrames) as bar:
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
+            while (frame := self.readBuffer.read()) is not None:
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
@@ -545,17 +549,12 @@ class ObjectDetectionTensorRT:
 
     def process(self):
         frameCount = 0
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
 
         with ProgressBarLogic(self.totalFrames) as bar:
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
+            while (frame := self.readBuffer.read()) is not None:
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()

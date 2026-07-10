@@ -37,7 +37,16 @@ def initializeModels(self):
 
         from src.factories.interpolate import buildInterpolateProcess
 
-        interpolateProcess = buildInterpolateProcess(self, outputWidth, outputHeight)
+        # The interpolation driver's fixed I/O buffers (and CUDA graph) are sized
+        # at construction, so it must be built at the resolution it will actually
+        # receive. In interpolate-first order it runs on the source stream; in
+        # interpolate-last order it runs on the upscaled stream, one stage later.
+        if self.upscale and not self.interpolateFirst:
+            interpWidth, interpHeight = outputWidth, outputHeight
+        else:
+            interpWidth, interpHeight = self.width, self.height
+
+        interpolateProcess = buildInterpolateProcess(self, interpWidth, interpHeight)
 
     if self.restore:
         if ADOBE:
