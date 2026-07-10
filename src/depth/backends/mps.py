@@ -274,15 +274,8 @@ class DepthMPS:
         frameCount = 0
         with ProgressBarLogic(self.totalFrames) as bar:
             while True:
-                if self.totalFrames and frameCount >= self.totalFrames:
-                    break
                 frames = []
                 for _ in range(self.depthBatch):
-                    if (
-                        self.totalFrames
-                        and frameCount + len(frames) >= self.totalFrames
-                    ):
-                        break
                     frame = self.readBuffer.read()
                     if frame is None:
                         break
@@ -292,6 +285,8 @@ class DepthMPS:
                 self.processBatch(frames)
                 frameCount += len(frames)
                 bar(len(frames))
+                if len(frames) < self.depthBatch:
+                    break
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
@@ -526,15 +521,8 @@ class OGDepthV2MPS:
         frameCount = 0
         with ProgressBarLogic(self.totalFrames) as bar:
             while True:
-                if self.totalFrames and frameCount >= self.totalFrames:
-                    break
                 frames = []
                 for _ in range(self.depthBatch):
-                    if (
-                        self.totalFrames
-                        and frameCount + len(frames) >= self.totalFrames
-                    ):
-                        break
                     frame = self.readBuffer.read()
                     if frame is None:
                         break
@@ -544,6 +532,8 @@ class OGDepthV2MPS:
                 self.processBatch(frames)
                 frameCount += len(frames)
                 bar(len(frames))
+                if len(frames) < self.depthBatch:
+                    break
 
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
