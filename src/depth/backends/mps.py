@@ -8,12 +8,12 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 
-import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
 
 from src.constants import ADOBE
+from src.depth.backends._batch import iterBatches
 from src.depth.backends._shared import SlidingWindowNormalizer, calculateAspectRatio
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
@@ -273,20 +273,10 @@ class DepthMPS:
     def process(self):
         frameCount = 0
         with ProgressBarLogic(self.totalFrames) as bar:
-            while True:
-                frames = []
-                for _ in range(self.depthBatch):
-                    frame = self.readBuffer.read()
-                    if frame is None:
-                        break
-                    frames.append(frame)
-                if not frames:
-                    break
+            for frames in iterBatches(self.readBuffer.read, self.depthBatch):
                 self.processBatch(frames)
                 frameCount += len(frames)
                 bar(len(frames))
-                if len(frames) < self.depthBatch:
-                    break
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
@@ -351,6 +341,8 @@ class OGDepthV2MPS:
         decodeH = getattr(self, "_decodeHeight", self.height)
         decodeResize = getattr(self, "_decodeResize", False)
         try:
+            import cv2
+
             self.readBuffer = BuildBuffer(
                 videoInput=self.input,
                 inpoint=self.inpoint,
@@ -520,20 +512,10 @@ class OGDepthV2MPS:
     def process(self):
         frameCount = 0
         with ProgressBarLogic(self.totalFrames) as bar:
-            while True:
-                frames = []
-                for _ in range(self.depthBatch):
-                    frame = self.readBuffer.read()
-                    if frame is None:
-                        break
-                    frames.append(frame)
-                if not frames:
-                    break
+            for frames in iterBatches(self.readBuffer.read, self.depthBatch):
                 self.processBatch(frames)
                 frameCount += len(frames)
                 bar(len(frames))
-                if len(frames) < self.depthBatch:
-                    break
 
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)
@@ -620,6 +602,8 @@ class OGDepthV3MPS(OGDepthV2MPS):
 
     @torch.inference_mode()
     def _inferBatch(self, frames):
+        import cv2
+
         imgsList = []
         sizes = []
         for frame in frames:
@@ -681,6 +665,8 @@ class OGDepthV3MPS(OGDepthV2MPS):
                 )
 
     def encodeThread(self):
+        import cv2
+
         while True:
             frame = self.encodeBuffer.get()
             if frame is None:
