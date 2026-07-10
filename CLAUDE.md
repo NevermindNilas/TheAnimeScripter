@@ -45,6 +45,9 @@ URL input is handled by `src/ytdlp.py`.
 - **Add a model = TWO edits:** add its weight mapping to `src/model/registry.py:modelsMap()` and its CLI choice to `src/cli/parser.py`. `modelsList()` is the canonical method registry used by `--offline`.
 - **Add a backend:** add a sibling backend class, a `match` arm in `src/initializeModels.py`, CLI choices, and `modelsList()`/`modelsMap()` entries. Never rewrite the CUDA path.
 - Backend classes follow convention, not an ABC: dashless class suffixes (`UniversalPytorch`/`UniversalTensorRT`/`UniversalDirectML`/`UniversalNCNN`/`UniversalPytorchMPS`; `RifeCuda`/`RifeTensorRT`/etc.) implementing `__call__()` and `handleModel()`. Method strings alone use `-<backend>`.
+- **Temporal drivers declare their own lookahead.** A driver that needs neighbouring frames handed to it sets `temporalWindow = (past, future)` on the class (`AnimeSR*`, `DistilDRBA*` = `(0, 1)`); frames it caches itself (RIFE's `I0`, AnimeSR's padded `prevFrame`) are not part of the declaration. `main.py:process` sizes a `src/io/frameWindow.py:FrameWindow` ring to the stage chain's demand (`max` in interpolate-first, where interp and upscale both read the source stream; `sum` in interpolate-last, where interp's neighbour is itself upscaled) and hands drivers `frameWindow.successorFrame()`. Never gate a lookahead on a method-name string in `main.py` — that is how `animesr-tensorrt`/`-directml`/`-openvino` silently ran with `next == curr`. `tests/test_frameWindow.py` fails if a new `AnimeSR*`/`DistilDRBA*` class omits the declaration.
+- **The window has a domain, a validity, and an order.** Dedup and restore run at window *entry* (`main.py:_enterFrame`, passed as `FrameWindow(enter=…)`), so every slot is a restore-domain frame and a driver's neighbour matches it; deduped frames never enter, so restore is not spent on them. Downstream upscale in interpolate-last is memoized per slot (`FrameWindow.staged`) so a frame two stages read is upscaled once, in order (AnimeSR's `prevFrame`/`state` recurrence stays sequential). `successor()`/`successorFrame()` return `None` across a hard cut (`FrameSlot.isCut`), so `distildrba` gets no motion cue from the next shot. Because the neighbour is always same-domain, `distildrba` now *raises* on a size mismatch instead of bilinearly resampling `I2`. Counters (`consumed`/`dropped`) live on the window; `dedupCount = frameWindow.dropped`.
+- **Interp model resolution follows the pipeline order.** Every interp backend sizes fixed I/O buffers (and a CUDA graph) at construction, so `initializeModels` resolves the resolution the driver will actually see — source dims in interpolate-first, post-upscale dims in interpolate-last (`self.upscale and not self.interpolateFirst`) — and passes it to `buildInterpolateProcess` as `interpWidth/interpHeight`, used by ALL backends. Do not revert any backend to `self.width/self.height` or hand GMFSS the post-upscale dims directly; that reintroduces the mirror bugs (interpolate-last RIFE/DistilDRBA fed upscaled frames into input-sized buffers → hang; interpolate-first GMFSS fed source frames into output-sized buffers → shape assert).
 - OpenVINO is normally handled inside the DirectML/ORT class; only Segment has `AnimeSegmentOpenVino`. Model-specific exceptions include `AnimeSR*`, `ArtCNN*`, `DistilDRBA*`, `NvidiaVSR`, and `DepthGuidedRife*`.
 - Weights: `modelsMap()` resolves name/scale/dtype; `resolveWeightPath()` uses `weights/{model}/`. TRT/DML/OpenVINO use `weights/{model}-onnx/`, except RIFE keeps its base folder. Downloads come from TAS-Models-Host.
 - Output naming: `src/io/inputOutputHandler.py:generateOutputName()`; encoders: `src/io/encodingSettings.py:matchEncoder()` plus mirrored CLI choices.
@@ -84,3 +87,17 @@ Do not read, search, summarize, lint, or modify these trees unless the task expl
 - Benchmark against a snapshot of the original unedited code on a warm, otherwise-idle GPU; report FPS, VRAM, and parity.
 - For bugs/reviews, read every relevant caller, discard false positives explicitly, prove changes with before/after tests, and update `CHANGELOG.MD`.
 - Never load the full large changelog for orientation; grep the relevant entry.
+
+## Agent skills
+
+### Issue tracker
+
+Issues tracked as GitHub issues via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context — `CONTEXT.md` + `docs/adr/` at repo root, created lazily. See `docs/agents/domain.md`.

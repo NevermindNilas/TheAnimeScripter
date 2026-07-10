@@ -81,7 +81,7 @@ class CliConfig:
                 "Cannot use --json with other command line arguments. Use --json alone.",
                 "red",
             )
-            sys.exit()
+            sys.exit(1)
 
         jsonConfig = self.loadJsonConfig()
         defaults = self.parserDefaults
@@ -108,17 +108,17 @@ class CliConfig:
 
         if not os.path.exists(jsonPath):
             logAndPrint(f"JSON config file not found: {jsonPath}", "red")
-            sys.exit()
+            sys.exit(1)
 
         try:
             with open(jsonPath, encoding="utf-8") as f:
                 return json.load(f)
         except json.JSONDecodeError as e:
             logAndPrint(f"Invalid JSON format in config file: {e}", "red")
-            sys.exit()
+            sys.exit(1)
         except Exception as e:
             logAndPrint(f"Error reading JSON config: {e}", "red")
-            sys.exit()
+            sys.exit(1)
 
     def autoEnableParentFlags(self):
         logging.debug("jsonKeys: %s", self.jsonKeys)

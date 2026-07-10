@@ -477,6 +477,7 @@ def _buildParser(outputPath):
     _addDedupOptions(argParser)
     _addVideoProcessingOptions(argParser)
     _addMotionBlurOptions(argParser)
+    _addMaskOptions(argParser)
     _addSegmentationOptions(argParser)
     _addSceneDetectionOptions(argParser)
     _addDepthOptions(argParser)
@@ -955,11 +956,18 @@ def _addMotionBlurOptions(argParser):
         action="store_true",
         help="Disable gamma-correct (linear-light) blending. Not recommended -- produces muddy highlights and lifted shadows",
     )
-    moblurGroup.add_argument(
-        "--moblur_mask",
+
+
+def _addMaskOptions(argParser):
+    maskGroup = argParser.add_argument_group("Masking")
+    maskGroup.add_argument(
+        "--mask",
         type=str,
         default="",
-        help="Path to a transparent PNG marking regions to protect from motion blur. Paint opaque dark pixels on a transparent background -- those areas stay sharp (HUD/text), transparent areas blur normally.",
+        help="Path to a transparent PNG marking regions to protect. Paint opaque dark pixels on a transparent "
+        "background -- those areas stay sharp and static (HUD/text/subtitles), transparent areas are processed "
+        "normally. Applies to --moblur (protected areas are not blurred) and --interpolate (protected areas are "
+        "not morphed between source frames).",
     )
 
 
@@ -976,6 +984,16 @@ def _addSegmentationOptions(argParser):
         default="anime",
         choices=["anime", "anime-tensorrt", "anime-directml", "cartoon"],
         help="Segmentation method",
+    )
+    segmentationGroup.add_argument(
+        "--segment_batch",
+        type=int,
+        default=1,
+        help="Number of frames processed per model forward. 1 = default (one "
+        "frame at a time). Higher values raise throughput by amortizing "
+        "kernel-launch overhead, at a proportional VRAM cost. Supported on the "
+        "CUDA and TensorRT backends; forced to 1 for DirectML/OpenVINO, where "
+        "batching measured slower.",
     )
 
 
@@ -1055,6 +1073,7 @@ def _addDepthOptions(argParser):
         "og_video_large_v2",
         "video_small_v2",
         "video_large_v2",
+        "video_small_v2-tensorrt",
         "small_v2-tensorrt",
         "base_v2-tensorrt",
         "large_v2-tensorrt",
