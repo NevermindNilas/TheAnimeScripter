@@ -1292,6 +1292,7 @@ class NeluxWriteBuffer:
                 while True:
                     frame = self.writeBuffer.get()
                     if frame is None:
+                        self._sawSentinel = True
                         break
                     self.writtenFrames += 1
                 logging.info(f"Nelux benchmark consumed {self.writtenFrames} frames")
