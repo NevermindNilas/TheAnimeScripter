@@ -114,9 +114,13 @@ class PreviewHTTPHandler(BaseHTTPRequestHandler):
         lastSeq = -1
         try:
             while True:
-                jpeg, lastSeq = self.sink.waitNext(lastSeq, timeout=1.0)
-                if jpeg is None:
+                jpeg, seq = self.sink.waitNext(lastSeq, timeout=1.0)
+                # waitNext returns the current frame on timeout too, so only
+                # emit when the sequence actually advanced -- otherwise an idle
+                # stream would re-send the same JPEG every timeout interval.
+                if jpeg is None or seq == lastSeq:
                     continue
+                lastSeq = seq
                 # A failed write here (client closed the tab) raises and breaks
                 # the loop -- that's the intended disconnect path.
                 self.wfile.write(b"--frame\r\n")
