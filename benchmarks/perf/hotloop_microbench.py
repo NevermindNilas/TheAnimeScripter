@@ -29,6 +29,17 @@ class Sink:
         self.count += 1
 
 
+class Collector:
+    def __init__(self) -> None:
+        self.frames = []
+
+    def put(self, item) -> None:
+        self.frames.append(item)
+
+    def clear(self) -> None:
+        self.frames.clear()
+
+
 @dataclass
 class TimedRun:
     iterations: int
@@ -40,6 +51,8 @@ class TimedRun:
 def _sync() -> None:
     if torch.cuda.is_available():
         torch.cuda.synchronize()
+    elif hasattr(torch, "mps") and torch.backends.mps.is_available():
+        torch.mps.synchronize()
 
 
 def _event_ms(fn, iterations: int) -> float:
@@ -154,12 +167,31 @@ def bench_rife(args: argparse.Namespace) -> dict:
 
 
 def bench_queue(args: argparse.Namespace) -> dict:
-    tensor = torch.empty((1, 3, args.height, args.width), device="cuda")
+    if torch.cuda.is_available():
+        device = "cuda"
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        device = "mps"
+    else:
+        device = "cpu"
+    tensor = torch.empty((1, 3, args.height, args.width), device=device)
+    q = queue.Queue()
 
     def queue_step() -> None:
-        q = queue.Queue()
         q.put(tensor)
-        q.get_nowait()
+        while True:
+            try:
+                q.get_nowait()
+            except queue.Empty:
+                break
+
+    collector = Collector()
+
+    def collector_step() -> None:
+        collector.clear()
+        collector.put(tensor)
+        for _item in collector.frames:
+            pass
+        collector.clear()
 
     sink = Sink()
 
@@ -167,10 +199,15 @@ def bench_queue(args: argparse.Namespace) -> dict:
         sink.put(tensor)
 
     queue_run = calibrate(queue_step, target_ms=args.target_ms, max_iterations=100_000)
+    collector_run = calibrate(
+        collector_step, target_ms=args.target_ms, max_iterations=100_000
+    )
     sink_run = calibrate(sink_step, target_ms=args.target_ms, max_iterations=100_000)
     return {
         "bench": "queue_overhead",
+        "device": device,
         "queue": queue_run.__dict__,
+        "collector": collector_run.__dict__,
         "sink": sink_run.__dict__,
     }
 

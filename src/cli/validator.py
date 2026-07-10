@@ -82,6 +82,22 @@ def _handleDepthSettings(args):
             args.half = False
 
 
+def _handleSegmentSettings(args):
+    # Normalize once so every later read is safe, including for args objects
+    # built by other entrypoints that never define segment_batch.
+    args.segment_batch = max(1, int(getattr(args, "segment_batch", 1)))
+
+    if args.segment_batch > 1:
+        backend = args.segment_method.split("-")[-1]
+        if backend in ["directml", "openvino"]:
+            logAndPrint(
+                f"--segment_batch is not implemented for the {backend} segmentation "
+                f"backend, using 1",
+                "yellow",
+            )
+            args.segment_batch = 1
+
+
 def _configureProcessingSettings(args):
     if args.slowmo:
         cs.AUDIO = False
@@ -255,7 +271,10 @@ def prepareRuntimeArgs(args, outputPath, parser):
     if args.preset:
         from src.server.presetLogic import createPreset
 
-        args = createPreset(args)
+        # Compute provided options up front (before CliConfig exists) so a
+        # loaded preset cannot overwrite flags the user explicitly typed.
+        providedOptions = CliConfig.collectProvidedOptions(sys.argv[1:])
+        args = createPreset(args, providedOptions)
 
     cliConfig = CliConfig.fromArgs(args, parser, sys.argv[1:])
     args = cliConfig.args
@@ -324,6 +343,7 @@ def prepareRuntimeArgs(args, outputPath, parser):
             )
             logging.error("Failed to uninstall dependencies")
             print(message)
+            sys.exit(1)
 
     logging.info("============== Version ==============")
     logging.info(f"TAS: {__version__}\n")
@@ -380,6 +400,10 @@ def prepareRuntimeArgs(args, outputPath, parser):
 
     _adjustMethodsBasedOnCuda(args)
 
+    # After the CUDA fallback, so the batch clamp sees the backend that will
+    # actually run rather than the one the user typed.
+    _handleSegmentSettings(args)
+
     if args.custom_encoder:
         logging.info("Custom encoder specified, use with caution")
 
@@ -409,8 +433,11 @@ def prepareRuntimeArgs(args, outputPath, parser):
     except InputNormalizationError as e:
         logging.error(str(e))
         logAndPrint(str(e), "red")
-        sys.exit()
+        sys.exit(1)
 
+    # shouldContinue is False only for the URL-download-without-processing
+    # short-circuit (see processUrlInput): the download already succeeded and
+    # was renamed to the output, so there is nothing left to do — exit 0.
     if not shouldContinue:
         sys.exit()
 
@@ -418,7 +445,7 @@ def prepareRuntimeArgs(args, outputPath, parser):
         warning = applyRuntimeValidation(args)
     except CliValidationError as e:
         logAndPrint(str(e), "red")
-        sys.exit()
+        sys.exit(1)
 
     if args.output_scale_width and args.output_scale_height:
         logging.info(
@@ -438,6 +465,6 @@ def prepareRuntimeArgs(args, outputPath, parser):
             "No processing methods specified, make sure to use enabler arguments like --upscale, --interpolate, etc.",
             "red",
         )
-        sys.exit()
+        sys.exit(1)
 
     return args

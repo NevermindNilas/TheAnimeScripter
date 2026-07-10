@@ -8,8 +8,9 @@ import torch.nn.functional as F
 
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint, logWarning
 from src.infra.progressBarLogic import ProgressBarLogic
+from src.infra.providerCheck import warnIfProviderMissing
 from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
@@ -18,6 +19,22 @@ if ADOBE:
     from src.server.aeComms import progressState
 
 checker = CudaChecker()
+
+
+def _readBatch(readBuffer, batchSize: int) -> list:
+    """Pull up to batchSize frames off the decode buffer.
+
+    A list shorter than batchSize means the decoder's single None sentinel has
+    just been consumed, so the caller MUST stop; read() blocks forever once the
+    sentinel is gone.
+    """
+    frames = []
+    for _ in range(batchSize):
+        frame = readBuffer.read()
+        if frame is None:
+            break
+        frames.append(frame)
+    return frames
 
 
 class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentation but it's fine
@@ -34,6 +51,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         custom_encoder="",
         benchmark=False,
         totalFrames=0,
+        segment_batch: int = 1,
     ):
         self.input = input
         self.output = output
@@ -46,6 +64,7 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
+        self.segmentBatch = max(1, int(segment_batch))
 
         self.handleModel()
         try:
@@ -91,27 +110,88 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             "isnet_is", modelPath, checker.device, img_size=1024
         )
         self.model.eval()
+        # The GT encoder is a training-only distillation branch (6.88M params,
+        # 26 MiB fp32). try_load builds it so the checkpoint's gt_encoder.* keys
+        # load, but inference never calls it; drop it before moving to the GPU.
+        self.model.gt_encoder = None
         self.model.to(checker.device)
         self.stream = torch.cuda.Stream()
 
+        # The model always runs in a fixed 1024-box, so both the shape and the
+        # batch are static and the whole forward can be captured once.
+        s = 1024
+        h, w = self.height, self.width
+        self.boxHeight, self.boxWidth = (
+            (s, int(s * w / h)) if h > w else (int(s * h / w), s)
+        )
+        ph, pw = s - self.boxHeight, s - self.boxWidth
+        self.padTop, self.padLeft = ph // 2, pw // 2
+        self.pad = (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2)
+
+        self.dummyInput = torch.zeros(
+            (self.segmentBatch, 3, s, s),
+            device=checker.device,
+            dtype=torch.float32,
+        )
+
+        self.cudaGraph = None
+        try:
+            with torch.cuda.stream(self.stream):
+                # 3 warmup iters before capture: cudnn.benchmark is False (no algo
+                # autotune), so 3 is enough to JIT the cudnn kernels and allocate
+                # their workspace before capture (PyTorch-documented minimum).
+                with torch.inference_mode():
+                    for _ in range(3):
+                        self.model(self.dummyInput)
+                        self.stream.synchronize()
+            self.cudaGraph = torch.cuda.CUDAGraph()
+            self.initTorchCudaGraph()
+        except Exception as e:
+            logging.warning(f"CUDA graph capture failed, falling back to eager: {e}")
+            self.cudaGraph = None
+
     @torch.inference_mode()
-    def getMask(self, input_img: torch.Tensor) -> torch.Tensor:
+    def initTorchCudaGraph(self):
+        with torch.cuda.graph(self.cudaGraph, stream=self.stream):
+            self.dummyOutput = self.model(self.dummyInput)
+        self.stream.synchronize()
+
+    @torch.inference_mode()
+    def getMask(self, frames: list) -> torch.Tensor:
+        """frames: list of decoded [1, 3, H, W] tensors. Every frame is resized to
+        the same 1024-box, and ISNet is fully convolutional, so the batch axis is
+        frame-independent. Returns [B, 4, H, W] (RGB + alpha).
+
+        The batch is concatenated *inside* self.stream. Building it on the default
+        stream instead would let the forward read it before the copy landed."""
         with torch.cuda.stream(self.stream):
+            input_img = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
             input_img = input_img.to(checker.device).float()
-            s = 1024
-            h, w = h0, w0 = input_img.shape[2], input_img.shape[3]
-            h, w = (s, int(s * w / h)) if h > w else (int(s * h / w), s)
-            ph, pw = s - h, s - w
-            img_input = F.interpolate(
-                input_img,
-                size=(h, w),
-                mode="bilinear",
-                align_corners=False,
+            h0, w0 = input_img.shape[2], input_img.shape[3]
+            img_input = F.pad(
+                F.interpolate(
+                    input_img,
+                    size=(self.boxHeight, self.boxWidth),
+                    mode="bilinear",
+                    align_corners=False,
+                ),
+                self.pad,
             )
-            pred = self.model(
-                F.pad(img_input, (pw // 2, pw - pw // 2, ph // 2, ph - ph // 2))
-            )
-            pred = pred[:, :, ph // 2 : ph // 2 + h, pw // 2 : pw // 2 + w]
+            if self.cudaGraph is not None and img_input.shape == self.dummyInput.shape:
+                self.dummyInput.copy_(img_input, non_blocking=True)
+                self.cudaGraph.replay()
+                pred = self.dummyOutput
+            else:
+                pred = self.model(img_input)
+            # slices a view of the graph's static output; the interpolate below
+            # materializes a fresh tensor, so nothing aliasing it reaches the
+            # write queue and the next replay cannot overwrite a queued frame
+            pred = pred[
+                :,
+                :,
+                self.padTop : self.padTop + self.boxHeight,
+                self.padLeft : self.padLeft + self.boxWidth,
+            ]
             pred = F.interpolate(
                 pred, size=(h0, w0), mode="bilinear", align_corners=False
             )
@@ -120,27 +200,27 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         return pred
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processBatch(self, frames):
         try:
-            mask = self.getMask(frame)
-            self.writeBuffer.write(mask)
+            masks = self.getMask(frames)
+            for i in range(masks.shape[0]):
+                self.writeBuffer.write(masks[i : i + 1])
 
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
     def process(self):
         frameCount = 0
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
 
         with ProgressBarLogic(self.totalFrames) as bar:
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
-                frameCount += 1
-                bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
+            while True:
+                frames = _readBatch(self.readBuffer, self.segmentBatch)
+                if frames:
+                    self.processBatch(frames)
+                    frameCount += len(frames)
+                    bar(len(frames))
+                if len(frames) < self.segmentBatch:
+                    break
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -161,6 +241,7 @@ class AnimeSegmentTensorRT:
         custom_encoder="",
         benchmark=False,
         totalFrames=0,
+        segment_batch: int = 1,
     ):
         self.input = input
         self.output = output
@@ -173,6 +254,7 @@ class AnimeSegmentTensorRT:
         self.custom_encoder = custom_encoder
         self.benchmark = benchmark
         self.totalFrames = totalFrames
+        self.segmentBatch = max(1, int(segment_batch))
 
         from src.model.trtHandler import (
             tensorRTEngineCreator,
@@ -232,15 +314,14 @@ class AnimeSegmentTensorRT:
         self.padHeight = ((self.height - 1) // 64 + 1) * 64 - self.height
         self.padWidth = ((self.width - 1) // 64 + 1) * 64 - self.width
 
+        B = self.segmentBatch
+        paddedHeight = self.height + self.padHeight
+        paddedWidth = self.width + self.padWidth
+
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=False,  # Setting this to false cuz fp16 results are really bad compared to fp32
-            optInputShape=[
-                1,
-                3,
-                self.height + self.padHeight,
-                self.width + self.padWidth,
-            ],
+            optInputShape=[B, 3, paddedHeight, paddedWidth],
         )
 
         self.engine, self.context = self.tensorRTEngineLoader(enginePath)
@@ -253,36 +334,21 @@ class AnimeSegmentTensorRT:
                 modelPath=self.modelPath,
                 enginePath=enginePath,
                 fp16=False,  # Setting this to false cuz fp16 results are really bad compared to fp32
-                inputsMin=[
-                    1,
-                    3,
-                    self.height + self.padHeight,
-                    self.width + self.padWidth,
-                ],
-                inputsOpt=[
-                    1,
-                    3,
-                    self.height + self.padHeight,
-                    self.width + self.padWidth,
-                ],
-                inputsMax=[
-                    1,
-                    3,
-                    self.height + self.padHeight,
-                    self.width + self.padWidth,
-                ],
+                inputsMin=[1, 3, paddedHeight, paddedWidth],
+                inputsOpt=[B, 3, paddedHeight, paddedWidth],
+                inputsMax=[B, 3, paddedHeight, paddedWidth],
                 inputName=["input"],
             )
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
-            (1, 3, self.height + self.padHeight, self.width + self.padWidth),
+            (B, 3, paddedHeight, paddedWidth),
             device=checker.device,
             dtype=torch.float32,
         )
 
         self.dummyOutput = torch.zeros(
-            (1, 1, self.height + self.padHeight, self.width + self.padWidth),
+            (B, 1, paddedHeight, paddedWidth),
             device=checker.device,
             dtype=torch.float32,
         )
@@ -306,20 +372,25 @@ class AnimeSegmentTensorRT:
         self.outputStream = torch.cuda.Stream()
 
     @torch.inference_mode()
-    def normFrame(self, frame):
+    def normFrame(self, frames):
+        """frames: list of segmentBatch decoded tensors [1, 3, H, W]. Builds the
+        [B, 3, paddedH, paddedW] engine input and returns the padded batch."""
         with torch.cuda.stream(self.normStream):
-            frame = F.pad(
-                frame.float(),
+            batch = frames[0] if len(frames) == 1 else torch.cat(frames, dim=0)
+            batch = F.pad(
+                batch.float(),
                 (0, self.padWidth, 0, self.padHeight),
             )
-            self.dummyInput.copy_(frame, non_blocking=True)
+            self.dummyInput.copy_(batch, non_blocking=True)
             self.normStream.synchronize()
-            return frame
+            return batch
 
     @torch.inference_mode()
-    def outputNorm(self, frame):
+    def outputNorm(self, batch, i):
         with torch.cuda.stream(self.outputStream):
-            frameWithMask = torch.cat((frame, self.dummyOutput), dim=1)
+            frameWithMask = torch.cat(
+                (batch[i : i + 1], self.dummyOutput[i : i + 1]), dim=1
+            )
             frameWithMask = frameWithMask[
                 :,
                 :,
@@ -330,29 +401,33 @@ class AnimeSegmentTensorRT:
             return frameWithMask
 
     @torch.inference_mode()
-    def processFrame(self, frame):
+    def processBatch(self, frames):
         try:
-            frame = self.normFrame(frame)
+            real = len(frames)
+            # the engine input shape is fixed at segmentBatch, so pad a short
+            # final batch with the last frame and drop the padded outputs
+            if real < self.segmentBatch:
+                frames = frames + [frames[-1]] * (self.segmentBatch - real)
+            batch = self.normFrame(frames)
             self.context.execute_async_v3(stream_handle=self.stream.cuda_stream)
             self.stream.synchronize()
-            frameWithMask = self.outputNorm(frame)
-            self.writeBuffer.write(frameWithMask)
+            for i in range(real):
+                self.writeBuffer.write(self.outputNorm(batch, i))
         except Exception as e:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
     def process(self):
         frameCount = 0
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
 
         with ProgressBarLogic(self.totalFrames) as bar:
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
-                frameCount += 1
-                bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
+            while True:
+                frames = _readBatch(self.readBuffer, self.segmentBatch)
+                if frames:
+                    self.processBatch(frames)
+                    frameCount += len(frames)
+                    bar(len(frames))
+                if len(frames) < self.segmentBatch:
+                    break
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -440,12 +515,13 @@ class AnimeSegmentDirectML:
             logging.info("DirectML provider available. Defaulting to DirectML")
             provider = "DmlExecutionProvider"
         else:
-            logging.info(
+            logWarning(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             provider = "CPUExecutionProvider"
 
         self.model = self.ort.InferenceSession(modelPath, providers=[provider])
+        warnIfProviderMissing(self.model, provider, "DirectML segment")
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
         self.numpyDType = np.float32
@@ -540,17 +616,12 @@ class AnimeSegmentDirectML:
 
     def process(self):
         frameCount = 0
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
 
         with ProgressBarLogic(self.totalFrames) as bar:
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
+            while (frame := self.readBuffer.read()) is not None:
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -652,12 +723,13 @@ class AnimeSegmentOpenVino:
             logging.info("OpenVINO provider available. Defaulting to OpenVINO")
             provider = "OpenVINOExecutionProvider"
         else:
-            logging.info(
+            logWarning(
                 "OpenVINO provider not available, falling back to CPU, expect significantly worse performance"
             )
             provider = "CPUExecutionProvider"
 
         self.model = self.ort.InferenceSession(modelPath, providers=[provider])
+        warnIfProviderMissing(self.model, provider, "OpenVINO segment")
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
         self.numpyDType = np.float32

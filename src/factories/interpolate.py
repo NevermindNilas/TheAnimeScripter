@@ -1,14 +1,17 @@
 """
 Interpolate backend factory.
 
-buildInterpolateProcess(self, outputWidth, outputHeight) -> callable
-  outputWidth/outputHeight: post-upscale dimensions (needed by GMFSS).
+buildInterpolateProcess(self, interpWidth, interpHeight) -> callable
+  interpWidth/interpHeight: the resolution the interpolation driver will actually
+  receive frames at -- source dimensions in interpolate-first order, post-upscale
+  dimensions in interpolate-last order. The caller (initializeModels) resolves
+  which. Every backend sizes fixed buffers from these, so they must be right.
 """
 
 import logging
 
 
-def buildInterpolateProcess(self, outputWidth, outputHeight):
+def buildInterpolateProcess(self, interpWidth, interpHeight):
     logging.info(
         f"Interpolating from {format(self.fps, '.3f')}fps to "
         f"{format(self.fps * self.interpolateFactor, '.3f')}fps"
@@ -35,8 +38,8 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
 
             return RifeCuda(
                 self.half,
-                self.width,
-                self.height,
+                interpWidth,
+                interpHeight,
                 self.interpolateMethod,
                 self.ensemble,
                 self.interpolateFactor,
@@ -65,8 +68,8 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
 
             return RifeMPS(
                 self.half,
-                self.width,
-                self.height,
+                interpWidth,
+                interpHeight,
                 self.interpolateMethod,
                 self.ensemble,
                 self.interpolateFactor,
@@ -79,8 +82,8 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             from src.interpolate.rife import DepthGuidedRifeCuda
 
             return DepthGuidedRifeCuda(
-                width=self.width,
-                height=self.height,
+                width=interpWidth,
+                height=interpHeight,
                 half=self.half,
                 interpolate_method="rife4.25",
                 depth_method=self.depthMethod,
@@ -105,8 +108,8 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             return RifeNCNN(
                 self.interpolateMethod,
                 self.ensemble,
-                self.width,
-                self.height,
+                interpWidth,
+                interpHeight,
                 self.half,
                 self.interpolateFactor,
             )
@@ -132,8 +135,8 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             return RifeTensorRT(
                 self.interpolateMethod,
                 self.interpolateFactor,
-                self.width,
-                self.height,
+                interpWidth,
+                interpHeight,
                 self.half,
                 self.ensemble,
             )
@@ -144,8 +147,8 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             return GMFSS(
                 int(self.interpolateFactor),
                 self.half,
-                outputWidth,
-                outputHeight,
+                interpWidth,
+                interpHeight,
                 self.ensemble,
                 compileMode=self.compileMode,
             )
@@ -179,8 +182,8 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
             return RifeDirectML(
                 self.interpolateMethod,
                 self.interpolateFactor,
-                self.width,
-                self.height,
+                interpWidth,
+                interpHeight,
                 self.half,
                 self.ensemble,
             )
@@ -190,8 +193,8 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
 
             return DistilDRBACuda(
                 self.half,
-                self.width,
-                self.height,
+                interpWidth,
+                interpHeight,
                 self.interpolateMethod,
                 interpolateFactor=self.interpolateFactor,
                 compileMode=self.compileMode,
@@ -202,8 +205,8 @@ def buildInterpolateProcess(self, outputWidth, outputHeight):
 
             return DistilDRBATensorRT(
                 self.half,
-                self.width,
-                self.height,
+                interpWidth,
+                interpHeight,
                 self.interpolateMethod,
                 interpolateFactor=self.interpolateFactor,
             )

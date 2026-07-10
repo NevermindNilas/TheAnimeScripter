@@ -19,8 +19,9 @@ from src.depth.backends._shared import (
     calculateAspectRatio,
 )
 from src.infra.isCudaInit import CudaChecker
-from src.infra.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint, logWarning
 from src.infra.progressBarLogic import ProgressBarLogic
+from src.infra.providerCheck import warnIfProviderMissing
 from src.io.ffmpegSettings import (
     BuildBuffer,
     WriteBuffer,
@@ -151,13 +152,19 @@ class DepthDirectMLV2:
                 self.model = self.ort.InferenceSession(
                     modelPath, providers=["DmlExecutionProvider"]
                 )
+                warnIfProviderMissing(
+                    self.model, "DmlExecutionProvider", "DirectML depth"
+                )
             elif "openvino" in self.depth_method:
                 logging.info("Using OpenVINO model")
                 self.model = self.ort.InferenceSession(
                     modelPath, providers=["OpenVINOExecutionProvider"]
                 )
+                warnIfProviderMissing(
+                    self.model, "OpenVINOExecutionProvider", "OpenVINO depth"
+                )
         else:
-            logging.info(
+            logWarning(
                 "DirectML provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
             )
             self.model = self.ort.InferenceSession(
@@ -303,16 +310,11 @@ class DepthDirectMLV2:
     def process(self):
         frameCount = 0
 
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
         with ProgressBarLogic(self.totalFrames) as bar:
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
+            while (frame := self.readBuffer.read()) is not None:
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -427,13 +429,19 @@ class OGDepthV2DirectML:
                 self.model = self.ort.InferenceSession(
                     modelPath, providers=["DmlExecutionProvider"]
                 )
+                warnIfProviderMissing(
+                    self.model, "DmlExecutionProvider", "DirectML depth"
+                )
             elif "openvino" in self.depth_method:
                 logging.info("Using OpenVINO model")
                 self.model = self.ort.InferenceSession(
                     modelPath, providers=["OpenVINOExecutionProvider"]
                 )
+                warnIfProviderMissing(
+                    self.model, "OpenVINOExecutionProvider", "OpenVINO depth"
+                )
         else:
-            logging.info("DirectML provider not available, falling back to CPU")
+            logWarning("DirectML provider not available, falling back to CPU")
             self.model = self.ort.InferenceSession(
                 modelPath, providers=["CPUExecutionProvider"]
             )

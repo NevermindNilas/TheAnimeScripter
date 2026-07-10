@@ -145,6 +145,9 @@ def importRifeArch(interpolateMethod, version, half=True):
 
 
 class DistilDRBACuda:
+    # 3-frame arch: I0 is cached internally, I2 must be handed in.
+    temporalWindow = (0, 1)
+
     def __init__(
         self,
         half: bool,
@@ -295,15 +298,16 @@ class DistilDRBACuda:
 
         Args:
             frame: Current frame tensor [B, C, H, W] - this becomes I1
-            nextFrame: Next frame from peek() [B, C, H, W] - this becomes I2
+            nextFrame: Next frame from the pipeline's FrameWindow [B, C, H, W] - this becomes I2
             interpQueue: Queue to put interpolated frames
             framesToInsert: Number of frames to insert between consecutive frames
             timesteps: Optional list of timestep values (in TAS range 0-1)
 
-        Frame mapping using peek():
+        Frame mapping:
             - I0 = previous frame (cached from last call)
             - I1 = current frame (passed as `frame`)
-            - I2 = next frame (passed as `nextFrame` from readBuffer.peek())
+            - I2 = next frame (supplied by the window this class declares via
+              `temporalWindow`; None on the final frame)
 
         We interpolate between I0 and I1, using I2 as future context.
         """
@@ -315,15 +319,17 @@ class DistilDRBACuda:
         else:
             I1 = self.prepareFrame(frame)
 
-        # Prepare next frame (I2) - handle size mismatch if upscale was applied to frame
+        # Prepare next frame (I2). The pipeline hands us a neighbour from the
+        # same domain as `frame`, so a size mismatch is a wiring bug, not
+        # something to paper over: bilinearly upsampling I2 to match an upscaled
+        # I1 used to feed the model a blurred future frame and silently degrade
+        # the flow estimate.
         if nextFrame is not None:
-            # Check if nextFrame needs to be resized to match frame dimensions
             if nextFrame.shape[-2:] != frame.shape[-2:]:
-                nextFrame = F.interpolate(
-                    nextFrame,
-                    size=frame.shape[-2:],
-                    mode="bilinear",
-                    align_corners=False,
+                raise RuntimeError(
+                    f"DistilDRBA got a next frame of {tuple(nextFrame.shape[-2:])} "
+                    f"against a current frame of {tuple(frame.shape[-2:])}; the "
+                    f"caller must supply the neighbour in the same domain."
                 )
             if self.normStream:
                 with torch.cuda.stream(self.normStream):
@@ -388,6 +394,9 @@ class DistilDRBACuda:
 
 
 class DistilDRBATensorRT:
+    # 3-frame arch: I0 is cached internally, I2 must be handed in.
+    temporalWindow = (0, 1)
+
     def __init__(
         self,
         half: bool,
@@ -677,14 +686,18 @@ class DistilDRBATensorRT:
 
         Args:
             frame: Current frame tensor [B, C, H, W] - this becomes I1
-            nextFrame: Next frame from peek() [B, C, H, W] - this becomes I2
+            nextFrame: Next frame from the pipeline's FrameWindow [B, C, H, W] - this becomes I2
             interpQueue: Queue to put interpolated frames
             framesToInsert: Number of frames to insert
             timesteps: Optional list of timestep values (in TAS range 0-1)
         """
+        # See DistilDRBACuda.__call__: the neighbour arrives in the same domain as
+        # `frame`, so a mismatch is a caller bug rather than something to resize away.
         if nextFrame is not None and nextFrame.shape[-2:] != frame.shape[-2:]:
-            nextFrame = F.interpolate(
-                nextFrame, size=frame.shape[-2:], mode="bilinear", align_corners=False
+            raise RuntimeError(
+                f"DistilDRBA got a next frame of {tuple(nextFrame.shape[-2:])} "
+                f"against a current frame of {tuple(frame.shape[-2:])}; the "
+                f"caller must supply the neighbour in the same domain."
             )
 
         if self.firstRun:

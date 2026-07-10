@@ -409,6 +409,7 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 |-----------|------|---------|-------------|
 | `--segment` | flag | False | **Background/foreground separation** — automatically enabled when `--segment_method` is specified |
 | `--segment_method` | str | "anime" | **Segmentation model** [see table](#segmentation-methods) — specifying a non-default method auto-enables segmentation |
+| `--segment_batch` | int | 1 | **Frames per model forward** for segmentation. `>1` batches independent frames to amortize kernel-launch overhead, at a proportional VRAM cost. ISNet is fully convolutional and per-frame independent, so batching cannot change a frame's mask. `1` matches the previous one-frame path exactly. Gains depend on where the model sits between launch-bound and compute-bound. **CUDA** (`anime`) always runs the model in a fixed 1024-box, so the gain is resolution-independent: RTX 3090, 402 frames, ~**+10%** at `4` (24.2 → 26.7 FPS end-to-end); `8` is usually a regression at 720p+ (peak model VRAM 0.95 → 3.2 GB at `4`, 6.2 GB at `8`). **TensorRT** (`anime-tensorrt`) runs at the native `/64`-padded resolution, so batching pays only at low resolution: at 640×360 `4` gives **+57%** (93.8 → 147.1 FPS), while at 1280×720 it is already compute-bound and gains nothing (38.4 → 38.6). A batch-`N` engine is a separate build cached under a batch-aware filename. Forced to `1` for DirectML/OpenVINO, where batching measured *slower*. |
 | `--depth` | flag | False | **Generate depth maps** — automatically enabled when `--depth_method` is specified |
 | `--depth_method` | str | "small_v2" | **Depth model** [see table](#depth-models) — specifying a non-default method auto-enables depth estimation |
 | `--depth_quality` | str | "low" | **Processing quality** (low/medium/high). Note: higher quality modes are incompatible with TensorRT/DirectML backends and will be automatically downgraded to `low` when those backends are used. |
@@ -464,7 +465,27 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | `--moblur_shutter_angle` | float | 180 | 0-360 | **Blur amount.** 180 = cinema standard, 360 = max smear, 90 = crisp, 0 = off |
 | `--moblur_strength` | str | "gaussian_sym" | gaussian_sym, equal, pyramid, ascending, descending | **Frame-weighting scheme** (gaussian_sym mimics a natural shutter) |
 | `--moblur_no_linear_blend` | flag | False | - | Disable gamma-correct blending (not recommended) |
-| `--moblur_mask` | str | "" | path | **Protect regions** — transparent PNG; opaque dark areas stay sharp (HUD/text), transparent areas blur |
+
+### 🎭 Masking
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `--mask` | str | "" | path | **Protect regions** — transparent PNG; opaque dark areas stay sharp and static, transparent areas process normally |
+
+One mask covers both `--moblur` and `--interpolate`. Paint the regions you want left alone — a HUD, hardsubs, a watermark, a logo — as opaque dark pixels on a transparent background. RGB (no alpha) and grayscale images work too: dark = protected. The mask is resized to match the frame if the dimensions differ.
+
+- With `--moblur`, protected pixels are taken from the unblurred source frame, so they stay sharp while everything else smears.
+- With `--interpolate`, protected pixels are taken from the source frame preceding each generated frame, so they hold instead of warping. This kills the rippling that RIFE and GMFSS produce on text and UI overlaid on moving footage. Static protected content is pixel-identical to the source; content that does change (a subtitle line swapping) snaps on its own source frame rather than morphing across the gap.
+
+```bash
+# Interpolate gameplay to 120fps without smearing the HUD
+python main.py --input game.mp4 --output out.mp4 --interpolate --interpolate_factor 2 --mask hud.png
+
+# Motion blur that leaves the hardsubs readable
+python main.py --input anime.mp4 --output out.mp4 --moblur --mask subs.png
+```
+
+Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a rife4.6 frame) and nothing at all when `--mask` is unset. Pixels outside the mask are bit-identical to an unmasked run.
 
 ### 🔍 Auto Clip Detection
 

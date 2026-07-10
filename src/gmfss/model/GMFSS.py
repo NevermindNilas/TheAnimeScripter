@@ -22,7 +22,6 @@ class GMFSS(nn.Module):
         ifnetState = torch.load(
             os.path.join(model_dir, "rife.pkl"), map_location="cpu"
         )
-        ifnetState = {k: v for k, v in ifnetState.items() if k.startswith("block0.")}
         self.ifnet.load_state_dict(ifnetState)
         del ifnetState
 

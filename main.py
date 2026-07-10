@@ -28,7 +28,7 @@ import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
-from queue import Empty, Queue
+from queue import Empty
 from time import time
 
 os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
@@ -62,8 +62,24 @@ def _disableUserSitePackages() -> None:
 _disableUserSitePackages()
 
 import src.constants as cs  # noqa: E402
+from src.io.frameWindow import FrameSlot  # noqa: E402
 
 warnings.filterwarnings("ignore")
+
+
+class _FrameCollector:
+    """Small same-thread sink for interpolation outputs."""
+
+    __slots__ = ("frames",)
+
+    def __init__(self) -> None:
+        self.frames = []
+
+    def put(self, frame) -> None:
+        self.frames.append(frame)
+
+    def clear(self) -> None:
+        self.frames.clear()
 
 
 def _setTerminalTitle(title: str) -> None:
@@ -74,6 +90,25 @@ def _setTerminalTitle(title: str) -> None:
         sys.stdout.flush()
     except Exception:
         pass
+
+
+def _videoFailed(
+    processingError: Exception | None, outputPath: str, benchmark: bool = False
+) -> bool:
+    """Decide whether a processed video should be counted as a failure.
+
+    A run failed if the frame loop stored an exception, or (for non-benchmark
+    runs) the encoder produced no output file (missing or 0 bytes). Benchmark
+    runs write no output by design, so their output size is not checked.
+    """
+    if processingError is not None:
+        return True
+    if benchmark:
+        return False
+    try:
+        return os.path.getsize(outputPath) <= 0
+    except OSError, TypeError:
+        return True
 
 
 class VideoProcessor:
@@ -133,6 +168,7 @@ class VideoProcessor:
         self.restoreMethod: str = args.restore_method
         self.depthMethod: str = args.depth_method
         self.segmentMethod: str = args.segment_method
+        self.segmentBatch: int = getattr(args, "segment_batch", 1)
         self.objDetectMethod: str = args.obj_detect_method
         self.objDetectDisableAnnotations: bool = args.obj_detect_disable_annotations
 
@@ -180,7 +216,9 @@ class VideoProcessor:
         self.moblurStrength: str = args.moblur_strength
         self.moblurShutterAngle: float = args.moblur_shutter_angle
         self.moblurLinearBlend: bool = not args.moblur_no_linear_blend
-        self.moblurMask: str = args.moblur_mask
+
+        # Protection mask, shared by motion blur and interpolation.
+        self.maskPath: str = getattr(args, "mask", "")
 
         # Utility settings
         self.customModel: str = args.custom_model
@@ -297,19 +335,62 @@ class VideoProcessor:
         else:
             self.start()
 
-    def processFrame(self, frame: any) -> None:
+    def _enterFrame(self, rawFrame: any):
+        """Admit a decoded frame into the window, or drop it.
+
+        This is the pipeline's *entry* stage, run once per decoded frame in
+        decode order by ``FrameWindow``. It performs the work that must happen
+        before a frame can serve as anyone's neighbour:
+
+        - dedup, on the raw frame, so duplicates never enter the window at all
+          (a driver's "next frame" is the next frame that survives to the
+          output, not a duplicate of the one it already has, and restore is not
+          spent on frames that are about to be dropped);
+        - restore, so every slot in the window shares one domain;
+        - hard-cut detection, on the post-restore frame.
+
+        Both detectors are stateful and see exactly the sequence of frames they
+        saw when they ran inline, in the same order.
+        """
+        if self.dedup and self.dedup_process(rawFrame):
+            return None
+
+        frame = self.restore_process(rawFrame) if self.restore else rawFrame
+
+        isCut = bool(
+            self.interpolate
+            and self.sceneChange_process is not None
+            and self.sceneChange_process(frame)
+        )
+        return FrameSlot(frame, isCut)
+
+    def _upscaledAt(self, offset: int):
+        """Upscale of the slot at ``offset``, computed once and cached on it.
+
+        The interpolation driver in ``ifInterpolateLast`` consumes upscaled
+        frames, so a temporal driver's neighbour has to be upscaled too. Doing it
+        through the window means each frame is upscaled exactly once even though
+        two stages read it, and always in increasing frame order, which keeps
+        AnimeSR's ``prevFrame``/``state`` recurrence in sequence.
+        """
+        return self.frameWindow.staged(
+            offset,
+            "upscaled",
+            lambda index: self.upscale_process(
+                self.frameWindow.at(index).frame,
+                self.frameWindow.successorFrame(index),
+            ),
+        )
+
+    def processFrame(self, slot: any) -> None:
         """
         Process a single video frame through the configured enhancement pipeline.
 
         Args:
-            frame: Input video frame tensor
+            slot: The window slot being processed; dedup and restore already ran.
         """
-        if self.dedup and self.dedup_process(frame):
-            self.dedupCount += 1
-            return
-
-        if self.restore:
-            frame = self.restore_process(frame)
+        frame = slot.frame
+        self._isCut = slot.isCut
 
         if self.interpolate:
             if isinstance(self.interpolateFactor, float):
@@ -332,21 +413,12 @@ class VideoProcessor:
                 self.framesToInsert = int(self.interpolateFactor) - 1
                 self.timesteps = None
 
-        # Hard-cut detection: if this frame is a scene cut relative to the
-        # previous kept frame, hold (duplicate) instead of morphing across it.
-        # Evaluated on the post-restore frame; the detector downsamples anyway.
-        self._isCut = bool(
-            self.interpolate
-            and self.sceneChange_process is not None
-            and self.sceneChange_process(frame)
-        )
-
         if self.interpolateFirst:
             self.ifInterpolateFirst(frame)
         else:
             self.ifInterpolateLast(frame)
 
-    def _interpolateOrHold(self, frame: any, sink: any) -> None:
+    def _interpolateOrHold(self, frame: any, sink: any, nextFrame: any) -> None:
         """
         Feed the interpolation driver, or on a detected scene cut emit
         ``framesToInsert`` duplicates of the current frame into ``sink`` and
@@ -354,49 +426,76 @@ class VideoProcessor:
         next interpolation anchors on this frame with no bleed from the previous
         scene. ``sink`` is ``self.interpQueue`` (interpolate-first) or
         ``self.writeBuffer`` (interpolate-last); both expose ``put``.
+
+        With ``--mask``, the sink is wrapped so every emitted intermediate frame
+        has its protected pixels restored from the segment's anchor frame. Held
+        frames on a scene cut are already pristine copies, so they bypass the
+        mask. Anchoring differs by driver: distildrba receives both endpoints and
+        interpolates between ``frame`` and the window's next frame, so ``frame``
+        is the anchor; every other driver keeps the previous frame internally and
+        gets fed the segment's *end*, so the anchor is the previously fed frame.
+        That keeps protected regions on the source frame that precedes them, so a
+        subtitle or HUD swaps exactly on its own output slot instead of early.
+
+        ``nextFrame`` is the driver's future context, in the same domain as
+        ``frame``, or ``None`` at the end of the stream or across a scene cut.
         """
         if self._isCut:
             for _ in range(self.framesToInsert):
                 sink.put(frame.clone())
             self.interpolate_process.cacheFrameReset(frame)
         elif self.interpolateMethod.startswith("distildrba"):
+            if self.maskedSink is not None:
+                sink = self.maskedSink.bind(sink, frame)
             self.interpolate_process(
-                frame, self.nextFrame, sink, self.framesToInsert, self.timesteps
+                frame,
+                nextFrame,
+                sink,
+                self.framesToInsert,
+                self.timesteps,
             )
         else:
+            if self.maskedSink is not None:
+                sink = self.maskedSink.bind(sink, self.maskAnchor)
             self.interpolate_process(frame, sink, self.framesToInsert, self.timesteps)
 
+        self.maskAnchor = frame
+
     def _drainInterpQueue(self) -> None:
-        while True:
-            try:
-                item = self.interpQueue.get_nowait()
-            except Empty:
-                break
+        for item in self.interpQueue.frames:
             self.writeBuffer.write(item)
+        self.interpQueue.clear()
 
     def ifInterpolateFirst(self, frame: any) -> None:
         """
         Process frame with interpolation-first pipeline order.
 
+        Interpolation and upscaling both read the restore-domain source stream
+        here -- interpolation consumes it directly, upscaling consumes its
+        output -- so both take their neighbour straight from the window. A
+        temporal upscaler applied to a generated intermediate is handed the
+        source frame that closes the interval, which is the nearest real future
+        frame that exists at that point in the pipeline.
+
         Args:
-            frame: Input video frame tensor
+            frame: Restore-domain frame at the window's centre
         """
+        nextFrame = self.frameWindow.successorFrame()
+
         if self.interpolate:
-            self._interpolateOrHold(frame, self.interpQueue)
+            self.interpQueue.clear()
+            self._interpolateOrHold(frame, self.interpQueue, nextFrame)
 
         if self.upscale:
             if self.interpolate:
-                while True:
-                    try:
-                        item = self.interpQueue.get_nowait()
-                    except Empty:
-                        break
-                    self.writeBuffer.write(self.upscale_process(item, self.nextFrame))
+                for item in self.interpQueue.frames:
+                    self.writeBuffer.write(self.upscale_process(item, nextFrame))
+                self.interpQueue.clear()
 
-                self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
+                self.writeBuffer.write(self.upscale_process(frame, nextFrame))
 
             else:
-                self.writeBuffer.write(self.upscale_process(frame, self.nextFrame))
+                self.writeBuffer.write(self.upscale_process(frame, nextFrame))
 
         else:
             if self.interpolate:
@@ -407,14 +506,29 @@ class VideoProcessor:
         """
         Process frame with interpolation-last pipeline order.
 
+        Upscaling comes first, so the interpolation driver's stream *is* the
+        upscaled stream and a temporal driver's neighbour must be upscaled too.
+        Both come from the window's memoized upscale, so each frame is upscaled
+        exactly once despite being read by two stages.
+
         Args:
-            frame: Input video frame tensor
+            frame: Restore-domain frame at the window's centre
         """
         if self.upscale:
-            frame = self.upscale_process(frame, self.nextFrame)
+            frame = self._upscaledAt(0)
+
+        nextFrame = None
+        if self.interpolate and self._interpFuture:
+            if self.upscale:
+                # Guard first: a cut or the stream's end means no future context,
+                # and upscaling the successor early would be pure waste.
+                if self.frameWindow.successor() is not None:
+                    nextFrame = self._upscaledAt(1)
+            else:
+                nextFrame = self.frameWindow.successorFrame()
 
         if self.interpolate:
-            self._interpolateOrHold(frame, self.writeBuffer)
+            self._interpolateOrHold(frame, self.writeBuffer, nextFrame)
 
         self.writeBuffer.write(frame)
 
@@ -425,10 +539,18 @@ class VideoProcessor:
         Processes all frames through the configured enhancement pipeline and
         tracks processing statistics.
         """
+        from src.io.frameWindow import FrameWindow, temporalDemand
+
         frameCount = 0
         self.dedupCount = 0
         self.frameCounter = 0
-        self.nextFrame = None
+
+        self.maskedSink = None
+        self.maskAnchor = None
+        if self.interpolate and self.maskPath:
+            from src.masking import MaskedSink, ProtectionMask
+
+            self.maskedSink = MaskedSink(ProtectionMask(self.maskPath))
 
         if self.interpolate and isinstance(self.interpolateFactor, float):
             factor = Fraction(self.interpolateFactor).limit_denominator(100)
@@ -447,38 +569,72 @@ class VideoProcessor:
         self.framesToInsert = self.interpolateFactor - 1 if self.interpolate else 0
 
         if self.interpolate and self.interpolateFirst:
-            self.interpQueue = Queue(maxsize=round(self.interpolateFactor))
+            self.interpQueue = _FrameCollector()
+
+        # Drivers declare how many neighbouring frames they need handed to them.
+        # Restore runs at window entry, so every slot already shares its domain
+        # and it contributes no lookahead of its own.
+        restorePast, restoreFuture = temporalDemand(self.restore_process)
+        if restoreFuture or restorePast:
+            raise NotImplementedError(
+                "a temporal restore driver would need lookahead inside the window's "
+                "entry pipeline, which is not wired up"
+            )
+
+        upscalePast, upscaleFuture = temporalDemand(
+            self.upscale_process if self.upscale else None
+        )
+        interpPast, self._interpFuture = temporalDemand(
+            self.interpolate_process if self.interpolate else None
+        )
+
+        if self.interpolateFirst:
+            # Interpolation and upscaling both read the source stream, so their
+            # demands overlap rather than stack.
+            future = max(upscaleFuture, self._interpFuture)
+        else:
+            # Chained: interpolation's neighbour is an upscaled frame, whose own
+            # neighbour is a source frame one further out. The demands compose.
+            future = upscaleFuture + self._interpFuture
+        past = max(upscalePast, interpPast)
+
+        # Constructed before the try so the finally can always read its counters,
+        # but this cannot raise (bounds are non-negative here).
+        self.frameWindow = FrameWindow(
+            self.readBuffer.read,
+            past=past,
+            future=future,
+            enter=self._enterFrame,
+        )
 
         try:
-            currentFrame = self.readBuffer.read()
-            nextFrame = self.readBuffer.read() if currentFrame is not None else None
-
             with self.ProgressBarLogic(
                 self.totalFrames * increment,
                 outputPath=self.output,
                 videoFps=self.outputFPS,
             ) as bar:
-                while currentFrame is not None:
-                    if self.upscaleMethod == "animesr" or (
-                        self.interpolate
-                        and self.interpolateMethod.startswith("distildrba")
-                    ):
-                        self.nextFrame = nextFrame
-                    self.processFrame(currentFrame)
-                    frameCount += 1
-                    bar(increment)
+                consumed = 0
+                while self.frameWindow.advance():
+                    self.processFrame(self.frameWindow.centre)
+                    # The bar tracks decoded frames, not kept ones, so dedup'd
+                    # frames still advance it. Lookahead means the window may
+                    # have consumed several by the time this centre is reached.
+                    advanced = self.frameWindow.consumed - consumed
+                    consumed = self.frameWindow.consumed
+                    if advanced:
+                        bar(increment * advanced)
 
-                    currentFrame = nextFrame
-                    if currentFrame is not None:
-                        nextFrame = self.readBuffer.read()
-
-                if frameCount != self.totalFrames:
-                    bar.updateTotal(frameCount * increment)
+                if self.frameWindow.consumed != self.totalFrames:
+                    bar.updateTotal(self.frameWindow.consumed * increment)
 
         except Exception as e:
             self.processingError = e
             logging.exception(f"Something went wrong while processing the frames, {e}")
         finally:
+            # Counters live on the window, so a partial run still reports what it
+            # actually decoded and dropped.
+            frameCount = self.frameWindow.consumed
+            self.dedupCount = self.frameWindow.dropped
             # Always enqueue the writer's None sentinel (and close preview) even
             # when a frame raises, otherwise the writer/reader threads block
             # forever and the ThreadPoolExecutor join deadlocks the process.
@@ -586,14 +742,28 @@ class VideoProcessor:
                     executor.submit(self.process)
 
             elapsedTime: float = time() - starTime
-            if self.processingError is not None:
-                # process() caught a per-frame exception. Computing FPS from
-                # frameCount over elapsedTime is meaningless (frameCount is
-                # usually 0 or 1, elapsedTime includes startup + model init),
-                # and the output file is typically missing/empty because the
-                # encoder pipe was starved. Report failure clearly instead.
+
+            # The bar's last filesize sample lands before the encoder drains its
+            # queue and writes the container trailer, so read the real final
+            # number here. A missing/0-byte output means the encoder never ran.
+            try:
+                finalSize = os.path.getsize(self.output)
+            except (OSError, TypeError) as _e:
+                finalSize = None
+
+            if _videoFailed(self.processingError, self.output, self.benchmark):
+                # Either process() caught a per-frame exception, or the encoder
+                # produced no output file. Computing FPS from frameCount over
+                # elapsedTime is meaningless in that case (frameCount is usually
+                # 0 or 1, elapsedTime includes startup + model init). Report
+                # failure clearly instead.
+                reason = (
+                    str(self.processingError)
+                    if self.processingError is not None
+                    else "encoder produced no output file (0 bytes / missing)"
+                )
                 logAndPrint(
-                    f"Processing FAILED after {elapsedTime:.2f}s: {self.processingError}",
+                    f"Processing FAILED after {elapsedTime:.2f}s: {reason}",
                     colorFunc="red",
                     level="ERROR",
                 )
@@ -607,13 +777,6 @@ class VideoProcessor:
                     f"Total Execution Time: {elapsedTime:.2f} seconds - FPS: {totalFPS:.2f}",
                     colorFunc="green",
                 )
-                # The bar's last filesize sample lands before the encoder
-                # drains its queue and writes the container trailer; this is
-                # the real, final number.
-                try:
-                    finalSize = os.path.getsize(self.output)
-                except (OSError, TypeError) as _e:
-                    finalSize = None
                 if finalSize is not None and finalSize > 0:
                     sz = (
                         f"{finalSize / 1024**3:.2f} GB"
@@ -621,20 +784,36 @@ class VideoProcessor:
                         else f"{finalSize / (1024 * 1024):.1f} MB"
                     )
                     logAndPrint(f"Output Size: {sz}", colorFunc="green")
-                else:
-                    logAndPrint(
-                        "Output Size: 0 bytes (encoder produced no frames)",
-                        colorFunc="yellow",
-                        level="WARNING",
-                    )
 
-            if cs.ADOBE:
-                progressState.setCompleted(outputPath=self.output)
+            self._notifyAdobe(progressState)
 
         except Exception as e:
             logging.exception(f"Something went wrong while starting the processes, {e}")
             if cs.ADOBE:
                 progressState.setFailed(error=str(e))
+
+    def _notifyAdobe(self, progressState) -> None:
+        """Emit the correct terminal status to the After Effects panel.
+
+        A failed run (frame-loop exception or missing/0-byte output) must send
+        ``setFailed``, not ``setCompleted``; the latter tells the panel the
+        render succeeded and it then looks for an output file that is not there
+        (issues #269, #236).
+        """
+        if not cs.ADOBE:
+            return
+        if _videoFailed(self.processingError, self.output, self.benchmark):
+            progressState.setFailed(
+                error=str(self.processingError)
+                if self.processingError is not None
+                else "Output file not found after processing"
+            )
+        else:
+            progressState.setCompleted(outputPath=self.output)
+
+    def didFail(self) -> bool:
+        """Whether this processed video should be counted as a batch failure."""
+        return _videoFailed(self.processingError, self.output, self.benchmark)
 
     def _runWithProfiler(self):
         """
@@ -847,6 +1026,8 @@ def main():
         else:
             folderTimer = None
 
+        succeededVideos = 0
+        failedVideos = 0
         for idx, entry in enumerate(results, 1):
             try:
                 _videoName = os.path.basename(entry["videoPath"])
@@ -882,14 +1063,26 @@ def main():
                         )
                         progressState.setCompleted(outputPath=outputPath)
 
+                    succeededVideos += 1
                     continue
 
-                VideoProcessor(
+                processor = VideoProcessor(
                     args,
                     results=entry,
                 )
 
+                # The constructor runs the whole pipeline (start() / the
+                # specialized factory paths) inline, so by the time it returns
+                # the outcome is decided. start() swallows its own errors, so a
+                # failed frame loop or a missing output surfaces only here.
+                if processor.didFail():
+                    failedVideos += 1
+                    logError(f"Processing failed for video: {entry['videoPath']}")
+                else:
+                    succeededVideos += 1
+
             except Exception as e:
+                failedVideos += 1
                 logError(f"Error processing video {entry['videoPath']}: {str(e)}")
                 logging.exception(f"Error processing video {entry['videoPath']}")
 
@@ -900,7 +1093,14 @@ def main():
             printSectionHeader("Batch Processing Summary")
             logSuccess(f"Total Execution Time: {totalTime:.2f} seconds")
             logSuccess(f"Average per video: {totalTime / totalVideos:.2f} seconds")
-            logSuccess(f"Videos processed: {totalVideos}")
+            logSuccess(
+                f"Videos processed: {succeededVideos} succeeded, {failedVideos} failed"
+            )
+
+        # Make failure visible to shells and CI. KeyboardInterrupt keeps its own
+        # exit path (130) below; this only covers processing/output failures.
+        if failedVideos > 0:
+            sys.exit(1)
 
     except KeyboardInterrupt:
         logWarning("Process interrupted by user")

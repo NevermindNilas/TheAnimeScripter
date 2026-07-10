@@ -1,9 +1,8 @@
 import logging
 import os
 import subprocess
-import threading
 import time
-from queue import Queue
+from queue import Empty, Queue
 
 import torch  # this has to be always before nelux!
 from torch.nn import functional as F
@@ -36,6 +35,27 @@ neluxLog = False
 CachedReader = None
 CachedReaderMethod = None
 CachedReaderResize = None
+
+
+def _drainQueueUntilSentinel(queue) -> None:
+    """Consume queued frames until the producer's None sentinel arrives.
+
+    Used by the write buffers on early-exit paths (encoder startup failure or
+    a raised exception): the producer keeps put()-ing frames and always
+    close()es once its own loop ends, so without this it blocks forever on a
+    full queue and the run deadlocks. The 5s idle escape covers a producer
+    that itself died before calling close().
+    """
+    while True:
+        try:
+            item = queue.get(timeout=5.0)
+        except Empty:
+            logging.warning(
+                "Writer drain: no sentinel within 5s; producer likely dead."
+            )
+            return
+        if item is None:
+            return
 
 
 class BuildBuffer:
@@ -80,7 +100,6 @@ class BuildBuffer:
         self.height = height
         self.resize = resize
         self.isFinished = False
-        self._frameAvailable = threading.Event()
         self.bitDepth = bitDepth
         self.videoInput = os.path.normpath(videoInput)
         self.toTorch = toTorch
@@ -165,7 +184,6 @@ class BuildBuffer:
 
         finally:
             self.decodeBuffer.put(None)
-            self._frameAvailable.set()
 
             self.isFinished = True
             logging.info(f"Decoded {decodedFrames} frames")
@@ -240,7 +258,6 @@ class BuildBuffer:
                     frame, self.normStream if self.cudaEnabled else None
                 )
             self.decodeBuffer.put(frame)
-            self._frameAvailable.set()
             decodedFrames += 1
             self._emittedFrames += 1
             frameIdx += 1
@@ -293,7 +310,6 @@ class BuildBuffer:
                     frame = frame.numpy()
 
                 self.decodeBuffer.put(frame)
-                self._frameAvailable.set()
                 totalFramesDecoded += 1
                 self._emittedFrames += 1
 
@@ -374,24 +390,6 @@ class BuildBuffer:
             The next frame from the decodeBuffer.
         """
         return self.decodeBuffer.get()
-
-    def peek(self):
-        """
-        Peeks at the next frame in the decodeBuffer without removing it.
-
-        Returns:
-            The next frame from the decodeBuffer, or None if decoding is finished and queue is empty.
-        """
-        while True:
-            with self.decodeBuffer.mutex:
-                if len(self.decodeBuffer.queue) > 0:
-                    return self.decodeBuffer.queue[0]
-
-            if self.isFinished:
-                return None
-
-            self._frameAvailable.wait(timeout=0.1)
-            self._frameAvailable.clear()
 
     def isReadFinished(self) -> bool:
         """
@@ -496,6 +494,11 @@ class WriteBuffer:
 
         self.writtenFrames = 0
         self.writeBuffer = Queue(maxsize=32)
+        # True once __call__ consumed the producer's None sentinel. If the
+        # encoder dies early this stays False and the finally-drain below keeps
+        # emptying the queue so the producer's blocking put() can't deadlock
+        # the whole run (e.g. prores into an .mp4 container).
+        self._sawSentinel = False
 
         self.previewPath = (
             os.path.join(cs.WHEREAMIRUNFROM, "preview.jpg") if enablePreview else None
@@ -872,6 +875,7 @@ class WriteBuffer:
             initialFrame = self.writeBuffer.queue[0]
             if initialFrame is None:
                 self.writeBuffer.get()
+                self._sawSentinel = True
                 logging.info("Encoded 0 frames")
                 return
 
@@ -918,6 +922,7 @@ class WriteBuffer:
                         time.sleep(0.001)
                         continue
                     if frame is None:
+                        self._sawSentinel = True
                         break
 
                 logging.info(f"Encoded {writtenFrames} frames")
@@ -984,6 +989,7 @@ class WriteBuffer:
                         time.sleep(0.001)
                         continue
                     if frame is None:
+                        self._sawSentinel = True
                         if pendingBuffer is not None:
                             pendingEvent.synchronize()
                             ffmpegProc.stdin.write(pendingBuffer.numpy())
@@ -1030,6 +1036,7 @@ class WriteBuffer:
                         time.sleep(0.001)
                         continue
                     if frame is None:
+                        self._sawSentinel = True
                         break
 
                     if needsResize:
@@ -1068,6 +1075,12 @@ class WriteBuffer:
                     except Exception:
                         pass
         finally:
+            # Early exit (encoder startup failure / raised exception) leaves the
+            # producer blocked on put() to a full queue with nobody consuming;
+            # keep draining until its close() sentinel lands so the run fails
+            # cleanly instead of deadlocking (segment->mp4 prores case).
+            if not self._sawSentinel:
+                _drainQueueUntilSentinel(self.writeBuffer)
             try:
                 if ffmpegProc is not None and ffmpegProc.stderr:
                     ffmpegProc.stderr.close()
@@ -1135,6 +1148,7 @@ class NeluxWriteBuffer:
         fps: float = 60.0,
         inpoint: float = 0.0,
         outpoint: float = 0.0,
+        benchmark: bool = False,
         **kwargs,  # Accept and ignore other WriteBuffer params for compatibility
     ):
         """
@@ -1158,9 +1172,13 @@ class NeluxWriteBuffer:
         self.fps = fps
         self.inpoint = inpoint
         self.outpoint = outpoint
+        self.benchmark = benchmark
         self.writeBuffer = Queue(maxsize=32)
         self.writtenFrames = 0
         self.CudaStream = None
+        # Same early-death drain contract as WriteBuffer (see its __init__).
+        self._sawSentinel = False
+        self.acceptsHwcUint8 = True
         # Nelux does not produce an FFmpeg-based preview image. Define the
         # attribute (matching WriteBuffer's None default) so main.py's preview
         # setup -- which reads writeBuffer.previewPath -- doesn't AttributeError
@@ -1270,6 +1288,16 @@ class NeluxWriteBuffer:
         import torch
 
         try:
+            if self.benchmark:
+                while True:
+                    frame = self.writeBuffer.get()
+                    if frame is None:
+                        self._sawSentinel = True
+                        break
+                    self.writtenFrames += 1
+                logging.info(f"Nelux benchmark consumed {self.writtenFrames} frames")
+                return
+
             while self.writeBuffer.empty():
                 time.sleep(0.001)
 
@@ -1309,7 +1337,20 @@ class NeluxWriteBuffer:
                     continue
 
                 if frame is None:
+                    self._sawSentinel = True
                     break
+
+                if (
+                    isinstance(frame, torch.Tensor)
+                    and frame.ndim == 3
+                    and frame.dtype == torch.uint8
+                    and frame.shape[2] == 3
+                ):
+                    if not frame.is_contiguous():
+                        frame = frame.contiguous()
+                    self.encoder.encode_frame(frame)
+                    self.writtenFrames += 1
+                    continue
 
                 if self.CudaStream is not None:
                     with torch.cuda.stream(self.CudaStream):
@@ -1340,6 +1381,10 @@ class NeluxWriteBuffer:
 
             traceback.print_exc()
         finally:
+            # Keep the producer's blocking put() from deadlocking the run if
+            # the encoder died before consuming the close() sentinel.
+            if not self._sawSentinel:
+                _drainQueueUntilSentinel(self.writeBuffer)
             if self.encoder is not None:
                 try:
                     self.encoder.close()
