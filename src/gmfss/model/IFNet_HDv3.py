@@ -90,32 +90,68 @@ class IFNet(nn.Module):
     def __init__(self, ensemble=False):
         super(IFNet, self).__init__()
         self.block0 = IFBlock(7, c=192)
+        self.block1 = IFBlock(8 + 4, c=128)
+        self.block2 = IFBlock(8 + 4, c=96)
+        self.block3 = IFBlock(8 + 4, c=64)
+        self.scale_list = [8, 4, 2, 1]
         self.ensemble = ensemble
 
     def forward(self, img0, img1, timestep):
         timestep = timestep.view(timestep.shape[0], 1, 1, 1).expand(
             -1, -1, img0.shape[2], img0.shape[3]
         )
-        flow, mask = self.block0(
-            torch.cat((img0[:, :3], img1[:, :3], timestep), 1).contiguous(
-                memory_format=torch.channels_last
-            ),
-            None,
-            scale=8,
-        )
-        if self.ensemble:
-            f1, m1 = self.block0(
-                torch.cat((img1[:, :3], img0[:, :3], 1 - timestep), 1).contiguous(
-                    memory_format=torch.channels_last
-                ),
-                None,
-                scale=8,
-            )
-            flow = (flow + torch.cat((f1[:, 2:4], f1[:, :2]), 1)) / 2
-            mask = (mask + (-m1)) / 2
-
-        warped_img0 = warp(img0, flow[:, :2])
-        warped_img1 = warp(img1, flow[:, 2:4])
+        blocks = [self.block0, self.block1, self.block2, self.block3]
+        flow = None
+        mask = None
+        warped_img0 = img0
+        warped_img1 = img1
+        for i in range(4):
+            if flow is None:
+                flow, mask = blocks[i](
+                    torch.cat((img0[:, :3], img1[:, :3], timestep), 1).contiguous(
+                        memory_format=torch.channels_last
+                    ),
+                    None,
+                    scale=self.scale_list[i],
+                )
+                if self.ensemble:
+                    f1, m1 = blocks[i](
+                        torch.cat(
+                            (img1[:, :3], img0[:, :3], 1 - timestep), 1
+                        ).contiguous(memory_format=torch.channels_last),
+                        None,
+                        scale=self.scale_list[i],
+                    )
+                    flow = (flow + torch.cat((f1[:, 2:4], f1[:, :2]), 1)) / 2
+                    mask = (mask + (-m1)) / 2
+            else:
+                f0, m0 = blocks[i](
+                    torch.cat(
+                        (warped_img0[:, :3], warped_img1[:, :3], timestep, mask), 1
+                    ).contiguous(memory_format=torch.channels_last),
+                    flow,
+                    scale=self.scale_list[i],
+                )
+                if self.ensemble:
+                    f1, m1 = blocks[i](
+                        torch.cat(
+                            (
+                                warped_img1[:, :3],
+                                warped_img0[:, :3],
+                                1 - timestep,
+                                -mask,
+                            ),
+                            1,
+                        ).contiguous(memory_format=torch.channels_last),
+                        torch.cat((flow[:, 2:4], flow[:, :2]), 1),
+                        scale=self.scale_list[i],
+                    )
+                    f0 = (f0 + torch.cat((f1[:, 2:4], f1[:, :2]), 1)) / 2
+                    m0 = (m0 + (-m1)) / 2
+                flow = flow + f0
+                mask = mask + m0
+            warped_img0 = warp(img0, flow[:, :2])
+            warped_img1 = warp(img1, flow[:, 2:4])
         mask = torch.sigmoid(mask)
         merged = warped_img0 * mask + warped_img1 * (1 - mask)
         return merged
