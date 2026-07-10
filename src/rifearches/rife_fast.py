@@ -20,6 +20,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .dynamic_scale import dynamicScale
+
 # -----------------------------------------------------------------------------
 # shared modules
 # -----------------------------------------------------------------------------
@@ -220,6 +222,9 @@ class _FastIFNet(nn.Module):
         else:
             self.encode = None
 
+        # kept so forward() can rebuild scale_list when dynamicScale re-picks the
+        # scale per frame; scale_list itself is overwritten in that case.
+        self._scaleBase = tuple(scaleBase)
         self.scale_list = [s / scale for s in scaleBase]
         self.ensemble = ensemble
         self.dynamicScale = dynamicScale
@@ -337,6 +342,15 @@ class _FastIFNet(nn.Module):
     def forward(self, img0, img1, timestep):
         ph, pw = img0.shape[-2], img0.shape[-1]
         self._ensureGrid(ph, pw, img0.dtype, img0.device)
+
+        if self.dynamicScale:
+            # Same contract as the reference arches: the per-pair scale replaces
+            # the constructor's, so scale_list is rebuilt from scaleBase. Callers
+            # must disable CUDA-graph capture (block resolutions change per call)
+            # and pad for the coarsest scale this can pick -- see
+            # src/interpolate/_padding.py.
+            s = dynamicScale(img0[:, :3], img1[:, :3])
+            self.scale_list = [b / s for b in self._scaleBase]
 
         if self._hasHead:
             if self.interpolateFactor == 2 or self.counter == self.interpolateFactor:
