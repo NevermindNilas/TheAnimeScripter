@@ -5,8 +5,13 @@ import src.constants as cs
 from src.infra.logAndPrint import logAndPrint
 
 
-def createPreset(args):
+def createPreset(args, providedOptions=None):
     ignoreList = ["input", "output", "inpoint", "outpoint"]
+    # Flags the user typed on the command line must beat the preset (explicit
+    # CLI flag > preset > default). Without this a loaded preset silently
+    # clobbers every flag, because a preset stores all of vars(args), not just
+    # the ones the user cared about when saving.
+    providedOptions = providedOptions or set()
     presetsPath = os.path.join(cs.WHEREAMIRUNFROM, "presets.json")
 
     if not os.path.exists(presetsPath):
@@ -24,8 +29,9 @@ def createPreset(args):
         if args.preset in presets:
             preset = presets[args.preset]
             for key, value in preset.items():
-                if key not in ignoreList:
-                    setattr(args, key, value)
+                if key in ignoreList or key in providedOptions:
+                    continue
+                setattr(args, key, value)
         else:
             filteredArgs = {k: v for k, v in vars(args).items() if k not in ignoreList}
             presets[args.preset] = filteredArgs

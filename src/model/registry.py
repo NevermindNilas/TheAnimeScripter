@@ -246,6 +246,7 @@ def modelsList() -> list[str]:
         "og_video_base_v2",
         "og_video_large_v2",
         "og_video_small_v2-tensorrt",
+        "video_small_v2-tensorrt",
         "video_small_v2",
         "video_large_v2",
         "yolov9_small_mit",

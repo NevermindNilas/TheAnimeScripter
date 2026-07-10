@@ -9,7 +9,7 @@ import torch
 import src.io.ffmpegSettings as ffmpegSettings
 from src.constants import ADOBE
 from src.infra.progressBarLogic import ProgressBarLogic
-from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.io.ffmpegSettings import BuildBuffer, createWriteBuffer
 from src.stabilize.superpoint import SuperPoint, find_match_index, find_transform
 
 if ADOBE:
@@ -635,18 +635,19 @@ class VideoStabilize:
             toTorch=False,
         )
 
-        self.writeBuffer = WriteBuffer(
-            self.input,
-            self.output,
-            self.encode_method,
-            self.custom_encoder,
-            self.width,
-            self.height,
-            self.fps,
+        self.writeBuffer = createWriteBuffer(
+            input=self.input,
+            output=self.output,
+            encode_method=self.encode_method,
+            custom_encoder=self.custom_encoder,
+            width=self.width,
+            height=self.height,
+            fps=self.fps,
             grayscale=False,
             benchmark=self.benchmark,
             bitDepth=self.bitDepth,
         )
+        self.writeHwcUint8 = getattr(self.writeBuffer, "acceptsHwcUint8", False)
 
         with ThreadPoolExecutor(max_workers=3) as executor:
             writeFuture = executor.submit(self.writeBuffer)
@@ -687,13 +688,16 @@ class VideoStabilize:
                     borderValue=(0, 0, 0),
                 )
 
-                outputTensor = (
-                    torch.from_numpy(stabilized)
-                    .permute(2, 0, 1)
-                    .unsqueeze(0)
-                    .float()
-                    .div(255.0)
-                )
+                if self.writeHwcUint8:
+                    outputTensor = torch.from_numpy(np.ascontiguousarray(stabilized))
+                else:
+                    outputTensor = (
+                        torch.from_numpy(stabilized)
+                        .permute(2, 0, 1)
+                        .unsqueeze(0)
+                        .to(torch.float32)
+                    )
+                    outputTensor.mul_(1.0 / 255.0)
 
                 self.writeBuffer.write(outputTensor)
                 frameCount += 1

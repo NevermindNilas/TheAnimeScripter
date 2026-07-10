@@ -1,16 +1,15 @@
 import logging
 import math
-import os
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty
 from time import time
 
-import cv2
 import torch
 
 from src.constants import ADOBE
 from src.infra.progressBarLogic import ProgressBarLogic
-from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.io.ffmpegSettings import BuildBuffer, createWriteBuffer
+from src.masking import ProtectionMask
 
 if ADOBE:
     from src.server.aeComms import progressState
@@ -119,7 +118,7 @@ class MotionBlurPipeline:
         moblur_strength="gaussian_sym",
         moblur_shutter_angle=180.0,
         moblur_gamma=True,
-        moblur_mask="",
+        mask="",
         ensemble=False,
         dynamic_scale=False,
         static_step=False,
@@ -144,8 +143,7 @@ class MotionBlurPipeline:
         self.moblurStrength = moblur_strength
         self.shutterAngle = max(0.0, min(360.0, float(moblur_shutter_angle)))
         self.moblurGamma = bool(moblur_gamma)
-        self.moblurMaskPath = moblur_mask or ""
-        self.mask = None
+        self.mask = ProtectionMask(mask)
         self.ensemble = ensemble
         self.dynamicScale = dynamic_scale
         self.staticStep = static_step
@@ -346,14 +344,14 @@ class MotionBlurPipeline:
             decode_method=self.decodeMethod,
         )
 
-        self.writeBuffer = WriteBuffer(
-            self.input,
-            self.output,
-            self.encode_method,
-            self.custom_encoder,
-            self.width,
-            self.height,
-            self.fps,
+        self.writeBuffer = createWriteBuffer(
+            input=self.input,
+            output=self.output,
+            encode_method=self.encode_method,
+            custom_encoder=self.custom_encoder,
+            width=self.width,
+            height=self.height,
+            fps=self.fps,
             grayscale=False,
             benchmark=self.benchmark,
             bitDepth=self.bitDepth,
@@ -372,72 +370,6 @@ class MotionBlurPipeline:
 
         if ADOBE:
             progressState.setCompleted(outputPath=self.output)
-
-    def _loadMask(self, dtype, device):
-        """Load protection mask as blur-weight tensor [1, 1, H, W] in [0, 1].
-
-        Intended input: transparent PNG where the user paints protected regions
-        with opaque dark pixels on a transparent background. Everything else
-        (transparent or bright) blurs normally.
-
-        Derivation of per-pixel protection:
-            RGBA: protection = alpha * (1 - luma)
-            RGB : protection = 1 - luma          (assume fully opaque)
-            Gray: protection = 1 - value         (dark = protected)
-
-        Returned tensor is blur-weight = 1 - protection, so downstream math is:
-            out = blended * weight + currFrame * (1 - weight)
-        """
-        if not self.moblurMaskPath:
-            return None
-
-        if not os.path.isfile(self.moblurMaskPath):
-            logging.warning(
-                f"Motion blur mask not found: {self.moblurMaskPath}. Ignoring."
-            )
-            return None
-
-        maskImg = cv2.imread(self.moblurMaskPath, cv2.IMREAD_UNCHANGED)
-        if maskImg is None:
-            logging.warning(
-                f"Failed to read motion blur mask: {self.moblurMaskPath}. Ignoring."
-            )
-            return None
-
-        if maskImg.shape[:2] != (self.height, self.width):
-            logging.info(
-                f"Resizing motion blur mask from {maskImg.shape[1]}x{maskImg.shape[0]} "
-                f"to {self.width}x{self.height}"
-            )
-            maskImg = cv2.resize(
-                maskImg, (self.width, self.height), interpolation=cv2.INTER_LINEAR
-            )
-
-        norm = 65535.0 if maskImg.dtype == "uint16" else 255.0
-
-        if maskImg.ndim == 3 and maskImg.shape[2] == 4:
-            bgr = maskImg[:, :, :3]
-            alpha = maskImg[:, :, 3]
-            luma = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
-            lumaT = torch.from_numpy(luma).to(device=device, dtype=dtype).div_(norm)
-            alphaT = torch.from_numpy(alpha).to(device=device, dtype=dtype).div_(norm)
-            protection = alphaT * (1.0 - lumaT)
-            channels = "RGBA"
-        elif maskImg.ndim == 3:
-            luma = cv2.cvtColor(maskImg, cv2.COLOR_BGR2GRAY)
-            lumaT = torch.from_numpy(luma).to(device=device, dtype=dtype).div_(norm)
-            protection = 1.0 - lumaT
-            channels = "RGB (no alpha, assuming opaque)"
-        else:
-            gray = torch.from_numpy(maskImg).to(device=device, dtype=dtype).div_(norm)
-            protection = 1.0 - gray
-            channels = "grayscale"
-
-        protection = protection.clamp_(0.0, 1.0)
-        weightTensor = (1.0 - protection).view(1, 1, self.height, self.width)
-
-        logging.info(f"Loaded motion blur mask: {self.moblurMaskPath} ({channels})")
-        return weightTensor
 
     def _computeWindow(self):
         """Resolve shutter window → sample counts from prev/next segments.
@@ -488,8 +420,6 @@ class MotionBlurPipeline:
         weights = generateWeights(totalSamples, self.moblurStrength)
         blender = GammaCorrectBlender(weights, dtype, device, gamma=self.moblurGamma)
 
-        self.mask = self._loadMask(dtype, device)
-
         # Each interpolated segment is reused as both neighbours of a blurred
         # frame: its low-t samples (smallKs, near the segment start) supply the
         # trailing edge of the *current* output, and its high-t samples
@@ -520,7 +450,7 @@ class MotionBlurPipeline:
                 else ""
             )
             + (" [no-blur pass-through]" if noBlur else "")
-            + (" [masked]" if self.mask is not None else "")
+            + (" [masked]" if self.mask.enabled else "")
         )
 
         collector = FrameCollector()
@@ -582,12 +512,7 @@ class MotionBlurPipeline:
                             # leading edge: small-t samples of the CURRENT segment
                             window.extend(segs[kPos[k]] for k in smallKs)
 
-                        blended = blender(window)
-
-                        if self.mask is not None:
-                            blended = blended * self.mask + currFrame * (
-                                1.0 - self.mask
-                            )
+                        blended = self.mask.apply(blender(window), currFrame)
 
                         if self.useCuda:
                             torch.cuda.current_stream().synchronize()

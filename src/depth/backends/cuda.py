@@ -275,11 +275,14 @@ class DepthCuda:
                     if frame is None:
                         break
                     frames.append(frame)
-                if not frames:
+                if frames:
+                    self.processBatch(frames)
+                    frameCount += len(frames)
+                    bar(len(frames))
+                # A short read means the decoder's single None sentinel was just
+                # consumed; another read() would block forever.
+                if len(frames) < batchSize:
                     break
-                self.processBatch(frames)
-                frameCount += len(frames)
-                bar(len(frames))
 
         logging.info(f"Processed {frameCount} frames")
 
@@ -513,11 +516,14 @@ class OGDepthV2CUDA:
                     if frame is None:
                         break
                     frames.append(frame)
-                if not frames:
+                if frames:
+                    self.processBatch(frames)
+                    frameCount += len(frames)
+                    bar(len(frames))
+                # A short read means the decoder's single None sentinel was just
+                # consumed; another read() would block forever.
+                if len(frames) < batchSize:
                     break
-                self.processBatch(frames)
-                frameCount += len(frames)
-                bar(len(frames))
 
         logging.info(f"Processed {frameCount} frames")
         self.encodeBuffer.put(None)

@@ -548,11 +548,9 @@ class ISNetDIS(nn.Module):
             ds, dfs, labels, fs = args
             return muti_loss_fusion_kl(ds, labels, dfs, fs, mode="MSE")
 
-    def forward(self, x):
-        hx = x
-
-        hxin = self.conv_in(hx)
-        hx = self.pool_in(hxin)
+    def _encodeDecode(self, x):
+        """Shared trunk: returns the decoder stage outputs consumed by the side heads."""
+        hxin = self.conv_in(x)
 
         # stage 1
         hx1 = self.stage1(hxin)
@@ -592,6 +590,22 @@ class ISNetDIS(nn.Module):
         hx2dup = _upsample_like(hx2d, hx1)
 
         hx1d = self.stage1d(torch.cat((hx2dup, hx1), 1))
+
+        return hx1d, hx2d, hx3d, hx4d, hx5d, hx6
+
+    def forward_d1(self, x):
+        """Only the d1 side output, which is all inference consumes.
+
+        `forward` also runs side2..side6 and bilinearly upsamples each of them to
+        the full input resolution; every one of those is discarded by the caller.
+        Skipping them is bit-identical on d1 (they are independent heads) and
+        drops 5 convs, 5 full-res upsamples, and their activations.
+        """
+        hx1d = self._encodeDecode(x)[0]
+        return _upsample_like(self.side1(hx1d), x)
+
+    def forward(self, x):
+        hx1d, hx2d, hx3d, hx4d, hx5d, hx6 = self._encodeDecode(x)
 
         # side output
         d1 = self.side1(hx1d)

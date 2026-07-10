@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
+from src.interpolate._padding import _padMultiple
 from src.interpolate._timesteps import fillTimestepBuffer, interpolateTimestep
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
@@ -297,12 +298,9 @@ class RifeCuda:
 
             self.compileMode = "default"
 
-        if self.interpolateMethod in ["rife4.25", "rife4.25-heavy", "rife4.25-lite"]:
-            ph = ((self.height - 1) // 128 + 1) * 128
-            pw = ((self.width - 1) // 128 + 1) * 128
-        else:
-            ph = ((self.height - 1) // 64 + 1) * 64
-            pw = ((self.width - 1) // 64 + 1) * 64
+        mul = _padMultiple(self.interpolateMethod, self.scale, self.dynamicScale)
+        ph = ((self.height - 1) // mul + 1) * mul
+        pw = ((self.width - 1) // mul + 1) * mul
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
         self.I0 = torch.zeros(
@@ -659,12 +657,9 @@ class RifeMPS:
                 )
             self.compileMode = "default"
 
-        if self.baseMethod in ["rife4.25", "rife4.25-heavy", "rife4.25-lite"]:
-            ph = ((self.height - 1) // 128 + 1) * 128
-            pw = ((self.width - 1) // 128 + 1) * 128
-        else:
-            ph = ((self.height - 1) // 64 + 1) * 64
-            pw = ((self.width - 1) // 64 + 1) * 64
+        mul = _padMultiple(self.baseMethod, self.scale, self.dynamicScale)
+        ph = ((self.height - 1) // mul + 1) * mul
+        pw = ((self.width - 1) // mul + 1) * mul
         self.padding = (0, pw - self.width, 0, ph - self.height)
 
         self.I0 = torch.zeros(

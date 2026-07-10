@@ -161,16 +161,11 @@ class VideoDepthAnythingCUDA:
         """Process using Nelux-backed BuildBuffer decoding."""
         frameCount = 0
         self._resetVideoDepthState()
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
         with ProgressBarLogic(self.totalFrames) as bar:
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
+            while (frame := self.readBuffer.read()) is not None:
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
@@ -349,17 +344,12 @@ class VideoDepthAnythingTorch:
         frameCount = 0
 
         self._resetVideoDepthState()
-        currentFrame = self.readBuffer.read()
-        nextFrame = self.readBuffer.read() if currentFrame is not None else None
 
         with ProgressBarLogic(self.totalFrames) as bar:
-            while currentFrame is not None:
-                self.processFrame(currentFrame)
+            while (frame := self.readBuffer.read()) is not None:
+                self.processFrame(frame)
                 frameCount += 1
                 bar(1)
-                currentFrame = nextFrame
-                if currentFrame is not None:
-                    nextFrame = self.readBuffer.read()
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()

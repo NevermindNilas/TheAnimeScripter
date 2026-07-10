@@ -61,7 +61,8 @@ class AnimeSegmentation(torch.nn.Module):
 
     def forward(self, x):
         if isinstance(self.net, ISNetDIS):
-            return self.net(x)[0][0].sigmoid()
+            # d1 only; side2..side6 are computed by net.forward and discarded here
+            return self.net.forward_d1(x).sigmoid()
         if isinstance(self.net, ISNetGTEncoder):
             return self.net(x)[0][0].sigmoid()
         elif isinstance(self.net, InSPyReNet):

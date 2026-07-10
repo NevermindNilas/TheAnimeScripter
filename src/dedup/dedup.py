@@ -72,7 +72,10 @@ class DedupSSIM:
     ):
         from .ssim import SSIM
 
-        self.device = torch.device("cpu")
+        # Same fp32 SSIM math either way; on CUDA boxes the decoded frames are
+        # already GPU-resident, and forcing CPU here shipped every frame D2H
+        # and burned ~16 cores on the 224x224 convolutions while the GPU idled.
+        self.device = checker.device if checker.cudaAvailable else torch.device("cpu")
         self.ssimThreshold = ssimThreshold
         self.sampleSize = sampleSize
         self.prevFrame = None

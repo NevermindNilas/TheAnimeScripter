@@ -43,7 +43,7 @@ def _promptDownloadRequirementsSelection() -> str:
 
     if not answers:
         logAndPrint("No dependency profile selected, exiting.", "red")
-        sys.exit()
+        sys.exit(1)
 
     return answers["dependency_profile"]
 

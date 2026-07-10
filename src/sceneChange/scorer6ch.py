@@ -19,6 +19,7 @@ import numpy as np
 import torch
 
 from src.infra.logAndPrint import logAndPrint
+from src.infra.providerCheck import warnIfProviderMissing
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
 
@@ -76,6 +77,9 @@ class SceneChangeScorer6ch:
             logging.info("Using DirectML for scene-change 6ch inference")
             self.session = ort.InferenceSession(
                 self.modelPath, providers=["DmlExecutionProvider"]
+            )
+            warnIfProviderMissing(
+                self.session, "DmlExecutionProvider", "DirectML scene-change 6ch"
             )
         else:
             logAndPrint(
