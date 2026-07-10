@@ -114,6 +114,7 @@ def segment(self):
             self.customEncoder,
             self.benchmark,
             self.totalFrames,
+            segment_batch=self.segmentBatch,
         )
     elif self.segmentMethod == "anime-tensorrt":
         from src.segment.animeSegment import AnimeSegmentTensorRT
@@ -130,6 +131,7 @@ def segment(self):
             self.customEncoder,
             self.benchmark,
             self.totalFrames,
+            segment_batch=self.segmentBatch,
         )
     elif self.segmentMethod == "anime-directml":
         from src.segment.animeSegment import AnimeSegmentDirectML
@@ -350,6 +352,7 @@ def depth(self):
             | "og_distill_small_v2-tensorrt"
             | "og_distill_base_v2-tensorrt"
             | "og_distill_large_v2-tensorrt"
+            | "video_small_v2-tensorrt"
         ):
             from src.depth.backends.tensorrt import OGDepthV2TensorRT
 
@@ -503,7 +506,7 @@ def motionBlur(self):
         moblur_strength=self.moblurStrength,
         moblur_shutter_angle=self.moblurShutterAngle,
         moblur_gamma=self.moblurLinearBlend,
-        moblur_mask=self.moblurMask,
+        mask=self.maskPath,
         ensemble=self.ensemble,
         dynamic_scale=self.dynamicScale,
         static_step=self.staticStep,

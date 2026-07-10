@@ -278,11 +278,14 @@ class DepthTensorRTV2:
                     if frame is None:
                         break
                     frames.append(frame)
-                if not frames:
+                if frames:
+                    self.processBatch(frames)
+                    frameCount += len(frames)
+                    bar(len(frames))
+                # A short read means the decoder's single None sentinel was just
+                # consumed; another read() would block forever.
+                if len(frames) < self._batch:
                     break
-                self.processBatch(frames)
-                frameCount += len(frames)
-                bar(len(frames))
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
@@ -667,16 +670,19 @@ class OGDepthV2TensorRT:
                     if frame is None:
                         break
                     frames.append(frame)
-                if not frames:
+                if frames:
+                    # B==1 keeps the exact single-frame path (handles video/distill);
+                    # B>1 is the batched single-input image path
+                    if self._batch == 1:
+                        self.processFrame(frames[0])
+                    else:
+                        self.processBatch(frames)
+                    frameCount += len(frames)
+                    bar(len(frames))
+                # A short read means the decoder's single None sentinel was just
+                # consumed; another read() would block forever.
+                if len(frames) < self._batch:
                     break
-                # B==1 keeps the exact single-frame path (handles video/distill);
-                # B>1 is the batched single-input image path
-                if self._batch == 1:
-                    self.processFrame(frames[0])
-                else:
-                    self.processBatch(frames)
-                frameCount += len(frames)
-                bar(len(frames))
 
         logging.info(f"Processed {frameCount} frames")
         self.writeBuffer.close()
