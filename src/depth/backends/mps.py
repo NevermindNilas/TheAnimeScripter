@@ -48,7 +48,9 @@ class DepthMPS:
         depth_batch: int = 1,
     ):
         if not torch.backends.mps.is_available():
-            raise RuntimeError("MPS depth backend requested, but torch.mps is unavailable")
+            raise RuntimeError(
+                "MPS depth backend requested, but torch.mps is unavailable"
+            )
 
         self.input = input
         self.output = output
@@ -170,7 +172,9 @@ class DepthMPS:
             case _:
                 raise ValueError(f"Unsupported MPS depth method: {self.depth_method}")
 
-        self.filename = modelsMap(model=self.baseMethod, modelType="pth", half=self.half)
+        self.filename = modelsMap(
+            model=self.baseMethod, modelType="pth", half=self.half
+        )
         modelPath = resolveWeightPath(
             self.baseMethod,
             self.filename,
@@ -309,7 +313,9 @@ class OGDepthV2MPS:
         depth_batch: int = 1,
     ):
         if not torch.backends.mps.is_available():
-            raise RuntimeError("MPS depth backend requested, but torch.mps is unavailable")
+            raise RuntimeError(
+                "MPS depth backend requested, but torch.mps is unavailable"
+            )
 
         self.input = input
         self.output = output

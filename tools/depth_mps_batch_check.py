@@ -174,7 +174,9 @@ def _compare_videos(
     )
 
 
-def _print_summary(run_results: list[RunResult], compare_results: list[CompareResult]) -> None:
+def _print_summary(
+    run_results: list[RunResult], compare_results: list[CompareResult]
+) -> None:
     print("\nRuns")
     for result in run_results:
         print(
@@ -260,7 +262,9 @@ def main() -> int:
         for quality in args.qualities:
             for batch in args.batches:
                 output_path = args.output_dir / f"{method}_{quality}_b{batch}.mp4"
-                print(f"Running {method} quality={quality} batch={batch} -> {output_path}")
+                print(
+                    f"Running {method} quality={quality} batch={batch} -> {output_path}"
+                )
                 result = _run_depth(
                     repo_root=repo_root,
                     input_path=args.input,
