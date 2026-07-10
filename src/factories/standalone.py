@@ -202,6 +202,38 @@ def depth(self):
             )
 
         case (
+            "small_v2-mps"
+            | "base_v2-mps"
+            | "large_v2-mps"
+            | "giant_v2-mps"
+            | "distill_small_v2-mps"
+            | "distill_base_v2-mps"
+            | "distill_large_v2-mps"
+        ):
+            from src.depth.backends.mps import DepthMPS
+
+            DepthMPS(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depthNorm=self.depthNorm,
+                depth_batch=self.depthBatch,
+            )
+
+        case (
             "small_v2-tensorrt"
             | "base_v2-tensorrt"
             | "large_v2-tensorrt"
@@ -278,6 +310,38 @@ def depth(self):
             from src.depth.backends.cuda import OGDepthV2CUDA
 
             OGDepthV2CUDA(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depthNorm=self.depthNorm,
+                depth_batch=self.depthBatch,
+            )
+
+        case (
+            "og_small_v2-mps"
+            | "og_base_v2-mps"
+            | "og_large_v2-mps"
+            | "og_giant_v2-mps"
+            | "og_distill_small_v2-mps"
+            | "og_distill_base_v2-mps"
+            | "og_distill_large_v2-mps"
+        ):
+            from src.depth.backends.mps import OGDepthV2MPS
+
+            OGDepthV2MPS(
                 self.input,
                 self.output,
                 self.width,
@@ -406,6 +470,30 @@ def depth(self):
             from src.depth.backends.cuda import OGDepthV3Cuda
 
             OGDepthV3Cuda(
+                self.input,
+                self.output,
+                self.width,
+                self.height,
+                self.fps,
+                self.half,
+                self.inpoint,
+                self.outpoint,
+                self.encodeMethod,
+                self.depthMethod,
+                self.customEncoder,
+                self.benchmark,
+                self.totalFrames,
+                self.bitDepth,
+                self.depthQuality,
+                compileMode=self.compileMode,
+                depthNorm=self.depthNorm,
+                depth_batch=self.depthBatch,
+            )
+
+        case "small_v3-mps" | "base_v3-mps" | "large_v3-mps" | "og_large_v3-mps":
+            from src.depth.backends.mps import OGDepthV3MPS
+
+            OGDepthV3MPS(
                 self.input,
                 self.output,
                 self.width,
