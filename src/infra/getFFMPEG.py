@@ -82,20 +82,60 @@ def _downloadFile(url: str, destination: str, label: str) -> None:
                 bar(len(data))
 
 
+def findHomebrew() -> str | None:
+    return shutil.which("brew") or next(
+        (
+            candidate
+            for candidate in ("/opt/homebrew/bin/brew", "/usr/local/bin/brew")
+            if os.path.exists(candidate)
+        ),
+        None,
+    )
+
+
+def installMacosFfmpegViaHomebrew() -> tuple[str, str] | None:
+    """Install FFmpeg with Homebrew. Returns (ffmpeg, ffprobe) on success.
+
+    TAS must not ship FFmpeg itself: Homebrew's build is GPL, and redistributing
+    it would carry the GPL's source-offer obligations. Installing it on the
+    user's machine keeps TAS free of any FFmpeg bytes. It also gives nelux the
+    shared FFmpeg dylibs it links against, which a static ffmpeg binary cannot.
+    """
+    import subprocess
+
+    brew = findHomebrew()
+    if brew is None:
+        return None
+
+    logging.info("FFmpeg not found, installing it with Homebrew")
+    try:
+        result = subprocess.run([brew, "install", "ffmpeg"], check=False)
+    except OSError as e:
+        logging.error(f"Failed to run `brew install ffmpeg`: {e}")
+        return None
+
+    if result.returncode != 0:
+        logging.error(f"`brew install ffmpeg` exited with {result.returncode}")
+        return None
+
+    return findSystemFfmpeg()
+
+
 def downloadAndExtractFfmpeg(ffmpegPath):
     logging.info("Downloading FFMPEG")
     ffmpegDir = os.path.dirname(ffmpegPath)
     if cs.SYSTEM == "Darwin":
-        systemFfmpeg = findSystemFfmpeg()
+        systemFfmpeg = findSystemFfmpeg() or installMacosFfmpegViaHomebrew()
         if systemFfmpeg is not None:
             cs.FFPROBEPATH = systemFfmpeg[1]
             logging.info(f"Using system FFmpeg: {systemFfmpeg[0]}")
             return systemFfmpeg[0]
 
         raise RuntimeError(
-            "FFmpeg and FFprobe are required on macOS. Install native Apple "
-            "Silicon FFmpeg with `brew install ffmpeg`, or place ffmpeg and "
-            "ffprobe on PATH."
+            "FFmpeg and FFprobe are required on macOS, and TAS could not install "
+            "them automatically because Homebrew was not found. Install Homebrew "
+            "from https://brew.sh and run `brew install ffmpeg`, or place ffmpeg "
+            "and ffprobe on PATH."
         )
 
     extractFunc = extractFfmpegZip if cs.SYSTEM == "Windows" else extractFfmpegTar
