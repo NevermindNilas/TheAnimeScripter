@@ -131,11 +131,18 @@ def downloadAndExtractFfmpeg(ffmpegPath):
             logging.info(f"Using system FFmpeg: {systemFfmpeg[0]}")
             return systemFfmpeg[0]
 
+        if findHomebrew() is None:
+            raise RuntimeError(
+                "FFmpeg and FFprobe are required on macOS, and TAS could not "
+                "install them automatically because Homebrew was not found. "
+                "Install Homebrew from https://brew.sh and run "
+                "`brew install ffmpeg`, or place ffmpeg and ffprobe on PATH."
+            )
+
         raise RuntimeError(
-            "FFmpeg and FFprobe are required on macOS, and TAS could not install "
-            "them automatically because Homebrew was not found. Install Homebrew "
-            "from https://brew.sh and run `brew install ffmpeg`, or place ffmpeg "
-            "and ffprobe on PATH."
+            "FFmpeg and FFprobe are required on macOS, and `brew install ffmpeg` "
+            "did not produce them. Run it by hand to see why it failed, or place "
+            "ffmpeg and ffprobe on PATH."
         )
 
     extractFunc = extractFfmpegZip if cs.SYSTEM == "Windows" else extractFfmpegTar
