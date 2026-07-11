@@ -146,13 +146,14 @@ python -m pip install -r requirements.txt -r extra-requirements-windows-lite.txt
 python main.py -h
 ```
 
-On Apple Silicon macOS, install FFmpeg first and use the MPS profile:
+On Apple Silicon macOS, use the MPS profile:
 
 ```sh
-brew install ffmpeg
 python -m pip install -r requirements.txt -r extra-requirements-macos.txt
 python main.py -h
 ```
+
+macOS needs a Homebrew FFmpeg. TAS does not ship FFmpeg — it is GPL, and bundling it would make every TAS release a redistributor — so on first run TAS installs it on your machine with `brew install ffmpeg` if it is not already present. [Homebrew](https://brew.sh) itself must be installed; TAS will not install it for you.
 
 Swap `extra-requirements-windows-lite.txt` for the matching Windows/Linux CUDA/lite profile or `extra-requirements-macos.txt` for Apple Silicon.
 

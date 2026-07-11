@@ -51,95 +51,18 @@ def test_macos_build_installs_mps_runtime_requirements(monkeypatch, tmp_path):
     )
 
 
-def test_macos_ffmpeg_bundle_copies_tools_libs_and_patches(monkeypatch, tmp_path):
-    source = tmp_path / "source"
-    source.mkdir()
-    ffmpeg = source / "ffmpeg"
-    ffprobe = source / "ffprobe"
-    avutil = source / "libavutil.60.dylib"
-    for path in (ffmpeg, ffprobe, avutil):
-        path.write_bytes(b"binary")
-
-    target = tmp_path / "bundle"
-    target.mkdir()
-    context = make_context(tmp_path)
-    patched = []
-
-    monkeypatch.setattr(
-        build_bundle, "find_macos_ffmpeg_tools", lambda: (ffmpeg, ffprobe)
-    )
-    monkeypatch.setattr(
-        build_bundle,
-        "collect_macos_dylib_closure",
-        lambda entries: {
-            "/opt/homebrew/Cellar/ffmpeg/8.1.2/lib/libavutil.60.dylib": avutil
-        },
-    )
-    monkeypatch.setattr(
-        build_bundle,
-        "patch_macos_install_names",
-        lambda binary, replacements, id_name=None: patched.append(
-            (binary, replacements, id_name)
-        ),
-    )
-    monkeypatch.setattr(
-        build_bundle, "patch_nelux_for_bundled_macos_ffmpeg", lambda *_args: None
-    )
-
-    build_bundle.bundle_macos_ffmpeg(context, target)
-
-    assert (target / "ffmpeg_shared" / "ffmpeg").exists()
-    assert (target / "ffmpeg_shared" / "ffprobe").exists()
-    assert (target / "ffmpeg_shared" / "lib" / "libavutil.60.dylib").exists()
-    assert any(
-        binary == target / "ffmpeg_shared" / "ffmpeg"
-        and replacements
-        == {
-            "/opt/homebrew/Cellar/ffmpeg/8.1.2/lib/libavutil.60.dylib": "@executable_path/lib/libavutil.60.dylib"
-        }
-        for binary, replacements, _ in patched
-    )
-
-
-def test_patch_nelux_uses_loader_path_for_bundled_ffmpeg(monkeypatch, tmp_path):
-    bundle_dir = tmp_path / "bundle"
-    nelux = bundle_dir / "lib" / "python3.13" / "site-packages" / "nelux"
-    dylibs = nelux / ".dylibs"
-    dylibs.mkdir(parents=True)
-    binary = nelux / "_nelux.so"
-    binary.write_bytes(b"binary")
-
-    ffmpeg_lib = bundle_dir / "ffmpeg_shared" / "lib"
-    ffmpeg_lib.mkdir(parents=True)
-    (ffmpeg_lib / "libavutil.60.dylib").write_bytes(b"lib")
-
-    old = "/opt/homebrew/Cellar/ffmpeg/8.1.2/lib/libavutil.60.dylib"
-    patched = []
-
-    monkeypatch.setattr(
-        build_bundle, "parse_macos_dylib_dependencies", lambda _path: [old]
-    )
-    monkeypatch.setattr(
-        build_bundle,
-        "patch_macos_install_names",
-        lambda binary_path, replacements, id_name=None: patched.append(
-            (binary_path, replacements, id_name)
-        ),
-    )
-
-    build_bundle.patch_nelux_for_bundled_macos_ffmpeg(
-        bundle_dir,
-        {old: "libavutil.60.dylib"},
-    )
-
-    assert (dylibs / "libavutil.60.dylib").exists()
-    assert patched == [
-        (
-            binary,
-            {old: "@loader_path/.dylibs/libavutil.60.dylib"},
-            None,
+def test_portable_bundle_never_redistributes_ffmpeg(tmp_path):
+    # FFmpeg is GPL. Copying it into the bundle would make TAS a redistributor
+    # and pull in the source-offer obligations, so macOS installs it via
+    # Homebrew on the user's machine instead (src/infra/getFFMPEG.py).
+    for helper in (
+        "bundle_macos_ffmpeg",
+        "find_macos_ffmpeg_tools",
+        "patch_nelux_for_bundled_macos_ffmpeg",
+    ):
+        assert not hasattr(build_bundle, helper), (
+            f"{helper} would redistribute FFmpeg binaries in the portable bundle"
         )
-    ]
 
 
 def test_macos_build_seeds_dependency_profile(tmp_path):

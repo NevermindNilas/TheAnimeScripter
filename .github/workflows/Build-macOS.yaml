@@ -36,9 +36,6 @@ jobs:
           echo "version=${version}" >> $GITHUB_OUTPUT
           echo "version_nodots=${version_nodots}" >> $GITHUB_OUTPUT
 
-      - name: Install FFmpeg
-        run: brew install ffmpeg
-
       - name: Run full build script
         run: uv run --no-project python build.py
 
