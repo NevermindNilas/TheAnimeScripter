@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import torch
 
+from src.depth.backends._shared import VideoRangeNormalizer
 from src.infra.isCudaInit import CudaChecker
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import (
@@ -39,6 +40,7 @@ class VideoDepthAnythingCUDA:
         bitDepth: str = "16bit",
         depthQuality: str = "high",
         compileMode: str = "default",
+        depthNorm: bool = False,
     ):
         self.input = input
         self.output = output
@@ -56,6 +58,7 @@ class VideoDepthAnythingCUDA:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.compileMode = compileMode
+        self.normalizer = VideoRangeNormalizer() if depthNorm else None
 
         self.handleModels()
         try:
@@ -145,12 +148,19 @@ class VideoDepthAnythingCUDA:
         self.model.frame_id_list = []
         self.model.frame_cache_list = []
         self.model.id = -1
+        if self.normalizer is not None:
+            self.normalizer.reset()
 
     def processFrame(self, frame):
         try:
             depth = self.model.infer_video_depth_one(frame, 518, self.device, True)
-            depth = torch.from_numpy(depth)
-            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
+            if self.normalizer is not None:
+                depth = self.normalizer.normalize(depth)
+            else:
+                depth = torch.from_numpy(depth)
+                depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
+            if isinstance(depth, np.ndarray):
+                depth = torch.from_numpy(depth)
             depth = depth.unsqueeze(0).unsqueeze(0)
             self.writeBuffer.write(depth)
         except Exception as e:
@@ -193,6 +203,7 @@ class VideoDepthAnythingTorch:
         depthQuality: str = "high",
         compileMode: str = "default",
         depth_window: int = 32,
+        depthNorm: bool = False,
     ):
         self.input = input
         self.output = output
@@ -211,6 +222,7 @@ class VideoDepthAnythingTorch:
         self.depthQuality = depthQuality
         self.compileMode = compileMode
         self.depthWindow = depth_window
+        self.normalizer = VideoRangeNormalizer() if depthNorm else None
 
         self.handleModels()
         try:
@@ -314,6 +326,8 @@ class VideoDepthAnythingTorch:
         self.model.frame_id_list = []
         self.model.frame_cache_list = []
         self.model.id = -1
+        if self.normalizer is not None:
+            self.normalizer.reset()
 
     @torch.inference_mode()
     def processFrame(self, frame):
@@ -331,8 +345,13 @@ class VideoDepthAnythingTorch:
                 frame = (frame * 255).astype(np.uint8)
 
             depth = self.model.infer_video_depth_one(frame, 518, self.device, True)
-            depth = torch.from_numpy(depth)
-            depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
+            if self.normalizer is not None:
+                depth = self.normalizer.normalize(depth)
+            else:
+                depth = torch.from_numpy(depth)
+                depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
+            if isinstance(depth, np.ndarray):
+                depth = torch.from_numpy(depth)
             depth = depth.unsqueeze(0).unsqueeze(0)
             self.writeBuffer.write(depth)
         except Exception as e:
