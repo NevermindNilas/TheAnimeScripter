@@ -205,6 +205,10 @@ def modelsList() -> list[str]:
         "base_v2",
         "large_v2",
         "giant_v2",
+        "small_v2-mps",
+        "base_v2-mps",
+        "large_v2-mps",
+        "giant_v2-mps",
         "small_v2-directml",
         "base_v2-directml",
         "large_v2-directml",
@@ -222,12 +226,22 @@ def modelsList() -> list[str]:
         "distill_small_v2",
         "distill_base_v2",
         "distill_large_v2",
+        "distill_small_v2-mps",
+        "distill_base_v2-mps",
+        "distill_large_v2-mps",
         "distill_small_v2-tensorrt",
         "distill_base_v2-tensorrt",
         "distill_large_v2-tensorrt",
         "distill_small_v2-directml",
         "distill_base_v2-directml",
         "distill_large_v2-directml",
+        "og_small_v2-mps",
+        "og_base_v2-mps",
+        "og_large_v2-mps",
+        "og_giant_v2-mps",
+        "og_distill_small_v2-mps",
+        "og_distill_base_v2-mps",
+        "og_distill_large_v2-mps",
         "og_video_small_v2",
         "og_video_base_v2",
         "og_video_large_v2",
@@ -245,6 +259,10 @@ def modelsList() -> list[str]:
         "base_v3",
         "large_v3",
         "og_large_v3",
+        "small_v3-mps",
+        "base_v3-mps",
+        "large_v3-mps",
+        "og_large_v3-mps",
         "small_v3-directml",
         "base_v3-directml",
         "small_v3-tensorrt",
@@ -950,6 +968,18 @@ def modelsMap(
             return "depth_anything_v2_vitl.pth"
 
         case "giant_v2":
+            return "depth_anything_v2_vitg.pth"
+
+        case "og_small_v2" | "og_distill_small_v2":
+            return "depth_anything_v2_vits.pth"
+
+        case "og_base_v2" | "og_distill_base_v2":
+            return "depth_anything_v2_vitb.pth"
+
+        case "og_large_v2" | "og_distill_large_v2":
+            return "depth_anything_v2_vitl.pth"
+
+        case "og_giant_v2":
             return "depth_anything_v2_vitg.pth"
 
         case "small_v2-directml" | "small_v2-tensorrt":
