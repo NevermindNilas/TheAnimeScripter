@@ -4,7 +4,8 @@
 
 - Python 3.14 installed and accessible from PATH
 - Windows 11, Linux, or Apple Silicon macOS
-- Apple Silicon macOS build machines require native FFmpeg on PATH, for example via `brew install ffmpeg`
+
+The build no longer needs FFmpeg on the build machine, and deliberately does not bundle it: FFmpeg is GPL, so shipping it inside a release asset would make TAS a redistributor. Every platform obtains it at runtime instead — Windows and Linux download it, macOS installs it via Homebrew.
 
 ## Build Process
 

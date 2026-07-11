@@ -76,11 +76,6 @@ def test_build_portable_runs_steps_in_order(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         pipeline,
-        "bundle_macos_ffmpeg",
-        lambda ctx, output_dir: calls.append(("macos_ffmpeg", output_dir)),
-    )
-    monkeypatch.setattr(
-        pipeline,
         "seed_dependency_profile",
         lambda ctx, output_dir: calls.append(("dependency_profile", output_dir)),
     )
@@ -105,7 +100,6 @@ def test_build_portable_runs_steps_in_order(monkeypatch, tmp_path):
         "python",
         "requirements",
         ("bundle", output_dir),
-        ("macos_ffmpeg", output_dir),
         ("dependency_profile", output_dir),
         ("extras", output_dir),
         ("cleanup", output_dir),
