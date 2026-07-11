@@ -320,6 +320,7 @@ def depth(self):
                 self.bitDepth,
                 self.depthQuality,
                 compileMode=self.compileMode,
+                depthNorm=self.depthNorm,
             )
 
         case "video_small_v2" | "video_large_v2":
@@ -343,6 +344,7 @@ def depth(self):
                 self.depthQuality,
                 compileMode=self.compileMode,
                 depth_window=self.depthWindow,
+                depthNorm=self.depthNorm,
             )
 
         case (

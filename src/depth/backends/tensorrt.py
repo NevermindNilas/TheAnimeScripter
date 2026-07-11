@@ -14,6 +14,7 @@ from src.depth.backends._shared import (
     MEANTENSOR,
     STDTENSOR,
     SlidingWindowNormalizer,
+    VideoRangeNormalizer,
     calculateAspectRatio,
 )
 from src.infra.isCudaInit import CudaChecker
@@ -400,6 +401,8 @@ class OGDepthV2TensorRT:
         )
 
         self.isVideoDepthTensorRT = "video_small_v2" in self.depth_method
+        if self.isVideoDepthTensorRT and self.normalizer is not None:
+            self.normalizer = VideoRangeNormalizer()
         self.temporalWindowSize = 32
 
         # distill (multi-input) and the temporal video engine can't batch the
@@ -565,11 +568,14 @@ class OGDepthV2TensorRT:
         if self.isVideoDepthTensorRT:
             depthTensor = self.dummyOutput[0, -1].float()
             depthTensor = torch.nan_to_num(depthTensor, nan=0.0, posinf=0.0, neginf=0.0)
-            flatTensor = depthTensor.flatten()
-            lowerBound = torch.quantile(flatTensor, 0.01)
-            upperBound = torch.quantile(flatTensor, 0.99)
-            denom = (upperBound - lowerBound).clamp_min(1e-6)
-            depthTensor = ((depthTensor - lowerBound) / denom).clamp(0.0, 1.0)
+            if self.normalizer is not None:
+                depthTensor = self.normalizer.normalize(depthTensor)
+            else:
+                flatTensor = depthTensor.flatten()
+                lowerBound = torch.quantile(flatTensor, 0.01)
+                upperBound = torch.quantile(flatTensor, 0.99)
+                denom = (upperBound - lowerBound).clamp_min(1e-6)
+                depthTensor = ((depthTensor - lowerBound) / denom).clamp(0.0, 1.0)
             depth = (depthTensor * 255.0).byte().cpu().numpy()
         else:
             depth = self.dummyOutput.cpu().numpy()

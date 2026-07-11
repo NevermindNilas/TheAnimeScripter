@@ -1130,7 +1130,7 @@ def _addDepthOptions(argParser):
     depthGroup.add_argument(
         "--depth_norm",
         action="store_true",
-        help="Apply sliding window normalization to reduce flickering in depth maps, not compatible with video depth methods",
+        help="Apply ghost-free global affine stabilization to image depth methods, or shared-range calibration to temporal video depth methods",
     )
     depthGroup.add_argument(
         "--depth_window",

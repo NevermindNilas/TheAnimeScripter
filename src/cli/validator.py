@@ -43,13 +43,6 @@ def _handleDepthSettings(args):
         )
         args.depth_quality = "low"
 
-    if args.depth_norm and "video" in args.depth_method:
-        logAndPrint(
-            "Depth normalization is not compatible with video depth methods, disabling depth_norm",
-            "yellow",
-        )
-        args.depth_norm = False
-
     # Normalize once so every later read is safe, including for args objects
     # built by other entrypoints that never define depth_batch.
     args.depth_batch = max(1, int(getattr(args, "depth_batch", 1)))
