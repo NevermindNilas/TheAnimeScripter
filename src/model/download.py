@@ -227,23 +227,32 @@ def downloadModels(
     os.makedirs(weightsDir, exist_ok=True)
 
     downloadModel = model.removesuffix("-mps") if model.endswith("-mps") else model
+    registryModel = {
+        "og_small_v2": "small_v2",
+        "og_base_v2": "base_v2",
+        "og_large_v2": "large_v2",
+        "og_giant_v2": "giant_v2",
+        "og_distill_small_v2": "small_v2",
+        "og_distill_base_v2": "base_v2",
+        "og_distill_large_v2": "large_v2",
+    }.get(downloadModel, downloadModel)
 
-    filename = modelsMap(downloadModel, upscaleFactor, modelType, half, ensemble)
-    if downloadModel.endswith("-tensorrt") or downloadModel.endswith("-directml"):
-        if "rife" in downloadModel:
-            folderName = downloadModel.replace("-tensorrt", "")
+    filename = modelsMap(registryModel, upscaleFactor, modelType, half, ensemble)
+    if registryModel.endswith("-tensorrt") or registryModel.endswith("-directml"):
+        if "rife" in registryModel:
+            folderName = registryModel.replace("-tensorrt", "")
 
         else:
-            folderName = downloadModel.replace("-tensorrt", "-onnx").replace(
+            folderName = registryModel.replace("-tensorrt", "-onnx").replace(
                 "-directml", "-onnx"
             )
     else:
-        folderName = downloadModel
+        folderName = registryModel
 
     folderPath = os.path.join(weightsDir, folderName)
     os.makedirs(folderPath, exist_ok=True)
 
-    if downloadModel in [
+    if registryModel in [
         "shift_lpips-tensorrt",
         "shift_lpips-directml",
     ]:
@@ -256,16 +265,16 @@ def downloadModels(
             fullUrl = f"{TASURL}{filename}"
             return downloadAndLog(downloadModel, filename, fullUrl, folderPath)
 
-    elif downloadModel == "transnetv2":
+    elif registryModel == "transnetv2":
         fullUrl = f"{TRANSNETV2URL}{filename}"
 
-    elif downloadModel == "small_v2":
+    elif registryModel == "small_v2":
         fullUrl = f"{DEPTHV2URLSMALL}{filename}"
-    elif downloadModel == "base_v2":
+    elif registryModel == "base_v2":
         fullUrl = f"{DEPTHV2URLBASE}{filename}"
-    elif downloadModel == "large_v2":
+    elif registryModel == "large_v2":
         fullUrl = f"{DEPTHV2URLLARGE}{filename}"
-    elif downloadModel == "giant_v2":
+    elif registryModel == "giant_v2":
         fullUrl = f"{DEPTHV2URLGIANT}{filename}"
 
     else:

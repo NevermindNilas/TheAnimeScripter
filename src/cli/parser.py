@@ -1061,6 +1061,13 @@ def _addDepthOptions(argParser):
         "distill_small_v2",
         "distill_base_v2",
         "distill_large_v2",
+        "small_v2-mps",
+        "base_v2-mps",
+        "large_v2-mps",
+        "giant_v2-mps",
+        "distill_small_v2-mps",
+        "distill_base_v2-mps",
+        "distill_large_v2-mps",
         "og_small_v2",
         "og_base_v2",
         "og_large_v2",
@@ -1068,6 +1075,13 @@ def _addDepthOptions(argParser):
         "og_distill_small_v2",
         "og_distill_base_v2",
         "og_distill_large_v2",
+        "og_small_v2-mps",
+        "og_base_v2-mps",
+        "og_large_v2-mps",
+        "og_giant_v2-mps",
+        "og_distill_small_v2-mps",
+        "og_distill_base_v2-mps",
+        "og_distill_large_v2-mps",
         "og_video_small_v2",
         "og_video_base_v2",
         "og_video_large_v2",
@@ -1096,6 +1110,10 @@ def _addDepthOptions(argParser):
         "base_v3",
         "large_v3",
         "og_large_v3",
+        "small_v3-mps",
+        "base_v3-mps",
+        "large_v3-mps",
+        "og_large_v3-mps",
         "small_v3-directml",
         "base_v3-directml",
         "small_v3-tensorrt",
@@ -1149,8 +1167,8 @@ def _addDepthOptions(argParser):
         "methods. 1 = default (one frame at a time). Higher values raise "
         "throughput at lower resolutions where the model is launch-bound "
         "(e.g. --depth_quality low/medium) at a small VRAM cost; negligible "
-        "gain at high quality. Supported on the CUDA backends and the "
-        "TensorRT image engines; forced to 1 for video_* methods, "
+        "gain at high quality. Supported on the CUDA, MPS, and TensorRT "
+        "image backends; forced to 1 for video_* methods, "
         "distill TensorRT, and the DirectML/OpenVINO backends.",
     )
 

@@ -33,6 +33,7 @@ from src.cli.validation import (
 from src.cli.validator import (
     _adjustMethodsBasedOnCuda,
     _configureProcessingSettings,
+    _handleDepthSettings,
     isAnyOtherProcessingMethodEnabled,
 )
 from src.infra.backendFallback import applyBackendFallbacks, fallbackMethod
@@ -159,6 +160,36 @@ def testMoblurParserIncludesMpsChoices():
     methods = capabilityMethods(_buildParser("."))["moblur"]
     assert "rife4.6-mps" in methods
     assert "rife4.25-mps" in methods
+
+
+def testDarwinFallbackUsesMpsForDepth(monkeypatch):
+    monkeypatch.setattr(cs, "SYSTEM", "Darwin", raising=False)
+    args = fallbackArgs(depth=True, depth_method="small_v2")
+
+    _adjustMethodsBasedOnCuda(args)
+
+    assert args.depth_method == "small_v2-mps"
+
+
+def testDepthParserIncludesMpsChoices():
+    methods = capabilityMethods(_buildParser("."))["depth"]
+    assert "small_v2-mps" in methods
+    assert "large_v3-mps" in methods
+
+
+def testDepthBatchRetainedOnMps():
+    args = types.SimpleNamespace(
+        depth=True,
+        depth_quality="low",
+        depth_method="small_v2-mps",
+        depth_norm=False,
+        depth_batch=4,
+        half=False,
+    )
+
+    _handleDepthSettings(args)
+
+    assert args.depth_batch == 4
 
 
 # --------------------------------------------------------------------------- #
