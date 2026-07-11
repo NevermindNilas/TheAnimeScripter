@@ -58,6 +58,60 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - TensorRT upscale engine creation now logs GPU/driver/VRAM diagnostics, retries a failed dynamic build once with a static input profile to reduce build-time VRAM pressure, and raises a clear build failure instead of crashing later with `'NoneType' object has no attribute 'num_io_tensors'`.
 - TensorRT builds no longer abort on legacy Windows code pages (e.g. cp1252): the box-draw input-shape log raised `UnicodeEncodeError` mid-build, was caught as an optimization-profile failure, and resurfaced as the same `NoneType` error. Console streams are reconfigured to UTF-8 in `logAndPrint`, and the cosmetic shape print can no longer abort a build.
 - Metadata probing validates the configured `ffprobe` binary before startup probing, instead of checking `ffmpeg` and failing later with a less useful subprocess error.
+
+## TAS Adobe Edition
+### New
+- Media Browser: **folder navigation**. Subfolders now appear as tiles in the grid — folders that contain media lead the grid with a highlighted open-folder icon, empty ones trail — with Back/Forward/Up buttons and Explorer-style shortcuts (Alt+Left / Alt+Right / Backspace). Replaces the old "Include subfolders" recursive-scan checkbox.
+- Media Browser: **previews for any codec.** Videos CEP's Chromium can't decode natively (HEVC, AV1, exotic containers/audio) now play through a live ffmpeg fragmented-MP4 pipe with zero temp files — h264/vp9 sources remux without re-encoding, and seeking restarts the stream at the target time.
+- Media Browser: **Windows shell thumbnails.** Grid thumbnails now come from the OS shell thumbnail cache (the same thumbnails Explorer shows) via one long-lived hidden PowerShell worker — a cache read takes ~10-30 ms and writes nothing to disk. ffmpeg stays as the fallback (and the only path off Windows).
+- Media Browser: the preview is a **lightbox** (click-outside or Escape to close, fade in/out) instead of a modal dialog. The grid thumbnail crossfades into the first video frame, an Import button sits inside the preview, and volume is a hover flyout with a vertical slider.
+- **Scene-cut aware interpolation**: a new *Scene-cut Aware* toggle in Interpolate Settings holds the frame at hard cuts instead of letting RIFE morph across them (the output frame count is unchanged). Pick the detector (SSIM/MSE, cheap and model-free, or the MaxxVit classifier) and the sensitivity. Sponsor-gated detectors fall back to the CPU `ssim` detector for free-tier users.
+- **The protection mask now applies to interpolation, not only motion blur.** The mask-layer picker is available in Interpolate Settings: opaque pixels on the picked layer — HUDs, hardsubs, watermarks, logos — are restored from the source frame instead of being warped by optical flow.
+- **NCNN (Vulkan) interpolation is back**: a new *ANY VULKAN CAPABLE GPU* group in the interpolation model picker exposes the RIFE NCNN models. They run on any Vulkan GPU with no CUDA/TensorRT dependency and are free for everyone. This also fixes the built-in "Instant 4K 60fps AMD/Intel" preset, which selected `rife4.22-ncnn` — a model the picker had no entry for.
+- **Depth Anything V3** models (Small, Base, Large, and the metric OG Large on CUDA; Small/Base on TensorRT and DirectML) and the **fp16 fast-path video depth** models (`video_small_v2` / `video_large_v2`, 1.7–1.9× faster end-to-end than the OG video models) are now selectable in Depth Map Settings, along with the TensorRT video-depth backend.
+- **Depth and Segmentation batch size**: process several frames per model forward where the GPU is launch-bound, at a proportional VRAM cost. The control is hidden on the backends where the backend forces batching off (DirectML/OpenVINO, and the video depth methods).
+- **Depth temporal window**: choose the attention window (32/16/8/4 frames) for the fp16 CUDA video depth models. 16 is meaningfully faster with no added flicker.
+- Keyframe Graph Editor: an animated **preview bead** rides the easing curve (X advances linearly in time, Y follows the eased value) so the curve's acceleration/deceleration is visible at a glance. Toggled from the toolbar; loops with a short hold, and never redraws through React (canvas-only).
+- Keyframe Graph Editor: **Copy as code** popover exports the current curve as CSS `cubic-bezier()`, CSS `linear()` (sampled, so it also represents overshoot/bounce a single bezier can't), or GSAP `CustomEase` — and a paste field loads a `cubic-bezier(...)` / `a,b,c,d` string back into the editor.
+- Keyframe Graph Editor: **Platform** preset pack with real Material, iOS, Fluent 2, and Android platform easing curves.
+- Keyframe Graph Editor: **Read** now names the closest matching preset in the toast (e.g. `(≈ Cubic Out)`) and auto-orients the graph to the selected keyframes' direction — descending pairs (e.g. 100 → 0) draw the graph flipped so it visually descends like AE's value graph. Orientation is view-only (the applied bezier is unchanged) and only re-evaluated on Read, never mid-drag.
+
+### Changed
+- **Requires the matching backend release.** The backend renamed `--moblur_mask` to `--mask`; the panel now sends the mask under the new key, so an older backend will ignore it and log an unknown-option warning.
+- Backend log tracking follows the backend's new per-PID log files (`TAS-Log-<pid>.log`): the panel watches the install folder and binds to the newest matching log instead of a fixed `TAS-Log.log` (which older backends still get for compatibility).
+- macOS installs now use the single `macos-mps` dependency profile — the backend has no `macos-lite` — and dependency install runs one `--download_requirements` pass instead of two chained ones.
+- The bundled Python interpreter is now resolved per platform (`python.exe` at the runtime root on Windows, `bin/python3` on macOS/Linux) instead of assuming a root-level binary; process cleanup also matches `python3`, and the managed-install cleanup recognizes the unix prefix layout (`bin`/`lib`/`share`, `run.sh`, `requirements.txt`).
+- The download-size tile shows per-platform sizes (~45 MB on Windows, ~70 MB on macOS) instead of a stale ~35 MB.
+- Media Browser: quick access is a compact chip row (pinned + recent) above the breadcrumbs instead of a separate card, and the type filter is a segmented icon toggle instead of a picker.
+- Media Browser: the grid remembers each folder's scroll position and last scan across tab switches, keeps an in-memory LRU thumbnail cache, sizes itself from the measured viewport (no more scrollbar flash on tab switch), and debounces thumbnail batches so scrolling doesn't stutter. The "Generating previews" indicator floats over the grid instead of shifting the layout.
+- Run Chain is now an accent-filled button and Generate Preview a secondary button (both were monochrome action buttons), and sponsor-gated picker sections say "(Sponsors only)" instead of a lock emoji.
+- Removed the phantom `rife-ncnn` picker entry (the model doesn't exist in the backend); the NCNN auto-reset fallback is `rife4.22-ncnn`.
+- Account section badges (sponsor status, owned tiers) use Spectrum Badge components, and the deprecated `cta` button variant migrated to `accent` throughout.
+- The bottom progress footer takes generic percent/status/details props, shows a full-width indeterminate sweep when work has started but no progress data exists yet, and animates its expand/collapse.
+- The panel body uses an overlay scrollbar so the navbar no longer shifts sideways when switching between scrolling and non-scrolling tabs; the dead pre-rewrite toast CSS is gone.
+- Motion Blur and Interpolate now share one mask-layer picker and one stored selection, so a mask picked in either place applies to whichever of the two runs.
+- Keyframe Graph Editor: removed the manual **Flip Y** toggle (toolbar button and `Shift+V`) in favor of the automatic Read-driven orientation above; also removed the now-unused toggle-binding customization row from the shortcuts dialog. The bezier text input and Read/Apply are unchanged.
+- Panel-written debug logs now consolidate into a `tas-log` folder inside the TAS install directory (next to the backend `TAS-Log.log`) for easier debugging: the crash log (`tas-log/crash.log`) and the ExtendScript dead-frame dedup breadcrumb (`tas-log/dedup_debug.log`) no longer scatter into the OS temp folder. Both fall back to the temp folder when the install directory doesn't exist yet or the CEP Node bridge is unavailable (e.g. Vite browser dev).
+- Read and Apply buttons in the Keyframe Graph Editor now share equal width.
+- Consolidate duplicated version comparison into shared `versionCompare.ts`.
+- Rename `clearCompleted` → `clearFinished` (removes completed + failed).
+- Performance (no behavior change): queue status counts and per-tick stats now compute in a single pass instead of several throwaway array allocations; the virtualized queue list uses a stable row renderer and `rowData` so react-window stops re-rendering all visible rows on every progress tick.
+- Performance (no behavior change): the sponsor-status empty caps array is now module-scoped, restoring `ChainTab`'s `React.memo` (it was defeated by a new array identity every render, cascading through the chain callbacks).
+- Performance (no behavior change): Media Browser sorting selects its comparator once instead of re-branching inside every comparison (~28% faster on large recursive listings, measured); Keyframe Graph Editor preset filtering merges its lists and lowercases the search query once per render; `QueueItemRow` is memoized with hoisted static styles.
+
+### Fixed
+- Cancelling the current queue item now marks it **cancelled** instead of **failed** — the kill's non-zero exit code was being read as a failure — and the rest of the queue continues.
+- Media import failures now show the host's actual complaint: After Effects and Premiere return the first concrete failure reason (missing file, unsupported format, could not insert into the sequence) and the toast displays it instead of a generic "could not import".
+- YouTube downloader: the URL field is a controlled input with a proper validation error message instead of shipping a placeholder URL as its default value, and the resolution dialog closes reliably (DialogContainer instead of a hidden-trigger hack).
+- Keyframe Graph Editor preset tiles are keyboard-accessible (Enter/Space, focusable), and shortcut capture uses a real toggle button.
+- **RIFE Ensemble and Dynamic Flow Scale were silently dropped from queued renders.** Both checkboxes were only wired into the direct chain command, never into the config the queue actually sends, so a queued job ran with neither. They now travel with the job. (The backend also fixed `--dynamic_scale` no-oping on the fp16 CUDA path, so the toggle now does something in both places.)
+- Interpolating with a protection mask no longer bypasses the pre-render when "use layer in/out points" is on. The mask PNG is rendered in comp space, so processing source-dimension frames instead would misalign it against the input.
+- "Open TAS folder" failures now show a red error toast instead of a green success toast (`generateToast` was passed `Positive` instead of `Negative`).
+- "Open TAS folder" no longer throws `existsSync is not a function` when the CEP Node bridge is unavailable — `fs`/`child_process`/`os` members and an empty install path are now guarded, surfacing a clear message instead of the cryptic crash.
+- Bit depth dropdown no longer falls back to "Select…" after applying a preset — default presets were saving `'8'` instead of `'8bit'`, which matched no picker key. Added store migrations to fix already-persisted values.
+- `formatBytes` returns `"undefined"` for ≥1 TiB or negative values — extended unit array to PB, clamped index, guard negatives.
+- `formatModelName` now handles embedded version tokens (`yolov9` → `YoloV9`); removed dead `.replace('V','V')` no-op.
+- `extractBezierFromEase` no longer throws on empty ease arrays (returns `null`).
 - Invalid trim ranges now fail during runtime validation when `--outpoint` is nonzero and not greater than `--inpoint`; the FFmpeg writer also exits cleanly if no frames reach the output queue.
 
 ## [2.7.10] - 2026-06-25
@@ -72,6 +126,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - After a per-frame exception the success-only stats block in `VideoProcessor.start()` still reported a misleading `Total Execution Time / FPS` and `Output Size: 0.0 MB` because `process()` swallowed the exception in its own `try/except` and returned normally. `process()` now records the error on `self.processingError` and `start()` emits a single `Processing FAILED after <s>: <error>` line instead, so failed runs no longer look like they succeeded with a nonsense FPS.
 - The FFmpeg-subprocess writer (`src/io/ffmpegSettings.py` `WriteBuffer.__call__`) waited only `3s` for `ffmpeg` to drain + finalize in its `finally` block and logged a noisy `Cleanup error: Command [...] timed out after 3 seconds` warning whenever the encoder was still flushing — especially common when the worker had died early and the pipe was starved. Bumped to `30s`, switched the timeout branch to `kill()` + a DEBUG log, and kept the genuine-error branch at WARNING.
 - Concurrent TAS workers (e.g. AE bridge rendering multiple precomps) all opened the same `TAS-Log.log` with `filemode="w"` and interleaved at the line level, making each run's init block + `Processed/Encoded N frames` appear twice in the merged view. The log file is now per-run as `TAS-Log-<pid>.log` (path in the new `cs.LOG_PATH`), so concurrent runs no longer truncate + pollute each other.
+
+## TAS Adobe Edition
+### New
+- Added an optional **Patreon** entitlement provider alongside GitHub Sponsors — links a Patreon account via an OAuth authorization-code flow (emulating device flow) with KV-backed polling sessions, patron-status caching, and a shared entitlement JWT.
+
+### Changed
+- Reworked the sponsor account UI: replaced the GitHub-specific account section with a provider-agnostic `AccountSection`, added `patreonSponsorService`, and made the sponsor store/hooks provider-aware.
 
 ## [2.7.9] - 2026-06-20
 ### Fixed
@@ -107,10 +168,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
   - Made `cv2` lazy in `ffmpegSettings` (only the OpenCV decode fallback and single-image PNG writer use it) (~−13ms), and read the Windows CPU name from `PROCESSOR_IDENTIFIER` instead of `platform.processor()`'s WMI shell-out in `checkSpecs` (~−25ms).
 - **RIFE interpolation is faster on CUDA (fp16) and TensorRT.** CUDA: block inputs are downsampled per-component and concatenated at block resolution, image+feature warps sharing a flow are fused into one `grid_sample`, the dead feature warp after the final block is skipped, and the final blend/grid math use fused kernels — +9–15% FPS across the RIFE 4.x family (rife4.25 @1080p: 78→93 fps), output within fp16 noise of before. TensorRT: every `ConvTranspose2d` is repacked at load into a math-identical `Conv2d`+`PixelShuffle` pair, which TRT compiles to much faster tactics — +3% (rife4.6) to +12–18% (rife4.25; @1080p 90→110 fps). Quality verified against fp32 references (PSNR/SSIM/VMAF within measurement floor). Existing `.engine` caches rebuild automatically on first use.
 
+## TAS Adobe Edition
+### New
+- The TAS chain now runs end-to-end inside **Premiere Pro** (increment 1): select a clip and its source media (with in/out points) is sent to the AI backend, then the processed result is imported onto a new video track above the source, time-aligned. It routes through the normal queue, so you get the same socket progress and queue UI as the After Effects path. After Effects-only UI (such as effect/preset scanning) is hidden when running in Premiere.
+- Added an **MPS** entry to the Accelerator Guide — Metal Performance Shaders acceleration for Apple Silicon (M-series) GPUs, Mac only.
+- Added two one-time supporter tiers: **Lifetime Supporter** ($99) and **Founder Pass** ($150).
+
+### Changed
+- Rewrote the toast notification system as a self-contained, After Effects 2020 / Chromium-74-safe implementation, replacing `@react-spectrum/toast` (now removed as a dependency) while keeping the same behavior. Toasts now appear bottom-center, stack, collapse into a deck of cards when there are several, pause on hover/focus, and animate their collapse/expand.
+- Faster downloads: progress updates are now throttled so socket reads are no longer starved by per-chunk UI re-renders, which previously collapsed download throughput. The stall watchdog still tracks every chunk.
+- Dependency install progress now refreshes per downloaded package instead of freezing on the last collected one, with more robust package-name parsing.
+- The navigation bar now shrinks fluidly with panel width (icons, labels, and separators scale continuously) instead of stepping at fixed breakpoints, and drops separators entirely on very narrow panels.
+- Chain pipeline rows no longer show an em-dash placeholder when a row has no status text.
+- Shortened the "Edge Detection Enhancement" settings label across all locales.
+
+### Fixed
+- Fixed sponsor-status persistence recursing infinitely instead of sealing and caching the verified status.
+- Sponsor avatars that fail to load now fall back to the GitHub logo instead of showing a broken image.
+- AutoCut startup cleanup no longer errors in non-CEP runtimes (e.g. Vite browser dev) where Node `path`/`os`/`fs` methods are unavailable.
+
 
 ## [2.7.7] - 2026-06-01
 ## TAS Adobe Edition
-- Pre-renders now force a video output module — Lossless, falling back to ProRes/QuickTime then H.264 — so file always has a video stream. Fails with clear error (instead of hanging) if no video template exists or no output file produced.
+### New
+- Added AutoCAS to the NVIDIA GPU restore models (Gauge5) — a universal sharpening model. CUDA/sponsor-gated.
+
+### Changed
+- Replaced the standalone Sharpen pipeline checkbox with the AutoCAS restore model. The old `sharpen`/`sharpen_sens` options are removed; sharpening is now applied by selecting the AutoCAS restore model.
+
+### Fixed
+- Depth/pre-render no longer hangs at "initializing" forever when the project's default After Effects Output Module is set to an audio-only or otherwise invalid template (e.g. a leftover "Untitled 1"). Pre-renders now force a video output module — Lossless, falling back to ProRes/QuickTime then H.264 — so the file always contains a video stream, and fail with a clear error (instead of hanging) if no video template exists or no output file is produced.
 
 
 ## [2.7.6] - 2026-05-31
@@ -210,6 +297,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Removed
 - Dead-code sweep (no behavior change). Removed orphaned depth-arch modules `dpt_v1.py`, `blocks_v1.py`, `dinov2_v3.py`, and the stray top-level `dpt_temporal.py` / `blocks.py` / `transform.py` (superseded by the `dpt_v2` / `og_dpt_v2` / `video_depth_anything` lineages). Removed unreferenced symbols: the never-dispatched `DedupMSSSIMCuda` class (and the now-orphaned `MS_SSIM` / `ms_ssim` in `dedup/ssim.py`) and `ATRCuda`; all unused `frameReset()` methods across upscale/restore; `objectDetection.drawBoxesTorch`; `stabilize._processStreamingFrames`; `downloadModels.downloadTensorRTRTX`; the unused `logAndPrint` helpers (`setVerbose`/`setQuiet`/`logDebug`/`blue`/`magenta`/`lightBlue`/`rainbow`/`bold`); dead `CudaChecker` members (`mpsAvailable`/`acceleratorAvailable`/`disableCudaOptimizations`/`deviceName`/`allDeviceNames`); and several write-only attrs / unused params (`useOpenCV`, `batchSize`, `channels_first`, `optimizationLevel`, `args.isNvidiaGPU`, `args.requirements_file`).
+
+## TAS Adobe Edition
+### New
+- Added NVIDIA Maxine RTX VSR upscaling and Maxine denoise/deblur restore models.
+- Added deepDeband F (CUDA) and Intel OpenVINO restore models.
+- Added a "Show Legacy Models" setting to hide deprecated upscale models.
+- Remove Dead Frames now runs natively in After Effects, with resolution divisor and preserve-length options.
+- Added a feedback form link in the Socials section.
+- Added x264 (NeLux) and x265 (NeLux) CPU encoders — up to 50% faster with lower CPU usage (Beta).
+- Added a Lock View toggle to the Graph Editor — freezes pan/zoom (and reset-on-double-click) so the mouse wheel scrolls the panel instead.
+
+### Changed
+- Faster UI: memoized hot components to cut unnecessary re-renders.
+- Removed the compact model family from the upscale picker; defaults now use `shufflecugan-directml`.
+- Background Removal now defaults to the free Anime DirectML model (works on all GPUs) instead of the sponsor-only Anime Cuda.
+- Graph Editor canvas now caps its height and stretches horizontally (After Effects-style), with sharper high-DPI rendering.
+- Merged the Graph Editor's separate shortcuts and settings popovers into one dialog with Reference and Customize tabs.
+
+### Fixed
+- Discord Rich Presence toggle now actually disables Rich Presence.
+- Fixed a WebSocket and heartbeat leak when a run was cancelled or errored without emitting a completion event.
+- Fixed a log-watcher retry timer leak on process exit, error, or cancellation.
+- Fixed ExtendScript calls breaking when an argument was `undefined`.
+- Fixed Precompose placing layers at the wrong start time.
+- Auto-clip (Premiere) now validates the clip and results file before running and always releases the file handle.
+- Hardened the sponsor-login worker against open-redirect and token leakage (opaque-origin allowlist matching, https/cep-only redirects) and stopped internal error details from leaking in responses.
 
 ## [2.7.0] - 2026-05-10
 ### Fixed
@@ -987,6 +1100,18 @@ Viewport zoom slider was added to `ToolBox`
 #### Fixed
 - Issues such as: `Decoding error: Resize error: Resize error 3074: no path between colorspaces (2/2/2 => 0/2/2). May need to specify additional colorspace parameters` with https://github.com/NevermindNilas/TheAnimeScripter/issues/128
 
+## TAS Adobe Edition
+### Changed
+- Better I/O handling if the pre-render input file is a video file.
+- Removed `socket.io-client` dependency and replaced with flask.
+- Massive refactor to the code and better usage of helpers.
+- Improved error handling and logging throughout the application.
+- Slightly improved logging throughout to `LogTab`.
+
+### Fixed
+- Fixed an issue where the naming scheme for pre-rendered files was not consistent.
+- Fixed an issue wehre the progress bar was not updating correctly during processing.
+
 
 ## [2.3.0] - 2025-07-16
 #### Added
@@ -1002,6 +1127,18 @@ Viewport zoom slider was added to `ToolBox`
 #### Fixed
 - Fixed a typo when using compile mode and upscale.
 - Potential fix for deadlocks when installing dependencies.
+
+## TAS Adobe Edition
+### New
+- Introduced `addPortToCommand` function to dynamically add the AE comms server URL to commands.
+- Improved error handling and reconnection logic in the socket connection.
+- Added a new `startExtraTabLogic` function to handle logic for extra tabs like depth map extraction and background removal.
+- Added a new supporters pannel.
+
+### Changed
+- Updated WebSocket to dynamically adjust the port based on if a port is already in use or not.
+- Updated the `main.tsx` file to include more detailed descriptions for depth map quality settings.
+- Removed unused functions and imports to clean up the codebase.
 
 ## [2.2.9] - 2025-07-07
 ### Adobe Edition
