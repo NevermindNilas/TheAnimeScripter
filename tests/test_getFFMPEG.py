@@ -115,7 +115,10 @@ def test_darwin_raises_when_homebrew_install_fails(monkeypatch, tmp_path):
     try:
         getFFMPEG.downloadAndExtractFfmpeg(str(tmp_path / "ffmpeg"))
     except RuntimeError as exc:
-        assert "brew install ffmpeg" in str(exc)
+        # Homebrew is installed here; blaming a missing Homebrew would send the
+        # user off diagnosing the wrong thing.
+        assert "did not produce them" in str(exc)
+        assert "Homebrew was not found" not in str(exc)
     else:
         raise AssertionError("Expected a failed Homebrew install to raise")
 
@@ -128,6 +131,7 @@ def test_darwin_raises_when_homebrew_is_absent(monkeypatch, tmp_path):
     try:
         getFFMPEG.downloadAndExtractFfmpeg(str(tmp_path / "ffmpeg"))
     except RuntimeError as exc:
+        assert "Homebrew was not found" in str(exc)
         assert "https://brew.sh" in str(exc)
     else:
         raise AssertionError("Expected a missing Homebrew to raise")
