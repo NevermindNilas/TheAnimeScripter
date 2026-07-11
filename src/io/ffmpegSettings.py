@@ -1,6 +1,7 @@
 import logging
 import os
 import subprocess
+import threading
 import time
 from queue import Empty, Queue
 
@@ -430,6 +431,7 @@ class WriteBuffer:
         output_scale_width: int = None,
         output_scale_height: int = None,
         enablePreview: bool = False,
+        previewSink=None,
         single_image_output: bool = False,
     ):
         """
@@ -451,6 +453,9 @@ class WriteBuffer:
         output_scale_width: int - The target width for output scaling (optional).
         output_scale_height: int - The target height for output scaling (optional).
         enablePreview: bool - Whether to enable FFmpeg-based preview output (optional).
+        previewSink: PreviewSink - In-memory holder the writer pushes preview JPEGs
+            to (from ffmpeg's mjpeg pipe). Preview is only active when a sink is
+            supplied; without one, enablePreview is a no-op (no disk file is written).
         """
         self.input = input
         self.output = os.path.normpath(output)
@@ -490,7 +495,11 @@ class WriteBuffer:
         self.slowmo = slowmo
         self.output_scale_width = output_scale_width
         self.output_scale_height = output_scale_height
-        self.enablePreview = enablePreview
+        # Preview streams through an in-memory mjpeg pipe (ffmpeg stdout ->
+        # drain thread -> previewSink), never a disk file. It is only active
+        # when a sink is present to receive the frames.
+        self.previewSink = previewSink
+        self.enablePreview = bool(enablePreview and previewSink is not None)
 
         self.writtenFrames = 0
         self.writeBuffer = Queue(maxsize=32)
@@ -499,10 +508,6 @@ class WriteBuffer:
         # emptying the queue so the producer's blocking put() can't deadlock
         # the whole run (e.g. prores into an .mp4 container).
         self._sawSentinel = False
-
-        self.previewPath = (
-            os.path.join(cs.WHEREAMIRUNFROM, "preview.jpg") if enablePreview else None
-        )
 
     def _shouldUseDirectPngSingleFrame(self) -> bool:
         return (
@@ -706,15 +711,21 @@ class WriteBuffer:
 
             command.append(self.output)
 
+            # Second output: throttled preview as an mjpeg stream on stdout. A
+            # drain thread (see __call__) reads it and pushes the latest JPEG to
+            # previewSink -- no disk file. stdout MUST be drained or ffmpeg
+            # blocks once the OS pipe buffer fills and back-pressures the encoder.
             command.extend(
                 [
                     "-map",
                     "[previewThrottled]",
+                    "-c:v",
+                    "mjpeg",
                     "-q:v",
                     "2",
-                    "-update",
-                    "1",
-                    self.previewPath,
+                    "-f",
+                    "mjpeg",
+                    "pipe:1",
                 ]
             )
         else:
@@ -868,6 +879,7 @@ class WriteBuffer:
                 return
 
         ffmpegProc = None
+        previewThread = None
         try:
             import torch
             from torch.nn import functional as F
@@ -932,10 +944,7 @@ class WriteBuffer:
             logging.info(f"Encoding with: {' '.join(map(str, command))}")
 
             if self.enablePreview:
-                logging.info(f"Preview enabled, writing to: {self.previewPath}")
-                from src.infra.logAndPrint import logAndPrint
-
-                logAndPrint(f"Preview will be saved to: {self.previewPath}", "cyan")
+                logging.info("Preview enabled, streaming mjpeg over ffmpeg stdout")
 
             useCuda = False
             transferStream = None
@@ -952,7 +961,9 @@ class WriteBuffer:
             ffmpegProc = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
-                stdout=None,
+                # Preview routes an mjpeg stream to stdout; capture it so the
+                # drain thread can read it. Otherwise inherit (no stdout output).
+                stdout=subprocess.PIPE if self.enablePreview else None,
                 stderr=subprocess.PIPE,
                 shell=False,
                 cwd=cs.WHEREAMIRUNFROM,
@@ -968,6 +979,18 @@ class WriteBuffer:
                     f"FFmpeg exited immediately with code {ffmpegProc.returncode}: {stderr_out}"
                 )
                 return
+
+            # Start draining the preview pipe as soon as ffmpeg is up. Must run
+            # unconditionally (even with no browser attached) or the OS pipe
+            # buffer fills and ffmpeg stalls the whole encode.
+            if self.enablePreview and ffmpegProc.stdout is not None:
+                previewThread = threading.Thread(
+                    target=self._drainPreview,
+                    args=(ffmpegProc.stdout,),
+                    daemon=True,
+                    name="preview-drain",
+                )
+                previewThread.start()
 
             logging.info(f"Encoding path: {'CUDA pinned' if useCuda else 'CPU'}")
 
@@ -1103,6 +1126,13 @@ class WriteBuffer:
                         ffmpegProc.kill()
                         ffmpegProc.wait()
 
+                # ffmpeg is gone, so its stdout is at EOF and the drain thread
+                # is unwinding; close the pipe and join it so we don't leak it.
+                if previewThread is not None:
+                    previewThread.join(timeout=5)
+                if ffmpegProc is not None and ffmpegProc.stdout:
+                    ffmpegProc.stdout.close()
+
             except Exception as e:
                 logging.warning(f"Cleanup error: {e}")
 
@@ -1124,11 +1154,35 @@ class WriteBuffer:
     def close(self):
         self.writeBuffer.put(None)
 
-        if self.previewPath and os.path.exists(self.previewPath):
-            try:
-                os.remove(self.previewPath)
-            except Exception as e:
-                logging.warning(f"Could not remove preview file: {e}")
+    def _drainPreview(self, stdout) -> None:
+        """
+        Continuously read ffmpeg's mjpeg preview stream from `stdout`, split it
+        into individual JPEGs on the EOI marker, and push the latest to
+        previewSink. Runs on its own daemon thread; must keep reading regardless
+        of whether a browser is attached, or ffmpeg blocks on a full pipe buffer.
+        """
+        buf = bytearray()
+        start = (
+            0  # search cursor: never rescan already-searched bytes (O(n), not O(n^2))
+        )
+        try:
+            while True:
+                chunk = stdout.read1(65536)
+                if not chunk:
+                    break
+                buf += chunk
+                while True:
+                    j = buf.find(b"\xff\xd9", start)  # JPEG End-Of-Image
+                    if j == -1:
+                        # Keep one trailing byte in case an FFD9 straddles chunks.
+                        start = max(0, len(buf) - 1)
+                        break
+                    frame = bytes(buf[: j + 2])
+                    del buf[: j + 2]
+                    start = 0
+                    self.previewSink.update(frame)
+        except Exception as e:
+            logging.debug(f"Preview drain thread ended: {e}")
 
 
 class NeluxWriteBuffer:
@@ -1179,11 +1233,10 @@ class NeluxWriteBuffer:
         # Same early-death drain contract as WriteBuffer (see its __init__).
         self._sawSentinel = False
         self.acceptsHwcUint8 = True
-        # Nelux does not produce an FFmpeg-based preview image. Define the
-        # attribute (matching WriteBuffer's None default) so main.py's preview
-        # setup -- which reads writeBuffer.previewPath -- doesn't AttributeError
-        # when --preview is combined with a *_nelux encoder.
-        self.previewPath = None
+        # Nelux emits no preview stream. Expose enablePreview=False (the same
+        # gate WriteBuffer uses) so main.py skips preview-server setup when
+        # --preview is combined with a *_nelux encoder.
+        self.enablePreview = False
 
         # Mirror the FFmpeg encoder targets in encodingSettings.matchEncoder
         # one-for-one. Each entry is the full nelux.VideoEncoder kwarg set.
