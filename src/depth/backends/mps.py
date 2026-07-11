@@ -649,7 +649,7 @@ class OGDepthV3MPS(OGDepthV2MPS):
                 disparity[validMask] = 1.0 / depth[validMask]
 
                 if self.normalizer is not None:
-                    gray = self.normalizer.normalize(disparity)
+                    gray = self.normalizer.normalize(disparity, mask=validMask)
                 else:
                     disp_min = np.percentile(disparity[validMask], 2)
                     disp_max = np.percentile(disparity[validMask], 98)
