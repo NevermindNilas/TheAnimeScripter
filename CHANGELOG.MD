@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased] - YYYY-MM-DD
+
+## [2.8.0] - 2026-07-11
 ### Added
 - `--mask` now applies to `--interpolate`, not just `--moblur`. Protected pixels — HUDs, hardsubs, watermarks, logos — are restored from the source frame preceding each generated frame instead of being warped by RIFE/GMFSS optical flow. A shared `src/masking.py` (`ProtectionMask`) backs both features, applied at the sink both interpolation orders push into, so every backend is covered without touching a backend class. Overhead ~0.97 ms per generated frame at 1080p, exactly zero when `--mask` is unset.
 - `--scenechange` (opt-in): a per-frame-pair detector holds the frame at hard cuts instead of letting RIFE morph across them. `--scenechange_method` selects the cheap `ssim`/`mse` detectors or the `maxxvit` classifier; `--scenechange_sens` sets the threshold. Output frame count is unchanged.
