@@ -1,7 +1,6 @@
 import logging
 import os
 import subprocess
-import threading
 import time
 from queue import Empty, Queue
 
@@ -452,10 +451,9 @@ class WriteBuffer:
         outpoint: float - The end time of the segment to encode, in seconds.
         output_scale_width: int - The target width for output scaling (optional).
         output_scale_height: int - The target height for output scaling (optional).
-        enablePreview: bool - Whether to enable FFmpeg-based preview output (optional).
+        enablePreview: bool - Whether to sample preview frames for the preview server.
         previewSink: PreviewSink - In-memory holder the writer pushes preview JPEGs
-            to (from ffmpeg's mjpeg pipe). Preview is only active when a sink is
-            supplied; without one, enablePreview is a no-op (no disk file is written).
+            to. Preview is only active when a sink is supplied.
         """
         self.input = input
         self.output = os.path.normpath(output)
@@ -495,11 +493,17 @@ class WriteBuffer:
         self.slowmo = slowmo
         self.output_scale_width = output_scale_width
         self.output_scale_height = output_scale_height
-        # Preview streams through an in-memory mjpeg pipe (ffmpeg stdout ->
-        # drain thread -> previewSink), never a disk file. It is only active
-        # when a sink is present to receive the frames.
+        # Preview is sampled from the frames this writer already holds, never
+        # produced by the encoder: the ffmpeg command below is identical whether
+        # preview is on or off, so preview cannot perturb encoding. The sampler
+        # is demand-gated and wall-clock throttled -- see PreviewSampler.
         self.previewSink = previewSink
         self.enablePreview = bool(enablePreview and previewSink is not None)
+        self.previewSampler = None
+        if self.enablePreview:
+            from src.server.previewSettings import PreviewSampler
+
+            self.previewSampler = PreviewSampler(previewSink)
 
         self.writtenFrames = 0
         self.writeBuffer = Queue(maxsize=32)
@@ -672,87 +676,30 @@ class WriteBuffer:
 
         filterList = self._buildFilterList()
 
-        if self.enablePreview:
-            filterComplexParts = []
+        command.extend(["-map", "0:v"])
 
-            if filterList:
-                baseFilters = ",".join(filterList)
-                filterComplexParts.append(f"[0:v]{baseFilters},split=2[main][preview]")
+        if not self.custom_encoder:
+            command.extend(matchEncoder(self.encode_method))
+
+            if useHwUpload:
+                hwFilters = filterList.copy() if filterList else []
+                hwFilters.append("format=nv12")
+                hwFilters.append("hwupload_cuda")
+                command.extend(["-vf", ",".join(hwFilters)])
             else:
-                filterComplexParts.append("[0:v]split=2[main][preview]")
-
-            filterComplexParts.append("[preview]fps=2[previewThrottled]")
-
-            combinedFilter = ";".join(filterComplexParts)
-            command.extend(
-                ["-filter_complex", combinedFilter, "-filter_complex_threads", "0"]
-            )
-
-            command.extend(["-map", "[main]"])
-
-            if not self.custom_encoder:
-                command.extend(matchEncoder(self.encode_method))
+                if filterList:
+                    command.extend(["-vf", ",".join(filterList)])
                 command.extend(["-pix_fmt", outputPixFmt])
-            else:
-                customArgs = self.custom_encoder.split()
-                if "-vf" in customArgs:
-                    vfIdx = customArgs.index("-vf")
-                    customArgs.pop(vfIdx)
-                    customArgs.pop(vfIdx)
-                if "-pix_fmt" not in customArgs:
-                    customArgs.extend(["-pix_fmt", outputPixFmt])
-                command.extend(customArgs)
-
-            if cs.AUDIO:
-                command.extend(self._buildAudioSettings())
-
-            if self.single_image_output:
-                command.extend(["-frames:v", "1"])
-
-            command.append(self.output)
-
-            # Second output: throttled preview as an mjpeg stream on stdout. A
-            # drain thread (see __call__) reads it and pushes the latest JPEG to
-            # previewSink -- no disk file. stdout MUST be drained or ffmpeg
-            # blocks once the OS pipe buffer fills and back-pressures the encoder.
-            command.extend(
-                [
-                    "-map",
-                    "[previewThrottled]",
-                    "-c:v",
-                    "mjpeg",
-                    "-q:v",
-                    "2",
-                    "-f",
-                    "mjpeg",
-                    "pipe:1",
-                ]
-            )
         else:
-            command.extend(["-map", "0:v"])
+            command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
 
-            if not self.custom_encoder:
-                command.extend(matchEncoder(self.encode_method))
+        if cs.AUDIO:
+            command.extend(self._buildAudioSettings())
 
-                if useHwUpload:
-                    hwFilters = filterList.copy() if filterList else []
-                    hwFilters.append("format=nv12")
-                    hwFilters.append("hwupload_cuda")
-                    command.extend(["-vf", ",".join(hwFilters)])
-                else:
-                    if filterList:
-                        command.extend(["-vf", ",".join(filterList)])
-                    command.extend(["-pix_fmt", outputPixFmt])
-            else:
-                command.extend(self._buildCustomEncoder(filterList, outputPixFmt))
+        if self.single_image_output:
+            command.extend(["-frames:v", "1"])
 
-            if cs.AUDIO:
-                command.extend(self._buildAudioSettings())
-
-            if self.single_image_output:
-                command.extend(["-frames:v", "1"])
-
-            command.append(self.output)
+        command.append(self.output)
 
         return command
 
@@ -879,7 +826,6 @@ class WriteBuffer:
                 return
 
         ffmpegProc = None
-        previewThread = None
         try:
             import torch
             from torch.nn import functional as F
@@ -943,8 +889,9 @@ class WriteBuffer:
             command = self.encodeSettings()
             logging.info(f"Encoding with: {' '.join(map(str, command))}")
 
-            if self.enablePreview:
-                logging.info("Preview enabled, streaming mjpeg over ffmpeg stdout")
+            sampler = self.previewSampler
+            if sampler is not None:
+                logging.info("Preview enabled, sampling frames from the writer")
 
             useCuda = False
             transferStream = None
@@ -961,9 +908,6 @@ class WriteBuffer:
             ffmpegProc = subprocess.Popen(
                 command,
                 stdin=subprocess.PIPE,
-                # Preview routes an mjpeg stream to stdout; capture it so the
-                # drain thread can read it. Otherwise inherit (no stdout output).
-                stdout=subprocess.PIPE if self.enablePreview else None,
                 stderr=subprocess.PIPE,
                 shell=False,
                 cwd=cs.WHEREAMIRUNFROM,
@@ -979,18 +923,6 @@ class WriteBuffer:
                     f"FFmpeg exited immediately with code {ffmpegProc.returncode}: {stderr_out}"
                 )
                 return
-
-            # Start draining the preview pipe as soon as ffmpeg is up. Must run
-            # unconditionally (even with no browser attached) or the OS pipe
-            # buffer fills and ffmpeg stalls the whole encode.
-            if self.enablePreview and ffmpegProc.stdout is not None:
-                previewThread = threading.Thread(
-                    target=self._drainPreview,
-                    args=(ffmpegProc.stdout,),
-                    daemon=True,
-                    name="preview-drain",
-                )
-                previewThread.start()
 
             logging.info(f"Encoding path: {'CUDA pinned' if useCuda else 'CPU'}")
 
@@ -1046,6 +978,12 @@ class WriteBuffer:
                         pendingEvent.synchronize()
                         ffmpegProc.stdin.write(pendingBuffer.numpy())
                         writtenFrames += 1
+                        if sampler is not None and sampler.wants():
+                            # The pinned buffer is host-side and already synced;
+                            # sampling after the encoder write keeps it off the
+                            # critical path. submit() copies (the buffer is
+                            # reused two frames from now).
+                            sampler.submit(pendingBuffer.numpy())
 
                     pendingBuffer = currentBuffer
                     pendingEvent = currentEvent
@@ -1080,6 +1018,8 @@ class WriteBuffer:
 
                     ffmpegProc.stdin.write(frameTensor.numpy())
                     writtenFrames += 1
+                    if sampler is not None and sampler.wants():
+                        sampler.submit(frameTensor.numpy())
 
             logging.info(f"Encoded {writtenFrames} frames")
 
@@ -1126,12 +1066,8 @@ class WriteBuffer:
                         ffmpegProc.kill()
                         ffmpegProc.wait()
 
-                # ffmpeg is gone, so its stdout is at EOF and the drain thread
-                # is unwinding; close the pipe and join it so we don't leak it.
-                if previewThread is not None:
-                    previewThread.join(timeout=5)
-                if ffmpegProc is not None and ffmpegProc.stdout:
-                    ffmpegProc.stdout.close()
+                if self.previewSampler is not None:
+                    self.previewSampler.close()
 
             except Exception as e:
                 logging.warning(f"Cleanup error: {e}")
@@ -1154,36 +1090,6 @@ class WriteBuffer:
     def close(self):
         self.writeBuffer.put(None)
 
-    def _drainPreview(self, stdout) -> None:
-        """
-        Continuously read ffmpeg's mjpeg preview stream from `stdout`, split it
-        into individual JPEGs on the EOI marker, and push the latest to
-        previewSink. Runs on its own daemon thread; must keep reading regardless
-        of whether a browser is attached, or ffmpeg blocks on a full pipe buffer.
-        """
-        buf = bytearray()
-        start = (
-            0  # search cursor: never rescan already-searched bytes (O(n), not O(n^2))
-        )
-        try:
-            while True:
-                chunk = stdout.read1(65536)
-                if not chunk:
-                    break
-                buf += chunk
-                while True:
-                    j = buf.find(b"\xff\xd9", start)  # JPEG End-Of-Image
-                    if j == -1:
-                        # Keep one trailing byte in case an FFD9 straddles chunks.
-                        start = max(0, len(buf) - 1)
-                        break
-                    frame = bytes(buf[: j + 2])
-                    del buf[: j + 2]
-                    start = 0
-                    self.previewSink.update(frame)
-        except Exception as e:
-            logging.debug(f"Preview drain thread ended: {e}")
-
 
 class NeluxWriteBuffer:
     """
@@ -1203,6 +1109,9 @@ class NeluxWriteBuffer:
         inpoint: float = 0.0,
         outpoint: float = 0.0,
         benchmark: bool = False,
+        grayscale: bool = False,
+        enablePreview: bool = False,
+        previewSink=None,
         **kwargs,  # Accept and ignore other WriteBuffer params for compatibility
     ):
         """
@@ -1218,6 +1127,8 @@ class NeluxWriteBuffer:
             fps: Output framerate.
             inpoint: Trim start in seconds (--ss); applied to passthrough streams.
             outpoint: Trim end in seconds (--to); applied to passthrough streams.
+            enablePreview: Whether to sample preview frames for the preview server.
+            previewSink: PreviewSink the sampler pushes preview JPEGs to.
         """
         self.input = input
         self.output = os.path.normpath(output)
@@ -1233,10 +1144,16 @@ class NeluxWriteBuffer:
         # Same early-death drain contract as WriteBuffer (see its __init__).
         self._sawSentinel = False
         self.acceptsHwcUint8 = True
-        # Nelux emits no preview stream. Expose enablePreview=False (the same
-        # gate WriteBuffer uses) so main.py skips preview-server setup when
-        # --preview is combined with a *_nelux encoder.
-        self.enablePreview = False
+        # Preview is sampled from the frames handed to the encoder, so it works
+        # here exactly as it does for WriteBuffer -- nelux needs no preview
+        # stream of its own.
+        self.previewSink = previewSink
+        self.enablePreview = bool(enablePreview and previewSink is not None)
+        self.previewSampler = None
+        if self.enablePreview:
+            from src.server.previewSettings import PreviewSampler
+
+            self.previewSampler = PreviewSampler(previewSink)
 
         # Mirror the FFmpeg encoder targets in encodingSettings.matchEncoder
         # one-for-one. Each entry is the full nelux.VideoEncoder kwarg set.
@@ -1340,6 +1257,7 @@ class NeluxWriteBuffer:
         """Process frames from writeBuffer and encode with Nelux."""
         import torch
 
+        sampler = self.previewSampler
         try:
             if self.benchmark:
                 while True:
@@ -1403,6 +1321,8 @@ class NeluxWriteBuffer:
                         frame = frame.contiguous()
                     self.encoder.encode_frame(frame)
                     self.writtenFrames += 1
+                    if sampler is not None and sampler.wants():
+                        sampler.submit(frame)
                     continue
 
                 if self.CudaStream is not None:
@@ -1425,6 +1345,8 @@ class NeluxWriteBuffer:
 
                 self.encoder.encode_frame(frame)
                 self.writtenFrames += 1
+                if sampler is not None and sampler.wants():
+                    sampler.submit(frame)
 
             logging.info(f"Nelux encoded {self.writtenFrames} frames")
 
@@ -1438,6 +1360,8 @@ class NeluxWriteBuffer:
             # the encoder died before consuming the close() sentinel.
             if not self._sawSentinel:
                 _drainQueueUntilSentinel(self.writeBuffer)
+            if sampler is not None:
+                sampler.close()
             if self.encoder is not None:
                 try:
                     self.encoder.close()
