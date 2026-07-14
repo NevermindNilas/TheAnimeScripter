@@ -18,7 +18,10 @@ def make_context(tmp_path, system="Darwin"):
     )
 
 
-def test_macos_build_installs_mps_runtime_requirements(monkeypatch, tmp_path):
+def test_macos_build_does_not_bake_in_runtime_requirements(monkeypatch, tmp_path):
+    # The macOS runtime deps are installed on the user's machine, not shipped
+    # inside the portable bundle, so the build must not install
+    # extra-requirements-macos.txt even when the file is sitting right there.
     portable = tmp_path / "portable-python"
     python_executable = portable / "bin" / "python3"
     python_executable.parent.mkdir(parents=True)
@@ -41,14 +44,7 @@ def test_macos_build_installs_mps_runtime_requirements(monkeypatch, tmp_path):
         command[command.index("-r") + 1] for command, _ in commands if "-r" in command
     ]
     assert str(context.requirements_path) in requirement_args
-    assert str(extra_requirements) in requirement_args
-
-    macos_install = next(
-        command for command, _ in commands if str(extra_requirements) in command
-    )
-    assert macos_install[macos_install.index("-c") + 1] == str(
-        context.requirements_path
-    )
+    assert str(extra_requirements) not in requirement_args
 
 
 def test_portable_bundle_never_redistributes_ffmpeg(tmp_path):

@@ -1,7 +1,14 @@
-import cv2
-import numpy as np
+import pytest
 
-from src.depth.backends._shared import SlidingWindowNormalizer, VideoRangeNormalizer
+# CI installs pytest and nothing else, so these have to be skipped rather than
+# imported: a bare `import cv2` here aborts collection for the WHOLE suite, not
+# just this module. src.depth.backends._shared pulls in cv2 and torch too.
+cv2 = pytest.importorskip("cv2")
+np = pytest.importorskip("numpy")
+_shared = pytest.importorskip("src.depth.backends._shared")
+
+SlidingWindowNormalizer = _shared.SlidingWindowNormalizer
+VideoRangeNormalizer = _shared.VideoRangeNormalizer
 
 
 def _robust_normalize(frame, valid=None):
