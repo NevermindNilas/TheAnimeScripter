@@ -702,8 +702,9 @@ class VideoProcessor:
                 decode_method=self.decodeMethod,
             )
 
-            # Preview streams in memory: the writer's drain thread pushes JPEGs
-            # into this sink, the HTTP server reads the latest from it. No disk.
+            # Preview is sampled from the frames the writer already holds: the
+            # writer's PreviewSampler pushes JPEGs into this sink and the HTTP
+            # server reads the latest from it. No disk, and no encoder involvement.
             previewSink = None
             if self.preview:
                 from src.server.previewSettings import PreviewSink
@@ -732,16 +733,13 @@ class VideoProcessor:
                 single_image_output=self.singleImageInput,
             )
 
-            # writeBuffer.enablePreview is only true when the buffer actually
-            # streams a preview (false for nelux encoders, which emit none).
             if self.preview and getattr(self.writeBuffer, "enablePreview", False):
                 from src.server.previewSettings import Preview
 
                 self.preview = Preview(previewSink=previewSink)
                 self.preview.start()
             else:
-                # No preview surface (e.g. nelux encoders emit no preview image),
-                # so there is nothing to start and nothing for process() to close.
+                # Nothing to start, and nothing for process() to close.
                 self.preview = None
 
             if self.profile:

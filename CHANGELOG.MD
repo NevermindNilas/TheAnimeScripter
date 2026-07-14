@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased] - YYYY-MM-DD
+### Fixed
+- `--preview` pinned a full CPU core, and the GIL with it, whenever the preview page was open before the first preview frame existed — which is exactly what happens when you click the URL TAS prints at startup and then wait through model init or a TensorRT engine build. `PreviewHTTPHandler._serveStream` seeded `lastSeq = -1` while `PreviewSink` starts at seq 0, so `waitNext` never parked on its condition and the "did the sequence advance" guard could never be satisfied; the handler spun. Measured on a 1080p `--dedup` run: 275 fps with a client attached from t=0 against 506 with none (-45%). The handler now seeds from the sink's initial seq and blocks. `tests/test_preview.py::test_streamHandlerDoesNotSpinBeforeFirstFrame` fails on the old code.
+
+### Changed
+- `--preview` no longer goes through the encoder. ffmpeg used to carry a second output — `split=2` in a `filter_complex`, an `fps=2` throttle, an mjpeg encode, and a `pipe:1` stream a drain thread reassembled — so preview was billed to the encode whether or not anyone was watching, and the `filter_complex` branch quietly dropped the NVENC `hwupload_cuda` path and stripped `-vf` out of a `--custom_encoder`. A `PreviewSampler` (`src/server/previewSettings.py`) now samples the frames the writer already holds, and the ffmpeg command is byte-for-byte the same with preview on and off (verified: the output file is bit-identical). Two consequences: the sampler is **demand-gated**, so with the page closed the cost is one `wants()` call per frame (238 ns, 0.012% of a core at 500 fps) and nothing else; and the throttle is now **wall-clock**, not video-time, so a run at 20× realtime emits 2 preview frames/sec rather than 40 that nobody sees. The preview is still served at the output resolution — the JPEG encode runs on a worker thread and costs 0.6% of one core at 1080p, which is not worth degrading the picture to save. On a 1080p `--dedup` run: 519 fps baseline, 521 with `--preview` and the page closed, 505 with it open (was 506 / 488 / 275). Preview traffic over a run: 5.3 MB, down from 31.8 MB (same picture, emitted at wall rate instead of 20× it).
+- `--preview` works with the `*_nelux` encoders. It was hard-disabled there (`NeluxWriteBuffer.enablePreview = False`) because nelux emits no preview stream — irrelevant now that preview is sampled from the frame rather than produced by the encoder.
+
 
 ## [2.8.0] - 2026-07-11
 ### Added
