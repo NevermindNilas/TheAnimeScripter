@@ -232,6 +232,19 @@ def test_viewerCountReleasedOnDisconnect():
         server.close()
 
 
+def test_closeStopsWorkerEvenWithAFrameQueued():
+    # The single queue slot is usually occupied at end of run, so close() must
+    # evict the pending frame to get its sentinel in. Otherwise the worker parks
+    # on get() forever holding a full-size frame -- one leaked thread and frame
+    # per video in a batch run.
+    sink = PreviewSink()
+    sampler = PreviewSampler(sink, interval=0.0)
+    sampler._queue.put(_frame())  # occupy the slot, as a mid-encode sample would
+    sampler.close()
+    sampler._thread.join(timeout=5)
+    assert not sampler._thread.is_alive()
+
+
 def test_samplerDropsFrameWhenWorkerBusy():
     # maxsize=1: preview is lossy-latest. A backed-up worker must never make the
     # writer thread block.
