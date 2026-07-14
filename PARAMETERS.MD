@@ -266,7 +266,7 @@ C:\Videos\episode3.mp4
 | Parameter | Type | Description | Performance Impact |
 |-----------|------|-------------|-------------------|
 | `--benchmark` | flag | **Performance testing** - No output, measures speed | None (testing only) |
-| `--preview` | flag | **Preview mode** - Opens localhost preview | Low |
+| `--preview` | flag | **Preview mode** - Serves a live preview at `http://127.0.0.1:5000/`, at output resolution, for every encoder (including `*_nelux`) | None while the page is closed; ~2 frames/sec while it is open (~3% at 1080p) |
 | `--ae` | str | **After Effects host string (e.g., "127.0.0.1:PORT")** - Enables AE comms and sets Adobe mode | None |
 
 ---
