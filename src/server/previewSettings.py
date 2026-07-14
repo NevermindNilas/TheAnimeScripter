@@ -207,10 +207,20 @@ class PreviewSampler:
                 logging.debug(f"Preview encode failed: {e}")
 
     def close(self) -> None:
-        try:
-            self._queue.put_nowait(None)
-        except queue.Full:
-            pass
+        # The single slot is usually occupied at end of run (the last sample is
+        # still being encoded), so a plain put_nowait would drop the sentinel on
+        # the floor: the worker would park on get() forever, holding its queued
+        # full-size frame. Evict the pending frame -- it is a preview nobody will
+        # see now -- until the sentinel lands.
+        while True:
+            try:
+                self._queue.put_nowait(None)
+                return
+            except queue.Full:
+                try:
+                    self._queue.get_nowait()
+                except queue.Empty:
+                    pass  # worker drained it first; retry the put
 
 
 _INDEX_HTML = b"""<!DOCTYPE html>
