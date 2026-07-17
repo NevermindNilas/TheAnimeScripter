@@ -48,6 +48,8 @@ def _makeUniversalTensorRT(monkeypatch, creator):
     instance.half = True
     instance.height = 720
     instance.width = 960
+    instance.paddedHeight = 720
+    instance.paddedWidth = 960
     instance.forceStatic = False
     instance.tensorRTEngineCreator = creator
     return instance
