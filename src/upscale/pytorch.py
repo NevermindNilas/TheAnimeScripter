@@ -190,9 +190,19 @@ class UniversalPytorch:
 
             self.compileMode = "default"
 
+        # RealCUGAN-family archs (fallin_*, shufflecugan, aniscale2) need both
+        # input dims divisible by 4; feeding an odd dim raises a skip-Add size
+        # mismatch. Detect the arch's requirement once and reflect-pad the input
+        # to it, cropping the surplus off the output. Fully-convolutional archs
+        # report 1 here, so padding stays zero and the output is bit-identical.
+        self.requiredMultiple = self._detectRequiredMultiple()
+        self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
+        self.paddedWidth = self.width + self.padding[1]
+        self.paddedHeight = self.height + self.padding[3]
+
         self.dummyInput = (
             torch.zeros(
-                (1, 3, self.height, self.width),
+                (1, 3, self.paddedHeight, self.paddedWidth),
                 device=checker.device,
                 dtype=torch.float16 if self.half else torch.float32,
             )
@@ -205,8 +215,8 @@ class UniversalPytorch:
                 (
                     1,
                     3,
-                    self.height * self.upscaleFactor,
-                    self.width * self.upscaleFactor,
+                    self.paddedHeight * self.upscaleFactor,
+                    self.paddedWidth * self.upscaleFactor,
                 ),
                 device=checker.device,
                 dtype=torch.float16 if self.half else torch.float32,
@@ -232,6 +242,30 @@ class UniversalPytorch:
             self.cudaGraph = torch.cuda.CUDAGraph()
             self.initTorchCudaGraph()
 
+    def _detectRequiredMultiple(self) -> int:
+        """Probe the model on tiny inputs to learn its required spatial multiple."""
+        from src.upscale._shared import smallestValidMultiple
+
+        dtype = torch.float16 if self.half else torch.float32
+
+        def runOK(h, w):
+            try:
+                probe = (
+                    torch.zeros((1, 3, h, w), device=checker.device, dtype=dtype)
+                    .contiguous()
+                    .to(memory_format=torch.channels_last)
+                )
+                # no_grad, not inference_mode: archs that lazily reparameterize on
+                # first forward (SPAN's eval_conv) would otherwise cache an
+                # inference-mode tensor that the grad-tracked warmup cannot reuse.
+                with torch.no_grad():
+                    self.model(probe)
+                return True
+            except Exception:
+                return False
+
+        return smallestValidMultiple(runOK)
+
     @torch.inference_mode()
     def initTorchCudaGraph(self):
         with torch.cuda.graph(self.cudaGraph, stream=self.stream):
@@ -241,6 +275,8 @@ class UniversalPytorch:
     @torch.inference_mode()
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
+            if self.padding[1] or self.padding[3]:
+                frame = torch.nn.functional.pad(frame, self.padding, mode="reflect")
             self.dummyInput.copy_(
                 frame.to(dtype=self.dummyInput.dtype),
                 non_blocking=True,
@@ -260,6 +296,14 @@ class UniversalPytorch:
                 )
             output = self.dummyOutput.clone()
         self.stream.synchronize()
+
+        if self.padding[1] or self.padding[3]:
+            output = output[
+                :,
+                :,
+                : self.height * self.upscaleFactor,
+                : self.width * self.upscaleFactor,
+            ].contiguous()
 
         return output
 
@@ -399,10 +443,18 @@ class UniversalPytorchMPS:
             )
             self.compileMode = "default"
 
+        # RealCUGAN-family archs (fallin_*, shufflecugan, aniscale2) need both
+        # input dims divisible by 4; detect the requirement and reflect-pad to it,
+        # cropping the surplus off the output. Fully-conv archs report 1 (no pad).
+        self.requiredMultiple = self._detectRequiredMultiple()
+        self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
+        self.paddedWidth = self.width + self.padding[1]
+        self.paddedHeight = self.height + self.padding[3]
+
         # Warm-up to force MPS kernel compilation before the first real frame.
         with torch.inference_mode():
             dummy = torch.zeros(
-                (1, 3, self.height, self.width),
+                (1, 3, self.paddedHeight, self.paddedWidth),
                 device=self.device,
                 dtype=self.dtype,
             )
@@ -410,10 +462,37 @@ class UniversalPytorchMPS:
                 _ = self.model(dummy)
             torch.mps.synchronize()
 
+    def _detectRequiredMultiple(self) -> int:
+        """Probe the model on tiny inputs to learn its required spatial multiple."""
+        from src.upscale._shared import smallestValidMultiple
+
+        def runOK(h, w):
+            try:
+                probe = torch.zeros((1, 3, h, w), device=self.device, dtype=self.dtype)
+                # no_grad, not inference_mode: archs that lazily reparameterize on
+                # first forward (SPAN's eval_conv) would otherwise cache an
+                # inference-mode tensor that the grad-tracked warmup cannot reuse.
+                with torch.no_grad():
+                    self.model(probe)
+                return True
+            except Exception:
+                return False
+
+        return smallestValidMultiple(runOK)
+
     @torch.inference_mode()
     def __call__(self, frame: torch.Tensor, nextFrame=None) -> torch.Tensor:
         if frame.device != self.device or frame.dtype != self.dtype:
             frame = frame.to(device=self.device, dtype=self.dtype)
+        if self.padding[1] or self.padding[3]:
+            frame = torch.nn.functional.pad(frame, self.padding, mode="reflect")
         output = self.model(frame)
         torch.mps.synchronize()
+        if self.padding[1] or self.padding[3]:
+            output = output[
+                :,
+                :,
+                : self.height * self.upscaleFactor,
+                : self.width * self.upscaleFactor,
+            ]
         return output.cpu()

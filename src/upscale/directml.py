@@ -156,21 +156,58 @@ class UniversalDirectML:
             self.numpyDType = self.np.float32
             self.torchDType = torch.float32
 
+        self.modelPath = modelPath
+
+        # RealCUGAN-family archs (fallin_*, shufflecugan, aniscale2) need both
+        # input dims divisible by 4; feeding an odd dim raises an ONNX broadcast
+        # error on an internal skip Add. Detect the arch's requirement once and
+        # reflect-pad the input to it, cropping the surplus back off the output.
+        # Fully-convolutional archs report 1 here, so padding stays zero and the
+        # output is bit-identical to the unpadded path.
+        self.requiredMultiple = self._detectRequiredMultiple()
+        self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
+        self.paddedWidth = self.width + self.padding[1]
+        self.paddedHeight = self.height + self.padding[3]
+
         self.IoBinding = self.model.io_binding()
         self.dummyInput = torch.zeros(
-            (1, 3, self.height, self.width),
+            (1, 3, self.paddedHeight, self.paddedWidth),
             device=self.deviceType,
             dtype=self.torchDType,
         ).contiguous()
 
         self.dummyOutput = torch.zeros(
-            (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
+            (
+                1,
+                3,
+                self.paddedHeight * self.upscaleFactor,
+                self.paddedWidth * self.upscaleFactor,
+            ),
             device=self.deviceType,
             dtype=self.torchDType,
         ).contiguous()
 
         self.usingCpuFallback = False
-        self.modelPath = modelPath
+
+    def _detectRequiredMultiple(self) -> int:
+        """Probe a lightweight CPU session to learn the arch's input multiple."""
+        from src.upscale._shared import smallestValidMultiple
+
+        probe = self.ort.InferenceSession(
+            self.modelPath, providers=["CPUExecutionProvider"]
+        )
+        inputName = probe.get_inputs()[0].name
+
+        def runOK(h, w):
+            try:
+                probe.run(
+                    None, {inputName: self.np.zeros((1, 3, h, w), self.numpyDType)}
+                )
+                return True
+            except Exception:
+                return False
+
+        return smallestValidMultiple(runOK)
 
     def _fallbackToCpu(self):
         """Reinitialize model with CPU provider after DirectML/OpenVINO failure."""
@@ -214,7 +251,13 @@ class UniversalDirectML:
             else:
                 frame = frame.float()
 
-            self.dummyInput.copy_(frame.contiguous(), non_blocking=False)
+            paddedFrame = frame
+            if self.padding[1] or self.padding[3]:
+                paddedFrame = torch.nn.functional.pad(
+                    frame, self.padding, mode="reflect"
+                )
+
+            self.dummyInput.copy_(paddedFrame.contiguous(), non_blocking=False)
 
             self.IoBinding.bind_input(
                 name="input",
@@ -235,9 +278,17 @@ class UniversalDirectML:
             )
 
             self.model.run_with_iobinding(self.IoBinding)
-            frame = self.dummyOutput.contiguous()
 
-            return frame
+            output = self.dummyOutput
+            if self.padding[1] or self.padding[3]:
+                output = output[
+                    :,
+                    :,
+                    : self.height * self.upscaleFactor,
+                    : self.width * self.upscaleFactor,
+                ]
+
+            return output.contiguous()
 
         except Exception as e:
             if not self.usingCpuFallback:

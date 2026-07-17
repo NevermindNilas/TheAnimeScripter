@@ -76,8 +76,28 @@ class UniversalTensorRT:
 
         self.handleModel()
 
+    def _detectRequiredMultiple(self) -> int:
+        """Probe a lightweight CPU session to learn the arch's input multiple."""
+        import numpy as np
+        import onnxruntime as ort
+
+        from src.upscale._shared import smallestValidMultiple
+
+        probe = ort.InferenceSession(self.modelPath, providers=["CPUExecutionProvider"])
+        inputName = probe.get_inputs()[0].name
+        npDType = np.float16 if self.half else np.float32
+
+        def runOK(h, w):
+            try:
+                probe.run(None, {inputName: np.zeros((1, 3, h, w), npDType)})
+                return True
+            except Exception:
+                return False
+
+        return smallestValidMultiple(runOK)
+
     def _createEngineWithStaticRetry(self, enginePath: str):
-        inputShape = [1, 3, self.height, self.width]
+        inputShape = [1, 3, self.paddedHeight, self.paddedWidth]
         self.engine, self.context = self.tensorRTEngineCreator(
             modelPath=self.modelPath,
             enginePath=enginePath,
@@ -147,10 +167,20 @@ class UniversalTensorRT:
                 )
 
         self.dtype = torch.float16 if self.half else torch.float32
+
+        # RealCUGAN-family archs (fallin_*, shufflecugan, aniscale2) need both
+        # input dims divisible by 4; the engine is built for the padded shape and
+        # the input is reflect-padded to it, cropping the surplus off the output.
+        # Fully-conv archs report 1, so padding stays zero (bit-identical path).
+        self.requiredMultiple = self._detectRequiredMultiple()
+        self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
+        self.paddedWidth = self.width + self.padding[1]
+        self.paddedHeight = self.height + self.padding[3]
+
         enginePath = self.tensorRTEngineNameHandler(
             modelPath=self.modelPath,
             fp16=self.half,
-            optInputShape=[1, 3, self.height, self.width],
+            optInputShape=[1, 3, self.paddedHeight, self.paddedWidth],
         )
 
         self.engine, self.context = self.tensorRTEngineLoader(enginePath)
@@ -163,13 +193,18 @@ class UniversalTensorRT:
 
         self.stream = torch.cuda.Stream()
         self.dummyInput = torch.zeros(
-            (1, 3, self.height, self.width),
+            (1, 3, self.paddedHeight, self.paddedWidth),
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
 
         self.dummyOutput = torch.zeros(
-            (1, 3, self.height * self.upscaleFactor, self.width * self.upscaleFactor),
+            (
+                1,
+                3,
+                self.paddedHeight * self.upscaleFactor,
+                self.paddedWidth * self.upscaleFactor,
+            ),
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
@@ -204,6 +239,8 @@ class UniversalTensorRT:
     @torch.inference_mode()
     def processFrame(self, frame):
         with torch.cuda.stream(self.normStream):
+            if self.padding[1] or self.padding[3]:
+                frame = torch.nn.functional.pad(frame, self.padding, mode="reflect")
             self.dummyInput.copy_(
                 frame.to(dtype=self.dtype),
                 non_blocking=True,
@@ -218,6 +255,14 @@ class UniversalTensorRT:
             self.cudaGraph.replay()
             output = self.dummyOutput.clone()
         self.stream.synchronize()
+
+        if self.padding[1] or self.padding[3]:
+            output = output[
+                :,
+                :,
+                : self.height * self.upscaleFactor,
+                : self.width * self.upscaleFactor,
+            ].contiguous()
 
         return output
 
