@@ -1,7 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu132
 --extra-index-url https://pypi.nvidia.com
-torch==2.12.1+cu132
-torchvision==0.27.1+cu132
+torch==2.13.0+cu132
+torchvision==0.28.0+cu132
 tensorrt==11.1.0.106
 nvidia-vfx==0.1.0.1
 opencv-python-headless==5.0.0.93
