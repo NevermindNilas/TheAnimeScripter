@@ -95,6 +95,10 @@ class_names = [
 
 rng = np.random.default_rng(3)
 colors = rng.uniform(0, 255, size=(len(class_names), 3))
+# Same palette with channels reversed. Callers that draw straight onto an RGB
+# frame (skipping the old RGB->BGR->RGB round trip) pass this so the drawn
+# overlay pixels land byte-identical to the previous draw-in-BGR-then-swap path.
+colors_rgb = np.ascontiguousarray(colors[:, ::-1])
 
 available_models = [
     "v9-s_mit",
@@ -107,18 +111,18 @@ available_models = [
 ]
 
 
-def draw_detections(image, boxes, scores, class_ids, mask_alpha=0.3):
+def draw_detections(image, boxes, scores, class_ids, mask_alpha=0.3, palette=colors):
     det_img = image.copy()
 
     img_height, img_width = image.shape[:2]
     font_size = min([img_height, img_width]) * 0.0006
     text_thickness = int(min([img_height, img_width]) * 0.001)
 
-    det_img = draw_masks(det_img, boxes, class_ids, mask_alpha)
+    det_img = draw_masks(det_img, boxes, class_ids, mask_alpha, palette)
 
     # Draw bounding boxes and labels of detections
     for class_id, box, score in zip(class_ids, boxes, scores, strict=False):
-        color = colors[class_id]
+        color = palette[class_id]
 
         draw_box(det_img, box, color)
 
@@ -171,13 +175,17 @@ def draw_text(
 
 
 def draw_masks(
-    image: np.ndarray, boxes: np.ndarray, classes: np.ndarray, mask_alpha: float = 0.3
+    image: np.ndarray,
+    boxes: np.ndarray,
+    classes: np.ndarray,
+    mask_alpha: float = 0.3,
+    palette: np.ndarray = colors,
 ) -> np.ndarray:
     mask_img = image.copy()
 
     # Draw bounding boxes and labels of detections
     for box, class_id in zip(boxes, classes, strict=False):
-        color = colors[class_id]
+        color = palette[class_id]
 
         x1, y1, x2, y2 = box.astype(int)
 
