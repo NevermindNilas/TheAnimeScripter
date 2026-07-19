@@ -11,7 +11,6 @@ the gate doesn't silently regress.
 
 import pytest
 
-import src.constants as cs
 from src.io.getVideoMetadata import getVideoMetadata, isNvdecCompatible
 
 
@@ -74,16 +73,11 @@ def test_isNvdecCompatible_handles_empty_or_unknown():
     assert isNvdecCompatible("somefuturecodec", "somefuturepixfmt") is True
 
 
-def test_getVideoMetadata_validates_ffprobe_path(monkeypatch, tmp_path):
-    inputPath = tmp_path / "clip.mp4"
-    ffmpegPath = tmp_path / "ffmpeg.exe"
-    inputPath.write_bytes(b"not a real video")
-    ffmpegPath.write_bytes(b"")
+def test_getVideoMetadata_raises_on_missing_input(tmp_path):
+    # Metadata now comes from a nelux probe (ffprobe was dropped), but the
+    # missing-input guard still fires first and returns before any nelux
+    # VideoReader is constructed, so this stays a pure, DLL-free unit check.
+    missing = tmp_path / "does-not-exist.mp4"
 
-    monkeypatch.setattr(cs, "FFMPEGPATH", str(ffmpegPath), raising=False)
-    monkeypatch.setattr(
-        cs, "FFPROBEPATH", str(tmp_path / "missing-ffprobe.exe"), raising=False
-    )
-
-    with pytest.raises(FileNotFoundError, match="ffprobe path not found"):
-        getVideoMetadata(str(inputPath), 0, 0)
+    with pytest.raises(FileNotFoundError, match="Video file not found"):
+        getVideoMetadata(str(missing), 0, 0)

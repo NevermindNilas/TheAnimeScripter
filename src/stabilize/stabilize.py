@@ -73,6 +73,17 @@ class VideoStabilize:
         self.shiftYFix = None
         self.angleFix = None
 
+        # ORB feature cache: the analysis loop feeds consecutive frames as
+        # (prevGray, currGray) and threads prevGray = gray, so frame N's gray is
+        # this call's currGray and next call's prevGray (same object). Caching
+        # (keypoints, descriptors) for the frame just processed as curr lets the
+        # next iteration reuse it as prev, so each frame's detectAndCompute runs
+        # once instead of twice. Keyed on object identity, so a miss (e.g. the
+        # SuperPoint path served the pair) simply recomputes -- never stale.
+        self._orbCacheGray = None
+        self._orbCacheKp = None
+        self._orbCacheDes = None
+
         self.orb = cv2.ORB_create(
             nfeatures=self.orbFeatures,
             scaleFactor=self.orbScaleFactor,
@@ -340,18 +351,37 @@ class VideoStabilize:
         maxDim = max(prevH, prevW)
         resizeScale = 1.0
 
+        # Reuse the previous frame's features when it is the same object we
+        # cached as "curr" last iteration; only then can we skip its resize +
+        # detectAndCompute. Deterministic detectAndCompute makes this exactly
+        # equal to recomputing, so transforms/scores are bit-identical.
+        prevCached = prevGray is self._orbCacheGray and self._orbCacheDes is not None
+
         if maxDim > self.analysisWidth:
             resizeScale = self.analysisWidth / float(maxDim)
             newW = max(32, int(round(prevW * resizeScale)))
             newH = max(32, int(round(prevH * resizeScale)))
-            prevWork = cv2.resize(prevGray, (newW, newH), interpolation=cv2.INTER_AREA)
+            if not prevCached:
+                prevWork = cv2.resize(
+                    prevGray, (newW, newH), interpolation=cv2.INTER_AREA
+                )
             currWork = cv2.resize(currGray, (newW, newH), interpolation=cv2.INTER_AREA)
         else:
-            prevWork = prevGray
+            if not prevCached:
+                prevWork = prevGray
             currWork = currGray
 
-        kp1, des1 = self.orb.detectAndCompute(prevWork, None)
+        if prevCached:
+            kp1, des1 = self._orbCacheKp, self._orbCacheDes
+        else:
+            kp1, des1 = self.orb.detectAndCompute(prevWork, None)
         kp2, des2 = self.orb.detectAndCompute(currWork, None)
+
+        # Cache curr's features for reuse as prev next iteration (store even when
+        # None/insufficient, so a stale earlier frame is never matched to it).
+        self._orbCacheGray = currGray
+        self._orbCacheKp = kp2
+        self._orbCacheDes = des2
 
         if (
             des1 is None
