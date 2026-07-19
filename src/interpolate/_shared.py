@@ -1,11 +1,17 @@
-import torch
+"""
+Shared RIFE architecture resolution for every interpolate backend.
 
-from src.infra.isCudaInit import CudaChecker
+``importRifeArch`` is the single place that maps a method string to an IFNet
+class. Two flavours:
 
-checker = CudaChecker()
+  * ``"v1"`` -- the eager PyTorch archs (CUDA/MPS). ``half`` picks the fused
+    ``rife_fast`` variant where one exists.
+  * ``"v3"`` -- the ONNX-exportable archs (TensorRT/DirectML/OpenVINO), plus a
+    ``Head`` flag telling the driver whether the arch exposes an ``encode``
+    head the driver must seed.
 
-torch.set_float32_matmul_precision("medium")
-
+Backends import this; they do not carry their own copy.
+"""
 
 _RIFE_V1 = {
     "rife": ("IFNet425", "IFNet_rife425"),
@@ -133,6 +139,10 @@ def importRifeArch(interpolateMethod, version, half=True):
                     Head = True
                 case "rife_elexor-tensorrt":
                     from src.rifearches.IFNet_elexor_tensorrt import IFNet
+
+                    Head = True
+                case "rife_elexor-directml" | "rife_elexor-openvino":
+                    from src.rifearches.Rife_directml import IFNet_elexor as IFNet
 
                     Head = True
             return IFNet, Head

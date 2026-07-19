@@ -176,6 +176,8 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             | "rife4.25-openvino"
             | "rife4.25-lite-openvino"
             | "rife4.25-heavy-openvino"
+            | "rife_elexor-directml"
+            | "rife_elexor-openvino"
         ):
             from src.interpolate.rife_directml import RifeDirectML
 
@@ -204,6 +206,22 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
             from src.interpolate.distildrba import DistilDRBATensorRT
 
             return DistilDRBATensorRT(
+                self.half,
+                interpWidth,
+                interpHeight,
+                self.interpolateMethod,
+                interpolateFactor=self.interpolateFactor,
+            )
+
+        case (
+            "distildrba-directml"
+            | "distildrba-lite-directml"
+            | "distildrba-openvino"
+            | "distildrba-lite-openvino"
+        ):
+            from src.interpolate.distildrba import DistilDRBADirectML
+
+            return DistilDRBADirectML(
                 self.half,
                 interpWidth,
                 interpHeight,

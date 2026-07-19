@@ -1,147 +1,40 @@
 import logging
 import os
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 
+from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
+from src.infra.logAndPrint import logAndPrint, logWarning
+from src.infra.providerCheck import warnIfProviderMissing
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
+
+if ADOBE:
+    from src.server.aeComms import progressState
+
 
 checker = CudaChecker()
 
 torch.set_float32_matmul_precision("medium")
 
 
-_RIFE_V1 = {
-    "rife": ("IFNet425", "IFNet_rife425"),
-    "rife4.25": ("IFNet425", "IFNet_rife425"),
-    "rife4.25-heavy": ("IFNet425Heavy", "IFNet_rife425heavy"),
-    "rife4.25-lite": ("IFNet425Lite", "IFNet_rife425lite"),
-    "rife4.22": ("IFNet422", "IFNet_rife422"),
-    "rife4.22-lite": ("IFNet422Lite", "IFNet_rife422lite"),
-    "rife4.21": ("IFNet421", "IFNet_rife421"),
-    "rife4.20": ("IFNet420", "IFNet_rife420"),
-    "rife4.18": ("IFNet418", "IFNet_rife418"),
-    "rife4.17": ("IFNet417", "IFNet_rife417"),
-    "rife4.15-lite": ("IFNet415Lite", "IFNet_rife415lite"),
-    "rife4.16-lite": ("IFNet416Lite", "IFNet_rife416lite"),
-    "rife4.6": ("IFNet46", "IFNet_rife46"),
-    "rife_elexor": (None, "IFNet_elexor_cuda"),
-}
+def _padSizeFor(scale: float) -> int:
+    """Frame padding multiple the DistilDRBA pyramid needs.
 
-
-def _loadV1(method, half):
-    fastName, baseMod = _RIFE_V1[method]
-    if half and fastName:
-        from src.rifearches import rife_fast
-
-        return getattr(rife_fast, fastName)
-    mod = __import__(f"src.rifearches.{baseMod}", fromlist=["IFNet"])
-    return mod.IFNet
-
-
-def importRifeArch(interpolateMethod, version, half=True):
-    match version:
-        case "v1":
-            return _loadV1(interpolateMethod, half)
-
-        case "v3":
-            match interpolateMethod:
-                case "rife4.25-heavy-tensorrt":
-                    from src.rifearches.Rife425_heavy_v3 import IFNet
-
-                    Head = True
-
-                case "rife4.25-lite-tensorrt":
-                    from src.rifearches.Rife425_lite_v3 import IFNet
-
-                    Head = True
-                case "rife4.25-tensorrt":
-                    from src.rifearches.Rife425_v3 import IFNet
-
-                    Head = True
-                case "rife4.22-tensorrt":
-                    from src.rifearches.Rife422_v3 import IFNet
-
-                    Head = True
-                case "rife4.22-lite-tensorrt":
-                    from src.rifearches.Rife422_lite_v3 import IFNet
-
-                    Head = True
-                case "rife4.21-tensorrt":
-                    from src.rifearches.Rife422_v3 import IFNet
-
-                    Head = True
-                case "rife4.20-tensorrt":
-                    from src.rifearches.Rife420_v3 import IFNet
-
-                    Head = True
-                case "rife4.18-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
-
-                    Head = True
-                case "rife4.17-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
-
-                    Head = True
-                case "rife4.15-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
-
-                    Head = True
-                case "rife4.6-tensorrt":
-                    from src.rifearches.Rife46_v3 import IFNet
-
-                    Head = False
-                case "rife4.6-directml" | "rife4.6-openvino":
-                    from src.rifearches.Rife_directml import IFNet_46 as IFNet
-
-                    Head = False
-                case "rife4.22-directml" | "rife4.22-openvino":
-                    from src.rifearches.Rife_directml import IFNet_422 as IFNet
-
-                    Head = True
-                case (
-                    "rife4.15-directml"
-                    | "rife4.17-directml"
-                    | "rife4.18-directml"
-                    | "rife4.15-openvino"
-                    | "rife4.17-openvino"
-                    | "rife4.18-openvino"
-                ):
-                    from src.rifearches.Rife_directml import IFNet_415 as IFNet
-
-                    Head = True
-                case (
-                    "rife4.20-directml"
-                    | "rife4.21-directml"
-                    | "rife4.20-openvino"
-                    | "rife4.21-openvino"
-                ):
-                    from src.rifearches.Rife_directml import IFNet_420 as IFNet
-
-                    Head = True
-                case "rife4.22-lite-directml" | "rife4.22-lite-openvino":
-                    from src.rifearches.Rife_directml import IFNet_422_lite as IFNet
-
-                    Head = True
-                case "rife4.25-directml" | "rife4.25-openvino":
-                    from src.rifearches.Rife_directml import IFNet_425 as IFNet
-
-                    Head = True
-                case "rife4.25-lite-directml" | "rife4.25-lite-openvino":
-                    from src.rifearches.Rife_directml import IFNet_425_lite as IFNet
-
-                    Head = True
-                case "rife4.25-heavy-directml" | "rife4.25-heavy-openvino":
-                    from src.rifearches.Rife_directml import IFNet_425_heavy as IFNet
-
-                    Head = True
-                case "rife_elexor-tensorrt":
-                    from src.rifearches.IFNet_elexor_tensorrt import IFNet
-
-                    Head = True
-            return IFNet, Head
+    The coarsest level runs at 1/(16/scale) of the frame, and every IFBlock's
+    conv0 floors the spatial size by 4 before lastconv upsamples it back by 4.
+    So the padded frame has to stay divisible by 4 at the coarsest level:
+    mod-64 at scale 1.0, mod-128 at scale 0.5. Padding to 64 at scale 0.5 (as
+    this file used to, unconditionally) leaves the pyramid off by a level --
+    distildrba-lite raises "Sizes of tensors must match" and distildrba emits a
+    wrong-width tensor -- for every >1080p input whose mod-64 size is not also
+    mod-128, e.g. 2560x1440 (pads to 1472, and 1472 % 128 == 64). 4K only
+    escaped because 3840x2176 happens to be mod-128 on both axes.
+    """
+    return 64 if scale == 1.0 else 128
 
 
 class DistilDRBACuda:
@@ -184,7 +77,7 @@ class DistilDRBACuda:
         self.dType = torch.float16 if self.half else torch.float32
         self.device = checker.device
 
-        self.padSize = 64
+        self.padSize = _padSizeFor(self.scale)
         ph = ((self.height - 1) // self.padSize + 1) * self.padSize
         pw = ((self.width - 1) // self.padSize + 1) * self.padSize
         self.padding = (0, pw - self.width, 0, ph - self.height)
@@ -440,7 +333,7 @@ class DistilDRBATensorRT:
         self.dtype = torch.float16 if self.half else torch.float32
         self.device = checker.device
 
-        self.padSize = 64
+        self.padSize = _padSizeFor(self.scale)
         self.ph = ((self.height - 1) // self.padSize + 1) * self.padSize
         self.pw = ((self.width - 1) // self.padSize + 1) * self.padSize
         self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
@@ -743,3 +636,339 @@ class DistilDRBATensorRT:
         self.I0 = frame.to(dtype=self.dtype, device=self.device, non_blocking=True)
         self.tImg0.copy_(self.tImg1, non_blocking=True)
         torch.cuda.synchronize()
+
+
+class DistilDRBADirectML:
+    # 3-frame arch: I0 is cached internally, I2 must be handed in.
+    temporalWindow = (0, 1)
+
+    def __init__(
+        self,
+        half: bool,
+        width: int,
+        height: int,
+        interpolateMethod: str,
+        interpolateFactor: int = 2,
+    ):
+        """
+        Initialize DistilDRBA on DirectML (or OpenVINO, which rides the same
+        ONNX Runtime session).
+
+        The exported graph is the same shape as the TensorRT one -- img0, img1,
+        img2, timestep in, one frame out, no recurrent state -- so the driver
+        only has to keep img0 across calls. The arch it exports comes from
+        DistilDRBA_directml, whose warps are decomposed into gathers because
+        DirectML has no GridSample kernel.
+
+        Args:
+            half: Use half precision (fp16)
+            width: Frame width
+            height: Frame height
+            interpolateMethod: "distildrba[-lite]-{directml,openvino}"
+            interpolateFactor: Interpolation factor
+        """
+        import onnxruntime as ort
+
+        if "openvino" in interpolateMethod:
+            logAndPrint(
+                "OpenVINO backend is an experimental feature, please report any issues you encounter.",
+                "yellow",
+            )
+            import openvino  # noqa: F401
+
+        self.ort = ort
+
+        self.half = half
+        self.width = width
+        self.height = height
+        self.interpolateMethod = interpolateMethod
+        self.interpolateFactor = interpolateFactor
+        self.lite = "lite" in interpolateMethod
+
+        if width > 1920 or height > 1080:
+            self.scale = 0.5
+        else:
+            self.scale = 1.0
+
+        if self.scale == 0.5 and self.half:
+            logAndPrint(
+                "UHD and fp16 are not compatible with DistilDRBA, defaulting to fp32",
+                "yellow",
+            )
+            self.half = False
+
+        self.deviceType = "cpu"
+        self.device = torch.device(self.deviceType)
+        self.dtype = torch.float16 if self.half else torch.float32
+        self.numpyDType = np.float16 if self.half else np.float32
+
+        self.padSize = _padSizeFor(self.scale)
+        self.ph = ((self.height - 1) // self.padSize + 1) * self.padSize
+        self.pw = ((self.width - 1) // self.padSize + 1) * self.padSize
+        self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
+
+        self.handleModel()
+
+    def handleModel(self):
+        baseMethod = self.interpolateMethod.replace("-directml", "").replace(
+            "-openvino", ""
+        )
+        self.filename = modelsMap(baseMethod)
+        folderPath = os.path.join(weightsDir, baseMethod)
+
+        if not os.path.exists(os.path.join(folderPath, self.filename)):
+            modelPath = downloadModels(model=baseMethod)
+        else:
+            modelPath = os.path.join(folderPath, self.filename)
+
+        onnxPath = modelPath.replace(
+            ".pkl",
+            f"_{self.width}x{self.height}_"
+            f"{'fp16' if self.half else 'fp32'}_directml_nocache.onnx",
+        )
+
+        if not os.path.exists(onnxPath):
+            self.exportOnnx(modelPath, onnxPath)
+
+        self.createSession(onnxPath)
+        self.setupTensors()
+
+    def exportOnnx(self, modelPath, onnxPath):
+        from src.rifearches.DistilDRBA_directml import IFNetFullDML, IFNetLiteDML
+
+        if ADOBE:
+            progressState.update(
+                {"status": f"Exporting {self.interpolateMethod} to ONNX."}
+            )
+        logAndPrint("Exporting model to ONNX", "green")
+
+        model = (
+            IFNetLiteDML(scale=self.scale)
+            if self.lite
+            else IFNetFullDML(scale=self.scale)
+        )
+        stateDict = torch.load(modelPath, map_location="cpu", weights_only=True)
+        if "model" in stateDict:
+            stateDict = stateDict["model"]
+        model.load_state_dict(stateDict, strict=False)
+        del stateDict
+
+        model = model.half() if self.half else model.float()
+        model = model.eval().to(self.device)
+
+        dummyImg = torch.zeros(
+            1, 3, self.ph, self.pw, dtype=self.dtype, device=self.device
+        )
+        dummyTimestep = torch.full(
+            (1, 1, self.ph, self.pw), 0.75, dtype=self.dtype, device=self.device
+        )
+
+        logging.info(f"Exporting model to {onnxPath}")
+
+        torch.onnx.export(
+            model,
+            (dummyImg, dummyImg.clone(), dummyImg.clone(), dummyTimestep),
+            onnxPath,
+            input_names=["img0", "img1", "img2", "timestep"],
+            output_names=["output"],
+            dynamic_axes={
+                "img0": {2: "height", 3: "width"},
+                "img1": {2: "height", 3: "width"},
+                "img2": {2: "height", 3: "width"},
+                "timestep": {2: "height", 3: "width"},
+                "output": {2: "height", 3: "width"},
+            },
+            opset_version=20,
+            optimize=False,
+            dynamo=False,
+        )
+
+        del model, dummyImg, dummyTimestep
+
+    def createSession(self, onnxPath):
+        providers = self.ort.get_available_providers()
+        logging.info(f"Available providers: {providers}")
+
+        if "DmlExecutionProvider" in providers or "OpenVINOExecutionProvider" in (
+            providers
+        ):
+            if "directml" in self.interpolateMethod:
+                logging.info("DirectML provider available. Defaulting to DirectML")
+                self.model = self.ort.InferenceSession(
+                    onnxPath, providers=["DmlExecutionProvider"]
+                )
+                warnIfProviderMissing(
+                    self.model, "DmlExecutionProvider", "DirectML interpolate"
+                )
+            else:
+                logging.info("Using OpenVINO model")
+                self.model = self.ort.InferenceSession(
+                    onnxPath,
+                    providers=[
+                        ("OpenVINOExecutionProvider", {"device_type": "AUTO:GPU,CPU"})
+                    ],
+                )
+                warnIfProviderMissing(
+                    self.model, "OpenVINOExecutionProvider", "OpenVINO interpolate"
+                )
+        else:
+            logWarning(
+                "DirectML/OpenVINO provider not available, falling back to CPU, expect significantly worse performance, ensure that your drivers are up to date and your GPU supports DirectX 12"
+            )
+            self.model = self.ort.InferenceSession(
+                onnxPath, providers=["CPUExecutionProvider"]
+            )
+
+        self.needsOutputSync = any(
+            provider in self.model.get_providers()
+            for provider in ("DmlExecutionProvider", "OpenVINOExecutionProvider")
+        )
+
+    def setupTensors(self):
+        def buffer(channels, fill=0.0):
+            return torch.full(
+                (1, channels, self.ph, self.pw),
+                fill,
+                dtype=self.dtype,
+                device=self.device,
+            ).contiguous()
+
+        self.tImg0 = buffer(3)
+        self.tImg1 = buffer(3)
+        self.tImg2 = buffer(3)
+        self.tTimestep = buffer(1, 0.75)
+        # The arch returns the padded frame; the crop happens on the way out.
+        self.tOutput = buffer(3)
+
+        self.IoBinding = self.model.io_binding()
+
+        # Only the OUTPUT binding survives across runs: it is a destination
+        # pointer ORT writes at run time. Inputs are snapshotted at bind_input()
+        # time, so they are (re)bound in __call__ -- see bind().
+        self.IoBinding.bind_output(
+            name="output",
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=self.tOutput.shape,
+            buffer_ptr=self.tOutput.data_ptr(),
+        )
+
+        self.firstRun = True
+
+    def bind(self, name, tensor):
+        """Bind one input.
+
+        ORT reads the buffer at bind_input() time, not at run time. Binding once
+        at setup and mutating the tensor in place afterwards feeds the model
+        whatever the buffer held during setup -- for this driver that is zeros,
+        and DistilDRBA on three zero frames returns a zero frame, so the whole
+        pipeline emits black. Every input that changes has to be rebound before
+        the run that should see it.
+        """
+        self.IoBinding.bind_input(
+            name=name,
+            device_type=self.deviceType,
+            device_id=0,
+            element_type=self.numpyDType,
+            shape=tensor.shape,
+            buffer_ptr=tensor.data_ptr(),
+        )
+
+    @torch.inference_mode()
+    def processFrame(self, frame: torch.Tensor, name: str):
+        padded = F.pad(
+            frame.to(device=self.device, dtype=self.dtype),
+            self.padding,
+            mode="replicate",
+        )
+        match name:
+            case "img0":
+                self.tImg0.copy_(padded, non_blocking=False)
+            case "img1":
+                self.tImg1.copy_(padded, non_blocking=False)
+            case "img2":
+                self.tImg2.copy_(padded, non_blocking=False)
+
+    @torch.inference_mode()
+    def cacheFrame(self, frame: torch.Tensor):
+        """Anchor img0 = frame without producing output.
+
+        Nothing in the pipeline calls this today (main.py drives DistilDRBA
+        through __call__ and cacheFrameReset), but DistilDRBACuda exposes it and
+        anchors on the frame it is handed, so this does the same rather than
+        leaving a subtly different meaning behind for whoever wires it up.
+        """
+        self.processFrame(frame, "img0")
+
+    @torch.inference_mode()
+    def cacheFrameReset(self, frame: torch.Tensor):
+        """Scene-cut reset: anchor img0 = frame. firstRun stays False so the next
+        __call__ interpolates this frame <-> the next one instead of swallowing
+        it (see DistilDRBACuda). The graph carries no recurrent feature state, so
+        img0 is the whole cache."""
+        self.processFrame(frame, "img0")
+        self.firstRun = False
+
+    @torch.inference_mode()
+    def __call__(
+        self,
+        frame: torch.Tensor,
+        nextFrame: torch.Tensor,
+        interpQueue,
+        framesToInsert: int = 2,
+        timesteps=None,
+    ):
+        """
+        Interpolate using the 3-frame DistilDRBA model.
+
+        Args:
+            frame: Current frame [B, C, H, W] - becomes img1
+            nextFrame: Window's next frame [B, C, H, W] - becomes img2, None at
+                the end of the stream or across a cut
+            interpQueue: Queue to put interpolated frames
+            framesToInsert: Number of frames to insert
+            timesteps: Optional list of timestep values (in TAS range 0-1)
+        """
+        # See DistilDRBACuda.__call__: the neighbour arrives in the same domain
+        # as `frame`, so a mismatch is a caller bug, not something to resize away.
+        if nextFrame is not None and nextFrame.shape[-2:] != frame.shape[-2:]:
+            raise RuntimeError(
+                f"DistilDRBA got a next frame of {tuple(nextFrame.shape[-2:])} "
+                f"against a current frame of {tuple(frame.shape[-2:])}; the "
+                f"caller must supply the neighbour in the same domain."
+            )
+
+        if self.firstRun:
+            self.processFrame(frame, "img0")
+            self.firstRun = False
+            return
+
+        self.processFrame(frame, "img1")
+        self.processFrame(nextFrame if nextFrame is not None else frame, "img2")
+
+        self.bind("img0", self.tImg0)
+        self.bind("img1", self.tImg1)
+        self.bind("img2", self.tImg2)
+
+        for i in range(framesToInsert):
+            if timesteps is not None and i < len(timesteps):
+                t = timesteps[i]
+            else:
+                t = (i + 1) / (framesToInsert + 1)
+
+            tDrba = 0.5 + t * 0.5 - 0.0001  # Small epsilon to avoid exactly 1.0
+            self.tTimestep.fill_(tDrba)
+
+            # Rebind after every fill_ (see bind): otherwise all inserted frames
+            # in a gap reuse the timestep captured before the loop, collapsing
+            # factor>2 interpolation into duplicate frames.
+            self.bind("timestep", self.tTimestep)
+
+            self.model.run_with_iobinding(self.IoBinding)
+            if self.needsOutputSync:
+                self.IoBinding.synchronize_outputs()
+
+            interpQueue.put(self.tOutput[:, :, : self.height, : self.width].clone())
+
+        self.tImg0.copy_(self.tImg1, non_blocking=False)

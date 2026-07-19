@@ -334,7 +334,9 @@ C:\Videos\episode3.mp4
 | **rife4.20** | ⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
 | **rife4.21** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Legacy version | CUDA, TRT, NCNN |
 | **gmfss** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Alternative method | CUDA, TRT |
-| **rife_elexor** | ⚡ | ⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT |
+| **rife_elexor** | ⚡ | ⭐⭐⭐ | 8GB | Maximum quality | CUDA, TRT, DML, OpenVINO |
+| **distildrba** | ⚡ | ⭐⭐⭐⭐ | 6GB | 3-frame context | CUDA, TRT, DML, OpenVINO |
+| **distildrba-lite** | ⚡⚡ | ⭐⭐⭐ | 4GB | 3-frame context, lighter | CUDA, TRT, DML, OpenVINO |
 
 > **💡 Performance Tip:** Use `--ensemble` for final renders, disable for previews
 

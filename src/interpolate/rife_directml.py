@@ -10,6 +10,7 @@ from src.constants import ADOBE
 from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint, logWarning
 from src.infra.providerCheck import warnIfProviderMissing
+from src.interpolate._shared import importRifeArch
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -20,137 +21,6 @@ if ADOBE:
 checker = CudaChecker()
 
 torch.set_float32_matmul_precision("medium")
-
-
-_RIFE_V1 = {
-    "rife": ("IFNet425", "IFNet_rife425"),
-    "rife4.25": ("IFNet425", "IFNet_rife425"),
-    "rife4.25-heavy": ("IFNet425Heavy", "IFNet_rife425heavy"),
-    "rife4.25-lite": ("IFNet425Lite", "IFNet_rife425lite"),
-    "rife4.22": ("IFNet422", "IFNet_rife422"),
-    "rife4.22-lite": ("IFNet422Lite", "IFNet_rife422lite"),
-    "rife4.21": ("IFNet421", "IFNet_rife421"),
-    "rife4.20": ("IFNet420", "IFNet_rife420"),
-    "rife4.18": ("IFNet418", "IFNet_rife418"),
-    "rife4.17": ("IFNet417", "IFNet_rife417"),
-    "rife4.15-lite": ("IFNet415Lite", "IFNet_rife415lite"),
-    "rife4.16-lite": ("IFNet416Lite", "IFNet_rife416lite"),
-    "rife4.6": ("IFNet46", "IFNet_rife46"),
-    "rife_elexor": (None, "IFNet_elexor_cuda"),
-}
-
-
-def _loadV1(method, half):
-    fastName, baseMod = _RIFE_V1[method]
-    if half and fastName:
-        from src.rifearches import rife_fast
-
-        return getattr(rife_fast, fastName)
-    mod = __import__(f"src.rifearches.{baseMod}", fromlist=["IFNet"])
-    return mod.IFNet
-
-
-def importRifeArch(interpolateMethod, version, half=True):
-    match version:
-        case "v1":
-            return _loadV1(interpolateMethod, half)
-
-        case "v3":
-            match interpolateMethod:
-                case "rife4.25-heavy-tensorrt":
-                    from src.rifearches.Rife425_heavy_v3 import IFNet
-
-                    Head = True
-
-                case "rife4.25-lite-tensorrt":
-                    from src.rifearches.Rife425_lite_v3 import IFNet
-
-                    Head = True
-                case "rife4.25-tensorrt":
-                    from src.rifearches.Rife425_v3 import IFNet
-
-                    Head = True
-                case "rife4.22-tensorrt":
-                    from src.rifearches.Rife422_v3 import IFNet
-
-                    Head = True
-                case "rife4.22-lite-tensorrt":
-                    from src.rifearches.Rife422_lite_v3 import IFNet
-
-                    Head = True
-                case "rife4.21-tensorrt":
-                    from src.rifearches.Rife422_v3 import IFNet
-
-                    Head = True
-                case "rife4.20-tensorrt":
-                    from src.rifearches.Rife420_v3 import IFNet
-
-                    Head = True
-                case "rife4.18-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
-
-                    Head = True
-                case "rife4.17-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
-
-                    Head = True
-                case "rife4.15-tensorrt":
-                    from src.rifearches.Rife415_v3 import IFNet
-
-                    Head = True
-                case "rife4.6-tensorrt":
-                    from src.rifearches.Rife46_v3 import IFNet
-
-                    Head = False
-                case "rife4.6-directml" | "rife4.6-openvino":
-                    from src.rifearches.Rife_directml import IFNet_46 as IFNet
-
-                    Head = False
-                case "rife4.22-directml" | "rife4.22-openvino":
-                    from src.rifearches.Rife_directml import IFNet_422 as IFNet
-
-                    Head = True
-                case (
-                    "rife4.15-directml"
-                    | "rife4.17-directml"
-                    | "rife4.18-directml"
-                    | "rife4.15-openvino"
-                    | "rife4.17-openvino"
-                    | "rife4.18-openvino"
-                ):
-                    from src.rifearches.Rife_directml import IFNet_415 as IFNet
-
-                    Head = True
-                case (
-                    "rife4.20-directml"
-                    | "rife4.21-directml"
-                    | "rife4.20-openvino"
-                    | "rife4.21-openvino"
-                ):
-                    from src.rifearches.Rife_directml import IFNet_420 as IFNet
-
-                    Head = True
-                case "rife4.22-lite-directml" | "rife4.22-lite-openvino":
-                    from src.rifearches.Rife_directml import IFNet_422_lite as IFNet
-
-                    Head = True
-                case "rife4.25-directml" | "rife4.25-openvino":
-                    from src.rifearches.Rife_directml import IFNet_425 as IFNet
-
-                    Head = True
-                case "rife4.25-lite-directml" | "rife4.25-lite-openvino":
-                    from src.rifearches.Rife_directml import IFNet_425_lite as IFNet
-
-                    Head = True
-                case "rife4.25-heavy-directml" | "rife4.25-heavy-openvino":
-                    from src.rifearches.Rife_directml import IFNet_425_heavy as IFNet
-
-                    Head = True
-                case "rife_elexor-tensorrt":
-                    from src.rifearches.IFNet_elexor_tensorrt import IFNet
-
-                    Head = True
-            return IFNet, Head
 
 
 class RifeDirectML:
@@ -210,6 +80,26 @@ class RifeDirectML:
 
         self.handleModel()
 
+    def sessionOptions(self):
+        """Session options for the ORT session.
+
+        Elexor needs DirectML's graph fusion turned off. Its flow ladder restarts
+        after the second pass and carries the pre-restart flow forward as a
+        long-range residual edge into the third; DmlGraphFusionHelper cannot
+        build a graph across that edge and throws `RUNTIME_EXCEPTION: ... The
+        parameter is incorrect` at session init. Verified by bisection: the arch
+        compiles with the edge removed, and a bare `flow + 0.0 * largeFlow` is
+        enough to reproduce the failure on its own -- so this is a fusion bug on
+        the skip connection, not an unsupported op (every op in the large-flow
+        gate places on DML fine in isolation). Disabling fusion costs some
+        kernel-launch batching, which is why it is scoped to elexor rather than
+        applied to every RIFE model on this path.
+        """
+        options = self.ort.SessionOptions()
+        if "rife_elexor" in self.interpolateMethod:
+            options.add_session_config_entry("ep.dml.disable_graph_fusion", "1")
+        return options
+
     def handleModel(self):
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
@@ -221,8 +111,12 @@ class RifeDirectML:
             self.numpyDType = np.float32
             self.torchDType = torch.float32
 
-        if self.half:
-            torch.set_default_dtype(torch.float16)
+        # No torch.set_default_dtype(torch.float16) here. It used to be set and
+        # never restored, so every torch module built later in the process --
+        # another pipeline stage, a second model -- silently came out fp16. It
+        # was also redundant: the archs take an explicit `dtype` for their
+        # buffers and the model is cast with .half() below. Removing it is
+        # bit-identical on rife4.6/4.22-lite/4.25/elexor-directml.
         self.filename = modelsMap(
             self.interpolateMethod.replace("-directml", ""),
             modelType="pth",
@@ -247,6 +141,11 @@ class RifeDirectML:
             "rife4.25-heavy-directml",
             "rife4.25-openvino",
             "rife4.25-heavy-openvino",
+            # Elexor derives its own pw/ph at mod-64 (and crops the output back
+            # to width/height), so the driver has to pad to the same multiple or
+            # the arch's backWarp grid and the padded input disagree.
+            "rife_elexor-directml",
+            "rife_elexor-openvino",
         ]:
             mul = 64
         elif self.interpolateMethod in [
@@ -353,7 +252,9 @@ class RifeDirectML:
             if "directml" in self.interpolateMethod:
                 logging.info("DirectML provider available. Defaulting to DirectML")
                 self.model = self.ort.InferenceSession(
-                    self.modelPath, providers=["DmlExecutionProvider"]
+                    self.modelPath,
+                    self.sessionOptions(),
+                    providers=["DmlExecutionProvider"],
                 )
                 warnIfProviderMissing(
                     self.model, "DmlExecutionProvider", "DirectML interpolate"
@@ -362,6 +263,7 @@ class RifeDirectML:
                 logging.info("Using OpenVINO model")
                 self.model = self.ort.InferenceSession(
                     self.modelPath,
+                    self.sessionOptions(),
                     providers=[
                         ("OpenVINOExecutionProvider", {"device_type": "AUTO:GPU,CPU"})
                     ],

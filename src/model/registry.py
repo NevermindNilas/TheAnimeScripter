@@ -606,7 +606,13 @@ def modelsMap(
             elif modelType == "ncnn":
                 raise ValueError("NCNN model not found.")
 
-        case "rife_elexor" | "rife_elexor-tensorrt" | "rife_elexor-ncnn":
+        case (
+            "rife_elexor"
+            | "rife_elexor-tensorrt"
+            | "rife_elexor-ncnn"
+            | "rife_elexor-directml"
+            | "rife_elexor-openvino"
+        ):
             if modelType == "pth":
                 return "rife_elexor.pth"
             elif modelType == "onnx":

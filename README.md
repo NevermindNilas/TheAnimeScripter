@@ -210,6 +210,8 @@ All available parameters for interacting with the CLI or directly with `main.py`
 | 4.25                  |   ✅   |    ✅     |    ✅     |   ✅   |
 | 4.25-heavy            |   ✅   |    ✅     |    ✅     |   ✅   |
 | Rife_Elexor (mod 4.7) |   ✅   |    ✅     |    ✅     |   ✅   |
+| DistilDRBA            |   ✅   |    ✅     |    ✅     |   ✅   |
+| DistilDRBA-lite       |   ✅   |    ✅     |    ✅     |   ✅   |
 
 ### 🔧 Restoration Models
 
