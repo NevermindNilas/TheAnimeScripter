@@ -50,7 +50,13 @@ class NeluxVideoStream(VideoStream):
         self._frameRate = float(props.fps or 0.0)
         if self._frameRate <= 0:
             raise ValueError(f"nelux reported no frame rate for {path}")
+        # An unknown/zero total makes duration report 0 frames, which would
+        # disable the early-EOF re-run guard in AutoClip._run() (it compares
+        # against expectedEndFrame - 2) and silently drop cuts past a decode
+        # error. Refuse the source so the caller falls back to cv2.
         self._totalFrames = int(props.total_frames or 0)
+        if self._totalFrames <= 0:
+            raise ValueError(f"nelux reported no frame count for {path}")
         self._size = (int(props.width), int(props.height))
         try:
             self._aspect = float(props.aspect_ratio) or 1.0

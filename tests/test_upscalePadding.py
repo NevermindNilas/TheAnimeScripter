@@ -6,7 +6,12 @@ CI without downloading any model. End-to-end validation against the real
 RealCUGAN-family ONNX/pth is done manually (see CHANGELOG).
 """
 
-from src.upscale._shared import calculatePadding, smallestValidMultiple
+from src.upscale._shared import (
+    KNOWN_INPUT_MULTIPLES,
+    calculatePadding,
+    lookupRequiredMultiple,
+    smallestValidMultiple,
+)
 
 
 def _archRequiring(multiple):
@@ -25,7 +30,7 @@ def test_fullyConvolutionalArchProbesToOne():
 
 
 def test_realcuganFamilyProbesToFour():
-    # fallin_*/shufflecugan/aniscale2 need both dims mod-4.
+    # adore/fallin_*/shufflecugan need both dims mod-4 (aniscale2 is Compact/mod-1).
     assert smallestValidMultiple(_archRequiring(4)) == 4
 
 
@@ -50,6 +55,37 @@ def test_probeSizesAreOddMultiplesAboveFloor():
     for side, width in seen.items():
         assert side >= 48
         assert width == side  # square probe
+
+
+def test_lookupKnownArchReturnsTableValue():
+    # RealCUGAN-family archs need mod-4; the compact/convolutional ones need 1.
+    assert lookupRequiredMultiple("shufflecugan") == 4
+    assert lookupRequiredMultiple("adore") == 4
+    assert lookupRequiredMultiple("aniscale2") == 1
+    assert lookupRequiredMultiple("span") == 1
+
+
+def test_lookupStripsBackendSuffix():
+    # All backend variants of a method must resolve to the same table entry.
+    for suffix in ("", "-tensorrt", "-directml", "-openvino", "-ncnn", "-mps"):
+        assert lookupRequiredMultiple(f"shufflecugan{suffix}") == 4
+        assert lookupRequiredMultiple(f"span{suffix}") == 1
+
+
+def test_lookupUnknownOrEmptyReturnsNone():
+    # Unlisted methods, custom models, and falsy input must fall back to the
+    # probe (signaled by None), never a wrong hardcoded multiple.
+    assert lookupRequiredMultiple("some-custom-model") is None
+    assert lookupRequiredMultiple("figsr") is None  # deliberately not in table
+    assert lookupRequiredMultiple("") is None
+    assert lookupRequiredMultiple(None) is None
+
+
+def test_lookupMatchesProbeForKnownArchs():
+    # The table value must equal what the probe would have found for that arch.
+    for method, multiple in KNOWN_INPUT_MULTIPLES.items():
+        assert lookupRequiredMultiple(method) == multiple
+        assert smallestValidMultiple(_archRequiring(multiple)) == multiple
 
 
 def test_calculatePaddingRightBottomToMultiple():
