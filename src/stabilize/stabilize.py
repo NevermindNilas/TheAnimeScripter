@@ -10,7 +10,7 @@ import src.io.ffmpegSettings as ffmpegSettings
 from src.constants import ADOBE
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import BuildBuffer, createWriteBuffer
-from src.stabilize.superpoint import SuperPoint, find_match_index, find_transform
+from src.stabilize.superpoint import find_match_index, find_transform
 
 if ADOBE:
     from src.server.aeComms import progressState
@@ -137,26 +137,19 @@ class VideoStabilize:
         )
 
     def _initSuperPoint(self):
-        try:
-            self.superPointModel = (
-                SuperPoint(
-                    nms_radius=4,
-                    max_num_keypoints=self.superPointMaxKeypoints,
-                    detection_threshold=self.superPointDetectionThreshold,
-                    remove_borders=4,
-                    descriptor_dim=256,
-                    channels=[64, 64, 128, 128, 256],
-                )
-                .load(map_location=self.superPointDevice)
-                .eval()
-                .to(self.superPointDevice)
-            )
-            logging.info(f"SuperPoint initialized on {self.superPointDevice}")
-        except Exception as e:
-            self.superPointModel = None
-            logging.warning(
-                f"SuperPoint initialization failed, falling back to ORB/LK ({e})"
-            )
+        # SuperPoint is disabled: the published superpoint_v6_from_tf
+        # checkpoint's key names (backbone.*.conv/bn) do not match this
+        # architecture's Sequential (.0/.2) naming, so .load() always raises
+        # and every run fell back to ORB/LK — after torch.hub downloading a
+        # ~5MB checkpoint on cold runs (a hard network dependency offline)
+        # and paying ~23ms warm, all for a path that can never activate.
+        # Re-enable by restoring the load once a matching checkpoint ships;
+        # note that would CHANGE stabilization output, which today always
+        # comes from the ORB/LK path.
+        self.superPointModel = None
+        logging.info(
+            "SuperPoint disabled (checkpoint/arch mismatch); using ORB/LK path"
+        )
 
     def _grayToSuperPointTensor(self, gray):
         h, w = gray.shape[:2]

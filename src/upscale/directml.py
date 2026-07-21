@@ -190,8 +190,17 @@ class UniversalDirectML:
         self.usingCpuFallback = False
 
     def _detectRequiredMultiple(self) -> int:
-        """Probe a lightweight CPU session to learn the arch's input multiple."""
-        from src.upscale._shared import smallestValidMultiple
+        """Look up the arch's input multiple; probe a CPU session for unknowns.
+
+        The table hit avoids building a throwaway ort.InferenceSession, which
+        costs ~90-130ms of startup per run for the shipped models.
+        """
+        from src.upscale._shared import lookupRequiredMultiple, smallestValidMultiple
+
+        if not self.customModel:
+            known = lookupRequiredMultiple(self.upscaleMethod)
+            if known is not None:
+                return known
 
         probe = self.ort.InferenceSession(
             self.modelPath, providers=["CPUExecutionProvider"]
