@@ -64,32 +64,40 @@ class AutoClip:
         cv2 backend tracks real PTS, so VFR sources (screen/phone recordings,
         many web downloads) must stay on cv2 or cut seconds drift by the
         accumulated PTS deviation.
+
+        Any probe failure (ffprobe error, non-JSON output, missing stream)
+        is treated as "not provably CFR" and returns False, keeping the run
+        on cv2 rather than raising.
         """
-        result = subprocess.run(
-            [
-                cs.FFPROBEPATH,
-                "-v",
-                "error",
-                "-select_streams",
-                "v:0",
-                "-show_entries",
-                "stream=r_frame_rate,avg_frame_rate",
-                "-of",
-                "json",
-                self.input,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
-        stream = json.loads(result.stdout)["streams"][0]
+        try:
+            result = subprocess.run(
+                [
+                    cs.FFPROBEPATH,
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "v:0",
+                    "-show_entries",
+                    "stream=r_frame_rate,avg_frame_rate",
+                    "-of",
+                    "json",
+                    self.input,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            stream = json.loads(result.stdout)["streams"][0]
 
-        def rate(expr: str) -> float:
-            num, _, den = expr.partition("/")
-            return float(num) / float(den) if den and float(den) else 0.0
+            def rate(expr: str) -> float:
+                num, _, den = expr.partition("/")
+                return float(num) / float(den) if den and float(den) else 0.0
 
-        r, avg = rate(stream["r_frame_rate"]), rate(stream["avg_frame_rate"])
-        return r > 0 and abs(r - avg) < 0.01
+            r, avg = rate(stream["r_frame_rate"]), rate(stream["avg_frame_rate"])
+            return r > 0 and abs(r - avg) < 0.01
+        except Exception as e:
+            logging.info(f"CFR probe failed ({e}); treating input as VFR (cv2)")
+            return False
 
     def _neluxWorthIt(self, video) -> bool:
         """True when the nelux frame source should replace cv2 for this run."""
