@@ -74,12 +74,9 @@ def _handleDependencies(args):
         "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe",
     )
 
-    if cs.SYSTEM == "Windows":
-        if "ffprobe.exe" not in os.environ["PATH"]:
-            os.environ["PATH"] += os.pathsep + os.path.dirname(cs.FFPROBEPATH)
-    else:
-        if "ffprobe" not in os.environ["PATH"]:
-            os.environ["PATH"] += os.pathsep + os.path.dirname(cs.FFPROBEPATH)
+    probeName = "ffprobe.exe" if cs.SYSTEM == "Windows" else "ffprobe"
+    if probeName not in os.environ["PATH"]:
+        os.environ["PATH"] += os.pathsep + os.path.dirname(cs.FFPROBEPATH)
 
     if not os.path.exists(cs.FFMPEGPATH) or not os.path.exists(cs.FFPROBEPATH):
         from src.infra.getFFMPEG import getFFMPEG

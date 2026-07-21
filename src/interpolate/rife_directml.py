@@ -254,16 +254,6 @@ class RifeDirectML:
             "rife4.25-lite-openvino",
         ]:
             mul = 128
-        elif self.interpolateMethod in [
-            "rife4.22-lite-directml",
-            "rife4.22-lite-openvino",
-        ]:
-            mul = 32
-        elif self.interpolateMethod in [
-            "rife4.6-directml",
-            "rife4.6-openvino",
-        ]:
-            mul = 32
         else:
             mul = 32
 

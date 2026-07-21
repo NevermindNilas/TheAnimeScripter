@@ -953,7 +953,7 @@ def main():
         try:
             sys.stdout.reconfigure(encoding="utf-8")
             sys.stderr.reconfigure(encoding="utf-8")
-        except (AttributeError, Exception) as _e:
+        except Exception:
             pass
 
     try:
