@@ -15,7 +15,7 @@ from src.io.ffmpegSettings import BuildBuffer, createWriteBuffer
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
 
-from .yolov9_mit import colors, draw_box, draw_detections, draw_masks
+from .yolov9_mit import colors, colors_rgb, draw_box, draw_detections, draw_masks
 
 if ADOBE:
     from src.server.aeComms import progressState
@@ -50,14 +50,6 @@ def _writeRgbFrame(
     )
     outputTensor.mul_(_INV_255)
     writeBuffer.write(outputTensor)
-
-
-def _writeOutputFrame(writeBuffer, outputImgBgr, writeHwcUint8: bool) -> None:
-    _writeRgbFrame(
-        writeBuffer,
-        cv2.cvtColor(outputImgBgr, cv2.COLOR_BGR2RGB),
-        writeHwcUint8,
-    )
 
 
 def _rescaleBoxes(owner, boxes):
@@ -266,18 +258,24 @@ class ObjectDetectionDML:
                 )
                 return
 
-            frameNp = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
+            # readBuffer already delivers RGB. Draw straight onto it with the
+            # channel-reversed palette instead of the old RGB->BGR->RGB round
+            # trip (two full-frame cvtColors/frame, ~1.5ms at 1080p); the output
+            # is byte-identical to the previous draw-in-BGR-then-swap path.
             if self.disableAnnotations:
-                outputImg = frameNp.copy()
-                outputImg = draw_masks(outputImg, boxes, classIds, mask_alpha=0.3)
+                outputImg = frame.copy()
+                outputImg = draw_masks(
+                    outputImg, boxes, classIds, mask_alpha=0.3, palette=colors_rgb
+                )
                 for classId, box in zip(classIds, boxes, strict=False):
-                    color = colors[classId]
+                    color = colors_rgb[classId]
                     draw_box(outputImg, box, color)
             else:
-                outputImg = draw_detections(frameNp, boxes, confidences, classIds)
+                outputImg = draw_detections(
+                    frame, boxes, confidences, classIds, palette=colors_rgb
+                )
 
-            _writeOutputFrame(self.writeBuffer, outputImg, self.writeHwcUint8)
+            _writeRgbFrame(self.writeBuffer, outputImg, self.writeHwcUint8)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -565,18 +563,24 @@ class ObjectDetectionTensorRT:
                 )
                 return
 
-            frameNp = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
+            # readBuffer already delivers RGB. Draw straight onto it with the
+            # channel-reversed palette instead of the old RGB->BGR->RGB round
+            # trip (two full-frame cvtColors/frame, ~1.5ms at 1080p); the output
+            # is byte-identical to the previous draw-in-BGR-then-swap path.
             if self.disableAnnotations:
-                outputImg = frameNp.copy()
-                outputImg = draw_masks(outputImg, boxes, classIds, mask_alpha=0.3)
+                outputImg = frame.copy()
+                outputImg = draw_masks(
+                    outputImg, boxes, classIds, mask_alpha=0.3, palette=colors_rgb
+                )
                 for classId, box in zip(classIds, boxes, strict=False):
-                    color = colors[classId]
+                    color = colors_rgb[classId]
                     draw_box(outputImg, box, color)
             else:
-                outputImg = draw_detections(frameNp, boxes, confidences, classIds)
+                outputImg = draw_detections(
+                    frame, boxes, confidences, classIds, palette=colors_rgb
+                )
 
-            _writeOutputFrame(self.writeBuffer, outputImg, self.writeHwcUint8)
+            _writeRgbFrame(self.writeBuffer, outputImg, self.writeHwcUint8)
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")

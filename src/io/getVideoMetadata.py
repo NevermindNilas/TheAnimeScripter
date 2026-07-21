@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import subprocess
 import textwrap
 
 import src.constants as cs
@@ -87,90 +86,90 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     tuple: (width, height, fps, totalFramesToProcess, hasAudio)
     """
     try:
-        if not os.path.exists(cs.FFPROBEPATH):
-            logging.error("ffprobe not found")
-            raise FileNotFoundError("ffprobe path not found")
         if not os.path.exists(inputPath):
             logging.error("Video file not found")
             raise FileNotFoundError("Video file not found")
 
-        cmd = [
-            cs.FFPROBEPATH,
-            "-v",
-            "quiet",
-            "-print_format",
-            "json",
-            "-show_format",
-            "-show_streams",
-            "-count_packets",
-            inputPath,
-        ]
+        # nelux reads container/stream metadata through the same libavformat that
+        # ffprobe used, so it replaces the ffprobe subprocess entirely. The probe
+        # is header-based (~8-14ms, size-independent) vs ffprobe's ~30-90ms that
+        # grew with file size. torch must be imported before nelux.
+        import torch  # noqa: F401,I001
+        import nelux
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            encoding="utf-8",
-            errors="replace",
-            check=True,
-        )
+        imageExtensions = {".png", ".jpg", ".jpeg", ".tiff", ".tif", ".exr", ".dpx"}
+        isImageInput = os.path.splitext(inputPath)[1].lower() in imageExtensions
 
-        if not result.stdout:
-            raise Exception("No output received from ffprobe")
+        # nelux.probe() opens the container and reads stream info only -- no
+        # decoder, no resolution-sized frame buffer, no worker threads -- and
+        # returns the same dict as VideoReader.properties. That makes it both
+        # cheaper than constructing a reader (~0.6ms/360p, ~17ms/4K vs a full
+        # reader's ~20-65ms) and immune to the nvdec-construction deadlock on
+        # uncompressed/odd codecs, since it never opens a decoder. FFmpeg DLLs
+        # are already on the search path (src/cli/startup.py -> getFFMPEG).
+        normPath = os.path.normpath(inputPath)
+        if hasattr(nelux, "probe"):
+            props = dict(nelux.probe(normPath))
+        else:
+            # nelux < 0.15.1 has no probe(); fall back to a decoder-less-as-
+            # possible VideoReader read (still nelux, still no ffprobe).
+            reader = nelux.VideoReader(normPath, decode_accelerator="cpu")
+            try:
+                props = dict(reader.get_properties())
+            finally:
+                del reader
 
-        probeData = json.loads(result.stdout)
+        def _prop(key, default=None):
+            val = props.get(key, default)
+            return default if val in (None, "N/A", "") else val
 
-        # Get video stream
-        videoStream = next(
-            stream for stream in probeData["streams"] if stream["codec_type"] == "video"
-        )
+        width = int(_prop("width", 0) or 0)
+        height = int(_prop("height", 0) or 0)
+        if width <= 0 or height <= 0:
+            raise ValueError(f"nelux returned no video dimensions for {inputPath}")
 
-        # Check for audio streams
-        # If the condition is true, then we can check for audio streams, otherwise we can skip this step
-        if cs.AUDIO:
-            hasAudio = any(
-                stream["codec_type"] == "audio" for stream in probeData["streams"]
+        # Exact fps from the integer ratio (e.g. 24000/1001 = 23.9760…). Rounding
+        # leaked 23.98 into the encoder -r and drifted timing, so keep it exact.
+        fpsNum = _prop("r_frame_rate_num")
+        fpsDen = _prop("r_frame_rate_den")
+        try:
+            fps = (
+                float(fpsNum) / float(fpsDen)
+                if fpsNum and fpsDen
+                else float(_prop("fps", 1.0) or 1.0)
             )
-            # Is there any audio stream in the video to begin with?
-            # If yes, then set the global variable accordingly
+        except TypeError, ZeroDivisionError:
+            fps = float(_prop("fps", 1.0) or 1.0)
+
+        try:
+            duration = float(_prop("duration", 0.0) or 0.0)
+        except TypeError, ValueError:
+            duration = 0.0
+
+        # Header frame count; duration*fps as a last resort (VFR / odd headers).
+        # The progress-bar total self-corrects at stream end (main.py
+        # bar.updateTotal), and no frame is ever skipped over this count.
+        try:
+            totalFrames = int(_prop("nb_frames", 0) or _prop("total_frames", 0) or 0)
+        except TypeError, ValueError:
+            totalFrames = 0
+        if totalFrames < 1 and duration and fps:
+            totalFrames = int(duration * fps)
+        if isImageInput and totalFrames < 1:
+            totalFrames = 1
+
+        if cs.AUDIO:
+            hasAudio = bool(_prop("has_audio", False))
             cs.AUDIO = hasAudio
         else:
             hasAudio = False
 
-        # Extract metadata
-        width = int(videoStream["width"])
-        height = int(videoStream["height"])
-        fpsValue = videoStream.get("r_frame_rate", "1/1")
-        fpsParts = fpsValue.split("/") if isinstance(fpsValue, str) else ["1", "1"]
-        try:
-            fpsNum = float(fpsParts[0]) if len(fpsParts) > 0 else 1.0
-            fpsDen = float(fpsParts[1]) if len(fpsParts) > 1 else 1.0
-            fps = fpsNum / fpsDen if fpsDen != 0 else 1.0
-        except Exception:
-            fps = 1.0
-
-        durationRaw = probeData.get("format", {}).get("duration", 0)
-        try:
-            duration = float(durationRaw)
-        except Exception:
-            duration = 0.0
-
-        totalFramesRaw = videoStream.get("nb_read_packets")
-        if totalFramesRaw in (None, "N/A", ""):
-            totalFramesRaw = videoStream.get("nb_frames", 0)
-        try:
-            totalFrames = int(totalFramesRaw)
-        except Exception:
-            totalFrames = 0
-
-        imageExtensions = {".png", ".jpg", ".jpeg", ".tiff", ".tif", ".exr", ".dpx"}
-        isImageInput = os.path.splitext(inputPath)[1].lower() in imageExtensions
-        if isImageInput and totalFrames < 1:
-            totalFrames = 1
-        colorFormat = videoStream.get("pix_fmt", "unknown")
-        pixelFormat = videoStream.get("color_primaries", "unknown")
-        colorSpace = videoStream.get("color_space", "unknown")
-        ColorTRT = videoStream.get("color_transfer", "unknown")
-        ColorRange = videoStream.get("color_range", "unknown")
+        codecName = _prop("codec_name") or _prop("codec", "unknown")
+        colorFormat = _prop("pixel_format", "unknown")
+        pixelFormat = _prop("color_primaries", "unknown")
+        colorSpace = _prop("color_space", "unknown")
+        ColorTRT = _prop("color_transfer", "unknown")
+        ColorRange = _prop("color_range", "unknown")
 
         if outPoint != 0 and not isImageInput:
             totalFramesToProcess = int((outPoint - inPoint) * fps)
@@ -184,8 +183,11 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
             "Width": width,
             "Height": height,
             "AspectRatio": round(width / height, 2),
-            "FPS": round(fps, 2),
-            "Codec": videoStream["codec_name"],
+            # Store the exact fps (e.g. 24000/1001 = 23.9760…). Rounding to 2
+            # decimals here leaked 23.98 into the encoder's -r, drifting timing
+            # against a 23.976 comp (frames cut off). Round only for display.
+            "FPS": fps,
+            "Codec": codecName,
             "ColorRange": ColorRange,
             "ColorFormat": colorFormat,
             "ColorSpace": colorSpace,
@@ -219,9 +221,9 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         Has Audio: {hasAudio}""")
         )
 
-        saveMetadata(metadata, videoStream)
+        saveMetadata(metadata, props)
         return metadata
 
     except Exception as e:
-        logging.error(f"Error getting metadata with ffprobe: {e}")
+        logging.error(f"Error getting metadata with nelux: {e}")
         raise

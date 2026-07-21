@@ -2,13 +2,19 @@ import pytest
 
 np = pytest.importorskip("numpy")
 torch = pytest.importorskip("torch")
-pytest.importorskip("cv2")
+cv2 = pytest.importorskip("cv2")
 pytest.importorskip("onnxruntime")
 
 from src.objectDetection.objectDetection import (
     _rescaleBoxes,
-    _writeOutputFrame,
     _writeRgbFrame,
+)
+from src.objectDetection.yolov9_mit import (
+    colors,
+    colors_rgb,
+    draw_box,
+    draw_detections,
+    draw_masks,
 )
 
 
@@ -29,16 +35,52 @@ class _BoxOwner:
     _boxScaleShape = None
 
 
-def testWriteOutputFrameCanEmitHwcUint8ForNelux():
-    writer = _Writer()
-    bgr = np.array([[[1, 2, 3], [4, 5, 6]]], dtype=np.uint8)
+def testColorsRgbIsExactChannelReversal():
+    # The RGB-draw path relies on colors_rgb being the exact per-channel
+    # reversal of colors so overlays land byte-identical to the old
+    # draw-in-BGR-then-swap path.
+    np.testing.assert_array_equal(colors_rgb, colors[:, ::-1])
 
-    _writeOutputFrame(writer, bgr, writeHwcUint8=True)
 
-    assert writer.frame.shape == (1, 2, 3)
-    assert writer.frame.dtype == torch.uint8
-    assert writer.frame.is_contiguous()
-    assert writer.frame.tolist() == [[[3, 2, 1], [6, 5, 4]]]
+def _oldBgrRoundTrip(frameRgb, boxes, classIds, scores):
+    frameBgr = cv2.cvtColor(frameRgb, cv2.COLOR_RGB2BGR)
+    out = draw_detections(frameBgr, boxes, scores, classIds)
+    return cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
+
+
+def testDrawInRgbIsByteIdenticalToOldBgrRoundTrip():
+    # Core contract of the objdetect RGB-draw optimization: drawing straight
+    # onto the RGB frame with the reversed palette must be byte-identical to
+    # the removed RGB->BGR->draw->BGR->RGB round trip.
+    rng = np.random.default_rng(7)
+    frame = rng.integers(0, 256, (64, 96, 3), dtype=np.uint8)
+    n = 8
+    x1 = rng.integers(0, 60, n)
+    y1 = rng.integers(0, 40, n)
+    boxes = np.stack(
+        [x1, y1, x1 + rng.integers(4, 30, n), y1 + rng.integers(4, 20, n)], 1
+    ).astype(np.float32)
+    classIds = rng.integers(0, len(colors), n)
+    scores = rng.uniform(0.2, 0.99, n).astype(np.float32)
+
+    old = _oldBgrRoundTrip(frame, boxes, classIds, scores)
+    new = draw_detections(frame, boxes, scores, classIds, palette=colors_rgb)
+    np.testing.assert_array_equal(old, new)
+
+    # disableAnnotations branch (draw_masks + draw_box) must match too.
+    oldBgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    oldBgr = draw_masks(oldBgr, boxes, classIds, mask_alpha=0.3)
+    for classId, box in zip(classIds, boxes, strict=False):
+        draw_box(oldBgr, box, colors[classId])
+    oldDisabled = cv2.cvtColor(oldBgr, cv2.COLOR_BGR2RGB)
+
+    newDisabled = frame.copy()
+    newDisabled = draw_masks(
+        newDisabled, boxes, classIds, mask_alpha=0.3, palette=colors_rgb
+    )
+    for classId, box in zip(classIds, boxes, strict=False):
+        draw_box(newDisabled, box, colors_rgb[classId])
+    np.testing.assert_array_equal(oldDisabled, newDisabled)
 
 
 def testWriteRgbFrameCanBypassColorConversionForNoDetections():
@@ -62,11 +104,11 @@ def testWriteRgbFrameCanOwnDecoderBackedFrames():
     assert writer.frame.tolist() == [[[3, 2, 1]]]
 
 
-def testWriteOutputFrameKeepsBchwFloatForFfmpegWriter():
+def testWriteRgbFrameKeepsBchwFloatForFfmpegWriter():
     writer = _Writer()
-    bgr = np.array([[[0, 127, 255]]], dtype=np.uint8)
+    rgb = np.array([[[255, 127, 0]]], dtype=np.uint8)
 
-    _writeOutputFrame(writer, bgr, writeHwcUint8=False)
+    _writeRgbFrame(writer, rgb, writeHwcUint8=False)
 
     assert writer.frame.shape == (1, 3, 1, 1)
     assert writer.frame.dtype == torch.float32
