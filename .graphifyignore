@@ -1,0 +1,34 @@
+# Vendored/model architecture trees — project boundary rule (see CLAUDE.md).
+# TAS documents its ~18k LOC orchestration layer, not the ~82k LOC of vendored
+# model internals. Keep these out of the knowledge graph.
+src/spandrel/
+src/gmfss/
+src/rifearches/
+src/depth/distillanydepth/
+src/depth/depth_anything_3/
+src/depth/video_depth_anything/
+src/depth/dinov2_layers/
+
+# Build / dist / weights / caches — not source.
+dist-portable/
+weights/
+__profile_tmp/
+__vdpp_compare/
+__pycache__/
+graphify-out/
+
+# Scratch comparison output (untracked) — demo media, not source.
+depth_codec_comparison/
+depth_v3_compare/
+
+# Media assets — not code; keep the graph to source + docs.
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.mkv
+*.mov
+*.webm
+*.mp3
+*.wav

@@ -171,6 +171,20 @@ class UniversalPytorch:
             memoryFormat=torch.channels_last,
         ).optimizeModel()
 
+        # Resolve the arch's required input multiple BEFORE compiling: for
+        # unknown archs the fallback probe runs 1-3 tiny forwards, and doing
+        # that after model.compile() would trigger a needless (and at
+        # max-autotune, very slow) compilation per probe shape.
+        # RealCUGAN-family archs (adore, fallin_*, shufflecugan) need both
+        # input dims divisible by 4; feeding an odd dim raises a skip-Add size
+        # mismatch, so the input is reflect-padded to the multiple and the
+        # surplus cropped off the output. Fully-convolutional archs resolve to
+        # 1, so padding stays zero and the output is bit-identical.
+        self.requiredMultiple = self._detectRequiredMultiple()
+        self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
+        self.paddedWidth = self.width + self.padding[1]
+        self.paddedHeight = self.height + self.padding[3]
+
         if self.compileMode != "default":
             try:
                 if self.compileMode == "max":
@@ -189,16 +203,6 @@ class UniversalPytorch:
                 )
 
             self.compileMode = "default"
-
-        # RealCUGAN-family archs (fallin_*, shufflecugan, aniscale2) need both
-        # input dims divisible by 4; feeding an odd dim raises a skip-Add size
-        # mismatch. Detect the arch's requirement once and reflect-pad the input
-        # to it, cropping the surplus off the output. Fully-convolutional archs
-        # report 1 here, so padding stays zero and the output is bit-identical.
-        self.requiredMultiple = self._detectRequiredMultiple()
-        self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
-        self.paddedWidth = self.width + self.padding[1]
-        self.paddedHeight = self.height + self.padding[3]
 
         self.dummyInput = (
             torch.zeros(
@@ -243,8 +247,18 @@ class UniversalPytorch:
             self.initTorchCudaGraph()
 
     def _detectRequiredMultiple(self) -> int:
-        """Probe the model on tiny inputs to learn its required spatial multiple."""
-        from src.upscale._shared import smallestValidMultiple
+        """Look up the arch's required spatial multiple, probing unknown archs.
+
+        Known shipped archs resolve from KNOWN_INPUT_MULTIPLES without running
+        the model; custom models and unlisted archs fall back to tiny probe
+        forwards.
+        """
+        from src.upscale._shared import lookupRequiredMultiple, smallestValidMultiple
+
+        if not self.customModel:
+            known = lookupRequiredMultiple(self.upscaleMethod)
+            if known is not None:
+                return known
 
         dtype = torch.float16 if self.half else torch.float32
 
@@ -463,8 +477,13 @@ class UniversalPytorchMPS:
             torch.mps.synchronize()
 
     def _detectRequiredMultiple(self) -> int:
-        """Probe the model on tiny inputs to learn its required spatial multiple."""
-        from src.upscale._shared import smallestValidMultiple
+        """Look up the arch's required spatial multiple, probing unknown archs."""
+        from src.upscale._shared import lookupRequiredMultiple, smallestValidMultiple
+
+        if not self.customModel:
+            known = lookupRequiredMultiple(self.baseMethod)
+            if known is not None:
+                return known
 
         def runOK(h, w):
             try:
