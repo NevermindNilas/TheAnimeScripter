@@ -6,6 +6,11 @@ if ADOBE:
     from src.server.aeComms import progressState
 
 
+def _announce(status):
+    if ADOBE:
+        progressState.update({"status": status})
+
+
 def initializeModels(self):
     outputWidth = self.width
     outputHeight = self.height
@@ -16,10 +21,7 @@ def initializeModels(self):
     sceneChangeProcess = None
 
     if self.upscale:
-        if ADOBE:
-            progressState.update(
-                {"status": f"Initializing upscale model: {self.upscaleMethod}..."}
-            )
+        _announce(f"Initializing upscale model: {self.upscaleMethod}...")
         outputWidth *= self.upscaleFactor
         outputHeight *= self.upscaleFactor
 
@@ -28,12 +30,7 @@ def initializeModels(self):
         upscaleProcess = buildUpscaleProcess(self)
 
     if self.interpolate:
-        if ADOBE:
-            progressState.update(
-                {
-                    "status": f"Initializing interpolation model: {self.interpolateMethod}..."
-                }
-            )
+        _announce(f"Initializing interpolation model: {self.interpolateMethod}...")
 
         from src.factories.interpolate import buildInterpolateProcess
 
@@ -49,32 +46,21 @@ def initializeModels(self):
         interpolateProcess = buildInterpolateProcess(self, interpWidth, interpHeight)
 
     if self.restore:
-        if ADOBE:
-            progressState.update(
-                {"status": f"Initializing restore model: {self.restoreMethod}..."}
-            )
+        _announce(f"Initializing restore model: {self.restoreMethod}...")
 
         from src.factories.restore import buildRestoreProcess
 
         restoreProcess = buildRestoreProcess(self)
 
     if self.dedup:
-        if ADOBE:
-            progressState.update(
-                {"status": f"Initializing deduplication: {self.dedupMethod}..."}
-            )
+        _announce(f"Initializing deduplication: {self.dedupMethod}...")
 
         from src.factories.dedup import buildDedupProcess
 
         dedupProcess = buildDedupProcess(self)
 
     if self.interpolate and getattr(self, "sceneChange", False):
-        if ADOBE:
-            progressState.update(
-                {
-                    "status": f"Initializing scene-cut detector: {self.sceneChangeMethod}..."
-                }
-            )
+        _announce(f"Initializing scene-cut detector: {self.sceneChangeMethod}...")
 
         from src.factories.sceneChange import buildSceneChangeProcess
 

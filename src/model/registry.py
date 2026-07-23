@@ -599,17 +599,13 @@ def modelsMap(
             | "rife4.25-heavy-directml"
             | "rife4.25-heavy-openvino"
         ):
-            if modelType == "pth":
-                return "rife425_heavy.pth"
-            elif modelType == "onnx":
+            if modelType in ("pth", "onnx"):
                 return "rife425_heavy.pth"
             elif modelType == "ncnn":
                 raise ValueError("NCNN model not found.")
 
         case "rife_elexor" | "rife_elexor-tensorrt" | "rife_elexor-ncnn":
-            if modelType == "pth":
-                return "rife_elexor.pth"
-            elif modelType == "onnx":
+            if modelType in ("pth", "onnx"):
                 return "rife_elexor.pth"
             elif modelType == "ncnn":
                 raise ValueError("NCNN model not found.")

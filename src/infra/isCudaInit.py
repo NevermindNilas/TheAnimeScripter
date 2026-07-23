@@ -20,7 +20,6 @@ class CudaChecker:
         # Lazify the import
         import torch
 
-        global LOGGEDALREADY
         self.torch = torch
         self.logging = logging
 

@@ -371,7 +371,7 @@ def getPixFMT(encode_method, bitDepth, grayscale, transparent):
             inPixFmt = "rgb48le"
             outPixFmt = "yuv444p10le"
 
-    elif encode_method in "png":
+    elif encode_method == "png":
         if bitDepth == "8bit":
             inPixFmt = "rgb24"
             outPixFmt = "rgb24"
