@@ -1531,3 +1531,242 @@ class IFNet_425_heavy(nn.Module):
         return (warpedImg0 * mask + warpedImg1 * (1 - mask))[
             :, :, : self.height, : self.width
         ]
+
+
+# =============================================================================
+# RIFE Elexor DirectML (modded 4.7: 6 block passes, 4ch features, mul=64)
+# =============================================================================
+
+
+def convReplicate(inPlanes, outPlanes, kernelSize=3, stride=1, padding=1, dilation=1):
+    """Elexor's conv: same as `conv` above but with replicate padding."""
+    return nn.Sequential(
+        nn.Conv2d(
+            inPlanes,
+            outPlanes,
+            kernel_size=kernelSize,
+            stride=stride,
+            padding=padding,
+            padding_mode="replicate",
+            dilation=dilation,
+            bias=True,
+        ),
+        nn.LeakyReLU(0.2, True),
+    )
+
+
+class IFBlockElexor(nn.Module):
+    def __init__(self, inPlanes, c=64):
+        super().__init__()
+        self.conv0 = nn.Sequential(
+            convReplicate(inPlanes, c // 2, 3, 2, 1),
+            convReplicate(c // 2, c, 3, 2, 1),
+        )
+        self.convblock = nn.Sequential(
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+            ResConv(c),
+        )
+        self.lastconv = nn.Sequential(
+            nn.ConvTranspose2d(c, 4 * 6, 4, 2, 1), nn.PixelShuffle(2)
+        )
+
+    def forward(self, x, h, w, flow=None, scale=1):
+        x = interpolate(x, scale_factor=1.0 / scale, mode="bilinear")
+
+        if flow is not None:
+            flow = interpolate(flow, scale_factor=1.0 / scale, mode="bilinear") / scale
+            x = torch.cat((x, flow), 1)
+
+        feat = self.conv0(x)
+        feat = self.convblock(feat)
+        tmp = self.lastconv(feat)
+        tmp = interpolate(tmp, size=(h, w), mode="bilinear")
+
+        flow = tmp[:, :4] * scale
+        mask = tmp[:, 4:5]
+
+        return flow, mask
+
+
+class IFNet_elexor(nn.Module):
+    """RIFE Elexor DirectML.
+
+    Ports `IFNet_elexor_cuda` with two deliberate differences:
+
+      * `grid_sample` -> `grid_sample_directml`, as everywhere else in this file.
+      * `encode` runs inside forward instead of being cached across calls. The
+        CUDA arch keeps `self.f0`/`self.f1` as module state and the TensorRT one
+        takes `f0` as a fourth input; neither fits the driver's 3-in/1-out ONNX
+        binding, and encode is two convs, so recomputing it per pair is cheaper
+        than plumbing a recurrent input through IOBinding.
+
+    Elexor runs six block passes over a four-block ladder, restarting the flow
+    at i == 1 and gating the restart on the magnitude of the flow it threw away
+    (see the large-flow gate in forward).
+    """
+
+    def __init__(
+        self,
+        scale=1.0,
+        ensemble=False,
+        dtype=torch.float32,
+        device="cuda",
+        width=1920,
+        height=1080,
+    ):
+        super().__init__()
+        self.block0 = IFBlockElexor(7 + 8, c=192)
+        self.block1 = IFBlockElexor(8 + 4 + 8, c=128)
+        self.block2 = IFBlockElexor(8 + 4 + 8, c=96)
+        self.block3 = IFBlockElexor(8 + 4 + 8, c=64)
+        self.encode = nn.Sequential(
+            nn.Conv2d(3, 16, 3, 2, 1), nn.ConvTranspose2d(16, 4, 4, 2, 1)
+        )
+
+        self.device = device
+        self.dtype = dtype
+        self.width = width
+        self.height = height
+        self.ensemble = ensemble
+
+        self.scaleList = [
+            32 / scale,
+            16 / scale,
+            8 / scale,
+            4 / scale,
+            2 / scale,
+            1 / scale,
+        ]
+        self.blocks = [
+            self.block0,
+            self.block1,
+            self.block0,
+            self.block1,
+            self.block2,
+            self.block3,
+        ]
+
+        tmp = max(64, int(64 / scale))
+        self.pw = math.ceil(self.width / tmp) * tmp
+        self.ph = math.ceil(self.height / tmp) * tmp
+        self.padding = (0, self.pw - self.width, 0, self.ph - self.height)
+
+        hMul = 2 / (self.pw - 1)
+        vMul = 2 / (self.ph - 1)
+        self.register_buffer(
+            "tenFlowMul", torch.tensor([hMul, vMul], dtype=dtype).reshape(1, 2, 1, 1)
+        )
+        horizontal = (
+            (torch.arange(self.pw, dtype=dtype) * hMul - 1)
+            .reshape(1, 1, 1, -1)
+            .expand(-1, -1, self.ph, -1)
+        )
+        vertical = (
+            (torch.arange(self.ph, dtype=dtype) * vMul - 1)
+            .reshape(1, 1, -1, 1)
+            .expand(-1, -1, -1, self.pw)
+        )
+        self.register_buffer("backWarp", torch.cat([horizontal, vertical], dim=1))
+
+    def warp(self, tenInput, tenFlow):
+        grid = (self.backWarp + tenFlow * self.tenFlowMul).permute(0, 2, 3, 1)
+        return grid_sample_directml(
+            tenInput, grid, padding_mode="border", align_corners=True
+        )
+
+    def forward(self, img0, img1, timestep):
+        f0 = self.encode(img0[:, :3])
+        f1 = self.encode(img1[:, :3])
+
+        warpedImg0 = img0
+        warpedImg1 = img1
+        flow = None
+        largeFlow = None
+        mask = None
+
+        for i in range(6):
+            if flow is None:
+                flow, mask = self.blocks[i](
+                    torch.cat((img0, img1, f0, f1, timestep), 1),
+                    self.ph,
+                    self.pw,
+                    None,
+                    scale=self.scaleList[i],
+                )
+                if self.ensemble:
+                    fRev, mRev = self.blocks[i](
+                        torch.cat((img1, img0, f1, f0, 1 - timestep), 1),
+                        self.ph,
+                        self.pw,
+                        None,
+                        scale=self.scaleList[i],
+                    )
+                    flow = (flow + torch.cat((fRev[:, 2:4], fRev[:, :2]), 1)) / 2
+                    mask = (mask + (-mRev)) / 2
+
+                if largeFlow is not None:
+                    # Large-flow gate: if the pre-restart flow moved a big enough
+                    # slice of the frame, keep it instead of the fresh estimate.
+                    #
+                    # Two deviations from the CUDA arch, both forced by DirectML:
+                    #   * the magnitude is computed in fp32. In fp16 a >181px flow
+                    #     overflows the square (181^2 * 2 > 65504) to inf, which
+                    #     silently counts as "> 40". fp32 costs nothing on a
+                    #     2-channel tensor and can only differ where fp16 was
+                    #     already broken.
+                    #   * `torch.where(scalarBool, ...)` becomes float-mask
+                    #     arithmetic. A 0-d bool Where broadcast into NCHW is the
+                    #     kind of node DML drops to the CPU, which would stall the
+                    #     partition every frame; Mul/Add stay on the GPU.
+                    magnitude = torch.sqrt(
+                        largeFlow[:, 0, :, :].float() ** 2
+                        + largeFlow[:, 1, :, :].float() ** 2
+                    )
+                    count = torch.sum((magnitude > 40).to(torch.float32))
+                    isLarge = (count > 1036800).to(flow.dtype)
+                    flow = isLarge * largeFlow + (1 - isLarge) * flow
+
+            else:
+                wf0 = self.warp(f0, flow[:, :2])
+                wf1 = self.warp(f1, flow[:, 2:4])
+                fd, m0 = self.blocks[i](
+                    torch.cat((warpedImg0, warpedImg1, wf0, wf1, timestep, mask), 1),
+                    self.ph,
+                    self.pw,
+                    flow,
+                    scale=self.scaleList[i],
+                )
+                if self.ensemble:
+                    fdRev, mRev = self.blocks[i](
+                        torch.cat(
+                            (warpedImg1, warpedImg0, wf1, wf0, 1 - timestep, -mask),
+                            1,
+                        ),
+                        self.ph,
+                        self.pw,
+                        torch.cat((flow[:, 2:4], flow[:, :2]), 1),
+                        scale=self.scaleList[i],
+                    )
+                    fd = (fd + torch.cat((fdRev[:, 2:4], fdRev[:, :2]), 1)) / 2
+                    mask = (m0 + (-mRev)) / 2
+                else:
+                    mask = m0
+                flow = flow + fd
+
+            warpedImg0 = self.warp(img0, flow[:, :2])
+            warpedImg1 = self.warp(img1, flow[:, 2:4])
+
+            if i == 1:
+                largeFlow = flow
+                flow = None
+
+        mask = torch.sigmoid(mask)
+        return (warpedImg0 * mask + warpedImg1 * (1 - mask))[
+            :, :, : self.height, : self.width
+        ]

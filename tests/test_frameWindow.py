@@ -296,7 +296,21 @@ def test_everyTemporalBackendDeclaresItsWindow():
 
 
 def test_distilDrbaRejectsACrossDomainNeighbour():
-    """The silent bilinear resize of I2 is gone; a mismatch is now a hard error."""
+    """The silent bilinear resize of I2 is gone; a mismatch is now a hard error.
+
+    Asserted per class rather than as a total count, so adding a backend means
+    adding the guard rather than bumping a magic number.
+    """
+    guard = "must supply the neighbour in the same domain"
     source = pathlib.Path("src/interpolate/distildrba.py").read_text(encoding="utf-8")
-    assert "must supply the neighbour in the same domain" in source
-    assert source.count("must supply the neighbour in the same domain") == 2
+
+    unguarded = [
+        node.name
+        for node in ast.parse(source).body
+        if isinstance(node, ast.ClassDef)
+        and node.name.startswith("DistilDRBA")
+        and guard not in (ast.get_source_segment(source, node) or "")
+    ]
+    assert not unguarded, (
+        f"DistilDRBA backends silently accepting a resized I2: {unguarded}"
+    )

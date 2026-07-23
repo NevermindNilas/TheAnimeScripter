@@ -144,6 +144,10 @@ KNOWN_UNREGISTERED_METHODS = {
         "rife4.15-openvino",  # rides the rife4.15 ONNX via suffix replace
         "distildrba-tensorrt",  # weights ship via the base distildrba entry
         "distildrba-lite-tensorrt",  # weights ship via the base distildrba-lite entry
+        "distildrba-directml",  # ditto: the DML class strips the suffix before modelsMap
+        "distildrba-lite-directml",
+        "distildrba-openvino",
+        "distildrba-lite-openvino",
     },
     "scenechange": {
         # streaming scene-cut detectors; the cheap tier is algorithmic (no
