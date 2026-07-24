@@ -71,9 +71,8 @@ def testModelsListHasNoDuplicates():
 
 
 # Registry entries with no modelsMap arm even after the runtime's -mps strip.
-# These are reachable from --offline all (failure is caught + logged there) but
-# would crash any code path that feeds them to modelsMap directly. Frozen so
-# the set can only shrink; add a modelsMap arm instead of extending this.
+# These would crash any code path that feeds them to modelsMap directly. Frozen
+# so the set can only shrink; add a modelsMap arm instead of extending this.
 KNOWN_MISSING_MODELSMAP_ARM = {
     "smosr-openvino",
     "video_small_v2",
@@ -139,7 +138,7 @@ KNOWN_UNREGISTERED_METHODS = {
     "interpolate": {
         "rife-ncnn",  # generic alias resolved to a default version
         "rife-tensorrt",  # generic alias resolved to a default version
-        "rife4.15-tensorrt",  # modelsMap arm exists; absent from modelsList (--offline gap)
+        "rife4.15-tensorrt",  # modelsMap arm exists; absent from modelsList
         "rife4.15-directml",  # rides the rife4.15 ONNX via suffix replace
         "rife4.15-openvino",  # rides the rife4.15 ONNX via suffix replace
         "distildrba-tensorrt",  # weights ship via the base distildrba entry
