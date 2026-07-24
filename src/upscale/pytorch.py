@@ -9,7 +9,6 @@ from src.infra.logAndPrint import logAndPrint
 from src.model.download import resolveWeightPath
 from src.model.modelOptimizer import ModelOptimizer
 from src.model.registry import modelsMap
-from src.upscale._shared import calculatePadding
 
 if ADOBE:
     from src.server.aeComms import progressState
@@ -176,6 +175,8 @@ class UniversalPytorch:
         # surplus cropped off the output. Fully-convolutional archs resolve to
         # 1, so padding stays zero and the output is bit-identical.
         self.requiredMultiple = self._detectRequiredMultiple()
+        from src.upscale._shared import calculatePadding
+
         self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
         self.paddedWidth = self.width + self.padding[1]
         self.paddedHeight = self.height + self.padding[3]
@@ -456,6 +457,8 @@ class UniversalPytorchMPS:
         # input dims divisible by 4; detect the requirement and reflect-pad to it,
         # cropping the surplus off the output. Fully-conv archs report 1 (no pad).
         self.requiredMultiple = self._detectRequiredMultiple()
+        from src.upscale._shared import calculatePadding
+
         self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
         self.paddedWidth = self.width + self.padding[1]
         self.paddedHeight = self.height + self.padding[3]
