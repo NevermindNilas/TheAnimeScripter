@@ -9,7 +9,6 @@ from src.infra.logAndPrint import logAndPrint, logWarning
 from src.infra.providerCheck import warnIfProviderMissing
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
-from src.upscale._shared import calculatePadding
 
 if ADOBE:
     from src.server.aeComms import progressState
@@ -160,6 +159,8 @@ class UniversalDirectML:
         # Fully-convolutional archs report 1 here, so padding stays zero and the
         # output is bit-identical to the unpadded path.
         self.requiredMultiple = self._detectRequiredMultiple()
+        from src.upscale._shared import calculatePadding
+
         self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
         self.paddedWidth = self.width + self.padding[1]
         self.paddedHeight = self.height + self.padding[3]
@@ -343,6 +344,8 @@ class AnimeSRDirectML:
         self.half = half
         self.width = width
         self.height = height
+
+        from src.upscale._shared import calculatePadding
 
         self.padding = calculatePadding(width, height, 4)
         self.paddedHeight = self.padding[3] + height + self.padding[2]

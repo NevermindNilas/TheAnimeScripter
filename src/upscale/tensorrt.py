@@ -7,7 +7,6 @@ from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
-from src.upscale._shared import calculatePadding
 
 if ADOBE:
     from src.server.aeComms import progressState
@@ -177,6 +176,8 @@ class UniversalTensorRT:
         # the input is reflect-padded to it, cropping the surplus off the output.
         # Fully-conv archs report 1, so padding stays zero (bit-identical path).
         self.requiredMultiple = self._detectRequiredMultiple()
+        from src.upscale._shared import calculatePadding
+
         self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
         self.paddedWidth = self.width + self.padding[1]
         self.paddedHeight = self.height + self.padding[3]
