@@ -222,28 +222,6 @@ def _adjustMethodsBasedOnCuda(args, availableModels=None):
         )
 
 
-def _downloadOfflineModels(args):
-    from src.model.download import downloadModels
-    from src.model.registry import modelsList
-
-    logAndPrint(
-        f"Offline mode enabled, downloading {args.offline} model(s)...", "green"
-    )
-
-    options = modelsList() if args.offline == ["all"] else args.offline
-    for option in options:
-        for precision in [True, False]:
-            try:
-                downloadModels(option.lower(), half=precision)
-            except Exception:
-                logging.error(
-                    f"Failed to download model: {option} with precision: {'fp16' if precision else 'fp32'}"
-                )
-    logAndPrint(
-        f"Offline model(s) {', '.join(options)} downloaded successfully!", "green"
-    )
-
-
 def prepareRuntimeArgs(args, outputPath, parser):
     from src.version import __version__
 
@@ -385,9 +363,6 @@ def prepareRuntimeArgs(args, outputPath, parser):
         args.slowmo = False
 
     _handleDepthSettings(args)
-
-    if args.offline != "none":
-        _downloadOfflineModels(args)
 
     _configureProcessingSettings(args)
 

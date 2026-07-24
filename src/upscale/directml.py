@@ -18,12 +18,6 @@ checker = CudaChecker()
 torch.set_float32_matmul_precision("medium")
 
 
-def calculatePadding(width, height, multiple=4):
-    padW = (multiple - (width % multiple)) % multiple
-    padH = (multiple - (height % multiple)) % multiple
-    return (0, padW, 0, padH)
-
-
 class UniversalDirectML:
     def __init__(
         self,
@@ -165,6 +159,8 @@ class UniversalDirectML:
         # Fully-convolutional archs report 1 here, so padding stays zero and the
         # output is bit-identical to the unpadded path.
         self.requiredMultiple = self._detectRequiredMultiple()
+        from src.upscale._shared import calculatePadding
+
         self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
         self.paddedWidth = self.width + self.padding[1]
         self.paddedHeight = self.height + self.padding[3]
@@ -348,6 +344,8 @@ class AnimeSRDirectML:
         self.half = half
         self.width = width
         self.height = height
+
+        from src.upscale._shared import calculatePadding
 
         self.padding = calculatePadding(width, height, 4)
         self.paddedHeight = self.padding[3] + height + self.padding[2]

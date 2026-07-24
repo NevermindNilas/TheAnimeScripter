@@ -26,12 +26,6 @@ def _tensorRTBuildFailureMessage(modelPath: str) -> str:
     )
 
 
-def calculatePadding(width, height, multiple=4):
-    padW = (multiple - (width % multiple)) % multiple
-    padH = (multiple - (height % multiple)) % multiple
-    return (0, padW, 0, padH)
-
-
 class UniversalTensorRT:
     def __init__(
         self,
@@ -182,6 +176,8 @@ class UniversalTensorRT:
         # the input is reflect-padded to it, cropping the surplus off the output.
         # Fully-conv archs report 1, so padding stays zero (bit-identical path).
         self.requiredMultiple = self._detectRequiredMultiple()
+        from src.upscale._shared import calculatePadding
+
         self.padding = calculatePadding(self.width, self.height, self.requiredMultiple)
         self.paddedWidth = self.width + self.padding[1]
         self.paddedHeight = self.height + self.padding[3]

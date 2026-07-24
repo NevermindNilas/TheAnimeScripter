@@ -87,5 +87,3 @@ def checkSystem():
             logging.error("Unsupported OS")
     except Exception as e:
         logging.error(f"An error occurred while checking the system: {e}")
-    except ImportError as e:
-        logging.error(f"Error importing the required modules: {e}")

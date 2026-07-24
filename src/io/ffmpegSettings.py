@@ -71,7 +71,6 @@ class BuildBuffer:
         bitDepth: str = "8bit",
         toTorch: bool = True,
         decode_method: str = "cpu",
-        batched: bool = False,
     ):
         """
         Initializes the BuildBuffer class.
@@ -87,7 +86,6 @@ class BuildBuffer:
             bitDepth (str): Bit depth of the output frames, e.g., "8bit" or "10bit".
             toTorch (bool): Whether to convert frames to torch tensors.
             decode_method (str): The backend to use for decoding, e.g., "cpu" or "nvdec".
-            batched (bool): Whether to decode frames in batches.
 
         Note:
             Nelux returns HWC format [H, W, 3] with native dtype (uint8/int16).
