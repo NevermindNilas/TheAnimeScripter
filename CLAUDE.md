@@ -42,7 +42,7 @@ URL input is handled by `src/ytdlp.py`.
 
 ## Change map
 
-- **Add a model = TWO edits:** add its weight mapping to `src/model/registry.py:modelsMap()` and its CLI choice to `src/cli/parser.py`. `modelsList()` is the canonical method registry used by `--offline`.
+- **Add a model = TWO edits:** add its weight mapping to `src/model/registry.py:modelsMap()` and its CLI choice to `src/cli/parser.py`. `modelsList()` is the canonical method registry, used by `src/infra/backendFallback.py` and pinned by `tests/test_registryDrift.py`.
 - **Add a backend:** add a sibling backend class, a `match` arm in `src/initializeModels.py`, CLI choices, and `modelsList()`/`modelsMap()` entries. Never rewrite the CUDA path.
 - Backend classes follow convention, not an ABC: dashless class suffixes (`UniversalPytorch`/`UniversalTensorRT`/`UniversalDirectML`/`UniversalNCNN`/`UniversalPytorchMPS`; `RifeCuda`/`RifeTensorRT`/etc.) implementing `__call__()` and `handleModel()`. Method strings alone use `-<backend>`.
 - **Temporal drivers declare their own lookahead.** A driver that needs neighbouring frames handed to it sets `temporalWindow = (past, future)` on the class (`AnimeSR*`, `DistilDRBA*` = `(0, 1)`); frames it caches itself (RIFE's `I0`, AnimeSR's padded `prevFrame`) are not part of the declaration. `main.py:process` sizes a `src/io/frameWindow.py:FrameWindow` ring to the stage chain's demand (`max` in interpolate-first, where interp and upscale both read the source stream; `sum` in interpolate-last, where interp's neighbour is itself upscaled) and hands drivers `frameWindow.successorFrame()`. Never gate a lookahead on a method-name string in `main.py` — that is how `animesr-tensorrt`/`-directml`/`-openvino` silently ran with `next == curr`. `tests/test_frameWindow.py` fails if a new `AnimeSR*`/`DistilDRBA*` class omits the declaration.
@@ -87,6 +87,7 @@ Do not read, search, summarize, lint, or modify these trees unless the task expl
 - Benchmark against a snapshot of the original unedited code on a warm, otherwise-idle GPU; report FPS, VRAM, and parity.
 - For bugs/reviews, read every relevant caller, discard false positives explicitly, prove changes with before/after tests, and update `CHANGELOG.MD`.
 - Never load the full large changelog for orientation; grep the relevant entry.
+- `CHANGELOG.MD` entries are short and to the point: one or two sentences per entry — what changed, and the measured number or user-visible symptom. No investigation narrative, no bisect story, no "verified by two reviewers", no restating the fix in three ways. Keep the deep write-up in the PR body or commit message, not here.
 
 ## Agent skills
 
