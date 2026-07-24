@@ -249,7 +249,11 @@ class DepthCuda:
             if self.normalizer is not None:
                 depth = self.normalizer.normalize(depth)
             else:
-                depth = (depth - depth.min()) / (depth.max() - depth.min())
+                # clamp_min guards the divide only when the map is perfectly
+                # flat; any real frame has a range far above it and comes out
+                # bit-identical
+                minVal = depth.min()
+                depth = (depth - minVal) / (depth.max() - minVal).clamp_min(1e-6)
         self.outputNormStream.synchronize()
         return depth
 
