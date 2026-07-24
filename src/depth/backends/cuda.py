@@ -238,10 +238,24 @@ class DepthCuda:
     def _normalizeDepth(self, depth):
         """Normalize a single already-upscaled depth frame [1, C, H, W].
         Per-frame min-max (or sliding-window normalizer) so a batched forward
-        stays bit-identical to one-frame-at-a-time."""
-        if self.normalizer is not None:
-            return self.normalizer.normalize(depth)
-        return (depth - depth.min()) / (depth.max() - depth.min())
+        stays bit-identical to one-frame-at-a-time.
+
+        The result goes straight to WriteBuffer, whose writer thread copies on
+        its own private stream and never waits on ours, so the normalize must be
+        synchronized here. Without it the writer can read the block before the
+        kernels land and, because the allocator recycles the tensor freed two
+        frames earlier, emit a byte-exact duplicate of frame N-2."""
+        with torch.cuda.stream(self.outputNormStream):
+            if self.normalizer is not None:
+                depth = self.normalizer.normalize(depth)
+            else:
+                # clamp_min guards the divide only when the map is perfectly
+                # flat; any real frame has a range far above it and comes out
+                # bit-identical
+                minVal = depth.min()
+                depth = (depth - minVal) / (depth.max() - minVal).clamp_min(1e-6)
+        self.outputNormStream.synchronize()
+        return depth
 
     @torch.inference_mode()
     def processBatch(self, frames):
