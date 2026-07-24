@@ -305,7 +305,6 @@ def tensorRTEngineCreator(
     maxWorkspaceSize: int = (1 << 30),
     forceStatic: bool = False,
     isMultiInput: bool = False,
-    isRife: bool = False,
 ) -> tuple[trt.ICudaEngine | None, trt.IExecutionContext | None]:
     """
     Create a TensorRT engine from an ONNX model with enhanced validation and error handling.
@@ -321,7 +320,6 @@ def tensorRTEngineCreator(
         maxWorkspaceSize (int): The maximum GPU memory that the engine will use.
         forceStatic (bool): Force static shapes for all inputs.
         isMultiInput (bool): Whether the model has multiple inputs.
-        isRife (bool): Whether the model is a RIFE model.
 
     Returns:
         Tuple of (engine, context) or (None, None) on failure.

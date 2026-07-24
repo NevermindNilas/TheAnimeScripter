@@ -1103,25 +1103,5 @@ def modelsMap(
             else:
                 return "depth_anything_v3_vitb_fp32.onnx"
 
-        case "large_v3-directml" | "large_v3-tensorrt":
-            if half:
-                return "depth_anything_v3_vitl_fp16.onnx"
-            else:
-                return "depth_anything_v3_vitl_fp32.onnx"
-
-        case "giant_v3-directml" | "giant_v3-tensorrt":
-            if half:
-                return "depth_anything_v3_vitg_fp16.onnx"
-            else:
-                return "depth_anything_v3_vitg_fp32.onnx"
-
-        case "tlbvfi":
-            if modelType == "unet":
-                return "vimeo_unet.pth"
-            elif modelType == "vqgan":
-                return "vimeo_new.ckpt"
-            else:
-                return "vimeo_unet.pth"  # Default to unet
-
         case _:
             raise ValueError(f"Model {model} not found.")

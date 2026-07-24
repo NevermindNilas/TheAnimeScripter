@@ -58,15 +58,6 @@ class CudaChecker:
             return self.torch.device("mps")
         return self.torch.device("cpu")
 
-    @property
-    def deviceCount(self):
-        """Get the number of available accelerator devices."""
-        if self._cuda_available:
-            return self.torch.cuda.device_count()
-        if self._mps_available:
-            return 1
-        return 0
-
 
 def getNvsmipaths():
     paths = [shutil.which("nvidia-smi")]

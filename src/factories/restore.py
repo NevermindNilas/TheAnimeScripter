@@ -106,7 +106,6 @@ def buildRestoreProcess(self):
 
             case (
                 "anime1080fixer-directml"
-                | "anime1080fixer-openvino"
                 | "gater3-directml"
                 | "scunet-directml"
                 | "deh264_real-directml"
