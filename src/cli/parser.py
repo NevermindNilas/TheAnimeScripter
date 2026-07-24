@@ -1239,13 +1239,6 @@ def _addMiscOptions(argParser):
         help="Enable torch.profiler to analyze GPU/CPU performance bottlenecks",
     )
     miscGroup.add_argument(
-        "--offline",
-        type=str,
-        nargs="*",
-        default="none",
-        help="Download a specific model or multiple models for offline use, use keyword 'all' to download all models",
-    )
-    miscGroup.add_argument(
         "--ae",
         type=str,
         default="",
