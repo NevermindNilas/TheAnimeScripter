@@ -585,21 +585,10 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `--offline` | str | "none" | **Model download mode** |
 | `--download_requirements` | optional str | None | **Download dependencies** for `windows-cuda`, `windows-lite`, `linux-cuda`, `linux-lite`, or `macos-mps`. With no value, prompts for CUDA/lite profiles on Windows/Linux and selects the Apple Silicon MPS profile on macOS. |
 | `--cleanup` | flag | False | **Remove unused libraries/dependencies** (attempts to uninstall extras based on detected GPU capability) |
 
-**Offline Mode Options:**
-```bash
-# Download specific models
---offline "rife4.22 shufflecugan-tensorrt"
-
-# Download all models
---offline "all"
-
-# No downloads (default)
---offline "none"
-```
+Weights are downloaded on demand the first time a method runs, so no separate download step is needed.
 
 #### Bit Depth Configuration
 
@@ -854,19 +843,9 @@ Masking costs one blend per generated frame (~0.97 ms at 1080p, roughly 7% of a 
 **Symptoms:** "Model not found" or loading errors
 
 **Solutions:**
-1. **Download models:** Use `--offline "model_name"`
-2. **Check internet:** Ensure stable connection
-3. **Clear cache:** Delete model cache and re-download
-4. **Check disk space:** Ensure adequate free space (5GB+)
-
-**Model Download:**
-```bash
-# Download specific models
-./python.exe ./main.py --offline "rife4.22 shufflecugan-tensorrt"
-
-# Download all models (large download)
-./python.exe ./main.py --offline "all"
-```
+1. **Check internet:** Weights download on demand on first use; ensure a stable connection
+2. **Clear cache:** Delete model cache and re-download
+3. **Check disk space:** Ensure adequate free space (5GB+)
 </details>
 
 <details>
