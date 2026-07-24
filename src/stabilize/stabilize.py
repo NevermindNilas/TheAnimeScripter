@@ -492,15 +492,6 @@ class VideoStabilize:
         weight[-1] = 0.0
         return weight.astype(np.float32)
 
-    def _calcSceneWeightScalar(self, matchScore: float):
-        maxScore = 0.75
-        minScore = 0.50
-        weight = (float(matchScore) - minScore) / (maxScore - minScore)
-        weight = float(np.clip(weight, 0.0, 1.0))
-        if weight < 0.65:
-            weight = weight**2
-        return weight
-
     def _movingAverage(self, curve, radius):
         windowSize = 2 * radius + 1
         if len(curve) < windowSize:

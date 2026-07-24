@@ -7,6 +7,7 @@ from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
+from src.upscale._shared import calculatePadding
 
 if ADOBE:
     from src.server.aeComms import progressState
@@ -24,12 +25,6 @@ def _tensorRTBuildFailureMessage(modelPath: str) -> str:
         "Close GPU-heavy apps, update the NVIDIA driver, use --static, or choose a "
         "non-TensorRT backend such as CUDA, DirectML, or OpenVINO."
     )
-
-
-def calculatePadding(width, height, multiple=4):
-    padW = (multiple - (width % multiple)) % multiple
-    padH = (multiple - (height % multiple)) % multiple
-    return (0, padW, 0, padH)
 
 
 class UniversalTensorRT:

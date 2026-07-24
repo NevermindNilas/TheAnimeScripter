@@ -66,10 +66,6 @@ def _ansi(text, color_code):
     return f"{color_code}{text}{_RESET}"
 
 
-_VERBOSE = False
-_QUIET = False
-
-
 def logAndPrint(message: str, colorFunc: str = "cyan", level: str = "INFO") -> None:
     """
     Print a colored message to console and log it to file.
@@ -79,24 +75,19 @@ def logAndPrint(message: str, colorFunc: str = "cyan", level: str = "INFO") -> N
         colorFunc (str): Color function name ('cyan', 'red', 'yellow', 'green')
         level (str): Log level ('INFO', 'WARNING', 'ERROR', 'SUCCESS', 'DEBUG')
     """
-    colorFunctions = {"cyan": cyan, "red": red, "yellow": yellow, "green": green}
-
     icons = {"INFO": "i", "WARNING": "!", "ERROR": "x", "SUCCESS": "+", "DEBUG": "?"}
 
     icon = icons.get(level.upper(), "i")
-    if not _QUIET:
-        if colorFunc in colorFunctions:
-            formatted_message = f"{icon} {message}"
-            print(colorFunctions[colorFunc](formatted_message))
-        else:
-            print(f"{icon} {message}")
+    formatted_message = f"{icon} {message}"
+    if colorFunc in _COLOR_FUNCS:
+        print(_COLOR_FUNCS[colorFunc](formatted_message))
+    else:
+        print(formatted_message)
 
     if level.upper() == "ERROR":
         logging.error(message)
     elif level.upper() == "WARNING":
         logging.warning(message)
-    elif level.upper() == "DEBUG" and _VERBOSE:
-        logging.debug(message)
     else:
         logging.info(message)
 
@@ -130,11 +121,10 @@ def printSectionHeader(title: str, char: str = "=") -> None:
         char (str): Character to use for the border (default: '=')
     """
     width = 80
-    if not _QUIET:
-        border = char * width
-        print(cyan(border))
-        print(cyan(f"{title.center(width)}"))
-        print(cyan(border))
+    border = char * width
+    print(cyan(border))
+    print(cyan(f"{title.center(width)}"))
+    print(cyan(border))
 
     logging.info(f"\n{border}")
     logging.info(f"{title.center(width)}")
@@ -148,10 +138,9 @@ def printSubsectionHeader(title: str) -> None:
     Args:
         title (str): Subsection title
     """
-    if not _QUIET:
-        print(cyan(f"\n{'─' * 80}"))
-        print(cyan(f"  {title}"))
-        print(cyan(f"{'─' * 80}"))
+    print(cyan(f"\n{'─' * 80}"))
+    print(cyan(f"  {title}"))
+    print(cyan(f"{'─' * 80}"))
 
     logging.info(f"\n{'─' * 80}")
     logging.info(f"  {title}")
@@ -166,13 +155,8 @@ def coloredPrint(message: str, colorFunc: str = "cyan") -> None:
         message (str): Message to display
         colorFunc (str): Color function name ('cyan', 'red', 'yellow', 'green')
     """
-    if _QUIET:
-        return
-
-    colorFunctions = {"cyan": cyan, "red": red, "yellow": yellow, "green": green}
-
-    if colorFunc in colorFunctions:
-        print(colorFunctions[colorFunc](message))
+    if colorFunc in _COLOR_FUNCS:
+        print(_COLOR_FUNCS[colorFunc](message))
     else:
         print(message)
 
@@ -195,3 +179,7 @@ def yellow(text):
 def cyan(text):
     """Format text in cyan color."""
     return _ansi(text, _COLORS["cyan"])
+
+
+# Defined last: the color functions above must exist before this dict is built.
+_COLOR_FUNCS = {"cyan": cyan, "red": red, "yellow": yellow, "green": green}

@@ -170,7 +170,7 @@ def uninstallDependencies(extension: str = "") -> tuple[bool, str]:
     )
 
 
-def installDependencies(extension: str = "", isNvidia: bool = True) -> tuple[bool, str]:
+def installDependencies(extension: str = "") -> tuple[bool, str]:
     """Install dependencies from the selected requirements file."""
     pythonPath = getPythonExecutable()
     ok, requirementsPath = _resolveRequirementsPath(extension)
@@ -481,10 +481,7 @@ class DependencyChecker:
         """Install a specific profile's requirements and store the choice."""
         requirementsFile = getRequirementsFileForProfile(profile)
 
-        success, message = installDependencies(
-            requirementsFile,
-            isNvidia=profile.endswith("-cuda"),
-        )
+        success, message = installDependencies(requirementsFile)
 
         if not success:
             logAndPrint(message, "red")
