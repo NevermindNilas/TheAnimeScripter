@@ -58,6 +58,34 @@ def _drainQueueUntilSentinel(queue) -> None:
             return
 
 
+def drainReader(readBuffer) -> None:
+    """Consume decoded frames until the reader thread reaches its sentinel.
+
+    The reader blocks on ``put()`` into the 32-deep decode queue, so a consumer
+    that stops early (because it raised) pins it there and every join on it
+    hangs. Draining lets it run out and set ``isFinished``.
+    """
+    while not readBuffer.isReadFinished():
+        try:
+            readBuffer.decodeBuffer.get(timeout=0.1)
+        except Empty:
+            continue
+
+
+def closeWriterAndDrainReader(writeBuffer, readBuffer) -> None:
+    """Release both pipeline threads once a frame loop ends, however it ends.
+
+    Mirrors the ``finally`` in ``main.py:process``. Neither thread can escape on
+    its own: the writer's main loop swallows the queue timeout and spins until
+    it sees the ``None`` sentinel, and the reader blocks on ``put()``. So a
+    ``process()`` that raises before its own ``close()`` leaves
+    ``ThreadPoolExecutor.__exit__`` joining forever, with the original exception
+    buried in a future nobody reads.
+    """
+    writeBuffer.close()
+    drainReader(readBuffer)
+
+
 class BuildBuffer:
     def __init__(
         self,
@@ -519,6 +547,23 @@ class WriteBuffer:
             and not self.benchmark
         )
 
+    @staticmethod
+    def _toOutputFrame(frame, multiplier: int, dtype):
+        """CHW float frame -> contiguous HWC integer frame.
+
+        fp16's largest finite value is 65504, so a 16-bit frame cannot be
+        scaled in half precision: ``mul(65535)`` saturates to inf and
+        ``clamp(0, 65535)`` raises "value cannot be converted to type
+        c10::Half without overflow". ``--half`` is on by default, so
+        ``--bit_depth 16bit`` hit that on the very first frame and the
+        encoder's ``except Exception`` turned it into a 0-byte output.
+        Promote to fp32 for 16-bit only; 8-bit keeps its existing fp16 math.
+        """
+        frame = frame.squeeze(0).permute(1, 2, 0)
+        if multiplier > 255 and frame.dtype == torch.float16:
+            frame = frame.float()
+        return frame.mul(multiplier).clamp(0, multiplier).to(dtype).contiguous()
+
     def _writeSinglePngDirect(
         self, frameTensor, needsResize: bool, multiplier: int, dtype
     ):
@@ -532,16 +577,7 @@ class WriteBuffer:
                 align_corners=False,
             )
 
-        frameArray = (
-            frameTensor.squeeze(0)
-            .permute(1, 2, 0)
-            .mul(multiplier)
-            .clamp(0, multiplier)
-            .to(dtype)
-            .contiguous()
-            .cpu()
-            .numpy()
-        )
+        frameArray = self._toOutputFrame(frameTensor, multiplier, dtype).cpu().numpy()
 
         if frameArray.ndim == 3 and frameArray.shape[2] == 1:
             frameArray = frameArray[:, :, 0]
@@ -653,24 +689,32 @@ class WriteBuffer:
             ]
         )
 
-        if self.outpoint != 0 and not self.slowmo:
-            command.extend(
-                [
-                    "-itsoffset",
-                    str(self.inpoint),
-                    "-i",
-                    "pipe:0",
-                    "-ss",
-                    str(self.inpoint),
-                    "-to",
-                    str(self.outpoint),
-                ]
-            )
-        else:
-            command.extend(["-i", "pipe:0"])
+        # The piped frames are ALREADY the [inpoint, outpoint] range -- BuildBuffer
+        # trimmed the decode -- so the video input takes no -itsoffset and no
+        # trim. It used to take both: "-itsoffset in -i pipe:0 -ss in -to out"
+        # shifted the piped video to start at `inpoint` and then trimmed it, so
+        # --inpoint 1 --outpoint 6 lost a full second of video off a 5s payload
+        # and --inpoint 5 --outpoint 10 produced a 261-byte streamless file,
+        # both with ffmpeg exiting 0.
+        command.extend(["-i", "pipe:0"])
 
         if cs.AUDIO:
-            command.extend(["-thread_queue_size", "1024", "-i", self.input])
+            command.extend(["-thread_queue_size", "1024"])
+            # Only the source input is trimmed, and only to feed audio/subtitles
+            # the matching range. Input-side -ss rebases to 0, so the audio lines
+            # up with the piped video's own zero.
+            #
+            # -ss is gated on inpoint alone, NOT on outpoint: BuildBuffer decodes
+            # [inpoint, EOF] when only --inpoint is given, so tying the audio
+            # offset to --outpoint left the audio ahead of the video by inpoint
+            # seconds whenever --outpoint was omitted. NeluxWriteBuffer's
+            # add_passthrough already gates them independently; this matches it.
+            if not self.slowmo:
+                if self.inpoint:
+                    command.extend(["-ss", str(self.inpoint)])
+                if self.outpoint != 0:
+                    command.extend(["-to", str(self.outpoint)])
+            command.extend(["-i", self.input])
 
         filterList = self._buildFilterList()
 
@@ -680,8 +724,16 @@ class WriteBuffer:
             command.extend(matchEncoder(self.encode_method))
 
             if useHwUpload:
+                # hwupload_cuda uploads whatever SW format precedes it, so
+                # pinning nv12 handed 8-bit 4:2:0 surfaces to nvenc_h265_10bit
+                # -- which matchEncoder already tags "-profile:v main10" -- and
+                # the "10bit" preset encoded 8-bit data. p010le is the CUDA
+                # 10-bit format. Everything else stays on nv12; CUDA has no
+                # yuv444p10le hwframe format, so the 4:4:4 outputs (16-bit,
+                # lossless_nvenc) still subsample here.
+                hwFormat = "p010le" if outputPixFmt == "p010le" else "nv12"
                 hwFilters = filterList.copy() if filterList else []
-                hwFilters.append("format=nv12")
+                hwFilters.append(f"format={hwFormat}")
                 hwFilters.append("hwupload_cuda")
                 command.extend(["-vf", ",".join(hwFilters)])
             else:
@@ -807,9 +859,10 @@ class WriteBuffer:
             subCodec = "mov_text"
         audioSettings.extend(["-c:a", audioCodec, "-map", "1:s?", "-c:s", subCodec])
 
-        if self.outpoint != 0:
-            audioSettings.extend(["-ss", str(self.inpoint), "-to", str(self.outpoint)])
-
+        # No -ss/-to here. These land immediately before the output file, so they
+        # trimmed the OUTPUT timeline, not the audio: combined with the old
+        # -itsoffset on the piped video they cut real frames off the front of the
+        # render. The source input is trimmed in _buildEncodingCommand instead.
         return audioSettings
 
     def __call__(self):
@@ -958,14 +1011,7 @@ class WriteBuffer:
                                 align_corners=False,
                             )
 
-                        gpuTensor = (
-                            frame.squeeze(0)
-                            .permute(1, 2, 0)
-                            .mul(multiplier)
-                            .clamp(0, multiplier)
-                            .to(dtype)
-                            .contiguous()
-                        )
+                        gpuTensor = self._toOutputFrame(frame, multiplier, dtype)
 
                         currentBuffer = pinnedBuffers[bufferIdx]
                         currentBuffer.copy_(gpuTensor, non_blocking=True)
@@ -1005,14 +1051,7 @@ class WriteBuffer:
                             mode="bicubic",
                             align_corners=False,
                         )
-                    frameTensor = (
-                        frame.squeeze(0)
-                        .permute(1, 2, 0)
-                        .mul(multiplier)
-                        .clamp(0, multiplier)
-                        .to(dtype)
-                        .contiguous()
-                    )
+                    frameTensor = self._toOutputFrame(frame, multiplier, dtype)
 
                     ffmpegProc.stdin.write(frameTensor.numpy())
                     writtenFrames += 1

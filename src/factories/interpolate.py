@@ -210,3 +210,9 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
                 self.interpolateMethod,
                 interpolateFactor=self.interpolateFactor,
             )
+
+        case _:
+            raise ValueError(
+                f"No interpolation backend is wired up for method "
+                f"'{self.interpolateMethod}'."
+            )

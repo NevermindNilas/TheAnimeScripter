@@ -1,4 +1,5 @@
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 
@@ -9,7 +10,12 @@ import torch
 import src.io.ffmpegSettings as ffmpegSettings
 from src.constants import ADOBE
 from src.infra.progressBarLogic import ProgressBarLogic
-from src.io.ffmpegSettings import BuildBuffer, createWriteBuffer
+from src.io.ffmpegSettings import (
+    BuildBuffer,
+    closeWriterAndDrainReader,
+    createWriteBuffer,
+    drainReader,
+)
 from src.stabilize.superpoint import find_match_index, find_transform
 
 if ADOBE:
@@ -95,10 +101,39 @@ class VideoStabilize:
         self.matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
         self._initSuperPoint()
 
+        # Recorded, not merely logged: --stabilize bypasses start(), so this is
+        # the only place a pipeline failure can be observed. main.py decides the
+        # batch exit code from processingError plus the output size, and a run
+        # that died after writing some frames leaves a non-empty file -- so it
+        # used to be reported as a success with a silently truncated video.
+        self.processingError: Exception | None = None
         try:
             self.runStreamingPipeline()
         except Exception as e:
+            self.processingError = e
             logging.exception(f"Something went wrong in stabilization pipeline, {e}")
+
+        # Neither terminal status was ever sent, so the After Effects panel sat
+        # on "Analyzing and stabilizing video..." forever (issues #269, #236).
+        # Keying off the exception alone is not enough: an encoder that exits 0
+        # having written nothing is exactly what those issues were about, so
+        # apply main.py's own failed-run test, missing/0-byte output included.
+        if ADOBE:
+            wroteOutput = self.benchmark
+            if not wroteOutput:
+                try:
+                    wroteOutput = os.path.getsize(self.output) > 0
+                except OSError, TypeError:  # same pair as main.py:_videoFailed
+                    wroteOutput = False
+
+            if self.processingError is not None or not wroteOutput:
+                progressState.setFailed(
+                    error=str(self.processingError)
+                    if self.processingError is not None
+                    else "Output file not found after processing"
+                )
+            else:
+                progressState.setCompleted(outputPath=self.output)
 
     def runStreamingPipeline(self):
         if ADOBE:
@@ -137,8 +172,14 @@ class VideoStabilize:
         with ThreadPoolExecutor(max_workers=2) as executor:
             decodeFuture = executor.submit(self.readBuffer)
             analyzeFuture = executor.submit(self._analyzeFrames, progressBar, advance)
-            decodeFuture.result()
-            analyzeFuture.result()
+            # Await the consumer first, then drain: waiting on decodeFuture up
+            # front hung forever whenever _analyzeFrames died with the 32-deep
+            # decode queue full, because the reader was still blocked in put().
+            try:
+                analyzeFuture.result()
+            finally:
+                drainReader(self.readBuffer)
+                decodeFuture.result()
 
         self.transforms = np.array(self.transforms, dtype=np.float32)
         self.meanMatchScores = np.array(self.meanMatchScores, dtype=np.float32)
@@ -660,6 +701,12 @@ class VideoStabilize:
             grayscale=False,
             benchmark=self.benchmark,
             bitDepth=self.bitDepth,
+            # BuildBuffer above trims the video to [inpoint, outpoint]; without
+            # these the writer muxes the FULL-length source audio/subtitles
+            # against it, so the output desyncs by inpoint and runs to the
+            # audio's length. main.py, motionBlur and AnimeSegment all pass them.
+            inpoint=self.inpoint,
+            outpoint=self.outpoint,
         )
         self.writeHwcUint8 = getattr(self.writeBuffer, "acceptsHwcUint8", False)
 
@@ -723,4 +770,6 @@ class VideoStabilize:
 
             logging.info(f"Processed {frameCount} frames")
         finally:
-            self.writeBuffer.close()
+            # Closing the writer alone still left the reader blocked on put()
+            # when this loop raised early, so the executor join never returned.
+            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)

@@ -45,13 +45,6 @@ def buildRestoreProcess(self):
                 | "deh264_span"
                 | "hurrdeblur"
                 | "dehalo"
-                | "scunet-openvino"
-                | "anime1080fixer-openvino"
-                | "gater3-openvino"
-                | "deh264_real-openvino"
-                | "deh264_span-openvino"
-                | "hurrdeblur-openvino"
-                | "dehalo-openvino"
             ):
                 from src.unifiedRestore import UnifiedRestoreCuda
 
@@ -104,6 +97,12 @@ def buildRestoreProcess(self):
                     )
                 )
 
+            # OpenVINO is a provider branch inside UnifiedRestoreDirectML, not a
+            # separate class. These used to sit in the CUDA arm above, where
+            # UnifiedRestoreCuda fed the "-openvino" name straight to modelsMap
+            # and died with "Model scunet-openvino not found" (dehalo-openvino
+            # was worse: it resolved, then ran the CUDA path on the non-NVIDIA
+            # box the user picked OpenVINO for).
             case (
                 "anime1080fixer-directml"
                 | "gater3-directml"
@@ -112,6 +111,13 @@ def buildRestoreProcess(self):
                 | "deh264_span-directml"
                 | "hurrdeblur-directml"
                 | "dehalo-directml"
+                | "anime1080fixer-openvino"
+                | "gater3-openvino"
+                | "scunet-openvino"
+                | "deh264_real-openvino"
+                | "deh264_span-openvino"
+                | "hurrdeblur-openvino"
+                | "dehalo-openvino"
             ):
                 from src.unifiedRestore import UnifiedRestoreDirectML
 

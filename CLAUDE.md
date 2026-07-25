@@ -29,7 +29,7 @@ python build.py
 | Upscale | `src/upscale/` | CUDA, TRT, DML, OpenVINO, NCNN, MPS |
 | Interpolate | `src/interpolate/` | RIFE; CUDA, TRT, DML, OpenVINO, NCNN, MPS |
 | Restore | `src/unifiedRestore.py` | CUDA, TRT, DML, OpenVINO, Maxine, MPS |
-| Dedup | `src/dedup/dedup.py` | CUDA/CPU SSIM, MSE, flownets; `--dedup_sens` default 35 maps to SSIM `1-s/1000`, flownets `s/100` |
+| Dedup | `src/dedup/dedup.py` | CUDA/CPU SSIM, MSE, flownets; `--dedup_sens` default 35 maps to SSIM `1-s/1000`, VMAF `100-s/10`, flownets `s/100`; MSE takes it raw |
 | Depth | `src/depth/depth.py`, `src/depth/backends/` | CUDA, TRT, DML, OpenVINO, MPS; includes temporal VideoDepthAnything |
 | Segment | `src/segment/animeSegment.py` | CUDA, TRT, DML (`AnimeSegmentOpenVino` exists but has no CLI choice) |
 | Object detect | `src/objectDetection/objectDetection.py` | TRT, DML, OpenVINO (the plain `ObjectDetection` class has no CLI choice) |

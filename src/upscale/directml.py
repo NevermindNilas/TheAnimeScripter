@@ -293,7 +293,12 @@ class UniversalDirectML:
                     : self.width * self.upscaleFactor,
                 ]
 
-            return output.contiguous()
+            # clone(), not contiguous(): dummyOutput is the persistent ORT
+            # output binding, and when padding is zero (every mod-1 arch, and
+            # the mod-4 archs at 1080p/720p) contiguous() returns THAT tensor,
+            # so all 32 frames the writer queue holds alias one buffer the next
+            # inference overwrites. Every sibling backend clones.
+            return output.clone()
 
         except Exception as e:
             if not self.usingCpuFallback:
@@ -432,8 +437,13 @@ class AnimeSRDirectML:
             device=self.deviceType,
             dtype=self.torchDType,
         ).contiguous()
+        # MSRSWVSR concatenates state (and pixel_unshuffle(fb)) onto the frames,
+        # so it has to carry the PADDED spatial dims like every other buffer
+        # here. Sized from the raw dims it raised "Sizes of tensors must match
+        # except in dimension 1" on the first frame at any resolution that is
+        # not a multiple of 4.
         self.state = torch.zeros(
-            (1, 64, self.height, self.width),
+            (1, 64, self.paddedHeight, self.paddedWidth),
             device=self.deviceType,
             dtype=self.torchDType,
         ).contiguous()
@@ -444,7 +454,7 @@ class AnimeSRDirectML:
             dtype=self.torchDType,
         ).contiguous()
         self.outState = torch.zeros(
-            (1, 64, self.height, self.width),
+            (1, 64, self.paddedHeight, self.paddedWidth),
             device=self.deviceType,
             dtype=self.torchDType,
         ).contiguous()
@@ -487,8 +497,12 @@ class AnimeSRDirectML:
         self.fb.copy_(self.outImg)
         self.prevFrame.copy_(paddedFrame)
 
+        # Crop the reflect-padded border off before resizing. Resizing the
+        # padded frame whole squeezes the real content and leaves a mirrored
+        # strip along the right/bottom edge (~4px and a 0.23% squeeze at
+        # 854x480). No-op when the input is already a multiple of 4.
         return torch.nn.functional.interpolate(
-            self.outImg,
+            self.outImg[:, :, : self.height * 4, : self.width * 4],
             size=(self.height * 2, self.width * 2),
             mode="bicubic",
             align_corners=False,

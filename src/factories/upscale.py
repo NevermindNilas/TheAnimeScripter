@@ -244,3 +244,12 @@ def buildUpscaleProcess(self):
                 self.customModel,
                 self.compileMode,
             )
+
+        case _:
+            # Without this the match falls through and the caller stores None as
+            # upscaleProcess, which only surfaces as "NoneType is not callable"
+            # mid-run. Reached when a method is registered/selected (including by
+            # applyBackendFallbacks) but has no backend class wired up.
+            raise ValueError(
+                f"No upscale backend is wired up for method '{self.upscaleMethod}'."
+            )

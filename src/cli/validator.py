@@ -28,17 +28,47 @@ def isAnyOtherProcessingMethodEnabled(args):
     )
 
 
+# The bare rife aliases are just names for 4.22 -- that is what modelsMap()
+# returns for "rife" and what the arch tables load. Left un-normalized they also
+# resolve their own weights/rife*/ download folder and, on TensorRT, a second
+# engine cache entry keyed off that path, so picking the alias cost a duplicate
+# weight download and a duplicate multi-minute engine build for a byte-identical
+# engine. Canonicalize once, here, rather than in each backend.
+_BARE_RIFE_ALIASES = {
+    "rife": "rife4.22",
+    "rife-ncnn": "rife4.22-ncnn",
+    "rife-tensorrt": "rife4.22-tensorrt",
+    "rife-mps": "rife4.22-mps",
+}
+
+
+def _normalizeMethodAliases(args):
+    for attribute in ("interpolate_method", "moblur_method"):
+        current = getattr(args, attribute, None)
+        canonical = _BARE_RIFE_ALIASES.get(current)
+        if canonical is not None:
+            logging.info(f"{attribute} '{current}' is an alias for '{canonical}'")
+            setattr(args, attribute, canonical)
+
+
 def _handleDepthSettings(args):
     if args.depth:
         logging.info("Depth enabled, audio processing will be disabled")
         cs.AUDIO = False
 
-    if args.depth_quality not in ["low"] and args.depth_method.split("-")[-1] in [
+    # "openvino" belongs here too: it is not a separate backend, it is a
+    # provider branch inside the same DepthDirectMLV2 class the "-directml"
+    # methods use (src/factories/standalone.py), so it has the same constraint.
+    # The --depth_batch clamp below already listed it.
+    backend = args.depth_method.split("-")[-1]
+    if args.depth_quality not in ["low"] and backend in [
         "tensorrt",
         "directml",
+        "openvino",
     ]:
         logAndPrint(
-            f"{args.depth_quality.upper()} depth estimation quality is incomaptible with tensorrt and directml, defaulting to low quality",
+            f"{args.depth_quality.upper()} depth estimation quality is incompatible "
+            f"with the {backend} backend, defaulting to low quality",
             "yellow",
         )
         args.depth_quality = "low"
@@ -63,7 +93,9 @@ def _handleDepthSettings(args):
             )
             args.depth_batch = 1
 
-    if args.depth_method in ["giant_v2", "og_giant_v2"]:
+    # Strip "-mps": giant_v2-mps and og_giant_v2-mps are the same models and
+    # equally large, but the bare list let them keep --half.
+    if args.depth_method.removesuffix("-mps") in ["giant_v2", "og_giant_v2"]:
         logAndPrint(
             f"{args.depth_method} is a very large model and may cause out of memory errors on GPUs with less than 16GB of VRAM",
             "yellow",
@@ -109,6 +141,13 @@ def _configureProcessingSettings(args):
 
         if args.dedup_method in ["ssim", "ssim-cuda"]:
             args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
+        elif args.dedup_method in ["vmaf", "vmaf-cuda"]:
+            # VMAF is SSIM's "high == similar" scale times 100, so it needs the
+            # same mapping. Passed through raw, --dedup_sens 35 became "any pair
+            # scoring VMAF >= 35 is a duplicate" -- true of nearly every
+            # consecutive pair -- and raising the flag made dedup *less*
+            # aggressive, the opposite of what it does for every other method.
+            args.dedup_sens = 100.0 - (args.dedup_sens / 10.0)
         elif args.dedup_method in ["flownets"]:
             args.dedup_sens = args.dedup_sens / 100
 
@@ -362,14 +401,19 @@ def prepareRuntimeArgs(args, outputPath, parser):
         )
         args.slowmo = False
 
-    _handleDepthSettings(args)
+    _normalizeMethodAliases(args)
 
     _configureProcessingSettings(args)
 
     _adjustMethodsBasedOnCuda(args)
 
-    # After the CUDA fallback, so the batch clamp sees the backend that will
-    # actually run rather than the one the user typed.
+    # After the CUDA fallback, so the quality/batch clamps see the backend that
+    # will actually run rather than the one the user typed. Before this move, a
+    # CUDA-less box running `--depth --depth_quality high` passed the clamp (the
+    # method was still "small_v2"), and the fallback then rewrote it to
+    # "small_v2-directml" with depth_quality still "high".
+    _handleDepthSettings(args)
+
     _handleSegmentSettings(args)
 
     if args.custom_encoder:
@@ -427,6 +471,10 @@ def prepareRuntimeArgs(args, outputPath, parser):
     logging.info(
         f"[DEBUG] Before processing check - args.interpolate: {args.interpolate}"
     )
+
+    # Every "this mode disables audio" rule has run by now, so freeze the intent.
+    # getVideoMetadata re-derives cs.AUDIO from it per video.
+    cs.AUDIO_REQUESTED = cs.AUDIO
 
     if not isAnyOtherProcessingMethodEnabled(args) and not args.png_passthrough:
         logAndPrint(

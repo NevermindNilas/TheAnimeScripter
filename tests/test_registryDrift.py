@@ -136,8 +136,10 @@ KNOWN_UNREGISTERED_METHODS = {
         "vmaf-cuda",
     },
     "interpolate": {
-        "rife-ncnn",  # generic alias resolved to a default version
-        "rife-tensorrt",  # generic alias resolved to a default version
+        # Bare aliases: absent from modelsList, but modelsMap resolves them to
+        # 4.22 (see testEveryInterpolateChoiceResolves, which pins that).
+        "rife-ncnn",
+        "rife-tensorrt",
         "rife4.15-tensorrt",  # modelsMap arm exists; absent from modelsList
         "rife4.15-directml",  # rides the rife4.15 ONNX via suffix replace
         "rife4.15-openvino",  # rides the rife4.15 ONNX via suffix replace
@@ -243,3 +245,104 @@ def testEveryMethodChoiceIsRegisteredOrKnownException(methodChoices):
         f"KNOWN_UNREGISTERED_METHODS entries no longer in the CLI choices: {stale}. "
         "Remove them from the exception table."
     )
+
+
+# --------------------------------------------------------------------------- #
+# --interpolate_method choices <-> what the backend actually resolves
+# --------------------------------------------------------------------------- #
+
+# The guards above compare choices against modelsList(), which the runtime never
+# calls. The backends call modelsMap() and importRifeArch() with their own
+# per-backend name mangling, and those two can disagree with each other. Three
+# shipped choices were broken exactly there and none of the tests above saw it:
+#
+#   * --interpolate_method rife-ncnn      -> ValueError: Model rife-ncnn not found
+#     (RifeNCNN passes the full method to modelsMap; only "rife" had an arm)
+#   * --interpolate_method rife-tensorrt  -> UnboundLocalError: IFNet
+#     (importRifeArch's v3 match had no arm and no default)
+#   * --interpolate_method rife-mps       -> load_state_dict blows up
+#     (arch table said 4.25, modelsMap said rife422.pth)
+#
+# So probe the real calls, and pin that methods sharing a weight file share an
+# architecture — that pairing is what the third bug violated.
+
+
+def _interpolateResolution(method):
+    """(family, weightFile, archClass) exactly as the matching backend resolves.
+
+    ``family`` separates the three architecture sets — the fp16 ``rife_fast``
+    classes (CUDA/MPS), the TensorRT v3 modules and the DirectML/ORT v3 modules
+    — because one ``.pth`` is legitimately loaded by one class from each.
+    """
+    from src.interpolate._shared import importRifeArch
+
+    if method.endswith("-ncnn"):
+        return "ncnn", modelsMap(method, modelType="ncnn"), None
+    if method.endswith("-tensorrt"):
+        base = method.replace("-tensorrt", "")
+        return (
+            "v3-trt",
+            modelsMap(base, modelType="pth"),
+            importRifeArch(method, "v3")[0],
+        )
+    if method.endswith(("-directml", "-openvino")):
+        # RifeDirectML strips only "-directml"; OpenVINO rides the same arm.
+        base = method.replace("-directml", "")
+        return (
+            "v3-ort",
+            modelsMap(base, modelType="pth"),
+            importRifeArch(method, "v3")[0],
+        )
+    base = method.replace("-mps", "")  # RifeMPS.baseMethod; CUDA uses it as-is
+    return "v1", modelsMap(base, modelType="pth"), importRifeArch(base, "v1", half=True)
+
+
+def testEveryInterpolateChoiceResolves(methodChoices):
+    pytest.importorskip("torch")
+
+    failures = {}
+    resolved = {}
+    for method in methodChoices["interpolate"]:
+        if "drba" in method or method == "gmfss":
+            continue  # own resolution path, not the rife arch table
+        try:
+            resolved[method] = _interpolateResolution(method)
+        except Exception as e:  # noqa: BLE001 - any failure here is the bug
+            failures[method] = f"{type(e).__name__}: {e}"
+
+    assert failures == {}, (
+        f"--interpolate_method choices that crash before inference: {failures}. "
+        "Add the modelsMap arm and/or the importRifeArch case for the method."
+    )
+
+    # Same weights => same architecture. A bare alias pointing at one version's
+    # arch while modelsMap hands it another version's .pth loads nothing.
+    # Report the methods, not the classes: rife_fast builds its fp16 archs in a
+    # factory, so they all share the name "_Concrete" and naming them says
+    # nothing about which flag to fix.
+    byWeight = {}
+    for method, (family, weightFile, arch) in resolved.items():
+        if arch is None:
+            continue
+        byWeight.setdefault((family, weightFile), {}).setdefault(arch, []).append(
+            method
+        )
+    mismatched = {
+        f"{family}/{weightFile}": sorted(sorted(m) for m in archs.values())
+        for (family, weightFile), archs in byWeight.items()
+        if len(archs) > 1
+    }
+    assert mismatched == {}, (
+        f"Methods sharing a weight file but not an architecture (one group per "
+        f"architecture): {mismatched}. load_state_dict would reject the "
+        f"mismatched pair."
+    )
+
+
+def testUnwiredV3MethodNamesItself():
+    # The v3 match must raise a named error, not UnboundLocalError.
+    pytest.importorskip("torch")
+    from src.interpolate._shared import importRifeArch
+
+    with pytest.raises(ValueError, match="rife9.9-tensorrt"):
+        importRifeArch("rife9.9-tensorrt", "v3")
