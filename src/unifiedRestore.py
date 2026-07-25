@@ -745,9 +745,12 @@ class UnifiedRestoreDirectML:
             )
 
             self.model.run_with_iobinding(self.IoBinding)
-            frame = self.dummyOutput.contiguous()
-
-            return frame
+            # clone(), not contiguous(): dummyOutput is already contiguous, so
+            # contiguous() hands back the persistent ORT output binding itself.
+            # Restore runs at window entry, so every FrameSlot -- and every
+            # frame queued for the writer -- would alias one buffer that the
+            # next inference overwrites.
+            return self.dummyOutput.clone()
 
         except Exception as e:
             if not self.usingCpuFallback:

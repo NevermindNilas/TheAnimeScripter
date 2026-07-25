@@ -608,7 +608,7 @@ def motionBlur(self):
 def stabilize(self):
     from src.stabilize.stabilize import VideoStabilize
 
-    VideoStabilize(
+    stabilizer = VideoStabilize(
         self.input,
         self.output,
         self.width,
@@ -622,3 +622,6 @@ def stabilize(self):
         self.totalFrames,
         self.bitDepth,
     )
+    # VideoStabilize swallows its own pipeline exception, and this path never
+    # reaches start(), so this is what lets main.py count the video as failed.
+    self.processingError = stabilizer.processingError

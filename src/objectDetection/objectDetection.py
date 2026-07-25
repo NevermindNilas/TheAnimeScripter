@@ -11,7 +11,11 @@ from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint, logWarning
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.infra.providerCheck import warnIfProviderMissing
-from src.io.ffmpegSettings import BuildBuffer, createWriteBuffer
+from src.io.ffmpegSettings import (
+    BuildBuffer,
+    closeWriterAndDrainReader,
+    createWriteBuffer,
+)
 from src.model.download import downloadModels
 from src.model.registry import modelsMap, weightsDir
 
@@ -140,13 +144,21 @@ class ObjectDetectionDML:
                 fps=self.fps,
                 grayscale=False,
                 benchmark=self.benchmark,
+                # BuildBuffer above trims the video to [inpoint, outpoint];
+                # without these the writer muxes the FULL-length source audio
+                # and subtitles against it, desyncing the output by inpoint.
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
             )
             self.writeHwcUint8 = getattr(self.writeBuffer, "acceptsHwcUint8", False)
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                processFuture = executor.submit(self.process)
+                # .result(): without it a raise inside process() is discarded
+                # with the future and the run reports success on a broken output.
+                processFuture.result()
 
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
@@ -281,16 +293,20 @@ class ObjectDetectionDML:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
+        # try/finally, not a trailing call: if this loop raises, the writer
+        # never gets its None sentinel and the enclosing ThreadPoolExecutor
+        # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
+        try:
+            with ProgressBarLogic(self.totalFrames) as bar:
+                while (frame := self.readBuffer.read()) is not None:
+                    self.processFrame(frame)
+                    frameCount += 1
+                    bar(1)
 
-        with ProgressBarLogic(self.totalFrames) as bar:
-            while (frame := self.readBuffer.read()) is not None:
-                self.processFrame(frame)
-                frameCount += 1
-                bar(1)
-
-        logging.info(f"Processed {frameCount} frames")
-        self.writeBuffer.close()
+            logging.info(f"Processed {frameCount} frames")
+        finally:
+            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
 
 
 class ObjectDetectionTensorRT:
@@ -361,13 +377,21 @@ class ObjectDetectionTensorRT:
                 fps=self.fps,
                 grayscale=False,
                 benchmark=self.benchmark,
+                # BuildBuffer above trims the video to [inpoint, outpoint];
+                # without these the writer muxes the FULL-length source audio
+                # and subtitles against it, desyncing the output by inpoint.
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
             )
             self.writeHwcUint8 = getattr(self.writeBuffer, "acceptsHwcUint8", False)
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                processFuture = executor.submit(self.process)
+                # .result(): without it a raise inside process() is discarded
+                # with the future and the run reports success on a broken output.
+                processFuture.result()
 
         except Exception as e:
             logging.exception(f"Something went wrong, {e}")
@@ -586,16 +610,20 @@ class ObjectDetectionTensorRT:
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
+        # try/finally, not a trailing call: if this loop raises, the writer
+        # never gets its None sentinel and the enclosing ThreadPoolExecutor
+        # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
+        try:
+            with ProgressBarLogic(self.totalFrames) as bar:
+                while (frame := self.readBuffer.read()) is not None:
+                    self.processFrame(frame)
+                    frameCount += 1
+                    bar(1)
 
-        with ProgressBarLogic(self.totalFrames) as bar:
-            while (frame := self.readBuffer.read()) is not None:
-                self.processFrame(frame)
-                frameCount += 1
-                bar(1)
-
-        logging.info(f"Processed {frameCount} frames")
-        self.writeBuffer.close()
+            logging.info(f"Processed {frameCount} frames")
+        finally:
+            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
 
 
 class ObjectDetection:

@@ -223,6 +223,39 @@ class MotionBlurPipeline:
                 self.windowed = self.interpolateProcess.useGraph
 
             case (
+                "rife-mps"
+                | "rife4.6-mps"
+                | "rife4.15-lite-mps"
+                | "rife4.16-lite-mps"
+                | "rife4.17-mps"
+                | "rife4.18-mps"
+                | "rife4.20-mps"
+                | "rife4.21-mps"
+                | "rife4.22-mps"
+                | "rife4.22-lite-mps"
+                | "rife4.25-mps"
+                | "rife4.25-lite-mps"
+                | "rife_elexor-mps"
+                | "rife4.25-heavy-mps"
+            ):
+                from src.interpolate.rife import RifeMPS
+
+                self.interpolateProcess = RifeMPS(
+                    self.half,
+                    self.width,
+                    self.height,
+                    self.interpolateMethod,
+                    self.ensemble,
+                    self.interpolateFactor,
+                    self.dynamicScale,
+                    self.staticStep,
+                    compileMode=self.compileMode,
+                )
+                # No CUDA graph on MPS, so keep the full uniform sample set
+                # (self.windowed stays False) -- identical output, just no
+                # windowing shortcut.
+
+            case (
                 "rife-ncnn"
                 | "rife4.6-ncnn"
                 | "rife4.15-lite-ncnn"

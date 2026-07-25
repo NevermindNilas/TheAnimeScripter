@@ -375,7 +375,12 @@ class AnimeSRTensorRT:
                 [1, 3, self.paddedHeight, self.paddedWidth],  # curr_frame
                 [1, 3, self.paddedHeight, self.paddedWidth],  # next_frame
                 [1, 3, self.paddedHeight * 4, self.paddedWidth * 4],  # fb
-                [1, 64, self.height, self.width],  # state
+                # Padded, like every other binding: MSRSWVSR concatenates state
+                # onto the frames, so a raw-sized state is a shape mismatch at
+                # any resolution that is not a multiple of 4. Identical to the
+                # old profile when the input already is one, so cached engines
+                # stay valid (the engine name is derived from the raw dims).
+                [1, 64, self.paddedHeight, self.paddedWidth],  # state
             ]
 
             inputsMin = inputsOpt = inputsMax = inputs
@@ -417,12 +422,12 @@ class AnimeSRTensorRT:
         ).contiguous()
 
         self.state = torch.zeros(
-            (1, 64, self.height, self.width),
+            (1, 64, self.paddedHeight, self.paddedWidth),
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
         self.stateOutput = torch.zeros(
-            (1, 64, self.height, self.width),
+            (1, 64, self.paddedHeight, self.paddedWidth),
             device=checker.device,
             dtype=torch.float16 if self.half else torch.float32,
         )
@@ -517,8 +522,11 @@ class AnimeSRTensorRT:
         self.normStream.synchronize()
 
         with torch.cuda.stream(self.outputStream):
+            # Crop the reflect-padded border before resizing; resizing the
+            # padded frame whole squeezes the content and leaves a mirrored
+            # edge strip. No-op at multiple-of-4 inputs.
             output = torch.nn.functional.interpolate(
-                self.dummyOutput,
+                self.dummyOutput[:, :, : self.height * 4, : self.width * 4],
                 size=(self.height * 2, self.width * 2),
                 mode="bicubic",
                 align_corners=False,

@@ -18,4 +18,9 @@ METADATAPATH: str = ""  # Path to metadata configuration file
 
 # Feature flags
 ADOBE: bool = False  # Enable Adobe After Effects compatibility mode
-AUDIO: bool = True  # Enable audio processing and detection
+AUDIO: bool = True  # Audio passthrough for the video currently being processed
+# The run-wide audio intent, latched once CLI validation has applied every
+# "this mode disables audio" rule. getVideoMetadata ANDs the per-video probe
+# into cs.AUDIO for each video, so without a separate record of the intent the
+# first silent video in a batch turned audio off for every video after it.
+AUDIO_REQUESTED: bool = True

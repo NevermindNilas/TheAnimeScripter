@@ -176,7 +176,9 @@ def modelsList() -> list[str]:
         "gauss-mps",
         "figsr-mps",
         "smosr-mps",
-        "animesr-mps",
+        # No "animesr-mps": AnimeSR has CUDA/TensorRT/DirectML classes only.
+        # Listing it made applyBackendFallbacks rewrite "animesr" to it on macOS,
+        # and the upscale factory then matched nothing and returned None.
         "rife-mps",
         "rife4.6-mps",
         "rife4.15-lite-mps",
@@ -726,6 +728,7 @@ def modelsMap(
 
         case (
             "rife"
+            | "rife-ncnn"
             | "rife4.22"
             | "rife4.22-tensorrt"
             | "rife4.22-ncnn"

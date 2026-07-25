@@ -28,7 +28,6 @@ import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from fractions import Fraction
-from queue import Empty
 from time import time
 
 os.environ.setdefault("FOR_DISABLE_CONSOLE_CTRL_HANDLER", "1")
@@ -539,6 +538,7 @@ class VideoProcessor:
         Processes all frames through the configured enhancement pipeline and
         tracks processing statistics.
         """
+        from src.io.ffmpegSettings import closeWriterAndDrainReader
         from src.io.frameWindow import FrameWindow, temporalDemand
 
         frameCount = 0
@@ -640,17 +640,13 @@ class VideoProcessor:
             # forever and the ThreadPoolExecutor join deadlocks the process.
             if self.preview:
                 self.preview.close()
-            self.writeBuffer.close()
-            # Drain the decode buffer so the producer's blocking put() returns
-            # and the reader thread can reach its sentinel-enqueue finally.
-            # Without this, an exception in processFrame leaves the read thread
-            # blocked on put() to a full queue -> ThreadPoolExecutor.__exit__
-            # hangs (only KeyboardInterrupt escapes today, via os._exit).
-            while not self.readBuffer.isReadFinished():
-                try:
-                    self.readBuffer.decodeBuffer.get(timeout=0.1)
-                except Empty:
-                    continue
+            # Closes the writer and drains the decode buffer, so the producer's
+            # blocking put() returns and the reader thread can reach its
+            # sentinel-enqueue finally. Without it, an exception in processFrame
+            # leaves the read thread blocked on put() to a full queue ->
+            # ThreadPoolExecutor.__exit__ hangs (only KeyboardInterrupt escapes
+            # today, via os._exit).
+            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
 
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
@@ -956,6 +952,20 @@ def main():
         except Exception:
             pass
 
+    # Imported before the try, not inside it: the handlers at the bottom call
+    # logWarning/logError, so a Ctrl-C or a failure during startup (the -h
+    # short-circuit, argument parsing) used to die with NameError inside the
+    # except block and lose the 130 exit code. The module has no import-time
+    # dependency on anything set below.
+    from src.infra.logAndPrint import (
+        logError,
+        logInfo,
+        logSuccess,
+        logWarning,
+        printSectionHeader,
+        printSubsectionHeader,
+    )
+
     try:
         from platform import system
 
@@ -970,15 +980,6 @@ def main():
                 createParser(outputPath=os.getcwd())
             except SystemExit:
                 return
-
-        from src.infra.logAndPrint import (
-            logError,
-            logInfo,
-            logSuccess,
-            logWarning,
-            printSectionHeader,
-            printSubsectionHeader,
-        )
 
         baseOutputPath = os.path.dirname(os.path.abspath(__file__))
 

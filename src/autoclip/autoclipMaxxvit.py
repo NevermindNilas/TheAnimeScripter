@@ -133,6 +133,7 @@ class AutoClipMaxxvit:
             max_workers=1, thread_name_prefix="autoclip-decode"
         ) as pool:
             future = pool.submit(self._decodeWorker, iterable, preprocess, queue)
+            sawSentinel = False
             try:
                 with ProgressBarLogic(
                     totalFrames, title=f"AutoClip ({self.method})"
@@ -140,6 +141,7 @@ class AutoClipMaxxvit:
                     while True:
                         curr = queue.get()
                         if curr is _SENTINEL:
+                            sawSentinel = True
                             break
                         idx += 1
                         pbar.advance(1)
@@ -151,11 +153,17 @@ class AutoClipMaxxvit:
                         prev = curr
                 future.result()
             except BaseException:
-                # Drain queue so the decoder thread can finish promptly.
-                while True:
-                    item = queue.get()
-                    if item is _SENTINEL:
-                        break
+                # Drain queue so the decoder thread can finish promptly -- but
+                # only if the sentinel is still in flight. When the decoder is
+                # what failed, its `finally` already queued the sentinel, the
+                # loop above consumed it, and future.result() re-raised: the
+                # queue is empty and the producer is gone, so this drain used to
+                # block on queue.get() forever and hang the whole process.
+                if not sawSentinel:
+                    while True:
+                        item = queue.get()
+                        if item is _SENTINEL:
+                            break
                 raise
 
         outPath = os.path.join(cs.WHEREAMIRUNFROM, "autoclipresults.txt")

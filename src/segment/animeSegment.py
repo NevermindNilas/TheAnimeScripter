@@ -11,7 +11,11 @@ from src.infra.isCudaInit import CudaChecker
 from src.infra.logAndPrint import logAndPrint, logWarning
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.infra.providerCheck import warnIfProviderMissing
-from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
+from src.io.ffmpegSettings import (
+    BuildBuffer,
+    WriteBuffer,
+    closeWriterAndDrainReader,
+)
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
@@ -92,7 +96,10 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                processFuture = executor.submit(self.process)
+                # .result(): without it a raise inside process() is discarded
+                # with the future and the run reports success on a broken output.
+                processFuture.result()
 
         except Exception as e:
             logging.error(f"An error occurred while processing the video: {e}")
@@ -210,21 +217,25 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
             logging.exception(f"An error occurred while processing the frame, {e}")
 
     def process(self):
+        # try/finally, not a trailing call: if this loop raises, the writer
+        # never gets its None sentinel and the enclosing ThreadPoolExecutor
+        # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
+        try:
+            with ProgressBarLogic(self.totalFrames) as bar:
+                while True:
+                    frames = _readBatch(self.readBuffer, self.segmentBatch)
+                    if frames:
+                        self.processBatch(frames)
+                        frameCount += len(frames)
+                        bar(len(frames))
+                    if len(frames) < self.segmentBatch:
+                        break
 
-        with ProgressBarLogic(self.totalFrames) as bar:
-            while True:
-                frames = _readBatch(self.readBuffer, self.segmentBatch)
-                if frames:
-                    self.processBatch(frames)
-                    frameCount += len(frames)
-                    bar(len(frames))
-                if len(frames) < self.segmentBatch:
-                    break
+            logging.info(f"Processed {frameCount} frames")
 
-        logging.info(f"Processed {frameCount} frames")
-
-        self.writeBuffer.close()
+        finally:
+            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
 
 
 class AnimeSegmentTensorRT:
@@ -294,7 +305,10 @@ class AnimeSegmentTensorRT:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                processFuture = executor.submit(self.process)
+                # .result(): without it a raise inside process() is discarded
+                # with the future and the run reports success on a broken output.
+                processFuture.result()
 
         except Exception as e:
             logging.error(f"An error occurred while processing the video: {e}")
@@ -417,21 +431,25 @@ class AnimeSegmentTensorRT:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
     def process(self):
+        # try/finally, not a trailing call: if this loop raises, the writer
+        # never gets its None sentinel and the enclosing ThreadPoolExecutor
+        # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
+        try:
+            with ProgressBarLogic(self.totalFrames) as bar:
+                while True:
+                    frames = _readBatch(self.readBuffer, self.segmentBatch)
+                    if frames:
+                        self.processBatch(frames)
+                        frameCount += len(frames)
+                        bar(len(frames))
+                    if len(frames) < self.segmentBatch:
+                        break
 
-        with ProgressBarLogic(self.totalFrames) as bar:
-            while True:
-                frames = _readBatch(self.readBuffer, self.segmentBatch)
-                if frames:
-                    self.processBatch(frames)
-                    frameCount += len(frames)
-                    bar(len(frames))
-                if len(frames) < self.segmentBatch:
-                    break
+            logging.info(f"Processed {frameCount} frames")
 
-        logging.info(f"Processed {frameCount} frames")
-
-        self.writeBuffer.close()
+        finally:
+            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
 
 
 class AnimeSegmentDirectML:
@@ -485,12 +503,21 @@ class AnimeSegmentDirectML:
                 grayscale=False,
                 transparent=True,
                 benchmark=self.benchmark,
+                # BuildBuffer above trims the video to [inpoint, outpoint];
+                # without these the writer muxes the FULL-length source audio
+                # and subtitles against it, desyncing the output by inpoint.
+                # AnimeSegment and AnimeSegmentTensorRT already pass them.
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                processFuture = executor.submit(self.process)
                 executor.submit(self.writeBuffer)
+                # .result(): without it a raise inside process() is discarded
+                # with the future and the run reports success on a broken output.
+                processFuture.result()
 
         except Exception as e:
             logging.error(f"An error occurred while processing the video: {e}")
@@ -615,17 +642,21 @@ class AnimeSegmentDirectML:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
     def process(self):
+        # try/finally, not a trailing call: if this loop raises, the writer
+        # never gets its None sentinel and the enclosing ThreadPoolExecutor
+        # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
+        try:
+            with ProgressBarLogic(self.totalFrames) as bar:
+                while (frame := self.readBuffer.read()) is not None:
+                    self.processFrame(frame)
+                    frameCount += 1
+                    bar(1)
 
-        with ProgressBarLogic(self.totalFrames) as bar:
-            while (frame := self.readBuffer.read()) is not None:
-                self.processFrame(frame)
-                frameCount += 1
-                bar(1)
+            logging.info(f"Processed {frameCount} frames")
 
-        logging.info(f"Processed {frameCount} frames")
-
-        self.writeBuffer.close()
+        finally:
+            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)
 
 
 class AnimeSegmentOpenVino:
@@ -692,12 +723,21 @@ class AnimeSegmentOpenVino:
                 grayscale=False,
                 transparent=True,
                 benchmark=self.benchmark,
+                # BuildBuffer above trims the video to [inpoint, outpoint];
+                # without these the writer muxes the FULL-length source audio
+                # and subtitles against it, desyncing the output by inpoint.
+                # AnimeSegment and AnimeSegmentTensorRT already pass them.
+                inpoint=self.inpoint,
+                outpoint=self.outpoint,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                processFuture = executor.submit(self.process)
                 executor.submit(self.writeBuffer)
+                # .result(): without it a raise inside process() is discarded
+                # with the future and the run reports success on a broken output.
+                processFuture.result()
 
         except Exception as e:
             logging.error(f"An error occurred while processing the video: {e}")
@@ -823,20 +863,24 @@ class AnimeSegmentOpenVino:
             logging.exception(f"An error occurred while processing the frame, {e}")
 
     def process(self):
+        # try/finally, not a trailing call: if this loop raises, the writer
+        # never gets its None sentinel and the enclosing ThreadPoolExecutor
+        # joins forever, with the exception buried in a future nobody reads.
         frameCount = 0
-
-        with ProgressBarLogic(self.totalFrames) as bar:
-            for _ in range(self.totalFrames):
-                frame = self.readBuffer.read()
-                if frame is None:
-                    break
-                self.processFrame(frame)
-                frameCount += 1
-                bar(1)
-                if self.readBuffer.isReadFinished():
-                    if self.readBuffer.isQueueEmpty():
+        try:
+            with ProgressBarLogic(self.totalFrames) as bar:
+                for _ in range(self.totalFrames):
+                    frame = self.readBuffer.read()
+                    if frame is None:
                         break
+                    self.processFrame(frame)
+                    frameCount += 1
+                    bar(1)
+                    if self.readBuffer.isReadFinished():
+                        if self.readBuffer.isQueueEmpty():
+                            break
 
-        logging.info(f"Processed {frameCount} frames")
+            logging.info(f"Processed {frameCount} frames")
 
-        self.writeBuffer.close()
+        finally:
+            closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)

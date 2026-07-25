@@ -8,7 +8,11 @@ torch.set_float32_matmul_precision("medium")
 
 
 _RIFE_V1 = {
-    "rife": ("IFNet425", "IFNet_rife425"),
+    # The bare "rife" alias resolves to 4.22 in modelsMap() (it returns
+    # rife422.pth / rife-v4.22-ncnn.zip), so its arch has to be 4.22 too --
+    # pointing it at IFNet425 loaded rife422.pth into a net with 30 extra
+    # parameters and blew up in load_state_dict (reachable via "rife-mps").
+    "rife": ("IFNet422", "IFNet_rife422"),
     "rife4.25": ("IFNet425", "IFNet_rife425"),
     "rife4.25-heavy": ("IFNet425Heavy", "IFNet_rife425heavy"),
     "rife4.25-lite": ("IFNet425Lite", "IFNet_rife425lite"),
@@ -55,7 +59,9 @@ def importRifeArch(interpolateMethod, version, half=True):
                     from src.rifearches.Rife425_v3 import IFNet
 
                     Head = True
-                case "rife4.22-tensorrt":
+                case "rife-tensorrt" | "rife4.22-tensorrt":
+                    # "rife-tensorrt" is the bare alias; modelsMap("rife")
+                    # returns rife422.pth, so it shares 4.22's arch.
                     from src.rifearches.Rife422_v3 import IFNet
 
                     Head = True
@@ -135,4 +141,12 @@ def importRifeArch(interpolateMethod, version, half=True):
                     from src.rifearches.IFNet_elexor_tensorrt import IFNet
 
                     Head = True
+                case _:
+                    # Without this a new CLI choice that nobody added an arm for
+                    # surfaces as `UnboundLocalError: IFNet` deep in handleModel
+                    # instead of naming the method that is unwired.
+                    raise ValueError(
+                        f"No v3 RIFE architecture is wired up for interpolate "
+                        f"method '{interpolateMethod}'."
+                    )
             return IFNet, Head

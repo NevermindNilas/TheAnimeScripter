@@ -158,11 +158,11 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         if isImageInput and totalFrames < 1:
             totalFrames = 1
 
-        if cs.AUDIO:
-            hasAudio = bool(_prop("has_audio", False))
-            cs.AUDIO = hasAudio
-        else:
-            hasAudio = False
+        # Gate on the run-wide intent, not on cs.AUDIO: this runs once per video
+        # in a batch and writes cs.AUDIO back, so reading cs.AUDIO here made the
+        # first silent video latch audio off for every video after it.
+        hasAudio = bool(cs.AUDIO_REQUESTED and _prop("has_audio", False))
+        cs.AUDIO = hasAudio
 
         codecName = _prop("codec_name") or _prop("codec", "unknown")
         colorFormat = _prop("pixel_format", "unknown")

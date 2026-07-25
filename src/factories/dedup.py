@@ -55,3 +55,8 @@ def buildDedupProcess(self):
                 height=self.height,
                 width=self.width,
             )
+
+        case _:
+            raise ValueError(
+                f"No dedup backend is wired up for method '{self.dedupMethod}'."
+            )

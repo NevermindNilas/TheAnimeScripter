@@ -231,13 +231,13 @@ class AnimeSR:
                         mode="max-autotune-no-cudagraphs", fullgraph=True
                     )
             except Exception as e:
-                logging.error(
-                    f"Error compiling model {self.upscaleMethod} with mode {self.compileMode}: {e}"
+                # AnimeSR has no self.upscaleMethod; referencing it here turned
+                # a compile failure into an AttributeError that hid the cause.
+                message = (
+                    f"Error compiling model animesr with mode {self.compileMode}: {e}"
                 )
-                logAndPrint(
-                    f"Error compiling model {self.upscaleMethod} with mode {self.compileMode}: {e}",
-                    "red",
-                )
+                logging.error(message)
+                logAndPrint(message, "red")
 
             self.compileMode = "default"
 
@@ -268,12 +268,20 @@ class AnimeSR:
             dtype=torch.float16 if self.half else torch.float32,
         )
 
+        # MSRSWVSR.forward wants prev/curr/next at [B, 3, H, W], the previous SR
+        # frame at [B, 3, H*4, W*4] and the state at [B, 64, H, W] -- all on the
+        # SAME H, W. The frame buffers above are padded, so these two have to be
+        # padded as well; sizing them from the raw dims broke every resolution
+        # that is not a multiple of 4.
+        paddedHeight = self.height + self.padding[3] + self.padding[2]
+        paddedWidth = self.width + self.padding[1] + self.padding[0]
+
         self.dummyOutput = self.prevFrame.new_zeros(
-            1, 3, self.height * 4, self.width * 4
+            1, 3, paddedHeight * 4, paddedWidth * 4
         )
 
         # The model has some caching functionality that requires a state
-        self.state = self.prevFrame.new_zeros(1, 64, self.height, self.width)
+        self.state = self.prevFrame.new_zeros(1, 64, paddedHeight, paddedWidth)
 
         self.stream = torch.cuda.Stream()
         self.normStream = torch.cuda.Stream()
@@ -286,42 +294,20 @@ class AnimeSR:
 
     @torch.inference_mode()
     def __call__(self, frame: torch.tensor, nextFrame: torch.tensor) -> torch.tensor:
-        if self.firstRun:
-            with torch.cuda.stream(self.normStream):
-                self.prevFrame.copy_(
-                    frame.to(dtype=frame.dtype),
-                    non_blocking=False,
-                )
-                if nextFrame is None:
-                    self.nextFrame.copy_(
-                        frame.to(dtype=frame.dtype),
-                        non_blocking=False,
-                    )
-                else:
-                    self.nextFrame.copy_(
-                        nextFrame.to(dtype=frame.dtype),
-                        non_blocking=False,
-                    )
-            self.normStream.synchronize()
-
-            self.firstRun = False
-        else:
-            with torch.cuda.stream(self.normStream):
-                if nextFrame is None:
-                    self.nextFrame.copy_(
-                        frame.to(dtype=frame.dtype),
-                        non_blocking=False,
-                    )
-                else:
-                    self.nextFrame.copy_(
-                        nextFrame.to(dtype=frame.dtype),
-                        non_blocking=False,
-                    )
-            self.normStream.synchronize()
-
-        # preparing that mofo
+        # Pad first, then copy. prevFrame/nextFrame are allocated at padded size,
+        # and copy_ cannot broadcast an unpadded frame into them -- at any
+        # resolution that is not a multiple of 4 this raised "The size of tensor
+        # a (856) must match the size of tensor b (854)" on the very first frame.
+        # The TensorRT and DirectML siblings already pad before copying.
         with torch.cuda.stream(self.normStream):
             frame = self.padFrame(frame)
+            paddedNext = frame if nextFrame is None else self.padFrame(nextFrame)
+
+            if self.firstRun:
+                self.prevFrame.copy_(frame, non_blocking=False)
+                self.firstRun = False
+
+            self.nextFrame.copy_(paddedNext, non_blocking=False)
         self.normStream.synchronize()
 
         with torch.cuda.stream(self.outputStream):
@@ -340,10 +326,14 @@ class AnimeSR:
             self.prevFrame.copy_(frame, non_blocking=False)
         self.normStream.synchronize()
 
-        # resize the output to self.height*2 and self.width * 2
+        # resize the output to self.height*2 and self.width * 2, cropping the
+        # reflect-padded border off first. Resizing the padded frame whole
+        # squeezes the real content and leaves a mirrored strip along the
+        # right/bottom edge (~4px and a 0.23% squeeze at 854x480). No-op when
+        # the input is already a multiple of 4.
         with torch.cuda.stream(self.outputStream):
             output = torch.nn.functional.interpolate(
-                self.dummyOutput,
+                self.dummyOutput[:, :, : self.height * 4, : self.width * 4],
                 size=(self.height * 2, self.width * 2),
                 mode="bicubic",
                 align_corners=False,
