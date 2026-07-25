@@ -1,5 +1,4 @@
 import logging
-import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 
@@ -19,7 +18,7 @@ from src.io.ffmpegSettings import (
 from src.stabilize.superpoint import find_match_index, find_transform
 
 if ADOBE:
-    from src.server.aeComms import progressState
+    from src.server.aeComms import progressState, reportTerminalStatus
 
 
 class VideoStabilize:
@@ -119,21 +118,7 @@ class VideoStabilize:
         # having written nothing is exactly what those issues were about, so
         # apply main.py's own failed-run test, missing/0-byte output included.
         if ADOBE:
-            wroteOutput = self.benchmark
-            if not wroteOutput:
-                try:
-                    wroteOutput = os.path.getsize(self.output) > 0
-                except OSError, TypeError:  # same pair as main.py:_videoFailed
-                    wroteOutput = False
-
-            if self.processingError is not None or not wroteOutput:
-                progressState.setFailed(
-                    error=str(self.processingError)
-                    if self.processingError is not None
-                    else "Output file not found after processing"
-                )
-            else:
-                progressState.setCompleted(outputPath=self.output)
+            reportTerminalStatus(self.processingError, self.output, self.benchmark)
 
     def runStreamingPipeline(self):
         if ADOBE:
