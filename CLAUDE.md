@@ -1,6 +1,6 @@
 # TheAnimeScripter
 
-TAS is a Python 3.14 (cp314) video-enhancement CLI and After Effects server for upscale, interpolation, restore/denoise, dedup, depth, segmentation, object detection, stabilization, autoclip, and motion blur. Backends: CUDA, TensorRT, DirectML, OpenVINO, NCNN, and MPS (Apple Silicon). MPS coverage is upscale, interpolate, restore, and motion blur (via RIFE) — depth, segment, autoclip, obj_detect, dedup, and stabilize have no MPS path yet. The `.jsx` UI is in another repo. Version: `src/version.py`.
+TAS is a Python 3.14 (cp314) video-enhancement CLI and After Effects server for upscale, interpolation, restore/denoise, dedup, depth, segmentation, object detection, stabilization, autoclip, and motion blur. Backends: CUDA, TensorRT, DirectML, OpenVINO, NCNN, and MPS (Apple Silicon). MPS coverage is upscale, interpolate, restore, depth (`src/depth/backends/mps.py`), and motion blur (via RIFE) — segment, autoclip, obj_detect, dedup, scenechange, and stabilize have no MPS path yet. The `.jsx` UI is in another repo. Version: `src/version.py`.
 
 ## Commands
 
@@ -19,8 +19,8 @@ python build.py
 
 - Entry: `main.py` → `VideoProcessor`. `start()` initializes models via `src/initializeModels.py`, creates I/O buffers, then runs read/process/write with `ThreadPoolExecutor`.
 - Standard frame path in `processFrame()`: decode → dedup → restore → interpolate↔upscale → encode. `--interpolate_first` selects the order.
-- Specialized autoclip/depth/segment/obj_detect/stabilize/motion_blur operations bypass that loop through `_selectProcessingMethod()`; their drivers are in `src/initializeModels.py`.
-- `initializeModels()` matches backend-suffixed method strings, lazy-imports the backend, and returns inference callables.
+- Specialized autoclip/depth/segment/obj_detect/stabilize/motion_blur operations bypass that loop through `_selectProcessingMethod()`; their drivers are in `src/factories/standalone.py`.
+- `initializeModels()` only decides which capabilities are on; the `match` on backend-suffixed method strings, the lazy backend import, and the returned inference callable live in `src/factories/{upscale,interpolate,restore,dedup,sceneChange,standalone}.py`.
 - I/O: `src/io/ffmpegSettings.py`. `BuildBuffer` uses `nelux.VideoReader`; `createWriteBuffer()` selects `NeluxWriteBuffer` or legacy FFmpeg-subprocess `WriteBuffer`. Nelux handles audio/subtitle passthrough in `_setupPassthrough` and needs FFmpeg DLLs registered by `src/infra/getFFMPEG.py`.
 - `requirements.txt` pins `nelux==0.14.1`; on cu132, verify `import nelux` because a wheel can be torch-ABI-incompatible.
 
@@ -30,9 +30,9 @@ python build.py
 | Interpolate | `src/interpolate/` | RIFE; CUDA, TRT, DML, OpenVINO, NCNN, MPS |
 | Restore | `src/unifiedRestore.py` | CUDA, TRT, DML, OpenVINO, Maxine, MPS |
 | Dedup | `src/dedup/dedup.py` | CUDA/CPU SSIM, MSE, flownets; `--dedup_sens` default 35 maps to SSIM `1-s/1000`, flownets `s/100` |
-| Depth | `src/depth/depth.py`, `src/depth/backends/` | CUDA, TRT, DML; includes temporal VideoDepthAnything |
-| Segment | `src/segment/animeSegment.py` | CUDA, TRT, DML, OpenVINO |
-| Object detect | `src/objectDetection/objectDetection.py` | CUDA, TRT, DML |
+| Depth | `src/depth/depth.py`, `src/depth/backends/` | CUDA, TRT, DML, OpenVINO, MPS; includes temporal VideoDepthAnything |
+| Segment | `src/segment/animeSegment.py` | CUDA, TRT, DML (`AnimeSegmentOpenVino` exists but has no CLI choice) |
+| Object detect | `src/objectDetection/objectDetection.py` | TRT, DML, OpenVINO (the plain `ObjectDetection` class has no CLI choice) |
 | Autoclip | `src/autoclip/` | PySceneDetect CPU, TRT, DML, TransNetV2 |
 | Scene-cut (interp) | `src/sceneChange/` | streaming per-pair cut detector for `--scenechange`; ssim/mse + maxxvit 6ch (shared `scorer6ch.py`); holds instead of morphing across cuts |
 | Stabilize | `src/stabilize/` | SuperPoint with ORB/LK fallback |
@@ -43,7 +43,7 @@ URL input is handled by `src/ytdlp.py`.
 ## Change map
 
 - **Add a model = TWO edits:** add its weight mapping to `src/model/registry.py:modelsMap()` and its CLI choice to `src/cli/parser.py`. `modelsList()` is the canonical method registry, used by `src/infra/backendFallback.py` and pinned by `tests/test_registryDrift.py`.
-- **Add a backend:** add a sibling backend class, a `match` arm in `src/initializeModels.py`, CLI choices, and `modelsList()`/`modelsMap()` entries. Never rewrite the CUDA path.
+- **Add a backend:** add a sibling backend class, a `match` arm in the matching `src/factories/*.py`, CLI choices, and `modelsList()`/`modelsMap()` entries. Never rewrite the CUDA path. A factory arm without a `parser.py` choice is dead code (`anime-openvino` is).
 - Backend classes follow convention, not an ABC: dashless class suffixes (`UniversalPytorch`/`UniversalTensorRT`/`UniversalDirectML`/`UniversalNCNN`/`UniversalPytorchMPS`; `RifeCuda`/`RifeTensorRT`/etc.) implementing `__call__()` and `handleModel()`. Method strings alone use `-<backend>`.
 - **Temporal drivers declare their own lookahead.** A driver that needs neighbouring frames handed to it sets `temporalWindow = (past, future)` on the class (`AnimeSR*`, `DistilDRBA*` = `(0, 1)`); frames it caches itself (RIFE's `I0`, AnimeSR's padded `prevFrame`) are not part of the declaration. `main.py:process` sizes a `src/io/frameWindow.py:FrameWindow` ring to the stage chain's demand (`max` in interpolate-first, where interp and upscale both read the source stream; `sum` in interpolate-last, where interp's neighbour is itself upscaled) and hands drivers `frameWindow.successorFrame()`. Never gate a lookahead on a method-name string in `main.py` — that is how `animesr-tensorrt`/`-directml`/`-openvino` silently ran with `next == curr`. `tests/test_frameWindow.py` fails if a new `AnimeSR*`/`DistilDRBA*` class omits the declaration.
 - **The window has a domain, a validity, and an order.** Dedup and restore run at window *entry* (`main.py:_enterFrame`, passed as `FrameWindow(enter=…)`), so every slot is a restore-domain frame and a driver's neighbour matches it; deduped frames never enter, so restore is not spent on them. Downstream upscale in interpolate-last is memoized per slot (`FrameWindow.staged`) so a frame two stages read is upscaled once, in order (AnimeSR's `prevFrame`/`state` recurrence stays sequential). `successor()`/`successorFrame()` return `None` across a hard cut (`FrameSlot.isCut`), so `distildrba` gets no motion cue from the next shot. Because the neighbour is always same-domain, `distildrba` now *raises* on a size mismatch instead of bilinearly resampling `I2`. Counters (`consumed`/`dropped`) live on the window; `dedupCount = frameWindow.dropped`.
