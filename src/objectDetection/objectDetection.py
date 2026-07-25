@@ -22,7 +22,7 @@ from src.model.registry import modelsMap, weightsDir
 from .yolov9_mit import colors, colors_rgb, draw_box, draw_detections, draw_masks
 
 if ADOBE:
-    from src.server.aeComms import progressState
+    from src.server.aeComms import progressState, reportTerminalStatus
 
 checker = CudaChecker()
 
@@ -106,6 +106,9 @@ class ObjectDetectionDML:
         self.fps = fps
         self.inpoint = inpoint
         self.outpoint = outpoint
+        # Read back by the standalone factory so main.py can count a failed
+        # run as failed; these paths never reach start()'s own bookkeeping.
+        self.processingError: Exception | None = None
         self.encodeMethod = encodeMethod
         self.customEncoder = customEncoder
         self.benchmark = benchmark
@@ -161,7 +164,16 @@ class ObjectDetectionDML:
                 processFuture.result()
 
         except Exception as e:
+            # Recorded as well as logged: --obj_detect bypasses start(), so main.py
+            # otherwise decides success purely from the output file size and
+            # counts a half-written video as a successful run.
+            self.processingError = e
             logging.exception(f"Something went wrong, {e}")
+
+        if ADOBE:
+            # This path bypasses main.py's start()/_notifyAdobe, so nothing
+            # else would ever tell the panel the render finished or failed.
+            reportTerminalStatus(self.processingError, self.output, self.benchmark)
 
     def handleModels(self):
         if ADOBE:
@@ -346,6 +358,9 @@ class ObjectDetectionTensorRT:
         self.fps = fps
         self.inpoint = inpoint
         self.outpoint = outpoint
+        # Read back by the standalone factory so main.py can count a failed
+        # run as failed; these paths never reach start()'s own bookkeeping.
+        self.processingError: Exception | None = None
         self.encodeMethod = encodeMethod
         self.customEncoder = customEncoder
         self.benchmark = benchmark
@@ -394,7 +409,16 @@ class ObjectDetectionTensorRT:
                 processFuture.result()
 
         except Exception as e:
+            # Recorded as well as logged: --obj_detect bypasses start(), so main.py
+            # otherwise decides success purely from the output file size and
+            # counts a half-written video as a successful run.
+            self.processingError = e
             logging.exception(f"Something went wrong, {e}")
+
+        if ADOBE:
+            # This path bypasses main.py's start()/_notifyAdobe, so nothing
+            # else would ever tell the panel the render finished or failed.
+            reportTerminalStatus(self.processingError, self.output, self.benchmark)
 
     def trtDtypeToTorch(self, trtDtype):
         if trtDtype == self.trt.DataType.FLOAT:

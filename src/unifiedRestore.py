@@ -422,6 +422,17 @@ class UnifiedRestoreTensorRT:
         self.height = height
         self.forceStatic = forceStatic
 
+        # Same downgrade as UnifiedRestoreDirectML: SCUNet ships no fp16 ONNX,
+        # so modelsMap raises for half=True and --half defaults to True. Drop
+        # precision for this restore pass rather than aborting the run.
+        if self.half and "scunet" in self.restoreMethod:
+            logAndPrint(
+                f"{self.restoreMethod} has no half precision ONNX model; "
+                f"running this restore pass in full precision.",
+                "yellow",
+            )
+            self.half = False
+
         self.handleModel()
 
     def handleModel(self):
@@ -601,6 +612,19 @@ class UnifiedRestoreDirectML:
         self.width = width
         self.height = height
 
+        # SCUNet ships no fp16 ONNX (modelsMap raises for half=True), and --half
+        # defaults to True, so `--restore_method scunet-directml` used to abort
+        # the whole run. Drop precision for this one backend instead of forcing
+        # the global --half off, which would also derate upscale/interpolate in
+        # the same run.
+        if self.half and "scunet" in self.restoreMethod:
+            logAndPrint(
+                f"{self.restoreMethod} has no half precision ONNX model; "
+                f"running this restore pass in full precision.",
+                "yellow",
+            )
+            self.half = False
+
         self.handleModel()
 
     def handleModel(self):
@@ -616,7 +640,11 @@ class UnifiedRestoreDirectML:
         if "openvino" in self.restoreMethod:
             method = method.replace("openvino", "directml")
 
-        self.filename = modelsMap(method, modelType="onnx")
+        # half=self.half, not the modelsMap default of True: every model here
+        # ships a real paired fp16/fp32 ONNX, so omitting it loaded the fp16
+        # file under --half False while resolveWeightPath below downloaded per
+        # the real flag -- and it made scunet (fp32 only) raise unconditionally.
+        self.filename = modelsMap(method, modelType="onnx", half=self.half)
         if "-directml" in self.restoreMethod:
             folderName = self.restoreMethod.replace("-directml", "-onnx")
         elif "-openvino" in self.restoreMethod:

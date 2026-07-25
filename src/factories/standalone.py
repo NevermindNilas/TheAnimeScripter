@@ -9,7 +9,7 @@ def objectDetection(self):
     if "directml" in self.objDetectMethod or "openvino" in self.objDetectMethod:
         from src.objectDetection.objectDetection import ObjectDetectionDML
 
-        ObjectDetectionDML(
+        driver = ObjectDetectionDML(
             self.input,
             self.output,
             self.width,
@@ -28,7 +28,7 @@ def objectDetection(self):
     elif "tensorrt" in self.objDetectMethod:
         from src.objectDetection.objectDetection import ObjectDetectionTensorRT
 
-        ObjectDetectionTensorRT(
+        driver = ObjectDetectionTensorRT(
             self.input,
             self.output,
             self.width,
@@ -47,7 +47,7 @@ def objectDetection(self):
     else:
         from src.objectDetection.objectDetection import ObjectDetection
 
-        ObjectDetection(
+        driver = ObjectDetection(
             self.input,
             self.output,
             self.width,
@@ -61,6 +61,11 @@ def objectDetection(self):
             self.totalFrames,
             self.half,
         )
+
+    # These drivers swallow their own pipeline exception, and this path never
+    # reaches start(), so this is what lets main.py count the video as failed
+    # instead of trusting the size of a half-written output file.
+    self.processingError = driver.processingError
 
 
 def autoClip(self):
@@ -102,7 +107,7 @@ def segment(self):
     if self.segmentMethod == "anime":
         from src.segment.animeSegment import AnimeSegment
 
-        AnimeSegment(
+        driver = AnimeSegment(
             self.input,
             self.output,
             self.width,
@@ -119,7 +124,7 @@ def segment(self):
     elif self.segmentMethod == "anime-tensorrt":
         from src.segment.animeSegment import AnimeSegmentTensorRT
 
-        AnimeSegmentTensorRT(
+        driver = AnimeSegmentTensorRT(
             self.input,
             self.output,
             self.width,
@@ -136,7 +141,7 @@ def segment(self):
     elif self.segmentMethod == "anime-directml":
         from src.segment.animeSegment import AnimeSegmentDirectML
 
-        AnimeSegmentDirectML(
+        driver = AnimeSegmentDirectML(
             self.input,
             self.output,
             self.width,
@@ -152,7 +157,7 @@ def segment(self):
     elif self.segmentMethod == "anime-openvino":
         from src.segment.animeSegment import AnimeSegmentOpenVino
 
-        AnimeSegmentOpenVino(
+        driver = AnimeSegmentOpenVino(
             self.input,
             self.output,
             self.width,
@@ -167,6 +172,15 @@ def segment(self):
         )
     elif self.segmentMethod == "cartoon":
         raise NotImplementedError("Cartoon segment is not implemented yet")
+    else:
+        raise ValueError(
+            f"No segmentation backend is wired up for method '{self.segmentMethod}'."
+        )
+
+    # These drivers swallow their own pipeline exception, and this path never
+    # reaches start(), so this is what lets main.py count the video as failed
+    # instead of trusting the size of a half-written output file.
+    self.processingError = driver.processingError
 
 
 def depth(self):

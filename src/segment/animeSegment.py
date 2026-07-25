@@ -20,7 +20,7 @@ from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
 
 if ADOBE:
-    from src.server.aeComms import progressState
+    from src.server.aeComms import progressState, reportTerminalStatus
 
 checker = CudaChecker()
 
@@ -64,6 +64,9 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
         self.fps = fps
         self.inpoint = inpoint
         self.outpoint = outpoint
+        # Read back by the standalone factory so main.py can count a failed
+        # run as failed; these paths never reach start()'s own bookkeeping.
+        self.processingError: Exception | None = None
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
         self.benchmark = benchmark
@@ -102,7 +105,16 @@ class AnimeSegment:  # A bit ambiguous because of .train import AnimeSegmentatio
                 processFuture.result()
 
         except Exception as e:
+            # Recorded as well as logged: --segment bypasses start(), so main.py
+            # otherwise decides success purely from the output file size and
+            # counts a half-written video as a successful run.
+            self.processingError = e
             logging.error(f"An error occurred while processing the video: {e}")
+
+        if ADOBE:
+            # This path bypasses main.py's start()/_notifyAdobe, so nothing
+            # else would ever tell the panel the render finished or failed.
+            reportTerminalStatus(self.processingError, self.output, self.benchmark)
 
     def handleModel(self):
         if ADOBE:
@@ -261,6 +273,9 @@ class AnimeSegmentTensorRT:
         self.fps = fps
         self.inpoint = inpoint
         self.outpoint = outpoint
+        # Read back by the standalone factory so main.py can count a failed
+        # run as failed; these paths never reach start()'s own bookkeeping.
+        self.processingError: Exception | None = None
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
         self.benchmark = benchmark
@@ -311,7 +326,16 @@ class AnimeSegmentTensorRT:
                 processFuture.result()
 
         except Exception as e:
+            # Recorded as well as logged: --segment bypasses start(), so main.py
+            # otherwise decides success purely from the output file size and
+            # counts a half-written video as a successful run.
+            self.processingError = e
             logging.error(f"An error occurred while processing the video: {e}")
+
+        if ADOBE:
+            # This path bypasses main.py's start()/_notifyAdobe, so nothing
+            # else would ever tell the panel the render finished or failed.
+            reportTerminalStatus(self.processingError, self.output, self.benchmark)
 
     def handleModel(self):
         if ADOBE:
@@ -474,6 +498,9 @@ class AnimeSegmentDirectML:
         self.fps = fps
         self.inpoint = inpoint
         self.outpoint = outpoint
+        # Read back by the standalone factory so main.py can count a failed
+        # run as failed; these paths never reach start()'s own bookkeeping.
+        self.processingError: Exception | None = None
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
         self.benchmark = benchmark
@@ -520,7 +547,16 @@ class AnimeSegmentDirectML:
                 processFuture.result()
 
         except Exception as e:
+            # Recorded as well as logged: --segment bypasses start(), so main.py
+            # otherwise decides success purely from the output file size and
+            # counts a half-written video as a successful run.
+            self.processingError = e
             logging.error(f"An error occurred while processing the video: {e}")
+
+        if ADOBE:
+            # This path bypasses main.py's start()/_notifyAdobe, so nothing
+            # else would ever tell the panel the render finished or failed.
+            reportTerminalStatus(self.processingError, self.output, self.benchmark)
 
     def handleModel(self):
         if ADOBE:
@@ -681,6 +717,9 @@ class AnimeSegmentOpenVino:
         self.fps = fps
         self.inpoint = inpoint
         self.outpoint = outpoint
+        # Read back by the standalone factory so main.py can count a failed
+        # run as failed; these paths never reach start()'s own bookkeeping.
+        self.processingError: Exception | None = None
         self.encode_method = encode_method
         self.custom_encoder = custom_encoder
         self.benchmark = benchmark
@@ -740,7 +779,16 @@ class AnimeSegmentOpenVino:
                 processFuture.result()
 
         except Exception as e:
+            # Recorded as well as logged: --segment bypasses start(), so main.py
+            # otherwise decides success purely from the output file size and
+            # counts a half-written video as a successful run.
+            self.processingError = e
             logging.error(f"An error occurred while processing the video: {e}")
+
+        if ADOBE:
+            # This path bypasses main.py's start()/_notifyAdobe, so nothing
+            # else would ever tell the panel the render finished or failed.
+            reportTerminalStatus(self.processingError, self.output, self.benchmark)
 
     def handleModel(self):
         if ADOBE:

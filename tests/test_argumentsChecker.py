@@ -162,6 +162,72 @@ def testMoblurParserIncludesMpsChoices():
     assert "rife4.25-mps" in methods
 
 
+def testCudalessFallbackRewritesSegmentToDirectml(monkeypatch):
+    # --segment with its DEFAULT method used to survive the fallback untouched
+    # and then construct AnimeSegment, whose unguarded torch.cuda.Stream()
+    # raised on every machine without CUDA. The fallback looked the method up
+    # in modelsList(), which registers segment as "segment*" while the CLI
+    # calls it "anime*", so "anime-directml" was never found.
+    monkeypatch.setattr(cs, "SYSTEM", "Windows", raising=False)
+    args = fallbackArgs(segment=True, segment_method="anime")
+
+    _adjustMethodsBasedOnCuda(args)
+
+    assert args.segment_method == "anime-directml"
+
+
+def testCudalessFallbackRewritesRife425(monkeypatch):
+    # modelsList() carries no rife*-directml entries at all, so every 4.25-family
+    # method also survived unchanged into RifeCuda's unguarded CUDA streams.
+    monkeypatch.setattr(cs, "SYSTEM", "Windows", raising=False)
+    args = fallbackArgs(interpolate=True, interpolate_method="rife4.25")
+
+    _adjustMethodsBasedOnCuda(args)
+
+    assert args.interpolate_method == "rife4.25-directml"
+
+
+def testCudalessFallbackKeepsRifeOnNcnn(monkeypatch):
+    # RIFE's NCNN path runs about an order of magnitude faster than its
+    # DirectML one, so interpolation must not be handed to DirectML merely
+    # because a -directml choice exists. Switching the fallback to the CLI
+    # choice list made both spellings visible for the first time, and the
+    # default --interpolate_method silently flipped ncnn -> directml.
+    monkeypatch.setattr(cs, "SYSTEM", "Windows", raising=False)
+    args = fallbackArgs(interpolate=True, interpolate_method="rife4.6")
+
+    _adjustMethodsBasedOnCuda(args)
+
+    assert args.interpolate_method == "rife4.6-ncnn"
+
+
+def testFallbackPrefersDirectmlOutsideInterpolation():
+    # The ncnn-first preference is interpolation-specific.
+    choices = ["shufflecugan-directml", "shufflecugan-ncnn"]
+    assert (
+        fallbackMethod("shufflecugan", set(), choices=choices, capability="upscale")
+        == "shufflecugan-directml"
+    )
+    assert (
+        fallbackMethod(
+            "rife4.6",
+            set(),
+            choices=["rife4.6-directml", "rife4.6-ncnn"],
+            capability="interpolate",
+        )
+        == "rife4.6-ncnn"
+    )
+
+
+def testFallbackMethodPrefersCliChoicesOverRegistry():
+    # The registry name and the CLI name disagree for segment; the CLI name wins.
+    assert fallbackMethod("anime", {"segment-directml"}) == "anime"
+    assert (
+        fallbackMethod("anime", {"segment-directml"}, choices=["anime-directml"])
+        == "anime-directml"
+    )
+
+
 def testDarwinFallbackUsesMpsForDepth(monkeypatch):
     monkeypatch.setattr(cs, "SYSTEM", "Darwin", raising=False)
     args = fallbackArgs(depth=True, depth_method="small_v2")

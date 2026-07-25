@@ -222,7 +222,7 @@ def _configureProcessingSettings(args):
         )
 
 
-def _adjustMethodsBasedOnCuda(args, availableModels=None):
+def _adjustMethodsBasedOnCuda(args, availableModels=None, methodChoices=None):
     supportsCuda = getattr(args, "supportsCuda", None)
 
     if supportsCuda is None:
@@ -254,10 +254,18 @@ def _adjustMethodsBasedOnCuda(args, availableModels=None):
 
             availableModels = modelsList()
 
+        if methodChoices is None:
+            # The CLI choices, not the weight registry, decide whether a
+            # non-CUDA sibling exists (see fallbackMethod's docstring).
+            from src.cli.parser import _buildParser, capabilityMethods
+
+            methodChoices = capabilityMethods(_buildParser("."))
+
         applyBackendFallbacks(
             args,
             availableModels,
             preferMps=cs.SYSTEM == "Darwin",
+            methodChoices=methodChoices,
         )
 
 

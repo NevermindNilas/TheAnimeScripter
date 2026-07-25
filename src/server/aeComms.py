@@ -1,4 +1,5 @@
 import logging
+import os
 from multiprocessing import get_context
 from queue import Empty
 from threading import Lock
@@ -83,6 +84,34 @@ class ProgressState:
 
 
 progressState = ProgressState()
+
+
+def reportTerminalStatus(processingError, outputPath, benchmark=False):
+    """Send a standalone capability's final status to the After Effects panel.
+
+    ``--segment``/``--obj_detect``/``--stabilize`` bypass ``main.py``'s
+    ``start()``, and therefore its ``_notifyAdobe``, so each has to report for
+    itself; without this the panel sat on the last progress string forever
+    (issues #269, #236). The failure test mirrors ``main.py:_videoFailed``: an
+    exception OR a missing/0-byte output counts as failed, and benchmark runs
+    write no output by design so their size is not checked.
+    """
+    wroteOutput = benchmark
+    if not wroteOutput:
+        try:
+            wroteOutput = os.path.getsize(outputPath) > 0
+        except OSError, TypeError:
+            wroteOutput = False
+
+    if processingError is not None or not wroteOutput:
+        progressState.setFailed(
+            error=str(processingError)
+            if processingError is not None
+            else "Output file not found after processing"
+        )
+    else:
+        progressState.setCompleted(outputPath=outputPath)
+
 
 # Cache of the most recent progress payload seen by the relay. The Socket.IO
 # server runs in a child process whose `progressState` is NOT the instance the
