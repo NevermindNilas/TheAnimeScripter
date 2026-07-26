@@ -1194,7 +1194,7 @@ class NeluxWriteBuffer:
 
         # Mirror the FFmpeg encoder targets in encodingSettings.matchEncoder
         # one-for-one. Each entry is the full nelux.VideoEncoder kwarg set.
-        # nelux (==0.12.2, pinned) takes an INTEGER preset and maps it per-codec
+        # nelux takes an INTEGER preset and maps it per-codec
         # internally (Encoder.cpp): x264/x265 1=ultrafast..9=veryslow so 3=veryfast;
         # libsvtav1 preset = 13-n so n=5 -> svt preset 8; NVENC -> p<n> so 1 -> p1.
         # cq maps to `-crf` (software) / NVENC CQ; cq=15 == FFmpeg `-crf/-cq 15`.
