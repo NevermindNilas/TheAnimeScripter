@@ -21,14 +21,12 @@ class DedupSSIMCuda:
         self.half = half
         self.prevFrame = None
 
-        from .ssim import SSIM
+        from frame_analytics import ssim
 
         self.interpolate = F.interpolate
-        self.ssim = SSIM(data_range=1.0, channel=3).cuda()
-        if half:
-            self.ssim.half()
-        else:
-            self.ssim.float()
+        # frame_analytics accumulates in fp32/fp64 whatever the input dtype, so
+        # `half` only picks the resize/compare dtype, never the score's precision.
+        self.ssim = ssim
 
     def __call__(self, frame):
         """
@@ -40,7 +38,7 @@ class DedupSSIMCuda:
 
         frame = self.processFrame(frame)
 
-        score = self.ssim(self.prevFrame, frame).mean()
+        score = self.ssim(self.prevFrame, frame, data_range=1.0)
 
         if score < self.ssimThreshold:
             self.prevFrame.copy_(frame, non_blocking=False)
@@ -70,7 +68,7 @@ class DedupSSIM:
         ssimThreshold=0.9,
         sampleSize=224,
     ):
-        from .ssim import SSIM
+        from frame_analytics import ssim
 
         # Same fp32 SSIM math either way; on CUDA boxes the decoded frames are
         # already GPU-resident, and forcing CPU here shipped every frame D2H
@@ -79,8 +77,7 @@ class DedupSSIM:
         self.ssimThreshold = ssimThreshold
         self.sampleSize = sampleSize
         self.prevFrame = None
-        self.ssim = SSIM(data_range=1.0, channel=3).to(self.device)
-        self.ssim.eval()
+        self.ssim = ssim
 
     def __call__(self, frame):
         """
@@ -92,7 +89,7 @@ class DedupSSIM:
 
         frame = self.processFrame(frame)
 
-        score = self.ssim(self.prevFrame, frame).item()
+        score = self.ssim(self.prevFrame, frame, data_range=1.0).item()
 
         if score < self.ssimThreshold:
             self.prevFrame = frame
@@ -115,9 +112,12 @@ class DedupMSE:
         mseThreshold=1000,
         sampleSize=224,
     ):
+        from frame_analytics import mse
+
         self.mseThreshold = mseThreshold
         self.sampleSize = sampleSize
         self.prevFrame = None
+        self.mse = mse
 
     def __call__(self, frame):
         """
@@ -128,7 +128,7 @@ class DedupMSE:
             return False
 
         frame = self.processFrame(frame)
-        score = ((self.prevFrame - frame) ** 2).mean()
+        score = self.mse(self.prevFrame, frame)
 
         # Low MSE -> (near) identical to the previous kept frame -> duplicate.
         # NOTE: SSIM/VMAF treat a HIGH score as "similar"; MSE is the opposite
@@ -160,11 +160,14 @@ class DedupMSECuda:
         half=True,
         sampleSize=224,
     ):
+        from frame_analytics import mse
+
         self.mseThreshold = mseThreshold
         self.sampleSize = sampleSize
         self.half = half
         self.prevFrame = None
         self.interpolate = F.interpolate
+        self.mse = mse
 
     def __call__(self, frame):
         """
@@ -175,7 +178,7 @@ class DedupMSECuda:
             return False
 
         frame = self.processFrame(frame)
-        score = ((self.prevFrame - frame) ** 2).mean()
+        score = self.mse(self.prevFrame, frame)
 
         # Low MSE -> (near) identical -> duplicate (see DedupMSE for why the
         # direction is inverted vs SSIM/VMAF). Advance the reference only on a

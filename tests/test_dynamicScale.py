@@ -9,7 +9,9 @@ Regression coverage for two bugs:
   * `dynamic_scale.dynamicScale` cached one global SSIM module and bound it to
     the device and dtype of the *first* caller. Its gaussian window is a buffer,
     so a later caller with a different dtype hit
-    "expected scalar type Half but found Float".
+    "expected scalar type Half but found Float". The scorer is now
+    `frame_analytics.ssim`, which builds its window per call and so has no
+    dtype-bound state to get stuck on -- the mixed-dtype test still pins it.
 """
 
 import pytest
@@ -17,7 +19,7 @@ import pytest
 torch = pytest.importorskip("torch")
 
 from src.rifearches import rife_fast
-from src.rifearches.dynamic_scale import _SSIMFUNCTIONS, dynamicScale
+from src.rifearches.dynamic_scale import dynamicScale
 from src.rifearches.IFNet_rife425 import IFNet as ReferenceIFNet
 
 # 128 is the smallest size that survives dynamicScale's coarsest pick (0.5):
@@ -60,15 +62,12 @@ def testMixedDtypesInOneProcess():
     assert dynamicScale(a32, b32) == 0.5  # and back again
 
 
-def testSsimModuleIsCachedPerDeviceAndDtype():
-    a, b = _pair("hold")
-    _SSIMFUNCTIONS.clear()
-    dynamicScale(a, b)
-    assert len(_SSIMFUNCTIONS) == 1
-    dynamicScale(a, b)
-    assert len(_SSIMFUNCTIONS) == 1, "same (device, dtype) must reuse its module"
-    dynamicScale(a.half(), b.half())
-    assert len(_SSIMFUNCTIONS) == 2, "a new dtype needs its own module"
+def testFp16AgreesWithFp32():
+    """The scorer accumulates in fp32/fp64 whatever the input dtype, so a
+    half-precision pair must not round its way to a different scale pick."""
+    for kind in ("hold", "motion"):
+        a, b = _pair(kind)
+        assert dynamicScale(a.half(), b.half()) == dynamicScale(a, b)
 
 
 # --- the fast arch honours the flag -------------------------------------------
