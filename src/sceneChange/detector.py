@@ -7,8 +7,8 @@ holds its own downsampled reference frame and advances it EVERY call (unlike
 dedup, which only advances on a kept frame). The first frame always returns
 False (no predecessor).
 
-Cheap tier (ssim/mse) reuses the SSIM module and MSE math from ``src/dedup``.
-A cut is the inverse of the dedup duplicate test:
+Cheap tier (ssim/mse) scores with ``frame_analytics``, the same kernels
+``src/dedup`` uses. A cut is the inverse of the dedup duplicate test:
   - SSIM: high == similar, so cut when ``ssim < threshold``.
   - MSE:  low  == similar, so cut when ``mse > threshold``.
 The maxxvit tier reuses the shared 6-channel classifier; cut when the softmax
@@ -23,7 +23,7 @@ class _SSIMBase:
     """Shared SSIM cut logic; subclasses set device/dtype and resize mode."""
 
     def __init__(self, threshold, sampleSize, device, half, mode):
-        from src.dedup.ssim import SSIM
+        from frame_analytics import ssim
 
         self.threshold = threshold
         self.sampleSize = sampleSize
@@ -31,12 +31,9 @@ class _SSIMBase:
         self.half = half
         self.mode = mode
         self.prevFrame = None
-        self.ssim = SSIM(data_range=1.0, channel=3).to(device)
-        if half:
-            self.ssim.half()
-        else:
-            self.ssim.float()
-        self.ssim.eval()
+        # Accumulation is fp32/fp64 regardless of the input dtype, so `half`
+        # only picks the resize/compare dtype, not the score's precision.
+        self.ssim = ssim
 
     def _prep(self, frame):
         frame = frame.half() if self.half else frame.float()
@@ -50,7 +47,7 @@ class _SSIMBase:
         if self.prevFrame is None:
             self.prevFrame = cur
             return False
-        score = self.ssim(self.prevFrame, cur).mean().item()
+        score = self.ssim(self.prevFrame, cur, data_range=1.0).item()
         self.prevFrame = cur
         # SSIM high == similar; a scene cut is a large drop in similarity.
         return score < self.threshold
@@ -91,11 +88,14 @@ class _MSEBase:
     """Shared MSE cut logic. MSE low == similar, so cut when mse > threshold."""
 
     def __init__(self, threshold, sampleSize, half, cuda):
+        from frame_analytics import mse
+
         self.threshold = threshold
         self.sampleSize = sampleSize
         self.half = half
         self.cuda = cuda
         self.prevFrame = None
+        self.mse = mse
 
     def _prep(self, frame):
         if self.cuda:
@@ -116,7 +116,7 @@ class _MSEBase:
         if self.prevFrame is None:
             self.prevFrame = cur
             return False
-        score = ((self.prevFrame - cur) ** 2).mean().item()
+        score = self.mse(self.prevFrame, cur).item()
         self.prevFrame = cur
         return score > self.threshold
 

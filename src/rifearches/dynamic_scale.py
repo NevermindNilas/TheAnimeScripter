@@ -1,21 +1,10 @@
 import torch
+from frame_analytics import ssim
 
-from src.dedup.ssim import SSIM
-
-# One SSIM module per (device, dtype). Its gaussian window is a buffer bound to
-# both, so a single cached instance silently binds to whatever the first caller
-# happened to pass and then raises "expected scalar type Half but found Float"
-# for every caller afterwards.
-_SSIMFUNCTIONS: dict[tuple[torch.device, torch.dtype], SSIM] = {}
-
-
-def _ssimFor(device: torch.device, dtype: torch.dtype) -> SSIM:
-    key = (device, dtype)
-    fn = _SSIMFUNCTIONS.get(key)
-    if fn is None:
-        fn = SSIM(data_range=1.0, channel=3).to(device=device, dtype=dtype)
-        _SSIMFUNCTIONS[key] = fn
-    return fn
+# frame_analytics.ssim builds its gaussian window per call from the inputs, so
+# there is nothing device- or dtype-bound to cache. The old torch.jit module
+# held the window as a buffer, which is why it needed one instance per
+# (device, dtype) or it raised "expected scalar type Half but found Float".
 
 
 def dynamicScale(
@@ -41,7 +30,7 @@ def dynamicScale(
             f"Both images must be on the same device, got {img1.device} and {img2.device}"
         )
 
-    ssim_value = _ssimFor(img1.device, img1.dtype)(img1, img2).mean().item()
+    ssim_value = ssim(img1, img2, data_range=1.0).item()
 
     scale = minScale + (maxScale - minScale) * (1 - (ssim_value**2))
     scale = max(minScale, min(maxScale, scale))
