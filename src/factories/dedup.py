@@ -1,31 +1,39 @@
 """
 Dedup backend factory.
 
-buildDedupProcess(self) -> callable
+buildDedupProcess(self, method=None, sens=None) -> callable
 """
 
 
-def buildDedupProcess(self):
-    match self.dedupMethod:
+def buildDedupProcess(self, method=None, sens=None):
+    """Build a duplicate detector.
+
+    ``method``/``sens`` default to the --dedup knobs. `--smooth_dedup` drives the same
+    backends off its own --smooth_dedup_method/--smooth_dedup_sens, so it passes them in.
+    """
+    method = self.dedupMethod if method is None else method
+    sens = self.dedupSens if sens is None else sens
+
+    match method:
         case "ssim":
             from src.dedup.dedup import DedupSSIM
 
             return DedupSSIM(
-                self.dedupSens,
+                sens,
             )
 
         case "mse":
             from src.dedup.dedup import DedupMSE
 
             return DedupMSE(
-                self.dedupSens,
+                sens,
             )
 
         case "ssim-cuda":
             from src.dedup.dedup import DedupSSIMCuda
 
             return DedupSSIMCuda(
-                self.dedupSens,
+                sens,
                 self.half,
             )
 
@@ -33,8 +41,8 @@ def buildDedupProcess(self):
             from src.dedup.dedup import DedupVMAF
 
             return DedupVMAF(
-                dedupMethod=self.dedupMethod,
-                treshold=self.dedupSens,
+                dedupMethod=method,
+                treshold=sens,
                 half=self.half,
             )
 
@@ -42,7 +50,7 @@ def buildDedupProcess(self):
             from src.dedup.dedup import DedupMSECuda
 
             return DedupMSECuda(
-                self.dedupSens,
+                sens,
                 self.half,
             )
 
@@ -51,12 +59,10 @@ def buildDedupProcess(self):
 
             return DedupFlownetS(
                 half=self.half,
-                dedupSens=self.dedupSens,
+                dedupSens=sens,
                 height=self.height,
                 width=self.width,
             )
 
         case _:
-            raise ValueError(
-                f"No dedup backend is wired up for method '{self.dedupMethod}'."
-            )
+            raise ValueError(f"No dedup backend is wired up for method '{method}'.")

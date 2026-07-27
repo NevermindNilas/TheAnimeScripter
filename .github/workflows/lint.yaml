@@ -42,3 +42,46 @@ jobs:
 
       - name: Format check
         run: uv run ruff format --check
+
+  ty:
+    # Catches names that do not exist — the failure mode the backend `match`
+    # tables are prone to, where an arm lazily imports a class that was renamed
+    # or never written and nothing fails until a user picks that CLI choice.
+    # Ruff cannot see inside those arms; test_registryDrift.py checks the
+    # registries against the CLI choices, not the classes behind them.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.28"
+          enable-cache: true
+
+      - name: Create lint environment
+        run: uv venv
+
+      # Pin ty: it is pre-1.0, so rule names and default severities still move.
+      - name: Install ty
+        run: uv pip install ty==0.0.63
+
+      # The TAS dependency set (torch, tensorrt, onnxruntime EPs) is far too
+      # heavy to install just to lint, so this runs against a bare venv. ty
+      # still resolves first-party modules from the filesystem, so
+      # "Module `src.x` has no member `Y`" fires exactly as it does locally
+      # with the full environment — verified against the three dead imports
+      # this job was added for.
+      #
+      # What a bare venv *cannot* judge is third-party imports, so the gate is
+      # deliberately narrow: only src.* missing-member errors and undefined
+      # first-party names fail. "Cannot resolve imported module torch" and the
+      # like are expected here and must not fail the build.
+      - name: Type check
+        run: |
+          uv run ty check --output-format=concise --exit-zero | tee ty.log
+          if grep -E 'error\[unresolved-import\] Module `src\.[^`]*` has no member|error\[unresolved-reference\]' ty.log; then
+            echo "::error::ty found a first-party name that does not exist (see above)"
+            exit 1
+          fi

@@ -61,6 +61,7 @@ def _disableUserSitePackages() -> None:
 _disableUserSitePackages()
 
 import src.constants as cs  # noqa: E402
+from src.interpolate._timesteps import cutHoldSplit, gapPlan  # noqa: E402
 from src.io.frameWindow import FrameSlot  # noqa: E402
 
 warnings.filterwarnings("ignore")
@@ -164,6 +165,10 @@ class VideoProcessor:
         self.upscaleMethod: str = args.upscale_method
         self.dedupMethod: str = args.dedup_method
         self.dedupSens: float = args.dedup_sens
+        self.smoothDedup: bool = getattr(args, "smooth_dedup", False)
+        self.smoothDedupMethod: str = getattr(args, "smooth_dedup_method", "ssim")
+        self.smoothDedupSens: float = getattr(args, "smooth_dedup_sens", 35.0)
+        self.smoothDedupMaxSpan: int = getattr(args, "smooth_dedup_max_span", 6)
         self.restoreMethod: str = args.restore_method
         self.depthMethod: str = args.depth_method
         self.segmentMethod: str = args.segment_method
@@ -350,8 +355,14 @@ class VideoProcessor:
 
         Both detectors are stateful and see exactly the sequence of frames they
         saw when they ran inline, in the same order.
+
+        Under ``--smooth_dedup`` the detector runs identically, but the frames it drops
+        are not lost from the output: the count is carried on the next admitted
+        slot as ``dupsBefore`` so ``processFrame`` can widen that gap's
+        interpolation instead of shortening the video.
         """
-        if self.dedup and self.dedup_process(rawFrame):
+        if (self.dedup or self.smoothDedup) and self.dedup_process(rawFrame):
+            self._pendingDups += 1
             return None
 
         frame = self.restore_process(rawFrame) if self.restore else rawFrame
@@ -361,7 +372,9 @@ class VideoProcessor:
             and self.sceneChange_process is not None
             and self.sceneChange_process(frame)
         )
-        return FrameSlot(frame, isCut)
+        slot = FrameSlot(frame, isCut, self._pendingDups)
+        self._pendingDups = 0
+        return slot
 
     def _upscaledAt(self, offset: int):
         """Upscale of the slot at ``offset``, computed once and cached on it.
@@ -390,27 +403,50 @@ class VideoProcessor:
         """
         frame = slot.frame
         self._isCut = slot.isCut
+        self._holdGap = False
+        self._holdFromPrev = 0
 
         if self.interpolate:
-            if isinstance(self.interpolateFactor, float):
-                currentIDX = self.frameCounter
-                nextIDX = currentIDX + 1
+            # Every driver emits its intermediates for the interval *ending* at
+            # the frame it is handed, so plan for (previous, current]. Only --smooth_dedup
+            # widens that interval by the duplicates the entry stage dropped;
+            # plain --dedup deliberately shortens the video, so its gaps stay one
+            # source frame wide.
+            dups = slot.dupsBefore if self.smoothDedup else 0
+            curPos = self._sourcePos + 1 + dups
+            span = curPos - self._sourcePos
 
-                outputStart = (currentIDX * self.factorNum) // self.factorDen
-                outputEnd = (nextIDX * self.factorNum) // self.factorDen
+            # A long hold is a run of frames the detector called identical.
+            # Interpolating across it burns the full model on near-identical
+            # endpoints and dumps the whole gap into the writer queue at once;
+            # filling it with copies is what the source actually contained.
+            self._holdGap = bool(
+                self.smoothDedup
+                and self.smoothDedupMaxSpan
+                and span > self.smoothDedupMaxSpan
+            )
 
-                self.framesToInsert = outputEnd - outputStart - 1
-
-                self.timesteps = []
-                for i in range(1, self.framesToInsert + 1):
-                    outputIDX = outputStart + i
-                    t = (outputIDX * self.factorDen % self.factorNum) / self.factorNum
-                    self.timesteps.append(t)
-
-                self.frameCounter += 1
-            else:
-                self.framesToInsert = int(self.interpolateFactor) - 1
+            self.framesToInsert, self.timesteps = gapPlan(
+                self._sourcePos, curPos, self.factorNum, self.factorDen
+            )
+            if self.factorDen == 1 and span == 1:
+                # Identical values, but letting the driver default keeps the
+                # common path allocation-free and its timestep buffer cached.
                 self.timesteps = None
+
+            # How much of a held gap belongs to the frame it came FROM. Every
+            # source frame in a widened gap except the last one was a duplicate
+            # of the previous frame, so on a scene cut only the final source
+            # step is the cut itself -- filling the whole widened gap with the
+            # incoming shot would move the cut up to (span-1)*factor frames
+            # early and delete the tail of the outgoing one.
+            self._holdFromPrev = (
+                cutHoldSplit(self._sourcePos, curPos, self.factorNum, self.factorDen)
+                if self._isCut
+                else self.framesToInsert
+            )
+
+            self._sourcePos = curPos
 
         if self.interpolateFirst:
             self.ifInterpolateFirst(frame)
@@ -419,12 +455,24 @@ class VideoProcessor:
 
     def _interpolateOrHold(self, frame: any, sink: any, nextFrame: any) -> None:
         """
-        Feed the interpolation driver, or on a detected scene cut emit
-        ``framesToInsert`` duplicates of the current frame into ``sink`` and
-        reset the driver's frame/feature cache (via ``cacheFrameReset``) so the
-        next interpolation anchors on this frame with no bleed from the previous
-        scene. ``sink`` is ``self.interpQueue`` (interpolate-first) or
-        ``self.writeBuffer`` (interpolate-last); both expose ``put``.
+        Feed the interpolation driver, or hold: emit ``framesToInsert``
+        duplicates into ``sink`` and reset the driver's frame/feature cache (via
+        ``cacheFrameReset``) so the next interpolation anchors on this frame with
+        no bleed from what came before. ``sink`` is ``self.interpQueue``
+        (interpolate-first) or ``self.writeBuffer`` (interpolate-last); both
+        expose ``put``.
+
+        Two things hold, and a held gap can be split between them.
+        ``_holdFromPrev`` leading slots are filled with the *previous* frame:
+        under ``--smooth_dedup`` every source frame in a widened gap except the
+        last one was a duplicate of it, so that is literally what the source
+        contained -- and for a gap over ``--smooth_dedup_max_span`` it is also far
+        cheaper than inferring across two frames the detector called identical.
+        The remaining slots are the gap's final source step, filled with the
+        *current* frame on a scene cut, because the new shot has started there
+        and morphing across the cut is the artefact being avoided. Without
+        ``--smooth_dedup`` a gap is one source frame wide, ``_holdFromPrev`` is 0
+        on a cut, and this is exactly the old all-from-``frame`` behaviour.
 
         With ``--mask``, the sink is wrapped so every emitted intermediate frame
         has its protected pixels restored from the segment's anchor frame. Held
@@ -439,8 +487,15 @@ class VideoProcessor:
         ``nextFrame`` is the driver's future context, in the same domain as
         ``frame``, or ``None`` at the end of the stream or across a scene cut.
         """
-        if self._isCut:
-            for _ in range(self.framesToInsert):
+        if self._isCut or self._holdGap:
+            fromPrev = (
+                min(self._holdFromPrev, self.framesToInsert)
+                if self._lastFedFrame is not None
+                else 0
+            )
+            for _ in range(fromPrev):
+                sink.put(self._lastFedFrame.clone())
+            for _ in range(self.framesToInsert - fromPrev):
                 sink.put(frame.clone())
             self.interpolate_process.cacheFrameReset(frame)
         elif self.interpolateMethod.startswith("distildrba"):
@@ -459,6 +514,7 @@ class VideoProcessor:
             self.interpolate_process(frame, sink, self.framesToInsert, self.timesteps)
 
         self.maskAnchor = frame
+        self._lastFedFrame = frame
 
     def _drainInterpQueue(self) -> None:
         for item in self.interpQueue.frames:
@@ -491,15 +547,15 @@ class VideoProcessor:
                     self.writeBuffer.write(self.upscale_process(item, nextFrame))
                 self.interpQueue.clear()
 
-                self.writeBuffer.write(self.upscale_process(frame, nextFrame))
+                self._writeOut(self.upscale_process(frame, nextFrame))
 
             else:
-                self.writeBuffer.write(self.upscale_process(frame, nextFrame))
+                self._writeOut(self.upscale_process(frame, nextFrame))
 
         else:
             if self.interpolate:
                 self._drainInterpQueue()
-            self.writeBuffer.write(frame)
+            self._writeOut(frame)
 
     def ifInterpolateLast(self, frame: any) -> None:
         """
@@ -529,7 +585,39 @@ class VideoProcessor:
         if self.interpolate:
             self._interpolateOrHold(frame, self.writeBuffer, nextFrame)
 
+        self._writeOut(frame)
+
+    def _writeOut(self, frame: any) -> None:
+        """Write a centre frame and remember it as the stream's tail so far.
+
+        Only the centre frame is recorded: it is the last real frame in output
+        domain at any point, which is what ``_flushTrailingDuplicates`` needs to
+        pad with.
+        """
+        self._lastOutFrame = frame
         self.writeBuffer.write(frame)
+
+    def _flushTrailingDuplicates(self) -> None:
+        """Emit the output slots owed to duplicates that closed the stream.
+
+        A duplicate is only paid out when the next distinct frame arrives, so a
+        run of them at the very end of the video has no successor to widen. Fill
+        those slots with the last frame -- which is exactly what they were copies
+        of -- so the output length still matches the source.
+        """
+        if not (self.smoothDedup and self.interpolate and self._pendingDups):
+            return
+        if self._lastOutFrame is None:
+            return
+
+        endPos = self._sourcePos + self._pendingDups
+        owed = (endPos * self.factorNum) // self.factorDen - (
+            self._sourcePos * self.factorNum
+        ) // self.factorDen
+        for _ in range(owed):
+            self.writeBuffer.write(self._lastOutFrame.clone())
+        self._sourcePos = endPos
+        self._pendingDups = 0
 
     def process(self):
         """
@@ -543,7 +631,15 @@ class VideoProcessor:
 
         frameCount = 0
         self.dedupCount = 0
-        self.frameCounter = 0
+        # Source-frame position of the last frame handed to the driver, and the
+        # duplicates dropped since the last admitted frame. Both count decoded
+        # frames, which is the timeline --smooth_dedup has to reconstruct.
+        self._sourcePos = 0
+        self._pendingDups = 0
+        self._holdGap = False
+        self._holdFromPrev = 0
+        self._lastFedFrame = None
+        self._lastOutFrame = None
 
         self.maskedSink = None
         self.maskAnchor = None
@@ -608,24 +704,33 @@ class VideoProcessor:
         )
 
         try:
+            # The bar counts output frames and only accepts integers, so a
+            # fractional factor is projected onto the output grid rather than
+            # multiplied per step -- `bar(2.5)` raised "an integer is required"
+            # and killed every fractional-factor run before the first frame.
+            def outputPosition(sourceFrames):
+                return int(sourceFrames * increment)
+
             with self.ProgressBarLogic(
-                self.totalFrames * increment,
+                outputPosition(self.totalFrames),
                 outputPath=self.output,
                 videoFps=self.outputFPS,
             ) as bar:
-                consumed = 0
+                emitted = 0
                 while self.frameWindow.advance():
                     self.processFrame(self.frameWindow.centre)
                     # The bar tracks decoded frames, not kept ones, so dedup'd
                     # frames still advance it. Lookahead means the window may
                     # have consumed several by the time this centre is reached.
-                    advanced = self.frameWindow.consumed - consumed
-                    consumed = self.frameWindow.consumed
-                    if advanced:
-                        bar(increment * advanced)
+                    position = outputPosition(self.frameWindow.consumed)
+                    if position != emitted:
+                        bar(position - emitted)
+                        emitted = position
+
+                self._flushTrailingDuplicates()
 
                 if self.frameWindow.consumed != self.totalFrames:
-                    bar.updateTotal(self.frameWindow.consumed * increment)
+                    bar.updateTotal(outputPosition(self.frameWindow.consumed))
 
         except Exception as e:
             self.processingError = e
@@ -650,7 +755,13 @@ class VideoProcessor:
 
         logging.info(f"Processed {frameCount} frames")
         if self.dedupCount > 0:
-            logging.info(f"Deduplicated {self.dedupCount} frames")
+            # Under --smooth_dedup nothing is removed from the output: the
+            # duplicates are folded into wider interpolation gaps, so reporting
+            # them as deduplicated would contradict the frame count.
+            if self.smoothDedup:
+                logging.info(f"Interpolated across {self.dedupCount} duplicate frames")
+            else:
+                logging.info(f"Deduplicated {self.dedupCount} frames")
 
     def start(self):
         """

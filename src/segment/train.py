@@ -65,6 +65,8 @@ class AnimeSegmentation(torch.nn.Module):
             return self.net.forward_d1(x).sigmoid()
         if isinstance(self.net, ISNetGTEncoder):
             return self.net(x)[0][0].sigmoid()
-        elif isinstance(self.net, InSPyReNet):
+        # Training-only branch; the InSPyReNet arch is not vendored for inference,
+        # so the name is intentionally undefined here (ruff F821 is ignored too).
+        elif isinstance(self.net, InSPyReNet):  # ty: ignore[unresolved-reference]
             return self.net.forward_inference(x)["pred"]
         raise NotImplementedError

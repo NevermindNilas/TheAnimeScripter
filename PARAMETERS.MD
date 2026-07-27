@@ -95,10 +95,11 @@ You can now simply use:
 --upscale_method span-tensorrt --interpolate_method rife4.25
 ```
 
-The `--upscale` and `--interpolate` flags are **automatically enabled** when their corresponding `*_method` arguments are provided. This applies to all 7 processing operations:
+The `--upscale` and `--interpolate` flags are **automatically enabled** when their corresponding `*_method` arguments are provided. This applies to all 8 processing operations:
 - `--upscale_method` → auto-enables `--upscale`
 - `--interpolate_method` → auto-enables `--interpolate`
 - `--dedup_method` → auto-enables `--dedup`
+- `--smooth_dedup_method` → auto-enables `--smooth_dedup` (which in turn enables `--interpolate` and disables `--dedup`)
 - `--restore_method` → auto-enables `--restore`
 - `--segment_method` → auto-enables `--segment`
 - `--depth_method` → auto-enables `--depth`
@@ -337,7 +338,7 @@ C:\Videos\episode3.mp4
 | `--interpolate_factor` | float | 2 | >=1 | **Frame multiplication** (2 = 30→60fps). Accepts fractional values for fractional interpolation; when non-integer the `--static_step` flag will be disabled. |
 | `--interpolate_method` | str | "rife4.6" | [see table](#interpolation-models) | **Interpolation model** — specifying a non-default method auto-enables interpolation |
 | `--ensemble` | flag | False | - | **Higher quality** (slower, RIFE only) |
-| `--dynamic_scale` | flag | False | - | **Dynamic scaling** (CUDA only) |
+| `--dynamic_scale` | flag | False | - | **Dynamic scaling** — re-picks the RIFE pyramid scale per frame pair (0.5 / 1.0 / 2.0) from how much the pair changed. RIFE torch backends only (CUDA, MPS); ignored by `rife_elexor`, `gmfss` and `distildrba` |
 
 > **💡 Tip:** You can now simplify commands by omitting `--interpolate` when specifying a method. For example: `--interpolate_method rife4.25` automatically enables interpolation.
 
@@ -408,6 +409,49 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | **flownets** | ⚡ | ⭐⭐⭐⭐ | <2GB | Maximum accuracy | CUDA |
 | **vmaf** | ⚡ | ⭐⭐⭐⭐ | <2GB | Perceptual duplicate detection | CPU |
 | **vmaf-cuda** | ⚡⚡ | ⭐⭐⭐⭐ | <2GB | GPU-accelerated VMAF-based dedup | CUDA |
+
+> **Note:** `--dedup` *removes* frames, so the output is shorter than the input and audio is dropped. To keep the duration and recover the motion instead, use `--smooth_dedup`.
+
+### 🎞️ Smooth Deduplication
+
+| Parameter | Type | Default | Range | Description |
+|-----------|------|---------|-------|-------------|
+| `--smooth_dedup` | flag | False | - | **Interpolate across duplicate frames** — implies `--interpolate`, disables `--dedup`, keeps audio |
+| `--smooth_dedup_method` | str | "ssim" | [same as dedup](#-deduplication-methods) | **Duplicate detection algorithm** — auto-enables `--smooth_dedup` |
+| `--smooth_dedup_sens` | float | 35 | 0-100 | **Similarity threshold** (same scale as `--dedup_sens`) |
+| `--smooth_dedup_max_span` | int | 6 | 1+ | **Longest duplicate run to interpolate across**; longer holds are filled with copies |
+
+Anime is animated on twos or threes: a 24 fps master carries 8–12 unique drawings per second, each
+held for 2–3 identical frames. Plain interpolation synthesizes frames *between two identical
+drawings*, so the output is 48 fps but the motion is still 12 fps. `--smooth_dedup` detects the
+duplicates and widens each gap instead, so every held drawing gets real in-between motion while the
+duration and audio stay untouched.
+
+```
+source, on 2s:    A   A   B   B   C     24 fps, 5 frames
+--interpolate:    A A A ᵃᵇ B B B ᵇᶜ C   48 fps, 9 frames — the 'A A' and 'B B'
+                                        in-betweens interpolate two identical
+                                        drawings, so half the new frames are
+                                        copies and the motion is unchanged
+--smooth_dedup:   A ¹ ² ³ B ⁴ ⁵ ⁶ C     48 fps, 9 frames — every synthesized
+                                        frame is a real in-between
+```
+
+```bash
+./python.exe ./main.py --input "anime.mkv" \
+  --smooth_dedup --smooth_dedup_method ssim-cuda \
+  --interpolate_method rife4.25 --interpolate_factor 2
+```
+
+Runs longer than `--smooth_dedup_max_span` are filled with copies rather than interpolated: the
+frames in such a gap were duplicates anyway, so inference there costs full throughput for no visible
+gain. The cap is also a memory bound — one gap is emitted in a single batch, so it buffers
+`span × interpolate_factor` full-resolution frames at once. Raise it with that in mind; it cannot be
+set below 1.
+
+Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `--scenechange`,
+`--mask` and `--slowmo`. It is ignored by the standalone operations that bypass the frame loop
+(`--depth`, `--segment`, `--obj_detect`, `--autoclip`, `--stabilize`, `--moblur`).
 
 ### 🔧 Restoration & Enhancement
 
@@ -480,10 +524,10 @@ Interpolating across a hard scene cut produces a melt/ghost frame. When enabled,
 | **og_distill_small_v2** | ⚡⚡ | ⭐⭐⭐ | 3GB | Original distilled | CUDA, TRT, MPS |
 | **og_distill_base_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Original distilled | CUDA, TRT, MPS |
 | **og_distill_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Original distilled | CUDA, TRT, MPS |
-| **small_v3** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Depth Anything 3, fast | CUDA, TRT, DML, OpenVINO, MPS |
-| **base_v3** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Depth Anything 3, balanced | CUDA, TRT, DML, OpenVINO, MPS |
-| **large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | Depth Anything 3, quality | CUDA, MPS |
-| **og_large_v3** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Original maximum v3 | CUDA, MPS |
+| **small_v3** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Depth Anything 3, fast | CUDA, MPS |
+| **base_v3** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Depth Anything 3, balanced | CUDA, MPS |
+| **large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3MONO-LARGE, relative depth, best v3 quality | CUDA, MPS |
+| **og_large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3METRIC-LARGE, metric-depth sibling of `large_v3` (same ViT-L size, not a larger model) | CUDA, MPS |
 | **video_small_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Temporal (VideoDepthAnything), flicker-free | CUDA, TRT |
 | **video_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Temporal, maximum quality | CUDA |
 | **og_video_small_v2 / og_video_base_v2 / og_video_large_v2** | ⚡ | ⭐⭐⭐⭐ | 4-8GB | Original temporal implementations | CUDA |

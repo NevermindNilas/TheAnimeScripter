@@ -20,7 +20,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .dynamic_scale import dynamicScale
+from .dynamic_scale import pickScale
 
 # -----------------------------------------------------------------------------
 # shared modules
@@ -345,11 +345,12 @@ class _FastIFNet(nn.Module):
 
         if self.dynamicScale:
             # Same contract as the reference arches: the per-pair scale replaces
-            # the constructor's, so scale_list is rebuilt from scaleBase. Callers
-            # must disable CUDA-graph capture (block resolutions change per call)
-            # and pad for the coarsest scale this can pick -- see
+            # the constructor's, so scale_list is rebuilt from scaleBase. Block
+            # resolutions therefore change with the pick, so a caller that wants
+            # CUDA graphs needs one capture per DYNAMIC_SCALES entry (RifeCuda
+            # does) and must pad for the coarsest pick -- see
             # src/interpolate/_padding.py.
-            s = dynamicScale(img0[:, :3], img1[:, :3])
+            s = pickScale(self, img0[:, :3], img1[:, :3])
             self.scale_list = [b / s for b in self._scaleBase]
 
         if self._hasHead:

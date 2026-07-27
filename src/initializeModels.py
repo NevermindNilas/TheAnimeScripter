@@ -52,12 +52,17 @@ def initializeModels(self):
 
         restoreProcess = buildRestoreProcess(self)
 
-    if self.dedup:
-        _announce(f"Initializing deduplication: {self.dedupMethod}...")
+    if self.dedup or self.smoothDedup:
+        # --smooth_dedup reuses the dedup detectors, but off its own knobs: it turns each
+        # duplicate into extra interpolation slots rather than dropping a frame
+        # from the output, so the two are mutually exclusive (validator.py).
+        method = self.smoothDedupMethod if self.smoothDedup else self.dedupMethod
+        sens = self.smoothDedupSens if self.smoothDedup else self.dedupSens
+        _announce(f"Initializing duplicate detection: {method}...")
 
         from src.factories.dedup import buildDedupProcess
 
-        dedupProcess = buildDedupProcess(self)
+        dedupProcess = buildDedupProcess(self, method, sens)
 
     if self.interpolate and getattr(self, "sceneChange", False):
         _announce(f"Initializing scene-cut detector: {self.sceneChangeMethod}...")

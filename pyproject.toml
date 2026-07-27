@@ -28,6 +28,50 @@ ignore = [
 [tool.ruff.format]
 # Defaults: double quotes, 4-space indent, magic trailing comma.
 
+[tool.ty.environment]
+# Without this ty treats `src/` as a source root, which breaks every
+# `from .infra.x import y` inside src/*.py into a false unresolved-import.
+root = ["."]
+
+[tool.ty.src]
+# Same vendored trees ruff skips — not ours to annotate.
+exclude = [
+    "src/spandrel",
+    "src/gmfss",
+    "src/rifearches",
+    "src/depth/distillanydepth",
+    "src/depth/depth_anything_3",
+    "src/depth/video_depth_anything",
+    "src/depth/dinov2_layers",
+    "dist-portable",
+    "portable-python",
+]
+
+[tool.ty.rules]
+# Scope: ty is here to catch names that do not exist — the failure mode the
+# backend dispatch tables are prone to, where a `match` arm lazily imports a
+# class that was renamed or never written and nothing fails until a user picks
+# that CLI choice. Ruff cannot see inside those arms and the tests do not
+# instantiate every backend.
+#
+# Everything below is a genuine ty finding, not noise, but clearing it is a
+# separate annotation project. Ratchet these up one at a time; do not bulk-enable.
+unresolved-attribute = "ignore"     # ~78/147 are the `self.model = None` in __init__, built in handleModel()
+invalid-argument-type = "ignore"
+invalid-type-form = "ignore"        # mostly `def f(x: torch.tensor)` — the function, not the type
+call-non-callable = "ignore"
+no-matching-overload = "ignore"
+invalid-parameter-default = "ignore"
+invalid-assignment = "ignore"
+unsupported-operator = "ignore"
+not-subscriptable = "ignore"
+missing-argument = "ignore"
+invalid-return-type = "ignore"
+possibly-missing-submodule = "ignore"
+# `# type: ignore` comments in this tree target other checkers; ty policing them
+# would just churn vendored-adjacent arch files.
+unused-type-ignore-comment = "ignore"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 norecursedirs = [

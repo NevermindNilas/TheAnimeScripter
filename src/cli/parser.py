@@ -475,6 +475,7 @@ def _buildParser(outputPath):
     _addInterpolationOptions(argParser)
     _addUpscalingOptions(argParser)
     _addDedupOptions(argParser)
+    _addSmoothDedupOptions(argParser)
     _addVideoProcessingOptions(argParser)
     _addMotionBlurOptions(argParser)
     _addMaskOptions(argParser)
@@ -632,7 +633,7 @@ def _addInterpolationOptions(argParser):
     interpolationGroup.add_argument(
         "--dynamic_scale",
         action="store_true",
-        help="Use dynamic scaling for interpolation, this can improve the quality of the interpolation at the cost of performance, this is experimental and only works with Rife CUDA",
+        help="Pick the RIFE pyramid scale per frame pair instead of using a fixed one: near-duplicate pairs get a finer pyramid, heavily changed pairs a coarser one. Costs some performance, RIFE CUDA and MPS only",
     )
     interpolationGroup.add_argument(
         "--static_step",
@@ -804,10 +805,41 @@ def _addDedupOptions(argParser):
     dedupGroup.add_argument(
         "--dedup_sens", type=float, default=35, help="Deduplication sensitivity"
     )
-    dedupGroup.add_argument(
+
+
+def _addSmoothDedupOptions(argParser):
+    smoothDedupGroup = argParser.add_argument_group("Smooth Deduplication")
+    smoothDedupGroup.add_argument(
         "--smooth_dedup",
         action="store_true",
-        help="Smooth deduplication, this will remove duplicates while also generating new frames to make the video smoother, this is experimental and may not work well with all videos, use --interpolate_method to set the interpolation method",
+        help="Dedup-aware interpolation: detect duplicate frames (anime on twos/threes) and interpolate across them, so motion is recovered while the original duration is preserved. Implies --interpolate and disables --dedup",
+    )
+    smoothDedupGroup.add_argument(
+        "--smooth_dedup_method",
+        type=str,
+        default="ssim",
+        choices=[
+            "ssim",
+            "mse",
+            "ssim-cuda",
+            "mse-cuda",
+            "flownets",
+            "vmaf",
+            "vmaf-cuda",
+        ],
+        help="Duplicate detection method used by --smooth_dedup",
+    )
+    smoothDedupGroup.add_argument(
+        "--smooth_dedup_sens",
+        type=float,
+        default=35,
+        help="Duplicate detection sensitivity for --smooth_dedup",
+    )
+    smoothDedupGroup.add_argument(
+        "--smooth_dedup_max_span",
+        type=int,
+        default=6,
+        help="Longest run of duplicates --smooth_dedup will interpolate across; longer holds are filled with copies instead. Raising it costs memory: one gap buffers span x interpolate_factor frames at once",
     )
 
 
@@ -1114,10 +1146,6 @@ def _addDepthOptions(argParser):
         "base_v3-mps",
         "large_v3-mps",
         "og_large_v3-mps",
-        "small_v3-directml",
-        "base_v3-directml",
-        "small_v3-tensorrt",
-        "base_v3-tensorrt",
         "small_v2-openvino",
         "base_v2-openvino",
         "large_v2-openvino",
@@ -1127,8 +1155,6 @@ def _addDepthOptions(argParser):
         "og_small_v2-openvino",
         "og_base_v2-openvino",
         "og_large_v2-openvino",
-        "small_v3-openvino",
-        "base_v3-openvino",
     ]
 
     depthGroup.add_argument(
