@@ -16,7 +16,7 @@ class UniversalNCNN:
         self.upscaleMethod = upscaleMethod
         self.upscaleFactor = upscaleFactor
 
-        from upscale_ncnn_py import UPSCALE
+        from upscale_ncnn_py import UPSCALE  # ty: ignore[unresolved-import]
 
         self.filename = modelsMap(
             self.upscaleMethod,

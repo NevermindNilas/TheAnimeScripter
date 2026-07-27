@@ -135,6 +135,15 @@ KNOWN_UNREGISTERED_METHODS = {
         "vmaf",
         "vmaf-cuda",
     },
+    "smooth_dedup": {
+        # same comparators as dedup, driven off --smooth_dedup_method
+        "ssim",
+        "mse",
+        "ssim-cuda",
+        "mse-cuda",
+        "vmaf",
+        "vmaf-cuda",
+    },
     "interpolate": {
         # Bare aliases: absent from modelsList, but modelsMap resolves them to
         # 4.22 (see testEveryInterpolateChoiceResolves, which pins that).

@@ -37,14 +37,18 @@ class FrameSlot:
 
     ``frame`` is the frame in the window's own domain (post-dedup, post-restore).
     ``isCut`` marks a hard scene cut *at* this frame, i.e. between it and the
-    frame before it. ``cache`` memoizes downstream stage outputs keyed by name.
+    frame before it. ``dupsBefore`` is how many source frames the entry stage
+    dropped between the previous admitted frame and this one, so a consumer can
+    recover how much of the source timeline the gap actually covers (--smooth_dedup).
+    ``cache`` memoizes downstream stage outputs keyed by name.
     """
 
-    __slots__ = ("frame", "isCut", "cache")
+    __slots__ = ("frame", "isCut", "dupsBefore", "cache")
 
-    def __init__(self, frame, isCut: bool = False):
+    def __init__(self, frame, isCut: bool = False, dupsBefore: int = 0):
         self.frame = frame
         self.isCut = isCut
+        self.dupsBefore = dupsBefore
         self.cache: dict = {}
 
 

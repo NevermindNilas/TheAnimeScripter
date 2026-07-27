@@ -32,8 +32,10 @@ from src.cli.validation import (
 )
 from src.cli.validator import (
     _adjustMethodsBasedOnCuda,
+    _applyImpliedFlags,
     _configureProcessingSettings,
     _handleDepthSettings,
+    _mapDedupSensitivity,
     isAnyOtherProcessingMethodEnabled,
 )
 from src.infra.backendFallback import applyBackendFallbacks, fallbackMethod
@@ -44,10 +46,15 @@ def makeArgs(**overrides):
         slowmo=False,
         static_step=False,
         interpolate_factor=2.0,
+        interpolate=False,
+        interpolate_method="rife4.25",
         dedup=False,
-        smooth_dedup=False,
         dedup_method="ssim",
         dedup_sens=35.0,
+        smooth_dedup=False,
+        smooth_dedup_method="ssim",
+        smooth_dedup_sens=35.0,
+        smooth_dedup_max_span=6,
         autoclip=False,
         autoclip_method="pyscenedetect",
         autoclip_sens=50.0,
@@ -297,16 +304,82 @@ def testProbabilityBasedAutoclipSensMappedToUnitThreshold():
 
 def testDedupDisablesAudio(monkeypatch):
     monkeypatch.setattr(cs, "AUDIO", True, raising=False)
-    a = makeArgs(dedup=True, smooth_dedup=False, dedup_method="mse")
+    a = makeArgs(dedup=True, dedup_method="mse")
     _configureProcessingSettings(a)
     assert cs.AUDIO is False
 
 
+# --------------------------------------------------------------------------- #
+# _configureProcessingSettings: --smooth_dedup
+# --------------------------------------------------------------------------- #
+
+
 def testSmoothDedupKeepsAudio(monkeypatch):
+    # --smooth_dedup preserves duration, so audio stays in sync and stays enabled.
     monkeypatch.setattr(cs, "AUDIO", True, raising=False)
-    a = makeArgs(dedup=True, smooth_dedup=True, dedup_method="mse")
+    a = makeArgs(smooth_dedup=True, smooth_dedup_method="mse")
     _configureProcessingSettings(a)
     assert cs.AUDIO is True
+
+
+def testSmoothDedupAutoEnablesInterpolate():
+    a = makeArgs(smooth_dedup=True, interpolate=False)
+    _applyImpliedFlags(a)
+    assert a.interpolate is True
+
+
+def testSmoothDedupDisablesDedup():
+    # The frame-dropping path would shorten the video --smooth_dedup preserves.
+    a = makeArgs(smooth_dedup=True, dedup=True, dedup_method="mse")
+    _applyImpliedFlags(a)
+    assert a.dedup is False
+
+
+def testImpliedFlagsRunBeforeTheGuardsThatReadThem():
+    """--slowmo and --dynamic_scale are gated on --interpolate by guards that run
+    before _configureProcessingSettings, so --smooth_dedup has to have enabled it
+    by then or both flags switch themselves off with a misleading message."""
+    a = makeArgs(smooth_dedup=True, interpolate=False, dynamic_scale=True)
+    _applyImpliedFlags(a)
+    assert a.interpolate is True
+
+    # Same call order prepareRuntimeArgs uses.
+    assert not (a.slowmo and not a.interpolate)
+    _configureProcessingSettings(a)
+    assert a.dynamic_scale is True
+
+
+@pytest.mark.parametrize(
+    "method, expected",
+    [
+        ("ssim", 1.0 - 35.0 / 1000),
+        ("ssim-cuda", 1.0 - 35.0 / 1000),
+        ("vmaf", 100.0 - 3.5),
+        ("vmaf-cuda", 100.0 - 3.5),
+        ("flownets", 0.35),
+        ("mse", 35.0),
+        ("mse-cuda", 35.0),
+    ],
+)
+def testSmoothDedupSensUsesTheSameMappingAsDedup(method, expected):
+    # The shared helper is what both --dedup and --smooth_dedup call, so testing
+    # it directly keeps the table independent of the CUDA-availability downgrade.
+    assert _mapDedupSensitivity(method, 35.0) == pytest.approx(expected)
+
+
+def testSmoothDedupSensIsMappedOnTheArgs():
+    a = makeArgs(smooth_dedup=True, smooth_dedup_method="mse", smooth_dedup_sens=20.0)
+    _configureProcessingSettings(a)
+    assert a.smooth_dedup_sens == 20.0
+
+
+def testSmoothDedupMaxSpanClampedToAtLeastOne():
+    # 0 used to mean "no cap", which let one widened gap buffer thousands of
+    # full-resolution frames in the interpolate-first sink and exhaust VRAM.
+    for given in (-3, 0):
+        a = makeArgs(smooth_dedup=True, smooth_dedup_max_span=given)
+        _configureProcessingSettings(a)
+        assert a.smooth_dedup_max_span == 1
 
 
 # --------------------------------------------------------------------------- #

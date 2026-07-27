@@ -11,6 +11,7 @@ from src.interpolate._shared import importRifeArch
 from src.interpolate._timesteps import fillTimestepBuffer, interpolateTimestep
 from src.model.download import resolveWeightPath
 from src.model.registry import modelsMap
+from src.rifearches.dynamic_scale import DYNAMIC_SCALES, dynamicScale
 
 if ADOBE:
     from src.server.aeComms import progressState
@@ -168,6 +169,16 @@ class RifeCuda:
 
             self.compileMode = "default"
 
+        # rife_elexor's arch has no dynamic-scale path. Leaving the flag on would
+        # only buy a coarser pad multiple and a duplicate set of graph captures.
+        if self.dynamicScale and not getattr(self.model, "dynamicScale", False):
+            self.dynamicScale = False
+            logAndPrint(
+                "Dynamic scale is not supported for this interpolation model yet, "
+                "automatically disabling it",
+                "yellow",
+            )
+
         mul = _padMultiple(self.interpolateMethod, self.scale, self.dynamicScale)
         ph = ((self.height - 1) // mul + 1) * mul
         pw = ((self.width - 1) // mul + 1) * mul
@@ -216,49 +227,104 @@ class RifeCuda:
         unchanged. I0/I1/_timestep_buffer are fixed buffers already, so replay
         reads their current contents.
 
+        With ``dynamicScale`` the scale is re-picked per pair, so the block
+        resolutions inside the forward differ per pick and one capture cannot
+        cover them. Instead we capture ONE GRAPH PER ``DYNAMIC_SCALES`` entry and
+        ``_pickDynamicScale`` arms the matching one before the infer. The graphs
+        share a single memory pool: they are only ever replayed sequentially on
+        ``normStream`` and the "infer" path clones the output on that same stream
+        before the next replay can overwrite it.
+
+        THE FEATURE CACHE MUST BE RE-BOUND AFTER EACH CAPTURE. A head-bearing
+        arch does ``self.f1 = self.encode(img1)`` inside forward, so the capture
+        leaves ``model.f1`` pointing at a tensor the GRAPH owns and writes on
+        replay -- but the eager self-check right below then reassigns it to a
+        fresh tensor the graph never touches. ``model.cache()`` is
+        ``f0.copy_(f1)``, so leaving it that way froze ``f0`` at its init-time
+        contents for the whole run: every interpolated frame was produced from
+        the same stale encoder features. Symptom is subtle (plausible output, no
+        crash) and rife4.6 is immune because it has no head. Each capture's
+        (f0, f1) pair is therefore recorded and restored, and re-bound per scale
+        when arming.
+
         Disabled when:
-          - not CUDA,
-          - ``staticStep`` (different forward signature/return), or
-          - ``dynamicScale`` (scale_list recomputed per frame from data -> a
-            single captured graph would bake in one scale).
+          - not CUDA, or
+          - ``staticStep`` (different forward signature/return).
         Any arch whose forward is not safely capturable is caught by the
         self-check below (graph replay must match an eager forward) and falls
         back to the eager path.
         """
         self.cudaGraph = None
         self._graphOut = None
-        self.useGraph = (
-            checker.cudaAvailable and not self.staticStep and not self.dynamicScale
-        )
+        self._graphs = {}
+        self._graphFeats = {}
+        self._armedScale = None
+        self.useGraph = checker.cudaAvailable and not self.staticStep
         if not self.useGraph:
             return
 
+        # At interpolateFactor != 2 the arch gates its encoder refresh on a
+        # per-call `counter`, and a replay cannot advance Python state, so the
+        # capture freezes whichever branch ran at capture time. That is a
+        # pre-existing property of the single-graph path; do not extend it to
+        # --dynamic_scale, which ran eager (and correct) there before.
+        if self.dynamicScale and self.interpolateFactor != 2:
+            self.useGraph = False
+            return
+
+        scales = DYNAMIC_SCALES if self.dynamicScale else (None,)
         try:
-            warmStream = torch.cuda.Stream()
-            warmStream.wait_stream(torch.cuda.current_stream())
-            with torch.cuda.stream(warmStream):
-                for _ in range(3):
-                    self.model(self.I0, self.I1, self._timestep_buffer)
-            torch.cuda.current_stream().wait_stream(warmStream)
-            torch.cuda.synchronize()
+            pool = None
+            for scale in scales:
+                if scale is not None:
+                    # Arm the arch so capture bakes in THIS scale's resolutions.
+                    self.model.dsScale = scale
 
-            self.cudaGraph = torch.cuda.CUDAGraph()
-            with torch.cuda.graph(self.cudaGraph, stream=self.normStream):
-                self._graphOut = self.model(self.I0, self.I1, self._timestep_buffer)
-            self.normStream.synchronize()
+                warmStream = torch.cuda.Stream()
+                warmStream.wait_stream(torch.cuda.current_stream())
+                with torch.cuda.stream(warmStream):
+                    for _ in range(3):
+                        self.model(self.I0, self.I1, self._timestep_buffer)
+                torch.cuda.current_stream().wait_stream(warmStream)
+                torch.cuda.synchronize()
 
-            # Self-check: replay must match a fresh eager forward on the same
-            # inputs, else disable the graph (protects arches where capture
-            # silently misbehaves).
-            self._timestep_buffer.fill_(0.5)
-            self.I1.copy_(self.I0)
-            eagerRef = self.model(self.I0, self.I1, self._timestep_buffer).clone()
-            self.cudaGraph.replay()
-            self.normStream.synchronize()
-            if not torch.allclose(eagerRef, self._graphOut, rtol=1e-3, atol=1e-3):
-                raise RuntimeError("graph replay output != eager forward")
-            self._timestep_buffer.zero_()
-            self.I1.zero_()
+                graph = torch.cuda.CUDAGraph()
+                if pool is None:
+                    with torch.cuda.graph(graph, stream=self.normStream):
+                        graphOut = self.model(self.I0, self.I1, self._timestep_buffer)
+                    self.normStream.synchronize()
+                    pool = graph.pool()
+                else:
+                    with torch.cuda.graph(graph, pool=pool, stream=self.normStream):
+                        graphOut = self.model(self.I0, self.I1, self._timestep_buffer)
+                    self.normStream.synchronize()
+
+                # The tensors the graph writes on replay, before the eager
+                # self-check below reassigns the attributes away from them.
+                feats = (
+                    getattr(self.model, "f0", None),
+                    getattr(self.model, "f1", None),
+                )
+
+                # Self-check: replay must match a fresh eager forward on the same
+                # inputs, else disable the graph (protects arches where capture
+                # silently misbehaves).
+                self._timestep_buffer.fill_(0.5)
+                self.I1.copy_(self.I0)
+                eagerRef = self.model(self.I0, self.I1, self._timestep_buffer).clone()
+                graph.replay()
+                self.normStream.synchronize()
+                if not torch.allclose(eagerRef, graphOut, rtol=1e-3, atol=1e-3):
+                    raise RuntimeError("graph replay output != eager forward")
+                self._timestep_buffer.zero_()
+                self.I1.zero_()
+
+                self._graphs[scale] = (graph, graphOut)
+                self._graphFeats[scale] = feats
+
+            # Default arming; _pickDynamicScale re-arms per pair when the flag
+            # is on, and there is only one entry when it is off.
+            self._armGraph(1.0 if self.dynamicScale else None)
         except Exception as e:
             logging.error(
                 f"RifeCuda CUDA-graph capture disabled for "
@@ -266,7 +332,53 @@ class RifeCuda:
             )
             self.cudaGraph = None
             self._graphOut = None
+            self._graphs = {}
+            self._graphFeats = {}
             self.useGraph = False
+
+    @torch.inference_mode()
+    def _armGraph(self, scale):
+        """
+        Make ``scale``'s capture the one the "infer" path replays, and re-bind the
+        arch's feature cache to the tensors THAT graph writes.
+
+        Rebinding matters twice over. Within one graph it undoes the self-check's
+        reassignment (see ``_setupCudaGraph``). Across graphs, each capture
+        allocated its own ``f1``, so replaying one graph while ``model.f1`` still
+        points at another's would make ``cache()`` propagate a different scale's
+        features. ``f0`` is normally one shared tensor -- it is only assigned when
+        None, i.e. during the first warmup -- but if a capture did allocate its
+        own, the live state is carried over so no frame history is lost.
+        """
+        self.cudaGraph, self._graphOut = self._graphs[scale]
+        f0, f1 = self._graphFeats[scale]
+        if f0 is not None:
+            prev = self._graphFeats.get(self._armedScale)
+            if prev is not None and prev[0] is not None and prev[0] is not f0:
+                f0.copy_(prev[0], non_blocking=True)
+            self.model.f0 = f0
+            self.model.f1 = f1
+        self._armedScale = scale
+
+    @torch.inference_mode()
+    def _pickDynamicScale(self):
+        """
+        Score the current (I0, I1) pair and arm the arch -- and, when graphs are
+        live, the capture built for that scale.
+
+        Scored on the UNPADDED region: the pad is zeros in both buffers, so it
+        reads as perfectly similar and would drag the SSIM toward ``minScale``
+        (at 1080p / mod-128 that is 72 of 1152 rows). Scored once per pair, not
+        once per inserted frame -- the pair does not change across the timestep
+        loop.
+        """
+        scale = dynamicScale(
+            self.I0[:, :, : self.height, : self.width],
+            self.I1[:, :, : self.height, : self.width],
+        )
+        self.model.dsScale = scale
+        if self._graphs:
+            self._armGraph(scale)
 
     @torch.inference_mode()
     def cacheFrameReset(self, frame):
@@ -329,6 +441,10 @@ class RifeCuda:
                     )
                     frame = self.padFrame(frame)
                     self.I1.copy_(frame, non_blocking=True)
+                    if self.dynamicScale:
+                        # I0 still holds the previous frame, so this is the pair
+                        # the upcoming infer(s) will run on.
+                        self._pickDynamicScale()
                 # Sync only when data must be ready for inference
                 self.normStream.synchronize()
 
@@ -372,12 +488,50 @@ class RifeCuda:
         )
 
     @torch.inference_mode()
+    def _seedAnchorFeature(self):
+        """
+        Seed ``f0`` from the anchor frame before the first interpolated pair.
+
+        The arch only encodes ``f0`` under ``if self.f0 is None``, and capture ran
+        with it already populated from the warmup, so that branch is not in the
+        graph and replay never re-runs it. Without this the very first pair was
+        interpolated against the warmup's leftover features. In place, because
+        the graph reads ``f0`` at a fixed address.
+        """
+        if not self.useGraph or getattr(self.model, "encode", None) is None:
+            return
+        f0 = getattr(self.model, "f0", None)
+        if f0 is None:
+            return
+        with torch.cuda.stream(self.normStream):
+            f0.copy_(self.model.encode(self.I0[:, :3]), non_blocking=True)
+        self.normStream.synchronize()
+
+    def _armEncoderRefresh(self):
+        """Make the first forward of this pair re-encode ``f1``.
+
+        At ``interpolateFactor != 2`` the arch gates its encoder refresh on a
+        counter it advances once per forward, which only lines up with pair
+        boundaries while every pair emits exactly ``factor - 1`` frames. It does
+        not under ``--smooth_dedup``, where a gap that swallowed duplicates emits
+        ``span * factor - 1`` -- the counter then drifts and later pairs run
+        against a previous pair's ``f1``. Arming it here states the invariant the
+        counter was approximating: a new pair always refreshes. For the plain
+        path this reproduces the steady state exactly, and under a captured CUDA
+        graph the branch never executes at all.
+        """
+        if getattr(self.model, "counter", None) is not None:
+            self.model.counter = self.interpolateFactor
+
+    @torch.inference_mode()
     def __call__(self, frame, interpQueue, framesToInsert: int = 2, timesteps=None):
         if self.firstRun:
             self.processFrame(frame, "I0")
+            self._seedAnchorFeature()
             self.firstRun = False
             return
         self.processFrame(frame, "I1")
+        self._armEncoderRefresh()
 
         for i in range(framesToInsert):
             t = interpolateTimestep(i, framesToInsert, timesteps)
@@ -527,6 +681,15 @@ class RifeMPS:
                 )
             self.compileMode = "default"
 
+        # rife_elexor's arch has no dynamic-scale path; see RifeCuda.handleModel.
+        if self.dynamicScale and not getattr(self.model, "dynamicScale", False):
+            self.dynamicScale = False
+            logAndPrint(
+                "Dynamic scale is not supported for this interpolation model yet, "
+                "automatically disabling it",
+                "yellow",
+            )
+
         mul = _padMultiple(self.baseMethod, self.scale, self.dynamicScale)
         ph = ((self.height - 1) // mul + 1) * mul
         pw = ((self.width - 1) // mul + 1) * mul
@@ -579,6 +742,14 @@ class RifeMPS:
                 frame = frame.to(device=self.device, dtype=self.dType)
                 frame = self.padFrame(frame)
                 self.I1.copy_(frame)
+                if self.dynamicScale:
+                    # Same reasoning as RifeCuda._pickDynamicScale: score the
+                    # unpadded region, once per pair rather than per inserted
+                    # frame. No graphs to arm on MPS.
+                    self.model.dsScale = dynamicScale(
+                        self.I0[:, :, : self.height, : self.width],
+                        self.I1[:, :, : self.height, : self.width],
+                    )
 
             case "cache":
                 self.I0.copy_(self.I1)
@@ -605,6 +776,22 @@ class RifeMPS:
             else frame
         )
 
+    def _armEncoderRefresh(self):
+        """Make the first forward of this pair re-encode ``f1``.
+
+        At ``interpolateFactor != 2`` the arch gates its encoder refresh on a
+        counter it advances once per forward, which only lines up with pair
+        boundaries while every pair emits exactly ``factor - 1`` frames. It does
+        not under ``--smooth_dedup``, where a gap that swallowed duplicates emits
+        ``span * factor - 1`` -- the counter then drifts and later pairs run
+        against a previous pair's ``f1``. Arming it here states the invariant the
+        counter was approximating: a new pair always refreshes. For the plain
+        path this reproduces the steady state exactly, and under a captured CUDA
+        graph the branch never executes at all.
+        """
+        if getattr(self.model, "counter", None) is not None:
+            self.model.counter = self.interpolateFactor
+
     @torch.inference_mode()
     def __call__(self, frame, interpQueue, framesToInsert: int = 2, timesteps=None):
         if self.firstRun:
@@ -612,6 +799,7 @@ class RifeMPS:
             self.firstRun = False
             return
         self.processFrame(frame, "I1")
+        self._armEncoderRefresh()
 
         for i in range(framesToInsert):
             t = interpolateTimestep(i, framesToInsert, timesteps)

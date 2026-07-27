@@ -78,19 +78,6 @@ def buildInterpolateProcess(self, interpWidth, interpHeight):
                 compileMode=self.compileMode,
             )
 
-        case "rife4.25-depth":
-            from src.interpolate.rife import DepthGuidedRifeCuda
-
-            return DepthGuidedRifeCuda(
-                width=interpWidth,
-                height=interpHeight,
-                half=self.half,
-                interpolate_method="rife4.25",
-                depth_method=self.depthMethod,
-                depth_quality=self.depthQuality,
-                ensemble=self.ensemble,
-            )
-
         case (
             "rife-ncnn"
             | "rife4.6-ncnn"

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .dynamic_scale import dynamicScale
+from .dynamic_scale import pickScale
 from .warplayer import warp
 
 
@@ -153,7 +153,7 @@ class IFNet(nn.Module):
             warped_img0 = img0
             warped_img1 = img1
             if self.dynamicScale:
-                scale = dynamicScale(img0, img1)
+                scale = pickScale(self, img0, img1)
                 self.scale_list = [8 / scale, 4 / scale, 2 / scale, 1 / scale]
             flow = None
             for i in range(4):
@@ -255,7 +255,7 @@ class IFNet(nn.Module):
         warped_img1 = img1
 
         if self.dynamicScale:
-            scale = dynamicScale(img0, img1)
+            scale = pickScale(self, img0, img1)
             self.scale_list = [8 / scale, 4 / scale, 2 / scale, 1 / scale]
         flow = None
         for i in range(4):

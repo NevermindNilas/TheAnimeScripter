@@ -42,6 +42,11 @@ _BARE_RIFE_ALIASES = {
 }
 
 
+# Trailing tokens that name a non-torch interpolation backend. "-lite" /
+# "-heavy" are model variants, not backends, so they stay off this list.
+_NON_TORCH_INTERP_BACKENDS = frozenset({"tensorrt", "directml", "openvino", "ncnn"})
+
+
 def _normalizeMethodAliases(args):
     for attribute in ("interpolate_method", "moblur_method"):
         current = getattr(args, attribute, None)
@@ -123,6 +128,53 @@ def _handleSegmentSettings(args):
             args.segment_batch = 1
 
 
+def _applyImpliedFlags(args):
+    """Resolve flags that turn other capabilities on or off.
+
+    This runs before every guard that reads those capabilities. `--smooth_dedup`
+    used to enable `--interpolate` from inside `_configureProcessingSettings`,
+    which is late: the `--slowmo` and `--dynamic_scale` guards had already seen
+    `interpolate=False` and silently switched themselves off.
+    """
+    if not getattr(args, "smooth_dedup", False):
+        return
+
+    # --smooth_dedup runs the duplicate detector itself and turns each dropped
+    # frame into extra interpolation slots instead of shortening the video, so
+    # the frame-dropping --dedup path must not also run.
+    if args.dedup:
+        logAndPrint(
+            "--smooth_dedup handles duplicate frames itself, disabling --dedup",
+            "yellow",
+        )
+        args.dedup = False
+
+    if not args.interpolate:
+        logging.info("Auto-enabling --interpolate because --smooth_dedup was provided")
+        args.interpolate = True
+
+
+def _mapDedupSensitivity(method, sensitivity):
+    """Map a 0-100 CLI sensitivity onto the threshold a detector backend wants.
+
+    Shared by --dedup and --smooth_dedup: both drive the same detectors from
+    src/factories/dedup.py, so they must agree on the scale.
+    """
+    if method in ["ssim", "ssim-cuda"]:
+        return 1.0 - (sensitivity / 1000)
+    if method in ["vmaf", "vmaf-cuda"]:
+        # VMAF is SSIM's "high == similar" scale times 100, so it needs the same
+        # mapping. Passed through raw, a sensitivity of 35 became "any pair
+        # scoring VMAF >= 35 is a duplicate" -- true of nearly every consecutive
+        # pair -- and raising the flag made dedup *less* aggressive, the opposite
+        # of what it does for every other method.
+        return 100.0 - (sensitivity / 10.0)
+    if method in ["flownets"]:
+        return sensitivity / 100
+    # MSE takes the raw value.
+    return sensitivity
+
+
 def _configureProcessingSettings(args):
     if args.slowmo:
         cs.AUDIO = False
@@ -132,25 +184,86 @@ def _configureProcessingSettings(args):
         logging.info("Interpolate Factor is a float, static step will be disabled")
         args.static_step = False
 
-    if args.dedup:
-        if not args.smooth_dedup:
-            cs.AUDIO = False
-            logging.info(
-                "Deduplication enabled and smooth dedup disabled, audio processing disabled"
+    # --dynamic_scale is read by the RIFE torch arches only (src/rifearches/),
+    # i.e. by RifeCuda and RifeMPS. The TensorRT / DirectML / OpenVINO / NCNN
+    # classes and the gmfss / distildrba families never receive the flag, so
+    # leaving it set there was a silent no-op instead of an error. rife_elexor
+    # is caught later, in RifeCuda.handleModel -- its arch takes no such argument.
+    if getattr(args, "dynamic_scale", False):
+        backend = args.interpolate_method.rsplit("-", 1)[-1]
+        if not args.interpolate:
+            logging.warning("--dynamic_scale has no effect without --interpolate")
+            args.dynamic_scale = False
+        elif backend in _NON_TORCH_INTERP_BACKENDS:
+            logAndPrint(
+                f"--dynamic_scale is not supported by the {backend} interpolation "
+                "backend (CUDA and MPS only), disabling it",
+                "yellow",
             )
+            args.dynamic_scale = False
+        elif not args.interpolate_method.startswith("rife"):
+            logAndPrint(
+                f"--dynamic_scale is not supported by {args.interpolate_method}, "
+                "disabling it",
+                "yellow",
+            )
+            args.dynamic_scale = False
 
-        if args.dedup_method in ["ssim", "ssim-cuda"]:
-            args.dedup_sens = 1.0 - (args.dedup_sens / 1000)
-        elif args.dedup_method in ["vmaf", "vmaf-cuda"]:
-            # VMAF is SSIM's "high == similar" scale times 100, so it needs the
-            # same mapping. Passed through raw, --dedup_sens 35 became "any pair
-            # scoring VMAF >= 35 is a duplicate" -- true of nearly every
-            # consecutive pair -- and raising the flag made dedup *less*
-            # aggressive, the opposite of what it does for every other method.
-            args.dedup_sens = 100.0 - (args.dedup_sens / 10.0)
-        elif args.dedup_method in ["flownets"]:
-            args.dedup_sens = args.dedup_sens / 100
+    if getattr(args, "smooth_dedup", False):
+        # --dedup is already forced off and --interpolate on, in
+        # _applyImpliedFlags, ahead of every guard that reads them.
+        #
+        # A widened gap is emitted in one go, and in interpolate-first order the
+        # sink is an unbounded list, so the cap is also the memory bound: one gap
+        # holds span * interpolate_factor full-resolution frames at once. It is
+        # deliberately not allowed to be unlimited -- a multi-second static hold
+        # would otherwise buffer thousands of frames and exhaust VRAM.
+        args.smooth_dedup_max_span = max(
+            1, int(getattr(args, "smooth_dedup_max_span", 6))
+        )
 
+        # Device guard, mirroring --scenechange: these are the same comparators
+        # and the CUDA ones initialize on torch.device("cuda"), so downgrade
+        # rather than crash at detector init on a CPU/MPS box. Done before the
+        # sensitivity mapping, which is grouped by metric and so unaffected.
+        try:
+            from src.infra.isCudaInit import CudaChecker
+
+            cudaAvailable = CudaChecker().cudaAvailable
+        except Exception:
+            # No torch at all (a bare CI venv): leave the pick alone rather than
+            # rewriting it on the strength of a failed probe.
+            cudaAvailable = True
+
+        if not cudaAvailable:
+            downgrade = {"ssim-cuda": "ssim", "mse-cuda": "mse", "vmaf-cuda": "vmaf"}
+            if args.smooth_dedup_method in downgrade:
+                logging.warning(
+                    f"CUDA unavailable; smooth_dedup_method "
+                    f"{args.smooth_dedup_method} -> "
+                    f"{downgrade[args.smooth_dedup_method]}"
+                )
+                args.smooth_dedup_method = downgrade[args.smooth_dedup_method]
+            elif args.smooth_dedup_method == "flownets":
+                logAndPrint(
+                    "smooth_dedup_method flownets requires CUDA, falling back to ssim",
+                    "yellow",
+                )
+                args.smooth_dedup_method = "ssim"
+
+        # Duration is preserved, so audio stays in sync and is left enabled.
+        args.smooth_dedup_sens = _mapDedupSensitivity(
+            args.smooth_dedup_method, args.smooth_dedup_sens
+        )
+        logging.info(
+            f"New smooth_dedup sensitivity for {args.smooth_dedup_method} is: {args.smooth_dedup_sens}"
+        )
+
+    if args.dedup:
+        cs.AUDIO = False
+        logging.info("Deduplication enabled, audio processing disabled")
+
+        args.dedup_sens = _mapDedupSensitivity(args.dedup_method, args.dedup_sens)
         logging.info(
             f"New dedup sensitivity for {args.dedup_method} is: {args.dedup_sens}"
         )
@@ -401,6 +514,8 @@ def prepareRuntimeArgs(args, outputPath, parser):
 
     logging.info("\n============== Arguments Checker ==============")
     _handleDependencies(args)
+
+    _applyImpliedFlags(args)
 
     if args.slowmo and not args.interpolate:
         logAndPrint(

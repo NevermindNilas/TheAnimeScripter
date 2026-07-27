@@ -13,7 +13,7 @@ from .dinov2_layers.mlp import Mlp
 from .dinov2_layers.swiglu_ffn import SwiGLUFFN
 
 try:
-    from xformers.ops import SwiGLU as _XSwiGLU
+    from xformers.ops import SwiGLU as _XSwiGLU  # ty: ignore[unresolved-import]
 
     _SWIGLU_TYPES = (SwiGLUFFN, _XSwiGLU)
 except ImportError:

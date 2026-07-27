@@ -166,6 +166,38 @@ def test_countersTrackDecodedFramesNotKeptOnes():
     assert (window.consumed, window.dropped) == (4, 2)
 
 
+def test_dupsBeforeCarriesTheDropCountOntoTheNextAdmittedSlot():
+    """--smooth_dedup recovers a gap's true width from the slot that closes it.
+
+    The entry callback owns the counter -- dropped frames never become slots --
+    so the window only has to carry the number through to the consumer.
+    """
+    pending = 0
+
+    def enter(raw):
+        nonlocal pending
+        if raw in (2, 3, 4, 6):  # a run of three, then a single
+            pending += 1
+            return None
+        slot = FrameSlot(raw, dupsBefore=pending)
+        pending = 0
+        return slot
+
+    window = FrameWindow(_Reader([1, 2, 3, 4, 5, 6, 7]), past=0, future=0, enter=enter)
+    seen = []
+    while window.advance():
+        seen.append((window.centre.frame, window.centre.dupsBefore))
+
+    assert seen == [(1, 0), (5, 3), (7, 1)]
+    assert (window.consumed, window.dropped) == (7, 4)
+
+
+def test_dupsBeforeDefaultsToZero():
+    window = FrameWindow(_Reader([1, 2]), past=0, future=0)
+    while window.advance():
+        assert window.centre.dupsBefore == 0
+
+
 # --- validity: no neighbour across a scene cut -------------------------------
 
 

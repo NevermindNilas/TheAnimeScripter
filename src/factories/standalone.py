@@ -533,53 +533,6 @@ def depth(self):
                 depth_batch=self.depthBatch,
             )
 
-        case (
-            "small_v3-directml"
-            | "base_v3-directml"
-            | "small_v3-openvino"
-            | "base_v3-openvino"
-        ):
-            from src.depth.backends.directml import DepthDirectMLV3
-
-            DepthDirectMLV3(
-                self.input,
-                self.output,
-                self.width,
-                self.height,
-                self.fps,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encodeMethod,
-                self.depthMethod,
-                self.customEncoder,
-                self.benchmark,
-                self.totalFrames,
-                self.bitDepth,
-                self.depthQuality,
-            )
-
-        case "small_v3-tensorrt" | "base_v3-tensorrt":
-            from src.depth.backends.tensorrt import DepthTensorRTV3
-
-            DepthTensorRTV3(
-                self.input,
-                self.output,
-                self.width,
-                self.height,
-                self.fps,
-                self.half,
-                self.inpoint,
-                self.outpoint,
-                self.encodeMethod,
-                self.depthMethod,
-                self.customEncoder,
-                self.benchmark,
-                self.totalFrames,
-                self.bitDepth,
-                self.depthQuality,
-            )
-
         case _:
             raise ValueError(
                 f"Unsupported depth_method: {self.depthMethod}. "

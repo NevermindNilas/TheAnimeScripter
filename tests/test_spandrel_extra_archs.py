@@ -101,7 +101,7 @@ def testFIGSRPixelShuffleDirect():
 
 
 def testSMoSRRepPixelShuffleDirect():
-    from spandrel.architectures.SMoSR import SMoSR
+    from spandrel.architectures.SMoSR import SMoSR  # ty: ignore[unresolved-import]
 
     model = SMoSR(dim=24, n_mb=2, scale=2, rep=True)
     desc = _roundtrip(model, "SMoSR", 2, 3, 3)
@@ -111,7 +111,7 @@ def testSMoSRRepPixelShuffleDirect():
 
 
 def testSMoSRNoRep():
-    from spandrel.architectures.SMoSR import SMoSR
+    from spandrel.architectures.SMoSR import SMoSR  # ty: ignore[unresolved-import]
 
     model = SMoSR(dim=16, n_mb=3, scale=2, rep=False)
     desc = _roundtrip(model, "SMoSR", 2, 3, 3)

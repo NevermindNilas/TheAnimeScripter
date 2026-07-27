@@ -137,6 +137,7 @@ def generateOutputName(args, videoInput):
     features = [
         ("resize", "Resize", "resize_factor"),
         ("dedup", "Dedup", "dedup_sens"),
+        ("smooth_dedup", "SmoothDedup", "smooth_dedup_sens"),
         ("interpolate", "Int", "interpolate_factor"),
         ("upscale", "Up", "upscale_factor"),
         ("restore", "Restore", "restore_method"),

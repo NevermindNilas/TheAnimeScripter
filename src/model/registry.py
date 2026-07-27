@@ -265,10 +265,6 @@ def modelsList() -> list[str]:
         "base_v3-mps",
         "large_v3-mps",
         "og_large_v3-mps",
-        "small_v3-directml",
-        "base_v3-directml",
-        "small_v3-tensorrt",
-        "base_v3-tensorrt",
     ]
 
 
@@ -1086,25 +1082,16 @@ def modelsMap(
             if modelType == "pth":
                 return "depth_anything_v3_vitb.safetensors"
 
-        case "og_large_v3":
+        # `depth_anything_v3_vitl.safetensors` is the DA3MONO-LARGE checkpoint
+        # (byte-verified against depth-anything/DA3MONO-LARGE), so it belongs to
+        # `large_v3`. `og_large_v3` is the separate DA3METRIC-LARGE checkpoint.
+        case "large_v3":
             if modelType == "pth":
                 return "depth_anything_v3_vitl.safetensors"
 
-        case "large_v3":
+        case "og_large_v3":
             if modelType == "pth":
-                return "depth_anything_v3_vitl_mono.safetensors"
-
-        case "small_v3-directml" | "small_v3-tensorrt":
-            if half:
-                return "depth_anything_v3_vits_fp16.onnx"
-            else:
-                return "depth_anything_v3_vits_fp32.onnx"
-
-        case "base_v3-directml" | "base_v3-tensorrt":
-            if half:
-                return "depth_anything_v3_vitb_fp16.onnx"
-            else:
-                return "depth_anything_v3_vitb_fp32.onnx"
+                return "depth_anything_v3_vitl_metric.safetensors"
 
         case _:
             raise ValueError(f"Model {model} not found.")
