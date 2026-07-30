@@ -12,8 +12,8 @@ def make_context(tmp_path, system="Linux"):
         requirements_path=tmp_path / "requirements.txt",
         requirements_files=[tmp_path / "requirements.txt"],
         portable_python_dir=tmp_path / "portable-python",
-        python_version="3.14.5",
-        standalone_release="20260510",
+        python_version="3.14.6",
+        standalone_release="20260728",
         system=system,
     )
 

@@ -13,7 +13,7 @@ python build.py
 
 - CLI definitions/choices: `src/cli/parser.py`; validation: `src/cli/validator.py`; full reference: `PARAMETERS.MD`.
 - Tests needing torch/cv2/nelux use `importorskip`.
-- `build.py` downloads portable Python 3.14.5, installs dependencies, and copies `src` to `dist-portable/main/`; see `BUILD.md` (`--develop` redirects output).
+- `build.py` downloads portable Python 3.14.6, installs dependencies, and copies `src` to `dist-portable/main/`; see `BUILD.md` (`--develop` redirects output).
 
 ## Runtime map
 
