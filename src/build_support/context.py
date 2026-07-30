@@ -35,9 +35,9 @@ def create_build_context(base_dir: Path | None = None) -> BuildContext:
         requirements_path=requirements_path,
         requirements_files=requirements_files,
         portable_python_dir=root / "portable-python",
-        python_version="3.14.5",
+        python_version="3.14.6",
         # python-build-standalone release tag that ships python_version.
-        standalone_release="20260510",
+        standalone_release="20260728",
         system=platform.system(),
     )
 

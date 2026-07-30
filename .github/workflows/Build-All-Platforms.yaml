@@ -19,7 +19,7 @@ jobs:
       - name: Install uv and Python
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          python-version: "3.14.5"
+          python-version: "3.14.6"
           version: "0.11.28"
           enable-cache: true
 
@@ -95,7 +95,7 @@ jobs:
       - name: Install uv and Python
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          python-version: "3.14.5"
+          python-version: "3.14.6"
           version: "0.11.28"
           enable-cache: true
 
@@ -127,7 +127,7 @@ jobs:
       - name: Install uv and Python
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
-          python-version: "3.14.5"
+          python-version: "3.14.6"
           version: "0.11.28"
           enable-cache: true
 
