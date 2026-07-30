@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import os
 import shutil
@@ -118,6 +119,220 @@ def _attachProgressMonitor(config: trt.IBuilderConfig) -> None:
         config.progress_monitor = TensorRTProgressMonitor()
     except Exception as error:
         logging.debug(f"TensorRT progress monitor is unavailable: {error}")
+
+
+_TIMING_CACHE_MAGIC = b"TASTIMINGCACHE1\n"
+
+
+def _timingCachePath(maxWorkspaceSize: int) -> str | None:
+    """Path of the build-time tactic timing cache for this workspace budget.
+
+    The cache only stores kernel *measurements*, never an engine, so one file is
+    shared by every model built with the same budget. In practice that sharing
+    buys nothing across TAS's models -- the key covers layer shape, dtype and
+    format, and priming the cache with the compact upscaler left a first
+    `rife4.25` build unchanged (27.0s against 24.0s cold, i.e. noise). What it
+    does pay for is rebuilding the *same* engine: a retry after an interrupted
+    build went 8.9s -> 2.4s.
+
+    ``maxWorkspaceSize`` is part of the name because it is NOT part of TensorRT's
+    own cache key. Tactics that do not fit the workspace are dropped before they
+    are timed, so a 1 GiB build that reuses entries measured under the 4 GiB
+    budget `src/depth/backends/tensorrt.py` requests for VideoDepthAnything can
+    adopt a tactic it would never have picked alone -- making the engine depend
+    on the order unrelated models happened to be built in.
+
+    The rest of the name is the GPU and the TensorRT and CUDA versions, so a
+    cache from elsewhere is skipped without ever being opened. That matters more
+    than it looks: see _readTimingCache for what TensorRT does with bad bytes.
+    """
+    if not all(
+        hasattr(trt.IBuilderConfig, name)
+        for name in ("create_timing_cache", "set_timing_cache", "get_timing_cache")
+    ):
+        return None
+
+    try:
+        import torch
+
+        from src.model.registry import weightsDir
+
+        if not torch.cuda.is_available():
+            return None
+        device = torch.cuda.get_device_name(0)
+        # The CUDA toolkit torch was built against, NOT the installed driver --
+        # it does not move when the driver is updated. It is in the name because
+        # a torch/CUDA rebuild is its own invalidation axis; a driver bump is
+        # caught later instead, by set_timing_cache refusing the verification
+        # header, which _attachTimingCache recovers from with a fresh cache.
+        cudaVersion = torch.version.cuda or "nocuda"
+    except Exception as error:
+        logging.debug(f"Timing cache disabled: {error}")
+        return None
+
+    def slugify(value: str) -> str:
+        return "".join(c if c.isalnum() else "_" for c in str(value)).strip("_")
+
+    version = getattr(trt, "__version__", "unknown")
+    workspace = f"ws{int(maxWorkspaceSize) >> 20}m"
+    name = (
+        f".trt_timing_{slugify(device)}_{slugify(version)}"
+        f"_cu{slugify(cudaVersion)}_{workspace}.cache"
+    )
+    return os.path.join(weightsDir, name)
+
+
+def _readTimingCache(cachePath: str) -> bytes:
+    """Return the stored tactic blob, or b"" if it cannot be trusted.
+
+    Handing TensorRT a damaged cache does not raise and cannot be caught: a
+    single flipped byte in the serialized blob makes create_timing_cache abort
+    the process outright with `LLVM ERROR: out of memory` (reproduced on 10.16 by
+    flipping byte 124 of a 198-byte cache; exit code 127). A torn write, bit rot
+    or a power loss mid-replace would therefore brick every subsequent TAS run
+    that builds an engine, until the user found and deleted a hidden dotfile.
+
+    So the payload is wrapped in our own magic + SHA-256 header and verified here
+    first. Anything that fails verification is deleted and treated as absent --
+    TensorRT never sees bytes we have not checksummed.
+    """
+    try:
+        with open(cachePath, "rb") as f:
+            raw = f.read()
+    except OSError:
+        return b""
+
+    try:
+        if raw.startswith(_TIMING_CACHE_MAGIC):
+            digest, _, payload = raw[len(_TIMING_CACHE_MAGIC) :].partition(b"\n")
+            if payload and hashlib.sha256(payload).hexdigest().encode() == digest:
+                return payload
+        logging.debug(f"Discarding an unverifiable timing cache at {cachePath}")
+    except Exception as error:
+        logging.debug(f"Could not verify the timing cache at {cachePath}: {error}")
+
+    try:
+        os.remove(cachePath)
+    except OSError:
+        pass
+    return b""
+
+
+def _attachTimingCache(config: trt.IBuilderConfig, maxWorkspaceSize: int) -> str | None:
+    """Attach the persistent timing cache to ``config``.
+
+    Returns the path to write back to after the build, or None when caching is
+    unavailable. A missing or unverifiable cache must never abort an engine build
+    -- the worst outcome is a normal, uncached build.
+    """
+    cachePath = _timingCachePath(maxWorkspaceSize)
+    if cachePath is None:
+        return None
+
+    buffer = _readTimingCache(cachePath)
+
+    # A stored cache is tried first, an empty one second. The retry is what makes
+    # the feature self-healing: set_timing_cache REFUSES a cache whose
+    # verification header does not match this machine, and it reports that by
+    # returning False rather than raising, so without re-attaching a fresh cache
+    # the build would run uncached, get_timing_cache() would hand back None, and
+    # the unusable file would never be overwritten -- permanently, silently dead.
+    for candidate in (buffer, b"") if buffer else (b"",):
+        try:
+            cache = config.create_timing_cache(candidate)
+            if cache is None:
+                continue
+            # ignore_mismatch stays False on purpose: accepting entries timed on
+            # different hardware would pick tactics benchmarked on someone
+            # else's GPU.
+            if not config.set_timing_cache(cache, False):
+                logging.debug(
+                    f"TensorRT refused the timing cache at {cachePath} "
+                    f"({len(candidate)} bytes); starting a new one"
+                )
+                continue
+            return cachePath
+        except Exception as error:
+            logging.debug(f"Timing cache unusable ({len(candidate)} bytes): {error}")
+
+    return None
+
+
+def _saveTimingCache(config: trt.IBuilderConfig, cachePath: str | None) -> None:
+    """Persist the timings measured during this build, atomically."""
+    if not cachePath:
+        return
+
+    tempPath = f"{cachePath}.{os.getpid()}.tmp"
+    try:
+        cache = config.get_timing_cache()
+        if cache is None:
+            return
+
+        # Fold in whatever landed on disk while this build was running. Without
+        # it, two concurrent builds each write their own snapshot and the last
+        # one silently discards the other's measurements. combine() skips
+        # conflicting and foreign-version entries by itself.
+        if hasattr(cache, "combine"):
+            try:
+                # Through _readTimingCache, never a raw read: the file is wrapped
+                # in our checksum header, and create_timing_cache aborts the
+                # process on bytes it cannot parse.
+                onDisk = _readTimingCache(cachePath)
+                if onDisk and not cache.combine(
+                    config.create_timing_cache(onDisk), False
+                ):
+                    logging.debug(
+                        "TensorRT skipped merging the on-disk timing cache; "
+                        "writing this build's measurements alone"
+                    )
+            except Exception as error:
+                logging.debug(f"Could not merge the on-disk timing cache: {error}")
+
+        data = cache.serialize()
+        # serialize() hands back an IHostMemory, which supports the buffer
+        # protocol but neither len() nor a meaningful truth value -- an empty
+        # cache still serializes to a non-empty header. Size comes from nbytes.
+        written = getattr(data, "nbytes", 0)
+        if not written:
+            return
+
+        # A build that aborted before TensorRT committed any tactic (an early
+        # Ctrl-C) leaves an entry-less cache that still serializes to a ~198 byte
+        # header. Writing that out would replace a file holding real measurements
+        # with an empty one whenever the merge above could not read it.
+        emptySize = getattr(config.create_timing_cache(b"").serialize(), "nbytes", 0)
+        if emptySize and written <= emptySize:
+            logging.debug("Timing cache has no entries to store; keeping the old file")
+            return
+
+        payload = bytes(memoryview(data))
+        blob = (
+            _TIMING_CACHE_MAGIC
+            + hashlib.sha256(payload).hexdigest().encode()
+            + b"\n"
+            + payload
+        )
+
+        os.makedirs(os.path.dirname(cachePath), exist_ok=True)
+        with open(tempPath, "wb") as f:
+            f.write(blob)
+            # Flush to the platter before the swap. Without it a power loss can
+            # leave the directory entry pointing at unwritten blocks, i.e. the
+            # exact byte-level damage _readTimingCache exists to catch.
+            f.flush()
+            os.fsync(f.fileno())
+        # Atomic swap so a second TAS process building concurrently can never
+        # read a half-written cache.
+        os.replace(tempPath, cachePath)
+        logging.info(f"Timing cache updated: {cachePath} ({written} bytes)")
+    except Exception as error:
+        logging.debug(f"Failed to write timing cache {cachePath}: {error}")
+    finally:
+        try:
+            os.remove(tempPath)
+        except OSError:
+            pass
 
 
 def createNetworkAndConfig(
@@ -378,6 +593,7 @@ def tensorRTEngineCreator(
         TRTLOGGER = trt.Logger(trt.Logger.INFO)
         builder = trt.Builder(TRTLOGGER)
         network, config = createNetworkAndConfig(builder, maxWorkspaceSize)
+        timingCachePath = _attachTimingCache(config, maxWorkspaceSize)
 
         parser = trt.OnnxParser(network, TRTLOGGER)
         if not parseModel(parser, modelPath):
@@ -401,6 +617,9 @@ def tensorRTEngineCreator(
         )
 
         serializedEngine = builder.build_serialized_network(network, config)
+        # Written even on a failed build: the tactics timed before the failure
+        # are still valid and save time on the retry.
+        _saveTimingCache(config, timingCachePath)
         if not serializedEngine:
             logAndPrint("Failed to build serialized engine", "red")
             return None, None
