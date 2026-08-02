@@ -68,6 +68,34 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
             "RESET": code("\x1b[0m"),
         }
 
+    @staticmethod
+    def _formatChoiceList(choices):
+        """Every choice, grouped by backend suffix and wrapped to the terminal."""
+        import textwrap
+
+        try:
+            width = os.get_terminal_size().columns
+        except ValueError, OSError:
+            width = 100
+        width = min(max(width, 60), 120)
+
+        groups = TASHelpFormatter._group_choices(choices)
+        labelWidth = 0 if len(groups) == 1 else max(len(b) for b in groups) + 3
+        body = max(width - 4 - labelWidth, 30)
+
+        lines = []
+        for backend, items in groups.items():
+            label = "" if labelWidth == 0 else f"{f'[{backend}]':<{labelWidth}}"
+            wrapped = textwrap.wrap(
+                ", ".join(repr(i) for i in items),
+                width=body,
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+            for index, chunk in enumerate(wrapped):
+                lines.append((label if index == 0 else " " * labelWidth) + chunk)
+        return lines
+
     def _collectOptionStrings(self):
         options = []
         for action in self._actions:
@@ -164,14 +192,12 @@ class DidYouMeanArgumentParser(argparse.ArgumentParser):
                             file=sys.stderr,
                         )
 
-                    displayedChoices = choices[:10]
-                    choicesStrDisplay = ", ".join(repr(c) for c in displayedChoices)
-                    if len(choices) > 10:
-                        choicesStrDisplay += f", ... ({len(choices) - 10} more)"
                     print(
-                        f"\n  {CYAN}Valid choices:{RESET} {DIM}{choicesStrDisplay}{RESET}",
+                        f"\n  {CYAN}Valid choices{RESET} {DIM}({len(choices)}){RESET}{CYAN}:{RESET}",
                         file=sys.stderr,
                     )
+                    for line in self._formatChoiceList(choices):
+                        print(f"    {DIM}{line}{RESET}", file=sys.stderr)
 
                     sys.exit(2)
                     return
