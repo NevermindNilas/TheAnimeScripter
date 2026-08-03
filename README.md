@@ -95,7 +95,9 @@ Adobe plugin provides seamless integration directly within your AE workflow, ena
 
 ### <img src="https://img.icons8.com/color/24/000000/windows-10.png" width="20"/> Windows Desktop App (TAS-Standalone)
 
-The native Windows desktop app. It ships with its own backend, so nothing else has to be installed — no Python, no CLI, no After Effects. Every TAS setting is exposed in the UI, with live progress, saved presets, and themes.
+The native Windows desktop app. It ships with its own backend, so nothing else has to be installed — no Python, no CLI, no After Effects. Build a processing chain by toggling steps, watch the live preview and logs while it runs, and save the setup as a preset.
+
+<img src="docs/assets/standalone-gui.webp" width="700" alt="TAS-Standalone GUI">
 
 </div>
 
