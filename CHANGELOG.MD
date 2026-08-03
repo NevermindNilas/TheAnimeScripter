@@ -5,80 +5,135 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased] - YYYY-MM-DD
+### Highlights
+
+**Animation on twos and threes.** `--smooth_dedup` now works — real motion across held drawings, same length, audio kept.
+
+**RIFE on NVIDIA was degraded.** Every `rife4.15`-and-up model reused stale data. Fixed; output matches the reference again.
+
+**RIFE on DirectML is ~2x faster.** Part of the model ran on the CPU. AMD and Intel GPUs now run all of it.
+
+**`--dynamic_scale` was worse than off.** It picked its quality backwards. Corrected, and 10% faster.
+
+**Faster all round.** Dedup +33%, decode +12–21%, autoclip −24%, stabilize +33%, detection +10%. TensorRT rebuilds 24s to 3s.
+
+**Broken output files.** Wrong trim range, empty 16-bit files, 8-bit output from 10-bit NVENC, repeated depth frames.
+
+**Runs that lied or hung.** Failures reported success, some hung silently, and the non-NVIDIA fallback never fired.
+
+**Also fixed.** `large_v3` depth 404'd on install, AnimeSR broke on odd resolutions, OpenVINO restore ran on CUDA.
+
+**TAS-AdobeEdition.** Drive navigation in the Media Browser, ordered restore chains, and install failures that say what went wrong.
+
+**TAS-Standalone.** New Windows desktop app, shipping with its own backend. Every setting, live progress, presets, themes.
+
+**Updated.** TensorRT 11.2, PyTorch 2.13, Python 3.14.6. Engines rebuild once.
+
+> **Behaviour change:** `--smooth_dedup` now disables `--dedup` and enables `--interpolate`. Presets with both give a full-length interpolation.
+>
+> **Removed:** `--offline`, and six depth choices that were never implemented.
+
+---
+
 ### Added
-- `--smooth_dedup` now does what it always advertised, and gains `--smooth_dedup_method`, `--smooth_dedup_sens` and `--smooth_dedup_max_span`. It was previously a no-op whose only effect anywhere in the tree was keeping audio enabled; it is now dedup-aware interpolation for content animated on twos/threes. Duplicate frames are detected with the existing dedup backends and each gap is interpolated proportionally to the source frames it swallowed, so a 24 fps on-2s master interpolated 2x gets real motion across every held drawing at unchanged duration and with audio kept — where plain `--interpolate` synthesizes frames between two identical drawings and `--dedup --interpolate` halves the runtime. Runs longer than `--smooth_dedup_max_span` (default 6) are filled with copies instead of inferred.
-- `ty` static type checking, configured in `pyproject.toml` and gated in `lint.yaml` (pinned 0.0.63). The gate is narrow on purpose — it fails only on first-party names that do not exist, the failure mode the backend `match` tables are prone to; the remaining 385 findings are ignored by rule and can be ratcheted up individually.
+- `--smooth_dedup` is now real dedup-aware interpolation, with `--smooth_dedup_method`, `--smooth_dedup_sens` and `--smooth_dedup_max_span`. Held drawings get interpolated motion at unchanged duration, with audio.
+- `ty` static type checking in CI (pinned 0.0.63). It fails only on first-party names that do not exist.
 
 ### Changed
-- An invalid `--<x>_method` value now prints every valid choice instead of the first 10 plus `... (67 more)`. The list is grouped by backend and wrapped to the terminal, so a model can be found from the error itself without re-running `--help`.
-- Bundled Python moves from 3.14.5 to 3.14.6, and the Linux/macOS `python-build-standalone` release tag to `20260728`. The `uv` interpreter that runs `build.py` in the three build workflows moves to 3.14.6 to match.
-- TensorRT engine *rebuilds* now reuse a persistent tactic timing cache under `weights/`, keyed by GPU name, TensorRT and CUDA version and workspace budget, so a cache from another machine — or from a model built with a different workspace, which TensorRT does not key on itself — is never reused. Stored blobs are checksummed, because TensorRT aborts the process outright on a damaged cache rather than raising. It applies only when an engine is rebuilt on unchanged hardware — a failed or interrupted build being retried, or a deleted `.engine` — and there it costs 1.2s instead of 10.6s for a 1080p compact upscale, 2.8s instead of 24.0s for `rife4.25`, and 13.0s instead of 39.7s for the maxxvit scene-change model on a 3090. A TensorRT upgrade invalidates the engines and the cache alike, so the first build after an update is as slow as before; a corrupt cache falls back to a normal build.
+- An invalid `--<x>_method` now prints every valid choice, grouped by backend, instead of the first 10.
+- Bundled Python 3.14.5 to 3.14.6, and the Linux/macOS standalone build tag to `20260728`.
+- TensorRT `11.1.0.106` to `11.2.1.2` on Windows and Linux, fixing 11.1's memory regressions. Engines rebuild once on first run.
+- TensorRT rebuilds reuse a timing cache keyed to your GPU and versions: `rife4.25` takes 2.8s instead of 24.0s.
+- `--smooth_dedup` now disables `--dedup` and enables `--interpolate`, instead of meaning "dedup, but keep the audio".
+- Interpolation drivers refresh the RIFE encoder once per pair, so `--interpolate_factor 3` and up no longer reuse the previous pair's features.
+- `--dynamic_scale` keeps CUDA graphs instead of disabling them: +10.5% at 1080p `rife4.25`, identical output. Factor 2 only.
+- `PARAMETERS.MD` model tables match `parser.py` again - MPS everywhere it exists, a backend matrix, and the models that were missing.
+- PyTorch 2.13.0 and torchvision 0.28.0 across every `extra-requirements-*.txt`.
+- `--stabilize` caches ORB features instead of recomputing them: +33% end-to-end, bit-identical.
+- `--obj_detect` draws onto the RGB frame directly: +10% at 4K, bit-identical.
+- Startup reads metadata with `nelux.probe()` instead of `ffprobe`, saving 20-250 ms. Needs `nelux>=0.15.1`.
+- `--preview` samples the writer's own frames, so the encode command is identical with preview on or off, at no throughput cost.
+- `--preview` works with the `*_nelux` encoders.
+- `importRifeArch` lived as six copies; it is defined once now, so adding an arch is one edit.
+- `README.md` and `PARAMETERS.MD` listed Rife Elexor as DirectML- and OpenVINO-capable when the CLI had no such choice. True as of this release.
+- `test_frameWindow`'s DistilDRBA guard walks the AST instead of counting occurrences, so a new backend cannot fail it for the wrong reason.
+- Second dead-code sweep, no behavior change (-877 lines): shared padding and timestep helpers, plus a dozen unreachable functions and registry arms.
+- Dead-code cleanup, no behavior change: duplicate branches folded, repeated Adobe progress blocks extracted, and an accidental `encode_method in "png"` substring test corrected.
 
 ### Fixed
-- Every `rife*-directml` model warped through a hand-decomposed `grid_sample`, because an opset 20 export puts the real `GridSample` node outside the DirectML EP's kernel range and it fell back to the CPU EP. DirectML now exports at opset 16 and warps natively: 1.9-2.4x faster at 1080p fp16 (`rife4.6` 73.8 → 38.3 ms/frame, `rife4.25` 113.3 → 46.6 ms/frame), with OpenVINO unchanged and cached `.onnx` files re-exported once.
-- `--depth_method large_v3` (and `large_v3-mps`) crashed on every machine without a hand-placed cache: it asked for `depth_anything_v3_vitl_mono.safetensors`, which was never uploaded, and the download died with `HTTPError: HTTP Error 404: Not Found`. The hosted `depth_anything_v3_vitl.safetensors` is byte-for-byte DA3MONO-LARGE, so `large_v3` now uses it; `og_large_v3`, which had been loading those mono weights under the `da3metric-large` preset, now downloads the real DA3METRIC-LARGE as `depth_anything_v3_vitl_metric.safetensors`. Existing `weights/og_large_v3/` caches are re-fetched once. `small_v3`/`base_v3` were correct and are unchanged.
-
-- A fractional `--interpolate_factor` never ran at all: the progress bar was given `totalFrames * 2.5` and raised `TypeError: an integer is required` before the first frame. Behind that, its timesteps were also planned one gap late — for the interval *after* the current frame, while every backend synthesizes for the interval *ending* at the frame it is handed — so the first gap's frames were computed and discarded and every later gap used its successor's timesteps. `--interpolate_factor 2.5` now produces 296 frames at 75 fps from a 119-frame 30 fps source. Integer factors are unaffected and stay pixel-identical.
-- The six `--depth_method {small,base}_v3-{tensorrt,directml,openvino}` choices crashed on selection with `ImportError`: `DepthDirectMLV3`/`DepthTensorRTV3` were never written. The Depth Anything 3 ONNX takes a 5D `[batch, num_images, 3, H, W]` input and returns four outputs, none of which the existing 4D single-output depth classes can drive, and the shipped fp16 file does not parse in TensorRT (`ElementWiseOperation DIV must have same input types`). The choices are removed until the backend exists; `small_v3`/`base_v3` on CUDA and MPS are unaffected.
-- Every head-bearing RIFE CUDA model (`rife4.15` and up) interpolated against frozen encoder features. The CUDA-graph self-check ran an eager forward after capture, which reassigned `model.f1` to a tensor the graph never writes, so `cache()` copied the same init-time features into `f0` for the whole run; the first pair was separately interpolated against warmup leftovers. Graph output sat at 28.6 dB mean against the eager reference on a 540p sequence and is now bit-identical, 46/46 frames. `rife4.6` was unaffected (no encoder head).
-- `--dynamic_scale` picked its scale backwards. `scale_list` is `[base / scale, ...]` consumed as `interpolate(scale_factor=1/scale_list[i])`, so a small scale is the *coarse* pyramid — the flag handed that to near-duplicate pairs and the finest pyramid to large-displacement ones. On 646 ATD-12K triplets with `rife4.25` the flag cost **-0.39 dB against simply leaving it off**; corrected it gains +0.08 dB over the fixed default and +0.48 dB over the old mapping (231 clips better, 44 worse). Picks are now restricted to 0.5/1.0/2.0 — the old 1.5 gave fractional block resolutions.
-- `--dynamic_scale` scored the zero-padded inference buffers at full resolution, once per *inserted* frame. The pad is identical in both buffers, so it read as perfectly similar and dragged the score toward the coarsest pick (72 of 1152 rows at 1080p/mod-128). It now scores the unpadded region, downscaled to 256px, once per pair.
-- `--dynamic_scale` was silently ignored by the TensorRT/DirectML/OpenVINO/NCNN backends, by `gmfss`/`distildrba`, and by `rife_elexor`, whose arch takes no such argument. Those combinations now say so and disable the flag instead of accepting it as a no-op.
-- The CUDA-less backend fallback never fired for whole capabilities. It looked methods up in `modelsList()`, which answers "are there weights under this name", not "can the factory build this method" — segment is registered as `segment*` but named `anime*` on the CLI, and there are no `rife*-directml` entries at all. So `--segment` with its **default** method, and every `rife4.25`-family choice, sailed through unchanged into an unguarded `torch.cuda.Stream()`. The fallback now consults the CLI choices, and a method with no usable sibling says so instead of failing silently mid-run. Interpolation keeps preferring NCNN over DirectML — RIFE's Vulkan path runs about an order of magnitude faster (~265 fps against ~10-13 fps at 1080p), and making both spellings visible for the first time would otherwise have flipped the default.
-- `--restore_method scunet-*` aborted the run under the default `--half` on all three backends, since SCUNet ships no fp16 ONNX. That one restore pass drops to full precision instead of derating the whole run. The DirectML/OpenVINO call also ignored `--half` entirely, so `--half False` loaded the fp16 file for every model on that path.
-- `--segment` and `--obj_detect` reported success after a mid-run failure: they caught their own exception and `main.py` then judged the run by output-file size alone, which a half-written file passes. Neither ever sent the After Effects panel a terminal status either, so it sat on the last progress string — the same gap just closed for `--stabilize`, now served by one shared helper.
-- `--bit_depth 16bit` produced a 0-byte output on every run: `--half` is on by default, and scaling an fp16 frame by 65535 raises `value cannot be converted to type c10::Half without overflow`, which the encoder thread swallowed as a single log line. 16-bit output now scales in fp32; 8-bit is unchanged.
-- The three bare interpolation aliases were all broken: `rife-tensorrt` raised `UnboundLocalError: IFNet`, `rife-ncnn` raised `Model rife-ncnn not found`, and `rife-mps` loaded rife422.pth into the 4.25 arch (30 missing keys). They are now canonicalized to their `rife4.22` equivalents at startup, which also stops them downloading a second copy of the same weights and building a second, byte-identical TensorRT engine.
-- In a batch run, the first video without an audio track disabled audio passthrough for every video after it — `getVideoMetadata` wrote its per-video probe back into the process-global `cs.AUDIO`. The run-wide intent is now latched separately.
-- The six `--restore_method *-openvino` choices were routed to the CUDA class and died with `Model scunet-openvino not found`; `dehalo-openvino` instead ran the CUDA path on the non-NVIDIA box the user picked OpenVINO for. They now use `UnifiedRestoreDirectML`, where the OpenVINO provider actually lives.
-- `animesr` was broken at every resolution not divisible by 4 on all three backends. CUDA copied unpadded frames into padded buffers (`The size of tensor a (856) must match the size of tensor b (854)` at 854x480); TensorRT and DirectML sized the recurrent `state` from the raw dims while the frames were padded, which the arch rejects (`Sizes of tensors must match except in dimension 1`); and all three then resized the padded output whole instead of cropping it, squeezing the frame and leaving a mirrored edge strip. macOS separately selected a nonexistent `animesr-mps` backend and returned `None`, surfacing as `NoneType is not callable` mid-run.
-- DirectML upscale and DirectML/OpenVINO restore returned the persistent ONNX Runtime output binding itself instead of a copy, so all 32 frames the writer queue holds aliased one buffer the next inference overwrote. Both now clone, like every sibling backend.
-- `--moblur` rejected every `-mps` interpolation method with "Motion blur does not support interpolate_method", despite MPS motion blur being supported.
-- An interpolation, upscale or dedup method with no backend class now raises a named error at startup instead of returning `None` and failing as `NoneType is not callable` mid-run.
-- Ctrl-C during startup died with `NameError: logWarning` inside the interrupt handler and exited 1 instead of 130, because the logging helpers were imported inside the block the handler guards.
-- `--segment`, `--obj_detect` and `--stabilize` hung forever with no traceback when their frame loop raised: the writer never got its `None` sentinel, its queue loop has no timeout escape, and the exception was buried in a future nobody read. Every loop now closes the writer and drains the decoder in a `finally`, and the consumer future is awaited first. `--stabilize`'s analysis pass had the same deadlock in reverse — it waited on the decode thread while that thread was blocked putting into a full queue.
-- `--inpoint`/`--outpoint` silently destroyed video on every pipeline. The decoder already trims, but the writer additionally applied `-itsoffset <inpoint>` to the piped frames and then trimmed the output timeline, so on a 5s render `--inpoint 1 --outpoint 6` emitted 4s and `--inpoint 5 --outpoint 10` emitted a 261-byte streamless file — with ffmpeg exiting 0, so nothing reported an error. Only the source input is trimmed now, and only to line the audio and subtitles up with the piped video; measured 5.000s video / 5.01s audio across the same range. `--inpoint` on its own was also mis-gated: the audio offset was tied to `--outpoint`, so omitting the latter left the audio running `inpoint` seconds ahead of the video. This all matches what the nelux writer already did (`add_passthrough(start=inpoint, end=outpoint)` against an untouched video stream) — the two writers disagreed and the FFmpeg one was wrong. Known residual: with `-c:s copy`, a stream-copied `mov_text` track still advertises the untrimmed `--outpoint` in its header, so a subtitled output declares a slightly longer duration than it holds. The packets themselves are correct. Transcoding the track instead reports a worse 20s, output-side `-t` does not cap a copied stream, and `-shortest` truncates the video whenever the source audio ends early — so this is left as-is.
-- `--segment_method anime-directml`/`anime-openvino`, `--obj_detect` and `--stabilize` built their writer without `--inpoint`/`--outpoint` while the decoder honoured them, so the full-length source audio and subtitles were muxed against trimmed video. The two other segment backends already passed them.
-- `--stabilize` reported success after a partial failure (the truncated output is non-empty, so the output-size check passed) and sent the After Effects panel neither `setCompleted` nor `setFailed`, leaving it on "Analyzing and stabilizing video..." forever.
-- `--autoclip --autoclip_method maxxvit-*` hung permanently if the decode thread raised: the error handler drained a queue whose sentinel the main loop had already consumed and whose producer was dead.
-- `--encode_method nvenc_h265_10bit` encoded 8-bit data: the hwupload filter chain hardcoded `format=nv12` and never applied the computed `p010le`, while `matchEncoder` still tagged the stream `-profile:v main10`.
-- The depth-quality clamp missed `-openvino` (which runs through the very same `DepthDirectMLV2` class as `-directml`) and ran before the CUDA fallback, so on a CUDA-less box `--depth --depth_quality high` kept `high` after being rewritten to `small_v2-directml`. `giant_v2-mps`/`og_giant_v2-mps` also escaped the "no half precision" guard.
-- `--dedup_method vmaf` got `--dedup_sens` raw, so the default 35 meant "any pair scoring VMAF >= 35 is a duplicate" — nearly every consecutive pair — and raising the flag made dedup *less* aggressive, inverted against every other method. It now uses SSIM's mapping on VMAF's 0-100 scale.
-- CUDA image depth (`small_v2`, `base_v2`, every `DepthCuda` method) emitted byte-exact duplicates of the frame two positions earlier, at positions that moved run to run: the per-frame min-max ran on the default stream and went straight to `WriteBuffer`, whose writer copies on its own stream and never waits on the producer, so it could read a block the allocator had just recycled from the tensor freed two frames earlier. The normalize now runs on `outputNormStream` and synchronizes before the write; on a 200-frame clip with no duplicate source frames, 4-6 duplicates per run on `small_v2` and 11 on `base_v2` became 200/200 unique, at unchanged fps.
-- Output frame rate was quantized to two decimals, so a `24000/1001` source encoded at `-r 23.98` and an After Effects re-render dropped in a 23.976 comp lost a frame or two off the tail. The exact float now reaches the encoder; only the metadata log line and progress bar still round.
-- Upscaling crashed on any input not divisible by 4 with a RealCUGAN-family arch (`fallin_soft`, `fallin_strong`, `shufflecugan`, `aniscale2`) on **every** backend — a `498x566` AE pre-render raised `Attempting to broadcast an axis by a dimension other than 1. 274 by 275`. The generic upscalers now detect the arch's required input multiple at load, reflect-pad to it, and crop the surplus off the output; fully-convolutional archs pad zero and stay bit-identical.
-- `--preview` pinned a full CPU core, and the GIL with it, whenever the page was open before the first preview frame existed — 275 fps against 506 with no client on a 1080p `--dedup` run (−45%). `PreviewHTTPHandler._serveStream` seeded `lastSeq = -1` against a sink starting at 0, so it spun instead of parking; it now seeds from the sink and blocks.
-- `RifeDirectML` set `torch.set_default_dtype(torch.float16)` globally and never restored it, so every torch module built after a half-precision DirectML/OpenVINO RIFE in the same process silently came out fp16. Removed as redundant (the archs already take an explicit `dtype`); output is bit-identical.
-- DistilDRBA padded to the wrong multiple above 1080p: at `scale = 0.5` the pyramid needs mod-128, so 2560x1440 made `distildrba-lite` raise `Sizes of tensors must match except in dimension 1` and `distildrba` emit misaligned flow. The padding multiple now follows the scale (64 at 1.0, 128 at 0.5); ≤1080p output is unchanged.
-- `--dedup_method ssim*`, `--scenechange_method ssim*` and `--dynamic_scale` all read frame pairs as more similar than they are under the default `--half`: the fp16 SSIM score was quantized coarsely enough to push borderline pairs past the threshold. On a 300-frame 360p clip `--dedup` dropped 270 frames at fp16 against 252 at fp32. The new scorer accumulates in fp32/fp64 whatever the input dtype, so fp16 and fp32 now agree; `--dynamic_scale` picks a different scale on 0.70% of 1080p fp16 pairs as a result.
-
-### Removed
-- `src/dedup/ssim.py`, the vendored `pytorch-msssim` SSIM module, superseded by the `frame-analytics` dependency.
-- `--offline`, the pre-download flag: weights already download on demand the first time a method loads. `modelsList()` stays, now consumed only by `src/infra/backendFallback.py` and `tests/test_registryDrift.py`.
+- Every `rife*-directml` model warped on the CPU. DirectML now exports at opset 16 and warps natively: 1.9-2.4x faster at 1080p.
+- `--depth_method large_v3` 404'd on every clean install - the weights were mis-mapped. `og_large_v3` re-downloads once; `small_v3`/`base_v3` unchanged.
+- A fractional `--interpolate_factor` never ran, and planned its frames one gap late. `2.5` now yields 296 frames from 119. Integer factors unchanged.
+- The six `{small,base}_v3-{tensorrt,directml,openvino}` depth choices crashed on selection - those backends were never written. Removed until they exist; CUDA and MPS unaffected.
+- Every `rife4.15`-and-up CUDA model interpolated against frozen encoder features, 28.6 dB off the reference. Now bit-identical. `rife4.6` was unaffected.
+- `--dynamic_scale` picked its scale backwards, costing 0.39 dB against leaving it off. Corrected, it gains 0.48 dB; picks are now 0.5/1.0/2.0.
+- `--dynamic_scale` scored the black padding at full resolution, once per inserted frame. It now scores the real image at 256px, once per pair.
+- `--dynamic_scale` was silently ignored by TensorRT/DirectML/OpenVINO/NCNN, `gmfss`, `distildrba` and `rife_elexor`. Those combinations now say so and disable it.
+- The CUDA-less fallback never fired for `--segment`'s default method or any `rife4.25` choice. Fixed; interpolation still prefers NCNN over DirectML.
+- `--restore_method scunet-*` aborted under `--half`, which ships no fp16 file. That pass drops to full precision. `--half False` also loaded fp16 on DirectML/OpenVINO.
+- `--segment` and `--obj_detect` reported success after a mid-run failure, and never told the After Effects panel the run had ended.
+- `--bit_depth 16bit` produced a 0-byte output on every run. It now scales in fp32; 8-bit is unchanged.
+- The bare `rife-tensorrt`, `rife-ncnn` and `rife-mps` aliases were all broken. They now resolve to their `rife4.22` equivalents.
+- In a batch run, the first video without an audio track disabled audio for every video after it.
+- The six `--restore_method *-openvino` choices ran on CUDA or died outright. They now use the class where OpenVINO actually lives.
+- `animesr` was broken at every resolution not divisible by 4 on all three backends, and `animesr-mps` did not exist at all.
+- DirectML upscale and DirectML/OpenVINO restore returned the live output buffer, which the next frame overwrote. Both now copy.
+- `--moblur` rejected every `-mps` interpolation method, despite MPS motion blur being supported.
+- A method with no backend class now raises a named error at startup, instead of failing as `NoneType is not callable` mid-run.
+- Ctrl-C during startup died inside its own interrupt handler and exited 1 instead of 130.
+- `--segment`, `--obj_detect` and `--stabilize` hung forever with no traceback when their frame loop raised. So did `--stabilize`'s analysis pass.
+- `--inpoint`/`--outpoint` silently destroyed video on every pipeline - a 5s render came out 4s, or empty, with ffmpeg exiting 0. Trimming is correct now.
+- `--segment_method anime-directml`/`anime-openvino`, `--obj_detect` and `--stabilize` muxed full-length audio against trimmed video.
+- `--stabilize` reported success after a partial failure, and left the After Effects panel stuck on its progress string.
+- `--autoclip --autoclip_method maxxvit-*` hung permanently if the decode thread raised.
+- `--encode_method nvenc_h265_10bit` encoded 8-bit data while tagging the stream as 10-bit.
+- The depth-quality clamp missed `-openvino` and ran before the CUDA fallback; `giant_v2-mps` escaped the no-half-precision guard.
+- `--dedup_method vmaf` read `--dedup_sens` raw, so raising it made dedup less aggressive - inverted against every other method.
+- CUDA image depth emitted byte-exact duplicates of the frame two positions earlier, at positions that moved run to run. 200/200 unique now.
+- Output frame rate was quantized to two decimals, so `24000/1001` sources lost a frame or two off the tail.
+- Upscaling crashed on input not divisible by 4 with RealCUGAN-family archs, on every backend. They now pad and crop; other archs stay bit-identical.
+- `--preview` pinned a full CPU core whenever the page was open before the first preview frame existed, costing 45% throughput.
+- `RifeDirectML` set the global default dtype to fp16 and never restored it, so later models silently came out half. Removed; output identical.
+- DistilDRBA padded to the wrong multiple above 1080p, so `distildrba-lite` raised and `distildrba` emitted misaligned flow. 1080p and below unchanged.
+- fp16 SSIM read frame pairs as more similar than they are: `--dedup` dropped 270 frames at fp16 against 252 at fp32. Both agree now.
 
 ### Performance
-- The default `--autoclip` (pyscenedetect) decodes through nelux instead of scenedetect's cv2 backend, taking a ~93% decode-bound run from 5.77 to 4.40 s on a 1708-frame 1080p clip (−24%). Guarded to CFR inputs above the measured break-even, with a cv2 re-run on early EOF and `--inpoint` staying on cv2; near-threshold cuts can shift at sensitive settings because nelux's YUV→RGB matches ffmpeg bit-exactly while cv2's deviates (mean |diff| 1.86/255).
-- DirectML/OpenVINO/TensorRT upscale startup no longer opens a throwaway CPU ONNX session to learn the arch's input multiple — the shipped values are compiled into `KNOWN_INPUT_MULTIPLES`, saving 90–130 ms cold / ~31–37 ms warm per init. This also fixes a startup crash the probe introduced on `shufflecugan-tensorrt`, whose TRT ONNX the onnxruntime fork rejects with `INVALID_GRAPH`.
-- `--stabilize` no longer constructs SuperPoint or torch.hub-downloads its ~5 MB checkpoint: the published checkpoint's key names never matched the in-repo arch, so every run already fell back to ORB/LK. Output is hash-identical and offline machines no longer need network access to stabilize.
-- Bumped `nelux` `0.15.1` → `0.16.0`, which makes motion-vector export opt-in at `VideoReader` construction. TAS never reads motion vectors, so the decoder now skips building that side data: +12% CPU decode throughput at 1080p (1373 → 1544 fps) and +21% at 4K (339 → 409 fps) on a 300-frame clip. Decoded frames are bit-identical on both the CPU and NVDEC paths.
-- SSIM and MSE for `--dedup`, `--scenechange` and `--dynamic_scale` now come from `frame-analytics` instead of the vendored `pytorch-msssim` module — 85 µs against 265 µs per SSIM at the 224x224 dedup sample size, and 286 µs against 2.7 ms at full 1080p. Measured +33% on a 360p `--dedup ssim-cuda` run, +25% on 360p `--scenechange ssim-cuda`, and +30% on 1080p `--interpolate --dynamic_scale`; 1080p `--dedup` is decode-bound and unchanged.
+- The default `--autoclip` decodes through nelux: 5.77s to 4.40s on a 1708-frame 1080p clip (-24%). CFR inputs only, with a cv2 fallback.
+- DirectML/OpenVINO/TensorRT upscale startup no longer opens a throwaway session to probe the model: 90-130 ms saved, and one `shufflecugan-tensorrt` crash fixed.
+- `--stabilize` no longer builds SuperPoint or downloads its checkpoint - it always fell back to ORB anyway. Output is hash-identical, and offline machines work.
+- `nelux` `0.15.1` to `0.16.0` skips motion-vector side data: +12% CPU decode at 1080p, +21% at 4K. Frames are bit-identical.
+- SSIM and MSE come from `frame-analytics`: +33% on a 360p `--dedup` run, +25% on `--scenechange`, and +30% on 1080p `--dynamic_scale`.
+
+### Removed
+- `src/dedup/ssim.py`, the vendored SSIM module, superseded by `frame-analytics`.
+- `--offline`: weights already download on demand the first time a method loads.
+
+## TAS Adobe Edition
+### New
+- The About tab is merged into Account - one tab instead of two, and one fewer nav icon.
+- Media Browser: a **This PC** view with mounted drive tiles on Windows and macOS, with drive-aware breadcrumbs.
+- Restore chain models are an ordered chip list with friendly labels and apply-order badges.
+- Discord Rich Presence now reaches existing installs, not only fresh ones. It still broadcasts no file, project or model names.
 
 ### Changed
-- `--dedup --smooth_dedup` no longer means "dedup, but keep the audio". `--smooth_dedup` is now a capability of its own that force-disables `--dedup` (with a warning) and enables `--interpolate`, so an old invocation or preset carrying both flags now produces a full-length interpolation instead of a shortened video. Use plain `--dedup` for the old behaviour.
-- The interpolation drivers arm the RIFE arch's encoder refresh at the start of every pair instead of relying on its internal per-forward counter. The counter only lined up with pair boundaries while each pair emitted exactly `factor - 1` frames, which `--smooth_dedup` breaks — at `--interpolate_factor 3` and above, later pairs ran against a previous pair's encoder features. Output on the plain path is unchanged.
-- `--dynamic_scale` keeps CUDA graphs instead of disabling them: one capture per candidate scale, armed per pair. +10.5% at 1080p `rife4.25` (140 → 155 fps) against the eager path it replaces, output identical frame for frame. Restricted to `--interpolate_factor 2` — above that the arch's encoder refresh is gated on a per-call counter a replay cannot advance, so that path stays eager as before.
-- `PARAMETERS.MD` model tables now match `parser.py`: added the MPS backend everywhere it exists (upscale, interpolate, restore, depth, motion blur), a backend-availability matrix, and the models that were missing entirely (`shufflespan`, `smosr`, `figsr`, `artcnn_*`, `maxine-*`, `dehalo`, `deepdeband-f`, `linethinner-*`, `distildrba`, depth v3 and `video_*`, `--autoclip_method`, `--list_methods`).
-- Upgraded PyTorch to 2.13.0 and torchvision to 0.28.0 across every `extra-requirements-*.txt` (from 2.12.1/2.11.0 and 0.27.1). Windows keeps `+cu132`, Linux keeps torch `+cu130` with torchvision `+cu132`, and the macOS/`*-lite` files stay on plain PyPI wheels.
-- `--stabilize` caches ORB features per frame instead of running `detectAndCompute` twice on every interior frame, for +33% end-to-end on a 300-frame 640×360 clip (65.7 → 87.6 fps). Transforms and scores are bit-identical.
-- `--obj_detect` draws annotations straight onto the RGB frame instead of round-tripping through BGR, dropping two full-frame colour conversions per detected frame, for +10% at 4K (`yolov9_small-directml`, 17.7 → 19.6 fps). Output is bit-identical.
-- Startup metadata reads a decode-free `nelux.probe()` instead of spawning `ffprobe`: ~0.6 / 4 / 17 ms at 360p / 1080p / 4K against ffprobe's ~20–36 ms, with the old `-count_packets` form costing another ~160–220 ms on 400–700 MB inputs. Requires `nelux>=0.15.1`; `ffprobe` is no longer invoked for metadata.
-- `--preview` samples the frames the writer already holds instead of adding a second ffmpeg output, so the encode command is byte-for-byte identical with preview on and off. It is now demand-gated (238 ns per frame with the page closed) and wall-clock throttled: 519 / 521 / 505 fps for baseline / closed / open, against 506 / 488 / 275 before, and 5.3 MB of preview traffic per run instead of 31.8 MB.
-- `--preview` works with the `*_nelux` encoders. It was hard-disabled there because nelux emits no preview stream — irrelevant now that preview is sampled from the frame.
-- `importRifeArch`/`_RIFE_V1` lived as six verbatim copies, two of which never called it and one of which nobody imported. It is now defined once in `src/interpolate/_shared.py`, so adding an arch is one edit rather than five.
-- The interpolation model tables in `README.md` and `PARAMETERS.MD` listed Rife Elexor as DirectML- and OpenVINO-capable while the CLI had no such choice. True as of this release.
-- `test_frameWindow`'s DistilDRBA cross-domain-neighbour guard asserted a hard-coded count of the error string, so adding a third backend failed the test for the wrong reason. It now walks the AST and requires the guard on every `DistilDRBA*` class.
-- Second dead-code and duplication sweep, no behavior change (−877 lines): `calculatePadding` had seven verbatim copies and the `_timesteps.py` schedule five inline reimplementations, both now sourced from their shared module. Deleted as unreachable: `class YOLOv9` and its `__main__` demo (dropping an eager `onnxruntime` import from the CUDA/TensorRT obj-detect paths), `CudaChecker.deviceCount`, `_calcSceneWeightScalar`, the unread `isRife`/`isNvidia`/`batched` parameters, an `except ImportError` shadowed by an earlier `except Exception`, a duplicate `case` label in `src/factories/restore.py`, the inert `_QUIET`/`_VERBOSE` guards in `logAndPrint.py`, and the `large_v3-directml|-tensorrt`, `giant_v3-directml|-tensorrt`, and `tlbvfi` arms of `modelsMap()`.
-- Dead code and duplication cleanup, no behavior change: removed a no-op `global LOGGEDALREADY` in `CudaChecker.__init__`; collapsed the identical pth/onnx return arms in `modelsMap()` for `rife4.25-heavy`/`rife_elexor`; dropped two `RifeDirectML` `mul = 32` branches that duplicated the trailing `else`; folded the Windows/non-Windows ffprobe-PATH branches in `src/cli/startup.py` into one; extracted the five repeated `if ADOBE: progressState.update(...)` blocks in `initializeModels()` into an `_announce()` helper; narrowed `except (AttributeError, Exception)` to `except Exception` in `main()`; and changed `encode_method in "png"` (accidental substring test) to `== "png"`.
+- AutoCut: `encodeMethod` spelling is normalized alongside `encodeAlgorithm`.
+- Removed ~1500 lines of dead code: legacy After Effects/Premiere utilities, unused hooks, helpers, and store selectors.
+- TypeScript `5.9.3` to `7.0.2` (the native port, pinned exactly), with the build config aligned and `watch` typechecking like `build`.
+- Queue config assembly now happens in one tested place, shared by preview, the Premiere chain, and `processItem`.
+- A manual build-only ZIP workflow, so a build can reach a tester without publishing a public release.
+
+### Fixed
+- macOS: the dependency installer ran with an empty environment, which broke the `macos-mps` post-install step.
+- The dependency installer died at 1 MB of output, surfacing as "Process exited with code null" over a half-populated runtime. The full transcript is logged now.
+- Download and install failures name the cause - a proxy, a rate limit with its wait, a server outage, or a corporate filter page.
+- Enqueuing a Premiere chain with restore enabled and no models selected threw a `TypeError`.
+- macOS drive navigation: going up from a mounted volume stranded the user with no way back to This PC.
+- The non-Windows root tile hard-coded "Macintosh HD"; it is derived from the platform now.
+- Media Browser folder cards no longer scroll the panel underneath when activated with Space.
+- Update-integrity gate: an empty manifest verified clean. Coverage is now required and derived from what is on disk.
+- Integrity findings on the already-installed extension are logged rather than hard-failing - the updater is itself the recovery path.
+- The updater's copy fallback degraded to a slow manual copy after one permission error, and could hit `EEXIST` midway.
+- The Account tab rendered the credits sentence as a heading instead of the credits title.
 
 ## [2.8.0] - 2026-07-11
 ### Added
@@ -169,7 +224,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - Panel-written debug logs now consolidate into a `tas-log` folder inside the TAS install directory (next to the backend `TAS-Log.log`) for easier debugging: the crash log (`tas-log/crash.log`) and the ExtendScript dead-frame dedup breadcrumb (`tas-log/dedup_debug.log`) no longer scatter into the OS temp folder. Both fall back to the temp folder when the install directory doesn't exist yet or the CEP Node bridge is unavailable (e.g. Vite browser dev).
 - Read and Apply buttons in the Keyframe Graph Editor now share equal width.
 - Consolidate duplicated version comparison into shared `versionCompare.ts`.
-- Rename `clearCompleted` → `clearFinished` (removes completed + failed).
+- Rename `clearCompleted` → `clearFinished` (removes completed + failed + cancelled).
 - Performance (no behavior change): queue status counts and per-tick stats now compute in a single pass instead of several throwaway array allocations; the virtualized queue list uses a stable row renderer and `rowData` so react-window stops re-rendering all visible rows on every progress tick.
 - Performance (no behavior change): the sponsor-status empty caps array is now module-scoped, restoring `ChainTab`'s `React.memo` (it was defeated by a new array identity every render, cascading through the chain callbacks).
 - Performance (no behavior change): Media Browser sorting selects its comparator once instead of re-branching inside every comparison (~28% faster on large recursive listings, measured); Keyframe Graph Editor preset filtering merges its lists and lowercases the search query once per render; `QueueItemRow` is memoized with hoisted static styles.
@@ -187,6 +242,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `formatBytes` returns `"undefined"` for ≥1 TiB or negative values — extended unit array to PB, clamped index, guard negatives.
 - `formatModelName` now handles embedded version tokens (`yolov9` → `YoloV9`); removed dead `.replace('V','V')` no-op.
 - `extractBezierFromEase` no longer throws on empty ease arrays (returns `null`).
+- "Clear Finished" now also removes **cancelled** items — cancelled is a terminal state (it stamps `completedAt`), but `clearFinished` filtered only completed + failed, so cancelled jobs lingered in the queue and had to be removed by hand.
 - Invalid trim ranges now fail during runtime validation when `--outpoint` is nonzero and not greater than `--inpoint`; the FFmpeg writer also exits cleanly if no frames reach the output queue.
 
 ## [2.7.10] - 2026-06-25
