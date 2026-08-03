@@ -16,7 +16,15 @@
 
 ## 📋 Overview
 
-TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit specialized for anime and general video content. It seamlessly integrates with Adobe After Effects while also offering standalone functionality, bringing professional-grade AI upscaling, interpolation, and restoration to creators.
+TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit specialized for anime and general video content, bringing professional-grade AI upscaling, interpolation, and restoration to creators.
+
+TAS ships in three editions:
+
+| Edition | What it is | For |
+| ------- | ---------- | --- |
+| **TAS-Standalone** | Windows desktop app with its own bundled backend — no Python, no command line | Most users |
+| **TAS-AdobeEdition** | After Effects plugin, runs TAS without leaving AE | AE workflows |
+| **CLI** | `main.py` / `tas` — every parameter, scriptable | Power users, automation |
 
 ## 📖 Table of Contents
 
@@ -57,6 +65,7 @@ TheAnimeScripter (TAS) is a cutting-edge AI-powered video enhancement toolkit sp
 <td>
 
 ### 🔧 Workflow Optimization
+- **TAS-Standalone Desktop App:** One-installer Windows GUI with presets, live progress, and themes
 - **After Effects Integration:** Seamless plugin for AE workflow
 - **Model Chaining:** Combine multiple effects in a single processing pass
 - **In-Memory Processing:** Efficient frame handling without redundant disk operations
@@ -84,16 +93,38 @@ Adobe plugin provides seamless integration directly within your AE workflow, ena
 
 <img src="https://tas.nevermindnilas.dev/assets/adobe-gui.webp" width="300" alt="Adobe GUI">
 
-### <img src="https://img.icons8.com/color/24/000000/windows-10.png" width="20"/> Windows Standalone
-> *Under active development - coming soon*
+### <img src="https://img.icons8.com/color/24/000000/windows-10.png" width="20"/> Windows Desktop App (TAS-Standalone)
 
-The native Windows application will provide a dedicated environment optimized for batch processing and advanced customization options.
+The native Windows desktop app. It ships with its own backend, so nothing else has to be installed — no Python, no CLI, no After Effects. Every TAS setting is exposed in the UI, with live progress, saved presets, and themes.
 
 </div>
 
 ## 🛠️ Getting Started
 
 <div class="setup-container">
+
+### <img src="https://img.icons8.com/color/24/000000/windows-10.png" width="20"/> TAS-Standalone
+
+**The easiest way to use TAS.** A single Windows installer that includes the full TAS backend — you do not need Python, the CLI, or After Effects.
+
+<div class="requirements-box">
+
+**System Requirements:**
+- Windows 10 / 11 (64-bit)
+- Compatible GPU recommended:
+  - **Modern NVIDIA** (RTX 20/30/40, GTX 16 series): Full CUDA/TensorRT support
+  - **Older NVIDIA** (GTX 1000 series/Pascal): DirectML backend
+  - **Intel dGPU / iGPU**: OpenVINO backend
+  - **AMD/Intel**: DirectML backend
+
+</div>
+
+#### Installation Steps:
+1. Download **`TAS-<version>-Standalone-Windows-Setup.exe`** from the [releases page](https://github.com/NevermindNilas/TheAnimeScripter/releases/latest)
+2. Run the installer
+3. Launch TAS-Standalone, pick an input video, choose your options, and hit run
+
+Models are downloaded on first use of each option, so the initial run of a given model takes longer.
 
 ### <img src="https://img.icons8.com/color/24/000000/adobe-after-effects--v1.png" width="20"/> Adobe After Effects Plugin
 
@@ -117,14 +148,6 @@ The native Windows application will provide a dedicated environment optimized fo
 <div class="help-box">
 
 > **Need help?** Watch the [video tutorial](https://youtu.be/JAdZ3z-os_A?si=fZQPmhMLtHfAktwn)
-
-</div>
-
-### <img src="https://img.icons8.com/fluency/24/000000/windows-client.png" width="20"/> Standalone Application
-
-<div class="dev-status">
-
-> **Development Status:** Currently in active development. Join the [Discord](https://discord.gg/hwGHXga8ck) for development updates.
 
 </div>
 

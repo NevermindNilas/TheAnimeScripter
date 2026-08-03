@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 
+### Changed
+- `README.md` documents TAS-Standalone as a shipped edition with install steps, instead of "coming soon".
+
 ## [2.9.0] - 2026-08-03
 ### Highlights
 
