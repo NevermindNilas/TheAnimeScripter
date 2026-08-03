@@ -1,15 +1,26 @@
 """
 RIFE DirectML Architectures - Consolidated DirectML-compatible RIFE models.
 
-This module provides DirectML-compatible versions of all RIFE architectures
-using decomposed grid_sample operations.
+This module provides DirectML/OpenVINO-compatible versions of all RIFE
+architectures. They differ from the TensorRT `Rife*_v3` archs only in taking a
+fixed (img0, img1, timestep) signature and in how they warp.
+
+`decomposedWarp` picks the warp, because the two backends need different ones:
+
+- DirectML runs a real GridSample node natively, but only below opset 20, so it
+  uses `grid_sample` (`decomposedWarp=False`) with an opset 16 export.
+- OpenVINO's ONNX frontend cannot convert GridSample-20 at all ("linear" is not
+  a member of `op::v9::GridSample::InterpolationMode`) and is ~2x slower on an
+  opset 16 export, so it keeps the decomposition (`decomposedWarp=True`).
+
+`src/interpolate/rife_directml.py` owns that choice and the matching opset.
 """
 
 import math
 
 import torch
 import torch.nn as nn
-from torch.nn.functional import interpolate
+from torch.nn.functional import grid_sample, interpolate
 
 from .grid_sample_directml import grid_sample_directml
 
@@ -205,15 +216,15 @@ class IFBlock46(nn.Module):
         return flow, mask
 
 
-def warp_directml_46(tenInput, tenFlow, tenFlowDiv, backWarp):
+def warp_directml_46(tenInput, tenFlow, tenFlowDiv, backWarp, warpFn=grid_sample):
     # Normalize flow (pixel units -> grid units) then build sampling grid.
     tenFlow = torch.cat(
         [tenFlow[:, 0:1] / tenFlowDiv[0], tenFlow[:, 1:2] / tenFlowDiv[1]], 1
     )
     g = (backWarp + tenFlow).permute(0, 2, 3, 1)
-    return grid_sample_directml(
-        input_tensor=tenInput,
-        grid=g,
+    return warpFn(
+        tenInput,
+        g,
         padding_mode="border",
         align_corners=True,
     )
@@ -230,8 +241,10 @@ class IFNet_46(nn.Module):
         device="cuda",
         width=1920,
         height=1080,
+        decomposedWarp=False,
     ):
         super().__init__()
+        self.warpFn = grid_sample_directml if decomposedWarp else grid_sample
         self.block0 = IFBlock46(7, c=192)
         self.block1 = IFBlock46(8 + 4, c=128)
         self.block2 = IFBlock46(8 + 4, c=96)
@@ -272,7 +285,9 @@ class IFNet_46(nn.Module):
         self.register_buffer("backWarp", torch.cat([tenHorizontal, tenVertical], 1))
 
     def warp(self, tenInput, tenFlow):
-        return warp_directml_46(tenInput, tenFlow, self.tenFlowDiv, self.backWarp)
+        return warp_directml_46(
+            tenInput, tenFlow, self.tenFlowDiv, self.backWarp, self.warpFn
+        )
 
     def forward(self, img0, img1, timestep):
         warpedImg0, warpedImg1 = img0, img1
@@ -342,8 +357,10 @@ class IFNet_415(nn.Module):
         device="cuda",
         width=1920,
         height=1080,
+        decomposedWarp=False,
     ):
         super().__init__()
+        self.warpFn = grid_sample_directml if decomposedWarp else grid_sample
         self.block0 = IFBlock415(7 + 16, c=192)
         self.block1 = IFBlock415(8 + 4 + 16, c=128)
         self.block2 = IFBlock415(8 + 4 + 16, c=96)
@@ -465,11 +482,11 @@ class IFNet_415(nn.Module):
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
             if scale == 1:
-                warpedImgs = grid_sample_directml(
+                warpedImgs = self.warpFn(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
             else:
-                warps = grid_sample_directml(
+                warps = self.warpFn(
                     torch.cat((imgs2, fs2), 1),
                     precomp,
                     padding_mode="border",
@@ -507,8 +524,10 @@ class IFNet_422(nn.Module):
         device="cuda",
         width=1920,
         height=1080,
+        decomposedWarp=False,
     ):
         super().__init__()
+        self.warpFn = grid_sample_directml if decomposedWarp else grid_sample
         self.block0 = IFBlock422(7 + 16, c=256)
         self.block1 = IFBlock422(8 + 4 + 16 + 8, c=192)
         self.block2 = IFBlock422(8 + 4 + 16 + 8, c=96)
@@ -641,11 +660,11 @@ class IFNet_422(nn.Module):
             ).permute(0, 2, 3, 1)
 
             if scale == 1:
-                warpedImgs = grid_sample_directml(
+                warpedImgs = self.warpFn(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
             else:
-                warps = grid_sample_directml(
+                warps = self.warpFn(
                     torch.cat((imgs2, fs2), 1),
                     precomp,
                     padding_mode="border",
@@ -683,8 +702,10 @@ class IFNet_420(nn.Module):
         device="cuda",
         width=1920,
         height=1080,
+        decomposedWarp=False,
     ):
         super().__init__()
+        self.warpFn = grid_sample_directml if decomposedWarp else grid_sample
         self.block0 = IFBlock415(7 + 16, c=384)
         self.block1 = IFBlock415(8 + 4 + 16, c=192)
         self.block2 = IFBlock415(8 + 4 + 16, c=96)
@@ -806,11 +827,11 @@ class IFNet_420(nn.Module):
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
             if scale == 1:
-                warpedImgs = grid_sample_directml(
+                warpedImgs = self.warpFn(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
             else:
-                warps = grid_sample_directml(
+                warps = self.warpFn(
                     torch.cat((imgs2, fs2), 1),
                     precomp,
                     padding_mode="border",
@@ -848,8 +869,10 @@ class IFNet_422_lite(nn.Module):
         device="cuda",
         width=1920,
         height=1080,
+        decomposedWarp=False,
     ):
         super().__init__()
+        self.warpFn = grid_sample_directml if decomposedWarp else grid_sample
         self.block0 = IFBlock422(7 + 8, c=192)
         self.block1 = IFBlock422(8 + 4 + 8 + 8, c=128)
         self.block2 = IFBlock422(8 + 4 + 8 + 8, c=64)
@@ -980,11 +1003,11 @@ class IFNet_422_lite(nn.Module):
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
             if scale == 1:
-                warpedImgs = grid_sample_directml(
+                warpedImgs = self.warpFn(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
             else:
-                warps = grid_sample_directml(
+                warps = self.warpFn(
                     torch.cat((imgs2, fs2), 1),
                     precomp,
                     padding_mode="border",
@@ -1022,8 +1045,10 @@ class IFNet_425(nn.Module):
         device="cuda",
         width=1920,
         height=1080,
+        decomposedWarp=False,
     ):
         super().__init__()
+        self.warpFn = grid_sample_directml if decomposedWarp else grid_sample
         self.block0 = IFBlock422(7 + 8, c=192)
         self.block1 = IFBlock422(8 + 4 + 8 + 8, c=128)
         self.block2 = IFBlock422(8 + 4 + 8 + 8, c=96)
@@ -1155,11 +1180,11 @@ class IFNet_425(nn.Module):
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
             if scale == self.scaleList[-1]:
-                warpedImgs = grid_sample_directml(
+                warpedImgs = self.warpFn(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
             else:
-                warps = grid_sample_directml(
+                warps = self.warpFn(
                     torch.cat((imgs2, fs2), 1),
                     precomp,
                     padding_mode="border",
@@ -1197,8 +1222,10 @@ class IFNet_425_lite(nn.Module):
         device="cuda",
         width=1920,
         height=1080,
+        decomposedWarp=False,
     ):
         super().__init__()
+        self.warpFn = grid_sample_directml if decomposedWarp else grid_sample
         self.block0 = IFBlock422(7 + 8, c=192)
         self.block1 = IFBlock422(8 + 4 + 8 + 8, c=128)
         self.block2 = IFBlock422(8 + 4 + 8 + 8, c=96)
@@ -1330,11 +1357,11 @@ class IFNet_425_lite(nn.Module):
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
             if scale == self.scaleList[-1]:
-                warpedImgs = grid_sample_directml(
+                warpedImgs = self.warpFn(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
             else:
-                warps = grid_sample_directml(
+                warps = self.warpFn(
                     torch.cat((imgs2, fs2), 1),
                     precomp,
                     padding_mode="border",
@@ -1372,8 +1399,10 @@ class IFNet_425_heavy(nn.Module):
         device="cuda",
         width=1920,
         height=1080,
+        decomposedWarp=False,
     ):
         super().__init__()
+        self.warpFn = grid_sample_directml if decomposedWarp else grid_sample
         self.block0 = IFBlock422(7 + 8, c=192 * 2)
         self.block1 = IFBlock422(8 + 4 + 8 + 8, c=128 * 2)
         self.block2 = IFBlock422(8 + 4 + 8 + 8, c=96 * 2)
@@ -1505,11 +1534,11 @@ class IFNet_425_heavy(nn.Module):
                 + flows.reshape((2, 2, self.ph, self.pw)) * self.tenFlowMul
             ).permute(0, 2, 3, 1)
             if scale == self.scaleList[-1]:
-                warpedImgs = grid_sample_directml(
+                warpedImgs = self.warpFn(
                     imgs2, precomp, padding_mode="border", align_corners=True
                 )
             else:
-                warps = grid_sample_directml(
+                warps = self.warpFn(
                     torch.cat((imgs2, fs2), 1),
                     precomp,
                     padding_mode="border",
