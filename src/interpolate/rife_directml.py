@@ -23,6 +23,20 @@ checker = CudaChecker()
 
 torch.set_float32_matmul_precision("medium")
 
+# ONNX opset 20 renamed GridSample's mode from "bilinear" to "linear", and the
+# DirectML EP only registers the opset 16-19 kernel, so an opset 20 export
+# drops every warp to the CPU EP (rife4.6 @1080p: 508 ms/frame vs 15 ms). At
+# opset 16 DirectML runs GridSample natively and the whole graph stays on the
+# GPU, which beats the decomposed warp it used to need.
+#
+# OpenVINO cannot use either half of that: its ONNX frontend fails outright on
+# GridSample-20, and an opset 16 export runs ~2x slower than the decomposition
+# (1638 ms vs 814 ms @1080p). So it keeps the decomposed warp at opset 20.
+#
+# The opset is part of the cached ONNX filename so the two coexist.
+DML_OPSET = 16
+OPENVINO_OPSET = 20
+
 
 class RifeDirectML:
     def __init__(
@@ -35,11 +49,10 @@ class RifeDirectML:
         ensemble: bool = False,
     ):
         """
-        Interpolates frames using DirectML with decomposed grid_sample.
+        Interpolates frames using DirectML (or OpenVINO).
 
-        This implementation uses a custom grid_sample decomposition that breaks
-        down the operation into primitive tensor ops (floor, gather, weighted sum)
-        that DirectML can accelerate, avoiding CPU fallback.
+        The export opset is picked per backend so the GridSample warps land on
+        the GPU; see DML_OPSET/OPENVINO_OPSET above.
 
         Arguments:
             - interpolateMethod (str, optional): Interpolation method. Defaults to "rife4.6-directml".
@@ -84,6 +97,9 @@ class RifeDirectML:
     def handleModel(self):
         self.deviceType = "cpu"
         self.device = torch.device(self.deviceType)
+
+        self.isOpenVino = "openvino" in self.interpolateMethod
+        self.opset = OPENVINO_OPSET if self.isOpenVino else DML_OPSET
 
         if self.half:
             self.numpyDType = np.float16
@@ -143,6 +159,7 @@ class RifeDirectML:
             device=self.device,
             width=self.width,
             height=self.height,
+            decomposedWarp=self.isOpenVino,
         )
         stateDict = torch.load(self.modelPath, map_location="cpu")
         self.model.load_state_dict(stateDict, strict=False)
@@ -171,9 +188,12 @@ class RifeDirectML:
             device=self.device,
         )
 
+        # The opset is part of the name so an existing cache exported at a
+        # different opset is not reused.
         self.modelPath = self.modelPath.replace(
             ".pth",
-            f"_{self.width}x{self.height}_{'fp16' if self.half else 'fp32'}_directml_nocache.onnx",
+            f"_{self.width}x{self.height}_{'fp16' if self.half else 'fp32'}"
+            f"_directml_op{self.opset}_nocache.onnx",
         )
 
         if not os.path.exists(self.modelPath):
@@ -201,7 +221,7 @@ class RifeDirectML:
                 input_names=inputNames,
                 output_names=outputNames,
                 dynamic_axes=dynamicAxes,
-                opset_version=20,
+                opset_version=self.opset,
                 optimize=False,
                 dynamo=False,
             )
