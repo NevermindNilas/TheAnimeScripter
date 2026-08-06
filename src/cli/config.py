@@ -1,3 +1,4 @@
+import difflib
 import json
 import logging
 import os
@@ -63,6 +64,14 @@ class CliConfig:
         return optionName in self.providedOptions or optionName in self.jsonKeys
 
     @property
+    def parserActionsByDest(self):
+        return {
+            action.dest: action
+            for action in self.parser._actions
+            if action.dest not in ["help", "version"]
+        }
+
+    @property
     def parserDefaults(self):
         defaults = {}
         for action in self.parser._actions:
@@ -93,6 +102,8 @@ class CliConfig:
             if key == "json":
                 continue
 
+            self.validateJsonChoice(key, value)
+
             if hasattr(self.args, key):
                 currentValue = getattr(self.args, key)
                 defaultValue = defaults.get(key)
@@ -105,6 +116,46 @@ class CliConfig:
                 logging.warning(f"Unknown option in JSON config: {key}")
 
         self.jsonKeys.update(loadedKeys)
+
+    def validateJsonChoice(self, key, value):
+        """Reject JSON values argparse would have rejected on the command line.
+
+        ``--json`` assigns straight onto the namespace, so it used to bypass
+        every ``choices=`` list the parser declares. A bad value therefore
+        travelled all the way into the factory before anything noticed: the AE
+        bridge sent ``depth_method: "small_v3-directml"``, a method with no CLI
+        choice and no backend class, and the run died several seconds later in
+        ``src/factories/standalone.py:depth()`` after decoding metadata.
+        """
+        action = self.parserActionsByDest.get(key)
+        if action is None or not action.choices:
+            return
+
+        choices = list(action.choices)
+        values = value if isinstance(value, list) else [value]
+        for item in values:
+            if item in choices:
+                continue
+
+            message = f"Invalid value for '{key}' in JSON config: {item!r}."
+            if len(choices) <= 8:
+                message += f" Valid choices: {', '.join(str(c) for c in choices)}."
+            else:
+                close = difflib.get_close_matches(
+                    str(item), [str(c) for c in choices], 3
+                )
+                if close:
+                    message += f" Did you mean: {', '.join(close)}?"
+                if key.endswith("_method"):
+                    capability = key[: -len("_method")]
+                    message += (
+                        f" Run --list_methods {capability} to see all "
+                        f"{len(choices)} choices."
+                    )
+                else:
+                    message += f" {len(choices)} valid choices, see --help."
+            logAndPrint(message, "red")
+            sys.exit(1)
 
     def loadJsonConfig(self):
         jsonPath = os.path.abspath(self.args.json)
