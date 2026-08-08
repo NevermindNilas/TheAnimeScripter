@@ -6,10 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 
+### Added
+- `--encode_method vp9_nelux`, a VP9 encoder on nelux's `libvpx-vp9`. It runs in constant-quality mode (`bit_rate=0`), which the existing ffmpeg `vp9` method does not: on 120 frames of 720p it is 320 kbps at 47.47 dB against ffmpeg vp9's 1062 kbps at 43.56 dB, and encodes 1.5x faster.
+
 ### Changed
 - `README.md` documents TAS-Standalone as a shipped edition with install steps and a screenshot, instead of "coming soon".
+- nelux 0.16.0 to 0.17.0. It now carries its own FFmpeg libraries, so decode and the `*_nelux` encoders no longer depend on the FFmpeg build in `ffmpeg_shared` (`ffmpeg`/`ffprobe` are still required for every other encoder, the autoclip probe, and URL downloads).
 
 ### Fixed
+- Every `*_nelux` encoder tagged its output with a rounded frame rate: a 23.98 fps source came out 24/1, and 2x interpolation 48/1 rather than 1199/25. That is 0.1% fast, drifting ~3.6s against the passthrough audio over an hour. Fixed by the nelux 0.17.0 bump, which also stopped dropping the last frame's duration from the container.
 - `--json` configs are now checked against the CLI's `choices` lists. An invalid value fails immediately with the valid options instead of running metadata probing and then dying in the factory — the After Effects bridge sending `depth_method: small_v3-directml` produced `Unsupported depth_method ... no model wired up` eight seconds into the run.
 
 ## [2.9.0] - 2026-08-03

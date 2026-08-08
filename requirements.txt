@@ -7,5 +7,5 @@ barflow==0.5.1
 python-socketio==5.16.3
 simple-websocket==1.1.0
 werkzeug==3.1.6
-nelux==0.16.0
+nelux==0.17.0
 frame-analytics==0.3.0
