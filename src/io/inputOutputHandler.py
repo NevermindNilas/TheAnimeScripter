@@ -231,6 +231,7 @@ def generateOutputPath(video, output, defaultOutputPath, args, usedPaths):
 WEBM_COMPATIBLE_ENCODERS = (
     "vp9",
     "qsv_vp9",
+    "vp9_nelux",
     "av1",
     "slow_av1",
     "nvenc_av1",

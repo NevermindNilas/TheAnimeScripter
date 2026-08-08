@@ -1158,7 +1158,8 @@ class NeluxWriteBuffer:
             input: Source video path (audio/subtitle passthrough; see _setupPassthrough).
             output: Output video path.
             encode_method: One of nvenc_h264_nelux, nvenc_h265_nelux, nvenc_av1_nelux
-                (hardware) or x264_nelux, x265_nelux, av1_nelux (software).
+                (hardware) or x264_nelux, x265_nelux, av1_nelux, vp9_nelux
+                (software).
             width: Output width.
             height: Output height.
             fps: Output framerate.
@@ -1212,6 +1213,17 @@ class NeluxWriteBuffer:
             "av1_nelux": dict(
                 codec="libsvtav1", preset=5, cq=15, pixel_format="yuv420p"
             ),  # svt preset 8 / crf 15
+            # libvpx-vp9 needs bit_rate=0 to run in true constant-quality mode;
+            # with any target bitrate set, `cq` degrades to libvpx's constrained-
+            # quality mode and the crf is only an upper bound. Measured on 120
+            # frames of 720p: bit_rate unset -> 3703 kbps / 52.54 dB, bit_rate=0
+            # -> 320 kbps / 47.47 dB, and the ffmpeg `vp9` method (which also
+            # omits -b:v 0) -> 1062 kbps / 44.24 dB. CQ wins on both axes.
+            # No `preset`: libvpx-vp9 has no preset option, and passing one is a
+            # verified no-op (byte-identical output with and without it).
+            "vp9_nelux": dict(
+                codec="libvpx-vp9", cq=15, bit_rate=0, pixel_format="yuv420p"
+            ),  # -crf 15 -b:v 0
             "nvenc_h264_nelux": dict(
                 codec="h264_nvenc", preset=1, cq=15, pixel_format="yuv420p"
             ),  # p1 / cq 15
@@ -1309,12 +1321,19 @@ class NeluxWriteBuffer:
             while self.writeBuffer.empty():
                 time.sleep(0.001)
 
+            # fps goes in as a float and comes out an exact rational: nelux
+            # 0.17.0 converts it the way av_d2q does, so a 24000/1001 source
+            # interpolated 2x is tagged 48000/1001. Up to 0.16.0 it rounded to
+            # 48/1 -- 0.1% fast, drifting ~3.6s against the passthrough audio
+            # over an hour -- and needed an explicit `options={"time_base": ...}`
+            # to correct. Do not reintroduce that: on 0.17.0 it is inert on every
+            # codec, and the requirements pin is what keeps this true.
             self.encoder = nelux.VideoEncoder(
                 self.output,
                 width=self.width,
                 height=self.height,
                 fps=self.fps,
-                **self.encoderKwargs,  # codec, preset, cq, pixel_format
+                **self.encoderKwargs,  # codec, preset, cq, bit_rate, pixel_format
             )
 
             if hasattr(self.encoder, "is_hardware_encoder"):

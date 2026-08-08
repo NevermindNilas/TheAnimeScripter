@@ -1266,6 +1266,7 @@ def _addEncodingOptions(argParser):
         "x264_nelux",
         "x265_nelux",
         "av1_nelux",
+        "vp9_nelux",
     ]
 
     encodingGroup.add_argument(
