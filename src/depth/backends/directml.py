@@ -4,9 +4,7 @@ os.environ.setdefault("DA3_LOG_LEVEL", "ERROR")
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from queue import Queue
 
-import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -361,7 +359,6 @@ class OGDepthV2DirectML:
         self.bitDepth = bitDepth
         self.depthQuality = depthQuality
         self.normalizer = SlidingWindowNormalizer() if depthNorm else None
-        self.encodeBuffer = Queue(maxsize=10)
 
         if "openvino" in depth_method:
             logAndPrint(
@@ -384,16 +381,26 @@ class OGDepthV2DirectML:
                 toTorch=False,
             )
 
-            self.outputWriter = cv2.VideoWriter(
+            # This used to be a cv2.VideoWriter pinned to the "mp4v" fourcc, so
+            # every og_* depth run wrote MPEG-4 Part 2 no matter what
+            # --encode_method said, and ignored --custom_encoder and
+            # --bit_depth. WriteBuffer is what every other depth backend uses.
+            self.writeBuffer = WriteBuffer(
+                self.input,
                 self.output,
-                cv2.VideoWriter_fourcc(*"mp4v"),
+                self.encode_method,
+                self.custom_encoder,
+                self.width,
+                self.height,
                 self.fps,
-                (self.width, self.height),
+                grayscale=True,
+                benchmark=self.benchmark,
+                bitDepth=self.bitDepth,
             )
 
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
-                executor.submit(self.encodeThread)
+                executor.submit(self.writeBuffer)
                 executor.submit(self.process)
 
         except Exception as e:
@@ -532,14 +539,19 @@ class OGDepthV2DirectML:
             depth = out_tensor[0].cpu().numpy()
             if self.normalizer is not None:
                 depth = self.normalizer.normalize(depth)
-                depth = (depth * 255.0).astype(np.uint8)
             else:
-                depth = (
-                    (depth - depth.min()) / (depth.max() - depth.min() + 1e-6) * 255.0
-                )
-                depth = depth.astype(np.uint8)
+                depth = (depth - depth.min()) / (depth.max() - depth.min() + 1e-6)
 
-            self.encodeBuffer.put(depth)
+            # WriteBuffer takes [1, C, H, W] in [0, 1] and quantizes once, to 8
+            # or 16 bit per --bit_depth, instead of the uint8 cast this path
+            # used to hardcode. It also resizes a frame that does not match the
+            # output dimensions, so the cv2.resize the old encode thread did is
+            # not needed.
+            self.writeBuffer.write(
+                torch.from_numpy(np.ascontiguousarray(depth, dtype=np.float32))
+                .unsqueeze(0)
+                .unsqueeze(0)
+            )
 
         except Exception as e:
             logging.exception(f"Something went wrong while processing the frame, {e}")
@@ -560,17 +572,4 @@ class OGDepthV2DirectML:
                         break
 
         logging.info(f"Processed {frameCount} frames")
-        self.encodeBuffer.put(None)
-
-    def encodeThread(self):
-        while True:
-            frame = self.encodeBuffer.get()
-            if frame is None:
-                break
-            if frame.ndim == 2:
-                frame = np.stack([frame] * 3, axis=-1)
-            frame = cv2.resize(
-                frame, (self.width, self.height), interpolation=cv2.INTER_LINEAR
-            )
-            self.outputWriter.write(frame)
-        self.outputWriter.release()
+        self.writeBuffer.close()
