@@ -22,7 +22,14 @@ PARENT_FLAG_DEFAULTS = {
     "depth_method": ("depth", "small_v2"),
     "obj_detect_method": ("obj_detect", "yolov9_small-directml"),
     "resize_factor": ("resize", 2),
-    "output_scale": ("resize", ""),
+    # --output_scale is deliberately absent. It is an encoder-side `scale=`
+    # filter (WriteBuffer._buildFilterList) and needs no capability flag, but
+    # mapping it onto "resize" here also handed it --resize_factor's default of
+    # 2: `--upscale --output_scale 1280x720` on a 640x360 source bilinearly
+    # doubled the DECODE to 1280x720, ran the model over 4x the pixels to
+    # 2560x1440, then made FFmpeg scale back down. Slower, more VRAM, softer.
+    # isAnyOtherProcessingMethodEnabled counts it directly instead, so
+    # --output_scale on its own is still a valid run.
     "moblur_method": ("moblur", "rife4.25"),
     "moblur_factor": ("moblur", 8),
     "moblur_strength": ("moblur", "gaussian_sym"),
