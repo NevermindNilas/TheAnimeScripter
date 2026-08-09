@@ -92,19 +92,53 @@ def _setTerminalTitle(title: str) -> None:
         pass
 
 
+def _sequenceWrote(patternPath: str) -> bool:
+    """Whether an image2 pattern like ``frames_%05d.png`` produced any frame.
+
+    FFmpeg expands the ``%05d`` itself, so the pattern is never a real path and
+    ``os.path.getsize`` on it always raises. Look in its directory instead.
+    """
+    directory = os.path.dirname(patternPath) or "."
+    prefix, _, suffix = os.path.basename(patternPath).partition("%")
+    suffix = os.path.splitext(suffix)[1]
+    try:
+        entries = os.listdir(directory)
+    except OSError:
+        return False
+    for name in entries:
+        if not name.startswith(prefix) or not name.endswith(suffix):
+            continue
+        try:
+            if os.path.getsize(os.path.join(directory, name)) > 0:
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def _videoFailed(
-    processingError: Exception | None, outputPath: str, benchmark: bool = False
+    processingError: Exception | None,
+    outputPath: str,
+    benchmark: bool = False,
+    producesVideoFile: bool = True,
 ) -> bool:
     """Decide whether a processed video should be counted as a failure.
 
     A run failed if the frame loop stored an exception, or (for non-benchmark
-    runs) the encoder produced no output file (missing or 0 bytes). Benchmark
-    runs write no output by design, so their output size is not checked.
+    runs that write a video) the encoder produced no output file (missing or 0
+    bytes). Benchmark runs write no output by design, so their output size is
+    not checked -- and neither is a run whose artifact is not a video file at
+    ``outputPath`` at all: ``--autoclip`` writes ``autoclipresults.txt`` and
+    never touches the manufactured output path, so stat-ing it reported every
+    clean scene-detection run as a failure and exited 1.
     """
     if processingError is not None:
         return True
-    if benchmark:
+    if benchmark or not producesVideoFile:
         return False
+    # An image sequence resolves to an FFmpeg pattern, not a file.
+    if "%" in os.path.basename(outputPath or ""):
+        return not _sequenceWrote(outputPath)
     try:
         return os.path.getsize(outputPath) <= 0
     except OSError, TypeError:
@@ -134,6 +168,9 @@ class VideoProcessor:
         # Set by process() if the frame loop raises. start() reads this to
         # decide whether success stats are meaningful.
         self.processingError: Exception | None = None
+        # --autoclip writes autoclipresults.txt and never touches self.output,
+        # so the "is there a file at outputPath" success check does not apply.
+        self.producesVideoFile: bool = not getattr(args, "autoclip", False)
 
         self._initProcessingParams(args)
         self._initVideoMetadata(args)
@@ -867,7 +904,12 @@ class VideoProcessor:
             except (OSError, TypeError) as _e:
                 finalSize = None
 
-            if _videoFailed(self.processingError, self.output, self.benchmark):
+            if _videoFailed(
+                self.processingError,
+                self.output,
+                self.benchmark,
+                self.producesVideoFile,
+            ):
                 # Either process() caught a per-frame exception, or the encoder
                 # produced no output file. Computing FPS from frameCount over
                 # elapsedTime is meaningless in that case (frameCount is usually
@@ -918,7 +960,9 @@ class VideoProcessor:
         """
         if not cs.ADOBE:
             return
-        if _videoFailed(self.processingError, self.output, self.benchmark):
+        if _videoFailed(
+            self.processingError, self.output, self.benchmark, self.producesVideoFile
+        ):
             progressState.setFailed(
                 error=str(self.processingError)
                 if self.processingError is not None
@@ -929,7 +973,9 @@ class VideoProcessor:
 
     def didFail(self) -> bool:
         """Whether this processed video should be counted as a batch failure."""
-        return _videoFailed(self.processingError, self.output, self.benchmark)
+        return _videoFailed(
+            self.processingError, self.output, self.benchmark, self.producesVideoFile
+        )
 
     def _runWithProfiler(self):
         """
