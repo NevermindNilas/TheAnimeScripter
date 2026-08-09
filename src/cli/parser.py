@@ -458,13 +458,6 @@ def _buildParser(outputPath):
 
     performanceGroup = argParser.add_argument_group("Performance")
     performanceGroup.add_argument(
-        "--precision",
-        type=str,
-        choices=["fp32", "fp16"],
-        default="fp16",
-        help="NOT IMPLEMENTED YET! Precision for inference, default is fp16",
-    )
-    performanceGroup.add_argument(
         "--decode_method",
         type=str,
         choices=["cpu", "nvdec"],

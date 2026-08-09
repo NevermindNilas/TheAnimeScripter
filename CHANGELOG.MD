@@ -6,10 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ## [Unreleased] - YYYY-MM-DD
 
+> **Behaviour change:** an `*_nelux` `--encode_method` combined with `--custom_encoder`, `--bit_depth 16bit`, `--output_scale` or `--depth` now runs the equivalent plain encoder instead, with a warning. Those runs lose the in-process encoder's speed and gain an output that matches what was asked for.
+
+### Added
+- `tests/test_docsDrift.py` fails when a CLI flag or an `--encode_method` choice is missing from `PARAMETERS.MD`, when the docs name a flag the parser does not accept, or when an example uses a value outside a flag's `choices`.
+- `tests/test_depthWriters.py` fails if a depth backend encodes with OpenCV instead of the shared writer.
+
 ### Changed
 - `README.md` documents TAS-Standalone as a shipped edition with install steps and a screenshot, instead of "coming soon".
+- `PARAMETERS.MD` documents `--decode_method`, `--profile`, `--obj_detect_disable_annotations` and the six `*_nelux` encoders. Its debug section told you to run `--preset_list`, and two examples used `--bit_depth 10bit`; neither has ever been accepted.
+
+### Removed
+- `--precision`, which was never implemented and never read. `--half` is the real knob.
 
 ### Fixed
+- `--encode_method png` and `--autoclip` printed "Processing FAILED" and exited 1 on every successful run, and reported the render as failed inside After Effects. Both now exit 0; a genuinely empty sequence folder still fails.
+- `--output_scale` auto-enabled `--resize`, which applied `--resize_factor`'s default of 2 to the decode: `--upscale --output_scale 1280x720` on a 640x360 source ran the model over 1280x720 to 2560x1440 and then scaled back down. The model now sees 4x fewer pixels for the same output.
+- `--depth` encoded through OpenCV with a hardcoded `mp4v` fourcc on 25 of the 69 `--depth_method` choices — every `og_*` model and the whole `small_v3`/`base_v3`/`large_v3` family — discarding `--encode_method`, `--custom_encoder` and `--bit_depth`. They now use the same writer as every other backend, so `--bit_depth 16bit` gives a 10-bit depth map instead of an 8-bit one. Depth values are unchanged.
+- `--depth` with a `*_nelux` `--encode_method` encoded with the container default instead of the requested encoder: a 1-second 360p depth clip came out 31 KB against 71 KB.
+- `--encode_method *_nelux` silently ignored `--custom_encoder`, `--bit_depth 16bit` and `--output_scale`; `--output_scale 320x180` wrote a 1280x720 file.
+- `--bit_depth 16bit` on `nvenc_h265`, `slow_nvenc_h265`, `nvenc_av1` and `slow_nvenc_av1` uploaded 8-bit `nv12` surfaces to the encoder, so 16-bit depth maps were written 8-bit. They now upload `p010le` and come out 10-bit.
 - `--json` configs are now checked against the CLI's `choices` lists. An invalid value fails immediately with the valid options instead of running metadata probing and then dying in the factory — the After Effects bridge sending `depth_method: small_v3-directml` produced `Unsupported depth_method ... no model wired up` eight seconds into the run.
 
 ## [2.9.0] - 2026-08-03
