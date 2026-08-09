@@ -129,6 +129,10 @@ class BuildBuffer:
         self.isFinished = False
         self.bitDepth = bitDepth
         self.videoInput = os.path.normpath(videoInput)
+        # Set when decoding dies with no usable fallback. Consumers only ever
+        # see the end-of-stream sentinel, so without this a truncated decode is
+        # indistinguishable from a clean EOF.
+        self.decodeError: Exception | None = None
         self.toTorch = toTorch
         self.inpoint = inpoint
         self.outpoint = outpoint
@@ -182,6 +186,11 @@ class BuildBuffer:
 
         except Exception as e:
             logging.error(f"nelux decoding error: {e}")
+            # The error worth surfacing is the last one, not the first: an
+            # nvdec failure that the CPU retry then died part-way through
+            # should report the retry's error, since that is the one that
+            # truncated the stream.
+            lastError = e
 
             # A fallback re-decode restarts from frame 0. If the failed attempt
             # already emitted frames, re-decoding duplicates them, so only fall
@@ -196,6 +205,7 @@ class BuildBuffer:
                     return
                 except Exception as retry_e:
                     logging.error(f"nelux CPU retry failed: {retry_e}")
+                    lastError = retry_e
 
             if self._emittedFrames == 0:
                 logging.info("Attempting fallback to OpenCV decoder...")
@@ -203,11 +213,18 @@ class BuildBuffer:
                     decodedFrames += self.decodeWithOpenCV()
                 except Exception as fallback_e:
                     logging.error(f"OpenCV fallback failed: {fallback_e}")
+                    self.decodeError = fallback_e
             else:
                 logging.error(
                     f"Decode failed after {self._emittedFrames} frame(s) were already "
                     f"queued; skipping fallback to avoid duplicating frames."
                 )
+                # Every consumer sees only the sentinel below, which is
+                # indistinguishable from a clean EOF, so a decode that died
+                # mid-stream used to finish as a "successful" short video.
+                # src/io/runOutcome.py:truncatedDecodeError promotes this into
+                # the run's processingError, but only when frames are missing.
+                self.decodeError = lastError
 
         finally:
             self.decodeBuffer.put(None)

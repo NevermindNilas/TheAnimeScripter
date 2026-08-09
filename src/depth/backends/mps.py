@@ -13,7 +13,11 @@ import torch.nn.functional as F
 
 from src.constants import ADOBE
 from src.depth.backends._batch import iterBatches
-from src.depth.backends._shared import SlidingWindowNormalizer, calculateAspectRatio
+from src.depth.backends._shared import (
+    DepthRunOutcome,
+    SlidingWindowNormalizer,
+    calculateAspectRatio,
+)
 from src.infra.logAndPrint import logAndPrint
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import BuildBuffer, WriteBuffer
@@ -24,7 +28,7 @@ if ADOBE:
     from src.server.aeComms import progressState
 
 
-class DepthMPS:
+class DepthMPS(DepthRunOutcome):
     def __init__(
         self,
         input,
@@ -111,10 +115,13 @@ class DepthMPS:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                executor.submit(self.guardedProcess)
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def _finalizeModelPrecision(self):
         self.model = self.model.eval()
@@ -267,6 +274,7 @@ class DepthMPS:
             for i in range(depth.shape[0]):
                 self.writeBuffer.write(self._normalizeDepth(depth[i : i + 1]))
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
@@ -281,7 +289,7 @@ class DepthMPS:
         self.writeBuffer.close()
 
 
-class OGDepthV2MPS:
+class OGDepthV2MPS(DepthRunOutcome):
     def __init__(
         self,
         input,
@@ -369,10 +377,13 @@ class OGDepthV2MPS:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
                 executor.submit(self.writeBuffer)
-                executor.submit(self.process)
+                executor.submit(self.guardedProcess)
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def _finalizeModelPrecision(self):
         self.model = self.model.eval()
@@ -514,6 +525,7 @@ class OGDepthV2MPS:
                 # this path used to hardcode.
                 self.writeBuffer.write(d.float().cpu())
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
@@ -630,6 +642,7 @@ class OGDepthV3MPS(OGDepthV2MPS):
         try:
             rawDepths = self._inferBatch(frames)
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
             return
 
@@ -656,6 +669,7 @@ class OGDepthV3MPS(OGDepthV2MPS):
                     gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
                 self._writeGray(gray)
             except Exception as e:
+                self.recordFailure(e)
                 logging.exception(
                     f"Something went wrong while processing the frame, {e}"
                 )

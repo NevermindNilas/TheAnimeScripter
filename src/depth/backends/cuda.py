@@ -18,6 +18,7 @@ from src.depth.backends._shared import (
     MEANTENSOR_HALF,
     STDTENSOR,
     STDTENSOR_HALF,
+    DepthRunOutcome,
     SlidingWindowNormalizer,
     calculateAspectRatio,
 )
@@ -37,7 +38,7 @@ if ADOBE:
 checker = CudaChecker()
 
 
-class DepthCuda:
+class DepthCuda(DepthRunOutcome):
     def __init__(
         self,
         input,
@@ -107,10 +108,13 @@ class DepthCuda:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                executor.submit(self.guardedProcess)
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def handleModels(self):
         if ADOBE:
@@ -275,6 +279,7 @@ class DepthCuda:
             for i in range(depth.shape[0]):
                 self.writeBuffer.write(self._normalizeDepth(depth[i : i + 1]))
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
@@ -302,7 +307,7 @@ class DepthCuda:
         self.writeBuffer.close()
 
 
-class OGDepthV2CUDA:
+class OGDepthV2CUDA(DepthRunOutcome):
     def __init__(
         self,
         input,
@@ -384,10 +389,13 @@ class OGDepthV2CUDA:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
                 executor.submit(self.writeBuffer)
-                executor.submit(self.process)
+                executor.submit(self.guardedProcess)
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def handleModels(self):
         from ..og_dpt_v2 import DepthAnythingV2
@@ -529,6 +537,7 @@ class OGDepthV2CUDA:
                 # .cpu() is both the handoff and the sync.
                 self.writeBuffer.write(d.float().cpu())
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
@@ -667,6 +676,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
         try:
             rawDepths = self._inferBatch(frames)
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
             return
 
@@ -694,6 +704,7 @@ class OGDepthV3Cuda(OGDepthV2CUDA):
                     gray = ((disparity - disp_min) / (disp_max - disp_min)).clip(0, 1)
                 self._writeGray(gray)
             except Exception as e:
+                self.recordFailure(e)
                 logging.exception(
                     f"Something went wrong while processing the frame, {e}"
                 )

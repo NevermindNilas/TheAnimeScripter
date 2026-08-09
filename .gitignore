@@ -229,6 +229,9 @@ graphify-out/
 # Local architecture notes (not tracked)
 docs/ARCHITECTURE.md
 
+# --autoclip writes its cut list next to main.py
+autoclipresults.txt
+
 # Local-only development and agent artifacts
 /perf_council/
 /scripts/

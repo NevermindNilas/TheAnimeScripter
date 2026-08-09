@@ -108,8 +108,11 @@ class RifeDirectML:
             self.numpyDType = np.float32
             self.torchDType = torch.float32
 
-        if self.half:
-            torch.set_default_dtype(torch.float16)
+        # No torch.set_default_dtype here: it was set to float16 and never
+        # restored, so in a batch run every stage built after the interpolator
+        # -- including all stages of videos 2..N -- allocated its parameters in
+        # fp16. The model already takes dtype=self.dtype at construction and is
+        # cast explicitly below, so nothing depended on the global.
         self.filename = modelsMap(
             self.interpolateMethod.replace("-directml", ""),
             modelType="pth",
