@@ -456,29 +456,25 @@ class OGDepthV2CUDA(DepthRunOutcome):
                 "encoder": "vitg",
                 "features": 384,
                 "out_channels": [1536, 1536, 1536, 1536],
-            }
-            if "distill" not in self.depth_method
-            else {
-                "encoder": "vitl",
-                "features": 256,
-                "out_channels": [256, 512, 1024, 1024],
-                "use_bn": False,
-                "use_clstoken": False,
-                "max_depth": 150.0,
-                "mode": "disparity",
-                "pretrain_type": "dinov2",
-                "del_mask_token": False,
             },
         }
 
-        if "distill" in self.depth_method and "large" in self.depth_method:
-            from src.depth.distillanydepth.modeling.archs.dam.dam import DepthAnything
+        # Every method that reaches this class -- og_{small,base,large,giant}_v2
+        # and og_distill_{small,base}_v2 -- is a DepthAnythingV2 architecture.
+        # There used to be a DistillAnyDepth branch here for a *distill*large*
+        # name, but no og_distill_large_v2 exists (its arch has no reference
+        # implementation, so distill_large_v2 is that model) and the branch was
+        # what turned the misresolved weights into a load_state_dict crash.
+        self.model = DepthAnythingV2(**modelConfigs[method])
 
-            self.model = DepthAnything(**modelConfigs[method])
+        if modelPath.endswith(".safetensors"):
+            # The distill checkpoints ship as safetensors. torch.load happens to
+            # read them today, but only as an accident of the pinned torch.
+            from safetensors.torch import load_file
+
+            self.model.load_state_dict(load_file(modelPath))
         else:
-            self.model = DepthAnythingV2(**modelConfigs[method])
-
-        self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
+            self.model.load_state_dict(torch.load(modelPath, map_location="cpu"))
 
         self.model = self.model.to(checker.device).eval()
 

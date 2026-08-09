@@ -19,7 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Removed
 - `--precision`, which was never implemented and never read. `--half` is the real knob.
-- `--depth_method og_distill_large_v2` and `og_distill_large_v2-mps`, which always crashed: a Distill-Any-Depth model built against a Depth-Anything-V2 checkpoint. Its architecture has no reference implementation, so `distill_large_v2` is the same thing and the CLI now suggests it.
+- `--depth_method og_distill_large_v2` and `og_distill_large_v2-mps`, which always crashed: a Distill-Any-Depth model built against a Depth-Anything-V2 checkpoint. Its architecture has no reference implementation, so `distill_large_v2` is the same model — use that.
 
 ### Fixed
 - `--encode_method png` and `--autoclip` printed "Processing FAILED" and exited 1 on every successful run, and reported the render as failed inside After Effects. Both now exit 0; a genuinely empty sequence folder still fails.
