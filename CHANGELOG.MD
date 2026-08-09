@@ -39,6 +39,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--dedup_method flownets` advanced its reference frame on duplicates, so a slow pan or fade was deleted frame by frame. On a 96-frame fade it kept 52 frames; it now keeps 68.
 - `--interpolate <rife>-directml` set torch's global default dtype to float16 and never restored it, so in a batch run every later stage — including all of videos 2..N — allocated in fp16.
 - `--depth_method og_distill_small_v2` and `og_distill_base_v2` resolved `og_small_v2`'s and `og_base_v2`'s weights, so they produced byte-identical output to those models under a name promising a different one. They now load the real Distill-Any-Depth checkpoints.
+- An `.mp4`/`.m4v` output stream-copied text subtitles, so any source with a `subrip`/`ass` track — an ordinary anime MKV — aborted the mux at header-write and lost the whole render after the models had loaded. They now transcode to `mov_text`, as `.mov` already did.
+- `--segment` pushed its RGBA frames through `yuva420p` before the `yuva444p10le` ProRes 4444 output, discarding half the chroma resolution and two bits ahead of a conversion that cannot recover either. On a 1-pixel chroma pattern the old chain measured 7.3 dB against the source; it now round-trips exactly.
 - `--json` configs are now checked against the CLI's `choices` lists. An invalid value fails immediately with the valid options instead of running metadata probing and then dying in the factory — the After Effects bridge sending `depth_method: small_v3-directml` produced `Unsupported depth_method ... no model wired up` eight seconds into the run.
 
 ## [2.9.0] - 2026-08-03

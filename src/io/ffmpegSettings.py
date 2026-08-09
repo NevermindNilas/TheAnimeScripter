@@ -827,7 +827,14 @@ class WriteBuffer:
                 "format=gray" if self.bitDepth == "8bit" else "format=gray16be"
             )
         if self.transparent:
-            filterList.append("format=yuva420p")
+            # NOT yuva420p: getPixFMT already selects yuva444p10le for this
+            # path and matchEncoder pairs it with prores_ks -profile:v 4
+            # (4444). Routing rgba through 8-bit 2x2-subsampled yuva420p first
+            # threw away half the chroma resolution and two bits of precision
+            # before the 4:4:4 conversion, which cannot recover either -- the
+            # colour fringing showed up along the hard matte edges --segment
+            # exists to produce.
+            filterList.append("format=yuva444p10le")
 
         import json
 
@@ -908,15 +915,20 @@ class WriteBuffer:
         if self.output.endswith(".webm"):
             audioCodec = "libopus"
             subCodec = "webvtt"
-        elif self.output.endswith(".mov"):
-            # MOV cannot stream-copy opus/vorbis (FFmpeg aborts with
-            # "opus only supported in MP4"). The transparent/segment path
-            # always lands here as prores in a .mov, so transcode to a
-            # container-safe codec instead of dropping the muxer. mov_text is
-            # the MOV subtitle codec (copy of webvtt/srt fails the same way).
-            # MP4/M4V are left on copy — they accept opus natively.
-            audioCodec = "aac"
+        elif self.output.endswith((".mov", ".mp4", ".m4v")):
+            # mov_text is the ISO-BMFF subtitle codec; copying subrip/ass into
+            # one aborts the whole mux at header-write with "Could not find tag
+            # for codec subrip ... not currently supported in container". The
+            # .mov branch already knew this, but .mp4/.m4v shared the default
+            # `copy`, so any anime MKV with a text subtitle track lost the
+            # entire render after the models had already loaded.
             subCodec = "mov_text"
+            if self.output.endswith(".mov"):
+                # MOV additionally cannot stream-copy opus/vorbis (FFmpeg
+                # aborts with "opus only supported in MP4"). The
+                # transparent/segment path always lands here as prores in a
+                # .mov. MP4/M4V accept opus natively, so they keep `copy`.
+                audioCodec = "aac"
         audioSettings.extend(["-c:a", audioCodec, "-map", "1:s?", "-c:s", subCodec])
 
         # No -ss/-to here. These land immediately before the output file, so they
