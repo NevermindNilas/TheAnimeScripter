@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 
 ### Removed
 - `--precision`, which was never implemented and never read. `--half` is the real knob.
+- `--depth_method og_distill_large_v2` and `og_distill_large_v2-mps`, which always crashed: a Distill-Any-Depth model built against a Depth-Anything-V2 checkpoint. Its architecture has no reference implementation, so `distill_large_v2` is the same thing and the CLI now suggests it.
 
 ### Fixed
 - `--encode_method png` and `--autoclip` printed "Processing FAILED" and exited 1 on every successful run, and reported the render as failed inside After Effects. Both now exit 0; a genuinely empty sequence folder still fails.
@@ -37,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) 
 - `--dedup_method flownets` and `vmaf-cuda` crashed at model init on macOS and CUDA-less Linux with an error that never named the flag. They now fall back like `--smooth_dedup` already did.
 - `--dedup_method flownets` advanced its reference frame on duplicates, so a slow pan or fade was deleted frame by frame. On a 96-frame fade it kept 52 frames; it now keeps 68.
 - `--interpolate <rife>-directml` set torch's global default dtype to float16 and never restored it, so in a batch run every later stage — including all of videos 2..N — allocated in fp16.
+- `--depth_method og_distill_small_v2` and `og_distill_base_v2` resolved `og_small_v2`'s and `og_base_v2`'s weights, so they produced byte-identical output to those models under a name promising a different one. They now load the real Distill-Any-Depth checkpoints.
 - `--json` configs are now checked against the CLI's `choices` lists. An invalid value fails immediately with the valid options instead of running metadata probing and then dying in the factory — the After Effects bridge sending `depth_method: small_v3-directml` produced `Unsupported depth_method ... no model wired up` eight seconds into the run.
 
 ## [2.9.0] - 2026-08-03

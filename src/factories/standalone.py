@@ -321,7 +321,6 @@ def depth(self):
             | "og_giant_v2"
             | "og_distill_small_v2"
             | "og_distill_base_v2"
-            | "og_distill_large_v2"
         ):
             from src.depth.backends.cuda import OGDepthV2CUDA
 
@@ -353,7 +352,6 @@ def depth(self):
             | "og_giant_v2-mps"
             | "og_distill_small_v2-mps"
             | "og_distill_base_v2-mps"
-            | "og_distill_large_v2-mps"
         ):
             from src.depth.backends.mps import OGDepthV2MPS
 

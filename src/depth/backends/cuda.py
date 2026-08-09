@@ -401,15 +401,27 @@ class OGDepthV2CUDA(DepthRunOutcome):
         from ..og_dpt_v2 import DepthAnythingV2
 
         match self.depth_method:
-            case "og_small_v2" | "og_distill_small_v2":
+            case "og_small_v2":
                 method = "vits"
                 toDownload = "small_v2"
-            case "og_base_v2" | "og_distill_base_v2":
+            case "og_base_v2":
                 method = "vitb"
                 toDownload = "base_v2"
-            case "og_large_v2" | "og_distill_large_v2":
+            case "og_large_v2":
                 method = "vitl"
                 toDownload = "large_v2"
+            # The og_distill_* pair runs the real Distill-Any-Depth weights
+            # through the reference DepthAnythingV2 implementation, exactly as
+            # og_small_v2 does for the plain checkpoints -- their state_dicts
+            # match this arch key for key. They used to resolve
+            # depth_anything_v2_vit{s,b}.pth instead, i.e. og_small_v2's and
+            # og_base_v2's weights under a name promising a different model.
+            case "og_distill_small_v2":
+                method = "vits"
+                toDownload = "distill_small_v2"
+            case "og_distill_base_v2":
+                method = "vitb"
+                toDownload = "distill_base_v2"
             case "og_giant_v2":
                 method = "vitg"
                 toDownload = "giant_v2"
