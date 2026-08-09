@@ -235,6 +235,7 @@ autoclipresults.txt
 # Subagent/benchmark scratch output
 scratch_out/
 out/
+still1080.png
 
 # Local-only development and agent artifacts
 /perf_council/
