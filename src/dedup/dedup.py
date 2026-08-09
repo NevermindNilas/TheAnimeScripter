@@ -319,15 +319,24 @@ class DedupFlownetS:
             self.cudaGraph.replay()
         self.stream.synchronize()
 
-        with torch.cuda.stream(self.outputStream):
-            flow = self.dummyOutput
-            self.prevFrame.copy_(frame, non_blocking=True)
-        self.outputStream.synchronize()
-
         # FlowNetS outputs an optical-flow field (1, 2, H, W); duplicate frames
         # have little motion, so compare the mean flow magnitude (not the signed
-        # mean) against the sensitivity threshold.
-        return flow.abs().mean() < self.dedupSens
+        # mean) against the sensitivity threshold. `dummyOutput` is the CUDA
+        # graph's output buffer, so read it before anything can replay.
+        isDuplicate = bool(self.dummyOutput.abs().mean() < self.dedupSens)
+
+        # Keep the reference frame on a duplicate; advance it only when we keep
+        # a distinct frame -- the same contract DedupMSE/DedupSSIM state. This
+        # used to advance unconditionally, so a slow pan or fade whose per-pair
+        # flow stayed under the threshold was dropped frame after frame: the
+        # comparison always reset to the immediately preceding frame instead of
+        # the last kept one, and the whole move vanished from the output.
+        if not isDuplicate:
+            with torch.cuda.stream(self.outputStream):
+                self.prevFrame.copy_(frame, non_blocking=True)
+            self.outputStream.synchronize()
+
+        return isDuplicate
 
 
 class DedupVMAF:

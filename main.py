@@ -63,20 +63,42 @@ _disableUserSitePackages()
 import src.constants as cs  # noqa: E402
 from src.interpolate._timesteps import cutHoldSplit, gapPlan  # noqa: E402
 from src.io.frameWindow import FrameSlot  # noqa: E402
+from src.io.runOutcome import (  # noqa: E402
+    outputWasWritten,
+    truncatedDecodeError,
+)
 
 warnings.filterwarnings("ignore")
 
 
 class _FrameCollector:
-    """Small same-thread sink for interpolation outputs."""
+    """Same-thread sink for interpolation outputs, drained as it fills.
 
-    __slots__ = ("frames",)
+    In interpolate-first order the whole gap owed to one source interval lands
+    here before anything downstream runs. That is one or two frames normally,
+    but ``--smooth_dedup`` widens a gap by every duplicate the entry stage
+    dropped, so a long held drawing produced a gap of hundreds of
+    full-resolution frames, all alive at once. Measured on 1080p:
+    ``--smooth_dedup --interpolate_factor 2`` peaked at 5.1 GB of VRAM after a
+    2-second hold and 10.9 GB after 12 seconds, while plain ``--interpolate``
+    stayed flat at 4.5 GB. ``--smooth_dedup_max_span`` did not bound it: it
+    only chooses copies over inference, and the copies were buffered too.
 
-    def __init__(self) -> None:
+    The drain hook keeps at most ``limit`` frames alive, and it is the same
+    call the caller makes at the end of a gap, so frame order is unchanged.
+    """
+
+    __slots__ = ("frames", "_drain", "_limit")
+
+    def __init__(self, drain=None, limit: int = 0) -> None:
         self.frames = []
+        self._drain = drain
+        self._limit = limit
 
     def put(self, frame) -> None:
         self.frames.append(frame)
+        if self._drain is not None and self._limit and len(self.frames) >= self._limit:
+            self._drain()
 
     def clear(self) -> None:
         self.frames.clear()
@@ -92,28 +114,26 @@ def _setTerminalTitle(title: str) -> None:
         pass
 
 
-def _sequenceWrote(patternPath: str) -> bool:
-    """Whether an image2 pattern like ``frames_%05d.png`` produced any frame.
+def _notifyAdobeOfFatalError(error: Exception) -> None:
+    """Tell the panel a run died on a path that never reaches _notifyAdobe.
 
-    FFmpeg expands the ``%05d`` itself, so the pattern is never a real path and
-    ``os.path.getsize`` on it always raises. Look in its directory instead.
+    Every terminal status otherwise comes from ``VideoProcessor.start()``, so
+    anything that raises before or outside it left After Effects showing the
+    last progress string with no run behind it.
     """
-    directory = os.path.dirname(patternPath) or "."
-    prefix, _, suffix = os.path.basename(patternPath).partition("%")
-    suffix = os.path.splitext(suffix)[1]
+    if not cs.ADOBE:
+        return
     try:
-        entries = os.listdir(directory)
-    except OSError:
-        return False
-    for name in entries:
-        if not name.startswith(prefix) or not name.endswith(suffix):
-            continue
-        try:
-            if os.path.getsize(os.path.join(directory, name)) > 0:
-                return True
-        except OSError:
-            continue
-    return False
+        from src.server.aeComms import progressState
+
+        # Several drivers report for themselves before re-raising, and a failed
+        # video reports through _notifyAdobe before main() exits 1. One run
+        # gets one terminal status.
+        if progressState.get().get("status") in ("failed", "completed"):
+            return
+        progressState.setFailed(error=str(error))
+    except Exception:
+        logging.exception("Failed to report the error to After Effects")
 
 
 def _videoFailed(
@@ -136,13 +156,7 @@ def _videoFailed(
         return True
     if benchmark or not producesVideoFile:
         return False
-    # An image sequence resolves to an FFmpeg pattern, not a file.
-    if "%" in os.path.basename(outputPath or ""):
-        return not _sequenceWrote(outputPath)
-    try:
-        return os.path.getsize(outputPath) <= 0
-    except OSError, TypeError:
-        return True
+    return not outputWasWritten(outputPath)
 
 
 class VideoProcessor:
@@ -554,8 +568,20 @@ class VideoProcessor:
         self._lastFedFrame = frame
 
     def _drainInterpQueue(self) -> None:
-        for item in self.interpQueue.frames:
-            self.writeBuffer.write(item)
+        """Write every intermediate collected so far, upscaling it on the way.
+
+        Called both at the end of a gap and, for a long one, part-way through
+        it by the collector itself -- see _FrameCollector. Order is identical
+        either way: intermediates in the order the driver produced them, then
+        the centre frame written by the caller.
+        """
+        if self.upscale:
+            nextFrame = self._interpNextFrame
+            for item in self.interpQueue.frames:
+                self.writeBuffer.write(self.upscale_process(item, nextFrame))
+        else:
+            for item in self.interpQueue.frames:
+                self.writeBuffer.write(item)
         self.interpQueue.clear()
 
     def ifInterpolateFirst(self, frame: any) -> None:
@@ -573,25 +599,18 @@ class VideoProcessor:
             frame: Restore-domain frame at the window's centre
         """
         nextFrame = self.frameWindow.successorFrame()
+        # The collector may drain itself mid-gap, so the neighbour a temporal
+        # upscaler needs has to be reachable from _drainInterpQueue too.
+        self._interpNextFrame = nextFrame
 
         if self.interpolate:
             self.interpQueue.clear()
             self._interpolateOrHold(frame, self.interpQueue, nextFrame)
+            self._drainInterpQueue()
 
         if self.upscale:
-            if self.interpolate:
-                for item in self.interpQueue.frames:
-                    self.writeBuffer.write(self.upscale_process(item, nextFrame))
-                self.interpQueue.clear()
-
-                self._writeOut(self.upscale_process(frame, nextFrame))
-
-            else:
-                self._writeOut(self.upscale_process(frame, nextFrame))
-
+            self._writeOut(self.upscale_process(frame, nextFrame))
         else:
-            if self.interpolate:
-                self._drainInterpQueue()
             self._writeOut(frame)
 
     def ifInterpolateLast(self, frame: any) -> None:
@@ -702,7 +721,11 @@ class VideoProcessor:
         self.framesToInsert = self.interpolateFactor - 1 if self.interpolate else 0
 
         if self.interpolate and self.interpolateFirst:
-            self.interpQueue = _FrameCollector()
+            # 32 mirrors the writer's own queue depth: past that the writer is
+            # the backpressure, so holding more here buys nothing and a widened
+            # --smooth_dedup gap would keep hundreds of frames alive at once.
+            self._interpNextFrame = None
+            self.interpQueue = _FrameCollector(drain=self._drainInterpQueue, limit=32)
 
         # Drivers declare how many neighbouring frames they need handed to them.
         # Restore runs at window entry, so every slot already shares its domain
@@ -777,6 +800,10 @@ class VideoProcessor:
             # actually decoded and dropped.
             frameCount = self.frameWindow.consumed
             self.dedupCount = self.frameWindow.dropped
+
+            decodeError = truncatedDecodeError(self.readBuffer, self.totalFrames)
+            if self.processingError is None and decodeError is not None:
+                self.processingError = decodeError
             # Always enqueue the writer's None sentinel (and close preview) even
             # when a frame raises, otherwise the writer/reader threads block
             # forever and the ThreadPoolExecutor join deadlocks the process.
@@ -1252,6 +1279,11 @@ def main():
                 failedVideos += 1
                 logError(f"Error processing video {entry['videoPath']}: {str(e)}")
                 logging.exception(f"Error processing video {entry['videoPath']}")
+                # Anything raised before or outside start() -- unreadable
+                # metadata, an unwired method, a download that ran out of
+                # retries -- never reached _notifyAdobe, so the panel sat on
+                # the last progress string with the run already over.
+                _notifyAdobeOfFatalError(e)
 
         _setTerminalTitle("TAS")
 
@@ -1271,12 +1303,24 @@ def main():
 
     except KeyboardInterrupt:
         logWarning("Process interrupted by user")
+        _notifyAdobeOfFatalError(KeyboardInterrupt("Cancelled"))
         # Force-exit: bypass blocked thread joins (TRT inference, ffmpeg subprocess
         # wait, nelux decoder) which sys.exit() would hang on.
         os._exit(130)
+    except SystemExit as e:
+        # validator.py exits directly on unrunnable input, and the batch loop
+        # exits 1 on a failed video. SystemExit is not an Exception, so the
+        # handler below never saw either and the panel kept showing the last
+        # progress string for a run that was already over.
+        if e.code not in (0, None):
+            _notifyAdobeOfFatalError(
+                RuntimeError(f"TAS exited with code {e.code}; see TAS-Log.log")
+            )
+        raise
     except Exception as e:
         logError(f"An unexpected error occurred: {str(e)}")
         logging.exception("Fatal error in main execution")
+        _notifyAdobeOfFatalError(e)
         sys.exit(1)
 
 

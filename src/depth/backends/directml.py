@@ -13,6 +13,7 @@ from src.constants import ADOBE
 from src.depth.backends._shared import (
     MEANTENSOR,
     STDTENSOR,
+    DepthRunOutcome,
     SlidingWindowNormalizer,
     calculateAspectRatio,
 )
@@ -33,7 +34,7 @@ if ADOBE:
 checker = CudaChecker()
 
 
-class DepthDirectMLV2:
+class DepthDirectMLV2(DepthRunOutcome):
     def __init__(
         self,
         input,
@@ -109,10 +110,13 @@ class DepthDirectMLV2:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.writeBuffer)
                 executor.submit(self.readBuffer)
-                executor.submit(self.process)
+                executor.submit(self.guardedProcess)
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def handleModels(self):
         if ADOBE:
@@ -298,11 +302,13 @@ class DepthDirectMLV2:
                 self._fallbackToCpu()
                 self.processFrame(frame)
             else:
+                self.recordFailure(e)
                 logging.exception(
                     f"Something went wrong while processing the frame, {e}"
                 )
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):
@@ -319,7 +325,7 @@ class DepthDirectMLV2:
         self.writeBuffer.close()
 
 
-class OGDepthV2DirectML:
+class OGDepthV2DirectML(DepthRunOutcome):
     def __init__(
         self,
         input,
@@ -401,10 +407,13 @@ class OGDepthV2DirectML:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
                 executor.submit(self.writeBuffer)
-                executor.submit(self.process)
+                executor.submit(self.guardedProcess)
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def handleModels(self):
         depth_method = self.depth_method
@@ -554,6 +563,7 @@ class OGDepthV2DirectML:
             )
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process(self):

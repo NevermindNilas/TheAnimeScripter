@@ -336,14 +336,20 @@ def processInputOutputPaths(args, defaultOutputPath):
             if "%" not in str(video) and not os.path.exists(video):
                 raise FileNotFoundError(f"File {video} does not exist")
 
+        outputPath = generateOutputPath(
+            video, output, defaultOutputPath, args, usedPaths
+        )
         results.append(
             {
                 "videoPath": video,
-                "outputPath": generateOutputPath(
-                    video, output, defaultOutputPath, args, usedPaths
-                ),
+                "outputPath": outputPath,
+                # Keyed on the OUTPUT, which is what the muxer sees. Passing the
+                # input only worked because the output usually copies the input's
+                # extension: an explicit `--output out.webm` from an .mp4 source
+                # kept libx264 and FFmpeg refused to write the header, leaving a
+                # 262-byte file the run still reported as a success.
                 "encodeMethod": validateEncoder(
-                    video, args.encode_method, args.custom_encoder
+                    outputPath, args.encode_method, args.custom_encoder
                 ),
                 "customEncoder": args.custom_encoder,
             }

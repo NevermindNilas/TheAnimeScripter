@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import torch
 
-from src.depth.backends._shared import VideoRangeNormalizer
+from src.depth.backends._shared import DepthRunOutcome, VideoRangeNormalizer
 from src.infra.isCudaInit import CudaChecker
 from src.infra.progressBarLogic import ProgressBarLogic
 from src.io.ffmpegSettings import (
@@ -21,7 +21,7 @@ from src.model.registry import modelsMap
 checker = CudaChecker()
 
 
-class VideoDepthAnythingCUDA:
+class VideoDepthAnythingCUDA(DepthRunOutcome):
     def __init__(
         self,
         input,
@@ -89,10 +89,13 @@ class VideoDepthAnythingCUDA:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
                 executor.submit(self.writeBuffer)
-                executor.submit(self.process_nelux)
+                executor.submit(self.guardedProcess, self.process_nelux)
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def handleModels(self):
         from ..video_depth_anything.video_depth_stream import VideoDepthAnything
@@ -165,6 +168,7 @@ class VideoDepthAnythingCUDA:
             self.writeBuffer.write(depth)
         except Exception as e:
             self._resetVideoDepthState()
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process_nelux(self):
@@ -181,7 +185,7 @@ class VideoDepthAnythingCUDA:
         self.writeBuffer.close()
 
 
-class VideoDepthAnythingTorch:
+class VideoDepthAnythingTorch(DepthRunOutcome):
     """Video Depth pipeline using Nelux-backed decoding and PyTorch for processing."""
 
     def __init__(
@@ -253,10 +257,13 @@ class VideoDepthAnythingTorch:
             with ThreadPoolExecutor(max_workers=3) as executor:
                 executor.submit(self.readBuffer)
                 executor.submit(self.writeBuffer)
-                executor.submit(self.process_nelux)
+                executor.submit(self.guardedProcess, self.process_nelux)
 
         except Exception as e:
+            self.recordFailure(e)
             logging.exception(f"Something went wrong, {e}")
+
+        self.reportOutcome()
 
     def handleModels(self):
         from ..video_depth_anything.video_depth_stream import VideoDepthAnything
@@ -356,6 +363,7 @@ class VideoDepthAnythingTorch:
             self.writeBuffer.write(depth)
         except Exception as e:
             self._resetVideoDepthState()
+            self.recordFailure(e)
             logging.exception(f"Something went wrong while processing the frame, {e}")
 
     def process_nelux(self):

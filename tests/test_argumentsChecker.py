@@ -34,6 +34,7 @@ from src.cli.validator import (
     _adjustMethodsBasedOnCuda,
     _applyImpliedFlags,
     _configureProcessingSettings,
+    _downgradeCudaDetector,
     _handleDepthSettings,
     _mapDedupSensitivity,
     _resolveNeluxEncoder,
@@ -196,6 +197,43 @@ def testEveryNeluxMethodMapsToARealEncodeChoice(method, twin):
     _resolveNeluxEncoder(args)
     assert args.encode_method == twin
     assert matchEncoder(twin), f"{twin} has no matchEncoder arm"
+
+
+# --------------------------------------------------------------------------- #
+# CUDA-only frame comparators
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "method,expected",
+    [
+        ("flownets", "ssim"),
+        ("vmaf-cuda", "vmaf"),
+        ("ssim-cuda", "ssim"),
+        ("mse-cuda", "mse"),
+        ("ssim", "ssim"),
+        ("mse", "mse"),
+    ],
+)
+def testCudaOnlyDetectorsDowngradeWithoutCuda(monkeypatch, method, expected):
+    """--dedup used to skip this guard that --smooth_dedup had, so
+    `--dedup --dedup_method flownets` on a Mac downloaded the weights and then
+    died at model init with an error that never named the flag."""
+
+    class _NoCuda:
+        cudaAvailable = False
+
+    monkeypatch.setattr("src.infra.isCudaInit.CudaChecker", _NoCuda)
+    assert _downgradeCudaDetector(method, "dedup_method") == expected
+
+
+@pytest.mark.parametrize("method", ["flownets", "vmaf-cuda", "ssim-cuda", "mse-cuda"])
+def testCudaOnlyDetectorsSurviveWithCuda(monkeypatch, method):
+    class _HasCuda:
+        cudaAvailable = True
+
+    monkeypatch.setattr("src.infra.isCudaInit.CudaChecker", _HasCuda)
+    assert _downgradeCudaDetector(method, "dedup_method") == method
 
 
 def fallbackArgs(**overrides):
