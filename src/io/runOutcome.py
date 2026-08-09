@@ -8,23 +8,39 @@ the other way to the UI.
 
 import logging
 import os
+import re
+
+# The image2 muxer's frame counter: ``%d`` or a zero-padded ``%05d``.
+_FRAME_COUNTER = re.compile(r"%(?:0(\d+))?d")
 
 
 def sequenceWrote(patternPath: str) -> bool:
     """Whether an image2 pattern like ``frames_%05d.png`` produced any frame.
 
     FFmpeg expands the ``%05d`` itself, so the pattern is never a real path and
-    ``os.path.getsize`` on it always raises. Look in its directory instead.
+    ``os.path.getsize`` on it always raises. Look in its directory instead --
+    but match the counter, not just the prefix and the extension, or a stray
+    ``frames_old.png`` the user left in the folder reads as a written frame.
     """
+    basename = os.path.basename(patternPath or "")
+    counter = _FRAME_COUNTER.search(basename)
+    if counter is None:
+        return False
+    # ``%05d`` is a minimum width rather than a fixed one: FFmpeg writes a
+    # sixth digit once the counter passes 99999.
+    width = int(counter.group(1) or 1)
+    frame = re.compile(
+        re.escape(basename[: counter.start()])
+        + rf"\d{{{width},}}"
+        + re.escape(basename[counter.end() :])
+    )
     directory = os.path.dirname(patternPath) or "."
-    prefix, _, suffix = os.path.basename(patternPath).partition("%")
-    suffix = os.path.splitext(suffix)[1]
     try:
         entries = os.listdir(directory)
     except OSError:
         return False
     for name in entries:
-        if not name.startswith(prefix) or not name.endswith(suffix):
+        if not frame.fullmatch(name):
             continue
         try:
             if os.path.getsize(os.path.join(directory, name)) > 0:
