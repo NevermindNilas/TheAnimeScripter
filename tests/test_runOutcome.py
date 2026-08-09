@@ -12,7 +12,11 @@ from pathlib import Path
 
 import pytest
 
-from src.io.runOutcome import outputWasWritten, truncatedDecodeError
+from src.io.runOutcome import (
+    isSequencePattern,
+    outputWasWritten,
+    truncatedDecodeError,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STANDALONE = REPO_ROOT / "src" / "factories" / "standalone.py"
@@ -52,6 +56,16 @@ def testOutputWasWrittenForAnImageSequence(tmp_path):
 def testOutputWasWrittenIgnoresUnrelatedFilesInTheSequenceFolder(tmp_path):
     (tmp_path / "notes.txt").write_bytes(b"x" * 32)
     assert outputWasWritten(str(tmp_path / "frames_%05d.png")) is False
+
+
+def testIsSequencePattern():
+    assert isSequencePattern("frames_%05d.png") is True
+    assert isSequencePattern("frames_%d.png") is True
+    assert isSequencePattern("C:/out/frames_%05d.png") is True
+    assert isSequencePattern("50%_off.mp4") is False
+    assert isSequencePattern("clip.mp4") is False
+    assert isSequencePattern("") is False
+    assert isSequencePattern(None) is False
 
 
 def testAPercentInTheNameIsNotASequence(tmp_path):
@@ -236,3 +250,15 @@ def testMetadataAcceptsAnImageSequencePattern(tmp_path, monkeypatch):
         "the %d pattern was rejected as a missing file again"
     )
     assert captured.get("path"), "the pattern never reached the prober"
+
+
+def testMetadataStillRejectsAMissingFileWithAPercentInItsName(tmp_path):
+    """The exemption is for image2 counters, not for every percent sign: a
+    missing 50%_off.mp4 must still fail here, not several seconds later as an
+    opaque probe error."""
+    pytest.importorskip("torch")
+    pytest.importorskip("nelux", exc_type=ImportError)
+    from src.io import getVideoMetadata as gvm
+
+    with pytest.raises(FileNotFoundError):
+        gvm.getVideoMetadata(str(tmp_path / "50%_off.mp4"), 0, 0)
