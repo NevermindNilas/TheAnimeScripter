@@ -86,9 +86,11 @@ def outputWasWritten(outputPath: str) -> bool:
     """Whether the run left something at ``outputPath``.
 
     Handles the image-sequence case, where the path is an FFmpeg pattern
-    rather than a file.
+    rather than a file. A bare ``%`` does not make one: ``50%_off.mp4`` is a
+    perfectly ordinary file name, and skipping its size check for a directory
+    listing would report the wrong outcome for it.
     """
-    if "%" in os.path.basename(outputPath or ""):
+    if _FRAME_COUNTER.search(os.path.basename(outputPath or "")):
         return sequenceWrote(outputPath)
     try:
         return os.path.getsize(outputPath) > 0
