@@ -65,11 +65,12 @@ def testBt709FullyTagged(monkeypatch):
         assert tag in f
 
 
-def _bt2020Filter(tmp_path, monkeypatch):
+def _bt2020Filter(tmp_path, monkeypatch, transfer=None):
     meta = tmp_path / "meta.json"
-    meta.write_text(
-        json.dumps({"metadata": {"ColorSpace": "bt2020"}}), encoding="utf-8"
-    )
+    payload = {"ColorSpace": "bt2020"}
+    if transfer is not None:
+        payload["ColorTRT"] = transfer
+    meta.write_text(json.dumps({"metadata": payload}), encoding="utf-8")
     monkeypatch.setattr(cs, "METADATAPATH", str(meta))
     return _colorFilter(WriteBuffer(output="")._buildFilterList())
 
@@ -192,3 +193,21 @@ def testIsoBmffNativeSubtitlesAreCopiedNotTranscoded(monkeypatch):
         "copy",
         "mov_text",
     )
+
+
+@pytest.mark.parametrize(
+    "transfer", ["smpte2084", "arib-std-b67", "bt2020-10", "bt2020-12"]
+)
+def testBt2020KeepsTheSourceTransfer(tmp_path, monkeypatch, transfer):
+    """BT.2020 covers PQ, HLG and SDR, and only the matrix is converted here.
+    Hardcoding smpte2084 relabelled an HLG master as PQ, which tells the player
+    to apply the wrong EOTF."""
+    f = _bt2020Filter(tmp_path, monkeypatch, transfer)
+    assert f"color_trc={transfer}" in f
+
+
+def testBt2020OmitsTheTransferWhenUnknown(tmp_path, monkeypatch):
+    """An untagged stream is recoverable; a mislabelled one is not."""
+    f = _bt2020Filter(tmp_path, monkeypatch, "unknown")
+    assert "color_trc=" not in f
+    assert "colorspace=bt2020nc" in f
