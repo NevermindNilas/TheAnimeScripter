@@ -83,8 +83,16 @@ def testGrayscaleSkipsColorspaceFilter(monkeypatch):
 
 
 def testTransparentSkipsColorspaceFilter(monkeypatch):
+    """The alpha path must reach the encoder at full chroma and 10 bits.
+
+    It used to be pinned to `yuva420p`, which is 8-bit with 2x2-subsampled
+    chroma, ahead of a `yuva444p10le` output that cannot recover either -- so
+    the ProRes 4444 file `--segment` exists to produce carried 4:2:0 8-bit
+    chroma, fringing along the matte edges.
+    """
     monkeypatch.setattr(cs, "METADATAPATH", "")
     wb = WriteBuffer(output="", transparent=True)
     filterList = wb._buildFilterList()
     assert _colorFilter(filterList) == ""
-    assert any("yuva420p" in f for f in filterList)
+    assert any("yuva444p10le" in f for f in filterList)
+    assert not any("yuva420p" in f for f in filterList)
