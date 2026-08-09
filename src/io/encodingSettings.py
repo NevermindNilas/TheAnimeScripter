@@ -391,3 +391,69 @@ def getPixFMT(encode_method, bitDepth, grayscale, transparent):
             outPixFmt = "rgb48le"
 
     return inPixFmt, outPixFmt, enc
+
+
+# Transfer characteristics FFmpeg's setparams accepts, so a probed value can be
+# handed straight back. BT.2020 covers three very different curves -- PQ
+# (smpte2084), HLG (arib-std-b67) and SDR (bt2020-10/-12) -- and stamping the
+# wrong one tells the player to apply the wrong EOTF.
+SETPARAMS_TRANSFERS = frozenset(
+    {
+        "smpte2084",
+        "arib-std-b67",
+        "bt2020-10",
+        "bt2020-12",
+        "bt709",
+        "smpte428",
+        "linear",
+        "iec61966-2-1",
+    }
+)
+
+# libavutil reports a BT.2020 matrix as bt2020nc/bt2020c and BT.2020 primaries
+# as the bare "bt2020", so a detector keyed only on "bt2020" never matches a
+# source that carries the matrix but no primaries -- it was converted to, and
+# tagged as, BT.709.
+BT2020_COLOR_VALUES = ("bt2020", "bt2020nc", "bt2020c")
+
+BT709_FILTER = (
+    "scale=in_range=pc:out_range=tv:out_color_matrix=bt709,"
+    "format=yuv444p16le,"
+    "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv"
+)
+
+
+def bt2020Filter(sourceTransfer: str = "unknown") -> str:
+    """zscale conversion for a BT.2020 source, tagged with its own transfer.
+
+    Only the matrix is converted here, so the transfer is whatever the source
+    already had: copy it rather than guess. An unrecognized or missing value
+    leaves `color_trc` off -- an untagged stream is recoverable, a mislabelled
+    one is not.
+
+    The working format is 16-bit like the BT.709 arm. It used to be `yuv420p`,
+    which crushed a 16-bit HDR frame to 8-bit 4:2:0 *inside* the graph and then
+    re-expanded it for the encoder: a 16-bit ramp came out as 220 distinct
+    10-bit codes, every one a multiple of 4. Let `-pix_fmt` do the reduction,
+    which is also where the dithering belongs.
+    """
+    setparams = "setparams=colorspace=bt2020nc:color_primaries=bt2020:range=tv"
+    if sourceTransfer in SETPARAMS_TRANSFERS:
+        setparams += f":color_trc={sourceTransfer}"
+    return (
+        f"zscale=matrix=bt2020nc:dither=error_diffusion,format=yuv444p16le,{setparams}"
+    )
+
+
+def colorSpaceFilter(probedMetadata: dict) -> str:
+    """The colour-conversion filter for a source, from its probed metadata.
+
+    Kept out of ffmpegSettings so it can be tested without torch/nelux/cv2 --
+    that module's import chain is why CI skipped every colourspace test while a
+    filter string that FFmpeg could not even parse shipped.
+    """
+    fields = ("ColorSpace", "PixelFormat", "ColorTRT")
+    for field in fields:
+        if probedMetadata.get(field, "unknown") in BT2020_COLOR_VALUES:
+            return bt2020Filter(probedMetadata.get("ColorTRT", "unknown"))
+    return BT709_FILTER

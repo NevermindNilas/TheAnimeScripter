@@ -908,6 +908,8 @@ These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, wh
 | `--list_presets` | flag | False | **Show available presets** |
 
 > Tip: You can also load a configuration from a JSON file using `--json <path>`. When `--json` is used it must be supplied alone (no other CLI flags) — the script prevents mixing JSON with other CLI arguments.
+>
+> A JSON key only turns a capability on when its value **differs from the default**. `{"upscale_method": "span"}` enables upscaling; `{"upscale_method": "shufflecugan"}` (the default) does not — say `"upscale": true` for that. And a capability the file names explicitly wins: `"upscale": false` alongside `"upscale_method"` stays off.
 
 ### Creating Presets
 
