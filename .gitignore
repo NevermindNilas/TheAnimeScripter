@@ -236,6 +236,7 @@ autoclipresults.txt
 scratch_out/
 out/
 still1080.png
+out_audit/
 
 # Local-only development and agent artifacts
 /perf_council/
