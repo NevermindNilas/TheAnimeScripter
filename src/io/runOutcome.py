@@ -14,6 +14,16 @@ import re
 _FRAME_COUNTER = re.compile(r"%(?:0(\d+))?d")
 
 
+def isSequencePattern(path) -> bool:
+    """Whether ``path`` is an FFmpeg image2 pattern rather than a real file.
+
+    A bare ``%`` is not enough: ``50%_off.mp4`` is an ordinary file name, and
+    mistaking it for a pattern means skipping the checks that would otherwise
+    catch it missing.
+    """
+    return _FRAME_COUNTER.search(os.path.basename(str(path or ""))) is not None
+
+
 def sequenceWrote(patternPath: str) -> bool:
     """Whether an image2 pattern like ``frames_%05d.png`` produced any frame.
 
@@ -90,7 +100,7 @@ def outputWasWritten(outputPath: str) -> bool:
     perfectly ordinary file name, and skipping its size check for a directory
     listing would report the wrong outcome for it.
     """
-    if _FRAME_COUNTER.search(os.path.basename(outputPath or "")):
+    if isSequencePattern(outputPath):
         return sequenceWrote(outputPath)
     try:
         return os.path.getsize(outputPath) > 0

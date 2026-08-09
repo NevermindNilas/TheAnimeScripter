@@ -4,6 +4,7 @@ import os
 import textwrap
 
 import src.constants as cs
+from src.io.runOutcome import isSequencePattern
 
 # Codecs nelux's NVDEC path cannot decode. NVDEC's cuvid covers compressed
 # streams only (H.264/HEVC/VP9/AV1/MPEG2/MPEG4/VC1/VP8/MJPEG); uncompressed
@@ -91,8 +92,11 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
         # (ffmpegSettings.BuildBuffer, inputOutputHandler's existence check,
         # detectImageSequence, which manufactures the pattern in the first
         # place). This one did not, and it runs first, so every sequence input
-        # died here with "Video file not found" before anything opened it.
-        if "%" not in str(inputPath) and not os.path.exists(inputPath):
+        # died here with "Video file not found" before anything opened it. Only
+        # a real image2 counter earns the exemption -- a literal percent in an
+        # ordinary name (50%_off.mp4) would otherwise slip a missing file past
+        # this guard, to fail later as an opaque probe error.
+        if not isSequencePattern(inputPath) and not os.path.exists(inputPath):
             logging.error("Video file not found")
             raise FileNotFoundError("Video file not found")
 
