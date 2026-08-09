@@ -203,6 +203,46 @@ def testIsoBmffNativeSubtitlesAreCopiedNotTranscoded(monkeypatch):
     )
 
 
+def _probedSubtitleCodec(monkeypatch, tmp_path, name, codecs="ttml", create=True):
+    """The real _isoBmffSubtitleCodec, with only ffprobe stubbed out."""
+    monkeypatch.setattr(cs, "METADATAPATH", "")
+    source = tmp_path / name
+    if create:
+        source.write_bytes(b"x")
+    wb = WriteBuffer(output="out.mp4", input=str(source))
+
+    probed = []
+
+    class _Result:
+        stdout = codecs
+
+    def fakeRun(cmd, *a, **k):
+        probed.append(cmd)
+        return _Result()
+
+    monkeypatch.setattr(subprocess, "run", fakeRun)
+    return wb._isoBmffSubtitleCodec(), probed
+
+
+def testAPercentInTheSourceNameIsStillProbed(monkeypatch, tmp_path):
+    """A literal percent is not an image-sequence pattern. Short-circuiting on
+    one forced mov_text onto a TTML source, which FFmpeg cannot decode -- the
+    0-byte mux failure this method was written to prevent."""
+    codec, probed = _probedSubtitleCodec(monkeypatch, tmp_path, "50%_off.mkv")
+    assert codec == "copy"
+    assert probed, "the probe never ran for a source with a percent in its name"
+
+
+def testAnImageSequencePatternIsNotProbed(monkeypatch, tmp_path):
+    """The pattern is not a path on disk, so the existence check catches it and
+    no ffprobe subprocess is spawned."""
+    codec, probed = _probedSubtitleCodec(
+        monkeypatch, tmp_path, "frames_%05d.png", create=False
+    )
+    assert codec == "mov_text"
+    assert not probed
+
+
 @pytest.mark.parametrize(
     "transfer", ["smpte2084", "arib-std-b67", "bt2020-10", "bt2020-12"]
 )
