@@ -3,11 +3,14 @@
 The BT.709 path was migrated from `zscale` (zimg, ~3x CPU) to swscale `scale`,
 routed through a 16-bit working format so the downstream depth reduction still
 error-diffusion-dithers, plus `setparams` to fully tag the stream. BT.2020 stays
-on zscale (no swscale bt2020nc matrix / transfer norm). These pin that contract so
+on zscale (swscale has no bt2020nc matrix). These pin that contract so
 the conversion can't silently regress to the wrong matrix or lose dithering/tags.
 """
 
 import json
+import os
+import shutil
+import subprocess
 
 import pytest
 
@@ -62,16 +65,59 @@ def testBt709FullyTagged(monkeypatch):
         assert tag in f
 
 
-def testBt2020KeepsZscale(tmp_path, monkeypatch):
+def _bt2020Filter(tmp_path, monkeypatch):
     meta = tmp_path / "meta.json"
     meta.write_text(
         json.dumps({"metadata": {"ColorSpace": "bt2020"}}), encoding="utf-8"
     )
     monkeypatch.setattr(cs, "METADATAPATH", str(meta))
-    wb = WriteBuffer(output="")
-    f = _colorFilter(wb._buildFilterList())
-    assert "zscale=matrix=bt2020" in f
-    assert "norm=bt2020" in f  # transfer handling swscale can't do
+    return _colorFilter(WriteBuffer(output="")._buildFilterList())
+
+
+def testBt2020KeepsZscale(tmp_path, monkeypatch):
+    """swscale has no bt2020nc matrix, so this arm stays on zscale -- but it
+    used to ask for `matrix=bt2020:norm=bt2020`, and neither token exists
+    (the constants are 2020_ncl/2020_cl, and there is no `norm` option). The
+    filtergraph could not parse, so every BT.2020/HDR10 source failed its whole
+    render. This test pinned `norm=bt2020`, which is how it shipped."""
+    f = _bt2020Filter(tmp_path, monkeypatch)
+    assert "zscale=matrix=bt2020nc" in f
+    assert "norm=" not in f  # not a zscale option; it made the graph unparseable
+    assert "matrix=bt2020:" not in f
+
+
+def testBt2020FilterIsAcceptedByFfmpeg(tmp_path, monkeypatch):
+    """A string test cannot tell a valid filtergraph from an unparseable one,
+    which is exactly how the broken arm survived. Run it."""
+    ffmpeg = shutil.which("ffmpeg") or cs.FFMPEGPATH
+    if not ffmpeg or not os.path.exists(str(ffmpeg)):
+        pytest.skip("no ffmpeg binary available")
+
+    result = subprocess.run(
+        [
+            str(ffmpeg),
+            "-hide_banner",
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=s=64x64:d=1:r=5",
+            "-vf",
+            _bt2020Filter(tmp_path, monkeypatch),
+            "-frames:v",
+            "2",
+            "-f",
+            "null",
+            "-",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, (
+        f"filtergraph rejected: {result.stderr.strip()[:300]}"
+    )
 
 
 def testGrayscaleSkipsColorspaceFilter(monkeypatch):

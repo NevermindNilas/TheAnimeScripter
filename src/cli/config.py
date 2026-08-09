@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from src.infra.logAndPrint import logAndPrint
 
@@ -44,6 +44,11 @@ class CliConfig:
     argv: list[str]
     providedOptions: set[str]
     jsonKeys: set[str]
+    # Every recognized key the JSON actually contained, whatever its value.
+    # jsonKeys holds only the ones that ask for something (value != default);
+    # this one answers "did the config mention this at all", which is what an
+    # explicit "upscale": false needs to beat a sibling "upscale_method".
+    jsonPresentKeys: set[str] = field(default_factory=set)
 
     @classmethod
     def fromArgs(cls, args, parser, argv=None):
@@ -54,6 +59,7 @@ class CliConfig:
             argv=argv,
             providedOptions=cls.collectProvidedOptions(argv),
             jsonKeys=set(),
+            jsonPresentKeys=set(),
         )
         config.normalize()
         return config
@@ -105,6 +111,7 @@ class CliConfig:
         jsonConfig = self.loadJsonConfig()
         defaults = self.parserDefaults
         loadedKeys = set()
+        presentKeys = set()
         for key, value in jsonConfig.items():
             if key == "json":
                 continue
@@ -112,17 +119,27 @@ class CliConfig:
             self.validateJsonChoice(key, value)
 
             if hasattr(self.args, key):
+                presentKeys.add(key)
                 currentValue = getattr(self.args, key)
                 defaultValue = defaults.get(key)
 
                 if currentValue == defaultValue:
                     setattr(self.args, key, value)
                     logging.info(f"Loaded from JSON: {key} = {value}")
-                loadedKeys.add(key)
+                if value != defaultValue:
+                    # Only a key that actually asks for something counts as
+                    # "provided". The After Effects panel serializes its whole
+                    # form, so every capability's *_method arrives at its
+                    # default value -- and marking those provided made
+                    # autoEnableParentFlags turn on upscale, depth, segment,
+                    # dedup and restore for a config that asked for
+                    # interpolation alone.
+                    loadedKeys.add(key)
             else:
                 logging.warning(f"Unknown option in JSON config: {key}")
 
         self.jsonKeys.update(loadedKeys)
+        self.jsonPresentKeys.update(presentKeys)
 
     def validateJsonChoice(self, key, value):
         """Reject JSON values argparse would have rejected on the command line.
@@ -195,6 +212,17 @@ class CliConfig:
                 logging.info(
                     f"[DEBUG] interpolate_method - providedOnCLI: {optionName in self.providedOptions}, isExplicitlyProvided: {isExplicitlyProvided}"
                 )
+
+            if parentFlag in self.jsonPresentKeys and not getattr(
+                self.args, parentFlag
+            ):
+                # The config named the capability itself and said off. A sibling
+                # key must not overrule that: a JSON carrying both
+                # "upscale": false and "upscale_method" used to upscale anyway.
+                logging.info(
+                    f"Not auto-enabling --{parentFlag}: the config sets it explicitly"
+                )
+                continue
 
             if isExplicitlyProvided:
                 if not getattr(self.args, parentFlag):

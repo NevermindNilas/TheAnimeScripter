@@ -168,3 +168,37 @@ def testDepthFrameLoopsRunUnderTheGuard():
     assert not unguarded, (
         f"depth frame loops submitted without guardedProcess: {unguarded}"
     )
+
+
+# --------------------------------------------------------------------------- #
+# image-sequence input
+# --------------------------------------------------------------------------- #
+
+
+def testMetadataAcceptsAnImageSequencePattern(tmp_path, monkeypatch):
+    """An image sequence is an FFmpeg pattern, never a path on disk. Every
+    other layer exempts it; getVideoMetadata did not, and it runs first, so
+    `--input <folder of PNGs>` died with "Video file not found" before anything
+    opened it."""
+    pytest.importorskip("torch")
+    pytest.importorskip("nelux", exc_type=ImportError)
+    from src.io import getVideoMetadata as gvm
+
+    pattern = str(tmp_path / "frame_%05d.png")
+    captured = {}
+
+    def fakeProbe(path):
+        captured["path"] = path
+        raise RuntimeError("probe reached -- the existence guard let the pattern past")
+
+    monkeypatch.setattr(gvm, "saveMetadata", lambda *a, **k: None, raising=False)
+    import nelux
+
+    monkeypatch.setattr(nelux, "probe", fakeProbe, raising=False)
+
+    with pytest.raises(Exception) as excinfo:
+        gvm.getVideoMetadata(pattern, 0, 0)
+    assert not isinstance(excinfo.value, FileNotFoundError), (
+        "the %d pattern was rejected as a missing file again"
+    )
+    assert captured.get("path"), "the pattern never reached the prober"

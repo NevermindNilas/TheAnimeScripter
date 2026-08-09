@@ -851,3 +851,64 @@ def testBannerOnlyOnFullHelpNotUsage(builtParser):
     # reuses on every error via format_usage) must not carry it.
     assert "AI-powered" in builtParser.format_help()
     assert "AI-powered" not in builtParser.format_usage()
+
+
+# --------------------------------------------------------------------------- #
+# --json capability auto-enabling
+# --------------------------------------------------------------------------- #
+
+
+def _jsonConfig(tmp_path, monkeypatch, payload):
+    import json as _json
+
+    path = tmp_path / "cfg.json"
+    path.write_text(_json.dumps(payload), encoding="utf-8")
+    parser = _buildParser("output")
+    args = parser.parse_args(["--json", str(path)])
+    monkeypatch.setattr("sys.argv", ["main.py", "--json", str(path)])
+    CliConfig.fromArgs(args, parser, ["--json", str(path)])
+    return args
+
+
+def testJsonMethodAtItsDefaultDoesNotEnableACapability(tmp_path, monkeypatch):
+    """The After Effects panel serializes its whole form, so every capability's
+    *_method arrives at its default value. Treating those as 'provided' turned
+    on upscale, depth, segment, dedup and restore for a config that asked for
+    interpolation alone -- the run produced a depth map."""
+    args = _jsonConfig(
+        tmp_path,
+        monkeypatch,
+        {
+            "interpolate": True,
+            "interpolate_factor": 2,
+            "upscale_method": "shufflecugan",
+            "depth_method": "small_v2",
+            "segment_method": "anime",
+            "dedup_method": "ssim",
+        },
+    )
+    assert args.interpolate is True
+    assert (args.upscale, args.depth, args.segment, args.dedup) == (
+        False,
+        False,
+        False,
+        False,
+    )
+
+
+def testJsonExplicitFalseBeatsASiblingMethodKey(tmp_path, monkeypatch):
+    """`"upscale": false` alongside `"upscale_method"` used to upscale anyway."""
+    args = _jsonConfig(
+        tmp_path,
+        monkeypatch,
+        {"upscale": False, "upscale_method": "span", "interpolate": True},
+    )
+    assert args.upscale is False
+
+
+def testJsonNonDefaultMethodStillEnablesItsCapability(tmp_path, monkeypatch):
+    """A config that genuinely asks for a model, without naming the flag, keeps
+    working."""
+    args = _jsonConfig(tmp_path, monkeypatch, {"upscale_method": "span"})
+    assert args.upscale is True
+    assert args.upscale_method == "span"
