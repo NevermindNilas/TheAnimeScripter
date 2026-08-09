@@ -86,7 +86,13 @@ def getVideoMetadata(inputPath, inPoint, outPoint):
     tuple: (width, height, fps, totalFramesToProcess, hasAudio)
     """
     try:
-        if not os.path.exists(inputPath):
+        # An image sequence arrives as an FFmpeg pattern (frames_%05d.png), which
+        # is never a path on disk -- every other layer already exempts it
+        # (ffmpegSettings.BuildBuffer, inputOutputHandler's existence check,
+        # detectImageSequence, which manufactures the pattern in the first
+        # place). This one did not, and it runs first, so every sequence input
+        # died here with "Video file not found" before anything opened it.
+        if "%" not in str(inputPath) and not os.path.exists(inputPath):
             logging.error("Video file not found")
             raise FileNotFoundError("Video file not found")
 
