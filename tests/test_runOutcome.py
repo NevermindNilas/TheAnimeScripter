@@ -54,6 +54,28 @@ def testOutputWasWrittenIgnoresUnrelatedFilesInTheSequenceFolder(tmp_path):
     assert outputWasWritten(str(tmp_path / "frames_%05d.png")) is False
 
 
+def testSequenceNeedsTheFrameCounter(tmp_path):
+    """Matching on the prefix and the extension alone counted a file the user
+    had left in the folder as a frame FFmpeg wrote."""
+    pattern = str(tmp_path / "frames_%05d.png")
+    (tmp_path / "frames_old.png").write_bytes(b"x" * 32)
+    (tmp_path / "frames_.png").write_bytes(b"x" * 32)
+    assert outputWasWritten(pattern) is False
+    (tmp_path / "frames_00001.png").write_bytes(b"x" * 32)
+    assert outputWasWritten(pattern) is True
+
+
+def testSequenceAcceptsACounterPastThePaddedWidth(tmp_path):
+    """``%05d`` is a minimum width: FFmpeg writes a sixth digit past 99999."""
+    (tmp_path / "frames_100000.png").write_bytes(b"x" * 32)
+    assert outputWasWritten(str(tmp_path / "frames_%05d.png")) is True
+
+
+def testUnpaddedCounterIsAlsoASequence(tmp_path):
+    (tmp_path / "frames_7.png").write_bytes(b"x" * 32)
+    assert outputWasWritten(str(tmp_path / "frames_%d.png")) is True
+
+
 # --------------------------------------------------------------------------- #
 # truncatedDecodeError
 # --------------------------------------------------------------------------- #
