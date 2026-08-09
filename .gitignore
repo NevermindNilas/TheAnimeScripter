@@ -231,3 +231,7 @@ docs/ARCHITECTURE.md
 
 # --autoclip writes its cut list next to main.py
 autoclipresults.txt
+
+# Subagent/benchmark scratch output
+scratch_out/
+out/
