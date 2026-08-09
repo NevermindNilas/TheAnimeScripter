@@ -858,7 +858,7 @@ def _addSmoothDedupOptions(argParser):
         "--smooth_dedup_max_span",
         type=int,
         default=6,
-        help="Longest run of duplicates --smooth_dedup will interpolate across; longer holds are filled with copies instead. Raising it costs memory: one gap buffers span x interpolate_factor frames at once",
+        help="Longest run of duplicates --smooth_dedup will interpolate across; longer holds are filled with copies instead. Raising it costs inference time, not memory",
     )
 
 

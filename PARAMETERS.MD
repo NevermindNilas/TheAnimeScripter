@@ -447,9 +447,8 @@ source, on 2s:    A   A   B   B   C     24 fps, 5 frames
 
 Runs longer than `--smooth_dedup_max_span` are filled with copies rather than interpolated: the
 frames in such a gap were duplicates anyway, so inference there costs full throughput for no visible
-gain. The cap is also a memory bound — one gap is emitted in a single batch, so it buffers
-`span × interpolate_factor` full-resolution frames at once. Raise it with that in mind; it cannot be
-set below 1.
+gain. Raising it costs inference time, not memory — a long gap is written out as it is produced
+rather than held whole. It cannot be set below 1.
 
 Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `--scenechange`,
 `--mask` and `--slowmo`. It is ignored by the standalone operations that bypass the frame loop

@@ -574,7 +574,27 @@ class VideoProcessor:
         it by the collector itself -- see _FrameCollector. Order is identical
         either way: intermediates in the order the driver produced them, then
         the centre frame written by the caller.
+
+        Pinned to the default CUDA stream: a mid-gap drain runs inside whatever
+        stream context the driver put its frame from, and gmfss wraps its whole
+        __call__ (including the put) in a private stream. The writer copies on
+        its own private stream and never waits on ours, so upscaling and
+        writing from a driver's stream would break the handoff contract. Every
+        other backend already puts on the default stream; this makes the drain
+        behave the same wherever it fires from.
         """
+        if not self.interpQueue.frames:
+            return
+
+        import torch
+
+        if torch.cuda.is_available():
+            with torch.cuda.stream(torch.cuda.default_stream()):
+                self._writeInterpFrames()
+        else:
+            self._writeInterpFrames()
+
+    def _writeInterpFrames(self) -> None:
         if self.upscale:
             nextFrame = self._interpNextFrame
             for item in self.interpQueue.frames:
