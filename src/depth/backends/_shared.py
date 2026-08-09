@@ -54,7 +54,9 @@ class DepthRunOutcome:
             # The decoder signals a mid-stream death only by putting its
             # end-of-stream sentinel, which reads like a clean EOF, so without
             # this a truncated decode wrote a short depth map and exited 0.
-            decodeError = truncatedDecodeError(self.readBuffer, self.totalFrames)
+            decodeError = truncatedDecodeError(
+                self.readBuffer, self.totalFrames, self.writeBuffer
+            )
             if decodeError is not None:
                 self.recordFailure(decodeError)
             closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)

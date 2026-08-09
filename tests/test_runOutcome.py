@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from src.io.runOutcome import outputWasWritten
+from src.io.runOutcome import outputWasWritten, truncatedDecodeError
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 STANDALONE = REPO_ROOT / "src" / "factories" / "standalone.py"
@@ -52,6 +52,46 @@ def testOutputWasWrittenForAnImageSequence(tmp_path):
 def testOutputWasWrittenIgnoresUnrelatedFilesInTheSequenceFolder(tmp_path):
     (tmp_path / "notes.txt").write_bytes(b"x" * 32)
     assert outputWasWritten(str(tmp_path / "frames_%05d.png")) is False
+
+
+# --------------------------------------------------------------------------- #
+# truncatedDecodeError
+# --------------------------------------------------------------------------- #
+
+
+class _Reader:
+    def __init__(self, error=None, delivered=0):
+        self.decodeError = error
+        self._emittedFrames = delivered
+
+
+class _Writer:
+    def __init__(self, error=None):
+        self.encodeError = error
+
+
+def testShortDecodeIsBlamed():
+    error = RuntimeError("decoder died")
+    assert truncatedDecodeError(_Reader(error, 5), 20, _Writer()) is error
+
+
+def testDecodeErrorAfterTheLastFrameIsNot():
+    """A teardown error or a corrupt trailing packet leaves a complete output;
+    failing that run would be a lie in the other direction."""
+    error = RuntimeError("decoder teardown")
+    assert truncatedDecodeError(_Reader(error, 20), 20, _Writer()) is None
+
+
+def testCleanRunBlamesNothing():
+    assert truncatedDecodeError(_Reader(None, 20), 20, _Writer()) is None
+
+
+def testEncodeErrorIsBlamedEvenWithAFullDecode():
+    """The writer logged every encoding exception and left the output file's
+    size as the only signal -- enough for one file, which ends up 0 bytes, but
+    an image sequence that died after one frame looks exactly like success."""
+    error = RuntimeError("encoder died")
+    assert truncatedDecodeError(_Reader(None, 20), 20, _Writer(error)) is error
 
 
 # --------------------------------------------------------------------------- #

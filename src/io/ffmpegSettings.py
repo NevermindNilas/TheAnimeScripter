@@ -581,6 +581,10 @@ class WriteBuffer:
         # emptying the queue so the producer's blocking put() can't deadlock
         # the whole run (e.g. prores into an .mp4 container).
         self._sawSentinel = False
+        # Set when encoding fails. Read through
+        # src/io/runOutcome.py:truncatedDecodeError, the same way the decoder's
+        # own failure is.
+        self.encodeError: Exception | None = None
 
     def _shouldUseDirectPngSingleFrame(self) -> bool:
         return (
@@ -1045,6 +1049,10 @@ class WriteBuffer:
                 logging.error(
                     f"FFmpeg exited immediately with code {ffmpegProc.returncode}: {stderr_out}"
                 )
+                self.encodeError = RuntimeError(
+                    f"FFmpeg exited immediately with code {ffmpegProc.returncode}: "
+                    f"{stderr_out.strip()[:300]}"
+                )
                 return
 
             logging.info(f"Encoding path: {'CUDA pinned' if useCuda else 'CPU'}")
@@ -1133,6 +1141,10 @@ class WriteBuffer:
             logging.info(f"Encoded {writtenFrames} frames")
 
         except Exception as e:
+            # Recorded, not just logged: for a single output file a dead
+            # encoder shows up as 0 bytes, but an image sequence that died
+            # after one frame is indistinguishable from a complete one.
+            self.encodeError = e
             logging.error(f"Encoding error: {e}")
             if ffmpegProc is not None:
                 rc = ffmpegProc.poll()
@@ -1252,6 +1264,7 @@ class NeluxWriteBuffer:
         self.CudaStream = None
         # Same early-death drain contract as WriteBuffer (see its __init__).
         self._sawSentinel = False
+        self.encodeError: Exception | None = None
         self.acceptsHwcUint8 = True
         # Preview is sampled from the frames handed to the encoder, so it works
         # here exactly as it does for WriteBuffer -- nelux needs no preview
@@ -1468,6 +1481,7 @@ class NeluxWriteBuffer:
             logging.info(f"Nelux encoded {self.writtenFrames} frames")
 
         except Exception as e:
+            self.encodeError = e
             logging.error(f"Nelux encoding error: {e}")
             import traceback
 
