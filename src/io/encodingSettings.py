@@ -1,4 +1,4 @@
-from src.infra.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logWarning
 
 
 def matchEncoder(encode_method: str):
@@ -303,6 +303,18 @@ def matchEncoder(encode_method: str):
                     "0",
                 ]
             )
+        case _:
+            # Without this arm an unhandled name returns [], the command carries
+            # no -c:v, and FFmpeg quietly encodes with the container default at
+            # its own CRF -- a wrong-looking output file with nothing in the log
+            # to explain it. No CLI choice can reach this today (WriteBuffer
+            # maps the *_nelux names to their twins first, and every remaining
+            # choice is pinned to an arm by tests/test_registryDrift.py); it is
+            # here so the next unmapped name is loud instead of silent.
+            logWarning(
+                f"Unrecognized encode method '{encode_method}'. FFmpeg will "
+                "pick the container's default encoder and quality."
+            )
 
     return command
 
@@ -345,9 +357,8 @@ def getPixFMT(encode_method, bitDepth, grayscale, transparent):
             inPixFmt = "rgb24"
             outPixFmt = "yuv420p"
         else:
-            logAndPrint(
-                "Warning: NVENC H.264 only supports 8-bit encoding. Falling back to 8-bit.",
-                "yellow",
+            logWarning(
+                "NVENC H.264 only supports 8-bit encoding. Falling back to 8-bit."
             )
 
             inPixFmt = "rgb48le"

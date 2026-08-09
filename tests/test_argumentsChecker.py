@@ -36,6 +36,7 @@ from src.cli.validator import (
     _configureProcessingSettings,
     _handleDepthSettings,
     _mapDedupSensitivity,
+    _resolveNeluxEncoder,
     isAnyOtherProcessingMethodEnabled,
 )
 from src.infra.backendFallback import applyBackendFallbacks, fallbackMethod
@@ -119,6 +120,82 @@ def testNoProcessingEnabled():
 
 def testSingleProcessingEnabled():
     assert isAnyOtherProcessingMethodEnabled(fullFlags(upscale=True)) is True
+
+
+def testOutputScaleAloneCountsAsProcessing():
+    """It used to count only because it auto-enabled --resize, which also
+    applied --resize_factor's default of 2 to the decode."""
+    assert (
+        isAnyOtherProcessingMethodEnabled(fullFlags(output_scale="1920x1080")) is True
+    )
+    assert isAnyOtherProcessingMethodEnabled(fullFlags(output_scale="")) is False
+
+
+# --------------------------------------------------------------------------- #
+# *_nelux encoder resolution
+# --------------------------------------------------------------------------- #
+
+
+def neluxArgs(**overrides):
+    base = dict(
+        encode_method="x264_nelux",
+        custom_encoder="",
+        bit_depth="8bit",
+        output_scale_width=None,
+        output_scale_height=None,
+        depth=False,
+    )
+    base.update(overrides)
+    return types.SimpleNamespace(**base)
+
+
+def testNeluxKeptWhenEveryOptionIsHonorable():
+    args = neluxArgs()
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == "x264_nelux"
+
+
+def testNonNeluxMethodIsNeverRewritten():
+    args = neluxArgs(encode_method="x264", bit_depth="16bit", depth=True)
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == "x264"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        dict(custom_encoder="-c:v libx265 -crf 30"),
+        dict(bit_depth="16bit"),
+        dict(output_scale_width=320, output_scale_height=180),
+        dict(depth=True),
+    ],
+)
+def testNeluxSwappedForItsTwinWhenAnOptionCannotBeHonored(overrides):
+    """NeluxWriteBuffer takes these through **kwargs and never reads them, and
+    --depth does not use it at all, so each used to be dropped in silence."""
+    args = neluxArgs(**overrides)
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == "x264"
+
+
+@pytest.mark.parametrize(
+    "method,twin",
+    [
+        ("x264_nelux", "x264"),
+        ("x265_nelux", "x265"),
+        ("av1_nelux", "av1"),
+        ("nvenc_h264_nelux", "nvenc_h264"),
+        ("nvenc_h265_nelux", "nvenc_h265"),
+        ("nvenc_av1_nelux", "nvenc_av1"),
+    ],
+)
+def testEveryNeluxMethodMapsToARealEncodeChoice(method, twin):
+    from src.io.encodingSettings import matchEncoder
+
+    args = neluxArgs(encode_method=method, depth=True)
+    _resolveNeluxEncoder(args)
+    assert args.encode_method == twin
+    assert matchEncoder(twin), f"{twin} has no matchEncoder arm"
 
 
 def fallbackArgs(**overrides):

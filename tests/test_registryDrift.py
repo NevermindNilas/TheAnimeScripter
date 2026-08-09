@@ -41,8 +41,11 @@ def methodChoices():
 
 
 def testEveryEncodeChoiceHasEncoderFlags(methodChoices):
-    # *_nelux methods never reach matchEncoder; NeluxWriteBuffer maps them to
-    # native encoder settings in ffmpegSettings instead.
+    # *_nelux methods never reach matchEncoder: createWriteBuffer routes them to
+    # NeluxWriteBuffer, which maps them to native encoder settings, and any that
+    # still land on the FFmpeg writer are rewritten to their non-nelux twin by
+    # WriteBuffer.__init__ before matchEncoder is called. Both twins are in this
+    # list, so the carve-out costs no coverage.
     missing = [
         m
         for m in methodChoices["encode"]

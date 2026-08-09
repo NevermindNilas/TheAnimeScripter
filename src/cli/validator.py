@@ -6,7 +6,7 @@ import src.constants as cs
 from src.cli.config import CliConfig
 from src.cli.startup import _handleDependencies, _promptDownloadRequirementsSelection
 from src.cli.validation import CliValidationError, applyRuntimeValidation
-from src.infra.logAndPrint import logAndPrint
+from src.infra.logAndPrint import logAndPrint, logWarning
 from src.io.inputNormalization import InputNormalizationError, normalizeInputArgs
 
 
@@ -24,7 +24,55 @@ def isAnyOtherProcessingMethodEnabled(args):
             args.autoclip,
             args.obj_detect,
             args.moblur,
+            # --output_scale is a real request even though it is applied by the
+            # encoder rather than a model. It used to count by auto-enabling
+            # --resize, which also dragged in --resize_factor's default of 2 and
+            # doubled the decode resolution (see src/cli/config.py).
+            bool(getattr(args, "output_scale", "")),
         ]
+    )
+
+
+def _resolveNeluxEncoder(args):
+    """Swap a `*_nelux` encoder for its FFmpeg twin when it cannot be used.
+
+    `NeluxWriteBuffer` takes most of `WriteBuffer`'s keyword arguments through
+    `**kwargs` and then never reads them, and `--depth` does not go through the
+    Nelux writer at all. Both used to fail silently: `--output_scale 320x180`
+    wrote a full-resolution file, `--bit_depth 16bit` wrote 8-bit, and
+    `--custom_encoder` was dropped. Resolve it once here, like every other
+    incompatible-option downgrade, rather than per input file in the writer.
+    """
+    method = getattr(args, "encode_method", "") or ""
+    if not method.endswith("_nelux"):
+        return
+
+    dropped = []
+    if args.custom_encoder:
+        dropped.append("--custom_encoder")
+    if getattr(args, "bit_depth", "8bit") != "8bit":
+        dropped.append("--bit_depth")
+    if args.output_scale_width or args.output_scale_height:
+        dropped.append("--output_scale")
+
+    if dropped:
+        reason = f"cannot apply {', '.join(dropped)}"
+    elif args.depth:
+        reason = "is not available for --depth"
+    else:
+        return
+
+    args.encode_method = method[: -len("_nelux")]
+    # With --custom_encoder the FFmpeg writer runs that encoder verbatim and
+    # never consults the method, so naming a substitute encoder would be a lie.
+    substitute = (
+        "your --custom_encoder"
+        if args.custom_encoder
+        else f"the equivalent {args.encode_method}"
+    )
+    logWarning(
+        f"{method} {reason}. Encoding with {substitute} instead, so the output "
+        "matches what you asked for."
     )
 
 
@@ -586,6 +634,8 @@ def prepareRuntimeArgs(args, outputPath, parser):
         logging.info(
             f"Output scale set to {args.output_scale_width}x{args.output_scale_height}"
         )
+
+    _resolveNeluxEncoder(args)
 
     if warning:
         logAndPrint(warning, "yellow")

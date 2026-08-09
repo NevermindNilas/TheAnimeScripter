@@ -26,6 +26,7 @@ except OSError:
 import src.constants as cs
 from src.io.encodingSettings import getPixFMT, matchEncoder
 from src.infra.isCudaInit import CudaChecker
+from src.infra.logAndPrint import logWarning
 
 checker = CudaChecker()
 
@@ -486,6 +487,31 @@ class WriteBuffer:
         outputDir = os.path.dirname(self.output)
         if outputDir:
             os.makedirs(outputDir, exist_ok=True)
+        # A *_nelux method reaching this writer means a caller that builds
+        # WriteBuffer directly instead of going through createWriteBuffer --
+        # every depth backend does. matchEncoder has no arm for those names, so
+        # it returned an EMPTY command: no -c:v at all, and FFmpeg quietly
+        # encoded with the container default at its own CRF (23), discarding
+        # the requested encoder and its quality target. The pix_fmt was never
+        # affected -- getPixFMT does not consult matchEncoder. Each *_nelux
+        # method mirrors an FFmpeg twin one-for-one (x264_nelux -> x264,
+        # nvenc_av1_nelux -> nvenc_av1, ...), so fall back to that twin.
+        #
+        # animeSegment also builds WriteBuffer directly but was never affected:
+        # it passes transparent=True, and getPixFMT rewrites the method to
+        # prores_segment before matchEncoder sees it.
+        #
+        # No warning here: src/cli/validator.py:_resolveNeluxEncoder already
+        # resolves this once per run, where a batch of 200 inputs gets one
+        # message instead of 200. This is the last-resort net for a caller that
+        # builds a writer without going through the CLI.
+        if encode_method.endswith("_nelux"):
+            fallback = encode_method[: -len("_nelux")]
+            logging.info(
+                f"{encode_method} needs the Nelux writer, which this operation "
+                f"does not use; encoding with the equivalent {fallback}."
+            )
+            encode_method = fallback
         self.encode_method = encode_method
         self.single_image_output = single_image_output
 
@@ -728,10 +754,27 @@ class WriteBuffer:
                 # pinning nv12 handed 8-bit 4:2:0 surfaces to nvenc_h265_10bit
                 # -- which matchEncoder already tags "-profile:v main10" -- and
                 # the "10bit" preset encoded 8-bit data. p010le is the CUDA
-                # 10-bit format. Everything else stays on nv12; CUDA has no
-                # yuv444p10le hwframe format, so the 4:4:4 outputs (16-bit,
-                # lossless_nvenc) still subsample here.
-                hwFormat = "p010le" if outputPixFmt == "p010le" else "nv12"
+                # 10-bit format.
+                #
+                # CUDA has no yuv444p10le hwframe format, so a 4:4:4 request
+                # subsamples here either way -- but it used to also fall to
+                # nv12 and lose the two extra bits, which is the half that
+                # actually matters (--depth --bit_depth 16bit on nvenc_h265
+                # wrote an 8-bit depth map: visible banding on the smooth
+                # gradients the 16-bit path exists for). Keep the depth
+                # wherever the encoder can carry it. h264_nvenc cannot encode
+                # 10-bit at all -- getPixFMT already forces "nvenc_h264" back
+                # to 8-bit, but "lossless_nvenc" also runs on h264_nvenc and
+                # does not go through that branch, so gate on the encoder.
+                tenBitNvenc = self.encode_method in (
+                    "nvenc_h265",
+                    "slow_nvenc_h265",
+                    "nvenc_h265_10bit",
+                    "nvenc_av1",
+                    "slow_nvenc_av1",
+                )
+                wantsTenBit = outputPixFmt.endswith(("10le", "12le", "16le"))
+                hwFormat = "p010le" if (tenBitNvenc and wantsTenBit) else "nv12"
                 hwFilters = filterList.copy() if filterList else []
                 hwFilters.append(f"format={hwFormat}")
                 hwFilters.append("hwupload_cuda")
@@ -1139,7 +1182,7 @@ class NeluxWriteBuffer:
         self,
         input: str = "",
         output: str = "",
-        encode_method: str = "h264_nvenc_nelux",
+        encode_method: str = "nvenc_h264_nelux",
         width: int = 1920,
         height: int = 1080,
         fps: float = 60.0,
@@ -1222,6 +1265,14 @@ class NeluxWriteBuffer:
                 codec="av1_nvenc", preset=1, cq=15, pixel_format="yuv420p"
             ),  # p1 / cq 15
         }
+        if encode_method not in encoderSettings:
+            # Silently encoding H.264 when the caller asked for something else
+            # is how the FFmpeg writer's *_nelux gap stayed invisible for so
+            # long; do not repeat it on this side.
+            logWarning(
+                f"'{encode_method}' has no Nelux encoder mapping. "
+                "Encoding with nvenc_h264_nelux."
+            )
         self.encoderKwargs = encoderSettings.get(
             encode_method, encoderSettings["nvenc_h264_nelux"]
         )
@@ -1426,6 +1477,12 @@ def isNeluxEncoder(encode_method: str) -> bool:
 def createWriteBuffer(encode_method: str, **kwargs):
     """
     Factory function to create the appropriate write buffer.
+
+    A `*_nelux` method only reaches here when it can actually be honored:
+    NeluxWriteBuffer swallows `--custom_encoder`, `--bit_depth` and
+    `--output_scale` through `**kwargs` without reading them, so
+    `src/cli/validator.py:_resolveNeluxEncoder` swaps the method for its
+    FFmpeg twin, once per run, before any writer is built.
 
     Args:
         encode_method: The encoding method string.
