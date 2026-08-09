@@ -96,3 +96,53 @@ def testTransparentSkipsColorspaceFilter(monkeypatch):
     assert _colorFilter(filterList) == ""
     assert any("yuva444p10le" in f for f in filterList)
     assert not any("yuva420p" in f for f in filterList)
+
+
+def _audioSettings(monkeypatch, output, subtitleCodecs=None):
+    """Built audio/subtitle flags for an output path, with a stubbed probe."""
+    monkeypatch.setattr(cs, "METADATAPATH", "")
+    wb = WriteBuffer(output=output, input="source.mkv")
+    monkeypatch.setattr(
+        type(wb),
+        "_isoBmffSubtitleCodec",
+        lambda self: (
+            "copy"
+            if subtitleCodecs
+            and all(c in type(self)._ISO_BMFF_NATIVE_SUBTITLES for c in subtitleCodecs)
+            else "mov_text"
+        ),
+    )
+    settings = wb._buildAudioSettings()
+    return settings[settings.index("-c:a") + 1], settings[settings.index("-c:s") + 1]
+
+
+@pytest.mark.parametrize(
+    "output,expected",
+    [
+        ("out.mp4", ("copy", "mov_text")),
+        ("out.m4v", ("copy", "mov_text")),
+        ("out.mov", ("aac", "mov_text")),
+        ("out.mkv", ("copy", "copy")),
+        ("out.webm", ("libopus", "webvtt")),
+        ("out.avi", ("copy", "copy")),
+        # inputOutputHandler matches extensions case-insensitively and copies
+        # the input's verbatim, so an uppercase name is ordinary here.
+        ("OUT.MP4", ("copy", "mov_text")),
+        ("OUT.MOV", ("aac", "mov_text")),
+    ],
+)
+def testPerContainerAudioAndSubtitleCodecs(monkeypatch, output, expected):
+    """MP4/M4V used to stream-copy subrip into a container that cannot hold it,
+    losing the whole render at header-write."""
+    assert _audioSettings(monkeypatch, output, ["subrip"]) == expected
+
+
+def testIsoBmffNativeSubtitlesAreCopiedNotTranscoded(monkeypatch):
+    """FFmpeg has a TTML encoder but no TTML decoder, so forcing mov_text on a
+    TTML-in-MP4 source failed the whole mux where a copy had worked."""
+    assert _audioSettings(monkeypatch, "out.mp4", ["ttml"]) == ("copy", "copy")
+    assert _audioSettings(monkeypatch, "out.mp4", ["mov_text"]) == ("copy", "copy")
+    assert _audioSettings(monkeypatch, "out.mp4", ["ttml", "subrip"]) == (
+        "copy",
+        "mov_text",
+    )
