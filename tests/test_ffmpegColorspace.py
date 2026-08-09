@@ -90,7 +90,15 @@ def testBt2020KeepsZscale(tmp_path, monkeypatch):
 def testBt2020FilterIsAcceptedByFfmpeg(tmp_path, monkeypatch):
     """A string test cannot tell a valid filtergraph from an unparseable one,
     which is exactly how the broken arm survived. Run it."""
-    ffmpeg = shutil.which("ffmpeg") or cs.FFMPEGPATH
+    # Prefer the BUNDLED binary: that is the one production runs, and a build
+    # without --enable-libzimg would pass against a system ffmpeg and still
+    # fail at runtime.
+    bundled = os.path.join("ffmpeg_shared", "ffmpeg.exe")
+    ffmpeg = (
+        cs.FFMPEGPATH
+        or (bundled if os.path.exists(bundled) else None)
+        or shutil.which("ffmpeg")
+    )
     if not ffmpeg or not os.path.exists(str(ffmpeg)):
         pytest.skip("no ffmpeg binary available")
 

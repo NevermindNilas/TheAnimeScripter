@@ -908,7 +908,18 @@ def testJsonExplicitFalseBeatsASiblingMethodKey(tmp_path, monkeypatch):
 
 def testJsonNonDefaultMethodStillEnablesItsCapability(tmp_path, monkeypatch):
     """A config that genuinely asks for a model, without naming the flag, keeps
-    working."""
+    working -- the whole point of the auto-enable. Reaches the parent flag
+    through the `currentValue != defaultValue` fallback rather than jsonKeys,
+    so it holds regardless of which of the two paths fires."""
     args = _jsonConfig(tmp_path, monkeypatch, {"upscale_method": "span"})
     assert args.upscale is True
     assert args.upscale_method == "span"
+
+
+def testJsonExplicitTrueIsNotUndoneByTheNewGuard(tmp_path, monkeypatch):
+    """The guard skips auto-enabling only when the config says the capability
+    is OFF; an explicit true must still run."""
+    args = _jsonConfig(
+        tmp_path, monkeypatch, {"upscale": True, "upscale_method": "shufflecugan"}
+    )
+    assert args.upscale is True
