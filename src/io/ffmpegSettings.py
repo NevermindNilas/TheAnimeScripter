@@ -914,7 +914,11 @@ class WriteBuffer:
         copy had worked. Ask the source what it has; a probe failure keeps the
         transcode, which is right for the common case (an MKV of subrip/ass).
         """
-        if not self.input or "%" in self.input or not os.path.exists(self.input):
+        # An image sequence needs no test of its own: the pattern is not a path
+        # on disk, so it fails the existence check below. Testing for a bare
+        # percent instead would divert an ordinary ``50%_off.mkv`` here and
+        # force mov_text on it -- the TTML case this method exists to avoid.
+        if not self.input or not os.path.exists(self.input):
             return "mov_text"
         try:
             probe = subprocess.run(
@@ -1380,7 +1384,10 @@ class NeluxWriteBuffer:
         encoder = self.encoder
         if encoder is None or not cs.AUDIO:
             return
-        if not self.input or "%" in self.input or not os.path.exists(self.input):
+        # Same as _isoBmffSubtitleCodec: an image-sequence pattern is caught by
+        # the existence check, while a literal percent in a real file's name is
+        # not a reason to drop its audio.
+        if not self.input or not os.path.exists(self.input):
             logging.info(
                 f"Nelux passthrough skipped: no usable source file ('{self.input}')."
             )
