@@ -910,28 +910,73 @@ class WriteBuffer:
 
         return customEncoderArgs
 
+    # Subtitle codecs an ISO-BMFF container carries natively, so a stream copy
+    # is both valid and lossless. Everything else text-based (subrip, ass, ssa)
+    # has to become mov_text or the mux aborts at header-write with "Could not
+    # find tag for codec subrip ... not currently supported in container".
+    _ISO_BMFF_NATIVE_SUBTITLES = frozenset({"mov_text", "ttml", "stpp", "wvtt"})
+
+    def _isoBmffSubtitleCodec(self) -> str:
+        """`copy` or `mov_text` for an .mp4/.m4v/.mov output, by source codec.
+
+        Forcing mov_text unconditionally breaks the containers that already
+        agreed: FFmpeg ships a TTML *encoder* but no TTML decoder, so a
+        TTML-in-MP4 source could not be transcoded at all and the render died
+        with "no decoder found for: ttml" for a 0-byte output -- where a plain
+        copy had worked. Ask the source what it has; a probe failure keeps the
+        transcode, which is right for the common case (an MKV of subrip/ass).
+        """
+        if not self.input or "%" in self.input or not os.path.exists(self.input):
+            return "mov_text"
+        try:
+            probe = subprocess.run(
+                [
+                    cs.FFPROBEPATH,
+                    "-v",
+                    "error",
+                    "-select_streams",
+                    "s",
+                    "-show_entries",
+                    "stream=codec_name",
+                    "-of",
+                    "csv=p=0",
+                    self.input,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except Exception as e:
+            logging.warning(f"Subtitle probe failed ({e}); transcoding to mov_text.")
+            return "mov_text"
+
+        codecs = [line.strip() for line in probe.stdout.splitlines() if line.strip()]
+        if codecs and all(c in self._ISO_BMFF_NATIVE_SUBTITLES for c in codecs):
+            logging.info(f"Subtitles {codecs} are ISO-BMFF native; stream-copying.")
+            return "copy"
+        return "mov_text"
+
     def _buildAudioSettings(self):
         """Build audio encoding settings"""
         audioSettings = ["-map", "1:a"]
 
+        # Lowercased: inputOutputHandler matches extensions case-insensitively
+        # and copies the input's extension verbatim, so `clip.MP4` from a phone
+        # or drone is an ordinary output name here.
+        output = self.output.lower()
+
         audioCodec = "copy"
         subCodec = "copy"
-        if self.output.endswith(".webm"):
+        if output.endswith(".webm"):
             audioCodec = "libopus"
             subCodec = "webvtt"
-        elif self.output.endswith((".mov", ".mp4", ".m4v")):
-            # mov_text is the ISO-BMFF subtitle codec; copying subrip/ass into
-            # one aborts the whole mux at header-write with "Could not find tag
-            # for codec subrip ... not currently supported in container". The
-            # .mov branch already knew this, but .mp4/.m4v shared the default
-            # `copy`, so any anime MKV with a text subtitle track lost the
-            # entire render after the models had already loaded.
-            subCodec = "mov_text"
-            if self.output.endswith(".mov"):
-                # MOV additionally cannot stream-copy opus/vorbis (FFmpeg
-                # aborts with "opus only supported in MP4"). The
-                # transparent/segment path always lands here as prores in a
-                # .mov. MP4/M4V accept opus natively, so they keep `copy`.
+        elif output.endswith((".mov", ".mp4", ".m4v")):
+            subCodec = self._isoBmffSubtitleCodec()
+            if output.endswith(".mov"):
+                # MOV cannot stream-copy opus/vorbis (FFmpeg aborts with "opus
+                # only supported in MP4"). The transparent/segment path always
+                # lands here as prores in a .mov. MP4/M4V accept opus natively,
+                # so they keep `copy`.
                 audioCodec = "aac"
         audioSettings.extend(["-c:a", audioCodec, "-map", "1:s?", "-c:s", subCodec])
 
