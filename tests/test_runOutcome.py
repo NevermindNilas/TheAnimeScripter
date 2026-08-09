@@ -54,6 +54,18 @@ def testOutputWasWrittenIgnoresUnrelatedFilesInTheSequenceFolder(tmp_path):
     assert outputWasWritten(str(tmp_path / "frames_%05d.png")) is False
 
 
+def testAPercentInTheNameIsNotASequence(tmp_path):
+    """``50%_off.mp4`` is an ordinary file name; treating it as a pattern
+    skipped its size check for a directory listing."""
+    written = tmp_path / "50%_off.mp4"
+    written.write_bytes(b"x" * 32)
+    assert outputWasWritten(str(written)) is True
+
+    empty = tmp_path / "100%_done.mp4"
+    empty.write_bytes(b"")
+    assert outputWasWritten(str(empty)) is False
+
+
 def testSequenceNeedsTheFrameCounter(tmp_path):
     """Matching on the prefix and the extension alone counted a file the user
     had left in the folder as a frame FFmpeg wrote."""
