@@ -873,12 +873,9 @@ class WriteBuffer:
                     "format=yuv444p16le,"
                     "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv"
                 ),
-                "bt2020": (
-                    "zscale=matrix=bt2020nc:dither=error_diffusion,"
-                    "format=yuv420p,"
-                    "setparams=colorspace=bt2020nc:color_primaries=bt2020:"
-                    "color_trc=smpte2084:range=tv"
-                ),
+                # Filled in below: the transfer is copied from the source rather
+                # than assumed, so HLG does not get relabelled as PQ.
+                "bt2020": None,
             }
 
             metadata = {}
@@ -889,11 +886,16 @@ class WriteBuffer:
                 except Exception as e:
                     logging.warning(f"Failed to read metadata for color space: {e}")
 
+            probed = metadata.get("metadata", {})
+            colorSPaceFilter["bt2020"] = self._bt2020Filter(
+                probed.get("ColorTRT", "unknown")
+            )
+
             metadataFields = ["ColorSpace", "PixelFormat", "ColorTRT"]
             detectedColorSpace = None
 
             for field in metadataFields:
-                colorValue = metadata.get("metadata", {}).get(field, "unknown")
+                colorValue = probed.get(field, "unknown")
                 if colorValue in colorSPaceFilter:
                     detectedColorSpace = colorValue
                     break
@@ -903,6 +905,39 @@ class WriteBuffer:
             )
 
         return filterList
+
+    # Transfer characteristics FFmpeg's setparams accepts, so a probed value can
+    # be passed straight back through. BT.2020 covers three very different
+    # curves -- PQ (smpte2084), HLG (arib-std-b67) and SDR (bt2020-10/-12) --
+    # and stamping the wrong one tells the player to apply the wrong EOTF.
+    _SETPARAMS_TRANSFERS = frozenset(
+        {
+            "smpte2084",
+            "arib-std-b67",
+            "bt2020-10",
+            "bt2020-12",
+            "bt709",
+            "smpte428",
+            "linear",
+            "iec61966-2-1",
+        }
+    )
+
+    @classmethod
+    def _bt2020Filter(cls, sourceTransfer: str) -> str:
+        """zscale conversion for a BT.2020 source, tagged with its own transfer.
+
+        Only the matrix is converted, so the transfer is whatever the source
+        already had: copy it across rather than guess. An unrecognized or
+        missing value leaves `color_trc` off entirely -- an untagged stream is
+        recoverable, a mislabelled one is not.
+        """
+        setparams = "setparams=colorspace=bt2020nc:color_primaries=bt2020:range=tv"
+        if sourceTransfer in cls._SETPARAMS_TRANSFERS:
+            setparams += f":color_trc={sourceTransfer}"
+        return (
+            f"zscale=matrix=bt2020nc:dither=error_diffusion,format=yuv420p,{setparams}"
+        )
 
     def _buildCustomEncoder(self, filterList, outputPixFmt):
         """Apply custom encoder settings with filters"""
