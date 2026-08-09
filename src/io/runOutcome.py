@@ -34,8 +34,8 @@ def sequenceWrote(patternPath: str) -> bool:
     return False
 
 
-def truncatedDecodeError(readBuffer, expectedFrames: int):
-    """The decode error to blame for a short output, or ``None``.
+def truncatedDecodeError(readBuffer, expectedFrames: int, writeBuffer=None):
+    """The pipeline error to blame for a bad output, or ``None``.
 
     A decode that dies part-way can only signal it by putting its end-of-stream
     sentinel, which reads exactly like a clean EOF, so every consumer used to
@@ -43,7 +43,16 @@ def truncatedDecodeError(readBuffer, expectedFrames: int):
     last frame was queued -- a decoder teardown error, a corrupt trailing
     packet -- leaves a complete, correct output, and failing that run would be
     a lie in the other direction. Only frames actually missing count.
+
+    The writer has the same shape: it catches every encoding exception, logs
+    it, and leaves the output file's size as the only signal. That is enough
+    for a single file, which ends up 0 bytes, but not for an image sequence --
+    one written frame out of five hundred looks exactly like success.
     """
+    error = getattr(writeBuffer, "encodeError", None)
+    if error is not None:
+        return error
+
     error = getattr(readBuffer, "decodeError", None)
     if error is None:
         return None

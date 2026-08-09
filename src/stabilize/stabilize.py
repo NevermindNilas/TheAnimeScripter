@@ -761,7 +761,9 @@ class VideoStabilize:
             # The decoder signals a mid-stream death only by putting its
             # end-of-stream sentinel, which reads like a clean EOF, so without
             # this a truncated decode wrote a short file and exited 0.
-            decodeError = truncatedDecodeError(self.readBuffer, self.totalFrames)
+            decodeError = truncatedDecodeError(
+                self.readBuffer, self.totalFrames, self.writeBuffer
+            )
             if decodeError is not None and self.processingError is None:
                 self.processingError = decodeError
             closeWriterAndDrainReader(self.writeBuffer, self.readBuffer)

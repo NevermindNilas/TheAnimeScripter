@@ -821,7 +821,9 @@ class VideoProcessor:
             frameCount = self.frameWindow.consumed
             self.dedupCount = self.frameWindow.dropped
 
-            decodeError = truncatedDecodeError(self.readBuffer, self.totalFrames)
+            decodeError = truncatedDecodeError(
+                self.readBuffer, self.totalFrames, self.writeBuffer
+            )
             if self.processingError is None and decodeError is not None:
                 self.processingError = decodeError
             # Always enqueue the writer's None sentinel (and close preview) even

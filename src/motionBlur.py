@@ -412,7 +412,9 @@ class MotionBlurPipeline:
         # to setCompleted, and the panel was told a truncated render succeeded.
         processFuture.result()
 
-        decodeError = truncatedDecodeError(self.readBuffer, self.totalFrames)
+        decodeError = truncatedDecodeError(
+            self.readBuffer, self.totalFrames, self.writeBuffer
+        )
         if decodeError is not None:
             raise decodeError
 
