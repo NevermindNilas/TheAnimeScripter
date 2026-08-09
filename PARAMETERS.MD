@@ -283,6 +283,8 @@ C:\Videos\episode3.mp4
 | `--benchmark` | flag | **Performance testing** - No output, measures speed | None (testing only) |
 | `--preview` | flag | **Preview mode** - Serves a live preview at `http://127.0.0.1:5000/`, at output resolution, for every encoder (including `*_nelux`) | None while the page is closed; ~2 frames/sec while it is open (~3% at 1080p) |
 | `--ae` | str | **After Effects host string (e.g., "127.0.0.1:PORT")** - Enables AE comms and sets Adobe mode | None |
+| `--decode_method` | str | **Decoder backend** - `cpu` (default) or `nvdec`. `nvdec` needs an NVIDIA GPU with NVDEC and falls back to `cpu` automatically if decoding fails | `nvdec` frees CPU for encoding; the GPU decoder is capped around 690fps at 1080p |
+| `--profile` | flag | **Developer profiling** - Runs under `torch.profiler` and writes a trace for finding GPU/CPU bottlenecks | Large; profiling only |
 
 ---
 
@@ -540,6 +542,7 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 |-----------|------|---------|-------------|
 | `--obj_detect` | flag | False | **Detect objects in video** — automatically enabled when `--obj_detect_method` is specified |
 | `--obj_detect_method` | str | "yolov9_small-directml" | **Object detection model** [see table](#object-detection-methods) — specifying a non-default method auto-enables object detection |
+| `--obj_detect_disable_annotations` | str | False | **Boxes only** — `True` drops the class label and confidence percentage drawn on each box. Takes a value: `--obj_detect_disable_annotations True` |
 
 #### 🎯 Object Detection Methods
 
@@ -834,6 +837,21 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 | **hevc_amf** | ⚡⚡⚡⚡ | ⭐⭐⭐ | AMD GPU | AMD HEVC |
 | **hevc_amf_10bit** | ⚡⚡⚡⚡ | ⭐⭐⭐⭐ | AMD GPU | 10-bit AMD HEVC |
 
+#### In-Process Encoders (`*_nelux`)
+
+These encode inside TAS instead of piping raw frames to an FFmpeg subprocess, which removes the pipe copy on GPU-resident frames. The encoder settings match the plain encoder of the same name; the colour pipeline does not — the FFmpeg writer converts RGB to YUV through swscale at 16-bit with dithering and tags matrix/primaries/transfer/range, while the in-process encoder hands the encoder RGB directly.
+
+| Encoder | Equivalent | Requirements |
+|---------|-----------|--------------|
+| **x264_nelux** | x264 | - |
+| **x265_nelux** | x265 | - |
+| **av1_nelux** | av1 | - |
+| **nvenc_h264_nelux** | nvenc_h264 | NVIDIA GPU |
+| **nvenc_h265_nelux** | nvenc_h265 | NVIDIA GPU |
+| **nvenc_av1_nelux** | nvenc_av1 | NVIDIA RTX 40+ |
+
+> **Note:** the in-process encoder cannot apply `--custom_encoder`, `--bit_depth 16bit` or `--output_scale`, and `--depth` does not use it at all. Ask for any of those and TAS warns once at startup, then encodes with the equivalent plain encoder so the output still matches the request — at that encoder's speed, not the in-process one's.
+
 #### High-Quality Presets
 
 | Preset | Encoding Time | Quality | File Size | Use Case |
@@ -1038,7 +1056,7 @@ Weights are downloaded on demand the first time a method runs, so no separate do
 
 **Verify Model Installation:**
 ```bash
-./python.exe ./main.py --preset_list  # Shows available models
+./python.exe ./main.py --list_methods  # Shows every model, grouped by capability
 ```
 
 **Monitor Resource Usage:**
@@ -1077,7 +1095,7 @@ Weights are downloaded on demand the first time a method runs, so no separate do
   --interpolate --interpolate_method rife4.25 --ensemble \
   --restore --restore_method nafnet \
   --encode_method x264_animation_10bit \
-  --bit_depth 10bit
+  --bit_depth 16bit
 ```
 **Processing:** Maximum quality with all enhancements  
 **Time:** ~5x video length  
@@ -1126,7 +1144,7 @@ Weights are downloaded on demand the first time a method runs, so no separate do
   --restore --restore_method nafnet autocas \
   --dedup --dedup_method ssim \
   --encode_method slow_x265 \
-  --bit_depth 10bit
+  --bit_depth 16bit
 ```
 **Processing:** Maximum restoration and enhancement  
 **Time:** ~6x video length  
