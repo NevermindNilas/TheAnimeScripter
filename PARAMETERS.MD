@@ -522,9 +522,9 @@ Works alongside `--upscale` (either pipeline order), `--restore`, `--resize`, `-
 | **og_base_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 5GB | Original quality | CUDA, TRT, OpenVINO, MPS |
 | **og_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 8GB | Original maximum | CUDA, TRT, OpenVINO, MPS |
 | **og_giant_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 10GB | Original, largest v2 | CUDA, MPS |
-| **og_distill_small_v2** | ⚡⚡ | ⭐⭐⭐ | 3GB | Original distilled | CUDA, TRT, MPS |
-| **og_distill_base_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Original distilled | CUDA, TRT, MPS |
-| **og_distill_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Original distilled | CUDA, TRT, MPS |
+| **og_distill_small_v2** | ⚡⚡ | ⭐⭐⭐ | 3GB | Distill-Any-Depth weights, reference implementation | CUDA, TRT, MPS |
+| **og_distill_base_v2** | ⚡⚡ | ⭐⭐⭐⭐ | 4GB | Distill-Any-Depth weights, reference implementation | CUDA, TRT, MPS |
+| **og_distill_large_v2** | ⚡ | ⭐⭐⭐⭐⭐ | 6GB | Original distilled | TRT only (use `distill_large_v2` elsewhere) |
 | **small_v3** | ⚡⚡⚡⚡ | ⭐⭐ | 2GB | Depth Anything 3, fast | CUDA, MPS |
 | **base_v3** | ⚡⚡⚡ | ⭐⭐⭐ | 4GB | Depth Anything 3, balanced | CUDA, MPS |
 | **large_v3** | ⚡⚡ | ⭐⭐⭐⭐ | 6GB | DA3MONO-LARGE, relative depth, best v3 quality | CUDA, MPS |
