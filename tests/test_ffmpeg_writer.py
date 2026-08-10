@@ -1,5 +1,6 @@
 import importlib
 import importlib.util
+import os
 import sys
 import types
 
@@ -201,3 +202,24 @@ def testCreateWriteBufferRoutesNeluxMethodsToTheNeluxWriter(monkeypatch, tmp_pat
             output=str(tmp_path / "out.mp4"), encode_method=twin
         )
         assert isinstance(wb, ffmpegSettings.WriteBuffer)
+
+
+def testEveryWriterCreatesItsOutputDirectory(monkeypatch, tmp_path):
+    """FFmpeg's avio does not create the folder it writes into: it dies at
+    open with "Error opening output <path>: No such file or directory" and
+    takes the run with it (broken pipe on the first frame, 0-byte output).
+    nelux's VideoEncoder does create it, but that is the dependency's
+    behaviour and not something to build on across pinned versions -- pin the
+    invariant on TAS's side so both writers answer for their own output."""
+    _installFakeTorch(monkeypatch)
+    monkeypatch.setitem(sys.modules, "nelux", types.SimpleNamespace())
+    ffmpegSettings = importlib.import_module("src.io.ffmpegSettings")
+
+    for method in ("x264", *(nelux for nelux, _ in NELUX_TWINS)):
+        target = tmp_path / method / "TAS-Output" / "out.mp4"
+        assert not target.parent.exists()
+
+        wb = ffmpegSettings.createWriteBuffer(output=str(target), encode_method=method)
+
+        assert target.parent.is_dir(), f"{method} left its output folder missing"
+        assert os.path.normpath(wb.output) == os.path.normpath(str(target))

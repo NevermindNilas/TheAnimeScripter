@@ -1290,6 +1290,16 @@ class NeluxWriteBuffer:
         """
         self.input = input
         self.output = os.path.normpath(output)
+        # Same as WriteBuffer.__init__. NOT a latent bug being fixed: nelux
+        # creates the parent itself (verified on 0.17.0 -- VideoEncoder's
+        # constructor makes the folder), so this is belt-and-braces at TAS's
+        # own boundary rather than a dependency's undocumented courtesy. The
+        # failure it guards against is the one FFmpeg reports as "Error
+        # opening output <path>: No such file or directory", which kills the
+        # run at the first frame with a broken pipe and a 0-byte output.
+        outputDir = os.path.dirname(self.output)
+        if outputDir:
+            os.makedirs(outputDir, exist_ok=True)
         self.width = width
         self.height = height
         self.fps = fps
